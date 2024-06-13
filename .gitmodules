@@ -1,0 +1,3 @@
+[submodule "simulation/dronekit-python"]
+	path = simulation/dronekit-python
+	url = git@github.com:dronekit/dronekit-python.git
