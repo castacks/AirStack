@@ -142,10 +142,12 @@ if __name__ == "__main__":
     drone_usd = "omniverse://nucleusserver.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.usd"
     drone = Drone(0, [0.,0.,0.7], world, usd_path=drone_usd)
 
+    last_time = omni.timeline.get_timeline_interface().get_current_time()
 
-    omni.timeline.get_timeline_interface().play()
-    # Run in test mode, exit after a fixed number of steps
-    while simulation_app.is_running():
+    def update_state(args):
+        current_time = omni.timeline.get_timeline_interface().get_current_time()
+        time_diff = current_time - last_time
+        print("Got drone update", time_diff)
         # Run in realtime mode, we don't specify the step size
         r = vehicle._roll
         p = vehicle._pitch
@@ -168,6 +170,14 @@ if __name__ == "__main__":
         drone.zero_velocity()
         #wxyz
         drone.set_world_pose(p, o)
+
+
+    world.add_physics_callback("update_drone_state", update_state)
+
+
+    omni.timeline.get_timeline_interface().play()
+    # Run in test mode, exit after a fixed number of steps
+    while simulation_app.is_running():
 
         # Update the UI of the app and perform the physics step
         # world.step(render=True)
