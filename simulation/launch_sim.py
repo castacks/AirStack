@@ -88,9 +88,11 @@ class Drone:
             self._dronekit_connection.location.local_frame.north,
             -self._dronekit_connection.location.local_frame.down,
         ]
-
-        # quaternion: wxyz
-        self.set_world_pose(p, o)
+        if p[-1] is not None:
+            # quaternion: wxyz
+            self.set_world_pose(p, o)
+        else:
+            print("Drone location from dronekit is None")
 
     def get_world_pose(self):
         return self._drone_prim.get_world_pose()
@@ -141,71 +143,72 @@ world = World(stage_units_in_meters=1.0)
 drone_usd = "omniverse://nucleusserver.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.usd"
 drone = Drone("spirit_0", [0.0, 0.0, 0.7], world, usd_path=drone_usd)
 
-# # Creating a Camera prim
-# CAMERA_STAGE_PATH = drone.stage_path + "/Camera"
-# camera_prim = UsdGeom.Camera(omni.usd.get_context().get_stage().DefinePrim(CAMERA_STAGE_PATH, "Camera"))
-# xform_api = UsdGeom.XformCommonAPI(camera_prim)
-# xform_api.SetTranslate(Gf.Vec3d(-1, 5, 1))
+# Creating a Camera prim
+CAMERA_STAGE_PATH = drone.stage_path + "/Camera"
+camera_prim = UsdGeom.Camera(omni.usd.get_context().get_stage().DefinePrim(CAMERA_STAGE_PATH, "Camera"))
+xform_api = UsdGeom.XformCommonAPI(camera_prim)
+xform_api.SetTranslate(Gf.Vec3d(0, 0, 0.1))
+xform_api.SetRotate((0, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
 # xform_api.SetRotate((90, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
-# camera_prim.GetHorizontalApertureAttr().Set(21)
-# camera_prim.GetVerticalApertureAttr().Set(16)
-# camera_prim.GetProjectionAttr().Set("perspective")
-# camera_prim.GetFocalLengthAttr().Set(24)
-# camera_prim.GetFocusDistanceAttr().Set(400)
+camera_prim.GetHorizontalApertureAttr().Set(21)
+camera_prim.GetVerticalApertureAttr().Set(16)
+camera_prim.GetProjectionAttr().Set("perspective")
+camera_prim.GetFocalLengthAttr().Set(24)
+camera_prim.GetFocusDistanceAttr().Set(400)
 
-# simulation_app.update()
+simulation_app.update()
 
-# ROS_CAMERA_GRAPH_PATH = "/ROS_Camera"
-# # Creating an on-demand push graph with cameraHelper nodes to generate ROS image publishers
+ROS_CAMERA_GRAPH_PATH = "/ROS_Camera"
+# Creating an on-demand push graph with cameraHelper nodes to generate ROS image publishers
 
-# keys = og.Controller.Keys
-# (ros_camera_graph, _, _, _) = og.Controller.edit(
-#     {
-#         "graph_path": ROS_CAMERA_GRAPH_PATH,
-#         "evaluator_name": "push",
-#         "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND,
-#     },
-#     {
-#         keys.CREATE_NODES: [
-#             ("OnTick", "omni.graph.action.OnTick"),
-#             ("createViewport", "omni.isaac.core_nodes.IsaacCreateViewport"),
-#             ("getRenderProduct", "omni.isaac.core_nodes.IsaacGetViewportRenderProduct"),
-#             ("setCamera", "omni.isaac.core_nodes.IsaacSetCameraOnRenderProduct"),
-#             ("cameraHelperRgb", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
-#             ("cameraHelperInfo", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
-#             ("cameraHelperDepth", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
-#         ],
-#         keys.CONNECT: [
-#             ("OnTick.outputs:tick", "createViewport.inputs:execIn"),
-#             ("createViewport.outputs:execOut", "getRenderProduct.inputs:execIn"),
-#             ("createViewport.outputs:viewport", "getRenderProduct.inputs:viewport"),
-#             ("getRenderProduct.outputs:execOut", "setCamera.inputs:execIn"),
-#             ("getRenderProduct.outputs:renderProductPath", "setCamera.inputs:renderProductPath"),
-#             ("setCamera.outputs:execOut", "cameraHelperRgb.inputs:execIn"),
-#             ("setCamera.outputs:execOut", "cameraHelperInfo.inputs:execIn"),
-#             ("setCamera.outputs:execOut", "cameraHelperDepth.inputs:execIn"),
-#             ("getRenderProduct.outputs:renderProductPath", "cameraHelperRgb.inputs:renderProductPath"),
-#             ("getRenderProduct.outputs:renderProductPath", "cameraHelperInfo.inputs:renderProductPath"),
-#             ("getRenderProduct.outputs:renderProductPath", "cameraHelperDepth.inputs:renderProductPath"),
-#         ],
-#         keys.SET_VALUES: [
-#             ("createViewport.inputs:viewportId", 0),
-#             ("cameraHelperRgb.inputs:frameId", "sim_camera"),
-#             ("cameraHelperRgb.inputs:topicName", "rgb"),
-#             ("cameraHelperRgb.inputs:type", "rgb"),
-#             ("cameraHelperInfo.inputs:frameId", "sim_camera"),
-#             ("cameraHelperInfo.inputs:topicName", "camera_info"),
-#             ("cameraHelperInfo.inputs:type", "camera_info"),
-#             ("cameraHelperDepth.inputs:frameId", "sim_camera"),
-#             ("cameraHelperDepth.inputs:topicName", "depth"),
-#             ("cameraHelperDepth.inputs:type", "depth"),
-#             ("setCamera.inputs:cameraPrim", [usdrt.Sdf.Path(CAMERA_STAGE_PATH)]),
-#         ],
-#     },
-# )
+keys = og.Controller.Keys
+(ros_camera_graph, _, _, _) = og.Controller.edit(
+    {
+        "graph_path": ROS_CAMERA_GRAPH_PATH,
+        "evaluator_name": "push",
+        "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND,
+    },
+    {
+        keys.CREATE_NODES: [
+            ("OnTick", "omni.graph.action.OnTick"),
+            ("createViewport", "omni.isaac.core_nodes.IsaacCreateViewport"),
+            ("getRenderProduct", "omni.isaac.core_nodes.IsaacGetViewportRenderProduct"),
+            ("setCamera", "omni.isaac.core_nodes.IsaacSetCameraOnRenderProduct"),
+            ("cameraHelperRgb", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+            ("cameraHelperInfo", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+            ("cameraHelperDepth", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+        ],
+        keys.CONNECT: [
+            ("OnTick.outputs:tick", "createViewport.inputs:execIn"),
+            ("createViewport.outputs:execOut", "getRenderProduct.inputs:execIn"),
+            ("createViewport.outputs:viewport", "getRenderProduct.inputs:viewport"),
+            ("getRenderProduct.outputs:execOut", "setCamera.inputs:execIn"),
+            ("getRenderProduct.outputs:renderProductPath", "setCamera.inputs:renderProductPath"),
+            ("setCamera.outputs:execOut", "cameraHelperRgb.inputs:execIn"),
+            ("setCamera.outputs:execOut", "cameraHelperInfo.inputs:execIn"),
+            ("setCamera.outputs:execOut", "cameraHelperDepth.inputs:execIn"),
+            ("getRenderProduct.outputs:renderProductPath", "cameraHelperRgb.inputs:renderProductPath"),
+            ("getRenderProduct.outputs:renderProductPath", "cameraHelperInfo.inputs:renderProductPath"),
+            ("getRenderProduct.outputs:renderProductPath", "cameraHelperDepth.inputs:renderProductPath"),
+        ],
+        keys.SET_VALUES: [
+            ("createViewport.inputs:viewportId", 1),
+            ("cameraHelperRgb.inputs:frameId", "sim_camera"),
+            ("cameraHelperRgb.inputs:topicName", "rgb"),
+            ("cameraHelperRgb.inputs:type", "rgb"),
+            ("cameraHelperInfo.inputs:frameId", "sim_camera"),
+            ("cameraHelperInfo.inputs:topicName", "camera_info"),
+            ("cameraHelperInfo.inputs:type", "camera_info"),
+            ("cameraHelperDepth.inputs:frameId", "sim_camera"),
+            ("cameraHelperDepth.inputs:topicName", "depth"),
+            ("cameraHelperDepth.inputs:type", "depth"),
+            ("setCamera.inputs:cameraPrim", [usdrt.Sdf.Path(CAMERA_STAGE_PATH)]),
+        ],
+    },
+)
 
-# # Run the ROS Camera graph once to generate ROS image publishers in SDGPipeline
-# og.Controller.evaluate_sync(ros_camera_graph)
+# Run the ROS Camera graph once to generate ROS image publishers in SDGPipeline
+og.Controller.evaluate_sync(ros_camera_graph)
 
 simulation_app.update()
 
