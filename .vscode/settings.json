@@ -1,5 +1,20 @@
 {
+  // PYTHON
+  "python.languageServer": "Pylance",
+  // This enables python language server. Seems to work slightly better than jedi:
+  "python.jediEnabled": false,
+  // We use "black" as a formatter:
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  // ROS
   "ros.distro": "humble",
+  "search.exclude": {
+    "**/build": true,
+    "**/install": true,
+    "**/log": true
+  },
+  // ISAAC SIM
   "python.analysis.extraPaths": [
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/exts/omni.exporter.urdf",
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/exts/omni.exporter.urdf/pip_prebundle",
@@ -717,7 +732,4 @@
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/python/lib/python3.10/site-packages",
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/python_packages"
   ],
-  "python.languageServer": "Pylance",
-  // This enables python language server. Seems to work slightly better than jedi:
-  "python.jediEnabled": false
 }
