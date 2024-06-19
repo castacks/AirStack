@@ -28,13 +28,11 @@ import dronekit
 
 
 class Drone:
-    def __init__(self, vehicle_id, init_pos, world, usd_path, waypoints = None, speed = 10.):
+    def __init__(self, vehicle_id, init_pos, world, usd_path):
         self._usd_path = usd_path
-        # self._init_pos = init_pos
+        self._init_pos = init_pos
         self._world = world
         self._drone_prim = None
-        self.speed = speed
-        self.z_level = 1.06
         self.scale = 1.
 
         self._create(vehicle_id, usd_path, init_pos)
@@ -45,7 +43,7 @@ class Drone:
         stage.add_reference_to_stage(usd_path=usd_path, prim_path=model_prim_path)
         self._drone_prim = self._world.scene.add(GeometryPrim(
             prim_path=model_prim_path, 
-            name=f'drone{vehicle_id}', 
+            name=f'drone_{vehicle_id}', 
             position=position, 
             orientation=orientation, 
             scale=[self.scale, self.scale, self.scale],
@@ -105,7 +103,7 @@ if __name__ == "__main__":
     world = World(stage_units_in_meters=1.0)
 
     drone_usd = "omniverse://nucleusserver.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.usd"
-    drone = Drone(0, [0.,0.,0.7], world, usd_path=drone_usd)
+    drone = Drone("spirit_0", [0.,0.,0.7], world, usd_path=drone_usd)
 
     last_time = omni.timeline.get_timeline_interface().get_current_time()
 
