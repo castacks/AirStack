@@ -1,5 +1,6 @@
 # Imports to start Isaac Sim from this script
 import sys
+import numpy as np
 import carb
 from isaacsim import SimulationApp
 
@@ -14,7 +15,7 @@ simulation_app = SimulationApp({"headless": False})
 import omni.timeline
 from omni.isaac.core.world import World
 
-from omni.isaac.core.prims import RigidPrim
+from omni.isaac.core.prims import RigidPrim, GeometryPrim
 from omni.isaac.core.utils import stage
 
 # Auxiliary scipy and numpy modules
@@ -31,11 +32,10 @@ class Drone:
         self._usd_path = usd_path
         # self._init_pos = init_pos
         self._world = world
-        self._rigid_body = None
+        self._drone_prim = None
         self.speed = speed
         self.z_level = 1.06
         self.scale = 1.
-
 
         self._create(vehicle_id, usd_path, init_pos)
         self.set_world_position(init_pos)
@@ -43,69 +43,34 @@ class Drone:
     def _create(self, vehicle_id, usd_path, position = [0.,0.,0.], orientation = None):
         model_prim_path = f'/World/drone{vehicle_id}'
         stage.add_reference_to_stage(usd_path=usd_path, prim_path=model_prim_path)
-        self._rigid_body = self._world.scene.add(RigidPrim(
+        self._drone_prim = self._world.scene.add(GeometryPrim(
             prim_path=model_prim_path, 
             name=f'drone{vehicle_id}', 
             position=position, 
             orientation=orientation, 
             scale=[self.scale, self.scale, self.scale],
-            mass=None,
-            linear_velocity = [0.,0.,0.],
+            collision=True
         ))
 
     def get_world_pose(self):
-        return self._rigid_body.get_world_pose()
+        return self._drone_prim.get_world_pose()
 
     def set_world_pose(self, position, orientation):
-        self._rigid_body.set_world_pose(position, orientation)        
+        self._drone_prim.set_world_pose(position, orientation)        
 
     def set_world_position(self, position):
-        _, orientation = self._rigid_body.get_world_pose()
-        self._rigid_body.set_world_pose(position, orientation)
-
-    def zero_velocity(self):
-        self._rigid_body.set_linear_velocity([0.,0.,0.])
+        _, orientation = self._drone_prim.get_world_pose()
+        self._drone_prim.set_world_pose(position, orientation)
     
     def set_orientation_z_angle(self, angle):
-        position, _ = self._rigid_body.get_world_pose()
+        position, _ = self._drone_prim.get_world_pose()
         o = Rotation.from_euler("XYZ", [0.0, 0.0, angle]).as_quat()
         orienatation = [o[3], o[0], o[1], o[2]]
-        self._rigid_body.set_world_pose(position, orienatation)
-
-    def set_orientation_next_waypoint(self):
-        position, orientation = self._rigid_body.get_world_pose()
-        dx = self.waypoints[self.current_waypoint][0] - position[0]
-        dy = self.waypoints[self.current_waypoint][1] - position[1]
-        angle = math.atan2(dy, dx) + math.pi/2
-        self.set_orientation_z_angle(angle)
-    
-    def set_next_waypoint(self):
-        self.current_waypoint = (self.current_waypoint + 1) % len(self.waypoints)
-        self.set_orientation_next_waypoint()
-    
-    def move(self, dt = 0.025):
-        self.zero_velocity()
-        position, orientation = self._rigid_body.get_world_pose()
-        dx = self.waypoints[self.current_waypoint][0] - position[0]
-        dy = self.waypoints[self.current_waypoint][1] - position[1]
-        dz = 0. #self.waypoints[self.current_waypoint][2] - position[2]
-        d = (dx**2 + dy**2 + dz**2)**0.5
-        if d < 0.26:
-            self.set_next_waypoint()
-        else:
-            dx = dx/d
-            dy = dy/d
-            dz = dz/d
-            position[0] += self.speed * dx * dt
-            position[1] += self.speed * dy * dt
-            position[2] =  self.z_level
-            self.set_world_position(position)
-        return position, orientation
-
+        self._drone_prim.set_world_pose(position, orienatation)
 
 if __name__ == "__main__":
 
-    vehicle = dronekit.connect('127.0.0.1:14553', wait_ready=True, timeout=999999)
+    vehicle = dronekit.connect('127.0.0.1:14553', wait_ready=True, timeout=999999, rate=120)
 
     # Locate Isaac Sim assets folder to load sample
     from omni.isaac.nucleus import is_file
@@ -144,18 +109,19 @@ if __name__ == "__main__":
 
     last_time = omni.timeline.get_timeline_interface().get_current_time()
 
+    position = 0
+
     def update_state(args):
+
+        global position
+
         current_time = omni.timeline.get_timeline_interface().get_current_time()
-        time_diff = current_time - last_time
-        print("Got drone update", time_diff)
-        # Run in realtime mode, we don't specify the step size
-        r = vehicle._roll
+        r = vehicle._roll + np.pi/2
         p = vehicle._pitch
         y = vehicle._yaw
 
-        # xyzw
         rot = Rotation.from_euler('xyz', [r, p, y], degrees=False)
-
+        # quaternion: xyzw
         q = rot.as_quat()
 
         o = [
@@ -167,8 +133,7 @@ if __name__ == "__main__":
             -vehicle.location.local_frame.down
         ]
 
-        drone.zero_velocity()
-        #wxyz
+        # quaternion: wxyz
         drone.set_world_pose(p, o)
 
 
