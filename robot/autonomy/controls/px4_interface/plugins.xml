@@ -1,0 +1,5 @@
+<library path="px4_interface">
+  <class type="px4_interface::PX4Interface" base_class_type="robot_interface::RobotInterface">
+    <description>PX4 plugin for the robot interface.</description>
+  </class>
+</library>
