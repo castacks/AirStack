@@ -1,6 +1,7 @@
 import sys
 
 import dronekit
+
 # Auxiliary scipy and numpy modules
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -19,6 +20,7 @@ simulation_app = SimulationApp(CONFIG)
 import carb
 import omni
 import omni.graph.core as og
+import omni.replicator.core as rep
 import omni.timeline
 import usdrt.Sdf
 from omni.isaac.core.prims import GeometryPrim, RigidPrim
@@ -51,9 +53,7 @@ class Drone:
         self._create_prim(vehicle_id, usd_path, init_pos)
         self.set_world_position(init_pos)
 
-        world.add_physics_callback(
-            "update_drone_state", self.update_state_from_mavlink
-        )
+        world.add_physics_callback("update_drone_state", self.update_state_from_mavlink)
 
     def _create_prim(
         self, vehicle_id, usd_path, position=[0.0, 0.0, 0.0], orientation=None
@@ -73,7 +73,7 @@ class Drone:
         )
 
     def update_state_from_mavlink(self, args):
-        args # is required function definition for the physics callback
+        args  # is required function definition for the physics callback
         r = self._dronekit_connection._roll + np.pi / 2
         p = self._dronekit_connection._pitch
         y = self._dronekit_connection._yaw
@@ -83,13 +83,15 @@ class Drone:
         q = rot.as_quat()
 
         o = [q[3], q[0], q[1], q[2]]
-        p = [
+
+        n, e, d = (
             self._dronekit_connection.location.local_frame.east,
             self._dronekit_connection.location.local_frame.north,
-            -self._dronekit_connection.location.local_frame.down,
-        ]
-        if p[-1] is not None:
+            self._dronekit_connection.location.local_frame.down,
+        )
+        if d is not None:
             # quaternion: wxyz
+            p = (e, n, -d)  # enu
             self.set_world_pose(p, o)
         else:
             print("Drone location from dronekit is None")
@@ -112,18 +114,19 @@ class Drone:
 
 
 # Locate Isaac Sim assets folder to load sample
-usd_path = "omniverse://nucleusserver.andrew.cmu.edu/Projects/DSTA/Scenes/Tokyo_Spirit_Drone/Tokyo_Spirit_Drone_Sim.usd"
+STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Projects/DSTA/Scenes/Tokyo_Spirit_Drone/Tokyo_Spirit_Drone_Sim.usd"
 # make sure the file exists before we try to open it
 try:
-    result = omni.isaac.nucleus.is_file(usd_path)
+    result = omni.isaac.nucleus.is_file(STAGE_PATH)
 except:
     result = False
 
 if result:
-    omni.usd.get_context().open_stage(usd_path)
+    omni.usd.get_context().open_stage(STAGE_PATH)
+    # stage.add_reference_to_stage(STAGE_PATH, "/World")
 else:
     carb.log_error(
-        f"the usd path {usd_path} could not be opened, please make sure that {usd_path} is a valid usd file"
+        f"the usd path {STAGE_PATH} could not be opened, please make sure that {STAGE_PATH} is a valid usd file"
     )
     simulation_app.close()
     sys.exit()
@@ -145,7 +148,9 @@ drone = Drone("spirit_0", [0.0, 0.0, 0.7], world, usd_path=drone_usd)
 
 # Creating a Camera prim
 CAMERA_STAGE_PATH = drone.stage_path + "/Camera"
-camera_prim = UsdGeom.Camera(omni.usd.get_context().get_stage().DefinePrim(CAMERA_STAGE_PATH, "Camera"))
+camera_prim = UsdGeom.Camera(
+    omni.usd.get_context().get_stage().DefinePrim(CAMERA_STAGE_PATH, "Camera")
+)
 xform_api = UsdGeom.XformCommonAPI(camera_prim)
 xform_api.SetTranslate(Gf.Vec3d(0, 0, 0.1))
 xform_api.SetRotate((0, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
@@ -183,13 +188,25 @@ keys = og.Controller.Keys
             ("createViewport.outputs:execOut", "getRenderProduct.inputs:execIn"),
             ("createViewport.outputs:viewport", "getRenderProduct.inputs:viewport"),
             ("getRenderProduct.outputs:execOut", "setCamera.inputs:execIn"),
-            ("getRenderProduct.outputs:renderProductPath", "setCamera.inputs:renderProductPath"),
+            (
+                "getRenderProduct.outputs:renderProductPath",
+                "setCamera.inputs:renderProductPath",
+            ),
             ("setCamera.outputs:execOut", "cameraHelperRgb.inputs:execIn"),
             ("setCamera.outputs:execOut", "cameraHelperInfo.inputs:execIn"),
             ("setCamera.outputs:execOut", "cameraHelperDepth.inputs:execIn"),
-            ("getRenderProduct.outputs:renderProductPath", "cameraHelperRgb.inputs:renderProductPath"),
-            ("getRenderProduct.outputs:renderProductPath", "cameraHelperInfo.inputs:renderProductPath"),
-            ("getRenderProduct.outputs:renderProductPath", "cameraHelperDepth.inputs:renderProductPath"),
+            (
+                "getRenderProduct.outputs:renderProductPath",
+                "cameraHelperRgb.inputs:renderProductPath",
+            ),
+            (
+                "getRenderProduct.outputs:renderProductPath",
+                "cameraHelperInfo.inputs:renderProductPath",
+            ),
+            (
+                "getRenderProduct.outputs:renderProductPath",
+                "cameraHelperDepth.inputs:renderProductPath",
+            ),
         ],
         keys.SET_VALUES: [
             ("createViewport.inputs:viewportId", 1),
@@ -212,6 +229,40 @@ og.Controller.evaluate_sync(ros_camera_graph)
 
 simulation_app.update()
 
+
+# Create the lidar sensor that generates data into "RtxSensorCpu"
+# Sensor needs to be rotated 90 degrees about X so that its Z up
+
+# Possible options are Example_Rotary and Example_Solid_State
+# drive sim applies 0.5,-0.5,-0.5,w(-0.5), we have to apply the reverse
+_, sensor = omni.kit.commands.execute(
+    "IsaacSensorCreateRtxLidar",
+    path=drone.stage_path + "/lidar",
+    parent=None,
+    config="Example_Rotary",
+    translation=(0, 0, 1.0),
+    orientation=Gf.Quatd(1.0, 0.0, 0.0, 0.0),  # Gf.Quatd is w,i,j,k
+)
+
+# RTX sensors are cameras and must be assigned to their own render product
+hydra_texture = rep.create.render_product(sensor.GetPath(), [1, 1], name="Isaac")
+
+# Create Point cloud publisher pipeline in the post process graph
+writer = rep.writers.get("RtxLidar" + "ROS2PublishPointCloud")
+writer.initialize(topicName="point_cloud", frameId="sim_lidar")
+writer.attach([hydra_texture])
+
+# Create the debug draw pipeline in the post process graph
+writer = rep.writers.get("RtxLidar" + "DebugDrawPointCloud")
+writer.attach([hydra_texture])
+
+
+# Create LaserScan publisher pipeline in the post process graph
+writer = rep.writers.get("RtxLidar" + "ROS2PublishLaserScan")
+writer.initialize(topicName="laser_scan", frameId="sim_lidar")
+writer.attach([hydra_texture])
+
+simulation_app.update()
 
 
 omni.timeline.get_timeline_interface().play()
