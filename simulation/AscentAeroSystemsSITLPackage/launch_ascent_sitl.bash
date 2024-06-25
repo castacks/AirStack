@@ -11,7 +11,7 @@ ISAAC_SIM_PORT=14553    # port for our autonomy stack
 ./AscentQLinux/AscentQ & \
 ./spirit_sitl -S --model coaxial -I0 & \
 \
-mavproxy.py --streamrate=-1 --master tcp:127.0.0.1:5760 \
+mavproxy.py --streamrate=100 --master tcp:127.0.0.1:5760 \
     --out udp:127.0.0.1:$ASCENT_SITL_PORT \
     --out udp:127.0.0.1:$ISAAC_SIM_PORT & \
 
