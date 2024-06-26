@@ -1,6 +1,8 @@
 Currently this is the install. We will dockerize this later.
 
 # Setup
+Install ROS2-humble.
+
 Install Isaac-Sim 4.0.0 via Omniverse Launcher.
 
 Follow these instructions to setup Nucleus: https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
