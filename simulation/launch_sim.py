@@ -114,7 +114,8 @@ class Drone:
 
 
 # Locate Isaac Sim assets folder to load sample
-STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Projects/DSTA/Scenes/Tokyo_Spirit_Drone/Tokyo_Spirit_Drone_Sim.usd"
+# STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Projects/DSTA/Scenes/Tokyo_Spirit_Drone/Tokyo_Spirit_Drone_Sim.usd"
+STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Library/Stages/ConstructionSite/ConstructionSite.usd"
 # make sure the file exists before we try to open it
 try:
     result = omni.isaac.nucleus.is_file(STAGE_PATH)
