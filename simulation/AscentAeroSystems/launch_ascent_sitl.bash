@@ -1,4 +1,5 @@
 #!/bin/bash
+# Description: this script launches the AscentAeroSystems SITL package
 # Author: Andrew Jong (ajong@andrew.cmu.edu)
 set -ex
 
