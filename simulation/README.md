@@ -39,7 +39,6 @@ cd Airlab-Autonomy-Stack/simulation
 cd Airlab-Autonomy-Stack/simulation
 ISAACSIM_PYTHON launch_sim.py
 ```
-(`ISAACSIM_PYTHON=~/.local/share/ov/pkg/isaac-sim-4.0.0/python.sh`)
 
 ```bash
 # terminal 3
