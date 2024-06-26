@@ -1,3 +1,13 @@
+"""
+Description: This file launches Isaac Sim and creates a drone in the simulation environment. 
+The drone is connected to the Ascent Spirit SITL through dronekit and MAVLink.
+This script adds an RGB camera and LiDAR sensor to the drone prim in Isaac Sim
+and publishes the data to ROS2 topics.
+The script has some inspiration from Pegasus scripts.
+
+Authors: Andrew Jong, Ian Higgins
+
+"""
 import sys
 
 import dronekit
