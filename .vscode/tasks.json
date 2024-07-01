@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}/ros_ws"
+      },
+      "command": "colcon build --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}/ros_ws"
+      },
+      "command": "colcon test && colcon test-result"
+    }
+  ]
+}
