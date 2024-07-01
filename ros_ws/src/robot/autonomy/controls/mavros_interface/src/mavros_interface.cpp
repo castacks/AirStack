@@ -4,10 +4,10 @@
  * @brief overrides the RobotInterface class to implement the PX4 flight control interface.
  * @version 0.1
  * @date 2024-07-01
- * 
+ *
  * @copyright Copyright (c) 2024. This file is developed as part of software from the AirLab at the
  * Robotics Institute at Carnegie Mellon University (https://theairlab.org).
- * 
+ *
  */
 #include <robot_interface/robot_interface.hpp>
 
@@ -15,6 +15,7 @@
 #include <mavros_msgs/srv/command_bool.hpp>
 #include <mavros_msgs/msg/attitude_target.hpp>
 #include <mavros_msgs/msg/state.hpp>
+#include <mavros_msgs/msg/position_target.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <tf2/LinearMath/Quaternion.h>
@@ -23,7 +24,7 @@
 namespace px4_interface
 {
 
-  class PX4Interface : public robot_interface::RobotInterface
+  class MAVROSInterface : public robot_interface::RobotInterface
   {
   private:
     rclcpp::Client<mavros_msgs::srv::SetMode>::SharedPtr set_mode_client;
@@ -32,6 +33,9 @@ namespace px4_interface
 
     // publisher for attitude target messages
     rclcpp::Publisher<mavros_msgs::msg::AttitudeTarget>::SharedPtr attitude_target_pub;
+
+    // publisher for position target messages
+    rclcpp::Publisher<mavros_msgs::msg::PositionTarget>::SharedPtr local_position_target_pub;
 
     // subscriber for state messages
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub;
@@ -46,52 +50,95 @@ namespace px4_interface
     float pixhawk_yaw;
 
   public:
-    PX4Interface() : RobotInterface("px4_interface")
+    MAVROSInterface() : RobotInterface("mavros_interface")
     {
       is_state_received = false;
 
       set_mode_client = this->create_client<mavros_msgs::srv::SetMode>("mavros/set_mode");
       arming_client = this->create_client<mavros_msgs::srv::CommandBool>("mavros/cmd/arming");
 
+      // publishers
+      // https://wiki.ros.org/mavros#mavros.2FPlugins.setpoint_attitude:~:text=TF%20listener%20%5BHz%5D.-,setpoint_raw,-Send%20RAW%20setpoint
       attitude_target_pub = this->create_publisher<mavros_msgs::msg::AttitudeTarget>("mavros/setpoint_raw/attitude", 1);
+      local_position_target_pub = this->create_publisher<mavros_msgs::msg::PositionTarget>("mavros/setpoint_raw/local", 1);
 
+      // subscribers
       state_sub = this->create_subscription<mavros_msgs::msg::State>("mavros/state", 1,
-                                                                     std::bind(&PX4Interface::state_callback, this,
+                                                                     std::bind(&MAVROSInterface::state_callback, this,
                                                                                std::placeholders::_1));
       pixhawk_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("mavros/local_position/pose", 1,
-                                                                                    std::bind(&PX4Interface::pixhawk_pose_callback,
+                                                                                    std::bind(&MAVROSInterface::fcu_pose_callback,
                                                                                               this, std::placeholders::_1));
     }
 
-    virtual ~PX4Interface()
+    virtual ~MAVROSInterface()
     {
     }
 
-    // Control Callbacks
+    // Control Callbacks. Translates desired commands to fit the MAVROS API.
+    // The MAVROS API only has two types of control: Attitude Control and Position Control.
 
-    void roll_pitch_yawrate_thrust_callback(mav_msgs::msg::RollPitchYawrateThrust msg) override
+    // Attitude Controls
+
+    void attitude_thrust_callback(mav_msgs::msg::AttitudeThrust desired_cmd) override
+    {
+      mavros_msgs::msg::AttitudeTarget mavros_cmd;
+      mavros_cmd.header.stamp = this->get_clock()->now(); //.to_msg();
+      mavros_cmd.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE | mavros_msgs::msg::AttitudeTarget::IGNORE_PITCH_RATE | mavros_msgs::msg::AttitudeTarget::IGNORE_YAW_RATE;
+
+      mavros_cmd.thrust = desired_cmd.thrust.z;
+      mavros_cmd.orientation = desired_cmd.attitude;
+
+      attitude_target_pub->publish(mavros_cmd);
+    }
+
+    void roll_pitch_yawrate_thrust_callback(mav_msgs::msg::RollPitchYawrateThrust desired_cmd) override
     {
       if (!is_pixhawk_yaw_received)
         return;
 
-      mavros_msgs::msg::AttitudeTarget att;
-      att.header.stamp = this->get_clock()->now(); //.to_msg();
-      att.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE | mavros_msgs::msg::AttitudeTarget::IGNORE_PITCH_RATE;
+      mavros_msgs::msg::AttitudeTarget mavros_cmd;
+      mavros_cmd.header.stamp = this->get_clock()->now(); //.to_msg();
+      mavros_cmd.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE | mavros_msgs::msg::AttitudeTarget::IGNORE_PITCH_RATE;
       tf2::Matrix3x3 m;
-      m.setRPY(msg.roll,
-               msg.pitch,
+      m.setRPY(desired_cmd.roll,
+               desired_cmd.pitch,
                pixhawk_yaw);
       tf2::Quaternion q;
       m.getRotation(q);
-      att.body_rate.z = msg.yaw_rate;
-      att.thrust = msg.thrust.z;
+      mavros_cmd.body_rate.z = desired_cmd.yaw_rate;
+      mavros_cmd.thrust = desired_cmd.thrust.z;
 
-      att.orientation.x = q.x();
-      att.orientation.y = q.y();
-      att.orientation.z = q.z();
-      att.orientation.w = q.w();
+      mavros_cmd.orientation.x = q.x();
+      mavros_cmd.orientation.y = q.y();
+      mavros_cmd.orientation.z = q.z();
+      mavros_cmd.orientation.w = q.w();
 
-      attitude_target_pub->publish(att);
+      attitude_target_pub->publish(mavros_cmd);
+    }
+
+    // Position Controls
+
+    void pose_callback(geometry_msgs::msg::PoseStamped desired_cmd) override
+    {
+      mavros_msgs::msg::PositionTarget pub_msg;
+      // by having no type_mask, we are commanding velocity and acceleration to be zero. this will cause the drone to stop at the desired position.
+      // pub_msg.type_mask = mavros_msgs::msg::PositionTarget::IGNORE_VX | mavros_msgs::msg::PositionTarget::IGNORE_VY | mavros_msgs::msg::PositionTarget::IGNORE_VZ | mavros_msgs::msg::PositionTarget::IGNORE_AFX | mavros_msgs::msg::PositionTarget::IGNORE_AFY | mavros_msgs::msg::PositionTarget::IGNORE_AFZ;
+
+      // copy over position
+      pub_msg.position = desired_cmd.pose.position;
+
+      // extract only yaw
+      tf2::Quaternion q(desired_cmd.pose.orientation.x,
+                        desired_cmd.pose.orientation.y,
+                        desired_cmd.pose.orientation.z,
+                        desired_cmd.pose.orientation.w);
+      double roll, pitch, yaw;
+      tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+      pub_msg.yaw = yaw;
+
+      local_position_target_pub->publish(pub_msg);
     }
 
     // Command Functions
@@ -154,10 +201,9 @@ namespace px4_interface
       current_state = *msg;
     }
 
-
     // Subscriber Callbacks
 
-    void pixhawk_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose)
+    void fcu_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose)
     {
       tf2::Quaternion q(pose->pose.orientation.x,
                         pose->pose.orientation.y,
@@ -175,4 +221,4 @@ namespace px4_interface
 
 #include <pluginlib/class_list_macros.hpp>
 
-PLUGINLIB_EXPORT_CLASS(px4_interface::PX4Interface, robot_interface::RobotInterface)
+PLUGINLIB_EXPORT_CLASS(px4_interface::MAVROSInterface, robot_interface::RobotInterface)
