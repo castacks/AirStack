@@ -3,7 +3,7 @@ theme:
   name: material
   palette: 
     - scheme: default
-      primary: red
+      primary: "#CC002B"
       accent: pink
       toggle:
         icon: material/brightness-7 
@@ -11,7 +11,7 @@ theme:
 
     # Palette toggle for dark mode
     - scheme: slate
-      primary: red
+      primary: "#CC002B"
       accent: pink
       toggle:
         icon: material/brightness-4
@@ -30,3 +30,18 @@ extra_css:
 
 plugins:
   - search
+
+nav:
+  - "Home": 'index.md'
+  - "About": 'about.md'
+  - "User Guide":
+    - "Installation": "user_guide/installation.md"
+    - "Getting Started": "user_guide/getting_started.md"
+    - "Tutorials": "user_guide/tutorials.md"
+    - "API Reference": "user_guide/api_reference.md"
+  - "Modules":
+    - "Controls": "modules/controls.md"
+    - "Perception": "modules/perception.md"
+    - "Planning": "modules/planning/planning.md"
+    - "Simulation": "modules/simulation.md"
+
