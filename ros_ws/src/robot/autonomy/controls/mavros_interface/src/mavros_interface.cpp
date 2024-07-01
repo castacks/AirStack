@@ -1,5 +1,5 @@
 /**
- * @file px4_interface.cpp
+ * @file mavros_interface.cpp
  * @author John Keller (jkeller2@andrew.cmu.edu), Andrew Jong (ajong@andrew.cmu.edu)
  * @brief overrides the RobotInterface class to implement the PX4 flight control interface.
  * @version 0.1
@@ -95,8 +95,10 @@ namespace px4_interface
 
     void roll_pitch_yawrate_thrust_callback(mav_msgs::msg::RollPitchYawrateThrust desired_cmd) override
     {
-      if (!this->is_fcu_yaw_received)
+      if (!this->is_fcu_yaw_received){
+        RCLCPP_WARN_STREAM_ONCE(this->get_logger(), "roll_pitch_yawrate_thrust command called but haven't yet received drone current yaw");
         return;
+      }
 
       mavros_msgs::msg::AttitudeTarget mavros_cmd;
       mavros_cmd.header.stamp = this->get_clock()->now(); //.to_msg();

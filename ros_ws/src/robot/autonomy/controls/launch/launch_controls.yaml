@@ -1,0 +1,10 @@
+launch:
+  # include MAVROS ardupilot
+  - include:
+      file: "$(find-pkg-share mavros)/launch/apm.launch"
+
+  - node:
+      pkg: "robot_interface"
+      exec: "robot_interface_node"
+      name: "robot_interface_node"
+      namespace: "robot_interface"
