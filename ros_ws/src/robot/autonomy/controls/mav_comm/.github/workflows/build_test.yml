@@ -1,0 +1,32 @@
+name: Build Test
+on: push
+
+jobs:
+  build:
+    runs-on: [ubuntu-22.04]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {rosdistro: 'humble', container: 'osrf/ros:humble-desktop'}
+    container: ${{ matrix.config.container }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install binary dependencies with rosdep
+      run: |
+        apt update
+        rosdep update
+        source /opt/ros/${{ matrix.config.rosdistro }}/setup.bash
+        rosdep install --from-paths . --ignore-src -y
+      shell: bash
+    - name: Build with colcon
+      run: |
+        source /opt/ros/${{ matrix.config.rosdistro }}/setup.bash
+        colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+      shell: bash
+    - name: Run tests
+      run: |
+        source /opt/ros/${{ matrix.config.rosdistro }}/setup.bash
+        colcon test --event-handlers=console_cohesion+
+        colcon test-result --all --verbose
+      shell: bash
