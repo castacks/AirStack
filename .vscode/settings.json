@@ -732,4 +732,9 @@
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/python/lib/python3.10/site-packages",
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/python_packages"
   ],
+  "files.associations": {
+    "*.launch": "xml",
+    "*.config": "python",
+    "functional": "cpp"
+  }
 }
