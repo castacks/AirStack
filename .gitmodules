@@ -4,8 +4,8 @@
 [submodule "ros_ws/src/robot/autonomy/controls/px4_ros_com"]
 	path = ros_ws/src/robot/autonomy/controls/px4_ros_com
 	url = git@github.com:PX4/px4_ros_com.git
-	branch = release/v1.14
+	branch = main
 [submodule "ros_ws/src/robot/autonomy/controls/px4_msgs"]
 	path = ros_ws/src/robot/autonomy/controls/px4_msgs
 	url = git@github.com:PX4/px4_msgs.git
-	branch = release/1.14
+	branch = main
