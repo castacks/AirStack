@@ -10,8 +10,7 @@ int main(int argc, char** argv)
   
   try{
     std::shared_ptr<robot_interface::RobotInterface> ri = loader.createSharedInstance("px4_interface::PX4Interface");
-    ri->initialize(node);
-    
+    // ask the flight controller to give us (the autonomy stack) control
     ri->request_control();
   }
   catch(pluginlib::PluginlibException& ex){
