@@ -36,12 +36,12 @@ namespace robot_interface
     // TODO add low thrust mode
 
     // Control callbacks. // TODO maybe make parameters const references?
-    virtual void attitude_thrust_callback(mav_msgs::msg::AttitudeThrust msg) {}
-    virtual void rate_thrust_callback(mav_msgs::msg::RateThrust msg) {}
-    virtual void roll_pitch_yawrate_thrust_callback(mav_msgs::msg::RollPitchYawrateThrust msg) {}
-    virtual void torque_thrust_callback(mav_msgs::msg::TorqueThrust msg) {}
-    virtual void velocity_callback(geometry_msgs::msg::TwistStamped msg) {}
-    virtual void pose_callback(geometry_msgs::msg::PoseStamped msg) {}
+    virtual void attitude_thrust_callback(mav_msgs::msg::AttitudeThrust desired_cmd) {}
+    virtual void rate_thrust_callback(mav_msgs::msg::RateThrust desired_cmd) {}
+    virtual void roll_pitch_yawrate_thrust_callback(mav_msgs::msg::RollPitchYawrateThrust desired_cmd) {}
+    virtual void torque_thrust_callback(mav_msgs::msg::TorqueThrust desired_cmd) {}
+    virtual void velocity_callback(geometry_msgs::msg::TwistStamped desired_cmd) {}
+    virtual void pose_callback(geometry_msgs::msg::PoseStamped desired_cmd) {}
 
     // Command functions
     /**
