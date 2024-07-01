@@ -41,13 +41,14 @@ namespace px4_interface
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub;
 
     // subscriber for pixhawk pose messages
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pixhawk_pose_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr fcu_pose_sub;
 
     bool is_state_received;
     mavros_msgs::msg::State current_state;
 
-    bool is_pixhawk_yaw_received;
-    float pixhawk_yaw;
+    // data from the flight control unit (FCU)
+    bool is_fcu_yaw_received;
+    float fcu_yaw;
 
   public:
     MAVROSInterface() : RobotInterface("mavros_interface")
@@ -66,7 +67,7 @@ namespace px4_interface
       state_sub = this->create_subscription<mavros_msgs::msg::State>("mavros/state", 1,
                                                                      std::bind(&MAVROSInterface::state_callback, this,
                                                                                std::placeholders::_1));
-      pixhawk_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("mavros/local_position/pose", 1,
+      fcu_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("mavros/local_position/pose", 1,
                                                                                     std::bind(&MAVROSInterface::fcu_pose_callback,
                                                                                               this, std::placeholders::_1));
     }
@@ -94,7 +95,7 @@ namespace px4_interface
 
     void roll_pitch_yawrate_thrust_callback(mav_msgs::msg::RollPitchYawrateThrust desired_cmd) override
     {
-      if (!is_pixhawk_yaw_received)
+      if (!this->is_fcu_yaw_received)
         return;
 
       mavros_msgs::msg::AttitudeTarget mavros_cmd;
@@ -103,7 +104,7 @@ namespace px4_interface
       tf2::Matrix3x3 m;
       m.setRPY(desired_cmd.roll,
                desired_cmd.pitch,
-               pixhawk_yaw);
+               this->fcu_yaw);
       tf2::Quaternion q;
       m.getRotation(q);
       mavros_cmd.body_rate.z = desired_cmd.yaw_rate;
@@ -203,6 +204,12 @@ namespace px4_interface
 
     // Subscriber Callbacks
 
+    /**
+     * @brief Get the current Yaw from the Pixhawk. This is used to provide the current yaw to the PitchRollYawrateThrust command, so that
+     * the drone doesn't try to set its yaw to zero.
+     * 
+     * @param pose 
+     */
     void fcu_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose)
     {
       tf2::Quaternion q(pose->pose.orientation.x,
@@ -212,8 +219,8 @@ namespace px4_interface
       double roll, pitch, yaw;
       tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
-      is_pixhawk_yaw_received = true;
-      pixhawk_yaw = yaw;
+      this->is_fcu_yaw_received = true;
+      this->fcu_yaw = yaw;
     }
   };
 
