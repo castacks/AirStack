@@ -1,6 +1,8 @@
 site_name: "AirLab Autonomy Stack"
 theme:
   name: material
+  logo: assets/logo_horizontal_white.png
+  favicon: assets/StackedWhite.png
   palette: 
     - scheme: default
       primary: "#CC002B"
@@ -33,15 +35,23 @@ plugins:
 
 nav:
   - "Home": 'index.md'
-  - "About": 'about.md'
   - "User Guide":
-    - "Installation": "user_guide/installation.md"
     - "Getting Started": "user_guide/getting_started.md"
+    - "Installation": "user_guide/installation.md"
     - "Tutorials": "user_guide/tutorials.md"
     - "API Reference": "user_guide/api_reference.md"
-  - "Modules":
-    - "Controls": "modules/controls.md"
-    - "Perception": "modules/perception.md"
-    - "Planning": "modules/planning/planning.md"
-    - "Simulation": "modules/simulation.md"
+  - "Developer Guide": 
+    - "Developer Home": "developer_guide/dev_guide.md"
+    - "Autonomy":
+      - "Perception": "developer_guide/autonomy/perception.md"
+      - "Mapping": "developer_guide/autonomy/mapping.md"
+      - "Planning": "developer_guide/autonomy/planning.md"
+      - "Navigation": "developer_guide/autonomy/navigation.md"
+      - "Controls": "developer_guide/autonomy/controls.md"
+    - "Simulation": "developer_guide/simulation.md"
+    - "Contributing": "developer_guide/contributing.md"
+  - "About": 'about.md'
+
+repo_url: https://github.com/castacks/AirLab-Autonomy-Stack
+repo_name: castacks/AirLab-Autonomy-Stack
 
