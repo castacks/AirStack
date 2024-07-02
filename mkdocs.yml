@@ -41,7 +41,7 @@ nav:
     - "Tutorials": "user_guide/tutorials.md"
     - "API Reference": "user_guide/api_reference.md"
   - "Developer Guide": 
-    - "Developer Home": "developer_guide/dev_guide.md"
+    - "Overview": "developer_guide/overview.md"
     - "Autonomy":
       - "Perception": "developer_guide/autonomy/perception.md"
       - "Mapping": "developer_guide/autonomy/mapping.md"
