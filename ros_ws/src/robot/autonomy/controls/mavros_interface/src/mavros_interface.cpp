@@ -21,7 +21,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 
-namespace px4_interface
+namespace mavros_interface
 {
 
   class MAVROSInterface : public robot_interface::RobotInterface
@@ -230,4 +230,4 @@ namespace px4_interface
 
 #include <pluginlib/class_list_macros.hpp>
 
-PLUGINLIB_EXPORT_CLASS(px4_interface::MAVROSInterface, robot_interface::RobotInterface)
+PLUGINLIB_EXPORT_CLASS(mavros_interface::MAVROSInterface, robot_interface::RobotInterface)
