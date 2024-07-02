@@ -14,10 +14,11 @@ find_package(pluginlib REQUIRED)
 find_package(tf2 REQUIRED)
 
 add_library(mavros_interface src/mavros_interface.cpp)
-target_compile_features(mavros_interface PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(mavros_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
 target_include_directories(mavros_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
+
 ament_target_dependencies(
   mavros_interface
   robot_interface
@@ -27,7 +28,6 @@ ament_target_dependencies(
 )
 
 pluginlib_export_plugin_description_file(robot_interface plugins.xml)
-
 
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
@@ -47,9 +47,11 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
+
   # the following line skips cpplint (only works in a git repo)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
