@@ -2,6 +2,10 @@
 
 namespace robot_interface {
 
-class RobotInterface : public rclcpp::Node {};
+class RobotInterface : public rclcpp::Node {
+
+
+
+};
 
 }  // namespace robot_interface
