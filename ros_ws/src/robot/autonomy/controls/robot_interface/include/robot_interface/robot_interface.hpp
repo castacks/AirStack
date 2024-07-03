@@ -31,23 +31,63 @@ namespace robot_interface {
  *
  */
 class RobotInterface : public rclcpp::Node {
+    rclcpp::Subscription<mav_msgs::msg::AttitudeThrust>::SharedPtr attitude_thrust_sub_;
+    rclcpp::Subscription<mav_msgs::msg::RateThrust>::SharedPtr rate_thrust_sub_;
+    rclcpp::Subscription<mav_msgs::msg::RollPitchYawrateThrust>::SharedPtr
+        roll_pitch_yawrate_thrust_sub_;
+    rclcpp::Subscription<mav_msgs::msg::TorqueThrust>::SharedPtr torque_thrust_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+
    protected:
-    RobotInterface(std::string interface_name) : Node(interface_name) {}
+    RobotInterface(std::string interface_name)
+        : Node(interface_name),
+        // Subscribers
+          attitude_thrust_sub_(this->create_subscription<mav_msgs::msg::AttitudeThrust>(
+              "attitude_thrust", 10,
+              std::bind(&RobotInterface::attitude_thrust_callback, this, std::placeholders::_1))),
+          rate_thrust_sub_(this->create_subscription<mav_msgs::msg::RateThrust>(
+              "rate_thrust", 10,
+              std::bind(&RobotInterface::rate_thrust_callback, this, std::placeholders::_1))),
+          roll_pitch_yawrate_thrust_sub_(
+              this->create_subscription<mav_msgs::msg::RollPitchYawrateThrust>(
+                  "roll_pitch_yawrate_thrust", 10,
+                  std::bind(&RobotInterface::roll_pitch_yawrate_thrust_callback, this,
+                            std::placeholders::_1))),
+          torque_thrust_sub_(this->create_subscription<mav_msgs::msg::TorqueThrust>(
+              "torque_thrust", 10,
+              std::bind(&RobotInterface::torque_thrust_callback, this, std::placeholders::_1))),
+          velocity_sub_(this->create_subscription<geometry_msgs::msg::TwistStamped>(
+              "velocity", 10,
+              std::bind(&RobotInterface::velocity_callback, this, std::placeholders::_1))),
+          pose_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
+              "pose", 10, std::bind(&RobotInterface::pose_callback, this, std::placeholders::_1))) {
+    }
 
    public:
     // TODO add low thrust mode
 
-    // Control callbacks. // TODO maybe make parameters const references?
+    // Control callbacks. 
     virtual void attitude_thrust_callback(
-        mav_msgs::msg::AttitudeThrust desired_cmd) {}
-    virtual void rate_thrust_callback(mav_msgs::msg::RateThrust desired_cmd) {}
+        const mav_msgs::msg::AttitudeThrust::SharedPtr desired_cmd) {
+        RCLCPP_WARN_ONCE(this->get_logger(), "Attitude thrust callback not implemented.");
+    }
+    virtual void rate_thrust_callback(const mav_msgs::msg::RateThrust::SharedPtr desired_cmd) {
+        RCLCPP_WARN_ONCE(this->get_logger(), "Rate thrust callback not implemented.");
+    }
     virtual void roll_pitch_yawrate_thrust_callback(
-        mav_msgs::msg::RollPitchYawrateThrust desired_cmd) {}
-    virtual void torque_thrust_callback(
-        mav_msgs::msg::TorqueThrust desired_cmd) {}
-    virtual void velocity_callback(
-        geometry_msgs::msg::TwistStamped desired_cmd) {}
-    virtual void pose_callback(geometry_msgs::msg::PoseStamped desired_cmd) {}
+        const mav_msgs::msg::RollPitchYawrateThrust::SharedPtr desired_cmd) {
+        RCLCPP_WARN_ONCE(this->get_logger(), "Roll pitch yawrate thrust callback not implemented.");
+    }
+    virtual void torque_thrust_callback(const mav_msgs::msg::TorqueThrust::SharedPtr desired_cmd) {
+        RCLCPP_WARN_ONCE(this->get_logger(), "Torque thrust callback not implemented.");
+    }
+    virtual void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr desired_cmd) {
+        RCLCPP_WARN_ONCE(this->get_logger(), "Velocity callback not implemented.");
+    }
+    virtual void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) {
+        RCLCPP_WARN_ONCE(this->get_logger(), "Pose callback not implemented.");
+    }
 
     // Command functions
     /**
