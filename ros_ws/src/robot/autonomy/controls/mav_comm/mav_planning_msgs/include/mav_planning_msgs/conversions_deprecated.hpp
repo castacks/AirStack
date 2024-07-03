@@ -19,16 +19,16 @@
 #ifndef MAV_PLANNING_MSGS_CONVERSIONS_DEPRECATED_H
 #define MAV_PLANNING_MSGS_CONVERSIONS_DEPRECATED_H
 
-#include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/ms/quaternion.hpp>
+#include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
+#include "mav_planning_msgs/eigen_planning_msgs.hpp"
 #include "mav_planning_msgs/msg/polynomial_segment4_d.hpp"
 #include "mav_planning_msgs/msg/polynomial_trajectory4_d.hpp"
-#include "mav_planning_msgs/eigen_planning_msgs.hpp"
 
 namespace mav_planning_msgs {
-  
+
 /// Converts a PolynomialSegment double array to an Eigen::VectorXd.
 inline void vectorFromMsgArray(const msg::PolynomialSegment4D::_x_type& array,
                                Eigen::VectorXd* x);
@@ -67,7 +67,6 @@ inline void eigenPolynomialTrajectoryFromMsg(
   }
 }
 
-
 /// Converts an EigenPolynomialSegment to a PolynomialSegment message. Does NOT
 /// set the header!
 inline void polynomialSegmentMsgFromEigen(const EigenPolynomialSegment& segment,
@@ -99,4 +98,4 @@ inline void polynomialTrajectoryMsgFromEigen(
 
 }  // namespace mav_planning_msgs
 
-#endif // MAV_PLANNING_MSGS_CONVERSIONS_DEPRECATED_H
+#endif  // MAV_PLANNING_MSGS_CONVERSIONS_DEPRECATED_H

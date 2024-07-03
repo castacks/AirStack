@@ -29,19 +29,17 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-
 #include <rclcpp/rclcpp.hpp>
 #include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
 
+#include "mav_msgs/common.hpp"
+#include "mav_msgs/default_values.hpp"
+#include "mav_msgs/eigen_mav_msgs.hpp"
 #include "mav_msgs/msg/actuators.hpp"
 #include "mav_msgs/msg/attitude_thrust.hpp"
 #include "mav_msgs/msg/rate_thrust.hpp"
 #include "mav_msgs/msg/roll_pitch_yawrate_thrust.hpp"
 #include "mav_msgs/msg/torque_thrust.hpp"
-
-#include "mav_msgs/common.hpp"
-#include "mav_msgs/default_values.hpp"
-#include "mav_msgs/eigen_mav_msgs.hpp"
 
 namespace mav_msgs {
 
@@ -112,11 +110,9 @@ inline void eigenOdometryFromMsg(const nav_msgs::msg::Odometry& msg,
 
   odometry->timestamp_ns = timestamp.nanoseconds();
   odometry->position_W = vector3FromPointMsg(msg.pose.pose.position);
-  odometry->orientation_W_B =
-      quaternionFromMsg(msg.pose.pose.orientation);
+  odometry->orientation_W_B = quaternionFromMsg(msg.pose.pose.orientation);
   odometry->velocity_B = vector3FromMsg(msg.twist.twist.linear);
-  odometry->angular_velocity_B =
-      vector3FromMsg(msg.twist.twist.angular);
+  odometry->angular_velocity_B = vector3FromMsg(msg.twist.twist.angular);
   odometry->pose_covariance_ =
       Eigen::Map<const Eigen::Matrix<double, 6, 6>>(msg.pose.covariance.data());
   odometry->twist_covariance_ = Eigen::Map<const Eigen::Matrix<double, 6, 6>>(
@@ -145,7 +141,8 @@ inline void eigenTrajectoryPointFromTransformMsg(
 // correctly and should be used if at all possible), and one for a raw pose
 // message.
 inline void eigenTrajectoryPointFromPoseMsg(
-    const geometry_msgs::msg::Pose& msg, EigenTrajectoryPoint* trajectory_point) {
+    const geometry_msgs::msg::Pose& msg,
+    EigenTrajectoryPoint* trajectory_point) {
   assert(trajectory_point != NULL);
 
   trajectory_point->position_W = vector3FromPointMsg(msg.position);
@@ -335,12 +332,13 @@ inline void eigenTrajectoryPointFromMsg(
 
   if (msg.transforms.empty()) {
     RCLCPP_ERROR(rclcpp::get_logger("rclcpp"),
-        "MultiDofJointTrajectoryPoint is empty.");
+                 "MultiDofJointTrajectoryPoint is empty.");
     return;
   }
 
   if (msg.transforms.size() > 1) {
-    RCLCPP_WARN(rclcpp::get_logger("rclcpp"),
+    RCLCPP_WARN(
+        rclcpp::get_logger("rclcpp"),
         "MultiDofJointTrajectoryPoint message should have one joint, but has "
         "%lu. Using first joint.",
         msg.transforms.size());
@@ -399,9 +397,8 @@ inline void eigenTrajectoryPointDequeFromMsg(
 
 // In all these conversions, client is responsible for filling in message
 // header.
-inline void msgActuatorsFromEigen(
-    const EigenActuators& actuators,
-    mav_msgs::msg::Actuators* msg) {
+inline void msgActuatorsFromEigen(const EigenActuators& actuators,
+                                  mav_msgs::msg::Actuators* msg) {
   assert(msg != NULL);
 
   msg->angles.resize(actuators.angles.size());
@@ -428,17 +425,15 @@ inline void msgAttitudeThrustFromEigen(
   vectorEigenToMsg(attitude_thrust.thrust, &msg->thrust);
 }
 
-inline void msgRateThrustFromEigen(
-    EigenRateThrust& rate_thrust,
-    mav_msgs::msg::RateThrust* msg) {
+inline void msgRateThrustFromEigen(EigenRateThrust& rate_thrust,
+                                   mav_msgs::msg::RateThrust* msg) {
   assert(msg != NULL);
   vectorEigenToMsg(rate_thrust.angular_rates, &msg->angular_rates);
   vectorEigenToMsg(rate_thrust.thrust, &msg->thrust);
 }
 
-inline void msgTorqueThrustFromEigen(
-    EigenTorqueThrust& torque_thrust,
-    mav_msgs::msg::TorqueThrust* msg) {
+inline void msgTorqueThrustFromEigen(EigenTorqueThrust& torque_thrust,
+                                     mav_msgs::msg::TorqueThrust* msg) {
   assert(msg != NULL);
   vectorEigenToMsg(torque_thrust.torque, &msg->torque);
   vectorEigenToMsg(torque_thrust.thrust, &msg->thrust);
@@ -488,7 +483,8 @@ inline void msgMultiDofJointTrajectoryPointFromEigen(
     trajectory_msgs::msg::MultiDOFJointTrajectoryPoint* msg) {
   assert(msg != NULL);
 
-  std::chrono::nanoseconds time_from_start_ns{trajectory_point.time_from_start_ns};
+  std::chrono::nanoseconds time_from_start_ns{
+      trajectory_point.time_from_start_ns};
   rclcpp::Duration time_from_start(time_from_start_ns);
 
   msg->time_from_start = time_from_start;
@@ -548,7 +544,7 @@ inline void msgMultiDofJointTrajectoryFromEigen(
 
   if (trajectory.empty()) {
     RCLCPP_ERROR(rclcpp::get_logger("rclcpp"),
-        "EigenTrajectoryPointVector is empty.");
+                 "EigenTrajectoryPointVector is empty.");
     return;
   }
 
@@ -576,7 +572,7 @@ inline void msgMultiDofJointTrajectoryFromEigen(
 
   if (trajectory.empty()) {
     RCLCPP_ERROR(rclcpp::get_logger("rclcpp"),
-        "EigenTrajectoryPointVector is empty.");
+                 "EigenTrajectoryPointVector is empty.");
     return;
   }
 

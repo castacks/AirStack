@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
- <name>mav_comm</name>
+  <name>mav_comm</name>
   <version>3.3.3</version>
   <description>Contains messages and services for MAV communication</description>
 

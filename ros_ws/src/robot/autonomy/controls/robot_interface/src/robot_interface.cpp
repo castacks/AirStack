@@ -1,5 +1,7 @@
 #include <robot_interface/robot_interface.hpp>
 
-int test(){
-  return 0;
-}
+namespace robot_interface {
+
+class RobotInterface : public rclcpp::Node {};
+
+}  // namespace robot_interface

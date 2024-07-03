@@ -23,9 +23,9 @@
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
+#include "mav_planning_msgs/eigen_planning_msgs.hpp"
 #include "mav_planning_msgs/msg/polynomial_segment.hpp"
 #include "mav_planning_msgs/msg/polynomial_trajectory.hpp"
-#include "mav_planning_msgs/eigen_planning_msgs.hpp"
 
 // deprecated
 #include "mav_planning_msgs/conversions_deprecated.hpp"
@@ -101,7 +101,7 @@ inline void polynomialSegmentMsgFromEigen(const EigenPolynomialSegment& segment,
 /// Does NOT set the header!
 inline void polynomialTrajectoryMsgFromEigen(
     const EigenPolynomialTrajectory& eigen_trajectory,
-   msg::PolynomialTrajectory* msg) {
+    msg::PolynomialTrajectory* msg) {
   assert(msg != NULL);
   msg->segments.reserve(eigen_trajectory.size());
   for (EigenPolynomialTrajectory::const_iterator it = eigen_trajectory.begin();
@@ -114,4 +114,4 @@ inline void polynomialTrajectoryMsgFromEigen(
 
 }  // namespace mav_planning_msgs
 
-#endif // MAV_PLANNING_MSGS_CONVERSIONS_H
+#endif  // MAV_PLANNING_MSGS_CONVERSIONS_H
