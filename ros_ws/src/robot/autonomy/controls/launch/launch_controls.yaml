@@ -13,3 +13,4 @@ launch:
       exec: "robot_interface_node"
       name: "robot_interface_node"
       namespace: "robot_interface"
+      ros_args: "--log-level DEBUG"
