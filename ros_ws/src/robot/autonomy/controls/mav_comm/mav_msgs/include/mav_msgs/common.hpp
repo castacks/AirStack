@@ -23,11 +23,11 @@
 #ifndef MAV_MSGS_COMMON_H
 #define MAV_MSGS_COMMON_H
 
+#include <Eigen/Geometry>
+#include <boost/algorithm/clamp.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
-#include <Eigen/Geometry>
-#include <boost/algorithm/clamp.hpp>
 
 namespace mav_msgs {
 
@@ -44,7 +44,8 @@ inline double MagnitudeOfGravity(const double height,
   const double kGravity_b = 0.0000058;
   const double kGravity_c = 3.155 * 1e-7;
 
-  double sin_squared_latitude = std::sin(latitude_radians) * std::sin(latitude_radians);
+  double sin_squared_latitude =
+      std::sin(latitude_radians) * std::sin(latitude_radians);
   double sin_squared_twice_latitude =
       std::sin(2 * latitude_radians) * std::sin(2 * latitude_radians);
   return kGravity_0 * ((1 + kGravity_a * sin_squared_latitude -
@@ -56,7 +57,8 @@ inline Eigen::Vector3d vector3FromMsg(const geometry_msgs::msg::Vector3& msg) {
   return Eigen::Vector3d(msg.x, msg.y, msg.z);
 }
 
-inline Eigen::Vector3d vector3FromPointMsg(const geometry_msgs::msg::Point& msg) {
+inline Eigen::Vector3d vector3FromPointMsg(
+    const geometry_msgs::msg::Point& msg) {
   return Eigen::Vector3d(msg.x, msg.y, msg.z);
 }
 
@@ -106,7 +108,7 @@ inline void quaternionEigenToMsg(const Eigen::Quaterniond& eigen,
  */
 inline double yawFromQuaternion(const Eigen::Quaterniond& q) {
   return std::atan2(2.0 * (q.w() * q.z() + q.x() * q.y()),
-               1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z()));
+                    1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z()));
 }
 
 inline Eigen::Quaterniond quaternionFromYaw(double yaw) {
@@ -137,10 +139,10 @@ inline void getEulerAnglesFromQuaternion(const Eigen::Quaternion<double>& q,
     assert(euler_angles != NULL);
 
     *euler_angles << std::atan2(2.0 * (q.w() * q.x() + q.y() * q.z()),
-                           1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y())),
+                                1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y())),
         std::asin(2.0 * (q.w() * q.y() - q.z() * q.x())),
         std::atan2(2.0 * (q.w() * q.z() + q.x() * q.y()),
-              1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z()));
+                   1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z()));
   }
 }
 
@@ -154,8 +156,8 @@ inline void skewMatrixFromVector(const Eigen::Vector3d& vec,
 inline bool vectorFromSkewMatrix(const Eigen::Matrix3d& vec_skew,
                                  Eigen::Vector3d* vec) {
   assert(vec);
-  if ((vec_skew + vec_skew.transpose()).norm() < kSmallValueCheck){
-    *vec << vec_skew(2,1), vec_skew(0,2), vec_skew(1,0);
+  if ((vec_skew + vec_skew.transpose()).norm() < kSmallValueCheck) {
+    *vec << vec_skew(2, 1), vec_skew(0, 2), vec_skew(1, 0);
     return true;
   } else {
     std::cerr << "[mav_msgs] Matrix is not skew-symmetric." << std::endl;
@@ -164,23 +166,28 @@ inline bool vectorFromSkewMatrix(const Eigen::Matrix3d& vec_skew,
   }
 }
 
-inline bool isRotationMatrix(const Eigen::Matrix3d& mat){
+inline bool isRotationMatrix(const Eigen::Matrix3d& mat) {
   // Check that R^T * R = I
-  if ((mat.transpose() * mat - Eigen::Matrix3d::Identity()).norm() > kSmallValueCheck){
-    std::cerr << "[mav_msgs::common] Rotation matrix requirement violated (R^T * R = I)" << std::endl;
+  if ((mat.transpose() * mat - Eigen::Matrix3d::Identity()).norm() >
+      kSmallValueCheck) {
+    std::cerr << "[mav_msgs::common] Rotation matrix requirement violated (R^T "
+                 "* R = I)"
+              << std::endl;
     return false;
-  }  
+  }
   // Check that det(R) = 1
-  if (mat.determinant() - 1.0 > kSmallValueCheck){
-    std::cerr << "[mav_msgs::common] Rotation matrix requirement violated (det(R) = 1)" << std::endl;
+  if (mat.determinant() - 1.0 > kSmallValueCheck) {
+    std::cerr << "[mav_msgs::common] Rotation matrix requirement violated "
+                 "(det(R) = 1)"
+              << std::endl;
     return false;
-  }  
+  }
   return true;
 }
 
-// Rotation matrix from rotation vector as described in 
-// "Computationally Efficient Trajectory Generation for Fully Actuated Multirotor Vehicles"
-// Brescianini 2018
+// Rotation matrix from rotation vector as described in
+// "Computationally Efficient Trajectory Generation for Fully Actuated
+// Multirotor Vehicles" Brescianini 2018
 inline void matrixFromRotationVector(const Eigen::Vector3d& vec,
                                      Eigen::Matrix3d* mat) {
   // R = (I + sin||r|| / ||r||) [r] + ((1 - cos||r||)/||r||^2) [r]^2
@@ -188,7 +195,7 @@ inline void matrixFromRotationVector(const Eigen::Vector3d& vec,
   assert(mat);
   double r_norm = vec.norm();
   Eigen::Matrix3d vec_skew_norm = Eigen::Matrix3d::Zero();
-  if (r_norm > 0.0){
+  if (r_norm > 0.0) {
     skewMatrixFromVector(vec / r_norm, &vec_skew_norm);
   }
 
@@ -196,42 +203,42 @@ inline void matrixFromRotationVector(const Eigen::Vector3d& vec,
          vec_skew_norm * vec_skew_norm * (1 - std::cos(r_norm));
 }
 
-// Rotation vector from rotation matrix as described in 
-// "Computationally Efficient Trajectory Generation for Fully Actuated Multirotor Vehicles"
-// Brescianini 2018
+// Rotation vector from rotation matrix as described in
+// "Computationally Efficient Trajectory Generation for Fully Actuated
+// Multirotor Vehicles" Brescianini 2018
 inline bool vectorFromRotationMatrix(const Eigen::Matrix3d& mat,
                                      Eigen::Vector3d* vec) {
   // [r] = phi / 2sin(phi) * (R - R^T)
   // where [r] is the skew matrix of r vector
   // and phi satisfies 1 + 2cos(phi) = trace(R)
   assert(vec);
-  
-  if (!isRotationMatrix(mat)){
+
+  if (!isRotationMatrix(mat)) {
     std::cerr << "[mav_msgs::common] Not a rotation matrix." << std::endl;
     return false;
   }
-  
-  if ((mat - Eigen::Matrix3d::Identity()).norm() < kSmallValueCheck){
+
+  if ((mat - Eigen::Matrix3d::Identity()).norm() < kSmallValueCheck) {
     *vec = Eigen::Vector3d::Zero();
     return true;
   }
-  
+
   // Compute cosine of angle and clamp in range [-1, 1]
   double cos_phi = (mat.trace() - 1.0) / 2.0;
   double cos_phi_clamped = boost::algorithm::clamp(cos_phi, -1.0, 1.0);
   double phi = std::acos(cos_phi_clamped);
-  
-  if (phi < kSmallValueCheck){
+
+  if (phi < kSmallValueCheck) {
     *vec = Eigen::Vector3d::Zero();
-  } else{
-    Eigen::Matrix3d vec_skew = (mat - mat.transpose()) * phi / (2.0 * std::sin(phi));
+  } else {
+    Eigen::Matrix3d vec_skew =
+        (mat - mat.transpose()) * phi / (2.0 * std::sin(phi));
     Eigen::Vector3d vec_unskewed;
-    if (vectorFromSkewMatrix(vec_skew, &vec_unskewed)){
+    if (vectorFromSkewMatrix(vec_skew, &vec_unskewed)) {
       *vec = vec_unskewed;
-    }else{
+    } else {
       return false;
     }
-    
   }
   return true;
 }
@@ -240,8 +247,7 @@ inline bool vectorFromRotationMatrix(const Eigen::Matrix3d& mat,
 // based on formula derived in "Finite rotations and angular velocity" by Asher
 // Peres
 inline Eigen::Vector3d omegaFromRotationVector(
-    const Eigen::Vector3d& rot_vec, const Eigen::Vector3d& rot_vec_vel) 
-{
+    const Eigen::Vector3d& rot_vec, const Eigen::Vector3d& rot_vec_vel) {
   double phi = rot_vec.norm();
   if (std::abs(phi) < 1.0e-3) {
     // This captures the case of zero rotation
@@ -258,7 +264,8 @@ inline Eigen::Vector3d omegaFromRotationVector(
 
   // Set up matrix to calculate omega
   Eigen::Matrix3d W;
-  W = Eigen::MatrixXd::Identity(3, 3) + phi_skew * (1 - std::cos(phi)) * phi_2_inv +
+  W = Eigen::MatrixXd::Identity(3, 3) +
+      phi_skew * (1 - std::cos(phi)) * phi_2_inv +
       phi_skew * phi_skew * (phi - std::sin(phi)) * phi_3_inv;
   return W * rot_vec_vel;
 }
@@ -268,8 +275,7 @@ inline Eigen::Vector3d omegaFromRotationVector(
 // Peres
 inline Eigen::Vector3d omegaDotFromRotationVector(
     const Eigen::Vector3d& rot_vec, const Eigen::Vector3d& rot_vec_vel,
-    const Eigen::Vector3d& rot_vec_acc) 
-{
+    const Eigen::Vector3d& rot_vec_acc) {
   double phi = rot_vec.norm();
   if (std::abs(phi) < 1.0e-3) {
     // This captures the case of zero rotation
@@ -283,7 +289,6 @@ inline Eigen::Vector3d omegaDotFromRotationVector(
   double phi_3_inv = phi_2_inv / phi;
   double phi_4_inv = phi_3_inv / phi;
 
-
   // Create skew-symmetric matrix from rotation vector and velocity
   Eigen::Matrix3d phi_skew;
   Eigen::Matrix3d phi_dot_skew;
@@ -294,11 +299,11 @@ inline Eigen::Vector3d omegaDotFromRotationVector(
   // Set up matrices to calculate omega dot
   Eigen::Matrix3d W_vel;
   Eigen::Matrix3d W_acc;
-  W_vel = phi_skew * (phi * std::sin(phi) - 2.0f + 2.0f * std::cos(phi)) * phi_dot *
-              phi_3_inv +
+  W_vel = phi_skew * (phi * std::sin(phi) - 2.0f + 2.0f * std::cos(phi)) *
+              phi_dot * phi_3_inv +
           phi_skew * phi_skew *
-              (-2.0f * phi - phi * std::cos(phi) + 3.0f * std::sin(phi)) * phi_dot *
-              phi_4_inv +
+              (-2.0f * phi - phi * std::cos(phi) + 3.0f * std::sin(phi)) *
+              phi_dot * phi_4_inv +
           phi_dot_skew * phi_skew * (phi - std::sin(phi)) * phi_3_inv;
 
   W_acc = Eigen::MatrixXd::Identity(3, 3) +

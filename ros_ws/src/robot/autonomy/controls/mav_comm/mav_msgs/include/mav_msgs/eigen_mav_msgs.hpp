@@ -28,7 +28,7 @@
 #include "mav_msgs/common.hpp"
 
 namespace mav_msgs {
-  
+
 /// Actuated degrees of freedom.
 enum MavActuation { DOF4 = 4, DOF6 = 6 };
 
@@ -110,8 +110,8 @@ struct EigenRollPitchYawrateThrust {
  */
 class EigenMavState {
  public:
-  typedef std::vector<EigenMavState,
-          Eigen::aligned_allocator<EigenMavState>> Vector;
+  typedef std::vector<EigenMavState, Eigen::aligned_allocator<EigenMavState>>
+      Vector;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   /// Initializes all members to zero / identity.
@@ -162,7 +162,8 @@ class EigenMavState {
 
 struct EigenTrajectoryPoint {
   typedef std::vector<EigenTrajectoryPoint,
-  Eigen::aligned_allocator<EigenTrajectoryPoint>> Vector;
+                      Eigen::aligned_allocator<EigenTrajectoryPoint>>
+      Vector;
   EigenTrajectoryPoint()
       : timestamp_ns(-1),
         time_from_start_ns(0),
@@ -176,16 +177,14 @@ struct EigenTrajectoryPoint {
         angular_acceleration_W(Eigen::Vector3d::Zero()),
         degrees_of_freedom(MavActuation::DOF4) {}
 
-  EigenTrajectoryPoint(int64_t _time_from_start_ns,
-                       const Eigen::Vector3d& _position,
-                       const Eigen::Vector3d& _velocity,
-                       const Eigen::Vector3d& _acceleration,
-                       const Eigen::Vector3d& _jerk,
-                       const Eigen::Vector3d& _snap,
-                       const Eigen::Quaterniond& _orientation,
-                       const Eigen::Vector3d& _angular_velocity,
-                       const Eigen::Vector3d& _angular_acceleration,
-                       const MavActuation& _degrees_of_freedom = MavActuation::DOF4)
+  EigenTrajectoryPoint(
+      int64_t _time_from_start_ns, const Eigen::Vector3d& _position,
+      const Eigen::Vector3d& _velocity, const Eigen::Vector3d& _acceleration,
+      const Eigen::Vector3d& _jerk, const Eigen::Vector3d& _snap,
+      const Eigen::Quaterniond& _orientation,
+      const Eigen::Vector3d& _angular_velocity,
+      const Eigen::Vector3d& _angular_acceleration,
+      const MavActuation& _degrees_of_freedom = MavActuation::DOF4)
       : time_from_start_ns(_time_from_start_ns),
         position_W(_position),
         velocity_W(_velocity),
@@ -197,21 +196,21 @@ struct EigenTrajectoryPoint {
         angular_acceleration_W(_angular_acceleration),
         degrees_of_freedom(_degrees_of_freedom) {}
 
-  EigenTrajectoryPoint(int64_t _time_from_start_ns,
-                       const Eigen::Vector3d& _position,
-                       const Eigen::Vector3d& _velocity,
-                       const Eigen::Vector3d& _acceleration,
-                       const Eigen::Vector3d& _jerk,
-                       const Eigen::Vector3d& _snap,
-                       const Eigen::Quaterniond& _orientation,
-                       const Eigen::Vector3d& _angular_velocity,
-                       const MavActuation& _degrees_of_freedom = MavActuation::DOF4)
+  EigenTrajectoryPoint(
+      int64_t _time_from_start_ns, const Eigen::Vector3d& _position,
+      const Eigen::Vector3d& _velocity, const Eigen::Vector3d& _acceleration,
+      const Eigen::Vector3d& _jerk, const Eigen::Vector3d& _snap,
+      const Eigen::Quaterniond& _orientation,
+      const Eigen::Vector3d& _angular_velocity,
+      const MavActuation& _degrees_of_freedom = MavActuation::DOF4)
       : EigenTrajectoryPoint(_time_from_start_ns, _position, _velocity,
                              _acceleration, _jerk, _snap, _orientation,
-                             _angular_velocity, Eigen::Vector3d::Zero(), _degrees_of_freedom) {}
+                             _angular_velocity, Eigen::Vector3d::Zero(),
+                             _degrees_of_freedom) {}
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  int64_t timestamp_ns;  // Time since epoch, negative value = invalid timestamp.
+  int64_t
+      timestamp_ns;  // Time since epoch, negative value = invalid timestamp.
   int64_t time_from_start_ns;
   Eigen::Vector3d position_W;
   Eigen::Vector3d velocity_W;
@@ -297,7 +296,8 @@ struct EigenOdometry {
         angular_velocity_B(_angular_velocity) {}
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  int64_t timestamp_ns;  // Time since epoch, negative value = invalid timestamp.
+  int64_t
+      timestamp_ns;  // Time since epoch, negative value = invalid timestamp.
   Eigen::Vector3d position_W;
   Eigen::Quaterniond orientation_W_B;
   Eigen::Vector3d velocity_B;  // Velocity in expressed in the Body frame!
@@ -344,6 +344,6 @@ MAV_MSGS_MAKE_ALIGNED_CONTAINERS(EigenRateThrust)
 MAV_MSGS_MAKE_ALIGNED_CONTAINERS(EigenTrajectoryPoint)
 MAV_MSGS_MAKE_ALIGNED_CONTAINERS(EigenRollPitchYawrateThrust)
 MAV_MSGS_MAKE_ALIGNED_CONTAINERS(EigenOdometry)
-}
+}  // namespace mav_msgs
 
 #endif  // MAV_MSGS_EIGEN_MAV_MSGS_H

@@ -28,6 +28,6 @@ namespace mav_msgs {
 const double kZurichLatitude = 0.8267;
 const double kZurichHeight = 405.94;
 const double kGravity = MagnitudeOfGravity(kZurichHeight, kZurichLatitude);
-}
+}  // namespace mav_msgs
 
 #endif /* MAV_MSGS_DEFAULT_VALUES_H_ */
