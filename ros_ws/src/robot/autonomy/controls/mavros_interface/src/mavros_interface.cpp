@@ -125,6 +125,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     // Position Controls
 
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) override {
+        RCLCPP_DEBUG(this->get_logger(), "received pose desired_cmd: pose_callback");
         mavros_msgs::msg::PositionTarget pub_msg;
         // by having no type_mask, we are commanding velocity and acceleration
         // to be zero. this will cause the drone to stop at the desired
