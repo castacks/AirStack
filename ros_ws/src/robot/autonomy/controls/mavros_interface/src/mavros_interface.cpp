@@ -35,7 +35,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     rclcpp::Publisher<mavros_msgs::msg::AttitudeTarget>::SharedPtr attitude_target_pub_;
 
     // publisher for position target messages
-    rclcpp::Publisher<mavros_msgs::msg::PositionTarget>::SharedPtr local_position_target_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_position_target_pub_;
 
     // subscriber for state messages
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub_;
@@ -54,22 +54,22 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     MAVROSInterface() : RobotInterface("mavros_interface") {
         is_state_received_ = false;
 
-        set_mode_client_ = this->create_client<mavros_msgs::srv::SetMode>("mavros/set_mode");
-        arming_client_ = this->create_client<mavros_msgs::srv::CommandBool>("mavros/cmd/arming");
+        set_mode_client_ = this->create_client<mavros_msgs::srv::SetMode>("/mavros/set_mode");
+        arming_client_ = this->create_client<mavros_msgs::srv::CommandBool>("/mavros/cmd/arming");
 
         // publishers
         // https://wiki.ros.org/mavros#mavros.2FPlugins.setpoint_attitude:~:text=TF%20listener%20%5BHz%5D.-,setpoint_raw,-Send%20RAW%20setpoint
         attitude_target_pub_ = this->create_publisher<mavros_msgs::msg::AttitudeTarget>(
-            "mavros/setpoint_raw/attitude", 1);
-        local_position_target_pub_ = this->create_publisher<mavros_msgs::msg::PositionTarget>(
-            "mavros/setpoint_raw/local", 1);
+            "/mavros/setpoint_raw/attitude", 1);
+        local_position_target_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+            "/mavros/setpoint_position/local", 1);
 
         // subscribers
         state_sub_ = this->create_subscription<mavros_msgs::msg::State>(
-            "mavros/state", 1,
+            "/mavros/state", 1,
             std::bind(&MAVROSInterface::state_callback, this, std::placeholders::_1));
         fcu_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-            "mavros/local_position/pose", 1,
+            "/mavros/local_position/pose", 1,
             std::bind(&MAVROSInterface::fcu_pose_callback, this, std::placeholders::_1));
     }
 
@@ -126,29 +126,9 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) override {
         RCLCPP_DEBUG(this->get_logger(), "received pose desired_cmd: pose_callback");
-        mavros_msgs::msg::PositionTarget pub_msg;
-        // by having no type_mask, we are commanding velocity and acceleration
-        // to be zero. this will cause the drone to stop at the desired
-        // position. pub_msg.type_mask =
-        // mavros_msgs::msg::PositionTarget::IGNORE_VX |
-        // mavros_msgs::msg::PositionTarget::IGNORE_VY |
-        // mavros_msgs::msg::PositionTarget::IGNORE_VZ |
-        // mavros_msgs::msg::PositionTarget::IGNORE_AFX |
-        // mavros_msgs::msg::PositionTarget::IGNORE_AFY |
-        // mavros_msgs::msg::PositionTarget::IGNORE_AFZ;
 
-        // copy over position
-        pub_msg.position = desired_cmd->pose.position;
-
-        // extract only yaw
-        tf2::Quaternion q(desired_cmd->pose.orientation.x, desired_cmd->pose.orientation.y,
-                          desired_cmd->pose.orientation.z, desired_cmd->pose.orientation.w);
-        double roll, pitch, yaw;
-        tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
-
-        pub_msg.yaw = yaw;
-
-        local_position_target_pub_->publish(pub_msg);
+        geometry_msgs::msg::PoseStamped desired_cmd_copy = *desired_cmd;
+        local_position_target_pub_->publish(desired_cmd_copy);
     }
 
     // Command Functions
