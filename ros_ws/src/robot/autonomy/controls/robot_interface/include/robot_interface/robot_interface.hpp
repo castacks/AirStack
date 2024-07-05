@@ -28,7 +28,7 @@ namespace robot_interface {
 /**
  * @brief The Robot Interface class specifies common MAV flight control
  * functions for individual implementations to define.
- * 
+ *
  * Sets up subscribers for different types of control commands that call their respective
  * callback implementations. It's up to the individual implementations to define the
  * control logic.
@@ -45,7 +45,7 @@ class RobotInterface : public rclcpp::Node {
    protected:
     RobotInterface(std::string interface_name)
         : Node(interface_name),
-        // Subscribers. These will bind the subclass' overriden version of the method
+          // Subscribers. These will bind the subclass' overriden version of the method
           attitude_thrust_sub_(this->create_subscription<mav_msgs::msg::AttitudeThrust>(
               "attitude_thrust", 10,
               std::bind(&RobotInterface::attitude_thrust_callback, this, std::placeholders::_1))),
@@ -70,7 +70,7 @@ class RobotInterface : public rclcpp::Node {
    public:
     // TODO add low thrust mode
 
-    // Control callbacks. 
+    // Control callbacks.
     virtual void attitude_thrust_callback(
         const mav_msgs::msg::AttitudeThrust::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Attitude thrust callback not implemented.");

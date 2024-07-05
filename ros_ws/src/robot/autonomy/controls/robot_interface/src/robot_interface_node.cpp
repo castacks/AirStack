@@ -30,18 +30,15 @@ int main(int argc, char **argv) {
     std::shared_ptr<robot_interface::RobotInterface> ri_node;
 
     try {
-        ri_node =
-            loader.createSharedInstance("mavros_interface::MAVROSInterface");
+        ri_node = loader.createSharedInstance("mavros_interface::MAVROSInterface");
     } catch (pluginlib::PluginlibException &ex) {
         rclcpp::Node::SharedPtr logger_node =
             rclcpp::Node::make_shared("robot_interface_node_logger");
         RCLCPP_ERROR(logger_node->get_logger(),
-                     "The plugin failed to load for some reason. Error: %s\n",
-                     ex.what());
+                     "The plugin failed to load for some reason. Error: %s\n", ex.what());
         return 1;
     }
-    RCLCPP_INFO(ri_node->get_logger(),
-                "Successfully loaded the robot interface plugin.");
+    RCLCPP_INFO(ri_node->get_logger(), "Successfully loaded the robot interface plugin.");
 
     // ask the flight controller to give us (the autonomy stack) control
     ri_node->request_control();

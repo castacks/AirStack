@@ -15,6 +15,7 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <filesystem>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/msg/attitude_target.hpp>
 #include <mavros_msgs/msg/position_target.hpp>
@@ -27,6 +28,18 @@ namespace mavros_interface {
 
 class MAVROSInterface : public robot_interface::RobotInterface {
    private:
+    // member variables
+    std::string parent_namespace_;
+
+    bool is_state_received_ = false;
+    mavros_msgs::msg::State current_state_;
+
+    // data from the flight control unit (FCU)
+    bool is_fcu_yaw_received_ = false;
+    float fcu_yaw_ = 0.0;
+
+    // Services
+
     rclcpp::Client<mavros_msgs::srv::SetMode>::SharedPtr set_mode_client_;
     // service client for arming/disarming the vehicle
     rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedPtr arming_client_;
@@ -43,34 +56,28 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     // subscriber for pixhawk pose messages
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr fcu_pose_sub_;
 
-    bool is_state_received_;
-    mavros_msgs::msg::State current_state_;
-
-    // data from the flight control unit (FCU)
-    bool is_fcu_yaw_received_;
-    float fcu_yaw_;
-
    public:
-    MAVROSInterface() : RobotInterface("mavros_interface") {
-        is_state_received_ = false;
-
-        set_mode_client_ = this->create_client<mavros_msgs::srv::SetMode>("/mavros/set_mode");
-        arming_client_ = this->create_client<mavros_msgs::srv::CommandBool>("/mavros/cmd/arming");
-
-        // publishers
-        // https://wiki.ros.org/mavros#mavros.2FPlugins.setpoint_attitude:~:text=TF%20listener%20%5BHz%5D.-,setpoint_raw,-Send%20RAW%20setpoint
-        attitude_target_pub_ = this->create_publisher<mavros_msgs::msg::AttitudeTarget>(
-            "/mavros/setpoint_raw/attitude", 1);
-        local_position_target_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-            "/mavros/setpoint_position/local", 1);
-
-        // subscribers
-        state_sub_ = this->create_subscription<mavros_msgs::msg::State>(
-            "/mavros/state", 1,
-            std::bind(&MAVROSInterface::state_callback, this, std::placeholders::_1));
-        fcu_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-            "/mavros/local_position/pose", 1,
-            std::bind(&MAVROSInterface::fcu_pose_callback, this, std::placeholders::_1));
+    MAVROSInterface()
+        : RobotInterface("mavros_interface"),
+          parent_namespace_(std::filesystem::path(this->get_namespace()).parent_path().string()),
+          // services
+          set_mode_client_(this->create_client<mavros_msgs::srv::SetMode>(parent_namespace_ +
+                                                                          "/mavros/set_mode")),
+          arming_client_(this->create_client<mavros_msgs::srv::CommandBool>(parent_namespace_ +
+                                                                            "/mavros/cmd/arming")),
+          // publishers
+          attitude_target_pub_(this->create_publisher<mavros_msgs::msg::AttitudeTarget>(
+              parent_namespace_ + "/mavros/setpoint_raw/attitude", 1)),
+          local_position_target_pub_(this->create_publisher<geometry_msgs::msg::PoseStamped>(
+              parent_namespace_ + "/mavros/setpoint_position/local", 1)),
+          // subscribers
+          state_sub_(this->create_subscription<mavros_msgs::msg::State>(
+              parent_namespace_ + "/mavros/state", 1,
+              std::bind(&MAVROSInterface::state_callback, this, std::placeholders::_1))),
+          fcu_pose_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
+              parent_namespace_ + "/mavros/local_position/pose", 1,
+              std::bind(&MAVROSInterface::fcu_pose_callback, this, std::placeholders::_1))) {
+        RCLCPP_INFO_STREAM(this->get_logger(), "my namespace is " << parent_namespace_);
     }
 
     virtual ~MAVROSInterface() {}
@@ -81,7 +88,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     // Attitude Controls
 
-    void attitude_thrust_callback(const mav_msgs::msg::AttitudeThrust::SharedPtr desired_cmd) override {
+    void attitude_thrust_callback(
+        const mav_msgs::msg::AttitudeThrust::SharedPtr desired_cmd) override {
         mavros_msgs::msg::AttitudeTarget mavros_cmd;
         mavros_cmd.header.stamp = this->get_clock()->now();  //.to_msg();
         mavros_cmd.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE |
