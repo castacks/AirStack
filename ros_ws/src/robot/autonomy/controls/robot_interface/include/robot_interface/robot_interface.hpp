@@ -40,7 +40,7 @@ class RobotInterface : public rclcpp::Node {
         roll_pitch_yawrate_thrust_sub_;
     rclcpp::Subscription<mav_msgs::msg::TorqueThrust>::SharedPtr torque_thrust_sub_;
     rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr position_sub_;
 
    protected:
     RobotInterface(std::string interface_name)
@@ -63,9 +63,9 @@ class RobotInterface : public rclcpp::Node {
           velocity_sub_(this->create_subscription<geometry_msgs::msg::TwistStamped>(
               "velocity", 10,
               std::bind(&RobotInterface::velocity_callback, this, std::placeholders::_1))),
-          pose_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-              "pose", 10, std::bind(&RobotInterface::pose_callback, this, std::placeholders::_1))) {
-    }
+          position_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
+              "position", 10,
+              std::bind(&RobotInterface::position_callback, this, std::placeholders::_1))) {}
 
    public:
     // TODO add low thrust mode
@@ -88,7 +88,7 @@ class RobotInterface : public rclcpp::Node {
     virtual void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Velocity callback not implemented.");
     }
-    virtual void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) {
+    virtual void position_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Pose callback not implemented.");
     }
 

@@ -132,7 +132,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     // Position Controls
 
-    void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) override {
+    void position_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) override {
         RCLCPP_DEBUG(this->get_logger(), "received pose desired_cmd: pose_callback");
 
         geometry_msgs::msg::PoseStamped desired_cmd_copy = *desired_cmd;
