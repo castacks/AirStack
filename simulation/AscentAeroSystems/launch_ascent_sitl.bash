@@ -22,7 +22,7 @@ AUTONOMY_STACK_PORT=14554    # port for our autonomy stack
 # launch QGC, SITL, and mavproxy as child processes
 
 cd $ASCENT_DIR
-./AscentQLinux/AscentQ & \
+# ./AscentQLinux/AscentQ & \
 ./spirit_sitl -S --model coaxial -I0 & \
 \
 mavproxy.py --streamrate=100 --master tcp:127.0.0.1:5760 \

@@ -11,6 +11,7 @@ Authors: Andrew Jong, Ian Higgins
 import sys
 
 import dronekit
+import os
 
 # Auxiliary scipy and numpy modules
 import numpy as np
@@ -37,10 +38,15 @@ from omni.isaac.core.prims import GeometryPrim, RigidPrim
 from omni.isaac.core.utils import extensions, stage
 from omni.isaac.core.world import World
 from pxr import Gf, Usd, UsdGeom
+from AscentAeroSystems.ascent_sitl_launch_tool import AscentSitlLaunchTool
 
 # -----------------------------------
 # The actual script should start here
 # -----------------------------------
+
+script_dir = os.path.dirname(os.path.realpath(__file__)) + "/AscentAeroSystems"
+sitl_tool = AscentSitlLaunchTool(script_dir)
+sitl_tool.launch()
 
 # enable ROS bridge extension
 extensions.enable_extension("omni.isaac.ros2_bridge")
