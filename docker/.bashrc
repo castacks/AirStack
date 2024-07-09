@@ -106,11 +106,40 @@ export ISAACSIM_PATH=/isaac-sim
 alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"
 alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"
 
+
+# Define the ROS2 workspace directory
+ROS2_WS_DIR="$HOME/AirLab-Autonomy-Stack/ros_ws"
+
 function bws(){
-    set -x
-    COLCON_LOG_PATH=~/AirLab-Autonomy-Stack/ros_ws/log colcon build --build-base ~/AirLab-Autonomy-Stack/ros_ws/src --install-base ~/AirLab-Autonomy-Stack/install
+    echo "Running \`colcon build\` in $ROS2_WS_DIR"
+    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/
 }
 function sws(){
-    set -x
-    source ~/AirLab-Autonomy-Stack/ros_ws/install/local_setup.bash
+    echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
+    source "$ROS2_WS_DIR"/install/local_setup.bash
+}
+
+# Function to prompt user for confirmation
+confirm() {
+    while true; do
+        read -p "Are you sure you want to clean the ROS2 workspace under $ROS2_WS_DIR? (y/N): " yn
+        yn=${yn:-no} # Default to 'no' if no answer is given
+        case $yn in
+            [Yy] | [Yy][Ee][Ss] ) return 0;;
+            [Nn] | [Nn][Oo] ) return 1;;
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
+}
+function cws(){
+    # Call the confirmation function
+    if confirm; then
+        echo "Cleaning ROS2 workspace..."
+        set -x
+        rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/
+        set +x
+        echo "ROS2 workspace has been cleaned."
+    else
+        echo "Operation cancelled."
+    fi
 }
