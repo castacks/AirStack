@@ -1,0 +1,63 @@
+# docker compose file
+services:
+  build:
+    image: airlab-autonomy-dev
+    build: 
+      context: .
+      tags:
+        - airlab-autonomy-dev:latest
+        - airlab-autonomy-dev:0.1.0
+
+  # main dev container
+  airlab-autonomy-dev:
+    image: airlab-autonomy-dev:latest
+    container_name: airlab_autonomy_dev
+    entrypoint: bash
+    stdin_open: true  # docker run -i
+    tty: true # docker run -t
+    environment:
+      # NVIDIA stuff
+      - ACCEPT_EULA=Y
+      - DISPLAY
+      # Omniverse Nucleus stuff
+      # - OMNI_USER="$$omni-api-token" # need a double dollar sign here so docker compose doesn't try to interpret it https://stackoverflow.com/a/40621373
+      # - OMNI_PASS=$(cat ./../nucleus_token.txt)  # this didn't work, used ~/.bashrc instead. echo 'export OMNI_PASS=$(cat ~/AirLab-Autonomy-Stack/nucleus_token.txt)' >> ~/.bashrc
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    network_mode: host
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      # isaac sim stuff
+      - ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw
+      - ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw
+      - ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw
+      - ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw
+      - ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw
+      - ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw
+      - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
+      - ~/docker/isaac-sim/documents:/root/Documents:rw
+      # autonomy stack stuff
+      - ./..:/root/AirLab-Autonomy-Stack:rw
+      # developer stuff
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+
+    restart: unless-stopped
+
+  # # live mkdocs container
+  # airlab-docs:
+  #   image: airlab-autonomy-dev:latest
+  #   container_name: airlab_autonomy_docs
+  #   entrypoint: mkdocs serve
+  #   tty: true
+  #   volumes:
+  #     # autonomy stack stuff
+  #     - ./..:/root/AirLab-Autonomy-Stack:rw
+  #   ports:
+  #     - "8000:8000"
+  #   restart: unless-stopped
