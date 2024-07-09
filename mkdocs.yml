@@ -43,10 +43,11 @@ nav:
   - "Developer Guide": 
     - "Overview": "developer_guide/overview.md"
     - "Autonomy":
+      - "Overview": "developer_guide/autonomy/overview.md"
       - "Perception": "developer_guide/autonomy/perception.md"
       - "Mapping": "developer_guide/autonomy/mapping.md"
-      - "Planning": "developer_guide/autonomy/planning.md"
-      - "Navigation": "developer_guide/autonomy/navigation.md"
+      - "Global Planning": "developer_guide/autonomy/global_planning.md"
+      - "Local Planning": "developer_guide/autonomy/local_planning.md"
       - "Controls": "developer_guide/autonomy/controls.md"
     - "Simulation": "developer_guide/simulation.md"
     - "Contributing": "developer_guide/contributing.md"
