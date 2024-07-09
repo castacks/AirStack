@@ -1,11 +1,14 @@
 ```
 # make sure in this directory
 # build the image, it is named airlab-autonomy-dev:latest
-docker compose build
+docker compose --profile build build
 
-# run the container, starts a bash session
-docker compose run --name airlab_autonomy_dev airlab-autonomy-dev
+# start docker compose service
+docker compose up -d 
 
-# spawn more terminals
-docker exec -it airlab_autonomy_dev bash
+# enter a bash session
+docker compose exec airlab_autonomy_dev bash
+
+# stop service
+docker compose stop 
 ```

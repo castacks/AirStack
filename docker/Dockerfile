@@ -40,7 +40,7 @@ RUN pip install PyYAML mavproxy
 RUN pip install mkdocs-material
 
 # Install 
-RUN apt install gstreamer1.0-gl
+RUN apt install gstreamer1.0-gl -y
 
 
 ##############

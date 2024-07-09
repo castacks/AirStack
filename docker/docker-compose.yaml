@@ -1,16 +1,17 @@
 # docker compose file
 services:
   build:
-    image: airlab-autonomy-dev
+    profiles: ["build"]
+    image: theairlab.org/autonomy-dev
     build: 
       context: .
       tags:
-        - airlab-autonomy-dev:latest
-        - airlab-autonomy-dev:0.1.0
+        - theairlab.org/autonomy-dev:latest
+        - theairlab.org/autonomy-dev:0.1.0
 
   # main dev container
-  airlab-autonomy-dev:
-    image: airlab-autonomy-dev:latest
+  airlab_autonomy_dev:
+    image: theairlab.org/autonomy-dev:latest
     container_name: airlab_autonomy_dev
     entrypoint: bash
     stdin_open: true  # docker run -i
@@ -51,7 +52,7 @@ services:
 
   # # live mkdocs container
   # airlab-docs:
-  #   image: airlab-autonomy-dev:latest
+  #   image: theairlab.org/autonomy-dev:latest
   #   container_name: airlab_autonomy_docs
   #   entrypoint: mkdocs serve
   #   tty: true
