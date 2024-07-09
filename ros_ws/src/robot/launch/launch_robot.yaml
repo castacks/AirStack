@@ -1,0 +1,24 @@
+launch:
+  - arg:
+      - name: "robot_name"
+        default: "robot"
+  - group:
+      - push-ros-namespace:
+          namespace: "$(arg robot_name)"
+
+
+      # autonomy
+      - include:
+        file: "src/robot/autonomy/perception/launch/launch_perception.yaml"
+
+      - include:
+        file: "src/robot/autonomy/mapping/launch/launch_mapping.yaml"
+
+      - include:
+        file: "src/robot/autonomy/planning/launch/launch_planning.yaml"
+
+      - include:
+        file: "src/robot/autonomy/navigation/launch/launch_navigation.yaml"
+
+      - include:
+        file: "src/robot/autonomy/controls/launch/launch_controls.yaml"
