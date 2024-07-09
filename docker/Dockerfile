@@ -48,14 +48,9 @@ RUN apt install gstreamer1.0-gl -y
 ##############
 RUN apt install vim nano -y
 
-# alias in bashrc
-RUN echo "\n\nexport ISAACSIM_PATH=/isaac-sim" >> ~/.bashrc
-# Isaac Sim python executable
-RUN echo 'alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"' >> ~/.bashrc
-# Isaac Sim app
-RUN echo 'alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"' >> ~/.bashrc
+# bashrc
+COPY .bashrc /root/.bashrc
 
-RUN echo 'alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"' >> ~/.bashrc
 # RUN echo 'export OMNI_PASS=$(cat ~/AirLab-Autonomy-Stack/nucleus_token.txt)' >> ~/.bashrc
 
 WORKDIR /root/AirLab-Autonomy-Stack
