@@ -28,7 +28,7 @@ https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive
 Then unzip the file  AscentAeroSystemsSITLPackage.zip  in this folder:
 ```
 cd AirLab-Autonomy-Stack/simulation/AscentAeroSystems
-unzip AscentAeroSystemsSITLPackage.zip -d .
+unzip ~/Downloads/AscentAeroSystemsSITLPackage.zip -d .
 ```
 
 
