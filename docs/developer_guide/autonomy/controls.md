@@ -10,13 +10,14 @@ Can be launched with `ros2 launch src/robot/autonomy/controls/launch/launch_cont
 
 ## Robot Interface class
 The `RobotInterface` translates commands from the autonomy stack into the command for the underlying hardware.
-Specific implementations should extend `class RobotInterface` in `robot_interface.hpp`
+Note the base class is unimplemented.
+Specific implementations should extend `class RobotInterface` in `robot_interface.hpp`, for example MAVROSInterface.
 
 The commands are variations of the two main command modes: Attitude control and Position control.
 These are reflected in [MAVLink](https://mavlink.io/en/messages/common.html#SET_POSITION_TARGET_LOCAL_NED) and supported by both PX4 and [Ardupilot](https://ardupilot.org/dev/docs/copter-commands-in-guided-mode.html#movement-commands). 
 
 
-It subscribes to:
+the RobotInterface node subscribes to:
 
 * `$(arg robot_name)/controls/robot_interface/attitude_thrust` of type `mav_msgs/AttitudeThrust.msg`
 
@@ -31,3 +32,5 @@ It subscribes to:
 * `$(arg robot_name)/controls/robot_interface/position` of type `geometry_msgs/PoseStamped.msg`
 
 All messages are in the robot's body frame, except `velocity` and `position` which use the frame specified by the message header.
+
+## Custom Robot Interface
