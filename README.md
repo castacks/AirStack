@@ -58,7 +58,7 @@ Launch simulator (Isaac Sim and Ascent SITL):
 docker compose exec airlab_autonomy_dev bash
 
 # in docker
-ISAACSIM_PYTHON simulation/launch_sim.py
+ISAACSIM_PYTHON simulation/isaac_sim_interface_/launch_sim.py
 ```
 
 # Move Robot
