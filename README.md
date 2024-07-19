@@ -87,3 +87,8 @@ ros2 service call /controls/mavros/cmd/takeoff mavros_msgs/srv/CommandTOL "{alti
 # FLY TO POSITION. Put whatever position you want
 ros2 topic pub /controls/mavros/setpoint_position/local geometry_msgs/PoseStamped "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'base_link' }, pose: { position: { x: 10.0, y: 0.0, z: 20.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } } }" -1
 ```
+
+# Edit Docs
+`mkdocs serve` is automatically run in a Docker container when you run `docker compose up -d`. 
+You can edit the markdown files in the `docs` folder and see the changes in real time by visiting `http://localhost:8000`.
+Navigation tree is editable in `mkdocs.yml`.
