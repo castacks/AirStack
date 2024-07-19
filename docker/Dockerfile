@@ -24,7 +24,7 @@ RUN apt upgrade -y
 RUN apt install ros-humble-desktop ros-dev-tools -y
 # ROS2 Humble dependencies
 # for spatial_temporal_voxel_layer
-RUN apt install ros-humble-ament-cmake-vendor-package
+RUN apt install ros-humble-ament-cmake-vendor-package ros-humble-nav2-costmap-2d
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 
 # Install MAVROS
