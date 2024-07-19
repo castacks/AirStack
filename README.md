@@ -6,7 +6,7 @@ Welcome to the AirLab Autonomy Stack
 
 You need at least 25GB free to install the Docker image.
 
-Have some nice GPU to run Isaac Sim locally.
+Have an NVIDIA GPU >= RTX 3070 to run Isaac Sim locally.
 
 # Setup
 ## Clone
