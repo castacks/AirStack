@@ -9,3 +9,6 @@
 	path = ros_ws/src/robot/autonomy/controls/px4_msgs
 	url = git@github.com:PX4/px4_msgs.git
 	branch = main
+[submodule "ros_ws/src/robot/autonomy/world_model/mapping/spatio_temporal_voxel_layer"]
+	path = ros_ws/src/robot/autonomy/world_model/mapping/spatio_temporal_voxel_layer
+	url = git@github.com:SteveMacenski/spatio_temporal_voxel_layer.git
