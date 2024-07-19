@@ -90,5 +90,5 @@ ros2 topic pub /controls/mavros/setpoint_position/local geometry_msgs/PoseStampe
 
 # Edit Docs
 `mkdocs serve` is automatically run in a Docker container when you run `docker compose up -d`. 
-You can edit the markdown files in the `docs` folder and see the changes in real time by visiting `http://localhost:8000`.
+You can edit the markdown files in the `docs` folder and see the changes in real time by visiting http://localhost:8000.
 Navigation tree is editable in `mkdocs.yml`.
