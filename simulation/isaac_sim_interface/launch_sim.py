@@ -90,7 +90,7 @@ class Drone:
 
     def update_state_from_mavlink(self, args):
         args  # is required function definition for the physics callback
-        r = self._dronekit_connection._roll + np.pi / 2
+        r = self._dronekit_connection._roll  # WARNING: this is a hack. for some reason the prim is rotated 90 degrees
         p = self._dronekit_connection._pitch
         y = self._dronekit_connection._yaw
 
