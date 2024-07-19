@@ -2,19 +2,19 @@
 services:
   build:
     profiles: ["build"]
-    image: theairlab.org/autonomy-dev
-    build: 
+    image: theairlab.org/airstack-dev
+    build:
       context: .
       tags:
-        - theairlab.org/autonomy-dev:latest
-        - theairlab.org/autonomy-dev:0.1.0
+        - theairlab.org/airstack-dev:latest
+        - theairlab.org/airstack-dev:0.1.0
 
   # main dev container
-  airlab_autonomy_dev:
-    image: theairlab.org/autonomy-dev:latest
-    container_name: airlab_autonomy_dev
+  airstack_dev:
+    image: theairlab.org/airstack-dev:latest
+    container_name: airstack_dev
     entrypoint: bash
-    stdin_open: true  # docker run -i
+    stdin_open: true # docker run -i
     tty: true # docker run -t
     environment:
       # NVIDIA stuff
@@ -22,7 +22,7 @@ services:
       - DISPLAY
       # Omniverse Nucleus stuff
       # - OMNI_USER="$$omni-api-token" # need a double dollar sign here so docker compose doesn't try to interpret it https://stackoverflow.com/a/40621373
-      # - OMNI_PASS=$(cat ./../nucleus_token.txt)  # this didn't work, used ~/.bashrc instead. echo 'export OMNI_PASS=$(cat ~/AirLab-Autonomy-Stack/nucleus_token.txt)' >> ~/.bashrc
+      # - OMNI_PASS=$(cat ./../nucleus_token.txt)  # this didn't work, used ~/.bashrc instead. echo 'export OMNI_PASS=$(cat ~/AirStack/nucleus_token.txt)' >> ~/.bashrc
     deploy:
       resources:
         reservations:
@@ -44,21 +44,21 @@ services:
       - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
       - ~/docker/isaac-sim/documents:/root/Documents:rw
       # autonomy stack stuff
-      - ./..:/root/AirLab-Autonomy-Stack:rw
+      - ./..:/root/AirStack:rw
       # developer stuff
       - ~/.bash_history:/root/.bash_history:rw # save cmdline history
 
     restart: unless-stopped
 
-  # # live mkdocs container
-  # airlab-docs:
-  #   image: theairlab.org/autonomy-dev:latest
-  #   container_name: airlab_autonomy_docs
-  #   entrypoint: mkdocs serve
-  #   tty: true
-  #   volumes:
-  #     # autonomy stack stuff
-  #     - ./..:/root/AirLab-Autonomy-Stack:rw
-  #   ports:
-  #     - "8000:8000"
-  #   restart: unless-stopped
+  # live mkdocs container
+  airlab-docs:
+    image: theairlab.org/airstack-dev:latest
+    container_name: airstack_docs
+    entrypoint: mkdocs serve
+    tty: true
+    volumes:
+      # autonomy stack stuff
+      - ./..:/root/AirStack:rw
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

@@ -108,7 +108,7 @@ alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"
 
 
 # Define the ROS2 workspace directory
-ROS2_WS_DIR="$HOME/AirLab-Autonomy-Stack/ros_ws"
+ROS2_WS_DIR="$HOME/AirStack/ros_ws"
 
 function bws(){
     echo "Running \`colcon build\` in $ROS2_WS_DIR"

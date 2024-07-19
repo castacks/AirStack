@@ -3,12 +3,12 @@ theme:
   name: material
   logo: assets/logo_horizontal_white.png
   favicon: assets/StackedWhite.png
-  palette: 
+  palette:
     - scheme: default
       primary: "#CC002B"
       accent: pink
       toggle:
-        icon: material/brightness-7 
+        icon: material/brightness-7
         name: Switch to dark mode
 
     # Palette toggle for dark mode
@@ -25,34 +25,35 @@ theme:
     - search.highlight
     - search.suggest
     - toc.integrate
-  
+
 extra_css:
   - stylesheets/extra.css
-
 
 plugins:
   - search
 
 nav:
-  - "Home": 'index.md'
+  - "Home": "index.md"
   - "User Guide":
-    - "Getting Started": "user_guide/getting_started.md"
-    - "Installation": "user_guide/installation.md"
-    - "Tutorials": "user_guide/tutorials.md"
-    - "API Reference": "user_guide/api_reference.md"
-  - "Developer Guide": 
-    - "Overview": "developer_guide/overview.md"
-    - "Autonomy":
-      - "Overview": "developer_guide/autonomy/overview.md"
-      - "Perception": "developer_guide/autonomy/perception.md"
-      - "Mapping": "developer_guide/autonomy/mapping.md"
-      - "Global Planning": "developer_guide/autonomy/global_planning.md"
-      - "Local Planning": "developer_guide/autonomy/local_planning.md"
-      - "Controls": "developer_guide/autonomy/controls.md"
-    - "Simulation": "developer_guide/simulation.md"
-    - "Contributing": "developer_guide/contributing.md"
-  - "About": 'about.md'
+      - "Getting Started": "user_guide/getting_started.md"
+      - "Installation": "user_guide/installation.md"
+      - "Tutorials":
+          - "Overview": "user_guide/tutorials/overview.md"
+          - "Running the Stack": "user_guide/tutorials/running_the_stack.md"
+      - "Planners": "user_guide/planners.md"
+      - "API Reference": "user_guide/api_reference.md"
+  - "Developer Guide":
+      - "Overview": "developer_guide/overview.md"
+      - "Autonomy":
+          - "Overview": "developer_guide/autonomy/overview.md"
+          - "Perception": "developer_guide/autonomy/perception.md"
+          - "Mapping": "developer_guide/autonomy/mapping.md"
+          - "Global Planning": "developer_guide/autonomy/global_planning.md"
+          - "Local Planning": "developer_guide/autonomy/local_planning.md"
+          - "Controls": "developer_guide/autonomy/controls.md"
+      - "Simulation": "developer_guide/simulation.md"
+      - "Contributing": "developer_guide/contributing.md"
+  - "About": "about.md"
 
-repo_url: https://github.com/castacks/AirLab-Autonomy-Stack
-repo_name: castacks/AirLab-Autonomy-Stack
-
+repo_url: https://github.com/castacks/AirStack
+repo_name: castacks/AirStack

@@ -1,7 +1,9 @@
-# AirLab-Autonomy-Stack
+# AirStack
 
+Welcome to the AirLab Autonomy Stack
 
 # Requirements
+
 You need at least 25GB free to install the Docker image.
 
 Have some nice GPU to run Isaac Sim locally.
@@ -9,43 +11,44 @@ Have some nice GPU to run Isaac Sim locally.
 # Setup
 
 ```
-git clone --recursive -j8 git@github.com:castacks/AirLab-Autonomy-Stack.git
+git clone --recursive -j8 git@github.com:castacks/AirStack.git
 ```
 
-
 Install the Omniverse launcher download from this link:
-``` 
+
+```
 wget https://install.launcher.omniverse.nvidia.com/installers/omniverse-launcher-linux.AppImage
 ```
 
-
 Follow these instructions to setup Nucleus : https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
-
 
 If you are using the Ascent Spirit drone download the SITL software packages from this link:
 https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link
 
-Then unzip the file  AscentAeroSystemsSITLPackage.zip  in this folder:
+Then unzip the file AscentAeroSystemsSITLPackage.zip in this folder:
+
 ```
-cd AirLab-Autonomy-Stack/simulation/AscentAeroSystems
+cd AirStack/simulation/AscentAeroSystems
 unzip ~/Downloads/AscentAeroSystemsSITLPackage.zip -d .
 ```
 
-
 # Build and run the Docker image
+
 ```bash
-cd AirLab-Autonomy-Stack/docker/
+cd AirStack/docker/
 # build the image, it is named airlab-autonomy-dev:latest
 docker compose --profile build build
 # start docker compose service/container
-docker compose up -d 
+docker compose up -d
 ```
 
 # Launch
+
 Launch autonomy stack controls package:
+
 ```bash
 # start a new terminal in docker container
-docker compose exec airlab_autonomy_dev bash
+docker compose exec airstack_dev bash
 
 # in docker
 bws && sws # build workspace and source workspace. these are aliases in ~/.bashrc
@@ -53,18 +56,20 @@ ros2 launch ros_ws/src/robot/autonomy/controls/launch/launch_controls.yaml
 ```
 
 Launch simulator (Isaac Sim and Ascent SITL):
+
 ```bash
 # start another terminal in docker container
-docker compose exec airlab_autonomy_dev bash
+docker compose exec airstack_dev bash
 
 # in docker
 ISAACSIM_PYTHON simulation/launch_sim.py
 ```
 
 # Move Robot
+
 ```bash
 # start another terminal in docker container
-docker compose exec airlab_autonomy_dev bash
+docker compose exec airstack_dev bash
 
 # in docker
 # set drone mode to GUIDED

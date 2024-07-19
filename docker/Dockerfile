@@ -22,6 +22,9 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/r
 RUN apt update
 RUN apt upgrade -y
 RUN apt install ros-humble-desktop ros-dev-tools -y
+# ROS2 Humble dependencies
+# for spatial_temporal_voxel_layer
+RUN apt install ros-humble-ament-cmake-vendor-package
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 
 # Install MAVROS
@@ -51,6 +54,6 @@ RUN apt install vim nano -y
 # bashrc
 COPY .bashrc /root/.bashrc
 
-# RUN echo 'export OMNI_PASS=$(cat ~/AirLab-Autonomy-Stack/nucleus_token.txt)' >> ~/.bashrc
+# RUN echo 'export OMNI_PASS=$(cat ~/AirStack/nucleus_token.txt)' >> ~/.bashrc
 
-WORKDIR /root/AirLab-Autonomy-Stack
+WORKDIR /root/AirStack
