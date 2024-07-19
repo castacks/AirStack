@@ -51,14 +51,13 @@ services:
     restart: unless-stopped
 
   # live mkdocs container
-  airlab-docs:
+  airlab_mkdocs:
     image: theairlab.org/airstack-dev:latest
-    container_name: airstack_docs
+    container_name: airstack_mkdocs
     entrypoint: mkdocs serve
     tty: true
+    network_mode: "host"
     volumes:
       # autonomy stack stuff
       - ./..:/root/AirStack:rw
-    ports:
-      - "8000:8000"
     restart: unless-stopped
