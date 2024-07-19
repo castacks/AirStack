@@ -166,8 +166,8 @@ camera_prim = UsdGeom.Camera(
 )
 xform_api = UsdGeom.XformCommonAPI(camera_prim)
 xform_api.SetTranslate(Gf.Vec3d(0, 0, 0.1))
-xform_api.SetRotate((0, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
-# xform_api.SetRotate((90, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
+# xform_api.SetRotate((0, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
+xform_api.SetRotate((90, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
 camera_prim.GetHorizontalApertureAttr().Set(21)
 camera_prim.GetVerticalApertureAttr().Set(16)
 camera_prim.GetProjectionAttr().Set("perspective")
