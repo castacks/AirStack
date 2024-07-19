@@ -64,6 +64,7 @@ ros2 launch ros_ws/src/robot/autonomy/controls/launch/launch_controls.yaml
 Launch simulator (Isaac Sim and Ascent SITL):
 
 ```bash
+xhost +  # allow Docker access to Linux X-Server
 # start another terminal in docker container
 docker compose exec airstack_dev bash
 
