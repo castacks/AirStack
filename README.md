@@ -9,11 +9,12 @@ You need at least 25GB free to install the Docker image.
 Have some nice GPU to run Isaac Sim locally.
 
 # Setup
-
+## Clone
 ```
 git clone --recursive -j8 git@github.com:castacks/AirStack.git
 ```
 
+## Omniverse
 Install the Omniverse launcher download from this link:
 
 ```
@@ -22,6 +23,7 @@ wget https://install.launcher.omniverse.nvidia.com/installers/omniverse-launcher
 
 Follow these instructions to setup Nucleus : https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
 
+## SITL
 If you are using the Ascent Spirit drone download the SITL software packages from this link:
 https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link
 
@@ -31,6 +33,10 @@ Then unzip the file AscentAeroSystemsSITLPackage.zip in this folder:
 cd AirStack/simulation/AscentAeroSystems
 unzip ~/Downloads/AscentAeroSystemsSITLPackage.zip -d .
 ```
+
+## Docker
+- Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This should come installed with docker compose.
+- Gain access to NVIDIA NGC Containers by following [these instructions](https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html)
 
 # Build and run the Docker image
 
