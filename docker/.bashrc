@@ -102,6 +102,7 @@ alias runheadless.native=/isaac-sim/runheadless.native.sh
 alias runheadless.webrtc=/isaac-sim/runheadless.webrtc.sh
 
 source /opt/ros/humble/setup.bash
+
 export ISAACSIM_PATH=/isaac-sim
 alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"
 alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"
@@ -143,3 +144,5 @@ function cws(){
         echo "Operation cancelled."
     fi
 }
+
+sws
