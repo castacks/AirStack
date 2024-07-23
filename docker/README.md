@@ -7,7 +7,7 @@ docker compose --profile build build
 docker compose up -d 
 
 # enter a bash session
-docker compose exec airlab_autonomy_dev bash
+docker compose exec airstack_dev bash
 
 # stop service
 docker compose stop 

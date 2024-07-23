@@ -1,3 +1,5 @@
+# Note the build context should be the root of the repository (AirStack/)
+
 FROM nvcr.io/nvidia/isaac-sim:4.0.0
 
 # Trick to get apt-get to not prompt for timezone in tzdata
@@ -22,13 +24,25 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/r
 RUN apt update
 RUN apt upgrade -y
 RUN apt install ros-humble-desktop ros-dev-tools -y
-RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+RUN rosdep init && rosdep update
+
+# Package dependencies
+# perform ROS dependency installation for our workspace.
+COPY ros_ws/src /tmp/ros_ws/src
+RUN rosdep install --from-paths /tmp/ros_ws/src --ignore-src -r -y && rm -rf /tmp/ros_ws
+
+# vdb_mapping
+# Build and install patched version of OpenVDB (see https://github.com/SteveMacenski/spatio_temporal_voxel_layer/issues/232).
+RUN apt-get remove -y libopenvdb*; apt-get update && apt-get install -y libboost-system-dev libboost-iostreams-dev libtbb-dev libblosc-dev; \
+    git clone --recurse --branch v8.2.0-debian https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
+    mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
+    cmake .. && \
+    make -j8 && make install && \
+    cd ..; rm -rf /opt/openvdb/build
 
 # Install MAVROS
 RUN apt install ros-humble-mavros -y
 RUN wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh && chmod +x install_geographiclib_datasets.sh && ./install_geographiclib_datasets.sh
-
-RUN apt install ros-humble-vision-msgs ros-humble-ackermann-msgs -y
 
 
 # Install isaac sim python dependencies. we might not need all of these
@@ -37,9 +51,9 @@ RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit
 # Install python dependencies for mavlink:
 RUN apt install python3-dev python3-opencv python3-wxgtk4.0 python3-pip python3-matplotlib python3-lxml python3-pygame -y
 RUN pip install PyYAML mavproxy
+# install docs dependencies
 RUN pip install mkdocs-material
 
-# Install 
 RUN apt install gstreamer1.0-gl -y
 
 
@@ -49,8 +63,6 @@ RUN apt install gstreamer1.0-gl -y
 RUN apt install vim nano -y
 
 # bashrc
-COPY .bashrc /root/.bashrc
+COPY docker/.bashrc /root/.bashrc
 
-# RUN echo 'export OMNI_PASS=$(cat ~/AirLab-Autonomy-Stack/nucleus_token.txt)' >> ~/.bashrc
-
-WORKDIR /root/AirLab-Autonomy-Stack
+WORKDIR /root/AirStack

@@ -90,25 +90,21 @@ class Drone:
 
     def update_state_from_mavlink(self, args):
         args  # is required function definition for the physics callback
-        r = self._dronekit_connection._roll + np.pi / 2
-        p = self._dronekit_connection._pitch
-        y = self._dronekit_connection._yaw
 
-        rot = Rotation.from_euler("xyz", [r, p, y], degrees=False)
-        # quaternion: xyzw
-        q = rot.as_quat()
-
-        o = [q[3], q[0], q[1], q[2]]
+        # MAVLink is in NED frame, but Isaac is in FLU frame
+        rot_ned = Rotation.from_euler("xyz", [self._dronekit_connection._roll, self._dronekit_connection._pitch, self._dronekit_connection._yaw], degrees=False)
+        q_ned = rot_ned.as_quat()
+        qw, qx, qy, qz = q_ned
+        # q_in_enu = qw, qy, qx, -qz
 
         n, e, d = (
-            self._dronekit_connection.location.local_frame.east,
             self._dronekit_connection.location.local_frame.north,
+            self._dronekit_connection.location.local_frame.east,
             self._dronekit_connection.location.local_frame.down,
         )
         if d is not None:
-            # quaternion: wxyz
-            p = (e, n, -d)  # enu
-            self.set_world_pose(p, o)
+            p = (n, -e, -d)  # FLU
+            self.set_world_pose(p, q_ned)
         else:
             print("Drone location from dronekit is None")
 
@@ -170,8 +166,8 @@ camera_prim = UsdGeom.Camera(
 )
 xform_api = UsdGeom.XformCommonAPI(camera_prim)
 xform_api.SetTranslate(Gf.Vec3d(0, 0, 0.1))
-xform_api.SetRotate((0, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
-# xform_api.SetRotate((90, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
+# xform_api.SetRotate((0, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
+xform_api.SetRotate((90, 0, 0), UsdGeom.XformCommonAPI.RotationOrderXYZ)  # face forward
 camera_prim.GetHorizontalApertureAttr().Set(21)
 camera_prim.GetVerticalApertureAttr().Set(16)
 camera_prim.GetProjectionAttr().Set("perspective")
