@@ -39,7 +39,7 @@ nav:
       - "Getting Started": "user_guide/getting_started.md"
       - "Tutorials":
           - "Overview": "user_guide/tutorials/overview.md"
-          - "Running the Stack": "user_guide/tutorials/running_the_stack.md"
+          - "Launch": "user_guide/tutorials/launch.md"
       - "Planners": "user_guide/planners.md"
       - "API Reference": "user_guide/api_reference.md"
   - "Developer Guide":

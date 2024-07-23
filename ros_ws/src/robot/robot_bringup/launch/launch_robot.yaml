@@ -1,24 +1,20 @@
 launch:
+  # args that can be set from the command line or a default will be used
   - arg:
-      - name: "robot_name"
-        default: "robot"
+      name: "robot_name"
+      default: "robot1"
+
+  # include another launch file in the chatter_ns namespace
   - group:
-      - push-ros-namespace:
-          namespace: "$(arg robot_name)"
-
-
-      # autonomy
+      - push_ros_namespace:
+          namespace: "$(var robot_name)"
+      # AUTONOMY
+      # controls
       - include:
-        file: "src/robot/autonomy/perception/launch/launch_perception.yaml"
-
-      - include:
-        file: "src/robot/autonomy/mapping/launch/launch_mapping.yaml"
-
-      - include:
-        file: "src/robot/autonomy/planning/launch/launch_planning.yaml"
-
-      - include:
-        file: "src/robot/autonomy/navigation/launch/launch_navigation.yaml"
-
-      - include:
-        file: "src/robot/autonomy/controls/launch/launch_controls.yaml"
+          file: "$(find-pkg-share controls_bringup)/launch/launch_controls.yaml"
+  - node:
+      pkg: "rviz2"
+      exec: "rviz2"
+      name: "rviz2_robot"
+      namespace: "$(var robot_name)"
+      args: "-d $(find-pkg-share robot_bringup)/rviz/robot.rviz"
