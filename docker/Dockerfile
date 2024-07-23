@@ -24,7 +24,11 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/r
 RUN apt update
 RUN apt upgrade -y
 RUN apt install ros-humble-desktop ros-dev-tools -y
-RUN rosdep init && rosdep update
+RUN rosdep init
+# custom rosdep in case we want to ignore anything https://github.com/ros-infrastructure/rosdep/issues/649#issuecomment-455127742
+COPY docker/custom_rosdep.yaml /etc/ros/rosdep/
+RUN echo "yaml file:///etc/ros/rosdep/custom_rosdep.yaml" > /etc/ros/rosdep/sources.list.d/5-default.list
+RUN rosdep update
 
 # Package dependencies
 # perform ROS dependency installation for our workspace.
@@ -38,8 +42,8 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/p
 RUN apt-get update
 RUN apt-get install -y gz-harmonic
 
-# vdb_mapping
-# Build and install patched version of OpenVDB (see https://github.com/SteveMacenski/spatio_temporal_voxel_layer/issues/232).
+# package vdb_mapping
+# Build and install patched version of OpenVDB (see https://github.com/SteveMacenski/spatio_temporal_voxel_layer/issues/232). Hopefully this gets fixed in the future.
 RUN apt-get remove -y libopenvdb*; apt-get update && apt-get install -y libboost-system-dev libboost-iostreams-dev libtbb-dev libblosc-dev; \
     git clone --recurse --branch v8.2.0-debian https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
     mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
@@ -47,13 +51,16 @@ RUN apt-get remove -y libopenvdb*; apt-get update && apt-get install -y libboost
     make -j8 && make install && \
     cd ..; rm -rf /opt/openvdb/build
 
+# Install ROS2 packages
+RUN apt install ros-humble-tf2* -y
+
 # Install MAVROS
 RUN apt install ros-humble-mavros -y
 RUN wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh && chmod +x install_geographiclib_datasets.sh && ./install_geographiclib_datasets.sh
 
 
 # Install isaac sim python dependencies. we might not need all of these
-RUN /isaac-sim/python.sh -m pip install scipy
+RUN /isaac-sim/python.sh -m pip install wheel scipy
 RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
 # Install python dependencies for mavlink:
 RUN apt install python3-dev python3-opencv python3-wxgtk4.0 python3-pip python3-matplotlib python3-lxml python3-pygame -y

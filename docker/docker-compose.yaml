@@ -15,8 +15,14 @@ services:
     image: theairlab.org/airstack-dev:latest
     container_name: airstack_dev
     entrypoint: bash
+    # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
+    # Networking and IPC for ROS 2
+    network_mode: host
+    ipc: host
+    # Needed to display graphical applications
+    privileged: true
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
@@ -31,7 +37,6 @@ services:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
               capabilities: [gpu]
-    network_mode: host
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
