@@ -4,10 +4,11 @@ services:
     profiles: ["build"]
     image: theairlab.org/airstack-dev
     build:
-      context: .
+      context: ../
+      dockerfile: docker/Dockerfile
       tags:
         - theairlab.org/airstack-dev:latest
-        - theairlab.org/airstack-dev:0.1.0
+        - theairlab.org/airstack-dev:0.2.0-pre
 
   # main dev container
   airstack_dev:
