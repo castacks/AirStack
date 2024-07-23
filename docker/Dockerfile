@@ -31,6 +31,13 @@ RUN rosdep init && rosdep update
 COPY ros_ws/src /tmp/ros_ws/src
 RUN rosdep install --from-paths /tmp/ros_ws/src --ignore-src -r -y && rm -rf /tmp/ros_ws
 
+# Install Gazebo Harmonic
+RUN apt-get update && apt-get install -y lsb-release gnupg
+RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+RUN apt-get update
+RUN apt-get install -y gz-harmonic
+
 # vdb_mapping
 # Build and install patched version of OpenVDB (see https://github.com/SteveMacenski/spatio_temporal_voxel_layer/issues/232).
 RUN apt-get remove -y libopenvdb*; apt-get update && apt-get install -y libboost-system-dev libboost-iostreams-dev libtbb-dev libblosc-dev; \
