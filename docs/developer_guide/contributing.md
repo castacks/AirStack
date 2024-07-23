@@ -2,6 +2,12 @@
 
 This page describes how to merge content back into main.
 
+## Dependencies
+Make sure to add your ROS2 package dependencies to your `package.xml` file.
+These get installed when the docker image is built.
+
+If you need to add a dependency that's not in the docker image, please add a section to the `Dockerfile` in the `docker/` directory.
+
 ## Documentation
 
 Please make sure to document your work.

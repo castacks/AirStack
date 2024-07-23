@@ -36,7 +36,6 @@ nav:
   - "Home": "index.md"
   - "User Guide":
       - "Getting Started": "user_guide/getting_started.md"
-      - "Installation": "user_guide/installation.md"
       - "Tutorials":
           - "Overview": "user_guide/tutorials/overview.md"
           - "Running the Stack": "user_guide/tutorials/running_the_stack.md"
@@ -54,6 +53,7 @@ nav:
       - "Simulation": "developer_guide/simulation.md"
       - "Contributing": "developer_guide/contributing.md"
   - "About": "about.md"
+  - "AirLab Website": "https://theairlab.org"
 
 repo_url: https://github.com/castacks/AirStack
 repo_name: castacks/AirStack
