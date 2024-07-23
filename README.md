@@ -58,7 +58,7 @@ docker compose exec airstack_dev bash
 
 # in docker
 bws && sws # build workspace and source workspace. these are aliases in ~/.bashrc
-ros2 launch ros_ws/src/robot/autonomy/controls/launch/launch_controls.yaml
+ros2 launch controls_bringup launch_controls.yaml
 ```
 
 Launch simulator (Isaac Sim and Ascent SITL):
