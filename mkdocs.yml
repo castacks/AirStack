@@ -34,7 +34,7 @@ plugins:
   - search
 
 nav:
-  - "Home": "index.md"
+  - "Home": "README.md"
   - "User Guide":
       - "Getting Started": "user_guide/getting_started.md"
       - "Tutorials":
