@@ -80,13 +80,13 @@ docker compose exec airstack_dev bash
 
 # in docker
 # set drone mode to GUIDED
-ros2 service call /controls/mavros/set_mode mavros_msgs/SetMode "custom_mode: 'GUIDED'"
+ros2 service call /robot1/controls/mavros/set_mode mavros_msgs/SetMode "custom_mode: 'GUIDED'"
 # ARM
-ros2 service call /controls/mavros/cmd/arming mavros_msgs/srv/CommandBool "{value: True}"
+ros2 service call /robot1/controls/mavros/cmd/arming mavros_msgs/srv/CommandBool "{value: True}"
 # TAKEOFF
-ros2 service call /controls/mavros/cmd/takeoff mavros_msgs/srv/CommandTOL "{altitude: 5}"
+ros2 service call /robot1/controls/mavros/cmd/takeoff mavros_msgs/srv/CommandTOL "{altitude: 5}"
 # FLY TO POSITION. Put whatever position you want
-ros2 topic pub /controls/mavros/setpoint_position/local geometry_msgs/PoseStamped "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'base_link' }, pose: { position: { x: 10.0, y: 0.0, z: 20.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } } }" -1
+ros2 topic pub /robot1/controls/mavros/setpoint_position/local geometry_msgs/PoseStamped "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'base_link' }, pose: { position: { x: 10.0, y: 0.0, z: 20.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } } }" -1
 ```
 
 # Edit Docs
