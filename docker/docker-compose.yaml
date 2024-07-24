@@ -52,6 +52,7 @@ services:
       # autonomy stack stuff
       - ./..:/root/AirStack:rw
       # developer stuff
+      - .bashrc:/root/.bashrc:rw # bash config
       - ~/.bash_history:/root/.bash_history:rw # save cmdline history
 
     restart: unless-stopped
