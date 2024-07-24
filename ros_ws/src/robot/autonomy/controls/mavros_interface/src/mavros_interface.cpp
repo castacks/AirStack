@@ -35,8 +35,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     mavros_msgs::msg::State current_state_;
 
     // data from the flight control unit (FCU)
-    bool is_fcu_yaw_received_ = false;
-    float fcu_yaw_ = 0.0;
+    bool is_yaw_received_ = false;
+    float yaw_ = 0.0;
 
     // Services
 
@@ -53,12 +53,13 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     // subscriber for state messages
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub_;
 
-    // subscriber for pixhawk pose messages
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr fcu_pose_sub_;
+    // subscriber for odometry messages
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr mavros_odometry_sub_;
 
    public:
     MAVROSInterface()
         : RobotInterface("mavros_interface"),
+          // gets the parent namespace of the node to prepend to other topics
           parent_namespace_(std::filesystem::path(this->get_namespace()).parent_path().string()),
           // services
           set_mode_client_(this->create_client<mavros_msgs::srv::SetMode>(parent_namespace_ +
@@ -74,9 +75,9 @@ class MAVROSInterface : public robot_interface::RobotInterface {
           state_sub_(this->create_subscription<mavros_msgs::msg::State>(
               parent_namespace_ + "/mavros/state", 1,
               std::bind(&MAVROSInterface::state_callback, this, std::placeholders::_1))),
-          fcu_pose_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-              parent_namespace_ + "/mavros/local_position/pose", 1,
-              std::bind(&MAVROSInterface::fcu_pose_callback, this, std::placeholders::_1))) {
+          mavros_odometry_sub_(this->create_subscription<nav_msgs::msg::Odometry>(
+              parent_namespace_ + "/mavros/local_position/odom", rclcpp::SensorDataQoS(), 
+              std::bind(&MAVROSInterface::mavros_odometry_callback, this, std::placeholders::_1))) {
         RCLCPP_INFO_STREAM(this->get_logger(), "my namespace is " << parent_namespace_);
     }
 
@@ -88,7 +89,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     // Attitude Controls
 
-    void attitude_thrust_callback(
+    void cmd_attitude_thrust_callback(
         const mav_msgs::msg::AttitudeThrust::SharedPtr desired_cmd) override {
         mavros_msgs::msg::AttitudeTarget mavros_cmd;
         mavros_cmd.header.stamp = this->get_clock()->now();  //.to_msg();
@@ -102,9 +103,9 @@ class MAVROSInterface : public robot_interface::RobotInterface {
         attitude_target_pub_->publish(mavros_cmd);
     }
 
-    void roll_pitch_yawrate_thrust_callback(
+    void cmd_roll_pitch_yawrate_thrust_callback(
         const mav_msgs::msg::RollPitchYawrateThrust::SharedPtr desired_cmd) override {
-        if (!this->is_fcu_yaw_received_) {
+        if (!this->is_yaw_received_) {
             RCLCPP_WARN_STREAM_ONCE(this->get_logger(),
                                     "roll_pitch_yawrate_thrust command called but haven't yet "
                                     "received drone current yaw");
@@ -116,7 +117,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
         mavros_cmd.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE |
                                mavros_msgs::msg::AttitudeTarget::IGNORE_PITCH_RATE;
         tf2::Matrix3x3 m;
-        m.setRPY(desired_cmd->roll, desired_cmd->pitch, this->fcu_yaw_);
+        m.setRPY(desired_cmd->roll, desired_cmd->pitch, this->yaw_);
         tf2::Quaternion q;
         m.getRotation(q);
         mavros_cmd.body_rate.z = desired_cmd->yaw_rate;
@@ -132,7 +133,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     // Position Controls
 
-    void position_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) override {
+    void cmd_position_callback(
+        const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) override {
         RCLCPP_DEBUG(this->get_logger(), "received pose desired_cmd: pose_callback");
 
         geometry_msgs::msg::PoseStamped desired_cmd_copy = *desired_cmd;
@@ -195,20 +197,31 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     // Subscriber Callbacks
 
     /**
-     * @brief Get the current Yaw from the Pixhawk. This is used to provide the
-     * current yaw to the PitchRollYawrateThrust command, so that the drone
-     * doesn't try to set its yaw to zero.
-     *
-     * @param pose
+     * @brief Forwards the odometry message from mavros to the odometry publisher
+     * 
+     * @param msg 
      */
-    void fcu_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose) {
-        tf2::Quaternion q(pose->pose.orientation.x, pose->pose.orientation.y,
-                          pose->pose.orientation.z, pose->pose.orientation.w);
+    void mavros_odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+        // update receiving the yaw
+        tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z,
+                          msg->pose.pose.orientation.w);
         double roll, pitch, yaw;
         tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
-        this->is_fcu_yaw_received_ = true;
-        this->fcu_yaw_ = yaw;
+        this->is_yaw_received_ = true;
+        this->yaw_ = yaw;
+
+        // update the TF and odometry publisher
+        geometry_msgs::msg::TransformStamped t;
+        t.header = msg->header;
+        t.child_frame_id = "base_link";
+        t.transform.translation.x = msg->pose.pose.position.x;
+        t.transform.translation.y = msg->pose.pose.position.y;
+        t.transform.translation.z = msg->pose.pose.position.z;
+        t.transform.rotation = msg->pose.pose.orientation;
+        // Send the transformation
+        tf_broadcaster_->sendTransform(t);
+        odometry_pub_->publish(*msg);
     }
 };
 

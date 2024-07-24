@@ -11,6 +11,8 @@ find_package(rclcpp REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_library(robot_interface src/robot_interface.cpp)
 target_include_directories(robot_interface PUBLIC
@@ -19,13 +21,16 @@ target_include_directories(robot_interface PUBLIC
 target_compile_features(robot_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
 ament_target_dependencies(
   robot_interface
-  rclcpp
-  mav_msgs
+  # Required dependencies
   geometry_msgs
+  mav_msgs
   pluginlib
+  rclcpp
+  tf2
+  tf2_ros
 )
 ament_export_targets(robot_interface HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp mav_msgs geometry_msgs)
+ament_export_dependencies(rclcpp mav_msgs geometry_msgs tf2 tf2_ros)
 
 install(TARGETS robot_interface
   DESTINATION lib/${PROJECT_NAME})
@@ -34,7 +39,7 @@ add_executable(robot_interface_node src/robot_interface_node.cpp)
 target_include_directories(robot_interface_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-ament_target_dependencies(robot_interface_node rclcpp pluginlib mav_msgs)
+ament_target_dependencies(robot_interface_node rclcpp pluginlib mav_msgs tf2 tf2_ros)
 install(TARGETS robot_interface_node
   DESTINATION lib/${PROJECT_NAME})
 

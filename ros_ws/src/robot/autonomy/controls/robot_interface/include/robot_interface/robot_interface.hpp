@@ -15,6 +15,10 @@
 
 #pragma once
 
+#include <tf2_ros/transform_broadcaster.h>
+
+#include <nav_msgs/msg/odometry.hpp>
+
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <mav_msgs/msg/attitude_thrust.hpp>
@@ -34,61 +38,76 @@ namespace robot_interface {
  * control logic.
  */
 class RobotInterface : public rclcpp::Node {
-    rclcpp::Subscription<mav_msgs::msg::AttitudeThrust>::SharedPtr attitude_thrust_sub_;
-    rclcpp::Subscription<mav_msgs::msg::RateThrust>::SharedPtr rate_thrust_sub_;
+    // Command subscribers
+    rclcpp::Subscription<mav_msgs::msg::AttitudeThrust>::SharedPtr cmd_attitude_thrust_sub_;
+    rclcpp::Subscription<mav_msgs::msg::RateThrust>::SharedPtr cmd_rate_thrust_sub_;
     rclcpp::Subscription<mav_msgs::msg::RollPitchYawrateThrust>::SharedPtr
-        roll_pitch_yawrate_thrust_sub_;
-    rclcpp::Subscription<mav_msgs::msg::TorqueThrust>::SharedPtr torque_thrust_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr position_sub_;
+        cmd_roll_pitch_yawrate_thrust_sub_;
+    rclcpp::Subscription<mav_msgs::msg::TorqueThrust>::SharedPtr cmd_torque_thrust_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_velocity_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr cmd_position_sub_;
 
    protected:
+    // TF broadcaster
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    // odometry publisher
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_pub_;
+
     RobotInterface(std::string interface_name)
         : Node(interface_name),
+          // TODO: should these be ROS actions instead?
           // Subscribers. These will bind the subclass' overriden version of the method
-          attitude_thrust_sub_(this->create_subscription<mav_msgs::msg::AttitudeThrust>(
-              "attitude_thrust", 10,
-              std::bind(&RobotInterface::attitude_thrust_callback, this, std::placeholders::_1))),
-          rate_thrust_sub_(this->create_subscription<mav_msgs::msg::RateThrust>(
-              "rate_thrust", 10,
-              std::bind(&RobotInterface::rate_thrust_callback, this, std::placeholders::_1))),
-          roll_pitch_yawrate_thrust_sub_(
+          cmd_attitude_thrust_sub_(this->create_subscription<mav_msgs::msg::AttitudeThrust>(
+              "cmd_attitude_thrust", 10,
+              std::bind(&RobotInterface::cmd_attitude_thrust_callback, this,
+                        std::placeholders::_1))),
+          cmd_rate_thrust_sub_(this->create_subscription<mav_msgs::msg::RateThrust>(
+              "cmd_rate_thrust", 10,
+              std::bind(&RobotInterface::cmd_rate_thrust_callback, this, std::placeholders::_1))),
+          cmd_roll_pitch_yawrate_thrust_sub_(
               this->create_subscription<mav_msgs::msg::RollPitchYawrateThrust>(
-                  "roll_pitch_yawrate_thrust", 10,
-                  std::bind(&RobotInterface::roll_pitch_yawrate_thrust_callback, this,
+                  "cmd_roll_pitch_yawrate_thrust", 10,
+                  std::bind(&RobotInterface::cmd_roll_pitch_yawrate_thrust_callback, this,
                             std::placeholders::_1))),
-          torque_thrust_sub_(this->create_subscription<mav_msgs::msg::TorqueThrust>(
-              "torque_thrust", 10,
-              std::bind(&RobotInterface::torque_thrust_callback, this, std::placeholders::_1))),
-          velocity_sub_(this->create_subscription<geometry_msgs::msg::TwistStamped>(
-              "velocity", 10,
-              std::bind(&RobotInterface::velocity_callback, this, std::placeholders::_1))),
-          position_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-              "position", 10,
-              std::bind(&RobotInterface::position_callback, this, std::placeholders::_1))) {}
+          cmd_torque_thrust_sub_(this->create_subscription<mav_msgs::msg::TorqueThrust>(
+              "cmd_torque_thrust", 10,
+              std::bind(&RobotInterface::cmd_torque_thrust_callback, this, std::placeholders::_1))),
+          cmd_velocity_sub_(this->create_subscription<geometry_msgs::msg::TwistStamped>(
+              "cmd_velocity", 10,
+              std::bind(&RobotInterface::cmd_velocity_callback, this, std::placeholders::_1))),
+          cmd_position_sub_(this->create_subscription<geometry_msgs::msg::PoseStamped>(
+              "cmd_position", 10,
+              std::bind(&RobotInterface::cmd_position_callback, this, std::placeholders::_1))),
+          // broadcasters
+          tf_broadcaster_(std::make_unique<tf2_ros::TransformBroadcaster>(this)),
+          odometry_pub_(this->create_publisher<nav_msgs::msg::Odometry>("odometry", 10))
+           {}
 
    public:
     // TODO add low thrust mode
 
     // Control callbacks.
-    virtual void attitude_thrust_callback(
+    virtual void cmd_attitude_thrust_callback(
         const mav_msgs::msg::AttitudeThrust::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Attitude thrust callback not implemented.");
     }
-    virtual void rate_thrust_callback(const mav_msgs::msg::RateThrust::SharedPtr desired_cmd) {
+    virtual void cmd_rate_thrust_callback(const mav_msgs::msg::RateThrust::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Rate thrust callback not implemented.");
     }
-    virtual void roll_pitch_yawrate_thrust_callback(
+    virtual void cmd_roll_pitch_yawrate_thrust_callback(
         const mav_msgs::msg::RollPitchYawrateThrust::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Roll pitch yawrate thrust callback not implemented.");
     }
-    virtual void torque_thrust_callback(const mav_msgs::msg::TorqueThrust::SharedPtr desired_cmd) {
+    virtual void cmd_torque_thrust_callback(
+        const mav_msgs::msg::TorqueThrust::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Torque thrust callback not implemented.");
     }
-    virtual void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr desired_cmd) {
+    virtual void cmd_velocity_callback(
+        const geometry_msgs::msg::TwistStamped::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Velocity callback not implemented.");
     }
-    virtual void position_callback(const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) {
+    virtual void cmd_position_callback(
+        const geometry_msgs::msg::PoseStamped::SharedPtr desired_cmd) {
         RCLCPP_WARN_ONCE(this->get_logger(), "Pose callback not implemented.");
     }
 
@@ -129,6 +148,7 @@ class RobotInterface : public rclcpp::Node {
      * @return false
      */
     virtual bool has_control() = 0;
+
 
     virtual ~RobotInterface() {}
 };
