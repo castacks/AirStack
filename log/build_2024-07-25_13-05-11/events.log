@@ -1,0 +1,218 @@
+[0.000000] (-) TimerEvent: {}
+[0.000223] (-) JobUnselected: {'identifier': 'controls_bringup'}
+[0.000302] (-) JobUnselected: {'identifier': 'dronekit'}
+[0.000332] (-) JobUnselected: {'identifier': 'mav_comm'}
+[0.000357] (-) JobUnselected: {'identifier': 'mav_msgs'}
+[0.000395] (-) JobUnselected: {'identifier': 'mav_planning_msgs'}
+[0.000476] (-) JobUnselected: {'identifier': 'mav_state_machine_msgs'}
+[0.000516] (-) JobUnselected: {'identifier': 'mav_system_msgs'}
+[0.000564] (-) JobUnselected: {'identifier': 'mavros_interface'}
+[0.000611] (-) JobUnselected: {'identifier': 'px4_msgs'}
+[0.000651] (-) JobUnselected: {'identifier': 'px4_ros_com'}
+[0.000726] (-) JobUnselected: {'identifier': 'robot_bringup'}
+[0.000768] (-) JobUnselected: {'identifier': 'robot_interface'}
+[0.000828] (-) JobUnselected: {'identifier': 'vdb_mapping'}
+[0.000871] (-) JobUnselected: {'identifier': 'vdb_mapping_interfaces'}
+[0.000896] (-) JobUnselected: {'identifier': 'vdb_mapping_ros2'}
+[0.000927] (disparity_expansion) JobQueued: {'identifier': 'disparity_expansion', 'dependencies': OrderedDict()}
+[0.000957] (disparity_expansion) JobStarted: {'identifier': 'disparity_expansion'}
+[0.008960] (disparity_expansion) JobProgress: {'identifier': 'disparity_expansion', 'progress': 'cmake'}
+[0.009203] (disparity_expansion) Command: {'cmd': ['/usr/bin/cmake', '/root/AirStack/ros_ws/src/robot/autonomy/planning/local/disparity_expansion', '-DCMAKE_INSTALL_PREFIX=/root/AirStack/install/disparity_expansion'], 'cwd': '/root/AirStack/build/disparity_expansion', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('HOSTNAME', 'wildfire-desktop'), ('ISAACSIM_PATH', '/isaac-sim'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/lib:/root/AirStack/ros_ws/install/vdb_mapping/lib:/root/AirStack/ros_ws/install/mavros_interface/lib:/root/AirStack/ros_ws/install/robot_interface/lib:/root/AirStack/ros_ws/install/px4_ros_com/lib:/root/AirStack/ros_ws/install/px4_msgs/lib:/root/AirStack/ros_ws/install/mav_system_msgs/lib:/root/AirStack/ros_ws/install/mav_state_machine_msgs/lib:/root/AirStack/ros_ws/install/mav_planning_msgs/lib:/root/AirStack/ros_ws/install/mav_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('MIN_DRIVER_VERSION', '525.60.11'), ('ROS_PYTHON_VERSION', '3'), ('LC_CTYPE', 'C.UTF-8'), ('COLCON_PREFIX_PATH', '/root/AirStack/ros_ws/install'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('PKG_CONFIG_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/x86_64-linux-gnu/pkgconfig:/root/AirStack/ros_ws/install/vdb_mapping/lib/pkgconfig'), ('NVIDIA_DRIVER_CAPABILITIES', 'all'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('VK_DRIVER_FILES', '/etc/vulkan/icd.d/nvidia_icd.json'), ('DISPLAY', ':1'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup:/opt/ros/humble'), ('OMNI_PASS', 'admin'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('ACCEPT_EULA', 'Y'), ('CMAKE_MODULE_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/cmake/vdb_mapping'), ('OMNI_SERVER', 'http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.0'), ('PWD', '/root/AirStack/build/disparity_expansion'), ('OMNI_USER', 'admin'), ('PYTHONPATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_planning_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('TZ', 'America/New_York'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/vdb_mapping:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup')]), 'shell': False}
+[0.076923] (disparity_expansion) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[0.099504] (-) TimerEvent: {}
+[0.142553] (disparity_expansion) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[0.152843] (disparity_expansion) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.199578] (-) TimerEvent: {}
+[0.232811] (disparity_expansion) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.241310] (disparity_expansion) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.241637] (disparity_expansion) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.242099] (disparity_expansion) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.245893] (disparity_expansion) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.299666] (-) TimerEvent: {}
+[0.335719] (disparity_expansion) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.345121] (disparity_expansion) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.345351] (disparity_expansion) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.345723] (disparity_expansion) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.349760] (disparity_expansion) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.9 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.399741] (-) TimerEvent: {}
+[0.499983] (-) TimerEvent: {}
+[0.507207] (disparity_expansion) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter \n'}
+[0.600054] (-) TimerEvent: {}
+[0.624519] (disparity_expansion) StdoutLine: {'line': b'-- Found rclcpp: 16.0.9 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[0.682130] (disparity_expansion) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.5 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[0.690014] (disparity_expansion) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.5 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[0.700125] (-) TimerEvent: {}
+[0.700581] (disparity_expansion) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.5 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[0.716634] (disparity_expansion) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.738694] (disparity_expansion) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.800202] (-) TimerEvent: {}
+[0.815354] (disparity_expansion) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[0.819530] (disparity_expansion) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.6 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[0.900305] (-) TimerEvent: {}
+[0.978649] (disparity_expansion) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  \n'}
+[1.000380] (-) TimerEvent: {}
+[1.023418] (disparity_expansion) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/humble/include  \n'}
+[1.098447] (disparity_expansion) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[1.100456] (-) TimerEvent: {}
+[1.115495] (disparity_expansion) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[1.197278] (disparity_expansion) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[1.197928] (disparity_expansion) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[1.200523] (-) TimerEvent: {}
+[1.299611] (disparity_expansion) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[1.300602] (-) TimerEvent: {}
+[1.301255] (disparity_expansion) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[1.400685] (-) TimerEvent: {}
+[1.448851] (disparity_expansion) StdoutLine: {'line': b'-- Found cv_bridge: 3.2.1 (/opt/ros/humble/share/cv_bridge/cmake)\n'}
+[1.500941] (-) TimerEvent: {}
+[1.577304] (disparity_expansion) StdoutLine: {'line': b'-- Found image_geometry: 3.2.1 (/opt/ros/humble/share/image_geometry/cmake)\n'}
+[1.586315] (disparity_expansion) StdoutLine: {'line': b'-- Found image_transport: 3.1.9 (/opt/ros/humble/share/image_transport/cmake)\n'}
+[1.601047] (-) TimerEvent: {}
+[1.651541] (disparity_expansion) StdoutLine: {'line': b'-- Found tf2: 0.25.7 (/opt/ros/humble/share/tf2/cmake)\n'}
+[1.660703] (disparity_expansion) StdoutLine: {'line': b'-- Found OpenCV: /usr (found version "4.5.4") \n'}
+[1.682589] (disparity_expansion) StdoutLine: {'line': b"-- Checking for module 'eigen3'\n"}
+[1.701133] (-) TimerEvent: {}
+[1.707534] (disparity_expansion) StdoutLine: {'line': b'--   Found eigen3, version 3.4.0\n'}
+[1.769977] (disparity_expansion) StdoutLine: {'line': b'-- Found Eigen: /usr/include/eigen3 (Required is at least version "3.1") \n'}
+[1.770220] (disparity_expansion) StdoutLine: {'line': b'-- Eigen found (include: /usr/include/eigen3, version: 3.4.0)\n'}
+[1.795592] (disparity_expansion) StdoutLine: {'line': b'-- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found suitable version "1.74.0", minimum required is "1.65.0") found components: system filesystem date_time iostreams serialization \n'}
+[1.801208] (-) TimerEvent: {}
+[1.823388] (disparity_expansion) StdoutLine: {'line': b"-- Checking for module 'flann'\n"}
+[1.848308] (disparity_expansion) StdoutLine: {'line': b'--   Found flann, version 1.9.1\n'}
+[1.901287] (-) TimerEvent: {}
+[1.916439] (disparity_expansion) StdoutLine: {'line': b'-- Found FLANN: /usr/lib/x86_64-linux-gnu/libflann_cpp.so  \n'}
+[1.916653] (disparity_expansion) StdoutLine: {'line': b'-- FLANN found (include: /usr/include, lib: /usr/lib/x86_64-linux-gnu/libflann_cpp.so)\n'}
+[1.948553] (disparity_expansion) StdoutLine: {'line': b'-- Found GLEW: /usr/lib/x86_64-linux-gnu/libGLEW.so  \n'}
+[1.952645] (disparity_expansion) StdoutLine: {'line': b'-- Found OpenGL: /usr/lib/x86_64-linux-gnu/libOpenGL.so  found components: OpenGL GLX \n'}
+[2.001361] (-) TimerEvent: {}
+[2.101583] (-) TimerEvent: {}
+[2.148219] (disparity_expansion) StdoutLine: {'line': b'-- Found MPI_C: /usr/lib/x86_64-linux-gnu/libmpi.so (found version "3.1") \n'}
+[2.148598] (disparity_expansion) StdoutLine: {'line': b'-- Found MPI: TRUE (found version "3.1") found components: C \n'}
+[2.151926] (disparity_expansion) StdoutLine: {'line': b'-- Found JsonCpp: /usr/lib/x86_64-linux-gnu/libjsoncpp.so (found suitable version "1.9.5", minimum required is "0.7.0") \n'}
+[2.159663] (disparity_expansion) StdoutLine: {'line': b'-- Found ZLIB: /usr/lib/x86_64-linux-gnu/libz.so (found version "1.2.11") \n'}
+[2.172838] (disparity_expansion) StdoutLine: {'line': b'-- Found PNG: /usr/lib/x86_64-linux-gnu/libpng.so (found version "1.6.37") \n'}
+[2.183282] (disparity_expansion) StdoutLine: {'line': b'-- Found Eigen3: /usr/include/eigen3 (found version "3.4.0") \n'}
+[2.201653] (-) TimerEvent: {}
+[2.301879] (-) TimerEvent: {}
+[2.311982] (disparity_expansion) StdoutLine: {'line': b'-- Found X11: /usr/include   \n'}
+[2.312328] (disparity_expansion) StdoutLine: {'line': b'-- Looking for XOpenDisplay in /usr/lib/x86_64-linux-gnu/libX11.so;/usr/lib/x86_64-linux-gnu/libXext.so\n'}
+[2.401950] (-) TimerEvent: {}
+[2.414314] (disparity_expansion) StdoutLine: {'line': b'-- Looking for XOpenDisplay in /usr/lib/x86_64-linux-gnu/libX11.so;/usr/lib/x86_64-linux-gnu/libXext.so - found\n'}
+[2.414503] (disparity_expansion) StdoutLine: {'line': b'-- Looking for gethostbyname\n'}
+[2.502032] (-) TimerEvent: {}
+[2.504198] (disparity_expansion) StdoutLine: {'line': b'-- Looking for gethostbyname - found\n'}
+[2.504392] (disparity_expansion) StdoutLine: {'line': b'-- Looking for connect\n'}
+[2.593144] (disparity_expansion) StdoutLine: {'line': b'-- Looking for connect - found\n'}
+[2.593307] (disparity_expansion) StdoutLine: {'line': b'-- Looking for remove\n'}
+[2.602098] (-) TimerEvent: {}
+[2.697789] (disparity_expansion) StdoutLine: {'line': b'-- Looking for remove - found\n'}
+[2.697975] (disparity_expansion) StdoutLine: {'line': b'-- Looking for shmat\n'}
+[2.702172] (-) TimerEvent: {}
+[2.795212] (disparity_expansion) StdoutLine: {'line': b'-- Looking for shmat - found\n'}
+[2.795422] (disparity_expansion) StdoutLine: {'line': b'-- Looking for IceConnectionNumber in ICE\n'}
+[2.802247] (-) TimerEvent: {}
+[2.888573] (disparity_expansion) StdoutLine: {'line': b'-- Looking for IceConnectionNumber in ICE - found\n'}
+[2.902329] (-) TimerEvent: {}
+[3.002536] (-) TimerEvent: {}
+[3.020662] (disparity_expansion) StdoutLine: {'line': b'-- Found EXPAT: /usr/lib/x86_64-linux-gnu/libexpat.so (found version "2.4.7") \n'}
+[3.022977] (disparity_expansion) StdoutLine: {'line': b'-- Found double-conversion: /usr/lib/x86_64-linux-gnu/libdouble-conversion.so  \n'}
+[3.024615] (disparity_expansion) StdoutLine: {'line': b'-- Found LZ4: /usr/lib/x86_64-linux-gnu/liblz4.so (found version "1.9.3") \n'}
+[3.025795] (disparity_expansion) StdoutLine: {'line': b'-- Found LZMA: /usr/lib/x86_64-linux-gnu/liblzma.so (found version "5.2.5") \n'}
+[3.037673] (disparity_expansion) StdoutLine: {'line': b'-- Found JPEG: /usr/lib/x86_64-linux-gnu/libjpeg.so (found version "80") \n'}
+[3.040972] (disparity_expansion) StdoutLine: {'line': b'-- Found TIFF: /usr/lib/x86_64-linux-gnu/libtiff.so (found version "4.3.0")  \n'}
+[3.044124] (disparity_expansion) StdoutLine: {'line': b'-- Found Freetype: /usr/lib/x86_64-linux-gnu/libfreetype.so (found version "2.11.1") \n'}
+[3.048780] (disparity_expansion) StdoutLine: {'line': b'-- Found utf8cpp: /usr/include/utf8cpp  \n'}
+[3.102619] (-) TimerEvent: {}
+[3.172090] (disparity_expansion) StdoutLine: {'line': b"-- Checking for module 'libusb-1.0'\n"}
+[3.198689] (disparity_expansion) StdoutLine: {'line': b'--   Found libusb-1.0, version 1.0.25\n'}
+[3.202690] (-) TimerEvent: {}
+[3.265939] (disparity_expansion) StdoutLine: {'line': b'-- Found libusb: /usr/lib/x86_64-linux-gnu/libusb-1.0.so  \n'}
+[3.267413] (disparity_expansion) StdoutLine: {'line': b'-- Found OpenNI: /usr/lib/libOpenNI.so;libusb::libusb (found version "1.5.4.0") \n'}
+[3.267539] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)\n'}
+[3.302763] (-) TimerEvent: {}
+[3.372722] (disparity_expansion) StdoutLine: {'line': b'-- Found OpenNI2: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb (found version "2.2.0.33") \n'}
+[3.372909] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI2 found (version: 2.2.0.33, include: /usr/include/openni2, lib: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb)\n'}
+[3.373052] (disparity_expansion) StderrLine: {'line': b'\x1b[0m** WARNING ** io features related to pcap will be disabled\x1b[0m\n'}
+[3.402834] (-) TimerEvent: {}
+[3.503057] (-) TimerEvent: {}
+[3.534485] (disparity_expansion) StdoutLine: {'line': b'-- Eigen found (include: /usr/include/eigen3, version: 3.4.0)\n'}
+[3.545371] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)\n'}
+[3.555947] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI2 found (version: 2.2.0.33, include: /usr/include/openni2, lib: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb)\n'}
+[3.603132] (-) TimerEvent: {}
+[3.703334] (-) TimerEvent: {}
+[3.712761] (disparity_expansion) StdoutLine: {'line': b'-- Found Qhull version 8.0.2\n'}
+[3.803423] (-) TimerEvent: {}
+[3.870677] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)\n'}
+[3.903499] (-) TimerEvent: {}
+[4.003692] (-) TimerEvent: {}
+[4.024039] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_COMMON\n'}
+[4.024595] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_COMMON: /usr/lib/x86_64-linux-gnu/libpcl_common.so  \n'}
+[4.024733] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_KDTREE\n'}
+[4.025203] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_KDTREE: /usr/lib/x86_64-linux-gnu/libpcl_kdtree.so  \n'}
+[4.025321] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_OCTREE\n'}
+[4.025820] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_OCTREE: /usr/lib/x86_64-linux-gnu/libpcl_octree.so  \n'}
+[4.025933] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_SEARCH\n'}
+[4.026408] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_SEARCH: /usr/lib/x86_64-linux-gnu/libpcl_search.so  \n'}
+[4.026528] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_SAMPLE_CONSENSUS\n'}
+[4.027034] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_SAMPLE_CONSENSUS: /usr/lib/x86_64-linux-gnu/libpcl_sample_consensus.so  \n'}
+[4.027145] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_FILTERS\n'}
+[4.027669] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_FILTERS: /usr/lib/x86_64-linux-gnu/libpcl_filters.so  \n'}
+[4.027809] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_2D\n'}
+[4.027969] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_2D: /usr/include/pcl-1.12  \n'}
+[4.028085] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_GEOMETRY\n'}
+[4.028251] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_GEOMETRY: /usr/include/pcl-1.12  \n'}
+[4.028369] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_IO\n'}
+[4.028814] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_IO: /usr/lib/x86_64-linux-gnu/libpcl_io.so  \n'}
+[4.028994] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_FEATURES\n'}
+[4.029502] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_FEATURES: /usr/lib/x86_64-linux-gnu/libpcl_features.so  \n'}
+[4.029671] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_ML\n'}
+[4.030170] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_ML: /usr/lib/x86_64-linux-gnu/libpcl_ml.so  \n'}
+[4.030285] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_SEGMENTATION\n'}
+[4.030761] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_SEGMENTATION: /usr/lib/x86_64-linux-gnu/libpcl_segmentation.so  \n'}
+[4.030954] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_VISUALIZATION\n'}
+[4.031464] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_VISUALIZATION: /usr/lib/x86_64-linux-gnu/libpcl_visualization.so  \n'}
+[4.031650] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_SURFACE\n'}
+[4.032153] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_SURFACE: /usr/lib/x86_64-linux-gnu/libpcl_surface.so  \n'}
+[4.032299] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_REGISTRATION\n'}
+[4.032793] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_REGISTRATION: /usr/lib/x86_64-linux-gnu/libpcl_registration.so  \n'}
+[4.032966] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_KEYPOINTS\n'}
+[4.033473] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_KEYPOINTS: /usr/lib/x86_64-linux-gnu/libpcl_keypoints.so  \n'}
+[4.033636] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_TRACKING\n'}
+[4.034134] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_TRACKING: /usr/lib/x86_64-linux-gnu/libpcl_tracking.so  \n'}
+[4.034278] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_RECOGNITION\n'}
+[4.034784] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_RECOGNITION: /usr/lib/x86_64-linux-gnu/libpcl_recognition.so  \n'}
+[4.034998] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_STEREO\n'}
+[4.035532] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_STEREO: /usr/lib/x86_64-linux-gnu/libpcl_stereo.so  \n'}
+[4.035645] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_APPS\n'}
+[4.036152] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_APPS: /usr/lib/x86_64-linux-gnu/libpcl_apps.so  \n'}
+[4.036564] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_IN_HAND_SCANNER\n'}
+[4.036750] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_IN_HAND_SCANNER: /usr/include/pcl-1.12  \n'}
+[4.036851] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_MODELER\n'}
+[4.037015] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_MODELER: /usr/include/pcl-1.12  \n'}
+[4.037116] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_POINT_CLOUD_EDITOR\n'}
+[4.037335] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_POINT_CLOUD_EDITOR: /usr/include/pcl-1.12  \n'}
+[4.037434] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_OUTOFCORE\n'}
+[4.037933] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_OUTOFCORE: /usr/lib/x86_64-linux-gnu/libpcl_outofcore.so  \n'}
+[4.038081] (disparity_expansion) StdoutLine: {'line': b'-- looking for PCL_PEOPLE\n'}
+[4.038594] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL_PEOPLE: /usr/lib/x86_64-linux-gnu/libpcl_people.so  \n'}
+[4.039219] (disparity_expansion) StdoutLine: {'line': b'-- Found PCL: pcl_common;pcl_kdtree;pcl_octree;pcl_search;pcl_sample_consensus;pcl_filters;pcl_io;pcl_features;pcl_ml;pcl_segmentation;pcl_visualization;pcl_surface;pcl_registration;pcl_keypoints;pcl_tracking;pcl_recognition;pcl_stereo;pcl_apps;pcl_outofcore;pcl_people;Boost::system;Boost::filesystem;Boost::date_time;Boost::iostreams;Boost::serialization;/usr/lib/libOpenNI.so;libusb::libusb;/usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb;VTK::ChartsCore;VTK::CommonColor;VTK::CommonComputationalGeometry;VTK::CommonCore;VTK::CommonDataModel;VTK::CommonExecutionModel;VTK::CommonMath;VTK::CommonMisc;VTK::CommonTransforms;VTK::FiltersCore;VTK::FiltersExtraction;VTK::FiltersGeneral;VTK::FiltersGeometry;VTK::FiltersModeling;VTK::FiltersSources;VTK::ImagingCore;VTK::ImagingSources;VTK::InteractionImage;VTK::InteractionStyle;VTK::InteractionWidgets;VTK::IOCore;VTK::IOGeometry;VTK::IOImage;VTK::IOLegacy;VTK::IOPLY;VTK::RenderingAnnotation;VTK::RenderingCore;VTK::RenderingContext2D;VTK::RenderingLOD;VTK::RenderingFreeType;VTK::ViewsCore;VTK::ViewsContext2D;VTK::RenderingOpenGL2;VTK::GUISupportQt;FLANN::FLANN;QHULL::QHULL (Required is at least version "1.7") \n'}
+[4.042538] (disparity_expansion) StdoutLine: {'line': b'-- Configuring done\n'}
+[4.061702] (disparity_expansion) StdoutLine: {'line': b'-- Generating done\n'}
+[4.063544] (disparity_expansion) StdoutLine: {'line': b'-- Build files have been written to: /root/AirStack/build/disparity_expansion\n'}
+[4.074975] (disparity_expansion) CommandEnded: {'returncode': 0}
+[4.075755] (disparity_expansion) JobProgress: {'identifier': 'disparity_expansion', 'progress': 'build'}
+[4.077015] (disparity_expansion) Command: {'cmd': ['/usr/bin/cmake', '--build', '/root/AirStack/build/disparity_expansion', '--', '-j12', '-l12'], 'cwd': '/root/AirStack/build/disparity_expansion', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('HOSTNAME', 'wildfire-desktop'), ('ISAACSIM_PATH', '/isaac-sim'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/lib:/root/AirStack/ros_ws/install/vdb_mapping/lib:/root/AirStack/ros_ws/install/mavros_interface/lib:/root/AirStack/ros_ws/install/robot_interface/lib:/root/AirStack/ros_ws/install/px4_ros_com/lib:/root/AirStack/ros_ws/install/px4_msgs/lib:/root/AirStack/ros_ws/install/mav_system_msgs/lib:/root/AirStack/ros_ws/install/mav_state_machine_msgs/lib:/root/AirStack/ros_ws/install/mav_planning_msgs/lib:/root/AirStack/ros_ws/install/mav_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('MIN_DRIVER_VERSION', '525.60.11'), ('ROS_PYTHON_VERSION', '3'), ('LC_CTYPE', 'C.UTF-8'), ('COLCON_PREFIX_PATH', '/root/AirStack/ros_ws/install'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('PKG_CONFIG_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/x86_64-linux-gnu/pkgconfig:/root/AirStack/ros_ws/install/vdb_mapping/lib/pkgconfig'), ('NVIDIA_DRIVER_CAPABILITIES', 'all'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('VK_DRIVER_FILES', '/etc/vulkan/icd.d/nvidia_icd.json'), ('DISPLAY', ':1'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup:/opt/ros/humble'), ('OMNI_PASS', 'admin'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('ACCEPT_EULA', 'Y'), ('CMAKE_MODULE_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/cmake/vdb_mapping'), ('OMNI_SERVER', 'http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.0'), ('PWD', '/root/AirStack/build/disparity_expansion'), ('OMNI_USER', 'admin'), ('PYTHONPATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_planning_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('TZ', 'America/New_York'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/vdb_mapping:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup')]), 'shell': False}
+[4.103756] (-) TimerEvent: {}
+[4.145324] (disparity_expansion) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding CXX object CMakeFiles/disparity_conv.dir/src/disparity_conv.cpp.o\x1b[0m\n'}
+[4.203841] (-) TimerEvent: {}
+[4.304084] (-) TimerEvent: {}
+[4.404531] (-) TimerEvent: {}
+[4.458257] (disparity_expansion) StderrLine: {'line': b'\x1b[01m\x1b[K/root/AirStack/ros_ws/src/robot/autonomy/planning/local/disparity_expansion/src/disparity_conv.cpp:42:10:\x1b[m\x1b[K \x1b[01;31m\x1b[Kfatal error: \x1b[m\x1b[Kpcl_ros/point_cloud.hpp: No such file or directory\n'}
+[4.458395] (disparity_expansion) StderrLine: {'line': b'   42 | #include \x1b[01;31m\x1b[K<pcl_ros/point_cloud.hpp>\x1b[m\x1b[K\n'}
+[4.458455] (disparity_expansion) StderrLine: {'line': b'      |          \x1b[01;31m\x1b[K^~~~~~~~~~~~~~~~~~~~~~~~~\x1b[m\x1b[K\n'}
+[4.458515] (disparity_expansion) StderrLine: {'line': b'compilation terminated.\n'}
+[4.467903] (disparity_expansion) StderrLine: {'line': b'gmake[2]: *** [CMakeFiles/disparity_conv.dir/build.make:76: CMakeFiles/disparity_conv.dir/src/disparity_conv.cpp.o] Error 1\n'}
+[4.468132] (disparity_expansion) StderrLine: {'line': b'gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/disparity_conv.dir/all] Error 2\n'}
+[4.468413] (disparity_expansion) StderrLine: {'line': b'gmake: *** [Makefile:101: all] Error 2\n'}
+[4.472204] (disparity_expansion) CommandEnded: {'returncode': 2}
+[4.472516] (disparity_expansion) JobEnded: {'identifier': 'disparity_expansion', 'rc': 2}
+[4.482633] (-) EventReactorShutdown: {}

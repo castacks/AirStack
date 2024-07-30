@@ -1,0 +1,53 @@
+[0.013s] Invoking command in '/root/AirStack/build/disparity_expansion': /usr/bin/cmake --build /root/AirStack/build/disparity_expansion -- -j12 -l12
+[0.042s] -- Found ament_cmake: 1.3.9 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.172s] -- Found rclcpp: 16.0.9 (/opt/ros/humble/share/rclcpp/cmake)
+[0.200s] -- Found rosidl_generator_c: 3.1.5 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[0.202s] -- Found rosidl_adapter: 3.1.5 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[0.207s] -- Found rosidl_generator_cpp: 3.1.5 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[0.217s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.230s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.280s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[0.282s] -- Found rmw_fastrtps_cpp: 6.2.6 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[0.456s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[0.585s] -- Found cv_bridge: 3.2.1 (/opt/ros/humble/share/cv_bridge/cmake)
+[0.701s] -- Found image_geometry: 3.2.1 (/opt/ros/humble/share/image_geometry/cmake)
+[0.707s] -- Found image_transport: 3.1.9 (/opt/ros/humble/share/image_transport/cmake)
+[0.746s] -- Found tf2: 0.25.7 (/opt/ros/humble/share/tf2/cmake)
+[0.755s] -- Found pcl_ros: 2.4.0 (/opt/ros/humble/share/pcl_ros/cmake)
+[0.992s] -- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/share/eigen3_cmake_module/cmake)
+[0.993s] -- Found Eigen3: TRUE (found version "3.4.0") 
+[0.993s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[1.334s] -- Eigen found (include: /usr/include/eigen3, version: 3.4.0)
+[1.379s] -- FLANN found (include: /usr/include, lib: /usr/lib/x86_64-linux-gnu/libflann_cpp.so)
+[1.726s] -- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)
+[1.737s] -- OpenNI2 found (version: 2.2.0.33, include: /usr/include/openni2, lib: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb)
+[1.894s] -- Eigen found (include: /usr/include/eigen3, version: 3.4.0)
+[1.906s] -- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)
+[1.917s] -- OpenNI2 found (version: 2.2.0.33, include: /usr/include/openni2, lib: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb)
+[2.074s] -- Found Qhull version 8.0.2
+[2.229s] -- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)
+[2.406s] [33mCMake Warning (dev) at CMakeLists.txt:29 (find_package):
+[2.406s]   Policy CMP0074 is not set: find_package uses <PackageName>_ROOT variables.
+[2.406s]   Run "cmake --help-policy CMP0074" for policy details.  Use the cmake_policy
+[2.406s]   command to set the policy and suppress this warning.
+[2.406s] 
+[2.407s]   CMake variable PCL_ROOT is set to:
+[2.407s] 
+[2.407s]     /usr
+[2.407s] 
+[2.407s]   For compatibility, CMake is ignoring the variable.
+[2.407s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[2.407s] [0m
+[2.424s] -- Configuring done
+[2.446s] -- Generating done
+[2.448s] -- Build files have been written to: /root/AirStack/build/disparity_expansion
+[2.498s] [ 50%] [32mBuilding CXX object CMakeFiles/disparity_conv.dir/src/disparity_conv.cpp.o[0m
+[2.825s] In file included from [01m[K/root/AirStack/ros_ws/src/robot/autonomy/planning/local/disparity_expansion/src/disparity_conv.cpp:42[m[K:
+[2.825s] [01m[K/opt/ros/humble/include/pcl_ros/point_cloud.hpp:45:10:[m[K [01;31m[Kfatal error: [m[Kros/ros.h: No such file or directory
+[2.825s]    45 | #include [01;31m[K<ros/ros.h>[m[K
+[2.826s]       |          [01;31m[K^~~~~~~~~~~[m[K
+[2.826s] compilation terminated.
+[2.835s] gmake[2]: *** [CMakeFiles/disparity_conv.dir/build.make:76: CMakeFiles/disparity_conv.dir/src/disparity_conv.cpp.o] Error 1
+[2.835s] gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/disparity_conv.dir/all] Error 2
+[2.835s] gmake: *** [Makefile:101: all] Error 2
+[2.838s] Invoked command in '/root/AirStack/build/disparity_expansion' returned '2': /usr/bin/cmake --build /root/AirStack/build/disparity_expansion -- -j12 -l12

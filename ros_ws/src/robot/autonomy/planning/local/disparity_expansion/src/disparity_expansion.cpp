@@ -6,6 +6,7 @@
 */
 
 //Applies C-Space expansion on disparity images.
+/*
 #include "ros/ros.h"
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/CameraInfo.h"
@@ -26,27 +27,68 @@
 #include <vector>
 #include <fstream>
 #include <stdio.h>
+*/
+
 
 #define SCALE 2.0 // num_units/pixel
+//#define lut_max_disparity_   165 // units
+#include <cv_bridge/cv_bridge.h>
+#include <image_geometry/pinhole_camera_model.h>
+#include <geometry_msgs/msg/polygon_stamped.hpp>
+#include <image_transport/image_transport.hpp>
+#include <stereo_msgs/msg/disparity_image.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <sensor_msgs/image_encodings.hpp>
+
+#include "opencv2/core/core.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "std_msgs/msg/header.hpp"
+// #include <pcl_ros/point_cloud.hpp>
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/time_synchronizer.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <cstdio>
+#include <fstream>
+#include <pcl/impl/point_types.hpp>
+#include <rclcpp/publisher.hpp>
+#include <rclcpp/subscription.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <vector>
+#include <cmath>
+
+//#define SCALE 2.0 // num_units/pixel
 //#define lut_max_disparity_   165 // units
 //#define robot_radius_      2.0 // in meters
 //for 2times Robsize = 0.0173 at 40m
 //15 = 0.0677
 #define DEPTH_ERROR_COEFF 0.0177
+//#define robot_radius_      2.0 // in meters
+//for 2times Robsize = 0.0173 at 40m
+//15 = 0.0677/
+//#define DEPTH_ERROR_COEFF 0.0177
 
 typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
-class disparity_expansion{
-public:
-    disparity_expansion(ros::NodeHandle& nh);
+class disparity_expansion : public rclcpp::Node
+{
 
-    ros::Publisher expansion_cloud_pub;
-    ros::Publisher expanded_disparity_fg_pub;
-    ros::Publisher expanded_disparity_bg_pub;
-    ros::Publisher expansion_poly_pub;
-    ros::Subscriber subs_;
-    ros::Subscriber cam_info_sub_;
-    ros::Subscriber disparity_sub_;
+public:
+    disparity_expansion(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr expansion_cloud_pub;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr expanded_disparity_fg_pub;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr expanded_disparity_bg_pub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr expansion_poly_pub;
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
+    rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
 
     double baseline;
     double downsample_scale;
@@ -54,38 +96,41 @@ public:
     bool got_cam_info;
     image_geometry::PinholeCameraModel model_;
 
-    void getCamInfo(const sensor_msgs::CameraInfo::ConstPtr &msg_info);
-  void stereoDisparityCb(const stereo_msgs::DisparityImage::ConstPtr &msg_disp);//sensor_msgs::Image::ConstPtr &msg_disp);
+    void getCamInfo(const sensor_msgs::msg::CameraInfo::ConstSharedPtr &msg_info);
+    void stereoDisparityCb(const stereo_msgs::msg::DisparityImage::ConstSharedPtr &msg_disp);
     void generateExpansionLUT();
 
     struct cell
     {
-      unsigned int idx1;
-      unsigned int idx2;
+        unsigned int idx1;
+        unsigned int idx2;
     };
-    int lut_max_disparity_;//   165 // units
-    double robot_radius_;//      2.0 // in meters
+    int lut_max_disparity_;
+    double robot_radius_;
     double padding_;
     double bg_multiplier_;
     double pixel_error_;
-    cell table_u[200][640];//[640];
-    cell table_v[200][480];//[512];
+    cell table_u[200][640];
+    cell table_v[200][480];
     double table_d[200];
-    double fx_,fy_,cx_,cy_;
-    unsigned int width,height;    
+    double fx_, fy_, cx_, cy_;
+    unsigned int width, height;
 };
+
+//################################################################################################################################################################################
+//################################################################################################################################################################################
 
 void disparity_expansion::generateExpansionLUT()
 {
     bool debug = false;
     if(debug)
     {
-        ROS_WARN("Expansion LUT Debug disabled creation");
+        RCLCPP_WARN(this->get_logger(), "Expansion LUT Debug disabled creation");
         LUT_ready = true;
     }
     if(LUT_ready)
     {
-        ROS_ERROR("LUT all ready");
+        RCLCPP_ERROR(this->get_logger(),"LUT all ready");
 //        sleep(1);
         return;
     }
@@ -93,7 +138,7 @@ void disparity_expansion::generateExpansionLUT()
     double center_y = cy_;
     double constant_x = 1.0 / fx_;
     double constant_y = 1.0 / fy_;
-    ROS_INFO("Fx Fy Cx Cy: %f %f , %f %f \nW H Baseline: %d %d %f",fx_,fy_,cx_,cy_,width,height,baseline);
+    RCLCPP_INFO(this->get_logger(),"Fx Fy Cx Cy: %f %f , %f %f \nW H Baseline: %d %d %f",fx_,fy_,cx_,cy_,width,height,baseline);
     double r = robot_radius_;//expansion radius in cm
     int u1,u2,v1,v2;
     double x,y,z;
@@ -125,7 +170,7 @@ void disparity_expansion::generateExpansionLUT()
             v2 = fy_*r2/z + center_y;
 
             if((v2-v1)<0)
-                ROS_ERROR("Something MESSED %d %d %d",v1,v2,disp_idx);
+                RCLCPP_ERROR(this->get_logger(),"Something MESSED %d %d %d",v1,v2,disp_idx);
 
             if(v1 < 0) v1 = 0;
             if(v1 > (height-1)) v1 = height-1;
@@ -150,7 +195,7 @@ void disparity_expansion::generateExpansionLUT()
             u2 = fx_*r2/z + center_x;
 
             if((u2-u1)<0)
-                ROS_ERROR("Something MESSED %d %d %d",u1,u2,disp_idx);
+                RCLCPP_ERROR(this->get_logger(), "Something MESSED %d %d %d",u1,u2,disp_idx);
 
             if(u1 < 0) u1 = 0;
             if(u1 > (width-1)) u1 = width-1;
@@ -168,40 +213,54 @@ void disparity_expansion::generateExpansionLUT()
 //        int d = 199;
 //        ROS_ERROR("window disp_idx u1 u2 \t %d \t%d \t%d",u,table_u[d][u].idx1,table_u[d][u].idx2);
 //    }
-    ROS_WARN("Expansion LUT created: LUT MAX: %d , ROBOT SIZE: %f",lut_max_disparity_/2,robot_radius_);
+    RCLCPP_WARN(this->get_logger(), "Expansion LUT created: LUT MAX: %d , ROBOT SIZE: %f",lut_max_disparity_/2,robot_radius_);
     LUT_ready = true;
 }
 
-void disparity_expansion::getCamInfo(const sensor_msgs::CameraInfo::ConstPtr& msg_info)
+//################################################################################################################
+//################################################################################################################
+void disparity_expansion::getCamInfo(const sensor_msgs::msg::CameraInfo::ConstSharedPtr &msg_info)
 {
     if(got_cam_info)
         return;
     model_.fromCameraInfo ( msg_info );
-    ROS_INFO_ONCE("Cam Info Recvd Fx Fy Cx Cy: %f %f , %f %f",model_.fx(),model_.fy(),model_.cx(),model_.cy());
+    RCLCPP_INFO_ONCE(this->get_logger(), "Cam Info Recvd Fx Fy Cx Cy: %f %f , %f %f",model_.fx(),model_.fy(),model_.cx(),model_.cy());
     cx_ = model_.cx()/downsample_scale;
     cy_ = model_.cy()/downsample_scale;
     fx_ = fy_ = model_.fx()/downsample_scale;
     width = msg_info->width/downsample_scale;
     height = msg_info->height/downsample_scale;
-    baseline = -msg_info->P[3]/msg_info->P[0];
+    baseline = -msg_info->p[3]/msg_info->p[0];
     baseline *=downsample_scale;
     generateExpansionLUT();
     got_cam_info = true;
 }
 
 
-void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::ConstPtr &msg_disp){//sensor_msgs::Image::ConstPtr &msg_disp){
+void disparity_expansion::stereoDisparityCb(const stereo_msgs::msg::DisparityImage::ConstSharedPtr &msg_disp){//sensor_msgs::Image::ConstPtr &msg_disp){
 //    ROS_INFO("Disparity CB");
 //    dimage = *msg_disp;
   std::cout << "hello" << std::endl;
 
     if(!LUT_ready)
     {
-        ROS_INFO_THROTTLE(1,"LUT not ready yet, not processing disparity");
+        auto& clk = *this->get_clock();
+        RCLCPP_INFO_THROTTLE(this->get_logger(),clk, 1,"LUT not ready yet, not processing disparity");
         return;
     }
 //        generateExpansionLUT();
+//#################################################################################
+    auto img_msg = std::make_shared<sensor_msgs::msg::Image>();
+    img_msg->header = msg_disp->header;
+    img_msg->height = msg_disp->image.height;
+    img_msg->width = msg_disp->image.width;
+    img_msg->encoding = msg_disp->image.encoding;
+    img_msg->is_bigendian = msg_disp->image.is_bigendian;
+    img_msg->step = msg_disp->image.step;
+    img_msg->data = msg_disp->image.data;
+//#########################################################3
 
+//    auto disparity_img_msg = msg_disp->image; 
     cv_bridge::CvImagePtr fg_msg(new cv_bridge::CvImage());
     cv_bridge::CvImagePtr bg_msg(new cv_bridge::CvImage());
 
@@ -209,11 +268,11 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
     cv_bridge::CvImageConstPtr cv_ptrdisparity;
     try
     {
-      cv_ptrdisparity = cv_bridge::toCvShare(sensor_msgs::ImageConstPtr(new sensor_msgs::Image(msg_disp->image)));
+      cv_ptrdisparity = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::TYPE_32FC1);
     }
     catch (cv_bridge::Exception& e)
     {
-       ROS_ERROR("cv_bridge exception: %s", e.what());
+       RCLCPP_ERROR(this->get_logger(),"cv_bridge exception: %s", e.what());
        return;
     }
     cv::Mat disparity32F = cv_ptrdisparity->image;
@@ -249,7 +308,7 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
     }
     catch (cv_bridge::Exception& e)
     {
-        ROS_ERROR("cv_bridge exception: %s", e.what());
+        RCLCPP_ERROR(this->get_logger(),"cv_bridge exception: %s", e.what());
         return;
     }
 
@@ -270,10 +329,10 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
 
 //        if ( di_msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1 )
         {
-            ROS_INFO_ONCE("IMG TYPE 32FC, GOOD");
+            RCLCPP_INFO_ONCE(this->get_logger(), "IMG TYPE 32FC, GOOD");
 //            int row_step = dimage.step / sizeof ( float );
 //            const float* disparity_row = reinterpret_cast<const float*> ( &dimage.data[0] );
-            ros::Time start = ros::Time::now();
+            rclcpp::Time start = this->get_clock()->now();
 
             float padding = padding_;
 
@@ -282,7 +341,7 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                 for ( int u = ( int ) width - 1; u >= 0; u-=1 )
                 {
                     float disparity_value = disparity32F.at<float>(v,u);//disparity_row[v * row_step + u];// + 0.5;
-                    if(!isnan(double(disparity_value)) && ((int(disparity_value*SCALE)+1) < lut_max_disparity_) && ((int(disparity_value*SCALE)+1) > 0))//expand
+                    if(!std::isnan(double(disparity_value)) && ((int(disparity_value*SCALE)+1) < lut_max_disparity_) && ((int(disparity_value*SCALE)+1) > 0))//expand
                     {
 //                        disparity_value = disparity32F.at<float>(v,u)+0.5;
                         unsigned int u1 = table_u[int(disparity_value*SCALE)+1][u].idx1;
@@ -357,7 +416,13 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                             u = u_temp+1;
                     }
                     else
-                        ROS_ERROR_THROTTLE(1,"BAD disparity during expansion: %f",disparity_value);
+			RCLCPP_ERROR_THROTTLE(
+  			  this->get_logger(),
+    			  *this->get_clock(),
+    			  1,
+    			  "BAD disparity during expansion: %f",
+    			  disparity_value
+			  );
                 }
             }
 
@@ -370,7 +435,7 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                 for ( int v = ( int ) height - 1; v >= 0; v-=1 )
                 {
                     float disparity_value = disparity32F.at<float>(v,u) + pixel_error_;//disparity_row[v * row_step + u];// + 0.5;
-                    if(!isnan(double(disparity_value)) && ((int(disparity_value*SCALE)+1) < lut_max_disparity_) && ((int(disparity_value*SCALE)+1) > 0))//expand
+                    if(!std::isnan(double(disparity_value)) && ((int(disparity_value*SCALE)+1) < lut_max_disparity_) && ((int(disparity_value*SCALE)+1) > 0))//expand
                     {
                         unsigned int v1 = table_v[int(disparity_value*SCALE)+1][v].idx1;
                         unsigned int v2 = table_v[int(disparity_value*SCALE)+1][v].idx2;
@@ -437,7 +502,13 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                             v = v_temp+1;
                     }
                     else
-                        ROS_ERROR_THROTTLE(1,"BAD disparity during expansion: %f",disparity_value);
+			RCLCPP_ERROR_THROTTLE(
+  			 this->get_logger(),
+    			*this->get_clock(),
+    			1,
+    			"BAD disparity during expansion: %f",
+    			disparity_value
+);
                 }
             }
 
@@ -445,28 +516,30 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
             bg_msg->image = disparity_bg;
 
 
-            ROS_INFO("Time: %f \t%f",(ros::Time::now()-start).toSec(),1/(ros::Time::now()-start).toSec());
+            RCLCPP_INFO(this->get_logger(), "Time: %f \t%f", (this->get_clock()->now() -start).seconds(),1/(this->get_clock()->now()-start).seconds());
 
 
-            expanded_disparity_fg_pub.publish(fg_msg->toImageMsg());
-            expanded_disparity_bg_pub.publish(bg_msg->toImageMsg());
+            expanded_disparity_fg_pub->publish(*(fg_msg->toImageMsg()));
+            expanded_disparity_bg_pub->publish(*(bg_msg->toImageMsg()));
 
-            if(expansion_poly_pub.getNumSubscribers() > 0 )//create expansion PCD
+            if(expansion_poly_pub->get_subscription_count() > 0 )//create expansion PCD
             {
-                visualization_msgs::MarkerArray marker_arr;
-                visualization_msgs::Marker marker;
+                visualization_msgs::msg::MarkerArray marker_arr;
+                visualization_msgs::msg::Marker marker;
                 marker.header = msg_disp->header;
                 marker.ns = "occ_space";
                 marker.id = 0;
-                marker.type = visualization_msgs::Marker::LINE_STRIP;
+                marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
 //                marker.mesh_resource = "package://gazebo_robot_description/meshes/octorotor/riverine_octo_m.dae";
-                marker.lifetime = ros::Duration(0.5);
-                marker.action = visualization_msgs::Marker::ADD;
+                marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+                marker.action = visualization_msgs::msg::Marker::ADD;
                 marker.pose.position.x =0;//xyz_centroid[0];
                 marker.pose.position.y =0;//xyz_centroid[1];
                 marker.pose.position.z =0;//xyz_centroid[2];
 
-                tf::quaternionTFToMsg(tf::createQuaternionFromRPY(0.0,0.0,0.0), marker.pose.orientation);
+                tf2::Quaternion q;
+                q.setRPY(0.0, 0.0, 0.0);
+                marker.pose.orientation = tf2::toMsg(q);
 //                marker.pose.orientation.w = 1;
                 float marker_scale = 0.51;
                 marker.scale.x = marker_scale;
@@ -477,7 +550,7 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                 marker.color.g = 0.0;
                 marker.color.b = 0.0;
 
-                geometry_msgs::PolygonStamped poly;
+                geometry_msgs::msg::PolygonStamped poly;
                 poly.header = msg_disp->header;
                 int v = 120;
                 float prev_depth = 0.0;
@@ -488,11 +561,11 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                         float depth_value = baseline * fx_ / fg_msg->image.at<float>(v,u);//free_msg->image.at<cv::Vec4f>(v,u)[0];
                         float depth_diff = fabs(depth_value-prev_depth);
                         prev_depth = depth_value;
-                        if(!isnan(depth_value) && !isinf(depth_value) && depth_diff < 0.5)
+                        if(!std::isnan(depth_value) && !std::isinf(depth_value) && depth_diff < 0.5)
                         {
                             marker.color.r = 1.0 * (fg_msg->image.at<float>(v,u)-pixel_error_)/fg_msg->image.at<float>(v,u);
                             marker.color.g = 1.0 * (pixel_error_)/fg_msg->image.at<float>(v,u);
-                            geometry_msgs::Point gm_p;
+                            geometry_msgs::msg::Point gm_p;
                             gm_p.x = ( u - center_x ) * depth_value * constant_x;
                             gm_p.y = ( v - center_y ) * depth_value * constant_y;
                             gm_p.z = depth_value;
@@ -515,10 +588,10 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                     }
                 }
                 marker_arr.markers.push_back(marker);
-                expansion_poly_pub.publish(marker_arr);
+                expansion_poly_pub->publish(marker_arr);
             }
 
-            if(expansion_cloud_pub.getNumSubscribers() > 0 )//create expansion PCD
+            if(expansion_cloud_pub->get_subscription_count() > 0 )//create expansion PCD
             {
                 PointCloud::Ptr cloud (new PointCloud);
                 cloud->header.frame_id = msg_disp->header.frame_id;
@@ -585,57 +658,69 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
                     }
                 }
                 cloud->width  = point_counter;
-                cloud->header.seq = msg_disp->header.seq;
-                cloud->header.stamp = pcl_conversions::toPCL(msg_disp->header.stamp);
+//########################################################################################################
 
-                sensor_msgs::PointCloud2 cloud_PC2;
+		//Timestamp structure has changed cannot convert to uint64
+		cloud->header.stamp = rclcpp::Time(msg_disp->header.stamp).nanoseconds();
+		cloud->header.stamp = pcl_conversions::toPCL(rclcpp::Time(msg_disp->header.stamp));
+		//cloud->header.stamp = msg_disp->header.stamp;
+                //cloud->header.stamp = pcl_conversions::toPCL(msg_disp->header.stamp);
+
+                sensor_msgs::msg::PointCloud2 cloud_PC2;
                 pcl::toROSMsg(*cloud,cloud_PC2);
-                expansion_cloud_pub.publish(cloud_PC2);
+                expansion_cloud_pub->publish(cloud_PC2);
             }
         }
     }
     return;
 }
 
-disparity_expansion::disparity_expansion(ros::NodeHandle& nh){
-    expansion_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/expansion/cloud_fg", 10);
-    expansion_poly_pub = nh.advertise<visualization_msgs::MarkerArray>("/expansion/occ_marker", 10);
-    expanded_disparity_fg_pub = nh.advertise<sensor_msgs::Image>("/narrow_stereo/left/expanded_disparity_fg", 10);
-    expanded_disparity_bg_pub = nh.advertise<sensor_msgs::Image>("/narrow_stereo/left/expanded_disparity_bg", 10);
-    ROS_INFO("into constr with nodehandle %s",nh.getNamespace().c_str());
-    LUT_ready = false;
-    got_cam_info = false;
-    cam_info_sub_ = nh.subscribe("/narrow_stereo/right/camera_info", 1,&disparity_expansion::getCamInfo,this);
-    disparity_sub_ = nh.subscribe("/narrow_stereo/disparity", 1,&disparity_expansion::stereoDisparityCb,this);
+    disparity_expansion::disparity_expansion(const rclcpp::NodeOptions & options)
+    : Node("disparity_expansion", options)
+    {
+        expansion_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("/expansion/cloud_fg", 10);
+        expansion_poly_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/expansion/occ_marker", 10);
+        expanded_disparity_fg_pub = this->create_publisher<sensor_msgs::msg::Image>("/narrow_stereo/left/expanded_disparity_fg", 10);
+        expanded_disparity_bg_pub = this->create_publisher<sensor_msgs::msg::Image>("/narrow_stereo/left/expanded_disparity_bg", 10);
 
-    nh.param("robot_radius", robot_radius_, 2.0);
-    nh.param("lut_max_disparity", lut_max_disparity_, 164);
-    nh.param("padding", padding_, 2.0);
-    nh.param("bg_multiplier", bg_multiplier_, 5.0);
-    nh.param("sensor_pixel_error", pixel_error_, 0.5);
+        RCLCPP_INFO(this->get_logger(), "into constr with node name %s", this->get_name());
+        LUT_ready = false;
+        got_cam_info = false;
 
-//    Q-Matrix
-//    [1.0     0.0     0.0     -317.20617294311523,
-//     0.0     1.0     0.0     -233.2914752960205,
-//     0.0     0.0     0.0      307.4838344732113,
-//     0.0     0.0     1.7930881143612616  -0.0]
+        cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+            "/narrow_stereo/right/camera_info", 1, 
+            std::bind(&disparity_expansion::getCamInfo, this, std::placeholders::_1));
 
-    cx_ = 317.20617294311523;
-    cy_ = 233.2914752960205;
-    fx_ = fy_ = 307.4838344732113;
-    baseline = 0.5576007548439765;
-    width = 640;
-    height = 480;
-    downsample_scale = 2.0;
-//    generateExpansionLUT();
-}
+        disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
+            "/narrow_stereo/disparity", 1, 
+            std::bind(&disparity_expansion::stereoDisparityCb, this, std::placeholders::_1));
+
+        this->declare_parameter("robot_radius", 2.0);
+        this->declare_parameter("lut_max_disparity", 164);
+        this->declare_parameter("padding", 2.0);
+        this->declare_parameter("bg_multiplier", 5.0);
+        this->declare_parameter("sensor_pixel_error", 0.5);
+
+        this->get_parameter("robot_radius", robot_radius_);
+        this->get_parameter("lut_max_disparity", lut_max_disparity_);
+        this->get_parameter("padding", padding_);
+        this->get_parameter("bg_multiplier", bg_multiplier_);
+        this->get_parameter("sensor_pixel_error", pixel_error_);
+
+        cx_ = 317.20617294311523;
+        cy_ = 233.2914752960205;
+        fx_ = fy_ = 307.4838344732113;
+        baseline = 0.5576007548439765;
+        width = 640;
+        height = 480;
+        downsample_scale = 2.0;
+    }
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "disparity_expansion");
- //	cv::initModule_nonfree();//THIS LINE IS IMPORTANT for using surf and sift features of opencv
-    ros::NodeHandle nh("~");
-    disparity_expansion d(nh);
-    ros::spin();
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<disparity_expansion>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
     return 0;
 }

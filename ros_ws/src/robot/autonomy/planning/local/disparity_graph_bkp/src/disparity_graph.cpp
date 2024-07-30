@@ -27,23 +27,36 @@
 
 using namespace nabla::disparity_graph;
 
-disparity_graph::disparity_graph() {
-    ros::NodeHandle priv_nh("~/disparity_graph");
-    ros::NodeHandle global_nh("/oa");
-    graph_size = 10;
-    angle_tol = /*cos*/(30.0);
-    displacement_tol = 01.5;
+disparity_graph::disparity_graph(const rclcpp::NodeOptions & options)
+: Node("disparity_graph", options)
+{
+    //ros::NodeHandle priv_nh("~/disparity_graph");
+    //ros::NodeHandle global_nh("/oa");
+    //graph_size = 10;
+    //angle_tol = /*cos*/(30.0);
+    //displacement_tol = 01.5;
+    this->declare_parameter("graph_size", 10);
+    this->declare_parameter("angle_tolerance", 30.0);
+    this->declare_parameter("displacement_tolerance", 1.5);
+
+    graph_size = this->get_parameter("graph_size").as_int();
+    angle_tol = this->get_parameter("angle_tolerance").as_double() * M_PI / 180.0;
+    displacement_tol = this->get_parameter("displacement_tolerance").as_double();
+
     first = true;
     got_cam_info = false;
     fixed_frame = "world";
     stabilized_frame = "base_frame_stabilized";
-    disparity_graph_marker_pub = priv_nh.advertise<visualization_msgs::MarkerArray>("disparity_marker", 10);
+    
+    //disparity_graph_marker_pub = priv_nh.advertise<visualization_msgs::MarkerArray>("disparity_marker", 10);
+    disparity_graph_marker_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_marker", 10);
+
     marker.header.frame_id = fixed_frame;
     marker.header.stamp = ros::Time::now();
     marker.ns = "disparityGraph";
     marker.id = 0;
-    marker.type = visualization_msgs::Marker::ARROW;
-    marker.action = visualization_msgs::Marker::ADD;
+    marker.type = visualization_msgs::msg::Marker::ARROW;
+    marker.action = visualization_msgs::msg::Marker::ADD;
     marker.pose.position.x = 1;
     marker.pose.position.y = 1;
     marker.pose.position.z = 1;
@@ -61,33 +74,51 @@ disparity_graph::disparity_graph() {
 
     //downsample_scale =4.0;
     //baseline_ = 0.5576007548439765;
-    global_nh.param("baseline", baseline_, 0.10);//0.5576007548439765;
-    global_nh.param("downsample_scale", downsample_scale, 1.0);
-    global_nh.param("low_occ_thresh", thresh_, 0.9);
-    int igraph_size = graph_size;
-    priv_nh.param("graph_size", igraph_size, igraph_size);
-    graph_size = igraph_size;
-    priv_nh.param("displacement_tolerance", displacement_tol, displacement_tol);
-    priv_nh.param("angle_tolerance", angle_tol, angle_tol);
-    angle_tol = angle_tol * M_PI/180.0;
+    
+    //global_nh.param("baseline", baseline_, 0.10);//0.5576007548439765;
+    //global_nh.param("downsample_scale", downsample_scale, 1.0);
+    //global_nh.param("low_occ_thresh", thresh_, 0.9);
+    this->declare_parameter("baseline", 0.10);
+    this->declare_parameter("downsample_scale", 1.0);
+    this->declare_parameter("low_occ_thresh", 0.9);
 
-    ROS_ERROR("disparity_graph NS: %s",priv_nh.getNamespace().c_str());
+    //int igraph_size = graph_size;
+    //priv_nh.param("graph_size", igraph_size, igraph_size);
+    //graph_size = igraph_size;
+    //priv_nh.param("displacement_tolerance", displacement_tol, displacement_tol);
+    //priv_nh.param("angle_tolerance", angle_tol, angle_tol);
+    
+    //angle_tol = angle_tol * M_PI/180.0;
+    
+    //graph_size = this->get_parameter("graph_size").as_int();
+    //angle_tol = this->get_parameter("angle_tolerance").as_double() * M_PI / 180.0;
+    //displacement_tol = this->get_parameter("displacement_tolerance").as_double();
+    baseline_ = this->get_parameter("baseline").as_double();
+    downsample_scale = this->get_parameter("downsample_scale").as_double();
+    thresh_ = this->get_parameter("low_occ_thresh").as_double();
+
+    RCLCPP_ERROR(this->get_logger(), "disparity_graph NS: %s",priv_nh.getNamespace().c_str());
 
     //    right_info_sub_.subscribe(nh, right_info_topic, 1);
-    disp_fg_sub_.subscribe(priv_nh,"/ceye/left/expanded_disparity_fg",1);
-    disp_bg_sub_.subscribe(priv_nh,"/ceye/left/expanded_disparity_bg",1);
+    disp_fg_sub_.subscribe(this,"/ceye/left/expanded_disparity_fg", rclcpp::QoS(5).get_rmw_qos_profile());
+    disp_bg_sub_.subscribe(this ,"/ceye/left/expanded_disparity_bg", rclcpp::QoS(5).get_rmw_qos_profile());
 
-    exact_sync_.reset(new ExactSync(ExactPolicy(5),disp_fg_sub_,disp_bg_sub_) );
-    exact_sync_->registerCallback(boost::bind(&disparity_graph::disp_cb, this, _1, _2));
-    cam_info_sub_ = priv_nh.subscribe("/nerian_sp1/right/camera_info", 1,&disparity_graph::getCamInfo,this);
-    timer1 = priv_nh.createTimer(ros::Duration(0.20), &disparity_graph::pcd_test4,this);
+    //exact_sync_.reset(new ExactSync(ExactPolicy(5),disp_fg_sub_,disp_bg_sub_) );
+    //exact_sync_->registerCallback(boost::bind(&disparity_graph::disp_cb, this, _1, _2));
+    exact_sync_ = std::make_shared<ExactSync>(ExactPolicy(5), disp_fg_sub_, disp_bg_sub_);
+    exact_sync_->registerCallback(std::bind(&disparity_graph::disp_cb, this, std::placeholders::_1, std::placeholders::_2));
 
+    //cam_info_sub_ = priv_nh.subscribe("/nerian_sp1/right/camera_info", 1,&disparity_graph::getCamInfo,this);
+    cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>("/nerian_sp1/right/camera_info", 10, std::bind(&disparity_graph::getCamInfo, this, std::placeholders::_1));
+    //timer1 = priv_nh.createTimer(ros::Duration(0.20), &disparity_graph::pcd_test4,this);
+    timer1 = this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&disparity_graph::pcd_test4, this));
+    
     pcd_checked_states.header.frame_id=fixed_frame;
     pcd_checked_states.height = 1;
     pcd_checked_states.width =0;
     pcd_checked_states.is_dense = false;
-    pcdPub = priv_nh.advertise<sensor_msgs::PointCloud2>("/graph_pcd",10);
-    expansion_poly_pub = priv_nh.advertise<visualization_msgs::MarkerArray>("/expansion/graph_occ_marker", 10);
+    pcdPub = this->create_publisher<sensor_msgs::msg::PointCloud2>("/graph_pcd",10);
+    expansion_poly_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>("/expansion/graph_occ_marker", 10);
 
 /*
     //Occupancy Map
@@ -106,20 +137,20 @@ disparity_graph::disparity_graph() {
 }
 
 void disparity_graph::pcd_test(const ros::TimerEvent& event) {
-  if (pcdPub.getNumSubscribers() == 0) {
+  if (pcdPub->get_subscription_count() == 0) {
     return;
   }
 
   for(uint i =0; i<disp_graph.size();i++) {
     for(uint u=0;u<width_;u+=1) {
       for(uint v=0;v<height_;v+=1) {
-        tf::Point pt_optical_fg,pt_optical_bg,pt_world_fg,pt_world_bg, curr_pt;
-        tf::Transform w2s_tf;
-        tf::Transform s2w_tf;
+        tf2::Vector pt_optical_fg,pt_optical_bg,pt_world_fg,pt_world_bg, curr_pt;
+        tf2::Transform w2s_tf;
+        tf2::Transform s2w_tf;
         double z_fg,z_bg;
         cv_bridge::CvImagePtr cv_depth_fg,cv_depth_bg;
         {
-          boost::mutex::scoped_lock lock(io_mutex);
+          std::lock_guard<std::mutex> lock(io_mutex);
           //cv_depth_fg = cv_bridge::toCvCopy(disp_graph.at(i).Im_fg,sensor_msgs::image_encodings::TYPE_32FC1);
           //cv_depth_bg = cv_bridge::toCvCopy(disp_graph.at(i).Im_bg,sensor_msgs::image_encodings::TYPE_32FC1);
           w2s_tf = disp_graph.at(i).w2s_tf;
@@ -287,9 +318,9 @@ void disparity_graph::pcd_test4(const ros::TimerEvent& event) {
   pcd_checked_states.clear();
   pcl::fromPCLPointCloud2(*cloud_filtered,pcd_checked_states);*/
 
-  sensor_msgs::PointCloud2 cloud_PC2;
+  sensor_msgs::msg::PointCloud2 cloud_PC2;
   pcl::toROSMsg(pcd_checked_states,cloud_PC2);
-  pcdPub.publish(cloud_PC2);
+  pcdPub->publish(cloud_PC2);
   pcd_checked_states.points.clear();
   pcd_checked_states.width = 0;
 }
@@ -330,10 +361,10 @@ void disparity_graph::pcd_test2(const ros::TimerEvent& event) {
 
 void disparity_graph::pcd_test3(const ros::TimerEvent& event) {
   /* create expansion PCD */
-  if (expansion_poly_pub.getNumSubscribers() > 0 ) {
+  if (expansion_poly_pub->get_subscription_count() > 0 ) {
     cv_bridge::CvImagePtr cv_depth_fg,cv_depth_bg;
-    visualization_msgs::MarkerArray marker_arr;
-    visualization_msgs::Marker marker;
+    visualization_msgs::msg::MarkerArray marker_arr;
+    visualization_msgs::msg::Marker marker;
     //marker.header = msg_disp->header;
     marker.ns = "occ_space";
     marker.id = 0;
@@ -344,7 +375,10 @@ void disparity_graph::pcd_test3(const ros::TimerEvent& event) {
     marker.pose.position.y =0;//xyz_centroid[1];
     marker.pose.position.z =0;//xyz_centroid[2];
 
-    tf::quaternionTFToMsg(tf::createQuaternionFromRPY(0.0,0.0,0.0), marker.pose.orientation);
+    //tf::quaternionTFToMsg(tf::createQuaternionFromRPY(0.0,0.0,0.0), marker.pose.orientation);
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, 0.0);
+    marker.pose.orientation = tf2::toMsg(q);
     //                marker.pose.orientation.w = 1;
     float marker_scale = 0.1;
     marker.scale.x = marker_scale;
@@ -369,7 +403,7 @@ void disparity_graph::pcd_test3(const ros::TimerEvent& event) {
         float depth_diff = fabs(depth_value-prev_depth);
         prev_depth = depth_value;
         if (!std::isnan(depth_value) && !std::isinf(depth_value) && depth_diff < 0.5) {
-          geometry_msgs::Point gm_p;
+          geometry_msgs::msg::Point gm_p;
           gm_p.x = ( u - cx_ ) * depth_value / fx_;
           gm_p.y = ( v - cy_ ) * depth_value / fy_;
           gm_p.z = depth_value;
@@ -389,33 +423,39 @@ void disparity_graph::pcd_test3(const ros::TimerEvent& event) {
       }
     }
     marker_arr.markers.push_back(marker);
-    expansion_poly_pub.publish(marker_arr);
+    expansion_poly_pub->publish(marker_arr);
   }
 }
 
-void disparity_graph::disp_cb(const sensor_msgs::Image::ConstPtr &disp_fg,
-                              const sensor_msgs::Image::ConstPtr &disp_bg) {
+void disparity_graph::disp_cb(const sensor_msgs::msg::Image::ConstSharedPtr &disp_fg,
+                              const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
 //    ROS_INFO("Recvd Disp,size %d",disp_graph.size());
-    ROS_INFO("Recvd disp stamp: %lf",ros::Duration(ros::Time::now() - disp_fg->header.stamp).toSec());
+    RCLCPP_INFO(this->get_logger(), "Recvd disp stamp: %lf", (this->now() - disp_fg->header.stamp).seconds());
   sensor_frame = disp_fg->header.frame_id;
 
-  listener.waitForTransform(sensor_frame,
-                            fixed_frame,
-                            disp_fg->header.stamp, ros::Duration(0.10));
+//  listener.waitForTransform(sensor_frame,
+//                            fixed_frame,
+//                            disp_fg->header.stamp, ros::Duration(0.10));
+//  tf::StampedTransform transform;
 
-  tf::StampedTransform transform;
+  geometry_msgs::msg::TransformStamped transform_stamped;
+
   try {
-    listener.lookupTransform(sensor_frame,
-                             fixed_frame,
-                             disp_fg->header.stamp, transform);
-  } catch (tf::TransformException &ex) {
-    ROS_ERROR("DG disp_cb %s",ex.what());
+   // listener.lookupTransform(sensor_frame,
+   //                          fixed_frame,
+   //                          disp_fg->header.stamp, transform);
+   transform_stamped = tf_buffer_->lookupTransform(
+            fixed_frame, sensor_frame, 
+            tf2_ros::fromMsg(disp_fg->header.stamp),
+            tf2::durationFromSec(0.10));
+  } catch (tf2::TransformException &ex) {
+    RCLCPP_ERROR(this->get_logger(), "DG disp_cb %s",ex.what());
     //         ros::Duration(1.0).sleep();
     //         continue;
     return;
   }
 
-  boost::mutex::scoped_lock lock(io_mutex);
+  std::lock_guard<std::mutex> lock(io_mutex);
   if (first) {
     first = false;
     node n;
@@ -423,20 +463,21 @@ void disparity_graph::disp_cb(const sensor_msgs::Image::ConstPtr &disp_fg,
       n.Im_fg = cv_bridge::toCvCopy(disp_fg,sensor_msgs::image_encodings::TYPE_32FC1);
       n.Im_bg = cv_bridge::toCvCopy(disp_bg,sensor_msgs::image_encodings::TYPE_32FC1);
     } catch (std::exception ex) {
-      ROS_ERROR("\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",ex.what());
+      RCLCPP_ERROR(this->get_logger(),"\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",ex.what());
       return;
     }
     //        n.Im_fg     = *disp_fg;
     //        n.Im_bg     = *disp_bg;
     n.header = disp_bg->header;
-    n.w2s_tf= transform;
-    n.s2w_tf= transform.inverse();
+    //n.w2s_tf= transform;
+    n.w2s_tf= tf2::transformToEigen(transform_stamped.transform);
+    n.s2w_tf= n.w2s_tf.inverse();
     disp_graph.push_front(n);
     disp_graph.push_back(n);
   } else {
     //Check for similar tf nodes
     //tf::Vector3 curr_a =transform.inverse().getRotation().normalize().getAxis().normalize();
-    tf::Vector3 curr_p =transform.inverse().getOrigin();
+    tf2::Vector3 curr_p =tf2::transformToEigen(transform_stamped.transform).inverse().translation();
     std::deque<node>::iterator it,end;
     it = disp_graph.begin();
     end = disp_graph.end()-1;
@@ -453,7 +494,7 @@ void disparity_graph::disp_cb(const sensor_msgs::Image::ConstPtr &disp_fg,
       n.Im_fg = cv_bridge::toCvCopy(disp_fg,sensor_msgs::image_encodings::TYPE_32FC1);
       n.Im_bg = cv_bridge::toCvCopy(disp_bg,sensor_msgs::image_encodings::TYPE_32FC1);
     } catch(std::exception ex) {
-      ROS_ERROR("\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",ex.what());
+      RCLCPP_ERROR(this->get_logger(), "\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",ex.what());
       return;
     }
     //        n.Im_fg     = *disp_fg;
@@ -463,7 +504,7 @@ void disparity_graph::disp_cb(const sensor_msgs::Image::ConstPtr &disp_fg,
     n.s2w_tf= transform.inverse();
     //pose in graph is too close in angle to the current graph
     if (fabs(diff_a)>=angle_tol || fabs(diff_p)>displacement_tol) {
-      ROS_ERROR("Adding new node size %d", (int)disp_graph.size());
+      RCLCPP_ERROR(this->get_logger(), "Adding new node size %d", (int)disp_graph.size());
       if (disp_graph.size() >= graph_size) {
         disp_graph.erase(end);
       }
