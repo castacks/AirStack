@@ -90,6 +90,7 @@ class Drone:
 
     def update_state_from_mavlink(self, args):
         args  # is required function definition for the physics callback
+        print("Sim time is ", self._world.current_time)
 
         # MAVLink is in NED frame, but Isaac is in FLU frame
         rot_ned = Rotation.from_euler("xyz", [self._dronekit_connection._roll, self._dronekit_connection._pitch, self._dronekit_connection._yaw], degrees=False)
@@ -126,8 +127,9 @@ class Drone:
 
 
 # Locate Isaac Sim assets folder to load sample
-# STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Projects/DSTA/Scenes/Tokyo_Spirit_Drone/Tokyo_Spirit_Drone_Sim.usd"
-STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Library/Stages/ConstructionSite/ConstructionSite.usd"
+STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Library/Stages/Tokyo/Tokyo.stage.usd"
+# STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+# STAGE_PATH = "omniverse://nucleusserver.andrew.cmu.edu/Library/Stages/Ruins/Ruins.stage.usd"
 # make sure the file exists before we try to open it
 try:
     result = omni.isaac.nucleus.is_file(STAGE_PATH)
@@ -154,9 +156,11 @@ while is_stage_loading():
     simulation_app.update()
 print("Loading Complete")
 
+UsdGeom.SetStageMetersPerUnit(omni.usd.get_context().get_stage(), UsdGeom.LinearUnits.meters)
+
 world = World(stage_units_in_meters=1.0)
 
-drone_usd = "omniverse://nucleusserver.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.usd"
+drone_usd = "omniverse://nucleusserver.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.prop.usd"
 drone = Drone("spirit_0", [0.0, 0.0, 0.7], world, usd_path=drone_usd)
 
 # Creating a Camera prim
@@ -253,7 +257,7 @@ _, sensor = omni.kit.commands.execute(
     path=drone.stage_path + "/lidar",
     parent=None,
     config="Example_Rotary",
-    translation=(0, 0, 1.0),
+    translation=(0, 0, 0.0),
     orientation=Gf.Quatd(1.0, 0.0, 0.0, 0.0),  # Gf.Quatd is w,i,j,k
 )
 
@@ -262,7 +266,7 @@ hydra_texture = rep.create.render_product(sensor.GetPath(), [1, 1], name="Isaac"
 
 # Create Point cloud publisher pipeline in the post process graph
 writer = rep.writers.get("RtxLidar" + "ROS2PublishPointCloud")
-writer.initialize(topicName="point_cloud", frameId="sim_lidar")
+writer.initialize(topicName="point_cloud", frameId="base_link")  # TODO: publish the transform from base_link to the LiDAR. for now we keep them the same.
 writer.attach([hydra_texture])
 
 # Create the debug draw pipeline in the post process graph
@@ -272,7 +276,7 @@ writer.attach([hydra_texture])
 
 # Create LaserScan publisher pipeline in the post process graph
 writer = rep.writers.get("RtxLidar" + "ROS2PublishLaserScan")
-writer.initialize(topicName="laser_scan", frameId="sim_lidar")
+writer.initialize(topicName="laser_scan", frameId="base_link")
 writer.attach([hydra_texture])
 
 simulation_app.update()
