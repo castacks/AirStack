@@ -1,0 +1,8 @@
+[0m** WARNING ** io features related to pcap will be disabled[0m
+[01m[K/root/AirStack/ros_ws/src/robot/autonomy/planning/local/disparity_expansion/src/disparity_conv.cpp:42:10:[m[K [01;31m[Kfatal error: [m[Kpcl_ros/point_cloud.hpp: No such file or directory
+   42 | #include [01;31m[K<pcl_ros/point_cloud.hpp>[m[K
+      |          [01;31m[K^~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+compilation terminated.
+gmake[2]: *** [CMakeFiles/disparity_conv.dir/build.make:76: CMakeFiles/disparity_conv.dir/src/disparity_conv.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/disparity_conv.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2
