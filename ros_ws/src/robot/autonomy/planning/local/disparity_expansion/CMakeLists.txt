@@ -213,6 +213,9 @@ install(TARGETS disparity_expansion
 install(TARGETS disparity_conv
   DESTINATION lib/${PROJECT_NAME}
 )
+install(TARGETS disparity_pcd
+  DESTINATION lib/${PROJECT_NAME}
+)
 install(FILES package.xml
   DESTINATION share/${PROJECT_NAME}
 )
