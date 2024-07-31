@@ -205,8 +205,19 @@ ament_target_dependencies(disparity_pcd
 )
 
 
+#install(TARGETS disparity_expansion
+#        RUNTIME DESTINATION bin)
 install(TARGETS disparity_expansion
-        RUNTIME DESTINATION bin)
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS disparity_conv
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(FILES package.xml
+  DESTINATION share/${PROJECT_NAME}
+)
+#install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(disparity_expansion_node disparity_expansion_generate_messages_cpp)
@@ -215,7 +226,7 @@ install(TARGETS disparity_expansion
 # target_link_libraries(disparity_expansion_node
 #   ${catkin_LIBRARIES}
 # )
-
+ament_package()
 #############
 ## Install ##
 #############

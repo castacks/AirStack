@@ -1,0 +1,15 @@
+source;share/disparity_expansion/hook/path.ps1
+source;share/disparity_expansion/hook/path.dsv
+source;share/disparity_expansion/hook/path.sh
+source;share/disparity_expansion/hook/pythonscriptspath.ps1
+source;share/disparity_expansion/hook/pythonscriptspath.dsv
+source;share/disparity_expansion/hook/pythonscriptspath.sh
+source;share/disparity_expansion/hook/ros_package_path.ps1
+source;share/disparity_expansion/hook/ros_package_path.dsv
+source;share/disparity_expansion/hook/ros_package_path.sh
+source;share/disparity_expansion/hook/pkg_config_path.ps1
+source;share/disparity_expansion/hook/pkg_config_path.dsv
+source;share/disparity_expansion/hook/pkg_config_path.sh
+source;share/disparity_expansion/hook/pkg_config_path_multiarch.ps1
+source;share/disparity_expansion/hook/pkg_config_path_multiarch.dsv
+source;share/disparity_expansion/hook/pkg_config_path_multiarch.sh

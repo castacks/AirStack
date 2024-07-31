@@ -1,0 +1,280 @@
+[0.000000] (-) TimerEvent: {}
+[0.000161] (-) JobUnselected: {'identifier': 'controls_bringup'}
+[0.000251] (-) JobUnselected: {'identifier': 'dronekit'}
+[0.000279] (-) JobUnselected: {'identifier': 'mav_comm'}
+[0.000303] (-) JobUnselected: {'identifier': 'mav_msgs'}
+[0.000325] (-) JobUnselected: {'identifier': 'mav_planning_msgs'}
+[0.000351] (-) JobUnselected: {'identifier': 'mav_state_machine_msgs'}
+[0.000375] (-) JobUnselected: {'identifier': 'mav_system_msgs'}
+[0.000399] (-) JobUnselected: {'identifier': 'mavros_interface'}
+[0.000426] (-) JobUnselected: {'identifier': 'pcl_conversions'}
+[0.000465] (-) JobUnselected: {'identifier': 'pcl_ros'}
+[0.000489] (-) JobUnselected: {'identifier': 'perception_pcl'}
+[0.000511] (-) JobUnselected: {'identifier': 'px4_msgs'}
+[0.000536] (-) JobUnselected: {'identifier': 'px4_ros_com'}
+[0.000561] (-) JobUnselected: {'identifier': 'robot_bringup'}
+[0.000586] (-) JobUnselected: {'identifier': 'robot_interface'}
+[0.000674] (-) JobUnselected: {'identifier': 'vdb_mapping'}
+[0.000701] (-) JobUnselected: {'identifier': 'vdb_mapping_interfaces'}
+[0.000726] (-) JobUnselected: {'identifier': 'vdb_mapping_ros2'}
+[0.000753] (disparity_expansion) JobQueued: {'identifier': 'disparity_expansion', 'dependencies': OrderedDict([('pcl_conversions', '/root/AirStack/install/pcl_conversions')])}
+[0.000804] (disparity_expansion) JobStarted: {'identifier': 'disparity_expansion'}
+[0.011065] (disparity_expansion) JobProgress: {'identifier': 'disparity_expansion', 'progress': 'cmake'}
+[0.012783] (disparity_expansion) Command: {'cmd': ['/usr/bin/cmake', '/root/AirStack/ros_ws/src/robot/autonomy/planning/local/disparity_expansion', '-DCATKIN_INSTALL_INTO_PREFIX_ROOT=0', '-DCMAKE_INSTALL_PREFIX=/root/AirStack/install/disparity_expansion'], 'cwd': '/root/AirStack/build/disparity_expansion', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('HOSTNAME', 'wildfire-desktop'), ('ISAACSIM_PATH', '/isaac-sim'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/lib:/root/AirStack/ros_ws/install/vdb_mapping/lib:/root/AirStack/ros_ws/install/mavros_interface/lib:/root/AirStack/ros_ws/install/robot_interface/lib:/root/AirStack/ros_ws/install/px4_ros_com/lib:/root/AirStack/ros_ws/install/px4_msgs/lib:/root/AirStack/ros_ws/install/pcl_ros/lib:/root/AirStack/ros_ws/install/mav_system_msgs/lib:/root/AirStack/ros_ws/install/mav_state_machine_msgs/lib:/root/AirStack/ros_ws/install/mav_planning_msgs/lib:/root/AirStack/ros_ws/install/mav_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('MIN_DRIVER_VERSION', '525.60.11'), ('ROS_PYTHON_VERSION', '3'), ('LC_CTYPE', 'C.UTF-8'), ('COLCON_PREFIX_PATH', '/root/AirStack/ros_ws/install'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('PKG_CONFIG_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/x86_64-linux-gnu/pkgconfig:/root/AirStack/ros_ws/install/vdb_mapping/lib/pkgconfig'), ('NVIDIA_DRIVER_CAPABILITIES', 'all'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('VK_DRIVER_FILES', '/etc/vulkan/icd.d/nvidia_icd.json'), ('DISPLAY', ':1'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/perception_pcl:/root/AirStack/ros_ws/install/pcl_ros:/root/AirStack/ros_ws/install/pcl_conversions:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup:/opt/ros/humble'), ('OMNI_PASS', 'admin'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('ACCEPT_EULA', 'Y'), ('CMAKE_MODULE_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/cmake/vdb_mapping'), ('OMNI_SERVER', 'http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.0'), ('PWD', '/root/AirStack/build/disparity_expansion'), ('OMNI_USER', 'admin'), ('PYTHONPATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_planning_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('TZ', 'America/New_York'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/vdb_mapping:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/perception_pcl:/root/AirStack/ros_ws/install/pcl_ros:/root/AirStack/ros_ws/install/pcl_conversions:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup')]), 'shell': False}
+[0.032120] (disparity_expansion) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.9 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.099391] (-) TimerEvent: {}
+[0.155954] (disparity_expansion) StdoutLine: {'line': b'-- Found rclcpp: 16.0.9 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[0.182164] (disparity_expansion) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.5 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[0.184444] (disparity_expansion) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.5 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[0.189299] (disparity_expansion) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.5 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[0.199193] (disparity_expansion) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.199457] (-) TimerEvent: {}
+[0.213002] (disparity_expansion) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.262717] (disparity_expansion) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[0.263876] (disparity_expansion) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.6 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[0.299739] (-) TimerEvent: {}
+[0.399935] (-) TimerEvent: {}
+[0.443001] (disparity_expansion) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[0.500009] (-) TimerEvent: {}
+[0.577429] (disparity_expansion) StdoutLine: {'line': b'-- Found cv_bridge: 3.2.1 (/opt/ros/humble/share/cv_bridge/cmake)\n'}
+[0.600081] (-) TimerEvent: {}
+[0.697769] (disparity_expansion) StdoutLine: {'line': b'-- Found image_geometry: 3.2.1 (/opt/ros/humble/share/image_geometry/cmake)\n'}
+[0.700518] (-) TimerEvent: {}
+[0.709755] (disparity_expansion) StdoutLine: {'line': b'-- Found image_transport: 3.1.9 (/opt/ros/humble/share/image_transport/cmake)\n'}
+[0.757697] (disparity_expansion) StdoutLine: {'line': b'-- Found tf2: 0.25.7 (/opt/ros/humble/share/tf2/cmake)\n'}
+[0.766602] (disparity_expansion) StdoutLine: {'line': b'-- Found pcl_ros: 2.6.1 (/root/AirStack/ros_ws/install/pcl_ros/share/pcl_ros/cmake)\n'}
+[0.800623] (-) TimerEvent: {}
+[0.901097] (-) TimerEvent: {}
+[1.001342] (-) TimerEvent: {}
+[1.101711] (-) TimerEvent: {}
+[1.201925] (-) TimerEvent: {}
+[1.286346] (disparity_expansion) StdoutLine: {'line': b'-- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/share/eigen3_cmake_module/cmake)\n'}
+[1.287358] (disparity_expansion) StdoutLine: {'line': b'-- Ensuring Eigen3 include directory is part of orocos-kdl CMake target\n'}
+[1.302030] (-) TimerEvent: {}
+[1.322727] (disparity_expansion) StdoutLine: {'line': b'-- Eigen found (include: /usr/include/eigen3, version: 3.4.0)\n'}
+[1.377387] (disparity_expansion) StdoutLine: {'line': b'-- FLANN found (include: /usr/include, lib: /usr/lib/x86_64-linux-gnu/libflann_cpp.so)\n'}
+[1.402113] (-) TimerEvent: {}
+[1.502336] (-) TimerEvent: {}
+[1.602563] (-) TimerEvent: {}
+[1.702832] (-) TimerEvent: {}
+[1.803091] (-) TimerEvent: {}
+[1.817963] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)\n'}
+[1.828250] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI2 found (version: 2.2.0.33, include: /usr/include/openni2, lib: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb)\n'}
+[1.903183] (-) TimerEvent: {}
+[1.998485] (disparity_expansion) StdoutLine: {'line': b'-- Eigen found (include: /usr/include/eigen3, version: 3.4.0)\n'}
+[2.003276] (-) TimerEvent: {}
+[2.009436] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)\n'}
+[2.020444] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI2 found (version: 2.2.0.33, include: /usr/include/openni2, lib: /usr/lib/x86_64-linux-gnu/libOpenNI2.so;libusb::libusb)\n'}
+[2.103366] (-) TimerEvent: {}
+[2.186171] (disparity_expansion) StdoutLine: {'line': b'-- Found Qhull version 8.0.2\n'}
+[2.203453] (-) TimerEvent: {}
+[2.303706] (-) TimerEvent: {}
+[2.353701] (disparity_expansion) StdoutLine: {'line': b'-- OpenNI found (version: 1.5.4.0, include: /usr/include/ni, lib: /usr/lib/libOpenNI.so;libusb::libusb)\n'}
+[2.403781] (-) TimerEvent: {}
+[2.504008] (-) TimerEvent: {}
+[2.528919] (disparity_expansion) StdoutLine: {'line': b'-- Found stereo_msgs: 4.2.4 (/opt/ros/humble/share/stereo_msgs/cmake)\n'}
+[2.604108] (-) TimerEvent: {}
+[2.606261] (disparity_expansion) StdoutLine: {'line': b'-- Found visualization_msgs: 4.2.4 (/opt/ros/humble/share/visualization_msgs/cmake)\n'}
+[2.704188] (-) TimerEvent: {}
+[2.714376] (disparity_expansion) StderrLine: {'line': b'\x1b[33mCMake Warning (dev) at CMakeLists.txt:33 (find_package):\n'}
+[2.714574] (disparity_expansion) StderrLine: {'line': b'  Policy CMP0074 is not set: find_package uses <PackageName>_ROOT variables.\n'}
+[2.714695] (disparity_expansion) StderrLine: {'line': b'  Run "cmake --help-policy CMP0074" for policy details.  Use the cmake_policy\n'}
+[2.714798] (disparity_expansion) StderrLine: {'line': b'  command to set the policy and suppress this warning.\n'}
+[2.714896] (disparity_expansion) StderrLine: {'line': b'\n'}
+[2.714994] (disparity_expansion) StderrLine: {'line': b'  CMake variable PCL_ROOT is set to:\n'}
+[2.715094] (disparity_expansion) StderrLine: {'line': b'\n'}
+[2.715191] (disparity_expansion) StderrLine: {'line': b'    /usr\n'}
+[2.715286] (disparity_expansion) StderrLine: {'line': b'\n'}
+[2.715383] (disparity_expansion) StderrLine: {'line': b'  For compatibility, CMake is ignoring the variable.\n'}
+[2.715482] (disparity_expansion) StderrLine: {'line': b'This warning is for project developers.  Use -Wno-dev to suppress it.\n'}
+[2.715579] (disparity_expansion) StderrLine: {'line': b'\x1b[0m\n'}
+[2.725898] (disparity_expansion) StdoutLine: {'line': b'-- PCL_INCLUDE_DIRS: /usr/include/pcl-1.12\n'}
+[2.804260] (-) TimerEvent: {}
+[2.871077] (disparity_expansion) StdoutLine: {'line': b'-- Configuring done\n'}
+[2.904368] (-) TimerEvent: {}
+[2.929713] (disparity_expansion) StdoutLine: {'line': b'-- Generating done\n'}
+[2.932176] (disparity_expansion) StderrLine: {'line': b'\x1b[33mCMake Warning:\n'}
+[2.932308] (disparity_expansion) StderrLine: {'line': b'  Manually-specified variables were not used by the project:\n'}
+[2.932402] (disparity_expansion) StderrLine: {'line': b'\n'}
+[2.932488] (disparity_expansion) StderrLine: {'line': b'    CATKIN_INSTALL_INTO_PREFIX_ROOT\n'}
+[2.932573] (disparity_expansion) StderrLine: {'line': b'\n'}
+[2.932656] (disparity_expansion) StderrLine: {'line': b'\x1b[0m\n'}
+[2.932884] (disparity_expansion) StdoutLine: {'line': b'-- Build files have been written to: /root/AirStack/build/disparity_expansion\n'}
+[2.944829] (disparity_expansion) CommandEnded: {'returncode': 0}
+[2.945629] (disparity_expansion) JobProgress: {'identifier': 'disparity_expansion', 'progress': 'build'}
+[2.946953] (disparity_expansion) Command: {'cmd': ['/usr/bin/cmake', '--build', '/root/AirStack/build/disparity_expansion', '--', '-j12', '-l12'], 'cwd': '/root/AirStack/build/disparity_expansion', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('HOSTNAME', 'wildfire-desktop'), ('ISAACSIM_PATH', '/isaac-sim'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/lib:/root/AirStack/ros_ws/install/vdb_mapping/lib:/root/AirStack/ros_ws/install/mavros_interface/lib:/root/AirStack/ros_ws/install/robot_interface/lib:/root/AirStack/ros_ws/install/px4_ros_com/lib:/root/AirStack/ros_ws/install/px4_msgs/lib:/root/AirStack/ros_ws/install/pcl_ros/lib:/root/AirStack/ros_ws/install/mav_system_msgs/lib:/root/AirStack/ros_ws/install/mav_state_machine_msgs/lib:/root/AirStack/ros_ws/install/mav_planning_msgs/lib:/root/AirStack/ros_ws/install/mav_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('MIN_DRIVER_VERSION', '525.60.11'), ('ROS_PYTHON_VERSION', '3'), ('LC_CTYPE', 'C.UTF-8'), ('COLCON_PREFIX_PATH', '/root/AirStack/ros_ws/install'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('PKG_CONFIG_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/x86_64-linux-gnu/pkgconfig:/root/AirStack/ros_ws/install/vdb_mapping/lib/pkgconfig'), ('NVIDIA_DRIVER_CAPABILITIES', 'all'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('VK_DRIVER_FILES', '/etc/vulkan/icd.d/nvidia_icd.json'), ('DISPLAY', ':1'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/perception_pcl:/root/AirStack/ros_ws/install/pcl_ros:/root/AirStack/ros_ws/install/pcl_conversions:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup:/opt/ros/humble'), ('OMNI_PASS', 'admin'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('ACCEPT_EULA', 'Y'), ('CMAKE_MODULE_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/cmake/vdb_mapping'), ('OMNI_SERVER', 'http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.0'), ('PWD', '/root/AirStack/build/disparity_expansion'), ('OMNI_USER', 'admin'), ('PYTHONPATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_planning_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('TZ', 'America/New_York'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/vdb_mapping:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/perception_pcl:/root/AirStack/ros_ws/install/pcl_ros:/root/AirStack/ros_ws/install/pcl_conversions:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup')]), 'shell': False}
+[3.004468] (-) TimerEvent: {}
+[3.022578] (disparity_expansion) StdoutLine: {'line': b'[ 16%] \x1b[32mBuilding CXX object CMakeFiles/disparity_conv.dir/src/disparity_conv.cpp.o\x1b[0m\n'}
+[3.026808] (disparity_expansion) StdoutLine: {'line': b'[ 33%] \x1b[32mBuilding CXX object CMakeFiles/disparity_expansion.dir/src/disparity_expansion.cpp.o\x1b[0m\n'}
+[3.027904] (disparity_expansion) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding CXX object CMakeFiles/disparity_pcd.dir/src/disparity_pcd.cpp.o\x1b[0m\n'}
+[3.104573] (-) TimerEvent: {}
+[3.204844] (-) TimerEvent: {}
+[3.305089] (-) TimerEvent: {}
+[3.405392] (-) TimerEvent: {}
+[3.505687] (-) TimerEvent: {}
+[3.605979] (-) TimerEvent: {}
+[3.706257] (-) TimerEvent: {}
+[3.806551] (-) TimerEvent: {}
+[3.906821] (-) TimerEvent: {}
+[4.007103] (-) TimerEvent: {}
+[4.107396] (-) TimerEvent: {}
+[4.207681] (-) TimerEvent: {}
+[4.307978] (-) TimerEvent: {}
+[4.408296] (-) TimerEvent: {}
+[4.508611] (-) TimerEvent: {}
+[4.608914] (-) TimerEvent: {}
+[4.709201] (-) TimerEvent: {}
+[4.809478] (-) TimerEvent: {}
+[4.909755] (-) TimerEvent: {}
+[5.010033] (-) TimerEvent: {}
+[5.110317] (-) TimerEvent: {}
+[5.210586] (-) TimerEvent: {}
+[5.310868] (-) TimerEvent: {}
+[5.411140] (-) TimerEvent: {}
+[5.511428] (-) TimerEvent: {}
+[5.611708] (-) TimerEvent: {}
+[5.712001] (-) TimerEvent: {}
+[5.812292] (-) TimerEvent: {}
+[5.912575] (-) TimerEvent: {}
+[6.012865] (-) TimerEvent: {}
+[6.113139] (-) TimerEvent: {}
+[6.213382] (-) TimerEvent: {}
+[6.313666] (-) TimerEvent: {}
+[6.413945] (-) TimerEvent: {}
+[6.514230] (-) TimerEvent: {}
+[6.614510] (-) TimerEvent: {}
+[6.714788] (-) TimerEvent: {}
+[6.815076] (-) TimerEvent: {}
+[6.915367] (-) TimerEvent: {}
+[7.015654] (-) TimerEvent: {}
+[7.115936] (-) TimerEvent: {}
+[7.216205] (-) TimerEvent: {}
+[7.316483] (-) TimerEvent: {}
+[7.416776] (-) TimerEvent: {}
+[7.517056] (-) TimerEvent: {}
+[7.617344] (-) TimerEvent: {}
+[7.717620] (-) TimerEvent: {}
+[7.817896] (-) TimerEvent: {}
+[7.918181] (-) TimerEvent: {}
+[8.018471] (-) TimerEvent: {}
+[8.118747] (-) TimerEvent: {}
+[8.219022] (-) TimerEvent: {}
+[8.319301] (-) TimerEvent: {}
+[8.419564] (-) TimerEvent: {}
+[8.519836] (-) TimerEvent: {}
+[8.620090] (-) TimerEvent: {}
+[8.720376] (-) TimerEvent: {}
+[8.820686] (-) TimerEvent: {}
+[8.920987] (-) TimerEvent: {}
+[9.021291] (-) TimerEvent: {}
+[9.121596] (-) TimerEvent: {}
+[9.221887] (-) TimerEvent: {}
+[9.322194] (-) TimerEvent: {}
+[9.422500] (-) TimerEvent: {}
+[9.522814] (-) TimerEvent: {}
+[9.623111] (-) TimerEvent: {}
+[9.723399] (-) TimerEvent: {}
+[9.823703] (-) TimerEvent: {}
+[9.924009] (-) TimerEvent: {}
+[10.024301] (-) TimerEvent: {}
+[10.124591] (-) TimerEvent: {}
+[10.224871] (-) TimerEvent: {}
+[10.325158] (-) TimerEvent: {}
+[10.425444] (-) TimerEvent: {}
+[10.525712] (-) TimerEvent: {}
+[10.625981] (-) TimerEvent: {}
+[10.726246] (-) TimerEvent: {}
+[10.826535] (-) TimerEvent: {}
+[10.926842] (-) TimerEvent: {}
+[11.027139] (-) TimerEvent: {}
+[11.127407] (-) TimerEvent: {}
+[11.227674] (-) TimerEvent: {}
+[11.327975] (-) TimerEvent: {}
+[11.428274] (-) TimerEvent: {}
+[11.528570] (-) TimerEvent: {}
+[11.628857] (-) TimerEvent: {}
+[11.729128] (-) TimerEvent: {}
+[11.829398] (-) TimerEvent: {}
+[11.929667] (-) TimerEvent: {}
+[12.029951] (-) TimerEvent: {}
+[12.130265] (-) TimerEvent: {}
+[12.230522] (-) TimerEvent: {}
+[12.330785] (-) TimerEvent: {}
+[12.431052] (-) TimerEvent: {}
+[12.531328] (-) TimerEvent: {}
+[12.631596] (-) TimerEvent: {}
+[12.731853] (-) TimerEvent: {}
+[12.832112] (-) TimerEvent: {}
+[12.932371] (-) TimerEvent: {}
+[13.032634] (-) TimerEvent: {}
+[13.132897] (-) TimerEvent: {}
+[13.233156] (-) TimerEvent: {}
+[13.333413] (-) TimerEvent: {}
+[13.433686] (-) TimerEvent: {}
+[13.533955] (-) TimerEvent: {}
+[13.634216] (-) TimerEvent: {}
+[13.734474] (-) TimerEvent: {}
+[13.834735] (-) TimerEvent: {}
+[13.934998] (-) TimerEvent: {}
+[14.035260] (-) TimerEvent: {}
+[14.135525] (-) TimerEvent: {}
+[14.235788] (-) TimerEvent: {}
+[14.336058] (-) TimerEvent: {}
+[14.436326] (-) TimerEvent: {}
+[14.536587] (-) TimerEvent: {}
+[14.636855] (-) TimerEvent: {}
+[14.737120] (-) TimerEvent: {}
+[14.837392] (-) TimerEvent: {}
+[14.937659] (-) TimerEvent: {}
+[15.037915] (-) TimerEvent: {}
+[15.138179] (-) TimerEvent: {}
+[15.238439] (-) TimerEvent: {}
+[15.338700] (-) TimerEvent: {}
+[15.438967] (-) TimerEvent: {}
+[15.539240] (-) TimerEvent: {}
+[15.594905] (disparity_expansion) StdoutLine: {'line': b'[ 66%] \x1b[32m\x1b[1mLinking CXX executable disparity_conv\x1b[0m\n'}
+[15.639350] (-) TimerEvent: {}
+[15.739652] (-) TimerEvent: {}
+[15.839949] (-) TimerEvent: {}
+[15.940243] (-) TimerEvent: {}
+[16.040515] (-) TimerEvent: {}
+[16.140788] (-) TimerEvent: {}
+[16.175579] (disparity_expansion) StdoutLine: {'line': b'[ 66%] Built target disparity_conv\n'}
+[16.240883] (-) TimerEvent: {}
+[16.341165] (-) TimerEvent: {}
+[16.441446] (-) TimerEvent: {}
+[16.541701] (-) TimerEvent: {}
+[16.641953] (-) TimerEvent: {}
+[16.742208] (-) TimerEvent: {}
+[16.842466] (-) TimerEvent: {}
+[16.934654] (disparity_expansion) StdoutLine: {'line': b'[ 83%] \x1b[32m\x1b[1mLinking CXX executable disparity_expansion\x1b[0m\n'}
+[16.942538] (-) TimerEvent: {}
+[17.042781] (-) TimerEvent: {}
+[17.143056] (-) TimerEvent: {}
+[17.243325] (-) TimerEvent: {}
+[17.334456] (disparity_expansion) StdoutLine: {'line': b'[ 83%] Built target disparity_expansion\n'}
+[17.343395] (-) TimerEvent: {}
+[17.443613] (-) TimerEvent: {}
+[17.543805] (-) TimerEvent: {}
+[17.643995] (-) TimerEvent: {}
+[17.744185] (-) TimerEvent: {}
+[17.844375] (-) TimerEvent: {}
+[17.944557] (-) TimerEvent: {}
+[18.044744] (-) TimerEvent: {}
+[18.068522] (disparity_expansion) StdoutLine: {'line': b'[100%] \x1b[32m\x1b[1mLinking CXX executable disparity_pcd\x1b[0m\n'}
+[18.144854] (-) TimerEvent: {}
+[18.245145] (-) TimerEvent: {}
+[18.345452] (-) TimerEvent: {}
+[18.445757] (-) TimerEvent: {}
+[18.465738] (disparity_expansion) StdoutLine: {'line': b'[100%] Built target disparity_pcd\n'}
+[18.478758] (disparity_expansion) CommandEnded: {'returncode': 0}
+[18.545831] (-) TimerEvent: {}
+[18.572983] (disparity_expansion) JobProgress: {'identifier': 'disparity_expansion', 'progress': 'install'}
+[18.586029] (disparity_expansion) Command: {'cmd': ['/usr/bin/cmake', '--install', '/root/AirStack/build/disparity_expansion'], 'cwd': '/root/AirStack/build/disparity_expansion', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('HOSTNAME', 'wildfire-desktop'), ('ISAACSIM_PATH', '/isaac-sim'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/lib:/root/AirStack/ros_ws/install/vdb_mapping/lib:/root/AirStack/ros_ws/install/mavros_interface/lib:/root/AirStack/ros_ws/install/robot_interface/lib:/root/AirStack/ros_ws/install/px4_ros_com/lib:/root/AirStack/ros_ws/install/px4_msgs/lib:/root/AirStack/ros_ws/install/pcl_ros/lib:/root/AirStack/ros_ws/install/mav_system_msgs/lib:/root/AirStack/ros_ws/install/mav_state_machine_msgs/lib:/root/AirStack/ros_ws/install/mav_planning_msgs/lib:/root/AirStack/ros_ws/install/mav_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/root'), ('MIN_DRIVER_VERSION', '525.60.11'), ('ROS_PYTHON_VERSION', '3'), ('LC_CTYPE', 'C.UTF-8'), ('COLCON_PREFIX_PATH', '/root/AirStack/ros_ws/install'), ('ROS_DISTRO', 'humble'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('PKG_CONFIG_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/x86_64-linux-gnu/pkgconfig:/root/AirStack/ros_ws/install/vdb_mapping/lib/pkgconfig'), ('NVIDIA_DRIVER_CAPABILITIES', 'all'), ('TERM', 'xterm'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('VK_DRIVER_FILES', '/etc/vulkan/icd.d/nvidia_icd.json'), ('DISPLAY', ':1'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('AMENT_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/perception_pcl:/root/AirStack/ros_ws/install/pcl_ros:/root/AirStack/ros_ws/install/pcl_conversions:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup:/opt/ros/humble'), ('OMNI_PASS', 'admin'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('ACCEPT_EULA', 'Y'), ('CMAKE_MODULE_PATH', '/root/AirStack/ros_ws/install/vdb_mapping/lib/cmake/vdb_mapping'), ('OMNI_SERVER', 'http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.0'), ('PWD', '/root/AirStack/build/disparity_expansion'), ('OMNI_USER', 'admin'), ('PYTHONPATH', '/root/AirStack/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_planning_msgs/local/lib/python3.10/dist-packages:/root/AirStack/ros_ws/install/mav_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('TZ', 'America/New_York'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/root/AirStack/ros_ws/install/vdb_mapping_ros2:/root/AirStack/ros_ws/install/vdb_mapping_interfaces:/root/AirStack/ros_ws/install/vdb_mapping:/root/AirStack/ros_ws/install/mavros_interface:/root/AirStack/ros_ws/install/robot_interface:/root/AirStack/ros_ws/install/robot_bringup:/root/AirStack/ros_ws/install/px4_ros_com:/root/AirStack/ros_ws/install/px4_msgs:/root/AirStack/ros_ws/install/perception_pcl:/root/AirStack/ros_ws/install/pcl_ros:/root/AirStack/ros_ws/install/pcl_conversions:/root/AirStack/ros_ws/install/mav_comm:/root/AirStack/ros_ws/install/mav_system_msgs:/root/AirStack/ros_ws/install/mav_state_machine_msgs:/root/AirStack/ros_ws/install/mav_planning_msgs:/root/AirStack/ros_ws/install/mav_msgs:/root/AirStack/ros_ws/install/controls_bringup')]), 'shell': False}
+[18.597696] (disparity_expansion) StdoutLine: {'line': b'-- Install configuration: "Release"\n'}
+[18.597901] (disparity_expansion) StdoutLine: {'line': b'-- Installing: /root/AirStack/install/disparity_expansion/bin/disparity_expansion\n'}
+[18.600446] (disparity_expansion) StdoutLine: {'line': b'-- Set runtime path of "/root/AirStack/install/disparity_expansion/bin/disparity_expansion" to ""\n'}
+[18.602592] (disparity_expansion) CommandEnded: {'returncode': 0}
+[18.645913] (-) TimerEvent: {}
+[18.673273] (disparity_expansion) JobEnded: {'identifier': 'disparity_expansion', 'rc': 0}
+[18.674102] (-) EventReactorShutdown: {}
