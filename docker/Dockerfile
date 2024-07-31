@@ -46,6 +46,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     kmod lsof libfuse-dev iproute2 tcpdump xterm \
     python3-dev python3-opencv python3-wxgtk4.0 python3-pip python3-matplotlib python3-lxml python3-pygame \
     && rm -rf /var/lib/apt/lists/*
+# Package dependencies
+# perform ROS dependency installation for our workspace.
+#COPY ros_ws/src /tmp/ros_ws/src
+#RUN rosdep install --from-paths /tmp/ros_ws/src --ignore-src -r -y && rm -rf /tmp/ros_ws
+
+# Install Gazebo Harmonic
+RUN apt-get update && apt-get install -y lsb-release gnupg
+RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+RUN apt-get update
+RUN apt-get install -y gz-harmonic
 
 # package vdb_mapping
 # Build and install patched version of OpenVDB (see https://github.com/SteveMacenski/spatio_temporal_voxel_layer/issues/232). Hopefully this gets fixed in the future.
