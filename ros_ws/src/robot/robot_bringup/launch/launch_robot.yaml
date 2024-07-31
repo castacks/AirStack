@@ -12,6 +12,9 @@ launch:
       # controls
       - include:
           file: "$(find-pkg-share controls_bringup)/launch/launch_controls.yaml"
+      # world model
+      - include:
+          file: "$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py"
   - node:
       pkg: "rviz2"
       exec: "rviz2"
