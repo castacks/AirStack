@@ -429,3 +429,13 @@ emacs /root/Documents/Kit/shared/exts/omni.example.spawn_prims/omni/example/spaw
 /isaac-sim/runapp.sh 
 fg
 /isaac-sim/runapp.sh 
+ros2
+ros2 topic list
+ros2 topic echo /laser_scan
+ros2 run rviz
+ros2 run rviz2 rviz3
+ros2 run rviz2 rviz2
+tmux kill-server
+/isaac-sim/runapp.sh 
+fg
+/isaac-sim/runapp.sh 

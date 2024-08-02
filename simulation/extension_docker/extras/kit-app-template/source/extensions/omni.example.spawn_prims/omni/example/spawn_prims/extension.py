@@ -56,7 +56,7 @@ def handle_client(conn, addr):
     with conn:
         while True:
             data = conn.recv(8)
-            print('data', data)
+            #print('data', data)
             if not data:
                 break
 
@@ -71,7 +71,7 @@ def handle_client(conn, addr):
             sitl_time = t - initial_sitl_time
             sim_time = (s - initial_sim_time)*1000000
             time_to_sleep = int(sitl_time - sim_time)
-            print('time to sleep', time_to_sleep, sitl_time, sim_time)
+            #print('time to sleep', time_to_sleep, sitl_time, sim_time)
             
             #print(f'Received {data.decode()} from {addr}')
             #time.sleep(0.01)
@@ -152,6 +152,7 @@ class Drone:
         )
     
     def update_state_from_mavlink(self, args):
+        print(self._drone_prim.GetPropertyNames())
         global current_sim_time
         current_sim_time += args
         
