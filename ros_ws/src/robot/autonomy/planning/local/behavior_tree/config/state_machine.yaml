@@ -1,0 +1,65 @@
+state_machine:
+  - state: MANUAL
+    transitions:
+      - event: offboard
+        to: OFFBOARD
+  - state: OFFBOARD
+    transitions:
+      - event: arm
+        to: ARMED
+      - event: manual
+        to: MANUAL
+  - state: DISARMED
+    transitions:
+      - event: arm
+        to: ARMED
+      - event: manual
+        to: MANUAL
+  - state: ARMED
+    transitions:
+      - event: takeoff
+        to: TAKING_OFF
+      - event: disarm
+        to: DISARMED
+  - state: TAKING_OFF
+    transitions:
+      - event: explore
+        to: EXPLORING
+      - event: land
+        to: LANDING
+  - state: EXPLORING
+    transitions:
+      - event: land
+        to: LANDING
+      - event: go_to_safe_spot
+        to: GOING_TO_SAFE_SPOT
+      - event: pause
+        to: PAUSED
+      - event: rewind
+        to: REWINDING
+  - state: PAUSED
+    transitions:
+      - event: explore
+        to: EXPLORING
+      - event: land
+        to: LANDING
+      - event: rewind
+        to: REWINDING
+  - state: REWINDING
+    transitions:
+      - event: land
+        to: LANDING
+      - event: explore
+        to: EXPLORING
+      - event: pause
+        to: PAUSED
+  - state: GOING_TO_SAFE_SPOT
+    transitions:
+      - event: land
+        to: LANDING
+  - state: LANDING
+    transitions:
+      - event: pause
+        to: PAUSED
+      - event: landed
+        to: DISARMED

@@ -1,0 +1,50 @@
+state_machines:
+  - Autonomy:
+      states:
+        - MANUAL
+        - OFFBOARD
+        - DISARMED
+        - ARMED
+        - TAKING_OFF
+        - LANDING
+        - EXPLORING
+        - RETURNING_HOME
+        - GOING_TO_SAFE_SPOT
+      transitions:
+        offboard:
+          from: MANUAL
+          to: OFFBOARD
+        manual:
+          from: OFFBOARD
+          to: MANUAL
+        disarm:
+          from: [OFFBOARD, ARMED, LANDING]
+          to: DISARMED
+        arm:
+          from: [OFFBOARD, DISARMED]
+          to: ARMED
+        takeoff:
+          from: [ARMED, OFFBOARD]
+          to: TAKING_OFF
+        land:
+          from: [TAKING_OFF, EXPLORING, RETURNING_HOME, GOING_TO_SAFE_SPOT, RETURNING_HOME]
+          to: LANDING
+        pause:
+          from: [TAKING_OFF, LANDING, EXPLORING, RETURNING_HOME, GOING_TO_SAFE_SPOT]
+          to: Pause
+        explore:
+          from: [TAKING_OFF, RETURNING_HOME, GOING_TO_SAFE_SPOT]
+          to: EXPLORING
+        return_home:
+          from: EXPLORING
+          to: RETURNING_HOME
+        go_to_safe_spot:
+          from: [EXPLORING]
+          to: GOING_TO_SAFE_SPOT
+  - Pause:
+      states:
+        - PAUSED
+      transitions:
+        resume:
+          from: PAUSED
+          to: Autonomy

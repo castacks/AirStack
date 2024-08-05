@@ -1,0 +1,36 @@
+?
+	->
+		(User Pressed Land Button)
+		?
+			(Landed)
+			[Land]
+	->
+		(User Pressed Hover Button)
+		?
+			(On Ground)
+			[Hover]
+	->
+		(User Pressed Return Home Button)
+		?
+			(At Home)
+			[Go To Home]
+	->
+		(User Pressed Resume Button)
+		?
+			(Is In Offboard Mode)
+			[Offboard]
+		?
+			(Is Armed)
+			[Arm]
+		?
+			(Takeoff Complete)
+			[Takeoff]
+		?
+			(Low Battery)
+			[Explore]
+		?
+			(At Landing Spot)
+			[Go To Landing Spot]
+		?
+			(Landed)
+			[Land]

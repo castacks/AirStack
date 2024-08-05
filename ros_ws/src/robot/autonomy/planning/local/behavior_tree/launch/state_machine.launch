@@ -1,0 +1,10 @@
+<launch>
+
+  <node name="state_machine" pkg="state_machine" type="state_machine.py" output="screen">
+    <param name="config" type="string" value="$(find state_machine)/config/state_machine.yaml"/>
+    <param name="state_pub_rate" type="double" value="10." />
+  </node>
+
+    <node name="rc_to_state" pkg="state_machine" type="rc_to_state.py" output="screen" />
+  
+</launch>

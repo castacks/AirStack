@@ -1,0 +1,29 @@
+state_machines:
+  - Idle:
+      states:
+        - INITIALIZING
+        - PAUSED
+      transitions:
+        initialize:
+          from: INITIALIZING
+          to: PAUSED
+        resume:
+          from: PAUSED
+          to: Mission
+  - Mission:
+      states:
+        - EXPLORING
+        - RETURNING_HOME
+        - DROPPING_COMMS
+      transitions:
+        explore:
+          from: [DROPPING_COMMS, RETURNING_HOME]
+          to: EXPLORING
+        drop_comms:
+          from: EXPLORING
+          to: DROPPING_COMMS
+        return_home:
+          from: [EXPLORING, DROPPING_COMMS]
+          to: RETURNING_HOME
+        pause:
+          to: Idle
