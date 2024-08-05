@@ -1,0 +1,14 @@
+<launch>
+
+  <arg name="robot_name" default="uav1" />
+  
+  <node name="trajectory_controller" pkg="core_trajectory_controller" type="trajectory_controller" output="screen">
+    <param name="execute_target" type="double" value="50." />
+
+    <param name="tf_prefix" value="$(arg robot_name)" />
+    <param name="target_frame" type="string" value="$(arg robot_name)/map" />
+    <param name="tracking_point_distance_limit" type="double" value="10.5" />
+    <param name="velocity_look_ahead_time" type="double" value="0.9" />
+  </node>
+  
+</launch>
