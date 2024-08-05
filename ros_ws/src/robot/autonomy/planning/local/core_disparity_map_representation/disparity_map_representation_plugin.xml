@@ -1,0 +1,5 @@
+<library path="lib/libdisparity_map_representation">
+  <class type="DisparityMapRepresentation" base_class_type="MapRepresentation">
+    <description>Disparity map representation plugin.</description>
+  </class>
+</library>
