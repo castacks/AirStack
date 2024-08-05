@@ -1,21 +1,17 @@
+<!-- -->
 <launch>
-    <env name="ROSCONSOLE_CONFIG_FILE" value="$(env HOME)/rosconsole.config"/>
-    <env name="ROSCONSOLE_FORMAT" value="[${node}][${severity}][${time}]: ${message}"/>
+    <set_env name="RCUTILS_CONSOLE_OUTPUT_FORMAT" value="[{name}][{severity}][{time}]: {message}"/>
 
-    <arg name="fname" default="$(find disparity_graph)/data/message.txt"/>
+    <arg name="fname" default="$(find-pkg-share disparity_graph)/data/message.txt"/>
 
-    <param name="use_sim_time" value="false"/>
-
-    <node pkg="tf"
-          type="static_transform_publisher"
-          name="tf0"
-          args="4.49479e+06 599505 -339.471 0 0 0 1 /ned_origin /pcs_world 20"
-          respawn="false"
-          output="screen"/>
-
-    <node name="talker"
-          pkg="disparity_graph"
-          type="talker"
-          output="screen">
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="tf0">
+        <param name="translation" value="[4494790.0, 599505.0, -339.471]"/>
+        <param name="rotation" value="[0.0, 0.0, 0.0, 1.0]"/>
+        <param name="frame_id" value="ned_origin"/>
+        <param name="child_frame_id" value="pcs_world"/>
+        <param name="period" value="20"/>
+    </node>
+    
+    <node pkg="disparity_graph" exec="disparity_graph" name="disparity_graph" output="screen">
     </node>
 </launch>
