@@ -1,0 +1,15 @@
+<library path="src">
+  <class name="BehaviorTreePlugin" type="rqt_behavior_tree.rqt_behavior_tree.BehaviorTreePlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      An example Python GUI plugin to create a great user interface.
+    </description>
+    <qtgui>
+      <group>
+        <label>Behavior Tree</label>
+      </group>
+      <label>Behavior Tree</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Behavior tree interface.</statustip>
+    </qtgui>
+  </class>
+</library>

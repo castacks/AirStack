@@ -1,0 +1,10 @@
+<launch>
+
+  <node name="parallel_state_machine" pkg="parallel_state_machine" type="parallel_state_machine.py">
+    <param name="config" type="string" value="$(find parallel_state_machine)/config/parallel_state_machine_drone.yaml"/>
+    <param name="state_pub_rate" type="double" value="10." />
+  </node>
+
+  <node name="rqt" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find parallel_state_machine)/rqt_perspectives/parallel_state_machine.perspective"/>
+  
+</launch>

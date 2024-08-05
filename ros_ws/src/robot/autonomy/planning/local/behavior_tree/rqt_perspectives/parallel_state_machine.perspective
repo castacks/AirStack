@@ -1,0 +1,71 @@
+{
+  "keys": {},
+  "groups": {
+    "pluginmanager": {
+      "keys": {
+        "running-plugins": {
+          "type": "repr",
+          "repr": "{u'parallel_state_machine/ParallelStateMachinePlugin': [1]}"
+        }
+      },
+      "groups": {
+        "plugin__parallel_state_machine__ParallelStateMachinePlugin__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dockable": {
+                  "type": "repr",
+                  "repr": "True"
+                },
+                "parent": {
+                  "type": "repr",
+                  "repr": "None"
+                },
+                "dock_widget_title": {
+                  "type": "repr",
+                  "repr": "u''"
+                }
+              },
+              "groups": {}
+            },
+            "plugin": {
+              "keys": {
+                "config_filename": {
+                  "type": "repr",
+                  "repr": "u'/home/john/subt/ws/src/parallel_state_machine/config/parallel_state_machine_drone.yaml'"
+                }
+              },
+              "groups": {}
+            }
+          }
+        }
+      }
+    },
+    "mainwindow": {
+      "keys": {
+        "geometry": {
+          "type": "repr(QByteArray.hex)",
+          "repr(QByteArray.hex)": "QtCore.QByteArray('01d9d0cb00020000000004f30000003c00000b09000004f7000004f30000005a00000b09000004f700000000000000000d70')",
+          "pretty-print": "       <       Z        p"
+        },
+        "state": {
+          "type": "repr(QByteArray.hex)",
+          "repr(QByteArray.hex)": "QtCore.QByteArray('000000ff00000000fd00000001000000030000061700000472fc0100000001fb0000006e0070006100720061006c006c0065006c005f00730074006100740065005f006d0061006300680069006e0065005f005f0050006100720061006c006c0065006c00530074006100740065004d0061006300680069006e00650050006c007500670069006e005f005f0031005f005f0100000000000006170000033b00ffffff000006170000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720000000000ffffffff0000000000000000')",
+          "pretty-print": "                 nparallel_state_machine__ParallelStateMachinePlugin__1__                            6MinimizedDockWidgetsToolbar        "
+        }
+      },
+      "groups": {
+        "toolbar_areas": {
+          "keys": {
+            "MinimizedDockWidgetsToolbar": {
+              "type": "repr",
+              "repr": "8"
+            }
+          },
+          "groups": {}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+<launch>
+
+  <node name="behavior_tree" pkg="behavior_tree" type="behavior_tree_node.py">
+    <param name="config" type="string" value="$(find behavior_tree)/config/drone_tree.tree" />
+  </node>
+
+  <node name="rqt" pkg="rqt_gui" type="rqt_gui" args="--perspective-file $(find behavior_tree)/rqt_perspectives/behavior_tree.perspective"/>
+  
+</launch>
