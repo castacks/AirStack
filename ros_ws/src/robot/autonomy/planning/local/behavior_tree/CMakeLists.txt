@@ -1,20 +1,25 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(behavior_tree)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+#add_compile_options(-std=c++11)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  rqt_gui
-  rqt_gui_py
-  behavior_tree_msgs
-)
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(behavior_tree_msgs REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -23,7 +28,11 @@ find_package(catkin REQUIRED COMPONENTS
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-catkin_python_setup()
+#catkin_python_setup()
+ament_python_install_package(${PROJECT_NAME}
+  PACKAGE_DIR src/${PROJECT_NAME}
+)
+
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -105,11 +114,20 @@ catkin_python_setup()
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES behavior_tree
-  CATKIN_DEPENDS roscpp rospy std_msgs behavior_tree_msgs
+#catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES behavior_tree
+#  CATKIN_DEPENDS roscpp rospy std_msgs behavior_tree_msgs
 #  DEPENDS system_lib
+#)
+add_library(${PROJECT_NAME}
+  src/behavior_tree.cpp
+)
+
+target_include_directories(${PROJECT_NAME} 
+PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
 ###########
@@ -123,23 +141,33 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_library(behavior_tree
-  src/behavior_tree.cpp
-)
+#add_library(behavior_tree
+ # src/behavior_tree.cpp
+#)
 
-add_dependencies(behavior_tree
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  std_msgs
+  behavior_tree_msgs
 )
 
 target_link_libraries(behavior_tree
   ${catkin_LIBRARIES}
 )
 
-install(DIRECTORY include/behavior_tree/
-   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-   FILES_MATCHING PATTERN "*.h"
-)
+install(TARGETS
+  behavior_tree
+  DESTINATION lib/${PROJECT_NAME})
+
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME})
+
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME})
+
+
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -180,12 +208,12 @@ install(DIRECTORY include/behavior_tree/
 
 install(PROGRAMS
   scripts/rqt_state_machine
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  DESTINATION bin/${PROJECT_NAME}
 )
 
 install(FILES
   plugin.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  DESTINATION share/${PROJECT_NAME}
 )
 
 
@@ -232,3 +260,4 @@ install(FILES
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+ament_package()

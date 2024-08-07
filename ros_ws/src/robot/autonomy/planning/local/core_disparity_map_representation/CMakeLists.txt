@@ -1,50 +1,58 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(core_disparity_map_representation)
 
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  roscpp
-  rospy
-  sensor_msgs
-  std_msgs
-  stereo_msgs
-  nav_msgs
-  tf
-  visualization_msgs
-  cv_bridge
-  core_map_representation_interface
-  disparity_graph
-  tflib
-  pluginlib
-  core_trajectory_msgs
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(stereo_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(core_map_representation_interface REQUIRED)
+find_package(disparity_graph REQUIRED)
+#find_package(tflib REQUIRED)
+find_package(pluginlib REQUIRED)
+find_package(core_trajectory_msgs REQUIRED)
+
+include_directories(
+  ${ament_INCLUDE_DIRS}
+  ${core_map_representation_interface_INCLUDE_DIRS}
+  ${disparity_graph_INCLUDE_DIRS}
+
 )
-
-
-###########
-## Build ##
-###########
-
-catkin_package(
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS rospy roscpp tf disparity_graph core_map_representation_interface core_trajectory_msgs tflib
-  LIBRARIES disparity_map_representation
-)
-
-include_directories(${catkin_INCLUDE_DIRS} include)
-
 
 add_library(disparity_map_representation
   src/disparity_map_representation.cpp
-  )
+)
 
-target_link_libraries(disparity_map_representation ${catkin_LIBRARIES})
-
+ament_target_dependencies(disparity_map_representation
+  rclcpp
+  tf2
+  tf2_ros
+  disparity_graph
+  core_map_representation_interface
+  core_trajectory_msgs
+  cv_bridge
+  #tflib
+)
 
 install(TARGETS disparity_map_representation
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+ DESTINATION lib/${PROJECT_NAME}
+)
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+install(FILES package.xml
+  DESTINATION share/${PROJECT_NAME}
+)
 
-install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+#ament_export_include_directories(include)
+#ament_export_libraries(disparity_map_representation)
+#ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 
+
+
+ament_package()
