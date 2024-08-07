@@ -21,6 +21,7 @@ project(disparity_graph)
 #)
 
 find_package(ament_cmake REQUIRED)
+find_package(disparity_graph REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
@@ -67,8 +68,8 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -std=gnu++0x")
 
 include_directories(
-  include
   ${rclcpp_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${sensor_msgs_INCLUDE_DIRS}
   ${std_msgs_INCLUDE_DIRS}
   ${tf2_INCLUDE_DIRS}
@@ -84,6 +85,7 @@ include_directories(
   ${pcl_conversions_INCLUDE_DIRS} 
   ${nav_msgs_INCLUDE_DIRS}
   ${tf2_geometry_msgs_INCLUDE_DIRS}
+  ${disparity_graph_INCLUDE_DIRS}
 )
 
 add_library(disparity_graph
@@ -108,6 +110,7 @@ ament_target_dependencies(disparity_graph
                       cv_bridge
                       image_geometry
                       pcl_conversions
+                      disparity_graph
                     )
 #Install files                      
 # install(DIRECTORY include/${PROJECT_NAME}/
@@ -121,16 +124,21 @@ ament_target_dependencies(disparity_graph
  #  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
  #  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  #)
- install(TARGETS disparity_graph
+install(TARGETS disparity_graph
  DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(FILES package.xml
   DESTINATION share/${PROJECT_NAME}
 )
-install(DIRECTORY include
-  DESTINATION include/${PROJECT_NAME}
+#install(DIRECTORY include
+##  DESTINATION include/${PROJECT_NAME}
+#S)
+install(DIRECTORY include/
+  DESTINATION include/disparity_graph
+  FILES_MATCHING PATTERN "*.h"
 )
+
 
 ament_package()
 

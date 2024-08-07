@@ -22,7 +22,7 @@
 #include <disparity_graph/disparity_graph.h>
 //#include <tflib/tflib.h>
 */
-// #include <core_map_representation_interface/disparity_map_representation.h>
+#include <core_map_representation_interface/disparity_map_representation.h>
 #include <cv_bridge/cv_bridge.h>
 #include <disparity_graph/disparity_graph.h>
 #include <message_filters/subscriber.h>
