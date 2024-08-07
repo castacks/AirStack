@@ -1,18 +1,25 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(behavior_tree_msgs)
 
-find_package(catkin REQUIRED COMPONENTS
-  message_generation
-  std_msgs
+# Find required packages
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(std_msgs REQUIRED)
+
+# Generate interfaces
+rosidl_generate_interfaces(${PROJECT_NAME}
+  msg/Status.msg
+  msg/BehaviorTreeCommand.msg
+  msg/BehaviorTreeCommands.msg
+  DEPENDENCIES std_msgs
 )
 
-add_message_files(
-  FILES
-  Status.msg
-  BehaviorTreeCommand.msg
-  BehaviorTreeCommands.msg
-  )
+ament_export_dependencies(rosidl_default_runtime)
 
-generate_messages(DEPENDENCIES std_msgs)
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.hpp"
+)
 
-catkin_package(CATKIN_DEPENDS message_runtime std_msgs)
+ament_package()
