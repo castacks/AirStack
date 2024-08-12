@@ -1,27 +1,28 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(core_trajectory_controller)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
-
+# Use C++14 standard
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  message_generation
-  nav_msgs
-  roscpp
-  rospy
-  sensor_msgs
-  std_msgs
-  tf
-  core_trajectory_library
-  tflib
-  core_trajectory_msgs
-)
+# Find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(core_trajectory_library REQUIRED)
+find_package(core_trajectory_msgs REQUIRED)
+find_package(tflib REQUIRED)
 
-find_package(base)
+# Generate messages
+find_package(rosidl_default_generators REQUIRED)
+#find_package(base)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -57,16 +58,16 @@ find_package(base)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  Trajectory.msg
-)
+#add_message_files(
+#  FILES
+#  Trajectory.msg
+#)
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  TrajectoryMode.srv
-)
+#add_service_files(
+#  FILES
+#  TrajectoryMode.srv
+#)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -76,11 +77,16 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  nav_msgs std_msgs
-)
+#generate_messages(
+#  DEPENDENCIES
+#  nav_msgs std_msgs
+#)
 
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Trajectory.msg"
+  "srv/TrajectoryMode.srv"
+  DEPENDENCIES std_msgs nav_msgs
+)
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
@@ -110,12 +116,12 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
+#catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES trajectory_controller
 #  CATKIN_DEPENDS ca_nav_msgs geometry_msgs message_generation nav_msgs roscpp rospy sensor_msgs std_msgs tf
 #  DEPENDS system_lib
-)
+#)
 
 ###########
 ## Build ##
@@ -123,10 +129,21 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+#include_directories(
+#  include
+#  ${catkin_INCLUDE_DIRS}
+#  ${base_INCLUDE_DIRS}
+#)
+
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
-  ${base_INCLUDE_DIRS}
+  ${rclcpp_INCLUDE_DIRS}
+  ${tf2_INCLUDE_DIRS}
+  ${tf2_ros_INCLUDE_DIRS}
+  ${geometry_msgs_INCLUDE_DIRS}
+  ${nav_msgs_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${std_msgs_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -152,13 +169,31 @@ add_executable(trajectory_controller src/trajectory_controller.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(trajectory_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(trajectory_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+ament_target_dependencies(trajectory_controller
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  sensor_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  core_trajectory_library
+  core_trajectory_msgs
+  tflib
+)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(trajectory_controller
-  ${catkin_LIBRARIES}
-  ${base_LIBRARIES}
+#target_link_libraries(trajectory_controller
+#  ${catkin_LIBRARIES}
+#  ${base_LIBRARIES}
+#)
+install(TARGETS trajectory_controller
+  DESTINATION lib/${PROJECT_NAME}
 )
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+
+ament_package()
 
 #############
 ## Install ##

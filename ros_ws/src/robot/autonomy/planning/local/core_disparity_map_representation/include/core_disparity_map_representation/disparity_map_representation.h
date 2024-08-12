@@ -22,13 +22,14 @@
 #include <disparity_graph/disparity_graph.h>
 //#include <tflib/tflib.h>
 */
-#include <core_map_representation_interface/disparity_map_representation.h>
+#include <core_map_representation_interface/map_representation.h>
 #include <cv_bridge/cv_bridge.h>
 #include <disparity_graph/disparity_graph.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_listener.h>
+#include <tflib/tflib.h>
 
 #include <core_trajectory_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>

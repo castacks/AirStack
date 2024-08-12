@@ -39,23 +39,10 @@ include_directories(
 #   geometry_msgs
 #   nav_msgs
 # )
+add_library(core_map_representation_interface INTERFACE)
 
-# Install include files
-install(
-  DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION include/${PROJECT_NAME}
-  FILES_MATCHING PATTERN "*.hpp"
-)
-
-# Install Python scripts (if you have any)
-# install(PROGRAMS
-#   scripts/your_python_script.py
-#   DESTINATION lib/${PROJECT_NAME}
-# )
-
-
-# Export dependencies
-ament_export_include_directories(include)
+ament_export_targets(core_map_representation_interfaceTargets HAS_LIBRARY_TARGET)
+#ament_export_include_directories(include)
 ament_export_dependencies(
   rclcpp
   rclpy
@@ -69,5 +56,29 @@ ament_export_dependencies(
   geometry_msgs
   nav_msgs
 )
+install(
+  TARGETS core_map_representation_interface
+  EXPORT core_map_representation_interfaceTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
+# Install include files
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.h"
+)
+
+# Install Python scripts (if you have any)###
+# install(PROGRAMS
+#   scripts/your_python_script.py
+#   DESTINATION lib/${PROJECT_NAME}
+# )
+
+
+# Export dependencies
+
 
 ament_package()
