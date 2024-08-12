@@ -1,29 +1,41 @@
 #include <core_disparity_map_representation/disparity_map_representation.h>
-#include <pluginlib/class_list_macros.h>
 
-DisparityMapRepresentation::DisparityMapRepresentation() {
-    ros::NodeHandle* nh = new ros::NodeHandle();
-    ros::NodeHandle* pnh = new ros::NodeHandle("~");
+#include <pluginlib/class_list_macros.hpp>
+
+DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation() {
+    // ros::NodeHandle* nh = new ros::NodeHandle();
+    // ros::NodeHandle* pnh = new ros::NodeHandle("~");
     disp_graph = new nabla::disparity_graph::disparity_graph();
+    // std::shared_ptr<nabla::disparity_graph::disparity_graph> disp_graph;
+    // disp_graph = std::make_shared<nabla::disparity_graph::disparity_graph>();
 
     points.ns = "obstacles";
     points.id = 0;
-    points.type = visualization_msgs::Marker::SPHERE_LIST;
-    points.action = visualization_msgs::Marker::ADD;
+    points.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    points.action = visualization_msgs::msg::Marker::ADD;
     points.scale.x = 0.1;
     points.scale.y = 0.1;
     points.scale.z = 0.1;
 
-    debug_pub = nh->advertise<visualization_msgs::MarkerArray>("disparity_map_debug", 1);
+    // debug_pub = nh->advertise<visualization_msgs::MarkerArray>("disparity_map_debug", 1);
+    debug_pub =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_map_debug", 1);
 
-    obstacle_check_points = pnh->param("disparity_map/obstacle_check_points", 5);
-    obstacle_check_radius = pnh->param("disparity_map/obstacle_check_radius", 2.);
+    this->declare_parameter<int>("disparity_map/obstacle_check_points", 5);
+    this->declare_parameter<double>("disparity_map/obstacle_check_radius", 2.0);
 
-    listener = new tf::TransformListener();
+    this->get_parameter("disparity_map/obstacle_check_points", obstacle_check_points);
+    this->get_parameter("disparity_map/obstacle_check_radius", obstacle_check_radius);
+
+    // listener = new tf::TransformListener();
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> listener_;
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
-    std::vector<std::vector<geometry_msgs::PointStamped> > trajectories) {
+    std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories) {
     std::vector<std::vector<double> > values(trajectories.size());
 
     for (int i = 0; i < trajectories.size(); i++)
@@ -32,15 +44,16 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     for (int i = 0; i < trajectories.size(); i++) {
         // core_trajectory_msgs::TrajectoryXYZVYaw trajectory = trajectories[i];
         for (int j = 0; j < trajectories[i].size(); j++) {
-            tf::Vector3 wp = tflib::to_tf(trajectories[i][j].point);
+            tf2::Vector3 wp = tflib::to_tf(trajectories[i][j].point);
 
             // find the direction of the current trajectory segment between waypoints
             // this direction will be used to check for obstacles in a perpendicular direction
-            tf::Vector3 direction;
-            tf::Vector3 wp2 = wp;
+            tf2::Vector3 direction;
+            tf2::Vector3 wp2 = wp;
             if (trajectories[i].size() < 2) {
-                direction = tf::Vector3(
-                    1, 0, 0);  // TODO: make this point in the direction of the waypoints quaternion
+                direction = tf2::Vector3(
+                    1, 0,
+                    0);  // TODO: make this point in the direction of the waypoints quaternion
             } else {
                 if (j == 0) {
                     wp2 = tflib::to_tf(trajectories[i][1].point);
@@ -52,61 +65,61 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
             }
 
             points.header.frame_id = trajectories[i][j].header.frame_id;
-            std_msgs::ColorRGBA green;
+            std_msgs::msg::ColorRGBA green;
             green.r = 0;
             green.b = 0;
             green.g = 1;
             green.a = 1;
-            std_msgs::ColorRGBA red;
+            std_msgs::msg::ColorRGBA red;
             red.r = 1;
             red.b = 0;
             red.g = 0;
             red.a = 1;
 
-            tf::Quaternion q_up, q_down, q_left, q_right;
+            tf2::Quaternion q_up, q_down, q_left, q_right;
             q_up.setRPY(0, -M_PI / 2, 0);
             q_down.setRPY(0, M_PI / 2, 0);
             q_left.setRPY(0, 0, M_PI / 2);
             q_right.setRPY(0, 0, -M_PI / 2);
-            std::vector<tf::Quaternion> directions;
+            std::vector<tf2::Quaternion> directions;
             directions.push_back(q_up);
             directions.push_back(q_down);
             directions.push_back(q_left);
             directions.push_back(q_right);
 
-            tf::Vector3 position = wp;  // tflib::to_tf(pose.pose.position);
-            tf::Quaternion q = tf::Quaternion(
-                0, 0, 0,
-                1);  // TODO: figure out if this makes sense //tflib::to_tf(pose.pose.orientation);
-            tf::Vector3 unit(1, 0, 0);
+            tf2::Vector3 position = wp;  // tflib::to_tf(pose.pose.position);
+            tf2::Quaternion q = tf2::Quaternion(0, 0, 0,
+                                                1);  // TODO: figure out if this makes sense
+                                                     // //tflib::to_tf(pose.pose.orientation);
+            tf2::Vector3 unit(1, 0, 0);
             double closest_obstacle_distance = obstacle_check_radius;
 
             direction.normalize();
-            tf::Vector3 up = tf::Transform(q_up * q) * unit;
+            tf2::Vector3 up = tf2::Transform(q_up * q) * unit;
             up.normalize();
 
-            tf::Vector3 side = up.cross(direction);
+            tf2::Vector3 side = up.cross(direction);
             side.normalize();
 
             up = side.cross(direction);
             up.normalize();
 
-            std::vector<tf::Vector3> direction_vectors;
+            std::vector<tf2::Vector3> direction_vectors;
             direction_vectors.push_back(up);
             direction_vectors.push_back(side);
             direction_vectors.push_back(-up);
             direction_vectors.push_back(-side);
 
             for (int m = 0; m < directions.size(); m++) {
-                tf::Quaternion q_curr = directions[m];
+                tf2::Quaternion q_curr = directions[m];
                 for (int k = 1; k < obstacle_check_points + 1; k++) {
                     double dist =
                         (double)k * obstacle_check_radius / (double)(obstacle_check_points + 1);
 
-                    tf::Vector3 point =
+                    tf2::Vector3 point =
                         position +
                         dist * direction_vectors[m];  // tf::Transform(q_curr)*(dist*direction);
-                    geometry_msgs::PoseStamped check_pose;
+                    geometry_msgs::msg::PoseStamped check_pose;
                     check_pose.header = trajectories[i][j].header;
                     check_pose.pose.position = trajectories[i][j].point;
                     check_pose.pose.orientation.w = 1.0;
@@ -115,7 +128,7 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                     bool collision =
                         !disp_graph->isStateValidDepth_pose(check_pose, 0.9, occupancy);
 
-                    std_msgs::ColorRGBA c;
+                    std_msgs::msg::ColorRGBA c;
                     if (collision) {
                         closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
                         c = red;
@@ -129,7 +142,7 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
 
             points.points.push_back(trajectories[i][j].point);
 
-            geometry_msgs::PoseStamped pose;
+            geometry_msgs::msg::PoseStamped pose;
             pose.header = trajectories[i][j].header;  // trajectory.header;
             pose.pose.position = trajectories[i][j].point;
             pose.pose.orientation.w = 1.0;
@@ -167,8 +180,8 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
       tf::Vector3 direction;
       tf::Vector3 wp2 = wp;
       if(trajectory.waypoints.size() < 2){
-        direction = tf::Vector3(1, 0, 0); // TODO: make this point in the direction of the waypoints
-  quaternion
+        direction = tf::Vector3(1, 0, 0); // TODO: make this point in the direction of the
+  waypoints quaternion
       }
       else{
         if(j == 0){
@@ -206,8 +219,8 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
 
       tf::Vector3 position = wp;//tflib::to_tf(pose.pose.position);
       tf::Quaternion q = tf::Quaternion(0, 0, 0, 1); // TODO: figure out if this makes sense
-  //tflib::to_tf(pose.pose.orientation); tf::Vector3 unit(1, 0, 0); double closest_obstacle_distance
-  = obstacle_check_radius;
+  //tflib::to_tf(pose.pose.orientation); tf::Vector3 unit(1, 0, 0); double
+  closest_obstacle_distance = obstacle_check_radius;
 
       direction.normalize();
       tf::Vector3 up = tf::Transform(q_up*q)*unit;
@@ -279,60 +292,60 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
   return values;
   }*/
 
-double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::PoseStamped pose,
-                                                        tf::Vector3 direction) {
+double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::PoseStamped pose,
+                                                        tf2::Vector3 direction) {
     points.header.frame_id = pose.header.frame_id;
-    std_msgs::ColorRGBA green;
+    std_msgs::msg::ColorRGBA green;
     green.r = 0;
     green.b = 0;
     green.g = 1;
     green.a = 1;
-    std_msgs::ColorRGBA red;
+    std_msgs::msg::ColorRGBA red;
     red.r = 1;
     red.b = 0;
     red.g = 0;
     red.a = 1;
 
-    tf::Quaternion q_up, q_down, q_left, q_right;
+    tf2::Quaternion q_up, q_down, q_left, q_right;
     q_up.setRPY(0, -M_PI / 2, 0);
     q_down.setRPY(0, M_PI / 2, 0);
     q_left.setRPY(0, 0, M_PI / 2);
     q_right.setRPY(0, 0, -M_PI / 2);
-    std::vector<tf::Quaternion> directions;
+    std::vector<tf2::Quaternion> directions;
     directions.push_back(q_up);
     directions.push_back(q_down);
     directions.push_back(q_left);
     directions.push_back(q_right);
 
-    tf::Vector3 position = tflib::to_tf(pose.pose.position);
-    tf::Quaternion q = tflib::to_tf(pose.pose.orientation);
-    tf::Vector3 unit(1, 0, 0);
+    tf2::Vector3 position = tflib::to_tf(pose.pose.position);
+    tf2::Quaternion q = tflib::to_tf(pose.pose.orientation);
+    tf2::Vector3 unit(1, 0, 0);
     double closest_obstacle_distance = obstacle_check_radius;
 
     direction.normalize();
-    tf::Vector3 up = tf::Transform(q_up * q) * unit;
+    tf2::Vector3 up = tf2::Transform(q_up * q) * unit;
     up.normalize();
 
-    tf::Vector3 side = up.cross(direction);
+    tf2::Vector3 side = up.cross(direction);
     side.normalize();
 
     up = side.cross(direction);
     up.normalize();
 
-    std::vector<tf::Vector3> direction_vectors;
+    std::vector<tf2::Vector3> direction_vectors;
     direction_vectors.push_back(up);
     direction_vectors.push_back(side);
     direction_vectors.push_back(-up);
     direction_vectors.push_back(-side);
 
     for (int m = 0; m < directions.size(); m++) {
-        tf::Quaternion q_curr = directions[m];
+        tf2::Quaternion q_curr = directions[m];
         for (int k = 1; k < obstacle_check_points + 1; k++) {
             double dist = (double)k * obstacle_check_radius / (double)(obstacle_check_points + 1);
 
-            tf::Vector3 point =
+            tf2::Vector3 point =
                 position + dist * direction_vectors[m];  // tf::Transform(q_curr)*(dist*direction);
-            geometry_msgs::PoseStamped check_pose;
+            geometry_msgs::msg::PoseStamped check_pose;
             check_pose.header = pose.header;
             check_pose.pose.position.x = point.x();
             check_pose.pose.position.y = point.y();
@@ -342,7 +355,7 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::PoseStamp
             double occupancy;
             bool collision = !disp_graph->isStateValidDepth_pose(check_pose, 0.9, occupancy);
 
-            std_msgs::ColorRGBA c;
+            std_msgs::msg::ColorRGBA c;
             if (collision) {
                 closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
                 c = red;
@@ -364,10 +377,10 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::PoseStamp
 }
 
 void DisparityMapRepresentation::publish_debug() {
-    points.header.stamp = ros::Time::now();
+    points.header.stamp = this->now();
     markers.markers.push_back(points);
 
-    debug_pub.publish(markers);
+    debug_pub->publish(markers);
 
     markers.markers.clear();
     points.points.clear();
@@ -425,10 +438,10 @@ void DisparityMapRepresentation::fg_bg_disparity_callback
 
   // get the tf
   try{
-    listener->waitForTransform(foreground->header.frame_id, target_frame, foreground->header.stamp,
-                               ros::Duration(0.1));
-    listener->lookupTransform(foreground->header.frame_id, target_frame, foreground->header.stamp,
-                              image_pair.target_frame_to_image_tf);
+    listener->waitForTransform(foreground->header.frame_id, target_frame,
+foreground->header.stamp, ros::Duration(0.1));
+    listener->lookupTransform(foreground->header.frame_id, target_frame,
+foreground->header.stamp, image_pair.target_frame_to_image_tf);
   }
   catch(tf::TransformException& e){
     ROS_ERROR_STREAM("transform exception: " << e.what());
@@ -483,8 +496,8 @@ bool DisparityMapRepresentation::is_obstacle(geometry_msgs::PoseStamped pose, do
     listener->lookupTransform(target_frame, pose.header.frame_id, pose.header.stamp,
                               pose_to_target_frame_tf);
 
-    tf::Vector3 point_pose_frame(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
-    point_target_frame = pose_to_target_frame_tf*point_pose_frame;
+    tf::Vector3 point_pose_frame(pose.pose.position.x, pose.pose.position.y,
+pose.pose.position.z); point_target_frame = pose_to_target_frame_tf*point_pose_frame;
   }
   catch(tf::TransformException& e){
     ROS_ERROR_STREAM("transform exception: " << e.what());
@@ -515,7 +528,8 @@ point_image_frame.z() << " " << c << " " << r);
         occupancy += (point_disparity - 0.5)/point_disparity;
 
         ROS_INFO_STREAM("disp: " << point_disparity << " " <<
-image_pair.foreground->image.at<float>(r, c) << " " << image_pair.background->image.at<float>(r, c)
+image_pair.foreground->image.at<float>(r, c) << " " << image_pair.background->image.at<float>(r,
+c)
 << " " << occupancy);
         // debugging
         debug_image->at<uint8_t>(r, c) = 255;

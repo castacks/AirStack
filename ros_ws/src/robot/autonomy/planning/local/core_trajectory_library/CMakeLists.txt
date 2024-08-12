@@ -1,24 +1,44 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(core_trajectory_library)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+#add_compile_options(-std=c++11)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  nav_msgs
-  roscpp
-  rospy
-  sensor_msgs
-  std_msgs
-  tf
-  tflib
-  rqt_gui
-  rqt_gui_py
-  core_trajectory_msgs
-)
+#find_package(catkin REQUIRED COMPONENTS
+#  nav_msgs
+#  roscpp
+#  rospy
+#  sensor_msgs
+#  std_msgs
+#  tf
+#  tflib
+#  rqt_gui
+#  rqt_gui_py
+#  core_trajectory_msgs
+#)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclpy)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+
+find_package(tf2_geometry_msgs REQUIRED)
+
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tflib)
+#find_package(rqt_gui)
+#find_package(rqt_gui_py)
+find_package(visualization_msgs REQUIRED)
+find_package(core_trajectory_msgs REQUIRED)
+find_package(yaml_cpp_vendor REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -27,7 +47,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-catkin_python_setup()
+#catkin_python_setup()
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -109,12 +129,12 @@ catkin_python_setup()
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES trajectory_library
-  CATKIN_DEPENDS nav_msgs roscpp rospy sensor_msgs std_msgs tf visualization_msgs
+#catkin_package(
+ # INCLUDE_DIRS include
+ # LIBRARIES trajectory_library
+ # CATKIN_DEPENDS nav_msgs roscpp rospy sensor_msgs std_msgs tf visualization_msgs
 #  DEPENDS system_lib
-)
+#)
 
 ###########
 ## Build ##
@@ -124,7 +144,9 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
+ # ${rqt_gui_INCLUDE_DIRS}
+ # ${rqt_gui_py_INCLUDE_DIRS}
+  
 )
 
 ## Declare a C++ library
@@ -153,8 +175,21 @@ add_library(trajectory_library
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(trajectory_library
-  ${catkin_LIBRARIES} yaml-cpp
+ament_target_dependencies(trajectory_library
+  rclcpp
+  rclpy
+  nav_msgs
+  sensor_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  visualization_msgs
+  core_trajectory_msgs
+  #rqt_gui
+  tflib
+  #rqt_gui_py
+  yaml_cpp_vendor
+  tf2_geometry_msgs
 )
 
 #############
@@ -170,29 +205,46 @@ target_link_libraries(trajectory_library
 #   scripts/my_python_script
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
+ament_export_targets(trajectory_libraryTargets HAS_LIBRARY_TARGET)
+ament_export_dependencies(rclcpp
+rclpy
+nav_msgs
+sensor_msgs
+std_msgs
+tf2
+tf2_ros
+visualization_msgs
+core_trajectory_msgs
+#rqt_gui
+tf2_geometry_msgs
+tflib
+#rqt_gui_py
+)
 
 ## Mark executables and/or libraries for installation
 install(TARGETS trajectory_library
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  EXPORT trajectory_libraryTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
 )
 
 ## Mark cpp header files for installation
-install(DIRECTORY include/trajectory_library/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.h"
-  PATTERN ".svn" EXCLUDE
 )
 
 install(PROGRAMS
   scripts/rqt_fixed_trajectory_selector
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  DESTINATION bin/${PROJECT_NAME}
 )
 
 install(FILES
   plugin.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  DESTINATION share/${PROJECT_NAME}
 )
 
 
@@ -215,3 +267,4 @@ install(FILES
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+ament_package()

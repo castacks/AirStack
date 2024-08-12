@@ -15,19 +15,39 @@ find_package(visualization_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(core_map_representation_interface REQUIRED)
 find_package(disparity_graph REQUIRED)
-#find_package(tflib REQUIRED)
+find_package(tflib REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(core_trajectory_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(image_geometry REQUIRED)
+find_package(pcl_msgs REQUIRED)
+
+
+ament_export_include_directories(include)
+ament_export_libraries(disparity_graph)
 
 include_directories(
   ${ament_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${core_map_representation_interface_INCLUDE_DIRS}
   ${disparity_graph_INCLUDE_DIRS}
+  ${pluginlib_INCLUDE_DIRS}
+  #${CMAKE_CURRENT_SOURCE_DIR}/include
 
 )
 
+
+
+
 add_library(disparity_map_representation
   src/disparity_map_representation.cpp
+)
+
+target_link_libraries(disparity_map_representation
+  disparity_graph
+  ${pluginlib_LIBRARIES} # Ensure this variable is set correctly
 )
 
 ament_target_dependencies(disparity_map_representation
@@ -38,17 +58,21 @@ ament_target_dependencies(disparity_map_representation
   core_map_representation_interface
   core_trajectory_msgs
   cv_bridge
-  #tflib
-)
+  tflib
+  pluginlib
+)  
+
 
 install(TARGETS disparity_map_representation
  DESTINATION lib/${PROJECT_NAME}
 )
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+#install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(FILES package.xml
   DESTINATION share/${PROJECT_NAME}
 )
-
+target_link_libraries(disparity_map_representation
+  ${disparity_graph_LIBRARIES}
+)
 #ament_export_include_directories(include)
 #ament_export_libraries(disparity_map_representation)
 #ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)

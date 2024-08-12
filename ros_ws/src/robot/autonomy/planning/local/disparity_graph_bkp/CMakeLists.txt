@@ -21,7 +21,7 @@ project(disparity_graph)
 #)
 
 find_package(ament_cmake REQUIRED)
-find_package(disparity_graph REQUIRED)
+#find_package(disparity_graph REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
@@ -36,7 +36,6 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
-
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 # CONFIGURE OPENCV
@@ -85,15 +84,22 @@ include_directories(
   ${pcl_conversions_INCLUDE_DIRS} 
   ${nav_msgs_INCLUDE_DIRS}
   ${tf2_geometry_msgs_INCLUDE_DIRS}
-  ${disparity_graph_INCLUDE_DIRS}
+  #${disparity_graph_INCLUDE_DIRS}
 )
 
 add_library(disparity_graph
             src/disparity_graph.cpp)
 
+target_include_directories(disparity_graph
+PUBLIC
+$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+$<INSTALL_INTERFACE:include>)
+
 target_link_libraries(disparity_graph
                       ${catkin_LIBRARIES}
                       ${OpenCV_LIBS})
+                      
+
 
 ament_target_dependencies(disparity_graph
                       rclcpp
@@ -110,7 +116,7 @@ ament_target_dependencies(disparity_graph
                       cv_bridge
                       image_geometry
                       pcl_conversions
-                      disparity_graph
+                      #disparity_graph
                     )
 #Install files                      
 # install(DIRECTORY include/${PROJECT_NAME}/
@@ -118,15 +124,37 @@ ament_target_dependencies(disparity_graph
 #   FILES_MATCHING PATTERN "*.h"
 #   PATTERN ".svn" EXCLUDE
 # )
-
+ament_export_targets(disparity_graphTargets HAS_LIBRARY_TARGET)
+ament_export_dependencies(rclcpp sensor_msgs 
+std_msgs
+nav_msgs
+tf2
+tf2_ros
+tf2_eigen
+tf2_geometry_msgs
+image_transport
+image_geometry
+visualization_msgs
+cv_bridge
+image_geometry
+pcl_conversions)
 # install(TARGETS disparity_graph
  #  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
  #  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
  #  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  #)
-install(TARGETS disparity_graph
- DESTINATION lib/${PROJECT_NAME}
+ install(
+  TARGETS disparity_graph
+  EXPORT disparity_graphTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
 )
+#install(EXPORT export_disparity_graph
+#  FILE disparity_graphTargets.cmake
+#  DESTINATION lib/cmake/${PROJECT_NAME}
+#)
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(FILES package.xml
   DESTINATION share/${PROJECT_NAME}
@@ -134,8 +162,9 @@ install(FILES package.xml
 #install(DIRECTORY include
 ##  DESTINATION include/${PROJECT_NAME}
 #S)
-install(DIRECTORY include/
-  DESTINATION include/disparity_graph
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.h"
 )
 
