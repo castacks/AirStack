@@ -1,0 +1,17 @@
+session_name: Ascent Spirit
+windows:
+  - window_name: SITL
+    layout: tiled
+    panes:
+      - shell_command:
+        - echo hi#python3 server_test.py
+      - shell_command:
+        - gdb ./spirit_sitl --command=test.gdb -ex "r -S --model coaxial -I0 --base-port $BASE_PORT"
+      - shell_command:
+        - echo $ASCENT_SITL_PORT
+        - echo $ISAAC_SIM_PORT
+        - echo $AUTONOMY_STACK_PORT
+        - mavproxy.py --streamrate=100 --master tcp:127.0.0.1:$BASE_PORT --out udp:127.0.0.1:$ASCENT_SITL_PORT --out udp:127.0.0.1:$ISAAC_SIM_PORT --out udp:127.0.0.1:$AUTONOMY_STACK_PORT
+      - shell_command:
+        - sleep 5
+        - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT"
