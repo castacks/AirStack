@@ -1,0 +1,5 @@
+install mavproxy
+Unzip package
+In terminal window, run sudo chmod +x spirit_sitl
+run ./spirit_sitl -S --model coaxial -I0 & mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:14552
+Open AscentQLinux folder and launch the AscentQ file
