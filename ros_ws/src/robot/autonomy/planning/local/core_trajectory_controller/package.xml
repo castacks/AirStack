@@ -1,4 +1,6 @@
 <?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+
 <package format="3">
   <name>core_trajectory_controller</name>
   <version>0.0.0</version>
@@ -18,7 +20,10 @@
   <build_depend>tf2_ros</build_depend>
   <build_depend>core_trajectory_library</build_depend>
   <build_depend>tflib</build_depend>
+  <build_depend>std_srvs</build_depend>
   <build_depend>core_trajectory_msgs</build_depend>
+  <build_depend>rosidl_default_generators</build_depend>
+
 
   <exec_depend>rclcpp</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
@@ -29,10 +34,13 @@
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>core_trajectory_library</exec_depend>
   <exec_depend>tflib</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
   <exec_depend>core_trajectory_msgs</exec_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
   <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
-    <!-- Other tools can request additional information be placed here -->
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

@@ -12,12 +12,16 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   msg/WaypointXYZVYaw.msg
   msg/TrajectoryXYZVYaw.msg
   msg/FixedTrajectory.msg
-  DEPENDENCIES std_msgs geometry_msgs diagnostic_msgs
+  msg/Trajectory.msg
+  srv/TrajectoryMode.srv
+  DEPENDENCIES std_msgs geometry_msgs diagnostic_msgs nav_msgs
 )
 
 ament_export_dependencies(rosidl_default_runtime)

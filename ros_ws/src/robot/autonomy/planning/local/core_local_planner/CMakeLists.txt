@@ -28,7 +28,6 @@ find_package(actionlib_msgs REQUIRED)
 find_package(behavior_tree REQUIRED)
 find_package(core_trajectory_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(behaviortree_cpp_v3 REQUIRED)
 
 generate_messages(
   DEPENDENCIES actionlib_msgs std_msgs
@@ -62,7 +61,6 @@ core_trajectory_controller
 core_map_representation_interface
 tf2_ros
 action_msgs
-behaviortree_cpp_v3
 core_trajectory_msgs
 pluginlib
   # Add other dependencies here
