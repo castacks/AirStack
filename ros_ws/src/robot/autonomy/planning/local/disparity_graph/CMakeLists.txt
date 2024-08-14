@@ -26,16 +26,16 @@ find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(pcl_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(tf2_geometry_msgs REQUIRED)
-find_package(pcl_conversions REQUIRED)
 # CONFIGURE OPENCV
 find_package(OpenCV REQUIRED)
 
@@ -95,7 +95,9 @@ $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(disparity_graph
                       ${catkin_LIBRARIES}
-                      ${OpenCV_LIBS})
+                      ${OpenCV_LIBS}
+                      ${PCL_LIBRARIES}
+                      )
                       
 
 
