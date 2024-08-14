@@ -68,6 +68,8 @@ RUN apt-get remove -y libopenvdb*; apt-get update && apt-get install -y libboost
     cd ..; rm -rf /opt/openvdb/build
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+# Install ROS2 packages
+RUN apt install ros-humble-tf2* ros-humble-perception-pcl libpcl-dev -y
 
 RUN  wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
