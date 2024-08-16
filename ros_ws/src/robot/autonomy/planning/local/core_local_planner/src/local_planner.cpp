@@ -75,6 +75,7 @@ bool LocalPlanner::initialize() {
         return false;
     }
 
+    // 2024.08.16 AndrewJ TODO: this is a naked pointer, should changed to a unique_ptr
     traj_lib = new TrajectoryLibrary(traj_lib_config_filename, listener);
     got_global_plan = false;
     global_plan_trajectory_distance = 0;
