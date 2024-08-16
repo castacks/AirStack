@@ -37,9 +37,9 @@
 
 typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
-class disparity_expansion{
+class DisparityExpansionNode{
 public:
-    disparity_expansion(ros::NodeHandle& nh);
+    DisparityExpansionNode(ros::NodeHandle& nh);
 
     ros::Publisher expansion_cloud_pub;
     ros::Publisher expanded_disparity_fg_pub;
@@ -76,7 +76,7 @@ public:
     float table_d[LUT_MAX_DISPARITY];
 };
 
-void disparity_expansion::generateExpansionLUT()
+void DisparityExpansionNode::generateExpansionLUT()
 {
     bool debug = false;
     if(debug)
@@ -183,14 +183,14 @@ void disparity_expansion::generateExpansionLUT()
 }
 
 
-void disparity_expansion::getCamInfo(const sensor_msgs::CameraInfo::ConstPtr& msg_info)
+void DisparityExpansionNode::getCamInfo(const sensor_msgs::CameraInfo::ConstPtr& msg_info)
 {
     model_.fromCameraInfo ( msg_info );
     ROS_INFO_ONCE("Cam Info Recvd Fx Fy Cx Cy: %f %f , %f %f",model_.fx(),model_.fy(),model_.cx(),model_.cy());
     got_cam_info = true;
 }
 
-void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::ConstPtr &msg_disp){
+void DisparityExpansionNode::stereoDisparityCb(const stereo_msgs::DisparityImage::ConstPtr &msg_disp){
     ROS_INFO("Disparity CB");
 
 
@@ -447,7 +447,7 @@ void disparity_expansion::stereoDisparityCb(const stereo_msgs::DisparityImage::C
     return;
 }
 
-disparity_expansion::disparity_expansion(ros::NodeHandle& nh){
+DisparityExpansionNode::DisparityExpansionNode(ros::NodeHandle& nh){
     //the depth image stream and color image stream have different framerates and therefore are not aligned. So we use a time synchronizer message filter (http://www.ros.org/wiki/message_filters)
 //    depth_sub.subscribe(nh,"/camera/depth/image", 1);
 //    image_sub.subscribe(nh, "/camera/rgb/image_rect_color", 1);
@@ -467,7 +467,7 @@ disparity_expansion::disparity_expansion(ros::NodeHandle& nh){
 
 //    sync2 = new message_filters::Synchronizer<MySyncPolicy2>(2);
 //    sync2->connectInput(disp_sub,image_sub, info_sub);
-//    sync2->registerCallback(boost::bind(&disparity_expansion::stereoDisparityCb,this, _1, _2,_3));
+//    sync2->registerCallback(boost::bind(&DisparityExpansionNode::stereoDisparityCb,this, _1, _2,_3));
     expansion_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/expansion/cloud_fg", 10);
     expanded_disparity_fg_pub = nh.advertise<sensor_msgs::Image>("/ceye/left/expanded_disparity_fg", 10);
     expanded_disparity_bg_pub = nh.advertise<sensor_msgs::Image>("/ceye/left/expanded_disparity_bg", 10);
@@ -476,18 +476,18 @@ disparity_expansion::disparity_expansion(ros::NodeHandle& nh){
     got_cam_info = false;
 
 
-//    cam_info_sub_ = nh.subscribe("/ceye/left/camera_info", 1,&disparity_expansion::getCamInfo,this);
-//    disparity_sub_ = nh.subscribe("/ceye/disparity", 1,&disparity_expansion::stereoDisparityCb,this);
-    cam_info_sub_ = nh.subscribe("/camera/depth/camera_info", 1,&disparity_expansion::getCamInfo,this);
-    disparity_sub_ = nh.subscribe("/camera/disparity/image_raw", 1,&disparity_expansion::stereoDisparityCb,this);
+//    cam_info_sub_ = nh.subscribe("/ceye/left/camera_info", 1,&DisparityExpansionNode::getCamInfo,this);
+//    disparity_sub_ = nh.subscribe("/ceye/disparity", 1,&DisparityExpansionNode::stereoDisparityCb,this);
+    cam_info_sub_ = nh.subscribe("/camera/depth/camera_info", 1,&DisparityExpansionNode::getCamInfo,this);
+    disparity_sub_ = nh.subscribe("/camera/disparity/image_raw", 1,&DisparityExpansionNode::stereoDisparityCb,this);
 }
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "disparity_expansion");
+    ros::init(argc, argv, "DisparityExpansionNode");
  //	cv::initModule_nonfree();//THIS LINE IS IMPORTANT for using surf and sift features of opencv
     ros::NodeHandle nh;
-    disparity_expansion d(nh);
+    DisparityExpansionNode d(nh);
     ros::spin();
     return 0;
 }
