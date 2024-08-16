@@ -1,0 +1,21 @@
+<launch>
+
+  <!-- Behavior Tree -->
+  <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
+    <param name="config" value="$(find-pkg-share behavior_tree_example)/config/example.tree" />
+    <param name="timeout" value="1.0" />
+  </node>
+
+  <!-- Visualization -->
+  <node name="rviz" pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share behavior_tree_example)/rviz/behavior_tree_example.rviz" />
+  <node name="rqt" pkg="rqt_gui" exec="rqt_gui" args="--perspective-file $(find-pkg-share behavior_tree_example)/rviz/behavior_tree.perspective" />
+
+  <!-- Robot Simluator -->
+  <node name="robot_node" pkg="behavior_tree_example" exec="robot_node" output="screen">
+  </node>
+
+  <!-- Action and Condition Node -->
+  <node name="behaivor_tree_example" pkg="behavior_tree_example" exec="behavior_tree_example" output="screen">
+  </node>
+  
+</launch>

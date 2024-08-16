@@ -1,0 +1,11 @@
+<launch>
+
+  <!-- Behavior Tree -->
+  <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
+    <param name="config" value="$(find-pkg-share central)/config/drone.tree" />
+    <param name="timeout" value="1.0" />
+  </node>
+
+  <node name="rqt" pkg="rqt_gui" exec="rqt_gui" args="--perspective-file $(find-pkg-share central)/config/core.perspective" />
+  
+</launch>

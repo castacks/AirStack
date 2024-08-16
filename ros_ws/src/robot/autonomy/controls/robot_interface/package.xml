@@ -16,6 +16,8 @@
   <depend>pluginlib</depend>
   <depend>mav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>airstack_msgs</depend>
+  <depend>airstack_common</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

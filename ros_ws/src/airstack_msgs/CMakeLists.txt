@@ -14,9 +14,11 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Odometry.msg"
   "msg/FixedTrajectory.msg"
-  "msg/TrajectoryXZYVYaw.msg"
+  "msg/TrajectoryXYZVYaw.msg"
   "msg/WaypointXYZVYaw.msg"
   "srv/RobotCommand.srv"
+  "srv/TrajectoryMode.srv"
+  "srv/TakeoffLandingCommand.srv"
   DEPENDENCIES std_msgs geometry_msgs diagnostic_msgs
 )
 

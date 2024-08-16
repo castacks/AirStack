@@ -1,0 +1,32 @@
+<launch>
+  
+  <!-- sim -->
+  <set_env name="GZ_SIM_RESOURCE_PATH" value="/extras/px/Tools/simulation/gz/models" />
+  <set_env name="PX4_GZ_STANDALONE" value="1" />
+  <set_env name="PX4_SIM_MODEL" value="gz_x500" />
+  <executable cmd="gz sim -r /extras/px/Tools/simulation/gz/worlds/default.sdf" output="screen" />
+  <executable cmd="/extras/px/build/px4_sitl_default/bin/px4" output="screen" />
+  <include file="$(find-pkg-share mavros)/launch/px4.launch">
+    <arg name="fcu_url" value="udp://:14540@" />
+  </include>
+
+  <!-- Behavior -->
+  <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
+    <param name="config" value="$(find-pkg-share central)/config/drone.tree" />
+    <param name="timeout" value="1.0" />
+  </node>
+  <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive" output="screen">
+  </node>
+
+  <!-- Control -->
+  <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
+    <param name="interface" value="mavros_interface::MAVROSInterface" />
+  </node>
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.xml" />
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.xml" />
+
+  <!-- GUI -->
+  <node name="rqt" pkg="rqt_gui" exec="rqt_gui" args="--perspective-file $(find-pkg-share central)/config/core.perspective" />
+  <node name="rviz" pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share central)/config/core.rviz" output="screen" />
+  
+</launch>

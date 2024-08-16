@@ -1,0 +1,26 @@
+groups:
+  - Commands:
+    - Takeoff:
+        condition_name: Takeoff Commanded
+    - Land:
+        condition_name: Land Commanded
+    - Pause:
+        condition_name: Pause Commanded
+    - Rewind:
+        condition_name: Rewind Commanded
+    - Return Home:
+        condition_name: Return Home Commanded
+    - Fixed Trajectory:
+        condition_name: Fixed Trajectory Commanded
+    - Topo Explore:
+        condition_name: Topo Explore Commanded
+    - Explore:
+        condition_name: Explore Commanded
+    - Autonomously Explore:
+        condition_name: Autonomously Explore Commanded
+    - Offboard:
+        condition_name: Offboard Commanded
+    - Arm:
+        condition_name: Arm Commanded
+    - Disarm:
+        condition_name: Disarm Commanded

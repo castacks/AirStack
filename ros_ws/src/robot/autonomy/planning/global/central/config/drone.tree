@@ -1,0 +1,43 @@
+?
+	->
+		(Takeoff Commanded)
+		?
+			(Takeoff Complete)
+			[Takeoff]
+	->
+		(Land Commanded)
+		?
+			(Landed)
+			[Land]
+	->
+		(Pause Commanded)
+		?
+			[Pause]
+	->
+		(Rewind Commanded)
+		?
+			[Rewind]
+	->
+		(Fixed Trajectory Commanded)
+		?
+			[Follow Fixed Trajectory]
+	->
+		(Explore Commanded)
+		?
+			[Explore]
+	->
+		(Offboard Commanded)
+		?
+			(Offboard Mode)
+			[Request Control]
+	->
+		(Arm Commanded)
+		?
+			(Armed)
+			[Arm]
+	->
+		(Disarm Commanded)
+		?
+			<!>
+				(Armed)
+			[Disarm]

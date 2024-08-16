@@ -29,6 +29,7 @@ docker run --name isaac-sim --entrypoint bash -it --runtime=nvidia --gpus all -e
        -v $SCRIPT_DIR/extras/.bashrc:/root/.bashrc \
        -v $SCRIPT_DIR/extras/.bash_history:/root/.bash_history \
        -v $SCRIPT_DIR/extras/inputrc:/etc/inputrc \
+       -v $SCRIPT_DIR/../../ros_ws:/extras/ros_ws \
        --env "ACCEPT_EULA=Y" \
        --env "PRIVACY_CONSENT=Y" \
        --env="DISPLAY=$DISPLAY" \

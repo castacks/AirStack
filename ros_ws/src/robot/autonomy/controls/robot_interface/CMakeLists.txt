@@ -13,6 +13,8 @@ find_package(mav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(airstack_msgs REQUIRED)
+find_package(airstack_common REQUIRED)
 
 add_library(robot_interface src/robot_interface.cpp)
 target_include_directories(robot_interface PUBLIC
@@ -39,7 +41,7 @@ add_executable(robot_interface_node src/robot_interface_node.cpp)
 target_include_directories(robot_interface_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-ament_target_dependencies(robot_interface_node rclcpp pluginlib mav_msgs tf2 tf2_ros)
+ament_target_dependencies(robot_interface_node rclcpp pluginlib mav_msgs tf2 tf2_ros airstack_msgs airstack_common)
 install(TARGETS robot_interface_node
   DESTINATION lib/${PROJECT_NAME})
 
