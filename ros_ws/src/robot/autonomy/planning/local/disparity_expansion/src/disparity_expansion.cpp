@@ -79,9 +79,9 @@
 
 typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
-class disparity_expansion : public rclcpp::Node {
+class DisparityExpansionNode : public rclcpp::Node {
    public:
-    disparity_expansion(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+    DisparityExpansionNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr expansion_cloud_pub;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr expanded_disparity_fg_pub;
@@ -119,7 +119,7 @@ class disparity_expansion : public rclcpp::Node {
 // ################################################################################################################################################################################
 // ################################################################################################################################################################################
 
-void disparity_expansion::generateExpansionLUT() {
+void DisparityExpansionNode::generateExpansionLUT() {
     bool debug = false;
     if (debug) {
         RCLCPP_WARN(this->get_logger(), "Expansion LUT Debug disabled creation");
@@ -212,7 +212,8 @@ void disparity_expansion::generateExpansionLUT() {
 
 // ################################################################################################################
 // ################################################################################################################
-void disparity_expansion::getCamInfo(const sensor_msgs::msg::CameraInfo::ConstSharedPtr& msg_info) {
+void DisparityExpansionNode::getCamInfo(
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr& msg_info) {
     if (got_cam_info) return;
     model_.fromCameraInfo(msg_info);
     RCLCPP_INFO_ONCE(this->get_logger(), "Cam Info Recvd Fx Fy Cx Cy: %f %f , %f %f", model_.fx(),
@@ -230,7 +231,7 @@ void disparity_expansion::getCamInfo(const sensor_msgs::msg::CameraInfo::ConstSh
     RCLCPP_INFO(this->get_logger(), "Focal length (fx): %.4f pixels", fx_);
 }
 
-void disparity_expansion::stereoDisparityCb(
+void DisparityExpansionNode::stereoDisparityCb(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr&
         msg_disp) {  // sensor_msgs::Image::ConstPtr &msg_disp){
     //    ROS_INFO("Disparity CB");
@@ -673,8 +674,8 @@ void disparity_expansion::stereoDisparityCb(
     return;
 }
 
-disparity_expansion::disparity_expansion(const rclcpp::NodeOptions& options)
-    : Node("disparity_expansion", options) {
+DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& options)
+    : Node("DisparityExpansionNode", options) {
     expansion_cloud_pub =
         this->create_publisher<sensor_msgs::msg::PointCloud2>("/expansion/cloud_fg", 10);
     expansion_poly_pub =
@@ -690,18 +691,18 @@ disparity_expansion::disparity_expansion(const rclcpp::NodeOptions& options)
 
     // cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
     //     "/narrow_stereo/right/camera_info", 1,
-    //    std::bind(&disparity_expansion::getCamInfo, this, std::placeholders::_1));
+    //    std::bind(&DisparityExpansionNode::getCamInfo, this, std::placeholders::_1));
     cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
         "/camera_info", 1,
-        std::bind(&disparity_expansion::getCamInfo, this, std::placeholders::_1));
+        std::bind(&DisparityExpansionNode::getCamInfo, this, std::placeholders::_1));
 
     // disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
     //     "/narrow_stereo/disparity", 1,
-    //    std::bind(&disparity_expansion::stereoDisparityCb, this, std::placeholders::_1));
+    //    std::bind(&DisparityExpansionNode::stereoDisparityCb, this, std::placeholders::_1));
 
     disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
         "/disparity/image_raw", 1,
-        std::bind(&disparity_expansion::stereoDisparityCb, this, std::placeholders::_1));
+        std::bind(&DisparityExpansionNode::stereoDisparityCb, this, std::placeholders::_1));
 
     this->declare_parameter("robot_radius", 2.0);
     this->declare_parameter("lut_max_disparity", 164);
@@ -726,7 +727,7 @@ disparity_expansion::disparity_expansion(const rclcpp::NodeOptions& options)
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<disparity_expansion>();
+    auto node = std::make_shared<DisparityExpansionNode>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
