@@ -21,8 +21,10 @@ find_package(image_transport REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
-find_package(pcl_ros REQUIRED)
+#find_package(pcl_ros REQUIRED)
 find_package(stereo_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+
 find_package(message_filters REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED) 
@@ -124,6 +126,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${pcl_conversions_INCLUDE_DIRS} 
+  ${tf2_geometry_msgs_INCLUDE_DIRS}
 )
 
 
@@ -169,6 +172,7 @@ ament_target_dependencies(disparity_expansion
   message_filters
   visualization_msgs
   stereo_msgs
+  tf2_geometry_msgs
 )
 add_executable (disparity_conv src/disparity_conv.cpp)
 target_link_libraries(disparity_conv ${OpenCV_LIBS} ${catkin_LIBRARIES}
@@ -185,6 +189,7 @@ ament_target_dependencies(disparity_conv
   tf2
   pcl_conversions
   message_filters
+  tf2_geometry_msgs
 )
 
 add_executable (disparity_pcd src/disparity_pcd.cpp)
@@ -202,6 +207,7 @@ ament_target_dependencies(disparity_pcd
   tf2
   pcl_conversions
   message_filters
+  tf2_geometry_msgs
 )
 
 
