@@ -62,9 +62,25 @@ ament_target_dependencies(disparity_map_representation
   pluginlib
 )  
 
+ament_export_targets(disparity_map_representationTargets HAS_LIBRARY_TARGET)
+ament_export_dependencies( rclcpp
+tf2
+tf2_ros
+disparity_graph
+core_map_representation_interface
+core_trajectory_msgs
+cv_bridge
+tflib
+pluginlib
+)
 
-install(TARGETS disparity_map_representation
- DESTINATION lib/${PROJECT_NAME}
+install(
+TARGETS disparity_map_representation
+EXPORT disparity_map_representationTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
 )
 #install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(FILES package.xml
@@ -77,6 +93,10 @@ target_link_libraries(disparity_map_representation
 #ament_export_libraries(disparity_map_representation)
 #ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 
-
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.h"
+)
 
 ament_package()

@@ -31,8 +31,9 @@
 #include "visualization_msgs/MarkerArray.h"
 */
 
-#define SCALE 2.0  // num_units/pixel
-// #define lut_max_disparity_   165 // units
+#define SCALE 100000.0  // num_units/pixel
+// #define SCALE_D 1000.0
+//  #define lut_max_disparity_   165 // units
 #include <cv_bridge/cv_bridge.h>
 #include <image_geometry/pinhole_camera_model.h>
 
@@ -338,7 +339,7 @@ void DisparityExpansionNode::stereoDisparityCb(
                 for (int u = (int)width - 1; u >= 0; u -= 1) {
                     float disparity_value =
                         disparity32F.at<float>(v, u);  // disparity_row[v * row_step + u];// + 0.5;
-                    if (!std::isnan(double(disparity_value)) &&
+                    if (!std::isnan(double(disparity_value * SCALE)) &&
                         ((int(disparity_value * SCALE) + 1) < lut_max_disparity_) &&
                         ((int(disparity_value * SCALE) + 1) > 0))  // expand
                     {
@@ -364,7 +365,24 @@ void DisparityExpansionNode::stereoDisparityCb(
                             return;
                         }
 
+                        // if (u1 < 0 || u1 >= disparity32F.cols || u2 < 0 ||
+                        //     u2 >= disparity32F.cols || u1 >= u2) {
+                        //     std::cerr << "Invalid ROI indices: u1=" << u1 << ", u2=" << u2
+                        //               << std::endl;
+                        //     return;
+
                         cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
+
+                        //      if (roi.width <= 0 || roi.height <= 0 || roi.x < 0 || roi.y < 0 ||
+                        //          roi.x + roi.width > disparity32F.cols ||
+                        //          roi.y + roi.height > disparity32F.rows) {
+                        //          RCLCPP_ERROR(this->get_logger(),
+                        //                       "ROI is out of bounds: u1=%d, v=%d, u2=%d, "
+                        //                       "disparity32F.cols=%d, disparity32F.rows=%d",
+                        //                       u1, v, u2, disparity32F.cols, disparity32F.rows);
+                        //          continue;
+                        //      }
+
                         cv::Mat submat_t = disparity32F(roi).clone();
 
                         double min, max;
@@ -623,22 +641,22 @@ void DisparityExpansionNode::stereoDisparityCb(
                         pt_real.intensity = 170;  //*disparity32F.at<float>(v,u)/200;
 
                         //                        depth_value = baseline * fx_ /
-                        //                        free_msg->image.at<cv::Vec4f>(v,u)[2]; pt_free1.x
-                        //                        = ( u - center_x ) * depth_value * constant_x;
-                        //                        pt_free1.y = ( v - center_y ) * depth_value *
-                        //                        constant_y; pt_free1.z = depth_value;
-                        //                        pt_free1.intensity = 170;
+                        //                        free_msg->image.at<cv::Vec4f>(v,u)[2];
+                        //                        pt_free1.x = ( u - center_x ) * depth_value *
+                        //                        constant_x; pt_free1.y = ( v - center_y ) *
+                        //                        depth_value * constant_y; pt_free1.z =
+                        //                        depth_value; pt_free1.intensity = 170;
                         //                        depth_value = baseline * fx_ /
-                        //                        free_msg->image.at<cv::Vec4f>(v,u)[3]; pt_free2.x
-                        //                        = ( u - center_x ) * depth_value * constant_x;
-                        //                        pt_free2.y = ( v - center_y ) * depth_value *
-                        //                        constant_y; pt_free2.z = depth_value;
-                        //                        pt_free2.intensity = 170;
+                        //                        free_msg->image.at<cv::Vec4f>(v,u)[3];
+                        //                        pt_free2.x = ( u - center_x ) * depth_value *
+                        //                        constant_x; pt_free2.y = ( v - center_y ) *
+                        //                        depth_value * constant_y; pt_free2.z =
+                        //                        depth_value; pt_free2.intensity = 170;
 
                         //                        if(fg_msg->image.at<float>(v,u) >= 0.1 &&
                         //                        bg_msg->image.at<float>(v,u) >= 0.1 )
-                        //                        if(new_disparity_bridgePtr->image.at<float>(v,u) >
-                        //                        0.1)
+                        //                        if(new_disparity_bridgePtr->image.at<float>(v,u)
+                        //                        > 0.1)
                         {
                             //                            ROS_INFO("depth:
                             //                            %f",new_disparity_bridgePtr->image.at<float>(v,u));
