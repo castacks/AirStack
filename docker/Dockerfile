@@ -1,6 +1,6 @@
 # Note the build context should be the root of the repository (AirStack/)
 
-FROM nvcr.io/nvidia/isaac-sim:4.0.0
+FROM nvcr.io/nvidia/isaac-sim:4.1.0
 
 # Trick to get apt-get to not prompt for timezone in tzdata
 ARG DEBIAN_FRONTEND=noninteractive
