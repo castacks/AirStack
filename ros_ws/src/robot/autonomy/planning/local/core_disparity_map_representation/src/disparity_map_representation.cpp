@@ -38,8 +38,11 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories) {
     std::vector<std::vector<double> > values(trajectories.size());
 
-    for (int i = 0; i < trajectories.size(); i++)
-        for (int j = 0; j < trajectories[i].size(); j++) values[i].push_back(0);
+    for (int i = 0; i < trajectories.size(); i++) {
+        for (int j = 0; j < trajectories[i].size(); j++) {
+            values[i].push_back(0);
+        }
+    }
 
     for (int i = 0; i < trajectories.size(); i++) {
         // core_trajectory_msgs::TrajectoryXYZVYaw trajectory = trajectories[i];

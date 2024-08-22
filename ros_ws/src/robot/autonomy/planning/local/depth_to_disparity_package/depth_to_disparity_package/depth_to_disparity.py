@@ -29,7 +29,7 @@ class DepthToDisparityNode(Node):
 
         # Declare and get parameters
         self.declare_parameter("baseline", 0.25)  # Baseline in meters
-        self.declare_parameter("focal_length", 731.4286)
+        self.declare_parameter("focal_length", 554.256251)
 
         self.baseline = (
             self.get_parameter("baseline").get_parameter_value().double_value
@@ -44,10 +44,10 @@ class DepthToDisparityNode(Node):
         self.bridge = CvBridge()
 
         self.subscription = self.create_subscription(
-            Image, "/depth", self.listener_callback, 10
+            Image, "/robot1/perception/depth", self.listener_callback, 10
         )
         self.publisher = self.create_publisher(
-            DisparityImage, "disparity/image_raw", 10
+            DisparityImage, "/disparity/image_raw", 10
         )
 
     def listener_callback(self, msg):
@@ -71,9 +71,10 @@ class DepthToDisparityNode(Node):
         )
         disparity_msg.f = self.focal_length  # Focal length
 
+        visualize_depth_image(cv_image)
         visualize_disparity_image(disparity_image)
 
-        self.get_logger().info(f"Disparity image min: {np.min(disparity_image)}")
+        self.get_logger().info(f"Disparity image min: {np.min(disparity_image)}", throttle_duration_sec=1)
         # Publish the disparity image
         self.publisher.publish(disparity_msg)
 
