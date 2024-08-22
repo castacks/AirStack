@@ -1,0 +1,17 @@
+disparity_expansion:
+  ros__parameters:
+    expansion_cloud_topic: "/expansion_cloud"
+    expanded_disparity_fg_topic: "/expanded_disparity_fg"
+    expanded_disparity_bg_topic: "/expanded_disparity_bg"
+    expansion_poly_topic: "/expansion_poly"
+    camera_info_topic: "/camera_info"
+    disparity_topic: "/disparity"
+    depth_topic: "/depth"
+    scale: 2.0
+    
+    # Other parameters
+    #lut_max_disparity: 180
+    #robot_radius: 1.0
+    #bg_multiplier: 2.0
+    #sensor_pixel_error: 0.5
+    #scale: 2.0

@@ -1,5 +1,5 @@
 <package format="2">
-  <name>depth_to_disparity_package</name>
+  <name>my_depth_disparity_package</name>
   <version>0.0.0</version>
   <description>My package for depth to disparity conversion.</description>
 

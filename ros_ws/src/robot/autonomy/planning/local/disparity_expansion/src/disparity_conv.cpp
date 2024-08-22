@@ -59,7 +59,7 @@
 
 class disparity_conv : public rclcpp::Node {
    public:
-    disparity_conv(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+    disparity_conv(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
     void callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg_disp,
                   const sensor_msgs::msg::Image::ConstSharedPtr &msg_image);
 
@@ -95,7 +95,7 @@ void disparity_conv::stereoDisparityCb(const sensor_msgs::msg::Image::ConstShare
     try {
         cv_ptrdisparity = cv_bridge::toCvShare(msg_disp);
         cv_ptrdisparity->image.convertTo(disparity32F, CV_32F);
-    } catch (cv_bridge::Exception& e) {
+    } catch (cv_bridge::Exception &e) {
         RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
         return;
     }
@@ -186,7 +186,7 @@ void disparity_conv::callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg
             cv_ptrdisparity->image.convertTo(disparity32F, CV_32F);
         cv_ptrImage = cv_bridge::toCvShare(msg_image);
         cv_ptrImage->image.convertTo(image32F, CV_32F);
-    } catch (cv_bridge::Exception& e) {
+    } catch (cv_bridge::Exception &e) {
         RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
         return;
     }
@@ -265,7 +265,7 @@ void disparity_conv::callback(const sensor_msgs::msg::Image::ConstSharedPtr &msg
 // #############################################################################################################################################
 // ############################################################################################################################################
 
-disparity_conv::disparity_conv(const rclcpp::NodeOptions& options)
+disparity_conv::disparity_conv(const rclcpp::NodeOptions &options)
     : Node("disparity_conv", options)
 
 {
@@ -296,7 +296,7 @@ disparity_conv::disparity_conv(const rclcpp::NodeOptions& options)
     first = true;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
     //	cv::initModule_nonfree();//THIS LINE IS IMPORTANT for using surf and sift features of opencv
     auto node = std::make_shared<disparity_conv>(rclcpp::NodeOptions());
