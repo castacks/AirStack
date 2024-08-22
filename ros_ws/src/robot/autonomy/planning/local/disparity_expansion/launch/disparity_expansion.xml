@@ -2,6 +2,7 @@
 <launch>
     <node pkg="disparity_expansion" exec="disparity_conv" name="disparity_conv"/>
     <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion">
+    <param from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml"/>
 	<param name="lut_max_disparity" value="180" />
         <param name="robot_radius" value="1.0" />
         <param name="bg_multiplier" value="2.0" />
