@@ -3,15 +3,21 @@ launch:
   - arg:
       name: "robot_name"
       default: "robot1"
-
   # include another launch file in the chatter_ns namespace
   - group:
       - push_ros_namespace:
           namespace: "$(var robot_name)"
       # AUTONOMY
-      # controls
+      - node:
+          pkg: "depth_to_disparity_package"
+          exec: "depth_to_disparity"
+          name: "depth_to_disparity"
+      # local planner
       - include:
-          file: "$(find-pkg-share controls_bringup)/launch/launch_controls.yaml"
+          file: "$(find-pkg-share disparity_expansion)/launch/disparity_expansion.xml"
+      # controls
+    #   - include:
+    #       file: "$(find-pkg-share controls_bringup)/launch/launch_controls.yaml"
       # world model
       - include:
           file: "$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py"
@@ -20,4 +26,4 @@ launch:
       exec: "rviz2"
       name: "rviz2_robot"
       namespace: "$(var robot_name)"
-      args: "-d $(find-pkg-share robot_bringup)/rviz/robot.rviz"
+      args: "-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
