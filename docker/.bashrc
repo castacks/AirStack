@@ -108,6 +108,8 @@ export ISAACSIM_PATH=/isaac-sim
 alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"
 alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"
 
+alias emacs='emacs -nw'
+alias sis='source install/setup.bash'
 
 # Define the ROS2 workspace directory
 ROS2_WS_DIR="$HOME/AirStack/ros_ws"

@@ -27,6 +27,7 @@ services:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
       - DISPLAY
+      - QT_X11_NO_MITSHM=1
       # Omniverse Nucleus stuff
       # - OMNI_USER="$$omni-api-token" # need a double dollar sign here so docker compose doesn't try to interpret it https://stackoverflow.com/a/40621373
       # - OMNI_PASS=$(cat ./../nucleus_token.txt)  # this didn't work, used ~/.bashrc instead. echo 'export OMNI_PASS=$(cat ~/AirStack/nucleus_token.txt)' >> ~/.bashrc
@@ -51,9 +52,14 @@ services:
       - ~/docker/isaac-sim/documents:/root/Documents:rw
       # autonomy stack stuff
       - ./..:/root/AirStack:rw
+      - ../simulation/extension_docker/extras/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
+      - ../simulation/extension_docker/extras:/extras:rw
+      - ../simulation/extension_docker/extras/inputrc:/etc/inputrc
+      - ../ros_ws:/extras/ros_ws
       # developer stuff
+      #- ../simulation/extension_docker/extras/.bashrc:/root/.bashrc
       - .bashrc:/root/.bashrc:rw # bash config
-      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+      - ../simulation/extension_docker/extras/.bash_history:/root/.bash_history
 
     restart: unless-stopped
 
