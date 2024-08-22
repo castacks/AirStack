@@ -31,7 +31,7 @@
 #include "visualization_msgs/MarkerArray.h"
 */
 
-#define SCALE 100000.0  // num_units/pixel
+#define SCALE 2.0  // num_units/pixel
 // #define SCALE_D 1000.0
 //  #define lut_max_disparity_   165 // units
 #include <cv_bridge/cv_bridge.h>
@@ -110,8 +110,10 @@ class DisparityExpansionNode : public rclcpp::Node {
     double padding_;
     double bg_multiplier_;
     double pixel_error_;
-    cell table_u[200][640];
-    cell table_v[200][480];
+    std::vector<std::vector<cell>> table_u;
+    std::vector<std::vector<cell>> table_v;
+    // cell table_u[200][640];
+    // cell table_v[200][480];
     double table_d[200];
     double fx_, fy_, cx_, cy_;
     unsigned int width, height;
@@ -138,6 +140,8 @@ void DisparityExpansionNode::generateExpansionLUT() {
     RCLCPP_INFO(this->get_logger(), "Fx Fy Cx Cy: %f %f , %f %f \nW H Baseline: %d %d %f", fx_, fy_,
                 cx_, cy_, width, height, baseline);
     double r = robot_radius_;  // expansion radius in cm
+    table_u = std::vector<std::vector<cell>>(lut_max_disparity_, std::vector<cell>(width));
+    table_v = std::vector<std::vector<cell>>(lut_max_disparity_, std::vector<cell>(height));
     int u1, u2, v1, v2;
     double x, y, z;
     double disparity;
@@ -225,6 +229,7 @@ void DisparityExpansionNode::getCamInfo(
     width = msg_info->width / downsample_scale;
     height = msg_info->height / downsample_scale;
     baseline = -msg_info->p[3] / msg_info->p[0];
+    baseline = 0.25;
     baseline *= downsample_scale;
     generateExpansionLUT();
     got_cam_info = true;
@@ -435,10 +440,13 @@ void DisparityExpansionNode::stereoDisparityCb(
                             u = u1;
                         else
                             u = u_temp + 1;
-                    } else
-                        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1,
-                                              "BAD disparity during expansion: %f",
-                                              disparity_value);
+                    } else {
+                        RCLCPP_ERROR_STREAM_THROTTLE(
+                            this->get_logger(), *this->get_clock(), 1000,
+                            "BAD disparity during expansion for u: "
+                                << disparity_value << " lut_max_disparity_: " << lut_max_disparity_
+                                << " SCALE: " << SCALE);
+                    }
                 }
             }
 
@@ -514,19 +522,22 @@ void DisparityExpansionNode::stereoDisparityCb(
                             v = v1;
                         else
                             v = v_temp + 1;
-                    } else
-                        RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1,
-                                              "BAD disparity during expansion: %f",
-                                              disparity_value);
+                    } else {
+                        RCLCPP_ERROR_STREAM_THROTTLE(
+                            this->get_logger(), *this->get_clock(), 1000,
+                            "BAD disparity during expansion for v: "
+                                << disparity_value << " lut_max_disparity_: " << lut_max_disparity_
+                                << " SCALE: " << SCALE);
+                    }
                 }
             }
 
             fg_msg->image = disparity_fg;
             bg_msg->image = disparity_bg;
 
-            RCLCPP_INFO(this->get_logger(), "Time: %f \t%f",
-                        (this->get_clock()->now() - start).seconds(),
-                        1 / (this->get_clock()->now() - start).seconds());
+            // RCLCPP_INFO(this->get_logger(), "Time: %f \t%f",
+            //             (this->get_clock()->now() - start).seconds(),
+            //             1 / (this->get_clock()->now() - start).seconds());
 
             expanded_disparity_fg_pub->publish(*(fg_msg->toImageMsg()));
             expanded_disparity_bg_pub->publish(*(bg_msg->toImageMsg()));
@@ -707,11 +718,8 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     LUT_ready = false;
     got_cam_info = false;
 
-    // cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-    //     "/narrow_stereo/right/camera_info", 1,
-    //    std::bind(&DisparityExpansionNode::getCamInfo, this, std::placeholders::_1));
     cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-        "/camera_info", 1,
+        "/robot1/perception/camera_info", 1,
         std::bind(&DisparityExpansionNode::getCamInfo, this, std::placeholders::_1));
 
     // disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
@@ -734,12 +742,12 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->get_parameter("bg_multiplier", bg_multiplier_);
     this->get_parameter("sensor_pixel_error", pixel_error_);
 
-    cx_ = 317.20617294311523;
-    cy_ = 233.2914752960205;
-    fx_ = fy_ = 307.4838344732113;
-    baseline = 0.5576007548439765;
-    width = 640;
-    height = 480;
+    // cx_ = 317.20617294311523;
+    // cy_ = 233.2914752960205;
+    // fx_ = fy_ = 307.4838344732113;
+    // baseline = 0.5576007548439765;
+    // width = 640;
+    // height = 480;
     downsample_scale = 2.0;
 }
 
