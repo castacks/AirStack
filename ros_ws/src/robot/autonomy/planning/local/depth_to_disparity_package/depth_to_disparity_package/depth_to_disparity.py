@@ -70,11 +70,14 @@ class DepthToDisparityNode(Node):
             disparity_image, encoding="32FC1"
         )
         disparity_msg.f = self.focal_length  # Focal length
+        print(cv_image[:10])
 
         visualize_depth_image(cv_image)
         visualize_disparity_image(disparity_image)
 
-        self.get_logger().info(f"Disparity image min: {np.min(disparity_image)}", throttle_duration_sec=1)
+        self.get_logger().info(
+            f"Disparity image min: {np.min(disparity_image)}", throttle_duration_sec=1
+        )
         # Publish the disparity image
         self.publisher.publish(disparity_msg)
 
@@ -89,7 +92,9 @@ class DepthToDisparityNode(Node):
 
         with np.errstate(divide="ignore", invalid="ignore"):
             # DISPARITY FORMULA
-            disparity_image = (self.baseline * self.focal_length) / depth_image
+            disparity_image = (self.baseline * self.focal_length) / (
+                depth_image
+            )  # mult by 100
 
             # Handle infinite and NaN values in the disparity image
             disparity_image[np.isinf(disparity_image)] = 0
