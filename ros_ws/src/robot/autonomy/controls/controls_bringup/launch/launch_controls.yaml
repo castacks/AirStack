@@ -4,13 +4,14 @@ launch:
           namespace: "controls"
 
       # include MAVROS ardupilot
-      - include:
-          file: "$(find-pkg-share mavros)/launch/apm.launch"
-          arg:
-            - name: "fcu_url"
-              value: "udp://:14554@"
-            - name: "respawn_mavros"
-              value: "true"
+      # assume the interface is MAVROS and that MAVROS is already running
+      # - include:
+      #     file: "$(find-pkg-share mavros)/launch/apm.launch"
+      #     arg:
+      #       - name: "fcu_url"
+      #         value: "udp://:14554@"
+      #       - name: "respawn_mavros"
+      #         value: "true"
 
       - node:
           pkg: "robot_interface"
