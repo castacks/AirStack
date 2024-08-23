@@ -42,7 +42,7 @@ class AscentSitlLaunchTool:
         self.sitl_script = '/usr/bin/bash ' + self.sitl_dir + '/ascent_sitl_tmux.bash ' + \
             str(self.base_port) + ' ' + str(self.ascent_sitl_port) + ' ' + \
             str(self.isaac_sim_port) + ' ' + str(self.autonomy_stack_port) + ' ' + str(self.mavros_launch_port) + \
-            ' ascent' + str(self.vehicle_id)
+            ' ' + str(self.vehicle_id)
 
         # Create a temporary filesystem for sitl to write data to/from (and modify the origin rcS files)
         self.root_fs = tempfile.TemporaryDirectory()
