@@ -713,14 +713,21 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->declare_parameter("sensor_pixel_error", 0.5);
 
     std::string expansion_cloud_topic = this->get_parameter("expansion_cloud_topic").as_string();
+    // log to console
+    RCLCPP_INFO(this->get_logger(), "expansion_cloud_topic: %s", expansion_cloud_topic.c_str());
     std::string expanded_disparity_fg_topic =
         this->get_parameter("expanded_disparity_fg_topic").as_string();
+    RCLCPP_INFO(this->get_logger(), "expanded_disparity_fg_topic: %s",
+                expanded_disparity_fg_topic.c_str());
     std::string expanded_disparity_bg_topic =
         this->get_parameter("expanded_disparity_bg_topic").as_string();
+    RCLCPP_INFO(this->get_logger(), "expanded_disparity_bg_topic: %s",
+                expanded_disparity_bg_topic.c_str());
     std::string expansion_poly_topic = this->get_parameter("expansion_poly_topic").as_string();
     std::string camera_info_topic = this->get_parameter("camera_info_topic").as_string();
     std::string disparity_topic = this->get_parameter("disparity_topic").as_string();
     std::string depth_topic = this->get_parameter("depth_topic").as_string();
+    RCLCPP_INFO(this->get_logger(), "depth_topic: %s", depth_topic.c_str());
     scale_ = this->get_parameter("scale").as_double();
     this->get_parameter("robot_radius", robot_radius_);
     this->get_parameter("lut_max_disparity", lut_max_disparity_);

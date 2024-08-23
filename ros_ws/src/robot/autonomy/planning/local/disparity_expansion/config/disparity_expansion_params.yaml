@@ -1,12 +1,12 @@
 disparity_expansion:
   ros__parameters:
-    expansion_cloud_topic: "/expansion_cloud"
-    expanded_disparity_fg_topic: "/expanded_disparity_fg"
-    expanded_disparity_bg_topic: "/expanded_disparity_bg"
+    expansion_cloud_topic: "/robot1/expansion_cloud"
+    expanded_disparity_fg_topic: "/robot1/expanded_disparity_fg"
+    expanded_disparity_bg_topic: "/robot1/expanded_disparity_bg"
     expansion_poly_topic: "/expansion_poly"
-    camera_info_topic: "/camera_info"
+    camera_info_topic: "/robot1/perception/camera_info"
     disparity_topic: "/disparity"
-    depth_topic: "/depth"
+    depth_topic: "/robot1/perception/depth"
     scale: 2.0
     
     # Other parameters
