@@ -8,10 +8,6 @@ disparity_expansion:
     disparity_topic: "/disparity"
     depth_topic: "/robot1/perception/depth"
     scale: 2.0
+    downsample_scale: 2.0
     
-    # Other parameters
-    #lut_max_disparity: 180
-    #robot_radius: 1.0
-    #bg_multiplier: 2.0
-    #sensor_pixel_error: 0.5
-    #scale: 2.0
+  
