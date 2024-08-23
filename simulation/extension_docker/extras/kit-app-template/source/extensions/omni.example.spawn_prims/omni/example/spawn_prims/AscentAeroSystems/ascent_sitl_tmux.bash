@@ -13,6 +13,7 @@ export ASCENT_SITL_PORT=$2  # port to talk to QGC
 export ISAAC_SIM_PORT=$3    # port for Isaac Sim
 export AUTONOMY_STACK_PORT=$4    # port for our autonomy stack
 export MAVROS_LAUNCH_PORT=$5
-export SESSION_NAME=$6
+export ROBOT_NUM=$6
+export SESSION_NAME=ascent$6
 
 tmuxp load -d ascent_sitl.yaml -s $SESSION_NAME
