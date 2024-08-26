@@ -1,2 +1,0 @@
-Invoking command in '/root/AirStack/build/disparity_expansion': /usr/bin/cmake --build /root/AirStack/build/disparity_expansion -- -j12 -l12
-Invoked command in '/root/AirStack/build/disparity_expansion' returned '2': /usr/bin/cmake --build /root/AirStack/build/disparity_expansion -- -j12 -l12
