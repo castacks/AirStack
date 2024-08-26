@@ -1,4 +1,4 @@
-#include <core_disparity_map_representation/disparity_map_representation.h>
+#include <disparity_map_representation/disparity_map_representation.h>
 
 #include <pluginlib/class_list_macros.hpp>
 
