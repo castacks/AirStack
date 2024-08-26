@@ -1,9 +1,0 @@
-trajectories:
-  - type: acceleration
-    frame: $(param tf_prefix)/look_ahead_point_stabilized
-    magnitude: 1.
-    magnitude_yaw: 0.
-    magnitude_pitch: 0.
-    dt: $(param dt)
-    ht: $(param ht)
-    max_velocity: $(param max_velocity)
