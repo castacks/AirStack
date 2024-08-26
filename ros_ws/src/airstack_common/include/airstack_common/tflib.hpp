@@ -27,6 +27,8 @@ namespace tflib{
   tf2::Vector3 to_tf(geometry_msgs::msg::Vector3 v);
   tf2::Stamped<tf2::Transform> to_tf(nav_msgs::msg::Odometry odom);//, std::string frame);
   tf2::Stamped<tf2::Transform> to_tf(airstack_msgs::msg::Odometry odom);//, std::string frame);
+  geometry_msgs::msg::Point from_tf(tf2::Vector3 v);
+  geometry_msgs::msg::Quaternion from_tf(tf2::Quaternion q);
   
   // ==========================================================================
   // --------------------------------- Utils ----------------------------------
@@ -41,14 +43,14 @@ namespace tflib{
   // This can throw any exception that lookupTransform throws
   nav_msgs::msg::Odometry transform_odometry(tf2_ros::Buffer* tf_buffer, nav_msgs::msg::Odometry odom,
 					     std::string new_frame_id, std::string new_child_frame_id,
-					     rclcpp::Duration polling_sleep_duration);
+					     rclcpp::Duration polling_sleep_duration=rclcpp::Duration::from_seconds(0.1));
   bool transform_odometry(tf2_ros::Buffer* tf_buffer, airstack_msgs::msg::Odometry odom,
 			  std::string new_frame_id, std::string new_child_frame_id, airstack_msgs::msg::Odometry* out_odom,
 			  rclcpp::Duration polling_sleep_duration=rclcpp::Duration::from_seconds(0.1));
   // This can throw any exception that lookupTransform throws
   airstack_msgs::msg::Odometry transform_odometry(tf2_ros::Buffer* tf_buffer, airstack_msgs::msg::Odometry odom,
 						  std::string new_frame_id, std::string new_child_frame_id,
-						  rclcpp::Duration polling_sleep_duration);
+						  rclcpp::Duration polling_sleep_duration=rclcpp::Duration::from_seconds(0.1));
   
   // ==========================================================================
   // ------------------------------ Transforms --------------------------------

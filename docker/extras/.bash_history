@@ -439,3 +439,92 @@ tmux kill-server
 /isaac-sim/runapp.sh 
 fg
 /isaac-sim/runapp.sh 
+runapp
+ls
+cd /extras/kit-app-template/source/extensions/omni.example.spawn_prims/omni/example/spawn_prims/
+ls
+ls AscentAeroSystems/
+ls /extras/
+ls /sim
+ls
+cd /extras/
+ls
+ls /root/AirStack/
+ls /root/AirStack/ros_ws/
+bws && sws
+runapp
+ls
+ls /extras/drag_and_drop/
+ls /extras/drag_and_drop/AscentAeroSystemsSITLPackage/
+ps -e
+runapp
+emacs
+bws && sws
+ros2 launch robot_bringup launch_robot.yaml
+ls
+bws && sws
+ros2 launch robot_bringup launch_robot.yaml
+ls sim
+cd /root/AirStack/
+ls
+ISAACSIM_PYTHON simulation/launch_sim.py
+ros2 topic info /mavros/local_position/odom
+export ROS_DOMAIN_ID=109
+ros2 topic info /mavros/local_position/odom
+ros2 topic info /mavros/local_position/odom --verbose
+ros2 topic info --verbose /mavros/local_position/odom
+ros2 topic echo /trajectory_track
+ros2 topic echo /mavros/local_position/odom
+ros2 topic echo /tracking_point
+ros2 topic info /tracking_point
+ros2 topic info --verbose /tracking_point
+sws
+ros2 topic echo /tracking_point
+ros2 topic echo /odometry
+ros2 topic list
+ros2 node list
+ros2 node info /odom_repub
+ros2 topic echo /mavros/local_position/odom
+ros2 topic info --verbose /mavros/local_position/odom
+ros2 topic echo /odometry
+fg
+cd /extras/ros_ws/
+ls
+cd
+cd /root/AirStack/ros_ws/
+ls
+sis
+ros2 launch central px4_gazebo.xml 
+FG
+emacs src/robot/autonomy/planning/global/central/launch/px4_gazebo.xml 
+ros2 launch central px4_gazebo.xml 
+ros2 topic list
+export ROS_DOMAIN_ID=109
+ros2 topic list
+ros2 launch central px4_gazebo.xml 
+fg
+ros2 launch central px4_gazebo.xml 
+fg
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+sis
+ros2 run airstack_common odom_repub.py
+colcon build --symlink-install
+which python3
+ros2 run airstack_common odom_repub.py
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+rm -rf build/ install/ log/
+ls
+colcon build --symlink-install
+rm -rf build/ install/ log/
+colcon build --symlink-install
+fg
+rm -rf build/ install/ log/
+source /opt/ros/humble/setup.bash 
+colcon build --symlink-install
+rm -rf build/ install/ log/

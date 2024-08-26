@@ -1,4 +1,4 @@
-#include <tflib/tflib.hpp>
+#include <airstack_common/tflib.hpp>
 
 namespace tflib {
 
@@ -39,6 +39,23 @@ namespace tflib {
     
     tf2::Stamped<tf2::Transform> stamped_transform(transform, tf2_ros::fromMsg(odom.header.stamp), odom.header.frame_id);
     return stamped_transform;
+  }
+  
+  geometry_msgs::msg::Point from_tf(tf2::Vector3 v){
+    geometry_msgs::msg::Point out;
+    out.x = v.x();
+    out.y = v.y();
+    out.z = v.z();
+    return out;
+  }
+  
+  geometry_msgs::msg::Quaternion from_tf(tf2::Quaternion q){
+    geometry_msgs::msg::Quaternion out;
+    out.x = q.x();
+    out.y = q.y();
+    out.z = q.z();
+    out.w = q.w();
+    return out;
   }
 
   // ==========================================================================

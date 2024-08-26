@@ -13,8 +13,8 @@
 #include <std_srvs/srv/set_bool.hpp>
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <airstack_common/ros2_helper.hpp>
-#include <tflib/tflib.hpp>
-#include <vislib/vislib.hpp>
+#include <airstack_common/tflib.hpp>
+#include <airstack_common/vislib.hpp>
 
 //===================================================================================
 //----------------------------- Trajectory Control Node -----------------------------
@@ -192,8 +192,6 @@ void TrajectoryControlNode::timer_callback(){
       time_multiplier = 1.f;
     }
     
-    // publish trajectory visualization
-    //marker_vis_pub.publish(trajectory->get_markers(1, 1, 0, 1, false, false, traj_vis_thickness));
   
     // figure out what duration into the trajectory we are
     rclcpp::Time now = this->get_clock()->now();
@@ -207,6 +205,7 @@ void TrajectoryControlNode::timer_callback(){
     markers.overwrite();
     markers.add_sphere(target_frame, now, robot_point.x(), robot_point.y(), robot_point.z(), sphere_radius)
       .set_color(0.f, 0.f, 1.f, 0.7f);
+    marker_vis_pub->publish(trajectory->get_markers(now, 1, 1, 0, 1, false, false, traj_vis_thickness));
     
     // find closest point on entire trajectory
     Waypoint closest_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -396,7 +395,7 @@ void TrajectoryControlNode::timer_callback(){
     // create a tf for the tracking point odom
     tf2::Stamped<tf2::Transform> vtp_tf = tflib::to_tf(virtual_tracking_point_odom);
     geometry_msgs::msg::TransformStamped transform = tf2::toMsg(vtp_tf);
-    transform.child_frame_id = tf_prefix + "/tracking_point";
+    transform.child_frame_id = tf_prefix + "tracking_point";
     geometry_msgs::msg::TransformStamped transform_stabilized = tf2::toMsg(tflib::get_stabilized(vtp_tf));
     transform_stabilized.child_frame_id = tf_prefix + "/tracking_point_stabilized";
     tf_broadcaster->sendTransform(transform);
@@ -405,9 +404,9 @@ void TrajectoryControlNode::timer_callback(){
     // create a tf for the look ahead odom
     tf2::Stamped<tf2::Transform> la_tf = tflib::to_tf(look_ahead_point);
     geometry_msgs::msg::TransformStamped look_ahead_transform = tf2::toMsg(la_tf);
-    look_ahead_transform.child_frame_id = tf_prefix + "/look_ahead_point";
+    look_ahead_transform.child_frame_id = tf_prefix + "look_ahead_point";
     geometry_msgs::msg::TransformStamped look_ahead_transform_stabilized = tf2::toMsg(tflib::get_stabilized(la_tf));
-    look_ahead_transform_stabilized.child_frame_id = tf_prefix + "/look_ahead_point_stabilized";
+    look_ahead_transform_stabilized.child_frame_id = tf_prefix + "look_ahead_point_stabilized";
 
     tf_broadcaster->sendTransform(look_ahead_transform);
     tf_broadcaster->sendTransform(look_ahead_transform_stabilized);

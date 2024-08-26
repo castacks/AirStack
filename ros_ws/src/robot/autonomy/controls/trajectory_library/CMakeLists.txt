@@ -15,7 +15,6 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
-find_package(tflib REQUIRED)
 
 add_library(trajectory_library src/trajectory_library.cpp)
 target_include_directories(trajectory_library PUBLIC
@@ -36,10 +35,9 @@ ament_target_dependencies(
   tf2_ros
   airstack_msgs
   airstack_common
-  tflib
 )
 ament_export_targets(trajectory_library HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp nav_msgs geometry_msgs visualization_msgs tf2 tf2_ros)
+ament_export_dependencies(rclcpp nav_msgs geometry_msgs visualization_msgs tf2 tf2_ros airstack_common)
 
 install(TARGETS trajectory_library
   DESTINATION lib/${PROJECT_NAME})

@@ -11,7 +11,6 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
-find_package(tflib REQUIRED)
 find_package(trajectory_library REQUIRED)
 
 add_executable(takeoff_landing_planner src/takeoff_landing_planner.cpp)
@@ -24,7 +23,6 @@ ament_target_dependencies(
   std_msgs
   airstack_msgs
   airstack_common
-  tflib
   trajectory_library
 )
 

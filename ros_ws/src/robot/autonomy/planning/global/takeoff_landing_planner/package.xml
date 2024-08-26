@@ -13,7 +13,6 @@
   <depend>std_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>airstack_common</depend>
-  <depend>tflib</depend>
   <depend>trajectory_library</depend>
   
   <test_depend>ament_lint_auto</test_depend>

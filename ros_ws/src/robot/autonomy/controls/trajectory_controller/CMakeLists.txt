@@ -17,8 +17,6 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
-find_package(tflib REQUIRED)
-find_package(vislib REQUIRED)
 find_package(trajectory_library REQUIRED)
 
 
@@ -36,8 +34,6 @@ ament_target_dependencies(trajectory_controller
   tf2_ros
   airstack_msgs
   airstack_common
-  tflib
-  vislib
   trajectory_library)
 install(TARGETS trajectory_controller
   DESTINATION lib/${PROJECT_NAME})
