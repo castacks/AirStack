@@ -47,8 +47,11 @@ qtcreator-*
 # Emacs
 .#*
 
-# Catkin custom files
-CATKIN_IGNORE
+# ROS2 custom files
+COLCON_IGNORE
+frames_*.gv
+frames_*.pdf
+
 
 nucleus_token.txt
 
