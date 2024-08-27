@@ -58,6 +58,12 @@ Visualization Manager:
           Value: true
         base_link_frd:
           Value: true
+        base_link_stabilized:
+          Value: true
+        look_ahead_point:
+          Value: true
+        look_ahead_point_stabilized:
+          Value: true
         map:
           Value: true
         map_ned:
@@ -66,6 +72,10 @@ Visualization Manager:
           Value: true
         odom_ned:
           Value: true
+        tracking_point:
+          Value: true
+        tracking_point_stabilized:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -73,7 +83,20 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
+          base_link:
+            base_link_frd:
+              {}
+          base_link_stabilized:
+            {}
+          look_ahead_point:
+            {}
+          look_ahead_point_stabilized:
+            {}
           map_ned:
+            {}
+          tracking_point:
+            {}
+          tracking_point_stabilized:
             {}
       Update Interval: 0
       Value: true
@@ -81,25 +104,25 @@ Visualization Manager:
       Enabled: true
       Name: Traj Vis
       Namespaces:
-        {}
+        trajectory_0: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_vis
+        Value: trajectory_vis
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: Traj Debug
       Namespaces:
-        {}
+        default: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_controller_debug_markers
+        Value: trajectory_controller_debug_markers
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -111,7 +134,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /trajectory_segment_vis
+        Value: trajectory_segment_vis
       Value: true
     - Angle Tolerance: 0
       Class: rviz_default_plugins/Odometry
@@ -150,7 +173,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /odometry
+        Value: odometry
       Value: true
   Enabled: true
   Global Options:
@@ -213,10 +236,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.540398359298706
+      Pitch: 0.4753984212875366
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.0653979778289795
+      Yaw: 1.1053979396820068
     Saved: ~
 Window Geometry:
   Displays:

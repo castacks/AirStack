@@ -2,6 +2,7 @@
 
 BehaviorExecutive::BehaviorExecutive()
   : Node("behavior_executive"){
+  
   // conditions
   takeoff_commanded_condition = new bt::Condition("Takeoff Commanded", this);
   armed_condition = new bt::Condition("Armed", this);
@@ -72,6 +73,7 @@ BehaviorExecutive::BehaviorExecutive()
   takeoff_landing_command_client = this->create_client<airstack_msgs::srv::TakeoffLandingCommand>("set_takeoff_landing_command",
 												  rmw_qos_profile_services_default,
 												  service_callback_group);
+
   
   // timers
   timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1./20.),
@@ -134,6 +136,7 @@ void BehaviorExecutive::timer_callback(){
     std::cout << "takeoff" << std::endl;
     takeoff_action->set_running();
     if(takeoff_action->active_has_changed()){
+      // put trajectory controller in track mode
       airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
 	std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
       mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
@@ -141,16 +144,32 @@ void BehaviorExecutive::timer_callback(){
       std::cout << "mode 1" << std::endl;
       mode_result.wait();
       std::cout << "mode 2" << std::endl;
+
       if(mode_result.get()->success){
-	airstack_msgs::srv::TakeoffLandingCommand::Request::SharedPtr takeoff_request =
-	  std::make_shared<airstack_msgs::srv::TakeoffLandingCommand::Request>();
-	takeoff_request->command = airstack_msgs::srv::TakeoffLandingCommand::Request::TAKEOFF;
-	auto takeoff_result = takeoff_landing_command_client->async_send_request(takeoff_request);
-	std::cout << "takeoff 1" << std::endl;
-	takeoff_result.wait();
-	std::cout << "takeoff 2" << std::endl;
-	if(takeoff_result.get()->accepted)
-	  takeoff_action->set_success();
+	// send a takeoff command to ardupilot
+	// TODO clean up variable names
+	airstack_msgs::srv::RobotCommand::Request::SharedPtr request = std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
+	request->command = airstack_msgs::srv::RobotCommand::Request::TAKEOFF;
+	
+	auto result = robot_command_client->async_send_request(request);
+	std::cout << "waiting robot command takeoff" << std::endl;
+	result.wait();
+	std::cout << "done robot command takeoff" << std::endl;
+	
+	// send the takeoff trajectory
+	if(result.get()->success){
+	  airstack_msgs::srv::TakeoffLandingCommand::Request::SharedPtr takeoff_request =
+	    std::make_shared<airstack_msgs::srv::TakeoffLandingCommand::Request>();
+	  takeoff_request->command = airstack_msgs::srv::TakeoffLandingCommand::Request::TAKEOFF;
+	  auto takeoff_result = takeoff_landing_command_client->async_send_request(takeoff_request);
+	  std::cout << "takeoff 1" << std::endl;
+	  takeoff_result.wait();
+	  std::cout << "takeoff 2" << std::endl;
+	  if(takeoff_result.get()->accepted)
+	    takeoff_action->set_success();
+	  else
+	    takeoff_action->set_failure();
+	}
 	else
 	  takeoff_action->set_failure();
       }

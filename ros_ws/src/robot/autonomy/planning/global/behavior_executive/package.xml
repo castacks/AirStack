@@ -15,6 +15,7 @@
   <depend>behavior_tree_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>airstack_common</depend>
+  <depend>mavros_msgs</depend>
   
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

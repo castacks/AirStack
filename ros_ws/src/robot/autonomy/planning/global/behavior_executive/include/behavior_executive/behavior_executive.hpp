@@ -8,7 +8,10 @@
 
 class BehaviorExecutive : public rclcpp::Node {
 private:
-    
+
+  // parameters
+  bool ascent_takeoff;
+  
   // Condition variables
   bt::Condition* takeoff_commanded_condition;
   bt::Condition* armed_condition;

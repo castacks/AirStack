@@ -52,6 +52,7 @@
   <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
     <param name="interface" value="mavros_interface::MAVROSInterface" />
   </node>
+  <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py" output="screen" />
   <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.xml" />
   <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.xml" />
 

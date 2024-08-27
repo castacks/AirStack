@@ -45,7 +45,7 @@ namespace robot_interface {
     rclcpp::Subscription<mav_msgs::msg::RollPitchYawrateThrust>::SharedPtr roll_pitch_yawrate_thrust_sub_;
     rclcpp::Subscription<mav_msgs::msg::TorqueThrust>::SharedPtr torque_thrust_sub_;
     rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr position_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
 
   public:
     RobotInterface(std::string interface_name)
@@ -72,9 +72,9 @@ namespace robot_interface {
 								    std::bind(&RobotInterface::velocity_callback,
 									      this, std::placeholders::_1));
       
-      position_sub_ =
-	this->create_subscription<geometry_msgs::msg::PoseStamped>("cmd_position", 1,
-								   std::bind(&RobotInterface::position_callback,
+      pose_sub_ =
+	this->create_subscription<geometry_msgs::msg::PoseStamped>("cmd_pose", 1,
+								   std::bind(&RobotInterface::pose_callback,
 									     this, std::placeholders::_1));
     }
   
@@ -94,7 +94,7 @@ namespace robot_interface {
     virtual void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr cmd) {
       RCLCPP_ERROR(this->get_logger(), "Velocity callback not implemented.");
     }
-    virtual void position_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) {
+    virtual void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) {
       RCLCPP_ERROR(this->get_logger(), "Pose callback not implemented.");
     }
 
@@ -135,6 +135,9 @@ namespace robot_interface {
      * @return false
      */
     virtual bool has_control() = 0;
+
+    virtual bool takeoff() = 0;
+    virtual bool land() = 0;
 
   public:
     virtual ~RobotInterface() {}

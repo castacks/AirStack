@@ -23,13 +23,20 @@
 #include <mavros_msgs/srv/command_bool.hpp>
 #include <mavros_msgs/srv/set_mode.hpp>
 #include <robot_interface/robot_interface.hpp>
+#include <mavros_msgs/srv/command_tol.hpp>
+#include <airstack_common/ros2_helper.hpp>
 
 namespace mavros_interface {
 
   class MAVROSInterface : public robot_interface::RobotInterface {
   private:
+    // parameters
+    bool is_ardupilot; // TODO make this a launch file parameter
+    
     bool is_state_received_ = false;
     mavros_msgs::msg::State current_state_;
+    bool in_air = false;
+    rclcpp::Time in_air_start_time;
 
     // data from the flight control unit (FCU)
     bool is_yaw_received_ = false;
@@ -38,6 +45,7 @@ namespace mavros_interface {
     rclcpp::CallbackGroup::SharedPtr service_callback_group;
     rclcpp::Client<mavros_msgs::srv::SetMode>::SharedPtr set_mode_client_;
     rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedPtr arming_client_;
+    rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedPtr takeoff_client_;
   
     rclcpp::Publisher<mavros_msgs::msg::AttitudeTarget>::SharedPtr attitude_target_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_position_target_pub_;
@@ -48,12 +56,18 @@ namespace mavros_interface {
   public:
     MAVROSInterface()
       : RobotInterface("mavros_interface"){
+      // params
+      is_ardupilot = airstack::get_param(this, "is_ardupilot", false);
+      
       // services
       service_callback_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
       set_mode_client_ = this->create_client<mavros_msgs::srv::SetMode>("mavros/set_mode",
 									rmw_qos_profile_services_default,
 									service_callback_group);
       arming_client_ = this->create_client<mavros_msgs::srv::CommandBool>("mavros/cmd/arming",
+									  rmw_qos_profile_services_default,
+									  service_callback_group);
+      takeoff_client_ = this->create_client<mavros_msgs::srv::CommandTOL>("mavros/cmd/takeoff",
 									  rmw_qos_profile_services_default,
 									  service_callback_group);
       
@@ -113,16 +127,18 @@ namespace mavros_interface {
       attitude_target_pub_->publish(mavros_cmd);
     }
     
-    void position_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override {
-      geometry_msgs::msg::PoseStamped cmd_copy = *cmd;
-      local_position_target_pub_->publish(cmd_copy);
+    void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override {
+      if(!is_ardupilot || (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > 5.))){
+	geometry_msgs::msg::PoseStamped cmd_copy = *cmd;
+	local_position_target_pub_->publish(cmd_copy);
+      }
     }
 
     // Command Functions
 
     bool request_control() override {
       auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
-      request->custom_mode = "OFFBOARD";
+      request->custom_mode = "GUIDED";//"OFFBOARD";
 
       auto result = set_mode_client_->async_send_request(request);
       std::cout << "waiting rc" << std::endl;
@@ -163,7 +179,33 @@ namespace mavros_interface {
     }
     
     bool has_control() override {
-      return is_state_received_ && current_state_.mode == "OFFBOARD";
+      return is_state_received_ && current_state_.mode == "GUIDED";//"OFFBOARD";
+    }
+
+    bool takeoff() override {
+      if(is_ardupilot){
+	mavros_msgs::srv::CommandTOL::Request::SharedPtr takeoff_request =
+	  std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
+	takeoff_request->altitude = 0.1;
+	
+	std::cout << "ardupilot takeoff 1" << std::endl;
+	auto takeoff_result = takeoff_client_->async_send_request(takeoff_request);
+	takeoff_result.wait();
+	std::cout << "ardupilot takeoff 2" << std::endl;
+	if(takeoff_result.get()->success){
+	  in_air = true;
+	  in_air_start_time = this->get_clock()->now();
+	  return true;
+	}
+	else
+	  return false;
+      }
+
+      return true;
+    }
+
+    bool land() override {
+      
     }
     
     void state_callback(const mavros_msgs::msg::State::SharedPtr msg) {

@@ -12,6 +12,7 @@ find_package(robot_interface REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(airstack_common REQUIRED)
 
 add_library(mavros_interface src/mavros_interface.cpp)
 target_compile_features(mavros_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
@@ -25,6 +26,7 @@ ament_target_dependencies(
   mavros_msgs
   pluginlib
   tf2
+  airstack_common
 )
 
 pluginlib_export_plugin_description_file(robot_interface plugins.xml)
