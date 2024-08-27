@@ -47,17 +47,7 @@ find_package(tf2_eigen REQUIRED)
 find_package(Armadillo REQUIRED)
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
-#find_package(PkgConfig REQUIRED)
-#find_package(octomap REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Boost REQUIRED)
-#catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES disparity_graph
-#  CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf image_transport image_geometry
-#  DEPENDS eigen Boost PCL
-#)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #DEBUGGGGGGGGGGGEEEEEEEEEEERRRRRRRRRRR
@@ -77,7 +67,6 @@ include_directories(
   ${image_geometry_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${pcl_conversions_INCLUDE_DIRS} 
   ${nav_msgs_INCLUDE_DIRS}

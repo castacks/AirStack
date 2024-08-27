@@ -14,37 +14,6 @@
  *  @author: Geetesh Dubey
  *
  */
-/*
-#include <cv_bridge/cv_bridge.h>
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/approximate_time.h>
-#include <message_filters/sync_policies/exact_time.h>
-#include <message_filters/synchronizer.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/conversions.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl_ros/point_cloud.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-
-#include <boost/thread/mutex.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-
-#include "deque"
-#include "image_geometry/pinhole_camera_model.h"
-#include "nav_msgs/OccupancyGrid.h"
-#include "opencv2/core/core.hpp"
-#include "sensor_msgs/Image.h"
-#include "sensor_msgs/image_encodings.h"
-#include "tf/transform_datatypes.h"
-#include "tf/transform_listener.h"
-#include "visualization_msgs/MarkerArray.h"
-*/
 #include <cv_bridge/cv_bridge.h>
 #include <image_geometry/pinhole_camera_model.h>
 #include <message_filters/subscriber.h>
@@ -86,8 +55,6 @@ class disparity_graph : public rclcpp::Node {
    public:
     explicit disparity_graph(const rclcpp::NodeOptions &options);
     struct node {
-        // sensor_msgs::Image Im_fg;
-        // sensor_msgs::Image Im_bg;
         cv_bridge::CvImagePtr Im_fg;
         cv_bridge::CvImagePtr Im_bg;
         std_msgs::msg::Header header;
@@ -117,7 +84,6 @@ class disparity_graph : public rclcpp::Node {
     unsigned int width_, height_;
     // ros::Subscriber cam_info_sub_;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
-    // boost::mutex io_mutex;
     std::mutex io_mutex;
     message_filters::Subscriber<sensor_msgs::msg::Image> disp_fg_sub_, disp_bg_sub_;
     typedef message_filters::sync_policies::ExactTime<sensor_msgs::msg::Image,

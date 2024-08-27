@@ -21,7 +21,7 @@
  *
  */
 
-#include "disparity_graph/disparity_graph.h"
+#include "disparity_graph/disparity_graph.hpp"
 
 #include <cmath>
 
@@ -106,8 +106,6 @@ disparity_graph::disparity_graph(const rclcpp::NodeOptions &options)
     disp_bg_sub_.subscribe(this, "/ceye/left/expanded_disparity_bg",
                            rclcpp::QoS(5).get_rmw_qos_profile());
 
-    // exact_sync_.reset(new ExactSync(ExactPolicy(5),disp_fg_sub_,disp_bg_sub_) );
-    // exact_sync_->registerCallback(boost::bind(&disparity_graph::disp_cb, this, _1, _2));
     exact_sync_ = std::make_shared<ExactSync>(ExactPolicy(5), disp_fg_sub_, disp_bg_sub_);
     exact_sync_->registerCallback(
         std::bind(&disparity_graph::disp_cb, this, std::placeholders::_1, std::placeholders::_2));
@@ -129,20 +127,6 @@ disparity_graph::disparity_graph(const rclcpp::NodeOptions &options)
     expansion_poly_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
         "/expansion/graph_occ_marker", 10);
 
-    /*
-        //Occupancy Map
-        occ_map.header.frame_id=fixed_frame;
-        occ_map.info.resolution = 1.0;//0.5;
-        occ_map.info.width  = 2*50/occ_map.info.resolution;
-        occ_map.info.height = 2*50/occ_map.info.resolution;
-        occ_map.data.resize(occ_map.info.width*occ_map.info.height,-1);
-        orig_z = -1.0;
-        occ_map.info.origin.position.x = -double(occ_map.info.width)/2.0*occ_map.info.resolution;
-        occ_map.info.origin.position.y = -double(occ_map.info.height)/2.0*occ_map.info.resolution;
-        occ_map.info.origin.position.z = orig_z;
-        occ_map.info.origin.orientation = tf::createQuaternionMsgFromYaw(0.0);
-        occPub_ = priv_nh.advertise<nav_msgs::OccupancyGrid>("/graph_occ_map",10);
-    */
 }
 
 void disparity_graph::pcd_test() {
@@ -200,35 +184,6 @@ void disparity_graph::pcd_test() {
                     z_sample = ((z_sample + 0.5) > z_bg) ? z_bg : z_sample;
                 }
 
-                // pt_optical_fg.setZ(baseline_*fx_/disp_graph.at(i).Im_fg->image.at<float>(v,u));
-                // pt_optical_fg.setX((u - cx_) * pt_optical_fg.getZ()/fx_);
-                // pt_optical_fg.setY((v - cy_) * pt_optical_fg.getZ()/fy_);
-
-                // pt_optical_bg.setZ(baseline_*fx_/disp_graph.at(i).Im_bg->image.at<float>(v,u));
-                // pt_optical_bg.setX((u - cx_) * pt_optical_bg.getZ()/fx_);
-                // pt_optical_bg.setY((v - cy_) * pt_optical_bg.getZ()/fy_);
-
-                // pt_world_fg = s2w_tf * pt_optical_fg;
-                // pt_world_bg = s2w_tf * pt_optical_bg;
-
-                // pcl::PointXYZI pt;
-                ////FG
-                // pt.x = pt_world_fg.getX();
-                // pt.y = pt_world_fg.getY();
-                // pt.z = pt_world_fg.getZ();
-                // pt.intensity = 200;//i*20+10;
-                // pcd_checked_states.points.push_back(pt);
-                // pcd_checked_states.width++;
-
-                // double x1,y1,x2,y2,z1,z2;
-                // x1 = pt.x;y1=pt.y;z1=pt.z;
-                ////BG
-                // pt.x = pt_world_bg.getX();
-                // pt.y = pt_world_bg.getY();
-                // pt.z = pt_world_bg.getZ();
-                // pt.intensity = 100;//i*20+10;
-                // pcd_checked_states.points.push_back(pt);
-                // pcd_checked_states.width++;
             }
         }
     }
@@ -406,13 +361,6 @@ void disparity_graph::pcd_test3() {
         int v = 60;
         for (uint i = 0; i < disp_graph.size(); i++) {
             float prev_depth = 0.0;
-            //            {
-            //                boost::mutex::scoped_lock lock(io_mutex);
-            //                cv_depth_fg =
-            //                cv_bridge::toCvCopy(disp_graph.at(i).Im_fg,sensor_msgs::image_encodings::TYPE_32FC1);
-            //                cv_depth_bg =
-            //                cv_bridge::toCvCopy(disp_graph.at(i).Im_bg,sensor_msgs::image_encodings::TYPE_32FC1);
-            //            }
             marker.header = disp_graph.at(i).header;
             for (int u = (int)width_ - 1; u >= 0; u--) {
                 float depth_value = baseline_ * fx_ /
