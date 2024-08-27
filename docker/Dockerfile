@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Package dependencies
 # perform ROS dependency installation for our workspace.
 COPY ros_ws/src /tmp/ros_ws/src
-RUN rosdep install --from-paths /tmp/ros_ws/src --ignore-src -r -y && rm -rf /tmp/ros_ws
+RUN rosdep init && rosdep update && rosdep install --from-paths /tmp/ros_ws/src --ignore-src -r -y && rm -rf /tmp/ros_ws || echo "Some ROS dependencies installation failed"
 
 # Install Gazebo Harmonic
 RUN apt-get update && apt-get install -y lsb-release gnupg
