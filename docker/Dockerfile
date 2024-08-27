@@ -86,11 +86,4 @@ RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit
 
 RUN pip3 install PyYAML mavproxy tmuxp
 
-#RUN echo 'root:passme24' | chpasswd
-
-#RUN useradd -G video -ms /bin/bash uav
-#RUN usermod -a -G dialout uav
-#RUN usermod -a -G sudo uav
-#RUN echo 'uav:passme24' | chpasswd
-#USER uav
-#WORKDIR /home/uav
+WORKDIR /root/AirStack
