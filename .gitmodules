@@ -15,7 +15,3 @@
 [submodule "ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping_ros2"]
 	path = ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping_ros2
 	url = https://github.com/fzi-forschungszentrum-informatik/vdb_mapping_ros2
-[submodule "ros_ws/src/third_party/perception_pcl"]
-	path = ros_ws/src/third_party/perception_pcl
-	url = git@github.com:ros-perception/perception_pcl.git
-	branch = humble
