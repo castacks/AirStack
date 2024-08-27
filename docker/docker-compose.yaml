@@ -8,7 +8,7 @@ services:
       dockerfile: docker/Dockerfile
       tags:
         - theairlab.org/airstack-dev:latest
-        - theairlab.org/airstack-dev:0.2.0-pre
+        - theairlab.org/airstack-dev:0.3.0
 
   # main dev container
   airstack_dev:
