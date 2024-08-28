@@ -115,7 +115,7 @@ class PyConsole(Plugin):
         #self.debug_checkbox.stateChanged.connect(self.debug_mode_changed)
 
         #self.config_widget.setStyleSheet("background-color: rgb(255, 0, 0);")
-        self.top_layout.addWidget(self.config_widget)
+        #self.top_layout.addWidget(self.config_widget)
 
         #self.vbox.addWidget(self.top_widget)
 
@@ -196,6 +196,7 @@ class PyConsole(Plugin):
         self._widget.layout().removeWidget(self._console_widget)
         self.shutdown_console_widget()
 
+        '''
         if _has_spyderlib and self._use_spyderlib:
             self._console_widget = SpyderConsoleWidget(self._context)
             self._widget.setWindowTitle('SpyderConsole')
@@ -205,10 +206,11 @@ class PyConsole(Plugin):
         if self._context.serial_number() > 1:
             self._widget.setWindowTitle(
                 self._widget.windowTitle() + (' (%d)' % self._context.serial_number()))
-
+        '''
         self._widget.layout().addWidget(self._console_widget)
 
     def save_settings(self, plugin_settings, instance_settings):
+        return
         instance_settings.set_value('use_spyderlib', self._use_spyderlib)
 
     def restore_settings(self, plugin_settings, instance_settings):

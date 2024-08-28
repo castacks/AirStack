@@ -56,6 +56,8 @@ install(
   INCLUDES DESTINATION include
 )
 
+install(PROGRAMS scripts/fixed_trajectory_generator.py DESTINATION lib/${PROJECT_NAME})
+
 ament_export_include_directories(
   include
   ${mav_msgs_INCLUDE_DIRS}

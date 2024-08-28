@@ -81,7 +81,7 @@ BehaviorExecutive::BehaviorExecutive()
 }
 
 void BehaviorExecutive::timer_callback(){
-  std::cout << "running" << std::endl;
+  //std::cout << "running" << std::endl;
   
   if(request_control_action->is_active()){
     if(request_control_action->active_has_changed()){
@@ -133,7 +133,7 @@ void BehaviorExecutive::timer_callback(){
   }
 
   if(takeoff_action->is_active()){
-    std::cout << "takeoff" << std::endl;
+    //std::cout << "takeoff" << std::endl;
     takeoff_action->set_running();
     if(takeoff_action->active_has_changed()){
       // put trajectory controller in track mode
@@ -175,6 +175,22 @@ void BehaviorExecutive::timer_callback(){
       }
       else
 	takeoff_action->set_failure();
+    }
+  }
+  
+  // follow fixed trajectory action
+  if(follow_fixed_trajectory_action->is_active()){
+    follow_fixed_trajectory_action->set_running();
+    
+    if(follow_fixed_trajectory_action->active_has_changed()){
+      // put trajectory controller in track mode
+      airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+	std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+      mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
+      auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+      std::cout << "mode 1" << std::endl;
+      mode_result.wait();
+      std::cout << "mode 2" << std::endl;
     }
   }
   

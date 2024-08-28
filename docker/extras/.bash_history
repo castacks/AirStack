@@ -528,3 +528,215 @@ rm -rf build/ install/ log/
 source /opt/ros/humble/setup.bash 
 colcon build --symlink-install
 rm -rf build/ install/ log/
+ros2 topic info --verbose /mavros/local_position/odom
+ros2 topic echo /odometry
+ros2 topic echo /mavros/local_position/odom
+ros2 topic info --verbose /mavros/local_position/odom
+ros2 topic echo /mavros/local_position/odom
+ros2 topic echo /trajectory_track
+ros2 topic echo /tracking_point
+ros2 topic echo /trajectory_track
+ros2 topic echo /odometry
+ros2 topic echo /trac
+ros2 topic echo /tracking_point
+ros2 topic echo /trajectory_track
+ros2 topic echo /trajectory_vis
+ros2 topic list | grep setpoint
+ros2 topic info /mavros/setpoint_raw/target_local
+ros2 interface show mavros_msgs/msg/PositionTarget
+ros2 topic info /mavros/setpoint_position/local
+ros2 topic echo /mavros/setpoint_position/local
+ros2 interface show airstack_msgs/msg/Odometry 
+ros2 run mavros_interface position_setpoint_pub.py 
+runapp
+ros2 topic echo /mavros/setpoint_position/local
+export ROS_DOMAIN_ID=1
+ros2 topic echo /mavros/setpoint_position/local
+runapp
+tmux kill-server
+runapp
+tmux ls
+mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:14552
+runapp
+tmux kill-server
+runapp
+tmux kill-server
+runapp
+tmux kill-server
+runapp
+cd ~/AirStack/ros_ws/
+ls
+colcon build --symlink-install
+ls
+colcon build --symlink-install
+sis
+ros2 launch central px4_gazebo.xml 
+ros2 topic list
+ros2 launch central px4_gazebo.xml 
+rm -rf build/ install/ log/
+ls
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+ps -e
+ls /proc/183185/cmdline 
+cat /proc/183185/cmdline 
+ros2 launch central px4_gazebo.xml 
+cat /proc/183185/cmdline 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+ros2 topic list
+cd /extras/drag_and_drop/AscentAeroSystemsSITLPackage#
+ls
+ls /extras/drag_and_drop/
+ls /extras/drag_and_drop/AscentAeroSystemsSITLPackage/
+ls /extras/drag_and_drop/
+ros2 topic list
+export ROS_DOMAIN_ID=109
+ros2 topic list
+export ROS_DOMAIN_ID=100
+ros2 topic list
+export ROS_DOMAIN_ID=101`
+export ROS_DOMAIN_ID=101
+ros2 topic list
+export ROS_DOMAIN_ID=1
+ros2 topic list
+emacs /extras/drag_and_drop/ascent_sitl.yaml 
+ros2 topic list
+ros2 topic info /tf
+ros2 topic info --verbose /tf
+ros2 launch central ascent_isaac.xml 
+fg
+ros2 launch central ascent_isaac.xml namespace:=robot1
+ros2 launch central ascent_isaac.xml __ns:=robot1
+cd /extras/drag_and_drop/AscentAeroSystemsSITLPackage#
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+clear
+ros2 launch central ascent_isaac.xml __ns:=robot1
+ros2 launch central px4_gazebo.xml 
+colcon build --symlink-install
+ros2 launch central px4_gazebo.xml 
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+fg
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+rqt --force-discover
+sis
+rqt --force-discover
+rqt
+ls /root/AirStack/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/
+colcon build --symlink-install
+rqt
+ls /root/AirStack/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/
+colcon build --symlink-install
+ls /root/AirStack/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/
+colcon build --symlink-install
+rqt
+ros2 launch central ascent_isaac.xml __ns:=robot1
+cd /extras/drag_and_drop/
+make
+cd -
+ls
+cat ascent_sitl.yaml
+cd AscentAeroSystemsSITLPackage/
+./spirit_sitl r -S --model coaxial -I0
+./spirit_sitl -S --model coaxial -I0
+echo $LD_PRELOAD
+./spirit_sitl -S --model coaxial -I0
+fg
+cat ascent_sitl.yaml
+cat ../ascent_sitl.yaml
+strace ./spirit_sitl -S --model coaxial -I0
+./spirit_sitl -S --model coaxial -I0 & mavproxy.py --master tcp:127.0.0.1:5760 --out udp:127.0.0.1:14552
+./spirit_sitl -S --model coaxial -I0
+lsof | grep spirit
+kill -9 436107
+lsof | grep spirit
+strace ./spirit_sitl -S --model coaxial -I0
+sudo apt install strace
+apt update
+apt install strace
+strace ./spirit_sitl -S --model coaxial -I0
+cd ..
+ls
+make
+emacs inject.cpp 
+fg
+pwd
+fg
+cat ../ascent_sitl.yaml
+cd -
+cat ../ascent_sitl.yaml
+fg
+emacs ../test.gdb 
+cd ..
+ls
+emacs test.cpp
+g++ test.cpp -o test
+./test 
+LD_PRELOAD=/extras/drag_and_drop/inject.so ./test 
+fg
+make
+fg
+make
+fg
+make
+ls
+ld AscentAeroSystemsSITLPackage/spirit_sitl 
+ldd AscentAeroSystemsSITLPackage/spirit_sitl 
+nm AscentAeroSystemsSITLPackage/spirit_sitl 
+nm AscentAeroSystemsSITLPackage/spirit_sitl  | grep sleep
+make
+ls
+make
+fg
+make
+grep SIGALRM * -r
+make
+maek
+make
+cd /extras/ros_ws/
+cd -
+cd ~/AirStack/ros_ws/
+sis
+ros2 launch central ascent_isaac.xml __ns:=robot1
+make
+cd -
+make
+cd -
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+colcon build --symlink-install
+ros2 launch central ascent_isaac.xml __ns:=robot1
+emacs /extras/drag_and_drop/behavior_script.py 
+ros2 launch central ascent_isaac.xml __ns:=robot1

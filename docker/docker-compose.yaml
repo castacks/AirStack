@@ -60,7 +60,7 @@ services:
       # developer stuff
       #- ../simulation/extension_docker/extras/.bashrc:/root/.bashrc
       - .bashrc:/root/.bashrc:rw # bash config
-      - ./extras/.bash_history:/root/.bash_history
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
 
     restart: unless-stopped
 

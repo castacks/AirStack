@@ -138,7 +138,10 @@ namespace mavros_interface {
 
     bool request_control() override {
       auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
-      request->custom_mode = "GUIDED";//"OFFBOARD";
+      if(is_ardupilot)
+	request->custom_mode = "GUIDED";//"OFFBOARD";
+      else
+	request->custom_mode = "OFFBOARD";
 
       auto result = set_mode_client_->async_send_request(request);
       std::cout << "waiting rc" << std::endl;
@@ -179,7 +182,7 @@ namespace mavros_interface {
     }
     
     bool has_control() override {
-      return is_state_received_ && current_state_.mode == "GUIDED";//"OFFBOARD";
+      return is_state_received_ && (is_ardupilot ? current_state_.mode == "GUIDED" : current_state_.mode == "OFFBOARD");
     }
 
     bool takeoff() override {

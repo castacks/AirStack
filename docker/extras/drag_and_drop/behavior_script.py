@@ -130,7 +130,7 @@ class TestScript(BehaviorScript):
                                                                 wait_ready=True, timeout=999999, rate=120)
                 threading.Thread(target=f).start()
         else:
-            r = self.dronekit_connection._roll + np.pi / 2
+            r = self.dronekit_connection._roll# + np.pi / 2
             p = self.dronekit_connection._pitch
             y = self.dronekit_connection._yaw
 

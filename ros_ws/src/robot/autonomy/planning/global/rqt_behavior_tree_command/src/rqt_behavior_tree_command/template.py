@@ -42,6 +42,7 @@ import python_qt_binding.QtCore as QtCore
 
 from ament_index_python.packages import get_package_share_directory
 import yaml
+import os
 
 from behavior_tree_msgs.msg import Status, BehaviorTreeCommand, BehaviorTreeCommands
 
@@ -97,7 +98,7 @@ class BehaviorTreeCommandPlugin(Plugin):
         if filename != '':
             self.config_filename = filename
             if self.config_filename != None:
-                self.config_label.setText('config filename: ' + self.config_filename)
+                self.config_label.setText('config filename: ' + os.path.basename(self.config_filename))
                 self.init_buttons(filename)
 
     def init_buttons(self, filename):
