@@ -15,7 +15,6 @@
 #include <message_filters/time_synchronizer.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl_ros/point_cloud.h>
 #include <sensor_msgs/image_encodings.h>
 #include <stdio.h>
 
@@ -43,7 +42,6 @@
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "std_msgs/msg/header.hpp"
-// #include <pcl_ros/point_cloud.hpp>
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/time_synchronizer.h>
