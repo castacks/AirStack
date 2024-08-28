@@ -21,7 +21,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 
-# find_package(pcl_ros REQUIRED)
 find_package(stereo_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
@@ -39,7 +38,6 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # # System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
 message(STATUS "PCL_INCLUDE_DIRS: ${PCL_INCLUDE_DIRS}")
 
 # # Uncomment this if the package has a setup.py. This macro ensures
