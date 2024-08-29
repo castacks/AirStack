@@ -803,7 +803,9 @@
     "bit": "cpp",
     "__nullptr": "cpp",
     "__locale": "cpp",
-    "codecvt": "cpp"
+    "codecvt": "cpp",
+    "any": "cpp",
+    "future": "cpp"
   },
   "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 100 }",
   "editor.formatOnSave": true
