@@ -17,7 +17,7 @@ find_package(core_map_representation_interface REQUIRED)
 find_package(disparity_graph REQUIRED)
 find_package(tflib REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(core_trajectory_msgs REQUIRED)
+find_package(airstack_msgs REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(image_transport REQUIRED)
@@ -52,7 +52,7 @@ ament_target_dependencies(disparity_map_representation
   tf2_ros
   disparity_graph
   core_map_representation_interface
-  core_trajectory_msgs
+  airstack_msgs
   cv_bridge
   tflib
   pluginlib
@@ -64,7 +64,7 @@ ament_export_dependencies(rclcpp
   tf2_ros
   disparity_graph
   core_map_representation_interface
-  core_trajectory_msgs
+  airstack_msgs
   cv_bridge
   tflib
   pluginlib

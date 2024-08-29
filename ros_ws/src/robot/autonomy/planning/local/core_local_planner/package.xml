@@ -54,13 +54,13 @@
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   <depend>nav_msgs</depend>
-  <depend>core_trajectory_library</depend>
-  <depend>core_trajectory_controller</depend>
+  <depend>trajectory_library</depend>
+  <depend>trajectory_controller</depend>
   <depend>core_map_representation_interface</depend>
   <depend>tf2_ros</depend>
   <depend>action_msgs</depend>
   <depend>behaviortree_cpp_v3</depend>
-  <depend>core_trajectory_msgs</depend>
+  <depend>airstack_msgs</depend>
   <depend>pluginlib</depend>
 
   <build_depend>rosidl_default_generators</build_depend>

@@ -2,7 +2,7 @@
 
   <arg name="robot_name" default="uav1" />
   
-  <node name="trajectory_controller" pkg="core_trajectory_controller" type="trajectory_controller" output="screen">
+  <node name="trajectory_controller" pkg="trajectory_controller" type="trajectory_controller" output="screen">
     <param name="execute_target" type="double" value="50." />
 
     <param name="tf_prefix" value="$(arg robot_name)" />

@@ -1,7 +1,7 @@
 #include <base/BaseNode.h>
 #include <core_local_planner/local_planner.h>
-#include <core_trajectory_controller/Trajectory.h>
 #include <std_msgs/ColorRGBA.h>
+#include <trajectory_controller/Trajectory.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <string>
@@ -38,12 +38,12 @@ bool LocalPlanner::initialize() {
     global_plan_vis_pub =
         nh->advertise<visualization_msgs::MarkerArray>("local_planner_global_plan_vis", 10);
     look_past_vis_pub = nh->advertise<visualization_msgs::MarkerArray>("look_past", 10);
-    traj_pub = nh->advertise<core_trajectory_msgs::TrajectoryXYZVYaw>("trajectory", 10);
-    traj_track_pub = nh->advertise<core_trajectory_msgs::TrajectoryXYZVYaw>("trajectory_track", 10);
+    traj_pub = nh->advertise<airstack_msgs::TrajectoryXYZVYaw>("trajectory", 10);
+    traj_track_pub = nh->advertise<airstack_msgs::TrajectoryXYZVYaw>("trajectory_track", 10);
 
     // init services
     traj_mode_client =
-        nh->serviceClient<core_trajectory_controller::TrajectoryMode>("set_trajectory_mode");
+        nh->serviceClient<trajectory_controller::TrajectoryMode>("set_trajectory_mode");
 
     // init parameters
     waypoint_spacing = pnh->param("waypoint_spacing", 0.5);
@@ -193,14 +193,16 @@ bool LocalPlanner::execute() {
     // publish the trajectory
     // ROS_INFO_STREAM("all_in_collsion: " << all_in_collision);
     if (!all_in_collision) {
-        core_trajectory_msgs::TrajectoryXYZVYaw path = best_traj.get_TrajectoryXYZVYaw();
+        airstack_msgs::TrajectoryXYZVYaw path = best_traj.get_TrajectoryXYZVYaw();
 
         // set yaw
         if (yaw_mode == SMOOTH_YAW && path.waypoints.size() > 0) {
             bool found_initial_heading = false;
             double initial_heading = 0;
             try {
+                // rotate
                 tf::StampedTransform transform;
+                // translate from global frame to best_traj frame
                 listener->waitForTransform(best_traj.get_frame_id(),
                                            look_ahead_odom.header.frame_id,
                                            look_ahead_odom.header.stamp, ros::Duration(0.1));
@@ -208,6 +210,7 @@ bool LocalPlanner::execute() {
                                           look_ahead_odom.header.stamp, transform);
 
                 transform.setOrigin(tf::Vector3(0, 0, 0));  // only care about rotation
+                // get the yaw of the lookahead odom in body frame, apparently?
                 initial_heading =
                     tf::getYaw(transform * tflib::to_tf(look_ahead_odom.pose.pose.orientation));
 
@@ -228,8 +231,8 @@ bool LocalPlanner::execute() {
                 // ROS_INFO_STREAM("heading: " <<
                 // 180./M_PI*tf::getYaw(tflib::to_tf(look_ahead_odom.pose.pose.orientation)));
                 for (int i = 1; i < path.waypoints.size(); i++) {
-                    core_trajectory_msgs::WaypointXYZVYaw wp_prev = path.waypoints[i - 1];
-                    core_trajectory_msgs::WaypointXYZVYaw& wp_curr = path.waypoints[i];
+                    airstack_msgs::WaypointXYZVYaw wp_prev = path.waypoints[i - 1];
+                    airstack_msgs::WaypointXYZVYaw& wp_curr = path.waypoints[i];
 
                     // ROS_INFO_STREAM(wp_curr.position.y - wp_prev.position.y << " " <<
                     // wp_curr.position.x - wp_prev.position.x);
@@ -266,7 +269,7 @@ bool LocalPlanner::get_best_trajectory(std::vector<Trajectory> trajectories, Tra
 
     visualization_msgs::MarkerArray traj_lib_markers, look_past_markers;
 
-    /*std::vector<core_trajectory_msgs::TrajectoryXYZVYaw> trajs;
+    /*std::vector<airstack_msgs::TrajectoryXYZVYaw> trajs;
     for(int i = 0; i < trajectories.size(); i++)
       trajs.push_back(trajectories[i].get_TrajectoryXYZVYaw());
     */
@@ -402,7 +405,7 @@ bool LocalPlanner::get_best_trajectory(std::vector<Trajectory> trajectories, Tra
     return all_in_collision;
 }
 
-void LocalPlanner::global_plan_callback(core_trajectory_msgs::TrajectoryXYZVYaw global_plan) {
+void LocalPlanner::global_plan_callback(airstack_msgs::TrajectoryXYZVYaw global_plan) {
     ROS_INFO_STREAM("GOT GLOBAL PLAN, goal_mode: " << goal_mode);
     if (goal_mode != TRAJECTORY) return;
 
@@ -427,17 +430,17 @@ void LocalPlanner::waypoint_callback(geometry_msgs::PointStamped wp) {
         waypoint_buffer.pop_front();
 
     // stitch together the history of waypoints
-    core_trajectory_msgs::TrajectoryXYZVYaw global_plan;
+    airstack_msgs::TrajectoryXYZVYaw global_plan;
     global_plan.header.frame_id = wp.header.frame_id;
     global_plan.header.stamp = wp.header.stamp;
 
-    std::vector<core_trajectory_msgs::WaypointXYZVYaw> backwards_global_plan;
+    std::vector<airstack_msgs::WaypointXYZVYaw> backwards_global_plan;
     // double waypoint_spacing_threshold = 0.5;
     // double waypoint_angle_threshold = 30.*M_PI/180.;
     std::vector<geometry_msgs::PointStamped> prev_wps;
     for (auto it = waypoint_buffer.rbegin(); it != waypoint_buffer.rend(); it++) {
         geometry_msgs::PointStamped curr_wp = *it;
-        core_trajectory_msgs::WaypointXYZVYaw waypoint;
+        airstack_msgs::WaypointXYZVYaw waypoint;
         waypoint.position.x = curr_wp.point.x;
         waypoint.position.y = curr_wp.point.y;
         waypoint.position.z = curr_wp.point.z;
@@ -489,16 +492,6 @@ void LocalPlanner::waypoint_callback(geometry_msgs::PointStamped wp) {
     for (int i = backwards_global_plan.size() - 1; i >= 0; i--) {
         global_plan.waypoints.push_back(backwards_global_plan[i]);
     }
-    /*for(auto it = waypoint_buffer.begin(); it != waypoint_buffer.end(); it++){
-      geometry_msgs::PointStamped curr_wp = *it;
-      core_trajectory_msgs::WaypointXYZVYaw waypoint;
-      waypoint.position.x = curr_wp.point.x;
-      waypoint.position.y = curr_wp.point.y;
-      waypoint.position.z = curr_wp.point.z;
-      global_plan.waypoints.push_back(waypoint);
-    }
-    */
-
     // add an extra segment onto the end of the path
     if (got_tracking_point) {
         try {
@@ -516,7 +509,7 @@ void LocalPlanner::waypoint_callback(geometry_msgs::PointStamped wp) {
 
             // TODO: Are waypoints in the tracking point frame while the previous ones are in wp
             // frame?
-            core_trajectory_msgs::WaypointXYZVYaw wp1, wp2;
+            airstack_msgs::WaypointXYZVYaw wp1, wp2;
             wp1.position.x = wp_position.x();
             wp1.position.y = wp_position.y();
             wp1.position.z = wp_position.z();
@@ -533,55 +526,6 @@ void LocalPlanner::waypoint_callback(geometry_msgs::PointStamped wp) {
     global_plan_trajectory_distance = 0;
     this->global_plan = global_plan;
     this->got_global_plan = true;
-
-    // ROS_INFO_STREAM("GLOBAL PLAN WAYPOINTS: " << global_plan.waypoints.size());
-
-    // DEBUG ONLY REMOV THIS
-    /*
-    Trajectory gp(global_plan);
-    visualization_msgs::MarkerArray global_markers = gp.get_markers(0, 0, 1);
-    global_plan_vis_pub.publish(global_markers);
-    */
-
-    /*
-    if(got_tracking_point){
-      this->got_global_plan = true;
-      global_plan_trajectory_distance = 0;
-
-      try{
-        tf::StampedTransform transform;
-        listener->waitForTransform(tracking_point_odom.header.frame_id, wp.header.frame_id,
-    wp.header.stamp, ros::Duration(0.1));
-        listener->lookupTransform(tracking_point_odom.header.frame_id, wp.header.frame_id,
-    wp.header.stamp, transform);
-
-        tf::Vector3 tp_position = tflib::to_tf(tracking_point_odom.pose.pose.position);
-        tf::Vector3 wp_position = transform*tflib::to_tf(wp.point);
-
-        tf::Vector3 direction = (wp_position - tp_position).normalized()*3;
-        tf::Vector3 wp2_position = wp_position + direction;
-
-        core_trajectory_msgs::TrajectoryXYZVYaw global_plan;
-        global_plan.header.frame_id = tracking_point_odom.header.frame_id;
-        global_plan.header.stamp = wp.header.stamp;
-
-        core_trajectory_msgs::WaypointXYZVYaw wp1, wp2;
-        wp1.position.x = wp_position.x();
-        wp1.position.y = wp_position.y();
-        wp1.position.z = wp_position.z();
-        wp2.position.x = wp2_position.x();
-        wp2.position.y = wp2_position.y();
-        wp2.position.z = wp2_position.z();
-        global_plan.waypoints.push_back(wp1);
-        global_plan.waypoints.push_back(wp2);
-
-        this->global_plan = global_plan;
-      }
-      catch(tf::TransformException& ex){
-        ROS_ERROR_STREAM("Transform exception in waypoint_callback: " << ex.what());
-      }
-    }
-    */
 }
 
 void LocalPlanner::custom_waypoint_callback(geometry_msgs::PoseStamped wp) {
@@ -597,11 +541,11 @@ void LocalPlanner::custom_waypoint_callback(geometry_msgs::PoseStamped wp) {
         tf::Vector3 la_position = tflib::to_tf(look_ahead_odom.pose.pose.position);
         tf::Vector3 wp_position = transform * tflib::to_tf(wp.pose.position);
 
-        core_trajectory_msgs::TrajectoryXYZVYaw global_plan;
+        airstack_msgs::TrajectoryXYZVYaw global_plan;
         global_plan.header.frame_id = look_ahead_odom.header.frame_id;
         global_plan.header.stamp = ros::Time::now();
 
-        core_trajectory_msgs::WaypointXYZVYaw wp1, wp2;
+        airstack_msgs::WaypointXYZVYaw wp1, wp2;
         wp1.position.x = la_position.x();  // la_position.x();
         wp1.position.y = la_position.y();  // la_position.y();
         wp1.position.z = la_position.z();  // la_position.z();
@@ -629,7 +573,7 @@ void LocalPlanner::update_waypoint_mode() {
         double elapsed_time = (ros::Time::now() - global_plan.header.stamp).toSec();
         double distance = 0;
         for (int i = 1; i < global_plan.waypoints.size(); i++) {
-            core_trajectory_msgs::WaypointXYZVYaw prev_wp, curr_wp;
+            airstack_msgs::WaypointXYZVYaw prev_wp, curr_wp;
             prev_wp = global_plan.waypoints[i - 1];
             curr_wp = global_plan.waypoints[i];
 

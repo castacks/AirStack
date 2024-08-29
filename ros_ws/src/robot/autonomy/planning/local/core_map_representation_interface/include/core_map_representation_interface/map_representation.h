@@ -1,7 +1,7 @@
 #ifndef _CORE_MAP_REPRESENTATION_H_
 #define _CORE_MAP_REPRESENTATION_H_
 
-#include <core_trajectory_msgs/msg/trajectory_xyzv_yaw.hpp>
+#include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
@@ -17,7 +17,7 @@ class MapRepresentation : public rclcpp::Node {
 
     virtual std::vector<std::vector<double> > get_values(
         std::vector<std::vector<geometry_msgs::msg::PointStamped> >
-            trajectories) {  // std::vector<core_trajectory_msgs::TrajectoryXYZVYaw> trajectories){
+            trajectories) {  // std::vector<airstack_msgs::TrajectoryXYZVYaw> trajectories){
         RCLCPP_ERROR(this->get_logger(), "get_values CALLED BUT NOT IMPLEMENTED");
 
         std::vector<std::vector<double> > values;

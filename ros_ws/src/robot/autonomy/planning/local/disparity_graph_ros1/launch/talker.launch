@@ -1,0 +1,21 @@
+<launch>
+    <env name="ROSCONSOLE_CONFIG_FILE" value="$(env HOME)/rosconsole.config"/>
+    <env name="ROSCONSOLE_FORMAT" value="[${node}][${severity}][${time}]: ${message}"/>
+
+    <arg name="fname" default="$(find disparity_graph)/data/message.txt"/>
+
+    <param name="use_sim_time" value="false"/>
+
+    <node pkg="tf"
+          type="static_transform_publisher"
+          name="tf0"
+          args="4.49479e+06 599505 -339.471 0 0 0 1 /ned_origin /pcs_world 20"
+          respawn="false"
+          output="screen"/>
+
+    <node name="talker"
+          pkg="disparity_graph"
+          type="talker"
+          output="screen">
+    </node>
+</launch>
