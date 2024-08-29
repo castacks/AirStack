@@ -10,7 +10,7 @@
     <param name="look_ahead_time" value="1.0" />
     <param name="virtual_tracking_ahead_time" value="0.5" />
     <param name="min_virtual_tracking_velocity" value="0.1" />
-    <param name="sphere_radius" value=".1" />
+    <param name="sphere_radius" value="1." />
     <param name="ff_min_velocity" value="0." />
     <param name="search_ahead_factor" value="1.5" />
     <param name="transition_velocity_scale" value="1.0" />

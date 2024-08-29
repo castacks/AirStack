@@ -1,0 +1,53 @@
+<launch>
+  <!-- Behavior -->
+  <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
+    <param name="config" value="$(find-pkg-share central)/config/drone.tree" />
+    <param name="timeout" value="1.0" />
+  </node>
+  <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive" output="screen">
+  </node>
+
+  <!-- State Estimation -->
+  <!-- TEMP -->
+  <node name="odometry_conversion" pkg="airstack_common" exec="odometry_conversion" output="screen">
+    <remap from="odometry_in" to="mavros/local_position/odom" />
+    <remap from="odometry_out" to="odometry" />
+
+    <param name="qos_best_effort" value="true" />
+    <param name="new_frame_id" value="" />
+    <param name="new_child_frame_id" value="" />
+    <param name="odometry_output_type" value="0" /> <!-- 0: NONE, 1: TRANSFORM, 2: OVERWRITE -->
+    <param name="convert_odometry_to_transform" value="true" />
+    <param name="convert_odometry_to_stabilized_transform" value="true" />
+    <param name="restamp_now_pre" value="false" />
+    <param name="restamp_now_post" value="false" />
+    <param name="odometry_orientation_rotation_pre_x" value="0." />
+    <param name="odometry_orientation_rotation_pre_y" value="0." />
+    <param name="odometry_orientation_rotation_pre_z" value="0." />
+    <param name="odometry_orientation_rotation_pre_w" value="1." />
+    <param name="odometry_position_translation_pre_x" value="0." />
+    <param name="odometry_position_translation_pre_y" value="0." />
+    <param name="odometry_position_translation_pre_z" value="0." />
+    <param name="odometry_orientation_rotation_post_x" value="0." />
+    <param name="odometry_orientation_rotation_post_y" value="0." />
+    <param name="odometry_orientation_rotation_post_z" value="0." />
+    <param name="odometry_orientation_rotation_post_w" value="1." />
+    <param name="odometry_position_translation_post_x" value="0." />
+    <param name="odometry_position_translation_post_y" value="0." />
+    <param name="odometry_position_translation_post_z" value="0." />
+  </node>
+  
+  <!-- Control -->
+  <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
+    <param name="interface" value="mavros_interface::MAVROSInterface" />
+    <param name="is_ardupilot" value="true" />
+  </node>
+  <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py" output="screen" />
+  <node name="fixed_trajectory_generator" pkg="trajectory_library" exec="fixed_trajectory_generator.py" output="screen" />
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.xml" />
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.xml" />
+
+  <!-- GUI -->
+  <node name="rqt" pkg="rqt_gui" exec="rqt_gui" args="--perspective-file $(find-pkg-share central)/config/core.perspective" />
+  <node name="rviz" pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share central)/config/core.rviz" output="screen" />
+</launch>

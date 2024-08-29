@@ -1,0 +1,18 @@
+<launch>
+  
+  <!-- Simulator -->
+  <set_env name="OMNI_KIT_ALLOW_ROOT" value="1" />
+  <node name="isaacsim" pkg="isaacsim" exec="run_isaacsim.py" output="screen">
+    <param name="install_path" value="/isaac-sim" />
+    <param name="gui" value="/extras/one_drone_world.usd" />
+    <param name="play_sim_on_start" value="true" />
+    <param name="isaac_args" value="--/app/scripting/ignoreWarningDialog=true" />
+  </node>
+  
+  <group>
+    <set_env name="ROS_DOMAIN_ID" value="1" />
+    <push_ros_namespace namespace="robot1" />
+    <include file="$(find-pkg-share central)/launch/ascent_drone.xml" />
+  </group>
+  
+</launch>
