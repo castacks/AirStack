@@ -19,7 +19,7 @@ from python_qt_binding.QtCore import Slot, Qt, qVersion, qWarning, Signal
 from python_qt_binding.QtGui import QColor
 from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-from core_trajectory_msgs.msg import FixedTrajectory
+from airstack_msgs.msg import FixedTrajectory
 from diagnostic_msgs.msg import KeyValue
 
 class FixedTrajectorySelectorPlugin(Plugin):
@@ -102,7 +102,7 @@ class FixedTrajectorySelectorPlugin(Plugin):
         
 
     def select_config_file(self):
-        starting_path = os.path.join(rospkg.RosPack().get_path('core_trajectory_library'), 'config')
+        starting_path = os.path.join(rospkg.RosPack().get_path('trajectory_library'), 'config')
         filename = qt.QFileDialog.getOpenFileName(self.widget, 'Open Config File', starting_path, "Config Files (*.yaml)")[0]
         self.set_config(filename)
 

@@ -9,10 +9,10 @@ import argparse
 #from at_fcs_mavros.msg import Waypoint
 #from ca_nav_msgs.msg import XYZVPsi
 #from ca_nav_msgs.msg import PathXYZVPsi
-from core_trajectory_msgs.msg import WaypointXYZVYaw
-from core_trajectory_msgs.msg import TrajectoryXYZVYaw
-from core_trajectory_controller.msg import Trajectory
-from core_trajectory_msgs.msg import FixedTrajectory
+from airstack_msgs.msg import WaypointXYZVYaw
+from airstack_msgs.msg import TrajectoryXYZVYaw
+from trajectory_controller.msg import Trajectory
+from airstack_msgs.msg import FixedTrajectory
 import time
 import copy
 
