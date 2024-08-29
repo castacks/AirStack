@@ -6,13 +6,13 @@ project(core_local_planner)
 #  std_msgs
 #  sensor_msgs
 #  nav_msgs
-#  core_trajectory_library
-#  core_trajectory_controller
+#  trajectory_library
+#  trajectory_controller
 #  core_map_representation_interface
 #  tflib
 #  actionlib_msgs
 #  behavior_tree
-#  core_trajectory_msgs
+#  airstack_msgs
 #  pluginlib
 #)
 find_package(ament_cmake REQUIRED)
@@ -20,13 +20,13 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(core_trajectory_library REQUIRED)
-find_package(core_trajectory_controller REQUIRED)
+find_package(trajectory_library REQUIRED)
+find_package(trajectory_controller REQUIRED)
 find_package(core_map_representation_interface REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(actionlib_msgs REQUIRED)
 find_package(behavior_tree REQUIRED)
-find_package(core_trajectory_msgs REQUIRED)
+find_package(airstack_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 
 generate_messages(
@@ -41,8 +41,8 @@ catkin_package(
 
 include_directories(
   include
-  ${core_trajectory_library_INCLUDE_DIRS}
-  ${core_trajectory_controller_INCLUDE_DIRS}
+  ${trajectory_library_INCLUDE_DIRS}
+  ${trajectory_controller_INCLUDE_DIRS}
   ${core_map_representation_interface_INCLUDE_DIRS}
   ${tf2_ros_INCLUDE_DIRS}
   ${behaviortree_cpp_v3_INCLUDE_DIRS}
@@ -56,12 +56,12 @@ rclpy
 std_msgs
 sensor_msgs
 nav_msgs
-core_trajectory_library
-core_trajectory_controller
+trajectory_library
+trajectory_controller
 core_map_representation_interface
 tf2_ros
 action_msgs
-core_trajectory_msgs
+airstack_msgs
 pluginlib
   # Add other dependencies here
 )

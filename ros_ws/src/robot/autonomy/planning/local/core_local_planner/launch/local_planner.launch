@@ -11,7 +11,7 @@
     <param name="map_representation" value="$(arg map_representation)" />
 
     <!-- Trajectory parameters -->
-    <param name="trajectory_library_config" type="string" value="$(find core_trajectory_library)/config/acceleration_magnitudes.yaml" />
+    <param name="trajectory_library_config" type="string" value="$(find trajectory_library)/config/acceleration_magnitudes.yaml" />
     <param name="dt" value="0.2" />
     <param name="ht" value="2.4" />
     <param name="max_velocity" value="0.7" />

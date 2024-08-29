@@ -6,7 +6,7 @@
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <core_trajectory_msgs/msg/trajectory_xyzv_yaw.hpp>
+#include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -41,7 +41,7 @@ class DisparityMapRepresentation : public MapRepresentation {
     virtual void publish_debug();
 
     // virtual std::vector< std::vector<double> >
-    // get_values(std::vector<core_trajectory_msgs::TrajectoryXYZVYaw> trajectories);
+    // get_values(std::vector<airstack_msgs::TrajectoryXYZVYaw> trajectories);
     virtual std::vector<std::vector<double> > get_values(
         std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories);
 };

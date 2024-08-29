@@ -3,6 +3,10 @@ project(core_map_representation_interface)
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(airstack_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -10,10 +14,6 @@ find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(pluginlib REQUIRED)
-find_package(core_trajectory_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
 
 # Include directories
 include_directories(
@@ -21,29 +21,15 @@ include_directories(
   ${ament_INCLUDE_DIRS}
 )
 
-# Declare a C++ library (if you have any)
-# add_library(${PROJECT_NAME}
-#   src/your_cpp_file.cpp
-# )
-
-# Link against dependencies (if you have a library)
-# ament_target_dependencies(${PROJECT_NAME}
-#   rclcpp
-#   sensor_msgs
-#   std_msgs
-#   tf2
-#   tf2_ros
-#   visualization_msgs
-#   pluginlib
-#   core_trajectory_msgs
-#   geometry_msgs
-#   nav_msgs
-# )
 add_library(core_map_representation_interface INTERFACE)
 
 ament_export_targets(core_map_representation_interfaceTargets HAS_LIBRARY_TARGET)
 #ament_export_include_directories(include)
 ament_export_dependencies(
+  airstack_msgs
+  geometry_msgs
+  nav_msgs
+  pluginlib
   rclcpp
   rclpy
   sensor_msgs
@@ -51,10 +37,6 @@ ament_export_dependencies(
   tf2
   tf2_ros
   visualization_msgs
-  pluginlib
-  core_trajectory_msgs
-  geometry_msgs
-  nav_msgs
 )
 install(
   TARGETS core_map_representation_interface

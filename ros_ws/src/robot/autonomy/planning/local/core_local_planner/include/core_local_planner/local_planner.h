@@ -1,32 +1,30 @@
 #ifndef _LOCAL_PLANNER_H_
 #define _LOCAL_PLANNER_H_
 
-// #include <base/BaseNode.h>
-// #include <sensor_msgs/Image.h>
-// #include <sensor_msgs/Range.h>
-// #include <string>
-// #include <vector>
-// #include <list>
-// #include <core_trajectory_library/trajectory_library.h>
-// #include <std_msgs/Float32.h>
-// #include <std_msgs/Int32.h>
-// #include <std_msgs/Bool.h>
-// #include <geometry_msgs/PoseStamped.h>
-// #include <geometry_msgs/PointStamped.h>
-// #include <visualization_msgs/Marker.h>
-// #include <visualization_msgs/MarkerArray.h>
-// #include <disparity_graph/disparity_graph.h>
-// #include <disparity_map_representation/disparity_map_representation.h>
-// #include <pointcloud_map_representation/pointcloud_map_representation.h>
-// #include <core_map_representation_interface/map_representation.h>
-// #include <disparity_map_representation/disparity_map_representation.h>
-// #include <tf/transform_listener.h>
-// #include <core_trajectory_controller/TrajectoryMode.h>
+#include <actionlib/server/simple_action_server.h>
+#include <base/BaseNode.h>
+#include <behavior_tree/behavior_tree.h>
+#include <core_map_representation_interface/map_representation.h>
+#include <disparity_map_representation/disparity_map_representation.h>
+#include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <pluginlib/class_loader.h>
+#include <pointcloud_map_representation/pointcloud_map_representation.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/Range.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/Int32.h>
+#include <tf/transform_listener.h>
+#include <trajectory_controller/TrajectoryMode.h>
+#include <trajectory_library/trajectory_library.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
-// #include <actionlib/server/simple_action_server.h>
-// #include <behavior_tree/behavior_tree.h>
-
-// #include <pluginlib/class_loader.h>
+#include <disparity_graph/disparity_graph.hpp>
+#include <list>
+#include <string>
+#include <vector>
 
 class LocalPlanner : public BaseNode {
    private:
@@ -34,7 +32,7 @@ class LocalPlanner : public BaseNode {
 
     std::string map_representation;
     bool got_global_plan;
-    core_trajectory_msgs::msg::TrajectoryXYZVYaw global_plan;
+    airstack_msgs::msg::TrajectoryXYZVYaw global_plan;
     double global_plan_trajectory_distance;
     bool got_look_ahead, got_tracking_point;
     nav_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
@@ -74,7 +72,7 @@ class LocalPlanner : public BaseNode {
     // MapRepresentation* pc_map;
     std::shared_ptr<MapRepresentation> pc_map;
 
-    rclcpp::Subscription<core_trajectory_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_sub;
+    rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_sub;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr waypoint_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
@@ -92,15 +90,15 @@ class LocalPlanner : public BaseNode {
     // ros::Publisher vis_pub, traj_pub, traj_track_pub, obst_vis_pub, global_plan_vis_pub,
     //    look_past_vis_pub;
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr vis_pub;
-    rclcpp::Publisher<core_trajectory_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
-    rclcpp::Publisher<core_trajectory_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
-    rclcpp::Publisher<core_trajectory_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_vis_pub;
-    rclcpp::Publisher<core_trajectory_msgs::msg::TrajectoryXYZVYaw>::SharedPtr look_past_vis_pub;
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_vis_pub;
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr look_past_vis_pub;
 
     // services
     // ros::ServiceClient traj_mode_client;
-    rclcpp::Client<core_trajectory_controller::msg::TrajectoryMode>::SharedPtr traj_mode_client;
+    rclcpp::Client<trajectory_controller::msg::TrajectoryMode>::SharedPtr traj_mode_client;
 
     bool get_best_trajectory(std::vector<Trajectory> trajs, Trajectory global_plan,
                              Trajectory* best_traj);
@@ -114,8 +112,7 @@ class LocalPlanner : public BaseNode {
     virtual ~LocalPlanner();
 
     // subscriber callbacks
-    void global_plan_callback(
-        const core_trajectory_msgs::msg::TrajectoryXYZVYaw::SharedPtr global_plan);
+    void global_plan_callback(const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr global_plan);
     void waypoint_callback(const geometry_msgs::msg::PointStamped::SharedPtr wp);
     void custom_waypoint_callback(const geometry_msgs::msg::PoseStamped::SharedPtr wp);
     void look_ahead_callback(const nav_msgs::msg::Odometry::SharedPtr odom);

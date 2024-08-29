@@ -39,7 +39,7 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     }
 
     for (int i = 0; i < trajectories.size(); i++) {
-        // core_trajectory_msgs::TrajectoryXYZVYaw trajectory = trajectories[i];
+        // airstack_msgs::TrajectoryXYZVYaw trajectory = trajectories[i];
         for (int j = 0; j < trajectories[i].size(); j++) {
             tf2::Vector3 wp;
             tf2::fromMsg(trajectories[i][j].point, wp);
@@ -57,7 +57,7 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                     tf2::fromMsg(trajectories[i][1].point, wp2);
                     direction = wp2 - wp;
                 } else {
-                    tf2::fromMsg(trajectories[i][j-1].point, wp);
+                    tf2::fromMsg(trajectories[i][j - 1].point, wp);
                     direction = wp - wp2;
                 }
             }
@@ -85,10 +85,10 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
             directions.push_back(q_left);
             directions.push_back(q_right);
 
-            tf2::Vector3 position = wp;  
+            tf2::Vector3 position = wp;
             tf2::Quaternion q = tf2::Quaternion(0, 0, 0,
                                                 1);  // TODO: figure out if this makes sense
-                                                     // 
+                                                     //
             tf2::Vector3 unit(1, 0, 0);
             double closest_obstacle_distance = obstacle_check_radius;
 
