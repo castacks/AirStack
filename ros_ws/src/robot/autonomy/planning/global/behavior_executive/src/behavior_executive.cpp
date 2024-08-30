@@ -4,6 +4,7 @@ BehaviorExecutive::BehaviorExecutive()
   : Node("behavior_executive"){
   
   // conditions
+  auto_takeoff_commanded_condition = new bt::Condition("Auto Takeoff Commanded", this);
   takeoff_commanded_condition = new bt::Condition("Takeoff Commanded", this);
   armed_condition = new bt::Condition("Armed", this);
   offboard_mode_condition = new bt::Condition("Offboard Mode", this);
@@ -16,6 +17,7 @@ BehaviorExecutive::BehaviorExecutive()
   offboard_commanded_condition = new bt::Condition("Offboard Commanded", this);
   arm_commanded_condition = new bt::Condition("Arm Commanded", this);
   disarm_commanded_condition = new bt::Condition("Disarm Commanded", this);
+  conditions.push_back(auto_takeoff_commanded_condition);
   conditions.push_back(takeoff_commanded_condition);
   conditions.push_back(armed_condition);
   conditions.push_back(offboard_mode_condition);

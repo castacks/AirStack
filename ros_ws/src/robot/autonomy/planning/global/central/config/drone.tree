@@ -1,5 +1,17 @@
 ?
 	->
+		(Auto Takeoff Commanded)
+		->
+			?
+				(Offboard Mode)
+				[Request Control]
+			?
+				(Armed)
+				[Arm]
+			?
+				(Takeoff Complete)
+				[Takeoff]
+	->
 		(Takeoff Commanded)
 		?
 			(Takeoff Complete)

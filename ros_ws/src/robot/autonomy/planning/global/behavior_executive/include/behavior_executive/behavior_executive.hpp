@@ -13,6 +13,7 @@ private:
   bool ascent_takeoff;
   
   // Condition variables
+  bt::Condition* auto_takeoff_commanded_condition;
   bt::Condition* takeoff_commanded_condition;
   bt::Condition* armed_condition;
   bt::Condition* offboard_mode_condition;

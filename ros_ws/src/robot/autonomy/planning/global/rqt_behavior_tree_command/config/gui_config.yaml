@@ -1,5 +1,7 @@
 groups:
   - Commands:
+    - Auto Takeoff:
+        condition_name: Auto Takeoff Commanded
     - Takeoff:
         condition_name: Takeoff Commanded
     - Land:
