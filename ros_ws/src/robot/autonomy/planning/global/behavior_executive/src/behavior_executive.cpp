@@ -207,8 +207,28 @@ void BehaviorExecutive::timer_callback(){
       else
 	land_action->set_failure();
     }
-    else
-      land_action->set_failure();
+  }
+
+  if(pause_action->is_active()){
+    pause_action->set_running();
+    if(pause_action->active_has_changed()){
+      airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+	std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+      mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::PAUSE;
+      auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+      mode_result.wait();
+    }
+  }
+
+  if(rewind_action->is_active()){
+    rewind_action->set_running();
+    if(rewind_action->active_has_changed()){
+      airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+	std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+      mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::REWIND;
+      auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+      mode_result.wait();
+    }
   }
   
   // follow fixed trajectory action
