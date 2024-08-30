@@ -18,6 +18,7 @@
   <depend>core_map_representation_interface</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>tflib</depend>
   <depend>pluginlib</depend>
 
   <test_depend>ament_lint_auto</test_depend>
