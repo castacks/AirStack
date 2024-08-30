@@ -104,7 +104,7 @@ class TestScript(BehaviorScript):
     def on_init(self):
         print('PRIM PATH', self.prim_path)
         self.p = self.stage.GetPrimAtPath(self.prim_path)
-        #self.prop_prim = self.stage.GetPrimAtPath(str(self.prim_path) + '/spirit_uav/meshes/mesh_17')
+        self.prop_prim = self.stage.GetPrimAtPath(str(self.prim_path) + '/spirit_uav/meshes/mesh_17')
         #print('YOOOOOOOOOOOO', str(self.prim_path) + '/spirit_uav/meshes/mesh_17', self.prop_prim)
         print(self.p.GetAttributes())
         self.p.GetAttribute('xformOp:translate').Set((0,0, 0))
@@ -114,14 +114,14 @@ class TestScript(BehaviorScript):
         self.dronekit_connection = None
         self.initialized = False
         self.drone_count = 0
-        '''
+        #'''
         self.prop_rotation_q = Quatf(0.9999619, 0, 0.0087265, 0) # 1 degree
-        for i in range(3):
+        for i in range(7):
             self.prop_rotation_q *= self.prop_rotation_q
         print(self.prop_prim.GetAttribute('xformOp:orient'))
         self.prop_prim.GetAttribute('xformOp:orient').Set(self.prop_prim.GetAttribute("xformOp:orient").Get()*
                                                           self.prop_rotation_q)
-        '''
+        #'''
 
     def on_update(self, current_time, delta_time):
         #print('update', current_time, delta_time)
@@ -163,10 +163,10 @@ class TestScript(BehaviorScript):
                 #self.p.set_world_pose(p, o)
                 self.p.GetAttribute('xformOp:translate').Set(p)
                 self.p.GetAttribute('xformOp:orient').Set(o)
-                '''
+                #'''
                 self.prop_prim.GetAttribute('xformOp:orient').Set(self.prop_prim.GetAttribute("xformOp:orient").Get()*
                                                                   self.prop_rotation_q)
-                '''
+                #'''
             else:
                 print("Drone location from dronekit is None")
     
