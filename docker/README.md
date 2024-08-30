@@ -17,6 +17,8 @@ ros2 launch central ascent_isaac_two_drones.xml
 Click the "Offboard" button, then the "Arm" button, then the "Takeoff" button
 # After a few seconds the drone should takeoff
 Click publish on the fixed trajectory part of the GUI to send different trajectory patterns that the drone will follow
+# After killing the ros2 launch, run the following to kill the SITL, mavproxy, and mavros that is running in the background, this will be handled automatically in the future
+tmux kill-server
 
 # stop service
 docker compose stop 
