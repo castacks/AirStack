@@ -485,8 +485,8 @@ class LocalPlanner : rclcpp::Node {
             waypoint.position.z = curr_wp.point.z;
 
             if (prev_wps.size() > 1) {
-                geometry_msgs::PointStamped prev_wp = prev_wps[prev_wps.size() - 1];
-                geometry_msgs::PointStamped prev2_wp = prev_wps[prev_wps.size() - 2];
+                geometry_msgs::msg::PointStamped prev_wp = prev_wps[prev_wps.size() - 1];
+                geometry_msgs::msg::PointStamped prev2_wp = prev_wps[prev_wps.size() - 2];
                 float distance = sqrt(pow(curr_wp.point.x - prev_wp.point.x, 2) +
                                       pow(curr_wp.point.y - prev_wp.point.y, 2));
 
@@ -515,7 +515,7 @@ class LocalPlanner : rclcpp::Node {
                     prev_wps.push_back(curr_wp);
                     backwards_global_plan.push_back(waypoint);
                 } else if (prev_wps.size() == 1) {
-                    geometry_msgs::PointStamped prev_wp = prev_wps[prev_wps.size() - 1];
+                    geometry_msgs::msg::PointStamped prev_wp = prev_wps[prev_wps.size() - 1];
                     float distance = sqrt(pow(curr_wp.point.x - prev_wp.point.x, 2) +
                                           pow(curr_wp.point.y - prev_wp.point.y, 2));
                     if (distance >= waypoint_spacing_threshold) {
