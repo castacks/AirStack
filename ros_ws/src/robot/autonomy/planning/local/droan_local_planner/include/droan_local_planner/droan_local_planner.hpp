@@ -148,7 +148,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             this->get_parameter("forward_progress_penalty_weight").as_double();
         this->declare_parameter("robot_radius", 0.75);
         robot_radius = this->get_parameter("robot_radius").as_double();
-        this->declare_parameter("look_past_distance", 0);
+        this->declare_parameter("look_past_distance", 0.0);
         look_past_distance = this->get_parameter("look_past_distance").as_double();
         this->declare_parameter("height_mode", 0);
         height_mode = this->get_parameter("height_mode").as_int();
