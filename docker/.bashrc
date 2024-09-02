@@ -141,7 +141,7 @@ function cws(){
         echo "Cleaning ROS2 workspace..."
         set -x
         rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/
-        set +x
+        { set +x; } 2>/dev/null  # set +x w/out it being printed
         echo "ROS2 workspace has been cleaned."
     else
         echo "Operation cancelled."
