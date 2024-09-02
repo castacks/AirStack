@@ -7,18 +7,20 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(airstack_msgs REQUIRED)
+
 find_package(airstack_common REQUIRED)
+find_package(airstack_msgs REQUIRED)
 find_package(core_map_representation_interface REQUIRED)
-find_package(trajectory_controller REQUIRED)
-find_package(trajectory_library REQUIRED)
-find_package(tflib REQUIRED)
+# find_package(disparity_map_representation REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tflib REQUIRED)
+find_package(trajectory_controller REQUIRED)
+find_package(trajectory_library REQUIRED)
 
 add_executable(droan_local_planner src/droan_local_planner.cpp)
 target_include_directories(droan_local_planner PUBLIC
@@ -30,6 +32,7 @@ ament_target_dependencies(
   "airstack_msgs"
   "airstack_common"
   "core_map_representation_interface"
+  # "disparity_map_representation"
   "trajectory_controller"
   "trajectory_library"
   "tflib"

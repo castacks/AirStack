@@ -10,16 +10,16 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>airstack_msgs</depend>
-  <depend>trajectory_library</depend>
+  <depend>core_map_representation_interface</depend>
+  <!-- <depend>disparity_map_representation</depend> -->
+  <depend>nav_msgs</depend>
+  <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
-  <depend>nav_msgs</depend>
-  <depend>trajectory_controller</depend>
-  <depend>core_map_representation_interface</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
-  <depend>tflib</depend>
-  <depend>pluginlib</depend>
+  <depend>trajectory_controller</depend>
+  <depend>trajectory_library</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

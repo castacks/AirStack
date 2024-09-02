@@ -108,7 +108,7 @@ public:
   
   void set_fixed_height(double height);
   
-  int waypoint_count();
+  size_t waypoint_count();
   Waypoint get_waypoint(int index);
   std::string get_frame_id();
   airstack_msgs::msg::TrajectoryXYZVYaw get_TrajectoryXYZVYaw();

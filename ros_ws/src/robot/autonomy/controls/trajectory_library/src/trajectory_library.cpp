@@ -831,7 +831,7 @@ void Trajectory::set_fixed_height(double height){
     waypoints[i].z_ = height;
 }
 
-int Trajectory::waypoint_count(){
+size_t Trajectory::waypoint_count(){
   return waypoints.size();
 }
 

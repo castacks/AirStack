@@ -47,27 +47,27 @@ target_link_libraries(disparity_map_representation
 )
 
 ament_target_dependencies(disparity_map_representation
+  airstack_msgs
+  core_map_representation_interface
+  cv_bridge
+  disparity_graph
+  pluginlib
   rclcpp
   tf2
   tf2_ros
-  disparity_graph
-  core_map_representation_interface
-  airstack_msgs
-  cv_bridge
   tflib
-  pluginlib
 )
 
 ament_export_targets(disparity_map_representationTargets HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp
+  airstack_msgs
+  core_map_representation_interface
+  cv_bridge
+  disparity_graph
+  pluginlib
   tf2
   tf2_ros
-  disparity_graph
-  core_map_representation_interface
-  airstack_msgs
-  cv_bridge
   tflib
-  pluginlib
 )
 
 install(
