@@ -12,7 +12,6 @@ find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(core_map_representation_interface REQUIRED)
 # find_package(disparity_map_representation REQUIRED)
-find_package(nav_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -34,7 +33,6 @@ ament_target_dependencies(
   # "disparity_map_representation"
   "trajectory_controller"
   "trajectory_library"
-  "nav_msgs"
   "pluginlib"
   "rclcpp"
   "std_msgs"

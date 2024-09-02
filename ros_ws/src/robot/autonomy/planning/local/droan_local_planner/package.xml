@@ -11,8 +11,6 @@
 
   <depend>airstack_msgs</depend>
   <depend>core_map_representation_interface</depend>
-  <!-- <depend>disparity_map_representation</depend> -->
-  <depend>nav_msgs</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>

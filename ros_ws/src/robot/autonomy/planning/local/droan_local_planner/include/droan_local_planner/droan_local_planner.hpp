@@ -178,7 +178,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
     }
-    virtual ~DroanLocalPlanner();
+    virtual ~DroanLocalPlanner(){}
 
     virtual bool execute() {
         update_waypoint_mode();
@@ -224,7 +224,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
 
         // transform the look ahead point to the global plan frame
-        nav_msgs::msg::Odometry look_ahead_odom_global;
+        airstack_msgs::msg::Odometry look_ahead_odom_global;
         // translate to global frame
         tf_buffer.transform(look_ahead_odom, look_ahead_odom_global, gp.get_frame_id());
 
