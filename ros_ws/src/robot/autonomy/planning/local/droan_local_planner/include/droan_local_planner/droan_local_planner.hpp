@@ -178,7 +178,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
     }
-    virtual ~DroanLocalPlanner(){}
+    virtual ~DroanLocalPlanner() {}
 
     virtual bool execute() {
         update_waypoint_mode();
@@ -197,12 +197,16 @@ class DroanLocalPlanner : public rclcpp::Node {
                 tf2::Stamped<tf2::Transform> transform_up, transform_down;
 
                 geometry_msgs::msg::TransformStamped tf_up_msg, tf_down_msg;
-                tf_up_msg = tf_buffer.lookupTransform(
-                    range_up.header.frame_id, range_up.header.frame_id, range_up.header.stamp);
+                tf_buffer.canTransform(gp.get_frame_id(), range_up.header.frame_id,
+                                       range_up.header.stamp, rclcpp::Duration::from_seconds(0.1));
+                tf_up_msg = tf_buffer.lookupTransform(gp.get_frame_id(), range_up.header.frame_id,
+                                                      range_up.header.stamp);
                 tf2::fromMsg(tf_up_msg, transform_up);
-                tf_down_msg =
-                    tf_buffer.lookupTransform(range_down.header.frame_id,
-                                              range_down.header.frame_id, range_down.header.stamp);
+                tf_buffer.canTransform(gp.get_frame_id(), range_down.header.frame_id,
+                                       range_down.header.stamp,
+                                       rclcpp::Duration::from_seconds(0.1));
+                tf_down_msg = tf_buffer.lookupTransform(
+                    gp.get_frame_id(), range_down.header.frame_id, range_down.header.stamp);
                 tf2::fromMsg(tf_down_msg, transform_down);
 
                 tf2::Vector3 range_up_gp_frame = transform_up * tf2::Vector3(range_up.range, 0, 0);
@@ -224,17 +228,20 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
 
         // transform the look ahead point to the global plan frame
-        airstack_msgs::msg::Odometry look_ahead_odom_global;
-        // translate to global frame
-        tf_buffer.transform(look_ahead_odom, look_ahead_odom_global, gp.get_frame_id());
-
-        tf2::Vector3 look_ahead_position_global;  // global frame
-        tf2::fromMsg(look_ahead_odom.pose.position, look_ahead_position_global);
+        tf2::Vector3 look_ahead_position = tflib::to_tf(look_ahead_odom.pose.position);
+        bool success =
+            tflib::to_frame(&tf_buffer, look_ahead_position, look_ahead_odom.header.frame_id,
+                            gp.get_frame_id(), look_ahead_odom.header.stamp, &look_ahead_position);
+        if (!success) {
+            RCLCPP_ERROR_STREAM(this->get_logger(),
+                                "Couldn't transform from lookahead frame to global plan frame");
+            return true;
+        }
 
         // increment how far along the global plan we are
         double trajectory_distance;
-        bool valid = gp.get_trajectory_distance_at_closest_point(look_ahead_position_global,
-                                                                 &trajectory_distance);
+        bool valid =
+            gp.get_trajectory_distance_at_closest_point(look_ahead_position, &trajectory_distance);
         if (valid) {
             global_plan_trajectory_distance += trajectory_distance;
             gp = gp.get_subtrajectory_distance(global_plan_trajectory_distance,
@@ -264,13 +271,19 @@ class DroanLocalPlanner : public rclcpp::Node {
                 bool found_initial_heading = false;
                 double initial_heading = 0;
                 try {
-                    // get the initial heading of the look_ahead_odom in best_traj frame
-                    best_traj.get_frame_id();
+                    tf2::Stamped<tf2::Transform> transform;
+                    tf_buffer.canTransform(
+                        best_traj.get_frame_id(), look_ahead_odom.header.frame_id,
+                        look_ahead_odom.header.stamp, rclcpp::Duration::from_seconds(0.1));
+                    auto transform_msg = tf_buffer.lookupTransform(best_traj.get_frame_id(),
+                                                                   look_ahead_odom.header.frame_id,
+                                                                   look_ahead_odom.header.stamp);
+                    tf2::fromMsg(transform_msg, transform);
 
-                    airstack_msgs::msg::Odometry look_ahead_odom_best_traj_frame =
-                        tf_buffer.transform(look_ahead_odom, best_traj.get_frame_id());
+                    transform.setOrigin(tf2::Vector3(0, 0, 0));  // only care about rotation
+                    initial_heading =
+                        tf2::getYaw(transform * tflib::to_tf(look_ahead_odom.pose.orientation));
 
-                    initial_heading = tf2::getYaw(look_ahead_odom_best_traj_frame.pose.orientation);
                     found_initial_heading = true;
 
                 } catch (tf2::TransformException& ex) {
@@ -530,27 +543,26 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
         if (got_tracking_point) {
             try {
-                tf2::Vector3 tp_pos = tf2::Vector3(tracking_point_odom.pose.position.x,
-                                                   tracking_point_odom.pose.position.y,
-                                                   tracking_point_odom.pose.position.z);
+                tf2::Stamped<tf2::Transform> transform;
+                tf_buffer.canTransform(tracking_point_odom.header.frame_id, wp->header.frame_id,
+                                       wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
+                auto transform_msg = tf_buffer.lookupTransform(
+                    tracking_point_odom.header.frame_id, wp->header.frame_id, wp->header.stamp);
+                tf2::fromMsg(transform_msg, transform);
 
-                // translate wp to tracking point frame
-                geometry_msgs::msg::PointStamped wp_msg_in_tp_frame =
-                    tf_buffer.transform(*wp, tracking_point_odom.header.frame_id);
-                tf2::Vector3 wp_pos_in_tp_frame =
-                    tf2::Vector3(wp_msg_in_tp_frame.point.x, wp_msg_in_tp_frame.point.y,
-                                 wp_msg_in_tp_frame.point.z);
+                tf2::Vector3 tp_position = tflib::to_tf(tracking_point_odom.pose.position);
+                tf2::Vector3 wp_position = transform * tflib::to_tf(wp->point);
 
-                tf2::Vector3 direction = (wp_pos_in_tp_frame - tp_pos).normalized() * 3;
-                tf2::Vector3 wp2_pos = wp_pos_in_tp_frame + direction;
+                tf2::Vector3 direction = (wp_position - tp_position).normalized() * 3;
+                tf2::Vector3 wp2_position = wp_position + direction;
 
                 airstack_msgs::msg::WaypointXYZVYaw wp1, wp2;
-                wp1.position.x = wp_pos_in_tp_frame.x();
-                wp1.position.y = wp_pos_in_tp_frame.y();
-                wp1.position.z = wp_pos_in_tp_frame.z();
-                wp2.position.x = wp2_pos.x();
-                wp2.position.y = wp2_pos.y();
-                wp2.position.z = wp2_pos.z();
+                wp1.position.x = wp_position.x();
+                wp1.position.y = wp_position.y();
+                wp1.position.z = wp_position.z();
+                wp2.position.x = wp2_position.x();
+                wp2.position.y = wp2_position.y();
+                wp2.position.z = wp2_position.z();
                 global_plan.waypoints.push_back(wp1);
                 global_plan.waypoints.push_back(wp2);
             } catch (tf2::TransformException& ex) {
@@ -567,14 +579,15 @@ class DroanLocalPlanner : public rclcpp::Node {
         if (!got_look_ahead) return;
 
         try {
-            auto wp_msg_in_la_frame =
-                tf_buffer.transform(wp->pose.position, look_ahead_odom.header.frame_id);
+            tf2::Stamped<tf2::Transform> transform;
+            tf_buffer.canTransform(look_ahead_odom.header.frame_id, wp->header.frame_id,
+                                   wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
+            auto transform_msg = tf_buffer.lookupTransform(look_ahead_odom.header.frame_id,
+                                                           wp->header.frame_id, wp->header.stamp);
+            tf2::fromMsg(transform_msg, transform);
 
-            tf2::Vector3 la_position =
-                tf2::Vector3(look_ahead_odom.pose.position.x, look_ahead_odom.pose.position.y,
-                             look_ahead_odom.pose.position.z);
-            tf2::Vector3 wp_position =
-                tf2::Vector3(wp_msg_in_la_frame.x, wp_msg_in_la_frame.y, wp_msg_in_la_frame.z);
+            tf2::Vector3 la_position = tflib::to_tf(look_ahead_odom.pose.position);
+            tf2::Vector3 wp_position = transform * tflib::to_tf(wp->pose.position);
 
             airstack_msgs::msg::TrajectoryXYZVYaw global_plan;
             global_plan.header.frame_id = look_ahead_odom.header.frame_id;
@@ -599,6 +612,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             RCLCPP_ERROR(this->get_logger(), "Failed to get transform: %s", ex.what());
         }
     }
+
     void update_waypoint_mode() {
         if (goal_mode == CUSTOM_WAYPOINT) {
             if (global_plan.waypoints.size() < 2) goal_mode = AUTO_WAYPOINT;
@@ -625,18 +639,23 @@ class DroanLocalPlanner : public rclcpp::Node {
             // check if we are close enough to the waypoint
             if (got_tracking_point) {
                 try {
-                    tf2::Vector3 tp_position = tf2::Vector3(tracking_point_odom.pose.position.x,
-                                                            tracking_point_odom.pose.position.y,
-                                                            tracking_point_odom.pose.position.z);
+                    tf2::Stamped<tf2::Transform> transform;
+                    tf_buffer.canTransform(tracking_point_odom.header.frame_id,
+                                           global_plan.header.frame_id, global_plan.header.stamp,
+                                           rclcpp::Duration::from_seconds(0.1));
+                    auto transform_msg = tf_buffer.lookupTransform(
+                        tracking_point_odom.header.frame_id, global_plan.header.frame_id,
+                        global_plan.header.stamp);
+                    tf2::fromMsg(transform_msg, transform);
 
-                    // translate wp to tracking point frame
-                    geometry_msgs::msg::Point wp_msg_in_tp_frame = tf_buffer.transform(
-                        global_plan.waypoints.back().position, tracking_point_odom.header.frame_id);
-                    tf2::Vector3 wp_pos_in_tp_frame = tf2::Vector3(
-                        wp_msg_in_tp_frame.x, wp_msg_in_tp_frame.y, wp_msg_in_tp_frame.z);
+                    tf2::Vector3 tp_position = tflib::to_tf(tracking_point_odom.pose.position);
+                    tp_position.setZ(0);
+                    tf2::Vector3 wp_position =
+                        transform * tflib::to_tf(global_plan.waypoints.back().position);
+                    wp_position.setZ(0);
 
-                    if (tp_position.distance(wp_pos_in_tp_frame) <
-                        custom_waypoint_distance_threshold) {
+                    if (tp_position.distance(wp_position) < custom_waypoint_distance_threshold) {
+                        // ROS_INFO_STREAM("CUSTOM WAYPOINT DISTANCE THRESHOLD MET");
                         goal_mode = AUTO_WAYPOINT;
                     }
                 } catch (tf2::TransformException& ex) {
