@@ -46,6 +46,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     kmod lsof libfuse-dev iproute2 tcpdump xterm \
     python3-dev python3-opencv python3-wxgtk4.0 python3-pip python3-matplotlib python3-lxml python3-pygame \
     && rm -rf /var/lib/apt/lists/*
+
+# fix warning deprecated easy_install: https://answers.ros.org/question/396439/setuptoolsdeprecationwarning-setuppy-install-is-deprecated-use-build-and-pip-and-other-standards-based-tools/
+RUN pip install setuptools==58.2.0  
 # Package dependencies
 # perform ROS dependency installation for our workspace.
 COPY ros_ws/src /tmp/ros_ws/src
