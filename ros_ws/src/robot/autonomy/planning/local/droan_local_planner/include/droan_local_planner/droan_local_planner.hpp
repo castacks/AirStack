@@ -28,10 +28,10 @@ class DroanLocalPlanner : public rclcpp::Node {
     std::unique_ptr<TrajectoryLibrary> traj_lib;
 
     std::string map_representation;
-    bool got_global_plan;
+    bool is_global_plan_received;
     airstack_msgs::msg::TrajectoryXYZVYaw global_plan;
     double global_plan_trajectory_distance;
-    bool got_look_ahead, got_tracking_point;
+    bool is_look_ahead_received, is_tracking_point_received;
     airstack_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
 
     std::vector<Trajectory> static_trajectories;
@@ -183,7 +183,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     virtual bool execute() {
         update_waypoint_mode();
 
-        if (!got_global_plan) return true;
+        if (!is_global_plan_received) return true;
 
         Trajectory gp(this, global_plan);
 
@@ -463,7 +463,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         if (goal_mode != TRAJECTORY) return;
 
         this->global_plan = *global_plan;  // copies
-        got_global_plan = true;
+        is_global_plan_received = true;
         global_plan_trajectory_distance = 0;
     }
 
@@ -541,7 +541,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             global_plan.waypoints.push_back(
                 backwards_global_plan[backwards_global_plan.size() - 1 - i]);
         }
-        if (got_tracking_point) {
+        if (is_tracking_point_received) {
             try {
                 tf2::Stamped<tf2::Transform> transform;
                 tf_buffer.canTransform(tracking_point_odom.header.frame_id, wp->header.frame_id,
@@ -572,11 +572,11 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         global_plan_trajectory_distance = 0;
         this->global_plan = global_plan;
-        this->got_global_plan = true;
+        this->is_global_plan_received = true;
     }
 
     void custom_waypoint_callback(const geometry_msgs::msg::PoseStamped::SharedPtr wp) {
-        if (!got_look_ahead) return;
+        if (!is_look_ahead_received) return;
 
         try {
             tf2::Stamped<tf2::Transform> transform;
@@ -605,7 +605,7 @@ class DroanLocalPlanner : public rclcpp::Node {
 
             global_plan_trajectory_distance = 0;
             this->global_plan = global_plan;
-            this->got_global_plan = true;
+            this->is_global_plan_received = true;
 
             goal_mode = CUSTOM_WAYPOINT;
         } catch (tf2::TransformException& ex) {
@@ -637,7 +637,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
 
             // check if we are close enough to the waypoint
-            if (got_tracking_point) {
+            if (is_tracking_point_received) {
                 try {
                     tf2::Stamped<tf2::Transform> transform;
                     tf_buffer.canTransform(tracking_point_odom.header.frame_id,
@@ -667,11 +667,11 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
     }
     void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
-        got_look_ahead = true;
+        is_look_ahead_received = true;
         look_ahead_odom = *odom;
     }
     void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
-        got_tracking_point = true;
+        is_tracking_point_received = true;
         tracking_point_odom = *odom;
     }
     void range_up_callback(const sensor_msgs::msg::Range::SharedPtr range) {
