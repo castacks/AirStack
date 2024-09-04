@@ -37,18 +37,10 @@ ament_target_dependencies(
   visualization_msgs
 )
 ament_export_targets(map_representation_interface HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp mav_msgs geometry_msgs tf2 tf2_ros)
+ament_export_dependencies(rclcpp geometry_msgs tf2 tf2_ros)
 
 install(TARGETS map_representation_interface
   DESTINATION lib/${PROJECT_NAME})
-
-#add_executable(map_representation_interface_node src/map_representation_interface_node.cpp)
-#target_include_directories(map_representation_interface_node PUBLIC
-#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#  $<INSTALL_INTERFACE:include>)
-#ament_target_dependencies(map_representation_interface_node rclcpp pluginlib mav_msgs tf2 tf2_ros airstack_msgs airstack_common)
-#install(TARGETS map_representation_interface_node
-#  DESTINATION lib/${PROJECT_NAME})
 
 install(
   DIRECTORY include/
@@ -66,7 +58,6 @@ install(
 
 ament_export_include_directories(
   include
-  ${mav_msgs_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
 )
 
