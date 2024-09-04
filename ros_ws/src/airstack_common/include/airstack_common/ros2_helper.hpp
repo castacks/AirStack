@@ -16,7 +16,10 @@ namespace airstack {
   
   template <>
   inline int get_param(rclcpp::Node* node, std::string name, int default_value, bool* set){
-    node->declare_parameter(name, rclcpp::PARAMETER_INTEGER);
+    try{
+      node->declare_parameter(name, rclcpp::PARAMETER_INTEGER);
+    }
+    catch(rclcpp::exceptions::ParameterAlreadyDeclaredException& e){}
     rclcpp::Parameter param;
     bool s = node->get_parameter_or(name, param, rclcpp::Parameter(name, default_value));
     if(set != NULL)
@@ -26,7 +29,10 @@ namespace airstack {
   
   template <>
   inline double get_param(rclcpp::Node* node, std::string name, double default_value, bool* set){
-    node->declare_parameter(name, rclcpp::PARAMETER_DOUBLE);
+    try{
+      node->declare_parameter(name, rclcpp::PARAMETER_DOUBLE);
+    }
+    catch(rclcpp::exceptions::ParameterAlreadyDeclaredException& e){}
     rclcpp::Parameter param;
     bool s = node->get_parameter_or(name, param, rclcpp::Parameter(name, default_value));
     if(set != NULL)
@@ -36,7 +42,10 @@ namespace airstack {
   
   template <>
   inline std::string get_param(rclcpp::Node* node, std::string name, std::string default_value, bool* set){
-    node->declare_parameter(name, rclcpp::PARAMETER_STRING);
+    try{
+      node->declare_parameter(name, rclcpp::PARAMETER_STRING);
+    }
+    catch(rclcpp::exceptions::ParameterAlreadyDeclaredException& e){}
     rclcpp::Parameter param;
     bool s = node->get_parameter_or(name, param, rclcpp::Parameter(name, default_value));
     if(set != NULL)
@@ -46,7 +55,10 @@ namespace airstack {
 
   template <>
   inline bool get_param(rclcpp::Node* node, std::string name, bool default_value, bool* set){
-    node->declare_parameter(name, rclcpp::PARAMETER_BOOL);
+    try{
+      node->declare_parameter(name, rclcpp::PARAMETER_BOOL);
+    }
+    catch(rclcpp::exceptions::ParameterAlreadyDeclaredException& e){}
     rclcpp::Parameter param;
     bool s = node->get_parameter_or(name, param, rclcpp::Parameter(name, default_value));
     if(set != NULL)

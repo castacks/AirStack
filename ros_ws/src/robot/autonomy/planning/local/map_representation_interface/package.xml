@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>core_map_representation_interface</name>
+  <name>map_representation_interface</name>
   <version>0.0.0</version>
-  <description>The core_map_representation_interface package</description>
+  <description>The map_representation_interface package</description>
 
   <maintainer email="john@todo.todo">john</maintainer>
   <license>TODO</license>
