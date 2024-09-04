@@ -1,0 +1,48 @@
+name: Build and Test package
+
+# CI runs over all branches
+on:
+  push:
+    branches:
+      - 'main'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build_and_test:
+    name: "ROS 2 ${{ matrix.ros2_distro }}"
+    runs-on: ubuntu-20.04
+    container: px4io/px4-dev-ros2-${{ matrix.ros2_distro }}:2021-05-31
+    strategy:
+      matrix:
+        ros2_distro: [foxy, galactic, humble, rolling]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure workspace
+        run: |
+          unset ROS_DISTRO
+          mkdir -p ~/colcon_ws/src
+          cd ~/colcon_ws
+          ln -s ${GITHUB_WORKSPACE} src/px4_ros_com
+          git clone https://github.com/PX4/px4_msgs.git -b main src/px4_msgs
+      - name: Build package
+        run: |
+          cd ~/colcon_ws/src/px4_ros_com/scripts
+          ./build_ros2_workspace.bash --verbose -ros_distro ${{ matrix.ros2_distro }} --ros_path /opt/ros/${{ matrix.ros2_distro }}/setup.bash
+      # - name: Build PX4 Firmware
+      #   run: |
+      #     git clone https://github.com/PX4/Firmware.git ~/PX4/Firmware
+      #     cd ~/PX4/Firmware
+      #     DONT_RUN=1 make px4_sitl_rtps gazebo
+      # - name: SITL integration test - data output
+      #   run: |
+      #     source ~/colcon_ws/install/setup.bash
+      #     cd ~/colcon_ws/src/px4_ros_com/test
+      #     python3 pipeline_io_test.py -f ~/PX4/Firmware/ -p debug_vect -t fcu_output
+      # - name: SITL integration test - data input
+      #   run: |
+      #     source ~/colcon_ws/install/setup.bash
+      #     cd ~/colcon_ws/src/px4_ros_com/test
+      #     python3 pipeline_io_test.py -f ~/PX4/Firmware/ -s sensor_combined -t fcu_input
