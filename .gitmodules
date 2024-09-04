@@ -15,3 +15,6 @@
 [submodule "ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping_ros2"]
 	path = ros_ws/src/robot/autonomy/4_global/a_world_models/vdb_mapping_ros2
 	url = https://github.com/fzi-forschungszentrum-informatik/vdb_mapping_ros2
+[submodule "ros_ws/src/robot/autonomy/1_sensors/zed-ros2-wrapper"]
+	path = ros_ws/src/robot/autonomy/1_sensors/zed-ros2-wrapper
+	url = https://github.com/stereolabs/zed-ros2-wrapper.git
