@@ -65,7 +65,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     GoalMode goal_mode;
     double custom_waypoint_timeout_factor, custom_waypoint_distance_threshold;
 
-    std::unique_ptr<MapRepresentation> map_representation;
+  std::shared_ptr<core_map_representation_interface::MapRepresentation> map_representation;
 
     rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_sub;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr waypoint_sub;
@@ -176,12 +176,13 @@ class DroanLocalPlanner : public rclcpp::Node {
         traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
 
-        pluginlib::ClassLoader<MapRepresentation> map_representation_loader(
-            "core_map_representation_interface", "MapRepresentation");
+        pluginlib::ClassLoader<core_map_representation_interface::MapRepresentation> map_representation_loader(
+            "core_map_representation_interface", "core_map_representation_interface::MapRepresentation");
         try {
-            map_representation = std::move(std::unique_ptr<MapRepresentation>(
-                map_representation_loader.createUnmanagedInstance(
-                    map_representation_class_string)));
+	  map_representation = map_representation_loader.createSharedInstance(map_representation_class_string);/*d::move(std::unique_ptr<core_map_representation_interface::MapRepresentation>(
+													       map_representation_loader.createUnmanagedInstance(
+																				 map_representation_class_string)));
+											   */
         } catch (pluginlib::PluginlibException& ex) {
             RCLCPP_INFO(this->get_logger(),
                         "The MapRepresentation plugin failed to load. Error: %s", ex.what());

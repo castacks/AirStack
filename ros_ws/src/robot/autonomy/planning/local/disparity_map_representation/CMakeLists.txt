@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.5)
 project(disparity_map_representation)
 
-find_package(ament_cmake REQUIRED)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
+
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_ros REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(core_map_representation_interface REQUIRED)
@@ -25,76 +30,78 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
-ament_export_include_directories(include)
-ament_export_libraries(disparity_graph)
 
-include_directories(
-  ${ament_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${core_map_representation_interface_INCLUDE_DIRS}
-  ${disparity_graph_INCLUDE_DIRS}
-  ${pluginlib_INCLUDE_DIRS}
+add_library(disparity_map_representation src/disparity_map_representation.cpp)
+target_compile_features(disparity_map_representation PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
+target_include_directories(disparity_map_representation PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 
-  # ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-add_library(disparity_map_representation
-  src/disparity_map_representation.cpp
-)
-
-target_link_libraries(disparity_map_representation
-  disparity_graph
-  ${pluginlib_LIBRARIES} # Ensure this variable is set correctly
-)
-
-ament_target_dependencies(disparity_map_representation
+ament_target_dependencies(
+  disparity_map_representation
   airstack_common
   airstack_msgs
   core_map_representation_interface
   cv_bridge
   disparity_graph
+  geometry_msgs
+  image_geometry
+  image_transport
+  nav_msgs
+  pcl_msgs
   pluginlib
   rclcpp
+  rclpy
+  sensor_msgs
+  std_msgs
+  stereo_msgs
   tf2
+  tf2_eigen
+  tf2_geometry_msgs
   tf2_ros
-)
+  visualization_msgs
+  )
 
-ament_export_targets(disparity_map_representationTargets HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp
-  airstack_common
-  airstack_msgs
-  core_map_representation_interface
-  cv_bridge
-  disparity_graph
-  pluginlib
-  tf2
-  tf2_ros
-)
+pluginlib_export_plugin_description_file(core_map_representation_interface disparity_map_representation_plugin.xml)
 
+# Causes the visibility macros to use dllexport rather than dllimport,
+# which is appropriate when building the dll but not consuming it.
+#target_compile_definitions(disparity_map_representation PRIVATE "disparity_map_representation_INTERFACE_BUILDING_LIBRARY")
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 install(
   TARGETS disparity_map_representation
-  EXPORT disparity_map_representationTargets
-  LIBRARY DESTINATION lib
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
-  INCLUDES DESTINATION include
 )
 
-# install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-install(FILES package.xml
-  DESTINATION share/${PROJECT_NAME}
-)
-target_link_libraries(disparity_map_representation
-  ${disparity_graph_LIBRARIES}
-)
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
 
-# ament_export_include_directories(include)
-# ament_export_libraries(disparity_map_representation)
-# ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
-install(
-  DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION include/${PROJECT_NAME}
-  FILES_MATCHING PATTERN "*.h"
+  # the following line skips the linter which checks for copyrights
+  # comment the line when a copyright and license is added to all source files
+  set(ament_cmake_copyright_FOUND TRUE)
+
+  # the following line skips cpplint (only works in a git repo)
+  # comment the line when this package is in a git repo and when
+  # a copyright and license is added to all source files
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_export_include_directories(
+  include
+)
+ament_export_libraries(
+  disparity_map_representation
+)
+ament_export_targets(
+  export_${PROJECT_NAME}
 )
 
 ament_package()

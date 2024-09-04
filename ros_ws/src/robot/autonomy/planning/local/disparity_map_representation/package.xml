@@ -32,6 +32,5 @@
 
   <export>
     <build_type>ament_cmake</build_type>
-    <core_map_representation_interface plugin="${prefix}/disparity_map_representation_plugin.xml" />
   </export>
 </package>

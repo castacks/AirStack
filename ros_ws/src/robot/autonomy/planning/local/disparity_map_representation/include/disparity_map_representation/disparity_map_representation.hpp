@@ -18,8 +18,9 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-class DisparityMapRepresentation : public MapRepresentation {
-   private:
+namespace disparity_map_representation{
+  class DisparityMapRepresentation : public core_map_representation_interface::MapRepresentation {
+  private:
     std::unique_ptr<disparity_graph::DisparityGraph> disp_graph;
 
     visualization_msgs::msg::MarkerArray markers;
@@ -34,7 +35,7 @@ class DisparityMapRepresentation : public MapRepresentation {
     int obstacle_check_points;
     double obstacle_check_radius;
 
-   public:
+  public:
     DisparityMapRepresentation();
     virtual double distance_to_obstacle(geometry_msgs::msg::PoseStamped pose,
                                         tf2::Vector3 direction);
@@ -43,7 +44,8 @@ class DisparityMapRepresentation : public MapRepresentation {
     // virtual std::vector< std::vector<double> >
     // get_values(std::vector<airstack_msgs::TrajectoryXYZVYaw> trajectories);
     virtual std::vector<std::vector<double> > get_values(
-        std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories);
-};
+							 std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories);
+  };
+}
 
 #endif

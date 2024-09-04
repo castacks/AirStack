@@ -1,6 +1,5 @@
 #include <disparity_map_representation/disparity_map_representation.hpp>
-#include <pluginlib/class_list_macros.hpp>
-
+namespace disparity_map_representation {
 DisparityMapRepresentation::DisparityMapRepresentation()
     : MapRepresentation(), disp_graph(std::make_unique<disparity_graph::DisparityGraph>()) {
     points.ns = "obstacles";
@@ -256,5 +255,7 @@ void DisparityMapRepresentation::publish_debug() {
     points.points.clear();
     points.colors.clear();
 }
+}
+#include <pluginlib/class_list_macros.hpp>
 
-PLUGINLIB_EXPORT_CLASS(DisparityMapRepresentation, MapRepresentation)
+PLUGINLIB_EXPORT_CLASS(disparity_map_representation::DisparityMapRepresentation, core_map_representation_interface::MapRepresentation)

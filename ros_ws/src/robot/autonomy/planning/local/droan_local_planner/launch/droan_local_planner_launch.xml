@@ -1,6 +1,6 @@
 <launch>
     <arg name="robot_name" default="uav1" />
-    <arg name="map_representation" default="DisparityMapRepresentation" />
+    <arg name="map_representation" default="disparity_map_representation::DisparityMapRepresentation" />
 
     <node name="local_planner" pkg="droan_local_planner" exec="droan_local_planner">
 
