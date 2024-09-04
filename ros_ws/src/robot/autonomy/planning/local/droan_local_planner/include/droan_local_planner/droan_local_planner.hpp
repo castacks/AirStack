@@ -180,11 +180,8 @@ class DroanLocalPlanner : public rclcpp::Node {
             map_representation_loader("map_representation_interface",
                                       "map_representation_interface::MapRepresentation");
         try {
-            map_representation = map_representation_loader.createSharedInstance(
-                map_representation_class_string); /*d::move(std::unique_ptr<map_representation_interface::MapRepresentation>(
-                                                  map_representation_loader.createUnmanagedInstance(
-                                                                                                    map_representation_class_string)));
-                              */
+            map_representation =
+                map_representation_loader.createSharedInstance(map_representation_class_string);
         } catch (pluginlib::PluginlibException& ex) {
             RCLCPP_INFO(this->get_logger(),
                         "The MapRepresentation plugin failed to load. Error: %s", ex.what());
