@@ -255,7 +255,8 @@ void DisparityMapRepresentation::publish_debug() {
     points.points.clear();
     points.colors.clear();
 }
-}
+}  // namespace disparity_map_representation
 #include <pluginlib/class_list_macros.hpp>
 
-PLUGINLIB_EXPORT_CLASS(disparity_map_representation::DisparityMapRepresentation, core_map_representation_interface::MapRepresentation)
+PLUGINLIB_EXPORT_CLASS(disparity_map_representation::DisparityMapRepresentation,
+                       map_representation_interface::MapRepresentation)

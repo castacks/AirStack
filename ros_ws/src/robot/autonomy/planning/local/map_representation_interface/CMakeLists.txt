@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(core_map_representation_interface)
+project(map_representation_interface)
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -16,13 +16,13 @@ find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 
-add_library(core_map_representation_interface src/core_map_representation_interface.cpp)
-target_include_directories(core_map_representation_interface PUBLIC
+add_library(map_representation_interface src/map_representation_interface.cpp)
+target_include_directories(map_representation_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(core_map_representation_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
+target_compile_features(map_representation_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
 ament_target_dependencies(
-  core_map_representation_interface
+  map_representation_interface
   # Required dependencies
   airstack_msgs
   geometry_msgs
@@ -36,18 +36,18 @@ ament_target_dependencies(
   tf2_ros
   visualization_msgs
 )
-ament_export_targets(core_map_representation_interface HAS_LIBRARY_TARGET)
+ament_export_targets(map_representation_interface HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp mav_msgs geometry_msgs tf2 tf2_ros)
 
-install(TARGETS core_map_representation_interface
+install(TARGETS map_representation_interface
   DESTINATION lib/${PROJECT_NAME})
 
-#add_executable(core_map_representation_interface_node src/core_map_representation_interface_node.cpp)
-#target_include_directories(core_map_representation_interface_node PUBLIC
+#add_executable(map_representation_interface_node src/map_representation_interface_node.cpp)
+#target_include_directories(map_representation_interface_node PUBLIC
 #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 #  $<INSTALL_INTERFACE:include>)
-#ament_target_dependencies(core_map_representation_interface_node rclcpp pluginlib mav_msgs tf2 tf2_ros airstack_msgs airstack_common)
-#install(TARGETS core_map_representation_interface_node
+#ament_target_dependencies(map_representation_interface_node rclcpp pluginlib mav_msgs tf2 tf2_ros airstack_msgs airstack_common)
+#install(TARGETS map_representation_interface_node
 #  DESTINATION lib/${PROJECT_NAME})
 
 install(
@@ -56,8 +56,8 @@ install(
 )
 
 install(
-  TARGETS core_map_representation_interface
-  EXPORT core_map_representation_interface
+  TARGETS map_representation_interface
+  EXPORT map_representation_interface
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin

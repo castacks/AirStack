@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
-find_package(core_map_representation_interface REQUIRED)
+find_package(map_representation_interface REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(disparity_graph REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -41,7 +41,7 @@ ament_target_dependencies(
   disparity_map_representation
   airstack_common
   airstack_msgs
-  core_map_representation_interface
+  map_representation_interface
   cv_bridge
   disparity_graph
   geometry_msgs
@@ -62,7 +62,7 @@ ament_target_dependencies(
   visualization_msgs
   )
 
-pluginlib_export_plugin_description_file(core_map_representation_interface disparity_map_representation_plugin.xml)
+pluginlib_export_plugin_description_file(map_representation_interface disparity_map_representation_plugin.xml)
 
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.

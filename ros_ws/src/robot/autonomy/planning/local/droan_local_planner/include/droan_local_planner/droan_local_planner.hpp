@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core_map_representation_interface/map_representation.h>
+#include <map_representation_interface/map_representation.h>
 
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
@@ -65,7 +65,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     GoalMode goal_mode;
     double custom_waypoint_timeout_factor, custom_waypoint_distance_threshold;
 
-  std::shared_ptr<core_map_representation_interface::MapRepresentation> map_representation;
+    std::shared_ptr<map_representation_interface::MapRepresentation> map_representation;
 
     rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_sub;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr waypoint_sub;
@@ -176,13 +176,15 @@ class DroanLocalPlanner : public rclcpp::Node {
         traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
 
-        pluginlib::ClassLoader<core_map_representation_interface::MapRepresentation> map_representation_loader(
-            "core_map_representation_interface", "core_map_representation_interface::MapRepresentation");
+        pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
+            map_representation_loader("map_representation_interface",
+                                      "map_representation_interface::MapRepresentation");
         try {
-	  map_representation = map_representation_loader.createSharedInstance(map_representation_class_string);/*d::move(std::unique_ptr<core_map_representation_interface::MapRepresentation>(
-													       map_representation_loader.createUnmanagedInstance(
-																				 map_representation_class_string)));
-											   */
+            map_representation = map_representation_loader.createSharedInstance(
+                map_representation_class_string); /*d::move(std::unique_ptr<map_representation_interface::MapRepresentation>(
+                                                  map_representation_loader.createUnmanagedInstance(
+                                                                                                    map_representation_class_string)));
+                              */
         } catch (pluginlib::PluginlibException& ex) {
             RCLCPP_INFO(this->get_logger(),
                         "The MapRepresentation plugin failed to load. Error: %s", ex.what());
@@ -442,7 +444,8 @@ class DroanLocalPlanner : public rclcpp::Node {
                     tf2::Vector3 direction = curr_wp.position() - prev_wp.position();
                     direction.normalize();
 
-                    tf2::Vector3 look_past_position = curr_wp.position() + look_past_distance * direction;
+                    tf2::Vector3 look_past_position =
+                        curr_wp.position() + look_past_distance * direction;
 
                     Waypoint closest_point_from_global_plan(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                     int wp_index;
@@ -481,10 +484,11 @@ class DroanLocalPlanner : public rclcpp::Node {
             traj_lib_markers.markers.insert(traj_lib_markers.markers.end(),
                                             traj_markers.markers.begin(),
                                             traj_markers.markers.end());
-            // bigger distance from obstacles makes the cost smaller (more negative). cap by the obstacle check radius
-            double cost =
-                avg_distance_from_global_plan - obstacle_distance_reward *
-                                       std::min(closest_obstacle_distance, obstacle_check_radius);
+            // bigger distance from obstacles makes the cost smaller (more negative). cap by the
+            // obstacle check radius
+            double cost = avg_distance_from_global_plan -
+                          obstacle_distance_reward *
+                              std::min(closest_obstacle_distance, obstacle_check_radius);
             if (!collision && cost < min_cost) {
                 min_cost = cost;
                 best_traj_index = i;
