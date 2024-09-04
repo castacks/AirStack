@@ -1,10 +1,9 @@
 #pragma once
 
-#include <core_map_representation_interface/map_representation.h>
-
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <map_representation_interface/map_representation.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <trajectory_library/trajectory_library.hpp>
 // #include <pointcloud_map_representation/pointcloud_map_representation.hpp>
@@ -27,17 +26,17 @@ class DroanLocalPlanner : public rclcpp::Node {
    private:
     std::unique_ptr<TrajectoryLibrary> traj_lib;
 
-    std::string map_representation;
+    std::string map_representation_class_string;
     bool is_global_plan_received;
-    airstack_msgs::msg::TrajectoryXYZVYaw global_plan;
+    airstack_msgs::msg::TrajectoryXYZVYaw global_plan_msg;
     double global_plan_trajectory_distance;
     bool is_look_ahead_received, is_tracking_point_received;
     airstack_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
 
     std::vector<Trajectory> static_trajectories;
 
-    double waypoint_spacing, obstacle_check_radius, obstacle_penalty_weight,
-        forward_progress_penalty_weight;
+    double waypoint_spacing, obstacle_check_radius, obstacle_distance_reward,
+        forward_progress_reward_weight;
     double robot_radius;
     int obstacle_check_points;
 
@@ -65,9 +64,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     GoalMode goal_mode;
     double custom_waypoint_timeout_factor, custom_waypoint_distance_threshold;
 
-    // MapRepresentationDeprecated* map;
-    // MapRepresentation* pc_map;
-    std::shared_ptr<MapRepresentation> pc_map;
+    std::shared_ptr<map_representation_interface::MapRepresentation> map_representation;
 
     rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr global_plan_sub;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr waypoint_sub;
@@ -141,11 +138,11 @@ class DroanLocalPlanner : public rclcpp::Node {
         // init parameters
         this->declare_parameter("waypoint_spacing", 0.5);
         waypoint_spacing = this->get_parameter("waypoint_spacing").as_double();
-        this->declare_parameter("obstacle_penalty_weight", 1.);
-        obstacle_penalty_weight = this->get_parameter("obstacle_penalty_weight").as_double();
-        this->declare_parameter("forward_progress_penalty_weight", 0.5);
-        forward_progress_penalty_weight =
-            this->get_parameter("forward_progress_penalty_weight").as_double();
+        this->declare_parameter("obstacle_distance_reward", 1.);
+        obstacle_distance_reward = this->get_parameter("obstacle_distance_reward").as_double();
+        this->declare_parameter("forward_progress_reward_weight", 0.5);
+        forward_progress_reward_weight =
+            this->get_parameter("forward_progress_reward_weight").as_double();
         this->declare_parameter("robot_radius", 0.75);
         robot_radius = this->get_parameter("robot_radius").as_double();
         this->declare_parameter("look_past_distance", 0.0);
@@ -159,7 +156,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->declare_parameter("yaw_mode", 0);
         yaw_mode = this->get_parameter("yaw_mode").as_int();
         this->declare_parameter("map_representation", std::string("PointCloudMapRepresentation"));
-        map_representation = this->get_parameter("map_representation").as_string();
+        map_representation_class_string = this->get_parameter("map_representation").as_string();
         this->declare_parameter("waypoint_buffer_duration", 30.);
         waypoint_buffer_duration = this->get_parameter("waypoint_buffer_duration").as_double();
         this->declare_parameter("waypoint_spacing_threshold", 0.5);
@@ -177,36 +174,47 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->declare_parameter("trajectory_library_config", std::string(""));
         traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
+
+        pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
+            map_representation_loader("map_representation_interface",
+                                      "map_representation_interface::MapRepresentation");
+        try {
+            map_representation =
+                map_representation_loader.createSharedInstance(map_representation_class_string);
+        } catch (pluginlib::PluginlibException& ex) {
+            RCLCPP_INFO(this->get_logger(),
+                        "The MapRepresentation plugin failed to load. Error: %s", ex.what());
+        }
     }
     virtual ~DroanLocalPlanner() {}
 
-    virtual bool execute() {
-        update_waypoint_mode();
-
-        if (!is_global_plan_received) return true;
-
-        Trajectory gp(this, global_plan);
-
-        // set the height of the global plan
-        if (height_mode == FIXED_HEIGHT) {
-            gp.set_fixed_height(fixed_height);
-        } else if (height_mode == RANGE_SENSOR_HEIGHT) {
+    /**
+     * Sets the global plan height  based on the height mode
+     */
+    bool set_global_plan_height_inplace(Trajectory& global_plan) {
+        // fixed height mode
+        if (this->height_mode == FIXED_HEIGHT) {
+            global_plan.set_fixed_height(fixed_height);
+        }
+        // set between the range sensors
+        else if (this->height_mode == RANGE_SENSOR_HEIGHT) {
             if (!got_range_up || !got_range_down) return true;
 
             try {
                 tf2::Stamped<tf2::Transform> transform_up, transform_down;
 
                 geometry_msgs::msg::TransformStamped tf_up_msg, tf_down_msg;
-                tf_buffer.canTransform(gp.get_frame_id(), range_up.header.frame_id,
+                tf_buffer.canTransform(global_plan.get_frame_id(), range_up.header.frame_id,
                                        range_up.header.stamp, rclcpp::Duration::from_seconds(0.1));
-                tf_up_msg = tf_buffer.lookupTransform(gp.get_frame_id(), range_up.header.frame_id,
-                                                      range_up.header.stamp);
+                tf_up_msg = tf_buffer.lookupTransform(
+                    global_plan.get_frame_id(), range_up.header.frame_id, range_up.header.stamp);
                 tf2::fromMsg(tf_up_msg, transform_up);
-                tf_buffer.canTransform(gp.get_frame_id(), range_down.header.frame_id,
+                tf_buffer.canTransform(global_plan.get_frame_id(), range_down.header.frame_id,
                                        range_down.header.stamp,
                                        rclcpp::Duration::from_seconds(0.1));
-                tf_down_msg = tf_buffer.lookupTransform(
-                    gp.get_frame_id(), range_down.header.frame_id, range_down.header.stamp);
+                tf_down_msg =
+                    tf_buffer.lookupTransform(global_plan.get_frame_id(),
+                                              range_down.header.frame_id, range_down.header.stamp);
                 tf2::fromMsg(tf_down_msg, transform_down);
 
                 tf2::Vector3 range_up_gp_frame = transform_up * tf2::Vector3(range_up.range, 0, 0);
@@ -219,19 +227,28 @@ class DroanLocalPlanner : public rclcpp::Node {
                     z_setpoint = range_down_gp_frame.z() + height_above_ground;
                 }
 
-                gp.set_fixed_height(z_setpoint);
+                global_plan.set_fixed_height(z_setpoint);
 
             } catch (tf2::TransformException& ex) {
                 RCLCPP_ERROR(this->get_logger(), "Failed to get transform: %s", ex.what());
                 return true;
             }
         }
+    }
+
+    virtual bool execute() {
+        update_waypoint_mode();
+
+        if (!is_global_plan_received) return true;
+
+        Trajectory global_plan(this, global_plan_msg);
+        set_global_plan_height_inplace(global_plan);  // set the height of the global plan
 
         // transform the look ahead point to the global plan frame
         tf2::Vector3 look_ahead_position = tflib::to_tf(look_ahead_odom.pose.position);
-        bool success =
-            tflib::to_frame(&tf_buffer, look_ahead_position, look_ahead_odom.header.frame_id,
-                            gp.get_frame_id(), look_ahead_odom.header.stamp, &look_ahead_position);
+        bool success = tflib::to_frame(&tf_buffer, look_ahead_position,
+                                       look_ahead_odom.header.frame_id, global_plan.get_frame_id(),
+                                       look_ahead_odom.header.stamp, &look_ahead_position);
         if (!success) {
             RCLCPP_ERROR_STREAM(this->get_logger(),
                                 "Couldn't transform from lookahead frame to global plan frame");
@@ -240,18 +257,19 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // increment how far along the global plan we are
         double trajectory_distance;
-        bool valid =
-            gp.get_trajectory_distance_at_closest_point(look_ahead_position, &trajectory_distance);
+        bool valid = global_plan.get_trajectory_distance_at_closest_point(look_ahead_position,
+                                                                          &trajectory_distance);
         if (valid) {
             global_plan_trajectory_distance += trajectory_distance;
-            gp = gp.get_subtrajectory_distance(global_plan_trajectory_distance,
-                                               global_plan_trajectory_distance + 10.0);
+            global_plan = global_plan.get_subtrajectory_distance(
+                global_plan_trajectory_distance, global_plan_trajectory_distance + 10.0);
         } else {
             RCLCPP_INFO(this->get_logger(), "invalid");
         }
 
         // publish the segment of the global plan currently being used, for visualization
-        visualization_msgs::msg::MarkerArray global_markers = gp.get_markers(this->now(), 0, 0, 1);
+        visualization_msgs::msg::MarkerArray global_markers =
+            global_plan.get_markers(this->now(), 0, 0, 1);
         global_plan_vis_pub->publish(global_markers);
 
         // get the dynamic trajectories
@@ -260,14 +278,15 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // pick the best trajectory
         Trajectory best_traj;
-        bool all_in_collision = this->get_best_trajectory(dynamic_trajectories, gp, &best_traj);
+        bool all_in_collision =
+            this->get_best_trajectory(dynamic_trajectories, global_plan, best_traj);
 
         // publish the trajectory
         if (!all_in_collision) {
-            airstack_msgs::msg::TrajectoryXYZVYaw path = best_traj.get_TrajectoryXYZVYaw();
+            airstack_msgs::msg::TrajectoryXYZVYaw best_traj_msg = best_traj.get_TrajectoryXYZVYaw();
 
             // set yaw
-            if (yaw_mode == SMOOTH_YAW && path.waypoints.size() > 0) {
+            if (yaw_mode == SMOOTH_YAW && best_traj.waypoint_count() > 0) {
                 bool found_initial_heading = false;
                 double initial_heading = 0;
                 try {
@@ -291,14 +310,15 @@ class DroanLocalPlanner : public rclcpp::Node {
                 }
 
                 if (found_initial_heading) {
-                    path.waypoints[0].yaw = initial_heading;
+                    best_traj_msg.waypoints[0].yaw = initial_heading;
                     double alpha = 0.1;
-                    double sin_yaw_prev = sin(path.waypoints[0].yaw);
-                    double cos_yaw_prev = cos(path.waypoints[0].yaw);
+                    double sin_yaw_prev = sin(best_traj_msg.waypoints[0].yaw);
+                    double cos_yaw_prev = cos(best_traj_msg.waypoints[0].yaw);
 
-                    for (size_t i = 1; i < path.waypoints.size(); i++) {
-                        airstack_msgs::msg::WaypointXYZVYaw wp_prev = path.waypoints[i - 1];
-                        airstack_msgs::msg::WaypointXYZVYaw& wp_curr = path.waypoints[i];
+                    for (size_t i = 1; i < best_traj_msg.waypoints.size(); i++) {
+                        airstack_msgs::msg::WaypointXYZVYaw wp_prev =
+                            best_traj_msg.waypoints[i - 1];
+                        airstack_msgs::msg::WaypointXYZVYaw& wp_curr = best_traj_msg.waypoints[i];
 
                         double yaw = atan2(wp_curr.position.y - wp_prev.position.y,
                                            wp_curr.position.x - wp_prev.position.x);
@@ -313,31 +333,45 @@ class DroanLocalPlanner : public rclcpp::Node {
                     }
                 }
             }
-            path.header.stamp = this->now();
-            traj_pub->publish(path);
+            best_traj_msg.header.stamp = this->now();
+            traj_pub->publish(best_traj_msg);
         }
         return true;
     }
 
-    bool get_best_trajectory(std::vector<Trajectory> trajectories, Trajectory global_plan,
-                             Trajectory* best_traj_ret) {
+    std::vector<std::vector<double>> get_trajectory_distances_from_map(
+        std::vector<Trajectory> trajectory_candidates) {
+        // vector of trajectory candidates in PointStamped-vector form
+        std::vector<std::vector<geometry_msgs::msg::PointStamped>> traj_cands_as_point_stamped;
+        for (size_t i = 0; i < trajectory_candidates.size(); i++) {
+            traj_cands_as_point_stamped.push_back(
+                trajectory_candidates[i].get_vector_PointStamped());
+        }
+        // TODO: clearly we should refactor map_representation to accept Trajectory objects
+        std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
+            this->map_representation->get_values(traj_cands_as_point_stamped);
+        return trajectory_distances_to_closest_obstacle;
+    }
+
+    /**
+     * Choose the best trajectory based on the cost function. Minimize the cost
+     */
+    bool get_best_trajectory(std::vector<Trajectory> trajectory_candidates, Trajectory global_plan,
+                             Trajectory& best_traj_ret) {
         double min_cost = std::numeric_limits<double>::max();
         size_t best_traj_index = 0;
         bool all_in_collision = true;
 
         auto now = this->now();
 
+        auto trajectory_distances_to_closest_obstacle =
+            get_trajectory_distances_from_map(trajectory_candidates);
+
         visualization_msgs::msg::MarkerArray traj_lib_markers, look_past_markers;
 
-        std::vector<std::vector<geometry_msgs::msg::PointStamped>> trajs_as_point_stamped;
-        for (size_t i = 0; i < trajectories.size(); i++) {
-            trajs_as_point_stamped.push_back(trajectories[i].get_vector_PointStamped());
-        }
-        std::vector<std::vector<double>> values = pc_map->get_values(trajs_as_point_stamped);
-
-        for (size_t i = 0; i < trajectories.size(); ++i) {
-            Trajectory traj = trajectories[i];
-            double average_distance = std::numeric_limits<double>::infinity();
+        for (size_t i = 0; i < trajectory_candidates.size(); ++i) {
+            Trajectory traj = trajectory_candidates[i];
+            double avg_distance_from_global_plan = std::numeric_limits<double>::infinity();
             double closest_obstacle_distance = std::numeric_limits<double>::infinity();
 
             Trajectory global_plan_in_traj_frame;
@@ -349,6 +383,7 @@ class DroanLocalPlanner : public rclcpp::Node {
                 return true;
             }
 
+            // for each waypoint in the trajectory, calculate the distance to the closest obstacle
             for (size_t j = 0; j < traj.waypoint_count(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
 
@@ -356,25 +391,31 @@ class DroanLocalPlanner : public rclcpp::Node {
                 geometry_msgs::msg::PoseStamped pose;
                 pose.header = odom.header;
                 pose.pose = odom.pose;
-                closest_obstacle_distance = std::min(closest_obstacle_distance, values[i][j]);
+                closest_obstacle_distance =
+                    std::min(closest_obstacle_distance,
+                             trajectory_distances_to_closest_obstacle.at(i).at(j));
 
-                Waypoint closest_point(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                // get the closest global plan point to the current trajectory waypoint
+                Waypoint closest_point_from_global_plan(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                 int wp_index;
                 double path_distance;
                 bool valid = global_plan_in_traj_frame.get_closest_point(
-                    wp.position(), &closest_point, &wp_index, &path_distance);
-                double forward_progress_penalty = -forward_progress_penalty_weight * path_distance;
+                    wp.position(), &closest_point_from_global_plan, &wp_index, &path_distance);
+
+                // reward making progress along the global plan
+                double forward_progress_reward = -forward_progress_reward_weight * path_distance;
 
                 if (valid) {
-                    if (!std::isfinite(average_distance)) {
-                        average_distance = 0;
+                    if (!std::isfinite(avg_distance_from_global_plan)) {
+                        avg_distance_from_global_plan = 0;
                     }
-                    average_distance +=
-                        closest_point.position().distance(wp.position()) + forward_progress_penalty;
+                    avg_distance_from_global_plan +=
+                        closest_point_from_global_plan.position().distance(wp.position()) +
+                        forward_progress_reward;
                 }
             }
+            avg_distance_from_global_plan /= traj.waypoint_count();
 
-            average_distance /= traj.waypoint_count();
             bool collision = closest_obstacle_distance <= robot_radius;
             if (!collision) {
                 all_in_collision = false;
@@ -385,28 +426,33 @@ class DroanLocalPlanner : public rclcpp::Node {
                 // red for collision
                 traj_markers = traj.get_markers(this->now(), 1, 0, 0, .5);
             } else {
+                // green for no collision
                 traj_markers = traj.get_markers(this->now(), 0, 1, 0, .5);
             }
 
+            // if look_past_distance is set, then use that to calculate the cost instead
+            // wtf this doesn't even make sense
             if (look_past_distance > 0) {
                 if (traj.waypoint_count() >= 2) {
                     Waypoint curr_wp = traj.get_waypoint(traj.waypoint_count() - 1);
                     Waypoint prev_wp = traj.get_waypoint(traj.waypoint_count() - 2);
 
-                    tf2::Vector3 segment = curr_wp.position() - prev_wp.position();
-                    segment.normalize();
+                    tf2::Vector3 direction = curr_wp.position() - prev_wp.position();
+                    direction.normalize();
 
-                    tf2::Vector3 position = curr_wp.position() + look_past_distance * segment;
+                    tf2::Vector3 look_past_position =
+                        curr_wp.position() + look_past_distance * direction;
 
-                    Waypoint closest_point(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    Waypoint closest_point_from_global_plan(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                     int wp_index;
                     bool valid = global_plan_in_traj_frame.get_closest_point(
-                        position, &closest_point, &wp_index);
+                        look_past_position, &closest_point_from_global_plan, &wp_index);
 
                     if (!valid) {
                         collision = true;
                     } else {
-                        average_distance = position.distance(closest_point.position());
+                        avg_distance_from_global_plan =
+                            look_past_position.distance(closest_point_from_global_plan.position());
                     }
 
                     visualization_msgs::msg::Marker marker;
@@ -417,9 +463,9 @@ class DroanLocalPlanner : public rclcpp::Node {
                     marker.type = visualization_msgs::msg::Marker::SPHERE;
                     marker.action = visualization_msgs::msg::Marker::ADD;
 
-                    marker.pose.position.x = position.x();
-                    marker.pose.position.y = position.y();
-                    marker.pose.position.z = position.z();
+                    marker.pose.position.x = look_past_position.x();
+                    marker.pose.position.y = look_past_position.y();
+                    marker.pose.position.z = look_past_position.z();
                     marker.pose.orientation.w = 1;
                     marker.scale.x = 0.3;
                     marker.scale.y = 0.3;
@@ -434,13 +480,15 @@ class DroanLocalPlanner : public rclcpp::Node {
             traj_lib_markers.markers.insert(traj_lib_markers.markers.end(),
                                             traj_markers.markers.begin(),
                                             traj_markers.markers.end());
-            double cost =
-                average_distance - obstacle_penalty_weight *
-                                       std::min(closest_obstacle_distance, obstacle_check_radius);
+            // bigger distance from obstacles makes the cost smaller (more negative). cap by the
+            // obstacle check radius
+            double cost = avg_distance_from_global_plan -
+                          obstacle_distance_reward *
+                              std::min(closest_obstacle_distance, obstacle_check_radius);
             if (!collision && cost < min_cost) {
                 min_cost = cost;
                 best_traj_index = i;
-                *best_traj_ret = traj;
+                best_traj_ret = traj;
             }
         }
         if (best_traj_index < look_past_markers.markers.size()) {
@@ -451,18 +499,19 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
 
         vis_pub->publish(traj_lib_markers);
-        pc_map->publish_debug();
+        map_representation->publish_debug();
         look_past_vis_pub->publish(look_past_markers);
 
         return all_in_collision;
     }
 
     // subscriber callbacks
-    void global_plan_callback(const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr global_plan) {
+    void global_plan_callback(
+        const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr global_plan_msg) {
         RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << goal_mode);
         if (goal_mode != TRAJECTORY) return;
 
-        this->global_plan = *global_plan;  // copies
+        this->global_plan_msg = *global_plan_msg;  // copies
         is_global_plan_received = true;
         global_plan_trajectory_distance = 0;
     }
@@ -482,9 +531,9 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
 
         // stitch together the history of waypoints
-        airstack_msgs::msg::TrajectoryXYZVYaw global_plan;
-        global_plan.header.frame_id = wp->header.frame_id;
-        global_plan.header.stamp = wp->header.stamp;
+        airstack_msgs::msg::TrajectoryXYZVYaw global_plan_msg;
+        global_plan_msg.header.frame_id = wp->header.frame_id;
+        global_plan_msg.header.stamp = wp->header.stamp;
 
         std::vector<airstack_msgs::msg::WaypointXYZVYaw> backwards_global_plan;
 
@@ -538,7 +587,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
         }
         for (size_t i = 0; i < backwards_global_plan.size(); i++) {
-            global_plan.waypoints.push_back(
+            global_plan_msg.waypoints.push_back(
                 backwards_global_plan[backwards_global_plan.size() - 1 - i]);
         }
         if (is_tracking_point_received) {
@@ -563,15 +612,15 @@ class DroanLocalPlanner : public rclcpp::Node {
                 wp2.position.x = wp2_position.x();
                 wp2.position.y = wp2_position.y();
                 wp2.position.z = wp2_position.z();
-                global_plan.waypoints.push_back(wp1);
-                global_plan.waypoints.push_back(wp2);
+                global_plan_msg.waypoints.push_back(wp1);
+                global_plan_msg.waypoints.push_back(wp2);
             } catch (tf2::TransformException& ex) {
                 RCLCPP_ERROR(this->get_logger(), "Failed to get transform: %s", ex.what());
             }
         }
 
         global_plan_trajectory_distance = 0;
-        this->global_plan = global_plan;
+        this->global_plan_msg = global_plan_msg;
         this->is_global_plan_received = true;
     }
 
@@ -589,9 +638,9 @@ class DroanLocalPlanner : public rclcpp::Node {
             tf2::Vector3 la_position = tflib::to_tf(look_ahead_odom.pose.position);
             tf2::Vector3 wp_position = transform * tflib::to_tf(wp->pose.position);
 
-            airstack_msgs::msg::TrajectoryXYZVYaw global_plan;
-            global_plan.header.frame_id = look_ahead_odom.header.frame_id;
-            global_plan.header.stamp = this->now();
+            airstack_msgs::msg::TrajectoryXYZVYaw global_plan_msg;
+            global_plan_msg.header.frame_id = look_ahead_odom.header.frame_id;
+            global_plan_msg.header.stamp = this->now();
 
             airstack_msgs::msg::WaypointXYZVYaw wp1, wp2;
             wp1.position.x = la_position.x();
@@ -600,11 +649,11 @@ class DroanLocalPlanner : public rclcpp::Node {
             wp2.position.x = wp_position.x();
             wp2.position.y = wp_position.y();
             wp2.position.z = wp_position.z();
-            global_plan.waypoints.push_back(wp1);
-            global_plan.waypoints.push_back(wp2);
+            global_plan_msg.waypoints.push_back(wp1);
+            global_plan_msg.waypoints.push_back(wp2);
 
             global_plan_trajectory_distance = 0;
-            this->global_plan = global_plan;
+            this->global_plan_msg = global_plan_msg;
             this->is_global_plan_received = true;
 
             goal_mode = CUSTOM_WAYPOINT;
@@ -613,17 +662,20 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
     }
 
+    /**
+     * Check if we should switch from CUSTOM_WAYPOINT to AUTO_WAYPOINT
+     */
     void update_waypoint_mode() {
         if (goal_mode == CUSTOM_WAYPOINT) {
-            if (global_plan.waypoints.size() < 2) goal_mode = AUTO_WAYPOINT;
+            if (global_plan_msg.waypoints.size() < 2) goal_mode = AUTO_WAYPOINT;
 
             // check if the time limit for reaching the waypoint has elapsed
-            double elapsed_time = (this->now() - global_plan.header.stamp).seconds();
+            double elapsed_time = (this->now() - global_plan_msg.header.stamp).seconds();
             double distance = 0;
-            for (size_t i = 1; i < global_plan.waypoints.size(); i++) {
+            for (size_t i = 1; i < global_plan_msg.waypoints.size(); i++) {
                 airstack_msgs::msg::WaypointXYZVYaw prev_wp, curr_wp;
-                prev_wp = global_plan.waypoints[i - 1];
-                curr_wp = global_plan.waypoints[i];
+                prev_wp = global_plan_msg.waypoints[i - 1];
+                curr_wp = global_plan_msg.waypoints[i];
 
                 distance += sqrt(pow(prev_wp.position.x - curr_wp.position.x, 2) +
                                  pow(prev_wp.position.y - curr_wp.position.y, 2));
@@ -640,18 +692,18 @@ class DroanLocalPlanner : public rclcpp::Node {
             if (is_tracking_point_received) {
                 try {
                     tf2::Stamped<tf2::Transform> transform;
-                    tf_buffer.canTransform(tracking_point_odom.header.frame_id,
-                                           global_plan.header.frame_id, global_plan.header.stamp,
-                                           rclcpp::Duration::from_seconds(0.1));
+                    tf_buffer.canTransform(
+                        tracking_point_odom.header.frame_id, global_plan_msg.header.frame_id,
+                        global_plan_msg.header.stamp, rclcpp::Duration::from_seconds(0.1));
                     auto transform_msg = tf_buffer.lookupTransform(
-                        tracking_point_odom.header.frame_id, global_plan.header.frame_id,
-                        global_plan.header.stamp);
+                        tracking_point_odom.header.frame_id, global_plan_msg.header.frame_id,
+                        global_plan_msg.header.stamp);
                     tf2::fromMsg(transform_msg, transform);
 
                     tf2::Vector3 tp_position = tflib::to_tf(tracking_point_odom.pose.position);
                     tp_position.setZ(0);
                     tf2::Vector3 wp_position =
-                        transform * tflib::to_tf(global_plan.waypoints.back().position);
+                        transform * tflib::to_tf(global_plan_msg.waypoints.back().position);
                     wp_position.setZ(0);
 
                     if (tp_position.distance(wp_position) < custom_waypoint_distance_threshold) {
@@ -674,12 +726,12 @@ class DroanLocalPlanner : public rclcpp::Node {
         is_tracking_point_received = true;
         tracking_point_odom = *odom;
     }
-    void range_up_callback(const sensor_msgs::msg::Range::SharedPtr range) {
+    void range_up_callback(const sensor_msgs::msg::Range::SharedPtr range_msg) {
         got_range_up = true;
-        range_up = *range;
+        range_up = *range_msg;
     }
-    void range_down_callback(const sensor_msgs::msg::Range::SharedPtr range) {
+    void range_down_callback(const sensor_msgs::msg::Range::SharedPtr range_msg) {
         got_range_down = true;
-        range_down = *range;
+        range_down = *range_msg;
     }
 };

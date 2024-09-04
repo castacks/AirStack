@@ -6,14 +6,16 @@
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
 
+namespace map_representation_interface {
+
 class MapRepresentation : public rclcpp::Node {
    private:
    public:
     /**
-   Takes in a list of trajectories and outputs a value for each waypoint in each trajectory.
-   @return A vector of vectors containing values for each waypoint. There is a vector of vectors
-   for each trajectory. There is a vector of doubles for each waypoint within a trajectory.
- */
+       Takes in a list of trajectories and outputs a value for each waypoint in each trajectory.
+       @return A vector of vectors containing values for each waypoint. There is a vector of vectors
+       for each trajectory. There is a vector of doubles for each waypoint within a trajectory.
+    */
 
     virtual std::vector<std::vector<double> > get_values(
         std::vector<std::vector<geometry_msgs::msg::PointStamped> >
@@ -26,12 +28,12 @@ class MapRepresentation : public rclcpp::Node {
 
     /**
        Clears the map.
-     */
+    */
     virtual void clear() { RCLCPP_ERROR(this->get_logger(), "clear CALLED BUT NOT IMPLEMENTED"); }
 
     /**
        Use this function to publish visualizations of the map that might be helpful for debugging.
-     */
+    */
     virtual void publish_debug() {}
 
     virtual ~MapRepresentation() {}
@@ -40,5 +42,7 @@ class MapRepresentation : public rclcpp::Node {
     // MapRepresentation() {}
     MapRepresentation() : Node("map_representation") {}
 };
+
+}  // namespace map_representation_interface
 
 #endif

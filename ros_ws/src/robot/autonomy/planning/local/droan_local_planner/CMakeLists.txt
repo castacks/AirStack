@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 
 find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
-find_package(core_map_representation_interface REQUIRED)
+find_package(map_representation_interface REQUIRED)
 # find_package(disparity_map_representation REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -29,7 +29,7 @@ ament_target_dependencies(
   droan_local_planner
   "airstack_msgs"
   "airstack_common"
-  "core_map_representation_interface"
+  "map_representation_interface"
   # "disparity_map_representation"
   "trajectory_controller"
   "trajectory_library"

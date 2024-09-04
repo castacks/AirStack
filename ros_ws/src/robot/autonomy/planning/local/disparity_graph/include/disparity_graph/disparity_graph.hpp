@@ -115,7 +115,7 @@ class DisparityGraph : rclcpp::Node {
             std::bind(&DisparityGraph::get_cam_info, this, std::placeholders::_1));
     }
 
-    virtual ~DisparityGraph();
+  //virtual ~DisparityGraph();
 
     void disp_cb(const sensor_msgs::msg::Image::ConstSharedPtr &disp_fg,
                  const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
