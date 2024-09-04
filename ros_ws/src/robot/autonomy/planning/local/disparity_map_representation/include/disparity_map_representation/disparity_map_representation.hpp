@@ -1,6 +1,5 @@
 #ifndef _DISPARITY_MAP_REPRESENTATION_
 #define _DISPARITY_MAP_REPRESENTATION_
-#include <core_map_representation_interface/map_representation.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <tf2/LinearMath/Transform.h>
@@ -9,6 +8,7 @@
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <map_representation_interface/map_representation.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
@@ -18,7 +18,8 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-class DisparityMapRepresentation : public MapRepresentation {
+namespace disparity_map_representation {
+class DisparityMapRepresentation : public map_representation_interface::MapRepresentation {
    private:
     std::unique_ptr<disparity_graph::DisparityGraph> disp_graph;
 
@@ -45,5 +46,6 @@ class DisparityMapRepresentation : public MapRepresentation {
     virtual std::vector<std::vector<double> > get_values(
         std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories);
 };
+}  // namespace disparity_map_representation
 
 #endif

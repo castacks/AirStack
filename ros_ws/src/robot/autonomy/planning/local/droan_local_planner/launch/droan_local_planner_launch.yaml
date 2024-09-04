@@ -1,0 +1,16 @@
+launch:
+# - arg:
+#     name: "robot_name"
+#     default: "robot1"
+# - arg:
+#     name: "tf_prefix"
+#     default: "$(var robot_name)"
+- node:
+    pkg: "droan_local_planner"
+    exec: "droan_local_planner"
+    name: "droan_local_planner"
+    namespace: "droan_local_planner"
+    param:
+      -
+        from: $(find-pkg-share droan_local_planner)/config/droan.yaml
+        # allow_substs: true
