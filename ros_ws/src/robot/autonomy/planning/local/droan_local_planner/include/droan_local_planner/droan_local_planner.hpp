@@ -1,10 +1,9 @@
 #pragma once
 
-#include <map_representation_interface/map_representation.h>
-
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <map_representation_interface/map_representation.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <trajectory_library/trajectory_library.hpp>
 // #include <pointcloud_map_representation/pointcloud_map_representation.hpp>

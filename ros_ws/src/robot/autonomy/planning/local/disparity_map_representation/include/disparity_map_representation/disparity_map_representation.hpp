@@ -1,6 +1,5 @@
 #ifndef _DISPARITY_MAP_REPRESENTATION_
 #define _DISPARITY_MAP_REPRESENTATION_
-#include <map_representation_interface/map_representation.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <tf2/LinearMath/Transform.h>
@@ -9,6 +8,7 @@
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <map_representation_interface/map_representation.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
