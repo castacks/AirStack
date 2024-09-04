@@ -141,6 +141,8 @@ function cws(){
         echo "Cleaning ROS2 workspace..."
         set -x
         rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/
+        export AMENT_PREFIX_PATH="/opt/ros/humble"
+        export CMAKE_PREFIX_PATH=""
         { set +x; } 2>/dev/null  # set +x w/out it being printed
         echo "ROS2 workspace has been cleaned."
     else
