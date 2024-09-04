@@ -10,8 +10,8 @@
 	url = git@github.com:PX4/px4_msgs.git
 	branch = main
 [submodule "ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping"]
-	path = ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping
+	path = ros_ws/src/robot/autonomy/4_global/a_world_models/vdb_mapping
 	url = https://github.com/fzi-forschungszentrum-informatik/vdb_mapping
 [submodule "ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping_ros2"]
-	path = ros_ws/src/robot/autonomy/world_model/mapping/vdb_mapping_ros2
+	path = ros_ws/src/robot/autonomy/4_global/a_world_models/vdb_mapping_ros2
 	url = https://github.com/fzi-forschungszentrum-informatik/vdb_mapping_ros2
