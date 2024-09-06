@@ -1,0 +1,13 @@
+# Strings, topic names, tf frames etc
+world_frame_id_ : /map
+pub_global_path_topic : /robot1/global/planning/trajectory
+sub_vdb_map_topic : /vdb_mapping/vdb_map_visualization
+
+# Constants
+max_start_to_goal_dist_m : 10.0 # how far away the goal waypoint could be
+max_angle_change_deg : 30 # degrees, + and - from horizontal
+checking_dist_m : 0.5 #m, if don't move outside this radius
+waypoint_dist_m : 1.0 # waypoint is this far away
+max_z_m: 0.5 # max z distance that the goal position can be 
+collision_padding_m : 0.2 # how far away from the obstacle to plan
+

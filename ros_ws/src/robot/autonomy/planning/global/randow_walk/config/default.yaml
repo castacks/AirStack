@@ -1,0 +1,21 @@
+# Strings, topic names, tf frames etc
+world_frame_id_                     : /map
+pub_waypoint_topic_                 : /global_planner_waypoint
+pub_path_topic_                     : /global_planner_path
+sub_odometry_topic_                 : /integrated_to_map
+sub_command_topic_                  : /random_walk_planner_command # from behavior executive
+pub_status_topic_                   : /random_walk_planner_status # to behavior executive
+sub_lp_found_path_topic_            : /astar_path_found
+rw_only_if_lp_no_path_found_        : true
+
+
+# Constants
+kLookaheadDistance                  : 3.0 # waypoint is this far away
+kMaxVerticalAngle                   : 30 # degrees, + and - from horizontal
+kStartupTime                        : 15.0 # don't trigger stopped condition until this time has elapsed since first movement is detected
+kStoppedConditionDistance           : 0.5 #m, if don't move outside this radius
+kStoppedConditionDistanceStartup    : 3.0 #m, before first movement is detected, use this larger threshold
+kZScalingDistance                   : 0.5 #m, <1 means that small movements in the z direction are more likely to NOT trigger random walk
+kStoppedConditionTime               : 15.0 #s, if don't move for this long
+kVectorResetTime                    : 10.0 #s, reset the direction after this time
+kRecoveryTime                       : 10.0 #s, spend this long recovering

@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="random_walk_planner" type="random_walk_planner" name="random_walk_planner" output="screen" respawn="true">
+        <rosparam command="load" file="$(find random_walk_planner)/config/new_default.yaml" />
+        <param name="execute_target" type="double" value="2."/>
+    </node>
+</launch>
