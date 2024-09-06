@@ -7,7 +7,6 @@
 #include <chrono>
 
 #include "../include/random_walk_logic.h"
-#include "random_walk_logic.h"
 
 RandomWalkPlanner::RandomWalkPlanner(random_walk_init_params init_params)
 {

@@ -11,11 +11,10 @@ without express permission of a project lead (Sebastian or Matt).
 **************************************************************************/
 
 #include <math.h>
-#include <misc_utils/misc_utils.h>
-#include <tf/transform_datatypes.h>
+#include <tf2/transform_datatypes.h>
 #define PI 3.14159265
 #include <stdlib.h>
-#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/msg/marker.h>
 
 #include "../include/random_walk_logic.h"
 #include "../include/random_walk_node.h"

@@ -12,22 +12,10 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(world_abstraction REQUIRED)
-find_package(misc_utils REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(core_trajectory_msgs REQUIRED)
-find_package(base REQUIRED)
-
-################################################
-## Declare ROS messages, services, and actions ##
-################################################
-
-# Generate messages in the 'msg' folder
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/RandomWalkPlannerCommand.msg"
-  "msg/RandomWalkPlannerStatus.msg"
-  DEPENDENCIES std_msgs geometry_msgs
-)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(airstack_msgs REQUIRED)
 
 ###################################
 ## ament specific configuration  ##
@@ -40,30 +28,25 @@ ament_package()
 ###########
 
 # Specify additional locations of header files
-include_directories(
-  include
-  ${base_INCLUDE_DIRS}
-)
 
 # Declare a C++ executable
-add_executable(${PROJECT_NAME}_node src/random_walk_planner.cpp)
+add_executable(random_walk_planner src/random_walk_node.cpp)
 
 # Link libraries
-ament_target_dependencies(${PROJECT_NAME}_node 
+ament_target_dependencies(random_walk_planner
   rclcpp
   std_msgs
   geometry_msgs
   nav_msgs
-  world_abstraction
-  misc_utils
   visualization_msgs
-  core_trajectory_msgs
-  base
+  tf2
+  tf2_ros
+  airstack_msgs
 )
 
 # Install executable
 install(TARGETS
-  ${PROJECT_NAME}_node
+random_walk_planner
   DESTINATION lib/${PROJECT_NAME}
 )
 

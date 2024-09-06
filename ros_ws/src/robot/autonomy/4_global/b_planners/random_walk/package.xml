@@ -33,32 +33,30 @@
   <build_depend>base</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
-  <build_depend>world_abstraction</build_depend>
-  <build_depend>misc_utils</build_depend>
   <build_depend>visualization_msgs</build_depend>
   <build_depend>message_generation</build_depend>
-  <build_depend>core_trajectory_msgs</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>airstack_msgs</build_depend>
+
   
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
   <build_export_depend>base</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>nav_msgs</build_export_depend>
-  <build_export_depend>world_abstraction</build_export_depend>
-  <build_export_depend>misc_utils</build_export_depend>
   <build_export_depend>visualization_msgs</build_export_depend>
-  <build_export_depend>core_trajectory_msgs</build_export_depend>
+  <build_export_depend>message_runtime</build_export_depend>
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>base</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>world_abstraction</exec_depend>
-  <exec_depend>misc_utils</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>message_runtime</exec_depend>
-  <exec_depend>core_trajectory_msgs</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>tf2</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
