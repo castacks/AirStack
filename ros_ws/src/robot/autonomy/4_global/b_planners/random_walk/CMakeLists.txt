@@ -3,7 +3,7 @@ project(random_walk_planner)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 # Find dependencies
@@ -30,7 +30,7 @@ ament_package()
 # Specify additional locations of header files
 
 # Declare a C++ executable
-add_executable(random_walk_planner src/random_walk_node.cpp)
+add_executable(random_walk_planner src/random_walk_node.cpp src/random_walk_logic.cpp)
 
 # Link libraries
 ament_target_dependencies(random_walk_planner

@@ -2,7 +2,7 @@
 <package format="2">
   <name>random_walk_planner</name>
   <version>0.0.0</version>
-  <description>The random_walk_planner package</description>
+  <description>The random walk planner package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -27,8 +27,8 @@
   <!-- Example: -->
   <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>roscpp</build_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>rclcpp</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>base</build_depend>
   <build_depend>geometry_msgs</build_depend>
@@ -40,7 +40,7 @@
   <build_depend>airstack_msgs</build_depend>
 
   
-  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>rclcpp</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
   <build_export_depend>base</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
@@ -48,20 +48,18 @@
   <build_export_depend>visualization_msgs</build_export_depend>
   <build_export_depend>message_runtime</build_export_depend>
 
-  <exec_depend>roscpp</exec_depend>
+  <exec_depend>rclcpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>base</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>message_runtime</exec_depend>
-  <exec_depend>tf</exec_depend>
   <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>airstack_msgs</exec_depend>
 
-
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
-
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

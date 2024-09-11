@@ -1,21 +1,15 @@
 # Strings, topic names, tf frames etc
-world_frame_id_                     : /map
-pub_waypoint_topic_                 : /global_planner_waypoint
-pub_path_topic_                     : /global_planner_path
-sub_odometry_topic_                 : /integrated_to_map
-sub_command_topic_                  : /random_walk_planner_command # from behavior executive
-pub_status_topic_                   : /random_walk_planner_status # to behavior executive
-sub_lp_found_path_topic_            : /astar_path_found
-rw_only_if_lp_no_path_found_        : true
-
+world_frame_id_ : /map
+pub_global_path_topic : /robot1/global/planning/trajectory
+sub_vdb_map_topic : /robot1/vdb_mapping/vdb_map_visualization
+sub_odometry_topic : /robot1/odom
 
 # Constants
-kLookaheadDistance                  : 3.0 # waypoint is this far away
-kMaxVerticalAngle                   : 30 # degrees, + and - from horizontal
-kStartupTime                        : 15.0 # don't trigger stopped condition until this time has elapsed since first movement is detected
-kStoppedConditionDistance           : 0.5 #m, if don't move outside this radius
-kStoppedConditionDistanceStartup    : 3.0 #m, before first movement is detected, use this larger threshold
-kZScalingDistance                   : 0.5 #m, <1 means that small movements in the z direction are more likely to NOT trigger random walk
-kStoppedConditionTime               : 15.0 #s, if don't move for this long
-kVectorResetTime                    : 10.0 #s, reset the direction after this time
-kRecoveryTime                       : 10.0 #s, spend this long recovering
+max_start_to_goal_dist_m : 10.0 # how far away the goal waypoint could be
+max_angle_change_deg : 30 # degrees, + and - from horizontal
+checking_point_cnt : 10 #cnt, how many points to check between each waypoint
+waypoint_dist_m : 1.0 # waypoint is this far away
+max_z_m: 0.5 # max z distance that the goal position can be 
+collision_padding_m : 0.2 # how far away from the obstacle to plan
+path_end_threshold_m : 0.1 # how close to the goal to stop
+
