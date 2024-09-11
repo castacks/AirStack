@@ -1,8 +1,6 @@
 
 #include "../include/random_walk_logic.hpp"
 
-#include "random_walk_logic.hpp"
-
 RandomWalkPlanner::RandomWalkPlanner(init_params params) {
     this->max_start_to_goal_dist_m_ = params.max_start_to_goal_dist_m;
     this->max_angle_change_deg_ = params.max_angle_change_deg;
@@ -117,9 +115,11 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
 }
 
 double get_point_distance(std::tuple<float, float, float> point1,
-                                             std::tuple<float, float, float> point2) {
+                          std::tuple<float, float, float> point2) {
     float x_diff = std::get<0>(point1) - std::get<0>(point2);
     float y_diff = std::get<1>(point1) - std::get<1>(point2);
     float z_diff = std::get<2>(point1) - std::get<2>(point2);
     return std::sqrt(x_diff * x_diff + y_diff * y_diff + z_diff * z_diff);
 }
+
+double deg2rad(double deg) { return deg * M_PI / 180.0; }

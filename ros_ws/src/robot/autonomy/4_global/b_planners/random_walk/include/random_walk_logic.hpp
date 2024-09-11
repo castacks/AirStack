@@ -62,6 +62,6 @@ class RandomWalkPlanner {
 double get_point_distance(std::tuple<float, float, float> point1,
                           std::tuple<float, float, float> point2);
 
-double deg2rad(double deg) { return deg * M_PI / 180.0; }
+double deg2rad(double deg);
 
 #endif  // RANDOM_WALK_LOGIC_H
