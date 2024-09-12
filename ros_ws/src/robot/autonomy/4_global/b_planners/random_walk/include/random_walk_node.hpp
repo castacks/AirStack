@@ -25,6 +25,7 @@ class RandomWalkNode : public rclcpp::Node {
     std::string world_frame_id_;
     std::string pub_global_path_topic_;
     std::string pub_goal_point_topic_;
+    std::string pub_trajectory_lines_topic_;
     std::string sub_vdb_map_topic_;
     std::string sub_odometry_topic_;
 
@@ -32,6 +33,7 @@ class RandomWalkNode : public rclcpp::Node {
     init_params params;
     airstack_msgs::msg::TrajectoryXYZVYaw generated_path;
     std::vector<std::tuple<float, float, float>> voxel_points;
+    bool publish_visualizations = false;
     bool is_path_executing = false;
     bool received_first_map = false;
     bool received_first_odometry = false;
@@ -42,9 +44,13 @@ class RandomWalkNode : public rclcpp::Node {
     void vdbmapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
 
     void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void timerCallback();
 
     // Other functions
     std::optional<init_params> readParameters();
+
+    visualization_msgs::msg::Marker createGoalPointMarker();
+    visualization_msgs::msg::Marker createTrajectoryLineMarker();
 
    public:
     RandomWalkNode();
@@ -56,7 +62,11 @@ class RandomWalkNode : public rclcpp::Node {
 
     // ROS publishers
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr pub_global_path;
-    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_goal_point;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
+
+    // ROS timers
+    rclcpp::TimerBase::SharedPtr timer;
 };
 
 #endif  // RANDOM_WALK_NODE_H

@@ -21,7 +21,11 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
     this->pub_global_path =
         this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(pub_global_path_topic_, 10);
     this->pub_goal_point =
-        this->create_publisher<geometry_msgs::msg::Point>(pub_goal_point_topic_, 10);
+        this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_topic_, 10);
+    this->pub_trajectory_lines =
+        this->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_lines_topic_, 10);
+    this->timer = this->create_wall_timer(std::chrono::seconds(1),
+                                          std::bind(&RandomWalkNode::timerCallback, this));
 }
 
 void RandomWalkNode::vdbmapCallback(const visualization_msgs::msg::Marker::SharedPtr msg) {
@@ -43,32 +47,37 @@ void RandomWalkNode::vdbmapCallback(const visualization_msgs::msg::Marker::Share
                 msg->points[i].x, msg->points[i].y, msg->points[i].z));
         }
         RCLCPP_INFO(this->get_logger(), "Generating Path...");
-        std::optional<Path> generated_path =
+        std::optional<Path> gen_path_opt =
             this->random_walk_planner.generate_straight_rand_path(this->current_location);
-        RCLCPP_INFO(this->get_logger(), "Generated Path");
-        if (generated_path.has_value() && generated_path.value().size() > 0) {
-            RCLCPP_INFO(this->get_logger(), "Generated path with size %d", generated_path.value().size());
-            this->current_goal_location =
-                std::tuple<float, float, float, float>(std::get<0>(generated_path.value().back()),
-                                                       std::get<1>(generated_path.value().back()),
-                                                       std::get<2>(generated_path.value().back()),
-                                                       std::get<3>(generated_path.value().back()));
+        if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
+            RCLCPP_INFO(this->get_logger(), "Generated path with size %d",
+                        gen_path_opt.value().size());
+
+            this->current_goal_location = std::tuple<float, float, float, float>(
+                std::get<0>(gen_path_opt.value().back()), std::get<1>(gen_path_opt.value().back()),
+                std::get<2>(gen_path_opt.value().back()), std::get<3>(gen_path_opt.value().back()));
             // publish the path
-            airstack_msgs::msg::TrajectoryXYZVYaw path_msg;
-            path_msg.header.stamp = this->now();
-            path_msg.header.frame_id = world_frame_id_;
-            for (auto point : generated_path.value()) {
+            this->generated_path = airstack_msgs::msg::TrajectoryXYZVYaw();
+            this->generated_path.header.stamp = this->now();
+            this->generated_path.header.frame_id = world_frame_id_;
+            for (auto point : gen_path_opt.value()) {
                 airstack_msgs::msg::WaypointXYZVYaw point_msg;
                 point_msg.position.x = std::get<0>(point);
                 point_msg.position.y = std::get<1>(point);
                 point_msg.position.z = std::get<2>(point);
                 point_msg.yaw = std::get<3>(point);
-                path_msg.waypoints.push_back(point_msg);
+                this->generated_path.waypoints.push_back(point_msg);
             }
-            pub_global_path->publish(path_msg);
-            pub_goal_point->publish(path_msg.waypoints.back().position);
+            if (this->publish_visualizations) {
+                this->pub_global_path->publish(this->generated_path);
+                this->pub_goal_point->publish(createGoalPointMarker());
+                this->pub_trajectory_lines->publish(createTrajectoryLineMarker());
+            }
+            RCLCPP_INFO(this->get_logger(), "Published path and goal point at %f, %f, %f",
+                        this->generated_path.waypoints.back().position.x,
+                        this->generated_path.waypoints.back().position.y,
+                        this->generated_path.waypoints.back().position.z);
             this->is_path_executing = true;
-            RCLCPP_INFO(this->get_logger(), "Generated path");
         } else {
             RCLCPP_ERROR(this->get_logger(), "Failed to generate path, size was 0");
         }
@@ -99,6 +108,17 @@ void RandomWalkNode::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr m
     }
 }
 
+void RandomWalkNode::timerCallback() {
+    if (this->is_path_executing && this->publish_visualizations) {
+        RCLCPP_INFO(this->get_logger(), "Publishing visualizations...");
+        visualization_msgs::msg::Marker goal_point_msg = createGoalPointMarker();
+        this->pub_goal_point->publish(goal_point_msg);
+
+        visualization_msgs::msg::Marker trajectory_line_msg = createTrajectoryLineMarker();
+        this->pub_trajectory_lines->publish(trajectory_line_msg);
+    }
+}
+
 std::optional<init_params> RandomWalkNode::readParameters() {
     // Read in parameters based off the default yaml file
     init_params params;
@@ -117,6 +137,11 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_goal_point_topic");
         return std::optional<init_params>{};
     }
+    this->declare_parameter<std::string>("pub_trajectory_lines_topic");
+    if (!this->get_parameter("pub_trajectory_lines_topic", this->pub_trajectory_lines_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_trajectory_lines_topic");
+        return std::optional<init_params>{};
+    }
     this->declare_parameter<std::string>("sub_vdb_map_topic");
     if (!this->get_parameter("sub_vdb_map_topic", this->sub_vdb_map_topic_)) {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_vdb_map_topic");
@@ -125,6 +150,11 @@ std::optional<init_params> RandomWalkNode::readParameters() {
     this->declare_parameter<std::string>("sub_odometry_topic");
     if (!this->get_parameter("sub_odometry_topic", this->sub_odometry_topic_)) {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_odometry_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<bool>("publish_visualizations");
+    if (!this->get_parameter("publish_visualizations", this->publish_visualizations)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: publish_visualizations");
         return std::optional<init_params>{};
     }
     this->declare_parameter<float>("max_start_to_goal_dist_m");
@@ -163,6 +193,59 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         return std::optional<init_params>{};
     }
     return params;
+}
+
+visualization_msgs::msg::Marker RandomWalkNode::createTrajectoryLineMarker() {
+    visualization_msgs::msg::Marker trajectory_line_msg;
+    trajectory_line_msg.header.frame_id = this->world_frame_id_;
+    trajectory_line_msg.header.stamp = this->now();
+    trajectory_line_msg.ns = "trajectory_line";
+    trajectory_line_msg.id = 0;
+    trajectory_line_msg.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    trajectory_line_msg.action = visualization_msgs::msg::Marker::ADD;
+    trajectory_line_msg.pose.orientation.w = 1.0;
+    trajectory_line_msg.scale.x = 0.1;
+    trajectory_line_msg.color.a = 1.0;
+    trajectory_line_msg.color.r = 1.0;
+    trajectory_line_msg.color.g = 0.0;
+    trajectory_line_msg.color.b = 0.0;
+    if (this->generated_path.waypoints.size() > 0) {
+        // RCLCPP_INFO(this->get_logger(), "Creating trajectory line with %d points...",
+        //             this->generated_path.waypoints.size());
+        for (auto point : this->generated_path.waypoints) {
+            geometry_msgs::msg::Point p;
+            p.x = point.position.x;
+            p.y = point.position.y;
+            p.z = point.position.z;
+            trajectory_line_msg.points.push_back(p);
+        }
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "No points in the path");
+    }
+    return trajectory_line_msg;
+}
+
+visualization_msgs::msg::Marker RandomWalkNode::createGoalPointMarker() {
+    visualization_msgs::msg::Marker goal_point_msg;
+    goal_point_msg.header.frame_id = this->world_frame_id_;
+    goal_point_msg.header.stamp = this->now();
+    goal_point_msg.ns = "goal_point";
+    goal_point_msg.id = 0;
+    goal_point_msg.type = visualization_msgs::msg::Marker::SPHERE;
+    goal_point_msg.action = visualization_msgs::msg::Marker::ADD;
+    geometry_msgs::msg::Point goal_point = geometry_msgs::msg::Point();
+    goal_point.x = std::get<0>(this->current_goal_location);
+    goal_point.y = std::get<1>(this->current_goal_location);
+    goal_point.z = std::get<2>(this->current_goal_location);
+    goal_point_msg.pose.position = goal_point;
+    goal_point_msg.scale.x = 0.1;
+    goal_point_msg.scale.y = 0.1;
+    goal_point_msg.scale.z = 0.1;
+    goal_point_msg.color.a = 1.0;
+    goal_point_msg.color.r = 0.0;
+    goal_point_msg.color.g = 1.0;
+    goal_point_msg.color.b = 0.0;
+    return goal_point_msg;
 }
 
 int main(int argc, char *argv[]) {
