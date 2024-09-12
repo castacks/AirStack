@@ -1,0 +1,15 @@
+
+[package]
+    archivePath = "https://d4i3qtqj3r0z5.cloudfront.net/airlab.airstack-1.19.1%2B106.0.0.zip"
+
+    [package.target]
+
+        [package.target.kit]
+            0 = "106.0.0"
+
+    [package.publish]
+        kitVersion = "106.0.0+release.150297.117a1e58.tc"
+        date = 1717154098
+        buildNumber = "23-06+release.6045.50ffb622.gl"
+        repoName = "kit-omnigraph"
+        signed = 1

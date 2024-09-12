@@ -37,6 +37,11 @@ category = "Example"
 # Keywords for the extension
 keywords = ["kit", "example"]
 
+# Watch the .ogn files for hot reloading (only works for Python files)
+[fswatcher.patterns]
+include = ["*.ogn", "*.py"]
+exclude = ["Ogn*Database.py"]
+
 # Preview image and icon. Folder named "data" automatically goes in git lfs (see .gitattributes file).
 # Preview image is shown in "Overview" of Extensions window. Screenshot of an extension might be a good preview image.
 preview_image = "data/preview.png"
@@ -47,6 +52,8 @@ icon = "data/icon.png"
 # Use omni.ui to build simple UI
 [dependencies]
 "omni.kit.uiapp" = {}
+"omni.kit.test" = {}
+"omni.graph" = {}
 
 # Main python module this extension provides, it will be publicly available as "import airlab.tmux_manager".
 [[python.module]]

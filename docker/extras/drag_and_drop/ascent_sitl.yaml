@@ -13,5 +13,5 @@ windows:
         - mavproxy.py --streamrate=100 --master tcp:127.0.0.1:$BASE_PORT --out udp:127.0.0.1:$ASCENT_SITL_PORT --out udp:127.0.0.1:$ISAAC_SIM_PORT --out udp:127.0.0.1:$AUTONOMY_STACK_PORT
       - shell_command:
         - sleep 5
-        - export ROS_DOMAIN_ID=$ROBOT_NUM
-        - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=robot$ROBOT_NUM/mavros
+        - export ROS_DOMAIN_ID=$DOMAIN_ID
+        - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/mavros use_sim_time:=true
