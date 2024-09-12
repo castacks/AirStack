@@ -46,9 +46,22 @@ ament_target_dependencies(random_walk_planner
 
 # Install executable
 install(TARGETS
-random_walk_planner
+  random_walk_planner
   DESTINATION lib/${PROJECT_NAME}
 )
+
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME})
+
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME})
+
+install(DIRECTORY
+  src
+  DESTINATION share/${PROJECT_NAME})
+
 
 #############
 ## Testing ##
@@ -59,8 +72,3 @@ random_walk_planner
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_node)
 # endif()
-
-# Install launch files and other necessary files
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}/
-)

@@ -12,13 +12,17 @@ RandomWalkPlanner::RandomWalkPlanner(init_params params) {
 }
 
 std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
-    std::tuple<float, float, float, float> start_point) {
-    std::optional<Path> path;
+    std::tuple<float, float, float, float> start_point, float timeout_duration) {
     std::tuple<float, float, float> start_point_wo_yaw(
         std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
-
+    std::optional<Path> path;
     bool is_goal_point_valid = false;
-    while (!is_goal_point_valid) {
+    // get start time
+    const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
+    std::cout << "Starting path searching" << std::endl;
+    while (!is_goal_point_valid && std::chrono::duration_cast<std::chrono::seconds>(
+                                       std::chrono::steady_clock::now() - start_time)
+                                           .count() < timeout_duration) {
         std::tuple<float, float, float> goal_point = generate_goal_point(start_point_wo_yaw);
         if (std::get<2>(goal_point) == -1) {
             std::cout << "No valid goal point found" << std::endl;
@@ -29,6 +33,7 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
         float z_diff = std::get<2>(goal_point) - std::get<2>(start_point_wo_yaw);
         float yaw = std::atan2(y_diff, x_diff);
 
+        path = Path();
         std::tuple<float, float, float, float> first_point(
             std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point), yaw);
         path.value().push_back(first_point);
@@ -52,7 +57,11 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
             is_goal_point_valid = true;
         }
     }
-    return path;
+    if (!is_goal_point_valid) {
+        return std::nullopt;
+    } else {
+        return path;
+    }
 }
 
 bool RandomWalkPlanner::check_if_collided_single_voxel(

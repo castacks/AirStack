@@ -16,7 +16,7 @@ typedef std::vector<std::tuple<float, float, float, float>> Path;  // x, y, z, y
 struct init_params {
     float max_start_to_goal_dist_m;
     float max_angle_change_deg;
-    float checking_point_cnt;
+    int checking_point_cnt;
     float waypoint_dist_m;
     float max_z_m;
     float collision_padding_m;
@@ -31,7 +31,8 @@ class RandomWalkPlanner {
     ~RandomWalkPlanner() = default;
 
     std::optional<Path> generate_straight_rand_path(
-        std::tuple<float, float, float, float> start_point);
+        std::tuple<float, float, float, float> start_point,
+        float timeout_duration = 1.0);  // x, y, z, yaw
 
     std::vector<std::tuple<float, float, float>> voxel_points;
 
@@ -41,7 +42,7 @@ class RandomWalkPlanner {
     // Numerical constants
     float max_start_to_goal_dist_m_;
     float max_angle_change_deg_;
-    float checking_point_cnt;
+    int checking_point_cnt;
     float waypoint_dist_m_;
     float max_z_m_;
     float collision_padding_m;

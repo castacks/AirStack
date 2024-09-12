@@ -10,18 +10,13 @@
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
+#include "geometry_msgs/msg/point.hpp"
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class RandomWalkNode : public rclcpp::Node {
    private:
-    // ROS subscribers
-    rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_vdb_map;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odometry;
-
-    // ROS publishers
-    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr pub_global_path;
 
     // Planner
     RandomWalkPlanner random_walk_planner;
@@ -29,6 +24,7 @@ class RandomWalkNode : public rclcpp::Node {
     // String constants
     std::string world_frame_id_;
     std::string pub_global_path_topic_;
+    std::string pub_goal_point_topic_;
     std::string sub_vdb_map_topic_;
     std::string sub_odometry_topic_;
 
@@ -39,13 +35,13 @@ class RandomWalkNode : public rclcpp::Node {
     bool is_path_executing = false;
     bool received_first_map = false;
     bool received_first_odometry = false;
-    std::tuple<float, float, float, float> current_location;  // x, y, z, yaw
+    std::tuple<float, float, float, float> current_location;       // x, y, z, yaw
     std::tuple<float, float, float, float> current_goal_location;  // x, y, z, yaw
 
     // Callbacks
-    void vdbmapCallback(const visualization_msgs::msg::Marker &msg);
+    void vdbmapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
 
-    void odometryCallback(const nav_msgs::msg::Odometry &msg);
+    void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     // Other functions
     std::optional<init_params> readParameters();
@@ -53,6 +49,14 @@ class RandomWalkNode : public rclcpp::Node {
    public:
     RandomWalkNode();
     ~RandomWalkNode() = default;
+
+    // ROS subscribers
+    rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_vdb_map;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odometry;
+
+    // ROS publishers
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr pub_global_path;
+    rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr pub_goal_point;
 };
 
 #endif  // RANDOM_WALK_NODE_H
