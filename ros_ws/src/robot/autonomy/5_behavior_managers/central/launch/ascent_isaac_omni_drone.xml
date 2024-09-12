@@ -1,0 +1,36 @@
+<launch>
+  
+  <!-- Simulator -->
+  <set_env name="OMNI_KIT_ALLOW_ROOT" value="1" />
+  <node name="isaacsim" pkg="isaacsim" exec="run_isaacsim.py" output="screen">
+    <param name="install_path" value="/isaac-sim" />
+    <param name="gui" value="omniverse://128.237.74.43/Library/Assets/Ascent_Aerosystems/Spirit_UAV/two_ascent_fire_academy.usd" />
+    <param name="play_sim_on_start" value="true" />
+    <param name="isaac_args" value="--/app/scripting/ignoreWarningDialog=true" />
+  </node>
+  
+  <group>
+    <set_env name="ROS_DOMAIN_ID" value="51" />
+    <push_ros_namespace namespace="robot1" />
+    <set_parameter name="use_sim_time" value="true" />
+    <include file="$(find-pkg-share central)/launch/ascent_drone.xml" />
+    
+    <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node" />
+    <node name="disparity_view" pkg="image_view" exec="disparity_view">
+      <remap from="image" to="disparity" />
+    </node>
+  </group>
+
+  <group>
+    <set_env name="ROS_DOMAIN_ID" value="52" />
+    <push_ros_namespace namespace="robot2" />
+    <set_parameter name="use_sim_time" value="true" />
+    <include file="$(find-pkg-share central)/launch/ascent_drone.xml" />
+    
+    <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node" />
+    <node name="disparity_view" pkg="image_view" exec="disparity_view">
+      <remap from="image" to="disparity" />
+    </node>
+  </group>
+  
+</launch>
