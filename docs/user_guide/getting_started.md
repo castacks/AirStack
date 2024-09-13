@@ -12,10 +12,28 @@ Have an NVIDIA GPU >= RTX 3070 to run Isaac Sim locally.
 ```
 git clone --recursive -j8 git@github.com:castacks/AirStack.git
 ```
+### Docker
+Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This should come installed with docker compose.
 
-There are two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry.
+### Running.
+Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be  useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
-### Option 1: Setup from scratch
+### Option 1 (Preferred): Use the Airlab Docker registry
+
+To use the AirLab docker registry do the following
+```bash
+cd AirStack/docker/
+docker login airlab-storage.andrew.cmu.edu:5001
+## <Enter your andrew id (without @andrew.cmu.edu)>
+## <Enter your andrew password>
+
+## Pull the images in the docker compose file
+docker compose pull 
+```
+When you execute docker compose pull in the next step the image will be pulled from the server automatically. This might take a while since the image is large.
+
+
+### Option 2: Setup from scratch
 #### Omniverse
 Install the Omniverse launcher download from this link:
 
@@ -25,7 +43,18 @@ wget https://install.launcher.omniverse.nvidia.com/installers/omniverse-launcher
 
 Follow these instructions to setup Nucleus : https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
 
-#### SITL
+
+-
+#### Build and run the Docker image
+ Gain access to NVIDIA NGC Containers by following [these instructions](https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html)
+
+```bash
+cd AirStack/docker/
+## build the image, it is named airlab-autonomy-dev:latest
+docker compose --profile build build
+```
+
+## SITL (Required until we add to docker image)
 If you are using the Ascent Spirit drone download the SITL software packages from this link:
 https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link
 
@@ -36,39 +65,14 @@ cd AirStack/simulation/AscentAeroSystems
 unzip ~/Downloads/AscentAeroSystemsSITLPackage.zip -d .
 ```
 
-#### Docker
-- Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This should come installed with docker compose.
-- Gain access to NVIDIA NGC Containers by following [these instructions](https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html)
-
-#### Build and run the Docker image
-
-```bash
-cd AirStack/docker/
-## build the image, it is named airlab-autonomy-dev:latest
-docker compose --profile build build
-## start docker compose service/container
-docker compose up -d
-```
-### Option 2: Use the Airlab Docker registry
-
-To use the AirLab docker registry do the following
-```bash
-cd AirStack/docker/
-docker login airlab-storage.andrew.cmu.edu:5001
-## <Enter your andrew id (without @andrew.cmu.edu)>
-## <Enter your andrew password>
-
-## start docker compose service/container
-docker compose up -d
-
-```
-When you execute docker compose up in the next step the image will be pulled from the server automatically. This might take a while since the image is large.
 
 ## Launch
 
 Launch autonomy stack controls package:
 
 ```bash
+## start docker compose service/container 
+docker compose up -d
 # start a new terminal in docker container
 docker compose exec airstack_dev bash
 

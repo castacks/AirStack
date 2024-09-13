@@ -89,6 +89,8 @@ RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit
 
 RUN pip3 install PyYAML mavproxy tmuxp
 
-COPY ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage /extras/drag_and_drop/AscentAeroSystemsSITLPackage
+#In future copy over the AscentAeroSystemsSITLPackage to the drag and drop folder but also need to copy extras folder for this
+#ADD docker/extras /extras
+#ADD simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage /extras/drag_and_drop/
 
 WORKDIR /root/AirStack

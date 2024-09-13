@@ -56,7 +56,7 @@ services:
       - ./extras:/extras:rw
       - ./extras/inputrc:/etc/inputrc
       - ../ros_ws:/extras/ros_ws
-      #- ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage:/extras/drag_and_drop/AscentAeroSystemsSITLPackage Already copying the sim in during dockerfile build
+      - ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage:/extras/drag_and_drop/AscentAeroSystemsSITLPackage Already copying the sim in during dockerfile build
       # developer stuff
       #- ../simulation/extension_docker/extras/.bashrc:/root/.bashrc
       - .bashrc:/root/.bashrc:rw # bash config
