@@ -29,8 +29,8 @@ services:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
       # Omniverse Nucleus stuff
-      # - OMNI_USER="$$omni-api-token" # need a double dollar sign here so docker compose doesn't try to interpret it https://stackoverflow.com/a/40621373
-      # - OMNI_PASS=$(cat ./../nucleus_token.txt)  # this didn't work, used ~/.bashrc instead. echo 'export OMNI_PASS=$(cat ~/AirStack/nucleus_token.txt)' >> ~/.bashrc
+      - OMNI_USER=$OMNI_USER # need a double dollar sign here so docker compose doesn't try to interpret it https://stackoverflow.com/a/40621373
+      - OMNI_PASS=$OMNI_PASS # this didn't work, used ~/.bashrc instead. echo 'export OMNI_PASS=$(cat ~/AirStack/nucleus_token.txt)' >> ~/.bashrc
     deploy:
       resources:
         reservations:

@@ -65,14 +65,21 @@ cd AirStack/simulation/AscentAeroSystems
 unzip ~/Downloads/AscentAeroSystemsSITLPackage.zip -d .
 ```
 
+## Configure 
+
+Follow the instructions in airstack.env too configure the various required settings such as your nucelus server token in
+```bash
+docker/airstack.env
+```
 
 ## Launch
 
 Launch autonomy stack controls package:
 
 ```bash
+cd docker
 ## start docker compose service/container 
-docker compose up -d
+docker compose --env-file=./airstack.env up -d
 # start a new terminal in docker container
 docker compose exec airstack_dev bash
 
@@ -87,8 +94,7 @@ Launch simulator (Isaac Sim and Ascent SITL):
 xhost +  ## allow Docker access to Linux X-Server
 # start another terminal in docker container
 docker compose exec airstack_dev bash
-
-# in docker
+# Make sure you configure your login token for the nucleus server in airstack.env since login via a weblogin is not possible on docker.
 ISAACSIM_PYTHON simulation/launch_sim.py
 ```
 
@@ -109,4 +115,10 @@ ros2 service call /robot1/controls/mavros/cmd/takeoff mavros_msgs/srv/CommandTOL
 ros2 topic pub /controls/mavros/setpoint_position/local geometry_msgs/PoseStamped \
     "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'base_link' }, \
     pose: { position: { x: 10.0, y: 0.0, z: 20.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } } }" -1
+```
+## Shutdown
+
+To shutdown the docker container execute
+```bash
+docker compose --env-file=./airstack.env down
 ```
