@@ -1,18 +1,18 @@
 # docker compose file
 services:
   build:
-    profiles: ["build"]
-    image: theairlab.org/airstack-dev
+    profiles: [ "build" ]
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev
     build:
       context: ../
       dockerfile: docker/Dockerfile
       tags:
-        - theairlab.org/airstack-dev:latest
-        - theairlab.org/airstack-dev:0.3.0
+        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
+        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:0.3.0
 
   # main dev container
   airstack_dev:
-    image: theairlab.org/airstack-dev:latest
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
     container_name: airstack_dev
     entrypoint: bash
     # Interactive shell
@@ -37,7 +37,7 @@ services:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
@@ -56,7 +56,7 @@ services:
       - ./extras:/extras:rw
       - ./extras/inputrc:/etc/inputrc
       - ../ros_ws:/extras/ros_ws
-      - ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage:/extras/drag_and_drop/AscentAeroSystemsSITLPackage
+      #- ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage:/extras/drag_and_drop/AscentAeroSystemsSITLPackage Already copying the sim in during dockerfile build
       # developer stuff
       #- ../simulation/extension_docker/extras/.bashrc:/root/.bashrc
       - .bashrc:/root/.bashrc:rw # bash config
@@ -66,7 +66,7 @@ services:
 
   # live mkdocs container
   airlab_mkdocs:
-    image: theairlab.org/airstack-dev:latest
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
     container_name: airstack_mkdocs
     entrypoint: mkdocs serve
     tty: true
