@@ -1,0 +1,20 @@
+/**:
+  ros__parameters:
+    world_frame_id: "/sim_lidar"
+    pub_global_path_topic: "/robot1/global/planning/trajectory"
+    pub_goal_point_topic: "/robot1/global/planning/goal_point"
+    pub_trajectory_lines_topic: "/robot1/global/planning/traj_viz"
+    sub_vdb_map_topic: "/vdb_mapping/vdb_map_visualization"
+    sub_odometry_topic: "/odom"
+
+    publish_visualizations: true
+
+    # Constants
+    max_start_to_goal_dist_m: 3.5 # how far away the goal waypoint could be
+    max_angle_change_deg: 30.0 # degrees, + and - from horizontal
+    checking_point_cnt: 1000 #cnt, how many points to check between each waypoint
+    waypoint_dist_m: 1.0 # waypoint is this far away
+    max_z_m: 0.1 # max z distance that the goal position can be 
+    collision_padding_m: 0.1 # how far away from the obstacle to plan
+    path_end_threshold_m: 0.1 # how close to the goal to stop
+
