@@ -22,6 +22,9 @@ wget https://install.launcher.omniverse.nvidia.com/installers/omniverse-launcher
 
 Follow these instructions to setup Nucleus : https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
 
+Follow these instructions to create a nucleus token: https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html
+Create a file `AirStack/developer/nucleus_token.txt` and paste in your token.
+
 ### SITL
 If you are using the Ascent Spirit drone download the SITL software packages from this link:
 https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link

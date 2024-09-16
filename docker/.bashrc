@@ -150,4 +150,12 @@ function cws(){
     fi
 }
 
-sws
+sws # source the workspace by default
+
+# for local development, prevent conflict with other desktops
+export ROS_LOCALHOST_ONLY=1
+
+# omniverse
+export OMNI_USER='$omni-api-token'
+export OMNI_PASS=$(cat ~/AirStack/developer/nucleus_token.txt)
+
