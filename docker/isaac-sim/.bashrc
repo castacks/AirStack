@@ -109,7 +109,7 @@ source /opt/ros/humble/setup.bash
 export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/fastdds.xml"
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # for local development, prevent conflict with other desktops
-# export ROS_LOCALHOST_ONLY=1
+export ROS_LOCALHOST_ONLY=1
 
 # --- Isaac Setup ---
 alias runapp=/isaac-sim/runapp.sh
