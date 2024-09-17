@@ -1,3 +1,4 @@
+# ========== BASHRC FOR ROBOT DOCKER CONTAINER ==========
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
@@ -50,9 +51,9 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='[DOCKER]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    PS1='[$ROBOT_NAME]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 else
-    PS1='[DOCKER]${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1='[$ROBOT_NAME]${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -87,6 +88,9 @@ alias l='ls -CF'
 # ~/.bash_aliases, instead of adding them here directly.
 # See /usr/share/doc/bash-doc/examples in the bash-doc package.
 
+alias emacs='emacs -nw'
+alias sis='source install/setup.bash'
+
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
@@ -97,22 +101,23 @@ fi
 #if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
 #    . /etc/bash_completion
 #fi
-alias runapp=/isaac-sim/runapp.sh
-alias runheadless.native=/isaac-sim/runheadless.native.sh
-alias runheadless.webrtc=/isaac-sim/runheadless.webrtc.sh
 
-source /opt/ros/humble/setup.bash
+# --- ROS2 workspace setup ---
+
+# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
 export FASTRTPS_DEFAULT_PROFILES_FILE="/root/AirStack/ros_ws/fastdds.xml"
 
-export ISAACSIM_PATH=/isaac-sim
-alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"
-alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"
-
-alias emacs='emacs -nw'
-alias sis='source install/setup.bash'
 
 # Define the ROS2 workspace directory
 ROS2_WS_DIR="$HOME/AirStack/ros_ws"
+# for local development, prevent conflict with other desktops
+export ROS_LOCALHOST_ONLY=1
+
+# fix ROS2 humble setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
+PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"
+export PYTHONWARNINGS
+
+# Convenience functions for ROS2 workspace
 
 function bws(){
     echo "Running \`colcon build\` in $ROS2_WS_DIR"
@@ -124,7 +129,7 @@ function sws(){
 }
 
 # Function to prompt user for confirmation
-confirm() {
+confirm_cws() {
     while true; do
         read -p "Are you sure you want to clean the ROS2 workspace under $ROS2_WS_DIR? (y/N): " yn
         yn=${yn:-no} # Default to 'no' if no answer is given
@@ -137,7 +142,7 @@ confirm() {
 }
 function cws(){
     # Call the confirmation function
-    if confirm; then
+    if confirm_sws; then
         echo "Cleaning ROS2 workspace..."
         set -x
         rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/
@@ -150,12 +155,13 @@ function cws(){
     fi
 }
 
-sws # source the workspace by default
+source /opt/ros/humble/setup.bash
+sws # source the ROS2 workspace by default
 
-# for local development, prevent conflict with other desktops
-export ROS_LOCALHOST_ONLY=1
+container_name=$(curl -s --unix-socket /var/run/docker.sock http://localhost/containers/$HOSTNAME/json | jq -r .Name)
 
-# omniverse
-export OMNI_USER='$omni-api-token'
-export OMNI_PASS=$(cat ~/AirStack/developer/nucleus_token.txt)
+ROBOT_NAME=$(echo "$container_name" | sed 's#/docker-##')
+ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'-' '{print $NF}')
 
+export ROBOT_NAME
+export ROS_DOMAIN_ID

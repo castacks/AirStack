@@ -1,20 +1,15 @@
 # docker compose file
 services:
-  build:
-    profiles: ["build"]
-    image: theairlab.org/airstack-dev
+  # simulation container
+  isaac-sim:
     build:
       context: ../
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/isaac-sim/Dockerfile
       tags:
-        - theairlab.org/airstack-dev:latest
-        - theairlab.org/airstack-dev:0.3.0
-
-  # main dev container
-  airstack_dev:
-    image: theairlab.org/airstack-dev:latest
-    container_name: airstack_dev
-    entrypoint: bash
+        - airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim-4.1.0_ros-humble:latest
+    image: airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim-4.1.0_ros-humble:latest
+    container_name: isaac-sim
+    entrypoint: /isaac-sim/runapp.sh
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -23,6 +18,7 @@ services:
     ipc: host
     # Needed to display graphical applications
     privileged: true
+    env_file: ./isaac-sim/omni_pass.env
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
@@ -47,28 +43,66 @@ services:
       - ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw
       - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
       - ~/docker/isaac-sim/documents:/root/Documents:rw
-      # autonomy stack stuff
-      - ./..:/root/AirStack:rw
+      # developer stuff
+      - ./isaac-sim/.bashrc:/root/.bashrc:rw # bash config
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+      # code
       - ./extras/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ./extras:/extras:rw
       - ./extras/inputrc:/etc/inputrc
-      - ../ros_ws:/extras/ros_ws
       - ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage:/extras/drag_and_drop/AscentAeroSystemsSITLPackage
-      # developer stuff
-      #- ../simulation/extension_docker/extras/.bashrc:/root/.bashrc
-      - .bashrc:/root/.bashrc:rw # bash config
-      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
 
+  # robot container
+  robot:
+    build:
+      context: ../
+      dockerfile: docker/robot/Dockerfile
+      tags:
+        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
+        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:0.3.0
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
+    entrypoint: bash
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Networking and IPC for ROS 2
+    # network_mode: host
+    # ipc: host
+    # Needed to display graphical applications
+    privileged: true
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      # developer stuff
+      - ./robot/.bashrc:/root/.bashrc:rw # bash config
+      - ./robot/entrypoint.bash:/entrypoint.bash:rw # bash entrypoint
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # autonomy stack stuff
+      - ./..:/root/AirStack:rw
     restart: unless-stopped
 
   # live mkdocs container
   airlab_mkdocs:
-    image: theairlab.org/airstack-dev:latest
-    container_name: airstack_mkdocs
-    entrypoint: mkdocs serve
-    tty: true
-    network_mode: "host"
+    image: squidfunk/mkdocs-material
+    container_name: docs
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # network_mode: host
+    ports:
+      - "8000:8000"
     volumes:
       # autonomy stack stuff
-      - ./..:/root/AirStack:rw
+      - ../:/docs:rw
     restart: unless-stopped
