@@ -1,3 +1,4 @@
+# Assumes build context to be the repository root
 FROM nvcr.io/nvidia/isaac-sim:4.1.0
 
 WORKDIR /isaac-sim
@@ -47,6 +48,9 @@ RUN apt purge -y git
 
 RUN /isaac-sim/python.sh -m pip install PyYAML mavproxy tmuxp scipy
 
+# copy over the AscentAeroSystemsSITLPackage to the drag and drop folder but also need to copy extras folder for this
+ADD docker/extras /extras
+COPY docker/isaac-sim/AscentAeroSystemsSITLPackage /extras/drag_and_drop/
 
 # Cleanup
 RUN apt autoremove -y \

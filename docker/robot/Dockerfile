@@ -3,17 +3,6 @@ FROM osrf/ros:humble-desktop-full
 
 WORKDIR /root/AirStack
 
-ENV NVIDIA_VISIBLE_DEVICES \
-    ${NVIDIA_VISIBLE_DEVICES:-all}
-ENV NVIDIA_DRIVER_CAPABILITIES \
-    ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
-ENV QT_X11_NO_MITSHM=1
-ENV EDITOR=nano
-ENV XDG_RUNTIME_DIR=/tmp
-
-COPY docker/robot/entrypoint.bash /entrypoint.bash
-
-
 RUN apt update
 # Install dev tools
 RUN apt install -y \

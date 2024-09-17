@@ -71,40 +71,37 @@ To generate a token, follow the NVIDIA docs [here](https://docs.omniverse.nvidia
 
 ## Launch
 
-Launch autonomy stack controls package:
+Launch everything, including simulator, autonomy stack, and documentation server:
 
 ```bash
+xhost +  # allow docker access to X-Server
+
 cd docker
+
 # start docker compose service. feel free to change the number of robots
-N_ROBOTS=2
-docker compose up -d --scale robot=$N_ROBOTS
+N_ROBOTS=2 docker compose up -d --scale robot=$N_ROBOTS
 # view running containers
 docker ps -a
 # attach to an existing container
 docker attach docker-robot-1
-# start a new bash terminal in existing service, e.g. in the isaac-sim service
-docker compose exec isaac-sim bash
 
 # in docker
 bws && sws ## build workspace and source workspace. these are aliases in ~/.bashrc
 ros2 launch robot_bringup launch_robot.yaml
 ```
 
-Launch simulator (Isaac Sim and Ascent SITL):
+(Optional) If you close the simulator, you can relaunch it:
 
 ```bash
-xhost +  ## allow Docker access to Linux X-Server
 # start another terminal in docker container
-docker compose exec airstack_dev bash
-# Make sure you configure your login token for the nucleus server in airstack.env since login via a weblogin is not possible on docker.
-ISAACSIM_PYTHON simulation/launch_sim.py
+docker compose up isaac-sim
 ```
 
-## Move Robot
+## Move Robot (THIS NEEDS UPDATES)
 
 ```bash
 # start another terminal in docker container
-docker compose exec airstack_dev bash
+docker attach docker-robot-1
 
 # in docker
 # set drone mode to GUIDED
@@ -120,7 +117,12 @@ ros2 topic pub /controls/mavros/setpoint_position/local geometry_msgs/PoseStampe
 ```
 ## Shutdown
 
-To shutdown the docker container execute
+To pause containers:
 ```bash
-docker compose --env-file=./airstack.env down
+docker compose stop
+```
+
+To shutdown and remove docker containers:
+```bash
+docker compose down
 ```
