@@ -2,4 +2,4 @@
 
 __all__ = []
 
-from ._impl.extension import _PublicExtension  # noqa: F401
+from .impl.extension import _PublicExtension  # noqa: F401
