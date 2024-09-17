@@ -30,7 +30,7 @@ services:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
