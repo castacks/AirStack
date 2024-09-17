@@ -79,7 +79,7 @@
             "plugin": {
               "keys": {
                 "config_filename": {
-                  "repr": "'/extras/ros_ws/install/rqt_behavior_tree_command/share/rqt_behavior_tree_command/config/gui_config.yaml'",
+                  "repr": "'/root/AirStack/ros_ws/install/rqt_behavior_tree_command/share/rqt_behavior_tree_command/config/gui_config.yaml'",
                   "type": "repr"
                 }
               },
