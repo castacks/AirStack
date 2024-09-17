@@ -15,9 +15,7 @@ typedef std::vector<std::tuple<float, float, float, float>> Path;  // x, y, z, y
 
 struct init_params {
     float max_start_to_goal_dist_m;
-    float max_angle_change_deg;
     int checking_point_cnt;
-    float waypoint_dist_m;
     float max_z_m;
     float collision_padding_m;
     float path_end_threshold_m;
@@ -41,9 +39,7 @@ class RandomWalkPlanner {
    private:
     // Numerical constants
     float max_start_to_goal_dist_m_;
-    float max_angle_change_deg_;
     int checking_point_cnt;
-    float waypoint_dist_m_;
     float max_z_m_;
     float collision_padding_m;
 
