@@ -66,8 +66,8 @@ services:
     stdin_open: true # docker run -i
     tty: true # docker run -t
     # Networking and IPC for ROS 2
-    # network_mode: host
-    # ipc: host
+    network_mode: host
+    ipc: host
     # Needed to display graphical applications
     privileged: true
     environment:
