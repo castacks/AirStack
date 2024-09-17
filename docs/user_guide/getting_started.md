@@ -78,12 +78,12 @@ xhost +  # allow docker access to X-Server
 
 cd docker
 
-# start docker compose service. feel free to change the number of robots
-N_ROBOTS=2 docker compose up -d --scale robot=$N_ROBOTS
+# start docker compose services
+docker compose up -d
 # view running containers
 docker ps -a
 # attach to an existing container
-docker attach docker-robot-1
+docker compose exec robot-1 bash
 
 # in docker
 bws && sws ## build workspace and source workspace. these are aliases in ~/.bashrc
@@ -103,7 +103,7 @@ runapp
 
 ```bash
 # start another terminal in docker container
-docker attach docker-robot-1
+docker compose exec robot-1 bash
 
 # in docker
 # set drone mode to GUIDED

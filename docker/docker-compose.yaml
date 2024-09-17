@@ -1,6 +1,7 @@
 # docker compose file
 services:
-  # simulation container
+
+# ==============================================================================
   isaac-sim:
     build:
       context: ../
@@ -54,8 +55,9 @@ services:
       - ./extras/inputrc:/etc/inputrc
       - ./../simulation/AscentAeroSystems/AscentAeroSystemsSITLPackage:/extras/drag_and_drop/AscentAeroSystemsSITLPackage
 
+# ==============================================================================
   # robot container
-  robot:
+  robot-1:
     build:
       context: ../
       dockerfile: docker/robot/Dockerfile
@@ -63,18 +65,21 @@ services:
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:0.3.0
     image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
+    container_name: robot-1
     entrypoint: bash
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
     # Networking and IPC for ROS 2
-    # network_mode: host
+    network_mode: host
     ipc: host
     # Needed to display graphical applications
     privileged: true
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
+      - ROBOT_NAME=robot-1
+      - ROS_DOMAIN_ID=1
     deploy:
       resources:
         reservations:
@@ -94,6 +99,43 @@ services:
       - ./..:/root/AirStack:rw
     restart: unless-stopped
 
+  robot-2:
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
+    container_name: robot-2
+    entrypoint: bash
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Networking and IPC for ROS 2
+    network_mode: host
+    ipc: host
+    # Needed to display graphical applications
+    privileged: true
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - ROBOT_NAME=robot-2
+      - ROS_DOMAIN_ID=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      # developer stuff
+      - ./robot/.bashrc:/root/.bashrc:rw # bash config
+      - ./robot/entrypoint.bash:/entrypoint.bash:rw # bash entrypoint
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # autonomy stack stuff
+      - ./..:/root/AirStack:rw
+    restart: unless-stopped
+
+# ==============================================================================
   # live mkdocs container
   airlab_mkdocs:
     image: squidfunk/mkdocs-material
