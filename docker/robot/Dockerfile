@@ -24,7 +24,9 @@ RUN rosdep init && rosdep update && \
 RUN apt install -y \
     ros-dev-tools \
     ros-humble-mavros \ 
-    ros-humble-tf2*
+    ros-humble-tf2* \
+    ros-humble-stereo-image-proc \
+    ros-humble-image-view
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
