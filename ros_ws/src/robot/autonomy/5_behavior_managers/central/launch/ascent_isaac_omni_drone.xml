@@ -4,13 +4,13 @@
   <set_env name="OMNI_KIT_ALLOW_ROOT" value="1" />
   <node name="isaacsim" pkg="isaacsim" exec="run_isaacsim.py" output="screen">
     <param name="install_path" value="/isaac-sim" />
-    <param name="gui" value="omniverse://128.237.74.43/Library/Assets/Ascent_Aerosystems/Spirit_UAV/two_ascent_fire_academy.usd" />
+    <param name="gui" value="omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/ascent_fire_academy.usd" />
     <param name="play_sim_on_start" value="true" />
     <param name="isaac_args" value="--/app/scripting/ignoreWarningDialog=true" />
   </node>
   
   <group>
-    <set_env name="ROS_DOMAIN_ID" value="51" />
+    <set_env name="ROS_DOMAIN_ID" value="61" />
     <push_ros_namespace namespace="robot1" />
     <set_parameter name="use_sim_time" value="true" />
     <include file="$(find-pkg-share central)/launch/ascent_drone.xml" />
@@ -22,7 +22,7 @@
   </group>
 
   <group>
-    <set_env name="ROS_DOMAIN_ID" value="52" />
+    <set_env name="ROS_DOMAIN_ID" value="62" />
     <push_ros_namespace namespace="robot2" />
     <set_parameter name="use_sim_time" value="true" />
     <include file="$(find-pkg-share central)/launch/ascent_drone.xml" />
