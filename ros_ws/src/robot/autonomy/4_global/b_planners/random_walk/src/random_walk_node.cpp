@@ -162,19 +162,9 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_start_to_goal_dist_m");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<float>("max_angle_change_deg");
-    if (!this->get_parameter("max_angle_change_deg", params.max_angle_change_deg)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_angle_change_deg");
-        return std::optional<init_params>{};
-    }
     this->declare_parameter<int>("checking_point_cnt");
     if (!this->get_parameter("checking_point_cnt", params.checking_point_cnt)) {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: checking_point_cnt");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<float>("waypoint_dist_m");
-    if (!this->get_parameter("waypoint_dist_m", params.waypoint_dist_m)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: waypoint_dist_m");
         return std::optional<init_params>{};
     }
     this->declare_parameter<float>("max_z_m");
