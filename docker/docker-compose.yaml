@@ -24,7 +24,6 @@ services:
       - ACCEPT_EULA=Y
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-      - LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/isaac-sim/exts/omni.isaac.ros2_bridge/humble/lib
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
     deploy:

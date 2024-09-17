@@ -94,7 +94,9 @@ Launch Isaac Sim:
 
 ```bash
 # in another terminal
-docker compose exec isaac-sim ./runapp.sh
+docker compose exec isaac-sim bash
+# in docker
+runapp
 ```
 
 ## Move Robot (THIS NEEDS UPDATES)

@@ -2,6 +2,7 @@
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
+source /opt/ros/humble/setup.bash
 
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
@@ -107,7 +108,6 @@ source /opt/ros/humble/setup.bash
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
 export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/fastdds.xml"
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/isaac-sim/exts/omni.isaac.ros2_bridge/humble/lib
 # for local development, prevent conflict with other desktops
 # export ROS_LOCALHOST_ONLY=1
 
@@ -118,4 +118,4 @@ alias runheadless.webrtc=/isaac-sim/runheadless.webrtc.sh
 
 export ISAACSIM_PATH=/isaac-sim
 alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"
-alias ISAACSIM="${ISAACSIM_PATH}/isaac-sim.sh"
+
