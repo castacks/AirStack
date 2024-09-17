@@ -71,7 +71,7 @@ To generate a token, follow the NVIDIA docs [here](https://docs.omniverse.nvidia
 
 ## Launch
 
-Launch everything, including simulator, autonomy stack, and documentation server:
+Launch the docker services:
 
 ```bash
 xhost +  # allow docker access to X-Server
@@ -90,11 +90,11 @@ bws && sws ## build workspace and source workspace. these are aliases in ~/.bash
 ros2 launch robot_bringup launch_robot.yaml
 ```
 
-(Optional) If you close the simulator, you can relaunch it:
+Launch Isaac Sim:
 
 ```bash
-# start another terminal in docker container
-docker compose up isaac-sim
+# in another terminal
+docker compose exec isaac-sim ./runapp.sh
 ```
 
 ## Move Robot (THIS NEEDS UPDATES)

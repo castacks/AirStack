@@ -52,6 +52,8 @@ RUN /isaac-sim/python.sh -m pip install PyYAML mavproxy tmuxp scipy
 ADD docker/extras /extras
 COPY docker/isaac-sim/AscentAeroSystemsSITLPackage /extras/drag_and_drop/
 
+COPY ros_ws/fastdds.xml /isaac-sim/fastdds.xml
+
 # Cleanup
 RUN apt autoremove -y \
     && apt clean -y \

@@ -9,7 +9,7 @@ services:
         - airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim-4.1.0_ros-humble:latest
     image: airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim-4.1.0_ros-humble:latest
     container_name: isaac-sim
-    entrypoint: /isaac-sim/runapp.sh
+    entrypoint: bash
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -24,6 +24,9 @@ services:
       - ACCEPT_EULA=Y
       - DISPLAY
       - QT_X11_NO_MITSHM=1
+      - LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/isaac-sim/exts/omni.isaac.ros2_bridge/humble/lib
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
     deploy:
       resources:
         reservations:

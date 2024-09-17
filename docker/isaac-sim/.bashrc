@@ -105,9 +105,11 @@ fi
 # --- ROS2 setup ---
 source /opt/ros/humble/setup.bash
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/root/AirStack/ros_ws/fastdds.xml"
+export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/fastdds.xml"
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/isaac-sim/exts/omni.isaac.ros2_bridge/humble/lib
 # for local development, prevent conflict with other desktops
-export ROS_LOCALHOST_ONLY=1
+# export ROS_LOCALHOST_ONLY=1
 
 # --- Isaac Setup ---
 alias runapp=/isaac-sim/runapp.sh
