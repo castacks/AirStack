@@ -115,7 +115,7 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
             if (dist < this->max_start_to_goal_dist_m_) {
                 // if the point doesnt collide with any of the voxels
                 if (!(check_if_collided(rand_point))) {
-                    return rand_point
+                    return rand_point;
                 }
             }
         }

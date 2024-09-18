@@ -60,10 +60,10 @@ class RandomWalkNode : public rclcpp::Node {
 
     // ROS subscribers
     rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_robot_tf;
+    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
-    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr pub_global_path;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_path;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 
