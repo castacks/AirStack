@@ -18,7 +18,7 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
 
     this->pub_global_path =
-        this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(pub_global_path_topic_, 10);
+        this->create_publisher<nav_msgs::msg::Path>(pub_global_path_topic_, 10);
     this->pub_goal_point =
         this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_topic_, 10);
     this->pub_trajectory_lines =

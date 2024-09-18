@@ -28,7 +28,7 @@ class RandomWalkNode : public rclcpp::Node {
     std::string pub_goal_point_topic_;
     std::string pub_trajectory_lines_topic_;
     std::string sub_map_topic_;
-    std::string sub_robot_tf_topic;
+    std::string sub_robot_tf_topic_;
 
     // Variables
     init_params params;
