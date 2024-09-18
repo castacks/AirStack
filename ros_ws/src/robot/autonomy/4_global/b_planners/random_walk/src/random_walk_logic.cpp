@@ -5,9 +5,7 @@
 
 RandomWalkPlanner::RandomWalkPlanner(init_params params) {
     this->max_start_to_goal_dist_m_ = params.max_start_to_goal_dist_m;
-    this->max_angle_change_deg_ = params.max_angle_change_deg;
     this->checking_point_cnt = params.checking_point_cnt;
-    this->waypoint_dist_m_ = params.waypoint_dist_m;
     this->max_z_m_ = params.max_z_m;
     this->voxel_size_m = params.voxel_size_m;
     this->collision_padding_m = params.collision_padding_m;

@@ -3,15 +3,15 @@
 #define RANDOM_WALK_NODE_H
 
 #include <cmath>
-#include <nav_msgs/msg/Path.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
 #include <geometry_msgs/msg/point.hpp>
-#include <geometry_msgs/msg/transform.msg>
-#include <tf2_msgs/msg/TFMessage.hpp>
+#include <geometry_msgs/msg/transform.hpp>
+#include <tf2_msgs/msg/tf_message.hpp>
+#include <nav_msgs/msg/path.hpp>
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
