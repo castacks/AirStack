@@ -1,4 +1,4 @@
-# Assumes build context to be the repository root
+# expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
 FROM nvcr.io/nvidia/isaac-sim:4.1.0
 
 WORKDIR /isaac-sim
