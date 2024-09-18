@@ -12,8 +12,7 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         RCLCPP_ERROR(this->get_logger(), "Failed to initialize random walk planner");
 
     this->sub_map = this->create_subscription<visualization_msgs::msg::Marker>(
-        sub_map_topic_, 10,
-        std::bind(&RandomWalkNode::mapCallback, this, std::placeholders::_1));
+        sub_map_topic_, 10, std::bind(&RandomWalkNode::mapCallback, this, std::placeholders::_1));
     this->sub_robot_tf = this->create_subscription<tf2_msgs::msg::TFMessage>(
         sub_robot_tf_topic_, 10,
         std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
@@ -47,26 +46,39 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
                 msg->points[i].x, msg->points[i].y, msg->points[i].z));
         }
         RCLCPP_INFO(this->get_logger(), "Generating Path...");
-        std::optional<Path> gen_path_opt =
-            this->random_walk_planner.generate_straight_rand_path(this->current_location);
+        auto curr_orientation_quat = this->current_location.rotation;
+        float curr_yaw = tf2::getYaw(curr_orientation_quat);
+        std::tuple<float, float, float, float> curr_loc(std::get<0>(this->current_location),
+                                                std::get<1>(this->current_location),
+                                                std::get<2>(this->current_location),
+                                                std::get<3>(this->current_location.rotation.z));
+        std::optional<Path> gen_path_opt = this->random_walk_planner.generate_straight_rand_path(curr_loc);
         if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
             RCLCPP_INFO(this->get_logger(), "Generated path with size %d",
                         gen_path_opt.value().size());
 
-            this->current_goal_location = std::tuple<float, float, float, float>(
-                std::get<0>(gen_path_opt.value().back()), std::get<1>(gen_path_opt.value().back()),
-                std::get<2>(gen_path_opt.value().back()), std::get<3>(gen_path_opt.value().back()));
+            // set the current goal location
+            this->current_goal_location = geometry_msgs::msg::Transform();
+            this->current_goal_location.translation.x = std::get<0>(gen_path_opt.value().back());
+            this->current_goal_location.translation.y = std::get<1>(gen_path_opt.value().back());
+            this->current_goal_location.translation.z = std::get<2>(gen_path_opt.value().back());
+            this->current_goal_location.rotation.z = std::get<3>(gen_path_opt.value().back());
+
             // publish the path
-            this->generated_path = airstack_msgs::msg::TrajectoryXYZVYaw();
+            this->generated_path = nav_msgs::msg::Path();
             this->generated_path.header.stamp = this->now();
             this->generated_path.header.frame_id = world_frame_id_;
             for (auto point : gen_path_opt.value()) {
-                airstack_msgs::msg::WaypointXYZVYaw point_msg;
-                point_msg.position.x = std::get<0>(point);
-                point_msg.position.y = std::get<1>(point);
-                point_msg.position.z = std::get<2>(point);
-                point_msg.yaw = std::get<3>(point);
-                this->generated_path.waypoints.push_back(point_msg);
+                nav_msgs::msg::PoseStamped point_msg;
+                point_msg.pose.position.x = std::get<0>(point);
+                point_msg.pose.position.y = std::get<1>(point);
+                point_msg.pose.position.z = std::get<2>(point);
+                // convert yaw rotation to quaternion
+                tf2::Quaternion q;
+                q.setRPY(0, 0, std::get<3>(point));  // Roll = 0, Pitch = 0, Yaw = yaw
+                q.normalize();
+                point_msg.pose.orientation = tf2::toMsg(q);
+                this->generated_path.poses.push_back(point_msg);
             }
             if (this->publish_visualizations) {
                 this->pub_global_path->publish(this->generated_path);
@@ -99,22 +111,12 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
 
 void RandomWalkNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
     // get the current location
-    this->current_location = msg->transforms.back().transform
+    this->current_location = msg->transforms.back().transform;
     if (!this->received_first_robot_tf) {
         this->received_first_robot_tf = true;
         RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
     }
 }
-// void RandomWalkNode::robot_tfCallback(const nav_msgs::msg::robot_tf::SharedPtr msg) {
-//     // get the current location
-//     this->current_location = std::tuple<float, float, float, float>(
-//         msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
-//         msg->pose.pose.orientation.z);
-//     if (!this->received_first_robot_tf) {
-//         this->received_first_robot_tf = true;
-//         RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
-//     }
-// }
 
 void RandomWalkNode::timerCallback() {
     if (this->is_path_executing && this->publish_visualizations) {
