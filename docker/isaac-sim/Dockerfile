@@ -36,7 +36,7 @@ ENV LC_ALL=C.UTF-8
 ENV ROS_DISTRO=humble
 
 # Install ROS2 packages
-RUN apt update && apt install curl -y && \
+RUN apt update && apt install curl emacs vim nano tmux gdb -y && \
     curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
     -o /usr/share/keyrings/ros-archive-keyring.gpg
 RUN echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu jammy main" \
@@ -51,7 +51,7 @@ RUN apt update && \
     python3-rosdep \
     ros-humble-tf2*
 
-RUN pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
+RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
 RUN pip install PyYAML mavproxy tmuxp scipy
 
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
@@ -64,9 +64,8 @@ RUN cd /tmp/ && \
     colcon build --symlink-install && \
     rm -rf /tmp/IsaacSim-ros_workspaces-main
 
-# copy over the AscentAeroSystemsSITLPackage to the drag and drop folder but also need to copy extras folder for this
-ADD docker/extras /extras
-COPY docker/isaac-sim/AscentAeroSystemsSITLPackage /extras/drag_and_drop/
+# copy over the AscentAeroSystemsSITLPackage
+COPY docker/isaac-sim/AscentAeroSystemsSITLPackage /AscentAeroSystemsSITLPackage
 
 COPY ros_ws/fastdds.xml /isaac-sim/fastdds.xml
 
