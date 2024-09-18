@@ -160,5 +160,5 @@ sws # source the ROS2 workspace by default
 
 container_name=$(curl -s --unix-socket /var/run/docker.sock http://localhost/containers/$HOSTNAME/json | jq -r .Name)
 
-export ROBOT_NAME=$(echo "$container_name" | sed 's#/docker-##')
-export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'-' '{print $NF}')
+export ROBOT_NAME=$(echo "$container_name" | sed 's#/docker-##' | sed 's#-#_#')
+export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')

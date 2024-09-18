@@ -49,7 +49,10 @@ RUN apt update && \
     ros-dev-tools \
     python3-pip \
     python3-rosdep \
-    ros-humble-tf2*
+    ros-humble-tf2* \
+    ros-humble-mavros
+
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
 RUN pip install PyYAML mavproxy tmuxp scipy

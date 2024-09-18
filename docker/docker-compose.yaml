@@ -17,6 +17,9 @@ services:
     env_file: ./isaac-sim/omni_pass.env
     ipc: host
     privileged: true
+    networks:
+      airstack_network:
+        ipv4_address: 172.31.0.200
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
@@ -69,6 +72,8 @@ services:
     tty: true # docker run -t
     # Needed to display graphical applications
     privileged: true
+    networks:
+      - airstack_network
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
@@ -106,3 +111,11 @@ services:
       # autonomy stack stuff
       - ../:/docs:rw
     restart: unless-stopped
+
+networks:
+  airstack_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.0.0/24
