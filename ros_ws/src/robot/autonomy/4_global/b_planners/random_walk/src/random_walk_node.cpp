@@ -48,7 +48,7 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
         RCLCPP_INFO(this->get_logger(), "Generating Path...");
         auto curr_orientation_quat = this->current_location.rotation;
         float curr_yaw = tf2::getYaw(curr_orientation_quat);
-        std::tuple<float, float, float, float> curr_loc(this->current_location.translation.x),
+        std::tuple<float, float, float, float> curr_loc(this->current_location.translation.x,
             this->current_location.translation.y, this->current_location.translation.z, curr_yaw);
         std::optional<Path> gen_path_opt =
             this->random_walk_planner.generate_straight_rand_path(curr_loc);
