@@ -73,14 +73,7 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
 bool RandomWalkPlanner::check_if_collided_single_voxel(
     std::tuple<float, float, float> point, std::tuple<float, float, float> voxel_center) {
     // Check if the point is within the voxel
-    float x = std::get<0>(point);
-    float y = std::get<1>(point);
-    float z = std::get<2>(point);
-    float x_voxel = std::get<0>(voxel_center);
-    float y_voxel = std::get<1>(voxel_center);
-    float z_voxel = std::get<2>(voxel_center);
-    float dist = std::sqrt((x - x_voxel) * (x - x_voxel) + (y - y_voxel) * (y - y_voxel) +
-                           (z - z_voxel) * (z - z_voxel));
+    float dist = get_point_distance(point, voxel_center);
     float max_size =
         std::max(std::get<0>(this->voxel_size_m),
                  std::max(std::get<1>(this->voxel_size_m), std::get<2>(this->voxel_size_m)));
@@ -114,17 +107,15 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
                         this->max_start_to_goal_dist_m_) -
                        this->max_start_to_goal_dist_m_;
         float rand_z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * this->max_z_m_;
-        float x_diff = rand_x - std::get<0>(start_point);
-        float y_diff = rand_y - std::get<1>(start_point);
-        float z_diff = rand_z - std::get<2>(start_point);
+        std::tuple<float, float, float> rand_point(rand_x, rand_y, rand_z);
+        float dist = get_point_distance(start_point, rand_point);
         // if the z value of the point is low enough
         if (rand_z < max_z_m_) {
             // if the point is close enough to the start point
-            if (std::sqrt(x_diff * x_diff + y_diff * y_diff + z_diff * z_diff) <
-                this->max_start_to_goal_dist_m_) {
+            if (dist < this->max_start_to_goal_dist_m_) {
                 // if the point doesnt collide with any of the voxels
-                if (!(check_if_collided(std::tuple<float, float, float>(rand_x, rand_y, rand_z)))) {
-                    return std::tuple<float, float, float>(rand_x, rand_y, rand_z);
+                if (!(check_if_collided(rand_point))) {
+                    return rand_point
                 }
             }
         }
