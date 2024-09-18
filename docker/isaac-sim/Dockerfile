@@ -75,4 +75,3 @@ RUN apt purge -y git &&  apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT [ "/bin/bash", "-l", "-c" ]

@@ -97,7 +97,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
       - ./..:/root/AirStack:rw
-    restart: unless-stopped
 
   robot-2:
     image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
@@ -133,7 +132,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
       - ./..:/root/AirStack:rw
-    restart: unless-stopped
 
 # ==============================================================================
   # live mkdocs container
