@@ -211,11 +211,11 @@ visualization_msgs::msg::Marker RandomWalkNode::createTrajectoryLineMarker() {
     if (this->generated_path.waypoints.size() > 0) {
         // RCLCPP_INFO(this->get_logger(), "Creating trajectory line with %d points...",
         //             this->generated_path.waypoints.size());
-        for (auto point : this->generated_path.waypoints) {
+        for (auto point : this->generated_path.poses) {
             geometry_msgs::msg::Point p;
-            p.x = point.position.x;
-            p.y = point.position.y;
-            p.z = point.position.z;
+            p.x = point.pose.position.x;
+            p.y = point.pose.position.y;
+            p.z = point.pose.position.z;
             trajectory_line_msg.points.push_back(p);
         }
     } else {
@@ -233,9 +233,9 @@ visualization_msgs::msg::Marker RandomWalkNode::createGoalPointMarker() {
     goal_point_msg.type = visualization_msgs::msg::Marker::SPHERE;
     goal_point_msg.action = visualization_msgs::msg::Marker::ADD;
     geometry_msgs::msg::Point goal_point = geometry_msgs::msg::Point();
-    goal_point.x = std::get<0>(this->current_goal_location);
-    goal_point.y = std::get<1>(this->current_goal_location);
-    goal_point.z = std::get<2>(this->current_goal_location);
+    goal_point.x = std::get<0>(this->current_goal_location.translation.x);
+    goal_point.y = std::get<1>(this->current_goal_location.translation.y);
+    goal_point.z = std::get<2>(this->current_goal_location.translation.z);
     goal_point_msg.pose.position = goal_point;
     goal_point_msg.scale.x = 0.1;
     goal_point_msg.scale.y = 0.1;
