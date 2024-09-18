@@ -1,0 +1,21 @@
+<!-- LOCAL -->
+<launch>
+    <!-- mapping -->
+    <!-- <include file="$(find-pkg-share disparity_expansion)/launch/disparity_expansion.xml" /> -->
+
+    <!-- planning -->
+    <!-- <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml" /> -->
+
+    <!-- control -->
+    <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
+        <param name="interface" value="mavros_interface::MAVROSInterface" />
+        <param name="is_ardupilot" value="true" />
+    </node>
+    <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
+        output="screen" />
+    <node name="fixed_trajectory_generator" pkg="trajectory_library"
+        exec="fixed_trajectory_generator.py" output="screen" />
+    <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.xml" />
+    <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.xml" />
+
+</launch>

@@ -1,0 +1,37 @@
+<!-- PERCEPTION -->
+<launch>
+
+    <!-- odometry -->
+    <node name="odometry_conversion" pkg="airstack_common" exec="odometry_conversion"
+        output="screen">
+        <remap from="odometry_in" to="mavros/local_position/odom" />
+        <remap from="odometry_out" to="odometry" />
+
+        <param name="qos_best_effort" value="true" />
+        <param name="new_frame_id" value="" />
+        <param name="new_child_frame_id" value="" />
+        <param name="odometry_output_type" value="0" /> <!-- 0: NONE, 1: TRANSFORM, 2: OVERWRITE -->
+        <param name="convert_odometry_to_transform" value="true" />
+        <param name="convert_odometry_to_stabilized_transform" value="true" />
+        <param name="restamp_now_pre" value="false" />
+        <param name="restamp_now_post" value="false" />
+        <param name="odometry_orientation_rotation_pre_x" value="0." />
+        <param name="odometry_orientation_rotation_pre_y" value="0." />
+        <param name="odometry_orientation_rotation_pre_z" value="0." />
+        <param name="odometry_orientation_rotation_pre_w" value="1." />
+        <param name="odometry_position_translation_pre_x" value="0." />
+        <param name="odometry_position_translation_pre_y" value="0." />
+        <param name="odometry_position_translation_pre_z" value="0." />
+        <param name="odometry_orientation_rotation_post_x" value="0." />
+        <param name="odometry_orientation_rotation_post_y" value="0." />
+        <param name="odometry_orientation_rotation_post_z" value="0." />
+        <param name="odometry_orientation_rotation_post_w" value="1." />
+        <param name="odometry_position_translation_post_x" value="0." />
+        <param name="odometry_position_translation_post_y" value="0." />
+        <param name="odometry_position_translation_post_z" value="0." />
+    </node>
+
+    <!-- disparity -->
+    <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node" />
+
+</launch>

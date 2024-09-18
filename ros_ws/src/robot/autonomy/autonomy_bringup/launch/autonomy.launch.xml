@@ -1,0 +1,35 @@
+<!-- AUTONOMY -->
+<launch>
+
+  <!-- Sensors -->
+  <group>
+    <push-ros-namespace namespace="sensors" />
+    <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+  </group>
+
+  <!-- Perception -->
+  <group>
+    <push-ros-namespace namespace="perception" />
+    <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+  </group>
+
+  <!-- Local -->
+  <group>
+    <push-ros-namespace namespace="local" />
+    <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
+  </group>
+
+  <!-- Global -->
+  <group>
+    <push-ros-namespace namespace="global" />
+    <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+  </group>
+
+  <!-- Behavior -->
+  <group>
+    <push-ros-namespace namespace="behavior" />
+    <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+  </group>
+
+
+</launch>
