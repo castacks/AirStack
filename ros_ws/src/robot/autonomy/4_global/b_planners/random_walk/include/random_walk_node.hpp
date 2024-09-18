@@ -12,6 +12,7 @@
 #include <geometry_msgs/msg/transform.hpp>
 #include <tf2_msgs/msg/tf_message.hpp>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 #include <nav_msgs/msg/path.hpp>
 
 #include "random_walk_logic.hpp"

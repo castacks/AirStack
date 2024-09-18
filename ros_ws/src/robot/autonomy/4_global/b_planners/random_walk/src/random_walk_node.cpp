@@ -46,10 +46,14 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
                 msg->points[i].x, msg->points[i].y, msg->points[i].z));
         }
         RCLCPP_INFO(this->get_logger(), "Generating Path...");
-        auto curr_orientation_quat = this->current_location.rotation;
-        float curr_yaw = tf2::getYaw(curr_orientation_quat);
+        auto curr_orientation = this->current_location.rotation;
+        auto curr_orientation_quat = tf2::Quaternion(curr_orientation.x, curr_orientation.y,
+                                                      curr_orientation.z, curr_orientation.w);
+        tf2::Matrix3x3 m(curr_orientation_quat);
+        double roll, pitch, yaw;
+        m.getRPY(roll, pitch, yaw);
         std::tuple<float, float, float, float> curr_loc(this->current_location.translation.x,
-            this->current_location.translation.y, this->current_location.translation.z, curr_yaw);
+            this->current_location.translation.y, this->current_location.translation.z, yaw);
         std::optional<Path> gen_path_opt =
             this->random_walk_planner.generate_straight_rand_path(curr_loc);
         if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
@@ -68,7 +72,7 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
             this->generated_path.header.stamp = this->now();
             this->generated_path.header.frame_id = world_frame_id_;
             for (auto point : gen_path_opt.value()) {
-                nav_msgs::msg::PoseStamped point_msg;
+                geometry_msgs::msg::PoseStamped point_msg;
                 point_msg.pose.position.x = std::get<0>(point);
                 point_msg.pose.position.y = std::get<1>(point);
                 point_msg.pose.position.z = std::get<2>(point);
@@ -76,7 +80,11 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
                 tf2::Quaternion q;
                 q.setRPY(0, 0, std::get<3>(point));  // Roll = 0, Pitch = 0, Yaw = yaw
                 q.normalize();
-                point_msg.pose.orientation = tf2::toMsg(q);
+                point_msg.pose.orientation.x = q.x();
+                point_msg.pose.orientation.y = q.y();
+                point_msg.pose.orientation.z = q.z();
+                point_msg.pose.orientation.w = q.w();
+                point_msg.header.stamp = this->now();
                 this->generated_path.poses.push_back(point_msg);
             }
             if (this->publish_visualizations) {
@@ -85,9 +93,9 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
                 this->pub_trajectory_lines->publish(createTrajectoryLineMarker());
             }
             RCLCPP_INFO(this->get_logger(), "Published path and goal point at %f, %f, %f",
-                        this->generated_path.waypoints.back().position.x,
-                        this->generated_path.waypoints.back().position.y,
-                        this->generated_path.waypoints.back().position.z);
+                        this->generated_path.poses.back().pose.position.x,
+                        this->generated_path.poses.back().pose.position.y,
+                        this->generated_path.poses.back().pose.position.z);
             this->is_path_executing = true;
         } else {
             RCLCPP_ERROR(this->get_logger(), "Failed to generate path, size was 0");
@@ -95,12 +103,12 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
     }
     // check if the path is executing
     else if (this->is_path_executing) {
-        std::tuple<float, float, float> curr_loc_wo_yaw(std::get<0>(this->current_location),
-                                                        std::get<1>(this->current_location),
-                                                        std::get<2>(this->current_location));
-        std::tuple<float, float, float> goal_loc_wo_yaw(std::get<0>(this->current_goal_location),
-                                                        std::get<1>(this->current_goal_location),
-                                                        std::get<2>(this->current_goal_location));
+        std::tuple<float, float, float> curr_loc_wo_yaw(this->current_location.translation.x,
+                                                          this->current_location.translation.y,
+                                                          this->current_location.translation.z);
+        std::tuple<float, float, float> goal_loc_wo_yaw(this->current_goal_location.translation.x,
+                                                          this->current_goal_location.translation.y,
+                                                          this->current_goal_location.translation.z);
         if (get_point_distance(curr_loc_wo_yaw, goal_loc_wo_yaw) <
             this->random_walk_planner.path_end_threshold_m) {
             this->is_path_executing = false;
@@ -208,7 +216,7 @@ visualization_msgs::msg::Marker RandomWalkNode::createTrajectoryLineMarker() {
     trajectory_line_msg.color.r = 1.0;
     trajectory_line_msg.color.g = 0.0;
     trajectory_line_msg.color.b = 0.0;
-    if (this->generated_path.waypoints.size() > 0) {
+    if (this->generated_path.poses.size() > 0) {
         // RCLCPP_INFO(this->get_logger(), "Creating trajectory line with %d points...",
         //             this->generated_path.waypoints.size());
         for (auto point : this->generated_path.poses) {
@@ -233,9 +241,9 @@ visualization_msgs::msg::Marker RandomWalkNode::createGoalPointMarker() {
     goal_point_msg.type = visualization_msgs::msg::Marker::SPHERE;
     goal_point_msg.action = visualization_msgs::msg::Marker::ADD;
     geometry_msgs::msg::Point goal_point = geometry_msgs::msg::Point();
-    goal_point.x = std::get<0>(this->current_goal_location.translation.x);
-    goal_point.y = std::get<1>(this->current_goal_location.translation.y);
-    goal_point.z = std::get<2>(this->current_goal_location.translation.z);
+    goal_point.x = this->current_goal_location.translation.x;
+    goal_point.y = this->current_goal_location.translation.y;
+    goal_point.z = this->current_goal_location.translation.z;
     goal_point_msg.pose.position = goal_point;
     goal_point_msg.scale.x = 0.1;
     goal_point_msg.scale.y = 0.1;
