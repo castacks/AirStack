@@ -57,7 +57,7 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
                 path.value().push_back(new_point_with_yaw);
             } else {
                 RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Collision detected");
-                is_goal_point_valid = false;    
+                is_goal_point_valid = false;
                 break;
             }
             is_goal_point_valid = true;
@@ -81,7 +81,10 @@ bool RandomWalkPlanner::check_if_collided_single_voxel(
     float z_voxel = std::get<2>(voxel_center);
     float dist = std::sqrt((x - x_voxel) * (x - x_voxel) + (y - y_voxel) * (y - y_voxel) +
                            (z - z_voxel) * (z - z_voxel));
-    if (dist < std::get<0>(this->voxel_size_m) + this->collision_padding_m) {
+    float max_size =
+        std::max(std::get<0>(this->voxel_size_m),
+                 std::max(std::get<1>(this->voxel_size_m), std::get<2>(this->voxel_size_m)));
+    if (dist < max_size + this->collision_padding_m) {
         return true;
     }
     return false;
