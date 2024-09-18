@@ -55,6 +55,8 @@ nav:
       - "Simulation": "developer_guide/simulation.md"
       - "Contributing": "developer_guide/contributing.md"
   - "About": "about.md"
+  - "Simulation": "simulation.md"
+  - "Autonomy": "auotnomy.md"
   - "AirLab Website": "https://theairlab.org"
 
 repo_url: https://github.com/castacks/AirStack
