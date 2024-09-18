@@ -40,6 +40,7 @@ nav:
       - "Tutorials":
           - "Overview": "user_guide/tutorials/overview.md"
           - "Launch": "user_guide/tutorials/launch.md"
+      - "Docker Network": "user_guide/docker_network.md"
       - "Planners": "user_guide/planners.md"
       - "API Reference": "user_guide/api_reference.md"
   - "Developer Guide":
@@ -54,6 +55,8 @@ nav:
       - "Simulation": "developer_guide/simulation.md"
       - "Contributing": "developer_guide/contributing.md"
   - "About": "about.md"
+  - "Simulation": "simulation.md"
+  - "Autonomy": "auotnomy.md"
   - "AirLab Website": "https://theairlab.org"
 
 repo_url: https://github.com/castacks/AirStack

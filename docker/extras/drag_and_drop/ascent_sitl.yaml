@@ -4,8 +4,8 @@ windows:
     layout: tiled
     panes:
       - shell_command:
-        - cd AscentAeroSystemsSITLPackage
-        - gdb spirit_sitl -q --command=../test.gdb -ex "r -S --model coaxial -I0 --base-port $BASE_PORT"
+        - cd /AscentAeroSystemsSITLPackage
+        - gdb spirit_sitl -q --command=/extras/drag_and_drop/test.gdb -ex "r -S --model coaxial -I0 --base-port $BASE_PORT"
       - shell_command:
         - echo $ASCENT_SITL_PORT
         - echo $ISAAC_SIM_PORT
