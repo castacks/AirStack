@@ -14,20 +14,14 @@ services:
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
-    # Networking and IPC for ROS 2
-    network_mode: host
-    ipc: host
-    # Needed to display graphical applications
-    privileged: true
     env_file: ./isaac-sim/omni_pass.env
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
-      - DISPLAY
-      - QT_X11_NO_MITSHM=1
+      # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
-    deploy:
+    deploy:  # let it use the GPU
       resources:
         reservations:
           devices:
@@ -35,8 +29,6 @@ services:
               count: 1
               capabilities: [ gpu ]
     volumes:
-      # display stuff
-      - $HOME/.Xauthority:/root/.Xauthority
       # isaac sim stuff
       - ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw
       - ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw
@@ -55,8 +47,7 @@ services:
       - ./extras/inputrc:/etc/inputrc
 
 # ==============================================================================
-  # robot container
-  robot-1:
+  robot:
     build:
       context: ../
       dockerfile: docker/robot/Dockerfile
@@ -64,57 +55,17 @@ services:
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:0.3.0
     image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
-    container_name: robot-1
+    # container_name: robot-1
     entrypoint: bash
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
-    # Networking and IPC for ROS 2
-    network_mode: host
-    ipc: host
     # Needed to display graphical applications
     privileged: true
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-      - ROBOT_NAME=robot-1
-      - ROS_DOMAIN_ID=1
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia # https://stackoverflow.com/a/70761193
-              count: 1
-              capabilities: [gpu]
-    volumes:
-      # display stuff
-      - $HOME/.Xauthority:/root/.Xauthority
-      # developer stuff
-      - ./robot/.bashrc:/root/.bashrc:rw # bash config
-      - ./robot/entrypoint.bash:/entrypoint.bash:rw # bash entrypoint
-      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
-      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
-      # autonomy stack stuff
-      - ./..:/root/AirStack:rw
-
-  robot-2:
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
-    container_name: robot-2
-    entrypoint: bash
-    # Interactive shell
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
-    # Networking and IPC for ROS 2
-    network_mode: host
-    ipc: host
-    # Needed to display graphical applications
-    privileged: true
-    environment:
-      - DISPLAY
-      - QT_X11_NO_MITSHM=1
-      - ROBOT_NAME=robot-2
-      - ROS_DOMAIN_ID=2
-    deploy:
+    deploy:  # let it use the GPU
       resources:
         reservations:
           devices:
@@ -134,7 +85,7 @@ services:
 
 # ==============================================================================
   # live mkdocs container
-  airlab_mkdocs:
+  mkdocs:
     image: squidfunk/mkdocs-material
     container_name: docs
     # Interactive shell

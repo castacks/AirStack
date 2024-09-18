@@ -74,30 +74,39 @@ To generate a token, follow the NVIDIA docs [here](https://docs.omniverse.nvidia
 Launch the docker services:
 
 ```bash
+
 xhost +  # allow docker access to X-Server
 
-cd docker
+# Make sure you are in the AirStack/docker directory.
 
-# start docker compose services
-docker compose up -d
+# Start docker compose services, 
+# can append `--scale robot=[NUM_ROBOTS]` for more robots, default is 1
+docker compose up -d 
 # view running containers
 docker ps -a
 # attach to an existing container
-docker compose exec robot-1 bash
+docker attach docker-robot-1
 
 # in docker
 bws && sws ## build workspace and source workspace. these are aliases in ~/.bashrc
 ros2 launch robot_bringup launch_robot.yaml
 ```
 
-Launch Isaac Sim:
+Launch Isaac Sim in headless mode:
 
 ```bash
-# in another terminal
+# in another terminal under AirStack/docker
 docker compose exec isaac-sim bash
-# in docker
-runapp
+# within docker
+./runheadless.native.sh
 ```
+
+Connect to Isaac Sim via [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html):
+```bash
+# get the IP of the isaac-sim container
+docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' isaac-sim
+```
+Paste the outputted IP into the Omniverse Streaming Client.
 
 ## Move Robot (THIS NEEDS UPDATES)
 
