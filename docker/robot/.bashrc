@@ -142,7 +142,7 @@ confirm_cws() {
 }
 function cws(){
     # Call the confirmation function
-    if confirm_sws; then
+    if confirm_cws; then
         echo "Cleaning ROS2 workspace..."
         set -x
         rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/

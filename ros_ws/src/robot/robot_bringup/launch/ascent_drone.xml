@@ -1,12 +1,4 @@
 <launch>
-  <!-- Behavior -->
-  <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
-    <param name="config" value="$(find-pkg-share central)/config/drone.tree" />
-    <param name="timeout" value="1.0" />
-  </node>
-  <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive" output="screen">
-  </node>
-
   <!-- State Estimation -->
   <node name="odometry_conversion" pkg="airstack_common" exec="odometry_conversion" output="screen">
     <remap from="odometry_in" to="mavros/local_position/odom" />
@@ -35,25 +27,49 @@
     <param name="odometry_position_translation_post_y" value="0." />
     <param name="odometry_position_translation_post_z" value="0." />
   </node>
-  
-  <!-- Control -->
-  <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
-    <param name="interface" value="mavros_interface::MAVROSInterface" />
-    <param name="is_ardupilot" value="true" />
-  </node>
-  <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py" output="screen" />
-  <node name="fixed_trajectory_generator" pkg="trajectory_library" exec="fixed_trajectory_generator.py" output="screen" />
-  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.xml" />
-  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.xml" />
+
 
   <!-- Perception -->
   <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node" />
 
+  <!-- Local -->
+  <!-- mapping -->
+  <!-- <include file="$(find-pkg-share disparity_expansion)/launch/disparity_expansion.xml" /> -->
+  <!-- planning -->
+  <!-- <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner_launch.xml"
+  /> -->
+
+  <!-- control -->
+  <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
+    <param name="interface" value="mavros_interface::MAVROSInterface" />
+    <param name="is_ardupilot" value="true" />
+  </node>
+  <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
+    output="screen" />
+  <node name="fixed_trajectory_generator" pkg="trajectory_library"
+    exec="fixed_trajectory_generator.py" output="screen" />
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.xml" />
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.xml" />
+
+  <!-- Global -->
+
+
+  <!-- Behavior -->
+  <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
+    <param name="config" value="$(find-pkg-share central)/config/drone.tree" />
+    <param name="timeout" value="1.0" />
+  </node>
+  <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive" output="screen">
+  </node>
+
   <!-- GUI -->
-  <node name="rqt" pkg="rqt_gui" exec="rqt_gui" args="--perspective-file $(find-pkg-share central)/config/core.perspective" />
-  <node name="rviz" pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share central)/config/core.rviz" output="screen" />
+  <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
+    args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective" />
+  <node name="rviz" pkg="rviz2" exec="rviz2"
+    args="-d $(find-pkg-share robot_bringup)/config/core.rviz" output="screen" />
   <node name="disparity_view" pkg="image_view" exec="disparity_view">
     <remap from="image" to="disparity" />
   </node>
-  
+
+
 </launch>
