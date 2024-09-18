@@ -15,9 +15,13 @@ services:
     stdin_open: true # docker run -i
     tty: true # docker run -t
     env_file: ./isaac-sim/omni_pass.env
+    ipc: host
+    privileged: true
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
@@ -45,6 +49,9 @@ services:
       - ./extras/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ./extras:/extras:rw
       - ./extras/inputrc:/etc/inputrc
+      # display
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
 # ==============================================================================
   robot:
@@ -75,6 +82,7 @@ services:
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - ./robot/.bashrc:/root/.bashrc:rw # bash config
       - ./robot/entrypoint.bash:/entrypoint.bash:rw # bash entrypoint
