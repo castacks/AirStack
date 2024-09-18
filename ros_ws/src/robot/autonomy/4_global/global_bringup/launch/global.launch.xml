@@ -1,7 +1,7 @@
 <!-- GLOBAL -->
 <launch>
     <!-- mapping -->
-    <include file="$(find-pkg-share vdb_mapping_ros2)/launch/disparity_expansion.launch.xml" />
+    <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" />
 
     <!-- planning -->
     <!-- <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml" /> -->

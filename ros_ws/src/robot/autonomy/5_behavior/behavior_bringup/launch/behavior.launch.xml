@@ -1,7 +1,7 @@
 <launch>
 
     <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
-        <param name="config" value="$(find-pkg-share central)/config/drone.tree" />
+        <param name="config" value="$(find-pkg-share behavior_tree)/config/drone.tree" />
         <param name="timeout" value="1.0" />
     </node>
 

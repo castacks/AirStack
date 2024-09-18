@@ -51,7 +51,6 @@ install(
   INCLUDES DESTINATION include
 )
 
-
 install(TARGETS
   behavior_tree_implementation
   DESTINATION lib/${PROJECT_NAME})
@@ -66,5 +65,11 @@ if(BUILD_TESTING)
   #set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+# Install files.
+# install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
 ament_package()
