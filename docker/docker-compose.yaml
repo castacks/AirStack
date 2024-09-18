@@ -1,7 +1,6 @@
 # docker compose file
 services:
-
-# ==============================================================================
+  # ==============================================================================
   isaac-sim:
     build:
       context: ../
@@ -14,9 +13,9 @@ services:
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
-    env_file: ./isaac-sim/omni_pass.env
     ipc: host
     privileged: true
+    env_file: ./isaac-sim/omni_pass.env
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
@@ -25,14 +24,17 @@ services:
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
-    deploy:  # let it use the GPU
+    deploy: # let it use the GPU
       resources:
         reservations:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     volumes:
+      # display
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff
       - ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw
       - ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw
@@ -49,21 +51,52 @@ services:
       - ./extras/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ./extras:/extras:rw
       - ./extras/inputrc:/etc/inputrc
-      # display
+
+  # ==============================================================================
+  ground-control-station:
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
+    container_name: ground-control-station
+    entrypoint: bash -c "service ssh restart && bash"
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Needed to display graphical applications
+    ipc: host
+    privileged: true
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    deploy: # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    ports:  # for ssh
+      - 2222:22
+    volumes:
+      # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - ./ground_control_station/.bashrc:/root/.bashrc:rw # bash config
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # autonomy stack stuff
+      - ./..:/root/AirStack:rw
 
-# ==============================================================================
+  # ==============================================================================
   robot:
     build:
       context: ../
-      dockerfile: docker/robot/Dockerfile
+      dockerfile: docker/airstack-dev.dockerfile
       tags:
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:0.3.0
     image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
     # container_name: robot-1
-    entrypoint: bash
+    entrypoint: bash -c "service ssh restart && bash"
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -72,26 +105,27 @@ services:
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-    deploy:  # let it use the GPU
+    deploy: # let it use the GPU
       resources:
         reservations:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
               capabilities: [gpu]
+    ports:  # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+      - "2223-2243:22"
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - ./robot/.bashrc:/root/.bashrc:rw # bash config
-      - ./robot/entrypoint.bash:/entrypoint.bash:rw # bash entrypoint
       - ~/.bash_history:/root/.bash_history:rw # save cmdline history
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
       - ./..:/root/AirStack:rw
 
-# ==============================================================================
+  # ==============================================================================
   # live mkdocs container
   mkdocs:
     image: squidfunk/mkdocs-material

@@ -1,4 +1,4 @@
-# expects context to be the root of the repository, i.e. AirStack/
+# expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
 FROM osrf/ros:humble-desktop-full
 
 WORKDIR /root/AirStack
@@ -58,6 +58,20 @@ RUN apt remove -y libopenvdb*; \
     cmake .. && \
     make -j8 && make install && \
     cd ..; rm -rf /opt/openvdb/build
+
+# Add ability to SSH
+RUN apt-get update && apt-get install -y openssh-server
+RUN mkdir /var/run/sshd
+
+# Password is airstack
+RUN echo 'root:airstack' | chpasswd
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+
+EXPOSE 22
+
+    
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
