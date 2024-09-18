@@ -1,0 +1,6 @@
+<launch>
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+  <set_parameter name="use_sim_time" value="true" />
+  <include file="$(find-pkg-share robot_bringup)/launch/ascent_drone.xml" />
+
+</launch>
