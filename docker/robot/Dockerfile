@@ -59,7 +59,10 @@ RUN apt remove -y libopenvdb*; \
     make -j8 && make install && \
     cd ..; rm -rf /opt/openvdb/build
 
-# Cleanup
-RUN apt autoremove -y \
+# Cleanup. Prevent people accidentally doing git commits as root in Docker
+RUN apt purge git -y \
+    && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT [ "/bin/bash", "-l", "-c" ]

@@ -14,6 +14,7 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
 RUN apt-get update && apt-get install -q -y --no-install-recommends \
     dirmngr \
     gnupg2 \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # setup keys
@@ -40,13 +41,28 @@ RUN apt update && apt install curl -y && \
     -o /usr/share/keyrings/ros-archive-keyring.gpg
 RUN echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu jammy main" \
     > /etc/apt/sources.list.d/ros2-latest.list
-RUN apt update && apt install -y ros-humble-desktop ros-humble-tf2* 
+RUN apt update && \
+    apt install -y \
+    cmake \
+    git \
+    ros-humble-desktop \
+    ros-dev-tools \
+    python3-pip \
+    python3-rosdep \
+    ros-humble-tf2*
 
-RUN apt install -y git
-RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
-RUN apt purge -y git
+RUN pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
+RUN pip install PyYAML mavproxy tmuxp scipy
 
-RUN /isaac-sim/python.sh -m pip install PyYAML mavproxy tmuxp scipy
+# Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
+RUN cd /tmp/ && \
+    curl -L -O https://github.com/isaac-sim/IsaacSim-ros_workspaces/archive/main.zip && \
+    unzip main.zip && \
+    mv IsaacSim-ros_workspaces-main/humble_ws /humble_ws && \
+    cd /humble_ws && \
+    . /opt/ros/humble/setup.sh && \
+    colcon build --symlink-install && \
+    rm -rf /tmp/IsaacSim-ros_workspaces-main
 
 # copy over the AscentAeroSystemsSITLPackage to the drag and drop folder but also need to copy extras folder for this
 ADD docker/extras /extras
@@ -54,7 +70,9 @@ COPY docker/isaac-sim/AscentAeroSystemsSITLPackage /extras/drag_and_drop/
 
 COPY ros_ws/fastdds.xml /isaac-sim/fastdds.xml
 
-# Cleanup
-RUN apt autoremove -y \
+# Cleanup. Prevent people accidentally doing git commits as root in Docker
+RUN apt purge -y git &&  apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT [ "/bin/bash", "-l", "-c" ]
