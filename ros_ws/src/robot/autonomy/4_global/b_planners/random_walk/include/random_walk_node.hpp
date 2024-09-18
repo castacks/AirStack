@@ -38,7 +38,7 @@ class RandomWalkNode : public rclcpp::Node {
     bool publish_visualizations = false;
     bool is_path_executing = false;
     bool received_first_map = false;
-    bool received_first_odometry = false;
+    bool received_first_robot_tf = false;
     geometry_msgs::msg::Transform current_location;       // x, y, z, yaw
     geometry_msgs::msg::Transform current_goal_location;  // x, y, z, yaw
 
