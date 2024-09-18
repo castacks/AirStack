@@ -7,13 +7,6 @@
     <!-- <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml" /> -->
 
     <!-- control -->
-    <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node" output="screen">
-        <param name="interface" value="mavros_interface::MAVROSInterface" />
-        <param name="is_ardupilot" value="true" />
-    </node>
-
-    <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
-        output="screen" />
 
     <node name="fixed_trajectory_generator" pkg="trajectory_library"
         exec="fixed_trajectory_generator.py" output="screen" />
