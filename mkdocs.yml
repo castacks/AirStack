@@ -40,6 +40,7 @@ nav:
       - "Tutorials":
           - "Overview": "user_guide/tutorials/overview.md"
           - "Launch": "user_guide/tutorials/launch.md"
+      - "Docker Network": "user_guide/docker_network.md"
       - "Planners": "user_guide/planners.md"
       - "API Reference": "user_guide/api_reference.md"
   - "Developer Guide":

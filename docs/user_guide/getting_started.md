@@ -84,35 +84,28 @@ xhost +  # allow docker access to X-Server
 docker compose up -d 
 # view running containers
 docker ps -a
-# attach to an existing container
-docker attach docker-robot-1
+# create a bash shell in the docker-robot-1 container
+docker exec -it docker-robot-1 bash
 
 # in docker
 bws && sws ## build workspace and source workspace. these are aliases in ~/.bashrc
 ros2 launch robot_bringup launch_robot.yaml
 ```
 
-Launch Isaac Sim in headless mode:
+Launch Isaac Sim:
 
 ```bash
 # in another terminal under AirStack/docker
 docker compose exec isaac-sim bash
 # within docker
-./runheadless.native.sh
+runapp
 ```
-
-Connect to Isaac Sim via [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html):
-```bash
-# get the IP of the isaac-sim container
-docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' isaac-sim
-```
-Paste the outputted IP into the Omniverse Streaming Client.
 
 ## Move Robot (THIS NEEDS UPDATES)
 
 ```bash
 # start another terminal in docker container
-docker compose exec robot-1 bash
+docker exec -it docker-robot-1 bash
 
 # in docker
 # set drone mode to GUIDED
