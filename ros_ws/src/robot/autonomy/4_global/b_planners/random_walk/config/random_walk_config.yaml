@@ -1,11 +1,11 @@
 /**:
   ros__parameters:
-    world_frame_id: "/sim_lidar"
-    pub_global_path_topic: "/robot1/global/planning/trajectory"
-    pub_goal_point_topic: "/robot1/global/planning/goal_point"
-    pub_trajectory_lines_topic: "/robot1/global/planning/traj_viz"
-    sub_vdb_map_topic: "/vdb_mapping/vdb_map_visualization"
-    sub_odometry_topic: "/odom"
+    world_frame_id: "/map"
+    pub_global_path_topic: "/global/planning/trajectory"
+    pub_goal_point_topic: "/global/planning/goal_point"
+    pub_trajectory_lines_topic: "/global/planning/traj_viz"
+    sub_map_topic: "/vdb_mapping/vdb_map_visualization"
+    sub_robot_tf_topic: "/global/tf"
 
     publish_visualizations: true # should trajectory visualizations be published
 

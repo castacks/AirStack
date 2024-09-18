@@ -11,12 +11,12 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
     } else
         RCLCPP_ERROR(this->get_logger(), "Failed to initialize random walk planner");
 
-    this->sub_vdb_map = this->create_subscription<visualization_msgs::msg::Marker>(
-        sub_vdb_map_topic_, 10,
-        std::bind(&RandomWalkNode::vdbmapCallback, this, std::placeholders::_1));
-    this->sub_odometry = this->create_subscription<nav_msgs::msg::Odometry>(
-        sub_odometry_topic_, 10,
-        std::bind(&RandomWalkNode::odometryCallback, this, std::placeholders::_1));
+    this->sub_map = this->create_subscription<visualization_msgs::msg::Marker>(
+        sub_map_topic_, 10,
+        std::bind(&RandomWalkNode::mapCallback, this, std::placeholders::_1));
+    this->sub_robot_tf = this->create_subscription<tf2_msgs::msg::TFMessage>(
+        sub_robot_tf_topic_, 10,
+        std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
 
     this->pub_global_path =
         this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(pub_global_path_topic_, 10);
@@ -28,7 +28,7 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
                                           std::bind(&RandomWalkNode::timerCallback, this));
 }
 
-void RandomWalkNode::vdbmapCallback(const visualization_msgs::msg::Marker::SharedPtr msg) {
+void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg) {
     // updating the local voxel points and generating a path only if the path is not executing
     if (!this->received_first_map) {
         this->received_first_map = true;
@@ -38,8 +38,8 @@ void RandomWalkNode::vdbmapCallback(const visualization_msgs::msg::Marker::Share
         this->random_walk_planner = RandomWalkPlanner(this->params);
         RCLCPP_INFO(this->get_logger(), "Initialized random walk planner");
     }
-    // if path is not executing and the odometry has been received
-    if (!this->is_path_executing && this->received_first_odometry) {
+    // if path is not executing and the robot_tf has been received
+    if (!this->is_path_executing && this->received_first_robot_tf) {
         RCLCPP_INFO(this->get_logger(), "Setting Voxel Points from message");
         this->voxel_points.clear();
         for (int i = 0; i < msg->points.size(); i++) {
@@ -97,16 +97,24 @@ void RandomWalkNode::vdbmapCallback(const visualization_msgs::msg::Marker::Share
     }
 }
 
-void RandomWalkNode::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+void RandomWalkNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
     // get the current location
-    this->current_location = std::tuple<float, float, float, float>(
-        msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
-        msg->pose.pose.orientation.z);
-    if (!this->received_first_odometry) {
-        this->received_first_odometry = true;
-        RCLCPP_INFO(this->get_logger(), "Received first odometry");
+    this->current_location = msg->transforms.back().transform
+    if (!this->received_first_robot_tf) {
+        this->received_first_robot_tf = true;
+        RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
     }
 }
+// void RandomWalkNode::robot_tfCallback(const nav_msgs::msg::robot_tf::SharedPtr msg) {
+//     // get the current location
+//     this->current_location = std::tuple<float, float, float, float>(
+//         msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
+//         msg->pose.pose.orientation.z);
+//     if (!this->received_first_robot_tf) {
+//         this->received_first_robot_tf = true;
+//         RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
+//     }
+// }
 
 void RandomWalkNode::timerCallback() {
     if (this->is_path_executing && this->publish_visualizations) {
@@ -142,14 +150,14 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_trajectory_lines_topic");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<std::string>("sub_vdb_map_topic");
-    if (!this->get_parameter("sub_vdb_map_topic", this->sub_vdb_map_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_vdb_map_topic");
+    this->declare_parameter<std::string>("sub_map_topic");
+    if (!this->get_parameter("sub_map_topic", this->sub_map_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_map_topic");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<std::string>("sub_odometry_topic");
-    if (!this->get_parameter("sub_odometry_topic", this->sub_odometry_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_odometry_topic");
+    this->declare_parameter<std::string>("sub_robot_tf_topic");
+    if (!this->get_parameter("sub_robot_tf_topic", this->sub_robot_tf_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_robot_tf_topic");
         return std::optional<init_params>{};
     }
     this->declare_parameter<bool>("publish_visualizations");
