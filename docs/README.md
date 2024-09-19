@@ -9,8 +9,7 @@ Please head to our [Getting Started](https://docs.theairlab.org/user_guide/getti
 
 
 
-TODO:
-
-Add an image GIF or video here
+![Overview](overview.png)
+*AirStack*
 
 
