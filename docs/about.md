@@ -1,4 +1,6 @@
 # About
 
-This stack is built by the AirLab at Carnegie Mellon University's Robotics Institute. Our main site is [https://theairlab.org](https://theairlab.org).
-The stack is maintained by Andrew Jong and John Keller.
+This stack is built and maintained by the [AirLab](https://theairlab.org) at Carnegie Mellon University's Robotics Institute. 
+
+# License
+Not sure yet but probably Apache 2.0 or MIT for the open source parts.

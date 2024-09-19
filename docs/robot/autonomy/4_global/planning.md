@@ -1,4 +1,4 @@
-
+# Global Planning
 
 Global planners output a high level, coarse trajectory for the robot to follow. 
 
@@ -11,7 +11,7 @@ If a waypoint's header timestamp is empty, the local planner should assume there
 The global planner should make a trajectory that is collision-free according to the global map.
 However, avoiding fine obstacles is delegated to the local planner that operates at a faster rate.
 
-## ROS Interfaces
+## ROS Topics
 
 ### Actions Interface
 The global planner should provide an action server for the topic `$(arg robot_name)/global_planner/plan` of message type `nav_msgs/GetPlan`.
@@ -47,3 +47,10 @@ nav_msgs/Path.msg
 
 
 The global planner can do whatever it wants internally.
+
+
+## Example Planners
+
+### Random Walk planner
+
+The random walk planner replans when the robot is getting close to the goal. The random walk planner is a trivial planner that generates a plan by randomly selecting a direction to move in. The random walk planner is useful for testing the robot's ability to follow a plan.

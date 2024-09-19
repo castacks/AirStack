@@ -11,12 +11,10 @@ If you need to add a dependency that's not in the docker image, please add a sec
 ## Documentation
 
 Please make sure to document your work.
-Docs are under `AirStack/docs/`
+Docs are under `AirStack/docs/`. The navigation tree is under `AirStack/mkdocs.yml`.
 
-This documentation is built with Material MKDocs
-
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
-and [mkdocs-material](https://squidfunk.github.io/mkdocs-material/)
+This documentation is built with Material MKDocs.
+Visit [mkdocs.org](https://www.mkdocs.org) and [mkdocs-material](https://squidfunk.github.io/mkdocs-material/) to learn how to use it.
 
 ### Commands
 
@@ -24,6 +22,7 @@ and [mkdocs-material](https://squidfunk.github.io/mkdocs-material/)
 pip install mkdocs-material
 mkdocs serve
 ```
+Launches docs on https://localhost:8000.
 
 - `mkdocs -h` - Print help message and exit.
 
@@ -37,3 +36,7 @@ mkdocs serve
 ## Merge
 
 Submit a pull request.
+
+All tests must pass before merging.
+
+Regression tests are run so that we don't break anything.
