@@ -11,7 +11,7 @@ float32 desired_speed #Desired flight speed in m/s
 geometry_msgs/Polygon search_bounds 
 
 #Prior information:
-TargetPrior[] target_priors 
+SearchPrior[] search_priors 
 KeepOutZone[] keep_out_zones
 
 # Replan flag
