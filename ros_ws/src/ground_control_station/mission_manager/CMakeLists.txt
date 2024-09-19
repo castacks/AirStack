@@ -7,11 +7,13 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(airstack_msgs REQUIRED)
+
 
 add_executable(mission_manager_node src/mission_manager_node.cpp)
+ament_target_dependencies(mission_manager_node rclcpp std_msgs airstack_msgs)
 target_include_directories(mission_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
