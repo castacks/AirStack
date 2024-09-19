@@ -9,5 +9,8 @@
 
     <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive"
         output="screen">
+        <!-- remap glue to AirStack -->
+        <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
+        <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/has_control" />
     </node>
 </launch>

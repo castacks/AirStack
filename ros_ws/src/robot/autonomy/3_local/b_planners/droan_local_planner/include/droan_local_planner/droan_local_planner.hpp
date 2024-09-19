@@ -93,13 +93,13 @@ class DroanLocalPlanner : public rclcpp::Node {
           tf_listener(tf_buffer) {
         // subscribers
         global_plan_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
-            "/" + ROBOT_NAME + "/global/planning/global_plan", 10, std::bind(&DroanLocalPlanner::global_plan_callback, this, _1));
+            "global_plan", 10, std::bind(&DroanLocalPlanner::global_plan_callback, this, _1));
         waypoint_sub = this->create_subscription<geometry_msgs::msg::PointStamped>(
             "way_point", 10, std::bind(&DroanLocalPlanner::waypoint_callback, this, _1));
         look_ahead_sub = this->create_subscription<airstack_msgs::msg::Odometry>(
             "look_ahead", 10, std::bind(&DroanLocalPlanner::look_ahead_callback, this, _1));
         tracking_point_sub = this->create_subscription<airstack_msgs::msg::Odometry>(
-            "/" + ROBOT_NAME + "/local/controls/tracking_point", 10, std::bind(&DroanLocalPlanner::tracking_point_callback, this, _1));
+            "tracking_point", 10, std::bind(&DroanLocalPlanner::tracking_point_callback, this, _1));
         custom_waypoint_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "custom_waypoint", 1,
             std::bind(&DroanLocalPlanner::custom_waypoint_callback, this, _1));

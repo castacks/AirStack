@@ -126,10 +126,10 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
         "trajectory", 1,
         std::bind(&TrajectoryControlNode::traj_callback, this, std::placeholders::_1));
     traj_track_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
-        "/" + ROBOT_NAME + "/local/planning/trajectory_track", 1,
+        "trajectory_track", 1,
         std::bind(&TrajectoryControlNode::traj_track_callback, this, std::placeholders::_1));
     odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-        "/" + ROBOT_NAME + "/perception/state_estimation/odometry", 1,
+        "odometry", 1,
         std::bind(&TrajectoryControlNode::odom_callback, this, std::placeholders::_1));
 
     tf_broadcaster = new tf2_ros::TransformBroadcaster(*this);
