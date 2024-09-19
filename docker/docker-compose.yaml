@@ -132,7 +132,7 @@ services:
 
   # ==============================================================================
   # live mkdocs container
-  mkdocs:
+  docs:
     image: squidfunk/mkdocs-material
     container_name: docs
     # Interactive shell
@@ -144,7 +144,6 @@ services:
     volumes:
       # autonomy stack stuff
       - ../:/docs:rw
-    restart: unless-stopped
 
 networks:
   airstack_network:
