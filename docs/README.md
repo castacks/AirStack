@@ -1,6 +1,6 @@
-# AirStack
+# AirStack Boilerplate
 
-Welcome to the AirLab Autonomy Stack! In the future this will be an awesome welcome page.
+Welcome to the AirStack Boilerplate! This repository template serves to kickstart the development of your own robotics autonomy stack.
 
 It is maintained by the [AirLab](https://theairlab.org) at Carnegie Mellon University's Robotics Institute.
 
