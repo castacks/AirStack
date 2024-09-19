@@ -1,18 +1,31 @@
 <!-- LOCAL -->
 <launch>
-    <!-- mapping -->
-    <!-- <include file="$(find-pkg-share disparity_expansion)/launch/disparity_expansion.launch.xml" /> -->
+    <!-- world model -->
+    <group>
+        <push-ros-namespace namespace="world_model" />
+        <include file="$(find-pkg-share disparity_expansion)/launch/disparity_expansion.launch.xml"
+        />
+    </group>
 
     <!-- planning -->
-    <!-- <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml" /> -->
+    <group>
+        <push-ros-namespace namespace="planning" />
+        <node name="fixed_trajectory_generator" pkg="trajectory_library"
+            exec="fixed_trajectory_generator.py" output="screen" />
+
+        <include
+            file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
+
+        <!-- <include file="$(find-pkg-share
+        droan_local_planner)/launch/droan_local_planner.launch.xml"
+        /> -->
+    </group>
 
     <!-- control -->
-
-    <node name="fixed_trajectory_generator" pkg="trajectory_library"
-        exec="fixed_trajectory_generator.py" output="screen" />
-
-    <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
-
-    <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+    <group>
+        <push-ros-namespace namespace="controls" />
+        <include
+            file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+    </group>
 
 </launch>

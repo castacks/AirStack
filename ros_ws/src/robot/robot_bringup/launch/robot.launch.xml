@@ -12,16 +12,11 @@
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
   <!-- GUI -->
-  <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
-    args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective" />
 
   <node name="rviz" pkg="rviz2" exec="rviz2"
     args="-d $(find-pkg-share robot_bringup)/config/core.rviz --ros-args --log-level INFO"
     output="screen" />
 
-  <node name="disparity_view" pkg="image_view" exec="disparity_view">
-    <remap from="image" to="disparity" />
-  </node>
 
 
 </launch>

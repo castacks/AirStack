@@ -20,14 +20,14 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
     tf_buffer = new tf2_ros::Buffer(this->get_clock());
     tf_listener = new tf2_ros::TransformListener(*tf_buffer);
     completion_percentage_sub = this->create_subscription<std_msgs::msg::Float32>(
-        "trajectory_completion_percentage", 1,
+        "/" + ROBOT_NAME + "/local/controls/trajectory_completion_percentage", 1,
         std::bind(&TakeoffLandingPlanner::completion_percentage_callback, this,
                   std::placeholders::_1));
     tracking_point_sub = this->create_subscription<airstack_msgs::msg::Odometry>(
-        "tracking_point", 1,
+        "/" + ROBOT_NAME + "/local/controls/tracking_point", 1,
         std::bind(&TakeoffLandingPlanner::tracking_point_callback, this, std::placeholders::_1));
     robot_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-        "odometry", 1,
+        "/" + ROBOT_NAME + "/perception/state_estimation/odometry", 1,
         std::bind(&TakeoffLandingPlanner::robot_odom_callback, this, std::placeholders::_1));
     ekf_active_sub = this->create_subscription<std_msgs::msg::Bool>(
         "ekf_active", 1,

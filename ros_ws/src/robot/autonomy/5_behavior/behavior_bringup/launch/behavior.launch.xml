@@ -1,4 +1,6 @@
 <launch>
+    <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
+        args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective" />
 
     <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
         <param name="config" value="$(find-pkg-share behavior_tree)/config/drone.tree" />

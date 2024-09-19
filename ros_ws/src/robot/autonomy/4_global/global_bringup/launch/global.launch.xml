@@ -1,9 +1,14 @@
 <!-- GLOBAL -->
 <launch>
-    <!-- mapping -->
-    <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" />
+    <!-- world model -->
+    <group>
+        <push-ros-namespace namespace="world_model" />
+        <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" />
+    </group>
 
     <!-- planning -->
-    <!-- <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml" /> -->
+    <group>
+        <push-ros-namespace namespace="planning" />
 
+    </group>
 </launch>

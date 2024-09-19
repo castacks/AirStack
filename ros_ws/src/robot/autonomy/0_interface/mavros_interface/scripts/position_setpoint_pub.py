@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+import os
+
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -14,7 +16,7 @@ class OdomModifier(Node):
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             depth=1)
         '''
-        self.odom_subscriber = self.create_subscription(Odometry, 'tracking_point', self.odom_callback, 1)
+        self.odom_subscriber = self.create_subscription(Odometry, "/" + os.getenv('ROBOT_NAME', "") + '/local/controls/tracking_point', self.odom_callback, 1)
         self.odom_publisher = self.create_publisher(PoseStamped, 'cmd_pose', 1)
 
     def odom_callback(self, msg):

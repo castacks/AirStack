@@ -57,9 +57,9 @@ BehaviorExecutive::BehaviorExecutive()
     this->create_subscription<behavior_tree_msgs::msg::BehaviorTreeCommands>("behavior_tree_commands", 1,
 									     std::bind(&BehaviorExecutive::bt_commands_callback,
 										       this, std::placeholders::_1));
-  is_armed_sub = this->create_subscription<std_msgs::msg::Bool>("is_armed", 1, std::bind(&BehaviorExecutive::is_armed_callback,
+  is_armed_sub = this->create_subscription<std_msgs::msg::Bool>("/" + ROBOT_NAME + "/interface/is_armed", 1, std::bind(&BehaviorExecutive::is_armed_callback,
 											 this, std::placeholders::_1));
-  has_control_sub = this->create_subscription<std_msgs::msg::Bool>("has_control", 1, std::bind(&BehaviorExecutive::has_control_callback,
+  has_control_sub = this->create_subscription<std_msgs::msg::Bool>("/" + ROBOT_NAME + "/interface/has_control", 1, std::bind(&BehaviorExecutive::has_control_callback,
 											       this, std::placeholders::_1));
 
   // publishers

@@ -14,6 +14,8 @@
 
 class TakeoffLandingPlanner : public rclcpp::Node {
    private:
+    const std::string ROBOT_NAME =
+        std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
     // parameters
     float takeoff_height, high_takeoff_height, takeoff_landing_velocity;
     float takeoff_acceptance_distance, takeoff_acceptance_time;

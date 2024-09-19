@@ -8,7 +8,7 @@
 
 class BehaviorExecutive : public rclcpp::Node {
 private:
-
+  const std::string ROBOT_NAME = std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
   // parameters
   bool ascent_takeoff;
   

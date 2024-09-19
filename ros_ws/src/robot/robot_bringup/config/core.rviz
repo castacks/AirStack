@@ -110,7 +110,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: trajectory_vis
+        Value: local/controls/trajectory_vis
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -122,7 +122,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: trajectory_controller_debug_markers
+        Value: local/controls/trajectory_controller_debug_markers
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -134,7 +134,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: trajectory_segment_vis
+        Value: local/controls/trajectory_segment_vis
       Value: true
     - Angle Tolerance: 0
       Class: rviz_default_plugins/Odometry
@@ -173,7 +173,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: odometry
+        Value: perception/state_estimation/odometry
       Value: true
     - Class: rviz_default_plugins/Image
       Enabled: true
@@ -187,7 +187,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: left/image_rect
+        Value: perception/depth/left/image_rect
       Value: true
   Enabled: true
   Global Options:
