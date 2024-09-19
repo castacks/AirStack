@@ -1,7 +1,4 @@
-
-
-# Overview 
-
+## Overview
 The details of the docker containers setup is in the `docker-compose.yaml` file in the `AirStack/docker` directory.
 
 
@@ -12,11 +9,7 @@ This lets them communicate with ROS2 on the same network.
 Each robot has its own ROS_DOMAIN_ID.
 
 
-# Build
-The `AirStack/ros_ws/` folder is mounted in live to the `ground-control-station` and `docker-robot` containers.
-This means each time you run `bws` (which is aliased to `colcon build`), it synchronizes over all the docker containers.
-
-# SSH
+## SSH into Robots
 The `ground-control-station` and `docker-robot` containers are setup with ssh daemon, so you can ssh into the containers using the IP address.
 
 You can get the IP address of each container by running the following command:

@@ -1,67 +1,6 @@
-site_name: "AirLab Autonomy Stack"
-theme:
-  name: material
-  logo: assets/logo_horizontal_white.png
-  favicon: assets/StackedWhite.png
-  palette:
-    - scheme: default
-      primary: "#CC002B"
-      accent: pink
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-
-    # Palette toggle for dark mode
-    - scheme: slate
-      primary: "#CC002B"
-      accent: pink
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-  features:
-    - navigation.indexes
-    - navigation.path
-    - navigation.tabs
-    - search.highlight
-    - search.suggest
-    - toc.integrate
-    - content.code.copy
-
+---
 extra_css:
   - stylesheets/extra.css
-
-plugins:
-  - search
-
-nav:
-  - "Home": "README.md"
-  - "User Guide":
-      - "Getting Started": "user_guide/getting_started.md"
-      - "Tutorials":
-          - "Overview": "user_guide/tutorials/overview.md"
-          - "Launch": "user_guide/tutorials/launch.md"
-      - "Docker Network": "user_guide/docker_network.md"
-      - "Planners": "user_guide/planners.md"
-      - "API Reference": "user_guide/api_reference.md"
-  - "Developer Guide":
-      - "Overview": "developer_guide/overview.md"
-      - "Autonomy":
-          - "Overview": "developer_guide/autonomy/overview.md"
-          - "Perception": "developer_guide/autonomy/perception.md"
-          - "Mapping": "developer_guide/autonomy/mapping.md"
-          - "Global Planning": "developer_guide/autonomy/global_planning.md"
-          - "Local Planning": "developer_guide/autonomy/local_planning.md"
-          - "Controls": "developer_guide/autonomy/controls.md"
-      - "Simulation": "developer_guide/simulation.md"
-      - "Contributing": "developer_guide/contributing.md"
-  - "About": "about.md"
-  - "Simulation": "simulation.md"
-  - "Autonomy": "auotnomy.md"
-  - "AirLab Website": "https://theairlab.org"
-
-repo_url: https://github.com/castacks/AirStack
-repo_name: castacks/AirStack
-
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
@@ -71,3 +10,86 @@ markdown_extensions:
   - pymdownx.snippets
   - pymdownx.superfences
   - pymdownx.magiclink
+nav:
+  - Home: README.md
+  - Getting Started: getting_started.md
+  - Development:
+      - Overview: development/overview.md
+      - General Usage with Docker Compose: development/docker_usage.md
+      - Testing:
+          - Overview: development/testing/overview.md
+          - Testing Frameworks: development/testing/testing_frameworks.md
+          - Integration Testing: development/testing/integration_testing.md
+          - Unit Testing: development/testing/unit_testing.md
+          - System Testing: development/testing/system_testing.md
+          - CI/CD Pipeline: development/testing/ci_cd.md
+      - Contributing: development/contributing.md
+      - ROS Frame Conventions: development/frame_conventions.md
+  - Robot Autonomy:
+      - Overview: robot/autonomy/overview.md
+      - Autonomy Modules:
+          - Interface:
+              - interface base class: robot/autonomy/0_interface/robot_interface.md
+          - Sensors:
+              - robot/autonomy/1_sensors/sensors.md
+          - Perception:
+              - robot/autonomy/2_perception/state_estimation.md
+          - Local:
+              - World Model: robot/autonomy/3_local/world_model.md
+              - Planning: robot/autonomy/3_local/planning.md
+              - Controls: robot/autonomy/3_local/controls.md
+          - Global:
+              - World Model: robot/autonomy/4_global/world_model.md
+              - Planning: robot/autonomy/4_global/planning.md
+          - Behavior:
+              - Behavior Tree: robot/autonomy/5_behavior/behavior_tree.md
+              - Behavior Executive: robot/autonomy/5_behavior/behavior_executive.md
+      - Logging:
+          - Overview: robot/autonomy/0_logging/overview.md
+  - Ground Control Station:
+      - Overview: ground_control_station/overview.md
+      - Usage:
+          - ground_control_station/usage/user_interface.md
+      - Multi-Robot:
+          - ground_control_station/multi_robot/multi_robot.md
+  - Simulation:
+      - Isaac Sim:
+          - simulation/isaac_sim/scene_setup.md
+          - simulation/isaac_sim/ascent_sitl_extension.md
+      - Gazebo:
+          - simulation/gazebo/scene_setup.md
+  - Real World:
+      - real_world/overview.md
+      - Installation on Hardware:
+          - Overview: real_world/installation/ovreview.md
+  - About: about.md
+plugins:
+  - search
+repo_name: castacks/AirStack
+repo_url: https://github.com/castacks/AirStack
+site_name: AirLab Autonomy Stack
+theme:
+  favicon: assets/StackedWhite.png
+  features:
+    - navigation.indexes
+    - navigation.path
+    - navigation.tabs
+    - search.highlight
+    - search.suggest
+    - toc.integrate
+    - content.code.copy
+  logo: assets/logo_horizontal_white.png
+  name: material
+  palette:
+    - accent: pink
+      primary: '#CC002B'
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - accent: pink
+      primary: '#CC002B'
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
