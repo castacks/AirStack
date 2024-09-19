@@ -18,7 +18,7 @@ Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This 
 ### Running.
 Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be  useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
-### Option 1 (Preferred): Use the Airlab Docker registry
+### Option 1 (NOT READY YET): Use the Airlab Docker registry
 
 To use the AirLab docker registry do the following
 ```bash
@@ -89,33 +89,40 @@ docker exec -it docker-robot-1 bash
 
 # in docker
 bws && sws ## build workspace and source workspace. these are aliases in ~/.bashrc
-ros2 launch robot_bringup launch_robot.yaml
+ros2 launch robot_bringup robot.launch.xml
 ```
 
 Launch Isaac Sim:
 
 ```bash
 # in another terminal under AirStack/docker
-docker compose exec isaac-sim bash
+docker exec -it isaac-sim bash
 # within docker
 runapp
 ```
 
-## Move Robot (THIS NEEDS UPDATES)
+## Move Robot
+In the Isaac content browser, under "Omniverse", click "Add New Connection ...".
+Type in `airlab-storage.andrew.cmu.edu:8443`.
 
+It takes a few seconds to connect.
+
+Then open the stage from the Nucleus server: 
+`airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/ascent_fire_academy.usd`
+
+Once Isaac Sim launches, hit the gray triangle "Play" button on the left side bar. It takes a minute for the GPS to initialize.
+
+Then, find the RQT GUI window. Hit `Takeoff`, then hit `Publish` in the trajectory window like in this video:
+
+<iframe width="840" height="473" src="https://www.youtube.com/embed/kfP5-ZbIBkc?si=knDAR4-CnLkxlGNb" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+Note you can also use the `ros2 topic pub` command to move the robot. For example, to fly to a position:
 ```bash
 # start another terminal in docker container
 docker exec -it docker-robot-1 bash
-
 # in docker
-# set drone mode to GUIDED
-ros2 service call /robot1/controls/mavros/set_mode mavros_msgs/SetMode "custom_mode: 'GUIDED'"
-# ARM
-ros2 service call /robot1/controls/mavros/cmd/arming mavros_msgs/srv/CommandBool "{value: True}"
-# TAKEOFF
-ros2 service call /robot1/controls/mavros/cmd/takeoff mavros_msgs/srv/CommandTOL "{altitude: 5}"
 # FLY TO POSITION. Put whatever position you want
-ros2 topic pub /controls/mavros/setpoint_position/local geometry_msgs/PoseStamped \
+ros2 topic pub /robot_1/interface/mavros/setpoint_position/local geometry_msgs/PoseStamped \
     "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'base_link' }, \
     pose: { position: { x: 10.0, y: 0.0, z: 20.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } } }" -1
 ```
