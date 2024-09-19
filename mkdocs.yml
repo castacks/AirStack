@@ -1,4 +1,12 @@
 ---
+copyright: Copyright &copy; 2024 - 2030 AirLab CMU
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github 
+      link: https://github.com/castacks
+    - icon: fontawesome/brands/x-twitter 
+      link: https://x.com/airlabcmu
 extra_css:
   - stylesheets/extra.css
 markdown_extensions:
@@ -74,6 +82,7 @@ theme:
     - navigation.indexes
     - navigation.path
     - navigation.tabs
+    - navigation.footer
     - search.highlight
     - search.suggest
     - toc.integrate
