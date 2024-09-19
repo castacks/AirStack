@@ -1,4 +1,4 @@
-
+# Global Planning
 
 Global planners output a high level, coarse trajectory for the robot to follow. 
 
@@ -72,3 +72,11 @@ collision_padding_m: 0.1 # how much space should the path have to any obstacles
 path_end_threshold_m: 0.1 # how close to the goal will the path be considered complete
 ```
 
+The global planner can do whatever it wants internally.
+
+
+## Example Planners
+
+### Random Walk planner
+
+The random walk planner replans when the robot is getting close to the goal. The random walk planner is a trivial planner that generates a plan by randomly selecting a direction to move in. The random walk planner is useful for testing the robot's ability to follow a plan.
