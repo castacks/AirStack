@@ -12,7 +12,10 @@ find_package(std_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 
 
-add_executable(mission_manager_node src/mission_manager_node.cpp)
+add_executable(mission_manager_node
+  src/mission_manager_node.cpp
+  src/MissionManager.cpp
+  src/BeliefMap.cpp)
 ament_target_dependencies(mission_manager_node rclcpp std_msgs airstack_msgs)
 target_include_directories(mission_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
