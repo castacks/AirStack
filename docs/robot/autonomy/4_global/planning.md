@@ -14,6 +14,8 @@ However, avoiding fine obstacles is delegated to the local planner that operates
 For the structure of the package, the global planner node should not include any logic to generate the path. This should be located in a seperate logic class and be seperated from ROS. This will allow more modularity in the future for testing and easy interface changes.
 
 ## ROS Interfaces
+=======
+For the structure of the package, the global planner node should not include any logic to generate the path. This should be located in a seperate logic class and be seperated from ROS. This will allow more modularity in the future for testing and easy interface changes.
 
 ### Actions Interface
 The global planner should provide an action server for the topic `$(arg robot_name)/global_planner/plan` of message type `nav_msgs/GetPlan`. This should be triggered from the base station and should trigger a path generation based off a fed goal position and optionally a tolerance to the final goal, otherwise a default tolerance will be used. This will then trigger the global planner to generate a path and publish it to the gloabal trajectory topic. 
@@ -80,3 +82,4 @@ The global planner can do whatever it wants internally.
 ### Random Walk planner
 
 The random walk planner replans when the robot is getting close to the goal. The random walk planner is a trivial planner that generates a plan by randomly selecting a direction to move in. The random walk planner is useful for testing the robot's ability to follow a plan.
+
