@@ -6,6 +6,7 @@
     pub_trajectory_lines_topic: "/global/planning/traj_viz"
     sub_map_topic: "/vdb_mapping/vdb_map_visualization"
     sub_robot_tf_topic: "/global/tf"
+    srv_get_path_service: "/global/planning/get_path"
 
     publish_visualizations: true # should trajectory visualizations be published
 

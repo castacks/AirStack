@@ -14,6 +14,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/srv/get_plan.hpp>
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -31,6 +32,7 @@ class RandomWalkNode : public rclcpp::Node {
     std::string pub_trajectory_lines_topic_;
     std::string sub_map_topic_;
     std::string sub_robot_tf_topic_;
+    std::string srv_get_plan_topic_;
 
     // Variables
     init_params params;
@@ -47,7 +49,11 @@ class RandomWalkNode : public rclcpp::Node {
     void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
 
     void tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg);
-    // void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+    void getPlanCallback(const std::shared_ptr<rmw_request_id_t> request_header,
+                         const std::shared_ptr<nav_msgs::srv::GetPlan::Request> request,
+                         const std::shared_ptr<nav_msgs::srv::GetPlan::Response> response);
+
     void timerCallback();
 
     // Other functions
@@ -68,6 +74,9 @@ class RandomWalkNode : public rclcpp::Node {
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_path;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
+
+    //ROS services
+    rclcpp::Service<nav_msgs::srv::GetPlan>::SharedPtr srv_get_plan;
 
     // ROS timers
     rclcpp::TimerBase::SharedPtr timer;

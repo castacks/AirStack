@@ -2,6 +2,7 @@
 #include "../include/random_walk_node.hpp"
 
 #include "../include/random_walk_logic.hpp"
+#include "random_walk_node.hpp"
 
 RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
     std::optional<init_params> params_opt = RandomWalkNode::readParameters();
@@ -25,6 +26,9 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         this->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_lines_topic_, 10);
     this->timer = this->create_wall_timer(std::chrono::seconds(1),
                                           std::bind(&RandomWalkNode::timerCallback, this));
+    this->srv_get_plan = this->create_service<nav_msgs::srv::GetPlan>(
+        srv_get_plan_topic_, std::bind(&RandomWalkNode::getPlanCallback, this, std::placeholders::_1,
+                                       std::placeholders::_2, std::placeholders::_3));
 }
 
 void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg) {
@@ -122,6 +126,75 @@ void RandomWalkNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
     if (!this->received_first_robot_tf) {
         this->received_first_robot_tf = true;
         RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
+    }
+}
+
+void RandomWalkNode::getPlanCallback(
+    const std::shared_ptr<rmw_request_id_t> request_header,
+    const std::shared_ptr<nav_msgs::srv::GetPlan::Request> request,
+    const std::shared_ptr<nav_msgs::srv::GetPlan::Response> response) {
+    RCLCPP_INFO(this->get_logger(), "Received GetPlan request");
+    if (request->start == nullptr) {
+        RCLCPP_INFO(this->get_logger(), "Generating path from current position...");
+        auto curr_orientation = this->current_location.rotation;}
+    elif (request->goal != nullptr) {
+        RCLCPP_INFO(this->get_logger(), "Generating path from given goal position...");
+        auto curr_orientation = request->goal.pose.rotation;}
+    
+    auto curr_orientation_quat = tf2::Quaternion(curr_orientation.x, curr_orientation.y,
+                                                    curr_orientation.z, curr_orientation.w);
+    tf2::Matrix3x3 m(curr_orientation_quat);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    std::tuple<float, float, float, float> start_loc(this->current_location.translation.x,
+        this->current_location.translation.y, this->current_location.translation.z, yaw);
+
+    std::optional<Path> gen_path_opt =
+        this->random_walk_planner.generate_straight_rand_path(start_loc);
+    if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
+        // RCLCPP_INFO(this->get_logger(), "Generated path with size %d",
+        //             gen_path_opt.value().size());
+
+        // set the current goal location
+        this->current_goal_location = geometry_msgs::msg::Transform();
+        this->current_goal_location.translation.x = std::get<0>(gen_path_opt.value().back());
+        this->current_goal_location.translation.y = std::get<1>(gen_path_opt.value().back());
+        this->current_goal_location.translation.z = std::get<2>(gen_path_opt.value().back());
+        this->current_goal_location.rotation.z = std::get<3>(gen_path_opt.value().back());
+
+        // publish the path
+        this->generated_path = nav_msgs::msg::Path();
+        this->generated_path.header.stamp = this->now();
+        this->generated_path.header.frame_id = world_frame_id_;
+        for (auto point : gen_path_opt.value()) {
+            geometry_msgs::msg::PoseStamped point_msg;
+            point_msg.pose.position.x = std::get<0>(point);
+            point_msg.pose.position.y = std::get<1>(point);
+            point_msg.pose.position.z = std::get<2>(point);
+            // convert yaw rotation to quaternion
+            tf2::Quaternion q;
+            q.setRPY(0, 0, std::get<3>(point));  // Roll = 0, Pitch = 0, Yaw = yaw
+            q.normalize();
+            point_msg.pose.orientation.x = q.x();
+            point_msg.pose.orientation.y = q.y();
+            point_msg.pose.orientation.z = q.z();
+            point_msg.pose.orientation.w = q.w();
+            point_msg.header.stamp = this->now();
+            this->generated_path.poses.push_back(point_msg);
+        }
+        this->pub_global_path->publish(this->generated_path);
+        response->plan = this->generated_path;
+        if (this->publish_visualizations) {
+            this->pub_goal_point->publish(createGoalPointMarker());
+            this->pub_trajectory_lines->publish(createTrajectoryLineMarker());
+        }
+        RCLCPP_INFO(this->get_logger(), "Published path and goal point at %f, %f, %f",
+                    this->generated_path.poses.back().pose.position.x,
+                    this->generated_path.poses.back().pose.position.y,
+                    this->generated_path.poses.back().pose.position.z);
+        this->is_path_executing = true;
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Failed to generate path, size was 0");
     }
 }
 
