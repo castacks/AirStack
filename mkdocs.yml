@@ -3,9 +3,9 @@ copyright: Copyright &copy; 2024 - 2030 AirLab CMU
 extra:
   generator: false
   social:
-    - icon: fontawesome/brands/github 
+    - icon: fontawesome/brands/github
       link: https://github.com/castacks
-    - icon: fontawesome/brands/x-twitter 
+    - icon: fontawesome/brands/x-twitter
       link: https://x.com/airlabcmu
 extra_css:
   - stylesheets/extra.css
@@ -61,9 +61,11 @@ nav:
       - Multi-Robot:
           - ground_control_station/multi_robot/multi_robot.md
   - Simulation:
+      - simulation/index.md
       - Isaac Sim:
-          - simulation/isaac_sim/scene_setup.md
-          - simulation/isaac_sim/ascent_sitl_extension.md
+          - simulation/isaac_sim/index.md
+          - Scene Setup: simulation/isaac_sim/scene_setup.md
+          - Ascent SITL Extension: simulation/isaac_sim/ascent_sitl_extension.md
       - Gazebo:
           - simulation/gazebo/scene_setup.md
   - Real World:
@@ -82,10 +84,14 @@ theme:
     - navigation.indexes
     - navigation.path
     - navigation.tabs
+    - navigation.expand
     - navigation.footer
+    - navigation.top
+    - navigation.sections
     - search.highlight
     - search.suggest
     - toc.integrate
+    - toc.follow
     - content.code.copy
   logo: assets/logo_horizontal_white.png
   name: material
