@@ -11,37 +11,27 @@ Have an NVIDIA GPU >= RTX 3070 to run Isaac Sim locally.
 ## Setup
 
 ### Clone
-
 ```
 git clone --recursive -j8 git@github.com:castacks/AirStack.git
 ```
-
 ### Docker
-
 Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This should come installed with docker compose.
 
-### Omniverse Nucleus Server
+## Configure 
 
-Install the Omniverse launcher download from this link:
+Follow the instructions in `docker/isaac-sim/omni_pass.env` to configure the required settings for your Omniverse Nucelus Server token.
+To generate a token, follow the NVIDIA docs [here](https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html). See here for more information:
+ https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
 
-```
-wget https://install.launcher.omniverse.nvidia.com/installers/omniverse-launcher-linux.AppImage
-```
+Also set the default OMNI_SERVER and accept the license terms. (Basti: The omni_server variable doesn't seem to work. The content browser might have to be edited manually the first time. To do that click:
+"Add new connection ..." and enter airlab-storage.andrew.cmu.edu:8443 in the server field. Also if there is a localhost it should be removed since we are not running a local Nucleus server.
 
-Follow these instructions to setup Nucleus : https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
+## Getting Docker Images Ready
+Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be  useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
-Generate a Nucleus token by following the NVIDIA docs [here](https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html).
-
-Make a copy of `docker/isaac-sim/omni_pass_TEMPLATE.env` to `docker/isaac-sim/omni_pass.env` and paste your token after `OMNI_PASS=`.
-
-### Running.
-
-Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
-
-#### Option 1 (NOT READY YET): Use the Airlab Docker Registry
+### Option 1 (Preferred): Use the Airlab Docker registry
 
 To use the AirLab docker registry do the following
-
 ```bash
 cd AirStack/docker/
 docker login airlab-storage.andrew.cmu.edu:5001
@@ -49,10 +39,10 @@ docker login airlab-storage.andrew.cmu.edu:5001
 ## <Enter your andrew password>
 
 ## Pull the images in the docker compose file
-docker compose pull
+docker compose pull 
 ```
-
 When you execute docker compose pull in the next step the image will be pulled from the server automatically. This might take a while since the image is large.
+
 
 #### Option 2: Setup from Scratch
 1. SITL (Required until we add to docker image)
@@ -73,7 +63,10 @@ When you execute docker compose pull in the next step the image will be pulled f
     docker compose build  # build the images locally
     ```
 
-
+IF you have permission you can now push an updated images to the docker server (only if it changed and is required)
+```bash
+docker compose push
+```
 
 ## Launch
 
