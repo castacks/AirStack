@@ -22,10 +22,10 @@ nav:
   - Home: README.md
   - Getting Started: getting_started.md
   - Development:
-      - Overview: development/overview.md
+      - development/index.md
       - General Usage with Docker Compose: development/docker_usage.md
       - Testing:
-          - Overview: development/testing/overview.md
+          - development/testing/index.md
           - Testing Frameworks: development/testing/testing_frameworks.md
           - Integration Testing: development/testing/integration_testing.md
           - Unit Testing: development/testing/unit_testing.md
@@ -34,7 +34,7 @@ nav:
       - Contributing: development/contributing.md
       - ROS Frame Conventions: development/frame_conventions.md
   - Robot Autonomy:
-      - Overview: robot/autonomy/overview.md
+      - robot/autonomy/index.md
       - Autonomy Modules:
           - Interface:
               - interface base class: robot/autonomy/0_interface/robot_interface.md
@@ -53,9 +53,9 @@ nav:
               - Behavior Tree: robot/autonomy/5_behavior/behavior_tree.md
               - Behavior Executive: robot/autonomy/5_behavior/behavior_executive.md
       - Logging:
-          - Overview: robot/autonomy/0_logging/overview.md
+          - robot/logging/index.md
   - Ground Control Station:
-      - Overview: ground_control_station/overview.md
+      - ground_control_station/index.md
       - Usage:
           - ground_control_station/usage/user_interface.md
       - Multi-Robot:
@@ -67,9 +67,9 @@ nav:
       - Gazebo:
           - simulation/gazebo/scene_setup.md
   - Real World:
-      - real_world/overview.md
+      - real_world/index.md
       - Installation on Hardware:
-          - Overview: real_world/installation/ovreview.md
+          - real_world/installation/index.md
   - About: about.md
 plugins:
   - search
