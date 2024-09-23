@@ -4,7 +4,7 @@ Welcome to the AirStack Boilerplate! This repository template serves to kickstar
 
 This boilerplate is maintained by the [AirLab](https://theairlab.org) at Carnegie Mellon University's Robotics Institute.
 
-Please head to our [Getting Started](https://docs.theairlab.org/user_guide/getting_started/) page to start.
+Please head to our [Getting Started](getting_started.md) page to start.
 
 
 
