@@ -17,12 +17,16 @@
 class MissionManager
 {
   public:
-    MissionManager();
+    MissionManager(int max_number_agents);
 
     void assign_tasks(rclcpp::Logger logger) const;
+    bool check_agent_changes(rclcpp::Logger, uint8_t robot_id, rclcpp::Time current_time);
 
   private: 
     BeliefMap belief_map_;
+    int max_number_agents_;
+    std::vector<rclcpp::Time> time_of_last_call_;
+    std::vector<bool> valid_agents_;
 
   };
   #endif /* MISSIONMANAGER_H_INCLUDED */

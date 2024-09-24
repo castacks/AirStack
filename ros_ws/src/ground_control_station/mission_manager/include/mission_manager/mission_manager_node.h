@@ -44,10 +44,20 @@ class MissionManagerNode : public rclcpp::Node
         "search_mission_request", 1, std::bind(&MissionManagerNode::search_mission_request_callback, this, std::placeholders::_1));
 
       // Create subscribers and publishers for max number of agents
-      for (uint8_t i = 0; i < max_number_agents; i++)
+      for (uint8_t i = 0; i < max_number_agents_; i++)
       {
-        agent_odoms_subs_.push_back(this->create_subscription<std_msgs::msg::String>(
-          "agent_" + std::to_string(i) + "/odom", 1, std::bind(&MissionManagerNode::agent_odom_callback, this, std::placeholders::_1)));
+        std::string topic_name = "agent_" + std::to_string(i) + "/odom";
+        agent_odoms_subs_.push_back(
+                this->create_subscription<std_msgs::msg::String>(
+                    topic_name, 1,
+                    [this, i](const std_msgs::msg::String::SharedPtr msg) {
+                        this->agent_odom_callback(msg, i);
+                    }
+                )
+            );
+        
+        
+        
         std::string agent_topic = "agent_" + std::to_string(i) + "/plan_request";
         plan_request_pubs_.push_back(
           this->create_publisher<airstack_msgs::msg::TaskAssignment>(agent_topic, 10));
@@ -59,7 +69,7 @@ class MissionManagerNode : public rclcpp::Node
       search_map_sub_ = this->create_subscription<std_msgs::msg::String>(
         "search_map_updates", 1, std::bind(&MissionManagerNode::search_map_callback, this, std::placeholders::_1));
 
-      mission_manager_ = std::make_shared<MissionManager>();
+      mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_);
     }
 
   private:
@@ -78,7 +88,7 @@ class MissionManagerNode : public rclcpp::Node
     /* --- MEMBER ATTRIBUTES --- */
 
     size_t count_;
-    int max_number_agents = 5; // TODO: get from param server
+    int max_number_agents_ = 5; // TODO: get from param server
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
 
@@ -93,14 +103,14 @@ class MissionManagerNode : public rclcpp::Node
       // TODO: publish the task assignment to the drones
     }
 
-    void agent_odom_callback(const std_msgs::msg::String::SharedPtr msg) const
+    void agent_odom_callback(const std_msgs::msg::String::SharedPtr msg, const uint8_t &robot_id)
     {
       RCLCPP_INFO(this->get_logger(), "Received agent odom '%s'", msg->data.c_str());
-      // TODO: save the list of agent id and their odometry
-
-      // TODO: check if change in the number of agents or id numbers
-      // if so, reassign tasks
-      // this->assign_tasks();
+      rclcpp::Time current_time = this->now();
+      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, current_time))
+      {
+        this->mission_manager_->assign_tasks(this->get_logger());
+      }
       // TODO: publish the task assignment to the drones
     }
 
