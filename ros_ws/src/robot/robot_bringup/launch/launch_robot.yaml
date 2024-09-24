@@ -8,10 +8,10 @@ launch:
       - push_ros_namespace:
           namespace: "$(var robot_name)"
       # AUTONOMY
-      - node:
-          pkg: "depth_to_disparity_package"
-          exec: "depth_to_disparity"
-          name: "depth_to_disparity"
+    #   - node:
+    #       pkg: "depth_to_disparity_package"
+    #       exec: "depth_to_disparity"
+    #       name: "depth_to_disparity"
       # local planner
       - include:
           file: "$(find-pkg-share disparity_expansion)/launch/disparity_expansion.xml"
