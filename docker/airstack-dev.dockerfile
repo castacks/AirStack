@@ -21,7 +21,7 @@ RUN rosdep init && rosdep update && \
     rm -rf /tmp/ros_ws || echo "Some ROS dependencies installation failed"
 
 # Install any additional ROS2 packages
-RUN apt install -y \
+RUN apt update -y && apt install -y \
     ros-dev-tools \
     ros-humble-mavros \ 
     ros-humble-tf2* \
