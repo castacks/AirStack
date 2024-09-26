@@ -7,20 +7,21 @@ import sys
 def main():
     rclpy.init()
     executor = SingleThreadedExecutor()
-    agents = 4
-    namespace = 'agent'
+    num_robots = 4
+    namespace_prefix = 'robot_'
 
     if len(sys.argv) > 1:
-        namespace = str(sys.argv[1])
-        agents = int(sys.argv[2])
+        namespace_prefix = str(sys.argv[1])
+        num_robots = int(sys.argv[2])
 
     tf_relays = []
     tf_static_relays = []
 
     try:
-        for i in range(agents):
-            tf_relay = TFRelay(namespace=namespace, agent=i)
-            tf_static_relay = TFStaticRelay(namespace=namespace, agent=i)
+        for i in range(num_robots):
+            robot_id = i + 1
+            tf_relay = TFRelay(namespace_prefix + str(robot_id))
+            tf_static_relay = TFStaticRelay(namespace_prefix + str(robot_id))
             tf_relays.append(tf_relay)
             tf_static_relays.append(tf_static_relay)
 
