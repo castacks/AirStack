@@ -1,16 +1,24 @@
 <launch>
-    <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
-        args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective" />
+    <!-- GUI interface -->
+    <group>
+        <push-ros-namespace namespace="behavior" />
+        <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
+            args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+        </node>
 
-    <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
-        <param name="config" value="$(find-pkg-share behavior_tree)/config/drone.tree" />
-        <param name="timeout" value="1.0" />
-    </node>
+        <!-- Behavior Tree -->
+        <node name="behavior_tree" pkg="behavior_tree" exec="behavior_tree_implementation">
+            <param name="config" value="$(find-pkg-share behavior_tree)/config/drone.tree" />
+            <param name="timeout" value="1.0" />
+        </node>
 
-    <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive"
-        output="screen">
-        <!-- remap glue to AirStack -->
-        <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
-        <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/has_control" />
-    </node>
+        <!-- Behavior Executive -->
+        <node name="behavior_executive" pkg="behavior_executive" exec="behavior_executive"
+            output="screen">
+            <!-- remap glue to AirStack -->
+            <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
+            <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
+        </node>
+
+    </group>
 </launch>

@@ -1,50 +1,34 @@
 <!-- AUTONOMY -->
 <launch>
   <!-- Robot Interface -->
-  <group>
-    <push-ros-namespace namespace="interface" />
-    <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node"
-      output="screen">
-      <param name="interface" value="mavros_interface::MAVROSInterface" />
-      <param name="is_ardupilot" value="true" />
-    </node>
+  <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node"
+    namespace="interface"
+    output="screen">
+    <param name="interface" value="mavros_interface::MAVROSInterface" />
+    <param name="is_ardupilot" value="true" />
+  </node>
 
-    <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
-      output="screen" />
+  <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
+    namespace="interface"
+    output="screen" />
 
-    <include file="$(find-pkg-share tf_relay)/launch/tf_relay.launch.xml" />
-
-  </group>
+  <!-- For multirobot, relay namespaced /ROBOT_NAME/tf to /tf locally -->
+  <include file="$(find-pkg-share tf_relay)/launch/tf_relay.launch.xml" />
 
   <!-- Sensors -->
-  <group>
-    <push-ros-namespace namespace="sensors" />
-    <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
-  </group>
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
 
   <!-- Perception -->
-  <group>
-    <push-ros-namespace namespace="perception" />
-    <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
-  </group>
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
 
   <!-- Local -->
-  <group>
-    <push-ros-namespace namespace="local" />
-    <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
-  </group>
+  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
 
   <!-- Global -->
-  <group>
-    <push-ros-namespace namespace="global" />
-    <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
-  </group>
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
 
   <!-- Behavior -->
-  <group>
-    <push-ros-namespace namespace="behavior" />
-    <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
-  </group>
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
 
 
 </launch>

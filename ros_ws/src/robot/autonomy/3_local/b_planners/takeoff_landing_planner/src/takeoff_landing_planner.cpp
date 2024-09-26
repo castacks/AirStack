@@ -38,7 +38,7 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
 
     // init publishers
     traj_track_pub =
-        this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_track", 1);
+        this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
     takeoff_state_pub = this->create_publisher<std_msgs::msg::String>("takeoff_state", 1);
     landing_state_pub = this->create_publisher<std_msgs::msg::String>("landing_state", 1);
 

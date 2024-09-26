@@ -110,7 +110,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: local/controls/trajectory_vis
+        Value: trajectory_controller/trajectory_vis
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -122,19 +122,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: local/controls/trajectory_controller_debug_markers
-      Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Traj Segment
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: local/controls/trajectory_segment_vis
+        Value: trajectory_controller/trajectory_controller_debug_markers
       Value: true
     - Angle Tolerance: 0
       Class: rviz_default_plugins/Odometry

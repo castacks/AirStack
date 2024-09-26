@@ -6,9 +6,6 @@
 #include <std_msgs/msg/float32.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-// #include <tf/transform_listener.h>
-// #include <tf/transform_broadcaster.h>
-// #include <core_trajectory_controller/msg/trajectory.h>
 #include <airstack_common/ros2_helper.hpp>
 #include <airstack_common/tflib.hpp>
 #include <airstack_common/vislib.hpp>
@@ -24,13 +21,11 @@ class TrajectoryControlNode : public rclcpp::Node {
    private:
     const std::string ROBOT_NAME =
         std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
-    rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_sub;
-    rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_sub;
+    rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_seg_to_add_sub;
+    rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;
 
-    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr segment_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_vis_pub;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr segment_marker_vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr drone_point_pub;
@@ -88,8 +83,8 @@ class TrajectoryControlNode : public rclcpp::Node {
     TrajectoryControlNode();
     void timer_callback();
 
-    void traj_callback(const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj);
-    void traj_track_callback(const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj);
+    void traj_seg_to_add_callback(const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj);
+    void traj_override_callback(const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj);
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr odom);
 
     void set_trajectory_mode(const std::shared_ptr<airstack_msgs::srv::TrajectoryMode::Request> req,
@@ -122,12 +117,12 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     trajectory = new Trajectory(this, target_frame);
 
     // init subscribers
-    traj_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
-        "trajectory", 1,
-        std::bind(&TrajectoryControlNode::traj_callback, this, std::placeholders::_1));
-    traj_track_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
-        "trajectory_track", 1,
-        std::bind(&TrajectoryControlNode::traj_track_callback, this, std::placeholders::_1));
+    traj_seg_to_add_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
+        "trajectory_segment_to_add", 1,
+        std::bind(&TrajectoryControlNode::traj_seg_to_add_callback, this, std::placeholders::_1));
+    traj_override_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
+        "trajectory_override", 1,
+        std::bind(&TrajectoryControlNode::traj_override_callback, this, std::placeholders::_1));
     odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
         "odometry", 1,
         std::bind(&TrajectoryControlNode::odom_callback, this, std::placeholders::_1));
@@ -137,12 +132,8 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
     // init publishers
-    segment_pub =
-        this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_segment", 1);
     marker_vis_pub =
         this->create_publisher<visualization_msgs::msg::MarkerArray>("trajectory_vis", 1);
-    segment_marker_vis_pub =
-        this->create_publisher<visualization_msgs::msg::MarkerArray>("trajectory_segment_vis", 1);
     tracking_point_pub = this->create_publisher<airstack_msgs::msg::Odometry>("tracking_point", 1);
     look_ahead_pub = this->create_publisher<airstack_msgs::msg::Odometry>("look_ahead", 1);
     drone_point_pub = this->create_publisher<airstack_msgs::msg::Odometry>("traj_drone_point", 1);
@@ -512,13 +503,13 @@ void TrajectoryControlNode::set_trajectory_mode(
     res->success = true;
 }
 
-void TrajectoryControlNode::traj_callback(
+void TrajectoryControlNode::traj_seg_to_add_callback(
     const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj) {
     if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::SEGMENT)
         trajectory->merge(Trajectory(this, *traj), virtual_time);
 }
 
-void TrajectoryControlNode::traj_track_callback(
+void TrajectoryControlNode::traj_override_callback(
     const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj) {
     virtual_time = 0;
     trajectory->clear();

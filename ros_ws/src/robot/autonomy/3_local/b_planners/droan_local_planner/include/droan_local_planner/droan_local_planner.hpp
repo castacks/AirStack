@@ -24,7 +24,8 @@ using std::placeholders::_1;
 
 class DroanLocalPlanner : public rclcpp::Node {
    private:
-    const std::string ROBOT_NAME = std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
+    const std::string ROBOT_NAME =
+        std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
     std::unique_ptr<TrajectoryLibrary> traj_lib;
 
     std::string map_representation_class_string;
@@ -113,9 +114,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             "local_planner_global_plan_vis", 10);
         look_past_vis_pub =
             this->create_publisher<visualization_msgs::msg::MarkerArray>("look_past", 10);
-        traj_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory", 10);
-        traj_track_pub =
-            this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_track", 10);
+        traj_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
+            "trajectory_segment_to_add", 10);
+        traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
+            "trajectory_override", 10);
 
         // services
         traj_mode_client =
