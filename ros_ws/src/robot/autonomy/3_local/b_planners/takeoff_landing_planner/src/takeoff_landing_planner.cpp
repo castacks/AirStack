@@ -37,7 +37,7 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
         std::bind(&TakeoffLandingPlanner::high_takeoff_callback, this, std::placeholders::_1));
 
     // init publishers
-    traj_track_pub =
+    traj_override_pub =
         this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
     takeoff_state_pub = this->create_publisher<std_msgs::msg::String>("takeoff_state", 1);
     landing_state_pub = this->create_publisher<std_msgs::msg::String>("landing_state", 1);
@@ -232,21 +232,28 @@ void TakeoffLandingPlanner::set_takeoff_landing_command(
         // put the trajectory controller into track mode
         // traj_mode_client.call(track_mode_srv);
         // publish a takeoff trajectory
+        RCLCPP_INFO_STREAM(get_logger(), "takeofflanding 1");
+
         airstack_msgs::msg::Odometry takeoff_starting_point = tracking_point_odom;
         if (got_robot_odom && takeoff_path_relative_to_orientation)
             takeoff_starting_point.pose.orientation = robot_odom.pose.pose.orientation;
 
-        if (high_takeoff)
-            traj_track_pub->publish(high_takeoff_traj_gen->get_trajectory(takeoff_starting_point));
-        else
-            traj_track_pub->publish(takeoff_traj_gen->get_trajectory(takeoff_starting_point));
+        if (high_takeoff) {
+            RCLCPP_INFO_STREAM(get_logger(), "takeofflanding hightakeoff");
+            traj_override_pub->publish(
+                high_takeoff_traj_gen->get_trajectory(takeoff_starting_point));
+        } else {
+            RCLCPP_INFO_STREAM(get_logger(), "takeofflanding lowtakeoff");
+            traj_override_pub->publish(takeoff_traj_gen->get_trajectory(takeoff_starting_point));
+        }
     } else if (current_command == airstack_msgs::srv::TakeoffLandingCommand::Request::LAND) {
         robot_odoms.clear();
         // put the trajectory controller into track mode
         // traj_mode_client.call(track_mode_srv);
         // publish a landing trajectory
-        traj_track_pub->publish(landing_traj_gen->get_trajectory(tracking_point_odom));
+        traj_override_pub->publish(landing_traj_gen->get_trajectory(tracking_point_odom));
     }
+    RCLCPP_INFO_STREAM(get_logger(), "takeofflanding end");
 
     response->accepted = true;
 }

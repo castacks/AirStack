@@ -5,6 +5,18 @@
   <!-- TODO: parameterize this -->
   <set_parameter name="use_sim_time" value="true" />
 
+  <!-- TFs -->
+  <node
+    pkg="tf2_ros"
+    exec="static_transform_publisher"
+    output="screen"
+    args="0 0 0 0 0 0 world $(env ROBOT_NAME)/world" />
+  <node
+    pkg="tf2_ros"
+    exec="static_transform_publisher"
+    output="screen"
+    args="0 0 0 0 0 0 $(env ROBOT_NAME)/origin $(env ROBOT_NAME)/map" />
+
   <!-- Autonomy -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/autonomy.launch.xml" />
 
@@ -16,7 +28,6 @@
   <node name="rviz" pkg="rviz2" exec="rviz2"
     args="-d $(find-pkg-share robot_bringup)/config/core.rviz --ros-args --log-level INFO"
     output="screen" />
-
 
 
 </launch>

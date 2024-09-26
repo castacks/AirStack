@@ -416,7 +416,7 @@ void TrajectoryControlNode::timer_callback() {
         transform.child_frame_id = tf_prefix + "tracking_point";
         geometry_msgs::msg::TransformStamped transform_stabilized =
             tf2::toMsg(tflib::get_stabilized(vtp_tf));
-        transform_stabilized.child_frame_id = tf_prefix + "/tracking_point_stabilized";
+        transform_stabilized.child_frame_id = tf_prefix + "tracking_point_stabilized";
         tf_broadcaster->sendTransform(transform);
         tf_broadcaster->sendTransform(transform_stabilized);
 

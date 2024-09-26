@@ -54,7 +54,7 @@ class TakeoffLandingPlanner : public rclcpp::Node {
     tf2_ros::TransformListener* tf_listener;
 
     // publishers
-    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr takeoff_state_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr landing_state_pub;
 

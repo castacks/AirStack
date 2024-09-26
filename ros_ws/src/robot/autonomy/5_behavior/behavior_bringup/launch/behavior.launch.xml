@@ -4,6 +4,7 @@
         <push-ros-namespace namespace="behavior" />
         <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
             args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+            <remap from="fixed_trajectory_command" to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
         </node>
 
         <!-- Behavior Tree -->
@@ -21,7 +22,7 @@
             <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
             <!-- services -->
              <remap from="robot_command" to="/$(env ROBOT_NAME)/interface/robot_command" />
-             <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/interface/set_trajectory_mode" />
+             <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
              <remap from="set_takeoff_landing_command" to="/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command" />
 
         </node>
