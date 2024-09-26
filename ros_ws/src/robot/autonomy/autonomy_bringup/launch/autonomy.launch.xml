@@ -12,6 +12,8 @@
     <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
       output="screen" />
 
+    <include file="$(find-pkg-share tf_relay)/launch/tf_relay.launch.xml" />
+
   </group>
 
   <!-- Sensors -->
