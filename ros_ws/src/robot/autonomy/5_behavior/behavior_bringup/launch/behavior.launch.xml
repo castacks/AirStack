@@ -17,7 +17,13 @@
             output="screen">
             <!-- remap glue to AirStack -->
             <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
+            <!-- topics -->
             <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
+            <!-- services -->
+             <remap from="robot_command" to="/$(env ROBOT_NAME)/interface/robot_command" />
+             <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/interface/set_trajectory_mode" />
+             <remap from="set_takeoff_landing_command" to="/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command" />
+
         </node>
 
     </group>
