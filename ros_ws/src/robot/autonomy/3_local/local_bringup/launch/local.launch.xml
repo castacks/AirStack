@@ -55,8 +55,8 @@
     <node name="trajectory_controller" pkg="trajectory_controller" exec="trajectory_controller"
         namespace="trajectory_controller"
         output="screen">
-        <param name="tf_prefix" value="$(env ROBOT_NAME)/" />
-        <param name="target_frame" value="$(env ROBOT_NAME)/map" />
+        <param name="tf_prefix" value="" />
+        <param name="target_frame" value="map" />
         <param name="tracking_point_distance_limit" value="10.5" />
         <param name="velocity_look_ahead_time" value="0.9" />
         <param name="look_ahead_time" value="1.0" />
