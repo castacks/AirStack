@@ -4,12 +4,12 @@
 #include <rclcpp/rclcpp.hpp>
 
 /**
- * @brief 
+ * @brief
  * Does several things
  * - if there's an odometry, republishes it with a new frame_id
  * - if there's an odometry, republishes it as a transform
  * - converts MAVROS odometry BEST_EFFORT to RELIABLE
- * 
+ *
  */
 
 class OdometryConversion : public rclcpp::Node {
@@ -22,7 +22,7 @@ class OdometryConversion : public rclcpp::Node {
     tf2_ros::TransformListener* tf_listener;
     tf2_ros::TransformBroadcaster* tf_broadcaster;
 
-    bool qos_best_effort;
+    bool odom_input_qos_is_best_effort;
     std::string new_frame_id;
     std::string new_child_frame_id;
     OdometryOutputType odometry_output_type;
@@ -35,7 +35,8 @@ class OdometryConversion : public rclcpp::Node {
    public:
     OdometryConversion() : Node("odometry_conversion") {
         ;
-        qos_best_effort = airstack::get_param(this, "qos_best_effort", false);
+        odom_input_qos_is_best_effort =
+            airstack::get_param(this, "odom_input_qos_is_best_effort", false);
         new_frame_id = airstack::get_param(this, "new_frame_id", std::string(""));
         new_child_frame_id = airstack::get_param(this, "new_child_frame_id", std::string(""));
         odometry_output_type =
@@ -68,7 +69,7 @@ class OdometryConversion : public rclcpp::Node {
         rmw_qos_profile_t qos = rmw_qos_profile_sensor_data;
         qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
         qos.depth = 1;
-        if (qos_best_effort) qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+        if (odom_input_qos_is_best_effort) qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
         odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
             "odometry_in", rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos),
             std::bind(&OdometryConversion::odom_callback, this, std::placeholders::_1));
@@ -87,9 +88,10 @@ class OdometryConversion : public rclcpp::Node {
             tflib::to_tf(out_odom.pose.pose.orientation) * odom_orientation_rotation_pre);
 
         if (odometry_output_type == NONE) {
-          // do nothing
-        } 
-        // transform mode transforms the odometry to a new frame, expects the new frame to exist in the same tf tree
+            // do nothing
+        }
+        // transform mode transforms the odometry to a new frame, expects the new frame to exist in
+        // the same tf tree
         else if (odometry_output_type == TRANSFORM) {
             try {
                 out_odom = tflib::transform_odometry(tf_buffer, out_odom, new_frame_id,
@@ -99,7 +101,7 @@ class OdometryConversion : public rclcpp::Node {
                     get_logger(), "TransformException while transforming odometry: " << ex.what());
                 return;
             }
-        } 
+        }
         // overwrite mode simply overwrites the header with the desired frame id and child frame id
         else if (odometry_output_type == OVERWRITE) {
             out_odom.header.frame_id = new_frame_id;

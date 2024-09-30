@@ -4,7 +4,7 @@
     <remap from="odometry_in" to="odometry_in" />
     <remap from="odometry_out" to="odometry_out" />
 
-    <param name="qos_best_effort" value="false" />
+    <param name="odom_input_qos_is_best_effort" value="false" />
     <param name="new_frame_id" value="$(env ROBOT_NAME)/map" />
     <param name="new_child_frame_id" value="$(env ROBOT_NAME)/map" />
     <param name="odometry_output_type" value="2" /> <!-- 0: NONE, 1: TRANSFORM, 2: OVERWRITE -->
