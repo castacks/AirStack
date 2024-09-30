@@ -1,17 +1,17 @@
+#include <airstack_common/ros2_helper.hpp>
+#include <airstack_common/tflib.hpp>
+#include <airstack_common/vislib.hpp>
 #include <airstack_msgs/msg/odometry.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
+#include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float32.hpp>
-#include <visualization_msgs/msg/marker.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
-#include <airstack_common/ros2_helper.hpp>
-#include <airstack_common/tflib.hpp>
-#include <airstack_common/vislib.hpp>
-#include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <trajectory_library/trajectory_library.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 //===================================================================================
 //----------------------------- Trajectory Control Node -----------------------------
@@ -25,7 +25,7 @@ class TrajectoryControlNode : public rclcpp::Node {
     rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;
 
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_vis_pub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr trajectory_vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr drone_point_pub;
@@ -132,7 +132,7 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
     // init publishers
-    marker_vis_pub =
+    trajectory_vis_pub =
         this->create_publisher<visualization_msgs::msg::MarkerArray>("trajectory_vis", 1);
     tracking_point_pub = this->create_publisher<airstack_msgs::msg::Odometry>("tracking_point", 1);
     look_ahead_pub = this->create_publisher<airstack_msgs::msg::Odometry>("look_ahead", 1);
@@ -208,7 +208,7 @@ void TrajectoryControlNode::timer_callback() {
             .add_sphere(target_frame, now, robot_point.x(), robot_point.y(), robot_point.z(),
                         sphere_radius)
             .set_color(0.f, 0.f, 1.f, 0.7f);
-        marker_vis_pub->publish(
+        trajectory_vis_pub->publish(
             trajectory->get_markers(now, 1, 1, 0, 1, false, false, traj_vis_thickness));
 
         // find closest point on entire trajectory
@@ -310,7 +310,9 @@ void TrajectoryControlNode::timer_callback() {
             actual_time = virtual_wp.time();
             prev_vtp_time = virtual_wp.time();
         } else {
-            RCLCPP_INFO_STREAM(this->get_logger(), "VIRTUAL IS NOT VALID");
+            RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
+                                    "Virtual waypoint does not correspond to a waypoint along the "
+                                    "reference trajectory. If no trajectory is available yet, this is okay.");
         }
 
         if (trajectory->waypoint_count() <= 3) {
