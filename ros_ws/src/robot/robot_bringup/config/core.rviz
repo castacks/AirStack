@@ -187,7 +187,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: left/image_rect
+        Value: sensors/front_stereo/left/image_rect
       Value: true
   Enabled: true
   Global Options:
@@ -273,5 +273,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1284
-  X: 73
-  Y: 29
+  X: 729
+  Y: 249
