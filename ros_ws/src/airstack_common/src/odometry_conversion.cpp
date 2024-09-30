@@ -8,6 +8,7 @@
  * Does several things
  * - if there's an odometry, republishes it with a new frame_id
  * - if there's an odometry, republishes it as a transform
+ * - converts MAVROS odometry BEST_EFFORT to RELIABLE
  * 
  */
 
