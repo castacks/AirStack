@@ -14,7 +14,7 @@
   <!-- GUI -->
 
   <node name="rviz" pkg="rviz2" exec="rviz2"
-    args="-d $(find-pkg-share robot_bringup)/config/core.rviz --ros-args --log-level INFO"
+    args="-d $(find-pkg-share robot_bringup)/config/core.rviz --ros-args --log-level ERROR"
     output="screen" />
 
 
