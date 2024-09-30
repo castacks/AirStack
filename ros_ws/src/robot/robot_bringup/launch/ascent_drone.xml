@@ -30,7 +30,10 @@
 
 
   <!-- Perception -->
-  <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node" />
+  <group>
+    <push_ros_namespace namespace="sensors/front_stereo" />
+    <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node" />
+  </group>
 
   <!-- Local -->
   <!-- mapping -->
@@ -66,10 +69,14 @@
   <node name="rqt" pkg="rqt_gui" exec="rqt_gui"
     args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective" />
   <node name="rviz" pkg="rviz2" exec="rviz2"
-    args="-d $(find-pkg-share robot_bringup)/config/core.rviz" output="screen" />
-  <node name="disparity_view" pkg="image_view" exec="disparity_view">
-    <remap from="image" to="disparity" />
-  </node>
+	args="-d $(find-pkg-share robot_bringup)/config/core.rviz" output="screen" />
+  
+  <group>
+    <push_ros_namespace namespace="sensors/front_stereo" />
+    <node name="disparity_view" pkg="image_view" exec="disparity_view">
+      <remap from="image" to="disparity" />
+    </node>
+  </group>
 
 
 </launch>
