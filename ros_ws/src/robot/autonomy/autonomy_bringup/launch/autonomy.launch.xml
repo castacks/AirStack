@@ -13,7 +13,9 @@
     output="screen" />
 
   <!-- For multirobot, relay namespaced /ROBOT_NAME/tf to /tf locally -->
-  <include file="$(find-pkg-share tf_relay)/launch/tf_relay.launch.xml" />
+  <!-- <include file="$(find-pkg-share tf_relay)/launch/tf_relay.launch.xml" /> -->
+  <node pkg="topic_tools" exec="relay" output="screen" args="/$(env ROBOT_NAME)/tf /tf">
+  </node>
 
   <!-- Sensors -->
   <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
