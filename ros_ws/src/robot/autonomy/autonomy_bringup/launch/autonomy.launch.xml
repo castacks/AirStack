@@ -1,0 +1,46 @@
+<!-- AUTONOMY -->
+<launch>
+  <!-- Robot Interface -->
+  <node name="robot_interface" pkg="robot_interface" exec="robot_interface_node"
+    namespace="interface"
+    output="screen">
+    <param name="interface" value="mavros_interface::MAVROSInterface" />
+    <param name="is_ardupilot" value="true" />
+  </node>
+
+  <node name="position_setpoint_pub" pkg="mavros_interface" exec="position_setpoint_pub.py"
+    namespace="interface"
+    output="screen" />
+
+  <!-- convert odometries to all be in map frame -->
+  <node name="odometry_conversion" pkg="airstack_common" exec="odometry_conversion"
+    namespace="odometry_conversion"
+    output="screen">
+    <remap from="odometry_in" to="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+    <remap from="odometry_out" to="odometry" />
+
+    <param name="odom_input_qos_is_best_effort" value="true" />
+    <param name="new_frame_id" value="map" />
+    <param name="new_child_frame_id" value="base_link" />
+    <param name="odometry_output_type" value="2" /> <!-- 0: NONE, 1: TRANSFORM, 2: OVERWRITE -->
+    <param name="convert_odometry_to_transform" value="true" />
+    <param name="convert_odometry_to_stabilized_transform" value="true" />
+  </node>
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+
+  <!-- Perception -->
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- Local -->
+  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
+
+  <!-- Global -->
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+
+  <!-- Behavior -->
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+
+
+</launch>

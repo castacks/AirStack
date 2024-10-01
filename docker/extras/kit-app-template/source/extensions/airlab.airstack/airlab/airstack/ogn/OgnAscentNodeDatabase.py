@@ -330,7 +330,7 @@ class OgnAscentNodeDatabase(og.Database):
                         drone_sim_dict[node_id] = {'initialized': False,
                                                    'prim': world.stage.GetPrimAtPath(str(db.inputs.dronePrim[0])),
                                                    'prop': world.stage.GetPrimAtPath(str(db.inputs.dronePrim[0]) + \
-                                                                                     '/spirit_uav/meshes/mesh_17'),
+                                                                                     '/spirit_uav/base_link/meshes/mesh_17'),
                                                    'sitl_tool': AscentSitlLaunchTool('/extras/drag_and_drop/',
                                                                                      int(db.inputs.domain_id),
                                                                                      db.inputs.domain_id, db.inputs.nodeNamespace),

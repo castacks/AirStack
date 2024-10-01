@@ -24,6 +24,8 @@ using std::placeholders::_1;
 
 class DroanLocalPlanner : public rclcpp::Node {
    private:
+    const std::string ROBOT_NAME =
+        std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
     std::unique_ptr<TrajectoryLibrary> traj_lib;
 
     std::string map_representation_class_string;
@@ -52,8 +54,6 @@ class DroanLocalPlanner : public rclcpp::Node {
     int height_mode;
     double height_above_ground;
     double fixed_height;
-    bool got_range_up, got_range_down;
-    sensor_msgs::msg::Range range_up, range_down;
 
     const int TRAJECTORY_YAW = 0;
     const int SMOOTH_YAW = 1;
@@ -70,20 +70,11 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr waypoint_sub;
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
-    rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr range_up_sub;
-    rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr range_down_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr custom_waypoint_sub;
-    // subscribers
-    // ros::Subscriber global_plan_sub, waypoint_sub, look_ahead_sub, tracking_point_sub,
-    // range_up_sub,
-    //    range_down_sub, custom_waypoint_sub;
 
     tf2_ros::Buffer tf_buffer;
     tf2_ros::TransformListener tf_listener;
 
-    // publishers
-    // ros::Publisher vis_pub, traj_pub, traj_track_pub, obst_vis_pub, global_plan_vis_pub,
-    //    look_past_vis_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
@@ -110,10 +101,6 @@ class DroanLocalPlanner : public rclcpp::Node {
             "look_ahead", 10, std::bind(&DroanLocalPlanner::look_ahead_callback, this, _1));
         tracking_point_sub = this->create_subscription<airstack_msgs::msg::Odometry>(
             "tracking_point", 10, std::bind(&DroanLocalPlanner::tracking_point_callback, this, _1));
-        range_up_sub = this->create_subscription<sensor_msgs::msg::Range>(
-            "range_up", 1, std::bind(&DroanLocalPlanner::range_up_callback, this, _1));
-        range_down_sub = this->create_subscription<sensor_msgs::msg::Range>(
-            "range_down", 1, std::bind(&DroanLocalPlanner::range_down_callback, this, _1));
         custom_waypoint_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "custom_waypoint", 1,
             std::bind(&DroanLocalPlanner::custom_waypoint_callback, this, _1));
@@ -127,9 +114,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             "local_planner_global_plan_vis", 10);
         look_past_vis_pub =
             this->create_publisher<visualization_msgs::msg::MarkerArray>("look_past", 10);
-        traj_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory", 10);
-        traj_track_pub =
-            this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_track", 10);
+        traj_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
+            "trajectory_segment_to_add", 10);
+        traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
+            "trajectory_override", 10);
 
         // services
         traj_mode_client =
@@ -195,44 +183,6 @@ class DroanLocalPlanner : public rclcpp::Node {
         // fixed height mode
         if (this->height_mode == FIXED_HEIGHT) {
             global_plan.set_fixed_height(fixed_height);
-        }
-        // set between the range sensors
-        else if (this->height_mode == RANGE_SENSOR_HEIGHT) {
-            if (!got_range_up || !got_range_down) return true;
-
-            try {
-                tf2::Stamped<tf2::Transform> transform_up, transform_down;
-
-                geometry_msgs::msg::TransformStamped tf_up_msg, tf_down_msg;
-                tf_buffer.canTransform(global_plan.get_frame_id(), range_up.header.frame_id,
-                                       range_up.header.stamp, rclcpp::Duration::from_seconds(0.1));
-                tf_up_msg = tf_buffer.lookupTransform(
-                    global_plan.get_frame_id(), range_up.header.frame_id, range_up.header.stamp);
-                tf2::fromMsg(tf_up_msg, transform_up);
-                tf_buffer.canTransform(global_plan.get_frame_id(), range_down.header.frame_id,
-                                       range_down.header.stamp,
-                                       rclcpp::Duration::from_seconds(0.1));
-                tf_down_msg =
-                    tf_buffer.lookupTransform(global_plan.get_frame_id(),
-                                              range_down.header.frame_id, range_down.header.stamp);
-                tf2::fromMsg(tf_down_msg, transform_down);
-
-                tf2::Vector3 range_up_gp_frame = transform_up * tf2::Vector3(range_up.range, 0, 0);
-                tf2::Vector3 range_down_gp_frame =
-                    transform_down * tf2::Vector3(range_down.range, 0, 0);
-
-                double tunnel_height = range_up_gp_frame.z() - range_down_gp_frame.z();
-                double z_setpoint = (range_up_gp_frame.z() + range_down_gp_frame.z()) / 2.0;
-                if (tunnel_height / 2.0 >= height_above_ground) {
-                    z_setpoint = range_down_gp_frame.z() + height_above_ground;
-                }
-
-                global_plan.set_fixed_height(z_setpoint);
-
-            } catch (tf2::TransformException& ex) {
-                RCLCPP_ERROR(this->get_logger(), "Failed to get transform: %s", ex.what());
-                return true;
-            }
         }
     }
 
@@ -725,13 +675,5 @@ class DroanLocalPlanner : public rclcpp::Node {
     void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
         is_tracking_point_received = true;
         tracking_point_odom = *odom;
-    }
-    void range_up_callback(const sensor_msgs::msg::Range::SharedPtr range_msg) {
-        got_range_up = true;
-        range_up = *range_msg;
-    }
-    void range_down_callback(const sensor_msgs::msg::Range::SharedPtr range_msg) {
-        got_range_down = true;
-        range_down = *range_msg;
     }
 };
