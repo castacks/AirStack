@@ -78,7 +78,7 @@ def incremental_rotate(prim):
     else:
         o = prim.GetAttribute('xformOp:rotateXYZ')
         if o.Get() != None:
-            o.Set(o.Get() + Gf.Vec3f(0., 27., 0.))
+            o.Set(o.Get() + Gf.Vec3d(0., 27, 0.))
 
 class OgnAscentNodeDatabase(og.Database):
     """Helper class providing simplified access to data on nodes of type airlab.airstack.AscentNode
@@ -330,7 +330,7 @@ class OgnAscentNodeDatabase(og.Database):
                         drone_sim_dict[node_id] = {'initialized': False,
                                                    'prim': world.stage.GetPrimAtPath(str(db.inputs.dronePrim[0])),
                                                    'prop': world.stage.GetPrimAtPath(str(db.inputs.dronePrim[0]) + \
-                                                                                     '/spirit_uav/base_link/meshes/mesh_17'),
+                                                                                     '/base_link/meshes/mesh_17'),
                                                    'sitl_tool': AscentSitlLaunchTool('/extras/drag_and_drop/',
                                                                                      int(db.inputs.domain_id),
                                                                                      db.inputs.domain_id, db.inputs.nodeNamespace),
@@ -361,19 +361,20 @@ class OgnAscentNodeDatabase(og.Database):
 
                         o = Gf.Quatf(q[3], q[0], q[1], q[2])
 
-                        n, e, d = (
-                            dronekit_connection.location.local_frame.east,
+                        north, east, down = (
                             dronekit_connection.location.local_frame.north,
+                            dronekit_connection.location.local_frame.east,
                             dronekit_connection.location.local_frame.down,
                         )
                         #print('ned', n, e, d, prim)
-                        if d is not None:
+                        if down is not None:
                             if prim.GetAttribute('xformOp:orient').Get() == None:
                                 prim.GetAttribute('xformOp:rotateXYZ').Set(Gf.Vec3f(r, p, y))
                             else:
                                 prim.GetAttribute('xformOp:orient').Set(o)
                             
-                            p = (e, n, -d)  # enu
+                            forward, left, up = north, -east, -down
+                            p = (forward, left, up)  # FLU
                             prim.GetAttribute('xformOp:translate').Set(p)
                             if prop:
                                 incremental_rotate(prop)
