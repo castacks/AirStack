@@ -362,9 +362,9 @@ class OgnAscentNodeDatabase(og.Database):
 
                         o = Gf.Quatf(q[3], q[0], q[1], q[2])
 
-                        n, e, d = (
-                            dronekit_connection.location.local_frame.east,
+                        north, east, down = (
                             dronekit_connection.location.local_frame.north,
+                            dronekit_connection.location.local_frame.east,
                             dronekit_connection.location.local_frame.down,
                         )
                         #print('ned', n, e, d, prim)
@@ -374,7 +374,8 @@ class OgnAscentNodeDatabase(og.Database):
                             else:
                                 prim.GetAttribute('xformOp:orient').Set(o)
                             
-                            p = (e, n, -d)  # enu
+                            forward, left, up = north, east, -down
+                            p = (forward, left, up)  # FLU
                             prim.GetAttribute('xformOp:translate').Set(p)
                             if prop:
                                 incremental_rotate(prop)
