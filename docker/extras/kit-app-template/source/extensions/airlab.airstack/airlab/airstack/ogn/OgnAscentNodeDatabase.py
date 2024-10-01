@@ -78,7 +78,6 @@ def incremental_rotate(prim):
     else:
         o = prim.GetAttribute('xformOp:rotateXYZ')
         if o.Get() != None:
-            print('rotateXYZ', o.Get())
             o.Set(o.Get() + Gf.Vec3d(0., 27, 0.))
 
 class OgnAscentNodeDatabase(og.Database):
@@ -368,13 +367,13 @@ class OgnAscentNodeDatabase(og.Database):
                             dronekit_connection.location.local_frame.down,
                         )
                         #print('ned', n, e, d, prim)
-                        if d is not None:
+                        if down is not None:
                             if prim.GetAttribute('xformOp:orient').Get() == None:
                                 prim.GetAttribute('xformOp:rotateXYZ').Set(Gf.Vec3f(r, p, y))
                             else:
                                 prim.GetAttribute('xformOp:orient').Set(o)
                             
-                            forward, left, up = north, east, -down
+                            forward, left, up = north, -east, -down
                             p = (forward, left, up)  # FLU
                             prim.GetAttribute('xformOp:translate').Set(p)
                             if prop:
