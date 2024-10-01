@@ -78,7 +78,8 @@ def incremental_rotate(prim):
     else:
         o = prim.GetAttribute('xformOp:rotateXYZ')
         if o.Get() != None:
-            o.Set(o.Get() + Gf.Vec3f(0., 27., 0.))
+            print('rotateXYZ', o.Get())
+            o.Set(o.Get() + Gf.Vec3d(0., 27, 0.))
 
 class OgnAscentNodeDatabase(og.Database):
     """Helper class providing simplified access to data on nodes of type airlab.airstack.AscentNode
@@ -330,7 +331,7 @@ class OgnAscentNodeDatabase(og.Database):
                         drone_sim_dict[node_id] = {'initialized': False,
                                                    'prim': world.stage.GetPrimAtPath(str(db.inputs.dronePrim[0])),
                                                    'prop': world.stage.GetPrimAtPath(str(db.inputs.dronePrim[0]) + \
-                                                                                     '/spirit_uav/base_link/meshes/mesh_17'),
+                                                                                     '/base_link/meshes/mesh_17'),
                                                    'sitl_tool': AscentSitlLaunchTool('/extras/drag_and_drop/',
                                                                                      int(db.inputs.domain_id),
                                                                                      db.inputs.domain_id, db.inputs.nodeNamespace),
