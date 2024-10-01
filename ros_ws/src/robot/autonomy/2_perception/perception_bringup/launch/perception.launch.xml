@@ -1,0 +1,15 @@
+<!-- PERCEPTION -->
+<launch>
+
+    <!-- State Estimation -->
+    <!-- Disparity -->
+    <node name="stereo_image_proc" pkg="stereo_image_proc" exec="disparity_node"
+        namespace="stereo_image_proc" />
+
+    <!-- Visualizer -->
+    <node name="disparity_view" pkg="image_view" exec="disparity_view"
+        namespace="disparity_view">
+        <remap from="image" to="disparity" />
+    </node>
+
+</launch>

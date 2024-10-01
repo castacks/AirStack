@@ -1,0 +1,9 @@
+<!-- GLOBAL -->
+<launch>
+    <!-- World Model -->
+    <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" />
+
+    <!-- Planning -->
+    <group>
+    </group>
+</launch>

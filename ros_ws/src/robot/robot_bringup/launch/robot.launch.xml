@@ -1,0 +1,27 @@
+<!-- ROBOT -->
+<launch>
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <!-- TODO: parameterize this -->
+  <set_parameter name="use_sim_time" value="true" />
+
+  <node
+    pkg="tf2_ros"
+    exec="static_transform_publisher"
+    name="static_transform_publisher"
+    args="0 0 0 1.57079632679 0 0 map_FLU map" />
+
+  <!-- Autonomy -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/autonomy.launch.xml" />
+
+  <!-- Logging -->
+  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
+
+  <!-- GUI -->
+
+  <node name="rviz" pkg="rviz2" exec="rviz2"
+    args="-d $(find-pkg-share robot_bringup)/config/core.rviz --ros-args --log-level ERROR"
+    output="screen" />
+
+
+</launch>
