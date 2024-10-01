@@ -14,4 +14,8 @@ windows:
       - shell_command:
         - sleep 5
         - export ROS_DOMAIN_ID=$DOMAIN_ID
-        - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/mavros use_sim_time:=true
+        - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/interface/mavros
+      - shell_command:
+        - sleep 5.5
+        - export ROS_DOMAIN_ID=$DOMAIN_ID
+        - ros2 param set $NAMESPACE/interface/mavros/mavros use_sim_time true

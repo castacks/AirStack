@@ -121,7 +121,7 @@ export PYTHONWARNINGS
 
 function bws(){
     echo "Running \`colcon build\` in $ROS2_WS_DIR"
-    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/
+    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
 }
 function sws(){
     echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
@@ -162,3 +162,5 @@ container_name=$(curl -s --unix-socket /var/run/docker.sock http://localhost/con
 
 export ROBOT_NAME=$(echo "$container_name" | sed 's#/docker-##' | sed 's#-#_#')
 export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
+
+export RCUTILS_COLORIZED_OUTPUT=1  # get colored output from ROS2 tools

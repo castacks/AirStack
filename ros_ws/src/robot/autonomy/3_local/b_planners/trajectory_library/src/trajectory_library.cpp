@@ -890,7 +890,7 @@ visualization_msgs::msg::MarkerArray Trajectory::get_markers(rclcpp::Time stamp,
     lines.header.stamp = stamp;
     lines.header.frame_id = frame_id;
     lines.ns = marker_namespace;
-    lines.id = waypoints.size();
+    lines.id = waypoints.size() + 1;
     lines.type = visualization_msgs::msg::Marker::LINE_STRIP;
     lines.action = visualization_msgs::msg::Marker::ADD;
     lines.scale.x = thickness;

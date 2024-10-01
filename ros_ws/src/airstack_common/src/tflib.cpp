@@ -62,6 +62,12 @@ namespace tflib {
   // --------------------------------- Utils ----------------------------------
   // ==========================================================================
   
+  /**
+   * @brief Get the stabilized object by setting roll and pitch to 0
+   * 
+   * @param q 
+   * @return tf2::Quaternion 
+   */
   tf2::Quaternion get_stabilized(tf2::Quaternion q){
     tf2::Quaternion stabilized_q;
     double roll, pitch, yaw;
