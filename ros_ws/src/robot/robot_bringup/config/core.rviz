@@ -4,14 +4,11 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
-        - /Status1
         - /TF1/Frames1
-        - /Odometry1
         - /Odometry1/Topic1
-        - /Image1
+        - /Front Left Depth1
       Splitter Ratio: 0.48235294222831726
-    Tree Height: 481
+    Tree Height: 752
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -29,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: LiDAR Point Cloud
 Visualization Manager:
   Class: ""
   Displays:
@@ -80,6 +77,8 @@ Visualization Manager:
           Value: true
         odom_ned:
           Value: true
+        ouster:
+          Value: true
         right_camera:
           Value: true
         tracking_point:
@@ -105,6 +104,8 @@ Visualization Manager:
                     {}
                   right_camera:
                     {}
+                ouster:
+                  {}
               base_link_stabilized:
                 {}
               look_ahead_point:
@@ -182,12 +183,73 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: odometry_conversion/odometry
       Value: true
+    - Alpha: 0.30000001192092896
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 4.803654670715332
+        Min Value: -0.4225761890411377
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: AxisColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: LiDAR Point Cloud
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.05000000074505806
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_1/sensors/ouster/point_cloud
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: VDBMap
+      Namespaces:
+        "": true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_1/vdb_mapping/vdb_map_visualization
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 100
+      Median window: 5
+      Min Value: 0
+      Name: Front Left Depth
+      Normalize Range: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_1/sensors/front_stereo/left/depth
+      Value: true
     - Class: rviz_default_plugins/Image
       Enabled: true
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Image
+      Name: Front Left RGB
       Normalize Range: true
       Topic:
         Depth: 5
@@ -242,35 +304,37 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 22.841075897216797
+      Distance: 29.966896057128906
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 5.961486339569092
+        Y: 8.034347534179688
+        Z: -2.4616804122924805
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8303981423377991
+      Pitch: 0.5203981399536133
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.005399112589657307
+      Yaw: 5.2435832023620605
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: true
-  Height: 772
-  Hide Left Dock: true
-  Hide Right Dock: false
-  Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001560000026afc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b0000026a000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c0000026100000001000002010000026afc0200000004fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0049006d006100670065010000003b0000026a0000002800fffffffb0000000a0056006900650077007300000000fd000001a8000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000005040000003efc0100000002fb0000000800540069006d00650100000000000005040000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000002fd0000026a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Front Left Depth:
+    collapsed: false
+  Front Left RGB:
+    collapsed: false
+  Height: 1043
+  Hide Left Dock: false
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd00000004000000000000015600000379fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000379000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000021700000379fc0200000005fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b0000018f0000002800fffffffb0000002000460072006f006e00740020004c00650066007400200044006500700074006801000001d0000001e40000002800fffffffb0000000a0056006900650077007300000000fd000001a8000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000003efc0100000002fb0000000800540069006d00650100000000000007800000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000004070000037900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -279,6 +343,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1284
-  X: 372
-  Y: 232
+  Width: 1920
+  X: 0
+  Y: 360
