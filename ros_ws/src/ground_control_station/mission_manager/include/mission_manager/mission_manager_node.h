@@ -70,6 +70,12 @@ class MissionManagerNode : public rclcpp::Node
         "search_map_updates", 1, std::bind(&MissionManagerNode::search_map_callback, this, std::placeholders::_1));
 
       mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_);
+
+      // TODO: set param for rate, make sure not communicated over network
+      search_map_publisher_ = this->create_publisher<grid_map_msgs::msg::GridMap>(
+        "search_map_basestation", rclcpp::QoS(1).transient_local());
+      timer_ = this->create_wall_timer(
+        std::chrono::seconds(1), std::bind(&MissionManagerNode::search_map_publisher, this));
     }
 
   private:
@@ -77,6 +83,7 @@ class MissionManagerNode : public rclcpp::Node
 
     // Publisher
     std::vector<rclcpp::Publisher<airstack_msgs::msg::TaskAssignment>::SharedPtr> plan_request_pubs_;
+    rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr search_map_publisher_;
 
     // Subscribers
     rclcpp::Subscription<airstack_msgs::msg::SearchMissionRequest>::SharedPtr mission_subscriber_;
@@ -88,6 +95,7 @@ class MissionManagerNode : public rclcpp::Node
     /* --- MEMBER ATTRIBUTES --- */
 
     size_t count_;
+    rclcpp::TimerBase::SharedPtr timer_;
     int max_number_agents_ = 5; // TODO: get from param server
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
@@ -102,6 +110,17 @@ class MissionManagerNode : public rclcpp::Node
           plan_request_pubs_[i]->publish(tasks[i]);
         }
       }
+    }
+
+    void search_map_publisher()
+    {
+      this->mission_manager_->belief_map_->map_.setTimestamp(this->now().nanoseconds());
+      std::unique_ptr<grid_map_msgs::msg::GridMap> message;
+      message = grid_map::GridMapRosConverter::toMessage(this->mission_manager_->belief_map_->map_);
+      RCLCPP_DEBUG(
+        this->get_logger(), "Publishing grid map (timestamp %f).",
+        rclcpp::Time(message->header.stamp).nanoseconds() * 1e-9);
+      search_map_publisher_->publish(std::move(message));
     }
 
     void search_mission_request_callback(const airstack_msgs::msg::SearchMissionRequest::SharedPtr msg)

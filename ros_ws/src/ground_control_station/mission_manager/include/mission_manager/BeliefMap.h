@@ -8,11 +8,15 @@
 #include <eigen3/Eigen/Dense>
 #include <float.h>
 
+#include <grid_map_ros/grid_map_ros.hpp>
+#include <geometry_msgs/msg/polygon.hpp>
+
+#include "airstack_msgs/msg/search_mission_request.hpp"
+#include "airstack_msgs/msg/search_prior.hpp"
+#include "airstack_msgs/msg/keep_out_zone.hpp"
 
 class BeliefMap
 {
-private:
-
 public:
 
   std::vector<std::vector<double>> polygon_bounds;
@@ -26,7 +30,11 @@ public:
   // std::vector<std::vector<int>> sensor_model_id;
 
   BeliefMap();
+  bool reset_map(airstack_msgs::msg::SearchMissionRequest search_mission_request);
+  grid_map::GridMap map_;
 
+private:
+  
 };
 
 #endif // BELIEFMAP_H
