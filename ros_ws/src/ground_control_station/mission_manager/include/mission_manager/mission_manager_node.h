@@ -100,7 +100,7 @@ class MissionManagerNode : public rclcpp::Node
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
 
-    void publish_tasks(std::vector<airstack_msgs::msg::TaskAssignment> tasks)
+    void publish_tasks(std::vector<airstack_msgs::msg::TaskAssignment> tasks) const
     {
       std::vector<bool> valid_agents = this->mission_manager_->get_valid_agents();
       for (uint8_t i = 0; i < this->max_number_agents_; i++)
@@ -114,9 +114,9 @@ class MissionManagerNode : public rclcpp::Node
 
     void search_map_publisher()
     {
-      this->mission_manager_->belief_map_->map_.setTimestamp(this->now().nanoseconds());
+      this->mission_manager_->belief_map_.map_.setTimestamp(this->now().nanoseconds());
       std::unique_ptr<grid_map_msgs::msg::GridMap> message;
-      message = grid_map::GridMapRosConverter::toMessage(this->mission_manager_->belief_map_->map_);
+      message = grid_map::GridMapRosConverter::toMessage(this->mission_manager_->belief_map_.map_);
       RCLCPP_DEBUG(
         this->get_logger(), "Publishing grid map (timestamp %f).",
         rclcpp::Time(message->header.stamp).nanoseconds() * 1e-9);
@@ -130,6 +130,8 @@ class MissionManagerNode : public rclcpp::Node
 
       // TODO: clear the map knowledge? Only if the search area has changed?
 
+      // TODO: visualize the seach mission request
+
       this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger()));
     }
 
@@ -142,7 +144,7 @@ class MissionManagerNode : public rclcpp::Node
       }
     }
 
-    void tracked_targets_callback(const std_msgs::msg::String::SharedPtr msg) const
+    void tracked_targets_callback(const std_msgs::msg::String::SharedPtr msg)
     {
       RCLCPP_INFO(this->get_logger(), "Received target track list '%s'", msg->data.c_str());
       // TODO: save the list of tracked target

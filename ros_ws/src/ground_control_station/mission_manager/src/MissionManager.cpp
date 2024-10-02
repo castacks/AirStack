@@ -39,9 +39,11 @@ bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id
   return change_in_agents;
 }
 
-bool check_target_changes(rclcpp::Logger, std::string target_list, rclcpp::Time current_time)
+bool MissionManager::check_target_changes(rclcpp::Logger logger, std::string target_list, rclcpp::Time current_time)
 {
   // TODO
+  RCLCPP_INFO_STREAM(logger, "Checking target changes at time " 
+    << current_time.nanoseconds() << " with target list " << target_list);
   return false;
 }
 
@@ -57,6 +59,7 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
   // Decide how many search vs track tasks to assign
   int number_of_track_tasks = 0; // TODO
   int number_of_search_tasks = std::max(number_of_agents - number_of_track_tasks, 0);
+  RCLCPP_INFO_STREAM(logger, "Assigning " << number_of_search_tasks << " search tasks and " << number_of_track_tasks << " track tasks");
 
   // Send out the request for the search map division
   // TODO Nayana

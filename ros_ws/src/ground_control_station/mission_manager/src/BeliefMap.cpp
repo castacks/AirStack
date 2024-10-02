@@ -1,7 +1,9 @@
 #include "mission_manager/BeliefMap.h"
 
 
-BeliefMap::BeliefMap() { }
+BeliefMap::BeliefMap()
+: map_(std::vector<std::string>({"probability"}))
+{ }
 
 bool BeliefMap::reset_map(airstack_msgs::msg::SearchMissionRequest search_mission_request)
 {
