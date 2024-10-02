@@ -18,7 +18,7 @@
 
   <node name="rviz" pkg="rviz2" exec="rviz2"
     args="-d $(find-pkg-share robot_bringup)/config/core.rviz --ros-args --log-level INFO"
-    output="screen" />
+    output="screen" respawn="true" respawn_delay="1"/>
 
 
 </launch>
