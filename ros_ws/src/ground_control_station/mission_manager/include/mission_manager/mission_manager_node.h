@@ -106,8 +106,7 @@ class MissionManagerNode : public rclcpp::Node
     void agent_odom_callback(const std_msgs::msg::String::SharedPtr msg, const uint8_t &robot_id)
     {
       RCLCPP_INFO(this->get_logger(), "Received agent odom '%s'", msg->data.c_str());
-      rclcpp::Time current_time = this->now();
-      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, current_time))
+      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, this->now()))
       {
         this->mission_manager_->assign_tasks(this->get_logger());
       }
@@ -119,9 +118,11 @@ class MissionManagerNode : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Received target track list '%s'", msg->data.c_str());
       // TODO: save the list of tracked target
 
-      // TODO: check if change in the number of targets or id numbers
-      // if so, reassign tasks
-      // this->assign_tasks();
+      // Check if change in the number of targets or id numbers
+      if (this->mission_manager_->check_target_changes(this->get_logger(), msg->data, this->now()))
+      {
+        this->mission_manager_->assign_tasks(this->get_logger());
+      }
       // TODO: publish the task assignment to the drones
     }
 

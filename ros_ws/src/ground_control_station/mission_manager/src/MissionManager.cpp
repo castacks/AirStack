@@ -39,6 +39,12 @@ bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id
   return change_in_agents;
 }
 
+bool check_target_changes(rclcpp::Logger, std::string target_list, rclcpp::Time current_time)
+{
+  // TODO
+  return false;
+}
+
 
 // TODO
 void MissionManager::assign_tasks(rclcpp::Logger logger) const
