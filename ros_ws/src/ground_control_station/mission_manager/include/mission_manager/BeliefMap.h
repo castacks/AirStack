@@ -28,7 +28,7 @@ public:
   // std::vector<std::vector<int>> sensor_model_id;
 
   BeliefMap();
-  bool reset_map(airstack_msgs::msg::SearchMissionRequest search_mission_request);
+  bool reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request);
   grid_map::GridMap map_;
 
 private:
