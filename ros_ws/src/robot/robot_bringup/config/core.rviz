@@ -4,6 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /TF1/Frames1
         - /Odometry1/Topic1
       Splitter Ratio: 0.48235294222831726
@@ -303,25 +304,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 22.841075897216797
+      Distance: 23.79106903076172
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 4.123167037963867
-        Y: 8.893933296203613
-        Z: -2.213228225708008
+        X: -2.7142093181610107
+        Y: 2.349794387817383
+        Z: -0.7724144458770752
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5153982639312744
+      Pitch: 0.49539828300476074
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.543581485748291
+      Yaw: 5.3035807609558105
     Saved: ~
 Window Geometry:
   Displays:
