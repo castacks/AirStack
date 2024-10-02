@@ -27,7 +27,8 @@ RUN apt update -y && apt install -y \
     ros-humble-tf2* \
     ros-humble-stereo-image-proc \
     ros-humble-image-view \
-    ros-humble-topic-tools
+    ros-humble-topic-tools \
+    ros-humble-grid-map
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
