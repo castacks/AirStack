@@ -92,6 +92,18 @@ class MissionManagerNode : public rclcpp::Node
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
 
+    void publish_tasks(std::vector<airstack_msgs::msg::TaskAssignment> tasks)
+    {
+      std::vector<bool> valid_agents = this->mission_manager_->get_valid_agents();
+      for (uint8_t i = 0; i < this->max_number_agents_; i++)
+      {
+        if (valid_agents[i])
+        {
+          plan_request_pubs_[i]->publish(tasks[i]);
+        }
+      }
+    }
+
     void search_mission_request_callback(const airstack_msgs::msg::SearchMissionRequest::SharedPtr msg)
     {
       RCLCPP_INFO(this->get_logger(), "Received new search mission request");
@@ -99,8 +111,7 @@ class MissionManagerNode : public rclcpp::Node
 
       // TODO: clear the map knowledge? Only if the search area has changed?
 
-      this->mission_manager_->assign_tasks(this->get_logger());
-      // TODO: publish the task assignment to the drones
+      this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger()));
     }
 
     void agent_odom_callback(const std_msgs::msg::String::SharedPtr msg, const uint8_t &robot_id)
@@ -108,9 +119,8 @@ class MissionManagerNode : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Received agent odom '%s'", msg->data.c_str());
       if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, this->now()))
       {
-        this->mission_manager_->assign_tasks(this->get_logger());
+        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger()));
       }
-      // TODO: publish the task assignment to the drones
     }
 
     void tracked_targets_callback(const std_msgs::msg::String::SharedPtr msg) const
@@ -121,9 +131,8 @@ class MissionManagerNode : public rclcpp::Node
       // Check if change in the number of targets or id numbers
       if (this->mission_manager_->check_target_changes(this->get_logger(), msg->data, this->now()))
       {
-        this->mission_manager_->assign_tasks(this->get_logger());
+        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger()));
       }
-      // TODO: publish the task assignment to the drones
     }
 
     void search_map_callback(const std_msgs::msg::String::SharedPtr msg) const
