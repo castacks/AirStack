@@ -19,8 +19,9 @@ class MissionManager
   public:
     MissionManager(int max_number_agents);
 
-    void assign_tasks(rclcpp::Logger logger) const;
+    std::vector<airstack_msgs::msg::TaskAssignment> assign_tasks(rclcpp::Logger logger) const;
     bool check_agent_changes(rclcpp::Logger, uint8_t robot_id, rclcpp::Time current_time);
+    bool check_target_changes(rclcpp::Logger, std::string target_list, rclcpp::Time current_time);
 
   private: 
     BeliefMap belief_map_;
