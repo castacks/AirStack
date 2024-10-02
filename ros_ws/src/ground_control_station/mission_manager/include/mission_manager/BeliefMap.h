@@ -31,6 +31,11 @@ public:
   bool reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request);
   grid_map::GridMap map_;
 
+  bool is_initialized() const
+  {
+    return !map_.getSize()(0) == 0;
+  }
+
 private:
   
 };

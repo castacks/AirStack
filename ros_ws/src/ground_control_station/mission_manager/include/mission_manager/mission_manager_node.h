@@ -114,13 +114,16 @@ class MissionManagerNode : public rclcpp::Node
 
     void search_map_publisher()
     {
-      this->mission_manager_->belief_map_.map_.setTimestamp(this->now().nanoseconds());
-      std::unique_ptr<grid_map_msgs::msg::GridMap> message;
-      message = grid_map::GridMapRosConverter::toMessage(this->mission_manager_->belief_map_.map_);
-      RCLCPP_DEBUG(
-        this->get_logger(), "Publishing grid map (timestamp %f).",
-        rclcpp::Time(message->header.stamp).nanoseconds() * 1e-9);
-      search_map_publisher_->publish(std::move(message));
+      if (this->mission_manager_->belief_map_.is_initialized())
+      {
+        this->mission_manager_->belief_map_.map_.setTimestamp(this->now().nanoseconds());
+        std::unique_ptr<grid_map_msgs::msg::GridMap> message;
+        message = grid_map::GridMapRosConverter::toMessage(this->mission_manager_->belief_map_.map_);
+        RCLCPP_DEBUG(
+          this->get_logger(), "Publishing grid map (timestamp %f).",
+          rclcpp::Time(message->header.stamp).nanoseconds() * 1e-9);
+        search_map_publisher_->publish(std::move(message));
+      }
     }
 
     void search_mission_request_callback(const airstack_msgs::msg::SearchMissionRequest::SharedPtr msg)
@@ -131,7 +134,7 @@ class MissionManagerNode : public rclcpp::Node
       // TODO: clear the map knowledge? Only if the search area has changed?
 
       // TODO: visualize the seach mission request
-
+      this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg);
       this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger()));
     }
 

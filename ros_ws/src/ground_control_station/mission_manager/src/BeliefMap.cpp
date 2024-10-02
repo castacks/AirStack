@@ -7,9 +7,10 @@ BeliefMap::BeliefMap()
 
 bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request)
 {
+  RCLCPP_INFO(logger, "Resetting map");
   // Setting up map.
   // Get the max and min x and y values from the search area
-  double resolution = 10.0;
+  double resolution = 5.0;
   double min_x = DBL_MAX;
   double max_x = -DBL_MAX;
   double min_y = DBL_MAX;
@@ -47,7 +48,7 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
                    resolution,
                    grid_map::Position(std::round(min_x + x_length / 2.0),
                                       std::round(min_y + y_length / 2.0)));
-  map_.setFrameId("search_map"); // TODO update to correct frame or set TF frame somewhere. There is already a map frame
+  map_.setFrameId("map"); // TODO update to correct frame or set TF frame somewhere. There is already a map frame
   map_.clearAll();
 
   for (auto& search_prior : search_mission_request.search_priors)
@@ -63,7 +64,10 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
       for (grid_map::PolygonIterator iterator(map_, polygon);
         !iterator.isPastEnd(); ++iterator)
       {
-        map_.at("probability", *iterator) = search_prior.value;
+        float& current_value = map_.at("probability", *iterator);
+        if (std::isnan(current_value) || current_value < search_prior.value) {
+          current_value = search_prior.value;
+        }
       }
     }
     else if (search_prior.grid_prior_type == airstack_msgs::msg::SearchPrior::LINE_SEG_PRIOR)

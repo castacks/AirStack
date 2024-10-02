@@ -17,17 +17,32 @@ add_executable(mission_manager_node
   src/mission_manager_node.cpp
   src/MissionManager.cpp
   src/BeliefMap.cpp)
+
+add_executable(example_search_request_node
+  src/example_search_request.cpp)
+
 ament_target_dependencies(mission_manager_node rclcpp std_msgs airstack_msgs grid_map_ros)
+ament_target_dependencies(example_search_request_node rclcpp airstack_msgs)
+
 target_include_directories(mission_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
+
+target_include_directories(example_search_request_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
 target_compile_features(mission_manager_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(example_search_request_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 install(TARGETS mission_manager_node
   DESTINATION lib/${PROJECT_NAME})
 
+install(TARGETS example_search_request_node
+  DESTINATION lib/${PROJECT_NAME})
+
 install(
-  DIRECTORY launch
+  DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
   
