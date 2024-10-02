@@ -39,9 +39,40 @@ bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id
   return change_in_agents;
 }
 
+bool MissionManager::check_target_changes(rclcpp::Logger logger, std::string target_list, rclcpp::Time current_time)
+{
+  // TODO
+  RCLCPP_INFO_STREAM(logger, "Checking target changes at time " 
+    << current_time.nanoseconds() << " with target list " << target_list);
+  return false;
+}
+
 
 // TODO
-void MissionManager::assign_tasks(rclcpp::Logger logger) const
+std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rclcpp::Logger logger) const
 {
   RCLCPP_INFO(logger, "Assigning tasks to drones");
+
+  // Find how many active robots
+  int number_of_agents = std::accumulate(valid_agents_.begin(), valid_agents_.end(), 0);
+
+  // Decide how many search vs track tasks to assign
+  int number_of_track_tasks = 0; // TODO
+  int number_of_search_tasks = std::max(number_of_agents - number_of_track_tasks, 0);
+  RCLCPP_INFO_STREAM(logger, "Assigning " << number_of_search_tasks << " search tasks and " << number_of_track_tasks << " track tasks");
+
+  // Send out the request for the search map division
+  // TODO Nayana
+
+  // Assign the search and track tasks to drones based on distance to the task
+  
+  // return the msg to be published
+  std::vector<airstack_msgs::msg::TaskAssignment> task_assignments(this->max_number_agents_);
+  for (int i = 0; i < this->max_number_agents_; i++)
+  {
+    task_assignments[i].assigned_task_type = airstack_msgs::msg::TaskAssignment::SEARCH;
+    task_assignments[i].assigned_task_number = i;
+  }
+
+  return task_assignments;
 }
