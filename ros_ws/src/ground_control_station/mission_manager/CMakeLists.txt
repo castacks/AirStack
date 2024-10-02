@@ -10,13 +10,14 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
+find_package(grid_map_ros REQUIRED)
 
 
 add_executable(mission_manager_node
   src/mission_manager_node.cpp
   src/MissionManager.cpp
   src/BeliefMap.cpp)
-ament_target_dependencies(mission_manager_node rclcpp std_msgs airstack_msgs)
+ament_target_dependencies(mission_manager_node rclcpp std_msgs airstack_msgs grid_map_ros)
 target_include_directories(mission_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -24,6 +25,12 @@ target_compile_features(mission_manager_node PUBLIC c_std_99 cxx_std_17)  # Requ
 
 install(TARGETS mission_manager_node
   DESTINATION lib/${PROJECT_NAME})
+
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+  
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

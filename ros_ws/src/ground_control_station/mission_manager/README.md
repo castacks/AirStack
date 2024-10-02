@@ -11,3 +11,8 @@ Debugging this node
 ```
 ros2 run --prefix 'gdb -ex run --args'  mission_manager mission_manager_node
 ```
+
+```
+ros2 launch mission_manager mission_manager_launch.py
+ros2 run rviz2 rviz2
+```
