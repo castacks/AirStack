@@ -1,17 +1,23 @@
-# 0_interface
+# Interface
 
-Code located in `AirStack/ros_ws/src/robot/autonomy/0_interface/`.
+The interface defines the communication between the autonomy stack running on the onboard computer and the robot's control unit.
+For example, for drones it converts the control commands from the autonomy stack into MAVLink messages for the flight controller.
+
+==TODO: This is not our diagram, must replace.==
+![Interface Diagram](https://404warehouse.net/wp-content/uploads/2016/08/softwareoverview.png?w=800)
+
+The code is located under `AirStack/ros_ws/src/robot/autonomy/0_interface/`.
 
 ## Launch
 
-Launch files are under `src/robot/autonomy/0_interface/0_interface_bringup/launch`.
+Launch files are under `src/robot/autonomy/0_interface/interface_bringup/launch`.
 
-Can be launched with `ros2 launch interface_bringup interface.yaml`
+The main launch command is `ros2 launch interface_bringup interface.launch.xml`.
 
 
 ## RobotInterface
 
-Package `robot_interface` is a ROS2 node that 0_interfaces with the robot's hardware.
+Package `robot_interface` is a ROS2 node that interfaces with the robot's hardware.
 The `RobotInterface` _gets robot state_ and forwards it to the autonomy stack, 
 and also _translates control commands_ from the autonomy stack into the command for the underlying hardware.
 Note the base class is unimplemented.
@@ -27,18 +33,20 @@ These are reflected in [MAVLink](https://mavlink.io/en/messages/common.html#SET_
 
 The Robot0_interface node subscribes to:
 
-- `$(arg robot_name)/interface/cmd_attitude_thrust` of type `mav_msgs/AttitudeThrust.msg`
-- `$(arg robot_name)/interface/cmd_rate_thrust` of type `mav_msgs/RateThrust.msg`
-- `$(arg robot_name)/interface/cmd_roll_pitch_yawrate_thrust` of type `mav_msgs/RollPitchYawrateThrust.msg`
-- `$(arg robot_name)/interface/cmd_torque_thrust` of type `mav_msgs/TorqueThrust.msg`
-- `$(arg robot_name)/interface/cmd_velocity` of type `geometry_msgs/TwistStamped.msg`
-- `$(arg robot_name)/interface/cmd_position` of type `geometry_msgs/PoseStamped.msg`
+- `/$(arg robot_name)/interface/cmd_attitude_thrust` of type `mav_msgs/AttitudeThrust.msg`
+- `/$(arg robot_name)/interface/cmd_rate_thrust` of type `mav_msgs/RateThrust.msg`
+- `/$(arg robot_name)/interface/cmd_roll_pitch_yawrate_thrust` of type `mav_msgs/RollPitchYawrateThrust.msg`
+- `/$(arg robot_name)/interface/cmd_torque_thrust` of type `mav_msgs/TorqueThrust.msg`
+- `/$(arg robot_name)/interface/cmd_velocity` of type `geometry_msgs/TwistStamped.msg`
+- `/$(arg robot_name)/interface/cmd_position` of type `geometry_msgs/PoseStamped.msg`
 
 All messages are in the robot's body frame, except `velocity` and `position` which use the frame specified by the message header.
 
+## MAVROSInterface
+The available implementation in AirStack is called `MAVROSInterface` implemented in `mavros_interface.cpp`. It simply forwards the control commands to the Ascent flight controller (based on Ardupilot) using MAVROS.
 
 ## Custom Robot Interface
-Implementations should do the following:
+If you're using a different robot control unit with its own custom API, then you need to create an associated RobotInterface. Implementations should do the following:
 
 ### Broadcast State
 Implementations of `RobotInterface` should obtain the robot's pose and broadcast it as a TF2 transform.
@@ -60,6 +68,7 @@ void your_callback_function(){
     // ...
 }
 ```
+==TODO: our code doesn't currently do it like this, it instead uses an external odometry_conversion node.==
 
 ### Override Command Handling
 Should override all `virtual` functions in `robot_interface.hpp`:
