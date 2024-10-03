@@ -11,6 +11,8 @@ find_package(rclcpp REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(airstack_msgs REQUIRED)
@@ -23,6 +25,7 @@ target_include_directories(robot_interface PUBLIC
 target_compile_features(robot_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
 ament_target_dependencies(
   robot_interface
+
   # Required dependencies
   geometry_msgs
   mav_msgs
@@ -59,6 +62,27 @@ install(
   INCLUDES DESTINATION include
 )
 
+# odometry conversion
+add_executable(odometry_conversion src/odometry_conversion.cpp)
+
+target_include_directories(odometry_conversion PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+ament_target_dependencies(odometry_conversion
+  rclcpp
+  geometry_msgs
+  visualization_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  airstack_msgs
+  airstack_common
+  )
+install(TARGETS odometry_conversion
+  DESTINATION lib/${PROJECT_NAME})
+
 ament_export_include_directories(
   include
   ${mav_msgs_INCLUDE_DIRS}
@@ -79,4 +103,10 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+# Install files.
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+
+# install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 ament_package()

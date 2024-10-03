@@ -16,8 +16,17 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
   - pymdownx.magiclink
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 nav:
   - Home: README.md
   - Getting Started: getting_started.md
@@ -33,25 +42,32 @@ nav:
           - CI/CD Pipeline: development/testing/ci_cd.md
       - Contributing: development/contributing.md
       - ROS Frame Conventions: development/frame_conventions.md
-  - Robot Autonomy:
-      - robot/autonomy/index.md
+  - Robot:
+      - robot/index.md
       - Autonomy Modules:
-          - Interface:
-              - interface base class: robot/autonomy/0_interface/robot_interface.md
+          - robot/autonomy/index.md
+          - Interface: 
+              - robot/autonomy/0_interface/index.md
           - Sensors:
-              - robot/autonomy/1_sensors/sensors.md
+              - robot/autonomy/1_sensors/index.md
           - Perception:
+              - robot/autonomy/2_perception/index.md
               - robot/autonomy/2_perception/state_estimation.md
           - Local:
+              - robot/autonomy/3_local/index.md
               - World Model: robot/autonomy/3_local/world_model.md
               - Planning: robot/autonomy/3_local/planning.md
               - Controls: robot/autonomy/3_local/controls.md
           - Global:
+              - robot/autonomy/4_global/index.md
               - World Model: robot/autonomy/4_global/world_model.md
               - Planning: robot/autonomy/4_global/planning.md
           - Behavior:
+              - robot/autonomy/5_behavior/index.md
               - Behavior Tree: robot/autonomy/5_behavior/behavior_tree.md
               - Behavior Executive: robot/autonomy/5_behavior/behavior_executive.md
+      - Static Transforms:
+          - robot/static_transforms/index.md
       - Logging:
           - robot/logging/index.md
   - Ground Control Station:
