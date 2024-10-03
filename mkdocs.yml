@@ -42,11 +42,11 @@ nav:
           - CI/CD Pipeline: development/testing/ci_cd.md
       - Contributing: development/contributing.md
       - ROS Frame Conventions: development/frame_conventions.md
-  - Robot Autonomy:
-      - robot/autonomy/index.md
+  - Robot:
+      - robot/index.md
       - Autonomy Modules:
-          - Interface:
-              - interface base class: robot/autonomy/0_interface/robot_interface.md
+          - robot/autonomy/index.md
+          - Interface: robot/autonomy/0_interface/robot_interface.md
           - Sensors:
               - robot/autonomy/1_sensors/sensors.md
           - Perception:
@@ -61,6 +61,8 @@ nav:
           - Behavior:
               - Behavior Tree: robot/autonomy/5_behavior/behavior_tree.md
               - Behavior Executive: robot/autonomy/5_behavior/behavior_executive.md
+      - Static Transforms:
+          - robot/static_transforms/index.md
       - Logging:
           - robot/logging/index.md
   - Ground Control Station:
