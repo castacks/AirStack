@@ -21,7 +21,8 @@ private:
   bt::Condition* pause_commanded_condition;
   bt::Condition* rewind_commanded_condition;
   bt::Condition* fixed_trajectory_condition;
-  bt::Condition* explore_condition;
+  bt::Condition* enable_plan_reception_condition;
+  bt::Condition* disable_plan_reception_condition;
   bt::Condition* offboard_commanded_condition;
   bt::Condition* arm_commanded_condition;
   bt::Condition* disarm_commanded_condition;
@@ -34,7 +35,8 @@ private:
   bt::Action* pause_action;
   bt::Action* rewind_action;
   bt::Action* follow_fixed_trajectory_action;
-  bt::Action* explore_action;
+  bt::Action* enable_plan_reception_action;
+  bt::Action* disable_plan_reception_action;
   bt::Action* request_control_action;
   bt::Action* disarm_action;
   std::vector<bt::Action*> actions;
@@ -43,7 +45,6 @@ private:
   rclcpp::Subscription<behavior_tree_msgs::msg::BehaviorTreeCommands>::SharedPtr behavior_tree_commands_sub;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_armed_sub;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr has_control_sub;
-  
   
   // publishers
 

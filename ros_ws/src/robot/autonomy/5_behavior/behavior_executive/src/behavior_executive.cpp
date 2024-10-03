@@ -11,7 +11,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     pause_commanded_condition = new bt::Condition("Pause Commanded", this);
     rewind_commanded_condition = new bt::Condition("Rewind Commanded", this);
     fixed_trajectory_condition = new bt::Condition("Fixed Trajectory Commanded", this);
-    explore_condition = new bt::Condition("Explore Commanded", this);
+    receive_plans_condition = new bt::Condition("Receive Plans Commanded", this);
     offboard_commanded_condition = new bt::Condition("Offboard Commanded", this);
     arm_commanded_condition = new bt::Condition("Arm Commanded", this);
     disarm_commanded_condition = new bt::Condition("Disarm Commanded", this);
@@ -24,7 +24,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(pause_commanded_condition);
     conditions.push_back(rewind_commanded_condition);
     conditions.push_back(fixed_trajectory_condition);
-    conditions.push_back(explore_condition);
+    conditions.push_back(receive_plans_condition);
     conditions.push_back(offboard_commanded_condition);
     conditions.push_back(arm_commanded_condition);
     conditions.push_back(disarm_commanded_condition);
@@ -36,7 +36,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     pause_action = new bt::Action("Pause", this);
     rewind_action = new bt::Action("Rewind", this);
     follow_fixed_trajectory_action = new bt::Action("Follow Fixed Trajectory", this);
-    explore_action = new bt::Action("Explore", this);
+    receive_plans_action = new bt::Action("Receive Plans", this);
     request_control_action = new bt::Action("Request Control", this);
     disarm_action = new bt::Action("Disarm", this);
     actions.push_back(arm_action);
@@ -45,7 +45,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     actions.push_back(pause_action);
     actions.push_back(rewind_action);
     actions.push_back(follow_fixed_trajectory_action);
-    actions.push_back(explore_action);
+    actions.push_back(receive_plans_action);
     actions.push_back(request_control_action);
     actions.push_back(disarm_action);
 
@@ -247,6 +247,30 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
+    // receive plans action
+    if (enable_plan_reception_action->is_active()) {
+        enable_plan_reception_action->set_running();
+
+        if (enable_plan_reception_action->active_has_changed()) {
+            airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+                std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+            mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::SEGMENT;
+            auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+            mode_result.wait();
+        }
+    }
+
+    if (disable_plan_reception_action->is_active()) {
+        disable_plan_reception_action->set_running();
+
+        if (disable_plan_reception_action->active_has_changed()) {
+            airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+                std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+            mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
+            auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+            mode_result.wait();
+        }
+    }
     for (bt::Condition* condition : conditions) condition->publish();
     for (bt::Action* action : actions) action->publish();
 }
@@ -276,6 +300,10 @@ void BehaviorExecutive::is_armed_callback(const std_msgs::msg::Bool::SharedPtr m
 
 void BehaviorExecutive::has_control_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     offboard_mode_condition->set(msg->data);
+}
+
+void BehaviorExecutive::is_planning_ready_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+    receive_plans_mode_condition->set(msg->data);
 }
 
 int main(int argc, char** argv) {
