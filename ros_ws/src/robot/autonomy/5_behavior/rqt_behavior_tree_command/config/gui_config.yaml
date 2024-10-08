@@ -12,3 +12,5 @@ groups:
         condition_name: Fixed Trajectory Commanded
     - Disarm:
         condition_name: Disarm Commanded
+    - Random Walk:
+        condition_name: Random Walk Commanded

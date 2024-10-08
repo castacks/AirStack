@@ -34,9 +34,9 @@
 		?
 			[Follow Fixed Trajectory]
 	->
-		(Explore Commanded)
+		(Random Walk Commanded)
 		?
-			[Explore]
+			[Random Walk]
 	->
 		(Offboard Commanded)
 		?

@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    plan_reception_service_name: "set_plan_reception_mode"
+

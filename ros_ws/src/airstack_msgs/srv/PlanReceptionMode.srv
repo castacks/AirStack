@@ -1,0 +1,6 @@
+int8 ENABLE_PLAN_RECEPTION=0
+int8 DISABLE_PLAN_RECEPTION=1
+
+uint8 command
+---
+bool success
