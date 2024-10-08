@@ -22,42 +22,42 @@ jobs:
         run: |
           git fetch origin +refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
 
-      # Define a function to check version increment for a given service
-      - name: Check Dockerfile changes and version increment for each service
+      # Define a function to check version increment for a given image_name
+      - name: Check Dockerfile changes and version increment for each image_name
         run: |
-          # List the services and their corresponding Dockerfiles
+          # List the image_names and their corresponding Dockerfiles
           cd docker/
-          declare -A services
-          services=( 
-            ["isaac-sim"]="Dockerfile.isaac-ros"
-            ["robot"]="Dockerfile.airstack-dev"
-            # Add more mappings here for other services
+          declare -A image_name_to_dockerfile
+          image_name_to_dockerfile=( 
+            ["isaac-sim_ros-humble"]="Dockerfile.isaac-ros"
+            ["airstack-dev"]="Dockerfile.airstack-dev"
+            # Add more mappings here
           )
 
           # Compare the current branch with the base branch
           changes=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
 
-          # Loop through each service and its Dockerfile
-          for service in "${!services[@]}"; do
-            dockerfile="${services[$service]}"
+          # Loop through each image_name and its Dockerfile
+          for image_name in "${!image_name_to_dockerfile[@]}"; do
+            dockerfile="${image_name_to_dockerfile[$image_name]}"
 
-            # If the Dockerfile for this service has been changed
+            # If the Dockerfile for this image_name has been changed
             if echo "$changes" | grep -q "$dockerfile"; then
-              echo "Dockerfile for $service has changed."
+              echo "Dockerfile for $image_name has changed."
 
-              # Check if the docker-compose.yaml contains an image version for this service (vX.Y.Z)
-              if grep -qE "image: .*/$service:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
+              # Check if the docker-compose.yaml contains an image version for this image_name (vX.Y.Z)
+              if grep -qE "image: .*/$image_name:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
                 # Extract the full version (vX.Y.Z)
-                current_version=$(grep -oP "image: .*/$service:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
+                current_version=$(grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
 
                 # Split current version into major, minor, patch
                 IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
 
-                # Check if the image version for this service has been incremented in this PR
-                new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$service:v\K[0-9]+\.[0-9]+\.[0-9]+")
+                # Check if the image version for this image_name has been incremented in this PR
+                new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
 
                 if [ -z "$new_version" ]; then
-                  echo "::error::Dockerfile for $service was modified but image version in docker-compose.yaml was not updated."
+                  echo "::error::Dockerfile for $image_name was modified but image version in docker-compose.yaml was not updated."
                   exit 1
                 fi
 
@@ -68,16 +68,16 @@ jobs:
                 if [ "$new_major" -gt "$current_major" ] || \
                   ([ "$new_major" -eq "$current_major" ] && [ "$new_minor" -gt "$current_minor" ]) || \
                   ([ "$new_major" -eq "$current_major" ] && [ "$new_minor" -eq "$current_minor" ] && [ "$new_patch" -gt "$current_patch" ]); then
-                  echo "Image version for $service has been incremented in docker-compose.yaml."
+                  echo "Image version for $image_name has been incremented in docker-compose.yaml."
                 else
-                  echo "::error::Dockerfile for $service was modified but the image version in docker-compose.yaml was not correctly incremented."
+                  echo "::error::Dockerfile for $image_name was modified but the image version in docker-compose.yaml was not correctly incremented."
                   exit 1
                 fi
               else
-                echo "::error::No valid image version (vX.Y.Z) found in docker-compose.yaml for $service."
+                echo "::error::No valid image version (vX.Y.Z) found in docker-compose.yaml for $image_name."
                 exit 1
               fi
             else
-              echo "No changes to Dockerfile for $service."
+              echo "No changes to Dockerfile for $image_name."
             fi
           done
