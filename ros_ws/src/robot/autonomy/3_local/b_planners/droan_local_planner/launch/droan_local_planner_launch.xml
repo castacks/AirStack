@@ -22,7 +22,6 @@
         <param name="obstacle_check_points" value="5" />
         <param name="obstacle_distance_reward" value="0." />
         <param name="forward_progress_reward_weight" value="5.0" />
-        <param name="look_past_distance" value="0." />
         <!-- <param name="use_fixed_height" type="bool" value="true" /> -->
         <!-- 0: use height from global plan, 1: use a fixed height, 2: use range sensors for height
         above ground setpoint -->
