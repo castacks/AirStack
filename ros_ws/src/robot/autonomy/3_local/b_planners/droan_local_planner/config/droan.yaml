@@ -5,21 +5,15 @@
     robot_radius: 0.75
     look_past_distance: 2.0
 
-    # height parameters
-    height_mode: 0
-    height_above_ground: 1.0
-    fixed_height: 1.0
     # 0: use the yaw of the subscribed traj, 1: smoothly vary the yaw in the direction of the subscribed trajectory
-    yaw_mode: 0
-    map_representation: PointCloudMapRepresentation
+    yaw_mode: 1
+    map_representation: disparity_map_representation::DisparityMapRepresentation
     waypoint_buffer_duration: 30.0
     waypoint_angle_threshold: 30.0
 
     # trajectory parameters 
-    # trajectory_library_config: "$(find trajectory_library)/config/acceleration_magnitudes.yaml"
-    # tf_prefix: robot1
-    trajectory_library_config: "/root/AirStack/ros_ws/install/trajectory_library/share/trajectory_library/config/acceleration_magnitudes.yaml"
-    waypoint_spacing: 0.5
+    trajectory_library_config: "$(find trajectory_library)/config/acceleration_magnitudes.yaml"
+    # trajectory_library_config: "/root/AirStack/ros_ws/install/trajectory_library/share/trajectory_library/config/acceleration_magnitudes.yaml"
     waypoint_spacing_threshold: 0.5
 
     # custom waypoint parameters
