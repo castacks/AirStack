@@ -18,7 +18,7 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
         std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
     std::optional<Path> path;
     bool is_goal_point_valid = false;
-    // get start time
+    // get start ti 
     const std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Starting Path Search...");
     while (!is_goal_point_valid && std::chrono::duration_cast<std::chrono::seconds>(
@@ -83,7 +83,8 @@ bool RandomWalkPlanner::check_if_collided_single_voxel(
     return false;
 }
 
-bool RandomWalkPlanner::check_if_collided(std::tuple<float, float, float> point) {
+bool RandomWalkPlanner::check_if_collided(
+    std::tuple<float, float, float> point) {
     // Check if the point is within the voxel
     for (auto voxel : this->voxel_points) {
         if (check_if_collided_single_voxel(point, voxel)) {

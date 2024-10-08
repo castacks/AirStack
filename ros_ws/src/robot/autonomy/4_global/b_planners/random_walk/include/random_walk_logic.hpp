@@ -29,12 +29,11 @@ class RandomWalkPlanner {
     ~RandomWalkPlanner() = default;
 
     std::optional<Path> generate_straight_rand_path(
-        std::tuple<float, float, float, float> start_point,
-        float timeout_duration = 1.0);  // x, y, z, yaw
-
-    std::vector<std::tuple<float, float, float>> voxel_points;
+        std::tuple<float, float, float, float> start_point, float timeout_duration);  // x, y, z, yaw
 
     float path_end_threshold_m;
+    
+    std::vector<std::tuple<float, float, float>> voxel_points;
 
    private:
     // Numerical constants
@@ -45,6 +44,7 @@ class RandomWalkPlanner {
 
     // Variables
     std::tuple<float, float, float> voxel_size_m;
+
 
     // Functions
     bool check_if_collided_single_voxel(std::tuple<float, float, float> point,

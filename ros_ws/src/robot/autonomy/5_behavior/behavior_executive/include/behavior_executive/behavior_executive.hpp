@@ -83,7 +83,6 @@ private:
       rclcpp_action::ClientGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>::SharedPtr,
       const std::shared_ptr<const global_planner_msgs::action::GetRandomWalkPlan::Feedback> feedback);
 
-
   void result_callback(const rclcpp_action::ClientGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>::WrappedResult & result);
 
  public:

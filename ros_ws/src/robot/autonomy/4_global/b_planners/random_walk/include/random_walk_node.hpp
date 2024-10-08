@@ -29,17 +29,16 @@ class RandomWalkNode : public rclcpp::Node {
 
     // String constants
     std::string world_frame_id_;
-    std::string pub_global_path_topic_;
-    std::string pub_goal_point_topic_;
-    std::string pub_trajectory_lines_topic_;
+    std::string robot_frame_id_;
+    std::string pub_goal_point_viz_topic_;
+    std::string pub_trajectory_viz_topic_;
     std::string sub_map_topic_;
     std::string sub_robot_tf_topic_;
-    std::string srv_get_plan_topic_;
+    std::string action_get_path_topic_;
 
     // Variables
     init_params params;
     nav_msgs::msg::Path generated_path;
-    std::vector<std::tuple<float, float, float>> voxel_points;
     bool publish_visualizations = false;
     bool received_first_map = false;
     bool received_first_robot_tf = false;

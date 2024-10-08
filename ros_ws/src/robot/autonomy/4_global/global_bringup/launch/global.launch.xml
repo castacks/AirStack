@@ -4,9 +4,17 @@
     <node pkg="vdb_mapping_ros2" exec="vdb_mapping_ros_node" name="vdb_mapping"
         output="screen">
         <param from="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
+        <remap from="/vdb_mapping/vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
     </node>
 
     <!-- Planning -->
-    <group>
-    </group>
+    <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"
+        output="screen">
+        <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
+        <remap from="/global/get_random_walk_plan" to="/$(env ROBOT_NAME)/global/hubba_budda" />
+        <!-- <remap from="/tf" to="/$(env ROBOT_NAME)/tf" /> -->
+        <remap from="/vdb_mapping/vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="/global/planning/traj_viz" to="/$(env ROBOT_NAME)/global/planning/traj_viz" />
+        <remap from="/global/planning/goal_point_viz" to="/$(env ROBOT_NAME)/global/planning/goal_point_viz" />
+    </node>
 </launch>

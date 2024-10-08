@@ -1,5 +1,6 @@
 
 #include "../include/random_walk_node.hpp"
+
 #include "../include/random_walk_logic.hpp"
 
 RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
@@ -16,65 +17,24 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         sub_robot_tf_topic_, 10,
         std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
 
-    // Set up the publishers
-    // this->pub_global_path = this->create_publisher<nav_msgs::msg::Path>(pub_global_path_topic_,
-    // 10);
     this->pub_goal_point =
-        this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_topic_, 10);
+        this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_viz_topic_, 10);
     this->pub_trajectory_lines =
-        this->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_lines_topic_, 10);
+        this->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_viz_topic_, 10);
 
     // Set up the timer
     this->timer = this->create_wall_timer(std::chrono::seconds(1),
                                           std::bind(&RandomWalkNode::timerCallback, this));
     // Set up the service
-    using namespace std::placeholders;
     this->srv_get_plan =
         rclcpp_action::create_server<global_planner_msgs::action::GetRandomWalkPlan>(
             this,  // Node handle as shared pointer
-            srv_get_plan_topic_,
+            action_get_path_topic_,
             std::bind(&RandomWalkNode::handle_goal, this, std::placeholders::_1,
                       std::placeholders::_2),
             std::bind(&RandomWalkNode::handle_cancel, this, std::placeholders::_1),
             std::bind(&RandomWalkNode::handle_accepted, this, std::placeholders::_1));
 }
-// RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
-//     std::optional<init_params> params_opt = RandomWalkNode::readParameters();
-//     // Initialize the random walk planner
-//     if (params_opt.has_value()) {
-//         this->params = params_opt.value();
-//     } else
-//         RCLCPP_ERROR(this->get_logger(), "Failed to initialize random walk planner");
-
-//     this->sub_map = this->create_subscription<visualization_msgs::msg::Marker>(
-//         sub_map_topic_, 10, std::bind(&RandomWalkNode::mapCallback, this,
-//         std::placeholders::_1));
-//     this->sub_robot_tf = this->create_subscription<tf2_msgs::msg::TFMessage>(
-//         sub_robot_tf_topic_, 10,
-//         std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
-
-//     // Set up the publishers
-//     // this->pub_global_path =
-//     this->create_publisher<nav_msgs::msg::Path>(pub_global_path_topic_,
-//     // 10);
-//     this->pub_goal_point =
-//         this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_topic_, 10);
-//     this->pub_trajectory_lines =
-//         this->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_lines_topic_, 10);
-
-//     // Set up the timer
-//     this->timer = this->create_wall_timer(std::chrono::seconds(1),
-//                                           std::bind(&RandomWalkNode::timerCallback, this));
-//     // Set up the service
-//     this->srv_get_plan =
-//         rclcpp_action::create_server<global_planner_msgs::action::GetRandomWalkPlan>(
-//             this,  // Node handle as shared pointer
-//             srv_get_plan_topic_,
-//             std::bind(&RandomWalkNode::handle_goal, this, std::placeholders::_1,
-//                       std::placeholders::_2),
-//             std::bind(&RandomWalkNode::handle_cancel, this, std::placeholders::_1),
-//             std::bind(&RandomWalkNode::handle_accepted, this, std::placeholders::_1));
-// }
 
 rclcpp_action::GoalResponse RandomWalkNode::handle_goal(
     const rclcpp_action::GoalUUID &uuid,
@@ -96,9 +56,15 @@ void RandomWalkNode::handle_accepted(
         rclcpp_action::ServerGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>>
         goal_handle) {
     RCLCPP_INFO(this->get_logger(), "Accepted request to generate plan");
-    // std::thread{std::bind(&RandomWalkNode::generate_plan, this, goal_handle)}.detach();
-    std::thread{std::bind(&RandomWalkNode::generate_plan, this, std::placeholders::_1), goal_handle}
-        .detach();
+    if (this->received_first_map && this->received_first_robot_tf) {
+        std::thread{std::bind(&RandomWalkNode::generate_plan, this, std::placeholders::_1),
+                    goal_handle}
+            .detach();
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Cannot generate plan, map or robot tf not received");
+        auto result = std::make_shared<global_planner_msgs::action::GetRandomWalkPlan::Result>();
+        goal_handle->abort(result);
+    }
 }
 
 void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg) {
@@ -111,99 +77,23 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
         this->random_walk_planner = RandomWalkPlanner(this->params);
         RCLCPP_INFO(this->get_logger(), "Initialized random walk planner");
     }
-
-    RCLCPP_INFO(this->get_logger(), "Setting Voxel Points from message");
-    this->voxel_points.clear();
+    this->random_walk_planner.voxel_points.clear();
     for (int i = 0; i < msg->points.size(); i++) {
         this->random_walk_planner.voxel_points.push_back(
             std::tuple<float, float, float>(msg->points[i].x, msg->points[i].y, msg->points[i].z));
     }
-    // // if path is not executing and the robot_tf has been received
-    // if (!this->is_path_executing && this->received_first_robot_tf) {
-    //     RCLCPP_INFO(this->get_logger(), "Setting Voxel Points from message");
-    //     this->voxel_points.clear();
-    //     for (int i = 0; i < msg->points.size(); i++) {
-    //         this->random_walk_planner.voxel_points.push_back(std::tuple<float, float, float>(
-    //             msg->points[i].x, msg->points[i].y, msg->points[i].z));
-    //     }
-    //     RCLCPP_INFO(this->get_logger(), "Generating Path...");
-    //     auto curr_orientation = this->current_location.rotation;
-    //     auto curr_orientation_quat = tf2::Quaternion(curr_orientation.x, curr_orientation.y,
-    //                                                  curr_orientation.z, curr_orientation.w);
-    //     tf2::Matrix3x3 m(curr_orientation_quat);
-    //     double roll, pitch, yaw;
-    //     m.getRPY(roll, pitch, yaw);
-    //     std::tuple<float, float, float, float> curr_loc(this->current_location.translation.x,
-    //                                                     this->current_location.translation.y,
-    //                                                     this->current_location.translation.z,
-    //                                                     yaw);
-    //     std::optional<Path> gen_path_opt =
-    //         this->random_walk_planner.generate_straight_rand_path(curr_loc);
-    //     if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
-    //         RCLCPP_INFO(this->get_logger(), "Generated path with size %d",
-    //                     gen_path_opt.value().size());
-    //         // set the current goal location
-    //         this->current_goal_location = geometry_msgs::msg::Transform();
-    //         this->current_goal_location.translation.x = std::get<0>(gen_path_opt.value().back());
-    //         this->current_goal_location.translation.y = std::get<1>(gen_path_opt.value().back());
-    //         this->current_goal_location.translation.z = std::get<2>(gen_path_opt.value().back());
-    //         this->current_goal_location.rotation.z = std::get<3>(gen_path_opt.value().back());
-    //         // publish the path
-    //         this->generated_path = nav_msgs::msg::Path();
-    //         this->generated_path.header.stamp = this->now();
-    //         this->generated_path.header.frame_id = world_frame_id_;
-    //         for (auto point : gen_path_opt.value()) {
-    //             geometry_msgs::msg::PoseStamped point_msg;
-    //             point_msg.pose.position.x = std::get<0>(point);
-    //             point_msg.pose.position.y = std::get<1>(point);
-    //             point_msg.pose.position.z = std::get<2>(point);
-    //             // convert yaw rotation to quaternion
-    //             tf2::Quaternion q;
-    //             q.setRPY(0, 0, std::get<3>(point));  // Roll = 0, Pitch = 0, Yaw = yaw
-    //             q.normalize();
-    //             point_msg.pose.orientation.x = q.x();
-    //             point_msg.pose.orientation.y = q.y();
-    //             point_msg.pose.orientation.z = q.z();
-    //             point_msg.pose.orientation.w = q.w();
-    //             point_msg.header.stamp = this->now();
-    //             this->generated_path.poses.push_back(point_msg);
-    //         }
-    //         if (this->publish_visualizations) {
-    //             this->pub_global_path->publish(this->generated_path);
-    //             this->pub_goal_point->publish(createGoalPointMarker());
-    //             this->pub_trajectory_lines->publish(createTrajectoryLineMarker());
-    //         }
-    //         RCLCPP_INFO(this->get_logger(), "Published path and goal point at %f, %f, %f",
-    //                     this->generated_path.poses.back().pose.position.x,
-    //                     this->generated_path.poses.back().pose.position.y,
-    //                     this->generated_path.poses.back().pose.position.z);
-    //         this->is_path_executing = true;
-    //     } else {
-    //         RCLCPP_ERROR(this->get_logger(), "Failed to generate path, size was 0");
-    //     }
-    // }
-    // // check if the path is executing
-    // else if (this->is_path_executing) {
-    //     std::tuple<float, float, float> curr_loc_wo_yaw(this->current_location.translation.x,
-    //                                                     this->current_location.translation.y,
-    //                                                     this->current_location.translation.z);
-    //     std::tuple<float, float, float>
-    //     goal_loc_wo_yaw(this->current_goal_location.translation.x,
-    //                                                     this->current_goal_location.translation.y,
-    //                                                     this->current_goal_location.translation.z);
-    //     if (get_point_distance(curr_loc_wo_yaw, goal_loc_wo_yaw) <
-    //         this->random_walk_planner.path_end_threshold_m) {
-    //         this->is_path_executing = false;
-    //     }
-    // }
 }
 
 void RandomWalkNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
     // get the current location
-    this->current_location = msg->transforms.back().transform;
-    if (!this->received_first_robot_tf) {
-        this->received_first_robot_tf = true;
-        RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
+    for (int i = 0; i < msg->transforms.size(); i++) {
+        if (msg->transforms[i].child_frame_id.c_str() == this->robot_frame_id_) {
+            this->current_location = msg->transforms[i].transform;
+            if (!this->received_first_robot_tf) {
+                this->received_first_robot_tf = true;
+                RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
+            }
+        }
     }
 }
 
@@ -224,11 +114,12 @@ void RandomWalkNode::generate_plan(
                                                      this->current_location.translation.y,
                                                      this->current_location.translation.z, yaw);
 
-    std::optional<Path> gen_path_opt =
-        this->random_walk_planner.generate_straight_rand_path(start_loc);
+    float timeout_duration = goal_handle->get_goal()->timeout.sec;
+    std::optional<Path> gen_path_opt = this->random_walk_planner.generate_straight_rand_path(
+        start_loc, timeout_duration);
     if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
-        // RCLCPP_INFO(this->get_logger(), "Generated path with size %d",
-        //             gen_path_opt.value().size());
+        RCLCPP_INFO(this->get_logger(), "Generated path with %ld points",
+                    gen_path_opt.value().size());
 
         // set the current goal location
         this->current_goal_location = geometry_msgs::msg::Transform();
@@ -277,13 +168,13 @@ void RandomWalkNode::generate_plan(
 }
 
 void RandomWalkNode::timerCallback() {
-    if (this->publish_visualizations) {
-        RCLCPP_INFO(this->get_logger(), "Publishing visualizations...");
+    if (this->publish_visualizations && this->generated_path.poses.size() > 0) {
         visualization_msgs::msg::Marker goal_point_msg = createGoalPointMarker();
         this->pub_goal_point->publish(goal_point_msg);
 
         visualization_msgs::msg::Marker trajectory_line_msg = createTrajectoryLineMarker();
         this->pub_trajectory_lines->publish(trajectory_line_msg);
+        RCLCPP_INFO(this->get_logger(), "Published goal point and trajectory line");
     }
 }
 
@@ -295,19 +186,19 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: world_frame_id");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<std::string>("pub_global_path_topic");
-    if (!this->get_parameter("pub_global_path_topic", this->pub_global_path_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_global_path_topic");
+    this->declare_parameter<std::string>("robot_frame_id");
+    if (!this->get_parameter("robot_frame_id", this->robot_frame_id_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: robot_frame_id");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<std::string>("pub_goal_point_topic");
-    if (!this->get_parameter("pub_goal_point_topic", this->pub_goal_point_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_goal_point_topic");
+    this->declare_parameter<std::string>("pub_goal_point_viz_topic");
+    if (!this->get_parameter("pub_goal_point_viz_topic", this->pub_goal_point_viz_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_goal_point_viz_topic");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<std::string>("pub_trajectory_lines_topic");
-    if (!this->get_parameter("pub_trajectory_lines_topic", this->pub_trajectory_lines_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_trajectory_lines_topic");
+    this->declare_parameter<std::string>("pub_trajectory_viz_topic");
+    if (!this->get_parameter("pub_trajectory_viz_topic", this->pub_trajectory_viz_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_trajectory_viz_topic");
         return std::optional<init_params>{};
     }
     this->declare_parameter<std::string>("sub_map_topic");
@@ -318,6 +209,11 @@ std::optional<init_params> RandomWalkNode::readParameters() {
     this->declare_parameter<std::string>("sub_robot_tf_topic");
     if (!this->get_parameter("sub_robot_tf_topic", this->sub_robot_tf_topic_)) {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_robot_tf_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("action_get_path_topic");
+    if (!this->get_parameter("action_get_path_topic", this->action_get_path_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: action_get_path_topic");
         return std::optional<init_params>{};
     }
     this->declare_parameter<bool>("publish_visualizations");
@@ -367,18 +263,14 @@ visualization_msgs::msg::Marker RandomWalkNode::createTrajectoryLineMarker() {
     trajectory_line_msg.color.r = 1.0;
     trajectory_line_msg.color.g = 0.0;
     trajectory_line_msg.color.b = 0.0;
-    if (this->generated_path.poses.size() > 0) {
-        // RCLCPP_INFO(this->get_logger(), "Creating trajectory line with %d points...",
-        //             this->generated_path.waypoints.size());
-        for (auto point : this->generated_path.poses) {
-            geometry_msgs::msg::Point p;
-            p.x = point.pose.position.x;
-            p.y = point.pose.position.y;
-            p.z = point.pose.position.z;
-            trajectory_line_msg.points.push_back(p);
-        }
-    } else {
-        RCLCPP_ERROR(this->get_logger(), "No points in the path");
+    // RCLCPP_INFO(this->get_logger(), "Creating trajectory line with %d points...",
+    //             this->generated_path.waypoints.size());
+    for (auto point : this->generated_path.poses) {
+        geometry_msgs::msg::Point p;
+        p.x = point.pose.position.x;
+        p.y = point.pose.position.y;
+        p.z = point.pose.position.z;
+        trajectory_line_msg.points.push_back(p);
     }
     return trajectory_line_msg;
 }
