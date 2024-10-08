@@ -26,7 +26,7 @@ To generate a token, follow the NVIDIA docs [here](https://docs.omniverse.nvidia
 Also set the default OMNI_SERVER and accept the license terms. (Basti: The omni_server variable doesn't seem to work. The content browser might have to be edited manually the first time. To do that click:
 "Add new connection ..." and enter airlab-storage.andrew.cmu.edu:8443 in the server field. Also if there is a localhost it should be removed since we are not running a local Nucleus server.
 
-## Getting Docker Images Ready
+## Docker Images 
 Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be  useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
 ### Option 1 (Preferred): Use the Airlab Docker registry
@@ -44,7 +44,7 @@ docker compose pull
 When you execute docker compose pull in the next step the image will be pulled from the server automatically. This might take a while since the image is large.
 
 
-#### Option 2: Setup from Scratch
+### Option 2: Setup from Scratch
 1. SITL (Required until we add to docker image)
 
     Download the Ascent Spirit SITL software packages from [this link](https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link).
@@ -83,7 +83,7 @@ docker compose up -d
 docker ps -a
 ```
 
-### Launch Isaac Sim:
+### Launch Isaac Sim
 
 ```bash
 # in another terminal under AirStack/docker
@@ -97,10 +97,11 @@ Type in `airlab-storage.andrew.cmu.edu:8443`.
 It takes a few seconds to connect.
 
 Then open the stage from the Nucleus server:
-`airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/ascent_fire_academy.usd`
+`airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/neighborhood.scene.usd`
 
+Once Isaac Sim launches, hit the gray triangle "Play" button on the left side bar. It takes a minute for the GPS to initialize.
 
-### Launch Robot:
+### Launch Robot
 
 ```bash
 
@@ -114,12 +115,9 @@ ros2 launch robot_bringup robot.launch.xml
 
 ## Move Robot
 
+Find the RQT GUI window. Hit `Takeoff`, then hit `Publish` in the trajectory window like in this video:
 
-Once Isaac Sim launches, hit the gray triangle "Play" button on the left side bar. It takes a minute for the GPS to initialize.
-
-Then, find the RQT GUI window. Hit `Takeoff`, then hit `Publish` in the trajectory window like in this video:
-
-<iframe width="840" height="473" src="https://www.youtube.com/embed/kfP5-ZbIBkc?si=knDAR4-CnLkxlGNb" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe src="https://drive.google.com/file/d/1eF9mVqvIthb2NKyWrrZmk7dR8zTGBtmx/preview?usp=sharing&t=52" width="840" height="480" allow="autoplay" allowfullscreen="allowfullscreen"></iframe>
 
 Note you can also use the `ros2 topic pub` command to move the robot. For example, to fly to a position:
 
