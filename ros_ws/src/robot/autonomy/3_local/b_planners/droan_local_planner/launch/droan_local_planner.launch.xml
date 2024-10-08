@@ -1,0 +1,39 @@
+<launch>
+    <arg name="map_representation"
+        default="disparity_map_representation::DisparityMapRepresentation" />
+
+    <node name="local_planner" pkg="droan_local_planner" exec="droan_local_planner">
+
+
+        <!-- Trajectory parameters -->
+        <param name="trajectory_library_config"
+            value="$(find-pkg-share trajectory_library)/config/acceleration_magnitudes.yaml" />
+        <param name="dt" value="0.2" />
+        <param name="ht" value="2.4" />
+        <param name="max_velocity" value="0.7" />
+        <param name="magnitude" value="0.5" />
+
+        <!-- DROAN parameters -->
+        <param name="map_representation" value="$(var map_representation)" />
+        <param name="obstacle_check_radius" value="2." />
+        <param name="obstacle_check_points" value="5" />
+        <param name="obstacle_distance_reward" value="0." />
+        <param name="forward_progress_reward_weight" value="5.0" />
+
+        <param name="waypoint_buffer_duration" value="35." />
+        <param name="waypoint_spacing_threshold" value="0.5" />
+        <param name="waypoint_angle_threshold" value="30." />
+
+        <!-- custom waypoint parameters -->
+        <param name="custom_waypoint_timeout_factor" value="0.3" />
+        <param name="custom_waypoint_distance_threshold" value="0.5" />
+
+        <!-- 0: use the yaw from the subscribed trajectory, 1: smoothly vary the yaw in the
+        direction of the subscribed trajectory -->
+        <param name="yaw_mode" value="1" />
+
+        <param name="robot_radius" value="1.0" />
+
+    </node>
+
+</launch>

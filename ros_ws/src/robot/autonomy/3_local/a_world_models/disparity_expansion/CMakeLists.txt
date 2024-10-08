@@ -171,23 +171,6 @@ ament_target_dependencies(disparity_expansion
   stereo_msgs
   tf2_geometry_msgs
 )
-add_executable(disparity_conv src/disparity_conv.cpp)
-target_link_libraries(disparity_conv ${OpenCV_LIBS} ${catkin_LIBRARIES}
-)
-
-ament_target_dependencies(disparity_conv
-  rclcpp
-  rcl_interfaces
-  cv_bridge
-  image_geometry
-  image_transport
-  sensor_msgs
-  std_msgs
-  tf2
-  pcl_conversions
-  message_filters
-  tf2_geometry_msgs
-)
 
 add_executable(disparity_pcd src/disparity_pcd.cpp)
 target_link_libraries(disparity_pcd ${OpenCV_LIBS} ${catkin_LIBRARIES}
@@ -210,9 +193,6 @@ ament_target_dependencies(disparity_pcd
 # install(TARGETS disparity_expansion
 # RUNTIME DESTINATION bin)
 install(TARGETS disparity_expansion
-  DESTINATION lib/${PROJECT_NAME}
-)
-install(TARGETS disparity_conv
   DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS disparity_pcd
