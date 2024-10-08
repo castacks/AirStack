@@ -24,8 +24,6 @@ using std::placeholders::_1;
 
 class DroanLocalPlanner : public rclcpp::Node {
    private:
-    const std::string ROBOT_NAME =
-        std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
     std::unique_ptr<TrajectoryLibrary> traj_lib;
 
     std::string map_representation_class_string;
@@ -35,25 +33,15 @@ class DroanLocalPlanner : public rclcpp::Node {
     bool is_look_ahead_received, is_tracking_point_received;
     airstack_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
 
-    std::vector<Trajectory> static_trajectories;
-
-    double waypoint_spacing, obstacle_check_radius, obstacle_distance_reward,
+    double obstacle_check_radius, obstacle_distance_reward,
         forward_progress_reward_weight;
     double robot_radius;
     int obstacle_check_points;
 
-    double look_past_distance;
 
     float waypoint_buffer_duration, waypoint_spacing_threshold, waypoint_angle_threshold;
     std::list<geometry_msgs::msg::PointStamped> waypoint_buffer;
 
-    // bool use_fixed_height;
-    const int GLOBAL_PLAN_HEIGHT = 0;
-    const int FIXED_HEIGHT = 1;
-    const int RANGE_SENSOR_HEIGHT = 2;
-    int height_mode;
-    double height_above_ground;
-    double fixed_height;
 
     const int TRAJECTORY_YAW = 0;
     const int SMOOTH_YAW = 1;
@@ -80,7 +68,6 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr look_past_vis_pub;
 
     // services
     // ros::ServiceClient traj_mode_client;
@@ -112,8 +99,6 @@ class DroanLocalPlanner : public rclcpp::Node {
         obst_vis_pub = this->create_publisher<sensor_msgs::msg::Range>("obstacle_vis", 10);
         global_plan_vis_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
             "local_planner_global_plan_vis", 10);
-        look_past_vis_pub =
-            this->create_publisher<visualization_msgs::msg::MarkerArray>("look_past", 10);
         traj_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
             "trajectory_segment_to_add", 10);
         traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
@@ -124,8 +109,6 @@ class DroanLocalPlanner : public rclcpp::Node {
             this->create_client<airstack_msgs::srv::TrajectoryMode>("set_trajectory_mode");
 
         // init parameters
-        this->declare_parameter("waypoint_spacing", 0.5);
-        waypoint_spacing = this->get_parameter("waypoint_spacing").as_double();
         this->declare_parameter("obstacle_distance_reward", 1.);
         obstacle_distance_reward = this->get_parameter("obstacle_distance_reward").as_double();
         this->declare_parameter("forward_progress_reward_weight", 0.5);
@@ -133,14 +116,6 @@ class DroanLocalPlanner : public rclcpp::Node {
             this->get_parameter("forward_progress_reward_weight").as_double();
         this->declare_parameter("robot_radius", 0.75);
         robot_radius = this->get_parameter("robot_radius").as_double();
-        this->declare_parameter("look_past_distance", 0.0);
-        look_past_distance = this->get_parameter("look_past_distance").as_double();
-        this->declare_parameter("height_mode", 0);
-        height_mode = this->get_parameter("height_mode").as_int();
-        this->declare_parameter("height_above_ground", 1.);
-        height_above_ground = this->get_parameter("height_above_ground").as_double();
-        this->declare_parameter("fixed_height", 1.);
-        fixed_height = this->get_parameter("fixed_height").as_double();
         this->declare_parameter("yaw_mode", 0);
         yaw_mode = this->get_parameter("yaw_mode").as_int();
         this->declare_parameter("map_representation", std::string("PointCloudMapRepresentation"));
@@ -176,23 +151,12 @@ class DroanLocalPlanner : public rclcpp::Node {
     }
     virtual ~DroanLocalPlanner() {}
 
-    /**
-     * Sets the global plan height  based on the height mode
-     */
-    bool set_global_plan_height_inplace(Trajectory& global_plan) {
-        // fixed height mode
-        if (this->height_mode == FIXED_HEIGHT) {
-            global_plan.set_fixed_height(fixed_height);
-        }
-    }
-
     virtual bool execute() {
         update_waypoint_mode();
 
         if (!is_global_plan_received) return true;
 
         Trajectory global_plan(this, global_plan_msg);
-        set_global_plan_height_inplace(global_plan);  // set the height of the global plan
 
         // transform the look ahead point to the global plan frame
         tf2::Vector3 look_ahead_position = tflib::to_tf(look_ahead_odom.pose.position);
@@ -317,7 +281,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         auto trajectory_distances_to_closest_obstacle =
             get_trajectory_distances_from_map(trajectory_candidates);
 
-        visualization_msgs::msg::MarkerArray traj_lib_markers, look_past_markers;
+        visualization_msgs::msg::MarkerArray traj_lib_markers;
 
         for (size_t i = 0; i < trajectory_candidates.size(); ++i) {
             Trajectory traj = trajectory_candidates[i];
@@ -380,53 +344,6 @@ class DroanLocalPlanner : public rclcpp::Node {
                 traj_markers = traj.get_markers(this->now(), 0, 1, 0, .5);
             }
 
-            // if look_past_distance is set, then use that to calculate the cost instead
-            // wtf this doesn't even make sense
-            if (look_past_distance > 0) {
-                if (traj.waypoint_count() >= 2) {
-                    Waypoint curr_wp = traj.get_waypoint(traj.waypoint_count() - 1);
-                    Waypoint prev_wp = traj.get_waypoint(traj.waypoint_count() - 2);
-
-                    tf2::Vector3 direction = curr_wp.position() - prev_wp.position();
-                    direction.normalize();
-
-                    tf2::Vector3 look_past_position =
-                        curr_wp.position() + look_past_distance * direction;
-
-                    Waypoint closest_point_from_global_plan(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-                    int wp_index;
-                    bool valid = global_plan_in_traj_frame.get_closest_point(
-                        look_past_position, &closest_point_from_global_plan, &wp_index);
-
-                    if (!valid) {
-                        collision = true;
-                    } else {
-                        avg_distance_from_global_plan =
-                            look_past_position.distance(closest_point_from_global_plan.position());
-                    }
-
-                    visualization_msgs::msg::Marker marker;
-                    marker.header.frame_id = traj.get_frame_id();
-                    marker.header.stamp = now;
-                    marker.ns = "look_past";
-                    marker.id = i;
-                    marker.type = visualization_msgs::msg::Marker::SPHERE;
-                    marker.action = visualization_msgs::msg::Marker::ADD;
-
-                    marker.pose.position.x = look_past_position.x();
-                    marker.pose.position.y = look_past_position.y();
-                    marker.pose.position.z = look_past_position.z();
-                    marker.pose.orientation.w = 1;
-                    marker.scale.x = 0.3;
-                    marker.scale.y = 0.3;
-                    marker.scale.z = 0.3;
-                    marker.color.r = 0.0;
-                    marker.color.g = 0.0;
-                    marker.color.b = 1.0;
-                    marker.color.a = 1.0;
-                    look_past_markers.markers.push_back(marker);
-                }
-            }
             traj_lib_markers.markers.insert(traj_lib_markers.markers.end(),
                                             traj_markers.markers.begin(),
                                             traj_markers.markers.end());
@@ -441,16 +358,9 @@ class DroanLocalPlanner : public rclcpp::Node {
                 best_traj_ret = traj;
             }
         }
-        if (best_traj_index < look_past_markers.markers.size()) {
-            look_past_markers.markers[best_traj_index].color.r = 0;
-            look_past_markers.markers[best_traj_index].color.g = 1;
-            look_past_markers.markers[best_traj_index].color.b = 0;
-            look_past_markers.markers[best_traj_index].color.a = 1;
-        }
 
         vis_pub->publish(traj_lib_markers);
         map_representation->publish_debug();
-        look_past_vis_pub->publish(look_past_markers);
 
         return all_in_collision;
     }
