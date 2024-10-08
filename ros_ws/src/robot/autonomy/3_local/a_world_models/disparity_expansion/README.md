@@ -8,8 +8,6 @@ Currently this package also has the following nodes
 
 * `disparity_expansion`: Generate expanded disparity
 
-* `disparity_conv`: Convert nerian disparity to float32
-
 * `disparity_pcd`: Disparity image to point cloud.
 
 ### Who do I talk to? ###

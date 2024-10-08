@@ -61,7 +61,7 @@ class DisparityExpansionNode : public rclcpp::Node {
 
     void getCamInfo(const sensor_msgs::msg::CameraInfo::ConstSharedPtr& msg_info);
     void depthImageCb(const sensor_msgs::msg::Image::ConstSharedPtr& msg);
-    void stereoDisparityCb(const std::shared_ptr<stereo_msgs::msg::DisparityImage>& msg_disp);
+    void stereoDisparityCb(const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp);
     void generateExpansionLUT();
     cv::Mat depthToDisparity(const cv::Mat& depth_image);
     void visualizeDepthImage(const cv::Mat& depth_image);
@@ -203,13 +203,13 @@ void DisparityExpansionNode::depthImageCb(const sensor_msgs::msg::Image::ConstSh
         RCLCPP_ERROR(this->get_logger(), "Received empty depth image.");
         return;
     }
-    RCLCPP_INFO(this->get_logger(), "Printing 5x5 grid of depth values:");
-    for (int i = 0; i < 5 && i < cv_ptr->image.rows; ++i) {
-        for (int j = 0; j < 5 && j < cv_ptr->image.cols; ++j) {
-            float depth_val = cv_ptr->image.at<float>(i, j);
-            RCLCPP_INFO(this->get_logger(), "Depth[%d,%d]: %.4f", i, j, depth_val);
-        }
-    }
+    // RCLCPP_INFO(this->get_logger(), "Printing 5x5 grid of depth values:");
+    // for (int i = 0; i < 5 && i < cv_ptr->image.rows; ++i) {
+    //     for (int j = 0; j < 5 && j < cv_ptr->image.cols; ++j) {
+    //         float depth_val = cv_ptr->image.at<float>(i, j);
+    //         RCLCPP_INFO(this->get_logger(), "Depth[%d,%d]: %.4f", i, j, depth_val);
+    //     }
+    // }
     cv::Mat disparity_image = depthToDisparity(cv_ptr->image);
     visualizeDisparityImage(disparity_image);
     // visualizeDepthImage(cv_ptr->image);
@@ -268,9 +268,7 @@ void DisparityExpansionNode::visualizeDisparityImage(const cv::Mat& disparity_im
 }
 
 void DisparityExpansionNode::stereoDisparityCb(
-    const std::shared_ptr<stereo_msgs::msg::DisparityImage>&
-        msg_disp) {  // sensor_msgs::Image::ConstPtr &msg_disp){
-
+    const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp) {
     std::cout << "hello" << std::endl;
 
     if (!LUT_ready) {
@@ -641,44 +639,54 @@ void DisparityExpansionNode::stereoDisparityCb(
 DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& options)
     : Node("DisparityExpansionNode", options) {
     this->declare_parameter("expansion_cloud_topic", "expansion_cloud");
-    this->declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
-    this->declare_parameter("expanded_disparity_bg_topic", "expanded_disparity_bg");
-    this->declare_parameter("expansion_poly_topic", "expansion_poly");
-    this->declare_parameter("camera_info_topic", "camera_info");
-    this->declare_parameter("disparity_topic", "disparity");
-    this->declare_parameter("depth_topic", "depth");
-    this->declare_parameter("scale", 2.0);
-    this->declare_parameter("robot_radius", 2.0);
-    this->declare_parameter("lut_max_disparity", 164);
-    this->declare_parameter("padding", 2.0);
-    this->declare_parameter("bg_multiplier", 5.0);
-    this->declare_parameter("sensor_pixel_error", 0.5);
-    this->declare_parameter("downsample_scale", 2.0);
-
     std::string expansion_cloud_topic = this->get_parameter("expansion_cloud_topic").as_string();
-    // log to console
     RCLCPP_INFO(this->get_logger(), "expansion_cloud_topic: %s", expansion_cloud_topic.c_str());
+    this->declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
     std::string expanded_disparity_fg_topic =
         this->get_parameter("expanded_disparity_fg_topic").as_string();
     RCLCPP_INFO(this->get_logger(), "expanded_disparity_fg_topic: %s",
                 expanded_disparity_fg_topic.c_str());
+    this->declare_parameter("expanded_disparity_bg_topic", "expanded_disparity_bg");
     std::string expanded_disparity_bg_topic =
         this->get_parameter("expanded_disparity_bg_topic").as_string();
     RCLCPP_INFO(this->get_logger(), "expanded_disparity_bg_topic: %s",
                 expanded_disparity_bg_topic.c_str());
+    this->declare_parameter("expansion_poly_topic", "expansion_poly");
     std::string expansion_poly_topic = this->get_parameter("expansion_poly_topic").as_string();
+    this->declare_parameter("camera_info_topic", "camera_info");
     std::string camera_info_topic = this->get_parameter("camera_info_topic").as_string();
     RCLCPP_INFO(this->get_logger(), "camera_info_topic: %s", camera_info_topic.c_str());
+    this->declare_parameter("disparity_topic", "disparity");
     std::string disparity_topic = this->get_parameter("disparity_topic").as_string();
+    this->declare_parameter("depth_topic", "depth");
     std::string depth_topic = this->get_parameter("depth_topic").as_string();
     RCLCPP_INFO(this->get_logger(), "depth_topic: %s", depth_topic.c_str());
+    this->declare_parameter("scale", 2.0);
     scale_ = this->get_parameter("scale").as_double();
-    downsample_scale = this->get_parameter("downsample_scale").as_double();
+    this->declare_parameter("robot_radius", 2.0);
     this->get_parameter("robot_radius", robot_radius_);
+    this->declare_parameter("lut_max_disparity", 164);
     this->get_parameter("lut_max_disparity", lut_max_disparity_);
+    this->declare_parameter("padding", 2.0);
     this->get_parameter("padding", padding_);
+    this->declare_parameter("bg_multiplier", 5.0);
     this->get_parameter("bg_multiplier", bg_multiplier_);
+    this->declare_parameter("sensor_pixel_error", 0.5);
     this->get_parameter("sensor_pixel_error", pixel_error_);
+    this->declare_parameter("downsample_scale", 2.0);
+    downsample_scale = this->get_parameter("downsample_scale").as_double();
+
+    cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+        camera_info_topic, 1,
+        std::bind(&DisparityExpansionNode::getCamInfo, this, std::placeholders::_1));
+
+    disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
+        disparity_topic, 1,
+        std::bind(&DisparityExpansionNode::stereoDisparityCb, this, std::placeholders::_1));
+
+    depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+        depth_topic, 1,
+        std::bind(&DisparityExpansionNode::depthImageCb, this, std::placeholders::_1));
 
     expansion_cloud_pub =
         this->create_publisher<sensor_msgs::msg::PointCloud2>(expansion_cloud_topic, 10);
@@ -692,14 +700,6 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     RCLCPP_INFO(this->get_logger(), "into constr with node name %s", this->get_name());
     LUT_ready = false;
     got_cam_info = false;
-
-    cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-        camera_info_topic, 1,
-        std::bind(&DisparityExpansionNode::getCamInfo, this, std::placeholders::_1));
-
-    depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-        depth_topic, 1,
-        std::bind(&DisparityExpansionNode::depthImageCb, this, std::placeholders::_1));
 }
 
 int main(int argc, char** argv) {
