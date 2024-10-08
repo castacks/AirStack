@@ -28,6 +28,7 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map
 
+    # I am a potato yay
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 
