@@ -1,0 +1,81 @@
+name: Dockerfile Version Check
+
+on:
+  pull_request:
+    paths:
+      - "docker/Dockerfile.*"
+      - "docker/docker-compose.yaml"
+
+jobs:
+  check-docker-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Fetch base branch (e.g., 'main') for comparison
+      - name: Fetch base branch for comparison
+        run: |
+          git fetch origin +refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      # Define a function to check version increment for a given service
+      - name: Check Dockerfile changes and version increment for each service
+        run: |
+          # List the services and their corresponding Dockerfiles
+          cd docker/
+          declare -A services
+          services=( 
+            ["isaac-sim"]="Dockerfile.isaac-ros"
+            ["robot"]="Dockerfile.airstack-dev"
+            # Add more mappings here for other services
+          )
+
+          # Compare the current branch with the base branch
+          changes=$(git diff --name-only origin/potato...HEAD)
+
+          # Loop through each service and its Dockerfile
+          for service in "${!services[@]}"; do
+            dockerfile="${services[$service]}"
+
+            # If the Dockerfile for this service has been changed
+            if echo "$changes" | grep -q "$dockerfile"; then
+              echo "Dockerfile for $service has changed."
+
+              # Check if the docker-compose.yaml contains an image version for this service (vX.Y.Z)
+              if grep -qE "image: .*/$service:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
+                # Extract the full version (vX.Y.Z)
+                current_version=$(grep -oP "image: .*/$service:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
+
+                # Split current version into major, minor, patch
+                IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
+
+                # Check if the image version for this service has been incremented in this PR
+                new_version=$(git diff origin/potato...HEAD -- docker-compose.yaml | grep -oP "image: .*/$service:v\K[0-9]+\.[0-9]+\.[0-9]+")
+
+                if [ -z "$new_version" ]; then
+                  echo "::error::Dockerfile for $service was modified but image version in docker-compose.yaml was not updated."
+                  exit 1
+                fi
+
+                # Split new version into major, minor, patch
+                IFS='.' read -r new_major new_minor new_patch <<< "$new_version"
+
+                # Check if the new version is higher than the current one
+                if [ "$new_major" -gt "$current_major" ] || \
+                  ([ "$new_major" -eq "$current_major" ] && [ "$new_minor" -gt "$current_minor" ]) || \
+                  ([ "$new_major" -eq "$current_major" ] && [ "$new_minor" -eq "$current_minor" ] && [ "$new_patch" -gt "$current_patch" ]); then
+                  echo "Image version for $service has been incremented in docker-compose.yaml."
+                else
+                  echo "::error::Dockerfile for $service was modified but the image version in docker-compose.yaml was not correctly incremented."
+                  exit 1
+                fi
+              else
+                echo "::error::No valid image version (vX.Y.Z) found in docker-compose.yaml for $service."
+                exit 1
+              fi
+            else
+              echo "No changes to Dockerfile for $service."
+            fi
+          done
