@@ -33,7 +33,7 @@ jobs:
           )
 
           # Compare the current branch with the base branch
-          changes=$(git diff --name-only origin/potato...HEAD)
+          changes=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
 
           # Loop through each service and its Dockerfile
           for service in "${!services[@]}"; do
@@ -52,7 +52,7 @@ jobs:
                 IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
 
                 # Check if the image version for this service has been incremented in this PR
-                new_version=$(git diff origin/potato...HEAD -- docker-compose.yaml | grep -oP "image: .*/$service:v\K[0-9]+\.[0-9]+\.[0-9]+")
+                new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$service:v\K[0-9]+\.[0-9]+\.[0-9]+")
 
                 if [ -z "$new_version" ]; then
                   echo "::error::Dockerfile for $service was modified but image version in docker-compose.yaml was not updated."
