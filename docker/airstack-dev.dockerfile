@@ -11,8 +11,6 @@ RUN apt install -y \
     less htop jq \
     python3-pip
 
-# Install ROS2 packages
-
 # Package dependencies
 # perform ROS dependency installation for our workspace.
 COPY ros_ws/src /tmp/ros_ws/src
