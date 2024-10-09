@@ -1,6 +1,9 @@
-name: ci 
+name: Deploy Docs 
 on:
   push:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
     branches:
       - master 
       - main
