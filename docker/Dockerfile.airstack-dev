@@ -4,13 +4,6 @@ FROM osrf/ros:humble-desktop-full
 WORKDIR /root/AirStack
 
 RUN apt update
-# Install dev tools
-RUN apt install -y \
-    vim nano wget curl tree \
-    cmake build-essential \
-    less htop jq \
-    python3-pip
-
 # Package dependencies
 # perform ROS dependency installation for our workspace.
 COPY ros_ws/src /tmp/ros_ws/src
