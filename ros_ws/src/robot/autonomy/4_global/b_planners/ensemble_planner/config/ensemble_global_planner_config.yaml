@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    srv_random_walk_toggle_topic: "/robot_1/behavior/global_plan_toggle"
+
