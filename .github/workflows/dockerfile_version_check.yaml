@@ -48,7 +48,7 @@ jobs:
               # Check if the docker-compose.yaml contains an image version for this image_name (vX.Y.Z)
               if grep -qE "image: .*/$image_name:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
                 # Extract the full version (vX.Y.Z)
-                version_on_main=$(git show main:docker/docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
+                version_on_main=$(git show origin/${{ github.base_ref }}:docker/docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
                 echo "version_on_main=$version_on_main"
 
                 # Split current version into major, minor, patch
