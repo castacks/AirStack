@@ -17,17 +17,6 @@ COPY ros_ws/src /tmp/ros_ws/src
 RUN rosdep init && rosdep update && \
     rosdep install --from-paths /tmp/ros_ws/src --ignore-src -r -y && \
     rm -rf /tmp/ros_ws || echo "Some ROS dependencies installation failed"
-
-# Install any additional ROS2 packages
-RUN apt update -y && apt install -y \
-    ros-dev-tools \
-    ros-humble-mavros \ 
-    ros-humble-tf2* \
-    ros-humble-stereo-image-proc \
-    ros-humble-image-view \
-    ros-humble-topic-tools \
-    ros-humble-grid-map
-
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 
