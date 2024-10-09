@@ -55,13 +55,14 @@ jobs:
                 IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
 
                 # Check if the image version for this image_name has been incremented in this PR
-                new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
-                echo "new_version=$new_version"
+                new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+") || echo "No new version found."
 
                 if [ -z "$new_version" ]; then
                   echo "::error::Dockerfile for $image_name was modified but image version in docker-compose.yaml was not updated."
                   exit 1
                 fi
+
+                echo "new_version=$new_version"
 
                 # Split new version into major, minor, patch
                 IFS='.' read -r new_major new_minor new_patch <<< "$new_version"
