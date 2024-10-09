@@ -10,14 +10,12 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
     apt-get install -q -y --no-install-recommends tzdata && \
     rm -rf /var/lib/apt/lists/*
 
-# install packages
 RUN apt-get update && apt-get install -q -y --no-install-recommends \
     dirmngr \
     gnupg2 \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# setup keys
 RUN set -eux; \
        key='C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654'; \
        export GNUPGHOME="$(mktemp -d)"; \

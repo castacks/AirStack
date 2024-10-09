@@ -30,8 +30,6 @@ RUN apt update -y && apt install -y \
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
-
-# Install Python dependencies
 RUN pip3 install \
     empy \
     future \
