@@ -6,8 +6,8 @@ services:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
-        - airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.0
-    image: airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.0
+        - airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.1.0
+    image: airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.1.0
     container_name: isaac-sim
     entrypoint: bash
     # Interactive shell
@@ -96,8 +96,8 @@ services:
       dockerfile: docker/Dockerfile.airstack-dev
       tags:
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
-        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.0
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.0
+        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.4.0
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.4.0
     # container_name: robot-1
     entrypoint: bash -c "service ssh restart && bash"
     # Interactive shell
