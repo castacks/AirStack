@@ -49,12 +49,14 @@ jobs:
               if grep -qE "image: .*/$image_name:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
                 # Extract the full version (vX.Y.Z)
                 current_version=$(grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
+                echo "current_version=$current_version"
 
                 # Split current version into major, minor, patch
                 IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
 
                 # Check if the image version for this image_name has been incremented in this PR
                 new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
+                echo "new_version=$new_version"
 
                 if [ -z "$new_version" ]; then
                   echo "::error::Dockerfile for $image_name was modified but image version in docker-compose.yaml was not updated."
