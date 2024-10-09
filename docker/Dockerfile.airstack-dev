@@ -25,31 +25,6 @@ RUN apt update -y && apt install -y \
     ros-humble-tf2* \
     ros-humble-stereo-image-proc \
     ros-humble-image-view \
-    ros-humble-topic-tools \
-    ros-humble-grid-map
-
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
-
-
-# Install Python dependencies
-RUN pip3 install \
-    empy \
-    future \
-    lxml \
-    matplotlib \
-    numpy \
-    pkgconfig \
-    psutil \
-    pygments \
-    wheel \
-    pymavlink \
-    pyyaml \
-    requests \
-    setuptools \
-    six \
-    toml \
-    scipy
-
 
 # Override install newer openvdb 8.2.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
