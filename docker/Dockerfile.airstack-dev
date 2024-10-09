@@ -28,8 +28,6 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map
 
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
-
 
 # Install Python dependencies
 RUN pip3 install \
