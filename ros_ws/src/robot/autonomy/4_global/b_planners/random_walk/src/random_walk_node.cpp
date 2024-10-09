@@ -3,6 +3,87 @@
 
 #include "../include/random_walk_logic.hpp"
 
+std::optional<init_params> RandomWalkNode::readParameters() {
+    // Read in parameters based off the default yaml file
+    init_params params;
+    this->declare_parameter<std::string>("world_frame_id");
+    if (!this->get_parameter("world_frame_id", this->world_frame_id_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: world_frame_id");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("robot_frame_id");
+    if (!this->get_parameter("robot_frame_id", this->robot_frame_id_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: robot_frame_id");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("pub_global_trajectory_topic");
+    if (!this->get_parameter("pub_global_trajectory_topic", this->pub_global_trajectory_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_global_trajectory_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("pub_goal_point_viz_topic");
+    if (!this->get_parameter("pub_goal_point_viz_topic", this->pub_goal_point_viz_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_goal_point_viz_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("pub_trajectory_viz_topic");
+    if (!this->get_parameter("pub_trajectory_viz_topic", this->pub_trajectory_viz_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_trajectory_viz_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("sub_map_topic");
+    if (!this->get_parameter("sub_map_topic", this->sub_map_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_map_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("sub_robot_tf_topic");
+    if (!this->get_parameter("sub_robot_tf_topic", this->sub_robot_tf_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_robot_tf_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<std::string>("srv_random_walk_toggle_topic");
+    if (!this->get_parameter("srv_random_walk_toggle_topic", this->srv_random_walk_toggle_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: srv_random_walk_toggle_topic");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<bool>("publish_visualizations");
+    if (!this->get_parameter("publish_visualizations", this->publish_visualizations)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: publish_visualizations");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<int>("num_paths_to_generate");
+    if (!this->get_parameter("num_paths_to_generate", this->num_paths_to_generate_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: num_paths_to_generate");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("max_start_to_goal_dist_m");
+    if (!this->get_parameter("max_start_to_goal_dist_m", params.max_start_to_goal_dist_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_start_to_goal_dist_m");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<int>("checking_point_cnt");
+    if (!this->get_parameter("checking_point_cnt", params.checking_point_cnt)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: checking_point_cnt");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("max_z_m");
+    if (!this->get_parameter("max_z_m", params.max_z_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_m");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("collision_padding_m");
+    if (!this->get_parameter("collision_padding_m", params.collision_padding_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: collision_padding_m");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("path_end_threshold_m");
+    if (!this->get_parameter("path_end_threshold_m", params.path_end_threshold_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: path_end_threshold_m");
+        return std::optional<init_params>{};
+    }
+    return params;
+}
+
 RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
     // Initialize the random walk planner
     std::optional<init_params> params_opt = RandomWalkNode::readParameters();
@@ -167,87 +248,6 @@ void RandomWalkNode::timerCallback() {
     //     this->pub_trajectory_lines->publish(trajectory_line_msg);
     //     RCLCPP_INFO(this->get_logger(), "Published goal point and trajectory line");
     // }
-}
-
-std::optional<init_params> RandomWalkNode::readParameters() {
-    // Read in parameters based off the default yaml file
-    init_params params;
-    this->declare_parameter<std::string>("world_frame_id");
-    if (!this->get_parameter("world_frame_id", this->world_frame_id_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: world_frame_id");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("robot_frame_id");
-    if (!this->get_parameter("robot_frame_id", this->robot_frame_id_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: robot_frame_id");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("pub_global_trajectory_topic");
-    if (!this->get_parameter("pub_global_trajectory_topic", this->pub_global_trajectory_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_global_trajectory_topic");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("pub_goal_point_viz_topic");
-    if (!this->get_parameter("pub_goal_point_viz_topic", this->pub_goal_point_viz_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_goal_point_viz_topic");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("pub_trajectory_viz_topic");
-    if (!this->get_parameter("pub_trajectory_viz_topic", this->pub_trajectory_viz_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_trajectory_viz_topic");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("sub_map_topic");
-    if (!this->get_parameter("sub_map_topic", this->sub_map_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_map_topic");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("sub_robot_tf_topic");
-    if (!this->get_parameter("sub_robot_tf_topic", this->sub_robot_tf_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: sub_robot_tf_topic");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<std::string>("srv_random_walk_toggle_topic");
-    if (!this->get_parameter("srv_random_walk_toggle_topic", this->srv_random_walk_toggle_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: srv_random_walk_toggle_topic");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<bool>("publish_visualizations");
-    if (!this->get_parameter("publish_visualizations", this->publish_visualizations)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: publish_visualizations");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<int>("num_paths_to_generate");
-    if (!this->get_parameter("num_paths_to_generate", this->num_paths_to_generate_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: num_paths_to_generate");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<float>("max_start_to_goal_dist_m");
-    if (!this->get_parameter("max_start_to_goal_dist_m", params.max_start_to_goal_dist_m)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_start_to_goal_dist_m");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<int>("checking_point_cnt");
-    if (!this->get_parameter("checking_point_cnt", params.checking_point_cnt)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: checking_point_cnt");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<float>("max_z_m");
-    if (!this->get_parameter("max_z_m", params.max_z_m)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_m");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<float>("collision_padding_m");
-    if (!this->get_parameter("collision_padding_m", params.collision_padding_m)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: collision_padding_m");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<float>("path_end_threshold_m");
-    if (!this->get_parameter("path_end_threshold_m", params.path_end_threshold_m)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: path_end_threshold_m");
-        return std::optional<init_params>{};
-    }
-    return params;
 }
 
 visualization_msgs::msg::Marker RandomWalkNode::createTrajectoryLineMarker() {
