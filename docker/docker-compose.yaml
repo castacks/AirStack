@@ -27,13 +27,14 @@ services:
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
-    deploy: # let it use the GPU
+    deploy:
+      # let it use the GPU
       resources:
         reservations:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     volumes:
       # display
       - $HOME/.Xauthority:/root/.Xauthority
@@ -54,6 +55,7 @@ services:
       - ./extras/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ./extras:/extras:rw
       - ./extras/inputrc:/etc/inputrc
+      - ./extras/config:/root/.nvidia-omniverse/config:rw
 
   # ==============================================================================
   ground-control-station:
@@ -69,14 +71,16 @@ services:
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-    deploy: # let it use the GPU
+    deploy:
+      # let it use the GPU
       resources:
         reservations:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [gpu]
-    ports:  # for ssh
+              capabilities: [ gpu ]
+    ports:
+      # for ssh
       - 2222:22
     volumes:
       # display stuff
@@ -110,14 +114,16 @@ services:
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-    deploy: # let it use the GPU
+    deploy:
+      # let it use the GPU
       resources:
         reservations:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [gpu]
-    ports:  # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+              capabilities: [ gpu ]
+    ports:
+      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
       - "2223-2243:22"
     volumes:
       # display stuff
