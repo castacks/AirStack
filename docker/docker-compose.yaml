@@ -96,8 +96,8 @@ services:
       dockerfile: docker/Dockerfile.airstack-dev
       tags:
         - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
-        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.4.0
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.4.0
+        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.1
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.1
     # container_name: robot-1
     entrypoint: bash -c "service ssh restart && bash"
     # Interactive shell
