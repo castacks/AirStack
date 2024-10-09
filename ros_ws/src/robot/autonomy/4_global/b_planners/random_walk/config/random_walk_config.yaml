@@ -2,14 +2,15 @@
   ros__parameters:
     world_frame_id: "map"
     robot_frame_id: "base_link"
-    pub_goal_point_viz_topic: "/global/planning/goal_point_viz"
-    pub_trajectory_viz_topic: "/global/planning/traj_viz"
+    pub_global_trajectory_topic: "/global/trajectory"
+    pub_goal_point_viz_topic: "/global/goal_point_viz"
+    pub_trajectory_viz_topic: "/global/traj_viz"
     sub_map_topic: "/vdb_mapping/vdb_map_visualization"
     sub_robot_tf_topic: "/tf"
-    # action_get_path_topic: "/global/get_random_walk_plan"
-    action_get_path_topic: "/robot_1/behavior/get_random_walk_plan"
+    srv_random_walk_toggle_topic: "/robot_1/behavior/global_plan_toggle"
 
     publish_visualizations: false # should trajectory visualizations be published
+    num_paths_to_generate: 5 # how many paths to generate
 
     # Constants
     max_start_to_goal_dist_m: 10.0 # how max distance the goal can be from the current robot position

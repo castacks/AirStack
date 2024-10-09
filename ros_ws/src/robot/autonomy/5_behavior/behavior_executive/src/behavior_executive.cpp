@@ -11,7 +11,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     pause_commanded_condition = new bt::Condition("Pause Commanded", this);
     rewind_commanded_condition = new bt::Condition("Rewind Commanded", this);
     fixed_trajectory_condition = new bt::Condition("Fixed Trajectory Commanded", this);
-    random_walk_condition = new bt::Condition("Random Walk Commanded", this);
+    global_plan_condition = new bt::Condition("Global Plan Commanded", this);
     offboard_commanded_condition = new bt::Condition("Offboard Commanded", this);
     arm_commanded_condition = new bt::Condition("Arm Commanded", this);
     disarm_commanded_condition = new bt::Condition("Disarm Commanded", this);
@@ -24,7 +24,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(pause_commanded_condition);
     conditions.push_back(rewind_commanded_condition);
     conditions.push_back(fixed_trajectory_condition);
-    conditions.push_back(random_walk_condition);
+    conditions.push_back(global_plan_condition);
     conditions.push_back(offboard_commanded_condition);
     conditions.push_back(arm_commanded_condition);
     conditions.push_back(disarm_commanded_condition);
@@ -36,7 +36,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     pause_action = new bt::Action("Pause", this);
     rewind_action = new bt::Action("Rewind", this);
     follow_fixed_trajectory_action = new bt::Action("Follow Fixed Trajectory", this);
-    random_walk_action = new bt::Action("Follow Random Walk", this);
+    global_plan_action = new bt::Action("Follow Global Plan", this);
     request_control_action = new bt::Action("Request Control", this);
     disarm_action = new bt::Action("Disarm", this);
     actions.push_back(arm_action);
@@ -45,7 +45,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     actions.push_back(pause_action);
     actions.push_back(rewind_action);
     actions.push_back(follow_fixed_trajectory_action);
-    actions.push_back(random_walk_action);
+    actions.push_back(global_plan_action);
     actions.push_back(request_control_action);
     actions.push_back(disarm_action);
 
@@ -62,8 +62,6 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
         std::bind(&BehaviorExecutive::has_control_callback, this, std::placeholders::_1));
 
     // publishers
-    // TODO: change topic to be included in the config file
-    global_plan_pub = this->create_publisher<nav_msgs::msg::Path>("/global/trajectory", 1);
 
     // services
     service_callback_group =
@@ -74,9 +72,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
         "set_trajectory_mode", rmw_qos_profile_services_default, service_callback_group);
     takeoff_landing_command_client = this->create_client<airstack_msgs::srv::TakeoffLandingCommand>(
         "set_takeoff_landing_command", rmw_qos_profile_services_default, service_callback_group);
-    this->random_walk_mode_client =
-        rclcpp_action::create_client<global_planner_msgs::action::GetRandomWalkPlan>(
-            this, "get_random_walk_plan");
+    global_planner_toggle_client = this->create_client<std_srvs::srv::Trigger>(
+        "global_plan_toggle", rmw_qos_profile_services_default, service_callback_group);
 
     // timers
     timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
@@ -252,16 +249,17 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
-    if (random_walk_action->is_active()) {
-        random_walk_action->set_running();
-        if (random_walk_action->active_has_changed()) {
-            auto goal_msg = global_planner_msgs::action::GetRandomWalkPlan::Goal();
-            goal_msg.timeout = rclcpp::Duration(10, 0);
-            std::cout << "Sending random walk goal" << std::endl;
-            BehaviorExecutive::send_random_walk_goal(this->random_walk_mode_client, goal_msg);
-            std::cout << "Sent random walk goal" << std::endl;
-            std::cout << "Waiting for random walk" << std::endl;
-        
+    if (global_plan_action->is_active()) {
+        global_plan_action->set_running();
+        if (global_plan_action->active_has_changed()) {
+            std_srvs::srv::Trigger::Request::SharedPtr request =
+                std::make_shared<std_srvs::srv::Trigger::Request>();
+            auto result = global_planner_toggle_client->async_send_request(request);
+            result.wait();
+            if (result.get()->success)
+                global_plan_action->set_success();
+            else
+                global_plan_action->set_failure();
         };
 
     }
@@ -295,71 +293,6 @@ void BehaviorExecutive::is_armed_callback(const std_msgs::msg::Bool::SharedPtr m
 
 void BehaviorExecutive::has_control_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     offboard_mode_condition->set(msg->data);
-}
-
-void BehaviorExecutive::send_random_walk_goal(
-    rclcpp_action::Client<global_planner_msgs::action::GetRandomWalkPlan>::SharedPtr
-        random_walk_mode_client,
-    global_planner_msgs::action::GetRandomWalkPlan::Goal goal) {
-    auto send_goal_options =
-        rclcpp_action::Client<global_planner_msgs::action::GetRandomWalkPlan>::SendGoalOptions();
-
-    send_goal_options.goal_response_callback =
-        std::bind(&BehaviorExecutive::goal_response_callback, this, std::placeholders::_1);
-
-    send_goal_options.feedback_callback = std::bind(&BehaviorExecutive::feedback_callback, this,
-                                                    std::placeholders::_1, std::placeholders::_2);
-    send_goal_options.result_callback =
-        std::bind(&BehaviorExecutive::result_callback, this, std::placeholders::_1);
-
-    auto goal_handle_future = random_walk_mode_client->async_send_goal(goal, send_goal_options);
-}
-// void
-// BehaviorExecutive::goal_response_callback(std::shared_future<rclcpp_action::ClientGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>::SharedPtr>
-// future) {
-//     auto goal_handle = future.get();
-//     if (!goal_handle) {
-//         RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-//     } else {
-//         RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
-//     }
-// }
-void BehaviorExecutive::goal_response_callback(
-    std::shared_ptr<rclcpp_action::ClientGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>>
-        goal_handle) {
-    if (!goal_handle) {
-        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-    } else {
-        RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
-    }
-}
-
-void BehaviorExecutive::feedback_callback(
-    rclcpp_action::ClientGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>::SharedPtr,
-    const std::shared_ptr<const global_planner_msgs::action::GetRandomWalkPlan::Feedback>
-        feedback) {
-    RCLCPP_INFO(this->get_logger(), "Received feedback: %f", feedback->percent_complete);
-}
-
-void BehaviorExecutive::result_callback(
-    const rclcpp_action::ClientGoalHandle<
-        global_planner_msgs::action::GetRandomWalkPlan>::WrappedResult& result) {
-    switch (result.code) {
-        case rclcpp_action::ResultCode::SUCCEEDED:
-            break;
-        case rclcpp_action::ResultCode::ABORTED:
-            RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
-            return;
-        case rclcpp_action::ResultCode::CANCELED:
-            RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
-            return;
-        default:
-            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
-            return;
-    }
-    RCLCPP_INFO(this->get_logger(), "Result received");
-    this->random_walk_action->set_success();
-    this->global_plan_pub->publish(result.result->trajectory);
 }
 
 int main(int argc, char** argv) {

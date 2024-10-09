@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(behavior_tree REQUIRED)
 find_package(behavior_tree_msgs REQUIRED)
@@ -27,6 +28,7 @@ ament_target_dependencies(behavior_executive
   rclcpp
   rclcpp_action
   std_msgs
+  std_srvs
   nav_msgs
   behavior_tree
   behavior_tree_msgs

@@ -34,9 +34,9 @@
 		?
 			[Follow Fixed Trajectory]
 	->
-		(Random Walk Commanded)
+		(Global Plan Commanded)
 		?
-			[Follow Random Walk]
+			[Follow Global Plan]
 	->
 		(Offboard Commanded)
 		?

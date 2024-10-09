@@ -8,19 +8,19 @@
 #include <cmath>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/transform.hpp>
-#include <global_planner_msgs/action/get_random_walk_plan.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/srv/get_plan.hpp>
 #include <optional>
 #include <string>
 #include <tf2_msgs/msg/tf_message.hpp>
 #include <tuple>
+#include <array>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
+#include <std_srvs/srv/trigger.hpp>
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "rclcpp_action/rclcpp_action.hpp"
 
 class RandomWalkNode : public rclcpp::Node {
    private:
@@ -30,49 +30,38 @@ class RandomWalkNode : public rclcpp::Node {
     // String constants
     std::string world_frame_id_;
     std::string robot_frame_id_;
+    std::string pub_global_trajectory_topic_;
     std::string pub_goal_point_viz_topic_;
     std::string pub_trajectory_viz_topic_;
     std::string sub_map_topic_;
     std::string sub_robot_tf_topic_;
-    std::string action_get_path_topic_;
+    std::string srv_random_walk_toggle_topic_;
 
     // Variables
     init_params params;
-    nav_msgs::msg::Path generated_path;
+    // nav_msgs::msg::Path generated_path;
+    int num_paths_to_generate_;
+    std::vector<nav_msgs::msg::Path> generated_paths;
     bool publish_visualizations = false;
     bool received_first_map = false;
     bool received_first_robot_tf = false;
-    bool is_ready = false;
+    bool enable_random_walk = false;
     bool plan_reception_enabled = false;
 
     geometry_msgs::msg::Transform current_location;       // x, y, z, yaw
     geometry_msgs::msg::Transform current_goal_location;  // x, y, z, yaw
-
-    rclcpp_action::GoalResponse handle_goal(
-        const rclcpp_action::GoalUUID& uuid,
-        std::shared_ptr<const global_planner_msgs::action::GetRandomWalkPlan::Goal> goal);
-
-    rclcpp_action::CancelResponse handle_cancel(
-        const std::shared_ptr<
-            rclcpp_action::ServerGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>>
-            goal_handle);
-
-    void handle_accepted(
-        const std::shared_ptr<
-            rclcpp_action::ServerGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>>
-            goal_handle);
 
     // Callbacks
     void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
 
     void tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg);
 
-    void generate_plan(
-        const std::shared_ptr<
-            rclcpp_action::ServerGoalHandle<global_planner_msgs::action::GetRandomWalkPlan>>
-            goal_handle);
+    void randomWalkToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
+                                  std_srvs::srv::Trigger::Response::SharedPtr response);
 
     void timerCallback();
+
+    void generate_plan();
 
     // Other functions
     std::optional<init_params> readParameters();
@@ -95,7 +84,7 @@ class RandomWalkNode : public rclcpp::Node {
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 
     // ROS services
-    rclcpp_action::Server<global_planner_msgs::action::GetRandomWalkPlan>::SharedPtr srv_get_plan;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_random_walk_toggle;
 
     // ROS timers
     rclcpp::TimerBase::SharedPtr timer;
