@@ -48,24 +48,24 @@ jobs:
               # Check if the docker-compose.yaml contains an image version for this image_name (vX.Y.Z)
               if grep -qE "image: .*/$image_name:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
                 # Extract the full version (vX.Y.Z)
-                current_version=$(grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
-                echo "current_version=$current_version"
+                version_on_main=$(git show main:docker/docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
+                echo "version_on_main=$version_on_main"
 
                 # Split current version into major, minor, patch
-                IFS='.' read -r current_major current_minor current_patch <<< "$current_version"
+                IFS='.' read -r current_major current_minor current_patch <<< "$version_on_main"
 
                 # Check if the image version for this image_name has been incremented in this PR
-                new_version=$(git diff origin/${{ github.base_ref }}...HEAD -- docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+") || echo "No new version found."
+                version_this_branch=$(grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
 
-                if [ -z "$new_version" ]; then
-                  echo "::error::Dockerfile for $image_name was modified but image version in docker-compose.yaml was not updated."
-                  exit 1
-                fi
+                # if [ -z "$version_this_branch" ]; then
+                #   echo "::error::Dockerfile for $image_name was modified but image version in docker-compose.yaml was not updated."
+                #   exit 1
+                # fi
 
-                echo "new_version=$new_version"
+                echo "version_this_branch=$new_version"
 
                 # Split new version into major, minor, patch
-                IFS='.' read -r new_major new_minor new_patch <<< "$new_version"
+                IFS='.' read -r new_major new_minor new_patch <<< "$version_this_branch"
 
                 # Check if the new version is higher than the current one
                 if [ "$new_major" -gt "$current_major" ] || \
