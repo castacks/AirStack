@@ -65,7 +65,7 @@ jobs:
                   exit 1
                 fi
 
-                echo "version_this_branch=$new_version"
+                echo "version_this_branch=$version_this_branch"
 
                 # Split new version into major, minor, patch
                 IFS='.' read -r new_major new_minor new_patch <<< "$version_this_branch"
