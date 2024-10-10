@@ -10,12 +10,13 @@ RandomWalkPlanner::RandomWalkPlanner(init_params params) {
     this->voxel_size_m = params.voxel_size_m;
     this->collision_padding_m = params.collision_padding_m;
     this->path_end_threshold_m = params.path_end_threshold_m;
+    this->max_z_angle_change_rad = params.max_z_angle_change_rad;
 }
 
 std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
     std::tuple<float, float, float, float> start_point, float timeout_duration) {
-    std::tuple<float, float, float> start_point_wo_yaw(
-        std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
+    // std::tuple<float, float, float> start_point_wo_yaw(
+    //     std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
     std::optional<Path> path;
     bool is_goal_point_valid = false;
     // get start ti 
@@ -24,15 +25,16 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
     while (!is_goal_point_valid && std::chrono::duration_cast<std::chrono::seconds>(
                                        std::chrono::steady_clock::now() - start_time)
                                            .count() < timeout_duration) {
-        std::tuple<float, float, float> goal_point = generate_goal_point(start_point_wo_yaw);
+        std::tuple<float, float, float> goal_point = generate_goal_point(start_point);
         RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Point Generated...");
         if (std::get<2>(goal_point) == -1) {
             RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "No valid goal point found");
             break;
         }
-        float x_diff = std::get<0>(goal_point) - std::get<0>(start_point_wo_yaw);
-        float y_diff = std::get<1>(goal_point) - std::get<1>(start_point_wo_yaw);
-        float z_diff = std::get<2>(goal_point) - std::get<2>(start_point_wo_yaw);
+
+        float x_diff = std::get<0>(goal_point) - std::get<0>(start_point);
+        float y_diff = std::get<1>(goal_point) - std::get<1>(start_point);
+        float z_diff = std::get<2>(goal_point) - std::get<2>(start_point);
         float yaw = std::atan2(y_diff, x_diff);
 
         path = Path();
@@ -41,7 +43,8 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
         path.value().push_back(first_point);
 
         // start moving in the direction of the goal point
-        std::tuple<float, float, float> current_point = start_point_wo_yaw;
+        std::tuple<float, float, float> current_point = std::make_tuple(
+            std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
         RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"),
                     "Checking intermediate points at tolerance %f, with point count %d",
                     this->path_end_threshold_m, this->checking_point_cnt);
@@ -95,7 +98,7 @@ bool RandomWalkPlanner::check_if_collided(
 }
 
 std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
-    std::tuple<float, float, float> start_point) {
+    std::tuple<float, float, float, float> start_point) {
     float time_out_duration = 1.0;
     const clock_t start_time = clock();
 
@@ -109,14 +112,22 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
                        this->max_start_to_goal_dist_m_;
         float rand_z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * this->max_z_m_;
         std::tuple<float, float, float> rand_point(rand_x, rand_y, rand_z);
-        float dist = get_point_distance(start_point, rand_point);
+        std::tuple<float, float, float> start_point_wo_yaw(
+            std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
+        float dist = get_point_distance(start_point_wo_yaw, rand_point);
+        float new_angle = std::atan2(std::get<1>(rand_point) - std::get<1>(start_point_wo_yaw),
+                                     std::get<0>(rand_point) - std::get<0>(start_point_wo_yaw));
+        float angle_diff = std::abs(std::get<3>(start_point) - new_angle); 
         // if the z value of the point is low enough
         if (rand_z < max_z_m_) {
-            // if the point is close enough to the start point
-            if (dist < this->max_start_to_goal_dist_m_) {
-                // if the point doesnt collide with any of the voxels
-                if (!(check_if_collided(rand_point))) {
-                    return rand_point;
+            // if the angle change is low enough
+            if (angle_diff < this->max_z_angle_change_rad) {
+                // if the point is close enough to the start point
+                if (dist < this->max_start_to_goal_dist_m_) {
+                    // if the point doesnt collide with any of the voxels
+                    if (!(check_if_collided(rand_point))) {
+                        return rand_point;
+                    }
                 }
             }
         }

@@ -81,6 +81,11 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: path_end_threshold_m");
         return std::optional<init_params>{};
     }
+    this->declare_parameter<float>("max_z_angle_change_rad");
+    if (!this->get_parameter("max_z_angle_change_rad", params.max_z_angle_change_rad)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_angle_change_rad");
+        return std::optional<init_params>{};
+    }
     return params;
 }
 
@@ -98,6 +103,8 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         sub_robot_tf_topic_, 10,
         std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
 
+    this->pub_global_trajectory =
+        this->create_publisher<nav_msgs::msg::Path>(pub_global_trajectory_topic_, 10);
     this->pub_goal_point =
         this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_viz_topic_, 10);
     this->pub_trajectory_lines =
@@ -108,9 +115,9 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
                                           std::bind(&RandomWalkNode::timerCallback, this));
     // Set up the service
     this->srv_random_walk_toggle = this->create_service<std_srvs::srv::Trigger>(
-        srv_random_walk_toggle_topic_,
-        std::bind(&RandomWalkNode::randomWalkToggleCallback, this, std::placeholders::_1,
-                  std::placeholders::_2));
+        srv_random_walk_toggle_topic_, std::bind(&RandomWalkNode::randomWalkToggleCallback, this,
+                                                 std::placeholders::_1, std::placeholders::_2));
+    RCLCPP_INFO(this->get_logger(), "Random walk node initialized");
 }
 
 void RandomWalkNode::randomWalkToggleCallback(
@@ -137,7 +144,7 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
         this->params.voxel_size_m =
             std::tuple<float, float, float>(msg->scale.x, msg->scale.y, msg->scale.z);
         this->random_walk_planner = RandomWalkPlanner(this->params);
-        RCLCPP_INFO(this->get_logger(), "Initialized random walk planner");
+        RCLCPP_INFO(this->get_logger(), "Initialized random walk planner logic");
     }
     this->random_walk_planner.voxel_points.clear();
     for (int i = 0; i < msg->points.size(); i++) {
@@ -172,14 +179,13 @@ void RandomWalkNode::generate_plan() {
     std::tuple<float, float, float, float> start_loc;
     if (this->generated_paths.size() == 0) {
         start_loc = std::make_tuple(this->current_location.translation.x,
-                                                         this->current_location.translation.y,
-                                                         this->current_location.translation.z, yaw);
+                                    this->current_location.translation.y,
+                                    this->current_location.translation.z, yaw);
     } else {
-        start_loc = std::make_tuple(
-            this->generated_paths.back().poses.back().pose.position.x,
-            this->generated_paths.back().poses.back().pose.position.y,
-            this->generated_paths.back().poses.back().pose.position.z,
-            this->generated_paths.back().poses.back().pose.orientation.z);
+        start_loc = std::make_tuple(this->generated_paths.back().poses.back().pose.position.x,
+                                    this->generated_paths.back().poses.back().pose.position.y,
+                                    this->generated_paths.back().poses.back().pose.position.z,
+                                    this->generated_paths.back().poses.back().pose.orientation.z);
     }
 
     float timeout_duration = 5.0;
@@ -226,6 +232,11 @@ void RandomWalkNode::generate_plan() {
         //             this->generated_path.poses.back().pose.position.x,
         //             this->generated_path.poses.back().pose.position.y,
         //             this->generated_path.poses.back().pose.position.z);
+        geometry_msgs::msg::PoseStamped last_goal_loc = generated_single_path.poses.back();
+        this->current_goal_location.translation.x = last_goal_loc.pose.position.x;
+        this->current_goal_location.translation.y = last_goal_loc.pose.position.y;
+        this->current_goal_location.translation.z = last_goal_loc.pose.position.z;
+        this->current_goal_location.rotation.z = last_goal_loc.pose.orientation.z;
         this->generated_paths.push_back(generated_single_path);
 
     } else {
@@ -233,12 +244,41 @@ void RandomWalkNode::generate_plan() {
     }
 }
 
+void RandomWalkNode::publish_plan() {
+    nav_msgs::msg::Path full_path;
+    for (auto path : this->generated_paths) {
+        for (auto point : path.poses) {
+            full_path.poses.push_back(point);
+        }
+    }
+    full_path.header.stamp = this->now();
+    full_path.header.frame_id = this->world_frame_id_;
+    this->pub_global_trajectory->publish(full_path);
+    RCLCPP_INFO(this->get_logger(), "Published full path");
+}
 void RandomWalkNode::timerCallback() {
-    if (this->enable_random_walk) {
+    if (this->enable_random_walk && !this->is_path_executing) {
         if (this->received_first_map && this->received_first_robot_tf) {
-            this->generate_plan();
+            for (int i = 0; i < this->num_paths_to_generate_; i++) {
+                this->generate_plan();
+            }
+            this->publish_plan();
+            this->is_path_executing = true;
         } else {
             RCLCPP_INFO(this->get_logger(), "Waiting for map and robot tf to be received...");
+        }
+    } else if (this->enable_random_walk && this->is_path_executing) {
+        std::tuple<float, float, float> current_point = std::make_tuple(
+            this->current_location.translation.x, this->current_location.translation.y,
+            this->current_location.translation.z);
+        std::tuple<float, float, float> goal_point = std::make_tuple(
+            this->current_goal_location.translation.x, this->current_goal_location.translation.y,
+            this->current_goal_location.translation.z);
+        if (get_point_distance(current_point, goal_point) <
+            this->random_walk_planner.path_end_threshold_m) {
+            this->is_path_executing = false;
+            this->generated_paths.clear();
+            RCLCPP_INFO(this->get_logger(), "Reached goal point");
         }
     }
     // if (this->publish_visualizations && this->generated_path.poses.size() > 0) {

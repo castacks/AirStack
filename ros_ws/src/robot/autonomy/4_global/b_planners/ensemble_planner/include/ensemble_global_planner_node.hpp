@@ -18,7 +18,6 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <std_srvs/srv/trigger.hpp>
 
-#include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class EnsembleGlobalPlannerNode : public rclcpp::Node {
@@ -32,6 +31,8 @@ class EnsembleGlobalPlannerNode : public rclcpp::Node {
 
     // Other functions
     void readParameters();
+
+    bool enable_global_planner = false;
 
    public:
     // explicit RandomWalkNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
@@ -48,7 +49,7 @@ class EnsembleGlobalPlannerNode : public rclcpp::Node {
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 
     // ROS services
-    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv__toggle;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_global_planner_toggle;
 
     // ROS timers
     rclcpp::TimerBase::SharedPtr timer;

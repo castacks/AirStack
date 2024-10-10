@@ -46,7 +46,7 @@ class RandomWalkNode : public rclcpp::Node {
     bool received_first_map = false;
     bool received_first_robot_tf = false;
     bool enable_random_walk = false;
-    bool plan_reception_enabled = false;
+    bool is_path_executing = false;
 
     geometry_msgs::msg::Transform current_location;       // x, y, z, yaw
     geometry_msgs::msg::Transform current_goal_location;  // x, y, z, yaw
@@ -62,6 +62,8 @@ class RandomWalkNode : public rclcpp::Node {
     void timerCallback();
 
     void generate_plan();
+
+    void publish_plan();
 
     // Other functions
     std::optional<init_params> readParameters();
@@ -79,7 +81,7 @@ class RandomWalkNode : public rclcpp::Node {
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
-    // rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_path;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_trajectory;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 

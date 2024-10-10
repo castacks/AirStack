@@ -19,6 +19,7 @@ struct init_params {
     float max_z_m;
     float collision_padding_m;
     float path_end_threshold_m;
+    float max_z_angle_change_rad;
     std::tuple<float, float, float> voxel_size_m;
 };
 
@@ -41,6 +42,7 @@ class RandomWalkPlanner {
     int checking_point_cnt;
     float max_z_m_;
     float collision_padding_m;
+    float max_z_angle_change_rad;
 
     // Variables
     std::tuple<float, float, float> voxel_size_m;
@@ -53,7 +55,7 @@ class RandomWalkPlanner {
     bool check_if_collided(std::tuple<float, float, float> point);
 
     std::tuple<float, float, float> generate_goal_point(
-        std::tuple<float, float, float> start_point);
+        std::tuple<float, float, float, float> start_point);
 };
 
 double get_point_distance(std::tuple<float, float, float> point1,

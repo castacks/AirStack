@@ -53,10 +53,9 @@ install(TARGETS
   ensemble_global_planner
   DESTINATION lib/${PROJECT_NAME}
 )
-
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY
+#   launch
+#   DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY
   config
