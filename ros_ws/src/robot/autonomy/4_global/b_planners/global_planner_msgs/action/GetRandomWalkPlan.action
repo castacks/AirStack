@@ -1,8 +1,0 @@
-# Define a goal parameters
-builtin_interfaces/Duration timeout  # maximum time to spend planning
----
-# Define the result that will be published after the action execution ends.
-nav_msgs/Path trajectory  # REQUIRED FIELD
----
-# Define a feedback message that will be published during action execution.
-float32 percent_complete
