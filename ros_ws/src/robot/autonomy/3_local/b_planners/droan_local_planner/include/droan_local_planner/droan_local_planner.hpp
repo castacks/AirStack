@@ -2,7 +2,6 @@
 
 #include <tf2_ros/transform_listener.h>
 
-#include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <list>
@@ -66,8 +65,6 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
 
     // services
-    // ros::ServiceClient traj_mode_client;
-    rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_client;
 
    public:
     DroanLocalPlanner()
@@ -99,10 +96,6 @@ class DroanLocalPlanner : public rclcpp::Node {
             "trajectory_segment_to_add", 10);
         traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
             "trajectory_override", 10);
-
-        // services
-        traj_mode_client =
-            this->create_client<airstack_msgs::srv::TrajectoryMode>("set_trajectory_mode");
 
         // init parameters
         this->declare_parameter("obstacle_distance_reward", 1.);
