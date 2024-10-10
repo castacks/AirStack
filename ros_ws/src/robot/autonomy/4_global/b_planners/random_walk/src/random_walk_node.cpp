@@ -168,24 +168,29 @@ void RandomWalkNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
 
 void RandomWalkNode::generate_plan() {
     RCLCPP_INFO(this->get_logger(), "Starting to generate plan...");
-    geometry_msgs::msg::Quaternion curr_orientation;
-    curr_orientation = this->current_location.rotation;
 
-    tf2::Quaternion curr_orientation_quat(curr_orientation.x, curr_orientation.y,
-                                          curr_orientation.z, curr_orientation.w);
-    tf2::Matrix3x3 m(curr_orientation_quat);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
     std::tuple<float, float, float, float> start_loc;
     if (this->generated_paths.size() == 0) {
+        geometry_msgs::msg::Quaternion orientation = this->current_location.rotation;
+        tf2::Quaternion q(orientation.x, orientation.y, orientation.z, orientation.w);
+        q.normalize();
+        double roll, pitch, yaw;
+        tf2::Matrix3x3 m(q);
+        m.getRPY(roll, pitch, yaw);
         start_loc = std::make_tuple(this->current_location.translation.x,
                                     this->current_location.translation.y,
                                     this->current_location.translation.z, yaw);
     } else {
+        geometry_msgs::msg::Quaternion orientation = this->generated_paths.back().poses.back().pose.orientation;
+        tf2::Quaternion q(orientation.x, orientation.y, orientation.z, orientation.w);
+        q.normalize();
+        double roll, pitch, yaw;
+        tf2::Matrix3x3 m(q);
+        m.getRPY(roll, pitch, yaw);
         start_loc = std::make_tuple(this->generated_paths.back().poses.back().pose.position.x,
                                     this->generated_paths.back().poses.back().pose.position.y,
                                     this->generated_paths.back().poses.back().pose.position.z,
-                                    this->generated_paths.back().poses.back().pose.orientation.z);
+                                    yaw);
     }
 
     float timeout_duration = 5.0;
@@ -200,7 +205,14 @@ void RandomWalkNode::generate_plan() {
         this->current_goal_location.translation.x = std::get<0>(gen_path_opt.value().back());
         this->current_goal_location.translation.y = std::get<1>(gen_path_opt.value().back());
         this->current_goal_location.translation.z = std::get<2>(gen_path_opt.value().back());
-        this->current_goal_location.rotation.z = std::get<3>(gen_path_opt.value().back());
+        float z_rot = std::get<3>(gen_path_opt.value().back());
+        tf2::Quaternion q;
+        q.setRPY(0, 0, z_rot);  // Roll = 0, Pitch = 0, Yaw = yaw
+        q.normalize();
+        this->current_goal_location.rotation.x = q.x();
+        this->current_goal_location.rotation.y = q.y();
+        this->current_goal_location.rotation.z = q.z();
+        this->current_goal_location.rotation.w = q.w();
 
         // publish the path
         nav_msgs::msg::Path generated_single_path;
