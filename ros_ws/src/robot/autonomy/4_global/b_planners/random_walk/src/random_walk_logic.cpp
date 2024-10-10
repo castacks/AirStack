@@ -26,7 +26,7 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
                                        std::chrono::steady_clock::now() - start_time)
                                            .count() < timeout_duration) {
         std::tuple<float, float, float> goal_point = generate_goal_point(start_point);
-        RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Point Generated...");
+        // RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Point Generated...");
         if (std::get<2>(goal_point) == -1) {
             RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "No valid goal point found");
             break;
@@ -45,9 +45,9 @@ std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
         // start moving in the direction of the goal point
         std::tuple<float, float, float> current_point = std::make_tuple(
             std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
-        RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"),
-                    "Checking intermediate points at tolerance %f, with point count %d",
-                    this->path_end_threshold_m, this->checking_point_cnt);
+        // RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"),
+        //             "Checking intermediate points at tolerance %f, with point count %d",
+        //             this->path_end_threshold_m, this->checking_point_cnt);
         while (get_point_distance(current_point, goal_point) > 0.001) {
             if (!check_if_collided(current_point)) {
                 float new_x = std::get<0>(current_point) + x_diff / this->checking_point_cnt;
@@ -118,6 +118,7 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
         float new_angle = std::atan2(std::get<1>(rand_point) - std::get<1>(start_point_wo_yaw),
                                      std::get<0>(rand_point) - std::get<0>(start_point_wo_yaw));
         float angle_diff = std::abs(std::get<3>(start_point) - new_angle); 
+        RCLCPP_INFO(rclcpp::get_logger("random_walk_planner"), "Angle Difference point: %f", rad2deg(angle_diff));
         // if the z value of the point is low enough
         if (rand_z < max_z_m_) {
             // if the angle change is low enough
@@ -144,3 +145,5 @@ double get_point_distance(std::tuple<float, float, float> point1,
 }
 
 double deg2rad(double deg) { return deg * M_PI / 180.0; }
+
+double rad2deg(double rad) { return rad * 180.0 / M_PI; }

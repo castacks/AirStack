@@ -63,4 +63,6 @@ double get_point_distance(std::tuple<float, float, float> point1,
 
 double deg2rad(double deg);
 
+double rad2deg(double rad);
+
 #endif  // RANDOM_WALK_LOGIC_H
