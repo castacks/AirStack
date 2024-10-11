@@ -19,6 +19,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/KeepOutZone.msg"
   "msg/PlanRequest.msg"
   "msg/SearchMissionRequest.msg"
+  "msg/BeliefMapData.msg"
   "msg/SearchPrior.msg"
   "msg/TaskAssignment.msg"
   "srv/RobotCommand.srv"
