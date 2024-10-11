@@ -72,11 +72,11 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
     }
     else if (search_prior.grid_prior_type == airstack_msgs::msg::SearchPrior::LINE_SEG_PRIOR)
     {
-      // TODO
+      RCLCPP_ERROR(logger, "Line segment priors not implemented");
     }
     else if (search_prior.grid_prior_type == airstack_msgs::msg::SearchPrior::POINT_PRIOR)
     {
-      // TODO
+      RCLCPP_ERROR(logger, "Point priors not implemented");
     }
     else
     {
@@ -88,4 +88,34 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
   return true;
 }
 
-// TODO subscribe to the shared search areas for updates. 
+bool BeliefMap::update_map(rclcpp::Logger logger, const airstack_msgs::msg::BeliefMapData::SharedPtr new_belief_data)
+{
+  if (new_belief_data->x_start >= new_belief_data->x_end || 
+      new_belief_data->y_start >= new_belief_data->y_end)
+  {
+    RCLCPP_ERROR(logger, "Received belief map data with origin issues");
+    RCLCPP_WARN_STREAM(logger, "x_start: " << new_belief_data->x_start << " x_end: " << new_belief_data->x_end);
+    RCLCPP_WARN_STREAM(logger, "y_start: " << new_belief_data->y_start << " y_end: " << new_belief_data->y_end);
+    return false;
+  }
+
+  grid_map::Index submapStartIndex(new_belief_data->x_start, new_belief_data->y_start); // check coordinate frame!
+  grid_map::Index submapBufferSize(new_belief_data->x_end - new_belief_data->x_start, 
+                         new_belief_data->y_end - new_belief_data->y_start); // check coordinate frame!
+  int cur_index_num = 0;
+  grid_map::Matrix& data = map_["probability"];
+  for (grid_map::SubmapIterator iterator(map_, submapStartIndex, submapBufferSize);
+      !iterator.isPastEnd(); ++iterator)
+  {
+    // map_.at("probability", *iterator) = 1.0;
+    const grid_map::Index index(*iterator);
+    // always save with the lower value
+    if (new_belief_data->map_values[cur_index_num] < data(index(0), index(1)))
+    {
+      // Scale the value back from 0-UIN16_MAX to 0-1
+      data(index(0), index(1)) = static_cast<float>(new_belief_data->map_values[cur_index_num]) / static_cast<float>(UINT16_MAX); // TODO ensure maps are encoded correctly to match the iterator
+    }
+    cur_index_num++;
+  }
+  return true;
+}
