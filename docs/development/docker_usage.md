@@ -1,3 +1,4 @@
+# General Usage with Docker Compose
 
 AirStack is designed for multi-robot development, and is setup to run multiple robots in simulation.
 
@@ -64,7 +65,7 @@ docker exec -it isaac-sim bash
 `runapp` launches Isaac Sim.
 The `--path` argument can be passed with a path to a `.usd` file to load a scene.
 
-It can also be run in headless mode with `./runheadless.native.sh` to stream to Omniverse Streaming Client or `./runheadless.webrtc.sh` to stream to a web browser.
+It can also be run in headless mode with `./runheadless.native.sh` to stream to [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html) or `./runheadless.webrtc.sh` to [stream to a web browser](https://docs.omniverse.nvidia.com/extensions/latest/ext_livestream/webrtc.html).
 
 The container also has the isaacsim ROS2 package within that can be launched with `ros2 launch isaacsim run_isaacsim.launch.py`. 
 
