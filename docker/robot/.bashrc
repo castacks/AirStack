@@ -4,7 +4,7 @@
 # for examples
 
 # If not running interactively, don't do anything
-[ -z "$PS1" ] && return
+# [ -z "$PS1" ] && return
 
 # don't put duplicate lines in the history. See bash(1) for more options
 # ... or force ignoredups and ignorespace
@@ -120,7 +120,7 @@ export PYTHONWARNINGS
 # Convenience functions for ROS2 workspace
 
 function bws(){
-    echo "Running \`colcon build\` in $ROS2_WS_DIR"
+    echo "Running \`colcon build $@\` in $ROS2_WS_DIR"
     COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
 }
 function sws(){
