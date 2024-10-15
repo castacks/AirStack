@@ -12,7 +12,6 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/time_synchronizer.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <cmath>
@@ -21,7 +20,6 @@
 #include <geometry_msgs/msg/polygon_stamped.hpp>
 #include <image_transport/image_transport.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <pcl/impl/point_types.hpp>
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/subscription.hpp>
 #include <sensor_msgs/image_encodings.hpp>
@@ -39,13 +37,11 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "std_msgs/msg/header.hpp"
 
-typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
 class DisparityExpansionNode : public rclcpp::Node {
    public:
     DisparityExpansionNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr expansion_cloud_pub;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr expanded_disparity_fg_pub;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr expanded_disparity_bg_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr expansion_poly_pub;
@@ -245,8 +241,8 @@ cv::Mat DisparityExpansionNode::depthToDisparity(const cv::Mat& depth_image) {
 
     disparity_image = (baseline * fx_) / (depth_image);  // MULT BY 100
 
-    RCLCPP_INFO(this->get_logger(), "Baseline: %.4f", baseline);
-    RCLCPP_INFO(this->get_logger(), "Focal length (fx): %.4f", fx_);
+    RCLCPP_INFO_ONCE(this->get_logger(), "Baseline: %.4f", baseline);
+    RCLCPP_INFO_ONCE(this->get_logger(), "Focal length (fx): %.4f", fx_);
     cv::patchNaNs(disparity_image, 0.0f);
 
     disparity_image.setTo(0.0f, disparity_image == std::numeric_limits<float>::infinity());
@@ -575,62 +571,6 @@ void DisparityExpansionNode::stereoDisparityCb(
                 expansion_poly_pub->publish(marker_arr);
             }
 
-            if (expansion_cloud_pub->get_subscription_count() > 0)  // create expansion PCD
-            {
-                PointCloud::Ptr cloud(new PointCloud);
-                cloud->header.frame_id = msg_disp->header.frame_id;
-                cloud->height = 1;
-                cloud->width = 1;
-                cloud->is_dense = false;
-                int point_counter = 0;
-                pcl::PointXYZI pt_fg, pt_bg, pt_free1, pt_free2, pt_real;
-
-                for (int v = (int)height - 1; v >= 0; v -= 4) {
-                    for (int u = (int)width - 1; u >= 0; u -= 4) {
-                        float depth_value = baseline * fx_ /
-                                            fg_msg->image.at<float>(
-                                                v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[0];
-                        pt_fg.x = (u - center_x) * depth_value * constant_x;
-                        pt_fg.y = (v - center_y) * depth_value * constant_y;
-                        pt_fg.z = depth_value;
-                        pt_fg.intensity = 220;
-
-                        depth_value = baseline * fx_ /
-                                      bg_msg->image.at<float>(
-                                          v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[1];
-                        pt_bg.x = (u - center_x) * depth_value * constant_x;
-                        pt_bg.y = (v - center_y) * depth_value * constant_y;
-                        pt_bg.z = depth_value;
-                        pt_bg.intensity = 120;
-
-                        // ACtual PCD
-                        depth_value = baseline * fx_ /
-                                      cv_ptrdisparity->image.at<float>(
-                                          v, u);  // new_disparity_bridgePtr->image.at<float>(v,u);
-                        pt_real.x = (u - center_x) * depth_value * constant_x;
-                        pt_real.y = (v - center_y) * depth_value * constant_y;
-                        pt_real.z = depth_value;
-                        pt_real.intensity = 170;  //*disparity32F.at<float>(v,u)/200;
-
-                        {
-                            point_counter++;
-                            cloud->points.push_back(pt_fg);
-                            point_counter++;
-                            cloud->points.push_back(pt_bg);
-                            point_counter++;
-                            cloud->points.push_back(pt_real);
-                        }
-                    }
-                }
-                cloud->width = point_counter;
-
-                cloud->header.stamp = rclcpp::Time(msg_disp->header.stamp).nanoseconds();
-                cloud->header.stamp = pcl_conversions::toPCL(rclcpp::Time(msg_disp->header.stamp));
-
-                sensor_msgs::msg::PointCloud2 cloud_PC2;
-                pcl::toROSMsg(*cloud, cloud_PC2);
-                expansion_cloud_pub->publish(cloud_PC2);
-            }
         }
     }
     return;
@@ -638,9 +578,6 @@ void DisparityExpansionNode::stereoDisparityCb(
 
 DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& options)
     : Node("DisparityExpansionNode", options) {
-    this->declare_parameter("expansion_cloud_topic", "expansion_cloud");
-    std::string expansion_cloud_topic = this->get_parameter("expansion_cloud_topic").as_string();
-    RCLCPP_INFO(this->get_logger(), "expansion_cloud_topic: %s", expansion_cloud_topic.c_str());
     this->declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
     std::string expanded_disparity_fg_topic =
         this->get_parameter("expanded_disparity_fg_topic").as_string();
@@ -688,8 +625,6 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
         depth_topic, 1,
         std::bind(&DisparityExpansionNode::depthImageCb, this, std::placeholders::_1));
 
-    expansion_cloud_pub =
-        this->create_publisher<sensor_msgs::msg::PointCloud2>(expansion_cloud_topic, 10);
     expansion_poly_pub =
         this->create_publisher<visualization_msgs::msg::MarkerArray>(expansion_poly_topic, 10);
     expanded_disparity_fg_pub =

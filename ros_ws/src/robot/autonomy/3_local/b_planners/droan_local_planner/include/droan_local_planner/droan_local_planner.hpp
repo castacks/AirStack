@@ -30,9 +30,12 @@ class DroanLocalPlanner : public rclcpp::Node {
     nav_msgs::msg::Path global_plan_msg;
     double global_plan_trajectory_distance;
     bool is_look_ahead_received, is_tracking_point_received;
+
+    // look ahead is
     airstack_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
 
-    double obstacle_check_radius, obstacle_distance_reward, forward_progress_reward_weight;
+    double execute_rate, obstacle_check_radius, obstacle_distance_reward,
+        forward_progress_reward_weight;
     double robot_radius;
 
     float waypoint_buffer_duration, waypoint_spacing_threshold, waypoint_angle_threshold;
@@ -63,6 +66,8 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
+
+    rclcpp::TimerBase::SharedPtr execute_timer;
 
     // services
 
@@ -98,54 +103,69 @@ class DroanLocalPlanner : public rclcpp::Node {
             "trajectory_override", 10);
 
         // init parameters
+        this->declare_parameter("execute_rate", 5.);
+        this->execute_rate = this->get_parameter("execute_rate").as_double();
         this->declare_parameter("obstacle_distance_reward", 1.);
-        obstacle_distance_reward = this->get_parameter("obstacle_distance_reward").as_double();
+        this->obstacle_distance_reward =
+            this->get_parameter("obstacle_distance_reward").as_double();
         this->declare_parameter("obstacle_check_radius", 1.);
-        obstacle_check_radius = this->get_parameter("obstacle_check_radius").as_double();
+        this->obstacle_check_radius = this->get_parameter("obstacle_check_radius").as_double();
         this->declare_parameter("forward_progress_reward_weight", 0.5);
-        forward_progress_reward_weight =
+        this->forward_progress_reward_weight =
             this->get_parameter("forward_progress_reward_weight").as_double();
         this->declare_parameter("robot_radius", 0.75);
-        robot_radius = this->get_parameter("robot_radius").as_double();
+        this->robot_radius = this->get_parameter("robot_radius").as_double();
         this->declare_parameter("yaw_mode", 0);
-        yaw_mode = this->get_parameter("yaw_mode").as_int();
+        this->yaw_mode = this->get_parameter("yaw_mode").as_int();
         this->declare_parameter("map_representation", std::string("PointCloudMapRepresentation"));
-        map_representation_class_string = this->get_parameter("map_representation").as_string();
+        this->map_representation_class_string =
+            this->get_parameter("map_representation").as_string();
         this->declare_parameter("waypoint_buffer_duration", 30.);
-        waypoint_buffer_duration = this->get_parameter("waypoint_buffer_duration").as_double();
+        this->waypoint_buffer_duration =
+            this->get_parameter("waypoint_buffer_duration").as_double();
         this->declare_parameter("waypoint_spacing_threshold", 0.5);
-        waypoint_spacing_threshold = this->get_parameter("waypoint_spacing_threshold").as_double();
+        this->waypoint_spacing_threshold =
+            this->get_parameter("waypoint_spacing_threshold").as_double();
         this->declare_parameter("waypoint_angle_threshold", 30. * M_PI / 180.);
-        waypoint_angle_threshold = this->get_parameter("waypoint_angle_threshold").as_double();
+        this->waypoint_angle_threshold =
+            this->get_parameter("waypoint_angle_threshold").as_double();
 
         this->declare_parameter("custom_waypoint_timeout_factor", 0.3);
-        custom_waypoint_timeout_factor =
+        this->custom_waypoint_timeout_factor =
             this->get_parameter("custom_waypoint_timeout_factor").as_double();
         this->declare_parameter("custom_waypoint_distance_threshold", 0.5);
-        custom_waypoint_distance_threshold =
+        this->custom_waypoint_distance_threshold =
             this->get_parameter("custom_waypoint_distance_threshold").as_double();
 
         this->declare_parameter("trajectory_library_config", std::string(""));
-        traj_lib = std::make_unique<TrajectoryLibrary>(
+        this->traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
 
         pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
             map_representation_loader("map_representation_interface",
                                       "map_representation_interface::MapRepresentation");
         try {
-            map_representation =
+            this->map_representation =
                 map_representation_loader.createSharedInstance(map_representation_class_string);
         } catch (pluginlib::PluginlibException& ex) {
             RCLCPP_INFO(this->get_logger(),
                         "The MapRepresentation plugin failed to load. Error: %s", ex.what());
         }
+
+        double interval = 1. / this->execute_rate;
+        this->execute_timer = rclcpp::create_timer(this, this->get_clock(),
+                                                   rclcpp::Duration::from_seconds(interval),
+                                                   std::bind(&DroanLocalPlanner::execute, this));
     }
     virtual ~DroanLocalPlanner() {}
 
     virtual bool execute() {
-        update_waypoint_mode();
+        this->update_waypoint_mode();
 
-        if (!is_global_plan_received) return true;
+        if (!this->is_global_plan_received) {
+            RCLCPP_INFO_ONCE(this->get_logger(), "Waiting for global plan");
+            return true;
+        }
 
         Trajectory global_plan(this, global_plan_msg);
 
@@ -164,15 +184,17 @@ class DroanLocalPlanner : public rclcpp::Node {
         double trajectory_distance;
         bool valid = global_plan.get_trajectory_distance_at_closest_point(look_ahead_position,
                                                                           &trajectory_distance);
+        // trim the global plan to only the next 10 meters
         if (valid) {
-            global_plan_trajectory_distance += trajectory_distance;
+            this->global_plan_trajectory_distance += trajectory_distance;
             global_plan = global_plan.get_subtrajectory_distance(
-                global_plan_trajectory_distance, global_plan_trajectory_distance + 10.0);
+                this->global_plan_trajectory_distance,
+                this->global_plan_trajectory_distance + 10.0);
         } else {
             RCLCPP_INFO(this->get_logger(), "invalid");
         }
 
-        // publish the segment of the global plan currently being used, for visualization
+        // publish the trimmed segment of the global plan currently being used, for visualization
         visualization_msgs::msg::MarkerArray global_markers =
             global_plan.get_markers(this->now(), 0, 0, 1);
         global_plan_vis_pub->publish(global_markers);
@@ -244,7 +266,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         return true;
     }
 
-    std::vector<std::vector<double>> get_trajectory_distances_from_map(
+    std::vector<std::vector<double>> get_trajectory_distances_to_closest_obstacle(
         std::vector<Trajectory> trajectory_candidates) {
         // vector of trajectory candidates in PointStamped-vector form
         std::vector<std::vector<geometry_msgs::msg::PointStamped>> traj_cands_as_point_stamped;
@@ -269,7 +291,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         auto now = this->now();
 
         auto trajectory_distances_to_closest_obstacle =
-            get_trajectory_distances_from_map(trajectory_candidates);
+            get_trajectory_distances_to_closest_obstacle(trajectory_candidates);
 
         visualization_msgs::msg::MarkerArray traj_lib_markers;
 
@@ -355,24 +377,36 @@ class DroanLocalPlanner : public rclcpp::Node {
     }
 
     // subscriber callbacks
+
+    /**
+     * @brief Saves the global plan if the goal mode is TRAJECTORY
+     *
+     * @param global_plan_msg
+     */
     void global_plan_callback(const nav_msgs::msg::Path::SharedPtr global_plan_msg) {
-        RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << goal_mode);
-        if (goal_mode != TRAJECTORY) return;
+        RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
+        if (this->goal_mode != TRAJECTORY) return;
 
         this->global_plan_msg = *global_plan_msg;  // copies
-        is_global_plan_received = true;
-        global_plan_trajectory_distance = 0;
+        this->is_global_plan_received = true;
+        this->global_plan_trajectory_distance = 0;
     }
 
+    /**
+     * @brief If mode == AUTO_WAYPOINT, then the local planner will automatically generate waypoints
+     * to reach the desired waypoint.
+     *
+     * @param wp the desired waypoint
+     */
     void waypoint_callback(const geometry_msgs::msg::PointStamped::SharedPtr wp) {
-        if (goal_mode != AUTO_WAYPOINT) {
-            waypoint_buffer.clear();
-            waypoint_buffer.push_back(*wp);
+        if (this->goal_mode != AUTO_WAYPOINT) {
+            this->waypoint_buffer.clear();
+            this->waypoint_buffer.push_back(*wp);
             return;
         }
 
         // remove old waypoints if necessary
-        waypoint_buffer.push_back(*wp);
+        this->waypoint_buffer.push_back(*wp);
         if ((rclcpp::Time(wp->header.stamp) - rclcpp::Time(waypoint_buffer.front().header.stamp))
                 .seconds() > waypoint_buffer_duration) {
             waypoint_buffer.pop_front();
@@ -472,6 +506,13 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->is_global_plan_received = true;
     }
 
+    /**
+     * @brief Clears the current global plan reference and go immediately to a custom waypoint
+     * (typically set by the user). Sets the global plan to be the line between the current look
+     * ahead point and the custom waypoint.
+     *
+     * @param wp
+     */
     void custom_waypoint_callback(const geometry_msgs::msg::PoseStamped::SharedPtr wp) {
         if (!is_look_ahead_received) return;
 
@@ -531,7 +572,7 @@ class DroanLocalPlanner : public rclcpp::Node {
 
             // ROS_INFO_STREAM("elapsed: " << elapsed_time << " / " <<
             // distance/custom_waypoint_timeout_factor << " distance: " << distance);
-            if (elapsed_time >= distance / custom_waypoint_timeout_factor) {
+            if (elapsed_time >= distance / this->custom_waypoint_timeout_factor) {
                 // ROS_INFO_STREAM("CUSTOM WAYPOINT TIMEOUT REACHED");
                 goal_mode = AUTO_WAYPOINT;
             }

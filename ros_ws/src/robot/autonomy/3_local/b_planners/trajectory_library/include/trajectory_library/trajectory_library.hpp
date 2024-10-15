@@ -14,6 +14,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 // #include <tf/transform_datatypes.h>
 // #include <tf/transform_listener.h>
+#include <nav_msgs/msg/path.hpp>
 #include <yaml-cpp/yaml.h>
 
 #include <airstack_common/ros2_helper.hpp>
@@ -63,6 +64,7 @@ class Waypoint {
 };
 
 // Create one TransformListener instance to be used by every Trajectory instance
+// TODO: change to smart pointer
 static tf2_ros::Buffer* buffer = NULL;
 static tf2_ros::TransformListener* listener = NULL;
 
@@ -83,6 +85,7 @@ class Trajectory {
     Trajectory();
     Trajectory(rclcpp::Node* node, std::string frame_id);
     Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw path);
+    Trajectory(rclcpp::Node* node, nav_msgs::msg::Path path);
     // Trajectory(airstack_msgs::msg::TrajectoryXYZVYaw path);
 
     void clear();

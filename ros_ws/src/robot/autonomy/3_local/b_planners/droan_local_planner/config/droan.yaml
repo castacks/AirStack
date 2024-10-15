@@ -1,5 +1,9 @@
 /**:
   ros__parameters:
+
+    # execution rate in hz
+    execute_rate: 5.0
+
     obstacle_distance_reward: 1.0
     forward_progress_reward_weight: 0.5
     robot_radius: 0.75
