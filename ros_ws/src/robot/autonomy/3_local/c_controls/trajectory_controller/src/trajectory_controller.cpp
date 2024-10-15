@@ -19,8 +19,6 @@
 
 class TrajectoryControlNode : public rclcpp::Node {
    private:
-    const std::string ROBOT_NAME =
-        std::getenv("ROBOT_NAME") == NULL ? "" : std::getenv("ROBOT_NAME");
     rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_seg_to_add_sub;
     rclcpp::Subscription<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;

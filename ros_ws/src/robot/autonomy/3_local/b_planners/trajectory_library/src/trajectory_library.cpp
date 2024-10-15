@@ -91,9 +91,7 @@ std::ostream& operator<<(std::ostream& os, const Waypoint& wp) {
 static int trajectory_class_counter = 0;
 
 Trajectory::Trajectory() {
-    // listener = NULL;
     generated_waypoint_times = false;
-
     // init marker namespace to be unique
     std::stringstream ss;
     ss << "trajectory_" << trajectory_class_counter;
@@ -101,39 +99,58 @@ Trajectory::Trajectory() {
     trajectory_class_counter++;
 }
 
-Trajectory::Trajectory(rclcpp::Node* node, std::string frame_id) {
+Trajectory::Trajectory(rclcpp::Node* node, std::string frame_id) : Trajectory() {
     if (buffer == NULL) {
         buffer = new tf2_ros::Buffer(node->get_clock());
         listener = new tf2_ros::TransformListener(*buffer);
     }
 
     this->frame_id = frame_id;
-    // listener = NULL;
-    generated_waypoint_times = false;
-
-    // init marker namespace to be unique
-    std::stringstream ss;
-    ss << "trajectory_" << trajectory_class_counter;
-    marker_namespace = ss.str();
-    trajectory_class_counter++;
 }
 
-Trajectory::Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw path) {
-    if (buffer == NULL) {
-        buffer = new tf2_ros::Buffer(node->get_clock());
-        listener = new tf2_ros::TransformListener(*buffer);
+
+/**
+ * @brief Construct a new Trajectory:: Trajectory object
+ * Converts a nav_msgs::Path to a Trajectory object. 
+ * Only the position of each waypoint is used.
+ * The velocity of each waypoint is set to 0.
+ * TODO: add a time component to the trajectory?
+ * 
+ * @param node 
+ * @param path 
+ */
+Trajectory::Trajectory(rclcpp::Node* node, nav_msgs::msg::Path path)
+    : Trajectory(node, path.header.frame_id) {
+    this->stamp = path.header.stamp;
+
+    // remove consecutive waypoints
+    nav_msgs::msg::Path cleaned_path;
+    cleaned_path.header = path.header;
+    for (size_t i = 0; i < path.poses.size(); i++) {
+        geometry_msgs::msg::PoseStamped pose = path.poses[i];
+        if (i == 0)
+            cleaned_path.poses.push_back(pose);
+        else if (!(pose.pose.position.x == cleaned_path.poses.back().pose.position.x &&
+                   pose.pose.position.y == cleaned_path.poses.back().pose.position.y &&
+                   pose.pose.position.z == cleaned_path.poses.back().pose.position.z))
+            cleaned_path.poses.push_back(pose);
     }
 
-    frame_id = path.header.frame_id;
-    stamp = path.header.stamp;
-    // listener = NULL;
-    generated_waypoint_times = false;
+    // translate to Waypoint objects
+    for (size_t i = 0; i < cleaned_path.poses.size(); i++) {
+        geometry_msgs::msg::PoseStamped pose = cleaned_path.poses[i];
 
-    // init marker namespace to be unique
-    std::stringstream ss;
-    ss << "trajectory_" << trajectory_class_counter;
-    marker_namespace = ss.str();
-    trajectory_class_counter++;
+        Waypoint waypoint(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, 0);
+        this->waypoints.push_back(waypoint);
+    }
+}
+
+Trajectory::Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw path)
+    : Trajectory(node, path.header.frame_id)
+
+{
+    this->stamp = path.header.stamp;
 
     // remove any consecutive duplicate waypoints
     airstack_msgs::msg::TrajectoryXYZVYaw cleaned_path;
@@ -148,8 +165,7 @@ Trajectory::Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw
             cleaned_path.waypoints.push_back(wp);
     }
 
-    // ROS_INFO_STREAM("TRAJECTORY CONSTRUCTOR");
-    // ROS_INFO_STREAM("cleaned path size: " << cleaned_path.waypoints.size());
+    // translate to Waypoint objects
     for (size_t i = 0; i < cleaned_path.waypoints.size(); i++) {
         airstack_msgs::msg::WaypointXYZVYaw wp = cleaned_path.waypoints[i];
 
@@ -157,8 +173,8 @@ Trajectory::Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw
         tf2::Vector3 wp1(wp.position.x, wp.position.y, wp.position.z);
         tf2::Vector3 wp2(wp1);
         bool same = false;
-        if (i ==
-            0) {  // for the first waypoint use the next waypoint to figure out direction of travel
+        // for the first waypoint use the next waypoint to figure out direction of travel
+        if (i == 0) {
             if (cleaned_path.waypoints.size() > 1)
                 wp2 = tf2::Vector3(cleaned_path.waypoints[i + 1].position.x,
                                    cleaned_path.waypoints[i + 1].position.y,
@@ -187,7 +203,7 @@ Trajectory::Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw
         Waypoint waypoint(wp.position.x, wp.position.y, wp.position.z, wp.yaw, vel.x(), vel.y(),
                           vel.z(), wp.acceleration.x, wp.acceleration.y, wp.acceleration.z,
                           wp.jerk.x, wp.jerk.y, wp.jerk.z);
-        waypoints.push_back(waypoint);
+        this->waypoints.push_back(waypoint);
     }
 }
 /*
@@ -216,7 +232,7 @@ void Trajectory::generate_waypoint_times() {
         // ROS_INFO_STREAM(i << " wp vel: " << curr_wp.velocity().x() << ", " <<
         // curr_wp.velocity().y() << ", " << curr_wp.velocity().z()
         //	    << " | " << prev_wp.velocity().x() << ", " << prev_wp.velocity().y() << ", " <<
-        //prev_wp.velocity().z());
+        // prev_wp.velocity().z());
 
         double distance = curr_wp.position().distance(prev_wp.position());
         if (distance == 0) {
@@ -344,7 +360,7 @@ bool Trajectory::merge(Trajectory traj, double min_time) {
 
     Trajectory transformed_traj;
     try {
-        transformed_traj = traj.to_frame(frame_id, stamp);
+        transformed_traj = traj.to_frame(frame_id, this->stamp);
     } catch (tf2::TransformException& ex) {
         std::cout << "Transform exception while merging trajectories: " << ex.what();
     }
@@ -361,7 +377,8 @@ bool Trajectory::merge(Trajectory traj, double min_time) {
     // tf2::Vector3 closest_point;
     Waypoint closest_waypoint(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     int wp_index;
-    bool valid = get_closest_point(transformed_traj.waypoints[0].position(), &closest_waypoint, &wp_index);
+    bool valid =
+        get_closest_point(transformed_traj.waypoints[0].position(), &closest_waypoint, &wp_index);
 
     if (closest_waypoint.time() >= min_time) {
         waypoints.erase(waypoints.begin() + wp_index + 1, waypoints.end());
@@ -605,7 +622,7 @@ bool Trajectory::get_odom(double time, airstack_msgs::msg::Odometry* odom, rclcp
     // ROS_INFO_STREAM("odom: " << odom->pose.position.x << ", " << odom->pose.position.y << ", " <<
     // odom->pose.position.z << " | "
     //		  << odom->twist.linear.x << ", " << odom->twist.linear.y << ", " <<
-    //odom->twist.linear.z);
+    // odom->twist.linear.z);
 
     return true;
 }
@@ -638,7 +655,7 @@ Trajectory Trajectory::to_frame(std::string target_frame, rclcpp::Time time) {
         // ROS_INFO_STREAM("jerk: " << wp.jerk().x() << ", " << wp.jerk().y() << ", " <<
         // wp.jerk().z() << " | "
         //		    << transformed_jerk.x() << ", " << transformed_jerk.y() << ", " <<
-        //transformed_jerk.z());
+        // transformed_jerk.z());
 
         Waypoint transformed_wp(transformed_position.x(), transformed_position.y(),
                                 transformed_position.z(), tf2::getYaw(transformed_q),
@@ -718,19 +735,26 @@ Trajectory Trajectory::shorten(double new_length){
   return traj;
 }*/
 
+/**
+ * @brief Trim a subtrajectory between a start distance and end distance
+ * 
+ * @param start 
+ * @param end 
+ * @return Trajectory 
+ */
 Trajectory Trajectory::get_subtrajectory_distance(double start, double end) {
     Trajectory traj;
-    traj.stamp = stamp;
-    traj.frame_id = frame_id;
+    traj.stamp = this->stamp;
+    traj.frame_id = this->frame_id;
 
-    if (waypoints.size() > 0) {
+    if (this->waypoints.size() > 0) {
         double distance = 0;
 
-        if (start == 0. && waypoints.size() == 1) traj.waypoints.push_back(waypoints[0]);
+        if (start == 0. && this->waypoints.size() == 1) traj.waypoints.push_back(this->waypoints[0]);
 
-        for (size_t i = 1; i < waypoints.size(); i++) {
-            Waypoint prev_wp = waypoints[i - 1];
-            Waypoint curr_wp = waypoints[i];
+        for (size_t i = 1; i < this->waypoints.size(); i++) {
+            Waypoint prev_wp = this->waypoints[i - 1];
+            Waypoint curr_wp = this->waypoints[i];
             double segment_length = prev_wp.position().distance(curr_wp.position());
 
             if (start >= distance && start <= distance + segment_length) {
@@ -760,8 +784,8 @@ Trajectory Trajectory::get_reversed_trajectory() {
     generated_waypoint_times = false;
     generate_waypoint_times();
     Trajectory traj;
-    traj.frame_id = frame_id;
-    traj.stamp = stamp;
+    traj.frame_id = this->frame_id;
+    traj.stamp = this->stamp;
     traj.waypoints.assign(waypoints.begin(), waypoints.end());
     std::reverse(traj.waypoints.begin(), traj.waypoints.end());
     for (size_t i = 0; i < traj.waypoints.size(); i++) {
@@ -837,8 +861,8 @@ std::string Trajectory::get_frame_id() { return frame_id; }
 
 airstack_msgs::msg::TrajectoryXYZVYaw Trajectory::get_TrajectoryXYZVYaw() {
     airstack_msgs::msg::TrajectoryXYZVYaw path;
-    path.header.stamp = stamp;
-    path.header.frame_id = frame_id;
+    path.header.stamp = this->stamp;
+    path.header.frame_id = this->frame_id;
 
     for (size_t i = 0; i < waypoints.size(); i++) {
         Waypoint wp = waypoints[i];
@@ -863,8 +887,8 @@ std::vector<geometry_msgs::msg::PointStamped> Trajectory::get_vector_PointStampe
         Waypoint wp = waypoints[i];
 
         geometry_msgs::msg::PointStamped point;
-        point.header.stamp = stamp;
-        point.header.frame_id = frame_id;
+        point.header.stamp = this->stamp;
+        point.header.frame_id = this->frame_id;
         point.point.x = wp.x();
         point.point.y = wp.y();
         point.point.z = wp.z();
