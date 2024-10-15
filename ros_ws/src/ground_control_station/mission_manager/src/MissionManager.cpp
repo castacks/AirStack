@@ -48,7 +48,6 @@ bool MissionManager::check_target_changes(rclcpp::Logger logger, std::string tar
 }
 
 
-// TODO
 std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rclcpp::Logger logger) const
 {
   RCLCPP_INFO(logger, "Assigning tasks to drones");

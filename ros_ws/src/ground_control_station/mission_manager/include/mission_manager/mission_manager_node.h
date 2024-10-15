@@ -12,6 +12,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "airstack_msgs/msg/search_mission_request.hpp"
 #include "airstack_msgs/msg/task_assignment.hpp"
+#include "airstack_msgs/msg/belief_map_data.hpp"
 #include "mission_manager/BeliefMap.h"
 #include "mission_manager/MissionManager.h"
 
@@ -66,8 +67,8 @@ class MissionManagerNode : public rclcpp::Node
       tracked_targets_sub_ = this->create_subscription<std_msgs::msg::String>(
         "tracked_targets", 1, std::bind(&MissionManagerNode::tracked_targets_callback, this, std::placeholders::_1));
 
-      search_map_sub_ = this->create_subscription<std_msgs::msg::String>(
-        "search_map_updates", 1, std::bind(&MissionManagerNode::search_map_callback, this, std::placeholders::_1));
+      belief_map_sub_ = this->create_subscription<airstack_msgs::msg::BeliefMapData>(
+        "belief_map_updates", 1, std::bind(&MissionManagerNode::belief_map_callback, this, std::placeholders::_1));
 
       mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_);
 
@@ -89,7 +90,7 @@ class MissionManagerNode : public rclcpp::Node
     rclcpp::Subscription<airstack_msgs::msg::SearchMissionRequest>::SharedPtr mission_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr tracked_targets_sub_;
     std::vector<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr> agent_odoms_subs_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr search_map_sub_;
+    rclcpp::Subscription<airstack_msgs::msg::BeliefMapData>::SharedPtr belief_map_sub_;
 
 
     /* --- MEMBER ATTRIBUTES --- */
@@ -131,8 +132,6 @@ class MissionManagerNode : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Received new search mission request");
       latest_search_mission_request_ = *msg;
 
-      // TODO: clear the map knowledge? Only if the search area has changed?
-
       // TODO: visualize the seach mission request
       this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg);
       this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger()));
@@ -159,11 +158,11 @@ class MissionManagerNode : public rclcpp::Node
       }
     }
 
-    void search_map_callback(const std_msgs::msg::String::SharedPtr msg) const
+    void belief_map_callback(const airstack_msgs::msg::BeliefMapData::SharedPtr msg) const
     {
-      RCLCPP_INFO(this->get_logger(), "Received search map '%s'", msg->data.c_str());
+      RCLCPP_INFO_STREAM(this->get_logger(), "Received new belief map data at x: " << msg->x_start << " y: " << msg->y_start);
 
-      // TODO: save the search map using that class
+      this->mission_manager_->belief_map_.update_map(this->get_logger(), msg);
     }
 
 };
