@@ -1,5 +1,9 @@
 {
     "recommendations": [
         "ms-python.black-formatter",
+        "ms-iot.vscode-ros",
+        "ms-vscode-remote.remote-ssh",
+        "ms-python.python",
+        "ms-vscode-remote.remote-containers"
     ]
 }

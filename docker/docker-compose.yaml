@@ -2,12 +2,12 @@
 services:
   # ==============================================================================
   isaac-sim:
+    image: &isaac-sim-image airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.0
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
-        - airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.0
-    image: airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.0
+        - *isaac-sim-image
     container_name: isaac-sim
     entrypoint: bash
     # Interactive shell
@@ -58,51 +58,13 @@ services:
       - ./extras/config:/root/.nvidia-omniverse/config:rw
 
   # ==============================================================================
-  ground-control-station:
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
-    container_name: ground-control-station
-    entrypoint: bash -c "service ssh restart && bash"
-    # Interactive shell
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
-    # Needed to display graphical applications
-    ipc: host
-    privileged: true
-    environment:
-      - DISPLAY
-      - QT_X11_NO_MITSHM=1
-    deploy:
-      # let it use the GPU
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia # https://stackoverflow.com/a/70761193
-              count: 1
-              capabilities: [ gpu ]
-    ports:
-      # for ssh
-      - 2222:22
-    volumes:
-      # display stuff
-      - $HOME/.Xauthority:/root/.Xauthority
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      # developer stuff
-      - ./ground_control_station/.bashrc:/root/.bashrc:rw # bash config
-      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
-      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
-      # autonomy stack stuff
-      - ./..:/root/AirStack:rw
-
-  # ==============================================================================
   robot:
+    image: &airstack-dev-image airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.1
     build:
       context: ../
       dockerfile: docker/Dockerfile.airstack-dev
       tags:
-        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:latest
-        - airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.0
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.0
-    # container_name: robot-1
+        - *airstack-dev-image
     entrypoint: bash -c "service ssh restart && bash"
     # Interactive shell
     stdin_open: true # docker run -i
@@ -131,6 +93,42 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - ./robot/.bashrc:/root/.bashrc:rw # bash config
+      - ~/.bash_history:/root/.bash_history:rw # save cmdline history
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # autonomy stack stuff
+      - ./..:/root/AirStack:rw
+
+  # ==============================================================================
+  ground-control-station:
+    image: *airstack-dev-image
+    container_name: ground-control-station
+    entrypoint: bash -c "service ssh restart && bash"
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Needed to display graphical applications
+    ipc: host
+    privileged: true
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [ gpu ]
+    ports:
+      # for ssh
+      - 2222:22
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - ./ground_control_station/.bashrc:/root/.bashrc:rw # bash config
       - ~/.bash_history:/root/.bash_history:rw # save cmdline history
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
