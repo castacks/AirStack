@@ -92,23 +92,6 @@ install(
   )
 ament_export_libraries(vislib)
 
-# odometry conversion
-add_executable(odometry_conversion src/odometry_conversion.cpp src/tflib.cpp src/ros2_helper.cpp)
-target_include_directories(odometry_conversion PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-ament_target_dependencies(odometry_conversion
-  rclcpp
-  geometry_msgs
-  visualization_msgs
-  nav_msgs
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-  airstack_msgs)
-install(TARGETS odometry_conversion
-  DESTINATION lib/${PROJECT_NAME})
-
 
 # install
 ament_export_include_directories(include)
@@ -117,7 +100,6 @@ install(
   DESTINATION include
   )
 ament_export_dependencies(rclcpp nav_msgs geometry_msgs tf2 tf2_ros airstack_msgs tf2_geometry_msgs)
-install(PROGRAMS scripts/odom_repub.py DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
