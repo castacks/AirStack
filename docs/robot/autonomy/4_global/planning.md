@@ -20,49 +20,39 @@ Feel free to implement your own through the following interfaces.
 
 Global planners are meant to be modules that can be swapped out easily. 
 They can be thought of as different high level behaviors for the robot to follow.
-The Behavior Executive may run multiple global planners in parallel and choose the best plan for the current situation.
+Consider that multiple global planners may be run in parallel, for example by some ensemble planner node that chooses the best plan for the current situation.
 
-As such, the global planner should be implemented as a ROS2 action server that can be queried for a plan.
-The Behavior Executive will then publish the best plan to `/$(arg robot_name)/global/trajectory` for the local planner to follow.
+As such, the global planner should be implemented as a ROS2 node that accepts runtime mission parameters in a custom `PlanRequest.msg` and 
+publishes a plan to its local `~/global_plan` topic.
+
+The best global plan should then be forwarded or remapped to `/$(env ROBOT_NAME)/global_plan` for the local planner to follow.
 
 ``` mermaid
 sequenceDiagram
   autonumber
-  Behavior Executive->>Global Planner: GetPlan.action: goal
+  Some Node->>Global Planner: ~/plan_request (your_planner/PlanRequest.msg)
   loop Planning
-      Global Planner->>Behavior Executive: GetPlan.action: feedback
+      Global Planner-->>Some Node: heartbeat feedback
   end
-  Global Planner-->>Behavior Executive: GetPlan.action: result (nav_msgs/Path)
-  Behavior Executive-->>Local Planner: /$ROBOT_NAME/global/trajectory (nav_msgs/Path)
+  Global Planner->>Some Node: ~/global_plan (nav_msgs/Path.msg)
+  Some Node->>Local Planner: /$ROBOT_NAME/global_plan (nav_msgs/Path.msg)
 ```
 
-### Actions Interface
+### Subscribe: Plan Request
+Your custom `PlanRequest.msg` defines the parameters that your global planner needs to generate a plan. 
+It will be sent on the `~/plan_request` topic.
 
-Global Planner implementations should define a custom **GetPlan** action server and associated `GetPlan.action` message. 
-The action message may be defined with whatever input parameters necessary for the planner to generate a plan.
-Your `GetPlan.action` _must_ return a `nav_msgs/Path` message.
-
-An example `GetPlan.action` message is shown below.
+Some common parameters may be the following:
 ```
-# Define a goal
+# PlanRequest.msg
 std_msgs/Duration timeout  # maximum time to spend planning
 geometry_msgs/Polygon bounds # boundary that the plan must stay within
----
-# Define the result that will be published after the action execution ends.
-{==nav_msgs/Path trajectory  # REQUIRED FIELD==}
----
-# Define a feedback message that will be published during action execution.
-float32 percent_complete
 ```
 
 
-#### Goal
-The goal defines the parameters that the global planner needs to generate a plan. All fields are optional.
-
-
-#### Result
-The global planner must have a return field `trajectory` of message type `nav_msgs/Path`.
-`trajectory` defines high level waypoints to reach by a given time.
+### Publish: Global Plan
+The global planner must publish a message of type `nav_msgs/Path` to `~/global_plan`.
+The message defines high level waypoints to reach by a given time.
 
 The `nav_msgs/Path` message type contains a `header` field and `poses` field.
 
@@ -81,14 +71,10 @@ nav_msgs/Path.msg
                 - string frame_id: the coordinate frame of the waypoint
             - geometry_msgs/Pose pose: the position and orientation of the waypoint
 ```
-#### Feedback
-All other fields are optional.
+### Publish: Heartbeat
+For long-running global planners, it's recommended to publish a heartbeat message to `~/heartbeat`. This way the calling node can know that the global planner is still running and hasn't crashed.
 
-
-More info about ROS2 actions may be found in the official [tutorial](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Actions/Understanding-ROS2-Actions.html) and [design philosophy](https://design.ros2.org/articles/actions.html) documents.
-
-
-### Subscribers
+### Additional Subscribers
 In general, the global planner needs to access components of the world model such as the map and drone state.
 
 The most common map is Occupancy Grids that is published by {==TODO==} node.
