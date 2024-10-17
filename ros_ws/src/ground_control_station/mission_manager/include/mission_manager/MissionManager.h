@@ -74,12 +74,6 @@ class MissionManager
     std::vector<bool> get_valid_agents() const { return valid_agents_; }
     BeliefMap belief_map_; // TODO make private
 
-    //search map allocation
-    std::vector<Point> CGAL_bounds;
-    std::vector<std::vector<double>> calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request);
-    std::vector<std::vector<ClusterPoint>> calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids);
-        std::vector<std::vector<std::vector<double>>> calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters);
-
   private: 
     int max_number_agents_;
     std::vector<rclcpp::Time> time_of_last_call_;
@@ -92,6 +86,12 @@ class MissionManager
     double max_y = -std::numeric_limits<double>::infinity();
     std::priority_queue<ClusterPoint, std::vector<ClusterPoint>, CompareClusterPoint> cluster_pq;
     std::unordered_map<std::pair<double,double>, Segment, boost::hash<std::pair<double, double>>> boundary_edges;
+
+    //search map allocation
+    std::vector<Point> CGAL_bounds;
+    std::vector<std::vector<double>> calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request);
+    std::vector<std::vector<ClusterPoint>> calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids);
+    std::vector<std::vector<std::vector<double>>> calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters);
 
   };
   #endif /* MISSIONMANAGER_H_INCLUDED */

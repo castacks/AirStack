@@ -100,7 +100,7 @@ std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rcl
                                             Point(rand_x, rand_y), K()) == CGAL::ON_BOUNDED_SIDE)
     {
       rand_centroids.push_back({rand_x, rand_y});
-      // RCLCPP_INFO_STREAM(logger, "centroid:" << rand_x << " " << rand_y);
+      RCLCPP_DEBUG_STREAM(logger, "Search mission centroid:" << rand_x << " " << rand_y);
     }
   }
   return rand_centroids;
@@ -122,7 +122,8 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
                                               Point(x_idx, y_idx), K()) == CGAL::ON_BOUNDED_SIDE)
         {
           //find closest and farthest centroids to this point
-          int closest_centroid_idx, farthest_centroid_idx;
+          int closest_centroid_idx = -1;
+          int farthest_centroid_idx = -1;
           double min_dist = std::numeric_limits<double>::infinity();
           double max_dist = -std::numeric_limits<double>::infinity();
           for(int centroid_idx = 0; centroid_idx < cluster_centroids.size(); ++centroid_idx)
@@ -138,6 +139,10 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
               max_dist = dist;
               farthest_centroid_idx = centroid_idx;
             }
+          }
+          if (closest_centroid_idx == -1 || farthest_centroid_idx == -1)
+          {
+            RCLCPP_ERROR_STREAM(logger, "No closest or farthest centroid found for point " << x_idx << " " << y_idx);
           }
           cluster_pq.push(ClusterPoint(x_idx, y_idx, closest_centroid_idx, min_dist - max_dist));
         }
@@ -177,7 +182,8 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
       for(ClusterPoint cp : remaining_points)
       {
         //find closest and farthest centroids to this point
-        int closest_centroid_idx, farthest_centroid_idx;
+        int closest_centroid_idx = -1;
+        int farthest_centroid_idx = -1;
         double min_dist = std::numeric_limits<double>::infinity();
         double max_dist = -std::numeric_limits<double>::infinity();
         for(int centroid_idx = 0; centroid_idx < cluster_centroids.size(); ++centroid_idx)
@@ -196,6 +202,10 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
               farthest_centroid_idx = centroid_idx;
             }
           }
+        }
+        if (closest_centroid_idx == -1 || farthest_centroid_idx == -1)
+        {
+          RCLCPP_ERROR_STREAM(logger, "V2: No closest or farthest centroid found for point " << cp.x << " " << cp.y);
         }
         cluster_pq.push(ClusterPoint(cp.x, cp.y, closest_centroid_idx, min_dist - max_dist));
       }
@@ -260,7 +270,6 @@ std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_
       //check if the current node target equals the start node source (we completed the loop)
       if(curr_seg_target == start_seg.source())
       {
-        
         break;
       }
 
@@ -294,16 +303,22 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
   int number_of_track_tasks = 0; // TODO
   int number_of_search_tasks = std::max(num_agents - number_of_track_tasks, 0);
   RCLCPP_INFO_STREAM(logger, "Assigning " << number_of_search_tasks << " search tasks and " << number_of_track_tasks << " track tasks");
+  if (number_of_search_tasks > 3)
+  {
+    RCLCPP_ERROR(logger, "Too many search tasks requested for the current implementation");
+    return {};
+  }
 
   // Send out the request for the search map division
   //calculate random centroids
-  std::vector<std::vector<double>> cluster_centroids = calculate_cluster_centroids(logger, num_agents, plan_request);
+  std::vector<std::vector<double>> cluster_centroids = calculate_cluster_centroids(logger, number_of_search_tasks, plan_request);
   //calculate the clusters
-  std::vector<std::vector<ClusterPoint>> clusters = calculate_clusters(logger, num_agents, cluster_centroids);
+  std::vector<std::vector<ClusterPoint>> clusters = calculate_clusters(logger, number_of_search_tasks, cluster_centroids);
   //calculate boundaries of clusters formed
   std::vector<std::vector<std::vector<double>>> cluster_bounds = calculate_cluster_bounds(logger, clusters);
   //convert to task assignment
   std::vector<airstack_msgs::msg::TaskAssignment> task_assignments(num_agents);
+  // TODO: should allocate both search and track. Right now assumes all search tasks
   for(int i = 0; i < num_agents; ++i)
   {
     task_assignments[i].assigned_task_type = airstack_msgs::msg::TaskAssignment::SEARCH;
@@ -317,6 +332,9 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
       new_point.z = 0.0;
       task_assignments[i].plan_request.search_bounds.points.push_back(new_point);
     }
+
+    // TODO: copy over the cell probabilities and priorities
+
   }
 
   //publish visualizations for search request

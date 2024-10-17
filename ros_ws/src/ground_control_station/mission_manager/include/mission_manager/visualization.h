@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VISUALIZATIONS_MM_H_INCLUDED
+#define VISUALIZATIONS_MM_H_INCLUDED
 
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -97,3 +98,4 @@ visualization_msgs::msg::MarkerArray visualize_multi_agent_search_request(rclcpp
     }
     return ma;
 }
+#endif /* VISUALIZATIONS_MM_H_INCLUDED */

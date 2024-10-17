@@ -74,6 +74,18 @@ Visualization Manager:
         Value: /search_map_basestation
       Use Rainbow: true
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Search Space Allocation Debugger
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /task_allocation_viz
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -135,10 +147,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5047963857650757
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.693580150604248
+      Yaw: 4.71858024597168
     Saved: ~
 Window Geometry:
   Displays:
