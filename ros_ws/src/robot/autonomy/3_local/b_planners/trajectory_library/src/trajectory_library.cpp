@@ -217,6 +217,10 @@ void Trajectory::clear() {
     generated_waypoint_times = false;
 }
 
+/**
+ * @brief Uses each waypoint's position and velocity to generate the expected time to reach each waypoint.
+ * 
+ */
 void Trajectory::generate_waypoint_times() {
     if (generated_waypoint_times) return;
 
@@ -591,6 +595,15 @@ double Trajectory::get_duration() {
     return waypoints.back().time();
 }
 
+/**
+ * @brief Get the expected odometry at a given time. Performs interpolation if the time is between waypoints.
+ * 
+ * @param time 
+ * @param odom 
+ * @param stamp 
+ * @return true 
+ * @return false 
+ */
 bool Trajectory::get_odom(double time, airstack_msgs::msg::Odometry* odom, rclcpp::Time stamp) {
     generate_waypoint_times();
 

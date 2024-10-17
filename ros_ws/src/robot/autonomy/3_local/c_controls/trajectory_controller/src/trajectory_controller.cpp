@@ -168,7 +168,7 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     drone_point.header.frame_id = target_frame;
     drone_point.child_frame_id = target_frame;
     current_velocity = 0.f;
-    time_multiplier = 1.f;
+    time_multiplier = 1.f;  // for forwards or backwards. Forward uses 1.0, Rewind uses -1.0
     transition_dt = target_dt;
     new_rewind = false;
 
@@ -286,7 +286,7 @@ void TrajectoryControlNode::timer_callback() {
         }
         //*/
 
-        // get virtual tracking point
+        // get virtual waypoint
         Waypoint virtual_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         bool virtual_valid =
             trajectory->get_waypoint(virtual_time + current_virtual_ahead_time, &virtual_wp);
