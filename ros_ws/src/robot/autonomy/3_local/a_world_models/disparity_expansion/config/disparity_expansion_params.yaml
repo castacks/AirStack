@@ -3,7 +3,7 @@ disparity_expansion:
     # subscriptions
     camera_info_topic: "camera_info"
     disparity_topic: "disparity"
-    # depth_topic: "depth"
+    depth_topic: "depth"
     # publications
     expansion_cloud_topic: "expansion_cloud"
     expanded_disparity_fg_topic: expanded_disparity_fg"
