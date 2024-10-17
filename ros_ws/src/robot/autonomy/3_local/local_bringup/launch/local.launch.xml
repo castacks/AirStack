@@ -37,8 +37,12 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <include file="$(find-pkg-share droan_local_planner)/launch/droan_local_planner.launch.xml"
-        />
+        <node name="local_planner" pkg="droan_local_planner" exec="droan_local_planner"
+            args="--log-level DEBUG">
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml" />
+            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+        </node>
         <!-- DROAN local model -->
         <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion">
             <param
