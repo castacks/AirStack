@@ -36,7 +36,7 @@ Launch tasks are defined in `.vscode/launch.json`.
 
 ![launch](launch.png)
 
-You can now set breakpoints, view variables, step-through, and debug [as usual in VSCode](https://code.visualstudio.com/docs/editor/debugging).
+You can now set breakpoints, view variables, step-through code, and debug [as usual in VSCode](https://code.visualstudio.com/docs/editor/debugging).
 
 ![debugger](debugger.png)
 
