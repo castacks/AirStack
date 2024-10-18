@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 ---
+=======
+>>>>>>> 1a09137 (Add rviz for debug droan)
 Panels:
   - Class: rviz_common/Displays
     Help Height: 78
@@ -7,10 +10,17 @@ Panels:
       Expanded:
         - /Global Options1
         - /Grid1
+<<<<<<< HEAD
         - /TF1/Frames1
         - /Odometry1/Topic1
         - /ExpansionPoly1
         - /Left Depth1
+=======
+        - /TF1
+        - /TF1/Frames1
+        - /Odometry1/Topic1
+        - /ExpansionPoly1
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Splitter Ratio: 0.35953420400619507
     Tree Height: 1085
   - Class: rviz_common/Selection
@@ -32,7 +42,11 @@ Panels:
     SyncMode: 0
     SyncSource: Expansion Cloud
 Visualization Manager:
+<<<<<<< HEAD
   Class: ''
+=======
+  Class: ""
+>>>>>>> 1a09137 (Add rviz for debug droan)
   Displays:
     - Alpha: 0.5
       Cell Size: 1
@@ -46,7 +60,11 @@ Visualization Manager:
       Normal Cell Count: 0
       Offset:
         X: 0
+<<<<<<< HEAD
         'Y': 0
+=======
+        Y: 0
+>>>>>>> 1a09137 (Add rviz for debug droan)
         Z: 0
       Plane: XY
       Plane Cell Count: 100
@@ -57,6 +75,13 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+<<<<<<< HEAD
+=======
+        American_Beech:
+          Value: true
+        Plane:
+          Value: true
+>>>>>>> 1a09137 (Add rviz for debug droan)
         base_link:
           Value: true
         base_link_frd:
@@ -98,6 +123,7 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
+<<<<<<< HEAD
           map_FLU:
             map:
               base_link:
@@ -119,17 +145,63 @@ Visualization Manager:
       Name: Traj Vis
       Namespaces:
         trajectory_0: true
+=======
+          American_Beech:
+            {}
+          Plane:
+            {}
+          map_FLU:
+            map:
+              base_link:
+                base_link_frd:
+                  {}
+                front_stereo:
+                  left_camera:
+                    {}
+                  right_camera:
+                    {}
+                ouster:
+                  {}
+              base_link_stabilized:
+                {}
+              look_ahead_point:
+                {}
+              look_ahead_point_stabilized:
+                {}
+              map_ned:
+                {}
+              tracking_point:
+                {}
+              tracking_point_stabilized:
+                {}
+      Update Interval: 0
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: Traj Vis
+      Namespaces:
+        {}
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: trajectory_controller/trajectory_vis
+<<<<<<< HEAD
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: false
       Name: Traj Debug
       Namespaces: {}
+=======
+      Value: false
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: Traj Debug
+      Namespaces:
+        {}
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -177,18 +249,30 @@ Visualization Manager:
         Value: odometry_conversion/odometry
       Value: false
     - Class: rviz_default_plugins/Marker
+<<<<<<< HEAD
       Enabled: true
       Name: VDB Mapping Marker
       Namespaces:
         '': true
+=======
+      Enabled: false
+      Name: VDB Mapping Marker
+      Namespaces:
+        {}
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: vdb_mapping/vdb_map_visualization
       Value: true
+=======
+        Value: /robot_1/vdb_mapping/vdb_map_visualization
+      Value: false
+>>>>>>> 1a09137 (Add rviz for debug droan)
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -201,7 +285,11 @@ Visualization Manager:
       Color: 170; 170; 255
       Color Transformer: FlatColor
       Decay Time: 0
+<<<<<<< HEAD
       Enabled: true
+=======
+      Enabled: false
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -219,10 +307,17 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: sensors/ouster/point_cloud
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+=======
+        Value: /robot_1/sensors/ouster/point_cloud
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: false
+>>>>>>> 1a09137 (Add rviz for debug droan)
     - Class: rviz_default_plugins/Image
       Enabled: false
       Max Value: 100
@@ -235,7 +330,11 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: sensors/front_stereo/left/depth
+=======
+        Value: /robot_1/sensors/front_stereo/left/depth
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Value: false
     - Class: rviz_default_plugins/Image
       Enabled: false
@@ -254,13 +353,22 @@ Visualization Manager:
     - Class: rviz_default_plugins/MarkerArray
       Enabled: false
       Name: Traj Library
+<<<<<<< HEAD
       Namespaces: {}
+=======
+      Namespaces:
+        {}
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: droan/trajectory_library_vis
+=======
+        Value: /robot_1/droan/trajectory_library_vis
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -292,13 +400,18 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: droan/expansion_cloud
+=======
+        Value: /robot_1/droan/expansion_cloud
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: Trimmed Global Plan for DROAN
+<<<<<<< HEAD
       Namespaces: {}
       Topic:
         Depth: 5
@@ -450,6 +563,156 @@ Window Geometry:
   Width: 2490
   X: 1990
   'Y': 27        trajectory_164305: true
+=======
+      Namespaces:
+        trajectory_1: true
+        trajectory_100246: true
+        trajectory_100735: true
+        trajectory_101224: true
+        trajectory_101713: true
+        trajectory_102202: true
+        trajectory_102691: true
+        trajectory_10270: true
+        trajectory_103180: true
+        trajectory_103669: true
+        trajectory_104158: true
+        trajectory_104647: true
+        trajectory_105136: true
+        trajectory_105625: true
+        trajectory_106114: true
+        trajectory_106603: true
+        trajectory_107092: true
+        trajectory_107581: true
+        trajectory_10759: true
+        trajectory_108070: true
+        trajectory_108559: true
+        trajectory_109048: true
+        trajectory_109537: true
+        trajectory_110026: true
+        trajectory_110515: true
+        trajectory_111004: true
+        trajectory_111493: true
+        trajectory_111982: true
+        trajectory_112471: true
+        trajectory_11248: true
+        trajectory_112960: true
+        trajectory_113449: true
+        trajectory_113938: true
+        trajectory_114427: true
+        trajectory_114916: true
+        trajectory_115405: true
+        trajectory_115894: true
+        trajectory_116383: true
+        trajectory_116872: true
+        trajectory_117361: true
+        trajectory_11737: true
+        trajectory_117850: true
+        trajectory_118339: true
+        trajectory_118828: true
+        trajectory_119317: true
+        trajectory_119806: true
+        trajectory_120295: true
+        trajectory_120784: true
+        trajectory_121273: true
+        trajectory_121762: true
+        trajectory_122251: true
+        trajectory_12226: true
+        trajectory_122740: true
+        trajectory_123229: true
+        trajectory_123718: true
+        trajectory_124207: true
+        trajectory_124696: true
+        trajectory_125185: true
+        trajectory_125674: true
+        trajectory_126163: true
+        trajectory_126652: true
+        trajectory_127141: true
+        trajectory_12715: true
+        trajectory_127630: true
+        trajectory_128119: true
+        trajectory_128608: true
+        trajectory_129097: true
+        trajectory_129586: true
+        trajectory_130075: true
+        trajectory_130564: true
+        trajectory_131053: true
+        trajectory_131542: true
+        trajectory_132031: true
+        trajectory_13204: true
+        trajectory_132520: true
+        trajectory_133009: true
+        trajectory_133498: true
+        trajectory_133987: true
+        trajectory_134476: true
+        trajectory_134965: true
+        trajectory_135454: true
+        trajectory_135943: true
+        trajectory_136432: true
+        trajectory_136921: true
+        trajectory_13693: true
+        trajectory_137410: true
+        trajectory_137899: true
+        trajectory_138388: true
+        trajectory_138877: true
+        trajectory_139366: true
+        trajectory_139855: true
+        trajectory_140344: true
+        trajectory_140833: true
+        trajectory_141322: true
+        trajectory_141811: true
+        trajectory_14182: true
+        trajectory_142300: true
+        trajectory_142789: true
+        trajectory_143278: true
+        trajectory_143767: true
+        trajectory_144256: true
+        trajectory_144745: true
+        trajectory_145234: true
+        trajectory_145723: true
+        trajectory_146212: true
+        trajectory_146701: true
+        trajectory_14671: true
+        trajectory_1468: true
+        trajectory_147190: true
+        trajectory_147679: true
+        trajectory_148168: true
+        trajectory_148657: true
+        trajectory_149146: true
+        trajectory_149635: true
+        trajectory_150124: true
+        trajectory_150613: true
+        trajectory_151102: true
+        trajectory_151591: true
+        trajectory_15160: true
+        trajectory_152080: true
+        trajectory_152569: true
+        trajectory_153058: true
+        trajectory_153547: true
+        trajectory_154036: true
+        trajectory_154525: true
+        trajectory_155014: true
+        trajectory_155503: true
+        trajectory_155992: true
+        trajectory_156481: true
+        trajectory_15649: true
+        trajectory_156970: true
+        trajectory_157459: true
+        trajectory_157948: true
+        trajectory_158437: true
+        trajectory_158926: true
+        trajectory_159415: true
+        trajectory_159904: true
+        trajectory_160393: true
+        trajectory_160882: true
+        trajectory_161371: true
+        trajectory_16138: true
+        trajectory_161860: true
+        trajectory_162349: true
+        trajectory_162838: true
+        trajectory_163327: true
+        trajectory_163816: true
+        trajectory_164305: true
+>>>>>>> 1a09137 (Add rviz for debug droan)
         trajectory_164794: true
         trajectory_165283: true
         trajectory_165772: true
@@ -656,7 +919,11 @@ Window Geometry:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: droan/local_planner_global_plan_vis
+=======
+        Value: /robot_1/droan/local_planner_global_plan_vis
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: false
@@ -668,7 +935,11 @@ Window Geometry:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: droan/expansion_poly
+=======
+        Value: /robot_1/droan/expansion_poly
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Value: false
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -680,7 +951,11 @@ Window Geometry:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
+<<<<<<< HEAD
         Value: droan/disparity_marker
+=======
+        Value: /robot_1/droan/disparity_marker
+>>>>>>> 1a09137 (Add rviz for debug droan)
       Value: true
   Enabled: true
   Global Options:
