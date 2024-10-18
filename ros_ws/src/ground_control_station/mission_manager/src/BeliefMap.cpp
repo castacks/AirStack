@@ -2,7 +2,7 @@
 
 
 BeliefMap::BeliefMap()
-: map_(std::vector<std::string>({"probability"}))
+: map_(std::vector<std::string>({"probability", "priority"}))
 { }
 
 bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request)
@@ -55,9 +55,9 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
   {
     if (search_prior.grid_prior_type == airstack_msgs::msg::SearchPrior::POLYGON_PRIOR)
     {
-      if (search_prior.value.size() > 1)
+      if (search_prior.value.size() > 1 || search_prior.priority.size() > 1)
       {
-        RCLCPP_ERROR(logger, "Polygon priors with multiple values not valid");
+        RCLCPP_ERROR(logger, "Polygon priors with multiple values or priorities not valid");
         continue;
       }
       grid_map::Polygon polygon;
@@ -70,8 +70,10 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
         !iterator.isPastEnd(); ++iterator)
       {
         float& current_value = map_.at("probability", *iterator);
-        if (std::isnan(current_value) || current_value < search_prior.value[0]) {
+        float& current_priority = map_.at("priority", *iterator);
+        if (std::isnan(current_value) || (current_value * current_priority) < (search_prior.value[0]*search_prior.priority[0])) {
           current_value = search_prior.value[0];
+          current_priority = search_prior.priority[0];
         }
       }
     }
@@ -108,17 +110,17 @@ bool BeliefMap::update_map(rclcpp::Logger logger, const airstack_msgs::msg::Beli
   grid_map::Index submapBufferSize(new_belief_data->x_end - new_belief_data->x_start, 
                          new_belief_data->y_end - new_belief_data->y_start); // check coordinate frame!
   int cur_index_num = 0;
-  grid_map::Matrix& data = map_["probability"];
+  grid_map::Matrix& probability_data = map_["probability"];
   for (grid_map::SubmapIterator iterator(map_, submapStartIndex, submapBufferSize);
       !iterator.isPastEnd(); ++iterator)
   {
     // map_.at("probability", *iterator) = 1.0;
     const grid_map::Index index(*iterator);
     // always save with the lower value
-    if (new_belief_data->map_values[cur_index_num] < data(index(0), index(1)))
+    if (new_belief_data->map_values[cur_index_num] < probability_data(index(0), index(1)))
     {
       // Scale the value back from 0-UIN16_MAX to 0-1
-      data(index(0), index(1)) = static_cast<float>(new_belief_data->map_values[cur_index_num]) / static_cast<float>(UINT16_MAX); // TODO ensure maps are encoded correctly to match the iterator
+      probability_data(index(0), index(1)) = static_cast<float>(new_belief_data->map_values[cur_index_num]) / static_cast<float>(UINT16_MAX); // TODO ensure maps are encoded correctly to match the iterator
     }
     cur_index_num++;
   }
