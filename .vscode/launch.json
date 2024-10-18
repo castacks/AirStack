@@ -2,9 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "ROS2: Launch robot.launch.py",
+      "name": "ROS2: Launch robot.launch.xml",
       "type": "ros",
       "request": "launch",
+      // "preLaunchTask": "build ros_ws debug",
       "target": "${workspaceFolder}/ros_ws/install/robot_bringup/share/robot_bringup/launch/robot.launch.xml",
     }
   ]
