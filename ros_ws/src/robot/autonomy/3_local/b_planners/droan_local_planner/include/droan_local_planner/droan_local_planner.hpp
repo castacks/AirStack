@@ -61,7 +61,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     tf2_ros::Buffer tf_buffer;
     tf2_ros::TransformListener tf_listener;
 
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr vis_pub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr traj_lib_vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
@@ -97,7 +97,7 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // publishers
 
-        vis_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+        traj_lib_vis_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
             "trajectory_library_vis", 10);
         obst_vis_pub = this->create_publisher<sensor_msgs::msg::Range>("obstacle_vis", 10);
         global_plan_vis_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
@@ -120,7 +120,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             this->get_parameter("forward_progress_reward_weight").as_double();
         this->declare_parameter("robot_radius", 0.75);
         this->robot_radius = this->get_parameter("robot_radius").as_double();
-        this->declare_parameter("yaw_mode", SMOOTH_YAW);
+        this->declare_parameter("yaw_mode", "SMOOTH_YAW");
         auto yaw_mode_str = this->get_parameter("yaw_mode").as_string();
         if (yaw_mode_str == "TRAJECTORY_YAW") {
             this->yaw_mode = TRAJECTORY_YAW;
@@ -234,25 +234,11 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
             best_traj_msg.header.stamp = this->now();
             traj_pub->publish(best_traj_msg);
+            RCLCPP_INFO_STREAM(this->get_logger(), "Published local trajectory");
+        } else {
+            RCLCPP_INFO_STREAM(this->get_logger(), "All trajectories in collision");
         }
         return true;
-    }
-
-    /**
-     * @brief Get the distance to the closest obstacle for each waypoint in the trajectory
-     */
-    std::vector<std::vector<double>> get_trajectory_distances_to_closest_obstacle(
-        std::vector<Trajectory> trajectory_candidates) {
-        // vector of trajectory candidates in PointStamped-vector form
-        std::vector<std::vector<geometry_msgs::msg::PointStamped>> traj_cands_as_point_stamped;
-        for (size_t i = 0; i < trajectory_candidates.size(); i++) {
-            traj_cands_as_point_stamped.push_back(
-                trajectory_candidates[i].get_vector_PointStamped());
-        }
-        // TODO: clearly we should refactor map_representation to accept Trajectory objects
-        std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
-            this->map_representation->get_values(traj_cands_as_point_stamped);
-        return trajectory_distances_to_closest_obstacle;
     }
 
     /**
@@ -266,7 +252,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         auto now = this->now();
 
         auto trajectory_distances_to_closest_obstacle =
-            get_trajectory_distances_to_closest_obstacle(trajectory_candidates);
+            this->get_trajectory_distances_to_closest_obstacle(trajectory_candidates);
 
         visualization_msgs::msg::MarkerArray traj_lib_markers;
 
@@ -325,10 +311,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             visualization_msgs::msg::MarkerArray traj_markers;
             if (collision) {
                 // red for collision
-                traj_markers = traj.get_markers(this->now(), 1, 0, 0, .5);
+                traj_markers = traj.get_markers(this->now(), 1, 0, 0, .5, true, false, 10.0);
             } else {
                 // green for no collision
-                traj_markers = traj.get_markers(this->now(), 0, 1, 0, .5);
+                traj_markers = traj.get_markers(this->now(), 0, 1, 0, .5, true, false, 10.0);
             }
 
             traj_lib_markers.markers.insert(traj_lib_markers.markers.end(),
@@ -345,10 +331,27 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
         }
 
-        vis_pub->publish(traj_lib_markers);
+        traj_lib_vis_pub->publish(traj_lib_markers);
         map_representation->publish_debug();
 
         return all_in_collision;
+    }
+
+    /**
+     * @brief Get the distance to the closest obstacle for each waypoint in the trajectory
+     */
+    std::vector<std::vector<double>> get_trajectory_distances_to_closest_obstacle(
+        std::vector<Trajectory> trajectory_candidates) {
+        // vector of trajectory candidates in PointStamped-vector form
+        std::vector<std::vector<geometry_msgs::msg::PointStamped>> traj_cands_as_point_stamped;
+        for (size_t i = 0; i < trajectory_candidates.size(); i++) {
+            traj_cands_as_point_stamped.push_back(
+                trajectory_candidates[i].get_vector_PointStamped());
+        }
+        // TODO: clearly we should refactor map_representation to accept Trajectory objects
+        std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
+            this->map_representation->get_values(traj_cands_as_point_stamped);
+        return trajectory_distances_to_closest_obstacle;
     }
 
     /**
@@ -640,12 +643,14 @@ class DroanLocalPlanner : public rclcpp::Node {
      */
     void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
         is_look_ahead_received = true;
-        RCLCPP_DEBUG_STREAM_ONCE(this->get_logger(),
+        RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
                                  "look ahead received with frame id: " << odom->header.frame_id);
         look_ahead_odom = *odom;
     }
     void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
         is_tracking_point_received = true;
+        RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
+                                 "tracking point received with frame id: " << odom->header.frame_id);
         tracking_point_odom = *odom;
     }
 };
