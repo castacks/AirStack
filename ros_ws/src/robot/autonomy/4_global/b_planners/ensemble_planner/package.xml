@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>random_walk_planner</name>
+  <name>ensemble_global_planner</name>
   <version>0.0.0</version>
-  <description>The random walk planner package</description>
+  <description>Ensemble planner to coordinate different groups of planners</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->

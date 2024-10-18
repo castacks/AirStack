@@ -2,49 +2,68 @@
 #ifndef RANDOM_WALK_NODE_H
 #define RANDOM_WALK_NODE_H
 
-#include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+
 #include <cmath>
-#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/transform.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/srv/get_plan.hpp>
 #include <optional>
 #include <string>
+#include <tf2_msgs/msg/tf_message.hpp>
 #include <tuple>
+#include <array>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
-#include "geometry_msgs/msg/point.hpp"
+#include <std_srvs/srv/trigger.hpp>
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class RandomWalkNode : public rclcpp::Node {
    private:
-
     // Planner
     RandomWalkPlanner random_walk_planner;
 
     // String constants
     std::string world_frame_id_;
-    std::string pub_global_path_topic_;
-    std::string pub_goal_point_topic_;
-    std::string pub_trajectory_lines_topic_;
-    std::string sub_vdb_map_topic_;
-    std::string sub_odometry_topic_;
+    std::string robot_frame_id_;
+    std::string pub_global_trajectory_topic_;
+    std::string pub_goal_point_viz_topic_;
+    std::string pub_trajectory_viz_topic_;
+    std::string sub_map_topic_;
+    std::string sub_robot_tf_topic_;
+    std::string srv_random_walk_toggle_topic_;
 
     // Variables
     init_params params;
-    airstack_msgs::msg::TrajectoryXYZVYaw generated_path;
-    std::vector<std::tuple<float, float, float>> voxel_points;
+    // nav_msgs::msg::Path generated_path;
+    int num_paths_to_generate_;
+    std::vector<nav_msgs::msg::Path> generated_paths;
     bool publish_visualizations = false;
-    bool is_path_executing = false;
     bool received_first_map = false;
-    bool received_first_odometry = false;
-    std::tuple<float, float, float, float> current_location;       // x, y, z, yaw
-    std::tuple<float, float, float, float> current_goal_location;  // x, y, z, yaw
+    bool received_first_robot_tf = false;
+    bool enable_random_walk = false;
+    bool is_path_executing = false;
+
+    geometry_msgs::msg::Transform current_location;       // x, y, z, yaw
+    geometry_msgs::msg::Transform current_goal_location;  // x, y, z, yaw
 
     // Callbacks
-    void vdbmapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
+    void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
 
-    void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg);
+
+    void randomWalkToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
+                                  std_srvs::srv::Trigger::Response::SharedPtr response);
+
     void timerCallback();
+
+    void generate_plan();
+
+    void publish_plan();
 
     // Other functions
     std::optional<init_params> readParameters();
@@ -53,17 +72,21 @@ class RandomWalkNode : public rclcpp::Node {
     visualization_msgs::msg::Marker createTrajectoryLineMarker();
 
    public:
+    // explicit RandomWalkNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
     RandomWalkNode();
     ~RandomWalkNode() = default;
 
     // ROS subscribers
-    rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_vdb_map;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odometry;
+    rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
+    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
-    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr pub_global_path;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_trajectory;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
+
+    // ROS services
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_random_walk_toggle;
 
     // ROS timers
     rclcpp::TimerBase::SharedPtr timer;

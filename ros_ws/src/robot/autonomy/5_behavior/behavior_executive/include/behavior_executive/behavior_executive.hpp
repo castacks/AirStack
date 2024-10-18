@@ -3,8 +3,12 @@
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <airstack_msgs/srv/takeoff_landing_command.hpp>
 #include <airstack_common/ros2_helper.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <behavior_tree_msgs/msg/behavior_tree_commands.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <vector>
+
+#include "rclcpp_action/rclcpp_action.hpp"
 
 class BehaviorExecutive : public rclcpp::Node {
 private:
@@ -21,7 +25,7 @@ private:
   bt::Condition* pause_commanded_condition;
   bt::Condition* rewind_commanded_condition;
   bt::Condition* fixed_trajectory_condition;
-  bt::Condition* explore_condition;
+  bt::Condition* global_plan_condition;
   bt::Condition* offboard_commanded_condition;
   bt::Condition* arm_commanded_condition;
   bt::Condition* disarm_commanded_condition;
@@ -34,7 +38,7 @@ private:
   bt::Action* pause_action;
   bt::Action* rewind_action;
   bt::Action* follow_fixed_trajectory_action;
-  bt::Action* explore_action;
+  bt::Action* global_plan_action;
   bt::Action* request_control_action;
   bt::Action* disarm_action;
   std::vector<bt::Action*> actions;
@@ -44,7 +48,6 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_armed_sub;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr has_control_sub;
   
-  
   // publishers
 
   // services
@@ -52,6 +55,7 @@ private:
   rclcpp::Client<airstack_msgs::srv::RobotCommand>::SharedPtr robot_command_client;
   rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr trajectory_mode_client;
   rclcpp::Client<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr takeoff_landing_command_client;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr global_planner_toggle_client;
   
   // timers
   rclcpp::TimerBase::SharedPtr timer;
@@ -62,7 +66,8 @@ private:
   void is_armed_callback(const std_msgs::msg::Bool::SharedPtr msg);
   void has_control_callback(const std_msgs::msg::Bool::SharedPtr msg);
   
-public:
+
+ public:
   BehaviorExecutive();
   
 };
