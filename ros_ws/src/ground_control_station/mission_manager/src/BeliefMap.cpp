@@ -55,6 +55,11 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
   {
     if (search_prior.grid_prior_type == airstack_msgs::msg::SearchPrior::POLYGON_PRIOR)
     {
+      if (search_prior.value.size() > 1)
+      {
+        RCLCPP_ERROR(logger, "Polygon priors with multiple values not valid");
+        continue;
+      }
       grid_map::Polygon polygon;
       polygon.setFrameId(map_.getFrameId());
       for (const auto& point : search_prior.points_list.points)
@@ -65,8 +70,8 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
         !iterator.isPastEnd(); ++iterator)
       {
         float& current_value = map_.at("probability", *iterator);
-        if (std::isnan(current_value) || current_value < search_prior.value) {
-          current_value = search_prior.value;
+        if (std::isnan(current_value) || current_value < search_prior.value[0]) {
+          current_value = search_prior.value[0];
         }
       }
     }
