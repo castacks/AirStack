@@ -323,9 +323,11 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
   {
     task_assignments[i].assigned_task_type = airstack_msgs::msg::TaskAssignment::SEARCH;
     task_assignments[i].assigned_task_number = i;
-    std::vector<std::vector<double>> agent_cluster_bounds = cluster_bounds[i];
-    for(std::vector<double> coord : agent_cluster_bounds)
+    grid_map::Polygon search_prior_polygon;
+    search_prior_polygon.setFrameId(this->belief_map_.map_.getFrameId());
+    for(std::vector<double> coord : cluster_bounds[i])
     {
+      search_prior_polygon.addVertex(grid_map::Position(coord[0], coord[1])); // TODO coordinate frame
       geometry_msgs::msg::Point32 new_point;
       new_point.x = coord[0];
       new_point.y = coord[1];
@@ -333,8 +335,25 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
       task_assignments[i].plan_request.search_bounds.points.push_back(new_point);
     }
 
-    // TODO: copy over the cell probabilities and priorities
-
+    // Copy over the cell probabilities and priorities into new task
+    airstack_msgs::msg::SearchPrior task_search_prior;
+    geometry_msgs::msg::Point32 point_prior;
+    grid_map::Matrix& probability_data = this->belief_map_.map_["probability"];
+    grid_map::Matrix& priority_data = this->belief_map_.map_["priority"];
+    for (grid_map::PolygonIterator iterator(this->belief_map_.map_, search_prior_polygon);
+      !iterator.isPastEnd(); ++iterator)
+    {
+      const grid_map::Index index(*iterator);
+      grid_map::Position position;
+      this->belief_map_.map_.getPosition(*iterator, position);
+      point_prior.x = position.x();
+      point_prior.y = position.y();
+      point_prior.z = 0.0;
+      task_search_prior.points_list.points.push_back(point_prior);
+      task_search_prior.value.push_back(probability_data(index(0), index(1)));
+      task_search_prior.priority.push_back(priority_data(index(0), index(1)));
+    }
+    task_assignments[i].plan_request.search_priors.push_back(task_search_prior);
   }
 
   //publish visualizations for search request
