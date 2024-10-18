@@ -14,11 +14,10 @@ DisparityMapRepresentation::DisparityMapRepresentation()
     debug_pub =
         this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_map_debug", 1);
 
-    this->declare_parameter<int>("disparity_map/obstacle_check_points", 5);
-    this->declare_parameter<double>("disparity_map/obstacle_check_radius", 2.0);
-
-    this->get_parameter("disparity_map/obstacle_check_points", obstacle_check_points);
-    this->get_parameter("disparity_map/obstacle_check_radius", obstacle_check_radius);
+    this->declare_parameter<int>("obstacle_check_num_points", 5);
+    this->obstacle_check_num_points = this->get_parameter("obstacle_check_num_points").as_int();
+    this->declare_parameter<double>("obstacle_check_radius", 2.0);
+    this->obstacle_check_radius = this->get_parameter("obstacle_check_radius").as_double();
 
     // listener = new tf::TransformListener();
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -31,15 +30,15 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories) {
     std::vector<std::vector<double> > values(trajectories.size());
 
-    for (int i = 0; i < trajectories.size(); i++) {
-        for (int j = 0; j < trajectories[i].size(); j++) {
+    for (size_t i = 0; i < trajectories.size(); i++) {
+        for (size_t j = 0; j < trajectories[i].size(); j++) {
             values[i].push_back(0);
         }
     }
 
-    for (int i = 0; i < trajectories.size(); i++) {
+    for (size_t i = 0; i < trajectories.size(); i++) {
         // airstack_msgs::TrajectoryXYZVYaw trajectory = trajectories[i];
-        for (int j = 0; j < trajectories[i].size(); j++) {
+        for (size_t j = 0; j < trajectories[i].size(); j++) {
             tf2::Vector3 wp;
             tf2::fromMsg(trajectories[i][j].point, wp);
 
@@ -107,15 +106,15 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
             direction_vectors.push_back(-up);
             direction_vectors.push_back(-side);
 
-            for (int m = 0; m < directions.size(); m++) {
-                tf2::Quaternion q_curr = directions[m];
-                for (int k = 1; k < obstacle_check_points + 1; k++) {
+            for (size_t m = 0; m < directions.size(); m++) {
+                // tf2::Quaternion q_curr = directions[m];
+                for (int k = 1; k < obstacle_check_num_points + 1; k++) {
                     double dist =
-                        (double)k * obstacle_check_radius / (double)(obstacle_check_points + 1);
+                        (double)k * obstacle_check_radius / (double)(obstacle_check_num_points + 1);
 
-                    tf2::Vector3 point =
-                        position +
-                        dist * direction_vectors[m];  // tf::Transform(q_curr)*(dist*direction);
+                    // tf2::Vector3 point =
+                    //     position +
+                    //     dist * direction_vectors[m];  // tf::Transform(q_curr)*(dist*direction);
                     geometry_msgs::msg::PoseStamped check_pose;
                     check_pose.header = trajectories[i][j].header;
                     check_pose.pose.position = trajectories[i][j].point;
@@ -207,10 +206,11 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::Pose
     direction_vectors.push_back(-up);
     direction_vectors.push_back(-side);
 
-    for (int m = 0; m < directions.size(); m++) {
-        tf2::Quaternion q_curr = directions[m];
-        for (int k = 1; k < obstacle_check_points + 1; k++) {
-            double dist = (double)k * obstacle_check_radius / (double)(obstacle_check_points + 1);
+    for (size_t m = 0; m < directions.size(); m++) {
+        // tf2::Quaternion q_curr = directions[m];
+        for (int k = 1; k < obstacle_check_num_points + 1; k++) {
+            double dist =
+                (double)k * obstacle_check_radius / (double)(obstacle_check_num_points + 1);
 
             tf2::Vector3 point =
                 position + dist * direction_vectors[m];  // tf::Transform(q_curr)*(dist*direction);

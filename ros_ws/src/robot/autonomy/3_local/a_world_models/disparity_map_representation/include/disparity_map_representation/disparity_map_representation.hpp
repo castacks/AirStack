@@ -4,10 +4,11 @@
 #include <message_filters/time_synchronizer.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <map_representation_interface/map_representation.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -32,7 +33,7 @@ class DisparityMapRepresentation : public map_representation_interface::MapRepre
     // ros::Publisher debug_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr debug_pub;
 
-    int obstacle_check_points;
+    int obstacle_check_num_points;
     double obstacle_check_radius;
 
    public:
