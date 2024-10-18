@@ -11,13 +11,13 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <deque>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mutex>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 namespace disparity_graph {
@@ -69,7 +69,7 @@ class DisparityGraph : rclcpp::Node {
           first(true),
           got_cam_info(false) {
         disparity_graph_marker_pub_ =
-            create_publisher<visualization_msgs::msg::MarkerArray>("disparity_marker", 10);
+            this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_marker", 10);
         marker_.header.frame_id = fixed_frame_;
         marker_.header.stamp = this->get_clock()->now();
         marker_.ns = "disparityGraph";
@@ -104,23 +104,24 @@ class DisparityGraph : rclcpp::Node {
         declare_parameter("angle_tolerance", 30.0);
         angle_tol = get_parameter("angle_tolerance").as_double() * M_PI / 180.0;
 
-        disp_fg_sub_.subscribe(this, "/ceye/left/expanded_disparity_fg");
-        disp_bg_sub_.subscribe(this, "/ceye/left/expanded_disparity_bg");
+        declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
+        disp_fg_sub_.subscribe(this, get_parameter("expanded_disparity_fg_topic").as_string());
+        declare_parameter("expanded_disparity_bg_topic", "expanded_disparity_bg");
+        disp_bg_sub_.subscribe(this, get_parameter("expanded_disparity_bg_topic").as_string());
 
-        exact_sync.reset(new ExactSync(ExactPolicy(5), disp_fg_sub_, disp_bg_sub_));
+        exact_sync.reset(new ExactSync(ExactPolicy(50), disp_fg_sub_, disp_bg_sub_));
         exact_sync->registerCallback(std::bind(&DisparityGraph::disp_cb, this,
                                                std::placeholders::_1, std::placeholders::_2));
 
+        declare_parameter("camera_info_topic", "camera_info");
         cam_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-            "/nerian_sp1/right/camera_info", 1,
+            get_parameter("camera_info_topic").as_string(), 1,
             std::bind(&DisparityGraph::get_cam_info, this, std::placeholders::_1));
     }
 
-    // virtual ~DisparityGraph();
-
     void disp_cb(const sensor_msgs::msg::Image::ConstSharedPtr &disp_fg,
                  const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
-        RCLCPP_INFO(this->get_logger(), "Recvd disp stamp: %lf",
+        RCLCPP_INFO(this->get_logger(), "Received disp stamp: %lf",
                     (this->get_clock()->now() - disp_fg->header.stamp).seconds());
         sensor_frame_ = disp_fg->header.frame_id;
 
@@ -196,7 +197,6 @@ class DisparityGraph : rclcpp::Node {
         visualization_msgs::msg::MarkerArray marker_arr;
 
         for (uint i = 0; i < disp_graph_.size(); i++) {
-            //        ROS_INFO_STREAM(disp_graph.at(i).tf.inverse().getOrigin().x());
             auto position = disp_graph_.at(i).s2w_tf.getOrigin();
             tf2::toMsg(position, marker_.pose.position);
             auto rotation = disp_graph_.at(i).s2w_tf.getRotation();
@@ -262,8 +262,14 @@ class DisparityGraph : rclcpp::Node {
 
         std::scoped_lock lock(io_mutex);
 
-        bool seen = false;
-        for (uint i = 0; i < disp_graph_.size(); i++) {
+        bool is_free = false; // if the point is unoccupied
+        bool is_seen = false; // if the point is is_seen by any of the disparity images
+
+        if (disp_graph_.size() == 0) {
+            RCLCPP_WARN_STREAM_ONCE(this->get_logger(), "No disparity images in graph, can't see anything, everything is invalid");
+        } 
+
+        for (size_t i = 0; i < disp_graph_.size(); i++) {
             tf2::Vector3 local_point = disp_graph_.at(i).w2s_tf * optical_point;
 
             float x, y, z;
@@ -273,15 +279,15 @@ class DisparityGraph : rclcpp::Node {
             z = local_point.getZ();
 
             if (local_point.length() < 1.0) {
-                seen = true;
+                is_seen = true; // assume the point is seen if it is close to the camera
                 continue;
             }
 
-            int u = x / z * fx_ + cx_;
-            int v = y / z * fy_ + cy_;
+            uint u = x / z * fx_ + cx_;
+            uint v = y / z * fy_ + cy_;
 
             if (u >= 0 && u < width_ && v >= 0 && v < height_ && z > 0.0) {
-                seen = true;
+                is_seen = true;
                 double state_disparity = baseline_ * fx_ / z;
                 if ((disp_graph_.at(i).Im_fg->image.at<float>(v, u) > state_disparity) &&
                     (disp_graph_.at(i).Im_bg->image.at<float>(v, u) < state_disparity)) {
@@ -292,10 +298,13 @@ class DisparityGraph : rclcpp::Node {
                 }
             }
             if (occupancy >= thresh) {
-                return false;
+                is_free = false;
+                break;
             }
         }
-        return seen;
+
+        bool is_valid = is_free && is_seen;
+        return is_valid;
     }
 
     bool get_state_cost(geometry_msgs::msg::Pose checked_state, double &cost) {
@@ -330,8 +339,8 @@ class DisparityGraph : rclcpp::Node {
                 return false;
             }
 
-            int u = x / z * fx_ + cx_;
-            int v = y / z * fy_ + cy_;
+            uint u = x / z * fx_ + cx_;
+            uint v = y / z * fy_ + cy_;
 
             if (u >= 0 && u < width_ && v >= 0 && v < height_ && z > 0.0) {
                 double state_disparity = baseline_ * fx_ / z;

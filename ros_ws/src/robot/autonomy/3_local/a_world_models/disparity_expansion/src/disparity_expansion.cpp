@@ -269,7 +269,7 @@ void DisparityExpansionNode::visualizeDisparityImage(const cv::Mat& disparity_im
 
 void DisparityExpansionNode::stereoDisparityCb(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp) {
-    std::cout << "hello" << std::endl;
+    std::cout << "stereoDisparityCb" << std::endl;
 
     if (!LUT_ready) {
         auto& clk = *this->get_clock();
@@ -329,309 +329,302 @@ void DisparityExpansionNode::stereoDisparityCb(
     bg_msg->header = msg_disp->header;
     bg_msg->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
 
-    if (1)  // make cloud
-    {
-        // Use correct principal point from calibration
-        float center_x = cx_;
-        float center_y = cy_;
+    // Use correct principal point from calibration
+    float center_x = cx_;
+    float center_y = cy_;
 
-        float constant_x = 1.0 / fx_;
-        float constant_y = 1.0 / fy_;
+    float constant_x = 1.0 / fx_;
+    float constant_y = 1.0 / fy_;
 
-        {
-            RCLCPP_INFO_ONCE(this->get_logger(), "IMG TYPE 32FC, GOOD");
+    RCLCPP_INFO_ONCE(this->get_logger(), "IMG TYPE 32FC, GOOD");
 
-            rclcpp::Time start = this->get_clock()->now();
+    rclcpp::Time start = this->get_clock()->now();
 
-            float padding = padding_;
+    float padding = padding_;
 
-            for (int v = (int)height - 2; (v >= 0); v -= 1) {
-                for (int u = (int)width - 1; u >= 0; u -= 1) {
-                    float disparity_value =
-                        disparity32F.at<float>(v, u);  // disparity_row[v * row_step + u];// + 0.5;
-                    if (!std::isnan(double(disparity_value * scale_)) &&
-                        ((int(disparity_value * scale_) + 1) < lut_max_disparity_) &&
-                        ((int(disparity_value * scale_) + 1) > 0))  // expand
-                    {
-                        //                        disparity_value = disparity32F.at<float>(v,u)+0.5;
-                        unsigned int u1 = table_u[int(disparity_value * scale_) + 1][u].idx1;
-                        unsigned int u2 = table_u[int(disparity_value * scale_) + 1][u].idx2;
-
-                        if (disparity32F.empty()) {
-                            RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
-                            return;
-                        }
-
-                        cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
-
-                        cv::Mat submat_t = disparity32F(roi).clone();
-
-                        double min, max;
-                        cv::Point p1, p2;
-                        int min_idx, max_idx;
-
-                        cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
-                        min_idx = p1.x;
-                        max_idx = p2.x;
-                        float disp_new_fg = max;  // = table_d[int(max*SCALE)];
-                        float disp_new_bg = min;  // = table_d[int(min*SCALE)];
-                        float disp_to_depth = baseline * fx_ / max;
-
-                        cv::Mat submat;
-                        cv::divide(baseline * fx_, submat_t, submat);
-                        submat = (submat - disp_to_depth);  /// robot_radius_;
-
-                        if (padding < 0.0) {
-                            float range = bg_multiplier_ * robot_radius_;
-                            float max_depth = 0.0;
-                            bool found = true;
-                            int ctr = 1;
-                            while (found) {
-                                found = false;
-                                for (int j = 0; j < submat.cols; j++) {
-                                    float val = submat.at<float>(0, j);
-                                    if (std::isfinite(val)) {
-                                        if (val < ctr * range && val > max_depth) {
-                                            found = true;
-                                            max_depth = val;
-                                        }
-                                    }
-                                }
-                                ctr++;
-                            }
-                            disp_to_depth += max_depth;
-                        } else
-                            disp_to_depth += padding;  // baseline * fx_/min;
-
-                        disp_new_bg =
-                            baseline * fx_ / (disp_to_depth /*+ robot_radius_*/) /*- 0.5*/;
-                        disparity_fg(roi).setTo(disp_new_fg);
-                        disparity_bg(roi).setTo(/*min*/ disp_new_bg);
-
-                        int u_temp = u1 + max_idx;
-                        if (u_temp >= u)
-                            u = u1;
-                        else
-                            u = u_temp + 1;
-                    } else {
-                        RCLCPP_ERROR_STREAM_THROTTLE(
-                            this->get_logger(), *this->get_clock(), 1000,
-                            "BAD disparity during expansion for u: "
-                                << disparity_value << " lut_max_disparity_: " << lut_max_disparity_
-                                << " SCALE: " << scale_);
-                    }
-                }
-            }
-
-            disparity_fg.copyTo(disparity32F);
-            disparity_bg.copyTo(disparity32F_bg);
-
-            for (int u = (int)width - 2; (u >= 0) && true; u -= 1) {
-                for (int v = (int)height - 1; v >= 0; v -= 1) {
-                    float disparity_value =
-                        disparity32F.at<float>(v, u) +
-                        pixel_error_;  // disparity_row[v * row_step + u];// + 0.5;
-                    if (!std::isnan(double(disparity_value)) &&
-                        ((int(disparity_value * scale_) + 1) < lut_max_disparity_) &&
-                        ((int(disparity_value * scale_) + 1) > 0))  // expand
-                    {
-                        unsigned int v1 = table_v[int(disparity_value * scale_) + 1][v].idx1;
-                        unsigned int v2 = table_v[int(disparity_value * scale_) + 1][v].idx2;
-
-                        cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
-                        cv::Mat submat_t = disparity32F_bg(roi).clone();
-                        double min, max;
-                        cv::Point p1, p2;
-                        int min_idx, max_idx;
-                        cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
-                        min_idx = p1.y;
-                        max_idx = p2.y;
-                        float disp_new_fg;  // = max;// = table_d[int(max*SCALE)];
-                        float disp_new_bg;  // = min;// = table_d[int(min*SCALE)];
-                        float disp_to_depth = baseline * fx_ / max;
-                        disp_new_fg =
-                            baseline * fx_ / (disp_to_depth - robot_radius_) + pixel_error_;
-
-                        cv::Mat submat;
-                        cv::divide(baseline * fx_, submat_t, submat);
-                        cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
-                        disp_to_depth = baseline * fx_ / max;
-                        submat = (submat - disp_to_depth);  /// robot_radius_;
-
-                        if (padding < 0.0) {
-                            float range = bg_multiplier_ * robot_radius_;
-                            float max_depth = 0.0;
-                            bool found = true;
-                            int ctr = 1;
-                            while (found) {
-                                found = false;
-                                for (int j = 0; j < submat.rows; j++) {
-                                    float val = submat.at<float>(j, 0);
-                                    if (std::isfinite(val)) {
-                                        if (val < ctr * range && val > max_depth) {
-                                            found = true;
-                                            max_depth = val;
-                                        }
-                                    }
-                                }
-                                ctr++;
-                            }
-                            disp_to_depth += max_depth;
-                        } else
-                            disp_to_depth += padding;  // baseline * fx_/min;
-
-                        disp_new_bg =
-                            baseline * fx_ / (disp_to_depth + robot_radius_) - pixel_error_;
-                        disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
-
-                        disparity_fg(roi).setTo(disp_new_fg);
-                        disparity_bg(roi).setTo(disp_new_bg);
-
-                        int v_temp = v1 + max_idx;
-                        if (v_temp >= v)
-                            v = v1;
-                        else
-                            v = v_temp + 1;
-                    } else {
-                        RCLCPP_ERROR_STREAM_THROTTLE(
-                            this->get_logger(), *this->get_clock(), 1000,
-                            "BAD disparity during expansion for v: "
-                                << disparity_value << " lut_max_disparity_: " << lut_max_disparity_
-                                << " SCALE: " << scale_);
-                    }
-                }
-            }
-
-            fg_msg->image = disparity_fg;
-            bg_msg->image = disparity_bg;
-
-            expanded_disparity_fg_pub->publish(*(fg_msg->toImageMsg()));
-            expanded_disparity_bg_pub->publish(*(bg_msg->toImageMsg()));
-
-            if (expansion_poly_pub->get_subscription_count() > 0)  // create expansion PCD
+    for (int v = (int)height - 2; (v >= 0); v -= 1) {
+        for (int u = (int)width - 1; u >= 0; u -= 1) {
+            float disparity_value =
+                disparity32F.at<float>(v, u);  // disparity_row[v * row_step + u];// + 0.5;
+            if (!std::isnan(double(disparity_value * scale_)) &&
+                ((int(disparity_value * scale_) + 1) < lut_max_disparity_) &&
+                ((int(disparity_value * scale_) + 1) > 0))  // expand
             {
-                visualization_msgs::msg::MarkerArray marker_arr;
-                visualization_msgs::msg::Marker marker;
-                marker.header = msg_disp->header;
-                marker.ns = "occ_space";
-                marker.id = 0;
-                marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+                //                        disparity_value = disparity32F.at<float>(v,u)+0.5;
+                unsigned int u1 = table_u[int(disparity_value * scale_) + 1][u].idx1;
+                unsigned int u2 = table_u[int(disparity_value * scale_) + 1][u].idx2;
 
-                marker.lifetime = rclcpp::Duration::from_seconds(0.5);
-                marker.action = visualization_msgs::msg::Marker::ADD;
-                marker.pose.position.x = 0;  // xyz_centroid[0];
-                marker.pose.position.y = 0;  // xyz_centroid[1];
-                marker.pose.position.z = 0;  // xyz_centroid[2];
-
-                tf2::Quaternion q;
-                q.setRPY(0.0, 0.0, 0.0);
-                marker.pose.orientation = tf2::toMsg(q);
-
-                float marker_scale = 0.51;
-                marker.scale.x = marker_scale;
-                marker.scale.y = marker_scale;
-                marker.scale.z = marker_scale;
-                marker.color.a = 0.3;  // Don't forget to set the alpha!
-                marker.color.r = 0.0;
-                marker.color.g = 0.0;
-                marker.color.b = 0.0;
-
-                geometry_msgs::msg::PolygonStamped poly;
-                poly.header = msg_disp->header;
-                int v = 120;
-                float prev_depth = 0.0;
-                for (int v = (int)0; v <= 239; v += 10) {
-                    for (int u = (int)width - 1; u >= 0; u--) {
-                        float depth_value = baseline * fx_ /
-                                            fg_msg->image.at<float>(
-                                                v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[0];
-                        float depth_diff = fabs(depth_value - prev_depth);
-                        prev_depth = depth_value;
-                        if (!std::isnan(depth_value) && !std::isinf(depth_value) &&
-                            depth_diff < 0.5) {
-                            marker.color.r = 1.0 * (fg_msg->image.at<float>(v, u) - pixel_error_) /
-                                             fg_msg->image.at<float>(v, u);
-                            marker.color.g = 1.0 * (pixel_error_) / fg_msg->image.at<float>(v, u);
-                            geometry_msgs::msg::Point gm_p;
-                            gm_p.x = (u - center_x) * depth_value * constant_x;
-                            gm_p.y = (v - center_y) * depth_value * constant_y;
-                            gm_p.z = depth_value;
-                            marker.points.push_back(gm_p);
-
-                            depth_value = baseline * fx_ / bg_msg->image.at<float>(v, u);
-                            gm_p.x = (u - center_x) * depth_value * constant_x;
-                            gm_p.y = (v - center_y) * depth_value * constant_y;
-                            gm_p.z = depth_value;
-                            marker.points.push_back(gm_p);
-
-                        } else {
-                            marker_arr.markers.push_back(marker);
-                            marker.points.clear();
-                            marker.id++;
-                        }
-                    }
+                if (disparity32F.empty()) {
+                    RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
+                    return;
                 }
-                marker_arr.markers.push_back(marker);
-                expansion_poly_pub->publish(marker_arr);
-            }
 
-            if (expansion_cloud_pub->get_subscription_count() > 0)  // create expansion PCD
-            {
-                PointCloud::Ptr cloud(new PointCloud);
-                cloud->header.frame_id = msg_disp->header.frame_id;
-                cloud->height = 1;
-                cloud->width = 1;
-                cloud->is_dense = false;
-                int point_counter = 0;
-                pcl::PointXYZI pt_fg, pt_bg, pt_free1, pt_free2, pt_real;
+                cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
 
-                for (int v = (int)height - 1; v >= 0; v -= 4) {
-                    for (int u = (int)width - 1; u >= 0; u -= 4) {
-                        float depth_value = baseline * fx_ /
-                                            fg_msg->image.at<float>(
-                                                v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[0];
-                        pt_fg.x = (u - center_x) * depth_value * constant_x;
-                        pt_fg.y = (v - center_y) * depth_value * constant_y;
-                        pt_fg.z = depth_value;
-                        pt_fg.intensity = 220;
+                cv::Mat submat_t = disparity32F(roi).clone();
 
-                        depth_value = baseline * fx_ /
-                                      bg_msg->image.at<float>(
-                                          v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[1];
-                        pt_bg.x = (u - center_x) * depth_value * constant_x;
-                        pt_bg.y = (v - center_y) * depth_value * constant_y;
-                        pt_bg.z = depth_value;
-                        pt_bg.intensity = 120;
+                double min, max;
+                cv::Point p1, p2;
+                int min_idx, max_idx;
 
-                        // ACtual PCD
-                        depth_value = baseline * fx_ /
-                                      cv_ptrdisparity->image.at<float>(
-                                          v, u);  // new_disparity_bridgePtr->image.at<float>(v,u);
-                        pt_real.x = (u - center_x) * depth_value * constant_x;
-                        pt_real.y = (v - center_y) * depth_value * constant_y;
-                        pt_real.z = depth_value;
-                        pt_real.intensity = 170;  //*disparity32F.at<float>(v,u)/200;
+                cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
+                min_idx = p1.x;
+                max_idx = p2.x;
+                float disp_new_fg = max;  // = table_d[int(max*SCALE)];
+                float disp_new_bg = min;  // = table_d[int(min*SCALE)];
+                float disp_to_depth = baseline * fx_ / max;
 
-                        {
-                            point_counter++;
-                            cloud->points.push_back(pt_fg);
-                            point_counter++;
-                            cloud->points.push_back(pt_bg);
-                            point_counter++;
-                            cloud->points.push_back(pt_real);
+                cv::Mat submat;
+                cv::divide(baseline * fx_, submat_t, submat);
+                submat = (submat - disp_to_depth);  /// robot_radius_;
+
+                if (padding < 0.0) {
+                    float range = bg_multiplier_ * robot_radius_;
+                    float max_depth = 0.0;
+                    bool found = true;
+                    int ctr = 1;
+                    while (found) {
+                        found = false;
+                        for (int j = 0; j < submat.cols; j++) {
+                            float val = submat.at<float>(0, j);
+                            if (std::isfinite(val)) {
+                                if (val < ctr * range && val > max_depth) {
+                                    found = true;
+                                    max_depth = val;
+                                }
+                            }
                         }
+                        ctr++;
                     }
-                }
-                cloud->width = point_counter;
+                    disp_to_depth += max_depth;
+                } else
+                    disp_to_depth += padding;  // baseline * fx_/min;
 
-                cloud->header.stamp = rclcpp::Time(msg_disp->header.stamp).nanoseconds();
-                cloud->header.stamp = pcl_conversions::toPCL(rclcpp::Time(msg_disp->header.stamp));
+                disp_new_bg = baseline * fx_ / (disp_to_depth /*+ robot_radius_*/) /*- 0.5*/;
+                disparity_fg(roi).setTo(disp_new_fg);
+                disparity_bg(roi).setTo(/*min*/ disp_new_bg);
 
-                sensor_msgs::msg::PointCloud2 cloud_PC2;
-                pcl::toROSMsg(*cloud, cloud_PC2);
-                expansion_cloud_pub->publish(cloud_PC2);
+                int u_temp = u1 + max_idx;
+                if (u_temp >= u)
+                    u = u1;
+                else
+                    u = u_temp + 1;
+            } else {
+                RCLCPP_ERROR_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                                             "BAD disparity during expansion for u: "
+                                                 << disparity_value << " lut_max_disparity_: "
+                                                 << lut_max_disparity_ << " SCALE: " << scale_);
             }
         }
+    }
+
+    disparity_fg.copyTo(disparity32F);
+    disparity_bg.copyTo(disparity32F_bg);
+
+    for (int u = (int)width - 2; (u >= 0) && true; u -= 1) {
+        for (int v = (int)height - 1; v >= 0; v -= 1) {
+            float disparity_value = disparity32F.at<float>(v, u) +
+                                    pixel_error_;  // disparity_row[v * row_step + u];// + 0.5;
+            if (!std::isnan(double(disparity_value)) &&
+                ((int(disparity_value * scale_) + 1) < lut_max_disparity_) &&
+                ((int(disparity_value * scale_) + 1) > 0))  // expand
+            {
+                unsigned int v1 = table_v[int(disparity_value * scale_) + 1][v].idx1;
+                unsigned int v2 = table_v[int(disparity_value * scale_) + 1][v].idx2;
+
+                cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
+                cv::Mat submat_t = disparity32F_bg(roi).clone();
+                double min, max;
+                cv::Point p1, p2;
+                int min_idx, max_idx;
+                cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
+                min_idx = p1.y;
+                max_idx = p2.y;
+                float disp_new_fg;  // = max;// = table_d[int(max*SCALE)];
+                float disp_new_bg;  // = min;// = table_d[int(min*SCALE)];
+                float disp_to_depth = baseline * fx_ / max;
+                disp_new_fg = baseline * fx_ / (disp_to_depth - robot_radius_) + pixel_error_;
+
+                cv::Mat submat;
+                cv::divide(baseline * fx_, submat_t, submat);
+                cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
+                disp_to_depth = baseline * fx_ / max;
+                submat = (submat - disp_to_depth);  /// robot_radius_;
+
+                if (padding < 0.0) {
+                    float range = bg_multiplier_ * robot_radius_;
+                    float max_depth = 0.0;
+                    bool found = true;
+                    int ctr = 1;
+                    while (found) {
+                        found = false;
+                        for (int j = 0; j < submat.rows; j++) {
+                            float val = submat.at<float>(j, 0);
+                            if (std::isfinite(val)) {
+                                if (val < ctr * range && val > max_depth) {
+                                    found = true;
+                                    max_depth = val;
+                                }
+                            }
+                        }
+                        ctr++;
+                    }
+                    disp_to_depth += max_depth;
+                } else
+                    disp_to_depth += padding;  // baseline * fx_/min;
+
+                disp_new_bg = baseline * fx_ / (disp_to_depth + robot_radius_) - pixel_error_;
+                disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
+
+                disparity_fg(roi).setTo(disp_new_fg);
+                disparity_bg(roi).setTo(disp_new_bg);
+
+                int v_temp = v1 + max_idx;
+                if (v_temp >= v)
+                    v = v1;
+                else
+                    v = v_temp + 1;
+            } else {
+                RCLCPP_ERROR_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                                             "BAD disparity during expansion for v: "
+                                                 << disparity_value << " lut_max_disparity_: "
+                                                 << lut_max_disparity_ << " SCALE: " << scale_);
+            }
+        }
+    }
+
+    fg_msg->image = disparity_fg;
+    bg_msg->image = disparity_bg;
+
+    // RCLCPP_INFO_STREAM(this->get_logger(), "fg_msg header stamp: " << fg_msg->header.stamp.sec << " "
+    //                                                                  << fg_msg->header.stamp.nanosec);
+    // RCLCPP_INFO_STREAM(this->get_logger(), "bg_msg header stamp: " << fg_msg->header.stamp.sec << " "
+    //                                                                  << fg_msg->header.stamp.nanosec);
+
+    expanded_disparity_fg_pub->publish(*(fg_msg->toImageMsg()));
+    expanded_disparity_bg_pub->publish(*(bg_msg->toImageMsg()));
+
+    if (expansion_poly_pub->get_subscription_count() > 0)  // create expansion PCD
+    {
+        visualization_msgs::msg::MarkerArray marker_arr;
+        visualization_msgs::msg::Marker marker;
+        marker.header = msg_disp->header;
+        marker.ns = "occ_space";
+        marker.id = 0;
+        marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+
+        marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = 0;  // xyz_centroid[0];
+        marker.pose.position.y = 0;  // xyz_centroid[1];
+        marker.pose.position.z = 0;  // xyz_centroid[2];
+
+        tf2::Quaternion q;
+        q.setRPY(0.0, 0.0, 0.0);
+        marker.pose.orientation = tf2::toMsg(q);
+
+        float marker_scale = 0.51;
+        marker.scale.x = marker_scale;
+        marker.scale.y = marker_scale;
+        marker.scale.z = marker_scale;
+        marker.color.a = 0.3;  // Don't forget to set the alpha!
+        marker.color.r = 0.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
+
+        geometry_msgs::msg::PolygonStamped poly;
+        poly.header = msg_disp->header;
+        int v = 120;
+        float prev_depth = 0.0;
+        for (int v = (int)0; v <= 239; v += 10) {
+            for (int u = (int)width - 1; u >= 0; u--) {
+                float depth_value =
+                    baseline * fx_ /
+                    fg_msg->image.at<float>(v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[0];
+                float depth_diff = fabs(depth_value - prev_depth);
+                prev_depth = depth_value;
+                if (!std::isnan(depth_value) && !std::isinf(depth_value) && depth_diff < 0.5) {
+                    marker.color.r = 1.0 * (fg_msg->image.at<float>(v, u) - pixel_error_) /
+                                     fg_msg->image.at<float>(v, u);
+                    marker.color.g = 1.0 * (pixel_error_) / fg_msg->image.at<float>(v, u);
+                    geometry_msgs::msg::Point gm_p;
+                    gm_p.x = (u - center_x) * depth_value * constant_x;
+                    gm_p.y = (v - center_y) * depth_value * constant_y;
+                    gm_p.z = depth_value;
+                    marker.points.push_back(gm_p);
+
+                    depth_value = baseline * fx_ / bg_msg->image.at<float>(v, u);
+                    gm_p.x = (u - center_x) * depth_value * constant_x;
+                    gm_p.y = (v - center_y) * depth_value * constant_y;
+                    gm_p.z = depth_value;
+                    marker.points.push_back(gm_p);
+
+                } else {
+                    marker_arr.markers.push_back(marker);
+                    marker.points.clear();
+                    marker.id++;
+                }
+            }
+        }
+        marker_arr.markers.push_back(marker);
+        expansion_poly_pub->publish(marker_arr);
+    }
+
+    if (expansion_cloud_pub->get_subscription_count() > 0)  // create expansion PCD
+    {
+        PointCloud::Ptr cloud(new PointCloud);
+        cloud->header.frame_id = msg_disp->header.frame_id;
+        cloud->height = 1;
+        cloud->width = 1;
+        cloud->is_dense = false;
+        int point_counter = 0;
+        pcl::PointXYZI pt_fg, pt_bg, pt_free1, pt_free2, pt_real;
+
+        for (int v = (int)height - 1; v >= 0; v -= 4) {
+            for (int u = (int)width - 1; u >= 0; u -= 4) {
+                float depth_value =
+                    baseline * fx_ /
+                    fg_msg->image.at<float>(v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[0];
+                pt_fg.x = (u - center_x) * depth_value * constant_x;
+                pt_fg.y = (v - center_y) * depth_value * constant_y;
+                pt_fg.z = depth_value;
+                pt_fg.intensity = 220;
+
+                depth_value =
+                    baseline * fx_ /
+                    bg_msg->image.at<float>(v, u);  // free_msg->image.at<cv::Vec4f>(v,u)[1];
+                pt_bg.x = (u - center_x) * depth_value * constant_x;
+                pt_bg.y = (v - center_y) * depth_value * constant_y;
+                pt_bg.z = depth_value;
+                pt_bg.intensity = 120;
+
+                // ACtual PCD
+                depth_value = baseline * fx_ /
+                              cv_ptrdisparity->image.at<float>(
+                                  v, u);  // new_disparity_bridgePtr->image.at<float>(v,u);
+                pt_real.x = (u - center_x) * depth_value * constant_x;
+                pt_real.y = (v - center_y) * depth_value * constant_y;
+                pt_real.z = depth_value;
+                pt_real.intensity = 170;  //*disparity32F.at<float>(v,u)/200;
+
+                {
+                    point_counter++;
+                    cloud->points.push_back(pt_fg);
+                    point_counter++;
+                    cloud->points.push_back(pt_bg);
+                    point_counter++;
+                    cloud->points.push_back(pt_real);
+                }
+            }
+        }
+        cloud->width = point_counter;
+
+        cloud->header.stamp = rclcpp::Time(msg_disp->header.stamp).nanoseconds();
+        cloud->header.stamp = pcl_conversions::toPCL(rclcpp::Time(msg_disp->header.stamp));
+
+        sensor_msgs::msg::PointCloud2 cloud_PC2;
+        pcl::toROSMsg(*cloud, cloud_PC2);
+        expansion_cloud_pub->publish(cloud_PC2);
     }
     return;
 }
