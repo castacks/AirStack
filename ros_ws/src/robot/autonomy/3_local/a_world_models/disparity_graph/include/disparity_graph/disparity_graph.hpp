@@ -11,6 +11,7 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <deque>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mutex>
@@ -115,7 +116,7 @@ class DisparityGraph : rclcpp::Node {
             std::bind(&DisparityGraph::get_cam_info, this, std::placeholders::_1));
     }
 
-  //virtual ~DisparityGraph();
+    // virtual ~DisparityGraph();
 
     void disp_cb(const sensor_msgs::msg::Image::ConstSharedPtr &disp_fg,
                  const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
@@ -191,6 +192,21 @@ class DisparityGraph : rclcpp::Node {
             disp_graph_.pop_back();
             disp_graph_.push_back(n);
         }
+
+        visualization_msgs::msg::MarkerArray marker_arr;
+
+        for (uint i = 0; i < disp_graph_.size(); i++) {
+            //        ROS_INFO_STREAM(disp_graph.at(i).tf.inverse().getOrigin().x());
+            auto position = disp_graph_.at(i).s2w_tf.getOrigin();
+            tf2::toMsg(position, marker_.pose.position);
+            auto rotation = disp_graph_.at(i).s2w_tf.getRotation();
+            marker_.pose.orientation = tf2::toMsg(rotation);
+            marker_.header.stamp = this->now();
+            marker_.id = i;
+            marker_arr.markers.push_back(marker_);
+        }
+
+        disparity_graph_marker_pub_->publish(marker_arr);
     }
 
     void get_cam_info(const sensor_msgs::msg::CameraInfo::ConstSharedPtr &cam_info_msg) {
@@ -285,7 +301,7 @@ class DisparityGraph : rclcpp::Node {
     bool get_state_cost(geometry_msgs::msg::Pose checked_state, double &cost) {
         geometry_msgs::msg::PointStamped checked_point_stamped;
         checked_point_stamped.header.frame_id = "world";
-        checked_point_stamped.header.stamp = this->now();// - rclcpp::Duration(0.1);
+        checked_point_stamped.header.stamp = this->now();  // - rclcpp::Duration(0.1);
         checked_point_stamped.point = checked_state.position;
 
         geometry_msgs::msg::PointStamped world_point_stamped;
