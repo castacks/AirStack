@@ -76,7 +76,7 @@ std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rcl
   }
 
   //generate bounds for each subregion
-  while(rand_centroids.size() < num_agents)
+  while(static_cast<int>(rand_centroids.size()) < num_agents) // Assumes rand centroids not crazy big
   {
     int i = rand_centroids.size();
 
@@ -113,6 +113,7 @@ double compute_dist(double x1, double y1, double x2, double y2) {
 std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids)
 {
   //calculate points in bounds
+  std::priority_queue<ClusterPoint, std::vector<ClusterPoint>, CompareClusterPoint> cluster_pq;
   for(int x_idx = min_x; x_idx < max_x; ++x_idx)
     {
       for(int y_idx = min_y; y_idx < max_y; ++y_idx)
@@ -126,7 +127,7 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
           int farthest_centroid_idx = -1;
           double min_dist = std::numeric_limits<double>::infinity();
           double max_dist = -std::numeric_limits<double>::infinity();
-          for(int centroid_idx = 0; centroid_idx < cluster_centroids.size(); ++centroid_idx)
+          for(int centroid_idx = 0; centroid_idx < static_cast<int>(cluster_centroids.size()); ++centroid_idx) // Assumes rand centroids not crazy big
           {
             double dist = compute_dist(cluster_centroids[centroid_idx][0], cluster_centroids[centroid_idx][1], x_idx, y_idx);
             if(dist < min_dist)
@@ -164,7 +165,7 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
     cluster_pq.pop();
 
     //check the size of preferred cluster
-    if(clusters[point.cluster].size() < cluster_size)
+    if(static_cast<int>(clusters[point.cluster].size()) < cluster_size) // Assumes clusters not crazy big
     {
       clusters[point.cluster].push_back(point);
     }
@@ -186,7 +187,7 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
         int farthest_centroid_idx = -1;
         double min_dist = std::numeric_limits<double>::infinity();
         double max_dist = -std::numeric_limits<double>::infinity();
-        for(int centroid_idx = 0; centroid_idx < cluster_centroids.size(); ++centroid_idx)
+        for(int centroid_idx = 0; centroid_idx < static_cast<int>(cluster_centroids.size()); ++centroid_idx) // Assumes not crazy number of centroids
         {
           if(centroid_idx != point.cluster and !cluster_full[centroid_idx]) //check that it's not the existing full centroid OR a previous full centroid
           {
@@ -225,6 +226,11 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
 std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters)
 {
   std::vector<std::vector<std::vector<double>>> alpha_regions;
+  std::unordered_map<std::pair<double,double>, Segment, boost::hash<std::pair<double, double>>> boundary_edges;
+  if (clusters.size() == 0)
+  {
+    RCLCPP_ERROR(logger, "No clusters found");
+  }
   for(std::vector<ClusterPoint> cluster : clusters)
   {
     //convert points inside polygon to cgal points
@@ -244,7 +250,7 @@ std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_
         auto segment = A.segment(*it);
         // Get the source and target points of the segment
         Point source = segment.source();
-        Point target = segment.target();
+        // Point target = segment.target();
         //put into our hashmap
         boundary_edges[std::make_pair(source.x(), source.y())] = segment;
       }
@@ -357,7 +363,7 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
   }
 
   //publish visualizations for search request
-  pub->publish(visualize_multi_agent_search_request(logger, num_agents, cluster_centroids, clusters, cluster_bounds));
+  pub->publish(visualize_multi_agent_search_request(num_agents, cluster_centroids, clusters, cluster_bounds));
 
   return task_assignments;
 }

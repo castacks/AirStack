@@ -7,7 +7,7 @@
 #include "mission_manager/MissionManager.h"
 
 
-visualization_msgs::msg::MarkerArray visualize_multi_agent_search_request(rclcpp::Logger logger, int num_agents, 
+visualization_msgs::msg::MarkerArray visualize_multi_agent_search_request(int num_agents, 
                                                                     std::vector<std::vector<double>> cluster_centroids, 
                                                                     std::vector<std::vector<ClusterPoint>> clusters,
                                                                     std::vector<std::vector<std::vector<double>>> convex_hulls)
@@ -69,7 +69,7 @@ visualization_msgs::msg::MarkerArray visualize_multi_agent_search_request(rclcpp
     }
 
     //publish visualization for the convex hull of each region
-    for(int agent_idx = 0; agent_idx < convex_hulls.size(); ++agent_idx)
+    for(auto agent_idx = 0u; agent_idx < convex_hulls.size(); ++agent_idx)
     {
         visualization_msgs::msg::Marker convex_hull_m;
         convex_hull_m.header.frame_id = "map";

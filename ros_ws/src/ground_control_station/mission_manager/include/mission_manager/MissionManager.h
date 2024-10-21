@@ -84,8 +84,6 @@ class MissionManager
     double min_y = std::numeric_limits<double>::infinity();
     double max_x = -std::numeric_limits<double>::infinity();
     double max_y = -std::numeric_limits<double>::infinity();
-    std::priority_queue<ClusterPoint, std::vector<ClusterPoint>, CompareClusterPoint> cluster_pq;
-    std::unordered_map<std::pair<double,double>, Segment, boost::hash<std::pair<double, double>>> boundary_edges;
 
     //search map allocation
     std::vector<Point> CGAL_bounds;
