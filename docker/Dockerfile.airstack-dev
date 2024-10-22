@@ -9,7 +9,8 @@ RUN apt install -y \
     vim nano wget curl tree \
     cmake build-essential \
     less htop jq \
-    python3-pip
+    python3-pip \
+    gdb
 
 # Package dependencies
 # perform ROS dependency installation for our workspace.

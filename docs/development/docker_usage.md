@@ -1,3 +1,4 @@
+# General Usage with Docker Compose
 
 AirStack is designed for multi-robot development, and is setup to run multiple robots in simulation.
 
@@ -17,6 +18,29 @@ This lets them communicate with ROS2 on the same network.
 
 
 Each robot has its own ROS_DOMAIN_ID.
+
+## Pull Images
+To use the AirLab docker registry:
+```bash
+cd AirStack/docker/
+docker login airlab-storage.andrew.cmu.edu:5001
+## <Enter your andrew id (without @andrew.cmu.edu)>
+## <Enter your andrew password>
+
+## Pull the images in the docker compose file
+docker compose pull 
+```
+
+Catelog: [AirLab Registry Images](https://airlab-storage.andrew.cmu.edu:5001/v2/_catalog).
+
+Available image tags: 
+[airstack-dev](https://airlab-storage.andrew.cmu.edu:5001/v2/shared/airstack-dev/tags/list),
+[isaac-sim_ros-humble](https://airlab-storage.andrew.cmu.edu:5001/v2/shared/isaac-sim_ros-humble/tags/list)
+
+## Build Images
+```bash
+docker compose build
+```
 
 ## Start and Stop
 Start
@@ -53,6 +77,20 @@ The ssh password is `airstack`.
 
 ## Container Details
 
+```mermaid
+graph TD
+    A(Isaac Sim) <-- Sensors and Actuation --> B
+    A <-- Sensors and Actuation --> C
+    B(Robot 1) <-- Global Info --> D(Ground Control Station)
+    C(Robot 2) <-- Global Info --> D
+
+    style A fill:#76B900,stroke:#333,stroke-width:2px
+    style B fill:#fbb,stroke:#333,stroke-width:2px
+    style C fill:#fbb,stroke:#333,stroke-width:2px
+    style D fill:#fbf,stroke:#333,stroke-width:2px
+
+```
+
 
 ### Isaac Sim
 Start a bash shell in the Isaac Sim container:
@@ -64,7 +102,7 @@ docker exec -it isaac-sim bash
 `runapp` launches Isaac Sim.
 The `--path` argument can be passed with a path to a `.usd` file to load a scene.
 
-It can also be run in headless mode with `./runheadless.native.sh` to stream to Omniverse Streaming Client or `./runheadless.webrtc.sh` to stream to a web browser.
+It can also be run in headless mode with `./runheadless.native.sh` to stream to [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html) or `./runheadless.webrtc.sh` to [stream to a web browser](https://docs.omniverse.nvidia.com/extensions/latest/ext_livestream/webrtc.html).
 
 The container also has the isaacsim ROS2 package within that can be launched with `ros2 launch isaacsim run_isaacsim.launch.py`. 
 
@@ -78,6 +116,7 @@ docker exec -it docker-robot-1 bash
 # in robot docker
 cws  # cleans workspace
 bws  # builds workspace
+bws --packages-select [your_packages] # builds only desired packages
 sws  # sources workspace
 ros2 launch robot_bringup robot.launch.xml  # top-level launch 
 ```
@@ -96,4 +135,4 @@ docker exec -it ground-control-station bash
 
 The commands are currently the same.
 
-`ROS_DOMAIN_ID` is set to 0.
+On the GCS `ROS_DOMAIN_ID` is set to 0.

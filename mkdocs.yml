@@ -10,6 +10,7 @@ extra:
 extra_css:
   - stylesheets/extra.css
 markdown_extensions:
+  - admonition
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -32,14 +33,15 @@ nav:
   - Getting Started: getting_started.md
   - Development:
       - development/index.md
-      - General Usage with Docker Compose: development/docker_usage.md
+      - development/docker_usage.md
+      - development/vscode/index.md
       - Testing:
           - development/testing/index.md
-          - Testing Frameworks: development/testing/testing_frameworks.md
-          - Integration Testing: development/testing/integration_testing.md
-          - Unit Testing: development/testing/unit_testing.md
-          - System Testing: development/testing/system_testing.md
-          - CI/CD Pipeline: development/testing/ci_cd.md
+          - development/testing/testing_frameworks.md
+          - development/testing/integration_testing.md
+          - development/testing/unit_testing.md
+          - development/testing/system_testing.md
+          - development/testing/ci_cd.md
       - Contributing: development/contributing.md
       - ROS Frame Conventions: development/frame_conventions.md
   - Robot:

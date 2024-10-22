@@ -2,20 +2,32 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build",
+      "label": "build ros_ws",
       "type": "shell",
       "options": {
         "cwd": "${workspaceFolder}/ros_ws"
       },
-      "command": "colcon build --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+      "command": [
+        "source /root/.bashrc &&",
+        "bws --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+      ],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     },
     {
-      "label": "test",
+      "label": "test ros_ws",
       "type": "shell",
       "options": {
         "cwd": "${workspaceFolder}/ros_ws"
       },
-      "command": "colcon test && colcon test-result"
+      "command": [
+        "source /opt/ros/humble/setup.bash;",
+        "source ${workspaceFolder}/ros_ws/install/setup.bash;",
+        "colcon test && colcon test-result"
+      ],
     }
   ]
 }
