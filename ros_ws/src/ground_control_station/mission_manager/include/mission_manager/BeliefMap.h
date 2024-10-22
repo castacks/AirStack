@@ -30,7 +30,7 @@ public:
   // std::vector<std::vector<int>> sensor_model_id;
 
   BeliefMap();
-  bool reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request);
+  bool reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request, double grid_cell_size);
   bool update_map(rclcpp::Logger logger, const airstack_msgs::msg::BeliefMapData::SharedPtr new_belief_data);
   grid_map::GridMap map_;
 
@@ -62,6 +62,7 @@ private:
   double max_x = -DBL_MAX;
   double min_y = DBL_MAX;
   double max_y = -DBL_MAX;
+  double grid_cell_size_;
   
   
 };

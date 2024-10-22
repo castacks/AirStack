@@ -5,12 +5,12 @@ BeliefMap::BeliefMap()
 : map_(std::vector<std::string>({"probability", "priority"}))
 { }
 
-bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request)
+bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissionRequest search_mission_request, double grid_cell_size)
 {
   RCLCPP_INFO(logger, "Resetting map");
   // Setting up map.
   // Get the max and min x and y values from the search area
-  double resolution = 5.0;
+  grid_cell_size_ = grid_cell_size;
   min_x = DBL_MAX;
   max_x = -DBL_MAX;
   min_y = DBL_MAX;
@@ -37,15 +37,15 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
   // TODO param for grid resolution
   // TODO fix coordinate frames. Match airstack to IPP to grid map. grid map is NWU, IPP is ENU, airstack is ...
   // round to nearest resolution
-  min_x = std::floor(min_x / resolution) * resolution;
-  max_x = std::ceil(max_x / resolution) * resolution;
-  min_y = std::floor(min_y / resolution) * resolution;
-  max_y = std::ceil(max_y / resolution) * resolution;
+  min_x = std::floor(min_x / grid_cell_size_) * grid_cell_size_;
+  max_x = std::ceil(max_x / grid_cell_size_) * grid_cell_size_;
+  min_y = std::floor(min_y / grid_cell_size_) * grid_cell_size_;
+  max_y = std::ceil(max_y / grid_cell_size_) * grid_cell_size_;
   double x_length = std::abs(max_x - min_x);
   double y_length = std::abs(max_y - min_y);
   
   map_.setGeometry(grid_map::Length(x_length, y_length),
-                   resolution,
+                   grid_cell_size_,
                    grid_map::Position(std::round(min_x + x_length / 2.0),
                                       std::round(min_y + y_length / 2.0)));
   map_.setFrameId("map"); // TODO update to correct frame or set TF frame somewhere. There is already a map frame

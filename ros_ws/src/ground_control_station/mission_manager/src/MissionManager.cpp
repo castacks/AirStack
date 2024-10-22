@@ -318,7 +318,8 @@ std::vector<std::vector<std::vector<double>>> MissionManager::allocate_search_ma
 std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   rclcpp::Logger logger,
   const airstack_msgs::msg::SearchMissionRequest &plan_request,
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub)
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub,
+  bool visualize_search_allocation)
 {
   RCLCPP_INFO(logger, "Assigning tasks to drones");
 
@@ -382,7 +383,9 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   }
 
   //publish visualizations for search request
-  pub->publish(visualize_multi_agent_search_request(num_agents, cluster_centroids, clusters, cluster_bounds));
-
+  if (visualize_search_allocation)
+  {
+    pub->publish(visualize_multi_agent_search_request(num_agents, cluster_centroids, clusters, cluster_bounds));
+  }
   return task_assignments;
 }

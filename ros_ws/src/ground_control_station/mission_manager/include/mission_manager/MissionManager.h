@@ -68,7 +68,10 @@ class MissionManager
   public:
     MissionManager(int max_number_agents);
 
-    std::vector<airstack_msgs::msg::TaskAssignment> assign_tasks(rclcpp::Logger logger, const airstack_msgs::msg::SearchMissionRequest &plan_request, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub);
+    std::vector<airstack_msgs::msg::TaskAssignment> assign_tasks(rclcpp::Logger logger,
+                                                                const airstack_msgs::msg::SearchMissionRequest &plan_request,
+                                                                rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub,
+                                                                bool visualize_search_allocation);
     bool check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, rclcpp::Time current_time);
     bool check_target_changes(rclcpp::Logger logger, std::string target_list, rclcpp::Time current_time);
     std::vector<bool> get_valid_agents() const { return valid_agents_; }

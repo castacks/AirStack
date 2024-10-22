@@ -42,6 +42,12 @@ class MissionManagerNode : public rclcpp::Node
     MissionManagerNode()
     : Node("mission_manager"), count_(0)
     {
+      this->declare_parameter("grid_cell_size", 10.0);
+      this->declare_parameter("visualize_search_allocation", false);
+      this->get_parameter("grid_cell_size", grid_cell_size_);
+      this->get_parameter("visualize_search_allocation", visualize_search_allocation_);
+      
+      
       mission_subscriber_ = this->create_subscription<airstack_msgs::msg::SearchMissionRequest>(
         "search_mission_request", 1, std::bind(&MissionManagerNode::search_mission_request_callback, this, std::placeholders::_1));
 
@@ -102,6 +108,8 @@ class MissionManagerNode : public rclcpp::Node
 
     size_t count_;
     rclcpp::TimerBase::SharedPtr timer_;
+    double grid_cell_size_;
+    bool visualize_search_allocation_;
     int max_number_agents_ = 5; // TODO: get from param server
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
@@ -138,8 +146,8 @@ class MissionManagerNode : public rclcpp::Node
       latest_search_mission_request_ = *msg;
 
       // TODO: visualize the seach mission request
-      this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg);
-      this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_));
+      this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg, grid_cell_size_);
+      this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
     }
 
     void agent_odom_callback(const std_msgs::msg::String::SharedPtr msg, const uint8_t &robot_id)
@@ -147,7 +155,7 @@ class MissionManagerNode : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Received agent odom '%s'", msg->data.c_str());
       if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, this->now()))
       {
-        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_));
+        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
       }
     }
 
@@ -159,7 +167,7 @@ class MissionManagerNode : public rclcpp::Node
       // Check if change in the number of targets or id numbers
       if (this->mission_manager_->check_target_changes(this->get_logger(), msg->data, this->now()))
       {
-        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_));
+        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
       }
     }
 
