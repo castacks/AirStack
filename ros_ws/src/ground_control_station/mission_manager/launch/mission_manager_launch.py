@@ -12,6 +12,12 @@ def generate_launch_description():
     # Define the path to the configuration file
     visualization_config_file = os.path.join(package_share_directory, 'config', 'grid_map.yaml')
     rviz_config_file = os.path.join(package_share_directory, 'config', 'mission_manager.rviz')
+
+    config = os.path.join(
+        package_share_directory,
+        'config',
+        'mission_manager.yaml'
+        )
     
     mission_manager = Node(
         package='mission_manager',
@@ -19,6 +25,7 @@ def generate_launch_description():
         executable='mission_manager_node',
         output="screen",
         name='mission_manager_node',
+        parameters=[config]
     )
 
     # grid_map_visualization_node = Node(

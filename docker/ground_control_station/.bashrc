@@ -157,3 +157,5 @@ function cws(){
 
 source /opt/ros/humble/setup.bash
 sws # source the ROS2 workspace by default
+
+export RCUTILS_COLORIZED_OUTPUT=1
