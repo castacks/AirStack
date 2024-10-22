@@ -11,10 +11,10 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
   // Setting up map.
   // Get the max and min x and y values from the search area
   double resolution = 5.0;
-  double min_x = DBL_MAX;
-  double max_x = -DBL_MAX;
-  double min_y = DBL_MAX;
-  double max_y = -DBL_MAX;
+  min_x = DBL_MAX;
+  max_x = -DBL_MAX;
+  min_y = DBL_MAX;
+  max_y = -DBL_MAX;
   for (const auto& point : search_mission_request.search_bounds.points)
   {
     if (point.x < min_x)

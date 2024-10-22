@@ -80,16 +80,14 @@ class MissionManager
     std::vector<bool> valid_agents_;
 
     //search map allocation
-    double min_x = std::numeric_limits<double>::infinity();
-    double min_y = std::numeric_limits<double>::infinity();
-    double max_x = -std::numeric_limits<double>::infinity();
-    double max_y = -std::numeric_limits<double>::infinity();
-
-    //search map allocation
-    std::vector<Point> CGAL_bounds;
-    std::vector<std::vector<double>> calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request);
-    std::vector<std::vector<ClusterPoint>> calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids);
-    std::vector<std::vector<std::vector<double>>> calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters);
+    std::vector<std::vector<std::vector<double>>> allocate_search_map(rclcpp::Logger logger,
+                                                                      int number_of_search_tasks,
+                                                                      const airstack_msgs::msg::SearchMissionRequest &plan_request,
+                                                                      std::vector<std::vector<double>> &cluster_centroids,
+                                                                      std::vector<std::vector<ClusterPoint>> &clusters);
+    std::vector<std::vector<double>> calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request, std::vector<Point> &CGAL_bounds) const;
+    std::vector<std::vector<ClusterPoint>> calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids, const std::vector<Point> &CGAL_bounds) const;
+    std::vector<std::vector<std::vector<double>>> calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters) const;
 
   };
   #endif /* MISSIONMANAGER_H_INCLUDED */

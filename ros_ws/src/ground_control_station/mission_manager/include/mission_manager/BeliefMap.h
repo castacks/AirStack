@@ -39,7 +39,30 @@ public:
     return !map_.getSize()(0) == 0;
   }
 
+  double get_min_x() const
+  {
+    return min_x;
+  }
+  double get_max_x() const
+  {
+    return max_x;
+  }
+  double get_min_y() const
+  {
+    return min_y;
+  }
+  double get_max_y() const
+  {
+    return max_y;
+  }
+
 private:
+  //search map allocation
+  double min_x = DBL_MAX;
+  double max_x = -DBL_MAX;
+  double min_y = DBL_MAX;
+  double max_y = -DBL_MAX;
+  
   
 };
 

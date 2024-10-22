@@ -48,21 +48,20 @@ bool MissionManager::check_target_changes(rclcpp::Logger logger, std::string tar
   return false;
 }
 
-std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request)
+std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request, std::vector<Point> &CGAL_bounds) const
 {
   std::random_device dev;
   std::mt19937 rng(dev());
   for(auto& point : plan_request.search_bounds.points)
   {
-    if(point.x < min_x) min_x = point.x;
-    if(point.y < min_y) min_y = point.y;
-    if(point.x > max_x) max_x = point.x;
-    if(point.y > max_y) max_y = point.y;
     // add to vector of bounds
-    this->CGAL_bounds.push_back(Point(point.x, point.y));
-    // RCLCPP_INFO_STREAM(logger, point.x << " " << point.y);
+    CGAL_bounds.push_back(Point(point.x, point.y));
   }
-  // RCLCPP_INFO_STREAM(logger, min_x << " " << max_x << " " << min_y << " " << max_y);
+  double min_x = this->belief_map_.get_min_x();
+  double max_x = this->belief_map_.get_max_x();
+  double min_y = this->belief_map_.get_min_y();
+  double max_y = this->belief_map_.get_max_y();
+
   std::vector<std::vector<double>> boundary = {{min_x, min_y},{max_x, min_y},{max_x, max_y},{min_x, max_y}};
 
   //divide bounds for the search area based on number of agents
@@ -95,9 +94,9 @@ std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rcl
     double rand_y = rand_y_dist(rng);
 
     //check if this random sample is within bounds
-    if (CGAL::bounded_side_2(this->CGAL_bounds.begin(),
-                                            this->CGAL_bounds.end(),
-                                            Point(rand_x, rand_y), K()) == CGAL::ON_BOUNDED_SIDE)
+    if (CGAL::bounded_side_2(CGAL_bounds.begin(),
+                              CGAL_bounds.end(),
+                              Point(rand_x, rand_y), K()) == CGAL::ON_BOUNDED_SIDE)
     {
       rand_centroids.push_back({rand_x, rand_y});
       RCLCPP_DEBUG_STREAM(logger, "Search mission centroid:" << rand_x << " " << rand_y);
@@ -110,17 +109,21 @@ double compute_dist(double x1, double y1, double x2, double y2) {
     return std::sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 
-std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids)
+std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp::Logger logger, int num_agents, std::vector<std::vector<double>> cluster_centroids, const std::vector<Point> &CGAL_bounds) const
 {
+  double min_x = this->belief_map_.get_min_x();
+  double max_x = this->belief_map_.get_max_x();
+  double min_y = this->belief_map_.get_min_y();
+  double max_y = this->belief_map_.get_max_y();
   //calculate points in bounds
   std::priority_queue<ClusterPoint, std::vector<ClusterPoint>, CompareClusterPoint> cluster_pq;
   for(int x_idx = min_x; x_idx < max_x; ++x_idx)
     {
       for(int y_idx = min_y; y_idx < max_y; ++y_idx)
       {
-        if (CGAL::bounded_side_2(this->CGAL_bounds.begin(),
-                                              this->CGAL_bounds.end(),
-                                              Point(x_idx, y_idx), K()) == CGAL::ON_BOUNDED_SIDE)
+        if (CGAL::bounded_side_2(CGAL_bounds.begin(),
+                                  CGAL_bounds.end(),
+                                  Point(x_idx, y_idx), K()) == CGAL::ON_BOUNDED_SIDE)
         {
           //find closest and farthest centroids to this point
           int closest_centroid_idx = -1;
@@ -223,7 +226,7 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
   return clusters;
 }
 
-std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters)
+std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_bounds(rclcpp::Logger logger, std::vector<std::vector<ClusterPoint>> clusters) const
 {
   std::vector<std::vector<std::vector<double>>> alpha_regions;
   std::unordered_map<std::pair<double,double>, Segment, boost::hash<std::pair<double, double>>> boundary_edges;
@@ -297,7 +300,25 @@ std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_
   return alpha_regions;
 }
 
-std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rclcpp::Logger logger, const airstack_msgs::msg::SearchMissionRequest &plan_request, rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub)
+std::vector<std::vector<std::vector<double>>> MissionManager::allocate_search_map(rclcpp::Logger logger,
+                                                                      int number_of_search_tasks,
+                                                                      const airstack_msgs::msg::SearchMissionRequest &plan_request,
+                                                                      std::vector<std::vector<double>> &cluster_centroids,
+                                                                      std::vector<std::vector<ClusterPoint>> &clusters)
+{
+  std::vector<Point> CGAL_bounds;
+  //calculate random centroids
+  cluster_centroids = calculate_cluster_centroids(logger, number_of_search_tasks, plan_request, CGAL_bounds);
+  //calculate the clusters
+  clusters = calculate_clusters(logger, number_of_search_tasks, cluster_centroids, CGAL_bounds);
+  //calculate boundaries of clusters formed
+  return calculate_cluster_bounds(logger, clusters);
+}
+
+std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
+  rclcpp::Logger logger,
+  const airstack_msgs::msg::SearchMissionRequest &plan_request,
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub)
 {
   RCLCPP_INFO(logger, "Assigning tasks to drones");
 
@@ -316,12 +337,10 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(rcl
   }
 
   // Send out the request for the search map division
-  //calculate random centroids
-  std::vector<std::vector<double>> cluster_centroids = calculate_cluster_centroids(logger, number_of_search_tasks, plan_request);
-  //calculate the clusters
-  std::vector<std::vector<ClusterPoint>> clusters = calculate_clusters(logger, number_of_search_tasks, cluster_centroids);
-  //calculate boundaries of clusters formed
-  std::vector<std::vector<std::vector<double>>> cluster_bounds = calculate_cluster_bounds(logger, clusters);
+  std::vector<std::vector<double>> cluster_centroids;
+  std::vector<std::vector<ClusterPoint>> clusters;
+  std::vector<std::vector<std::vector<double>>> cluster_bounds = allocate_search_map(logger, number_of_search_tasks, plan_request, cluster_centroids, clusters);
+  
   //convert to task assignment
   std::vector<airstack_msgs::msg::TaskAssignment> task_assignments(num_agents);
   // TODO: should allocate both search and track. Right now assumes all search tasks
