@@ -59,7 +59,7 @@ services:
 
   # ==============================================================================
   robot:
-    image: &airstack-dev-image airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.1
+    image: &airstack-dev-image airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.2
     build:
       context: ../
       dockerfile: docker/Dockerfile.airstack-dev

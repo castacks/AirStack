@@ -61,9 +61,9 @@ class MinimalPublisher : public rclcpp::Node
 			msg.search_bounds = search_bounds;
 			
 			airstack_msgs::msg::SearchPrior search_prior;
-			search_prior.value = 0.5;
-			search_prior.priority = 10.0;
-			search_prior.sensor_model_id = 0;
+			search_prior.value.push_back(0.5);
+			search_prior.priority.push_back(10.0);
+			search_prior.sensor_model_id.push_back(0);
 			search_prior.grid_prior_type = 1;
 			search_prior.header.frame_id = "local_enu";
 			geometry_msgs::msg::Polygon grid_bounds;
@@ -87,9 +87,9 @@ class MinimalPublisher : public rclcpp::Node
 			msg.search_priors.push_back(search_prior);
 
 			airstack_msgs::msg::SearchPrior search_prior2;
-			search_prior2.value = 0.2;
-			search_prior2.priority = 1.0;
-			search_prior2.sensor_model_id = 0;
+			search_prior2.value.push_back(0.2);
+			search_prior2.priority.push_back(1.0);
+			search_prior2.sensor_model_id.push_back(0);
 			search_prior2.grid_prior_type = 1;
 			search_prior2.header.frame_id = "local_enu";
 			geometry_msgs::msg::Polygon points_list;
