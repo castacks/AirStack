@@ -5,13 +5,15 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CGAL_DATA_DIR ".")
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(grid_map_ros REQUIRED)
-
+find_package(CGAL REQUIRED)
 
 add_executable(mission_manager_node
   src/mission_manager_node.cpp
@@ -26,11 +28,16 @@ ament_target_dependencies(example_search_request_node rclcpp airstack_msgs)
 
 target_include_directories(mission_manager_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:include>
+  ${CGAL_INCLUDE_DIRS})
 
 target_include_directories(example_search_request_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
+
+target_link_libraries(mission_manager_node
+  ${CGAL_LIBRARIES}  # Link CGAL libraries
+)
 
 target_compile_features(mission_manager_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 target_compile_features(example_search_request_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17

@@ -1,0 +1,4 @@
+mission_manager_node:
+  ros__parameters:
+    grid_cell_size: 5.0
+    visualize_search_allocation: true
