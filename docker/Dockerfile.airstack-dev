@@ -10,6 +10,7 @@ RUN apt install -y \
     cmake build-essential \
     less htop jq \
     python3-pip \
+    tmux \
     gdb
 
 # Package dependencies
