@@ -66,11 +66,16 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
       {
         polygon.addVertex(grid_map::Position(point.x, point.y)); // TODO coordinate frame
       }
+      grid_map::Matrix& probability_data = map_["probability"];
+      grid_map::Matrix& priority_data = map_["priority"];
       for (grid_map::PolygonIterator iterator(map_, polygon);
         !iterator.isPastEnd(); ++iterator)
       {
-        float& current_value = map_.at("probability", *iterator);
-        float& current_priority = map_.at("priority", *iterator);
+        // TODO: Check if the cell is in the search boundary (CGAL)? Not necessary I think. 
+        const grid_map::Index index(*iterator);
+        float& current_value = probability_data(index(0), index(1));
+        float& current_priority = priority_data(index(0), index(1));
+
         if (std::isnan(current_value) || (current_value * current_priority) < (search_prior.value[0]*search_prior.priority[0])) {
           current_value = search_prior.value[0];
           current_priority = search_prior.priority[0];
