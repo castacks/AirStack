@@ -71,7 +71,8 @@ class AscentSitlLaunchTool:
                 sessions.append(line.split(':')[0])
 
         for session in sessions:
-            subprocess.call('tmux kill-session -t ' + session, shell=True)
+            if session.startswith(AscentSitlLaunchTool.get_tmux_session_prefix()):
+                subprocess.call('tmux kill-session -t ' + session, shell=True)
 
     def get_dronekit_address(self):
         return '127.0.0.1:' + str(self.isaac_sim_port)

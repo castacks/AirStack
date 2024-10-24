@@ -2,14 +2,20 @@
 services:
   # ==============================================================================
   isaac-sim:
-    image: &isaac-sim-image airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.0
+    image: &isaac-sim-image airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.1
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
         - *isaac-sim-image
     container_name: isaac-sim
-    entrypoint: bash
+    entrypoint: ""  # override the default entrypoint with nothing
+    # for some reason the tmux session manager only works when isaac is running in tmux
+    command: >
+      bash -c "
+      tmux new -d -s isaac
+      && tmux send-keys -t isaac 'runapp' ENTER
+      && sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -59,13 +65,19 @@ services:
 
   # ==============================================================================
   robot:
-    image: &airstack-dev-image airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.2
+    image: &airstack-dev-image airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.3
     build:
       context: ../
       dockerfile: docker/Dockerfile.airstack-dev
       tags:
         - *airstack-dev-image
-    entrypoint: bash -c "service ssh restart && bash"
+    entrypoint: ""
+    # we use tmux send-keys so that the session stays alive
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s robot_bringup
+      && tmux send-keys -t robot_bringup 'ros2 launch robot_bringup robot.launch.xml' ENTER
+      && sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -102,13 +114,20 @@ services:
   ground-control-station:
     image: *airstack-dev-image
     container_name: ground-control-station
-    entrypoint: bash -c "service ssh restart && bash"
+    entrypoint: ""
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s gcs_bringup
+      && tmux send-keys -t gcs_bringup 'ros2 launch gcs_bringup gcs.launch.xml' ENTER
+      && sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
     # Needed to display graphical applications
     ipc: host
     privileged: true
+    networks:
+      - airstack_network
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1

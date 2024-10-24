@@ -270,7 +270,7 @@ class MyExtension(omni.ext.IExt):
                     def get_attach(session_name):
                         def attach():
                             #print('xterm -e "tmux a -t ' + session_name + '"')
-                            subprocess.Popen('xterm -e "tmux a -t \\"' + session_name + '\\""', shell=True)
+                            subprocess.Popen('xterm -bg black -fg white -e "tmux a -t \\"' + session_name + '\\""', shell=True)
                         return attach
 
                     def get_kill(session_name):
