@@ -4,10 +4,11 @@
 /*
 Empty Constructor
 */
-MissionManager::MissionManager(int max_number_agents, double active_agent_check_n_seconds, double min_agent_altitude_to_be_active) : 
+MissionManager::MissionManager(int max_number_agents, double active_agent_check_n_seconds, double min_agent_altitude_to_be_active, double time_till_agent_not_valid) : 
   max_number_agents_(max_number_agents),
   active_agent_check_n_seconds_(rclcpp::Duration::from_seconds(active_agent_check_n_seconds)),
-  min_agent_altitude_to_be_active_(min_agent_altitude_to_be_active)
+  min_agent_altitude_to_be_active_(min_agent_altitude_to_be_active),
+  time_till_agent_not_valid_(rclcpp::Duration::from_seconds(time_till_agent_not_valid))
 {
   rclcpp::Time default_time(0, 0, RCL_ROS_TIME);
   time_of_last_call_.resize(max_number_agents_, default_time);

@@ -66,7 +66,7 @@ struct ClusterPoint
 class MissionManager
 {
   public:
-    MissionManager(int max_number_agents, double active_agent_check_n_seconds, double min_agent_altitude_to_be_active_);
+    MissionManager(int max_number_agents, double active_agent_check_n_seconds, double min_agent_altitude_to_be_active, double time_till_agent_not_valid);
 
     std::vector<airstack_msgs::msg::TaskAssignment> assign_tasks(rclcpp::Logger logger,
                                                                 const airstack_msgs::msg::SearchMissionRequest &plan_request,
@@ -81,6 +81,7 @@ class MissionManager
     int max_number_agents_;
     rclcpp::Duration active_agent_check_n_seconds_;
     double min_agent_altitude_to_be_active_;
+    rclcpp::Duration time_till_agent_not_valid_;
     std::vector<rclcpp::Time> time_of_last_call_;
     rclcpp::Time time_of_last_check_;
     std::vector<double> agent_altitudes_;

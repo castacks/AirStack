@@ -9,6 +9,7 @@
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
+// #include "airstack_common/ros2_helper.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -45,17 +46,21 @@ class MissionManagerNode : public rclcpp::Node
     {
       double min_agent_altitude_to_be_active;
       int active_agent_check_n_seconds;
+      double time_till_agent_not_valid;
       
+      // grid_cell_size_ = airstack::get_param(this, "grid_cell_size", 10.0);
       this->declare_parameter("grid_cell_size", 10.0);
       this->declare_parameter("visualize_search_allocation", false);
       this->declare_parameter("max_number_agents", 5);
       this->declare_parameter("active_agent_check_n_seconds", 5.0);
       this->declare_parameter("min_agent_altitude_to_be_active", 2.0);
+      this->declare_parameter("time_till_agent_not_valid", 10.0);
       this->get_parameter("grid_cell_size", grid_cell_size_);
       this->get_parameter("visualize_search_allocation", visualize_search_allocation_);
       this->get_parameter("max_number_agents", max_number_agents_);
       this->get_parameter("active_agent_check_n_seconds", active_agent_check_n_seconds);
       this->get_parameter("min_agent_altitude_to_be_active", min_agent_altitude_to_be_active);
+      this->get_parameter("time_till_agent_not_valid", time_till_agent_not_valid);
       
       
       mission_subscriber_ = this->create_subscription<airstack_msgs::msg::SearchMissionRequest>(
@@ -85,7 +90,7 @@ class MissionManagerNode : public rclcpp::Node
       belief_map_sub_ = this->create_subscription<airstack_msgs::msg::BeliefMapData>(
         "belief_map_updates", 1, std::bind(&MissionManagerNode::belief_map_callback, this, std::placeholders::_1));
 
-      mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_, active_agent_check_n_seconds, min_agent_altitude_to_be_active);
+      mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_, active_agent_check_n_seconds, min_agent_altitude_to_be_active, time_till_agent_not_valid);
 
       // TODO: set param for rate, make sure not communicated over network
       search_map_publisher_ = this->create_publisher<grid_map_msgs::msg::GridMap>(
