@@ -165,7 +165,7 @@ class MissionManagerNode : public rclcpp::Node
     void agent_odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg, const uint8_t &robot_id)
     {
       RCLCPP_INFO(this->get_logger(), "Received agent odom for robot %d", robot_id);
-      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, msg->pose.pose.position.z, this->now()))
+      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, msg->pose.pose, this->now()))
       {
         this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
       }

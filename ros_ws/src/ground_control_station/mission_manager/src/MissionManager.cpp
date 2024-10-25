@@ -13,16 +13,16 @@ MissionManager::MissionManager(int max_number_agents, double active_agent_check_
   rclcpp::Time default_time(0, 0, RCL_ROS_TIME);
   time_of_last_call_.resize(max_number_agents_, default_time);
   time_of_last_check_ = default_time;
-  agent_altitudes_.resize(max_number_agents_, 0.0);
+  agent_poses_.resize(max_number_agents_);
   valid_agents_.resize(max_number_agents_, false);
 }
 
-bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, double robot_alt, rclcpp::Time current_time)
+bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, geometry_msgs::msg::Pose robot_pose, rclcpp::Time current_time)
 {
   RCLCPP_INFO(logger, "Checking agent changes");
 
   time_of_last_call_[robot_id] = current_time;
-  agent_altitudes_[robot_id] = robot_alt;
+  agent_poses_[robot_id] = robot_pose;
 
   // Only check at the specified number of loops
   if (time_of_last_check_ - current_time < active_agent_check_n_seconds_)
@@ -38,7 +38,7 @@ bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id
   for (uint8_t i = 0; i < max_number_agents_; i++)
   {
     if (current_time - time_of_last_call_[i] < time_till_agent_not_valid &&
-        agent_altitudes_[i] > min_agent_altitude_to_be_active_)
+        agent_poses_[i].position.z > min_agent_altitude_to_be_active_)
     {
       curr_valid_agents[i] = true;
     }
@@ -362,6 +362,9 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   {
     task_assignments[i].assigned_task_type = airstack_msgs::msg::TaskAssignment::SEARCH;
     task_assignments[i].assigned_task_number = i;
+    task_assignments[i].plan_request.start_pose = agent_poses_[i];
+
+
     grid_map::Polygon search_prior_polygon;
     search_prior_polygon.setFrameId(this->belief_map_.map_.getFrameId());
     for(std::vector<double> coord : cluster_bounds[i])
