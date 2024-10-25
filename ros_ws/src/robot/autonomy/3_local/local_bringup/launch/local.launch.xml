@@ -1,14 +1,14 @@
 <!-- LOCAL -->
 <launch>
     <!-- Basic Planners -->
-    <node name="fixed_trajectory_generator" pkg="trajectory_library"
+    <node pkg="trajectory_library"
         namespace="fixed_trajectory_generator" exec="fixed_trajectory_generator.py" output="screen">
         <remap from="trajectory_override"
             to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
     </node>
 
     <!-- customize takeoff_landing_planner.launch.xml -->
-    <node name="takeoff_landing_planner" pkg="takeoff_landing_planner"
+    <node pkg="takeoff_landing_planner"
         namespace="takeoff_landing_planner"
         exec="takeoff_landing_planner" output="screen">
         <param name="takeoff_height" value="0.5" />
@@ -37,12 +37,14 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node name="local_planner" pkg="droan_local_planner" exec="droan_local_planner"
+        <node pkg="droan_local_planner" exec="droan_local_planner"
             args="--log-level DEBUG">
-            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml" allow_substs="true"/>
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
+                allow_substs="true" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
-            <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+            <remap from="tracking_point"
+                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
             <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
         </node>
         <!-- DROAN local model -->
@@ -57,7 +59,7 @@
 
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
-    <node name="trajectory_controller" pkg="trajectory_controller" exec="trajectory_controller"
+    <node pkg="trajectory_controller" exec="trajectory_controller"
         namespace="trajectory_controller"
         output="screen">
         <param name="tf_prefix" value="" />

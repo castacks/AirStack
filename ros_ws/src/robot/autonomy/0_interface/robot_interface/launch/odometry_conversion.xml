@@ -1,6 +1,6 @@
 <launch>
 
-  <node name="odometry_conversion" pkg="airstack_common" exec="odometry_conversion" output="screen">
+  <node pkg="airstack_common" exec="odometry_conversion" output="screen">
     <remap from="odometry_in" to="odometry_in" />
     <remap from="odometry_out" to="odometry_out" />
 

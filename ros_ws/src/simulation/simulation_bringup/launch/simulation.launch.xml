@@ -5,7 +5,7 @@
 
     <!-- tf relay so that /[ROBOT_NAME]/tf becomes /tf, and frame names get prefixed instead, e.g.
     robot_1/base_link -->
-    <node name="tf_relay" pkg="tf_relay" exec="main.py" output="screen">
+    <node pkg="tf_relay" exec="main.py" output="screen">
         <!-- TODO: -->
     </node>
 
