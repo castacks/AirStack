@@ -10,6 +10,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "airstack_msgs/msg/search_mission_request.hpp"
 #include "airstack_msgs/msg/task_assignment.hpp"
@@ -40,12 +41,21 @@ class MissionManagerNode : public rclcpp::Node
 {
   public:
     MissionManagerNode()
-    : Node("mission_manager"), count_(0)
+    : Node("mission_manager")
     {
+      double min_agent_altitude_to_be_active;
+      int active_agent_check_n_seconds;
+      
       this->declare_parameter("grid_cell_size", 10.0);
       this->declare_parameter("visualize_search_allocation", false);
+      this->declare_parameter("max_number_agents", 5);
+      this->declare_parameter("active_agent_check_n_seconds", 5.0);
+      this->declare_parameter("min_agent_altitude_to_be_active", 2.0);
       this->get_parameter("grid_cell_size", grid_cell_size_);
       this->get_parameter("visualize_search_allocation", visualize_search_allocation_);
+      this->get_parameter("max_number_agents", max_number_agents_);
+      this->get_parameter("active_agent_check_n_seconds", active_agent_check_n_seconds);
+      this->get_parameter("min_agent_altitude_to_be_active", min_agent_altitude_to_be_active);
       
       
       mission_subscriber_ = this->create_subscription<airstack_msgs::msg::SearchMissionRequest>(
@@ -56,15 +66,13 @@ class MissionManagerNode : public rclcpp::Node
       {
         std::string topic_name = "agent_" + std::to_string(i) + "/odom";
         agent_odoms_subs_.push_back(
-                this->create_subscription<std_msgs::msg::String>(
+                this->create_subscription<nav_msgs::msg::Odometry>(
                     topic_name, 1,
-                    [this, i](const std_msgs::msg::String::SharedPtr msg) {
+                    [this, i](const nav_msgs::msg::Odometry::SharedPtr msg) {
                         this->agent_odom_callback(msg, i);
                     }
                 )
             );
-        
-        
         
         std::string agent_topic = "agent_" + std::to_string(i) + "/plan_request";
         plan_request_pubs_.push_back(
@@ -77,7 +85,7 @@ class MissionManagerNode : public rclcpp::Node
       belief_map_sub_ = this->create_subscription<airstack_msgs::msg::BeliefMapData>(
         "belief_map_updates", 1, std::bind(&MissionManagerNode::belief_map_callback, this, std::placeholders::_1));
 
-      mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_);
+      mission_manager_ = std::make_shared<MissionManager>(this->max_number_agents_, active_agent_check_n_seconds, min_agent_altitude_to_be_active);
 
       // TODO: set param for rate, make sure not communicated over network
       search_map_publisher_ = this->create_publisher<grid_map_msgs::msg::GridMap>(
@@ -100,17 +108,16 @@ class MissionManagerNode : public rclcpp::Node
     // Subscribers
     rclcpp::Subscription<airstack_msgs::msg::SearchMissionRequest>::SharedPtr mission_subscriber_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr tracked_targets_sub_;
-    std::vector<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr> agent_odoms_subs_;
+    std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> agent_odoms_subs_;
     rclcpp::Subscription<airstack_msgs::msg::BeliefMapData>::SharedPtr belief_map_sub_;
 
 
     /* --- MEMBER ATTRIBUTES --- */
 
-    size_t count_;
     rclcpp::TimerBase::SharedPtr timer_;
     double grid_cell_size_;
     bool visualize_search_allocation_;
-    int max_number_agents_ = 5; // TODO: get from param server
+    int max_number_agents_; // TODO: get from param server
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
 
@@ -150,10 +157,10 @@ class MissionManagerNode : public rclcpp::Node
       this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
     }
 
-    void agent_odom_callback(const std_msgs::msg::String::SharedPtr msg, const uint8_t &robot_id)
+    void agent_odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg, const uint8_t &robot_id)
     {
-      RCLCPP_INFO(this->get_logger(), "Received agent odom '%s'", msg->data.c_str());
-      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, this->now()))
+      RCLCPP_INFO(this->get_logger(), "Received agent odom for robot %d", robot_id);
+      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, msg->pose.pose.position.z, this->now()))
       {
         this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
       }

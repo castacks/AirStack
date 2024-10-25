@@ -4,20 +4,31 @@
 /*
 Empty Constructor
 */
-MissionManager::MissionManager(int max_number_agents) : max_number_agents_(max_number_agents)
+MissionManager::MissionManager(int max_number_agents, double active_agent_check_n_seconds, double min_agent_altitude_to_be_active) : 
+  max_number_agents_(max_number_agents),
+  active_agent_check_n_seconds_(rclcpp::Duration::from_seconds(active_agent_check_n_seconds)),
+  min_agent_altitude_to_be_active_(min_agent_altitude_to_be_active)
 {
   rclcpp::Time default_time(0, 0, RCL_ROS_TIME);
   time_of_last_call_.resize(max_number_agents_, default_time);
+  time_of_last_check_ = default_time;
+  agent_altitudes_.resize(max_number_agents_, 0.0);
   valid_agents_.resize(max_number_agents_, false);
 }
 
-bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, rclcpp::Time current_time)
+bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, double robot_alt, rclcpp::Time current_time)
 {
   RCLCPP_INFO(logger, "Checking agent changes");
 
   time_of_last_call_[robot_id] = current_time;
+  agent_altitudes_[robot_id] = robot_alt;
 
-  // TODO this logic does not need to happen every time an odom is received
+  // Only check at the specified number of loops
+  if (time_of_last_check_ - current_time < active_agent_check_n_seconds_)
+  {
+    return false;
+  }
+  time_of_last_check_ = current_time;
 
   // Check how many agents have reported in the last x seconds
   // If change in the agents reporting, reassign tasks
@@ -25,7 +36,8 @@ bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id
   rclcpp::Duration time_till_agent_not_valid = rclcpp::Duration::from_seconds(10.0);
   for (uint8_t i = 0; i < max_number_agents_; i++)
   {
-    if (current_time - time_of_last_call_[i] < time_till_agent_not_valid)
+    if (current_time - time_of_last_call_[i] < time_till_agent_not_valid &&
+        agent_altitudes_[i] > min_agent_altitude_to_be_active_)
     {
       curr_valid_agents[i] = true;
     }

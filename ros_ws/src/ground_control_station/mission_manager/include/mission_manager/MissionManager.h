@@ -66,20 +66,24 @@ struct ClusterPoint
 class MissionManager
 {
   public:
-    MissionManager(int max_number_agents);
+    MissionManager(int max_number_agents, double active_agent_check_n_seconds, double min_agent_altitude_to_be_active_);
 
     std::vector<airstack_msgs::msg::TaskAssignment> assign_tasks(rclcpp::Logger logger,
                                                                 const airstack_msgs::msg::SearchMissionRequest &plan_request,
                                                                 rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub,
                                                                 bool visualize_search_allocation);
-    bool check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, rclcpp::Time current_time);
+    bool check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, double robot_alt, rclcpp::Time current_time);
     bool check_target_changes(rclcpp::Logger logger, std::string target_list, rclcpp::Time current_time);
     std::vector<bool> get_valid_agents() const { return valid_agents_; }
     BeliefMap belief_map_; // TODO make private
 
   private: 
     int max_number_agents_;
+    rclcpp::Duration active_agent_check_n_seconds_;
+    double min_agent_altitude_to_be_active_;
     std::vector<rclcpp::Time> time_of_last_call_;
+    rclcpp::Time time_of_last_check_;
+    std::vector<double> agent_altitudes_;
     std::vector<bool> valid_agents_;
 
     //search map allocation
