@@ -61,11 +61,11 @@ bool MissionManager::check_target_changes(rclcpp::Logger logger, std::string tar
   return false;
 }
 
-std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &plan_request, std::vector<Point> &CGAL_bounds) const
+std::vector<std::vector<double>> MissionManager::calculate_cluster_centroids(rclcpp::Logger logger, int num_agents, const airstack_msgs::msg::SearchMissionRequest &search_mission_request, std::vector<Point> &CGAL_bounds) const
 {
   std::random_device dev;
   std::mt19937 rng(dev());
-  for(auto& point : plan_request.search_bounds.points)
+  for(auto& point : search_mission_request.search_bounds.points)
   {
     // add to vector of bounds
     CGAL_bounds.push_back(Point(point.x, point.y));
@@ -228,7 +228,7 @@ std::vector<std::vector<ClusterPoint>> MissionManager::calculate_clusters(rclcpp
       }
       //set cluster as full so we don't redo this procedure till another cluster is full
       cluster_full[point.cluster] = true;
-      RCLCPP_INFO_STREAM(logger, "Cluster " << point.cluster << " full");
+      // RCLCPP_INFO_STREAM(logger, "Cluster " << point.cluster << " full");
     }
     // RCLCPP_INFO_STREAM(logger, cluster_pq.size());
     if(cluster_pq.empty())
@@ -315,13 +315,13 @@ std::vector<std::vector<std::vector<double>>> MissionManager::calculate_cluster_
 
 std::vector<std::vector<std::vector<double>>> MissionManager::allocate_search_map(rclcpp::Logger logger,
                                                                       int number_of_search_tasks,
-                                                                      const airstack_msgs::msg::SearchMissionRequest &plan_request,
+                                                                      const airstack_msgs::msg::SearchMissionRequest &search_mission_request,
                                                                       std::vector<std::vector<double>> &cluster_centroids,
                                                                       std::vector<std::vector<ClusterPoint>> &clusters)
 {
   std::vector<Point> CGAL_bounds;
   //calculate random centroids
-  cluster_centroids = calculate_cluster_centroids(logger, number_of_search_tasks, plan_request, CGAL_bounds);
+  cluster_centroids = calculate_cluster_centroids(logger, number_of_search_tasks, search_mission_request, CGAL_bounds);
   //calculate the clusters
   clusters = calculate_clusters(logger, number_of_search_tasks, cluster_centroids, CGAL_bounds);
   //calculate boundaries of clusters formed
@@ -330,39 +330,59 @@ std::vector<std::vector<std::vector<double>>> MissionManager::allocate_search_ma
 
 std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   rclcpp::Logger logger,
-  const airstack_msgs::msg::SearchMissionRequest &plan_request,
+  const airstack_msgs::msg::SearchMissionRequest &search_mission_request,
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub,
-  bool visualize_search_allocation)
+  bool visualize_search_allocation,
+  double max_planning_time,
+  double budget,
+  double desired_speed)
 {
   RCLCPP_INFO(logger, "Assigning tasks to drones");
 
   // Find how many active robots
-  // int num_agents = std::accumulate(valid_agents_.begin(), valid_agents_.end(), 0);
-  int num_agents = 3; //MAGIC NUMBER. TODO:UPDATE FOR LINE ABOVE WHEN REST OF SYSTEM COMPLETE
+  // int num_active_agents = std::accumulate(valid_agents_.begin(), valid_agents_.end(), 0);
+  int num_active_agents = 3; //MAGIC NUMBER. TODO: UPDATE FOR LINE ABOVE WHEN REST OF SYSTEM COMPLETE
 
   // Decide how many search vs track tasks to assign
   int number_of_track_tasks = 0; // TODO
-  int number_of_search_tasks = std::max(num_agents - number_of_track_tasks, 0);
+  int number_of_search_tasks = std::max(num_active_agents - number_of_track_tasks, 0);
   RCLCPP_INFO_STREAM(logger, "Assigning " << number_of_search_tasks << " search tasks and " << number_of_track_tasks << " track tasks");
   if (number_of_search_tasks > 3)
   {
     RCLCPP_ERROR(logger, "Too many search tasks requested for the current implementation");
     return {};
   }
+  if (number_of_search_tasks == 0)
+  {
+    RCLCPP_WARN(logger, "No activate agents available for search tasks");
+    return {};
+  }
 
   // Send out the request for the search map division
   std::vector<std::vector<double>> cluster_centroids;
   std::vector<std::vector<ClusterPoint>> clusters;
-  std::vector<std::vector<std::vector<double>>> cluster_bounds = allocate_search_map(logger, number_of_search_tasks, plan_request, cluster_centroids, clusters);
+  std::vector<std::vector<std::vector<double>>> cluster_bounds = allocate_search_map(logger, number_of_search_tasks, search_mission_request, cluster_centroids, clusters);
   
   //convert to task assignment
-  std::vector<airstack_msgs::msg::TaskAssignment> task_assignments(num_agents);
+  std::vector<airstack_msgs::msg::TaskAssignment> task_assignments(max_number_agents_);
   // TODO: should allocate both search and track. Right now assumes all search tasks
-  for(int i = 0; i < num_agents; ++i)
+  for(int i = 0; i < max_number_agents_; ++i)
   {
+    if (!valid_agents_[i])
+    {
+      continue;
+    }
     task_assignments[i].assigned_task_type = airstack_msgs::msg::TaskAssignment::SEARCH;
     task_assignments[i].assigned_task_number = i;
     task_assignments[i].plan_request.start_pose = agent_poses_[i];
+    task_assignments[i].plan_request.max_planning_time = max_planning_time;
+    task_assignments[i].plan_request.maximum_range = budget;
+
+    task_assignments[i].plan_request.desired_speed = desired_speed;
+    task_assignments[i].plan_request.search_bounds = search_mission_request.search_bounds;
+
+    task_assignments[i].plan_request.clear_tree = true;
+    task_assignments[i].plan_request.scenario = scenario_coutner_;
 
 
     grid_map::Polygon search_prior_polygon;
@@ -401,7 +421,9 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   //publish visualizations for search request
   if (visualize_search_allocation)
   {
-    pub->publish(visualize_multi_agent_search_request(num_agents, cluster_centroids, clusters, cluster_bounds));
+    pub->publish(visualize_multi_agent_search_request(num_active_agents, cluster_centroids, clusters, cluster_bounds));
   }
+
+  scenario_coutner_++;
   return task_assignments;
 }

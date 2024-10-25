@@ -45,7 +45,7 @@ class MissionManagerNode : public rclcpp::Node
     : Node("mission_manager")
     {
       double min_agent_altitude_to_be_active;
-      int active_agent_check_n_seconds;
+      double active_agent_check_n_seconds;
       double time_till_agent_not_valid;
       
       // grid_cell_size_ = airstack::get_param(this, "grid_cell_size", 10.0);
@@ -55,13 +55,18 @@ class MissionManagerNode : public rclcpp::Node
       this->declare_parameter("active_agent_check_n_seconds", 5.0);
       this->declare_parameter("min_agent_altitude_to_be_active", 2.0);
       this->declare_parameter("time_till_agent_not_valid", 10.0);
+      this->declare_parameter("max_planning_time", 5.0);
+      this->declare_parameter("budget", 100.0);
+      this->declare_parameter("desired_speed", 4.0);
       this->get_parameter("grid_cell_size", grid_cell_size_);
       this->get_parameter("visualize_search_allocation", visualize_search_allocation_);
       this->get_parameter("max_number_agents", max_number_agents_);
       this->get_parameter("active_agent_check_n_seconds", active_agent_check_n_seconds);
       this->get_parameter("min_agent_altitude_to_be_active", min_agent_altitude_to_be_active);
       this->get_parameter("time_till_agent_not_valid", time_till_agent_not_valid);
-      
+      this->get_parameter("max_planning_time", max_planning_time_);
+      this->get_parameter("budget", budget_);
+      this->get_parameter("desired_speed", desired_speed_);
       
       mission_subscriber_ = this->create_subscription<airstack_msgs::msg::SearchMissionRequest>(
         "search_mission_request", 1, std::bind(&MissionManagerNode::search_mission_request_callback, this, std::placeholders::_1));
@@ -125,6 +130,9 @@ class MissionManagerNode : public rclcpp::Node
     int max_number_agents_; // TODO: get from param server
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
+    double max_planning_time_;
+    double budget_;
+    double desired_speed_;
 
     void publish_tasks(std::vector<airstack_msgs::msg::TaskAssignment> tasks) const
     {
@@ -134,6 +142,7 @@ class MissionManagerNode : public rclcpp::Node
         if (valid_agents[i])
         {
           plan_request_pubs_[i]->publish(tasks[i]);
+          RCLCPP_INFO(this->get_logger(), "Published task assignment for agent %d", i);
         }
       }
     }
@@ -159,7 +168,10 @@ class MissionManagerNode : public rclcpp::Node
 
       // TODO: visualize the seach mission request
       this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg, grid_cell_size_);
-      this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
+      this->publish_tasks(this->mission_manager_->assign_tasks(
+          this->get_logger(), latest_search_mission_request_,
+          viz_pub_, visualize_search_allocation_,
+          max_planning_time_, budget_, desired_speed_));
     }
 
     void agent_odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg, const uint8_t &robot_id)
@@ -167,7 +179,10 @@ class MissionManagerNode : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Received agent odom for robot %d", robot_id);
       if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, msg->pose.pose, this->now()))
       {
-        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
+        this->publish_tasks(this->mission_manager_->assign_tasks(
+          this->get_logger(), latest_search_mission_request_,
+          viz_pub_, visualize_search_allocation_,
+          max_planning_time_, budget_, desired_speed_));
       }
     }
 
@@ -179,7 +194,10 @@ class MissionManagerNode : public rclcpp::Node
       // Check if change in the number of targets or id numbers
       if (this->mission_manager_->check_target_changes(this->get_logger(), msg->data, this->now()))
       {
-        this->publish_tasks(this->mission_manager_->assign_tasks(this->get_logger(), latest_search_mission_request_, viz_pub_, visualize_search_allocation_));
+        this->publish_tasks(this->mission_manager_->assign_tasks(
+          this->get_logger(), latest_search_mission_request_,
+          viz_pub_, visualize_search_allocation_,
+          max_planning_time_, budget_, desired_speed_));
       }
     }
 
