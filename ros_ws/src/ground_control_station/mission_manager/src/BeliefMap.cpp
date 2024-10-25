@@ -66,11 +66,16 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
       {
         polygon.addVertex(grid_map::Position(point.x, point.y)); // TODO coordinate frame
       }
+      grid_map::Matrix& probability_data = map_["probability"];
+      grid_map::Matrix& priority_data = map_["priority"];
       for (grid_map::PolygonIterator iterator(map_, polygon);
         !iterator.isPastEnd(); ++iterator)
       {
-        float& current_value = map_.at("probability", *iterator);
-        float& current_priority = map_.at("priority", *iterator);
+        // TODO: Check if the cell is in the search boundary (CGAL)? Not necessary I think. 
+        const grid_map::Index index(*iterator);
+        float& current_value = probability_data(index(0), index(1));
+        float& current_priority = priority_data(index(0), index(1));
+
         if (std::isnan(current_value) || (current_value * current_priority) < (search_prior.value[0]*search_prior.priority[0])) {
           current_value = search_prior.value[0];
           current_priority = search_prior.priority[0];
@@ -117,10 +122,12 @@ bool BeliefMap::update_map(rclcpp::Logger logger, const airstack_msgs::msg::Beli
     // map_.at("probability", *iterator) = 1.0;
     const grid_map::Index index(*iterator);
     // always save with the lower value
-    if (new_belief_data->map_values[cur_index_num] < probability_data(index(0), index(1)))
+    // TODO: Check not overwriting the values that are outside of the drone search area
+    if (new_belief_data->map_values[cur_index_num] != 0 && 
+        new_belief_data->map_values[cur_index_num] < probability_data(index(0), index(1)))
     {
       // Scale the value back from 0-UIN16_MAX to 0-1
-      probability_data(index(0), index(1)) = static_cast<float>(new_belief_data->map_values[cur_index_num]) / static_cast<float>(UINT16_MAX); // TODO ensure maps are encoded correctly to match the iterator
+      probability_data(index(0), index(1)) = static_cast<float>(new_belief_data->map_values[cur_index_num]) / static_cast<float>(UINT16_MAX); // TODO: ensure maps are encoded correctly to match the iterator
     }
     cur_index_num++;
   }
