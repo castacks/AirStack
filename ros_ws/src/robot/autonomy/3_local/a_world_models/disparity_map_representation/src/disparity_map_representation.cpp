@@ -1,7 +1,7 @@
 #include <disparity_map_representation/disparity_map_representation.hpp>
 namespace disparity_map_representation {
 DisparityMapRepresentation::DisparityMapRepresentation()
-    : MapRepresentation(), disp_graph(std::make_unique<disparity_graph::DisparityGraph>()) {
+    : MapRepresentation("disparity_map_representation"), disp_graph(std::make_unique<disparity_graph::DisparityGraph>()) {
     points.ns = "obstacles";
     points.id = 0;
     points.type = visualization_msgs::msg::Marker::SPHERE_LIST;

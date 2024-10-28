@@ -40,7 +40,7 @@ class MapRepresentation : public rclcpp::Node {
 
    protected:
     // MapRepresentation() {}
-    MapRepresentation() : Node("map_representation") {}
+    MapRepresentation(const &std::string node_name) : Node(node_name) {}
 };
 
 }  // namespace map_representation_interface
