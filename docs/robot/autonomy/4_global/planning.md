@@ -30,12 +30,13 @@ The best global plan should then be forwarded or remapped to `/$(env ROBOT_NAME)
 ``` mermaid
 sequenceDiagram
   autonumber
-  Some Node->>Global Planner: ~/plan_request (your_planner/PlanRequest.msg)
+  Global Manager->>Global Planner: ~/plan_request (your_planner/PlanRequest.msg)
   loop Planning
-      Global Planner-->>Some Node: heartbeat feedback
+      Global Planner-->>Global Manager: heartbeat feedback
   end
-  Global Planner->>Some Node: ~/global_plan (nav_msgs/Path.msg)
-  Some Node->>Local Planner: /$ROBOT_NAME/global_plan (nav_msgs/Path.msg)
+  Global Planner->>Global Manager: ~/global_plan (nav_msgs/Path.msg)
+  Global Manager->>Local Planner: /$ROBOT_NAME/global_plan_reference (nav_msgs/Path.msg)
+  Local Planner->>Global Manager: /$ROBOT_NAME/global_plan_eta (nav_msgs/Path.msg)
 ```
 
 ### Subscribe: Plan Request
