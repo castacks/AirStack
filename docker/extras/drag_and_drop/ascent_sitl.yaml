@@ -14,8 +14,19 @@ windows:
       - shell_command:
         - sleep 5
         - export ROS_DOMAIN_ID=$DOMAIN_ID
-        - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/interface/mavros
-      - shell_command:
-        - sleep 7
-        - export ROS_DOMAIN_ID=$DOMAIN_ID
-        - ros2 param set $NAMESPACE/interface/mavros/mavros use_sim_time true
+        # - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/interface/mavros --ros-args -p use_sim_time:=true
+        - >
+          ros2 run mavros mavros_node 
+          --ros-args 
+          -r __ns:=/$NAMESPACE/interface/mavros 
+          -p fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" 
+          -p tgt_system:=1 
+          -p tgt_component:=1 
+          -p fcu_protocol:=v2.0
+          --params-file $(ros2 pkg prefix mavros)/share/mavros/launch/apm_pluginlists.yaml
+          --params-file $(ros2 pkg prefix mavros)/share/mavros/launch/apm_config.yaml
+          -p use_sim_time:=true
+      # - shell_command:
+      #   - sleep 7
+      #   - export ROS_DOMAIN_ID=$DOMAIN_ID
+      #   - ros2 param set $NAMESPACE/interface/mavros/mavros use_sim_time true
