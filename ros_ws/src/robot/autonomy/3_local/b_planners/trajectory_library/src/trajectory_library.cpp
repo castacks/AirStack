@@ -88,15 +88,9 @@ std::ostream& operator<<(std::ostream& os, const Waypoint& wp) {
               << " yaw: " << wp.yaw() << " time: " << wp.time();
 }
 
-static int trajectory_class_counter = 0;
 
 Trajectory::Trajectory() {
     generated_waypoint_times = false;
-    // init marker namespace to be unique
-    std::stringstream ss;
-    ss << "trajectory_" << trajectory_class_counter;
-    marker_namespace = ss.str();
-    trajectory_class_counter++;
 }
 
 Trajectory::Trajectory(rclcpp::Node* node_ptr, std::string frame_id) : Trajectory() {
@@ -914,7 +908,7 @@ std::vector<geometry_msgs::msg::PointStamped> Trajectory::get_vector_PointStampe
     return points;
 }
 
-visualization_msgs::msg::MarkerArray Trajectory::get_markers(rclcpp::Time stamp, float r, float g,
+visualization_msgs::msg::MarkerArray Trajectory::get_markers(rclcpp::Time stamp, const std::string& marker_namespace, float r, float g,
                                                              float b, float a, bool show_poses,
                                                              bool show_velocity, float thickness) {
     visualization_msgs::msg::MarkerArray marker_array;

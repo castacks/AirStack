@@ -207,7 +207,7 @@ void TrajectoryControlNode::timer_callback() {
                         sphere_radius)
             .set_color(0.f, 0.f, 1.f, 0.7f);
         trajectory_vis_pub->publish(
-            trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3), 1, 1, 0, 1, false, false, traj_vis_thickness));
+            trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3), "traj_controller", 1, 1, 0, 1, false, false, traj_vis_thickness));
 
         // find closest point on entire trajectory
         Waypoint closest_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -524,7 +524,7 @@ void TrajectoryControlNode::odom_callback(const nav_msgs::msg::Odometry::SharedP
         got_odom = true;
     }
     else {
-        RCLCPP_INFO_STREAM(this->get_logger(), "Failed to transform odometry to target frame " << target_frame);
+        RCLCPP_INFO_STREAM(this->get_logger(), "Failed to transform odometry in frame " << odom->header.frame_id << " to target frame " << target_frame);
     }
 }
 

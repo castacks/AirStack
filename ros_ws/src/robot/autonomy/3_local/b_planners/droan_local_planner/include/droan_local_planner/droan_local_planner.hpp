@@ -153,10 +153,9 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
-
     }
 
-    void initialize(){
+    void initialize() {
         pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
             map_representation_loader("map_representation_interface",
                                       "map_representation_interface::MapRepresentation");
@@ -176,7 +175,6 @@ class DroanLocalPlanner : public rclcpp::Node {
             rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(interval),
                                  std::bind(&DroanLocalPlanner::execute, this));
     }
-
 
     virtual ~DroanLocalPlanner() {}
 
@@ -221,7 +219,7 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // publish the trimmed segment of the global plan currently being used, for visualization
         visualization_msgs::msg::MarkerArray global_markers =
-            global_plan.get_markers(this->now(), 0, 0, 1);
+            global_plan.get_markers(this->now(), "global_plan", 0, 0, 1);
         global_plan_vis_pub->publish(global_markers);
 
         // get the dynamic trajectories
@@ -265,8 +263,8 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         visualization_msgs::msg::MarkerArray traj_lib_marker_arr;
 
-        RCLCPP_INFO_STREAM(this->get_logger(), "Number of trajectories: "
-                                                   << trajectory_candidates.size());
+        RCLCPP_INFO_STREAM(this->get_logger(),
+                           "Number of trajectories: " << trajectory_candidates.size());
 
         for (size_t i = 0; i < trajectory_candidates.size(); ++i) {
             Trajectory traj = trajectory_candidates[i];
@@ -320,18 +318,20 @@ class DroanLocalPlanner : public rclcpp::Node {
                 all_in_collision = false;
             }
 
+            std::string marker_ns = "trajectory_" + std::to_string(i);
+
             visualization_msgs::msg::MarkerArray traj_markers;
             if (collision) {
                 // red for collision
-                traj_markers = traj.get_markers(this->now(), 1, 0, 0, .5, true, false, 10.0);
+                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3, false, false);
             } else {
                 // green for no collision
-                traj_markers = traj.get_markers(this->now(), 0, 1, 0, .5, true, false, 10.0);
+                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5, false, false);
             }
-
             traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.end(),
-                                            traj_markers.markers.begin(),
-                                            traj_markers.markers.end());
+                                               traj_markers.markers.begin(),
+                                               traj_markers.markers.end());
+
             // bigger distance from obstacles makes the cost smaller (more negative). cap by the
             // obstacle check radius
             double cost = avg_distance_from_global_plan -
@@ -374,12 +374,12 @@ class DroanLocalPlanner : public rclcpp::Node {
         double initial_heading = 0;
         try {
             tf2::Stamped<tf2::Transform> transform;
-            tf_buffer_ptr->canTransform(best_traj_msg.header.frame_id, look_ahead_odom.header.frame_id,
-                                   look_ahead_odom.header.stamp,
-                                   rclcpp::Duration::from_seconds(0.1));
+            tf_buffer_ptr->canTransform(
+                best_traj_msg.header.frame_id, look_ahead_odom.header.frame_id,
+                look_ahead_odom.header.stamp, rclcpp::Duration::from_seconds(0.1));
             auto transform_msg = tf_buffer_ptr->lookupTransform(best_traj_msg.header.frame_id,
-                                                           look_ahead_odom.header.frame_id,
-                                                           look_ahead_odom.header.stamp);
+                                                                look_ahead_odom.header.frame_id,
+                                                                look_ahead_odom.header.stamp);
             tf2::fromMsg(transform_msg, transform);
 
             transform.setOrigin(tf2::Vector3(0, 0, 0));  // only care about rotation
@@ -516,8 +516,9 @@ class DroanLocalPlanner : public rclcpp::Node {
         if (is_tracking_point_received) {
             try {
                 tf2::Stamped<tf2::Transform> transform;
-                tf_buffer_ptr->canTransform(tracking_point_odom.header.frame_id, wp->header.frame_id,
-                                       wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
+                tf_buffer_ptr->canTransform(tracking_point_odom.header.frame_id,
+                                            wp->header.frame_id, wp->header.stamp,
+                                            rclcpp::Duration::from_seconds(0.1));
                 auto transform_msg = tf_buffer_ptr->lookupTransform(
                     tracking_point_odom.header.frame_id, wp->header.frame_id, wp->header.stamp);
                 tf2::fromMsg(transform_msg, transform);
@@ -560,9 +561,9 @@ class DroanLocalPlanner : public rclcpp::Node {
         try {
             tf2::Stamped<tf2::Transform> transform;
             tf_buffer_ptr->canTransform(look_ahead_odom.header.frame_id, wp->header.frame_id,
-                                   wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
-            auto transform_msg = tf_buffer_ptr->lookupTransform(look_ahead_odom.header.frame_id,
-                                                           wp->header.frame_id, wp->header.stamp);
+                                        wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
+            auto transform_msg = tf_buffer_ptr->lookupTransform(
+                look_ahead_odom.header.frame_id, wp->header.frame_id, wp->header.stamp);
             tf2::fromMsg(transform_msg, transform);
 
             tf2::Vector3 la_position = tflib::to_tf(look_ahead_odom.pose.position);
@@ -665,5 +666,4 @@ class DroanLocalPlanner : public rclcpp::Node {
                                 "tracking point received with frame id: " << odom->header.frame_id);
         tracking_point_odom = *odom;
     }
-
 };
