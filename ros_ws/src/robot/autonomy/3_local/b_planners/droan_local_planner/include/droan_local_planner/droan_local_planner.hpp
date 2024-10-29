@@ -151,15 +151,9 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->custom_waypoint_distance_threshold =
             this->get_parameter("custom_waypoint_distance_threshold").as_double();
 
+        RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
-        this->traj_lib = std::make_unique<TrajectoryLibrary>(
-            this->get_parameter("trajectory_library_config").as_string(), this);
 
-
-        double interval = 1. / this->execute_rate;
-        this->execute_timer =
-            rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(interval),
-                                 std::bind(&DroanLocalPlanner::execute, this));
     }
 
     void initialize(){
@@ -175,7 +169,12 @@ class DroanLocalPlanner : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(),
                         "The MapRepresentation plugin failed to load. Error: %s", ex.what());
         }
-
+        this->traj_lib = std::make_unique<TrajectoryLibrary>(
+            this->get_parameter("trajectory_library_config").as_string(), node_ptr);
+        double interval = 1. / this->execute_rate;
+        this->execute_timer =
+            rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(interval),
+                                 std::bind(&DroanLocalPlanner::execute, this));
     }
 
 
@@ -264,7 +263,10 @@ class DroanLocalPlanner : public rclcpp::Node {
         auto trajectory_distances_to_closest_obstacle =
             this->get_trajectory_distances_to_closest_obstacle(trajectory_candidates);
 
-        visualization_msgs::msg::MarkerArray traj_lib_markers;
+        visualization_msgs::msg::MarkerArray traj_lib_marker_arr;
+
+        RCLCPP_INFO_STREAM(this->get_logger(), "Number of trajectories: "
+                                                   << trajectory_candidates.size());
 
         for (size_t i = 0; i < trajectory_candidates.size(); ++i) {
             Trajectory traj = trajectory_candidates[i];
@@ -327,7 +329,7 @@ class DroanLocalPlanner : public rclcpp::Node {
                 traj_markers = traj.get_markers(this->now(), 0, 1, 0, .5, true, false, 10.0);
             }
 
-            traj_lib_markers.markers.insert(traj_lib_markers.markers.end(),
+            traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.end(),
                                             traj_markers.markers.begin(),
                                             traj_markers.markers.end());
             // bigger distance from obstacles makes the cost smaller (more negative). cap by the
@@ -341,7 +343,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
         }
 
-        traj_lib_vis_pub->publish(traj_lib_markers);
+        traj_lib_vis_pub->publish(traj_lib_marker_arr);
         map_debug_pub->publish(this->map_representation->get_debug_markerarray());
 
         return all_in_collision;

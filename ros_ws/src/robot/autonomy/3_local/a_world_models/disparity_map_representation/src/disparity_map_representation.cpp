@@ -5,17 +5,22 @@ DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation(), 
     points_marker.id = 0;
     points_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
     points_marker.action = visualization_msgs::msg::Marker::ADD;
-    points_marker.scale.x = 0.1;
-    points_marker.scale.y = 0.1;
-    points_marker.scale.z = 0.1;
+    points_marker.scale.x = 0.03;
+    points_marker.scale.y = 0.03;
+    points_marker.scale.z = 0.03;
 }
 
-void DisparityMapRepresentation::initialize(const rclcpp::Node::SharedPtr& node_ptr, const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
+void DisparityMapRepresentation::initialize(const rclcpp::Node::SharedPtr& node_ptr,
+                                            const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
     RCLCPP_INFO(node_ptr->get_logger(), "DisparityMapRepresentation initialize called");
     MapRepresentation::initialize(node_ptr, tf_buffer_ptr);
-    node_ptr->declare_parameter<int>("obstacle_check_num_points", 5);
+    node_ptr->declare_parameter<int>("obstacle_check_num_points", 69);
     node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
+    RCLCPP_INFO_STREAM(node_ptr->get_logger(),
+                       "obstacle_check_num_points: " << this->obstacle_check_num_points);
     node_ptr->get_parameter("obstacle_check_radius", this->obstacle_check_radius);
+    RCLCPP_INFO_STREAM(node_ptr->get_logger(),
+                       "obstacle_check_radius: " << this->obstacle_check_radius);
     disp_graph.initialize(node_ptr, tf_buffer_ptr);
 }
 
@@ -115,6 +120,10 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                     check_pose.header = trajectories[i][j].header;
                     check_pose.pose.position = trajectories[i][j].point;
                     check_pose.pose.orientation.w = 1.0;
+                    // RCLCPP_INFO_STREAM(node_ptr->get_logger(),
+                    //                    "check_pose: " << check_pose.pose.position.x << " "
+                    //                                   << check_pose.pose.position.y << " "
+                    //                                   << check_pose.pose.position.z);
 
                     double occupancy;
                     bool collision =
@@ -124,8 +133,11 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                     if (collision) {
                         closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
                         c = red;
-                    } else
+                        // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "collision");
+                    } else {
                         c = green;
+                        // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "no collision");
+                    }
 
                     points_marker.points.push_back(check_pose.pose.position);
                     points_marker.colors.push_back(c);

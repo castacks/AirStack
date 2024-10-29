@@ -99,28 +99,27 @@ Trajectory::Trajectory() {
     trajectory_class_counter++;
 }
 
-Trajectory::Trajectory(rclcpp::Node* node, std::string frame_id) : Trajectory() {
+Trajectory::Trajectory(rclcpp::Node* node_ptr, std::string frame_id) : Trajectory() {
     if (buffer == NULL) {
-        buffer = new tf2_ros::Buffer(node->get_clock());
+        buffer = new tf2_ros::Buffer(node_ptr->get_clock());
         listener = new tf2_ros::TransformListener(*buffer);
     }
 
     this->frame_id = frame_id;
 }
 
-
 /**
  * @brief Construct a new Trajectory:: Trajectory object
- * Converts a nav_msgs::Path to a Trajectory object. 
+ * Converts a nav_msgs::Path to a Trajectory object.
  * Only the position of each waypoint is used.
  * The velocity of each waypoint is set to 0.
  * TODO: add a time component to the trajectory?
- * 
- * @param node 
- * @param path 
+ *
+ * @param node_ptr
+ * @param path
  */
-Trajectory::Trajectory(rclcpp::Node* node, nav_msgs::msg::Path path)
-    : Trajectory(node, path.header.frame_id) {
+Trajectory::Trajectory(rclcpp::Node* node_ptr, nav_msgs::msg::Path path)
+    : Trajectory(node_ptr, path.header.frame_id) {
     this->stamp = path.header.stamp;
 
     // remove consecutive waypoints
@@ -146,8 +145,8 @@ Trajectory::Trajectory(rclcpp::Node* node, nav_msgs::msg::Path path)
     }
 }
 
-Trajectory::Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw path)
-    : Trajectory(node, path.header.frame_id)
+Trajectory::Trajectory(rclcpp::Node* node_ptr, airstack_msgs::msg::TrajectoryXYZVYaw path)
+    : Trajectory(node_ptr, path.header.frame_id)
 
 {
     this->stamp = path.header.stamp;
@@ -218,8 +217,9 @@ void Trajectory::clear() {
 }
 
 /**
- * @brief Uses each waypoint's position and velocity to generate the expected time to reach each waypoint.
- * 
+ * @brief Uses each waypoint's position and velocity to generate the expected time to reach each
+ * waypoint.
+ *
  */
 void Trajectory::generate_waypoint_times() {
     if (generated_waypoint_times) return;
@@ -596,13 +596,14 @@ double Trajectory::get_duration() {
 }
 
 /**
- * @brief Get the expected odometry at a given time. Performs interpolation if the time is between waypoints.
- * 
- * @param time 
- * @param odom 
- * @param stamp 
- * @return true 
- * @return false 
+ * @brief Get the expected odometry at a given time. Performs interpolation if the time is between
+ * waypoints.
+ *
+ * @param time
+ * @param odom
+ * @param stamp
+ * @return true
+ * @return false
  */
 bool Trajectory::get_odom(double time, airstack_msgs::msg::Odometry* odom, rclcpp::Time stamp) {
     generate_waypoint_times();
@@ -750,10 +751,10 @@ Trajectory Trajectory::shorten(double new_length){
 
 /**
  * @brief Trim a subtrajectory between a start distance and end distance
- * 
- * @param start 
- * @param end 
- * @return Trajectory 
+ *
+ * @param start
+ * @param end
+ * @return Trajectory
  */
 Trajectory Trajectory::get_subtrajectory_distance(double start, double end) {
     Trajectory traj;
@@ -763,7 +764,8 @@ Trajectory Trajectory::get_subtrajectory_distance(double start, double end) {
     if (this->waypoints.size() > 0) {
         double distance = 0;
 
-        if (start == 0. && this->waypoints.size() == 1) traj.waypoints.push_back(this->waypoints[0]);
+        if (start == 0. && this->waypoints.size() == 1)
+            traj.waypoints.push_back(this->waypoints[0]);
 
         for (size_t i = 1; i < this->waypoints.size(); i++) {
             Waypoint prev_wp = this->waypoints[i - 1];
@@ -1193,23 +1195,30 @@ airstack_msgs::msg::TrajectoryXYZVYaw CurveTrajectory::get_trajectory() { return
 //===================================================================================
 
 TrajectoryLibrary::TrajectoryLibrary(std::string config_filename,
-                                     rclcpp::Node* node) {  // tf2_ros::Buffer* b){
-    // if(buffer == NULL)
-    //   buffer = b;
-    // this->buffer = buffer;
-    // pnh = new ros::NodeHandle("~");
+                                     rclcpp::Node::SharedPtr node_ptr) {  // tf2_ros::Buffer* b){
 
-    this->node = node;
+    RCLCPP_DEBUG(node_ptr->get_logger(), "TrajectoryLibrary constructor");
+    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+                       "Traj Library node_ptr name is: " << node_ptr->get_name());
+    
+    // accelertion trajectory parameters
+    node_ptr->declare_parameter("dt", 69.);
+    node_ptr->declare_parameter("ht", 69.);
+    node_ptr->declare_parameter("ht_long", 69.);
+    node_ptr->declare_parameter("max_velocity", 69.);
+    node_ptr->declare_parameter("magnitude", 69.);
+
+    this->node_ptr = node_ptr;
     if (buffer == NULL) {
-        buffer = new tf2_ros::Buffer(node->get_clock());
+        buffer = new tf2_ros::Buffer(node_ptr->get_clock());
         listener = new tf2_ros::TransformListener(*buffer);
     }
 
-    YAML::Node config = YAML::LoadFile(config_filename);
+    YAML::Node yaml_config = YAML::LoadFile(config_filename);
 
-    YAML::Node trajectories = config["trajectories"];
-    for (size_t i = 0; i < trajectories.size(); i++) {
-        YAML::Node traj_node = trajectories[i];
+    YAML::Node trajectories_yaml = yaml_config["trajectories"];
+    for (size_t i = 0; i < trajectories_yaml.size(); i++) {
+        YAML::Node traj_node = trajectories_yaml[i];
         std::string type = parse<std::string>(traj_node["type"]);
 
         if (type == "curve") {
@@ -1268,13 +1277,19 @@ TrajectoryLibrary::TrajectoryLibrary(std::string config_filename,
             dynamic_trajectories.push_back(traj);
         }
     }
+    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "dt: " << node_ptr->get_parameter("dt").as_double());
+    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "ht: " << node_ptr->get_parameter("ht").as_double());
+    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "ht_long: " << node_ptr->get_parameter("ht_long").as_double());
+    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "max_velocity: " << node_ptr->get_parameter("max_velocity").as_double());
+    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "magnitude: " << node_ptr->get_parameter("magnitude").as_double());
+
 }
 
 std::vector<Trajectory> TrajectoryLibrary::get_static_trajectories() {
     std::vector<Trajectory> trajectories;
 
     for (size_t i = 0; i < static_trajectories.size(); i++) {
-        trajectories.push_back(Trajectory(node, static_trajectories[i]->get_trajectory()));
+        trajectories.push_back(Trajectory(node_ptr.get(), static_trajectories[i]->get_trajectory()));
     }
 
     return trajectories;
@@ -1286,7 +1301,7 @@ std::vector<Trajectory> TrajectoryLibrary::get_dynamic_trajectories(
 
     for (size_t i = 0; i < dynamic_trajectories.size(); i++) {
         airstack_msgs::msg::TrajectoryXYZVYaw path = dynamic_trajectories[i]->get_trajectory(odom);
-        if (path.waypoints.size() > 0) trajectories.push_back(Trajectory(node, path));
+        if (path.waypoints.size() > 0) trajectories.push_back(Trajectory(node_ptr.get(), path));
     }
 
     return trajectories;

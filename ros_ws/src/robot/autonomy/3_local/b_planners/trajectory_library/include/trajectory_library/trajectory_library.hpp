@@ -14,13 +14,13 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 // #include <tf/transform_datatypes.h>
 // #include <tf/transform_listener.h>
-#include <nav_msgs/msg/path.hpp>
 #include <yaml-cpp/yaml.h>
 
 #include <airstack_common/ros2_helper.hpp>
 #include <airstack_common/tflib.hpp>
 #include <algorithm>
 #include <cctype>
+#include <nav_msgs/msg/path.hpp>
 #include <sstream>
 
 class Trajectory;
@@ -83,9 +83,9 @@ class Trajectory {
 
    public:
     Trajectory();
-    Trajectory(rclcpp::Node* node, std::string frame_id);
-    Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw path);
-    Trajectory(rclcpp::Node* node, nav_msgs::msg::Path path);
+    Trajectory(rclcpp::Node* node_ptr, std::string frame_id);
+    Trajectory(rclcpp::Node* node_ptr, airstack_msgs::msg::TrajectoryXYZVYaw path);
+    Trajectory(rclcpp::Node* node_ptr, nav_msgs::msg::Path path);
     // Trajectory(airstack_msgs::msg::TrajectoryXYZVYaw path);
 
     void clear();
@@ -205,11 +205,18 @@ class TrajectoryLibrary {
    private:
     std::vector<StaticTrajectory*> static_trajectories;
     std::vector<DynamicTrajectory*> dynamic_trajectories;
-    // tf2_ros::Buffer* buffer;
-    rclcpp::Node* node;
+    rclcpp::Node::SharedPtr node_ptr;
 
-    // ros::NodeHandle* pnh;
+   public:
+    TrajectoryLibrary(std::string config_filename,
+                      rclcpp::Node::SharedPtr node_ptr);  // tf2_ros::Buffer*
 
+    std::vector<Trajectory> get_static_trajectories();
+    std::vector<Trajectory> get_dynamic_trajectories(airstack_msgs::msg::Odometry odom);
+    visualization_msgs::msg::MarkerArray get_markers(
+        std::vector<airstack_msgs::msg::TrajectoryXYZVYaw> trajectories);
+
+   private:
     std::string trim(std::string str) {
         int trim_start = 0;
         int trim_end = 0;
@@ -237,10 +244,10 @@ class TrajectoryLibrary {
     std::string get_string(std::string t) { return t; }
 
     template <typename T>
-    T parse(YAML::Node node) {
+    T parse(YAML::Node yamlnode) {
         // std::cout << "trim test |" << trim("  asdjfaksfdj   jdfkj jakdsf  ") << "|" << std::endl;
 
-        std::string str = node.as<std::string>();
+        std::string str = yamlnode.as<std::string>();
         std::size_t start;
 
         std::string param_label = "$(param";
@@ -250,26 +257,26 @@ class TrajectoryLibrary {
             std::size_t end = str.find(")");
             // std::cout << start << " " << end << std::endl;
             if (end == std::string::npos) {
-                std::cout << "TRAJECTORY LIBRARY PARSING ERROR: No closing parenthesis for $(param";
+                RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "TRAJECTORY LIBRARY PARSING ERROR: No closing parenthesis for $(param");
                 break;
             }
 
             std::string parameter_name =
                 trim(str.substr(start + param_label.size(), end - (start + param_label.size())));
-            // std::cout << "parameter_name: |" << parameter_name << "|" << std::endl;
+            RCLCPP_DEBUG(node_ptr->get_logger(), "parameter_name: %s", parameter_name.c_str());
             T parameter_value;
-            bool set;
-            airstack::get_param(this->node, parameter_name, T(), &set);
-            if (!set) {  //! pnh->getParam(parameter_name, parameter_value)){
-                std::cout << "Couldn't find parameter '" << parameter_name
-                          << "'. This is either because it doesn't exist or the type is incorrect "
-                             "in the launch file.";
+            if (!this->node_ptr->get_parameter(parameter_name, parameter_value)) {
+                RCLCPP_INFO(node_ptr->get_logger(),
+                            "Couldn't find parameter '%s'. This is either because it doesn't exist "
+                            "or the type is incorrect in the launch file.",
+                            parameter_name.c_str());
             }
-
-            // std::cout << str << " " << start << " " << end << std::endl;
+            RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "parameter_value: " << parameter_value);
+            std::cout << str << " " << start << " " << end << std::endl;
             str = str.substr(0, start) + get_string(parameter_value) +
                   str.substr(end + 1, str.size() - (end + 1));
-            // std::cout << str << " " << str.find(param_label) << std::endl;
+            std::cout << str << " " << str.find(param_label) << std::endl;
+            RCLCPP_DEBUG(node_ptr->get_logger(), "str: %s", str.c_str());
         }
 
         // std::cout << "final: " << str << std::endl;
@@ -284,15 +291,6 @@ class TrajectoryLibrary {
 
         return n["key"].as<T>();
     }
-
-   public:
-    TrajectoryLibrary(std::string config_filename, rclcpp::Node* node);  // tf2_ros::Buffer*
-                                                                         // buffer);
-
-    std::vector<Trajectory> get_static_trajectories();
-    std::vector<Trajectory> get_dynamic_trajectories(airstack_msgs::msg::Odometry odom);
-    visualization_msgs::msg::MarkerArray get_markers(
-        std::vector<airstack_msgs::msg::TrajectoryXYZVYaw> trajectories);
 };
 
 #endif
