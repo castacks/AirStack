@@ -1,33 +1,30 @@
 #include <disparity_map_representation/disparity_map_representation.hpp>
 namespace disparity_map_representation {
-DisparityMapRepresentation::DisparityMapRepresentation()
-    : MapRepresentation("disparity_map_representation"), disp_graph(std::make_unique<disparity_graph::DisparityGraph>()) {
-    points.ns = "obstacles";
-    points.id = 0;
-    points.type = visualization_msgs::msg::Marker::SPHERE_LIST;
-    points.action = visualization_msgs::msg::Marker::ADD;
-    points.scale.x = 0.1;
-    points.scale.y = 0.1;
-    points.scale.z = 0.1;
+DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation(), disp_graph() {
+    points_marker.ns = "obstacles";
+    points_marker.id = 0;
+    points_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    points_marker.action = visualization_msgs::msg::Marker::ADD;
+    points_marker.scale.x = 0.1;
+    points_marker.scale.y = 0.1;
+    points_marker.scale.z = 0.1;
+}
 
-    // debug_pub = nh->advertise<visualization_msgs::MarkerArray>("disparity_map_debug", 1);
-    debug_pub =
-        this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_map_debug", 1);
-
-    this->declare_parameter<int>("obstacle_check_num_points", 5);
-    this->obstacle_check_num_points = this->get_parameter("obstacle_check_num_points").as_int();
-    this->declare_parameter<double>("obstacle_check_radius", 2.0);
-    this->obstacle_check_radius = this->get_parameter("obstacle_check_radius").as_double();
-
-    // listener = new tf::TransformListener();
-    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::shared_ptr<tf2_ros::TransformListener> listener_;
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-    listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+void DisparityMapRepresentation::initialize(const rclcpp::Node::SharedPtr& node_ptr, const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
+    RCLCPP_INFO(node_ptr->get_logger(), "DisparityMapRepresentation initialize called");
+    MapRepresentation::initialize(node_ptr, tf_buffer_ptr);
+    node_ptr->declare_parameter<int>("obstacle_check_num_points", 5);
+    node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
+    node_ptr->get_parameter("obstacle_check_radius", this->obstacle_check_radius);
+    disp_graph.initialize(node_ptr, tf_buffer_ptr);
 }
 
 std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     std::vector<std::vector<geometry_msgs::msg::PointStamped> > trajectories) {
+    marker_array.markers.clear();
+    points_marker.points.clear();
+    points_marker.colors.clear();
+
     std::vector<std::vector<double> > values(trajectories.size());
 
     for (size_t i = 0; i < trajectories.size(); i++) {
@@ -60,7 +57,7 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                 }
             }
 
-            points.header.frame_id = trajectories[i][j].header.frame_id;
+            points_marker.header.frame_id = trajectories[i][j].header.frame_id;
             std_msgs::msg::ColorRGBA green;
             green.r = 0;
             green.b = 0;
@@ -84,9 +81,8 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
             directions.push_back(q_right);
 
             tf2::Vector3 position = wp;
-            tf2::Quaternion q = tf2::Quaternion(0, 0, 0,
-                                                1);  // TODO: figure out if this makes sense
-                                                     //
+            // TODO: figure out if this makes sense
+            tf2::Quaternion q = tf2::Quaternion(0, 0, 0, 1);
             tf2::Vector3 unit(1, 0, 0);
             double closest_obstacle_distance = obstacle_check_radius;
 
@@ -122,7 +118,7 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
 
                     double occupancy;
                     bool collision =
-                        !disp_graph->is_state_valid_depth_pose(check_pose, 0.9, occupancy);
+                        !disp_graph.is_state_valid_depth_pose(check_pose, 0.9, occupancy);
 
                     std_msgs::msg::ColorRGBA c;
                     if (collision) {
@@ -131,12 +127,12 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                     } else
                         c = green;
 
-                    points.points.push_back(check_pose.pose.position);
-                    points.colors.push_back(c);
+                    points_marker.points.push_back(check_pose.pose.position);
+                    points_marker.colors.push_back(c);
                 }
             }
 
-            points.points.push_back(trajectories[i][j].point);
+            points_marker.points.push_back(trajectories[i][j].point);
 
             geometry_msgs::msg::PoseStamped pose;
             pose.header = trajectories[i][j].header;  // trajectory.header;
@@ -144,23 +140,26 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
             pose.pose.orientation.w = 1.0;
 
             double occupancy;
-            if (!disp_graph->is_state_valid_depth_pose(pose, 0.9, occupancy)) {
+            if (!disp_graph.is_state_valid_depth_pose(pose, 0.9, occupancy)) {
                 values[i][j] = 0.f;
-                points.colors.push_back(red);
+                points_marker.colors.push_back(red);
             } else {
-                points.colors.push_back(green);
+                points_marker.colors.push_back(green);
             }
 
             values[i][j] = closest_obstacle_distance;
         }
     }
 
+    points_marker.header.stamp = node_ptr->now();
+    marker_array.markers.push_back(points_marker);
+
     return values;
 }
 
 double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::PoseStamped pose,
                                                         tf2::Vector3 direction) {
-    points.header.frame_id = pose.header.frame_id;
+    points_marker.header.frame_id = pose.header.frame_id;
     std_msgs::msg::ColorRGBA green;
     green.r = 0;
     green.b = 0;
@@ -222,7 +221,7 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::Pose
             check_pose.pose.orientation.w = 1.0;
 
             double occupancy;
-            bool collision = !disp_graph->is_state_valid_depth_pose(check_pose, 0.9, occupancy);
+            bool collision = !disp_graph.is_state_valid_depth_pose(check_pose, 0.9, occupancy);
 
             std_msgs::msg::ColorRGBA c;
             if (collision) {
@@ -231,30 +230,25 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::Pose
             } else
                 c = green;
 
-            points.points.push_back(check_pose.pose.position);
-            points.colors.push_back(c);
+            points_marker.points.push_back(check_pose.pose.position);
+            points_marker.colors.push_back(c);
         }
     }
 
-    points.points.push_back(pose.pose.position);
-    points.colors.push_back(green);
+    points_marker.points.push_back(pose.pose.position);
+    points_marker.colors.push_back(green);
 
     double occupancy;
-    if (!disp_graph->is_state_valid_depth_pose(pose, 0.9, occupancy)) return 0.f;
+    if (!disp_graph.is_state_valid_depth_pose(pose, 0.9, occupancy)) return 0.f;
 
     return closest_obstacle_distance;
 }
 
-void DisparityMapRepresentation::publish_debug() {
-    points.header.stamp = this->now();
-    markers.markers.push_back(points);
-
-    debug_pub->publish(markers);
-
-    markers.markers.clear();
-    points.points.clear();
-    points.colors.clear();
+const visualization_msgs::msg::MarkerArray& DisparityMapRepresentation::get_debug_markerarray()
+    const {
+    return marker_array;
 }
+
 }  // namespace disparity_map_representation
 #include <pluginlib/class_list_macros.hpp>
 

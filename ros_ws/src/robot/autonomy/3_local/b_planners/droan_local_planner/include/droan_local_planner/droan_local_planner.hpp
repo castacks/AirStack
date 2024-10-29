@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
 #include <geometry_msgs/msg/point_stamped.hpp>
@@ -52,14 +53,14 @@ class DroanLocalPlanner : public rclcpp::Node {
 
     std::shared_ptr<map_representation_interface::MapRepresentation> map_representation;
 
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
+    tf2_ros::TransformListener tf_listener;
+
     rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr global_plan_sub;
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr waypoint_sub;
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr custom_waypoint_sub;
-
-    tf2_ros::Buffer tf_buffer;
-    tf2_ros::TransformListener tf_listener;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr traj_lib_vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
@@ -67,18 +68,16 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
 
-    rclcpp::TimerBase::SharedPtr execute_timer;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr map_debug_pub;
 
-    // services
+    rclcpp::TimerBase::SharedPtr execute_timer;
 
    public:
     DroanLocalPlanner()
         : Node("droan_local_planner"),
           goal_mode(GLOBAL_PLAN),
-          tf_buffer(this->get_clock()),
-          tf_listener(tf_buffer) {
-        // Subscribers
-
+          tf_buffer_ptr(new tf2_ros::Buffer(this->get_clock())),
+          tf_listener(*tf_buffer_ptr) {
         // follow the global plan
         global_plan_sub = this->create_subscription<nav_msgs::msg::Path>(
             "global_plan", 10, std::bind(&DroanLocalPlanner::global_plan_callback, this, _1));
@@ -106,6 +105,9 @@ class DroanLocalPlanner : public rclcpp::Node {
             "trajectory_segment_to_add", 10);
         traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
             "trajectory_override", 10);
+
+        map_debug_pub =
+            this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_map_debug", 1);
 
         // init parameters
         this->declare_parameter("execute_rate", 5.);
@@ -153,22 +155,30 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), this);
 
-        pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
-            map_representation_loader("map_representation_interface",
-                                      "map_representation_interface::MapRepresentation");
-        try {
-            this->map_representation =
-                map_representation_loader.createSharedInstance(map_representation_class_string);
-        } catch (pluginlib::PluginlibException& ex) {
-            RCLCPP_INFO(this->get_logger(),
-                        "The MapRepresentation plugin failed to load. Error: %s", ex.what());
-        }
 
         double interval = 1. / this->execute_rate;
         this->execute_timer =
             rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(interval),
                                  std::bind(&DroanLocalPlanner::execute, this));
     }
+
+    void initialize(){
+        pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
+            map_representation_loader("map_representation_interface",
+                                      "map_representation_interface::MapRepresentation");
+        auto node_ptr = this->shared_from_this();
+        try {
+            this->map_representation =
+                map_representation_loader.createSharedInstance(map_representation_class_string);
+            this->map_representation->initialize(node_ptr, tf_buffer_ptr);
+        } catch (pluginlib::PluginlibException& ex) {
+            RCLCPP_INFO(this->get_logger(),
+                        "The MapRepresentation plugin failed to load. Error: %s", ex.what());
+        }
+
+    }
+
+
     virtual ~DroanLocalPlanner() {}
 
     virtual bool execute() {
@@ -187,7 +197,7 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // transform the look ahead point to the global plan frame
         tf2::Vector3 look_ahead_position = tflib::to_tf(look_ahead_odom.pose.position);
-        bool success = tflib::to_frame(&tf_buffer, look_ahead_position,
+        bool success = tflib::to_frame(tf_buffer_ptr.get(), look_ahead_position,
                                        look_ahead_odom.header.frame_id, global_plan.get_frame_id(),
                                        look_ahead_odom.header.stamp, &look_ahead_position);
         if (!success) {
@@ -332,7 +342,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
 
         traj_lib_vis_pub->publish(traj_lib_markers);
-        map_representation->publish_debug();
+        map_debug_pub->publish(this->map_representation->get_debug_markerarray());
 
         return all_in_collision;
     }
@@ -362,10 +372,10 @@ class DroanLocalPlanner : public rclcpp::Node {
         double initial_heading = 0;
         try {
             tf2::Stamped<tf2::Transform> transform;
-            tf_buffer.canTransform(best_traj_msg.header.frame_id, look_ahead_odom.header.frame_id,
+            tf_buffer_ptr->canTransform(best_traj_msg.header.frame_id, look_ahead_odom.header.frame_id,
                                    look_ahead_odom.header.stamp,
                                    rclcpp::Duration::from_seconds(0.1));
-            auto transform_msg = tf_buffer.lookupTransform(best_traj_msg.header.frame_id,
+            auto transform_msg = tf_buffer_ptr->lookupTransform(best_traj_msg.header.frame_id,
                                                            look_ahead_odom.header.frame_id,
                                                            look_ahead_odom.header.stamp);
             tf2::fromMsg(transform_msg, transform);
@@ -504,9 +514,9 @@ class DroanLocalPlanner : public rclcpp::Node {
         if (is_tracking_point_received) {
             try {
                 tf2::Stamped<tf2::Transform> transform;
-                tf_buffer.canTransform(tracking_point_odom.header.frame_id, wp->header.frame_id,
+                tf_buffer_ptr->canTransform(tracking_point_odom.header.frame_id, wp->header.frame_id,
                                        wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
-                auto transform_msg = tf_buffer.lookupTransform(
+                auto transform_msg = tf_buffer_ptr->lookupTransform(
                     tracking_point_odom.header.frame_id, wp->header.frame_id, wp->header.stamp);
                 tf2::fromMsg(transform_msg, transform);
 
@@ -547,9 +557,9 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         try {
             tf2::Stamped<tf2::Transform> transform;
-            tf_buffer.canTransform(look_ahead_odom.header.frame_id, wp->header.frame_id,
+            tf_buffer_ptr->canTransform(look_ahead_odom.header.frame_id, wp->header.frame_id,
                                    wp->header.stamp, rclcpp::Duration::from_seconds(0.1));
-            auto transform_msg = tf_buffer.lookupTransform(look_ahead_odom.header.frame_id,
+            auto transform_msg = tf_buffer_ptr->lookupTransform(look_ahead_odom.header.frame_id,
                                                            wp->header.frame_id, wp->header.stamp);
             tf2::fromMsg(transform_msg, transform);
 
@@ -610,10 +620,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             if (is_tracking_point_received) {
                 try {
                     tf2::Stamped<tf2::Transform> transform;
-                    tf_buffer.canTransform(
+                    tf_buffer_ptr->canTransform(
                         tracking_point_odom.header.frame_id, global_plan_msg.header.frame_id,
                         global_plan_msg.header.stamp, rclcpp::Duration::from_seconds(0.1));
-                    auto transform_msg = tf_buffer.lookupTransform(
+                    auto transform_msg = tf_buffer_ptr->lookupTransform(
                         tracking_point_odom.header.frame_id, global_plan_msg.header.frame_id,
                         global_plan_msg.header.stamp);
                     tf2::fromMsg(transform_msg, transform);
@@ -644,13 +654,14 @@ class DroanLocalPlanner : public rclcpp::Node {
     void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
         is_look_ahead_received = true;
         RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
-                                 "look ahead received with frame id: " << odom->header.frame_id);
+                                "look ahead received with frame id: " << odom->header.frame_id);
         look_ahead_odom = *odom;
     }
     void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr odom) {
         is_tracking_point_received = true;
         RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
-                                 "tracking point received with frame id: " << odom->header.frame_id);
+                                "tracking point received with frame id: " << odom->header.frame_id);
         tracking_point_odom = *odom;
     }
+
 };

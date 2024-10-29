@@ -22,7 +22,7 @@
 
 namespace disparity_graph {
 
-class DisparityGraph : rclcpp::Node {
+class DisparityGraph {
     struct DisparityGraphNode {
         cv_bridge::CvImagePtr Im_fg;
         cv_bridge::CvImagePtr Im_bg;
@@ -32,10 +32,11 @@ class DisparityGraph : rclcpp::Node {
     };
     std::deque<DisparityGraphNode> disp_graph_;
 
+    rclcpp::Node::SharedPtr node_ptr;
+
     size_t graph_size_;
     double thresh_;
-    tf2_ros::Buffer tf_buffer_;
-    tf2_ros::TransformListener tf_listener_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
     std::string sensor_frame_, fixed_frame_, stabilized_frame_;
     visualization_msgs::msg::Marker marker_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr disparity_graph_marker_pub_;
@@ -44,9 +45,10 @@ class DisparityGraph : rclcpp::Node {
     bool got_cam_info;
     double fx_, fy_, cx_, cy_, baseline_, downsample_scale;
     unsigned int width_, height_;
-    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
 
     std::mutex io_mutex;
+
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
 
     message_filters::Subscriber<sensor_msgs::msg::Image> disp_fg_sub_, disp_bg_sub_;
     typedef message_filters::sync_policies::ExactTime<sensor_msgs::msg::Image,
@@ -58,20 +60,14 @@ class DisparityGraph : rclcpp::Node {
 
    public:
     DisparityGraph()
-        : Node("disparity_graph"),
-          graph_size_(10),
-          tf_buffer_(this->get_clock()),
-          tf_listener_(tf_buffer_),
+        : graph_size_(10),
           fixed_frame_("world"),
           stabilized_frame_("base_frame_stabilized"),
           angle_tol(30.0),
           displacement_tol(1.5),
           first(true),
           got_cam_info(false) {
-        disparity_graph_marker_pub_ =
-            this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_marker", 10);
         marker_.header.frame_id = fixed_frame_;
-        marker_.header.stamp = this->get_clock()->now();
         marker_.ns = "disparityGraph";
         marker_.id = 0;
         marker_.type = visualization_msgs::msg::Marker::ARROW;
@@ -90,48 +86,79 @@ class DisparityGraph : rclcpp::Node {
         marker_.color.r = 0.0;
         marker_.color.g = 1.0;
         marker_.color.b = 0.0;
+    }
 
-        declare_parameter("baseline", 0.10);
-        baseline_ = get_parameter("baseline").as_double();
-        declare_parameter("downsample_scale", 1.0);
-        downsample_scale = get_parameter("downsample_scale").as_double();
-        declare_parameter("low_occ_thresh", 0.9);
-        thresh_ = get_parameter("low_occ_thresh").as_double();
-        declare_parameter("graph_size", 10);
-        graph_size_ = get_parameter("graph_size").as_int();
-        declare_parameter("displacement_tolerance", 1.5);
-        displacement_tol = get_parameter("displacement_tolerance").as_double();
-        declare_parameter("angle_tolerance", 30.0);
-        angle_tol = get_parameter("angle_tolerance").as_double() * M_PI / 180.0;
+    void initialize(const rclcpp::Node::SharedPtr &node_ptr,
+                    const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
+        RCLCPP_INFO(node_ptr->get_logger(), "DisparityGraph initialize called");
+        this->node_ptr = node_ptr;
+        this->tf_buffer_ptr = tf_buffer_ptr;
+        disparity_graph_marker_pub_ =
+            node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_marker",
+                                                                             10);
+        node_ptr->declare_parameter("baseline", 0.10);
+        node_ptr->get_parameter("baseline", baseline_);
+        node_ptr->declare_parameter("downsample_scale", 1.0);
+        node_ptr->get_parameter("downsample_scale", downsample_scale);
+        node_ptr->declare_parameter("low_occ_thresh", 0.9);
+        node_ptr->get_parameter("low_occ_thresh", thresh_);
+        node_ptr->declare_parameter("graph_size", 10);
+        node_ptr->get_parameter("graph_size", graph_size_);
+        node_ptr->declare_parameter("displacement_tolerance", 1.5);
+        node_ptr->get_parameter("displacement_tolerance", displacement_tol);
+        node_ptr->declare_parameter("angle_tolerance", 30.0);
+        angle_tol = node_ptr->get_parameter("angle_tolerance").as_double() * M_PI / 180.0;
 
-        declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
-        disp_fg_sub_.subscribe(this, get_parameter("expanded_disparity_fg_topic").as_string());
-        declare_parameter("expanded_disparity_bg_topic", "expanded_disparity_bg");
-        disp_bg_sub_.subscribe(this, get_parameter("expanded_disparity_bg_topic").as_string());
+        node_ptr->declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
+        disp_fg_sub_.subscribe(node_ptr,
+                               node_ptr->get_parameter("expanded_disparity_fg_topic").as_string());
+        node_ptr->declare_parameter("expanded_disparity_bg_topic", "expanded_disparity_bg");
+        disp_bg_sub_.subscribe(node_ptr,
+                               node_ptr->get_parameter("expanded_disparity_bg_topic").as_string());
+        // debug
+        // disp_fg_sub_.registerCallback(
+        //     std::bind(&DisparityGraph::disp_fg_cb, this, std::placeholders::_1));
+        // disp_bg_sub_.registerCallback(
+        //     std::bind(&DisparityGraph::disp_bg_cb, this, std::placeholders::_1));
 
         exact_sync.reset(new ExactSync(ExactPolicy(50), disp_fg_sub_, disp_bg_sub_));
         exact_sync->registerCallback(std::bind(&DisparityGraph::disp_cb, this,
                                                std::placeholders::_1, std::placeholders::_2));
 
-        declare_parameter("camera_info_topic", "camera_info");
-        cam_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-            get_parameter("camera_info_topic").as_string(), 1,
+        node_ptr->declare_parameter("camera_info_topic", "camera_info");
+        cam_info_sub_ = node_ptr->create_subscription<sensor_msgs::msg::CameraInfo>(
+            node_ptr->get_parameter("camera_info_topic").as_string(), 1,
             std::bind(&DisparityGraph::get_cam_info, this, std::placeholders::_1));
+
+        RCLCPP_INFO(node_ptr->get_logger(), "Disparity Graph Node Started");
     }
+
+    // void disp_fg_cb(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
+    //     RCLCPP_INFO(node_ptr->get_logger(), "in disp_fg_cb");
+    //     RCLCPP_INFO(node_ptr->get_logger(), "Received disp_fg stamp: %lf",
+    //                 (node_ptr->get_clock()->now() - msg->header.stamp).seconds());
+    // }
+
+    // void disp_bg_cb(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
+    //     RCLCPP_INFO(node_ptr->get_logger(), "in disp_bg_cb");
+    //     RCLCPP_INFO(node_ptr->get_logger(), "Received disp_bg stamp: %lf",
+    //                 (node_ptr->get_clock()->now() - msg->header.stamp).seconds());
+    // }
 
     void disp_cb(const sensor_msgs::msg::Image::ConstSharedPtr &disp_fg,
                  const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
-        RCLCPP_INFO(this->get_logger(), "Received disp stamp: %lf",
-                    (this->get_clock()->now() - disp_fg->header.stamp).seconds());
+        RCLCPP_INFO(node_ptr->get_logger(), "Received disp stamp: %lf",
+                    (node_ptr->get_clock()->now() - disp_fg->header.stamp).seconds());
         sensor_frame_ = disp_fg->header.frame_id;
 
         tf2::Stamped<tf2::Transform> transform;
         geometry_msgs::msg::TransformStamped tf_msg;
         try {
-            tf_msg = tf_buffer_.lookupTransform(sensor_frame_, fixed_frame_, disp_fg->header.stamp);
+            tf_msg =
+                tf_buffer_ptr->lookupTransform(sensor_frame_, fixed_frame_, disp_fg->header.stamp);
             tf2::fromMsg(tf_msg, transform);
         } catch (tf2::TransformException &ex) {
-            RCLCPP_ERROR(this->get_logger(), "DG disp_cb %s", ex.what());
+            RCLCPP_ERROR(node_ptr->get_logger(), "DG disp_cb %s", ex.what());
             return;
         }
 
@@ -143,8 +170,8 @@ class DisparityGraph : rclcpp::Node {
             try {
                 n.Im_fg = cv_bridge::toCvCopy(disp_fg, sensor_msgs::image_encodings::TYPE_32FC1);
                 n.Im_bg = cv_bridge::toCvCopy(disp_bg, sensor_msgs::image_encodings::TYPE_32FC1);
-            } catch (std::exception ex) {
-                RCLCPP_ERROR(this->get_logger(), "\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",
+            } catch (const std::exception &ex) {
+                RCLCPP_ERROR(node_ptr->get_logger(), "\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",
                              ex.what());
                 return;
             }
@@ -169,8 +196,8 @@ class DisparityGraph : rclcpp::Node {
             try {
                 n.Im_fg = cv_bridge::toCvCopy(disp_fg, sensor_msgs::image_encodings::TYPE_32FC1);
                 n.Im_bg = cv_bridge::toCvCopy(disp_bg, sensor_msgs::image_encodings::TYPE_32FC1);
-            } catch (std::exception ex) {
-                RCLCPP_ERROR(this->get_logger(), "\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",
+            } catch (const std::exception &ex) {
+                RCLCPP_ERROR(node_ptr->get_logger(), "\n\n\n\n\n\t\t\tDEQUE ERR\n\n\n\n: %s",
                              ex.what());
                 return;
             }
@@ -180,7 +207,7 @@ class DisparityGraph : rclcpp::Node {
             n.s2w_tf = transform.inverse();
 
             if (fabs(diff_a) >= angle_tol || fabs(diff_p) > displacement_tol) {
-                RCLCPP_ERROR(this->get_logger(), "Adding new node size %d",
+                RCLCPP_ERROR(node_ptr->get_logger(), "Adding new node size %d",
                              (int)disp_graph_.size());
                 if (disp_graph_.size() >= graph_size_) {
                     disp_graph_.erase(end);
@@ -201,7 +228,7 @@ class DisparityGraph : rclcpp::Node {
             tf2::toMsg(position, marker_.pose.position);
             auto rotation = disp_graph_.at(i).s2w_tf.getRotation();
             marker_.pose.orientation = tf2::toMsg(rotation);
-            marker_.header.stamp = this->now();
+            marker_.header.stamp = node_ptr->now();
             marker_.id = i;
             marker_arr.markers.push_back(marker_);
         }
@@ -216,8 +243,9 @@ class DisparityGraph : rclcpp::Node {
         image_geometry::PinholeCameraModel model;
         model.fromCameraInfo(cam_info_msg);
         // print
-        RCLCPP_INFO(this->get_logger(), "Cam Info Recvd Fx Fy Cx Cy: %f %f , %f %f Baseline: %f",
-                    model.fx(), model.fy(), model.cx(), model.cy(), baseline_);
+        RCLCPP_INFO(node_ptr->get_logger(),
+                    "Cam Info Recvd Fx Fy Cx Cy: %f %f , %f %f Baseline: %f", model.fx(),
+                    model.fy(), model.cx(), model.cy(), baseline_);
         cx_ = model.cx() / downsample_scale;
         cy_ = model.cy() / downsample_scale;
         fx_ = fy_ = model.fx() / downsample_scale;
@@ -228,12 +256,12 @@ class DisparityGraph : rclcpp::Node {
             baseline_ = baseline;
         }
         baseline_ *= downsample_scale;
-        RCLCPP_INFO(this->get_logger(),
+        RCLCPP_INFO(node_ptr->get_logger(),
                     "Transformed Cam Info Recvd Fx Fy Cx Cy: %f %f, %f %f Baseline: %f with "
                     "downsamplescale: %f",
                     model.fx(), model.fy(), model.cx(), model.cy(), baseline_, downsample_scale);
 
-        RCLCPP_WARN(this->get_logger(),
+        RCLCPP_WARN(node_ptr->get_logger(),
                     "Cam Info Constants - Fx Fy Cx Cy: %f %f, %f %f / width=%d - height=%d", fx_,
                     fy_, cx_, cy_, width_, height_);
 
@@ -250,9 +278,9 @@ class DisparityGraph : rclcpp::Node {
         geometry_msgs::msg::PointStamped world_point_stamped;
 
         try {
-            tf_buffer_.transform(checked_point_stamped, world_point_stamped, fixed_frame_);
+            tf_buffer_ptr->transform(checked_point_stamped, world_point_stamped, fixed_frame_);
         } catch (tf2::TransformException &ex) {
-            RCLCPP_ERROR(this->get_logger(), "Could not transform %s to %s: %s",
+            RCLCPP_ERROR(node_ptr->get_logger(), "Could not transform %s to %s: %s",
                          fixed_frame_.c_str(), checked_state.header.frame_id.c_str(), ex.what());
             return false;
         }
@@ -262,12 +290,14 @@ class DisparityGraph : rclcpp::Node {
 
         std::scoped_lock lock(io_mutex);
 
-        bool is_free = false; // if the point is unoccupied
-        bool is_seen = false; // if the point is is_seen by any of the disparity images
+        bool is_free = false;  // if the point is unoccupied
+        bool is_seen = false;  // if the point is is_seen by any of the disparity images
 
         if (disp_graph_.size() == 0) {
-            RCLCPP_WARN_STREAM_ONCE(this->get_logger(), "No disparity images in graph, can't see anything, everything is invalid");
-        } 
+            RCLCPP_WARN_STREAM_ONCE(
+                node_ptr->get_logger(),
+                "No disparity images in graph, can't see anything, everything is invalid");
+        }
 
         for (size_t i = 0; i < disp_graph_.size(); i++) {
             tf2::Vector3 local_point = disp_graph_.at(i).w2s_tf * optical_point;
@@ -279,12 +309,12 @@ class DisparityGraph : rclcpp::Node {
             z = local_point.getZ();
 
             if (local_point.length() < 1.0) {
-                is_seen = true; // assume the point is seen if it is close to the camera
+                is_seen = true;  // assume the point is seen if it is close to the camera
                 continue;
             }
 
-            uint u = x / z * fx_ + cx_;
-            uint v = y / z * fy_ + cy_;
+            int u = x / z * fx_ + cx_;
+            int v = y / z * fy_ + cy_;
 
             if (u >= 0 && u < width_ && v >= 0 && v < height_ && z > 0.0) {
                 is_seen = true;
@@ -310,15 +340,15 @@ class DisparityGraph : rclcpp::Node {
     bool get_state_cost(geometry_msgs::msg::Pose checked_state, double &cost) {
         geometry_msgs::msg::PointStamped checked_point_stamped;
         checked_point_stamped.header.frame_id = "world";
-        checked_point_stamped.header.stamp = this->now();  // - rclcpp::Duration(0.1);
+        checked_point_stamped.header.stamp = node_ptr->now();  // - rclcpp::Duration(0.1);
         checked_point_stamped.point = checked_state.position;
 
         geometry_msgs::msg::PointStamped world_point_stamped;
 
         try {
-            tf_buffer_.transform(checked_point_stamped, world_point_stamped, fixed_frame_);
+            tf_buffer_ptr->transform(checked_point_stamped, world_point_stamped, fixed_frame_);
         } catch (tf2::TransformException &ex) {
-            RCLCPP_ERROR(this->get_logger(), "TF to fixed frame failed: %s", ex.what());
+            RCLCPP_ERROR(node_ptr->get_logger(), "TF to fixed frame failed: %s", ex.what());
             return false;
         }
 
@@ -339,8 +369,8 @@ class DisparityGraph : rclcpp::Node {
                 return false;
             }
 
-            uint u = x / z * fx_ + cx_;
-            uint v = y / z * fy_ + cy_;
+            int u = x / z * fx_ + cx_;
+            int v = y / z * fy_ + cy_;
 
             if (u >= 0 && u < width_ && v >= 0 && v < height_ && z > 0.0) {
                 double state_disparity = baseline_ * fx_ / z;
@@ -363,7 +393,7 @@ class DisparityGraph : rclcpp::Node {
         std::lock_guard<std::mutex> lock(io_mutex);
         disp_graph_.clear();
         first = true;
-        RCLCPP_INFO_STREAM(this->get_logger(), "<<< DISP GRAPH CLEARED >>>");
+        RCLCPP_INFO_STREAM(node_ptr->get_logger(), "<<< DISP GRAPH CLEARED >>>");
     };
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pcdPub, occPub_;
