@@ -203,11 +203,12 @@ void TrajectoryControlNode::timer_callback() {
         // visualization
         markers.overwrite();
         markers
-            .add_sphere(target_frame, now- rclcpp::Duration::from_seconds(0.3), robot_point.x(), robot_point.y(), robot_point.z(),
-                        sphere_radius)
+            .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3), robot_point.x(),
+                        robot_point.y(), robot_point.z(), sphere_radius)
             .set_color(0.f, 0.f, 1.f, 0.7f);
         trajectory_vis_pub->publish(
-            trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3), "traj_controller", 1, 1, 0, 1, false, false, traj_vis_thickness));
+            trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3), "traj_controller", 1,
+                                    1, 0, 1, false, false, traj_vis_thickness));
 
         // find closest point on entire trajectory
         Waypoint closest_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -215,7 +216,7 @@ void TrajectoryControlNode::timer_callback() {
         bool closest_valid = false;  // trajectory->get_closest_waypoint(robot_point, 0,
                                      // trajectory->get_duration(), &closest_wp);
         if (closest_valid)
-            closest_valid = trajectory->get_odom(closest_wp.time(), &closest_point_odom, now);
+            closest_valid = trajectory->get_odom(closest_wp.get_time(), &closest_point_odom, now);
         // else
         //   ROS_INFO("CLOSEST NOT VALID");
         if (closest_valid) closest_point_pub->publish(closest_point_odom);
@@ -232,12 +233,13 @@ void TrajectoryControlNode::timer_callback() {
                 bool closest_ahead_valid = trajectory->get_closest_waypoint(
                     robot_point, virtual_time, prev_vtp_time + look_ahead_time, &closest_ahead_wp);
                 if (closest_ahead_valid) {
-                    virtual_time = closest_ahead_wp.time();
+                    virtual_time = closest_ahead_wp.get_time();
 
                     // visualization
                     markers
-                        .add_sphere(target_frame, now- rclcpp::Duration::from_seconds(0.3), closest_ahead_wp.x(), closest_ahead_wp.y(),
-                                    closest_ahead_wp.z(), 0.025f)
+                        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                    closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
+                                    closest_ahead_wp.get_z(), 0.025f)
                         .set_color(0.f, 1.f, 0.f);
 
                     Waypoint vtp_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -246,22 +248,23 @@ void TrajectoryControlNode::timer_callback() {
                         virtual_time, search_ahead_factor * sphere_radius,
                         prev_vtp_time + look_ahead_time, robot_point, sphere_radius,
                         min_virtual_tracking_velocity, &vtp_wp, &end_wp);
-                    if (vtp_valid) current_virtual_ahead_time = vtp_wp.time() - virtual_time;
+                    if (vtp_valid) current_virtual_ahead_time = vtp_wp.get_time() - virtual_time;
 
                     // visualization
                     if (vtp_valid)
                         markers
-                            .add_sphere(target_frame, now- rclcpp::Duration::from_seconds(0.3), vtp_wp.x(), vtp_wp.y(), vtp_wp.z(),
-                                        0.025f)
+                            .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                        vtp_wp.get_x(), vtp_wp.get_y(), vtp_wp.get_z(), 0.025f)
                             .set_color(0.f, 1.f, 0.f);
                     else
                         markers
-                            .add_sphere(target_frame, now- rclcpp::Duration::from_seconds(0.3), closest_ahead_wp.x(),
-                                        closest_ahead_wp.y(), closest_ahead_wp.z() + sphere_radius,
-                                        0.025f)
+                            .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                        closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
+                                        closest_ahead_wp.get_z() + sphere_radius, 0.025f)
                             .set_color(1.f, 0.f, 0.f);
                     markers
-                        .add_sphere(target_frame, now- rclcpp::Duration::from_seconds(0.3), end_wp.x(), end_wp.y(), end_wp.z(), 0.025f)
+                        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                    end_wp.get_x(), end_wp.get_y(), end_wp.get_z(), 0.025f)
                         .set_color(0.f, 0.f, 1.f);
                 } else
                     RCLCPP_INFO(this->get_logger(), "AHEAD NOT VALID");
@@ -292,7 +295,7 @@ void TrajectoryControlNode::timer_callback() {
             trajectory->get_waypoint(virtual_time + current_virtual_ahead_time, &virtual_wp);
         if (virtual_valid) {
             virtual_valid =
-                trajectory->get_odom(virtual_wp.time(), &virtual_tracking_point_odom, now);
+                trajectory->get_odom(virtual_wp.get_time(), &virtual_tracking_point_odom, now);
 
             // prevent oscillating between slow and normal mode
             if (tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() <=
@@ -302,18 +305,19 @@ void TrajectoryControlNode::timer_callback() {
             float look_ahead_multiplier = 1.f;
             if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND)
                 look_ahead_multiplier = -1.f;
-            trajectory->get_odom(virtual_wp.time() + look_ahead_multiplier * look_ahead_time,
+            trajectory->get_odom(virtual_wp.get_time() + look_ahead_multiplier * look_ahead_time,
                                  &look_ahead_point, now);
-            trajectory->get_odom(virtual_wp.time(), &drone_point, now);
-            actual_time = virtual_wp.time();
-            prev_vtp_time = virtual_wp.time();
+            trajectory->get_odom(virtual_wp.get_time(), &drone_point, now);
+            actual_time = virtual_wp.get_time();
+            prev_vtp_time = virtual_wp.get_time();
         } else {
-            RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
-                                    "Virtual waypoint does not correspond to a waypoint along the "
-                                    "reference trajectory. If no trajectory is available yet, this is okay.");
+            RCLCPP_INFO_STREAM_ONCE(
+                this->get_logger(),
+                "Virtual waypoint does not correspond to a waypoint along the "
+                "reference trajectory. If no trajectory is available yet, this is okay.");
         }
 
-        if (trajectory->waypoint_count() <= 3) {
+        if (trajectory->get_num_waypoints() <= 3) {
             virtual_tracking_point_odom.twist.linear.x = 0;
             virtual_tracking_point_odom.twist.linear.y = 0;
             virtual_tracking_point_odom.twist.linear.z = 0;
@@ -367,7 +371,7 @@ void TrajectoryControlNode::timer_callback() {
         }
 
         // When the tracking point reaches the end of the trajectory, the velocity gets set to zero
-        if (virtual_wp.time() >= trajectory->get_duration() ||
+        if (virtual_wp.get_time() >= trajectory->get_duration() ||
             trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
             virtual_tracking_point_odom.twist.linear.x = 0;
             virtual_tracking_point_odom.twist.linear.y = 0;
@@ -518,13 +522,15 @@ void TrajectoryControlNode::traj_override_callback(
 
 void TrajectoryControlNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr odom) {
     // this->odom = odom;
-    // An odometry's child frame is the frame of the robot, and the Twist (velocities) are put in that frame.
-    // This line converts the odometry's position AND velocities to the target frame, typically "world" or "map".
-    if (tflib::transform_odometry(tf_buffer, *odom, target_frame, target_frame, &(this->odom))){
+    // An odometry's child frame is the frame of the robot, and the Twist (velocities) are put in
+    // that frame. This line converts the odometry's position AND velocities to the target frame,
+    // typically "world" or "map".
+    if (tflib::transform_odometry(tf_buffer, *odom, target_frame, target_frame, &(this->odom))) {
         got_odom = true;
-    }
-    else {
-        RCLCPP_INFO_STREAM(this->get_logger(), "Failed to transform odometry in frame " << odom->header.frame_id << " to target frame " << target_frame);
+    } else {
+        RCLCPP_INFO_STREAM(this->get_logger(), "Failed to transform odometry in frame "
+                                                   << odom->header.frame_id << " to target frame "
+                                                   << target_frame);
     }
 }
 

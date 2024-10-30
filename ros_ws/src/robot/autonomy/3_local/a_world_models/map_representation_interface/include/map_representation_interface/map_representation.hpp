@@ -4,6 +4,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <trajectory_library/trajectory_library.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -25,15 +26,7 @@ class MapRepresentation {
        for each trajectory. There is a vector of doubles for each waypoint within a trajectory.
     */
 
-    virtual std::vector<std::vector<double> > get_values(
-        std::vector<std::vector<geometry_msgs::msg::PointStamped> >
-            trajectories) {  // std::vector<airstack_msgs::TrajectoryXYZVYaw> trajectories){
-        RCLCPP_ERROR(node_ptr->get_logger(), "get_values CALLED BUT NOT IMPLEMENTED");
-
-        std::vector<std::vector<double> > values;
-        return values;
-    }
-
+    virtual std::vector<std::vector<double> > get_values(std::vector<Trajectory> trajectories) = 0;
     /**
        Clears the map.
     */

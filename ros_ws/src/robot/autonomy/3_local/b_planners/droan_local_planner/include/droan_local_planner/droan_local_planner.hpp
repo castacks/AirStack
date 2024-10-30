@@ -210,7 +210,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         // trim the global plan to only the next 10 meters
         if (valid) {
             this->global_plan_trajectory_distance += trajectory_distance;
-            global_plan = global_plan.get_subtrajectory_distance(
+            global_plan = global_plan.trim_trajectory_between_distances(
                 this->global_plan_trajectory_distance,
                 this->global_plan_trajectory_distance + 10.0);
         } else {
@@ -233,10 +233,11 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // publish the trajectory
         if (!all_in_collision) {
-            airstack_msgs::msg::TrajectoryXYZVYaw best_traj_msg = best_traj.get_TrajectoryXYZVYaw();
+            airstack_msgs::msg::TrajectoryXYZVYaw best_traj_msg =
+                best_traj.get_TrajectoryXYZVYaw_msg();
 
             // set yaw
-            if (yaw_mode == SMOOTH_YAW && best_traj.waypoint_count() > 0) {
+            if (yaw_mode == SMOOTH_YAW && best_traj.get_num_waypoints() > 0) {
                 apply_smooth_yaw(best_traj_msg);
             }
             best_traj_msg.header.stamp = this->now();
@@ -281,10 +282,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
 
             // for each waypoint in the trajectory, calculate the distance to the closest obstacle
-            for (size_t j = 0; j < traj.waypoint_count(); j++) {
+            for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
 
-                airstack_msgs::msg::Odometry odom = wp.odometry(now, traj.get_frame_id());
+                airstack_msgs::msg::Odometry odom = wp.as_odometry(now, traj.get_frame_id());
                 geometry_msgs::msg::PoseStamped pose;
                 pose.header = odom.header;
                 pose.pose = odom.pose;
@@ -297,7 +298,7 @@ class DroanLocalPlanner : public rclcpp::Node {
                 int wp_index;
                 double path_distance;
                 bool valid = global_plan_in_traj_frame.get_closest_point(
-                    wp.position(), &closest_point_from_global_plan, &wp_index, &path_distance);
+                    wp.get_position(), &closest_point_from_global_plan, &wp_index, &path_distance);
 
                 // reward making progress along the global plan
                 double forward_progress_reward = -forward_progress_reward_weight * path_distance;
@@ -307,11 +308,11 @@ class DroanLocalPlanner : public rclcpp::Node {
                         avg_distance_from_global_plan = 0;
                     }
                     avg_distance_from_global_plan +=
-                        closest_point_from_global_plan.position().distance(wp.position()) +
+                        closest_point_from_global_plan.get_position().distance(wp.get_position()) +
                         forward_progress_reward;
                 }
             }
-            avg_distance_from_global_plan /= traj.waypoint_count();
+            avg_distance_from_global_plan /= traj.get_num_waypoints();
 
             bool collision = closest_obstacle_distance <= robot_radius;
             if (!collision) {
@@ -354,15 +355,9 @@ class DroanLocalPlanner : public rclcpp::Node {
      */
     std::vector<std::vector<double>> get_trajectory_distances_to_closest_obstacle(
         std::vector<Trajectory> trajectory_candidates) {
-        // vector of trajectory candidates in PointStamped-vector form
-        std::vector<std::vector<geometry_msgs::msg::PointStamped>> traj_cands_as_point_stamped;
-        for (size_t i = 0; i < trajectory_candidates.size(); i++) {
-            traj_cands_as_point_stamped.push_back(
-                trajectory_candidates[i].get_vector_PointStamped());
-        }
         // TODO: clearly we should refactor map_representation to accept Trajectory objects
         std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
-            this->map_representation->get_values(traj_cands_as_point_stamped);
+            this->map_representation->get_values(trajectory_candidates);
         return trajectory_distances_to_closest_obstacle;
     }
 

@@ -94,8 +94,7 @@ class DisparityGraph {
         this->node_ptr = node_ptr;
         this->tf_buffer_ptr = tf_buffer_ptr;
         disparity_graph_marker_pub_ =
-            node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_graph",
-                                                                             10);
+            node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_graph", 10);
         node_ptr->declare_parameter("baseline", 0.10);
         node_ptr->get_parameter("baseline", baseline_);
         node_ptr->declare_parameter("downsample_scale", 1.0);
@@ -165,7 +164,6 @@ class DisparityGraph {
         std::scoped_lock lock(io_mutex);
 
         if (first) {
-
             first = false;
             DisparityGraphNode n;
             try {
@@ -269,9 +267,9 @@ class DisparityGraph {
         got_cam_info = true;
     }
 
-    bool is_state_valid_depth_pose(geometry_msgs::msg::PoseStamped checked_state, double thresh,
-                                   double &occupancy) {
-        occupancy = 0.0; // init
+    bool is_pose_seen_and_free(geometry_msgs::msg::PoseStamped checked_state, double thresh,
+                               double &occupancy) {
+        occupancy = 0.0;  // init
         geometry_msgs::msg::PointStamped checked_point_stamped;
         checked_point_stamped.point = checked_state.pose.position;
         checked_point_stamped.header = checked_state.header;
@@ -291,7 +289,8 @@ class DisparityGraph {
 
         std::scoped_lock lock(io_mutex);
 
-        bool is_free = true;  // if the point is unoccupied. we will go through all disparity graph nodes to check
+        bool is_free = true;   // if the point is unoccupied. we will go through all disparity graph
+                               // nodes to check
         bool is_seen = false;  // if the point is is_seen by any of the disparity images
 
         if (disp_graph_.size() == 0) {
@@ -309,7 +308,8 @@ class DisparityGraph {
             y = local_point.getY();
             z = local_point.getZ();
 
-            // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "Local Point: " << x << " " << y << " " << z);
+            // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "Local Point: " << x << " " << y << " " <<
+            // z);
 
             if (local_point.length() < 1.0) {
                 is_seen = true;  // assume the point is seen if it is close to the camera
@@ -322,7 +322,8 @@ class DisparityGraph {
             if (u >= 0 && u < width_ && v >= 0 && v < height_ && z > 0.0) {
                 is_seen = true;
                 double state_disparity = baseline_ * fx_ / z;
-                // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "State Disparity: " << state_disparity);
+                // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "State Disparity: " <<
+                // state_disparity);
                 if ((disp_graph_.at(i).Im_fg->image.at<float>(v, u) > state_disparity) &&
                     (disp_graph_.at(i).Im_bg->image.at<float>(v, u) < state_disparity)) {
                     occupancy += (state_disparity - 0.5) / state_disparity;
@@ -336,7 +337,8 @@ class DisparityGraph {
                 break;
             }
         }
-        // RCLCPP_INFO_STREAM(node_ptr->get_logger(),"occupancy:" << occupancy << " is_free: " << is_free << " is_seen: " << is_seen);
+        // RCLCPP_INFO_STREAM(node_ptr->get_logger(),"occupancy:" << occupancy << " is_free: " <<
+        // is_free << " is_seen: " << is_seen);
 
         bool is_valid = is_free && is_seen;
         return is_valid;

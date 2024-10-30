@@ -33,29 +33,34 @@ class Waypoint {
     Waypoint(double x, double y, double z, double yaw, double vx, double vy, double vz, double ax,
              double ay, double az, double jx, double jy, double jz, double time = 0);
 
-    double x() const { return x_; }
-    double y() const { return y_; }
-    double z() const { return z_; }
-    double vx() const { return vx_; }
-    double vy() const { return vy_; }
-    double vz() const { return vz_; }
-    double ax() const { return ax_; }
-    double ay() const { return ay_; }
-    double az() const { return az_; }
-    double jx() const { return jx_; }
-    double jy() const { return jy_; }
-    double jz() const { return jz_; }
-    double yaw() const { return yaw_; }
-    double time() const { return time_; }
+    double get_x() const { return x_; }
+    double get_y() const { return y_; }
+    double get_z() const { return z_; }
+    double get_vx() const { return vx_; }
+    double get_vy() const { return vy_; }
+    double get_vz() const { return vz_; }
+    double get_ax() const { return ax_; }
+    double get_ay() const { return ay_; }
+    double get_az() const { return az_; }
+    double get_jx() const { return jx_; }
+    double get_jy() const { return jy_; }
+    double get_jz() const { return jz_; }
+    double get_yaw() const { return yaw_; }
+    double get_time() const { return time_; }
 
     void set_time(double time) { time_ = time; }
 
-    tf2::Quaternion q() const;
-    tf2::Vector3 position() const;
-    tf2::Vector3 velocity() const;
-    tf2::Vector3 acceleration() const;
-    tf2::Vector3 jerk() const;
-    airstack_msgs::msg::Odometry odometry(rclcpp::Time stamp, std::string frame_id) const;
+    const tf2::Quaternion& get_quaternion() const;
+    const tf2::Vector3& get_position() const;
+    const tf2::Vector3& get_velocity() const;
+    const tf2::Vector3& get_acceleration() const;
+    const tf2::Vector3& get_jerk() const;
+
+    /**
+     * @brief Convert Waypoint to Odometry message
+     */
+    airstack_msgs::msg::Odometry as_odometry(rclcpp::Time stamp, std::string frame_id) const;
+
     Waypoint interpolate(Waypoint wp, double t);
 
     friend class Trajectory;
@@ -103,26 +108,30 @@ class Trajectory {
                                           Waypoint* waypoint, Waypoint* end_waypoint);
     bool get_waypoint(double time, Waypoint* waypoint);
 
+    const std::vector<Waypoint>& get_waypoints() const;
+
     double get_duration();
     bool get_odom(double time, airstack_msgs::msg::Odometry* odom, rclcpp::Time stamp);
     Trajectory to_frame(std::string target_frame, rclcpp::Time time);
     // Trajectory respace(double spacing);
     // Trajectory shorten(double new_length); // replace shorten with get_subtraj_dist
-    Trajectory get_subtrajectory_distance(double start, double end);
+    Trajectory trim_trajectory_between_distances(double start_dist, double end_dist);
     Trajectory get_reversed_trajectory();
     float get_skip_ahead_time(float start_time, float max_velocity, float max_distance);
 
     void set_fixed_height(double height);
 
-    size_t waypoint_count();
-    Waypoint get_waypoint(int index);
-    std::string get_frame_id();
-    airstack_msgs::msg::TrajectoryXYZVYaw get_TrajectoryXYZVYaw();
-    std::vector<geometry_msgs::msg::PointStamped> get_vector_PointStamped();
+    size_t get_num_waypoints() const;
+    const Waypoint& get_waypoint(int index) const;
+    const std::string& get_frame_id() const;
+    const rclcpp::Time& get_stamp() const { return stamp; }
+    airstack_msgs::msg::TrajectoryXYZVYaw get_TrajectoryXYZVYaw_msg();
+    std::vector<geometry_msgs::msg::PointStamped> get_vector_PointStamped_msg();
 
-    visualization_msgs::msg::MarkerArray get_markers(rclcpp::Time stamp, const std::string& marker_namespace, float r = 1, float g = 0,
-                                                     float b = 0, float a = 1,
-                                                     bool show_poses = false,
+    visualization_msgs::msg::MarkerArray get_markers(rclcpp::Time stamp,
+                                                     const std::string& marker_namespace,
+                                                     float r = 1, float g = 0, float b = 0,
+                                                     float a = 1, bool show_poses = false,
                                                      bool show_velocity = false,
                                                      float thickness = 0.03f);
 };
@@ -257,7 +266,9 @@ class TrajectoryLibrary {
             std::size_t end = str.find(")");
             // std::cout << start << " " << end << std::endl;
             if (end == std::string::npos) {
-                RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "TRAJECTORY LIBRARY PARSING ERROR: No closing parenthesis for $(param");
+                RCLCPP_DEBUG_STREAM(
+                    node_ptr->get_logger(),
+                    "TRAJECTORY LIBRARY PARSING ERROR: No closing parenthesis for $(param");
                 break;
             }
 
