@@ -15,7 +15,6 @@ find_package(std_srvs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(global_planner_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 
@@ -42,7 +41,6 @@ ament_target_dependencies(ensemble_global_planner
   std_srvs
   geometry_msgs
   nav_msgs
-  global_planner_msgs
   visualization_msgs
   tf2
   tf2_ros
