@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(random_walk_planner)
+project(ensemble_global_planner)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
@@ -32,10 +32,10 @@ ament_package()
 # Specify additional locations of header files
 
 # Declare a C++ executable
-add_executable(random_walk_planner src/random_walk_node.cpp src/random_walk_logic.cpp)
+add_executable(ensemble_global_planner src/ensemble_global_planner_node.cpp)
 
 # Link libraries
-ament_target_dependencies(random_walk_planner
+ament_target_dependencies(ensemble_global_planner
   rclcpp
   rclcpp_action
   std_msgs
@@ -50,13 +50,12 @@ ament_target_dependencies(random_walk_planner
 
 # Install executable
 install(TARGETS
-  random_walk_planner
+  ensemble_global_planner
   DESTINATION lib/${PROJECT_NAME}
 )
-
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY
+#   launch
+#   DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY
   config
@@ -72,7 +71,7 @@ install(DIRECTORY
 #############
 
 # Add gtest based cpp test target and link libraries
-# ament_add_gtest(${PROJECT_NAME}-test test/test_random_walk_planner.cpp)
+# ament_add_gtest(${PROJECT_NAME}-test test/test_ensemble_global_planner.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_node)
 # endif()

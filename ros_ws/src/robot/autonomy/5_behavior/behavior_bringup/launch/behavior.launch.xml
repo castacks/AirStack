@@ -23,10 +23,10 @@
             <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
             <!-- services -->
             <remap from="robot_command" to="/$(env ROBOT_NAME)/interface/robot_command" />
-            <remap from="set_trajectory_mode"
-                to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
-            <remap from="set_takeoff_landing_command"
-                to="/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
+            <remap from="set_takeoff_landing_command" to="/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command" />
+            <remap from="/global/trajectory" to="/$(env ROBOT_NAME)/global/trajectory" />
+            <!-- <remap from="get_random_walk_plan" to="/$(env ROBOT_NAME)/global/get_random_walk_plan" /> -->
 
         </node>
 

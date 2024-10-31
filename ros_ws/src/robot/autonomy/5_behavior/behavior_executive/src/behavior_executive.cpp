@@ -11,7 +11,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     pause_commanded_condition = new bt::Condition("Pause Commanded", this);
     rewind_commanded_condition = new bt::Condition("Rewind Commanded", this);
     fixed_trajectory_condition = new bt::Condition("Fixed Trajectory Commanded", this);
-    explore_condition = new bt::Condition("Explore Commanded", this);
+    global_plan_condition = new bt::Condition("Global Plan Commanded", this);
     offboard_commanded_condition = new bt::Condition("Offboard Commanded", this);
     arm_commanded_condition = new bt::Condition("Arm Commanded", this);
     disarm_commanded_condition = new bt::Condition("Disarm Commanded", this);
@@ -24,7 +24,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(pause_commanded_condition);
     conditions.push_back(rewind_commanded_condition);
     conditions.push_back(fixed_trajectory_condition);
-    conditions.push_back(explore_condition);
+    conditions.push_back(global_plan_condition);
     conditions.push_back(offboard_commanded_condition);
     conditions.push_back(arm_commanded_condition);
     conditions.push_back(disarm_commanded_condition);
@@ -36,7 +36,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     pause_action = new bt::Action("Pause", this);
     rewind_action = new bt::Action("Rewind", this);
     follow_fixed_trajectory_action = new bt::Action("Follow Fixed Trajectory", this);
-    explore_action = new bt::Action("Explore", this);
+    global_plan_action = new bt::Action("Follow Global Plan", this);
     request_control_action = new bt::Action("Request Control", this);
     disarm_action = new bt::Action("Disarm", this);
     actions.push_back(arm_action);
@@ -45,7 +45,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     actions.push_back(pause_action);
     actions.push_back(rewind_action);
     actions.push_back(follow_fixed_trajectory_action);
-    actions.push_back(explore_action);
+    actions.push_back(global_plan_action);
     actions.push_back(request_control_action);
     actions.push_back(disarm_action);
 
@@ -72,6 +72,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
         "set_trajectory_mode", rmw_qos_profile_services_default, service_callback_group);
     takeoff_landing_command_client = this->create_client<airstack_msgs::srv::TakeoffLandingCommand>(
         "set_takeoff_landing_command", rmw_qos_profile_services_default, service_callback_group);
+    global_planner_toggle_client = this->create_client<std_srvs::srv::Trigger>(
+        "global_plan_toggle", rmw_qos_profile_services_default, service_callback_group);
 
     // timers
     timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
@@ -245,6 +247,21 @@ void BehaviorExecutive::timer_callback() {
             mode_result.wait();
             std::cout << "mode 2" << std::endl;
         }
+    }
+
+    if (global_plan_action->is_active()) {
+        global_plan_action->set_running();
+        if (global_plan_action->active_has_changed()) {
+            std_srvs::srv::Trigger::Request::SharedPtr request =
+                std::make_shared<std_srvs::srv::Trigger::Request>();
+            auto result = global_planner_toggle_client->async_send_request(request);
+            result.wait();
+            if (result.get()->success)
+                global_plan_action->set_success();
+            else
+                global_plan_action->set_failure();
+        };
+
     }
 
     for (bt::Condition* condition : conditions) condition->publish();
