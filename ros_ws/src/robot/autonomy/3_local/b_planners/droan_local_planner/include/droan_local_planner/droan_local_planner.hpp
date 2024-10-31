@@ -141,7 +141,8 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->declare_parameter("custom_waypoint_timeout_factor", 0.3);
         this->get_parameter("custom_waypoint_timeout_factor", custom_waypoint_timeout_factor);
         this->declare_parameter("custom_waypoint_distance_threshold", 0.5);
-        this->get_parameter("custom_waypoint_distance_threshold", custom_waypoint_distance_threshold);
+        this->get_parameter("custom_waypoint_distance_threshold",
+                            custom_waypoint_distance_threshold);
 
         RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
@@ -152,14 +153,9 @@ class DroanLocalPlanner : public rclcpp::Node {
             map_representation_loader("map_representation_interface",
                                       "map_representation_interface::MapRepresentation");
         auto node_ptr = this->shared_from_this();
-        try {
-            this->map_representation =
-                map_representation_loader.createSharedInstance(map_representation_class_string);
-            this->map_representation->initialize(node_ptr, tf_buffer_ptr);
-        } catch (pluginlib::PluginlibException& ex) {
-            RCLCPP_INFO(this->get_logger(),
-                        "The MapRepresentation plugin failed to load. Error: %s", ex.what());
-        }
+        this->map_representation =
+            map_representation_loader.createSharedInstance(map_representation_class_string);
+        this->map_representation->initialize(node_ptr, tf_buffer_ptr);
         this->traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), node_ptr);
         double interval = 1. / this->execute_rate;
@@ -197,10 +193,10 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // increment how far along the global plan we are
         double trajectory_distance;
-        bool valid = global_plan.get_trajectory_distance_at_closest_point(look_ahead_position,
-                                                                          &trajectory_distance);
+        bool is_valid = global_plan.get_trajectory_distance_at_closest_point(look_ahead_position,
+                                                                             &trajectory_distance);
         // trim the global plan to only the next 10 meters
-        if (valid) {
+        if (is_valid) {
             this->global_plan_trajectory_distance += trajectory_distance;
             global_plan = global_plan.trim_trajectory_between_distances(
                 this->global_plan_trajectory_distance,
@@ -219,12 +215,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             traj_lib->get_dynamic_trajectories(look_ahead_odom);
 
         // pick the best trajectory
-        Trajectory best_traj;
-        bool are_all_traj_in_collision =
-            this->get_best_trajectory(dynamic_trajectories, global_plan, best_traj);
+        auto [is_success, best_traj] = this->get_best_trajectory(dynamic_trajectories, global_plan);
 
         // publish the trajectory
-        if (!are_all_traj_in_collision) {
+        if (is_success) {
             airstack_msgs::msg::TrajectoryXYZVYaw best_traj_msg =
                 best_traj.get_TrajectoryXYZVYaw_msg();
 
@@ -236,16 +230,23 @@ class DroanLocalPlanner : public rclcpp::Node {
             traj_pub->publish(best_traj_msg);
             RCLCPP_INFO_STREAM(this->get_logger(), "Published local trajectory");
         } else {
-            RCLCPP_INFO_STREAM(this->get_logger(), "All trajectories in collision");
+            RCLCPP_INFO_STREAM(this->get_logger(),
+                               "No valid trajectories, all trajectories collide");
         }
         return true;
     }
 
     /**
-     * Choose the best trajectory based on the cost function. Minimize the cost
+     * @brief Get the best trajectory based on the cost function. Minimize the cost
+     *
+     * @param trajectory_candidates
+     * @param global_plan
+     * @return std::tuple<bool, Trajectory> is_success: whether there exists a valid collision-free
+     * trajectory, best_traj: the best trajectory
      */
-    bool get_best_trajectory(std::vector<Trajectory> trajectory_candidates, Trajectory global_plan,
-                             Trajectory& best_traj_ret) {
+    std::tuple<bool, Trajectory> get_best_trajectory(
+        const std::vector<Trajectory>& trajectory_candidates, Trajectory global_plan) {
+        Trajectory best_traj_ret;
         double min_cost = std::numeric_limits<double>::max();
         bool are_all_traj_in_collision = true;
 
@@ -270,10 +271,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             } catch (tf2::TransformException& ex) {
                 RCLCPP_ERROR(this->get_logger(),
                              "Failed to transform global plan to trajectory frame: %s", ex.what());
-                return true;
+                return {false, best_traj_ret};
             }
 
-            // for each waypoint in the trajectory, calculate the distance to the closest obstacle
+            // for each waypoint in the trajectory, fetch its distance to its closest obstacle
             for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
 
@@ -281,6 +282,9 @@ class DroanLocalPlanner : public rclcpp::Node {
                 geometry_msgs::msg::PoseStamped pose;
                 pose.header = odom.header;
                 pose.pose = odom.pose;
+                double waypoint_obst_dist = trajectory_distances_to_closest_obstacle.at(i).at(j);
+                std::cout << "trajectory " << i << " waypoint " << j << " obstacle distance "
+                          << waypoint_obst_dist << std::endl;
                 closest_obstacle_distance =
                     std::min(closest_obstacle_distance,
                              trajectory_distances_to_closest_obstacle.at(i).at(j));
@@ -289,13 +293,13 @@ class DroanLocalPlanner : public rclcpp::Node {
                 Waypoint closest_point_from_global_plan(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                 int wp_index;
                 double path_distance;
-                bool valid = global_plan_in_traj_frame.get_closest_point(
+                bool is_valid = global_plan_in_traj_frame.get_closest_point(
                     wp.position(), &closest_point_from_global_plan, &wp_index, &path_distance);
 
                 // reward making progress along the global plan
                 double forward_progress_reward = -forward_progress_reward_weight * path_distance;
 
-                if (valid) {
+                if (is_valid) {
                     if (!std::isfinite(avg_distance_from_global_plan)) {
                         avg_distance_from_global_plan = 0;
                     }
@@ -307,6 +311,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             avg_distance_from_global_plan /= traj.get_num_waypoints();
 
             bool is_collision = closest_obstacle_distance <= robot_radius;
+            // RCLCPP_INFO_STREAM(this->get_logger(),
+            //                    "Trajectory " << i << " is_collision: " << is_collision
+            //                                  << " closest_obstacle_distance: "
+            //                                  << closest_obstacle_distance);
             if (!is_collision) {
                 are_all_traj_in_collision = false;
             }
@@ -339,14 +347,15 @@ class DroanLocalPlanner : public rclcpp::Node {
         traj_lib_vis_pub->publish(traj_lib_marker_arr);
         map_debug_pub->publish(this->map_representation->get_debug_markerarray());
 
-        return are_all_traj_in_collision;
+        bool is_success = !are_all_traj_in_collision;
+        return {is_success, best_traj_ret};
     }
 
     /**
      * @brief Get the distance to the closest obstacle for each waypoint in the trajectory
      */
     std::vector<std::vector<double>> get_trajectory_distances_to_closest_obstacle(
-        std::vector<Trajectory> trajectory_candidates) {
+        const std::vector<Trajectory>& trajectory_candidates) {
         // TODO: clearly we should refactor map_representation to accept Trajectory objects
         std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
             this->map_representation->get_values(trajectory_candidates);

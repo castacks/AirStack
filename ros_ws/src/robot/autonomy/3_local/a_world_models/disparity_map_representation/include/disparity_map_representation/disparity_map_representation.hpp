@@ -68,13 +68,11 @@ tf2::Vector3 determine_waypoint_direction(const Trajectory& trajectory,
 
    public:
     DisparityMapRepresentation();
-    virtual double distance_to_obstacle(geometry_msgs::msg::PoseStamped pose,
-                                        tf2::Vector3 direction);
 
     virtual const visualization_msgs::msg::MarkerArray& get_debug_markerarray() const override;
 
     virtual std::vector<std::vector<double> > get_values(
-        std::vector<Trajectory> trajectories) override;
+        const std::vector<Trajectory>& trajectories) override;
 
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,
                             const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) override;

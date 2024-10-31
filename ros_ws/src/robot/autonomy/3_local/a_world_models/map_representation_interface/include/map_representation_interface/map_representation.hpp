@@ -25,7 +25,7 @@ class MapRepresentation {
        for each trajectory. There is a vector of doubles for each waypoint within a trajectory.
     */
 
-    virtual std::vector<std::vector<double> > get_values(std::vector<Trajectory> trajectories) = 0;
+    virtual std::vector<std::vector<double> > get_values(const std::vector<Trajectory> &trajectories) = 0;
     /**
        Clears the map.
     */

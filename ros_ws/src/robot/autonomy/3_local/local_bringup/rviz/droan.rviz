@@ -311,7 +311,7 @@ Visualization Manager:
       Enabled: true
       Name: Trimmed Global Plan for DROAN
       Namespaces:
-        global_plan: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -363,7 +363,7 @@ Visualization Manager:
       Enabled: true
       Name: Disparity Graph
       Namespaces:
-        pose: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -375,7 +375,7 @@ Visualization Manager:
       Enabled: true
       Name: DisparityMapCollisionDebug
       Namespaces:
-        obstacles: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -429,25 +429,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 11.408451080322266
+      Distance: 3.967585325241089
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.0612897053360939
-        Y: 0.9665564298629761
-        Z: 1.4921493530273438
+        X: 0.5220737457275391
+        Y: 1.7569847106933594
+        Z: 0.8557409048080444
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5453968048095703
+      Pitch: 0.33539679646492004
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.8835679292678833
+      Yaw: 2.7285680770874023
     Saved: ~
 Window Geometry:
   Displays:

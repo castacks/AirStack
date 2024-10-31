@@ -335,7 +335,7 @@ class DisparityGraph {
                     // not really a probability?
                     occupancy += (state_disparity - 0.5) / state_disparity;
                 } else {
-                    // otherwise it's outside, we subtract from the occupancy value
+                    // otherwise it's outside, we subtdroan.rvizract from the occupancy value
                     occupancy -= 0.5 * (state_disparity - 0.5) / state_disparity;
                     occupancy = std::clamp(occupancy, 0.0, 1.0);
                 }

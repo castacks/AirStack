@@ -37,8 +37,8 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node pkg="droan_local_planner" exec="droan_local_planner"
-            args="--log-level DEBUG">
+        <node pkg="droan_local_planner" exec="droan_local_planner" 
+            args="--log-level DEBUG" >
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
                 allow_substs="true" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
@@ -49,7 +49,7 @@
             <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
         </node>
         <!-- DROAN local model -->
-        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion">
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion" >
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             <!-- use estimated disparity -->
@@ -62,7 +62,7 @@
 
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
-    <node pkg="trajectory_controller" exec="trajectory_controller"
+    <node pkg="trajectory_controller" exec="trajectory_controller" 
         namespace="trajectory_controller"
         output="screen">
         <param name="tf_prefix" value="" />
@@ -86,5 +86,8 @@
 
     </node>
 
+  <node pkg="rviz2" exec="rviz2"
+    args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"
+    output="screen" respawn="true" respawn_delay="1" />
 
 </launch>

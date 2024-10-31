@@ -43,42 +43,6 @@ void DisparityMapRepresentation::initialize(const rclcpp::Node::SharedPtr& node_
     disp_graph.initialize(node_ptr, tf_buffer_ptr);
 }
 
-void DisparityMapRepresentation::check_pose_and_add_marker(const Trajectory& trajectory,
-                                                           const Waypoint& waypoint, double dist,
-                                                           const tf2::Vector3 direction,
-                                                           double& closest_obstacle_distance) {
-    tf2::Vector3 point_to_check = waypoint.position() + dist * direction;
-    geometry_msgs::msg::PoseStamped pose_to_check;
-    pose_to_check.header.frame_id = trajectory.get_frame_id();
-    pose_to_check.header.stamp = trajectory.get_stamp();
-    pose_to_check.pose.position.x = point_to_check.x();
-    pose_to_check.pose.position.y = point_to_check.y();
-    pose_to_check.pose.position.z = point_to_check.z();
-    pose_to_check.pose.orientation.w = 1.0;
-    // RCLCPP_INFO_STREAM(node_ptr->get_logger(),
-    //                    "check_pose: " << check_pose.pose.position.x << " "
-    //                                   << check_pose.pose.position.y << " "
-    //                                   << check_pose.pose.position.z);
-
-    std_msgs::msg::ColorRGBA color;
-
-    auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
-    if (is_seen && is_free) {
-        // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "no collision");
-        color = green;
-    } else {
-        // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "collision");
-        closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
-        if (!is_seen)
-            color = gray;
-        else if (!is_free)
-            color = red;
-    }
-
-    points_marker.points.push_back(pose_to_check.pose.position);
-    points_marker.colors.push_back(color);
-}
-
 tf2::Vector3 DisparityMapRepresentation::determine_waypoint_direction(const Trajectory& trajectory,
                                                                       const Waypoint& waypoint,
                                                                       size_t waypoint_index) {
@@ -100,7 +64,7 @@ tf2::Vector3 DisparityMapRepresentation::determine_waypoint_direction(const Traj
 }
 
 std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
-    std::vector<Trajectory> trajectories) {
+    const std::vector<Trajectory> &trajectories) {
     marker_array.markers.clear();
     points_marker.points.clear();
     points_marker.colors.clear();
@@ -134,8 +98,8 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                 for (int k = 1; k < obstacle_check_num_points + 1; k++) {
                     double dist = k * obstacle_check_radius / (obstacle_check_num_points + 1);
 
-                    check_pose_and_add_marker(trajectory, waypoint, dist, direction,
-                                              closest_obstacle_distance);
+                    // check_pose_and_add_marker(trajectory, waypoint, dist, direction,
+                    //                           closest_obstacle_distance);
                 }
             }
 
@@ -153,90 +117,39 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     return values;
 }
 
-double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::PoseStamped pose,
-                                                        tf2::Vector3 direction) {
-    points_marker.header.frame_id = pose.header.frame_id;
-    std_msgs::msg::ColorRGBA green;
-    green.r = 0;
-    green.b = 0;
-    green.g = 1;
-    green.a = 1;
-    std_msgs::msg::ColorRGBA red;
-    red.r = 1;
-    red.b = 0;
-    red.g = 0;
-    red.a = 1;
+void DisparityMapRepresentation::check_pose_and_add_marker(const Trajectory& trajectory,
+                                                           const Waypoint& waypoint, double dist,
+                                                           const tf2::Vector3 direction,
+                                                           double& closest_obstacle_distance) {
+    tf2::Vector3 point_to_check = waypoint.position() + dist * direction;
+    geometry_msgs::msg::PoseStamped pose_to_check;
+    pose_to_check.header.frame_id = trajectory.get_frame_id();
+    pose_to_check.header.stamp = trajectory.get_stamp();
+    pose_to_check.pose.position.x = point_to_check.x();
+    pose_to_check.pose.position.y = point_to_check.y();
+    pose_to_check.pose.position.z = point_to_check.z();
+    pose_to_check.pose.orientation.w = 1.0;
+    // RCLCPP_INFO_STREAM(node_ptr->get_logger(),
+    //                    "check_pose: " << check_pose.pose.position.x << " "
+    //                                   << check_pose.pose.position.y << " "
+    //                                   << check_pose.pose.position.z);
 
-    tf2::Quaternion q_up, q_down, q_left, q_right;
-    q_up.setRPY(0, -M_PI / 2, 0);
-    q_down.setRPY(0, M_PI / 2, 0);
-    q_left.setRPY(0, 0, M_PI / 2);
-    q_right.setRPY(0, 0, -M_PI / 2);
-    std::vector<tf2::Quaternion> directions;
-    directions.push_back(q_up);
-    directions.push_back(q_down);
-    directions.push_back(q_left);
-    directions.push_back(q_right);
+    std_msgs::msg::ColorRGBA color;
 
-    tf2::Vector3 position;
-    tf2::fromMsg(pose.pose.position, position);
-    tf2::Quaternion q;
-    tf2::fromMsg(pose.pose.orientation, q);
-    tf2::Vector3 unit(1, 0, 0);
-    double closest_obstacle_distance = obstacle_check_radius;
-
-    direction.normalize();
-    tf2::Vector3 up = tf2::Transform(q_up * q) * unit;
-    up.normalize();
-
-    tf2::Vector3 side = up.cross(direction);
-    side.normalize();
-
-    up = side.cross(direction);
-    up.normalize();
-
-    std::vector<tf2::Vector3> direction_vectors;
-    direction_vectors.push_back(up);
-    direction_vectors.push_back(side);
-    direction_vectors.push_back(-up);
-    direction_vectors.push_back(-side);
-
-    for (size_t m = 0; m < directions.size(); m++) {
-        // tf2::Quaternion q_curr = directions[m];
-        for (int k = 1; k < obstacle_check_num_points + 1; k++) {
-            double dist =
-                (double)k * obstacle_check_radius / (double)(obstacle_check_num_points + 1);
-
-            tf2::Vector3 point =
-                position + dist * direction_vectors[m];  // tf::Transform(q_curr)*(dist*direction);
-            geometry_msgs::msg::PoseStamped check_pose;
-            check_pose.header = pose.header;
-            check_pose.pose.position.x = point.x();
-            check_pose.pose.position.y = point.y();
-            check_pose.pose.position.z = point.z();
-            check_pose.pose.orientation.w = 1.0;
-
-            auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose, 0.9);
-
-            std_msgs::msg::ColorRGBA c;
-            if (!is_seen || !is_free) {
-                closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
-                c = red;
-            } else
-                c = green;
-
-            points_marker.points.push_back(check_pose.pose.position);
-            points_marker.colors.push_back(c);
+    auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
+    if (is_seen && is_free) {
+        color = green;
+    } else {
+        closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
+        if (!is_seen) {
+            color = gray;
+        } else if (!is_free) {
+            color = red;
         }
     }
 
-    points_marker.points.push_back(pose.pose.position);
-    points_marker.colors.push_back(green);
-
-    auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose, 0.9);
-    if (!is_seen || !is_free) return 0.f;
-
-    return closest_obstacle_distance;
+    points_marker.points.push_back(pose_to_check.pose.position);
+    points_marker.colors.push_back(color);
 }
 
 const visualization_msgs::msg::MarkerArray& DisparityMapRepresentation::get_debug_markerarray()

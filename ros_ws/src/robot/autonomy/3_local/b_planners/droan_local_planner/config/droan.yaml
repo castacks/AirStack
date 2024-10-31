@@ -14,7 +14,7 @@
     magnitude: 0.5
 
     # DROAN parameters
-    robot_radius: 1.0
+    robot_radius: 0.0
     obstacle_distance_reward: 1.0
     forward_progress_reward_weight: 0.5
 
