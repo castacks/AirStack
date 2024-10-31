@@ -257,8 +257,8 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         visualization_msgs::msg::MarkerArray traj_lib_marker_arr;
 
-        RCLCPP_INFO_STREAM(this->get_logger(),
-                           "Number of trajectories: " << trajectory_candidates.size());
+        // RCLCPP_INFO_STREAM(this->get_logger(),
+        //                    "Number of trajectories: " << trajectory_candidates.size());
 
         for (size_t i = 0; i < trajectory_candidates.size(); ++i) {
             Trajectory traj = trajectory_candidates[i];
