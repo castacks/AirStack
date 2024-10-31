@@ -12,8 +12,6 @@
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-// #include <tf/transform_datatypes.h>
-// #include <tf/transform_listener.h>
 #include <yaml-cpp/yaml.h>
 
 #include <airstack_common/ros2_helper.hpp>
@@ -50,16 +48,16 @@ class Waypoint {
 
     void set_time(double time) { time_ = time; }
 
-    const tf2::Quaternion& get_quaternion() const;
-    const tf2::Vector3& get_position() const;
-    const tf2::Vector3& get_velocity() const;
-    const tf2::Vector3& get_acceleration() const;
-    const tf2::Vector3& get_jerk() const;
+    tf2::Quaternion quaternion() const;
+    tf2::Vector3 position() const;
+    tf2::Vector3 velocity() const;
+    tf2::Vector3 acceleration() const;
+    tf2::Vector3 jerk() const;
 
     /**
      * @brief Convert Waypoint to Odometry message
      */
-    airstack_msgs::msg::Odometry as_odometry(rclcpp::Time stamp, std::string frame_id) const;
+    airstack_msgs::msg::Odometry as_odometry_msg(rclcpp::Time stamp, std::string frame_id) const;
 
     Waypoint interpolate(Waypoint wp, double t);
 

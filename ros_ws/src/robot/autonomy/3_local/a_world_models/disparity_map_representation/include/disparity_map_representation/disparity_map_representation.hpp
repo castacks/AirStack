@@ -5,6 +5,7 @@
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <trajectory_library/trajectory_library.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -27,6 +28,7 @@ class DisparityMapRepresentation : public map_representation_interface::MapRepre
     visualization_msgs::msg::MarkerArray marker_array;
     visualization_msgs::msg::Marker points_marker;
     std_msgs::msg::ColorRGBA green;
+    std_msgs::msg::ColorRGBA gray;
     std_msgs::msg::ColorRGBA red;
 
     int obstacle_check_num_points;

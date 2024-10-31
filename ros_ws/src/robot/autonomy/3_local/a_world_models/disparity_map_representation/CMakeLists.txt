@@ -29,6 +29,7 @@ find_package(tf2_eigen REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(trajectory_library REQUIRED)
 
 
 add_library(disparity_map_representation src/disparity_map_representation.cpp)
@@ -60,6 +61,7 @@ ament_target_dependencies(
   tf2_geometry_msgs
   tf2_ros
   visualization_msgs
+  trajectory_library
   )
 
 pluginlib_export_plugin_description_file(map_representation_interface disparity_map_representation_plugin.xml)

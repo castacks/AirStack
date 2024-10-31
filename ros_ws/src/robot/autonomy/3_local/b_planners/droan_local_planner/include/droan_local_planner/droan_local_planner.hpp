@@ -111,17 +111,15 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // init parameters
         this->declare_parameter("execute_rate", 5.);
-        this->execute_rate = this->get_parameter("execute_rate").as_double();
+        this->get_parameter("execute_rate", this->execute_rate);
         this->declare_parameter("obstacle_distance_reward", 1.);
-        this->obstacle_distance_reward =
-            this->get_parameter("obstacle_distance_reward").as_double();
+        this->get_parameter("obstacle_distance_reward", obstacle_distance_reward);
         this->declare_parameter("obstacle_check_radius", 1.);
-        this->obstacle_check_radius = this->get_parameter("obstacle_check_radius").as_double();
+        this->get_parameter("obstacle_check_radius", obstacle_check_radius);
         this->declare_parameter("forward_progress_reward_weight", 0.5);
-        this->forward_progress_reward_weight =
-            this->get_parameter("forward_progress_reward_weight").as_double();
+        this->get_parameter("forward_progress_reward_weight", forward_progress_reward_weight);
         this->declare_parameter("robot_radius", 0.75);
-        this->robot_radius = this->get_parameter("robot_radius").as_double();
+        this->get_parameter("robot_radius", robot_radius);
         this->declare_parameter("yaw_mode", "SMOOTH_YAW");
         auto yaw_mode_str = this->get_parameter("yaw_mode").as_string();
         if (yaw_mode_str == "TRAJECTORY_YAW") {
@@ -132,24 +130,18 @@ class DroanLocalPlanner : public rclcpp::Node {
             RCLCPP_ERROR(this->get_logger(), "Invalid yaw_mode parameter");
         }
         this->declare_parameter("map_representation", std::string("PointCloudMapRepresentation"));
-        this->map_representation_class_string =
-            this->get_parameter("map_representation").as_string();
+        this->get_parameter("map_representation", map_representation_class_string);
         this->declare_parameter("auto_waypoint_buffer_duration", 30.);
-        this->auto_waypoint_buffer_duration =
-            this->get_parameter("auto_waypoint_buffer_duration").as_double();
+        this->get_parameter("auto_waypoint_buffer_duration", auto_waypoint_buffer_duration);
         this->declare_parameter("auto_waypoint_spacing_threshold", 0.5);
-        this->auto_waypoint_spacing_threshold =
-            this->get_parameter("auto_waypoint_spacing_threshold").as_double();
+        this->get_parameter("auto_waypoint_spacing_threshold", auto_waypoint_spacing_threshold);
         this->declare_parameter("auto_waypoint_angle_threshold", 30. * M_PI / 180.);
-        this->auto_waypoint_angle_threshold =
-            this->get_parameter("auto_waypoint_angle_threshold").as_double();
+        this->get_parameter("auto_waypoint_angle_threshold", auto_waypoint_angle_threshold);
 
         this->declare_parameter("custom_waypoint_timeout_factor", 0.3);
-        this->custom_waypoint_timeout_factor =
-            this->get_parameter("custom_waypoint_timeout_factor").as_double();
+        this->get_parameter("custom_waypoint_timeout_factor", custom_waypoint_timeout_factor);
         this->declare_parameter("custom_waypoint_distance_threshold", 0.5);
-        this->custom_waypoint_distance_threshold =
-            this->get_parameter("custom_waypoint_distance_threshold").as_double();
+        this->get_parameter("custom_waypoint_distance_threshold", custom_waypoint_distance_threshold);
 
         RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
@@ -285,7 +277,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
 
-                airstack_msgs::msg::Odometry odom = wp.as_odometry(now, traj.get_frame_id());
+                airstack_msgs::msg::Odometry odom = wp.as_odometry_msg(now, traj.get_frame_id());
                 geometry_msgs::msg::PoseStamped pose;
                 pose.header = odom.header;
                 pose.pose = odom.pose;
@@ -298,7 +290,7 @@ class DroanLocalPlanner : public rclcpp::Node {
                 int wp_index;
                 double path_distance;
                 bool valid = global_plan_in_traj_frame.get_closest_point(
-                    wp.get_position(), &closest_point_from_global_plan, &wp_index, &path_distance);
+                    wp.position(), &closest_point_from_global_plan, &wp_index, &path_distance);
 
                 // reward making progress along the global plan
                 double forward_progress_reward = -forward_progress_reward_weight * path_distance;
@@ -308,7 +300,7 @@ class DroanLocalPlanner : public rclcpp::Node {
                         avg_distance_from_global_plan = 0;
                     }
                     avg_distance_from_global_plan +=
-                        closest_point_from_global_plan.get_position().distance(wp.get_position()) +
+                        closest_point_from_global_plan.position().distance(wp.position()) +
                         forward_progress_reward;
                 }
             }
@@ -324,10 +316,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             visualization_msgs::msg::MarkerArray traj_markers;
             if (collision) {
                 // red for collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3, false, false);
+                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3, true);
             } else {
                 // green for no collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5, false, false);
+                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5, true);
             }
             traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.end(),
                                                traj_markers.markers.begin(),

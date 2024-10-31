@@ -5,7 +5,6 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <trajectory_library/trajectory_library.hpp>
-#include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <vector>

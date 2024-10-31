@@ -12,11 +12,15 @@ DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation(), 
     green.r = 0;
     green.b = 0;
     green.g = 1;
-    green.a = 1;
+    green.a = 0.8;
+    gray.r = 0.5;
+    gray.b = 0.5;
+    gray.g = 0.5;
+    gray.a = 0.5;
     red.r = 1;
     red.b = 0;
     red.g = 0;
-    red.a = 1;
+    red.a = 0.5;
 
     Q_UP.setRPY(0, -M_PI / 2, 0);
     Q_DOWN.setRPY(0, M_PI / 2, 0);
@@ -43,7 +47,7 @@ void DisparityMapRepresentation::check_pose_and_add_marker(const Trajectory& tra
                                                            const Waypoint& waypoint, double dist,
                                                            const tf2::Vector3 direction,
                                                            double& closest_obstacle_distance) {
-    tf2::Vector3 point_to_check = waypoint.get_position() + dist * direction;
+    tf2::Vector3 point_to_check = waypoint.position() + dist * direction;
     geometry_msgs::msg::PoseStamped pose_to_check;
     pose_to_check.header.frame_id = trajectory.get_frame_id();
     pose_to_check.header.stamp = trajectory.get_stamp();
@@ -58,14 +62,17 @@ void DisparityMapRepresentation::check_pose_and_add_marker(const Trajectory& tra
 
     std_msgs::msg::ColorRGBA color;
 
-    double occupancy;
-    if (disp_graph.is_pose_seen_and_free(pose_to_check, 0.9, occupancy)) {
+    auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
+    if (is_seen && is_free) {
         // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "no collision");
         color = green;
     } else {
         // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "collision");
         closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
-        color = red;
+        if (!is_seen)
+            color = gray;
+        else if (!is_free)
+            color = red;
     }
 
     points_marker.points.push_back(pose_to_check.pose.position);
@@ -78,16 +85,15 @@ tf2::Vector3 DisparityMapRepresentation::determine_waypoint_direction(const Traj
     tf2::Vector3 waypoint_direction;
     if (trajectory.get_num_waypoints() == 1) {
         // edge case: only 1 waypoint, make direction match the waypoint's heading
-        waypoint_direction = quaternion_to_unit_vector(waypoint.get_quaternion());
+        waypoint_direction = quaternion_to_unit_vector(waypoint.quaternion());
     } else {
         if (&waypoint == &(trajectory.get_waypoint(0))) {
             // edge case: first waypoint, direction is from waypoint 0 to waypoint 1
-            waypoint_direction =
-                trajectory.get_waypoint(1).get_position() - waypoint.get_position();
+            waypoint_direction = trajectory.get_waypoint(1).position() - waypoint.position();
         } else {
             // otherwise direction is from previous waypoint to current waypoint
-            waypoint_direction = waypoint.get_position() -
-                                 trajectory.get_waypoint(waypoint_index - 1).get_position();
+            waypoint_direction =
+                waypoint.position() - trajectory.get_waypoint(waypoint_index - 1).position();
         }
     }
     return waypoint_direction;
@@ -210,11 +216,10 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::Pose
             check_pose.pose.position.z = point.z();
             check_pose.pose.orientation.w = 1.0;
 
-            double occupancy;
-            bool collision = !disp_graph.is_pose_seen_and_free(check_pose, 0.9, occupancy);
+            auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose, 0.9);
 
             std_msgs::msg::ColorRGBA c;
-            if (collision) {
+            if (!is_seen || !is_free) {
                 closest_obstacle_distance = std::min(dist, closest_obstacle_distance);
                 c = red;
             } else
@@ -228,8 +233,8 @@ double DisparityMapRepresentation::distance_to_obstacle(geometry_msgs::msg::Pose
     points_marker.points.push_back(pose.pose.position);
     points_marker.colors.push_back(green);
 
-    double occupancy;
-    if (!disp_graph.is_pose_seen_and_free(pose, 0.9, occupancy)) return 0.f;
+    auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose, 0.9);
+    if (!is_seen || !is_free) return 0.f;
 
     return closest_obstacle_distance;
 }

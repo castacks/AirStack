@@ -16,7 +16,7 @@ find_package(tf2_ros REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
 
-add_library(trajectory_library src/trajectory_library.cpp)
+add_library(trajectory_library SHARED src/trajectory_library.cpp)
 target_include_directories(trajectory_library PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
