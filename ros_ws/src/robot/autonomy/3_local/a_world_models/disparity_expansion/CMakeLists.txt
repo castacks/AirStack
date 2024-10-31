@@ -135,7 +135,10 @@ include_directories(
 # ##########
 # # Build ##
 # ##########
-set(CMAKE_BUILD_TYPE Release)
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  message("${PROJECT_NAME}: You did not request a specific build type: selecting 'Release'.")
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 # # Specify additional locations of header files
 # # Your package locations should be listed before other locations

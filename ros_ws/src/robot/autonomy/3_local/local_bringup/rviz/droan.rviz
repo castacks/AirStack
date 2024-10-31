@@ -1,7 +1,3 @@
-<<<<<<< HEAD
----
-=======
->>>>>>> 1a09137 (Add rviz for debug droan)
 Panels:
   - Class: rviz_common/Displays
     Help Height: 78
@@ -10,18 +6,11 @@ Panels:
       Expanded:
         - /Global Options1
         - /Grid1
-<<<<<<< HEAD
         - /TF1/Frames1
         - /Odometry1/Topic1
-        - /ExpansionPoly1
-        - /Left Depth1
-=======
-        - /TF1
-        - /TF1/Frames1
-        - /Odometry1/Topic1
-        - /ExpansionPoly1
->>>>>>> 1a09137 (Add rviz for debug droan)
-      Splitter Ratio: 0.35953420400619507
+        - /Global Plan1/Offset1
+        - /Disparity Graph1
+      Splitter Ratio: 0.590062141418457
     Tree Height: 1085
   - Class: rviz_common/Selection
     Name: Selection
@@ -42,11 +31,7 @@ Panels:
     SyncMode: 0
     SyncSource: Expansion Cloud
 Visualization Manager:
-<<<<<<< HEAD
-  Class: ''
-=======
   Class: ""
->>>>>>> 1a09137 (Add rviz for debug droan)
   Displays:
     - Alpha: 0.5
       Cell Size: 1
@@ -60,11 +45,7 @@ Visualization Manager:
       Normal Cell Count: 0
       Offset:
         X: 0
-<<<<<<< HEAD
-        'Y': 0
-=======
         Y: 0
->>>>>>> 1a09137 (Add rviz for debug droan)
         Z: 0
       Plane: XY
       Plane Cell Count: 100
@@ -75,13 +56,6 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-<<<<<<< HEAD
-=======
-        American_Beech:
-          Value: true
-        Plane:
-          Value: true
->>>>>>> 1a09137 (Add rviz for debug droan)
         base_link:
           Value: true
         base_link_frd:
@@ -123,33 +97,6 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
-<<<<<<< HEAD
-          map_FLU:
-            map:
-              base_link:
-                base_link_frd: {}
-                front_stereo:
-                  left_camera: {}
-                  right_camera: {}
-                ouster: {}
-              base_link_stabilized: {}
-              look_ahead_point: {}
-              look_ahead_point_stabilized: {}
-              map_ned: {}
-              tracking_point: {}
-              tracking_point_stabilized: {}
-      Update Interval: 0
-      Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Traj Vis
-      Namespaces:
-        trajectory_0: true
-=======
-          American_Beech:
-            {}
-          Plane:
-            {}
           map_FLU:
             map:
               base_link:
@@ -177,31 +124,22 @@ Visualization Manager:
       Update Interval: 0
       Value: true
     - Class: rviz_default_plugins/MarkerArray
-      Enabled: false
+      Enabled: true
       Name: Traj Vis
       Namespaces:
-        {}
->>>>>>> 1a09137 (Add rviz for debug droan)
+        traj_controller: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: trajectory_controller/trajectory_vis
-<<<<<<< HEAD
       Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: false
-      Name: Traj Debug
-      Namespaces: {}
-=======
-      Value: false
     - Class: rviz_default_plugins/MarkerArray
       Enabled: false
       Name: Traj Debug
       Namespaces:
         {}
->>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -249,30 +187,18 @@ Visualization Manager:
         Value: odometry_conversion/odometry
       Value: false
     - Class: rviz_default_plugins/Marker
-<<<<<<< HEAD
-      Enabled: true
-      Name: VDB Mapping Marker
-      Namespaces:
-        '': true
-=======
       Enabled: false
       Name: VDB Mapping Marker
       Namespaces:
         {}
->>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-<<<<<<< HEAD
         Value: vdb_mapping/vdb_map_visualization
-      Value: true
-=======
-        Value: /robot_1/vdb_mapping/vdb_map_visualization
       Value: false
->>>>>>> 1a09137 (Add rviz for debug droan)
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -285,11 +211,7 @@ Visualization Manager:
       Color: 170; 170; 255
       Color Transformer: FlatColor
       Decay Time: 0
-<<<<<<< HEAD
-      Enabled: true
-=======
       Enabled: false
->>>>>>> 1a09137 (Add rviz for debug droan)
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -307,19 +229,12 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-<<<<<<< HEAD
         Value: sensors/ouster/point_cloud
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
-=======
-        Value: /robot_1/sensors/ouster/point_cloud
-      Use Fixed Frame: true
-      Use rainbow: true
       Value: false
->>>>>>> 1a09137 (Add rviz for debug droan)
     - Class: rviz_default_plugins/Image
-      Enabled: false
+      Enabled: true
       Max Value: 100
       Median window: 5
       Min Value: 0
@@ -330,14 +245,10 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-<<<<<<< HEAD
         Value: sensors/front_stereo/left/depth
-=======
-        Value: /robot_1/sensors/front_stereo/left/depth
->>>>>>> 1a09137 (Add rviz for debug droan)
-      Value: false
+      Value: true
     - Class: rviz_default_plugins/Image
-      Enabled: false
+      Enabled: true
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -349,26 +260,18 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: sensors/front_stereo/left/image_rect
-      Value: false
+      Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: false
       Name: Traj Library
-<<<<<<< HEAD
-      Namespaces: {}
-=======
       Namespaces:
         {}
->>>>>>> 1a09137 (Add rviz for debug droan)
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-<<<<<<< HEAD
         Value: droan/trajectory_library_vis
-=======
-        Value: /robot_1/droan/trajectory_library_vis
->>>>>>> 1a09137 (Add rviz for debug droan)
       Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -400,19 +303,15 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-<<<<<<< HEAD
         Value: droan/expansion_cloud
-=======
-        Value: /robot_1/droan/expansion_cloud
->>>>>>> 1a09137 (Add rviz for debug droan)
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: Trimmed Global Plan for DROAN
-<<<<<<< HEAD
-      Namespaces: {}
+      Namespaces:
+        global_plan: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -423,7 +322,8 @@ Visualization Manager:
     - Class: rviz_default_plugins/MarkerArray
       Enabled: false
       Name: ExpansionPoly
-      Namespaces: {}
+      Namespaces:
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -431,44 +331,57 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: droan/expansion_poly
       Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 0; 255; 255
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.10000000149011612
+      Name: Global Plan
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_1/global_plan
+      Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: DisparityMarker
-      Namespaces: {}
+      Name: Disparity Graph
+      Namespaces:
+        pose: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: droan/disparity_marker
+        Value: /robot_1/droan/disparity_graph
       Value: true
-    - Class: rviz_default_plugins/Image
+    - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Max Value: 1
-      Median window: 5
-      Min Value: 0
-      Name: Left Camera
-      Normalize Range: true
+      Name: DisparityMapCollisionDebug
+      Namespaces:
+        obstacles: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: sensors/front_stereo/left/image_rect
-      Value: true
-    - Class: rviz_default_plugins/Image
-      Enabled: true
-      Max Value: 100
-      Median window: 5
-      Min Value: 0
-      Name: Left Depth
-      Normalize Range: false
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: sensors/front_stereo/left/depth
+        Value: /robot_1/droan/disparity_map_debug
       Value: true
   Enabled: true
   Global Options:
@@ -516,26 +429,26 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 43.695953369140625
+      Distance: 11.408451080322266
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.6335676908493042
-        'Y': -2.40643310546875
-        Z: -2.289210796356201
+        X: 0.0612897053360939
+        Y: 0.9665564298629761
+        Z: 1.4921493530273438
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6753983497619629
+      Pitch: 0.5453968048095703
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.6135711669921875
-    Saved: null
+      Yaw: 1.8835679292678833
+    Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
@@ -546,12 +459,7 @@ Window Geometry:
   Height: 1376
   Hide Left Dock: false
   Hide Right Dock: false
-  Left Camera:
-    collapsed: false
-  Left Depth:
-    collapsed: false
-  QMainWindow State: >-
-    000000ff00000000fd0000000400000000000001f5000004c6fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b000004c6000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c900000000000000000000000100000201000004c6fc0200000007fb00000016004c006500660074002000430061006d006500720061010000003b000002ee0000002800fffffffb00000014004c006500660074002000440065007000740068010000032f000001d20000002800fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042000000003b000001360000002800fffffffb0000002000460072006f006e00740020004c006500660074002000440065007000740068000000003b0000026b0000002800fffffffb0000000a0056006900650077007300000000fd000001a8000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba0000003efc0100000002fb0000000800540069006d00650100000000000009ba0000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000005b8000004c600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001e5000004c6fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b000004c6000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c9000000000000000000000001000001f6000004c6fc0200000007fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b0000020e0000002800fffffffb0000002000460072006f006e00740020004c006500660074002000440065007000740068010000024f000002b20000002800fffffffb0000000a0056006900650077007300000000fd000001a8000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba0000003efc0100000002fb0000000800540069006d00650100000000000009ba0000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000005d3000004c600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -562,486 +470,4 @@ Window Geometry:
     collapsed: false
   Width: 2490
   X: 1990
-  'Y': 27        trajectory_164305: true
-=======
-      Namespaces:
-        trajectory_1: true
-        trajectory_100246: true
-        trajectory_100735: true
-        trajectory_101224: true
-        trajectory_101713: true
-        trajectory_102202: true
-        trajectory_102691: true
-        trajectory_10270: true
-        trajectory_103180: true
-        trajectory_103669: true
-        trajectory_104158: true
-        trajectory_104647: true
-        trajectory_105136: true
-        trajectory_105625: true
-        trajectory_106114: true
-        trajectory_106603: true
-        trajectory_107092: true
-        trajectory_107581: true
-        trajectory_10759: true
-        trajectory_108070: true
-        trajectory_108559: true
-        trajectory_109048: true
-        trajectory_109537: true
-        trajectory_110026: true
-        trajectory_110515: true
-        trajectory_111004: true
-        trajectory_111493: true
-        trajectory_111982: true
-        trajectory_112471: true
-        trajectory_11248: true
-        trajectory_112960: true
-        trajectory_113449: true
-        trajectory_113938: true
-        trajectory_114427: true
-        trajectory_114916: true
-        trajectory_115405: true
-        trajectory_115894: true
-        trajectory_116383: true
-        trajectory_116872: true
-        trajectory_117361: true
-        trajectory_11737: true
-        trajectory_117850: true
-        trajectory_118339: true
-        trajectory_118828: true
-        trajectory_119317: true
-        trajectory_119806: true
-        trajectory_120295: true
-        trajectory_120784: true
-        trajectory_121273: true
-        trajectory_121762: true
-        trajectory_122251: true
-        trajectory_12226: true
-        trajectory_122740: true
-        trajectory_123229: true
-        trajectory_123718: true
-        trajectory_124207: true
-        trajectory_124696: true
-        trajectory_125185: true
-        trajectory_125674: true
-        trajectory_126163: true
-        trajectory_126652: true
-        trajectory_127141: true
-        trajectory_12715: true
-        trajectory_127630: true
-        trajectory_128119: true
-        trajectory_128608: true
-        trajectory_129097: true
-        trajectory_129586: true
-        trajectory_130075: true
-        trajectory_130564: true
-        trajectory_131053: true
-        trajectory_131542: true
-        trajectory_132031: true
-        trajectory_13204: true
-        trajectory_132520: true
-        trajectory_133009: true
-        trajectory_133498: true
-        trajectory_133987: true
-        trajectory_134476: true
-        trajectory_134965: true
-        trajectory_135454: true
-        trajectory_135943: true
-        trajectory_136432: true
-        trajectory_136921: true
-        trajectory_13693: true
-        trajectory_137410: true
-        trajectory_137899: true
-        trajectory_138388: true
-        trajectory_138877: true
-        trajectory_139366: true
-        trajectory_139855: true
-        trajectory_140344: true
-        trajectory_140833: true
-        trajectory_141322: true
-        trajectory_141811: true
-        trajectory_14182: true
-        trajectory_142300: true
-        trajectory_142789: true
-        trajectory_143278: true
-        trajectory_143767: true
-        trajectory_144256: true
-        trajectory_144745: true
-        trajectory_145234: true
-        trajectory_145723: true
-        trajectory_146212: true
-        trajectory_146701: true
-        trajectory_14671: true
-        trajectory_1468: true
-        trajectory_147190: true
-        trajectory_147679: true
-        trajectory_148168: true
-        trajectory_148657: true
-        trajectory_149146: true
-        trajectory_149635: true
-        trajectory_150124: true
-        trajectory_150613: true
-        trajectory_151102: true
-        trajectory_151591: true
-        trajectory_15160: true
-        trajectory_152080: true
-        trajectory_152569: true
-        trajectory_153058: true
-        trajectory_153547: true
-        trajectory_154036: true
-        trajectory_154525: true
-        trajectory_155014: true
-        trajectory_155503: true
-        trajectory_155992: true
-        trajectory_156481: true
-        trajectory_15649: true
-        trajectory_156970: true
-        trajectory_157459: true
-        trajectory_157948: true
-        trajectory_158437: true
-        trajectory_158926: true
-        trajectory_159415: true
-        trajectory_159904: true
-        trajectory_160393: true
-        trajectory_160882: true
-        trajectory_161371: true
-        trajectory_16138: true
-        trajectory_161860: true
-        trajectory_162349: true
-        trajectory_162838: true
-        trajectory_163327: true
-        trajectory_163816: true
-        trajectory_164305: true
->>>>>>> 1a09137 (Add rviz for debug droan)
-        trajectory_164794: true
-        trajectory_165283: true
-        trajectory_165772: true
-        trajectory_166261: true
-        trajectory_16627: true
-        trajectory_166750: true
-        trajectory_167239: true
-        trajectory_167728: true
-        trajectory_168217: true
-        trajectory_168706: true
-        trajectory_169195: true
-        trajectory_169684: true
-        trajectory_17116: true
-        trajectory_17605: true
-        trajectory_18094: true
-        trajectory_18583: true
-        trajectory_19072: true
-        trajectory_19561: true
-        trajectory_1957: true
-        trajectory_20050: true
-        trajectory_20539: true
-        trajectory_21028: true
-        trajectory_21517: true
-        trajectory_22006: true
-        trajectory_22495: true
-        trajectory_22984: true
-        trajectory_23473: true
-        trajectory_23962: true
-        trajectory_24451: true
-        trajectory_2446: true
-        trajectory_24940: true
-        trajectory_25429: true
-        trajectory_25918: true
-        trajectory_26407: true
-        trajectory_26896: true
-        trajectory_27385: true
-        trajectory_27874: true
-        trajectory_28363: true
-        trajectory_28852: true
-        trajectory_29341: true
-        trajectory_2935: true
-        trajectory_29830: true
-        trajectory_30319: true
-        trajectory_30808: true
-        trajectory_31297: true
-        trajectory_31786: true
-        trajectory_32275: true
-        trajectory_32764: true
-        trajectory_33253: true
-        trajectory_33742: true
-        trajectory_34231: true
-        trajectory_3424: true
-        trajectory_34720: true
-        trajectory_35209: true
-        trajectory_35698: true
-        trajectory_36187: true
-        trajectory_36676: true
-        trajectory_37165: true
-        trajectory_37654: true
-        trajectory_38143: true
-        trajectory_38632: true
-        trajectory_39121: true
-        trajectory_3913: true
-        trajectory_39610: true
-        trajectory_40099: true
-        trajectory_40588: true
-        trajectory_41077: true
-        trajectory_41566: true
-        trajectory_42055: true
-        trajectory_42544: true
-        trajectory_43033: true
-        trajectory_43522: true
-        trajectory_44011: true
-        trajectory_4402: true
-        trajectory_44500: true
-        trajectory_44989: true
-        trajectory_45478: true
-        trajectory_45967: true
-        trajectory_46456: true
-        trajectory_46945: true
-        trajectory_47434: true
-        trajectory_47923: true
-        trajectory_48412: true
-        trajectory_48901: true
-        trajectory_4891: true
-        trajectory_490: true
-        trajectory_49390: true
-        trajectory_49879: true
-        trajectory_50368: true
-        trajectory_50857: true
-        trajectory_51346: true
-        trajectory_51835: true
-        trajectory_52324: true
-        trajectory_52813: true
-        trajectory_53302: true
-        trajectory_53791: true
-        trajectory_5380: true
-        trajectory_54280: true
-        trajectory_54769: true
-        trajectory_55258: true
-        trajectory_55747: true
-        trajectory_56236: true
-        trajectory_56725: true
-        trajectory_57214: true
-        trajectory_57703: true
-        trajectory_58192: true
-        trajectory_58681: true
-        trajectory_5869: true
-        trajectory_59170: true
-        trajectory_59659: true
-        trajectory_60148: true
-        trajectory_60637: true
-        trajectory_61126: true
-        trajectory_61615: true
-        trajectory_62104: true
-        trajectory_62593: true
-        trajectory_63082: true
-        trajectory_63571: true
-        trajectory_6358: true
-        trajectory_64060: true
-        trajectory_64549: true
-        trajectory_65038: true
-        trajectory_65527: true
-        trajectory_66016: true
-        trajectory_66505: true
-        trajectory_66994: true
-        trajectory_67483: true
-        trajectory_67972: true
-        trajectory_68461: true
-        trajectory_6847: true
-        trajectory_68950: true
-        trajectory_69439: true
-        trajectory_69928: true
-        trajectory_70417: true
-        trajectory_70906: true
-        trajectory_71395: true
-        trajectory_71884: true
-        trajectory_72373: true
-        trajectory_72862: true
-        trajectory_73351: true
-        trajectory_7336: true
-        trajectory_73840: true
-        trajectory_74329: true
-        trajectory_74818: true
-        trajectory_75307: true
-        trajectory_75796: true
-        trajectory_76285: true
-        trajectory_76774: true
-        trajectory_77263: true
-        trajectory_77752: true
-        trajectory_78241: true
-        trajectory_7825: true
-        trajectory_78730: true
-        trajectory_79219: true
-        trajectory_79708: true
-        trajectory_80197: true
-        trajectory_80686: true
-        trajectory_81175: true
-        trajectory_81664: true
-        trajectory_82153: true
-        trajectory_82642: true
-        trajectory_83131: true
-        trajectory_8314: true
-        trajectory_83620: true
-        trajectory_84109: true
-        trajectory_84598: true
-        trajectory_85087: true
-        trajectory_85576: true
-        trajectory_86065: true
-        trajectory_86554: true
-        trajectory_87043: true
-        trajectory_87532: true
-        trajectory_88021: true
-        trajectory_8803: true
-        trajectory_88510: true
-        trajectory_88999: true
-        trajectory_89488: true
-        trajectory_89977: true
-        trajectory_90466: true
-        trajectory_90955: true
-        trajectory_91444: true
-        trajectory_91933: true
-        trajectory_92422: true
-        trajectory_92911: true
-        trajectory_9292: true
-        trajectory_93400: true
-        trajectory_93889: true
-        trajectory_94378: true
-        trajectory_94867: true
-        trajectory_95356: true
-        trajectory_95845: true
-        trajectory_96334: true
-        trajectory_96823: true
-        trajectory_97312: true
-        trajectory_97801: true
-        trajectory_9781: true
-        trajectory_979: true
-        trajectory_98290: true
-        trajectory_98779: true
-        trajectory_99268: true
-        trajectory_99757: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-<<<<<<< HEAD
-        Value: droan/local_planner_global_plan_vis
-=======
-        Value: /robot_1/droan/local_planner_global_plan_vis
->>>>>>> 1a09137 (Add rviz for debug droan)
-      Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: false
-      Name: ExpansionPoly
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-<<<<<<< HEAD
-        Value: droan/expansion_poly
-=======
-        Value: /robot_1/droan/expansion_poly
->>>>>>> 1a09137 (Add rviz for debug droan)
-      Value: false
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: DisparityMarker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-<<<<<<< HEAD
-        Value: droan/disparity_marker
-=======
-        Value: /robot_1/droan/disparity_marker
->>>>>>> 1a09137 (Add rviz for debug droan)
-      Value: true
-  Enabled: true
-  Global Options:
-    Background Color: 48; 48; 48
-    Fixed Frame: world
-    Frame Rate: 30
-  Name: root
-  Tools:
-    - Class: rviz_default_plugins/Interact
-      Hide Inactive Objects: true
-    - Class: rviz_default_plugins/MoveCamera
-    - Class: rviz_default_plugins/Select
-    - Class: rviz_default_plugins/FocusCamera
-    - Class: rviz_default_plugins/Measure
-      Line color: 128; 128; 0
-    - Class: rviz_default_plugins/SetInitialPose
-      Covariance x: 0.25
-      Covariance y: 0.25
-      Covariance yaw: 0.06853891909122467
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /initialpose
-    - Class: rviz_default_plugins/SetGoal
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /goal_pose
-    - Class: rviz_default_plugins/PublishPoint
-      Single click: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /clicked_point
-  Transformation:
-    Current:
-      Class: rviz_default_plugins/TF
-  Value: true
-  Views:
-    Current:
-      Class: rviz_default_plugins/Orbit
-      Distance: 18.647010803222656
-      Enable Stereo Rendering:
-        Stereo Eye Separation: 0.05999999865889549
-        Stereo Focal Distance: 1
-        Swap Stereo Eyes: false
-        Value: false
-      Focal Point:
-        X: 5.373880863189697
-        Y: -3.36837100982666
-        Z: -1.463265299797058
-      Focal Shape Fixed Size: false
-      Focal Shape Size: 0.05000000074505806
-      Invert Z Axis: false
-      Name: Current View
-      Near Clip Distance: 0.009999999776482582
-      Pitch: 0.32039859890937805
-      Target Frame: <Fixed Frame>
-      Value: Orbit (rviz)
-      Yaw: 1.983567476272583
-    Saved: ~
-Window Geometry:
-  Displays:
-    collapsed: true
-  Front Left Depth:
-    collapsed: false
-  Front Left RGB:
-    collapsed: false
-  Height: 773
-  Hide Left Dock: true
-  Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000002b1000004c6fc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b000004c6000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c9000000000000000000000001000002010000026bfc0200000005fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042000000003b000001360000002800fffffffb0000002000460072006f006e00740020004c006500660074002000440065007000740068000000003b0000026b0000002800fffffffb0000000a0056006900650077007300000000fd000001a8000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000005a00000003efc0100000002fb0000000800540069006d00650100000000000005a00000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000005a00000026b00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
-  Selection:
-    collapsed: false
-  Time:
-    collapsed: false
-  Tool Properties:
-    collapsed: false
-  Views:
-    collapsed: false
-  Width: 1440
-  X: 2431
-  Y: 309
+  Y: 27

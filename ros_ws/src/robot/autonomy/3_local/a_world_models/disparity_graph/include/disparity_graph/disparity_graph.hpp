@@ -98,6 +98,7 @@ class DisparityGraph {
             node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_graph", 10);
 
         node_ptr->declare_parameter("fixed_frame", "map");
+        node_ptr->declare_parameter("baseline_fallback", 0.5);
         node_ptr->get_parameter("fixed_frame", fixed_frame_);
         node_ptr->declare_parameter("downsample_scale", 1.0);
         node_ptr->get_parameter("downsample_scale", downsample_scale);
@@ -116,11 +117,6 @@ class DisparityGraph {
         node_ptr->declare_parameter("expanded_disparity_bg_topic", "expanded_disparity_bg");
         disp_bg_sub_.subscribe(node_ptr,
                                node_ptr->get_parameter("expanded_disparity_bg_topic").as_string());
-        // debug
-        // disp_fg_sub_.registerCallback(
-        //     std::bind(&DisparityGraph::disp_fg_cb, this, std::placeholders::_1));
-        // disp_bg_sub_.registerCallback(
-        //     std::bind(&DisparityGraph::disp_bg_cb, this, std::placeholders::_1));
 
         exact_sync.reset(new ExactSync(ExactPolicy(50), disp_fg_sub_, disp_bg_sub_));
         exact_sync->registerCallback(std::bind(&DisparityGraph::disp_cb, this,
@@ -134,18 +130,6 @@ class DisparityGraph {
         RCLCPP_INFO(node_ptr->get_logger(), "Disparity Graph Node Started");
     }
 
-    // void disp_fg_cb(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
-    //     RCLCPP_INFO(node_ptr->get_logger(), "in disp_fg_cb");
-    //     RCLCPP_INFO(node_ptr->get_logger(), "Received disp_fg stamp: %lf",
-    //                 (node_ptr->get_clock()->now() - msg->header.stamp).seconds());
-    // }
-
-    // void disp_bg_cb(const sensor_msgs::msg::Image::ConstSharedPtr &msg) {
-    //     RCLCPP_INFO(node_ptr->get_logger(), "in disp_bg_cb");
-    //     RCLCPP_INFO(node_ptr->get_logger(), "Received disp_bg stamp: %lf",
-    //                 (node_ptr->get_clock()->now() - msg->header.stamp).seconds());
-    // }
-
     void disp_cb(const sensor_msgs::msg::Image::ConstSharedPtr &disp_fg,
                  const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
         // RCLCPP_INFO(node_ptr->get_logger(), "Received disp stamp: %lf",
@@ -154,10 +138,8 @@ class DisparityGraph {
 
         tf2::Stamped<tf2::Transform> transform;
         try {
-            // auto tf_msg = tf_buffer_ptr->lookupTransform(sensor_frame_, fixed_frame_,
-            // disp_fg->header.stamp);
-            auto tf_msg = tf_buffer_ptr->lookupTransform(sensor_frame_, fixed_frame_,
-                                                         disp_fg->header.stamp);
+            auto tf_msg =
+                tf_buffer_ptr->lookupTransform(sensor_frame_, fixed_frame_, disp_fg->header.stamp);
             tf2::fromMsg(tf_msg, transform);
         } catch (tf2::TransformException &ex) {
             RCLCPP_ERROR(node_ptr->get_logger(), "DG disp_cb %s", ex.what());
@@ -228,6 +210,7 @@ class DisparityGraph {
             auto rotation = disp_graph_.at(i).s2w_tf.getRotation();
             marker_.pose.orientation = tf2::toMsg(rotation);
             marker_.header.stamp = node_ptr->now();
+            marker_.ns = "pose";
             marker_.id = i;
             marker_arr.markers.push_back(marker_);
         }
@@ -251,8 +234,13 @@ class DisparityGraph {
         width_ = cam_info_msg->width / downsample_scale;
         height_ = cam_info_msg->height / downsample_scale;
         double baseline = -cam_info_msg->p[3] / cam_info_msg->p[0];
-        if (baseline != 0.0) {
-            baseline_ = baseline;
+        baseline_ = baseline;
+        if (this->baseline_ == 0.0) {
+            node_ptr->get_parameter("baseline_fallback", this->baseline_);
+            RCLCPP_ERROR_STREAM_ONCE(
+                node_ptr->get_logger(),
+                "Baseline from camera_info was 0, setting to baseline_fallback:"
+                    << this->baseline_);
         }
         baseline_ *= downsample_scale;
         RCLCPP_INFO(node_ptr->get_logger(),
@@ -297,8 +285,8 @@ class DisparityGraph {
 
         std::scoped_lock lock(io_mutex);
 
-        bool is_free = true;  // whether the point is unoccupied. we will go through all disparity
-                              // graph nodes to check
+        bool is_free = true;   // whether the point is unoccupied. we will go through all disparity
+                               // graph nodes to check
         bool is_seen = false;  // whether the point is is_seen by any of the disparity images
 
         if (disp_graph_.size() == 0) {
@@ -340,9 +328,11 @@ class DisparityGraph {
                     (state_disparity < graph_node.Im_fg->image.at<float>(v, u)) &&
                     (state_disparity > graph_node.Im_bg->image.at<float>(v, u));
                 if (is_state_between_fg_and_bg) {
-                    // if the disparity point lies between the disparity images, it is occupied and we
-                    // add to the occupancy value.
-                    // TODO: what does this value mean? is it the sensor model? It seems to be a heuristic based on distance. also shouldn't we clamp this at 1.0? or is it not really a probability?
+                    // if the disparity point lies between the disparity images, it is occupied and
+                    // we add to the occupancy value.
+                    // TODO: what does this value mean? is it the sensor model? It seems to be a
+                    // heuristic based on distance. also shouldn't we clamp this at 1.0? or is it
+                    // not really a probability?
                     occupancy += (state_disparity - 0.5) / state_disparity;
                 } else {
                     // otherwise it's outside, we subtract from the occupancy value

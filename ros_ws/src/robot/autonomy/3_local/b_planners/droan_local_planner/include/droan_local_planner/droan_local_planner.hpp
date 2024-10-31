@@ -220,11 +220,11 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         // pick the best trajectory
         Trajectory best_traj;
-        bool all_in_collision =
+        bool are_all_traj_in_collision =
             this->get_best_trajectory(dynamic_trajectories, global_plan, best_traj);
 
         // publish the trajectory
-        if (!all_in_collision) {
+        if (!are_all_traj_in_collision) {
             airstack_msgs::msg::TrajectoryXYZVYaw best_traj_msg =
                 best_traj.get_TrajectoryXYZVYaw_msg();
 
@@ -247,7 +247,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     bool get_best_trajectory(std::vector<Trajectory> trajectory_candidates, Trajectory global_plan,
                              Trajectory& best_traj_ret) {
         double min_cost = std::numeric_limits<double>::max();
-        bool all_in_collision = true;
+        bool are_all_traj_in_collision = true;
 
         auto now = this->now();
 
@@ -306,15 +306,15 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
             avg_distance_from_global_plan /= traj.get_num_waypoints();
 
-            bool collision = closest_obstacle_distance <= robot_radius;
-            if (!collision) {
-                all_in_collision = false;
+            bool is_collision = closest_obstacle_distance <= robot_radius;
+            if (!is_collision) {
+                are_all_traj_in_collision = false;
             }
 
             std::string marker_ns = "trajectory_" + std::to_string(i);
 
             visualization_msgs::msg::MarkerArray traj_markers;
-            if (collision) {
+            if (is_collision) {
                 // red for collision
                 traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3, true);
             } else {
@@ -330,7 +330,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             double cost = avg_distance_from_global_plan -
                           obstacle_distance_reward *
                               std::min(closest_obstacle_distance, obstacle_check_radius);
-            if (!collision && cost < min_cost) {
+            if (!is_collision && cost < min_cost) {
                 min_cost = cost;
                 best_traj_ret = traj;
             }
@@ -339,7 +339,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         traj_lib_vis_pub->publish(traj_lib_marker_arr);
         map_debug_pub->publish(this->map_representation->get_debug_markerarray());
 
-        return all_in_collision;
+        return are_all_traj_in_collision;
     }
 
     /**

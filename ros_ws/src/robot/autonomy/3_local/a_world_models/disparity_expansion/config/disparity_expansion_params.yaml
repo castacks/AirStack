@@ -10,11 +10,13 @@
     expanded_disparity_bg_topic: "expanded_disparity_bg"
     expansion_poly_topic: "expansion_poly"
     # parameters
-    scale: 1.0
-    downsample_scale: 2.0
-    lut_max_disparity: 180
+    scale: 1.0  # units size of a meter. depth value corresponds to this many meters
+    downsample_scale: 1.0  # the ratio to scale down the disparity image before processing
+    baseline_fallback: 0.5 # if the baseline is 0 from the camera_info, use this value instead
+    lut_max_disparity: 180  # maximum disparity value in the disparity image
     robot_radius: 1.0
     bg_multiplier: 1.0
-    sensor_pixel_error: 0.5
+    # sensor_pixel_error: 0.5 # what is this? and why was it 0.5?
+    sensor_pixel_error: 0.0
     
   
