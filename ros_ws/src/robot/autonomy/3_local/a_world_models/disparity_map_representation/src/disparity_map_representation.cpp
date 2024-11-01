@@ -93,21 +93,19 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
 
             std::set<tf2::Vector3> direction_vectors = {up, side, -up, -side};
 
-            double closest_obstacle_distance = obstacle_check_radius;
+            double closest_obstacle_distance = std::numeric_limits<double>::infinity();
             for (auto direction : direction_vectors) {
                 for (int k = 1; k < obstacle_check_num_points + 1; k++) {
                     double dist = k * obstacle_check_radius / (obstacle_check_num_points + 1);
 
-                    if (trajectory_index == 0)
-                        check_pose_and_add_marker(trajectory, waypoint, dist, direction,
-                                                closest_obstacle_distance);
+                    check_pose_and_add_marker(trajectory, waypoint, dist, direction,
+                                            closest_obstacle_distance);
                 }
             }
 
             // check the waypoint itself
-            if (trajectory_index == 0)
-                check_pose_and_add_marker(trajectory, waypoint, 0, waypoint_direction,
-                                        closest_obstacle_distance);
+            check_pose_and_add_marker(trajectory, waypoint, 0, waypoint_direction,
+                                    closest_obstacle_distance);
 
             values[trajectory_index][waypoint_index] = closest_obstacle_distance;
         }

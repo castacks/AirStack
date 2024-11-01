@@ -16,9 +16,9 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: robot_frame_id");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<std::string>("pub_global_trajectory_topic");
-    if (!this->get_parameter("pub_global_trajectory_topic", this->pub_global_trajectory_topic_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_global_trajectory_topic");
+    this->declare_parameter<std::string>("pub_global_plan_topic");
+    if (!this->get_parameter("pub_global_plan_topic", this->pub_global_plan_topic_)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: pub_global_plan_topic");
         return std::optional<init_params>{};
     }
     this->declare_parameter<std::string>("pub_goal_point_viz_topic");
@@ -103,8 +103,7 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         sub_robot_tf_topic_, 10,
         std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
 
-    this->pub_global_trajectory =
-        this->create_publisher<nav_msgs::msg::Path>(pub_global_trajectory_topic_, 10);
+    this->pub_global_plan = this->create_publisher<nav_msgs::msg::Path>(pub_global_plan_topic_, 10);
     this->pub_goal_point =
         this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_viz_topic_, 10);
     this->pub_trajectory_lines =
@@ -181,7 +180,8 @@ void RandomWalkNode::generate_plan() {
                                     this->current_location.translation.y,
                                     this->current_location.translation.z, yaw);
     } else {
-        geometry_msgs::msg::Quaternion orientation = this->generated_paths.back().poses.back().pose.orientation;
+        geometry_msgs::msg::Quaternion orientation =
+            this->generated_paths.back().poses.back().pose.orientation;
         tf2::Quaternion q(orientation.x, orientation.y, orientation.z, orientation.w);
         q.normalize();
         double roll, pitch, yaw;
@@ -189,8 +189,7 @@ void RandomWalkNode::generate_plan() {
         m.getRPY(roll, pitch, yaw);
         start_loc = std::make_tuple(this->generated_paths.back().poses.back().pose.position.x,
                                     this->generated_paths.back().poses.back().pose.position.y,
-                                    this->generated_paths.back().poses.back().pose.position.z,
-                                    yaw);
+                                    this->generated_paths.back().poses.back().pose.position.z, yaw);
     }
 
     float timeout_duration = 5.0;
@@ -265,7 +264,7 @@ void RandomWalkNode::publish_plan() {
     }
     full_path.header.stamp = this->now();
     full_path.header.frame_id = this->world_frame_id_;
-    this->pub_global_trajectory->publish(full_path);
+    this->pub_global_plan->publish(full_path);
     RCLCPP_INFO(this->get_logger(), "Published full path");
 }
 void RandomWalkNode::timerCallback() {

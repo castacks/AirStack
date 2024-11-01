@@ -38,10 +38,10 @@ class DisparityGraph {
     size_t graph_size_;
     double thresh_;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
-    std::string sensor_frame_, fixed_frame_, stabilized_frame_;
+    std::string sensor_frame, fixed_frame, stabilized_frame;
     visualization_msgs::msg::Marker marker_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr disparity_graph_marker_pub_;
-    double angle_tol, displacement_tol;
+    double angle_tol, displacement_tol, assume_seen_within_radius;
     bool first;
     bool got_cam_info;
     double fx_, fy_, cx_, cy_, baseline_, downsample_scale;
@@ -62,33 +62,14 @@ class DisparityGraph {
    public:
     DisparityGraph()
         : graph_size_(10),
-          fixed_frame_("map"),
-          stabilized_frame_("base_link_stabilized"),
           angle_tol(30.0),
           displacement_tol(1.5),
           first(true),
           got_cam_info(false) {
-        marker_.header.frame_id = fixed_frame_;
-        marker_.ns = "disparityGraph";
-        marker_.id = 0;
-        marker_.type = visualization_msgs::msg::Marker::ARROW;
-        marker_.action = visualization_msgs::msg::Marker::ADD;
-        marker_.pose.position.x = 1;
-        marker_.pose.position.y = 1;
-        marker_.pose.position.z = 1;
-        marker_.pose.orientation.x = 0.0;
-        marker_.pose.orientation.y = 0.0;
-        marker_.pose.orientation.z = 0.0;
-        marker_.pose.orientation.w = 1.0;
-        marker_.scale.x = 1;
-        marker_.scale.y = 0.2;
-        marker_.scale.z = 0.2;
-        marker_.color.a = 1.0;  // Don't forget to set the alpha!
-        marker_.color.r = 0.0;
-        marker_.color.g = 1.0;
-        marker_.color.b = 0.0;
     }
 
+    // we need this separate initialization function because we're taking a node_ptr. shared_from_this() only works after constructor exits.
+    // ideally we switch to use nodelets so there's a proper setup/activate phase
     void initialize(const rclcpp::Node::SharedPtr &node_ptr,
                     const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
         RCLCPP_INFO(node_ptr->get_logger(), "DisparityGraph initialize called");
@@ -97,9 +78,14 @@ class DisparityGraph {
         disparity_graph_marker_pub_ =
             node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_graph", 10);
 
-        node_ptr->declare_parameter("fixed_frame", "map");
         node_ptr->declare_parameter("baseline_fallback", 0.5);
-        node_ptr->get_parameter("fixed_frame", fixed_frame_);
+
+        node_ptr->declare_parameter("fixed_frame", "map");
+        node_ptr->get_parameter("fixed_frame", this->fixed_frame);
+        node_ptr->declare_parameter("stabilized_frame", "base_link_stabilized");
+        node_ptr->get_parameter("stabilized_frame", this->stabilized_frame);
+        node_ptr->declare_parameter("assume_seen_within_radius", 1.0);
+        node_ptr->get_parameter("assume_seen_within_radius", assume_seen_within_radius);
         node_ptr->declare_parameter("downsample_scale", 1.0);
         node_ptr->get_parameter("downsample_scale", downsample_scale);
         node_ptr->declare_parameter("low_occ_thresh", 0.9);
@@ -127,6 +113,25 @@ class DisparityGraph {
             node_ptr->get_parameter("camera_info_topic").as_string(), 1,
             std::bind(&DisparityGraph::get_cam_info, this, std::placeholders::_1));
 
+        marker_.header.frame_id = this->fixed_frame;
+        marker_.ns = "disparityGraph";
+        marker_.id = 0;
+        marker_.type = visualization_msgs::msg::Marker::ARROW;
+        marker_.action = visualization_msgs::msg::Marker::ADD;
+        marker_.pose.position.x = 1;
+        marker_.pose.position.y = 1;
+        marker_.pose.position.z = 1;
+        marker_.pose.orientation.x = 0.0;
+        marker_.pose.orientation.y = 0.0;
+        marker_.pose.orientation.z = 0.0;
+        marker_.pose.orientation.w = 1.0;
+        marker_.scale.x = 1;
+        marker_.scale.y = 0.2;
+        marker_.scale.z = 0.2;
+        marker_.color.a = 1.0;  // Don't forget to set the alpha!
+        marker_.color.r = 0.0;
+        marker_.color.g = 1.0;
+        marker_.color.b = 0.0;
         RCLCPP_INFO(node_ptr->get_logger(), "Disparity Graph Node Started");
     }
 
@@ -134,12 +139,12 @@ class DisparityGraph {
                  const sensor_msgs::msg::Image::ConstSharedPtr &disp_bg) {
         // RCLCPP_INFO(node_ptr->get_logger(), "Received disp stamp: %lf",
         //             (node_ptr->get_clock()->now() - disp_fg->header.stamp).seconds());
-        sensor_frame_ = disp_fg->header.frame_id;
+        this->sensor_frame = disp_fg->header.frame_id;
 
         tf2::Stamped<tf2::Transform> transform;
         try {
             auto tf_msg =
-                tf_buffer_ptr->lookupTransform(sensor_frame_, fixed_frame_, disp_fg->header.stamp);
+                tf_buffer_ptr->lookupTransform(this->sensor_frame, this->fixed_frame, disp_fg->header.stamp);
             tf2::fromMsg(tf_msg, transform);
         } catch (tf2::TransformException &ex) {
             RCLCPP_ERROR(node_ptr->get_logger(), "DG disp_cb %s", ex.what());
@@ -273,10 +278,10 @@ class DisparityGraph {
         geometry_msgs::msg::PointStamped world_point_stamped;
 
         try {
-            tf_buffer_ptr->transform(checked_point_stamped, world_point_stamped, fixed_frame_);
+            tf_buffer_ptr->transform(checked_point_stamped, world_point_stamped, this->fixed_frame);
         } catch (tf2::TransformException &ex) {
             RCLCPP_ERROR(node_ptr->get_logger(), "Could not transform %s to %s: %s",
-                         fixed_frame_.c_str(), pose_to_check.header.frame_id.c_str(), ex.what());
+                         this->fixed_frame.c_str(), pose_to_check.header.frame_id.c_str(), ex.what());
             return {false, false, 0.0};
         }
 
@@ -305,7 +310,7 @@ class DisparityGraph {
             // RCLCPP_INFO_STREAM(node_ptr->get_logger(), "Local Point: " << x << " " << y << " " <<
             // z);
 
-            if (local_point.length() < 1.0) {
+            if (local_point.length() < this->assume_seen_within_radius) {
                 is_seen = true;  // assume the point is seen if it is close to the camera
                 continue;
             }
@@ -360,7 +365,7 @@ class DisparityGraph {
         geometry_msgs::msg::PointStamped world_point_stamped;
 
         try {
-            tf_buffer_ptr->transform(checked_point_stamped, world_point_stamped, fixed_frame_);
+            tf_buffer_ptr->transform(checked_point_stamped, world_point_stamped, this->fixed_frame);
         } catch (tf2::TransformException &ex) {
             RCLCPP_ERROR(node_ptr->get_logger(), "TF to fixed frame failed: %s", ex.what());
             return false;

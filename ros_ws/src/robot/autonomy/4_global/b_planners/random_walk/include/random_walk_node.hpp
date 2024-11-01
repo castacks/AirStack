@@ -5,19 +5,19 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <array>
 #include <cmath>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/transform.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/srv/get_plan.hpp>
 #include <optional>
+#include <std_srvs/srv/trigger.hpp>
 #include <string>
 #include <tf2_msgs/msg/tf_message.hpp>
 #include <tuple>
-#include <array>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
-#include <std_srvs/srv/trigger.hpp>
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -30,7 +30,7 @@ class RandomWalkNode : public rclcpp::Node {
     // String constants
     std::string world_frame_id_;
     std::string robot_frame_id_;
-    std::string pub_global_trajectory_topic_;
+    std::string pub_global_plan_topic_;
     std::string pub_goal_point_viz_topic_;
     std::string pub_trajectory_viz_topic_;
     std::string sub_map_topic_;
@@ -81,7 +81,7 @@ class RandomWalkNode : public rclcpp::Node {
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
-    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_trajectory;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_plan;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 

@@ -2,10 +2,10 @@
   ros__parameters:
     world_frame_id: "map"
     robot_frame_id: "base_link"
-    pub_global_trajectory_topic: "/global/trajectory"
-    pub_goal_point_viz_topic: "/global/goal_point_viz"
-    pub_trajectory_viz_topic: "/global/traj_viz"
-    sub_map_topic: "/vdb_mapping/vdb_map_visualization"
+    pub_global_plan_topic: "~/global_plan"
+    pub_goal_point_viz_topic: "~/goal_point_viz"
+    pub_trajectory_viz_topic: "~/traj_viz"
+    sub_map_topic: "vdb_map_visualization"
     sub_robot_tf_topic: "/tf"
     srv_random_walk_toggle_topic: "/robot_1/behavior/global_plan_toggle"
 

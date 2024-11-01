@@ -324,10 +324,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             visualization_msgs::msg::MarkerArray traj_markers;
             if (is_collision) {
                 // red for collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3, true);
+                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3);
             } else {
                 // green for no collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5, true);
+                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5);
             }
             traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.end(),
                                                traj_markers.markers.begin(),
