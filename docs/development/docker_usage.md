@@ -46,6 +46,7 @@ docker compose build
 ## Start, Stop, and Remove
 
 Start
+
 ```bash
 docker compose up -d --scale robot=[NUM_ROBOTS]
 
@@ -54,14 +55,74 @@ docker ps -a
 ```
 
 Stop
+
 ```bash
 docker compose stop
 ```
 
 Remove
+
 ```bash
 docker compose down
 ```
+
+
+### Isaac Sim
+
+Start a bash shell in the Isaac Sim container:
+
+```bash
+# if the isaac container is already running, execute a bash shell in it
+docker exec -it isaac-sim bash
+# or if not, start a new container
+docker compose run isaac-sim bash
+```
+
+Within the isaac-sim Docker container, the alias `runapp` launches Isaac Sim.
+The `--path` argument can be passed with a path to a `.usd` file to load a scene.
+
+It can also be run in headless mode with `./runheadless.native.sh` to stream to [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html) or `./runheadless.webrtc.sh` to [stream to a web browser](https://docs.omniverse.nvidia.com/extensions/latest/ext_livestream/webrtc.html).
+
+The container also has the isaacsim ROS2 package within that can be launched with `ros2 launch isaacsim run_isaacsim.launch.py`.
+
+### Robot
+
+Start a bash shell in a robot container, e.g. for robot_1:
+
+```bash
+docker exec -it docker-robot-1 bash
+```
+
+The previous `docker compose up` launches robot_bringup in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux attach`.
+
+The following commands are available within the robot container:
+
+```bash
+# in robot docker
+cws  # cleans workspace
+bws  # builds workspace
+bws --packages-select [your_packages] # builds only desired packages
+sws  # sources workspace
+ros2 launch robot_bringup robot.launch.xml  # top-level launch
+```
+
+These aliases are in `AirStack/docker/robot/.bashrc`.
+
+Each robot has `ROS_DOMAIN_ID` set to its ID number. `ROBOT_NAME` is set to `robot_$ROS_DOMAIN_ID`.
+
+### Ground Control Station
+
+Currently the ground control station uses the same image as the robot container. This may change in the future.
+
+Start a bash shell in a robot container:
+
+```bash
+docker exec -it ground-control-station bash
+```
+
+The available aliases within the container are currently the same.
+
+On the GCS `ROS_DOMAIN_ID` is set to 0.
 
 ## SSH into Robots
 
@@ -98,56 +159,3 @@ graph TD
     style D fill:#fbf,stroke:#333,stroke-width:2px
 
 ```
-
-### Isaac Sim
-
-Start a bash shell in the Isaac Sim container:
-
-```bash
-# if the isaac container is already running, execute a bash shell in it
-docker compose exec isaac-sim bash
-# or if not, start a new container
-docker compose run isaac-sim bash
-```
-
-The alias `runapp` launches Isaac Sim.
-The `--path` argument can be passed with a path to a `.usd` file to load a scene.
-
-It can also be run in headless mode with `./runheadless.native.sh` to stream to [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html) or `./runheadless.webrtc.sh` to [stream to a web browser](https://docs.omniverse.nvidia.com/extensions/latest/ext_livestream/webrtc.html).
-
-The container also has the isaacsim ROS2 package within that can be launched with `ros2 launch isaacsim run_isaacsim.launch.py`.
-
-### Robot
-
-Start a bash shell in a robot container, e.g. for robot_1:
-
-```bash
-docker compose exec docker-robot-1 bash
-```
-
-```bash
-# in robot docker
-cws  # cleans workspace
-bws  # builds workspace
-bws --packages-select [your_packages] # builds only desired packages
-sws  # sources workspace
-ros2 launch robot_bringup robot.launch.xml  # top-level launch
-```
-
-These aliases are in the `~/.bashrc` file.
-
-Each robot has `ROS_DOMAIN_ID` set to its ID number. `ROBOT_NAME` is set to `robot_$ROS_DOMAIN_ID`.
-
-### Ground Control Station
-
-Currently the ground control station uses the same image as the robot container. This may change in the future.
-
-Start a bash shell in a robot container:
-
-```bash
-docker compose exec ground-control-station bash
-```
-
-The commands are currently the same.
-
-On the GCS `ROS_DOMAIN_ID` is set to 0.

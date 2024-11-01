@@ -35,7 +35,7 @@ install(
 ament_export_libraries(ros2_helper)
 
 # tflib
-add_library(tflib src/tflib.cpp)
+add_library(tflib SHARED src/tflib.cpp)
 target_include_directories(tflib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

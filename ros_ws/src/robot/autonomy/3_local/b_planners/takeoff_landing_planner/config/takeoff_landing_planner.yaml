@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    takeoff_height: 1.0
+    high_takeoff_height: 2.0
+    takeoff_landing_velocity: 0.3
+    takeoff_acceptance_distance: 0.3
+    takeoff_acceptance_time: 10.0
+    landing_stationary_distance: 0.02
+    landing_acceptance_time: 5.0
+    landing_tracking_point_ahead_time: 5.0
+
+    takeoff_path_roll: 0.  # in degrees
+    takeoff_path_pitch: 20.  # in degrees
+    takeoff_path_relative_to_orientation: false
