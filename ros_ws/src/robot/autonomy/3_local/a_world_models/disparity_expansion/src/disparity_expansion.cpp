@@ -36,7 +36,8 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
         std::bind(&DisparityExpansionNode::process_disparity_image, this, std::placeholders::_1));
 
     this->depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
-        "depth", 1, std::bind(&DisparityExpansionNode::process_depth_image, this, std::placeholders::_1));
+        "depth", 1,
+        std::bind(&DisparityExpansionNode::process_depth_image, this, std::placeholders::_1));
 
     // publishers
     this->expanded_disparity_fg_pub =
@@ -157,7 +158,8 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
     this->LUT_ready = true;
 }
 
-void DisparityExpansionNode::process_depth_image(const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
+void DisparityExpansionNode::process_depth_image(
+    const sensor_msgs::msg::Image::ConstSharedPtr& msg) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
         cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
@@ -277,76 +279,77 @@ void DisparityExpansionNode::process_disparity_image(
     for (int v = (int)this->height - 2; (v >= 0); v -= 1) {
         for (int u = (int)this->width - 1; u >= 0; u -= 1) {
             float disparity_value = disparity32F.at<float>(v, u);
-            if (!std::isnan(double(disparity_value * this->scale)) &&
-                ((int(disparity_value * this->scale) + 1) < lut_max_disparity) &&
-                ((int(disparity_value * this->scale) + 1) > 0))  // expand
-            {
-                unsigned int u1 = this->table_u[int(disparity_value * this->scale) + 1][u].idx1;
-                unsigned int u2 = this->table_u[int(disparity_value * this->scale) + 1][u].idx2;
 
-                if (disparity32F.empty()) {
-                    RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
-                    return;
-                }
+            if (std::isnan(double(disparity_value * this->scale)) ||
+                ((int(disparity_value * this->scale) + 1) >= this->lut_max_disparity) ||
+                ((int(disparity_value * this->scale) + 1) <= 0)) {
+                RCLCPP_INFO_STREAM_THROTTLE(
+                    this->get_logger(), *this->get_clock(), 5000,
+                    "Step 1 Expand u: Disparity out of range: "
+                        << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
+                        << " Scale: " << this->scale);
+                continue;
+            }
 
-                // top left corner, then width and height
-                cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
+            unsigned int u1 = this->table_u[int(disparity_value * this->scale) + 1][u].idx1;
+            unsigned int u2 = this->table_u[int(disparity_value * this->scale) + 1][u].idx2;
 
-                cv::Mat submat_t = disparity32F(roi).clone();
+            if (disparity32F.empty()) {
+                RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
+                return;
+            }
 
-                double min, max;
-                cv::Point p1, p2;
-                int min_idx, max_idx;
+            // top left corner, then width and height
+            cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
 
-                cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
-                min_idx = p1.x;
-                max_idx = p2.x;
-                float disp_new_fg = max;  // = table_d[int(max*SCALE)];
-                float disp_new_bg = min;  // = table_d[int(min*SCALE)];
-                float disp_to_depth = this->baseline * this->fx / max;
+            cv::Mat submat_t = disparity32F(roi).clone();
 
-                cv::Mat submat;
-                cv::divide(baseline * this->fx, submat_t, submat);
-                submat = (submat - disp_to_depth);  /// this->robot_radius;
+            double min, max;
+            cv::Point p1, p2;
+            int min_idx, max_idx;
 
-                if (this->padding < 0.0) {
-                    float range = this->bg_multiplier * this->robot_radius;
-                    float max_depth = 0.0;
-                    bool found = true;
-                    int ctr = 1;
-                    while (found) {
-                        found = false;
-                        for (int j = 0; j < submat.cols; j++) {
-                            float val = submat.at<float>(0, j);
-                            if (std::isfinite(val)) {
-                                if (val < ctr * range && val > max_depth) {
-                                    found = true;
-                                    max_depth = val;
-                                }
+            cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
+            min_idx = p1.x;
+            max_idx = p2.x;
+            float disp_new_fg = max;
+            float disp_new_bg = min;
+            float disp_to_depth = this->baseline * this->fx / max;
+
+            cv::Mat submat;
+            cv::divide(baseline * this->fx, submat_t, submat);
+            submat = (submat - disp_to_depth);  /// this->robot_radius;
+
+            if (this->padding < 0.0) {
+                float range = this->bg_multiplier * this->robot_radius;
+                float max_depth = 0.0;
+                bool found = true;
+                int ctr = 1;
+                while (found) {
+                    found = false;
+                    for (int j = 0; j < submat.cols; j++) {
+                        float val = submat.at<float>(0, j);
+                        if (std::isfinite(val)) {
+                            if (val < ctr * range && val > max_depth) {
+                                found = true;
+                                max_depth = val;
                             }
                         }
-                        ctr++;
                     }
-                    disp_to_depth += max_depth;
-                } else
-                    disp_to_depth += this->padding;  // this->baseline * this->fx/min;
+                    ctr++;
+                }
+                disp_to_depth += max_depth;
+            } else
+                disp_to_depth += this->padding;
 
-                disp_new_bg =
-                    this->baseline * this->fx / (disp_to_depth /*+ this->robot_radius*/) /*- 0.5*/;
-                disparity_fg(roi).setTo(disp_new_fg);
-                disparity_bg(roi).setTo(/*min*/ disp_new_bg);
+            disp_new_bg = this->baseline * this->fx / (disp_to_depth);
+            disparity_fg(roi).setTo(disp_new_fg);
+            disparity_bg(roi).setTo(disp_new_bg);
 
-                int u_temp = u1 + max_idx;
-                if (u_temp >= u)
-                    u = u1;
-                else
-                    u = u_temp + 1;
-            } else {
-                RCLCPP_ERROR_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                                             "BAD disparity during expansion for u: "
-                                                 << disparity_value << " lut_max_disparity: "
-                                                 << lut_max_disparity << " SCALE: " << this->scale);
-            }
+            int u_temp = u1 + max_idx;
+            if (u_temp >= u)
+                u = u1;
+            else
+                u = u_temp + 1;
         }
     }
 
@@ -360,74 +363,79 @@ void DisparityExpansionNode::process_disparity_image(
         for (int v = (int)height - 1; v >= 0; v -= 1) {
             float disparity_value = disparity32F.at<float>(v, u) +
                                     this->pixel_error;  // disparity_row[v * row_step + u];// + 0.5;
-            if (!std::isnan(double(disparity_value)) &&
-                ((int(disparity_value * this->scale) + 1) < this->lut_max_disparity) &&
-                ((int(disparity_value * this->scale) + 1) > 0))  // expand
-            {
-                unsigned int v1 = this->table_v[int(disparity_value * this->scale) + 1][v].idx1;
-                unsigned int v2 = this->table_v[int(disparity_value * this->scale) + 1][v].idx2;
 
-                cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
-                cv::Mat submat_t = disparity32F_bg(roi).clone();
-                double min, max;
-                cv::Point p1, p2;
-                int min_idx, max_idx;
-                cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
-                min_idx = p1.y;
-                max_idx = p2.y;
-                float disp_new_fg;  // = max;// = table_d[int(max*SCALE)];
-                float disp_new_bg;  // = min;// = table_d[int(min*SCALE)];
-                float disp_to_depth = this->baseline * this->fx / max;
-                disp_new_fg = this->baseline * this->fx / (disp_to_depth - this->robot_radius) +
-                              this->pixel_error;
+            if (std::isnan(double(disparity_value * this->scale)) ||
+                ((int(disparity_value * this->scale) + 1) >= this->lut_max_disparity) ||
+                ((int(disparity_value * this->scale) + 1) <= 0)) {
+                RCLCPP_INFO_STREAM_THROTTLE(
+                    this->get_logger(), *this->get_clock(), 5000,
+                    "Step 2 Expand v: Disparity out of range: "
+                        << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
+                        << " Scale: " << this->scale);
+                continue;
+            }
 
-                cv::Mat submat;
-                cv::divide(baseline * this->fx, submat_t, submat);
-                cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
-                disp_to_depth = this->baseline * this->fx / max;
-                submat = (submat - disp_to_depth);  /// this->robot_radius;
+            unsigned int v1 = this->table_v[int(disparity_value * this->scale) + 1][v].idx1;
+            unsigned int v2 = this->table_v[int(disparity_value * this->scale) + 1][v].idx2;
 
-                if (this->padding < 0.0) {
-                    float range = this->bg_multiplier * this->robot_radius;
-                    float max_depth = 0.0;
-                    bool found = true;
-                    int ctr = 1;
-                    while (found) {
-                        found = false;
-                        for (int j = 0; j < submat.rows; j++) {
-                            float val = submat.at<float>(j, 0);
-                            if (std::isfinite(val)) {
-                                if (val < ctr * range && val > max_depth) {
-                                    found = true;
-                                    max_depth = val;
-                                }
+            cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
+
+            cv::Mat submat_t = disparity32F_bg(roi).clone();
+
+            double min, max;
+            cv::Point p1, p2;
+            int min_idx, max_idx;
+
+            cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
+            min_idx = p1.y;
+            max_idx = p2.y;
+            float disp_new_fg;
+            float disp_new_bg;
+            float disp_to_depth = this->baseline * this->fx / max;
+
+            disp_new_fg = this->baseline * this->fx / (disp_to_depth - this->robot_radius) +
+                          this->pixel_error;
+
+            cv::Mat submat;
+            cv::divide(baseline * this->fx, submat_t, submat);
+            cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
+            disp_to_depth = this->baseline * this->fx / max;
+            submat = (submat - disp_to_depth);  /// this->robot_radius;
+
+            if (this->padding < 0.0) {
+                float range = this->bg_multiplier * this->robot_radius;
+                float max_depth = 0.0;
+                bool found = true;
+                int ctr = 1;
+                while (found) {
+                    found = false;
+                    for (int j = 0; j < submat.rows; j++) {
+                        float val = submat.at<float>(j, 0);
+                        if (std::isfinite(val)) {
+                            if (val < ctr * range && val > max_depth) {
+                                found = true;
+                                max_depth = val;
                             }
                         }
-                        ctr++;
                     }
-                    disp_to_depth += max_depth;
-                } else
-                    disp_to_depth += this->padding;  // this->baseline * this->fx/min;
+                    ctr++;
+                }
+                disp_to_depth += max_depth;
+            } else
+                disp_to_depth += this->padding;  // this->baseline * this->fx/min;
 
-                disp_new_bg = this->baseline * this->fx / (disp_to_depth + this->robot_radius) -
-                              this->pixel_error;
-                disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
+            disp_new_bg = this->baseline * this->fx / (disp_to_depth + this->robot_radius) -
+                          this->pixel_error;
+            disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
 
-                disparity_fg(roi).setTo(disp_new_fg);
-                disparity_bg(roi).setTo(disp_new_bg);
+            disparity_fg(roi).setTo(disp_new_fg);
+            disparity_bg(roi).setTo(disp_new_bg);
 
-                int v_temp = v1 + max_idx;
-                if (v_temp >= v)
-                    v = v1;
-                else
-                    v = v_temp + 1;
-            } else {
-                RCLCPP_ERROR_STREAM_THROTTLE(
-                    this->get_logger(), *this->get_clock(), 1000,
-                    "BAD disparity during expansion for v: "
-                        << disparity_value << " lut_max_disparity: " << this->lut_max_disparity
-                        << " SCALE: " << this->scale);
-            }
+            int v_temp = v1 + max_idx;
+            if (v_temp >= v)
+                v = v1;
+            else
+                v = v_temp + 1;
         }
     }
 
@@ -464,8 +472,8 @@ void DisparityExpansionNode::publish_frustum(
 
     marker.scale.x = marker.scale.y = marker.scale.z = 1.;
     marker.color.a = 0.3;
-    marker.color.r = 0.5;  
-    marker.color.g = 1.0;  
+    marker.color.r = 0.5;
+    marker.color.g = 1.0;
     marker.color.b = 0.9;
 
     double max_depth = this->lut_max_disparity * this->baseline * this->fx;
