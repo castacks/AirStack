@@ -13,6 +13,8 @@ If a waypoint's header timestamp is empty, the local planner should assume there
 The global planner should make a trajectory that is collision-free according to the global map.
 However, avoiding fine obstacles is delegated to the local planner that operates at a faster rate.
 
+For the structure of the package, the global planner node should not include any logic to generate the path. This should be located in a seperate logic class and be seperated from ROS. This will allow more modularity in the future for testing and easy interface changes.
+
 We intend the global planners to be modular. _AirStack_ implements a basic Random Walk planner as a baseline. 
 Feel free to implement your own through the following interfaces.
 
@@ -30,12 +32,13 @@ The best global plan should then be forwarded or remapped to `/$(env ROBOT_NAME)
 ``` mermaid
 sequenceDiagram
   autonumber
-  Some Node->>Global Planner: ~/plan_request (your_planner/PlanRequest.msg)
+  Global Manager->>Global Planner: ~/plan_request (your_planner/PlanRequest.msg)
   loop Planning
-      Global Planner-->>Some Node: heartbeat feedback
+      Global Planner-->>Global Manager: heartbeat feedback
   end
-  Global Planner->>Some Node: ~/global_plan (nav_msgs/Path.msg)
-  Some Node->>Local Planner: /$ROBOT_NAME/global_plan (nav_msgs/Path.msg)
+  Global Planner->>Global Manager: ~/global_plan (nav_msgs/Path.msg)
+  Global Manager->>Local Planner: /$ROBOT_NAME/global_plan_reference (nav_msgs/Path.msg)
+  Local Planner->>Global Manager: /$ROBOT_NAME/global_plan_eta (nav_msgs/Path.msg)
 ```
 
 ### Subscribe: Plan Request
@@ -89,3 +92,4 @@ The global planner can do whatever it wants internally with this information.
 ### Random Walk planner
 
 The random walk planner replans when the robot is getting close to the goal. The random walk planner is a trivial planner that generates a plan by randomly selecting a direction to move in. The random walk planner is useful for testing the robot's ability to follow a plan.
+

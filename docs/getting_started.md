@@ -33,8 +33,8 @@ Also set the default OMNI_SERVER and accept the license terms. (Basti: The omni_
 
 Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
-<details open> <summary>Option 1: Use the Airlab Docker registry (Preferred)</summary>
-To use the AirLab docker registry do the following
+<details open> <summary>Option 1: Pull From the Airlab Registry (Preferred)</summary>
+To use the AirLab Docker registry do the following
 
 ```bash
 cd AirStack/docker/
@@ -46,16 +46,13 @@ docker login airlab-storage.andrew.cmu.edu:5001
 docker compose pull
 ```
 
-When you execute docker compose pull in the next step the image will be pulled from the server automatically. This might take a while since the image is large.
+The images will be pulled from the server automatically. This might take a while since the images are large.
 
 </details>
 
-
 <details><summary>Option 2: Build Docker Images From Scratch</summary>
 
-1.  
-
-    Download the Ascent Spirit SITL software packages from <a href="https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link">this link</a>.
+1.  Download the Ascent Spirit SITL software packages from <a href="https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link">this link</a>.
 
     Then unzip the file AscentAeroSystemsSITLPackage.zip in this folder:
 
@@ -73,7 +70,7 @@ When you execute docker compose pull in the next step the image will be pulled f
     docker compose build  # build the images locally
     ```
 
-IF you have permission you can now push an updated images to the docker server (only if it's changed and is required)
+If you have permission you can push updated images to the docker server.
 
 ```bash
 docker compose push
@@ -106,7 +103,7 @@ Note you can also use the `ros2 topic pub` command to move the robot. For exampl
 
 ```bash
 # start another terminal in docker container
-docker compose exec docker-robot-1 bash
+docker exec -it docker-robot-1 bash
 # in docker
 # FLY TO POSITION. Put whatever position you want
 ros2 topic pub /robot_1/interface/mavros/setpoint_position/local geometry_msgs/PoseStamped \

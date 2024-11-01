@@ -14,6 +14,7 @@ find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(trajectory_library REQUIRED)
 
 
 add_library(map_representation_interface src/map_representation_interface.cpp)
@@ -35,6 +36,7 @@ ament_target_dependencies(
   tf2
   tf2_ros
   visualization_msgs
+  trajectory_library
 )
 ament_export_targets(map_representation_interface HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp geometry_msgs tf2 tf2_ros)

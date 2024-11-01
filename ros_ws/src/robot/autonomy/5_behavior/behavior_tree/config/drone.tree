@@ -34,9 +34,9 @@
 		?
 			[Follow Fixed Trajectory]
 	->
-		(Explore Commanded)
+		(Global Plan Commanded)
 		?
-			[Explore]
+			[Follow Global Plan]
 	->
 		(Offboard Commanded)
 		?

@@ -217,8 +217,16 @@ class MyExtension(omni.ext.IExt):
                     ui.Spacer(height=5)
                     self.sessions_stack = ui.VStack()
         #'''
-
         self.sessions_dict = {}
+
+        self.play_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
+            int(omni.timeline.TimelineEventType.PLAY), self.refresh_tmux_sessions)
+        self.pause_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
+            int(omni.timeline.TimelineEventType.PAUSE), self.refresh_tmux_sessions)
+        self.stop_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
+            int(omni.timeline.TimelineEventType.STOP), self.refresh_tmux_sessions)
+
+        self.refresh_tmux_sessions()
         
         '''
         with self.window.frame:
@@ -291,4 +299,5 @@ class MyExtension(omni.ext.IExt):
             del self.sessions_dict[k]
         
     def on_shutdown(self):
+        self.refresh_tmux_sessions()
         print("[airlab.tmux_manager] Extension shutdown")

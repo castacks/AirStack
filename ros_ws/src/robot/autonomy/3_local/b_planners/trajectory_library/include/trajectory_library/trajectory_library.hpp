@@ -12,14 +12,13 @@
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-// #include <tf/transform_datatypes.h>
-// #include <tf/transform_listener.h>
 #include <yaml-cpp/yaml.h>
 
 #include <airstack_common/ros2_helper.hpp>
 #include <airstack_common/tflib.hpp>
 #include <algorithm>
 #include <cctype>
+#include <nav_msgs/msg/path.hpp>
 #include <sstream>
 
 class Trajectory;
@@ -32,29 +31,34 @@ class Waypoint {
     Waypoint(double x, double y, double z, double yaw, double vx, double vy, double vz, double ax,
              double ay, double az, double jx, double jy, double jz, double time = 0);
 
-    double x() const { return x_; }
-    double y() const { return y_; }
-    double z() const { return z_; }
-    double vx() const { return vx_; }
-    double vy() const { return vy_; }
-    double vz() const { return vz_; }
-    double ax() const { return ax_; }
-    double ay() const { return ay_; }
-    double az() const { return az_; }
-    double jx() const { return jx_; }
-    double jy() const { return jy_; }
-    double jz() const { return jz_; }
-    double yaw() const { return yaw_; }
-    double time() const { return time_; }
+    double get_x() const { return x_; }
+    double get_y() const { return y_; }
+    double get_z() const { return z_; }
+    double get_vx() const { return vx_; }
+    double get_vy() const { return vy_; }
+    double get_vz() const { return vz_; }
+    double get_ax() const { return ax_; }
+    double get_ay() const { return ay_; }
+    double get_az() const { return az_; }
+    double get_jx() const { return jx_; }
+    double get_jy() const { return jy_; }
+    double get_jz() const { return jz_; }
+    double get_yaw() const { return yaw_; }
+    double get_time() const { return time_; }
 
     void set_time(double time) { time_ = time; }
 
-    tf2::Quaternion q() const;
+    tf2::Quaternion quaternion() const;
     tf2::Vector3 position() const;
     tf2::Vector3 velocity() const;
     tf2::Vector3 acceleration() const;
     tf2::Vector3 jerk() const;
-    airstack_msgs::msg::Odometry odometry(rclcpp::Time stamp, std::string frame_id) const;
+
+    /**
+     * @brief Convert Waypoint to Odometry message
+     */
+    airstack_msgs::msg::Odometry as_odometry_msg(rclcpp::Time stamp, std::string frame_id) const;
+
     Waypoint interpolate(Waypoint wp, double t);
 
     friend class Trajectory;
@@ -63,6 +67,7 @@ class Waypoint {
 };
 
 // Create one TransformListener instance to be used by every Trajectory instance
+// TODO: change to smart pointer
 static tf2_ros::Buffer* buffer = NULL;
 static tf2_ros::TransformListener* listener = NULL;
 
@@ -81,8 +86,9 @@ class Trajectory {
 
    public:
     Trajectory();
-    Trajectory(rclcpp::Node* node, std::string frame_id);
-    Trajectory(rclcpp::Node* node, airstack_msgs::msg::TrajectoryXYZVYaw path);
+    Trajectory(rclcpp::Node* node_ptr, std::string frame_id);
+    Trajectory(rclcpp::Node* node_ptr, airstack_msgs::msg::TrajectoryXYZVYaw path);
+    Trajectory(rclcpp::Node* node_ptr, nav_msgs::msg::Path path);
     // Trajectory(airstack_msgs::msg::TrajectoryXYZVYaw path);
 
     void clear();
@@ -100,26 +106,30 @@ class Trajectory {
                                           Waypoint* waypoint, Waypoint* end_waypoint);
     bool get_waypoint(double time, Waypoint* waypoint);
 
+    const std::vector<Waypoint>& get_waypoints() const;
+
     double get_duration();
     bool get_odom(double time, airstack_msgs::msg::Odometry* odom, rclcpp::Time stamp);
     Trajectory to_frame(std::string target_frame, rclcpp::Time time);
     // Trajectory respace(double spacing);
     // Trajectory shorten(double new_length); // replace shorten with get_subtraj_dist
-    Trajectory get_subtrajectory_distance(double start, double end);
+    Trajectory trim_trajectory_between_distances(double start_dist, double end_dist);
     Trajectory get_reversed_trajectory();
     float get_skip_ahead_time(float start_time, float max_velocity, float max_distance);
 
     void set_fixed_height(double height);
 
-    size_t waypoint_count();
-    Waypoint get_waypoint(int index);
-    std::string get_frame_id();
-    airstack_msgs::msg::TrajectoryXYZVYaw get_TrajectoryXYZVYaw();
-    std::vector<geometry_msgs::msg::PointStamped> get_vector_PointStamped();
+    size_t get_num_waypoints() const;
+    const Waypoint& get_waypoint(int index) const;
+    const std::string& get_frame_id() const;
+    const rclcpp::Time& get_stamp() const { return stamp; }
+    airstack_msgs::msg::TrajectoryXYZVYaw get_TrajectoryXYZVYaw_msg();
+    std::vector<geometry_msgs::msg::PointStamped> get_vector_PointStamped_msg();
 
-    visualization_msgs::msg::MarkerArray get_markers(rclcpp::Time stamp, float r = 1, float g = 0,
-                                                     float b = 0, float a = 1,
-                                                     bool show_poses = false,
+    visualization_msgs::msg::MarkerArray get_markers(rclcpp::Time stamp,
+                                                     const std::string& marker_namespace,
+                                                     float r = 1, float g = 0, float b = 0,
+                                                     float a = 1, bool show_poses = false,
                                                      bool show_velocity = false,
                                                      float thickness = 0.03f);
 };
@@ -202,11 +212,18 @@ class TrajectoryLibrary {
    private:
     std::vector<StaticTrajectory*> static_trajectories;
     std::vector<DynamicTrajectory*> dynamic_trajectories;
-    // tf2_ros::Buffer* buffer;
-    rclcpp::Node* node;
+    rclcpp::Node::SharedPtr node_ptr;
 
-    // ros::NodeHandle* pnh;
+   public:
+    TrajectoryLibrary(std::string config_filename,
+                      rclcpp::Node::SharedPtr node_ptr);  // tf2_ros::Buffer*
 
+    std::vector<Trajectory> get_static_trajectories();
+    std::vector<Trajectory> get_dynamic_trajectories(airstack_msgs::msg::Odometry odom);
+    visualization_msgs::msg::MarkerArray get_markers(
+        std::vector<airstack_msgs::msg::TrajectoryXYZVYaw> trajectories);
+
+   private:
     std::string trim(std::string str) {
         int trim_start = 0;
         int trim_end = 0;
@@ -234,10 +251,10 @@ class TrajectoryLibrary {
     std::string get_string(std::string t) { return t; }
 
     template <typename T>
-    T parse(YAML::Node node) {
+    T parse(YAML::Node yamlnode) {
         // std::cout << "trim test |" << trim("  asdjfaksfdj   jdfkj jakdsf  ") << "|" << std::endl;
 
-        std::string str = node.as<std::string>();
+        std::string str = yamlnode.as<std::string>();
         std::size_t start;
 
         std::string param_label = "$(param";
@@ -247,26 +264,28 @@ class TrajectoryLibrary {
             std::size_t end = str.find(")");
             // std::cout << start << " " << end << std::endl;
             if (end == std::string::npos) {
-                std::cout << "TRAJECTORY LIBRARY PARSING ERROR: No closing parenthesis for $(param";
+                RCLCPP_DEBUG_STREAM(
+                    node_ptr->get_logger(),
+                    "TRAJECTORY LIBRARY PARSING ERROR: No closing parenthesis for $(param");
                 break;
             }
 
             std::string parameter_name =
                 trim(str.substr(start + param_label.size(), end - (start + param_label.size())));
-            // std::cout << "parameter_name: |" << parameter_name << "|" << std::endl;
+            RCLCPP_DEBUG(node_ptr->get_logger(), "parameter_name: %s", parameter_name.c_str());
             T parameter_value;
-            bool set;
-            airstack::get_param(this->node, parameter_name, T(), &set);
-            if (!set) {  //! pnh->getParam(parameter_name, parameter_value)){
-                std::cout << "Couldn't find parameter '" << parameter_name
-                          << "'. This is either because it doesn't exist or the type is incorrect "
-                             "in the launch file.";
+            if (!this->node_ptr->get_parameter(parameter_name, parameter_value)) {
+                RCLCPP_INFO(node_ptr->get_logger(),
+                            "Couldn't find parameter '%s'. This is either because it doesn't exist "
+                            "or the type is incorrect in the launch file.",
+                            parameter_name.c_str());
             }
-
-            // std::cout << str << " " << start << " " << end << std::endl;
+            RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "parameter_value: " << parameter_value);
+            std::cout << str << " " << start << " " << end << std::endl;
             str = str.substr(0, start) + get_string(parameter_value) +
                   str.substr(end + 1, str.size() - (end + 1));
-            // std::cout << str << " " << str.find(param_label) << std::endl;
+            std::cout << str << " " << str.find(param_label) << std::endl;
+            RCLCPP_DEBUG(node_ptr->get_logger(), "str: %s", str.c_str());
         }
 
         // std::cout << "final: " << str << std::endl;
@@ -281,15 +300,6 @@ class TrajectoryLibrary {
 
         return n["key"].as<T>();
     }
-
-   public:
-    TrajectoryLibrary(std::string config_filename, rclcpp::Node* node);  // tf2_ros::Buffer*
-                                                                         // buffer);
-
-    std::vector<Trajectory> get_static_trajectories();
-    std::vector<Trajectory> get_dynamic_trajectories(airstack_msgs::msg::Odometry odom);
-    visualization_msgs::msg::MarkerArray get_markers(
-        std::vector<airstack_msgs::msg::TrajectoryXYZVYaw> trajectories);
 };
 
 #endif

@@ -135,7 +135,10 @@ include_directories(
 # ##########
 # # Build ##
 # ##########
-set(CMAKE_BUILD_TYPE Release)
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  message("${PROJECT_NAME}: You did not request a specific build type: selecting 'Release'.")
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 # # Specify additional locations of header files
 # # Your package locations should be listed before other locations
@@ -153,6 +156,10 @@ include_directories(
 
 # # Declare a cpp executable
 add_executable(disparity_expansion src/disparity_expansion.cpp)
+target_include_directories(disparity_expansion PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
 target_link_libraries(disparity_expansion ${OpenCV_LIBS} ${catkin_LIBRARIES}
 )
 
@@ -169,23 +176,6 @@ ament_target_dependencies(disparity_expansion
   message_filters
   visualization_msgs
   stereo_msgs
-  tf2_geometry_msgs
-)
-add_executable(disparity_conv src/disparity_conv.cpp)
-target_link_libraries(disparity_conv ${OpenCV_LIBS} ${catkin_LIBRARIES}
-)
-
-ament_target_dependencies(disparity_conv
-  rclcpp
-  rcl_interfaces
-  cv_bridge
-  image_geometry
-  image_transport
-  sensor_msgs
-  std_msgs
-  tf2
-  pcl_conversions
-  message_filters
   tf2_geometry_msgs
 )
 
@@ -210,9 +200,6 @@ ament_target_dependencies(disparity_pcd
 # install(TARGETS disparity_expansion
 # RUNTIME DESTINATION bin)
 install(TARGETS disparity_expansion
-  DESTINATION lib/${PROJECT_NAME}
-)
-install(TARGETS disparity_conv
   DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS disparity_pcd

@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 
 find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(map_representation_interface REQUIRED)
 # find_package(disparity_map_representation REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -25,10 +26,12 @@ target_include_directories(droan_local_planner PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(droan_local_planner PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
+
 ament_target_dependencies(
   droan_local_planner
   "airstack_msgs"
   "airstack_common"
+  "nav_msgs"
   "map_representation_interface"
   # "disparity_map_representation"
   "trajectory_controller"
