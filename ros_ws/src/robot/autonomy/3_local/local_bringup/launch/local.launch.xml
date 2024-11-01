@@ -11,18 +11,8 @@
     <node pkg="takeoff_landing_planner"
         namespace="takeoff_landing_planner"
         exec="takeoff_landing_planner" output="screen">
-        <param name="takeoff_height" value="0.5" />
-        <param name="high_takeoff_height" value="0.8" />
-        <param name="takeoff_landing_velocity" value="0.3" />
-        <param name="takeoff_acceptance_distance" value="0.3" />
-        <param name="takeoff_acceptance_time" value="10.0" />
-        <param name="landing_stationary_distance" value="0.02" />
-        <param name="landing_acceptance_time" value="5.0" />
-        <param name="landing_tracking_point_ahead_time" value="5.0" />
-
-        <param name="takeoff_path_roll" value="0." /> <!-- degrees -->
-        <param name="takeoff_path_pitch" value="20." /> <!-- degrees -->
-        <param name="takeoff_path_relative_to_orientation" value="false" />
+        <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
+            allow_substs="true" />
 
         <!-- remap glue to AirStack -->
         <remap from="trajectory_override"
@@ -86,8 +76,10 @@
 
     </node>
 
+  <?ignore
   <node pkg="rviz2" exec="rviz2"
     args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"
     output="screen" respawn="true" respawn_delay="1" />
+  ?>
 
 </launch>
