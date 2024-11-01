@@ -14,14 +14,14 @@
     magnitude: 0.5
 
     # DROAN parameters
-    robot_radius: 0.0
+    robot_radius: 1.0
     obstacle_distance_reward: 1.0
     forward_progress_reward_weight: 0.5
 
     # map parameters. see disparity_map_representation.cpp
     map_representation: disparity_map_representation::DisparityMapRepresentation
-    obstacle_check_radius: 2.0
-    obstacle_check_num_points: 5
+    obstacle_check_radius: 0.5
+    obstacle_check_num_points: 3
     # disparity graph parameters. see disparity_graph.hpp
     fixed_frame: "map"
     baseline_fallback: 0.5  # if the baseline is 0 from the camera_info, use this value instead

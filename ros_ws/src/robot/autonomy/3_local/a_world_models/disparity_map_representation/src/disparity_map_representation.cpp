@@ -13,14 +13,14 @@ DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation(), 
     green.b = 0;
     green.g = 1;
     green.a = 0.8;
-    gray.r = 0.5;
-    gray.b = 0.5;
-    gray.g = 0.5;
-    gray.a = 0.5;
+    gray.r = 0.7;
+    gray.b = 0.7;
+    gray.g = 0.7;
+    gray.a = 0.6;
     red.r = 1;
     red.b = 0;
     red.g = 0;
-    red.a = 0.5;
+    red.a = 0.6;
 
     Q_UP.setRPY(0, -M_PI / 2, 0);
     Q_DOWN.setRPY(0, M_PI / 2, 0);
@@ -98,14 +98,16 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                 for (int k = 1; k < obstacle_check_num_points + 1; k++) {
                     double dist = k * obstacle_check_radius / (obstacle_check_num_points + 1);
 
-                    // check_pose_and_add_marker(trajectory, waypoint, dist, direction,
-                    //                           closest_obstacle_distance);
+                    if (trajectory_index == 0)
+                        check_pose_and_add_marker(trajectory, waypoint, dist, direction,
+                                                closest_obstacle_distance);
                 }
             }
 
             // check the waypoint itself
-            check_pose_and_add_marker(trajectory, waypoint, 0, waypoint_direction,
-                                      closest_obstacle_distance);
+            if (trajectory_index == 0)
+                check_pose_and_add_marker(trajectory, waypoint, 0, waypoint_direction,
+                                        closest_obstacle_distance);
 
             values[trajectory_index][waypoint_index] = closest_obstacle_distance;
         }

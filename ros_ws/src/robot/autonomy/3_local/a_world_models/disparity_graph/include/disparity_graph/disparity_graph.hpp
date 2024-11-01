@@ -182,7 +182,7 @@ class DisparityGraph {
 
             if (fabs(angle_difference) >= angle_tol ||
                 fabs(position_difference) > displacement_tol) {
-                RCLCPP_INFO(node_ptr->get_logger(), "Adding new node size %d",
+                RCLCPP_INFO(node_ptr->get_logger(), "Adding new node, graph size now %d",
                             (int)disp_graph_.size());
 
                 if (disp_graph_.size() >= graph_size_) {

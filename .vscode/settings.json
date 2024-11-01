@@ -14,6 +14,7 @@
     "**/install": true,
     "**/log": true
   },
+  "C_Cpp.errorSquiggles": "enabled",
   // ISAAC SIM
   "python.analysis.extraPaths": [
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/exts/omni.exporter.urdf",

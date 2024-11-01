@@ -63,7 +63,8 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
     high_takeoff_traj_gen =
         new TakeoffTrajectory(high_takeoff_height, takeoff_landing_velocity, takeoff_path_roll,
                               takeoff_path_pitch, takeoff_path_relative_to_orientation);
-    landing_traj_gen = new TakeoffTrajectory(-10000., takeoff_landing_velocity);
+    // TODO: this landing point is hardcoded. it should be parameterized
+    landing_traj_gen = new TakeoffTrajectory(0., takeoff_landing_velocity);
     current_command = airstack_msgs::srv::TakeoffLandingCommand::Request::NONE;
 
     completion_percentage = 0.f;

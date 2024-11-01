@@ -231,7 +231,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             RCLCPP_INFO_STREAM(this->get_logger(), "Published local trajectory");
         } else {
             RCLCPP_INFO_STREAM(this->get_logger(),
-                               "No valid trajectories, all trajectories collide");
+                               "No valid trajectories, all trajectories either collide or are unseen");
         }
         return true;
     }

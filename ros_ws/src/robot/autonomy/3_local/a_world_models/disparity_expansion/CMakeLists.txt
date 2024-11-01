@@ -156,6 +156,10 @@ include_directories(
 
 # # Declare a cpp executable
 add_executable(disparity_expansion src/disparity_expansion.cpp)
+target_include_directories(disparity_expansion PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
 target_link_libraries(disparity_expansion ${OpenCV_LIBS} ${catkin_LIBRARIES}
 )
 
