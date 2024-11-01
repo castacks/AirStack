@@ -468,10 +468,10 @@ void TrajectoryControlNode::set_trajectory_mode(
         trajectory->clear();
     } else if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::TRACK) {
         trajectory->clear();
-    } else if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::SEGMENT) {
+    } else if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT) {
         if (prev_trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::PAUSE &&
             prev_trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::REWIND &&
-            prev_trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::SEGMENT) {
+            prev_trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT) {
             trajectory->clear();
             virtual_time = 0;
             actual_time = 0;
@@ -509,7 +509,7 @@ void TrajectoryControlNode::set_trajectory_mode(
 
 void TrajectoryControlNode::traj_seg_to_add_callback(
     const airstack_msgs::msg::TrajectoryXYZVYaw::SharedPtr traj) {
-    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::SEGMENT)
+    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT)
         trajectory->merge(Trajectory(this, *traj), virtual_time);
 }
 
