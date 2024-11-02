@@ -55,6 +55,8 @@ COLCON_IGNORE
 frames_*.gv
 frames_*.pdf
 
+.idea/
+*.code-workspace
 
 nucleus_token.txt
 
