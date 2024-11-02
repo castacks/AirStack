@@ -29,6 +29,7 @@ RUN apt update -y && apt install -y \
     ros-humble-image-view \
     ros-humble-topic-tools \
     ros-humble-grid-map \
+    ros-humble-domain-bridge \
     libcgal-dev 
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
