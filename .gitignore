@@ -55,8 +55,6 @@ COLCON_IGNORE
 frames_*.gv
 frames_*.pdf
 
-# VS Code, JetBrains, and other IDE config folders
-.vscode/
 .idea/
 *.code-workspace
 
