@@ -1,0 +1,21 @@
+<!-- PERCEPTION -->
+<launch>
+
+    <!-- State Estimation -->
+    <!-- Disparity -->
+    <node pkg="stereo_image_proc" exec="disparity_node"
+        namespace="stereo_image_proc">
+        <remap from="left/image_rect" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect" />
+        <remap from="left/camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+        <remap from="right/image_rect" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/image_rect" />
+        <remap from="right/camera_info"
+            to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
+    </node>
+
+    <!-- Visualizer -->
+    <node pkg="image_view" exec="disparity_view"
+        namespace="disparity_view">
+        <remap from="image" to="/$(env ROBOT_NAME)/stereo_image_proc/disparity" />
+    </node>
+
+</launch>

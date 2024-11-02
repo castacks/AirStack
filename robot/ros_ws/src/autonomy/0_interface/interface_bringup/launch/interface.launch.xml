@@ -1,0 +1,28 @@
+<launch>
+    <node pkg="robot_interface" exec="robot_interface_node"
+        namespace="interface"
+        output="screen">
+        <param name="interface" value="mavros_interface::MAVROSInterface" />
+        <param name="is_ardupilot" value="true" />
+    </node>
+
+    <node pkg="mavros_interface" exec="position_setpoint_pub.py"
+        namespace="interface"
+        output="screen" />
+
+    <!-- converts odometry topic into a TF -->
+    <node pkg="robot_interface" exec="odometry_conversion"
+        namespace="odometry_conversion"
+        output="screen">
+        <remap from="odometry_in" to="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+        <remap from="odometry_out" to="odometry" />
+
+        <param name="odom_input_qos_is_best_effort" value="true" />
+        <param name="new_frame_id" value="map" />
+        <param name="new_child_frame_id" value="base_link" />
+        <param name="odometry_output_type" value="2" /> <!-- 0: NONE, 1: TRANSFORM, 2: OVERWRITE -->
+        <param name="convert_odometry_to_transform" value="true" />
+        <param name="convert_odometry_to_stabilized_transform" value="true" />
+    </node>
+
+</launch>

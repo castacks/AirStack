@@ -1,0 +1,27 @@
+# top-level docker-compose file for the autonomy stack
+include: 
+  - ../../simulation/isaac-sim/docker-compose.yaml
+  - ../../robot/docker-compose.yaml
+  - ../../ground-control-station/docker-compose.yaml
+
+services:
+  docs:  # live mkdocs container
+    image: squidfunk/mkdocs-material
+    container_name: docs
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # network_mode: host
+    ports:
+      - "8000:8000"
+    volumes:
+      # autonomy stack stuff
+      - ../:/docs:rw
+
+networks:
+  airstack_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.31.0.0/24

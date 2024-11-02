@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    srv_random_walk_toggle_topic: "/robot_1/behavior/global_plan_toggle"
+    way_point_planners: 
+      - name: "random_walk"
+        config: 
+          frequency: 1.0 #hz 
+

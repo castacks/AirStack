@@ -1,0 +1,25 @@
+alembic-LICENSE.txt
+boost-LICENSE.md
+doctest-LICENSE.txt
+doxygen-LICENSE.txt
+draco-LICENSE.md
+fmt-LICENSE.txt
+glew-LICENSE.md
+IlmBase-LICENSE.md
+kit-omnigraph-LICENSE.txt
+libzip-LICENSE.txt
+lua-LICENSE.txt
+materialx-LICENSE.txt
+nv-usd-license.txt
+nvindex-license.txt
+omniverse client library-LICENSES.txt
+openexr-LICENSE.md
+opensubdiv-LICENSE.md
+premake-LICENSE.txt
+pybind11-LICENSE.txt
+python-LICENSES.txt
+tbb-LICENSE.txt
+usd-LICENSE.md
+usd_ext_omnigraph-LICENSE.md
+zlib-LICENSE.md
+zlib-LICENSE.txt

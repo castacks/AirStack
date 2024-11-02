@@ -1,0 +1,18 @@
+<!-- GLOBAL -->
+<launch>
+    <!-- World Model -->
+    <node pkg="vdb_mapping_ros2" exec="vdb_mapping_ros_node" name="vdb_mapping"
+        output="screen">
+        <param from="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
+        <remap from="/vdb_mapping/vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+    </node>
+
+    <!-- Planning -->
+    <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"
+        output="screen">
+        <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
+        <!-- <remap from="/tf" to="/$(env ROBOT_NAME)/tf" /> -->
+        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+    </node>
+</launch>
