@@ -105,11 +105,11 @@ fi
 # --- ROS2 workspace setup ---
 
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/root/AirStack/ros_ws/fastdds.xml"
+export FASTRTPS_DEFAULT_PROFILES_FILE="/root/ros_ws/fastdds.xml"
 
 
 # Define the ROS2 workspace directory
-ROS2_WS_DIR="$HOME/AirStack/ros_ws"
+ROS2_WS_DIR="$HOME/ros_ws"
 # for local development, prevent conflict with other desktops
 export ROS_LOCALHOST_ONLY=1
 
@@ -125,7 +125,7 @@ function bws(){
 }
 function sws(){
     echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
-    source "$ROS2_WS_DIR"/install/local_setup.bash
+    source "$ROS2_WS_DIR"/install/local_setup.bash || echo "Please make sure to build first with 'bws'"
 }
 
 # Function to prompt user for confirmation

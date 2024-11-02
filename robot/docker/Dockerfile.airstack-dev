@@ -1,6 +1,6 @@
 FROM osrf/ros:humble-desktop-full
 
-WORKDIR /root
+WORKDIR /root/ros_ws
 
 RUN apt update
 # Install dev tools

@@ -1,11 +1,6 @@
 services:
   ground-control-station:
-    # TODO: make own docker image for gcs and delete this extends
-    extends:
-      file: ../../robot/docker/docker-compose.yaml
-      service: robot
-    build: don't build because same as robot for now
-    # TODO: delete the above when gcs has its own docker image
+    image: TODO
     container_name: ground-control-station
     entrypoint: ""
     command: >

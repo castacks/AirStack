@@ -28,6 +28,7 @@ from pxr import OmniGraphSchema, Sdf
 from omni.isaac.ui.menu import make_menu_item_description
 from omni.kit.menu.utils import MenuItemDescription, add_menu_items, remove_menu_items
 
+
 def make_camera_graph():
     timeline = omni.timeline.get_timeline_interface()
     timeline.stop()
@@ -38,21 +39,45 @@ def make_camera_graph():
         {
             keys.CREATE_NODES: [
                 ("OnPlaybackTick", "omni.graph.action.OnPlaybackTick"),
-                ("IsaacRunOneSimulationFrame", "omni.isaac.core_nodes.OgnIsaacRunOneSimulationFrame"),
+                (
+                    "IsaacRunOneSimulationFrame",
+                    "omni.isaac.core_nodes.OgnIsaacRunOneSimulationFrame",
+                ),
                 ("ScriptNode", "omni.graph.scriptnode.ScriptNode"),
-                ("IsaacCreateRenderProduct", "omni.isaac.core_nodes.IsaacCreateRenderProduct"),
+                (
+                    "IsaacCreateRenderProduct",
+                    "omni.isaac.core_nodes.IsaacCreateRenderProduct",
+                ),
                 ("ROS2CameraHelper", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
             ],
             keys.CONNECT: [
-                ("OnPlaybackTick.outputs:tick", "IsaacRunOneSimulationFrame.inputs:execIn"),
+                (
+                    "OnPlaybackTick.outputs:tick",
+                    "IsaacRunOneSimulationFrame.inputs:execIn",
+                ),
                 ("IsaacRunOneSimulationFrame.outputs:step", "ScriptNode.inputs:execIn"),
-                ("ScriptNode.outputs:execOut", "IsaacCreateRenderProduct.inputs:execIn"),
-                ("IsaacCreateRenderProduct.outputs:execOut", "ROS2CameraHelper.inputs:execIn"),
-                ("IsaacCreateRenderProduct.outputs:renderProductPath", "ROS2CameraHelper.inputs:renderProductPath"),
+                (
+                    "ScriptNode.outputs:execOut",
+                    "IsaacCreateRenderProduct.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProduct.outputs:execOut",
+                    "ROS2CameraHelper.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProduct.outputs:renderProductPath",
+                    "ROS2CameraHelper.inputs:renderProductPath",
+                ),
                 ("ScriptNode.outputs:frameId", "ROS2CameraHelper.inputs:frameId"),
-                ("ScriptNode.outputs:nodeNamespace", "ROS2CameraHelper.inputs:nodeNamespace"),
+                (
+                    "ScriptNode.outputs:nodeNamespace",
+                    "ROS2CameraHelper.inputs:nodeNamespace",
+                ),
                 ("ScriptNode.outputs:topicName", "ROS2CameraHelper.inputs:topicName"),
-                ("ScriptNode.outputs:cameraPrim", "IsaacCreateRenderProduct.inputs:cameraPrim"),
+                (
+                    "ScriptNode.outputs:cameraPrim",
+                    "IsaacCreateRenderProduct.inputs:cameraPrim",
+                ),
             ],
             keys.CREATE_ATTRIBUTES: [
                 ("ScriptNode.inputs:namespaceDepthFromRoot", "uint"),
@@ -71,10 +96,14 @@ def make_camera_graph():
             keys.SET_VALUES: [
                 ("ScriptNode.inputs:namespaceDepthFromRoot", 1),
                 ("ScriptNode.inputs:isStereo", False),
-                ("ScriptNode.inputs:script", open("/extras/omnigraph_sensor_parameters.py").read()),
+                (
+                    "ScriptNode.inputs:script",
+                    open("/sitl_integration/omnigraph_sensor_parameters.py").read(),
+                ),
             ],
         },
     )
+
 
 def make_stereo_camera_graph():
     timeline = omni.timeline.get_timeline_interface()
@@ -86,54 +115,164 @@ def make_stereo_camera_graph():
         {
             keys.CREATE_NODES: [
                 ("OnPlaybackTick", "omni.graph.action.OnPlaybackTick"),
-                ("IsaacRunOneSimulationFrame", "omni.isaac.core_nodes.OgnIsaacRunOneSimulationFrame"),
+                (
+                    "IsaacRunOneSimulationFrame",
+                    "omni.isaac.core_nodes.OgnIsaacRunOneSimulationFrame",
+                ),
                 ("ScriptNode", "omni.graph.scriptnode.ScriptNode"),
-                ("IsaacCreateRenderProductLeft", "omni.isaac.core_nodes.IsaacCreateRenderProduct"),
-                ("IsaacCreateRenderProductRight", "omni.isaac.core_nodes.IsaacCreateRenderProduct"),
-                ("ROS2CameraHelperLeftImage", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
-                ("ROS2CameraHelperRightImage", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
-                ("ROS2CameraHelperLeftDepth", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
-                ("ROS2CameraHelperRightDepth", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+                (
+                    "IsaacCreateRenderProductLeft",
+                    "omni.isaac.core_nodes.IsaacCreateRenderProduct",
+                ),
+                (
+                    "IsaacCreateRenderProductRight",
+                    "omni.isaac.core_nodes.IsaacCreateRenderProduct",
+                ),
+                (
+                    "ROS2CameraHelperLeftImage",
+                    "omni.isaac.ros2_bridge.ROS2CameraHelper",
+                ),
+                (
+                    "ROS2CameraHelperRightImage",
+                    "omni.isaac.ros2_bridge.ROS2CameraHelper",
+                ),
+                (
+                    "ROS2CameraHelperLeftDepth",
+                    "omni.isaac.ros2_bridge.ROS2CameraHelper",
+                ),
+                (
+                    "ROS2CameraHelperRightDepth",
+                    "omni.isaac.ros2_bridge.ROS2CameraHelper",
+                ),
                 ("ROS2CameraInfoHelper", "omni.isaac.ros2_bridge.ROS2CameraInfoHelper"),
             ],
             keys.CONNECT: [
-                ("OnPlaybackTick.outputs:tick", "IsaacRunOneSimulationFrame.inputs:execIn"),
+                (
+                    "OnPlaybackTick.outputs:tick",
+                    "IsaacRunOneSimulationFrame.inputs:execIn",
+                ),
                 ("IsaacRunOneSimulationFrame.outputs:step", "ScriptNode.inputs:execIn"),
-                
-                ("ScriptNode.outputs:execOut", "IsaacCreateRenderProductRight.inputs:execIn"),
-                ("ScriptNode.outputs:execOut", "IsaacCreateRenderProductLeft.inputs:execIn"),
-                
-                ("IsaacCreateRenderProductLeft.outputs:execOut", "ROS2CameraHelperLeftImage.inputs:execIn"),
-                ("IsaacCreateRenderProductLeft.outputs:execOut", "ROS2CameraHelperLeftDepth.inputs:execIn"),
-                ("IsaacCreateRenderProductLeft.outputs:execOut", "ROS2CameraInfoHelper.inputs:execIn"),
-                ("IsaacCreateRenderProductLeft.outputs:renderProductPath", "ROS2CameraHelperLeftImage.inputs:renderProductPath"),
-                ("IsaacCreateRenderProductLeft.outputs:renderProductPath", "ROS2CameraHelperLeftDepth.inputs:renderProductPath"),
-                ("IsaacCreateRenderProductLeft.outputs:renderProductPath", "ROS2CameraInfoHelper.inputs:renderProductPath"),
-                
-                ("IsaacCreateRenderProductRight.outputs:execOut", "ROS2CameraHelperRightImage.inputs:execIn"),
-                ("IsaacCreateRenderProductRight.outputs:execOut", "ROS2CameraHelperRightDepth.inputs:execIn"),
-                ("IsaacCreateRenderProductRight.outputs:renderProductPath", "ROS2CameraHelperRightImage.inputs:renderProductPath"),
-                ("IsaacCreateRenderProductRight.outputs:renderProductPath", "ROS2CameraHelperRightDepth.inputs:renderProductPath"),
-                ("IsaacCreateRenderProductRight.outputs:renderProductPath", "ROS2CameraInfoHelper.inputs:renderProductPathRight"),
-                
-                ("ScriptNode.outputs:frameId", "ROS2CameraHelperLeftImage.inputs:frameId"),
-                ("ScriptNode.outputs:frameIdRight", "ROS2CameraHelperLeftDepth.inputs:frameId"),
-                ("ScriptNode.outputs:frameId", "ROS2CameraHelperRightImage.inputs:frameId"),
-                ("ScriptNode.outputs:frameIdRight", "ROS2CameraHelperRightDepth.inputs:frameId"),
+                (
+                    "ScriptNode.outputs:execOut",
+                    "IsaacCreateRenderProductRight.inputs:execIn",
+                ),
+                (
+                    "ScriptNode.outputs:execOut",
+                    "IsaacCreateRenderProductLeft.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProductLeft.outputs:execOut",
+                    "ROS2CameraHelperLeftImage.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProductLeft.outputs:execOut",
+                    "ROS2CameraHelperLeftDepth.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProductLeft.outputs:execOut",
+                    "ROS2CameraInfoHelper.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProductLeft.outputs:renderProductPath",
+                    "ROS2CameraHelperLeftImage.inputs:renderProductPath",
+                ),
+                (
+                    "IsaacCreateRenderProductLeft.outputs:renderProductPath",
+                    "ROS2CameraHelperLeftDepth.inputs:renderProductPath",
+                ),
+                (
+                    "IsaacCreateRenderProductLeft.outputs:renderProductPath",
+                    "ROS2CameraInfoHelper.inputs:renderProductPath",
+                ),
+                (
+                    "IsaacCreateRenderProductRight.outputs:execOut",
+                    "ROS2CameraHelperRightImage.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProductRight.outputs:execOut",
+                    "ROS2CameraHelperRightDepth.inputs:execIn",
+                ),
+                (
+                    "IsaacCreateRenderProductRight.outputs:renderProductPath",
+                    "ROS2CameraHelperRightImage.inputs:renderProductPath",
+                ),
+                (
+                    "IsaacCreateRenderProductRight.outputs:renderProductPath",
+                    "ROS2CameraHelperRightDepth.inputs:renderProductPath",
+                ),
+                (
+                    "IsaacCreateRenderProductRight.outputs:renderProductPath",
+                    "ROS2CameraInfoHelper.inputs:renderProductPathRight",
+                ),
+                (
+                    "ScriptNode.outputs:frameId",
+                    "ROS2CameraHelperLeftImage.inputs:frameId",
+                ),
+                (
+                    "ScriptNode.outputs:frameIdRight",
+                    "ROS2CameraHelperLeftDepth.inputs:frameId",
+                ),
+                (
+                    "ScriptNode.outputs:frameId",
+                    "ROS2CameraHelperRightImage.inputs:frameId",
+                ),
+                (
+                    "ScriptNode.outputs:frameIdRight",
+                    "ROS2CameraHelperRightDepth.inputs:frameId",
+                ),
                 ("ScriptNode.outputs:frameId", "ROS2CameraInfoHelper.inputs:frameId"),
-                ("ScriptNode.outputs:frameIdRight", "ROS2CameraInfoHelper.inputs:frameIdRight"),
-                ("ScriptNode.outputs:infoTopicName", "ROS2CameraInfoHelper.inputs:topicName"),
-                ("ScriptNode.outputs:infoTopicNameRight", "ROS2CameraInfoHelper.inputs:topicNameRight"),
-                ("ScriptNode.outputs:nodeNamespace", "ROS2CameraHelperLeftImage.inputs:nodeNamespace"),
-                ("ScriptNode.outputs:nodeNamespace", "ROS2CameraHelperRightImage.inputs:nodeNamespace"),
-                ("ScriptNode.outputs:nodeNamespace", "ROS2CameraHelperLeftDepth.inputs:nodeNamespace"),
-                ("ScriptNode.outputs:nodeNamespace", "ROS2CameraHelperRightDepth.inputs:nodeNamespace"),
-                ("ScriptNode.outputs:topicName", "ROS2CameraHelperLeftImage.inputs:topicName"),
-                ("ScriptNode.outputs:topicNameRight", "ROS2CameraHelperRightImage.inputs:topicName"),
-                ("ScriptNode.outputs:topicNameDepth", "ROS2CameraHelperLeftDepth.inputs:topicName"),
-                ("ScriptNode.outputs:topicNameDepthRight", "ROS2CameraHelperRightDepth.inputs:topicName"),
-                ("ScriptNode.outputs:cameraPrim", "IsaacCreateRenderProductLeft.inputs:cameraPrim"),
-                ("ScriptNode.outputs:cameraPrimRight", "IsaacCreateRenderProductRight.inputs:cameraPrim"),
+                (
+                    "ScriptNode.outputs:frameIdRight",
+                    "ROS2CameraInfoHelper.inputs:frameIdRight",
+                ),
+                (
+                    "ScriptNode.outputs:infoTopicName",
+                    "ROS2CameraInfoHelper.inputs:topicName",
+                ),
+                (
+                    "ScriptNode.outputs:infoTopicNameRight",
+                    "ROS2CameraInfoHelper.inputs:topicNameRight",
+                ),
+                (
+                    "ScriptNode.outputs:nodeNamespace",
+                    "ROS2CameraHelperLeftImage.inputs:nodeNamespace",
+                ),
+                (
+                    "ScriptNode.outputs:nodeNamespace",
+                    "ROS2CameraHelperRightImage.inputs:nodeNamespace",
+                ),
+                (
+                    "ScriptNode.outputs:nodeNamespace",
+                    "ROS2CameraHelperLeftDepth.inputs:nodeNamespace",
+                ),
+                (
+                    "ScriptNode.outputs:nodeNamespace",
+                    "ROS2CameraHelperRightDepth.inputs:nodeNamespace",
+                ),
+                (
+                    "ScriptNode.outputs:topicName",
+                    "ROS2CameraHelperLeftImage.inputs:topicName",
+                ),
+                (
+                    "ScriptNode.outputs:topicNameRight",
+                    "ROS2CameraHelperRightImage.inputs:topicName",
+                ),
+                (
+                    "ScriptNode.outputs:topicNameDepth",
+                    "ROS2CameraHelperLeftDepth.inputs:topicName",
+                ),
+                (
+                    "ScriptNode.outputs:topicNameDepthRight",
+                    "ROS2CameraHelperRightDepth.inputs:topicName",
+                ),
+                (
+                    "ScriptNode.outputs:cameraPrim",
+                    "IsaacCreateRenderProductLeft.inputs:cameraPrim",
+                ),
+                (
+                    "ScriptNode.outputs:cameraPrimRight",
+                    "IsaacCreateRenderProductRight.inputs:cameraPrim",
+                ),
             ],
             keys.CREATE_ATTRIBUTES: [
                 ("ScriptNode.inputs:namespaceDepthFromRoot", "uint"),
@@ -154,27 +293,32 @@ def make_stereo_camera_graph():
             keys.SET_VALUES: [
                 ("ScriptNode.inputs:namespaceDepthFromRoot", 1),
                 ("ScriptNode.inputs:isStereo", True),
-                #("ScriptNode.inputs:script", open("/extras/omnigraph_sensor_parameters.py").read()),
+                # ("ScriptNode.inputs:script", open("/sitl_integration/omnigraph_sensor_parameters.py").read()),
                 ("ScriptNode.inputs:usePath", True),
-                ("ScriptNode.inputs:scriptPath", "/extras/omnigraph_sensor_parameters.py"),
+                (
+                    "ScriptNode.inputs:scriptPath",
+                    "/sitl_integration/omnigraph_sensor_parameters.py",
+                ),
                 ("ROS2CameraHelperLeftDepth.inputs:type", "depth"),
                 ("ROS2CameraHelperRightDepth.inputs:type", "depth"),
             ],
         },
     )
-    
+
+
 # Functions and vars are available to other extensions as usual in python: `airlab.tmux_manager.some_public_function(x)`
 def some_public_function(x: int):
     print(f"[airlab.tmux_manager] some_public_function was called with {x}")
-    return x ** x
+    return x**x
 
 
 def get_tmux_sessions():
-    text = subprocess.getoutput('tmux ls')
+    text = subprocess.getoutput("tmux ls")
 
-    if ':' not in text:
+    if ":" not in text:
         return []
-    return list(map(lambda x:x.split(':')[0], text.split('\n')))
+    return list(map(lambda x: x.split(":")[0], text.split("\n")))
+
 
 # Any class derived from `omni.ext.IExt` in the top level module (defined in `python.modules` of `extension.toml`) will
 # be instantiated when the extension gets enabled, and `on_startup(ext_id)` will be called.
@@ -186,8 +330,12 @@ class MyExtension(omni.ext.IExt):
         print("[airlab.tmux_manager] Extension startup")
         self.window_handle = None
         ros_og_menu = [
-            make_menu_item_description(ext_id, "AirStack Camera", onclick_fun=make_camera_graph),
-            make_menu_item_description(ext_id, "AirStack Stereo Camera", onclick_fun=make_stereo_camera_graph),
+            make_menu_item_description(
+                ext_id, "AirStack Camera", onclick_fun=make_camera_graph
+            ),
+            make_menu_item_description(
+                ext_id, "AirStack Stereo Camera", onclick_fun=make_stereo_camera_graph
+            ),
         ]
 
         self._menu_items = [
@@ -206,13 +354,15 @@ class MyExtension(omni.ext.IExt):
 
         #'''
         with self.window.frame:
-            self.scroll = ui.ScrollingFrame(horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON,
-                                                vertical_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON)
+            self.scroll = ui.ScrollingFrame(
+                horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON,
+                vertical_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON,
+            )
             with self.scroll:
                 with ui.VStack():
                     with ui.HStack(height=50):
-                        ui.Label('TMUX Sessions:')
-                        ui.Button('Refresh', clicked_fn=self.refresh_tmux_sessions)
+                        ui.Label("TMUX Sessions:")
+                        ui.Button("Refresh", clicked_fn=self.refresh_tmux_sessions)
 
                     ui.Spacer(height=5)
                     self.sessions_stack = ui.VStack()
@@ -220,15 +370,18 @@ class MyExtension(omni.ext.IExt):
         self.sessions_dict = {}
 
         self.play_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
-            int(omni.timeline.TimelineEventType.PLAY), self.refresh_tmux_sessions)
+            int(omni.timeline.TimelineEventType.PLAY), self.refresh_tmux_sessions
+        )
         self.pause_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
-            int(omni.timeline.TimelineEventType.PAUSE), self.refresh_tmux_sessions)
+            int(omni.timeline.TimelineEventType.PAUSE), self.refresh_tmux_sessions
+        )
         self.stop_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
-            int(omni.timeline.TimelineEventType.STOP), self.refresh_tmux_sessions)
+            int(omni.timeline.TimelineEventType.STOP), self.refresh_tmux_sessions
+        )
 
         self.refresh_tmux_sessions()
-        
-        '''
+
+        """
         with self.window.frame:
             with ui.ScrollingFrame(horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON,
                                    vertical_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON):
@@ -248,7 +401,7 @@ class MyExtension(omni.ext.IExt):
                     with ui.HStack():
                         ui.Button("Add", clicked_fn=on_click)
                         ui.Button("Reset", clicked_fn=on_reset)
-        #'''
+        #"""
 
     def refresh_tmux_sessions(self):
         sessions = get_tmux_sessions()
@@ -258,46 +411,62 @@ class MyExtension(omni.ext.IExt):
         # maybe a better way is to reuse them and if there are less than before make them not visible until more are needed
         # for now it doesn't seem like it is impacting performance
         for k in self.sessions_dict.keys():
-            self.sessions_dict[k]['label'].destroy()
-            self.sessions_dict[k]['attach_button'].destroy()
-            self.sessions_dict[k]['kill_button'].destroy()
-            self.sessions_dict[k]['hstack'].destroy()
-            self.sessions_dict[k]['hstack'].visible = False
+            self.sessions_dict[k]["label"].destroy()
+            self.sessions_dict[k]["attach_button"].destroy()
+            self.sessions_dict[k]["kill_button"].destroy()
+            self.sessions_dict[k]["hstack"].destroy()
+            self.sessions_dict[k]["hstack"].visible = False
         self.sessions_dict = {}
-        
+
         for s in sessions:
             if s in self.sessions_dict.keys():
                 continue
             self.sessions_dict[s] = {}
-            
+
             with self.sessions_stack:
-                self.sessions_dict[s]['hstack'] = ui.HStack(height=50)
-                with self.sessions_dict[s]['hstack']:
-                    self.sessions_dict[s]['label'] = ui.Label(s)
+                self.sessions_dict[s]["hstack"] = ui.HStack(height=50)
+                with self.sessions_dict[s]["hstack"]:
+                    self.sessions_dict[s]["label"] = ui.Label(s)
 
                     def get_attach(session_name):
                         def attach():
-                            #print('xterm -e "tmux a -t ' + session_name + '"')
-                            subprocess.Popen('xterm -bg black -fg white -e "tmux a -t \\"' + session_name + '\\""', shell=True)
+                            # print('xterm -e "tmux a -t ' + session_name + '"')
+                            subprocess.Popen(
+                                'xterm -bg black -fg white -e "tmux a -t \\"'
+                                + session_name
+                                + '\\""',
+                                shell=True,
+                            )
+
                         return attach
 
                     def get_kill(session_name):
                         def kill():
-                            #print('xterm -e "tmux kill-session -t ' + session_name + '"')
-                            subprocess.Popen('xterm -e "tmux kill-session -t \\"' + session_name + '\\""', shell=True)
+                            # print('xterm -e "tmux kill-session -t ' + session_name + '"')
+                            subprocess.Popen(
+                                'xterm -e "tmux kill-session -t \\"'
+                                + session_name
+                                + '\\""',
+                                shell=True,
+                            )
+
                         return kill
-                    
-                    self.sessions_dict[s]['attach_button'] = ui.Button('Attach', clicked_fn=get_attach(s))
-                    self.sessions_dict[s]['kill_button'] = ui.Button('Kill', clicked_fn=get_kill(s))
-        
+
+                    self.sessions_dict[s]["attach_button"] = ui.Button(
+                        "Attach", clicked_fn=get_attach(s)
+                    )
+                    self.sessions_dict[s]["kill_button"] = ui.Button(
+                        "Kill", clicked_fn=get_kill(s)
+                    )
+
         keys_to_remove = []
         for k in self.sessions_dict.keys():
             if k not in sessions:
-                self.sessions_dict[k]['hstack'].destroy()
+                self.sessions_dict[k]["hstack"].destroy()
                 keys_to_remove.append(k)
         for k in keys_to_remove:
             del self.sessions_dict[k]
-        
+
     def on_shutdown(self):
         self.refresh_tmux_sessions()
         print("[airlab.tmux_manager] Extension shutdown")

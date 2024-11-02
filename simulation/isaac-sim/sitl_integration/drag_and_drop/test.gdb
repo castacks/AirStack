@@ -1,4 +1,4 @@
-set environment LD_PRELOAD /extras/drag_and_drop/inject.so
+set environment LD_PRELOAD /sitl_integration/drag_and_drop/inject.so
 
 b _ZN7HALSITL9Scheduler10stop_clockEm
 catch signal SIGSEGV

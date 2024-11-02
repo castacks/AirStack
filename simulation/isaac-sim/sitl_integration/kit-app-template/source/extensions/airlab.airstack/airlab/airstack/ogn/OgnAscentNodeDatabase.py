@@ -491,7 +491,7 @@ class OgnAscentNodeDatabase(og.Database):
                                 + "/base_link/meshes/mesh_17"
                             ),
                             "sitl_tool": AscentSitlLaunchTool(
-                                "/extras/drag_and_drop/",
+                                "/sitl_integration/drag_and_drop/",
                                 int(db.inputs.domain_id),
                                 db.inputs.domain_id,
                                 db.inputs.nodeNamespace,

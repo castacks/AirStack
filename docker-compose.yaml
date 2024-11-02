@@ -1,8 +1,8 @@
 # top-level docker-compose file for the autonomy stack
 include: 
-  - ../../simulation/isaac-sim/docker-compose.yaml
-  - ../../robot/docker-compose.yaml
-  - ../../ground-control-station/docker-compose.yaml
+  - simulation/isaac-sim/docker/docker-compose.yaml
+  - robot/docker/docker-compose.yaml
+  # - ground_control_station/docker/docker-compose.yaml
 
 services:
   docs:  # live mkdocs container

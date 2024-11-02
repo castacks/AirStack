@@ -60,4 +60,4 @@ frames_*.pdf
 
 nucleus_token.txt
 
-docker/extras/px
+docker/sitl_integration/px
