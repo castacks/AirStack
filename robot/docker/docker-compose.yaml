@@ -46,7 +46,8 @@ services:
       - .bash_history:/root/.bash_history:rw # save cmdline history
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
-      - ../../common/ros_ws/src:/root/ros_ws/src/common:rw  # common ROS packages
+      - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml
       - ../ros_ws:/root/ros_ws:rw  # robot-specific ROS packages
 # ==============================================================================
 networks:

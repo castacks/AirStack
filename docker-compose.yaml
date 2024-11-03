@@ -5,18 +5,15 @@ include:
   # - ground_control_station/docker/docker-compose.yaml
 
 services:
-  docs:  # live mkdocs container
+  docs:  # live mkdocs container. open localhost:8000 in browser to see the docs
     image: squidfunk/mkdocs-material
     container_name: docs
-    # Interactive shell
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
     # network_mode: host
     ports:
       - "8000:8000"
     volumes:
       # autonomy stack stuff
-      - ../:/docs:rw
+      - ./:/docs:rw
 
 networks:
   airstack_network:

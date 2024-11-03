@@ -104,12 +104,10 @@ fi
 
 # --- ROS2 workspace setup ---
 
-# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/root/AirStack/ros_ws/fastdds.xml"
-
-
 # Define the ROS2 workspace directory
-ROS2_WS_DIR="$HOME/AirStack/ros_ws"
+ROS2_WS_DIR="$HOME/ros_ws"
+# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
+export FASTRTPS_DEFAULT_PROFILES_FILE="/$ROS2_WS_DIR/fastdds.xml"
 # for local development, prevent conflict with other desktops
 export ROS_LOCALHOST_ONLY=1
 

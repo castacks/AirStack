@@ -4,7 +4,7 @@ AirStack is designed for multi-robot development, and is setup to run multiple r
 
 To mimic interacting with real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.
 
-The details of the docker compose setup is in `AirStack/docker/docker-compose.yaml`.
+The details of the docker compose setup is in `AirStack/docker-compose.yaml`.
 
 In essence, the compose file launches:
 
@@ -22,7 +22,7 @@ Each robot has its own ROS_DOMAIN_ID.
 To use the AirLab docker registry:
 
 ```bash
-cd AirStack/docker/
+cd AirStack/
 docker login airlab-storage.andrew.cmu.edu:5001
 ## <Enter your andrew id (without @andrew.cmu.edu)>
 ## <Enter your andrew password>
@@ -66,7 +66,6 @@ Remove
 docker compose down
 ```
 
-
 ### Isaac Sim
 
 Start a bash shell in the Isaac Sim container:
@@ -90,7 +89,7 @@ The container also has the isaacsim ROS2 package within that can be launched wit
 Start a bash shell in a robot container, e.g. for robot_1:
 
 ```bash
-docker exec -it docker-robot-1 bash
+docker exec -it airstack-robot-1 bash
 ```
 
 The previous `docker compose up` launches robot_bringup in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux attach`.
@@ -106,7 +105,7 @@ sws  # sources workspace
 ros2 launch robot_bringup robot.launch.xml  # top-level launch
 ```
 
-These aliases are in `AirStack/docker/robot/.bashrc`.
+These aliases are in `AirStack/robot/.bashrc`.
 
 Each robot has `ROS_DOMAIN_ID` set to its ID number. `ROBOT_NAME` is set to `robot_$ROS_DOMAIN_ID`.
 

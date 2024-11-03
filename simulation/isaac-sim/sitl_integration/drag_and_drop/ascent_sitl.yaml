@@ -1,72 +1,28 @@
----
-networks:
-  airstack_network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.31.0.0/24
-      driver: default
-services:
-# ==============================================================================
-  isaac-sim:
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.isaac-ros
-      tags:
-        - airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.2
-    # for some reason the tmux session manager only works when isaac is running in tmux
-    command: >
-      bash -c "
-      tmux new -d -s isaac
-      && tmux send-keys -t isaac 'runapp' ENTER
-      && sleep infinity"
-    # Interactive shell
-    container_name: isaac-sim
-    deploy:
-      # let it use the GPU
-      resources:
-        reservations:
-          devices:
-            - capabilities: [ gpu ]
-              count: 1
-              driver: nvidia
-    entrypoint: ''
-    env_file: ./omni_pass.env
-    environment:
-      # NVIDIA stuff
-      - ACCEPT_EULA=Y
-      - DISPLAY
-      - QT_X11_NO_MITSHM=1
-      # ROS2 stuff
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-      - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
-    image: airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.2
-    ipc: host
-    # ==============================================================================
-networks:
-      airstack_network:
-        ipv4_address: 172.31.0.200
-    privileged: true
-    stdin_open: true
-    tty: true
-    volumes:
-      # display
-      - $HOME/.Xauthority:/root/.Xauthority
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      # isaac sim stuff
-      - ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw
-      - ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw
-      - ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw
-      - ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw
-      - ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw
-      - ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw
-      - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
-      - ~/docker/isaac-sim/documents:/root/Documents:rw
-      # developer stuff
-      - ./isaac-sim/.bashrc:/root/.bashrc:rw
-      - ~/.bash_history:/root/.bash_history:rw
-      # code
-      - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
-      - ../sitl_integration:/sitl_integration:rw
-      - ../sitl_integration/inputrc:/etc/inputrc
-      - ../sitl_integration/config:/root/.nvidia-omniverse/config:rw
+session_name: Ascent Spirit
+windows:
+  - window_name: SITL
+    layout: tiled
+    panes:
+      - shell_command:
+        - cd /AscentAeroSystemsSITLPackage
+        - gdb spirit_sitl -q --command=/sitl_integration/drag_and_drop/test.gdb -ex "r -S --model coaxial -I0 --base-port $BASE_PORT"
+      - shell_command:
+        - echo $ASCENT_SITL_PORT
+        - echo $ISAAC_SIM_PORT
+        - echo $AUTONOMY_STACK_PORT
+        - mavproxy.py --streamrate=100 --master tcp:127.0.0.1:$BASE_PORT --out udp:127.0.0.1:$ASCENT_SITL_PORT --out udp:127.0.0.1:$ISAAC_SIM_PORT --out udp:127.0.0.1:$AUTONOMY_STACK_PORT
+      - shell_command:
+        # - sleep 5
+        - export ROS_DOMAIN_ID=$DOMAIN_ID
+        # - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/interface/mavros --ros-args -p use_sim_time:=true
+        - >
+          ros2 run mavros mavros_node 
+          --ros-args 
+          -r __ns:=/$NAMESPACE/interface/mavros 
+          -p fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" 
+          -p tgt_system:=1 
+          -p tgt_component:=1 
+          -p fcu_protocol:=v2.0
+          --params-file $(ros2 pkg prefix mavros)/share/mavros/launch/apm_pluginlists.yaml
+          --params-file $(ros2 pkg prefix mavros)/share/mavros/launch/apm_config.yaml
+          -p use_sim_time:=true

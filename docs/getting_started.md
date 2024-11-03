@@ -37,7 +37,7 @@ Now you have two options on how to proceed. You can build the docker image from 
 To use the AirLab Docker registry do the following
 
 ```bash
-cd AirStack/docker/
+cd AirStack/
 docker login airlab-storage.andrew.cmu.edu:5001
 ## <Enter your andrew id (without @andrew.cmu.edu)>
 ## <Enter your andrew password>
@@ -52,21 +52,19 @@ The images will be pulled from the server automatically. This might take a while
 
 <details><summary>Option 2: Build Docker Images From Scratch</summary>
 
-1.  Download the Ascent Spirit SITL software packages from <a href="https://drive.google.com/file/d/1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8/view?usp=drive_link">this link</a>.
-
-    Then unzip the file AscentAeroSystemsSITLPackage.zip in this folder:
+1.  Download the Ascent Spirit SITL software package by running this script (pip3 is required):
 
     ```
-    cd AirStack/docker/isaac-sim/
-    unzip ~/Downloads/AscentAeroSystemsSITLPackage.zip -d .
+    cd AirStack/
+    bash simulation/isaac-sim/installation/download_sitl.bash
     ```
 
-2.  Gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
+2.  Next, gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
 
     Then:
 
     ```bash
-    cd AirStack/docker/
+    cd AirStack/
     docker compose build  # build the images locally
     ```
 
@@ -83,7 +81,7 @@ docker compose push
 ```bash
 xhost +  # allow docker access to X-Server
 
-# Make sure you are in the AirStack/docker directory.
+# Make sure you are in the AirStack directory.
 
 # Start docker compose services. This launches Isaac Sim and the robots.
 #  You can append `--scale robot=[NUM_ROBOTS]` for more robots, default is 1
@@ -103,7 +101,7 @@ Note you can also use the `ros2 topic pub` command to move the robot. For exampl
 
 ```bash
 # start another terminal in docker container
-docker exec -it docker-robot-1 bash
+docker exec -it airstack-robot-1 bash
 # in docker
 # FLY TO POSITION. Put whatever position you want
 ros2 topic pub /robot_1/interface/mavros/setpoint_position/local geometry_msgs/PoseStamped \
