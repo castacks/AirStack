@@ -102,7 +102,22 @@ fi
 #    . /etc/bash_completion
 #fi
 
+
+# Creates a history file that stores locally on the developer computer
+# check if we previously created a symlink to ~/.bash_history
+if [ ! -h ~/.bash_history ]; then
+    # File is not a symlink
+    rm ~/.bash_history
+    # initialize .bash_history file if doesn't exist yet
+    if [ ! -d ~/.dev/.bash_history ]; then
+        cp ~/.dev/.bash_history_init ~/.dev/.bash_history
+    fi
+    # symlink to ~/.dev/.bash_history
+    ln -s ~/.dev/.bash_history ~/.bash_history
+fi
+
 # --- ROS2 setup ---
+
 source /opt/ros/humble/setup.bash
 source /humble_ws/install/setup.bash  # isaacsim ros2 package
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension

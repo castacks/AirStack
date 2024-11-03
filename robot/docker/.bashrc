@@ -102,6 +102,20 @@ fi
 #    . /etc/bash_completion
 #fi
 
+
+# Creates a history file that stores locally on the developer computer
+# check if we previously created a symlink to ~/.bash_history
+if [ ! -h ~/.bash_history ]; then
+    # File is not a symlink
+    rm ~/.bash_history
+    # initialize .bash_history file if doesn't exist yet
+    if [ ! -d ~/.dev/.bash_history ]; then
+        cp ~/.dev/.bash_history_init ~/.dev/.bash_history
+    fi
+    # symlink to ~/.dev/.bash_history
+    ln -s ~/.dev/.bash_history ~/.bash_history
+fi
+
 # --- ROS2 workspace setup ---
 
 # Define the ROS2 workspace directory
@@ -163,3 +177,4 @@ export ROBOT_NAME=$(echo "$container_name" | sed "s#/$CONTAINER_PREFIX##" | sed 
 export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
 
 export RCUTILS_COLORIZED_OUTPUT=1  # get colored output from ROS2 tools
+

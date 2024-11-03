@@ -54,8 +54,8 @@ services:
       - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
       - ~/docker/isaac-sim/documents:/root/Documents:rw
       # developer stuff
+      - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
-      - .bash_history:/root/.bash_history:rw # save cmdline history
       # code
       - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ../sitl_integration:/sitl_integration:rw

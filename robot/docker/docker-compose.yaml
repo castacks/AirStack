@@ -42,8 +42,8 @@ services:
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
+      - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
-      - .bash_history:/root/.bash_history:rw # save cmdline history
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
       - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
