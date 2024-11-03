@@ -1,2 +1,3 @@
-cd /sitl_integration/
-ls
+runapp
+tmux ls
+tmux a -t isaac
