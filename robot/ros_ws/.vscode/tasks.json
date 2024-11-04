@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build ros_ws debug",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "command": [
+        "source /root/.bashrc &&",
+        "bws --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+      ],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "test ros_ws",
+      "type": "shell",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "command": [
+        "source /opt/ros/humble/setup.bash;",
+        "source ${workspaceFolder}/install/setup.bash;",
+        "colcon test && colcon test-result"
+      ],
+    }
+  ]
+}
