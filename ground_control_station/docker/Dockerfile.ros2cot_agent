@@ -2,8 +2,10 @@
 # Base image with ROS2 Humble
 FROM ros:humble
 
+ARG ROS_WS_DIR
+
 # Set working directory
-WORKDIR /home/mission-operator/ros2_ws
+WORKDIR ${ROS_WS_DIR}
 
 # Install necessary dependencies
 RUN apt-get update && apt-get install -y \
@@ -19,13 +21,10 @@ RUN pip3 install --upgrade pip \
     && pip3 install paho-mqtt
 
 # Copy the local 'ros2tak_tools' directory into the container
-COPY ../../ros2tak_tools /home/mission-operator/ros2_ws/src/ros2tak_tools
+COPY /ros_ws/src/ros2tak_tools ${ROS_WS_DIR}/src/ros2tak_tools
 
 # Build the ROS2 workspace
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
                   colcon build --symlink-install"
 
-# Source the ROS 2 environment in .bashrc
-RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc && \
-    echo 'source /home/mission-operator/ros2_ws/install/setup.bash' >> ~/.bashrc
 
