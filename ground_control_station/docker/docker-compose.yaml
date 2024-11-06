@@ -142,6 +142,30 @@ services:
     ]
 
 
+  ################## ROS2COT_AGENT
+  cot2planner_agent:
+    build:
+      context: ../../
+      dockerfile: ground_control_station/docker/Dockerfile.cot2planner_agent
+      args:
+        - ROS_WS_DIR=${ROS_WS_DIR}
+    container_name: "${PROJECT_NAME}_cot2planner_agent"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    networks:
+      - airstack_network
+    command: [
+      "/bin/bash",
+      "-c",
+      "source /opt/ros/humble/setup.bash && \
+       source $ROS_WS_DIR/install/setup.bash && \
+       ./install/ros2tak_tools/bin/cot2planner_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
+    ]
+
 ########### NETWORKS ###########
 networks:
   airstack_network:
