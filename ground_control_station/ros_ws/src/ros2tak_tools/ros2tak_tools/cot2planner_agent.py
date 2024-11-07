@@ -42,20 +42,23 @@ def extract_polygon_points(root):
     # Find all <link> elements and extract their 'point' attribute
     for link in root.findall('.//link'):
         point_str = link.attrib.get('point')
-        # Check if point attribute exists.
-        # NOTE: WinTAK generated blank points for some reason. ATAK is fine.
+        # Check if point attribute exists and is non-empty.
+        # WinTAK sometimes generates blank points, ATAK is fine.
         if point_str:
-            # Split the single point into latitude, longitude, and altitude
-            lat, lon, _ = map(float, point_str.split(','))
+            try:
+                # Split the single point into latitude and longitude
+                lat, lon = map(float, point_str.split(','))
 
-            # Create a Point32 object with lat and lon, set z=0.0 (altitude is not used here)
-            point = Point32()
-            point.x = lat
-            point.y = lon
-            point.z = 0.0  # Default z value, can be adjusted if needed
+                # Create a Point32 object with lat and lon, set z=0.0 (altitude is not used here)
+                point = Point32()
+                point.x = lat
+                point.y = lon
+                point.z = 0.0  # Default z value (altitude not available)
 
-            # Add the point to the list
-            points32.append(point)
+                # Add the point to the list
+                points32.append(point)
+            except ValueError as e:
+                print(f"Warning: Skipping invalid point: {point_str} - Error: {e}")
 
     return points32
 
