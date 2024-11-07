@@ -41,3 +41,132 @@ services:
       # autonomy stack stuff
       - ../../common/ros_ws:/root/common/ros_ws:rw  # common ROS packages
       - ../ros_ws:/root/ros_ws:rw  # gcs-specific ROS packages
+
+
+####################### ROS2TAK TOOLS ######################
+  ############### MQTT for the GCS
+  mqtt:
+    container_name: "mqtt"
+    image: eclipse-mosquitto:2.0.20
+    restart: always
+    volumes:
+      - ../ros_ws/src/ros2tak_tools/mosquitto/config:/mosquitto/config
+      - ../ros_ws/src/ros2tak_tools/mosquitto/data:/mosquitto/data
+      - ../ros_ws/src/ros2tak_tools/mosquitto/log:/mosquitto/log
+    env_file:
+      - .env
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    healthcheck:
+      test: [ "CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ping", "-u", "${MQTT_USERNAME}", "-P", "${MQTT_PASSWORD}" ]
+      interval: 5s
+      timeout: 3s
+      retries: 2
+      start_period: 5s
+    networks:
+      - airstack_network
+
+  ################## ROS2COT_AGENT
+  ros2cot_agent:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.ros2cot_agent
+      args:
+        - ROS_WS_DIR=${ROS_WS_DIR}
+    container_name: "${PROJECT_NAME}_ros2cot_agent"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    networks:
+      - airstack_network
+    command: [
+      "/bin/bash",
+      "-c",
+      "source /opt/ros/humble/setup.bash && \
+       source $ROS_WS_DIR/install/setup.bash && \
+       ./install/ros2tak_tools/bin/ros2cot_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
+    ]
+
+  # ################### TAK_PUBLISHER
+  tak_publisher:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.tak_publisher
+      args:
+        - ROS_WS_DIR=${ROS_WS_DIR}
+    container_name: "${PROJECT_NAME}_tak_publisher"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    networks:
+      - airstack_network
+    volumes:
+      - ../ros_ws/src/ros2tak_tools/:${ROS_WS_DIR}/src/ros2tak_tools/
+    command: [
+      "python3",
+      "$TAK_PUBLISHER_FILEPATH",
+      "--config",
+      "$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
+    ]
+
+  ################### TAK_SUBSCRIBER
+  tak_subscriber:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.tak_subscriber
+      args:
+        - ROS_WS_DIR=${ROS_WS_DIR}
+    container_name: "${PROJECT_NAME}_tak_subscriber"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    networks:
+      - airstack_network
+    volumes:
+      - ../ros_ws/src/ros2tak_tools/:${ROS_WS_DIR}/src/ros2tak_tools/
+    command: [
+      "python3",
+      "$TAK_SUBSCRIBER_FILEPATH",
+      "--config",
+      "$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
+    ]
+
+
+  ################## ROS2COT_AGENT
+  cot2planner_agent:
+    build:
+      context: ../../
+      dockerfile: ground_control_station/docker/Dockerfile.cot2planner_agent
+      args:
+        - ROS_WS_DIR=${ROS_WS_DIR}
+    container_name: "${PROJECT_NAME}_cot2planner_agent"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    networks:
+      - airstack_network
+    command: [
+      "/bin/bash",
+      "-c",
+      "source /opt/ros/humble/setup.bash && \
+       source $ROS_WS_DIR/install/setup.bash && \
+       ./install/ros2tak_tools/bin/cot2planner_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
+    ]
+
+########### NETWORKS ###########
+networks:
+  airstack_network:
+    driver: bridge
