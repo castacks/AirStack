@@ -15,6 +15,8 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 #include <tf2_msgs/msg/tf_message.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
@@ -68,17 +70,18 @@ class RandomWalkNode : public rclcpp::Node {
     // Other functions
     std::optional<init_params> readParameters();
 
-    visualization_msgs::msg::Marker createGoalPointMarker();
-    visualization_msgs::msg::Marker createTrajectoryLineMarker();
-
    public:
     // explicit RandomWalkNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
     RandomWalkNode();
     ~RandomWalkNode() = default;
 
+    // TF buffer
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener;
+
     // ROS subscribers
     rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
+    // rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_plan;
