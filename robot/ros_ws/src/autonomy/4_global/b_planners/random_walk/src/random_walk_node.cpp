@@ -6,11 +6,6 @@
 std::optional<init_params> RandomWalkNode::readParameters() {
     // Read in parameters based off the default yaml file
     init_params params;
-    this->declare_parameter<std::string>("world_frame_id");
-    if (!this->get_parameter("world_frame_id", this->world_frame_id_)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: world_frame_id");
-        return std::optional<init_params>{};
-    }
     this->declare_parameter<std::string>("robot_frame_id");
     if (!this->get_parameter("robot_frame_id", this->robot_frame_id_)) {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: robot_frame_id");
@@ -99,9 +94,6 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
 
     this->sub_map = this->create_subscription<visualization_msgs::msg::Marker>(
         sub_map_topic_, 10, std::bind(&RandomWalkNode::mapCallback, this, std::placeholders::_1));
-    // this->sub_robot_tf = this->create_subscription<tf2_msgs::msg::TFMessage>(
-    //     sub_robot_tf_topic_, 10,
-    //     std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
 
     //TF buffer and listener
     tf_buffer = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -143,6 +135,7 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
     // updating the local voxel points and generating a path only if the path is not executing
     if (!this->received_first_map) {
         this->received_first_map = true;
+        this->world_frame_id_ = msg->header.frame_id;
         RCLCPP_INFO(this->get_logger(), "Received first map");
         this->params.voxel_size_m =
             std::tuple<float, float, float>(msg->scale.x, msg->scale.y, msg->scale.z);

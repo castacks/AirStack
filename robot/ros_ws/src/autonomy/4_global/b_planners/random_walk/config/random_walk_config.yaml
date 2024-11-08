@@ -1,6 +1,5 @@
 /**:
   ros__parameters:
-    world_frame_id: "world"
     robot_frame_id: "base_link"
     pub_global_plan_topic: "~/global_plan"
     pub_goal_point_viz_topic: "~/goal_point_viz"
