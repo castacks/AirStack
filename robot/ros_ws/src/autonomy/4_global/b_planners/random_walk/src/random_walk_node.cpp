@@ -66,9 +66,9 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: checking_point_cnt");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<float>("max_z_m");
-    if (!this->get_parameter("max_z_m", params.max_z_m)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_m");
+    this->declare_parameter<float>("max_z_change_m");
+    if (!this->get_parameter("max_z_change_m", params.max_z_change_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_change_m");
         return std::optional<init_params>{};
     }
     this->declare_parameter<float>("collision_padding_m");
@@ -99,9 +99,13 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
 
     this->sub_map = this->create_subscription<visualization_msgs::msg::Marker>(
         sub_map_topic_, 10, std::bind(&RandomWalkNode::mapCallback, this, std::placeholders::_1));
-    this->sub_robot_tf = this->create_subscription<tf2_msgs::msg::TFMessage>(
-        sub_robot_tf_topic_, 10,
-        std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
+    // this->sub_robot_tf = this->create_subscription<tf2_msgs::msg::TFMessage>(
+    //     sub_robot_tf_topic_, 10,
+    //     std::bind(&RandomWalkNode::tfCallback, this, std::placeholders::_1));
+
+    //TF buffer and listener
+    tf_buffer = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
     this->pub_global_plan = this->create_publisher<nav_msgs::msg::Path>(pub_global_plan_topic_, 10);
     this->pub_goal_point =
@@ -234,15 +238,6 @@ void RandomWalkNode::generate_plan() {
             point_msg.header.stamp = this->now();
             generated_single_path.poses.push_back(point_msg);
         }
-        // this->pub_global_path->publish(this->generated_path);
-        if (this->publish_visualizations) {
-            this->pub_goal_point->publish(createGoalPointMarker());
-            this->pub_trajectory_lines->publish(createTrajectoryLineMarker());
-        }
-        // RCLCPP_INFO(this->get_logger(), "Published path and goal point at %f, %f, %f",
-        //             this->generated_path.poses.back().pose.position.x,
-        //             this->generated_path.poses.back().pose.position.y,
-        //             this->generated_path.poses.back().pose.position.z);
         geometry_msgs::msg::PoseStamped last_goal_loc = generated_single_path.poses.back();
         this->current_goal_location.translation.x = last_goal_loc.pose.position.x;
         this->current_goal_location.translation.y = last_goal_loc.pose.position.y;
@@ -268,6 +263,20 @@ void RandomWalkNode::publish_plan() {
     RCLCPP_INFO(this->get_logger(), "Published full path");
 }
 void RandomWalkNode::timerCallback() {
+    // get current TF to world
+    try {
+        geometry_msgs::msg::TransformStamped transform_stamped =
+            this->tf_buffer->lookupTransform(this->world_frame_id_, this->robot_frame_id_,
+                                             rclcpp::Time(0));
+        this->current_location = transform_stamped.transform;
+        if (!this->received_first_robot_tf) {
+            this->received_first_robot_tf = true;
+            RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
+        }
+    } catch (tf2::TransformException & ex) {
+        RCLCPP_ERROR(this->get_logger(), "Could not get robot tf: %s", ex.what());
+    }
+
     if (this->enable_random_walk && !this->is_path_executing) {
         if (this->received_first_map && this->received_first_robot_tf) {
             for (int i = 0; i < this->num_paths_to_generate_; i++) {
@@ -292,63 +301,6 @@ void RandomWalkNode::timerCallback() {
             RCLCPP_INFO(this->get_logger(), "Reached goal point");
         }
     }
-    // if (this->publish_visualizations && this->generated_path.poses.size() > 0) {
-    //     visualization_msgs::msg::Marker goal_point_msg = createGoalPointMarker();
-    //     this->pub_goal_point->publish(goal_point_msg);
-    //     visualization_msgs::msg::Marker trajectory_line_msg = createTrajectoryLineMarker();
-    //     this->pub_trajectory_lines->publish(trajectory_line_msg);
-    //     RCLCPP_INFO(this->get_logger(), "Published goal point and trajectory line");
-    // }
-}
-
-visualization_msgs::msg::Marker RandomWalkNode::createTrajectoryLineMarker() {
-    visualization_msgs::msg::Marker trajectory_line_msg;
-    trajectory_line_msg.header.frame_id = this->world_frame_id_;
-    trajectory_line_msg.header.stamp = this->now();
-    trajectory_line_msg.ns = "trajectory_line";
-    trajectory_line_msg.id = 0;
-    trajectory_line_msg.type = visualization_msgs::msg::Marker::LINE_STRIP;
-    trajectory_line_msg.action = visualization_msgs::msg::Marker::ADD;
-    trajectory_line_msg.pose.orientation.w = 1.0;
-    trajectory_line_msg.scale.x = 0.1;
-    trajectory_line_msg.color.a = 1.0;
-    trajectory_line_msg.color.r = 1.0;
-    trajectory_line_msg.color.g = 0.0;
-    trajectory_line_msg.color.b = 0.0;
-
-    for (auto path : this->generated_paths) {
-        for (auto point : path.poses) {
-            geometry_msgs::msg::Point p;
-            p.x = point.pose.position.x;
-            p.y = point.pose.position.y;
-            p.z = point.pose.position.z;
-            trajectory_line_msg.points.push_back(p);
-        }
-    }
-    return trajectory_line_msg;
-}
-
-visualization_msgs::msg::Marker RandomWalkNode::createGoalPointMarker() {
-    visualization_msgs::msg::Marker goal_point_msg;
-    goal_point_msg.header.frame_id = this->world_frame_id_;
-    goal_point_msg.header.stamp = this->now();
-    goal_point_msg.ns = "goal_point";
-    goal_point_msg.id = 0;
-    goal_point_msg.type = visualization_msgs::msg::Marker::SPHERE;
-    goal_point_msg.action = visualization_msgs::msg::Marker::ADD;
-    geometry_msgs::msg::Point goal_point = geometry_msgs::msg::Point();
-    goal_point.x = this->current_goal_location.translation.x;
-    goal_point.y = this->current_goal_location.translation.y;
-    goal_point.z = this->current_goal_location.translation.z;
-    goal_point_msg.pose.position = goal_point;
-    goal_point_msg.scale.x = 0.1;
-    goal_point_msg.scale.y = 0.1;
-    goal_point_msg.scale.z = 0.1;
-    goal_point_msg.color.a = 1.0;
-    goal_point_msg.color.r = 0.0;
-    goal_point_msg.color.g = 1.0;
-    goal_point_msg.color.b = 0.0;
-    return goal_point_msg;
 }
 
 int main(int argc, char *argv[]) {
