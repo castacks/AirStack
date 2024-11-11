@@ -42,6 +42,7 @@ services:
       - ../../common/ros_ws:/root/common/ros_ws:rw  # common ROS packages
       - ../ros_ws:/root/ros_ws:rw  # gcs-specific ROS packages
 
+
 ####################### GSTREAMER TO ROS TOPICS ######################
   gst-ros-bridge-topic1:
     container_name: "${PROJECT_NAME}/gst-ros-bridge1"
@@ -97,6 +98,7 @@ services:
         - ROS_WS_DIR=${ROS_WS_DIR}
     image: "${PROJECT_NAME}/ros2cot_agent"
     container_name: "${PROJECT_NAME}/ros2cot_agent"
+    container_name: "${PROJECT_NAME}_ros2cot_agent"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -122,6 +124,7 @@ services:
         - ROS_WS_DIR=${ROS_WS_DIR}
     image: "${PROJECT_NAME}/tak_publisher"
     container_name: "${PROJECT_NAME}/tak_publisher"
+    container_name: "${PROJECT_NAME}_tak_publisher"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -148,6 +151,7 @@ services:
         - ROS_WS_DIR=${ROS_WS_DIR}
     image: "${PROJECT_NAME}/tak_subscriber"
     container_name: "${PROJECT_NAME}/tak_subscriber"
+    container_name: "${PROJECT_NAME}_tak_subscriber"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -175,6 +179,7 @@ services:
         - ROS_WS_DIR=${ROS_WS_DIR}
     image: "${PROJECT_NAME}/cot2planner_agent"
     container_name: "${PROJECT_NAME}/cot2planner_agent"
+    container_name: "${PROJECT_NAME}_cot2planner_agent"
     stdin_open: true
     tty: true
     restart: unless-stopped
