@@ -43,6 +43,28 @@ services:
       - ../ros_ws:/root/ros_ws:rw  # gcs-specific ROS packages
 
 
+####################### GSTREAMER TO ROS TOPICS ######################
+  gst-ros-bridge-topic1:
+    container_name: "${PROJECT_NAME}-gst_ros_bridge1"
+    image: "${PROJECT_NAME}/gcs/gst-ros-bridge"
+    build:
+      context: .
+      dockerfile: Dockerfile.gst-ros-bridge
+    command: >
+      /bin/bash -c 'source /ros_ws/install/setup.bash && gst-launch-1.0 --gst-plugin-path=/ros_ws/install/gst_bridge/lib/gst_bridge/ 
+      rtspsrc location="${CAMERA1_STREAM_IP}" latency=0 ! 
+      rtph265depay ! h265parse ! avdec_h265 ! videoconvert ! 
+      rosimagesink ros-topic="${CAMERA1_ROS_TOPIC}"'
+    environment:
+      - DISPLAY=${DISPLAY}
+      - DOCKER_BUILDKIT=0
+      - CAMERA1_STREAM_IP=${CAMERA1_STREAM_IP}
+      - CAMERA1_ROS_TOPIC=${CAMERA1_ROS_TOPIC}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    network_mode: host
+
+
 ####################### ROS2TAK TOOLS ######################
   ############### MQTT for the GCS
   mqtt:
@@ -74,7 +96,8 @@ services:
       dockerfile: docker/Dockerfile.ros2cot_agent
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    container_name: "${PROJECT_NAME}_ros2cot_agent"
+    image: "${PROJECT_NAME}/gcs/ros2cot_agent"
+    container_name: "${PROJECT_NAME}-ros2cot_agent"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -98,7 +121,8 @@ services:
       dockerfile: docker/Dockerfile.tak_publisher
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    container_name: "${PROJECT_NAME}_tak_publisher"
+    image: "${PROJECT_NAME}/gcs/tak_publisher"
+    container_name: "${PROJECT_NAME}-tak_publisher"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -123,7 +147,8 @@ services:
       dockerfile: docker/Dockerfile.tak_subscriber
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    container_name: "${PROJECT_NAME}_tak_subscriber"
+    image: "${PROJECT_NAME}/gcs/tak_subscriber"
+    container_name: "${PROJECT_NAME}-tak_subscriber"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -149,7 +174,8 @@ services:
       dockerfile: ground_control_station/docker/Dockerfile.cot2planner_agent
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    container_name: "${PROJECT_NAME}_cot2planner_agent"
+    image: "${PROJECT_NAME}/gcs/cot2planner_agent"
+    container_name: "${PROJECT_NAME}-cot2planner_agent"
     stdin_open: true
     tty: true
     restart: unless-stopped
