@@ -45,8 +45,8 @@ services:
 
 ####################### GSTREAMER TO ROS TOPICS ######################
   gst-ros-bridge-topic1:
-    container_name: "${PROJECT_NAME}/gst-ros-bridge1"
-    image: "${PROJECT_NAME}/gst-ros-bridge"
+    container_name: "${PROJECT_NAME}-gst_ros_bridge1"
+    image: "${PROJECT_NAME}/gcs/gst-ros-bridge"
     build:
       context: .
       dockerfile: Dockerfile.gst-ros-bridge
@@ -96,8 +96,8 @@ services:
       dockerfile: docker/Dockerfile.ros2cot_agent
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/ros2cot_agent"
-    container_name: "${PROJECT_NAME}/ros2cot_agent"
+    image: "${PROJECT_NAME}/gcs/ros2cot_agent"
+    container_name: "${PROJECT_NAME}-ros2cot_agent"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -121,8 +121,8 @@ services:
       dockerfile: docker/Dockerfile.tak_publisher
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/tak_publisher"
-    container_name: "${PROJECT_NAME}/tak_publisher"
+    image: "${PROJECT_NAME}/gcs/tak_publisher"
+    container_name: "${PROJECT_NAME}-tak_publisher"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -147,8 +147,8 @@ services:
       dockerfile: docker/Dockerfile.tak_subscriber
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/tak_subscriber"
-    container_name: "${PROJECT_NAME}/tak_subscriber"
+    image: "${PROJECT_NAME}/gcs/tak_subscriber"
+    container_name: "${PROJECT_NAME}-tak_subscriber"
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -174,8 +174,8 @@ services:
       dockerfile: ground_control_station/docker/Dockerfile.cot2planner_agent
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/cot2planner_agent"
-    container_name: "${PROJECT_NAME}/cot2planner_agent"
+    image: "${PROJECT_NAME}/gcs/cot2planner_agent"
+    container_name: "${PROJECT_NAME}-cot2planner_agent"
     stdin_open: true
     tty: true
     restart: unless-stopped
