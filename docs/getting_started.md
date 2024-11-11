@@ -22,12 +22,7 @@ Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This 
 
 ## Configure
 
-Follow the instructions in `docker/isaac-sim/omni_pass.env` to configure the required settings for your Omniverse Nucelus Server token.
-To generate a token, follow the NVIDIA docs [here](https://docs.omniverse.nvidia.com/nucleus/latest/config-and-info/api_tokens.html). See here for more information:
-https://airlab.slite.com/app/docs/X8dZ8w5S3GP9tw
-
-Also set the default OMNI_SERVER and accept the license terms. (Basti: The omni_server variable doesn't seem to work. The content browser might have to be edited manually the first time. To do that click:
-"Add new connection ..." and enter airlab-storage.andrew.cmu.edu:8443 in the server field. Also if there is a localhost it should be removed since we are not running a local Nucleus server.
+Run `./configure.sh` and follow the instructions in the prompts to do an initial configuration of the repo.
 
 ## Docker Images
 

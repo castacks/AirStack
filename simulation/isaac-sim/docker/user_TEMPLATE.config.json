@@ -1,5 +1,14 @@
 {
     "persistent": {
+        "isaac": {
+            "asset_root": {
+                "default": "https://airlab-storage.andrew.cmu.edu:8443/omni/web3/NVIDIA/Assets/Isaac/4.1",
+                "nvidia": "omniverse://localhost/NVIDIA",
+                "isaac": "omniverse://localhost/NVIDIA/Assets/Isaac/4.1/Isaac",
+                "cloud": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1",
+                "timeout": 5.0
+            }
+        },
         "simulation": {
             "minFrameRate": 60,
             "defaultMetersPerUnit": 1.0
@@ -66,99 +75,6 @@
             "autoInstancingEnabled": true,
             "settingsVersion": 5,
             "showNameAsType": true
-        },
-        "physics": {
-            "visualizationDisplayJoints": false,
-            "visualizationSimulationOutput": false,
-            "useActiveCudaContext": false,
-            "visualizationQueryUsdrtForTraversal": false,
-            "visualizationDisplayAttachmentsHideActor1": false,
-            "visualizationDisplayAttachmentsHideActor0": false,
-            "visualizationDisplayParticlesShowDeformableMesh": false,
-            "visualizationDisplayParticlesShowFluidSurface": false,
-            "visualizationDisplayParticlesClothMeshLines": false,
-            "visualizationDisplayParticlesShowDiffuseParticles": false,
-            "visualizationDisplayColliderNormals": false,
-            "visualizationSimulationDataVisualizer": false,
-            "visualizationDisplayParticlesShowDeformableParticles": true,
-            "pvdStreamToFile": false,
-            "pvdEnabled": false,
-            "pvdDebug": true,
-            "pvdProfile": true,
-            "visualizationDisplayParticlesShowParticleSetParticles": true,
-            "pvdMemory": true,
-            "useLocalMeshCache": true,
-            "autocreatePhysicsScene": true,
-            "massDistributionManipulator": false,
-            "visualizationDisplayParticlesParticleRadius": 2,
-            "visualizationDisplayParticles": 0,
-            "visualizationDisplayAttachments": 0,
-            "visualizationDisplayDeformableBodyType": 0,
-            "visualizationDisplayTendons": 0,
-            "visualizationDisplayColliders": 0,
-            "backwardCompatibilityCheckMode": 2,
-            "localMeshCacheSizeMB": 1024,
-            "cooking": {
-                "ujitsoCookingMaxProcessCount": 16
-            },
-            "visualizationDisplayMassProperties": 0,
-            "visualizationDisplayParticlesParticlePositions": 0,
-            "numThreads": 8,
-            "visualizationDisplayDeformableBodies": 0,
-            "overrideGPUSettings": -1,
-            "visualizationSimplifyAtDistance": 2500.0,
-            "visualizationGap": 0.20000000298023224,
-            "omniPvdOvdRecordingDirectory": "",
-            "testRunnerFilter": "",
-            "pvdOutputDirectory": "",
-            "pvdIP": "127.0.0.1",
-            "testRunnerSelection": {},
-            "supportUiActionBarEnabled": false,
-            "supportUiLoggingEnabled": false,
-            "supportUiFloatingNotificationsEnabled": true,
-            "supportUiAutomaticCollisionCreationEnabled": false,
-            "supportUiAsyncCookingAtStageLoad": true,
-            "supportUiCustomManipulatorEnabled": true,
-            "supportUiManipModeAllowRigidBodyTraversal": 0,
-            "supportUiManipModeAllowRotWhileTranslating": 1,
-            "supportUiManipModeAllowTranOnOtherAxesWhileTranslating": 1,
-            "supportUiManipModeAllowTranWhileRotating": 1,
-            "supportUiManipModeAllowRotOnOtherAxesWhileRotating": 1,
-            "supportUiToolbarButtonsWithText": false,
-            "supportUiAvoidChangingExistingColliders": false,
-            "supportUiStaticColliderSimplificationType": 0,
-            "supportUiDynamicColliderSimplificationType": 0,
-            "resetOnStop": true
-        },
-        "omnihydra": {
-            "useFastSceneDelegate": true,
-            "useSceneGraphInstancing": false,
-            "useCachedXformTimeSamples": false,
-            "useSkelAdapter": true,
-            "useSkelAdapterBlendShape": true,
-            "useSkelAdapterDeformGraph": false,
-            "skinDeformerExtLoaded": false
-        },
-        "rtx": {
-            "resourcemanager": {
-                "placeholderTextureColor": {
-                    "0": 0.0,
-                    "1": 1.0,
-                    "2": 1.0
-                }
-            },
-            "mdltranslator": {
-                "mdlDistilling": true
-            },
-            "sceneDb": {
-                "allowDuplicateAhsInvocation": true
-            },
-            "hydra": {
-                "points": {
-                    "defaultWidth": 1.0
-                },
-                "readTransformsFromFabricInRenderDelegate": false
-            }
         },
         "exts": {
             "omni.anim.navigation.core": {
@@ -258,6 +174,10 @@
             "omni.kit.material.library": {
                 "browserPath": ""
             },
+            "omni.kit.window.content_browser": {
+                "show_grid_view": true,
+                "grid_view_scale": 2
+            },
             "omni.kit.window.filepicker": {
                 "window_split": 306,
                 "show_grid_view": true,
@@ -320,32 +240,107 @@
                 "visible": true,
                 "order": -100
             },
-            "omni.kit.window.content_browser": {
-                "show_grid_view": true,
-                "grid_view_scale": 2,
-                "current_directory": "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack"
-            },
             "omni.kit.registry.nucleus": {
                 "userRegistries": {}
-            },
-            "omni.anim.curve.core": {
-                "defaultTangentType": "auto",
-                "defaultTangentWeighted": false,
-                "defaultTangentBroken": false,
-                "defaultTangentPreInfinity": "constant",
-                "defaultTangentPostInfinity": "constant"
             }
         },
-        "isaac": {
-            "asset_root": {
-                "nvidia": "omniverse://localhost/NVIDIA",
-                "isaac": "omniverse://localhost/NVIDIA/Assets/Isaac/4.1/Isaac",
-                "cloud": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1",
-                "timeout": 5.0,
-                "default": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1"
+        "physics": {
+            "visualizationDisplayJoints": false,
+            "visualizationSimulationOutput": false,
+            "useActiveCudaContext": false,
+            "visualizationQueryUsdrtForTraversal": false,
+            "visualizationDisplayAttachmentsHideActor1": false,
+            "visualizationDisplayAttachmentsHideActor0": false,
+            "visualizationDisplayParticlesShowDeformableMesh": false,
+            "visualizationDisplayParticlesShowFluidSurface": false,
+            "visualizationDisplayParticlesClothMeshLines": false,
+            "visualizationDisplayParticlesShowDiffuseParticles": false,
+            "visualizationDisplayColliderNormals": false,
+            "visualizationSimulationDataVisualizer": false,
+            "visualizationDisplayParticlesShowDeformableParticles": true,
+            "pvdStreamToFile": false,
+            "pvdEnabled": false,
+            "pvdDebug": true,
+            "pvdProfile": true,
+            "visualizationDisplayParticlesShowParticleSetParticles": true,
+            "pvdMemory": true,
+            "useLocalMeshCache": true,
+            "autocreatePhysicsScene": true,
+            "massDistributionManipulator": false,
+            "visualizationDisplayParticlesParticleRadius": 2,
+            "visualizationDisplayParticles": 0,
+            "visualizationDisplayAttachments": 0,
+            "visualizationDisplayDeformableBodyType": 0,
+            "visualizationDisplayTendons": 0,
+            "visualizationDisplayColliders": 0,
+            "backwardCompatibilityCheckMode": 2,
+            "localMeshCacheSizeMB": 1024,
+            "cooking": {
+                "ujitsoCookingMaxProcessCount": 16
+            },
+            "visualizationDisplayMassProperties": 0,
+            "visualizationDisplayParticlesParticlePositions": 0,
+            "numThreads": 8,
+            "visualizationDisplayDeformableBodies": 0,
+            "overrideGPUSettings": -1,
+            "visualizationSimplifyAtDistance": 2500.0,
+            "visualizationGap": 0.20000000298023224,
+            "omniPvdOvdRecordingDirectory": "",
+            "testRunnerFilter": "",
+            "pvdOutputDirectory": "",
+            "pvdIP": "127.0.0.1",
+            "testRunnerSelection": {},
+            "supportUiActionBarEnabled": false,
+            "supportUiLoggingEnabled": false,
+            "supportUiFloatingNotificationsEnabled": true,
+            "supportUiAutomaticCollisionCreationEnabled": false,
+            "supportUiAsyncCookingAtStageLoad": true,
+            "supportUiCustomManipulatorEnabled": true,
+            "supportUiManipModeAllowRigidBodyTraversal": 0,
+            "supportUiManipModeAllowRotWhileTranslating": 1,
+            "supportUiManipModeAllowTranOnOtherAxesWhileTranslating": 1,
+            "supportUiManipModeAllowTranWhileRotating": 1,
+            "supportUiManipModeAllowRotOnOtherAxesWhileRotating": 1,
+            "supportUiToolbarButtonsWithText": false,
+            "supportUiAvoidChangingExistingColliders": false,
+            "supportUiStaticColliderSimplificationType": 0,
+            "supportUiDynamicColliderSimplificationType": 0,
+            "resetOnStop": true
+        },
+        "omnihydra": {
+            "useFastSceneDelegate": true,
+            "useSceneGraphInstancing": false,
+            "useCachedXformTimeSamples": false,
+            "useSkelAdapter": true,
+            "useSkelAdapterBlendShape": true,
+            "useSkelAdapterDeformGraph": false,
+            "skinDeformerExtLoaded": false
+        },
+        "rtx": {
+            "resourcemanager": {
+                "placeholderTextureColor": {
+                    "0": 0.0,
+                    "1": 1.0,
+                    "2": 1.0
+                }
+            },
+            "mdltranslator": {
+                "mdlDistilling": true
+            },
+            "sceneDb": {
+                "allowDuplicateAhsInvocation": true
+            },
+            "hydra": {
+                "points": {
+                    "defaultWidth": 1.0
+                },
+                "readTransformsFromFabricInRenderDelegate": false
             }
         },
         "app": {
+            "file": {
+                "recentFiles": {}
+            },
             "transform": {
                 "gizmoUseSRT": true
             },
@@ -400,6 +395,21 @@
                 "PrimCreationWithDefaultXformOps": true,
                 "DefaultXformOpPrecision": "Double"
             },
+            "stage": {
+                "upAxis": "Z",
+                "timeCodeRange": [
+                    0,
+                    1000000
+                ],
+                "movePrimInPlace": false,
+                "instanceableOnCreatingReference": false,
+                "materialStrength": "weakerThanDescendants",
+                "interpolationType": "Linear",
+                "timeCodesPerSecond": 60.0,
+                "defaultPrimName": "World",
+                "dragDropImport": "payload",
+                "nestedGprimsAuthoring": false
+            },
             "datetime": {
                 "format": "MM/DD/YYYY"
             },
@@ -437,25 +447,6 @@
                     "standin_usd_path": "/Stage/ShaderKnob"
                 }
             },
-            "hydra": {
-                "displayPurpose": {
-                    "guide": false,
-                    "proxy": false,
-                    "render": true
-                },
-                "material": {
-                    "renderContext": "mdl"
-                }
-            },
-            "uiSettings": {
-                "DisplayOrientAsRotate": true
-            },
-            "window": {
-                "uiStyle": "NvidiaDark",
-                "maximized": true,
-                "width": -1,
-                "height": -1
-            },
             "omniverse": {
                 "content_browser": {
                     "options_menu": {
@@ -467,113 +458,16 @@
                         "show_details": true
                     }
                 },
-                "gamepadCameraControl": false,
-                "lastOpenDirectory": "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack",
-                "fileEventHistory": {}
+                "gamepadCameraControl": false
             },
-            "file_importer": {
-                "directory": "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/"
-            },
-            "file": {
-                "recentFiles": {},
-                "save": {
-                    "showUnsavedLayersDialog": true
-                }
-            },
-            "file_exporter": {
-                "directory": "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/"
-            },
-            "exts": {
-                "enabled": {
-                    "0": "airlab.tmux_manager-0.1.0",
-                    "1": "airlab.airstack-1.19.1"
-                }
-            },
-            "mesh_generator": {
-                "shapes": {
-                    "cube": {
-                        "object_half_scale": 50,
-                        "u_scale": 1,
-                        "v_scale": 1,
-                        "w_scale": 1
-                    },
-                    "cone": {
-                        "object_half_scale": 50,
-                        "u_scale": 1,
-                        "v_scale": 3,
-                        "w_scale": 1
-                    },
-                    "plane": {
-                        "object_half_scale": 50,
-                        "u_scale": 1,
-                        "v_scale": 1
-                    }
-                }
-            },
-            "anim": {
-                "snapToFrame": true,
-                "autoKeyAllXform": false
-            },
-            "omni.anim.curve.core": {
-                "deleteEmptyCurve": true
-            },
-            "stage": {
-                "upAxis": "Z",
-                "movePrimInPlace": false,
-                "instanceableOnCreatingReference": false,
-                "materialStrength": "weakerThanDescendants",
-                "interpolationType": "Linear",
-                "timeCodesPerSecond": 60.0,
-                "defaultPrimName": "World",
-                "dragDropImport": "payload",
-                "nestedGprimsAuthoring": false,
-                "timeCodeRange": [
-                    0,
-                    1000000
-                ]
-            },
-            "extensions": {
-                "console": {
-                    "filterLevel": 0,
-                    "sources": {
-                        "carb.windowing-glfw.gamepad": true,
-                        "omni.replicator.core.scripts.annotators": true,
-                        "omni.kit.widget.cache_indicator.cache_state_menu": true,
-                        "omni.kit.profiler.window": true,
-                        "omni.isaac.ros2_bridge.plugin": true,
-                        "carb.audio.device": true,
-                        "carb.audio.output": true,
-                        "carb.audio.context": true,
-                        "omni.hydra.scene_delegate.plugin": true,
-                        "dronekit": true,
-                        "carb.crashreporter-breakpad.plugin": true,
-                        "omni.isaac.ros2_bridge.scripts.extension": true,
-                        "omni.ext._impl._internal": true,
-                        "omni.kit.app._impl": true,
-                        "omni.platforminfo.plugin": true,
-                        "carb.windowing-glfw.plugin": true,
-                        "carb": true,
-                        "omni.kvdb.plugin": true,
-                        "omni.isaac.core.simulation_context.simulation_context": true,
-                        "rtx.neuraylib.plugin": true,
-                        "gpu.foundation.plugin": true,
-                        "omni.hydra": true,
-                        "omni.fabric.plugin": true,
-                        "omni.kit.window.filepicker.model": true,
-                        "omni.usd": true,
-                        "omni.timeline.plugin": true,
-                        "omni.replicator.core.scripts.orchestrator": true,
-                        "autopilot": true,
-                        "omni.graph": true,
-                        "rtx.rtxsensor.plugin": true,
-                        "dronekit.mavlink": true,
-                        "omni.isaac.core_nodes.impl.base_writer_node": true,
-                        "omni.graph.window.core.graph_config": true,
-                        "omni.syntheticdata.plugin": true,
-                        "omni.isaac.sensor.plugin": true,
-                        "omni.kit.widget.settings.settings_model": true,
-                        "omni.kit.widget.versioning.checkpoints_model": true
-                    }
+            "hydra": {
+                "displayPurpose": {
+                    "guide": false,
+                    "proxy": false,
+                    "render": true
+                },
+                "material": {
+                    "renderContext": "mdl"
                 }
             },
             "viewport": {
@@ -581,10 +475,10 @@
                     "tickRate": 120
                 },
                 "pickingMode": "kind:model.ALL",
-                "camMoveVelocity": 0.03156265702871778,
+                "camMoveVelocity": 0.05,
                 "previewOnPeek": false,
                 "snapToSurface": false,
-                "displayOptions": 1024,
+                "displayOptions": 31951,
                 "pickingModeNoKinds": true,
                 "pickingModeIncludeRef": true,
                 "autoFrame": {
@@ -1620,8 +1514,8 @@
                         "1014": 0.7142857313156128,
                         "1015": 1.0,
                         "1016": 1.0,
-                        "1017": 0.6000000238418579,
-                        "1018": 0.0,
+                        "1017": 1.0,
+                        "1018": 0.8571428656578064,
                         "1019": 1.0,
                         "1020": 1.0,
                         "1021": 0.6000000238418579,
@@ -2645,10 +2539,10 @@
                         "1013": 1.0,
                         "1014": 0.7142857313156128,
                         "1015": 1.0,
-                        "1016": 0.0,
-                        "1017": 0.0,
-                        "1018": 0.0,
-                        "1019": 0.0,
+                        "1016": 1.0,
+                        "1017": 1.0,
+                        "1018": 0.8571428656578064,
+                        "1019": 1.0,
                         "1020": 1.0,
                         "1021": 0.6000000238418579,
                         "1022": 0.0,
@@ -2697,6 +2591,69 @@
                 },
                 "objectCentricNavigation": 0,
                 "coiDoubleClick": false,
+                "Viewport": {
+                    "Viewport0": {
+                        "guide": {
+                            "axis": {
+                                "visible": true
+                            },
+                            "grid": {
+                                "visible": true
+                            },
+                            "selection": {
+                                "visible": true
+                            }
+                        },
+                        "scene": {
+                            "cameras": {
+                                "visible": false
+                            },
+                            "lights": {
+                                "visible": false
+                            },
+                            "skeletons": {
+                                "visible": false
+                            },
+                            "meshes": {
+                                "visible": true
+                            },
+                            "audio": {
+                                "visible": true
+                            }
+                        },
+                        "hud": {
+                            "renderFPS": {
+                                "visible": true
+                            },
+                            "renderResolution": {
+                                "visible": true
+                            },
+                            "renderProgress": {
+                                "visible": true
+                            },
+                            "deviceMemory": {
+                                "visible": true
+                            },
+                            "hostMemory": {
+                                "visible": true
+                            },
+                            "processMemory": {
+                                "visible": true
+                            },
+                            "visible": true,
+                            "cameraSpeed": {
+                                "visible": true
+                            },
+                            "toastMessage": {
+                                "visible": true
+                            }
+                        },
+                        "resolution": {
+                            "0": 1280,
+                            "1": 720
+                        }
+                    }
+                },
                 "grid": {
                     "scale": 1.0,
                     "lineWidth": 1,
@@ -2725,133 +2682,34 @@
                     "minFadeOut": 1.0,
                     "maxFadeOut": 50,
                     "constantScaleCamera": false
-                },
-                "Viewport 2": {
-                    "Viewport0": {
-                        "guide": {
-                            "axis": {
-                                "visible": false
-                            },
-                            "grid": {
-                                "visible": false
-                            },
-                            "selection": {
-                                "visible": false
-                            }
-                        },
-                        "scene": {
-                            "cameras": {
-                                "visible": false
-                            },
-                            "lights": {
-                                "visible": false
-                            },
-                            "skeletons": {
-                                "visible": false
-                            },
-                            "meshes": {
-                                "visible": true
-                            },
-                            "audio": {
-                                "visible": true
-                            }
-                        },
-                        "hud": {
-                            "renderFPS": {
-                                "visible": false
-                            },
-                            "renderResolution": {
-                                "visible": false
-                            },
-                            "renderProgress": {
-                                "visible": false
-                            },
-                            "deviceMemory": {
-                                "visible": false
-                            },
-                            "hostMemory": {
-                                "visible": false
-                            },
-                            "processMemory": {
-                                "visible": false
-                            },
-                            "visible": true,
-                            "cameraSpeed": {
-                                "visible": true
-                            },
-                            "toastMessage": {
-                                "visible": true
-                            }
-                        },
-                        "resolution": {
-                            "0": 1280,
-                            "1": 720
-                        }
-                    }
-                },
-                "Viewport": {
-                    "Viewport0": {
-                        "guide": {
-                            "axis": {
-                                "visible": false
-                            },
-                            "grid": {
-                                "visible": false
-                            },
-                            "selection": {
-                                "visible": false
-                            }
-                        },
-                        "scene": {
-                            "cameras": {
-                                "visible": false
-                            },
-                            "lights": {
-                                "visible": false
-                            },
-                            "skeletons": {
-                                "visible": false
-                            },
-                            "meshes": {
-                                "visible": true
-                            },
-                            "audio": {
-                                "visible": false
-                            }
-                        },
-                        "hud": {
-                            "renderFPS": {
-                                "visible": false
-                            },
-                            "renderResolution": {
-                                "visible": false
-                            },
-                            "renderProgress": {
-                                "visible": false
-                            },
-                            "deviceMemory": {
-                                "visible": false
-                            },
-                            "hostMemory": {
-                                "visible": false
-                            },
-                            "processMemory": {
-                                "visible": false
-                            },
-                            "visible": true,
-                            "cameraSpeed": {
-                                "visible": true
-                            },
-                            "toastMessage": {
-                                "visible": true
-                            }
-                        },
-                        "resolution": {
-                            "0": 1280,
-                            "1": 720
-                        }
+                }
+            },
+            "extensions": {
+                "console": {
+                    "filterLevel": 0,
+                    "sources": {
+                        "carb.crashreporter-breakpad.plugin": true,
+                        "carb.windowing-glfw.gamepad": true,
+                        "omni.replicator.core.scripts.annotators": true,
+                        "omni.kit.widget.cache_indicator.cache_state_menu": true,
+                        "omni.kit.profiler.window": true,
+                        "carb.audio.device": true,
+                        "carb.audio.output": true,
+                        "carb.audio.context": true
                     }
                 }
+            },
+            "exts": {
+                "enabled": {
+                    "0": "airlab.airstack-1.19.1",
+                    "1": "airlab.tmux_manager-0.1.0"
+                }
+            },
+            "window": {
+                "uiStyle": "NvidiaDark",
+                "maximized": false,
+                "width": 1440,
+                "height": 900
             }
         }
     }
