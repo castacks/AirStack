@@ -26,6 +26,13 @@ USER_CONFIG_JSON_DESTINATION=${SCRIPT_DIR}/simulation/isaac-sim/docker/user.conf
 
 echo -e "${BOLDCYAN}1. Generating Default IsaacSim Config ($USER_CONFIG_JSON_DESTINATION)${ENDCOLOR}"
 
+if [ -d $USER_CONFIG_JSON_DESTINATION ] && [ $(ls -A $USER_CONFIG_JSON_DESTINATION | wc -l) == 0 ]; then
+    # delete an empty directory with the same name as $USER_CONFIG_JSON_DESTINATION which gets created when
+    # docker compose up is run before this script. Doing this will create a directory name user.config.json because
+    # it is being mounted as a volume but it doesn't exist yet.
+    rm -rf $USER_CONFIG_JSON_DESTINATION
+fi
+
 if [ -f $USER_CONFIG_JSON_DESTINATION ]; then
     echo -e "${YELLOW}WARNING: The file $USER_CONFIG_JSON_DESTINATION already exists.${ENDCOLOR}"
     confirm_no "Do you want to reset it to the default? [y/N]" && cp $USER_CONFIG_JSON_SOURCE $USER_CONFIG_JSON_DESTINATION
