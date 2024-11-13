@@ -2702,7 +2702,6 @@
             "exts": {
                 "enabled": {
                     "0": "airlab.airstack-1.19.1",
-                    "1": "airlab.tmux_manager-0.1.0"
                 }
             },
             "window": {
