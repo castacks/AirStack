@@ -23,6 +23,8 @@
         <param name="odometry_output_type" value="2" /> <!-- 0: NONE, 1: TRANSFORM, 2: OVERWRITE -->
         <param name="convert_odometry_to_transform" value="true" />
         <param name="convert_odometry_to_stabilized_transform" value="true" />
+	<param name="restamp_now_pre" value="false" />
+	<param name="restamp_now_post" value="true" />
     </node>
 
 </launch>
