@@ -7,11 +7,13 @@ import threading
 import socket
 import struct
 import time
+import subprocess
 
 import carb
 import carb.dictionary
 import omni
 import omni.ext
+import omni.ui as ui
 import omni.graph.core as og
 from omni.kit.app import get_app
 from omni.isaac.core.world import World
@@ -219,6 +221,13 @@ class TimeSyncServer:
         self.current_sim_time = current_sim_time
     
 
+def get_tmux_sessions():
+    text = subprocess.getoutput("tmux ls")
+
+    if ":" not in text:
+        return []
+    return list(map(lambda x: x.split(":")[0], text.split("\n")))
+        
 # ==============================================================================================================
 class _PublicExtension(omni.ext.IExt):
     """Object that tracks the lifetime of the Python part of the extension loading"""
@@ -263,6 +272,93 @@ class _PublicExtension(omni.ext.IExt):
 
         # init physics callback
         self.init_physics()
+        
+        
+        self.window = ui.Window("TMUX Manager", width=300, height=300)
+        self.window.deferred_dock_in("Property", ui.DockPolicy.DO_NOTHING)
+
+        #'''
+        with self.window.frame:
+            self.scroll = ui.ScrollingFrame(
+                horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON,
+                vertical_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON,
+            )
+            with self.scroll:
+                with ui.VStack():
+                    with ui.HStack(height=50):
+                        ui.Label("TMUX Sessions:")
+                        ui.Button("Refresh", clicked_fn=self.refresh_tmux_sessions)
+
+                    ui.Spacer(height=5)
+                    self.sessions_stack = ui.VStack()
+        #'''
+        self.sessions_dict = {}
+
+        self.refresh_tmux_sessions()
+
+    def refresh_tmux_sessions(self):
+        sessions = get_tmux_sessions()
+
+        # even when the hstack is destroyed it still takes up space so it is made not visible
+        # this probably means that the stack is still around and maybe if enough of them are created it will slow things down
+        # maybe a better way is to reuse them and if there are less than before make them not visible until more are needed
+        # for now it doesn't seem like it is impacting performance
+        for k in self.sessions_dict.keys():
+            self.sessions_dict[k]["label"].destroy()
+            self.sessions_dict[k]["attach_button"].destroy()
+            self.sessions_dict[k]["kill_button"].destroy()
+            self.sessions_dict[k]["hstack"].destroy()
+            self.sessions_dict[k]["hstack"].visible = False
+        self.sessions_dict = {}
+
+        for s in sessions:
+            if s in self.sessions_dict.keys():
+                continue
+            self.sessions_dict[s] = {}
+
+            with self.sessions_stack:
+                self.sessions_dict[s]["hstack"] = ui.HStack(height=50)
+                with self.sessions_dict[s]["hstack"]:
+                    self.sessions_dict[s]["label"] = ui.Label(s)
+
+                    def get_attach(session_name):
+                        def attach():
+                            # print('xterm -e "tmux a -t ' + session_name + '"')
+                            subprocess.Popen(
+                                'xterm -bg black -fg white -e "tmux a -t \\"'
+                                + session_name
+                                + '\\""',
+                                shell=True,
+                            )
+
+                        return attach
+
+                    def get_kill(session_name):
+                        def kill():
+                            # print('xterm -e "tmux kill-session -t ' + session_name + '"')
+                            subprocess.Popen(
+                                'xterm -e "tmux kill-session -t \\"'
+                                + session_name
+                                + '\\""',
+                                shell=True,
+                            )
+
+                        return kill
+
+                    self.sessions_dict[s]["attach_button"] = ui.Button(
+                        "Attach", clicked_fn=get_attach(s)
+                    )
+                    self.sessions_dict[s]["kill_button"] = ui.Button(
+                        "Kill", clicked_fn=get_kill(s)
+                    )
+
+        keys_to_remove = []
+        for k in self.sessions_dict.keys():
+            if k not in sessions:
+                self.sessions_dict[k]["hstack"].destroy()
+                keys_to_remove.append(k)
+        for k in keys_to_remove:
+            del self.sessions_dict[k]
 
     def init_physics(self, was_playing=False):
         self.world = World()
@@ -287,6 +383,8 @@ class _PublicExtension(omni.ext.IExt):
             self.init_physics()
         elif event.type == int(omni.timeline.TimelineEventType.STOP):
             self.current_sim_time = 0.
+            
+        self.refresh_tmux_sessions()
 
     def physics_callback(self, sim_time_delta):
         self.current_sim_time += sim_time_delta
@@ -295,6 +393,7 @@ class _PublicExtension(omni.ext.IExt):
         
     def on_shutdown(self):
         print('SHUTDOWN')
+        self.refresh_tmux_sessions()
         self.__stage_subscription = None
         self.__opt_in_setting_sub = None
         self.world.remove_physics_callback('airstack_physics_callback')

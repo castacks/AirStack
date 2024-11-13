@@ -135,30 +135,30 @@ class OgnAscentNodeDatabase(og.Database):
                 False,
                 "",
             ),
-            (
-                "inputs:deltaSimulationTime",
-                "double",
-                0,
-                "Simulation Delta Time",
-                "Description.",
-                {},
-                True,
-                0.0,
-                False,
-                "",
-            ),
-            (
-                "inputs:deltaSystemTime",
-                "double",
-                0,
-                "System Delta Time",
-                "Description.",
-                {},
-                True,
-                0.0,
-                False,
-                "",
-            ),
+            # (
+            #     "inputs:deltaSimulationTime",
+            #     "double",
+            #     0,
+            #     "Simulation Delta Time",
+            #     "Description.",
+            #     {},
+            #     True,
+            #     0.0,
+            #     False,
+            #     "",
+            # ),
+            # (
+            #     "inputs:deltaSystemTime",
+            #     "double",
+            #     0,
+            #     "System Delta Time",
+            #     "Description.",
+            #     {},
+            #     True,
+            #     0.0,
+            #     False,
+            #     "",
+            # ),
             (
                 "inputs:dronePrim",
                 "target",
@@ -234,8 +234,8 @@ class OgnAscentNodeDatabase(og.Database):
     class ValuesForInputs(og.DynamicAttributeAccess):
         LOCAL_PROPERTY_NAMES = {
             "execIn",
-            "deltaSimulationTime",
-            "deltaSystemTime",
+            #"deltaSimulationTime",
+            #"deltaSystemTime",
             "dronePrim",
             "domain_id",
             "nodeNamespace",
@@ -259,8 +259,8 @@ class OgnAscentNodeDatabase(og.Database):
             print("init 3")
             self._batchedReadAttributes = [
                 self._attributes.execIn,
-                self._attributes.deltaSimulationTime,
-                self._attributes.deltaSystemTime,
+                #self._attributes.deltaSimulationTime,
+                #self._attributes.deltaSystemTime,
                 self._attributes.dronePrim,
                 self._attributes.domain_id,
                 self._attributes.nodeNamespace,
@@ -278,7 +278,7 @@ class OgnAscentNodeDatabase(og.Database):
         def execIn(self, value):
             print("execIn 2")
             self._batchedReadValues[0] = value
-
+        '''
         @property
         def deltaSimulationTime(self):
             return self._batchedReadValues[1]
@@ -294,30 +294,30 @@ class OgnAscentNodeDatabase(og.Database):
         @deltaSystemTime.setter
         def deltaSystemTime(self, value):
             self._batchedReadValues[2] = value
-
+        '''
         @property
         def dronePrim(self):
-            return self._batchedReadValues[3]
+            return self._batchedReadValues[1]
 
         @dronePrim.setter
         def dronePrim(self, value):
-            self._batchedReadValues[3] = value
+            self._batchedReadValues[1] = value
 
         @property
         def domain_id(self):
-            return self._batchedReadValues[4]
+            return self._batchedReadValues[2]
 
         @domain_id.setter
         def domain_id(self, value):
-            self._batchedReadValues[4] = value
+            self._batchedReadValues[2] = value
 
         @property
         def nodeNamespace(self):
-            return self._batchedReadValues[5]
+            return self._batchedReadValues[3]
 
         @nodeNamespace.setter
         def nodeNamespace(self, value):
-            self._batchedReadValues[5] = value
+            self._batchedReadValues[3] = value
 
         def __getattr__(self, item: str):
             if item in self.LOCAL_PROPERTY_NAMES:
@@ -454,20 +454,30 @@ class OgnAscentNodeDatabase(og.Database):
 
         @staticmethod
         def compute(context, node):
-            # print('compute 1')
+            #print('compute 1')
             def database_valid():
                 return True
 
             try:
+                #print('1')
                 per_node_data = OgnAscentNodeDatabase.PER_NODE_DATA[node.node_id()]
+                #print('2')
                 db = per_node_data.get("_db")
+                #print('3')
                 if db is None:
+                    #print('4')
                     db = OgnAscentNodeDatabase(node)
+                    #print('5')
                     per_node_data["_db"] = db
+                    #print('6')
                 if not database_valid():
+                    #print('7')
                     per_node_data["_db"] = None
+                    #print('8')
                     return False
-            except:
+            except Exception as e:
+                #print('9', e)
+                #traceback.print_exc()
                 db = OgnAscentNodeDatabase(node)
             # print('input test', dir(db.inputs))
             # print('delta sim time', db.inputs.deltaSimulationTime)
