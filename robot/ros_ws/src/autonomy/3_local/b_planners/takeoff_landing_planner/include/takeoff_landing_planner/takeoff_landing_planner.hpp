@@ -60,6 +60,9 @@ class TakeoffLandingPlanner : public rclcpp::Node {
 
     // services
     rclcpp::Service<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr command_server;
+    
+    // timers
+    rclcpp::TimerBase::SharedPtr timer;
 
     // callbacks
     void completion_percentage_callback(std_msgs::msg::Float32::SharedPtr msg);

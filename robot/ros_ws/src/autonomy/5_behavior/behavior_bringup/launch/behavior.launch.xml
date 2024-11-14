@@ -27,6 +27,8 @@
             <remap from="set_takeoff_landing_command" to="/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command" />
             <remap from="/global/trajectory" to="/$(env ROBOT_NAME)/global/trajectory" />
             <!-- <remap from="get_random_walk_plan" to="/$(env ROBOT_NAME)/global/get_random_walk_plan" /> -->
+            <remap from="takeoff_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/takeoff_state" />
+            <remap from="landing_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/landing_state" />
 
         </node>
 

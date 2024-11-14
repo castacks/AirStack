@@ -14,6 +14,9 @@ class BehaviorExecutive : public rclcpp::Node {
 private:
   // parameters
   bool ascent_takeoff;
+
+  // variables
+  std::string takeoff_state, landing_state;
   
   // Condition variables
   bt::Condition* auto_takeoff_commanded_condition;
@@ -29,6 +32,8 @@ private:
   bt::Condition* offboard_commanded_condition;
   bt::Condition* arm_commanded_condition;
   bt::Condition* disarm_commanded_condition;
+  bt::Condition* takeoff_complete_condition;
+  bt::Condition* landing_complete_condition;
   std::vector<bt::Condition*> conditions;
 
   // Action variables
@@ -47,6 +52,8 @@ private:
   rclcpp::Subscription<behavior_tree_msgs::msg::BehaviorTreeCommands>::SharedPtr behavior_tree_commands_sub;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_armed_sub;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr has_control_sub;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr takeoff_state_sub;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr landing_state_sub;
   
   // publishers
 
@@ -65,6 +72,8 @@ private:
   void bt_commands_callback(behavior_tree_msgs::msg::BehaviorTreeCommands msg);
   void is_armed_callback(const std_msgs::msg::Bool::SharedPtr msg);
   void has_control_callback(const std_msgs::msg::Bool::SharedPtr msg);
+  void takeoff_state_callback(const std_msgs::msg::String::SharedPtr msg);
+  void landing_state_callback(const std_msgs::msg::String::SharedPtr msg);
   
 
  public:

@@ -3,6 +3,7 @@
 		(Auto Takeoff Commanded)
 		->
 			?
+				(Armed)
 				(Offboard Mode)
 				[Request Control]
 			?
@@ -19,7 +20,7 @@
 	->
 		(Land Commanded)
 		?
-			(Landed)
+			(Landing Complete)
 			[Land]
 	->
 		(Pause Commanded)
