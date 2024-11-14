@@ -1,6 +1,11 @@
 services:
   ground-control-station:
-    image: TODO
+    image: &gcs airlab-storage.andrew.cmu.edu:5001/shared/ground-control-station_ros-humble:v1.0.0
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.gcs
+      tags:
+        - *gcs
     container_name: ground-control-station
     entrypoint: ""
     command: >
@@ -36,10 +41,9 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - .bashrc:/root/.bashrc:rw # bash config
-      - .bash_history:/root/.bash_history:rw # save cmdline history
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
-      - ../../common/ros_ws:/root/common/ros_ws:rw  # common ROS packages
+      - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
       - ../ros_ws:/root/ros_ws:rw  # gcs-specific ROS packages
 
 
@@ -193,6 +197,6 @@ services:
     ]
 
 ########### NETWORKS ###########
-networks:
-  airstack_network:
-    driver: bridge
+#networks:
+#  airstack_network:
+#    driver: bridge
