@@ -6,3 +6,4 @@ cws
 bws
 sws
 bws --packages-select robot_bringup
+ros2 run tf2_tools view_frames

@@ -1,0 +1,38 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "${workspaceFolder}/install/vdb_mapping_interfaces/include/**",
+        "${workspaceFolder}/install/trajectory_library/include/**",
+        "${workspaceFolder}/install/mavros_interface/include/**",
+        "${workspaceFolder}/install/robot_interface/include/**",
+        "${workspaceFolder}/install/px4_msgs/include/**",
+        "${workspaceFolder}/install/mav_system_msgs/include/**",
+        "${workspaceFolder}/install/mav_state_machine_msgs/include/**",
+        "${workspaceFolder}/install/mav_planning_msgs/include/**",
+        "${workspaceFolder}/install/mav_msgs/include/**",
+        "${workspaceFolder}/install/disparity_map_representation/include/**",
+        "${workspaceFolder}/install/map_representation_interface/include/**",
+        "${workspaceFolder}/install/disparity_graph/include/**",
+        "${workspaceFolder}/install/behavior_tree/include/**",
+        "${workspaceFolder}/install/behavior_tree_msgs/include/**",
+        "${workspaceFolder}/install/airstack_common/include/**",
+        "${workspaceFolder}/install/airstack_msgs/include/**",
+        "${workspaceFolder}/src/**",
+        "${workspaceFolder}/install/**",
+        "/opt/ros/humble/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}

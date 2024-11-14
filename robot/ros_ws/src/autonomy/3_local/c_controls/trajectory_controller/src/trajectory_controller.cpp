@@ -183,274 +183,273 @@ void TrajectoryControlNode::timer_callback() {
     double execute_elapsed = (curr_execute_time - prev_execute_time).seconds();
     prev_execute_time = curr_execute_time;
 
-    if (got_odom) {
-        if (time_multiplier > 1.f) time_multiplier = 1.f;
-        if (std::isnan(time_multiplier) || !std::isfinite(time_multiplier)) {
-            RCLCPP_INFO_STREAM(this->get_logger(),
-                               "time_multiplier was an invalid value: " << time_multiplier);
-            time_multiplier = 1.f;
-        }
+    if (!got_odom) {
+        RCLCPP_INFO_STREAM(this->get_logger(), "Waiting to receive odometry.");
+        return;
+    }
 
-        // figure out what duration into the trajectory we are
-        rclcpp::Time now = this->get_clock()->now();
-        tf2::Vector3 robot_point = tflib::to_tf(odom.pose.pose.position);
-        double tracking_error =
-            tflib::to_tf(virtual_tracking_point_odom.pose.position).distance(robot_point);
-        std_msgs::msg::Float32 tracking_error_msg;
-        tracking_error_msg.data = tracking_error;
-        tracking_error_pub->publish(tracking_error_msg);
+    if (time_multiplier > 1.f) time_multiplier = 1.f;
+    if (std::isnan(time_multiplier) || !std::isfinite(time_multiplier)) {
+        RCLCPP_INFO_STREAM(this->get_logger(),
+                           "time_multiplier was an invalid value: " << time_multiplier);
+        time_multiplier = 1.f;
+    }
 
-        // visualization
-        markers.overwrite();
-        markers
-            .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3), robot_point.x(),
-                        robot_point.y(), robot_point.z(), sphere_radius)
-            .set_color(0.f, 0.f, 1.f, 0.7f);
-        trajectory_vis_pub->publish(
-            trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3), "traj_controller", 1,
-                                    1, 0, 1, false, false, traj_vis_thickness));
+    // figure out what duration into the trajectory we are
+    rclcpp::Time now = this->get_clock()->now();
+    tf2::Vector3 robot_point = tflib::to_tf(odom.pose.pose.position);
+    double tracking_error =
+        tflib::to_tf(virtual_tracking_point_odom.pose.position).distance(robot_point);
+    std_msgs::msg::Float32 tracking_error_msg;
+    tracking_error_msg.data = tracking_error;
+    tracking_error_pub->publish(tracking_error_msg);
 
-        // find closest point on entire trajectory
-        Waypoint closest_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        nav_msgs::msg::Odometry closest_odom;
-        bool closest_valid = false;  // trajectory->get_closest_waypoint(robot_point, 0,
-                                     // trajectory->get_duration(), &closest_wp);
-        if (closest_valid)
-            closest_valid = trajectory->get_odom(closest_wp.get_time(), &closest_point_odom, now);
-        // else
-        //   ROS_INFO("CLOSEST NOT VALID");
-        if (closest_valid) closest_point_pub->publish(closest_point_odom);
+    // visualization
+    markers.overwrite();
+    markers
+        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3), robot_point.x(),
+                    robot_point.y(), robot_point.z(), sphere_radius)
+        .set_color(0.f, 0.f, 1.f, 0.7f);
+    trajectory_vis_pub->publish(trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3),
+                                                        "traj_controller", 1, 1, 0, 1, false, false,
+                                                        traj_vis_thickness));
 
-        double current_virtual_ahead_time = 0.;
+    // find closest point on entire trajectory
+    Waypoint closest_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    nav_msgs::msg::Odometry closest_odom;
+    bool closest_valid = false;  // trajectory->get_closest_waypoint(robot_point, 0,
+                                 // trajectory->get_duration(), &closest_wp);
+    if (closest_valid)
+        closest_valid = trajectory->get_odom(closest_wp.get_time(), &closest_point_odom, now);
+    // else
+    //   ROS_INFO("CLOSEST NOT VALID");
+    if (closest_valid) closest_point_pub->publish(closest_point_odom);
 
-        if (trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
-            if (time_multiplier >= 1.f &&
-                tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() >
-                    min_virtual_tracking_velocity) {
-                if (new_rewind) RCLCPP_INFO(this->get_logger(), "YO");
-                // find closest point within time interval
-                Waypoint closest_ahead_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-                bool closest_ahead_valid = trajectory->get_closest_waypoint(
-                    robot_point, virtual_time, prev_vtp_time + look_ahead_time, &closest_ahead_wp);
-                if (closest_ahead_valid) {
-                    virtual_time = closest_ahead_wp.get_time();
+    double current_virtual_ahead_time = 0.;
 
-                    // visualization
+    if (trajectory_mode != airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
+        if (time_multiplier >= 1.f &&
+            tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() >
+                min_virtual_tracking_velocity) {
+            if (new_rewind) RCLCPP_INFO(this->get_logger(), "YO");
+            // find closest point within time interval
+            Waypoint closest_ahead_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            bool closest_ahead_valid = trajectory->get_closest_waypoint(
+                robot_point, virtual_time, prev_vtp_time + look_ahead_time, &closest_ahead_wp);
+            if (closest_ahead_valid) {
+                virtual_time = closest_ahead_wp.get_time();
+
+                // visualization
+                markers
+                    .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
+                                closest_ahead_wp.get_z(), 0.025f)
+                    .set_color(0.f, 1.f, 0.f);
+
+                Waypoint vtp_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                Waypoint end_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                bool vtp_valid = trajectory->get_waypoint_sphere_intersection(
+                    virtual_time, search_ahead_factor * sphere_radius,
+                    prev_vtp_time + look_ahead_time, robot_point, sphere_radius,
+                    min_virtual_tracking_velocity, &vtp_wp, &end_wp);
+                if (vtp_valid) current_virtual_ahead_time = vtp_wp.get_time() - virtual_time;
+
+                // visualization
+                if (vtp_valid)
+                    markers
+                        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                    vtp_wp.get_x(), vtp_wp.get_y(), vtp_wp.get_z(), 0.025f)
+                        .set_color(0.f, 1.f, 0.f);
+                else
                     markers
                         .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
                                     closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
-                                    closest_ahead_wp.get_z(), 0.025f)
-                        .set_color(0.f, 1.f, 0.f);
-
-                    Waypoint vtp_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-                    Waypoint end_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-                    bool vtp_valid = trajectory->get_waypoint_sphere_intersection(
-                        virtual_time, search_ahead_factor * sphere_radius,
-                        prev_vtp_time + look_ahead_time, robot_point, sphere_radius,
-                        min_virtual_tracking_velocity, &vtp_wp, &end_wp);
-                    if (vtp_valid) current_virtual_ahead_time = vtp_wp.get_time() - virtual_time;
-
-                    // visualization
-                    if (vtp_valid)
-                        markers
-                            .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
-                                        vtp_wp.get_x(), vtp_wp.get_y(), vtp_wp.get_z(), 0.025f)
-                            .set_color(0.f, 1.f, 0.f);
-                    else
-                        markers
-                            .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
-                                        closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
-                                        closest_ahead_wp.get_z() + sphere_radius, 0.025f)
-                            .set_color(1.f, 0.f, 0.f);
-                    markers
-                        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
-                                    end_wp.get_x(), end_wp.get_y(), end_wp.get_z(), 0.025f)
-                        .set_color(0.f, 0.f, 1.f);
-                } else
-                    RCLCPP_INFO(this->get_logger(), "AHEAD NOT VALID");
-            } else {
-                if (new_rewind) {
-                    float before = virtual_time;
-                    virtual_time = trajectory->get_skip_ahead_time(
-                        virtual_time, rewind_skip_max_velocity, rewind_skip_max_distance);
-                    RCLCPP_INFO_STREAM(this->get_logger(),
-                                       "SKIPPED from " << before << " to " << virtual_time << " ("
-                                                       << (virtual_time - before) << ")");
-                    new_rewind = false;
-                }
-                virtual_time = std::min(trajectory->get_duration(),
-                                        virtual_time + time_multiplier * execute_elapsed);
-                if (time_multiplier < 1.f) {
-                    time_multiplier += transition_dt;
-                }
-            }
-        } else if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
-            // don't update virtual_time
-        }
-        //*/
-
-        // get virtual waypoint
-        Waypoint virtual_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        bool virtual_valid =
-            trajectory->get_waypoint(virtual_time + current_virtual_ahead_time, &virtual_wp);
-        if (virtual_valid) {
-            virtual_valid =
-                trajectory->get_odom(virtual_wp.get_time(), &virtual_tracking_point_odom, now);
-
-            // prevent oscillating between slow and normal mode
-            if (tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() <=
-                min_virtual_tracking_velocity)
-                virtual_time += current_virtual_ahead_time;
-
-            float look_ahead_multiplier = 1.f;
-            if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND)
-                look_ahead_multiplier = -1.f;
-            trajectory->get_odom(virtual_wp.get_time() + look_ahead_multiplier * look_ahead_time,
-                                 &look_ahead_point, now);
-            trajectory->get_odom(virtual_wp.get_time(), &drone_point, now);
-            actual_time = virtual_wp.get_time();
-            prev_vtp_time = virtual_wp.get_time();
+                                    closest_ahead_wp.get_z() + sphere_radius, 0.025f)
+                        .set_color(1.f, 0.f, 0.f);
+                markers
+                    .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                                end_wp.get_x(), end_wp.get_y(), end_wp.get_z(), 0.025f)
+                    .set_color(0.f, 0.f, 1.f);
+            } else
+                RCLCPP_INFO(this->get_logger(), "AHEAD NOT VALID");
         } else {
-            RCLCPP_INFO_STREAM_ONCE(
-                this->get_logger(),
-                "Virtual waypoint does not correspond to a waypoint along the "
-                "reference trajectory. If no trajectory is available yet, this is okay.");
+            if (new_rewind) {
+                float before = virtual_time;
+                virtual_time = trajectory->get_skip_ahead_time(
+                    virtual_time, rewind_skip_max_velocity, rewind_skip_max_distance);
+                RCLCPP_INFO_STREAM(this->get_logger(),
+                                   "SKIPPED from " << before << " to " << virtual_time << " ("
+                                                   << (virtual_time - before) << ")");
+                new_rewind = false;
+            }
+            virtual_time = std::min(trajectory->get_duration(),
+                                    virtual_time + time_multiplier * execute_elapsed);
+            if (time_multiplier < 1.f) {
+                time_multiplier += transition_dt;
+            }
         }
-
-        if (trajectory->get_num_waypoints() <= 3) {
-            virtual_tracking_point_odom.twist.linear.x = 0;
-            virtual_tracking_point_odom.twist.linear.y = 0;
-            virtual_tracking_point_odom.twist.linear.z = 0;
-        }
-        // if(tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() <= ff_min_velocity){
-        if (tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() <=
-            min_virtual_tracking_velocity) {
-            virtual_tracking_point_odom.twist.linear.x = 0;
-            virtual_tracking_point_odom.twist.linear.y = 0;
-            virtual_tracking_point_odom.twist.linear.z = 0;
-            virtual_tracking_point_odom.acceleration.x = 0;
-            virtual_tracking_point_odom.acceleration.y = 0;
-            virtual_tracking_point_odom.acceleration.z = 0;
-            virtual_tracking_point_odom.jerk.x = 0;
-            virtual_tracking_point_odom.jerk.y = 0;
-            virtual_tracking_point_odom.jerk.z = 0;
-        }
-
-        if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE) {
-            virtual_tracking_point_odom.pose = odom.pose.pose;
-            virtual_tracking_point_odom.twist.linear.x = 0;
-            virtual_tracking_point_odom.twist.linear.y = 0;
-            virtual_tracking_point_odom.twist.linear.z = 0;
-            virtual_tracking_point_odom.twist.angular.x = 0;
-            virtual_tracking_point_odom.twist.angular.y = 0;
-            virtual_tracking_point_odom.twist.angular.z = 0;
-            virtual_tracking_point_odom.acceleration.x = 0;
-            virtual_tracking_point_odom.acceleration.y = 0;
-            virtual_tracking_point_odom.acceleration.z = 0;
-            virtual_tracking_point_odom.jerk.x = 0;
-            virtual_tracking_point_odom.jerk.y = 0;
-            virtual_tracking_point_odom.jerk.z = 0;
-            look_ahead_point = virtual_tracking_point_odom;
-            drone_point = look_ahead_point;
-        }
-
-        virtual_tracking_point_odom.header.stamp = now;
-        look_ahead_point.header.stamp = now;
-        drone_point.header.stamp = now;
-
-        if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND) {
-            look_ahead_point.twist.linear.x *= -1.f;
-            look_ahead_point.twist.linear.y *= -1.f;
-            look_ahead_point.twist.linear.z *= -1.f;
-        }
-
-        if (time_multiplier >= -1.f && time_multiplier <= 1.f) {
-            virtual_tracking_point_odom.twist.linear.x *= time_multiplier;
-            virtual_tracking_point_odom.twist.linear.y *= time_multiplier;
-            virtual_tracking_point_odom.twist.linear.z *= time_multiplier;
-        }
-
-        // When the tracking point reaches the end of the trajectory, the velocity gets set to zero
-        if (virtual_wp.get_time() >= trajectory->get_duration() ||
-            trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
-            virtual_tracking_point_odom.twist.linear.x = 0;
-            virtual_tracking_point_odom.twist.linear.y = 0;
-            virtual_tracking_point_odom.twist.linear.z = 0;
-            virtual_tracking_point_odom.twist.angular.x = 0;
-            virtual_tracking_point_odom.twist.angular.y = 0;
-            virtual_tracking_point_odom.twist.angular.z = 0;
-            virtual_tracking_point_odom.acceleration.x = 0;
-            virtual_tracking_point_odom.acceleration.y = 0;
-            virtual_tracking_point_odom.acceleration.z = 0;
-            virtual_tracking_point_odom.jerk.x = 0;
-            virtual_tracking_point_odom.jerk.y = 0;
-            virtual_tracking_point_odom.jerk.z = 0;
-
-            look_ahead_point.twist.linear.x = 0;
-            look_ahead_point.twist.linear.y = 0;
-            look_ahead_point.twist.linear.z = 0;
-            look_ahead_point.twist.angular.x = 0;
-            look_ahead_point.twist.angular.y = 0;
-            look_ahead_point.twist.angular.z = 0;
-            look_ahead_point.acceleration.x = 0;
-            look_ahead_point.acceleration.y = 0;
-            look_ahead_point.acceleration.z = 0;
-            look_ahead_point.jerk.x = 0;
-            look_ahead_point.jerk.y = 0;
-            look_ahead_point.jerk.z = 0;
-            drone_point = look_ahead_point;
-        }
-
-        std_msgs::msg::Float32 velocity_msg;
-        velocity_msg.data = sqrt(virtual_tracking_point_odom.twist.linear.x *
-                                     virtual_tracking_point_odom.twist.linear.x +
-                                 virtual_tracking_point_odom.twist.linear.y *
-                                     virtual_tracking_point_odom.twist.linear.y +
-                                 virtual_tracking_point_odom.twist.linear.z *
-                                     virtual_tracking_point_odom.twist.linear.z);
-        if (time_multiplier >= 1.f) current_velocity = velocity_msg.data;
-        velocity_pub->publish(velocity_msg);
-        tracking_point_pub->publish(virtual_tracking_point_odom);
-        look_ahead_pub->publish(look_ahead_point);
-        drone_point_pub->publish(drone_point);
-
-        // create a tf for the tracking point odom
-        tf2::Stamped<tf2::Transform> vtp_tf = tflib::to_tf(virtual_tracking_point_odom);
-        geometry_msgs::msg::TransformStamped transform = tf2::toMsg(vtp_tf);
-        transform.child_frame_id = tf_prefix + "tracking_point";
-        geometry_msgs::msg::TransformStamped transform_stabilized =
-            tf2::toMsg(tflib::get_stabilized(vtp_tf));
-        transform_stabilized.child_frame_id = tf_prefix + "tracking_point_stabilized";
-        tf_broadcaster->sendTransform(transform);
-        tf_broadcaster->sendTransform(transform_stabilized);
-
-        // create a tf for the look ahead odom
-        tf2::Stamped<tf2::Transform> la_tf = tflib::to_tf(look_ahead_point);
-        geometry_msgs::msg::TransformStamped look_ahead_transform = tf2::toMsg(la_tf);
-        look_ahead_transform.child_frame_id = tf_prefix + "look_ahead_point";
-        geometry_msgs::msg::TransformStamped look_ahead_transform_stabilized =
-            tf2::toMsg(tflib::get_stabilized(la_tf));
-        look_ahead_transform_stabilized.child_frame_id = tf_prefix + "look_ahead_point_stabilized";
-
-        tf_broadcaster->sendTransform(look_ahead_transform);
-        tf_broadcaster->sendTransform(look_ahead_transform_stabilized);
-
-        // publish completion percentage
-        std_msgs::msg::Float32 trajectory_completion_percentage;
-        trajectory_completion_percentage.data = virtual_time / trajectory->get_duration() * 100.f;
-        trajectory_completion_percentage_pub->publish(trajectory_completion_percentage);
-
-        // publish current trajectory time
-        std_msgs::msg::Float32 trajectory_time;
-        trajectory_time.data =
-            (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND)
-                ? trajectory->get_duration() - virtual_time
-                : virtual_time;
-        trajectory_time_pub->publish(trajectory_time);
-
-        // publish visualization
-        debug_markers_pub->publish(markers.get_marker_array());
+    } else if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
+        // don't update virtual_time
     }
+    //*/
+
+    // get virtual waypoint
+    Waypoint virtual_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    bool virtual_valid =
+        trajectory->get_waypoint(virtual_time + current_virtual_ahead_time, &virtual_wp);
+    if (virtual_valid) {
+        virtual_valid =
+            trajectory->get_odom(virtual_wp.get_time(), &virtual_tracking_point_odom, now);
+
+        // prevent oscillating between slow and normal mode
+        if (tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() <=
+            min_virtual_tracking_velocity)
+            virtual_time += current_virtual_ahead_time;
+
+        float look_ahead_multiplier = 1.f;
+        if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND)
+            look_ahead_multiplier = -1.f;
+        trajectory->get_odom(virtual_wp.get_time() + look_ahead_multiplier * look_ahead_time,
+                             &look_ahead_point, now);
+        trajectory->get_odom(virtual_wp.get_time(), &drone_point, now);
+        actual_time = virtual_wp.get_time();
+        prev_vtp_time = virtual_wp.get_time();
+    } else {
+        RCLCPP_INFO_STREAM_ONCE(
+            this->get_logger(),
+            "Virtual waypoint does not correspond to a waypoint along the "
+            "reference trajectory. If no trajectory is available yet, this is okay.");
+    }
+
+    if (trajectory->get_num_waypoints() <= 3) {
+        virtual_tracking_point_odom.twist.linear.x = 0;
+        virtual_tracking_point_odom.twist.linear.y = 0;
+        virtual_tracking_point_odom.twist.linear.z = 0;
+    }
+    if (tflib::to_tf(virtual_tracking_point_odom.twist.linear).length() <=
+        min_virtual_tracking_velocity) {
+        virtual_tracking_point_odom.twist.linear.x = 0;
+        virtual_tracking_point_odom.twist.linear.y = 0;
+        virtual_tracking_point_odom.twist.linear.z = 0;
+        virtual_tracking_point_odom.acceleration.x = 0;
+        virtual_tracking_point_odom.acceleration.y = 0;
+        virtual_tracking_point_odom.acceleration.z = 0;
+        virtual_tracking_point_odom.jerk.x = 0;
+        virtual_tracking_point_odom.jerk.y = 0;
+        virtual_tracking_point_odom.jerk.z = 0;
+    }
+
+    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE) {
+        virtual_tracking_point_odom.pose = odom.pose.pose;
+        virtual_tracking_point_odom.twist.linear.x = 0;
+        virtual_tracking_point_odom.twist.linear.y = 0;
+        virtual_tracking_point_odom.twist.linear.z = 0;
+        virtual_tracking_point_odom.twist.angular.x = 0;
+        virtual_tracking_point_odom.twist.angular.y = 0;
+        virtual_tracking_point_odom.twist.angular.z = 0;
+        virtual_tracking_point_odom.acceleration.x = 0;
+        virtual_tracking_point_odom.acceleration.y = 0;
+        virtual_tracking_point_odom.acceleration.z = 0;
+        virtual_tracking_point_odom.jerk.x = 0;
+        virtual_tracking_point_odom.jerk.y = 0;
+        virtual_tracking_point_odom.jerk.z = 0;
+        look_ahead_point = virtual_tracking_point_odom;
+        drone_point = look_ahead_point;
+    }
+
+    virtual_tracking_point_odom.header.stamp = now;
+    look_ahead_point.header.stamp = now;
+    drone_point.header.stamp = now;
+
+    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND) {
+        look_ahead_point.twist.linear.x *= -1.f;
+        look_ahead_point.twist.linear.y *= -1.f;
+        look_ahead_point.twist.linear.z *= -1.f;
+    }
+
+    if (time_multiplier >= -1.f && time_multiplier <= 1.f) {
+        virtual_tracking_point_odom.twist.linear.x *= time_multiplier;
+        virtual_tracking_point_odom.twist.linear.y *= time_multiplier;
+        virtual_tracking_point_odom.twist.linear.z *= time_multiplier;
+    }
+
+    // When the tracking point reaches the end of the trajectory, the velocity gets set to zero
+    if (virtual_wp.get_time() >= trajectory->get_duration() ||
+        trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::PAUSE) {
+        virtual_tracking_point_odom.twist.linear.x = 0;
+        virtual_tracking_point_odom.twist.linear.y = 0;
+        virtual_tracking_point_odom.twist.linear.z = 0;
+        virtual_tracking_point_odom.twist.angular.x = 0;
+        virtual_tracking_point_odom.twist.angular.y = 0;
+        virtual_tracking_point_odom.twist.angular.z = 0;
+        virtual_tracking_point_odom.acceleration.x = 0;
+        virtual_tracking_point_odom.acceleration.y = 0;
+        virtual_tracking_point_odom.acceleration.z = 0;
+        virtual_tracking_point_odom.jerk.x = 0;
+        virtual_tracking_point_odom.jerk.y = 0;
+        virtual_tracking_point_odom.jerk.z = 0;
+
+        look_ahead_point.twist.linear.x = 0;
+        look_ahead_point.twist.linear.y = 0;
+        look_ahead_point.twist.linear.z = 0;
+        look_ahead_point.twist.angular.x = 0;
+        look_ahead_point.twist.angular.y = 0;
+        look_ahead_point.twist.angular.z = 0;
+        look_ahead_point.acceleration.x = 0;
+        look_ahead_point.acceleration.y = 0;
+        look_ahead_point.acceleration.z = 0;
+        look_ahead_point.jerk.x = 0;
+        look_ahead_point.jerk.y = 0;
+        look_ahead_point.jerk.z = 0;
+        drone_point = look_ahead_point;
+    }
+
+    std_msgs::msg::Float32 velocity_msg;
+    velocity_msg.data = sqrt(
+        virtual_tracking_point_odom.twist.linear.x * virtual_tracking_point_odom.twist.linear.x +
+        virtual_tracking_point_odom.twist.linear.y * virtual_tracking_point_odom.twist.linear.y +
+        virtual_tracking_point_odom.twist.linear.z * virtual_tracking_point_odom.twist.linear.z);
+    if (time_multiplier >= 1.f) current_velocity = velocity_msg.data;
+    velocity_pub->publish(velocity_msg);
+    tracking_point_pub->publish(virtual_tracking_point_odom);
+    look_ahead_pub->publish(look_ahead_point);
+    drone_point_pub->publish(drone_point);
+
+    // create a tf for the tracking point odom
+    tf2::Stamped<tf2::Transform> vtp_tf = tflib::to_tf(virtual_tracking_point_odom);
+    geometry_msgs::msg::TransformStamped transform = tf2::toMsg(vtp_tf);
+    transform.child_frame_id = tf_prefix + "tracking_point";
+    geometry_msgs::msg::TransformStamped transform_stabilized =
+        tf2::toMsg(tflib::get_stabilized(vtp_tf));
+    transform_stabilized.child_frame_id = tf_prefix + "tracking_point_stabilized";
+    tf_broadcaster->sendTransform(transform);
+    tf_broadcaster->sendTransform(transform_stabilized);
+
+    // create a tf for the look ahead odom
+    tf2::Stamped<tf2::Transform> la_tf = tflib::to_tf(look_ahead_point);
+    geometry_msgs::msg::TransformStamped look_ahead_transform = tf2::toMsg(la_tf);
+    look_ahead_transform.child_frame_id = tf_prefix + "look_ahead_point";
+    geometry_msgs::msg::TransformStamped look_ahead_transform_stabilized =
+        tf2::toMsg(tflib::get_stabilized(la_tf));
+    look_ahead_transform_stabilized.child_frame_id = tf_prefix + "look_ahead_point_stabilized";
+
+    tf_broadcaster->sendTransform(look_ahead_transform);
+    tf_broadcaster->sendTransform(look_ahead_transform_stabilized);
+
+    // publish completion percentage
+    std_msgs::msg::Float32 trajectory_completion_percentage;
+    trajectory_completion_percentage.data = virtual_time / trajectory->get_duration() * 100.f;
+    trajectory_completion_percentage_pub->publish(trajectory_completion_percentage);
+
+    // publish current trajectory time
+    std_msgs::msg::Float32 trajectory_time;
+    trajectory_time.data = (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::REWIND)
+                               ? trajectory->get_duration() - virtual_time
+                               : virtual_time;
+    trajectory_time_pub->publish(trajectory_time);
+
+    // publish visualization
+    debug_markers_pub->publish(markers.get_marker_array());
 
     new_rewind = false;
 }
