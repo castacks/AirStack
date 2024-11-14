@@ -64,7 +64,7 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
         new TakeoffTrajectory(high_takeoff_height, takeoff_landing_velocity, takeoff_path_roll,
                               takeoff_path_pitch, takeoff_path_relative_to_orientation);
     // TODO: this landing point is hardcoded. it should be parameterized
-    landing_traj_gen = new TakeoffTrajectory(0., takeoff_landing_velocity);
+    landing_traj_gen = new TakeoffTrajectory(-10000., takeoff_landing_velocity);
     current_command = airstack_msgs::srv::TakeoffLandingCommand::Request::NONE;
 
     completion_percentage = 0.f;
@@ -72,9 +72,16 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
     land_is_newly_active = true;
     takeoff_distance_check = false;
     ekf_active = false;
+
+    
+    // timers
+    timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
+                                 std::bind(&TakeoffLandingPlanner::timer_callback, this));
 }
 
 void TakeoffLandingPlanner::timer_callback() {
+  RCLCPP_INFO_STREAM(this->get_logger(),
+		     "conditions: " << got_completion_percentage << " " << is_tracking_point_received << " " << got_robot_odom);
     if (!got_completion_percentage || !is_tracking_point_received || !got_robot_odom) return;
 
     std_msgs::msg::String takeoff_state, landing_state;

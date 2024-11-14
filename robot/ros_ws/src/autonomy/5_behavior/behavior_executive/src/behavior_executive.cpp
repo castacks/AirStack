@@ -15,6 +15,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     offboard_commanded_condition = new bt::Condition("Offboard Commanded", this);
     arm_commanded_condition = new bt::Condition("Arm Commanded", this);
     disarm_commanded_condition = new bt::Condition("Disarm Commanded", this);
+    takeoff_complete_condition = new bt::Condition("Takeoff Complete", this);
+    landing_complete_condition = new bt::Condition("Landing Complete", this);
     conditions.push_back(auto_takeoff_commanded_condition);
     conditions.push_back(takeoff_commanded_condition);
     conditions.push_back(armed_condition);
@@ -28,6 +30,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(offboard_commanded_condition);
     conditions.push_back(arm_commanded_condition);
     conditions.push_back(disarm_commanded_condition);
+    conditions.push_back(takeoff_complete_condition);
+    conditions.push_back(landing_complete_condition);
 
     // actions
     arm_action = new bt::Action("Arm", this);
@@ -60,6 +64,13 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     has_control_sub = this->create_subscription<std_msgs::msg::Bool>(
         "has_control", 1,
         std::bind(&BehaviorExecutive::has_control_callback, this, std::placeholders::_1));
+    takeoff_state_sub = this->create_subscription<std_msgs::msg::String>("takeoff_state", 1,
+									 std::bind(&BehaviorExecutive::takeoff_state_callback,
+										   this, std::placeholders::_1));
+    landing_state_sub = this->create_subscription<std_msgs::msg::String>("landing_state", 1,
+									 std::bind(&BehaviorExecutive::landing_state_callback,
+										   this, std::placeholders::_1));
+									 
 
     // publishers
 
@@ -81,8 +92,6 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
 }
 
 void BehaviorExecutive::timer_callback() {
-    // std::cout << "running" << std::endl;
-
     if (request_control_action->is_active()) {
         if (request_control_action->active_has_changed()) {
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
@@ -179,6 +188,11 @@ void BehaviorExecutive::timer_callback() {
             } else
                 takeoff_action->set_failure();
         }
+
+	if(takeoff_state == "COMPLETE"){
+	  takeoff_complete_condition->set(true);
+	  takeoff_action->set_success();
+	}
     }
 
     if (land_action->is_active()) {
@@ -209,6 +223,12 @@ void BehaviorExecutive::timer_callback() {
             } else
                 land_action->set_failure();
         }
+	
+
+	if(landing_state == "COMPLETE"){
+	  landing_complete_condition->set(true);
+	  land_action->set_success();
+	}
     }
 
     if (pause_action->is_active()) {
@@ -301,6 +321,15 @@ void BehaviorExecutive::is_armed_callback(const std_msgs::msg::Bool::SharedPtr m
 
 void BehaviorExecutive::has_control_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     offboard_mode_condition->set(msg->data);
+}
+
+
+void BehaviorExecutive::takeoff_state_callback(const std_msgs::msg::String::SharedPtr msg){
+  takeoff_state = msg->data;
+}
+
+void BehaviorExecutive::landing_state_callback(const std_msgs::msg::String::SharedPtr msg){
+  landing_state = msg->data;
 }
 
 int main(int argc, char** argv) {
