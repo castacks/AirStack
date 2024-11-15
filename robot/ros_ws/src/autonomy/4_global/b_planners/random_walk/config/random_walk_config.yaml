@@ -12,8 +12,8 @@
     num_paths_to_generate: 5 # how many paths to generate
 
     # Constants
-    max_start_to_goal_dist_m: 10.0 # how max distance the goal can be from the current robot position
-    checking_point_cnt: 1000 # how many points to collision check between the start and goal points
+    max_start_to_goal_dist_m: 5.0 # how max distance the goal can be from the current robot position
+    checking_point_cnt: 100 # how many points to collision check between the start and goal points
     max_z_change_m: 0.1 # max height that the goal can deviate from the current height
     collision_padding_m: 0.1 # how much space should the path have to any obstacles
     path_end_threshold_m: 0.1 # how close to the goal will the path be considered complete
