@@ -32,7 +32,7 @@ int usleep(useconds_t usec){
     usleep_func = (int(*)(useconds_t)) dlsym(RTLD_NEXT, "usleep");
 
   if(enable_usleep && usec != 1000){
-    std::cout << "USLEEP: " << usec << std::endl;
+    //std::cout << "USLEEP: " << usec << std::endl;
     usleep_func(usec);
   }
   
@@ -100,25 +100,25 @@ void injected_function(unsigned long i){
   long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
   static long long prev_microseconds = microseconds;
   static long long prev_i = i;
-  std::cout << "injected function " << microseconds << " " << (microseconds - prev_microseconds) << " " << i << " " << (i - prev_i) << " " << (i - microseconds) << std::endl;
-  std::cout << "size: " << sizeof(unsigned long) << std::endl;
+  //std::cout << "injected function " << microseconds << " " << (microseconds - prev_microseconds) << " " << i << " " << (i - prev_i) << " " << (i - microseconds) << std::endl;
+  //std::cout << "size: " << sizeof(unsigned long) << std::endl;
   prev_i = i;
   prev_microseconds = microseconds;
 
 
   if (sockfd == -1){
     // Create socket
-    std::cout << "1" << std::endl;
+    //std::cout << "1" << std::endl;
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       std::cerr << "Socket creation failed" << std::endl;
       exit(1);
     }
   
-    std::cout << "2" << std::endl;
+    //std::cout << "2" << std::endl;
     memset(&servaddr, 0, sizeof(servaddr));
 
     // Server information
-    std::cout << "3" << std::endl;
+    //std::cout << "3" << std::endl;
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(65432);
     if (inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr) <= 0) {
@@ -127,7 +127,7 @@ void injected_function(unsigned long i){
     }
 
     // Connect to server
-    std::cout << "4" << std::endl;
+    //std::cout << "4" << std::endl;
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
       std::cerr << "Connection Failed" << std::endl;
       exit(1);
@@ -149,7 +149,7 @@ void injected_function(unsigned long i){
   //int valread = read(sockfd, buffer, 1024);
   int valread = read(sockfd, &time_to_sleep, sizeof(time_to_sleep));
   //std::cout << "Server: " << buffer << std::endl;
-  std::cout << "Server: " << time_to_sleep << std::endl;
+  //std::cout << "Server: " << time_to_sleep << std::endl;
   if(time_to_sleep == 1000)
     time_to_sleep = 1001;
   if(time_to_sleep > 0)
