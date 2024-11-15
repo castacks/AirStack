@@ -10,6 +10,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <mutex>
 
 typedef std::vector<std::tuple<float, float, float, float>> Path;  // x, y, z, yaw
 
@@ -47,19 +48,20 @@ class RandomWalkPlanner {
     // Variables
     std::tuple<float, float, float> voxel_size_m;
 
+    std::mutex mutex;
 
     // Functions
-    bool check_if_collided_single_voxel(std::tuple<float, float, float> point,
-                                        std::tuple<float, float, float> voxel_center);
+    bool check_if_collided_single_voxel(const std::tuple<float, float, float>& point,
+                                        const std::tuple<float, float, float>& voxel_center);
 
-    bool check_if_collided(std::tuple<float, float, float> point);
+    bool check_if_collided(const std::tuple<float, float, float>& point);
 
     std::tuple<float, float, float> generate_goal_point(
         std::tuple<float, float, float, float> start_point);
 };
 
-double get_point_distance(std::tuple<float, float, float> point1,
-                          std::tuple<float, float, float> point2);
+double get_point_distance(const std::tuple<float, float, float>& point1,
+                          const std::tuple<float, float, float>& point2);
 
 double deg2rad(double deg);
 

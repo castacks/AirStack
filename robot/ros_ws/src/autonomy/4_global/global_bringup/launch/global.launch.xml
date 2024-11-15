@@ -13,4 +13,6 @@
         <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
         <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
     </node>
+
+    
 </launch>

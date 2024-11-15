@@ -27,7 +27,8 @@
 class RandomWalkNode : public rclcpp::Node {
    private:
     // Planner
-    RandomWalkPlanner random_walk_planner;
+    // RandomWalkPlanner random_walk_planner;
+    std::unique_ptr<RandomWalkPlanner> random_walk_planner;
 
     // String constants
     std::string world_frame_id_;

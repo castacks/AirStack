@@ -139,12 +139,14 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
         RCLCPP_INFO(this->get_logger(), "Received first map");
         this->params.voxel_size_m =
             std::tuple<float, float, float>(msg->scale.x, msg->scale.y, msg->scale.z);
-        this->random_walk_planner = RandomWalkPlanner(this->params);
+        // this->random_walk_planner = RandomWalkPlanner(this->params);
+        this->random_walk_planner = std::make_unique<RandomWalkPlanner>(this->params);
+
         RCLCPP_INFO(this->get_logger(), "Initialized random walk planner logic");
     }
-    this->random_walk_planner.voxel_points.clear();
+    this->random_walk_planner->voxel_points.clear();
     for (int i = 0; i < msg->points.size(); i++) {
-        this->random_walk_planner.voxel_points.push_back(
+        this->random_walk_planner->voxel_points.push_back(
             std::tuple<float, float, float>(msg->points[i].x, msg->points[i].y, msg->points[i].z));
     }
 }
@@ -191,7 +193,7 @@ void RandomWalkNode::generate_plan() {
 
     float timeout_duration = 5.0;
     std::optional<Path> gen_path_opt =
-        this->random_walk_planner.generate_straight_rand_path(start_loc, timeout_duration);
+        this->random_walk_planner->generate_straight_rand_path(start_loc, timeout_duration);
     if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0) {
         RCLCPP_INFO(this->get_logger(), "Generated path with %ld points",
                     gen_path_opt.value().size());
@@ -288,7 +290,7 @@ void RandomWalkNode::timerCallback() {
             this->current_goal_location.translation.x, this->current_goal_location.translation.y,
             this->current_goal_location.translation.z);
         if (get_point_distance(current_point, goal_point) <
-            this->random_walk_planner.path_end_threshold_m) {
+            this->random_walk_planner->path_end_threshold_m) {
             this->is_path_executing = false;
             this->generated_paths.clear();
             RCLCPP_INFO(this->get_logger(), "Reached goal point");
