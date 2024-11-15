@@ -44,12 +44,12 @@ nav:
           - development/testing/unit_testing.md
           - development/testing/system_testing.md
           - development/testing/ci_cd.md
-      - Contributing: development/contributing.md
-      - ROS Frame Conventions: development/frame_conventions.md
+      - development/contributing.md
+      - development/frame_conventions.md
   - Robot:
       - robot/index.md
+      - robot/common_topics.md
       - Autonomy Modules:
-          - robot/autonomy/index.md
           - Interface: 
               - robot/autonomy/0_interface/index.md
           - Sensors:
@@ -59,17 +59,17 @@ nav:
               - robot/autonomy/2_perception/state_estimation.md
           - Local:
               - robot/autonomy/3_local/index.md
-              - World Model: robot/autonomy/3_local/world_model.md
-              - Planning: robot/autonomy/3_local/planning.md
-              - Controls: robot/autonomy/3_local/controls.md
+              - robot/autonomy/3_local/world_model.md
+              - robot/autonomy/3_local/planning.md
+              - robot/autonomy/3_local/controls.md
           - Global:
               - robot/autonomy/4_global/index.md
-              - World Model: robot/autonomy/4_global/world_model.md
-              - Planning: robot/autonomy/4_global/planning.md
+              - robot/autonomy/4_global/world_model.md
+              - robot/autonomy/4_global/planning.md
           - Behavior:
               - robot/autonomy/5_behavior/index.md
-              - Behavior Tree: robot/autonomy/5_behavior/behavior_tree.md
-              - Behavior Executive: robot/autonomy/5_behavior/behavior_executive.md
+              - robot/autonomy/5_behavior/behavior_tree.md
+              - robot/autonomy/5_behavior/behavior_executive.md
       - Static Transforms:
           - robot/static_transforms/index.md
       - Logging:
@@ -84,10 +84,9 @@ nav:
       - simulation/index.md
       - Isaac Sim:
           - simulation/isaac_sim/index.md
-          - Scene Setup: simulation/isaac_sim/scene_setup.md
-          - Ascent SITL Extension: simulation/isaac_sim/ascent_sitl_extension.md
-      - Gazebo:
-          - simulation/gazebo/scene_setup.md
+          - simulation/isaac_sim/export_stages_from_unreal.md
+          - simulation/isaac_sim/scene_setup.md
+          - simulation/isaac_sim/ascent_sitl_extension.md
   - Real World:
       - real_world/index.md
       - Installation on Hardware:

@@ -1,8 +1,6 @@
 # General Usage with Docker Compose
 
-AirStack is designed for multi-robot development, and is setup to run multiple robots in simulation.
-
-To mimic interacting with real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.
+To mimic interacting with multiple real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.
 
 The details of the docker compose setup is in `AirStack/docker-compose.yaml`.
 
