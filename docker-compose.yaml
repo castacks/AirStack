@@ -6,13 +6,15 @@ include:
 
 services:
   docs:  # live mkdocs container. open localhost:8000 in browser to see the docs
-    image: squidfunk/mkdocs-material
+    image: mkdocs_with_plugins
+    build:
+      dockerfile: docs/Dockerfile
+      tags:
+        - mkdocs_with_plugins
     container_name: docs
-    # network_mode: host
     ports:
       - "8000:8000"
     volumes:
-      # autonomy stack stuff
       - ./:/docs:rw
 
 networks:

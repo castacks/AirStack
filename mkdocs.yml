@@ -77,7 +77,6 @@ nav:
               - docs/robot/autonomy/4_global/index.md
               - World Model:
                 - docs/robot/autonomy/4_global/world_model/index.md
-                - robot/ros_ws/src/autonomy/global/a_world_models/vdb_mapping_ros2/README.md
               - Planning:
                 - docs/robot/autonomy/4_global/planning/index.md
                 - robot/ros_ws/src/autonomy/4_global/b_planners/random_walk/README.md
