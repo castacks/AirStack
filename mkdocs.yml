@@ -1,5 +1,12 @@
 ---
 copyright: Copyright &copy; 2024 - 2030 AirLab CMU
+docs_dir: .
+site_name: AirStack
+site_dir: ../site
+exclude_docs: |
+  **/ros_ws/build
+  **/ros_ws/install
+  **/kit-app-template/**
 extra:
   generator: false
   social:
@@ -31,75 +38,82 @@ markdown_extensions:
   - toc:
       permalink: true
 nav:
-  - Home: README.md
-  - Getting Started: getting_started.md
+  - Home: docs/README.md
+  - Getting Started: docs/getting_started.md
   - Development:
-      - development/index.md
-      - development/docker_usage.md
-      - development/vscode/index.md
+      - docs/development/index.md
+      - docs/development/docker_usage.md
+      - docs/development/vscode/index.md
       - Testing:
-          - development/testing/index.md
-          - development/testing/testing_frameworks.md
-          - development/testing/integration_testing.md
-          - development/testing/unit_testing.md
-          - development/testing/system_testing.md
-          - development/testing/ci_cd.md
-      - Contributing: development/contributing.md
-      - ROS Frame Conventions: development/frame_conventions.md
+          - docs/development/testing/index.md
+          - docs/development/testing/testing_frameworks.md
+          - docs/development/testing/integration_testing.md
+          - docs/development/testing/unit_testing.md
+          - docs/development/testing/system_testing.md
+          - docs/development/testing/ci_cd.md
+      - docs/development/contributing.md
+      - docs/development/frame_conventions.md
   - Robot:
-      - robot/index.md
+      - docs/robot/index.md
+      - docs/robot/common_topics.md
       - Autonomy Modules:
-          - robot/autonomy/index.md
-          - Interface: 
-              - robot/autonomy/0_interface/index.md
+          - Robot Interface: 
+              - docs/robot/autonomy/0_interface/index.md
           - Sensors:
-              - robot/autonomy/1_sensors/index.md
+              - docs/robot/autonomy/1_sensors/index.md
           - Perception:
-              - robot/autonomy/2_perception/index.md
-              - robot/autonomy/2_perception/state_estimation.md
+              - docs/robot/autonomy/2_perception/index.md
+              - docs/robot/autonomy/2_perception/state_estimation.md
           - Local:
-              - robot/autonomy/3_local/index.md
-              - World Model: robot/autonomy/3_local/world_model.md
-              - Planning: robot/autonomy/3_local/planning.md
-              - Controls: robot/autonomy/3_local/controls.md
+              - docs/robot/autonomy/3_local/index.md
+              - World Model:
+                - docs/robot/autonomy/3_local/world_model/index.md
+              - Planning:
+                - docs/robot/autonomy/3_local/planning/index.md
+              - Controls:
+                - docs/robot/autonomy/3_local/controls/index.md
+                - robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/README.md
           - Global:
-              - robot/autonomy/4_global/index.md
-              - World Model: robot/autonomy/4_global/world_model.md
-              - Planning: robot/autonomy/4_global/planning.md
+              - docs/robot/autonomy/4_global/index.md
+              - World Model:
+                - docs/robot/autonomy/4_global/world_model/index.md
+                - robot/ros_ws/src/autonomy/global/a_world_models/vdb_mapping_ros2/README.md
+              - Planning:
+                - docs/robot/autonomy/4_global/planning/index.md
+                - robot/ros_ws/src/autonomy/4_global/b_planners/random_walk/README.md
           - Behavior:
-              - robot/autonomy/5_behavior/index.md
-              - Behavior Tree: robot/autonomy/5_behavior/behavior_tree.md
-              - Behavior Executive: robot/autonomy/5_behavior/behavior_executive.md
+              - docs/robot/autonomy/5_behavior/index.md
+              - docs/robot/autonomy/5_behavior/behavior_tree.md
+              - docs/robot/autonomy/5_behavior/behavior_executive.md
       - Static Transforms:
-          - robot/static_transforms/index.md
+          - docs/robot/static_transforms/index.md
       - Logging:
-          - robot/logging/index.md
+          - docs/robot/logging/index.md
   - Ground Control Station:
-      - ground_control_station/index.md
+      - docs/ground_control_station/index.md
       - Usage:
-          - ground_control_station/usage/user_interface.md
+          - docs/ground_control_station/usage/user_interface.md
       - Multi-Robot:
-          - ground_control_station/multi_robot/multi_robot.md
+          - docs/ground_control_station/multi_robot/multi_robot.md
   - Simulation:
-      - simulation/index.md
+      - docs/simulation/index.md
       - Isaac Sim:
-          - simulation/isaac_sim/index.md
-          - Scene Setup: simulation/isaac_sim/scene_setup.md
-          - Ascent SITL Extension: simulation/isaac_sim/ascent_sitl_extension.md
-      - Gazebo:
-          - simulation/gazebo/scene_setup.md
+          - docs/simulation/isaac_sim/index.md
+          - docs/simulation/isaac_sim/export_stages_from_unreal.md
+          - docs/simulation/isaac_sim/scene_setup.md
+          - docs/simulation/isaac_sim/ascent_sitl_extension.md
   - Real World:
-      - real_world/index.md
+      - docs/real_world/index.md
       - Installation on Hardware:
-          - real_world/installation/index.md
-  - About: about.md
+          - docs/real_world/installation/index.md
+  - About: docs/about.md
 plugins:
   - search
+  - same-dir
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
-site_name: AirLab Autonomy Stack
 theme:
-  favicon: assets/StackedWhite.png
+  favicon: docs/assets/StackedWhite.png
   features:
     - navigation.indexes
     - navigation.path
@@ -113,17 +127,17 @@ theme:
     - toc.integrate
     - toc.follow
     - content.code.copy
-  logo: assets/logo_horizontal_white.png
+  logo: docs/assets/logo_horizontal_white.png
   name: material
   palette:
     - accent: pink
-      primary: '#CC002B'
+      primary: custom
       scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - accent: pink
-      primary: '#CC002B'
+      primary: custom
       scheme: slate
       toggle:
         icon: material/brightness-4

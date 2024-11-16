@@ -1,4 +1,4 @@
-# Interface
+# Robot Interface
 
 The interface defines the communication between the autonomy stack running on the onboard computer and the robot's control unit.
 For example, for drones it converts the control commands from the autonomy stack into MAVLink messages for the flight controller.

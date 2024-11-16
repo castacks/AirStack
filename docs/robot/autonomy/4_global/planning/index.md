@@ -1,4 +1,5 @@
-# Global Planning
+[//]: # "global"
+# Planning
 
 ![global_trajectory_diagram](global_trajectory.png)
 

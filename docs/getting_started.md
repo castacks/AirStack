@@ -18,7 +18,8 @@ git clone --recursive -j8 git@github.com:castacks/AirStack.git
 
 ### Docker
 
-Install [Docker Desktop](https://docs.docker.com/desktop/install/ubuntu/). This should come installed with docker compose.
+Follow [NVIDIA's instructions](https://docs.nvidia.com/ai-enterprise/deployment/vmware/latest/docker.html) for installing Docker to be compatible with NVIDIA GPUs, including adding the NVIDIA Container Toolkit.
+Make sure `docker-compose-plugin` is also installed with Docker.
 
 ## Configure
 
