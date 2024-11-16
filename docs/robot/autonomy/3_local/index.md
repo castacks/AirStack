@@ -1,4 +1,4 @@
-# Local
+# Local Packages
 The local module includes packages that are specific to the local autonomy of the robot. This includes local mapping, planning, and control.
 
 ## Launch

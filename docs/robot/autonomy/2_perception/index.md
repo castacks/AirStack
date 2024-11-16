@@ -7,3 +7,11 @@ Common perception modules include:
 
 - semantic segmentation
 - VIO (Visual Inertial Odometry)
+
+
+
+## Launch
+Launch files are under `src/robot/autonomy/perception/perception_bringup/launch`.
+
+The main launch command is `ros2 launch perception_bringup perception.launch.xml`.
+

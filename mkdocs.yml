@@ -75,8 +75,12 @@ nav:
                 - robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/README.md
           - Global:
               - docs/robot/autonomy/4_global/index.md
-              - docs/robot/autonomy/4_global/world_model.md
-              - docs/robot/autonomy/4_global/planning.md
+              - World Model:
+                - docs/robot/autonomy/4_global/world_model/index.md
+                - robot/ros_ws/src/autonomy/global/a_world_models/vdb_mapping_ros2/README.md
+              - Planning:
+                - docs/robot/autonomy/4_global/planning/index.md
+                - robot/ros_ws/src/autonomy/4_global/b_planners/random_walk/README.md
           - Behavior:
               - docs/robot/autonomy/5_behavior/index.md
               - docs/robot/autonomy/5_behavior/behavior_tree.md
