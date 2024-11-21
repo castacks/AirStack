@@ -1,6 +1,6 @@
-#include <disparity_map_representation/disparity_map_representation.hpp>
-namespace disparity_map_representation {
-DisparityGraphCostMap::DisparityGraphCostMap() : CostMap(), disp_graph() {
+#include <disparity_graph_cost_map/disparity_graph_cost_map.hpp>
+namespace disparity_graph_cost_map {
+DisparityGraphCostMap::DisparityGraphCostMap() : CostMapInterface(), disp_graph() {
     points_marker.ns = "obstacles";
     points_marker.id = 0;
     points_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
@@ -31,8 +31,8 @@ DisparityGraphCostMap::DisparityGraphCostMap() : CostMap(), disp_graph() {
 
 void DisparityGraphCostMap::initialize(const rclcpp::Node::SharedPtr& node_ptr,
                                        const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
-    RCLCPP_INFO(node_ptr->get_logger(), "DisparityMapRepresentation initialize called");
-    CostMap::initialize(node_ptr, tf_buffer_ptr);
+    RCLCPP_INFO(node_ptr->get_logger(), "DisparityGraphCostMap initialize called");
+    CostMapInterface::initialize(node_ptr, tf_buffer_ptr);
     node_ptr->declare_parameter<int>("obstacle_check_num_points", 69);
     node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(),
@@ -169,8 +169,8 @@ const visualization_msgs::msg::MarkerArray& DisparityGraphCostMap::get_debug_mar
     return marker_array;
 }
 
-}  // namespace disparity_map_representation
+}  // namespace disparity_graph_cost_map
 #include <pluginlib/class_list_macros.hpp>
 
-PLUGINLIB_EXPORT_CLASS(disparity_map_representation::DisparityGraphCostMap,
-                       map_representation_interface::CostMap)
+PLUGINLIB_EXPORT_CLASS(disparity_graph_cost_map::DisparityGraphCostMap,
+                       cost_map_interface::CostMapInterface)

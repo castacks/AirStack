@@ -3,10 +3,10 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <cost_map_interface/cost_map_interface.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <list>
-#include <map_representation_interface/map_representation.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -51,7 +51,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     GoalMode goal_mode;
     double custom_waypoint_timeout_factor, custom_waypoint_distance_threshold;
 
-    std::shared_ptr<map_representation_interface::CostMap> map_representation;
+    std::shared_ptr<cost_map_interface::CostMapInterface> cost_map;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
     tf2_ros::TransformListener tf_listener;
@@ -129,8 +129,8 @@ class DroanLocalPlanner : public rclcpp::Node {
         } else {
             RCLCPP_ERROR(this->get_logger(), "Invalid yaw_mode parameter");
         }
-        this->declare_parameter("map_representation", std::string("PointCloudMapRepresentation"));
-        this->get_parameter("map_representation", map_representation_class_string);
+        this->declare_parameter("cost_map", std::string("PointCloudMapRepresentation"));
+        this->get_parameter("cost_map", map_representation_class_string);
         this->declare_parameter("auto_waypoint_buffer_duration", 30.);
         this->get_parameter("auto_waypoint_buffer_duration", auto_waypoint_buffer_duration);
         this->declare_parameter("auto_waypoint_spacing_threshold", 0.5);
@@ -149,12 +149,12 @@ class DroanLocalPlanner : public rclcpp::Node {
     }
 
     void initialize() {
-        pluginlib::ClassLoader<map_representation_interface::CostMap> map_representation_loader(
-            "map_representation_interface", "map_representation_interface::MapRepresentation");
+        pluginlib::ClassLoader<cost_map_interface::CostMapInterface> map_representation_loader(
+            "cost_map_interface", "cost_map_interface::CostMapInterface");
         auto node_ptr = this->shared_from_this();
-        this->map_representation =
+        this->cost_map =
             map_representation_loader.createSharedInstance(map_representation_class_string);
-        this->map_representation->initialize(node_ptr, tf_buffer_ptr);
+        this->cost_map->initialize(node_ptr, tf_buffer_ptr);
         this->traj_lib = std::make_unique<TrajectoryLibrary>(
             this->get_parameter("trajectory_library_config").as_string(), node_ptr);
         double interval = 1. / this->execute_rate;
@@ -357,7 +357,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         }
 
         traj_lib_vis_pub->publish(traj_lib_marker_arr);
-        map_debug_pub->publish(this->map_representation->get_debug_markerarray());
+        map_debug_pub->publish(this->cost_map->get_debug_markerarray());
 
         bool is_success = !are_all_traj_in_collision;
         return {is_success, best_traj_ret};
@@ -368,9 +368,9 @@ class DroanLocalPlanner : public rclcpp::Node {
      */
     std::vector<std::vector<double>> get_trajectory_distances_to_closest_obstacle(
         const std::vector<Trajectory>& trajectory_candidates) {
-        // TODO: clearly we should refactor map_representation to accept Trajectory objects
+        // TODO: clearly we should refactor cost_map to accept Trajectory objects
         std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
-            this->map_representation->get_cost_per_waypoint(trajectory_candidates);
+            this->cost_map->get_cost_per_waypoint(trajectory_candidates);
         return trajectory_distances_to_closest_obstacle;
     }
 

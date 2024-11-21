@@ -1,14 +1,13 @@
-#ifndef _DISPARITY_MAP_REPRESENTATION_
-#define _DISPARITY_MAP_REPRESENTATION_
+#pragma once
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <cost_map_interface/cost_map_interface.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <map_representation_interface/map_representation.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
@@ -20,8 +19,8 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-namespace disparity_map_representation {
-class DisparityGraphCostMap : public map_representation_interface::CostMap {
+namespace disparity_graph_cost_map {
+class DisparityGraphCostMap : public cost_map_interface::CostMapInterface {
    private:
     disparity_graph::DisparityGraph disp_graph;
 
@@ -60,7 +59,7 @@ class DisparityGraphCostMap : public map_representation_interface::CostMap {
         return std::make_pair(side, up);
     }
 
-    geometry_msgs::msg::PoseStamped DisparityGraphCostMap::get_pose_at_direction_and_distance(
+    geometry_msgs::msg::PoseStamped get_pose_at_direction_and_distance(
         const Trajectory& trajectory, const Waypoint& waypoint, double dist,
         const tf2::Vector3 direction);
 
@@ -86,6 +85,4 @@ class DisparityGraphCostMap : public map_representation_interface::CostMap {
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,
                             const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) override;
 };
-}  // namespace disparity_map_representation
-
-#endif
+}  // namespace disparity_graph_cost_map

@@ -1,5 +1,4 @@
-#ifndef _CORE_MAP_REPRESENTATION_H_
-#define _CORE_MAP_REPRESENTATION_H_
+#pragma once
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -10,13 +9,13 @@
 #include <vector>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-namespace map_representation_interface {
+namespace cost_map_interface {
 
-class CostMap {
+class CostMapInterface {
    protected:
     rclcpp::Node::SharedPtr node_ptr;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
-    CostMap() {}
+    CostMapInterface() {}
 
    public:
     /**
@@ -39,16 +38,14 @@ class CostMap {
     */
     virtual const visualization_msgs::msg::MarkerArray& get_debug_markerarray() const {}
 
-    virtual ~CostMap() {}
+    virtual ~CostMapInterface() {}
 
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,
                             const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
-        RCLCPP_INFO(node_ptr->get_logger(), "MapRepresentation initialize called");
+        RCLCPP_INFO(node_ptr->get_logger(), "CostMapInterface initialize called");
         this->node_ptr = node_ptr;
         this->tf_buffer_ptr = tf_buffer_ptr;
     }
 };
 
-}  // namespace map_representation_interface
-
-#endif
+}  // namespace cost_map_interface

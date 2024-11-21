@@ -11,8 +11,8 @@ find_package(ament_cmake REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(map_representation_interface REQUIRED)
-# find_package(disparity_map_representation REQUIRED)
+find_package(cost_map_interface REQUIRED)
+# find_package(disparity_graph_cost_map REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -32,8 +32,8 @@ ament_target_dependencies(
   "airstack_msgs"
   "airstack_common"
   "nav_msgs"
-  "map_representation_interface"
-  # "disparity_map_representation"
+  "cost_map_interface"
+  # "disparity_graph_cost_map"
   "trajectory_controller"
   "trajectory_library"
   "pluginlib"

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(map_representation_interface)
+project(cost_map_interface)
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -17,13 +17,13 @@ find_package(visualization_msgs REQUIRED)
 find_package(trajectory_library REQUIRED)
 
 
-add_library(map_representation_interface src/map_representation_interface.cpp)
-target_include_directories(map_representation_interface PUBLIC
+add_library(cost_map_interface src/cost_map_interface.cpp)
+target_include_directories(cost_map_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(map_representation_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
+target_compile_features(cost_map_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
 ament_target_dependencies(
-  map_representation_interface
+  cost_map_interface
   # Required dependencies
   airstack_msgs
   geometry_msgs
@@ -38,10 +38,10 @@ ament_target_dependencies(
   visualization_msgs
   trajectory_library
 )
-ament_export_targets(map_representation_interface HAS_LIBRARY_TARGET)
+ament_export_targets(cost_map_interface HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp geometry_msgs tf2 tf2_ros)
 
-install(TARGETS map_representation_interface
+install(TARGETS cost_map_interface
   DESTINATION lib/${PROJECT_NAME})
 
 install(
@@ -50,8 +50,8 @@ install(
 )
 
 install(
-  TARGETS map_representation_interface
-  EXPORT map_representation_interface
+  TARGETS cost_map_interface
+  EXPORT cost_map_interface
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
