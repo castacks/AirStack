@@ -13,7 +13,7 @@ services:
       bash -c "ssh service restart;
       tmux new -d -s robot_bringup
       && tmux send-keys -t robot_bringup 
-      'if [ ! -d "ros_ws/install" ]; then bws && sws; fi;
+      'if [ ! -d "~/ros_ws/install" ]; then bws && sws; fi;
       ros2 launch robot_bringup robot.launch.xml' ENTER
       && sleep infinity"
     # Interactive shell
