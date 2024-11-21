@@ -4,19 +4,19 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <trajectory_library/trajectory_library.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <trajectory_library/trajectory_library.hpp>
 #include <vector>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 namespace map_representation_interface {
 
-class MapRepresentation {
+class CostMap {
    protected:
     rclcpp::Node::SharedPtr node_ptr;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
-    MapRepresentation() {}
+    CostMap() {}
 
    public:
     /**
@@ -25,7 +25,8 @@ class MapRepresentation {
        for each trajectory. There is a vector of doubles for each waypoint within a trajectory.
     */
 
-    virtual std::vector<std::vector<double> > get_values(const std::vector<Trajectory> &trajectories) = 0;
+    virtual std::vector<std::vector<double> > get_cost_per_waypoint(
+        const std::vector<Trajectory>& trajectories) = 0;
     /**
        Clears the map.
     */
@@ -38,7 +39,7 @@ class MapRepresentation {
     */
     virtual const visualization_msgs::msg::MarkerArray& get_debug_markerarray() const {}
 
-    virtual ~MapRepresentation() {}
+    virtual ~CostMap() {}
 
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,
                             const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {

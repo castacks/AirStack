@@ -5,7 +5,6 @@
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <trajectory_library/trajectory_library.hpp>
 #include <disparity_graph/disparity_graph.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -16,12 +15,13 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <trajectory_library/trajectory_library.hpp>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 namespace disparity_map_representation {
-class DisparityMapRepresentation : public map_representation_interface::MapRepresentation {
+class DisparityGraphCostMap : public map_representation_interface::CostMap {
    private:
     disparity_graph::DisparityGraph disp_graph;
 
@@ -59,19 +59,28 @@ class DisparityMapRepresentation : public map_representation_interface::MapRepre
 
         return std::make_pair(side, up);
     }
+
+    geometry_msgs::msg::PoseStamped DisparityGraphCostMap::get_pose_at_direction_and_distance(
+        const Trajectory& trajectory, const Waypoint& waypoint, double dist,
+        const tf2::Vector3 direction);
+
+    std::tuple<bool, bool, double> check_pose(const Trajectory& trajectory,
+                                              const Waypoint& waypoint, double dist,
+                                              const tf2::Vector3& direction,
+                                              double& closest_obstacle_distance);
     void check_pose_and_add_marker(const Trajectory& trajectory, const Waypoint& waypoint,
                                    double dist, const tf2::Vector3 direction,
                                    double& closest_obstacle_distance);
-tf2::Vector3 determine_waypoint_direction(const Trajectory& trajectory,
-                                                                      const Waypoint& waypoint,
-                                                                      size_t waypoint_index) ;
+    void add_marker(bool is_seen, bool is_free, const geometry_msgs::msg::PoseStamped& pose);
+    tf2::Vector3 determine_waypoint_direction(const Trajectory& trajectory,
+                                              const Waypoint& waypoint, size_t waypoint_index);
 
    public:
-    DisparityMapRepresentation();
+    DisparityGraphCostMap();
 
     virtual const visualization_msgs::msg::MarkerArray& get_debug_markerarray() const override;
 
-    virtual std::vector<std::vector<double> > get_values(
+    virtual std::vector<std::vector<double> > get_cost_per_waypoint(
         const std::vector<Trajectory>& trajectories) override;
 
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,

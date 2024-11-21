@@ -1,6 +1,6 @@
 #include <disparity_map_representation/disparity_map_representation.hpp>
 namespace disparity_map_representation {
-DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation(), disp_graph() {
+DisparityGraphCostMap::DisparityGraphCostMap() : CostMap(), disp_graph() {
     points_marker.ns = "obstacles";
     points_marker.id = 0;
     points_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
@@ -29,10 +29,10 @@ DisparityMapRepresentation::DisparityMapRepresentation() : MapRepresentation(), 
     Q_DIRECTIONS = {Q_UP, Q_DOWN, Q_LEFT, Q_RIGHT};
 }
 
-void DisparityMapRepresentation::initialize(const rclcpp::Node::SharedPtr& node_ptr,
-                                            const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
+void DisparityGraphCostMap::initialize(const rclcpp::Node::SharedPtr& node_ptr,
+                                       const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) {
     RCLCPP_INFO(node_ptr->get_logger(), "DisparityMapRepresentation initialize called");
-    MapRepresentation::initialize(node_ptr, tf_buffer_ptr);
+    CostMap::initialize(node_ptr, tf_buffer_ptr);
     node_ptr->declare_parameter<int>("obstacle_check_num_points", 69);
     node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(),
@@ -43,9 +43,9 @@ void DisparityMapRepresentation::initialize(const rclcpp::Node::SharedPtr& node_
     disp_graph.initialize(node_ptr, tf_buffer_ptr);
 }
 
-tf2::Vector3 DisparityMapRepresentation::determine_waypoint_direction(const Trajectory& trajectory,
-                                                                      const Waypoint& waypoint,
-                                                                      size_t waypoint_index) {
+tf2::Vector3 DisparityGraphCostMap::determine_waypoint_direction(const Trajectory& trajectory,
+                                                                 const Waypoint& waypoint,
+                                                                 size_t waypoint_index) {
     tf2::Vector3 waypoint_direction;
     if (trajectory.get_num_waypoints() == 1) {
         // edge case: only 1 waypoint, make direction match the waypoint's heading
@@ -63,8 +63,14 @@ tf2::Vector3 DisparityMapRepresentation::determine_waypoint_direction(const Traj
     return waypoint_direction;
 }
 
-std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
-    const std::vector<Trajectory> &trajectories) {
+/**
+ * @brief for each trajectory, return the distance to the closest obstacle for each waypoint
+ *
+ * @param trajectories
+ * @return std::vector<std::vector<double> >
+ */
+std::vector<std::vector<double> > DisparityGraphCostMap::get_cost_per_waypoint(
+    const std::vector<Trajectory>& trajectories) {
     marker_array.markers.clear();
     points_marker.points.clear();
     points_marker.colors.clear();
@@ -98,14 +104,18 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
                 for (int k = 1; k < obstacle_check_num_points + 1; k++) {
                     double dist = k * obstacle_check_radius / (obstacle_check_num_points + 1);
 
+                    // get pose to check
+                    // check the pose
+                    // add marker
+
                     check_pose_and_add_marker(trajectory, waypoint, dist, direction,
-                                            closest_obstacle_distance);
+                                              closest_obstacle_distance);
                 }
             }
 
             // check the waypoint itself
             check_pose_and_add_marker(trajectory, waypoint, 0, waypoint_direction,
-                                    closest_obstacle_distance);
+                                      closest_obstacle_distance);
 
             values[trajectory_index][waypoint_index] = closest_obstacle_distance;
         }
@@ -117,26 +127,29 @@ std::vector<std::vector<double> > DisparityMapRepresentation::get_values(
     return values;
 }
 
-void DisparityMapRepresentation::check_pose_and_add_marker(const Trajectory& trajectory,
-                                                           const Waypoint& waypoint, double dist,
-                                                           const tf2::Vector3 direction,
-                                                           double& closest_obstacle_distance) {
-    tf2::Vector3 point_to_check = waypoint.position() + dist * direction;
-    geometry_msgs::msg::PoseStamped pose_to_check;
-    pose_to_check.header.frame_id = trajectory.get_frame_id();
-    pose_to_check.header.stamp = trajectory.get_stamp();
-    pose_to_check.pose.position.x = point_to_check.x();
-    pose_to_check.pose.position.y = point_to_check.y();
-    pose_to_check.pose.position.z = point_to_check.z();
-    pose_to_check.pose.orientation.w = 1.0;
-    // RCLCPP_INFO_STREAM(node_ptr->get_logger(),
-    //                    "check_pose: " << check_pose.pose.position.x << " "
-    //                                   << check_pose.pose.position.y << " "
-    //                                   << check_pose.pose.position.z);
+geometry_msgs::msg::PoseStamped DisparityGraphCostMap::get_pose_at_direction_and_distance(
+    const Trajectory& trajectory, const Waypoint& waypoint, double dist,
+    const tf2::Vector3 direction) {
+    tf2::Vector3 target_to_check = waypoint.position() + dist * direction;
+    geometry_msgs::msg::PoseStamped target_pose;
+    target_pose.header.frame_id = trajectory.get_frame_id();
+    target_pose.header.stamp = trajectory.get_stamp();
+    target_pose.pose.position.x = target_to_check.x();
+    target_pose.pose.position.y = target_to_check.y();
+    target_pose.pose.position.z = target_to_check.z();
+    target_pose.pose.orientation.w = 1.0;
+    return target_pose;
+}
 
-    std_msgs::msg::ColorRGBA color;
+void DisparityGraphCostMap::check_pose_and_add_marker(const Trajectory& trajectory,
+                                                      const Waypoint& waypoint, double dist,
+                                                      const tf2::Vector3 direction,
+                                                      double& closest_obstacle_distance) {
+    auto pose_to_check = get_pose_at_direction_and_distance(trajectory, waypoint, dist, direction);
 
     auto [is_seen, is_free, occupancy] = disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
+
+    std_msgs::msg::ColorRGBA color;
     if (is_seen && is_free) {
         color = green;
     } else {
@@ -152,13 +165,12 @@ void DisparityMapRepresentation::check_pose_and_add_marker(const Trajectory& tra
     points_marker.colors.push_back(color);
 }
 
-const visualization_msgs::msg::MarkerArray& DisparityMapRepresentation::get_debug_markerarray()
-    const {
+const visualization_msgs::msg::MarkerArray& DisparityGraphCostMap::get_debug_markerarray() const {
     return marker_array;
 }
 
 }  // namespace disparity_map_representation
 #include <pluginlib/class_list_macros.hpp>
 
-PLUGINLIB_EXPORT_CLASS(disparity_map_representation::DisparityMapRepresentation,
-                       map_representation_interface::MapRepresentation)
+PLUGINLIB_EXPORT_CLASS(disparity_map_representation::DisparityGraphCostMap,
+                       map_representation_interface::CostMap)

@@ -51,7 +51,7 @@ class DroanLocalPlanner : public rclcpp::Node {
     GoalMode goal_mode;
     double custom_waypoint_timeout_factor, custom_waypoint_distance_threshold;
 
-    std::shared_ptr<map_representation_interface::MapRepresentation> map_representation;
+    std::shared_ptr<map_representation_interface::CostMap> map_representation;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
     tf2_ros::TransformListener tf_listener;
@@ -149,9 +149,8 @@ class DroanLocalPlanner : public rclcpp::Node {
     }
 
     void initialize() {
-        pluginlib::ClassLoader<map_representation_interface::MapRepresentation>
-            map_representation_loader("map_representation_interface",
-                                      "map_representation_interface::MapRepresentation");
+        pluginlib::ClassLoader<map_representation_interface::CostMap> map_representation_loader(
+            "map_representation_interface", "map_representation_interface::MapRepresentation");
         auto node_ptr = this->shared_from_this();
         this->map_representation =
             map_representation_loader.createSharedInstance(map_representation_class_string);
@@ -230,8 +229,9 @@ class DroanLocalPlanner : public rclcpp::Node {
             traj_pub->publish(best_traj_msg);
             RCLCPP_INFO_STREAM(this->get_logger(), "Published local trajectory");
         } else {
-            RCLCPP_INFO_STREAM(this->get_logger(),
-                               "No valid trajectories, all trajectories either collide or are unseen");
+            RCLCPP_INFO_STREAM(
+                this->get_logger(),
+                "No valid trajectories, all trajectories either collide or are unseen");
         }
         return true;
     }
@@ -274,6 +274,9 @@ class DroanLocalPlanner : public rclcpp::Node {
                 return {false, best_traj_ret};
             }
 
+            bool traj_has_collision = false;
+            bool traj_has_unobserved_waypoint = false;
+
             // for each waypoint in the trajectory, fetch its distance to its closest obstacle
             for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
@@ -285,9 +288,17 @@ class DroanLocalPlanner : public rclcpp::Node {
                 double waypoint_obst_dist = trajectory_distances_to_closest_obstacle.at(i).at(j);
                 std::cout << "trajectory " << i << " waypoint " << j << " obstacle distance "
                           << waypoint_obst_dist << std::endl;
+
                 closest_obstacle_distance =
                     std::min(closest_obstacle_distance,
                              trajectory_distances_to_closest_obstacle.at(i).at(j));
+
+                traj_has_collision = closest_obstacle_distance <= robot_radius;
+                traj_has_unobserved_waypoint = std::isnan(closest_obstacle_distance);
+
+                if (traj_has_collision || traj_has_unobserved_waypoint) {
+                    break;
+                }
 
                 // get the closest global plan point to the current trajectory waypoint
                 Waypoint closest_point_from_global_plan(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -308,21 +319,19 @@ class DroanLocalPlanner : public rclcpp::Node {
                         forward_progress_reward;
                 }
             }
-            avg_distance_from_global_plan /= traj.get_num_waypoints();
 
-            bool is_collision = closest_obstacle_distance <= robot_radius;
-            // RCLCPP_INFO_STREAM(this->get_logger(),
-            //                    "Trajectory " << i << " is_collision: " << is_collision
-            //                                  << " closest_obstacle_distance: "
-            //                                  << closest_obstacle_distance);
-            if (!is_collision) {
+            if (!traj_has_collision) {
                 are_all_traj_in_collision = false;
             }
 
+            // TODO: factor out this marker stuff
             std::string marker_ns = "trajectory_" + std::to_string(i);
 
             visualization_msgs::msg::MarkerArray traj_markers;
-            if (is_collision) {
+            if (traj_has_unobserved_waypoint) {
+                // gray for unobserved
+                traj_markers = traj.get_markers(this->now(), marker_ns, .7, .7, .7, .3);
+            } else if (traj_has_collision) {
                 // red for collision
                 traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3);
             } else {
@@ -335,12 +344,15 @@ class DroanLocalPlanner : public rclcpp::Node {
 
             // bigger distance from obstacles makes the cost smaller (more negative). cap by the
             // obstacle check radius
-            double cost = avg_distance_from_global_plan -
-                          obstacle_distance_reward *
-                              std::min(closest_obstacle_distance, obstacle_check_radius);
-            if (!is_collision && cost < min_cost) {
-                min_cost = cost;
-                best_traj_ret = traj;
+            if (!traj_has_collision && !traj_has_unobserved_waypoint) {
+                avg_distance_from_global_plan /= traj.get_num_waypoints();
+                double cost = avg_distance_from_global_plan -
+                              obstacle_distance_reward *
+                                  std::min(closest_obstacle_distance, obstacle_check_radius);
+                if (cost < min_cost) {
+                    min_cost = cost;
+                    best_traj_ret = traj;
+                }
             }
         }
 
@@ -358,7 +370,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         const std::vector<Trajectory>& trajectory_candidates) {
         // TODO: clearly we should refactor map_representation to accept Trajectory objects
         std::vector<std::vector<double>> trajectory_distances_to_closest_obstacle =
-            this->map_representation->get_values(trajectory_candidates);
+            this->map_representation->get_cost_per_waypoint(trajectory_candidates);
         return trajectory_distances_to_closest_obstacle;
     }
 
