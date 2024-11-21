@@ -30,6 +30,7 @@ class DisparityGraphCostMap : public cost_map_interface::CostMapInterface {
     std_msgs::msg::ColorRGBA gray;
     std_msgs::msg::ColorRGBA red;
 
+    double robot_radius;
     int obstacle_check_num_points;
     double obstacle_check_radius;
     tf2::Quaternion Q_UP, Q_DOWN, Q_LEFT, Q_RIGHT;
@@ -70,16 +71,18 @@ class DisparityGraphCostMap : public cost_map_interface::CostMapInterface {
     void check_pose_and_add_marker(const Trajectory& trajectory, const Waypoint& waypoint,
                                    double dist, const tf2::Vector3 direction,
                                    double& closest_obstacle_distance);
-    void add_marker(bool is_seen, bool is_free, const geometry_msgs::msg::PoseStamped& pose);
     tf2::Vector3 determine_waypoint_direction(const Trajectory& trajectory,
                                               const Waypoint& waypoint, size_t waypoint_index);
+
+    void add_check_marker(bool is_seen, bool is_free,
+                          const geometry_msgs::msg::PoseStamped& pose_to_check);
 
    public:
     DisparityGraphCostMap();
 
     virtual const visualization_msgs::msg::MarkerArray& get_debug_markerarray() const override;
 
-    virtual std::vector<std::vector<double> > get_cost_per_waypoint(
+    virtual std::vector<std::vector<double> > get_trajectory_costs_per_waypoint(
         const std::vector<Trajectory>& trajectories) override;
 
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,

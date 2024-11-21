@@ -251,20 +251,18 @@ void Trajectory::generate_waypoint_times() {
     generated_waypoint_times = true;
 }
 
-bool Trajectory::get_closest_point(tf2::Vector3 point, Waypoint* closest, int* wp_index,
-                                   double* path_distance) {
+std::tuple<bool, Waypoint, size_t, double> Trajectory::get_closest_point(tf2::Vector3 point) {
     double closest_distance = std::numeric_limits<double>::max();
     double best_t = 0;
     size_t best_wp_index = 0;
 
+    Waypoint closest(0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    double path_distance = 0;
+
     if (waypoints.size() == 0) {
-        if (wp_index != NULL) *wp_index = 0;
-        if (path_distance != NULL) path_distance = 0;
-        return false;
+        return std::make_tuple(false, closest, best_wp_index, path_distance);
     } else if (waypoints.size() == 1) {
-        *closest = waypoints[0];
-        best_wp_index = 0;
-        if (path_distance != NULL) path_distance = 0;
+        closest = waypoints[0];
     } else {
         for (size_t i = 1; i < waypoints.size(); i++) {
             // parameteric representation of segment between waypoints: segment_start +
@@ -283,30 +281,25 @@ bool Trajectory::get_closest_point(tf2::Vector3 point, Waypoint* closest, int* w
             double distance = closest_waypoint.position().distance(point);
             if (distance < closest_distance) {
                 closest_distance = distance;
-                *closest = closest_waypoint;  // closest_point;
+                closest = closest_waypoint;  // closest_point;
                 best_wp_index = i - 1;
                 best_t = t;
             }
         }
 
-        if (path_distance != NULL) {
-            *path_distance = 0;
-            for (size_t i = 0; i <= best_wp_index; i++) {
-                tf2::Vector3 segment_start = waypoints[i].position();
-                tf2::Vector3 segment_end = waypoints[i + 1].position();
-                tf2::Vector3 segment_vec = segment_end - segment_start;
+        for (size_t i = 0; i <= best_wp_index; i++) {
+            tf2::Vector3 segment_start = waypoints[i].position();
+            tf2::Vector3 segment_end = waypoints[i + 1].position();
+            tf2::Vector3 segment_vec = segment_end - segment_start;
 
-                if (i == best_wp_index)
-                    *path_distance += best_t * segment_vec.length();
-                else
-                    *path_distance += segment_vec.length();
-            }
+            if (i == best_wp_index)
+                path_distance += best_t * segment_vec.length();
+            else
+                path_distance += segment_vec.length();
         }
     }
 
-    if (wp_index != NULL) *wp_index = best_wp_index;
-
-    return true;
+    return std::make_tuple(true, closest, best_wp_index, path_distance);
 }
 
 bool Trajectory::get_trajectory_distance_at_closest_point(tf2::Vector3 point,
@@ -370,10 +363,8 @@ bool Trajectory::merge(Trajectory traj, double min_time) {
     }
 
     // tf2::Vector3 closest_point;
-    Waypoint closest_waypoint(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    int wp_index;
-    bool valid =
-        get_closest_point(transformed_traj.waypoints[0].position(), &closest_waypoint, &wp_index);
+    auto [valid, closest_waypoint, wp_index, path_distance] =
+        get_closest_point(transformed_traj.waypoints[0].position());
 
     if (closest_waypoint.get_time() >= min_time) {
         waypoints.erase(waypoints.begin() + wp_index + 1, waypoints.end());
@@ -948,7 +939,7 @@ visualization_msgs::msg::MarkerArray Trajectory::get_markers(rclcpp::Time stamp,
             arrow.pose.orientation.y = wp.quaternion().y();
             arrow.pose.orientation.z = wp.quaternion().z();
             arrow.pose.orientation.w = wp.quaternion().w();
-            arrow.scale.x = 0.2;  // length
+            arrow.scale.x = 0.2;   // length
             arrow.scale.y = 0.05;  // width
             arrow.scale.z = 0.05;  // height
             arrow.color.r = r;

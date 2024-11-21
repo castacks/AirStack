@@ -15,8 +15,8 @@
 
     # DROAN parameters
     robot_radius: 1.0
-    obstacle_distance_reward: 1.0
-    forward_progress_reward_weight: 0.5
+    safety_cost_weight: 1.0
+    forward_progress_forgiveness_weight: 0.5
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap

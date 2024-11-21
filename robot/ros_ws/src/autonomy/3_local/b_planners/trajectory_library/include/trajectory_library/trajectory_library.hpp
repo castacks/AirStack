@@ -91,8 +91,13 @@ class Trajectory {
     // Trajectory(airstack_msgs::msg::TrajectoryXYZVYaw path);
 
     void clear();
-    bool get_closest_point(tf2::Vector3 point, Waypoint* closest, int* wp_index = NULL,
-                           double* path_distance = NULL);
+    /**
+     * @brief Get the closest Waypoint of this trajectory to a given target point
+     * 
+     * @param point the target point
+     * @return std::tuple<bool, Waypoint, size_t, double> whether any are valid, the closest waypoint, the index of the closest waypoint, the distance along the path
+     */
+    std::tuple<bool, Waypoint, size_t, double> get_closest_point(tf2::Vector3 point);
     bool get_trajectory_distance_at_closest_point(tf2::Vector3 point, double* trajectory_distance);
     bool merge(Trajectory traj, double min_time = 0.0);
 

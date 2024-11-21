@@ -24,7 +24,7 @@ class CostMapInterface {
        for each trajectory. There is a vector of doubles for each waypoint within a trajectory.
     */
 
-    virtual std::vector<std::vector<double> > get_cost_per_waypoint(
+    virtual std::vector<std::vector<double> > get_trajectory_costs_per_waypoint(
         const std::vector<Trajectory>& trajectories) = 0;
     /**
        Clears the map.
