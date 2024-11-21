@@ -1,16 +1,15 @@
 
-#ifndef RANDOM_WALK_LOGIC_H
-#define RANDOM_WALK_LOGIC_H
+#pragma once
 
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <mutex>
 #include <optional>
 #include <random>
 #include <string>
 #include <tuple>
 #include <vector>
-#include <mutex>
 
 typedef std::vector<std::tuple<float, float, float, float>> Path;  // x, y, z, yaw
 
@@ -31,10 +30,11 @@ class RandomWalkPlanner {
     ~RandomWalkPlanner() = default;
 
     std::optional<Path> generate_straight_rand_path(
-        std::tuple<float, float, float, float> start_point, float timeout_duration);  // x, y, z, yaw
+        std::tuple<float, float, float, float> start_point,
+        float timeout_duration);  // x, y, z, yaw
 
     float path_end_threshold_m;
-    
+
     std::vector<std::tuple<float, float, float>> voxel_points;
 
    private:
@@ -66,5 +66,3 @@ double get_point_distance(const std::tuple<float, float, float>& point1,
 double deg2rad(double deg);
 
 double rad2deg(double rad);
-
-#endif  // RANDOM_WALK_LOGIC_H

@@ -1,25 +1,24 @@
-#ifndef _TRJAECTORY_LIBRARY_H_
-#define _TRJAECTORY_LIBRARY_H_
+#pragma once
 
+#include <yaml-cpp/yaml.h>
+
+#include <airstack_common/ros2_helper.hpp>
+#include <airstack_common/tflib.hpp>
 #include <airstack_msgs/msg/odometry.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <airstack_msgs/msg/waypoint_xyzv_yaw.hpp>
+#include <algorithm>
+#include <cctype>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sstream>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <yaml-cpp/yaml.h>
-
-#include <airstack_common/ros2_helper.hpp>
-#include <airstack_common/tflib.hpp>
-#include <algorithm>
-#include <cctype>
-#include <nav_msgs/msg/path.hpp>
-#include <sstream>
 
 class Trajectory;
 
@@ -301,5 +300,3 @@ class TrajectoryLibrary {
         return n["key"].as<T>();
     }
 };
-
-#endif
