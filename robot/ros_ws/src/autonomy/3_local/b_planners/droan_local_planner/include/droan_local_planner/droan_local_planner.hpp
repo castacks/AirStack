@@ -258,6 +258,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         auto trajectory_safety_costs_per_waypoint =
             this->cost_map->get_trajectory_costs_per_waypoint(trajectory_candidates);
 
+        // for each trajectory
         for (size_t i = 0; i < trajectory_candidates.size(); ++i) {
             Trajectory traj = trajectory_candidates[i];
 
@@ -275,7 +276,8 @@ class DroanLocalPlanner : public rclcpp::Node {
 
             double min_safety_cost = std::numeric_limits<double>::infinity();
             double total_deviation_from_global_plan = std::numeric_limits<double>::infinity();
-            // for each waypoint in the trajectory, fetch its forward progress cost
+            // for each waypoint in the trajectory, fetch its 
+            // (1) safety cost and (2) deviation from global plan cost
             for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
 

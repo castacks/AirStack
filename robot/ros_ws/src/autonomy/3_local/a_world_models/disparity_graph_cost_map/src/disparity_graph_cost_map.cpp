@@ -109,9 +109,18 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
 
             std::set<tf2::Vector3> direction_vectors = {up, side, -up, -side};
 
+            // for this waypoint, check around the waypoint for obstacles
+            // the cost is inversely proportional to how close the nearest non-free space is
+            // if the nearest occupied space is within the robot radius, the cost is infinite
+            // if the nearest unknown space is within the robot radius, the cost is NAN
             bool has_checked_center = false;
+            double cost;
             double closest_distance_to_unsafe = std::numeric_limits<double>::infinity();
+            bool is_non_free_within_robot_radius = false;
             for (auto direction : direction_vectors) {
+                if (is_non_free_within_robot_radius) {
+                    break;
+                }
                 for (int k = 0; k < obstacle_check_num_points + 1; k++) {
                     if (k == 0 && has_checked_center) {
                         continue;
@@ -135,25 +144,28 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                     if (dist <= this->robot_radius && !is_free) {
                         cost_values[trajectory_index][waypoint_index] =
                             std::numeric_limits<double>::infinity();
-                        goto end_waypoint_check;
+                        is_non_free_within_robot_radius = true;
+                        break;
                     }
                     // if the point is within the robot radius, and is unobserved, the cost is NAN
                     if (dist <= this->robot_radius && !is_seen) {
                         cost_values[trajectory_index][waypoint_index] =
                             std::numeric_limits<double>::quiet_NaN();
-                        goto end_waypoint_check;
+                        is_non_free_within_robot_radius = true;
+                        break;
                     }
-                    // otherwise if the point is not within the robot radius, and is not free or not
+                    // otherwise if the point is beyond the robot radius, yet it is not free or not
                     // seen, say the cost is the distance
                     if (!is_seen || !is_free) {
                         closest_distance_to_unsafe = std::min(dist, closest_distance_to_unsafe);
+                        // we can break here because we know the closest distance for this direction,
+                        // don't have to check farther distances
+                        break;
                     }
                 }
             }
-            double cost = 1 / (1 + closest_distance_to_unsafe);
+            cost = 1 / (1 + closest_distance_to_unsafe);
             cost_values[trajectory_index][waypoint_index] = cost;
-
-        end_waypoint_check:
             // continue to next waypoint
         }
     }
