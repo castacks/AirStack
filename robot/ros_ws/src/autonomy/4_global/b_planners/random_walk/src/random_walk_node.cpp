@@ -269,7 +269,7 @@ void RandomWalkNode::timerCallback() {
             RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
         }
     } catch (tf2::TransformException & ex) {
-        RCLCPP_ERROR(this->get_logger(), "Could not get robot tf: %s", ex.what());
+        RCLCPP_ERROR_ONCE(this->get_logger(), "Robot tf not yet received: %s", ex.what());
     }
 
     if (this->enable_random_walk && !this->is_path_executing) {
@@ -280,7 +280,7 @@ void RandomWalkNode::timerCallback() {
             this->publish_plan();
             this->is_path_executing = true;
         } else {
-            RCLCPP_INFO(this->get_logger(), "Waiting for map and robot tf to be received...");
+            RCLCPP_INFO_ONCE(this->get_logger(), "Waiting for map and robot tf to be received...");
         }
     } else if (this->enable_random_walk && this->is_path_executing) {
         std::tuple<float, float, float> current_point = std::make_tuple(
