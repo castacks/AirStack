@@ -3,7 +3,7 @@
 
 namespace vis{
 
-  Marker::Marker(std::string frame_id, rclcpp::Time stamp, std::string ns, size_t id, int type){
+  Marker::Marker(std::string frame_id, rclcpp::Time stamp, std::string ns, int id, int type){
     marker.header.frame_id = frame_id;
     marker.header.stamp = stamp;
     marker.ns = ns;
