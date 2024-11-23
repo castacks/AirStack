@@ -34,7 +34,7 @@ void DisparityGraphCostMap::initialize(const rclcpp::Node::SharedPtr& node_ptr,
     RCLCPP_INFO(node_ptr->get_logger(), "DisparityGraphCostMap initialize called");
     CostMapInterface::initialize(node_ptr, tf_buffer_ptr);
 
-    node_ptr->declare_parameter<int>("robot_radius", 1.0);
+    node_ptr->declare_parameter<double>("robot_radius", 1.0);
     node_ptr->get_parameter("robot_radius", this->robot_radius);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(), "robot_radius: " << this->robot_radius);
 

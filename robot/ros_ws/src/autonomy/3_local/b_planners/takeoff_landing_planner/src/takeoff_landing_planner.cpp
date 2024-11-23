@@ -80,8 +80,8 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
 }
 
 void TakeoffLandingPlanner::timer_callback() {
-  RCLCPP_INFO_STREAM(this->get_logger(),
-		     "conditions: " << got_completion_percentage << " " << is_tracking_point_received << " " << got_robot_odom);
+//   RCLCPP_INFO_STREAM(this->get_logger(),
+// 		     "conditions: " << got_completion_percentage << " " << is_tracking_point_received << " " << got_robot_odom);
     if (!got_completion_percentage || !is_tracking_point_received || !got_robot_odom) return;
 
     std_msgs::msg::String takeoff_state, landing_state;

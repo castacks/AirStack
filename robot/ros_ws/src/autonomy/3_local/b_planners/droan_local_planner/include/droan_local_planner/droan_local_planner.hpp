@@ -37,7 +37,6 @@ class DroanLocalPlanner : public rclcpp::Node {
 
     double execute_rate, obstacle_check_radius, safety_cost_weight,
         forward_progress_forgiveness_weight;
-    double robot_radius;
 
     float auto_waypoint_buffer_duration, auto_waypoint_spacing_threshold,
         auto_waypoint_angle_threshold;
@@ -119,8 +118,6 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->declare_parameter("forward_progress_forgiveness_weight", 0.5);
         this->get_parameter("forward_progress_forgiveness_weight",
                             forward_progress_forgiveness_weight);
-        this->declare_parameter("robot_radius", 0.75);
-        this->get_parameter("robot_radius", robot_radius);
         this->declare_parameter("yaw_mode", "SMOOTH_YAW");
         auto yaw_mode_str = this->get_parameter("yaw_mode").as_string();
         if (yaw_mode_str == "TRAJECTORY_YAW") {
@@ -276,7 +273,7 @@ class DroanLocalPlanner : public rclcpp::Node {
 
             double min_safety_cost = std::numeric_limits<double>::infinity();
             double total_deviation_from_global_plan = std::numeric_limits<double>::infinity();
-            // for each waypoint in the trajectory, fetch its 
+            // for each waypoint in the trajectory, fetch its
             // (1) safety cost and (2) deviation from global plan cost
             for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
@@ -284,6 +281,7 @@ class DroanLocalPlanner : public rclcpp::Node {
                 double safety_cost = trajectory_safety_costs_per_waypoint.at(i).at(j);
                 if (safety_cost == std::numeric_limits<double>::infinity()) {
                     is_traj_unsafe_because_occupied = true;
+                    // don't consider this trajectory as a best option, just add the debug marker
                     goto add_marker;
                 } else if (std::isnan(safety_cost)) {
                     is_traj_unsafe_because_unobserved = true;
@@ -310,18 +308,14 @@ class DroanLocalPlanner : public rclcpp::Node {
                 }
             }
 
-            if (!is_traj_unsafe_because_occupied) {
-                is_at_least_one_trajectory_valid = true;
-            }
-
             // bigger distance from obstacles makes the cost smaller (more negative). cap by the
             // obstacle check radius
             if (!is_traj_unsafe_because_occupied && !is_traj_unsafe_because_unobserved) {
-                double avg_deviation_from_global_plan = total_deviation_from_global_plan /=
-                    traj.get_num_waypoints();
-                // double cost = avg_distance_from_global_plan -
-                //               safety_cost_weight *
-                //                   std::min(closest_obstacle_distance, obstacle_check_radius);
+                is_at_least_one_trajectory_valid = true;
+
+                double avg_deviation_from_global_plan =
+                    total_deviation_from_global_plan / traj.get_num_waypoints();
+
                 double cost = avg_deviation_from_global_plan + safety_cost_weight * min_safety_cost;
                 if (cost < min_cost) {
                     min_cost = cost;
