@@ -3,8 +3,8 @@ name: Dockerfile Version Check
 on:
   pull_request:
     paths:
-      - "docker/Dockerfile.*"
-      - "docker/docker-compose.yaml"
+      - "**/Dockerfile.*"
+      - "**/docker-compose.yaml"
 
 jobs:
   check-docker-version:
@@ -16,7 +16,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          sparse-checkout: docker/
+          sparse-checkout: |
+            simulation/isaac-sim/docker
+            robot/docker
+            ground_control_station/docker
 
       # Fetch base branch (e.g., 'main') for comparison
       - name: Fetch base branch for comparison
@@ -34,6 +37,11 @@ jobs:
             ["airstack-dev"]="Dockerfile.airstack-dev"
             # Add more mappings here
           )
+          image_name_to_dockercompose=( 
+            ["isaac-sim_ros-humble"]="simulation/isaac-sim/docker/docker-compose.yaml"
+            ["airstack-dev"]="robot/docker/docker-compose.yaml"
+            # Add more mappings here
+          )
 
           # Compare the current branch with the base branch
           changes=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
@@ -41,25 +49,26 @@ jobs:
           # Loop through each image_name and its Dockerfile
           for image_name in "${!image_name_to_dockerfile[@]}"; do
             dockerfile="${image_name_to_dockerfile[$image_name]}"
+            dockercomposefile="${image_name_to_dockercompose[$image_name]}"
 
             # If the Dockerfile for this image_name has been changed
             if echo "$changes" | grep -q "$dockerfile"; then
               echo "Dockerfile for $image_name has changed."
 
               # Check if the docker-compose.yaml contains an image version for this image_name (vX.Y.Z)
-              if grep -qE "image: .*/$image_name:.*v[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml; then
+              if grep -qE "image: .*/$image_name:.*v[0-9]+\.[0-9]+\.[0-9]+" $dockercomposefile; then
                 # Extract the full version (vX.Y.Z)
-                version_on_main=$(git show origin/${{ github.base_ref }}:docker/docker-compose.yaml | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
+                version_on_main=$(git show origin/${{ github.base_ref }}:$dockercomposefile | grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+")
                 echo "version_on_main=$version_on_main"
 
                 # Split current version into major, minor, patch
                 IFS='.' read -r current_major current_minor current_patch <<< "$version_on_main"
 
                 # Check if the image version for this image_name has been incremented in this PR
-                version_this_branch=$(grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+" docker-compose.yaml)
+                version_this_branch=$(grep -oP "image: .*/$image_name:v\K[0-9]+\.[0-9]+\.[0-9]+" $dockercomposefile)
 
                 if [ -z "$version_this_branch" ]; then
-                  echo "::error::Dockerfile for $image_name was modified but image version in docker-compose.yaml was not updated."
+                  echo "::error::Dockerfile for $image_name was modified but image version in $dockercomposefile was not updated."
                   exit 1
                 fi
 
@@ -72,13 +81,13 @@ jobs:
                 if [ "$new_major" -gt "$current_major" ] || \
                   ([ "$new_major" -eq "$current_major" ] && [ "$new_minor" -gt "$current_minor" ]) || \
                   ([ "$new_major" -eq "$current_major" ] && [ "$new_minor" -eq "$current_minor" ] && [ "$new_patch" -gt "$current_patch" ]); then
-                  echo "Image version for $image_name has been incremented in docker-compose.yaml."
+                  echo "Image version for $image_name has been incremented in $dockercomposefile."
                 else
-                  echo "::error::Dockerfile for $image_name was modified but the image version in docker-compose.yaml was not correctly incremented."
+                  echo "::error::Dockerfile for $image_name was modified but the image version in $dockercomposefile was not correctly incremented."
                   exit 1
                 fi
               else
-                echo "::error::No valid image version (vX.Y.Z) found in docker-compose.yaml for $image_name."
+                echo "::error::No valid image version (vX.Y.Z) found in $dockercomposefile for $image_name."
                 exit 1
               fi
             else
