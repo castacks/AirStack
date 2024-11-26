@@ -68,13 +68,10 @@ class DisparityGraphCostMap : public cost_map_interface::CostMapInterface {
                                               const Waypoint& waypoint, double dist,
                                               const tf2::Vector3& direction,
                                               double& closest_obstacle_distance);
-    void check_pose_and_add_marker(const Trajectory& trajectory, const Waypoint& waypoint,
-                                   double dist, const tf2::Vector3 direction,
-                                   double& closest_obstacle_distance);
     tf2::Vector3 determine_waypoint_direction(const Trajectory& trajectory,
                                               const Waypoint& waypoint, size_t waypoint_index);
 
-    void add_check_marker(bool is_seen, bool is_free,
+    void add_check_marker(bool is_seen, bool is_free, double distance,
                           const geometry_msgs::msg::PoseStamped& pose_to_check);
 
    public:
