@@ -110,6 +110,9 @@ nav:
 plugins:
   - search
   - same-dir
+  - redirects:
+      redirect_maps:
+        'README.md': 'docs/README.md'
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
 theme:
