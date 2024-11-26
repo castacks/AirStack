@@ -1,9 +1,10 @@
 
-#ifndef RANDOM_WALK_NODE_H
-#define RANDOM_WALK_NODE_H
+#pragma once
 
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <array>
 #include <cmath>
@@ -15,8 +16,6 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 #include <tf2_msgs/msg/tf_message.hpp>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/buffer.h>
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
@@ -95,5 +94,3 @@ class RandomWalkNode : public rclcpp::Node {
     // ROS timers
     rclcpp::TimerBase::SharedPtr timer;
 };
-
-#endif  // RANDOM_WALK_NODE_H

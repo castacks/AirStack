@@ -17,5 +17,5 @@
     max_z_change_m: 0.1 # max height that the goal can deviate from the current height
     collision_padding_m: 0.1 # how much space should the path have to any obstacles
     path_end_threshold_m: 0.1 # how close to the goal will the path be considered complete
-    max_z_angle_change_rad: 1.5708 # how much the goal can deviate from the current orientation
+    max_z_angle_change_rad: 1.0 # how much the goal can deviate from the current orientation
 

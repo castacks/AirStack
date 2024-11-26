@@ -124,7 +124,7 @@ namespace vis{
     va_list list;
     va_start(list, lines);
 
-    for(int i = 0; i < lines; i++){
+    for(size_t i = 0; i < lines; i++){
       float x1 = va_arg(list, double);
       float y1 = va_arg(list, double);
       float z1 = va_arg(list, double);
@@ -148,7 +148,7 @@ namespace vis{
     Marker marker(frame_id, stamp, ns, id++, visualization_msgs::msg::Marker::LINE_STRIP);
     marker.set_scale(width, 0, 0);
     
-    for(int i = 0; i < points.size(); i++){
+    for(size_t i = 0; i < points.size(); i++){
       PointColor& pc = points[i];
       marker.add_point(pc.x, pc.y, pc.z);
       marker.add_color(pc.r, pc.g, pc.b, pc.a);
@@ -177,7 +177,7 @@ namespace vis{
   }
 
   void MarkerArray::overwrite(){
-    for(int i = 0; i < markers.size(); i++)
+    for(size_t i = 0; i < markers.size(); i++)
       markers[i].set_action(visualization_msgs::msg::Marker::DELETE);
     id = 0;
   }
@@ -198,7 +198,7 @@ namespace vis{
   visualization_msgs::msg::MarkerArray MarkerArray::get_marker_array(){
     visualization_msgs::msg::MarkerArray marker_array;
     
-    for(int i = 0; i < markers.size(); i++){
+    for(size_t i = 0; i < markers.size(); i++){
       marker_array.markers.push_back(markers[i].get_marker());
     }
     

@@ -58,14 +58,14 @@ class DisparityExpansionNode : public rclcpp::Node {
         unsigned int idx2;
     };
     int lut_max_disparity;
-    double robot_radius;
+    double expansion_radius;
     double padding;
     double bg_multiplier;
     double pixel_error;
     double scale;
     std::vector<std::vector<LUTCell>> table_u;
     std::vector<std::vector<LUTCell>> table_v;
-    double table_d[200];
+    std::vector<double> table_d;
     double fx, fy, cx, cy;
     unsigned int width, height;
 

@@ -1,32 +1,26 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>disparity_map_representation</name>
+  <name>cost_map_interface</name>
   <version>0.0.0</version>
-  <description>The disparity_map_representation package</description>
+  <description>The cost_map_interface package</description>
 
   <maintainer email="john@todo.todo">john</maintainer>
   <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>airstack_common</depend>
-  <depend>airstack_msgs</depend>
-  <depend>map_representation_interface</depend>
-  <depend>cv_bridge</depend>
-  <depend>disparity_graph</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
-  <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
-  <depend>stereo_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
-  <depend>tf2_geometry_msgs</depend>
   <depend>visualization_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>airstack_msgs</depend>
   <depend>trajectory_library</depend>
 
   <test_depend>ament_lint_auto</test_depend>

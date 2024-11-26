@@ -10,7 +10,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>airstack_msgs</depend>
-  <depend>map_representation_interface</depend>
+  <depend>cost_map_interface</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>

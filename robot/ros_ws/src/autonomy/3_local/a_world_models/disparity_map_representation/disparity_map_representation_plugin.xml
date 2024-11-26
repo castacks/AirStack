@@ -1,6 +1,0 @@
-<library path="disparity_map_representation">
-  <class type="disparity_map_representation::DisparityMapRepresentation"
-    base_class_type="map_representation_interface::MapRepresentation">
-    <description>Disparity map representation plugin.</description>
-  </class>
-</library>

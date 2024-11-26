@@ -56,14 +56,12 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        American_Beech:
-          Value: true
-        Plane:
-          Value: true
         base_link:
           Value: true
         base_link_frd:
           Value: false
+        base_link_ground_truth:
+          Value: true
         base_link_stabilized:
           Value: false
         front_stereo:
@@ -101,11 +99,9 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
-          American_Beech:
-            {}
-          Plane:
-            {}
           map_FLU:
+            base_link_ground_truth:
+              {}
             map:
               base_link:
                 base_link_frd:
@@ -266,22 +262,22 @@ Visualization Manager:
                 Value: /robot_1/droan/disparity_map_debug
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
+              Enabled: true
               Name: Disparity Graph Poses
               Namespaces:
-                {}
+                pose: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /robot_1/droan/disparity_graph
-              Value: false
+              Value: true
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
               Name: Trimmed Global Plan for DROAN
               Namespaces:
-                global_plan: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -336,7 +332,7 @@ Visualization Manager:
               Use rainbow: true
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
+              Enabled: true
               Name: Traj Library
               Namespaces:
                 {}
@@ -346,7 +342,7 @@ Visualization Manager:
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: droan/trajectory_library_vis
-              Value: false
+              Value: true
           Enabled: true
           Name: DROAN
         - Class: rviz_common/Group
@@ -470,25 +466,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 14.309243202209473
+      Distance: 21.319120407104492
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 3.3486995697021484
-        Y: -0.9512473344802856
-        Z: 1.4642823934555054
+        X: 1.0440632104873657
+        Y: 1.6269922256469727
+        Z: 0.25401341915130615
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.47539615631103516
+      Pitch: 0.390395849943161
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.9035723209381104
+      Yaw: 0.8517506122589111
     Saved: ~
 Window Geometry:
   Displays:

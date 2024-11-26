@@ -1,5 +1,4 @@
-#ifndef _TAKEOFF_LANDING_PLANNER_H_
-#define _TAKEOFF_LANDING_PLANNER_H_
+#pragma once
 
 #include <airstack_common/tflib.hpp>
 #include <airstack_msgs/msg/odometry.hpp>
@@ -60,7 +59,7 @@ class TakeoffLandingPlanner : public rclcpp::Node {
 
     // services
     rclcpp::Service<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr command_server;
-    
+
     // timers
     rclcpp::TimerBase::SharedPtr timer;
 
@@ -79,5 +78,3 @@ class TakeoffLandingPlanner : public rclcpp::Node {
     TakeoffLandingPlanner();
     void timer_callback();
 };
-
-#endif
