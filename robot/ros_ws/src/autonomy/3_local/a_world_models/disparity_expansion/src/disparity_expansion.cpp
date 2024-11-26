@@ -12,8 +12,8 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     : Node("DisparityExpansionNode", options) {
     this->declare_parameter("scale", 2.0);
     this->get_parameter("scale", this->scale);
-    this->declare_parameter("robot_radius", 2.0);
-    this->get_parameter("robot_radius", this->robot_radius);
+    this->declare_parameter("expansion_radius", 2.0);
+    this->get_parameter("expansion_radius", this->expansion_radius);
     this->declare_parameter("lut_max_disparity", 164);
     this->get_parameter("lut_max_disparity", this->lut_max_disparity);
     this->declare_parameter("padding", 2.0);
@@ -87,7 +87,7 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
     }
     RCLCPP_INFO(this->get_logger(), "Fx Fy Cx Cy: %f %f , %f %f \nW H this->baseline: %d %d %f",
                 this->fx, this->fy, this->cx, this->cy, this->width, this->height, this->baseline);
-    double r = this->robot_radius;  // expansion radius in cm
+    double r = this->expansion_radius;  // expansion radius in cm
     this->table_u = std::vector<std::vector<LUTCell>>(this->lut_max_disparity,
                                                       std::vector<LUTCell>(this->width));
     this->table_v = std::vector<std::vector<LUTCell>>(this->lut_max_disparity,
@@ -98,10 +98,10 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
 
     for (unsigned int disp_idx = 1; disp_idx < lut_max_disparity; disp_idx++) {
         disparity = disp_idx / this->scale;  // 1 cell = 0.5m, z is in meters
-        r = this->robot_radius;              // * exp(DEPTH_ERROR_COEFF*z);
+        r = this->expansion_radius;          // * exp(DEPTH_ERROR_COEFF*z);
         z = this->baseline * this->fx / disparity;
 
-        double disp_new = this->baseline * this->fx / (z - this->robot_radius) + 0.5;
+        double disp_new = this->baseline * this->fx / (z - this->expansion_radius) + 0.5;
         table_d.at(disp_idx) = disp_new;
 
         for (int v = (int)height - 1; v >= 0; --v) {
@@ -154,7 +154,7 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
     }
 
     RCLCPP_WARN(this->get_logger(), "Expansion LUT created: LUT MAX: %d , ROBOT SIZE: %f",
-                lut_max_disparity / 2, this->robot_radius);
+                lut_max_disparity / 2, this->expansion_radius);
     this->LUT_ready = true;
 }
 
@@ -317,10 +317,10 @@ void DisparityExpansionNode::process_disparity_image(
 
             cv::Mat submat;
             cv::divide(baseline * this->fx, submat_t, submat);
-            submat = (submat - disp_to_depth);  /// this->robot_radius;
+            submat = (submat - disp_to_depth);  /// this->expansion_radius;
 
             if (this->padding < 0.0) {
-                float range = this->bg_multiplier * this->robot_radius;
+                float range = this->bg_multiplier * this->expansion_radius;
                 float max_depth = 0.0;
                 bool found = true;
                 int ctr = 1;
@@ -393,17 +393,17 @@ void DisparityExpansionNode::process_disparity_image(
             float disp_new_bg;
             float disp_to_depth = this->baseline * this->fx / max;
 
-            disp_new_fg = this->baseline * this->fx / (disp_to_depth - this->robot_radius) +
+            disp_new_fg = this->baseline * this->fx / (disp_to_depth - this->expansion_radius) +
                           this->pixel_error;
 
             cv::Mat submat;
             cv::divide(baseline * this->fx, submat_t, submat);
             cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
             disp_to_depth = this->baseline * this->fx / max;
-            submat = (submat - disp_to_depth);  /// this->robot_radius;
+            submat = (submat - disp_to_depth);  /// this->expansion_radius;
 
             if (this->padding < 0.0) {
-                float range = this->bg_multiplier * this->robot_radius;
+                float range = this->bg_multiplier * this->expansion_radius;
                 float max_depth = 0.0;
                 bool found = true;
                 int ctr = 1;
@@ -424,7 +424,7 @@ void DisparityExpansionNode::process_disparity_image(
             } else
                 disp_to_depth += this->padding;  // this->baseline * this->fx/min;
 
-            disp_new_bg = this->baseline * this->fx / (disp_to_depth + this->robot_radius) -
+            disp_new_bg = this->baseline * this->fx / (disp_to_depth + this->expansion_radius) -
                           this->pixel_error;
             disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
 

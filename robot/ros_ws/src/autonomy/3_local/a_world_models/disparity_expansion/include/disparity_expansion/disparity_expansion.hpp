@@ -58,7 +58,7 @@ class DisparityExpansionNode : public rclcpp::Node {
         unsigned int idx2;
     };
     int lut_max_disparity;
-    double robot_radius;
+    double expansion_radius;
     double padding;
     double bg_multiplier;
     double pixel_error;
