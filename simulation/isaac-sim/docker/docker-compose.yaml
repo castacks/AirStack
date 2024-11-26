@@ -1,7 +1,7 @@
 services:
 # ==============================================================================
   isaac-sim:
-    image: &isaac-sim-image airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.2
+    image: &isaac-sim-image airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.3
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros

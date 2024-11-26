@@ -63,12 +63,12 @@ RUN cd /tmp/ && \
     rm -rf /tmp/IsaacSim-ros_workspaces-main
 
 # copy over the AscentAeroSystemsSITLPackage
-COPY docker/isaac-sim/AscentAeroSystemsSITLPackage /AscentAeroSystemsSITLPackage
+COPY sitl_integration/AscentAeroSystemsSITLPackage /AscentAeroSystemsSITLPackage
 
 # the user.config.json file specifies to auto load the SITL extensions
-COPY docker/isaac-sim/user.config.json /root/.local/share/ov/data/Kit/Isaac-Sim/4.1/user.config.json
+COPY docker/user.config.json /root/.local/share/ov/data/Kit/Isaac-Sim/4.1/user.config.json
 
-COPY ros_ws/fastdds.xml /isaac-sim/fastdds.xml
+COPY docker/fastdds.xml /isaac-sim/fastdds.xml
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge -y git &&  apt autoremove -y \
