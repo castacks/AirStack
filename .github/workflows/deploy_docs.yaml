@@ -5,6 +5,7 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "*.md"
+      - ".github/workflows/deploy_docs.yaml"
     branches:
       - master 
       - main
