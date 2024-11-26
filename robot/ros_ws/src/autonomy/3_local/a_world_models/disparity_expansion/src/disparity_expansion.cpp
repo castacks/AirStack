@@ -64,7 +64,7 @@ void DisparityExpansionNode::set_cam_info(
     this->fx = this->fy = this->model_.fx() / this->downsample_scale;
     this->width = msg_info->width / this->downsample_scale;
     this->height = msg_info->height / this->downsample_scale;
-    this->baseline = -msg_info->p[3] / msg_info->p[0];
+    this->baseline = -msg_info->p.at(3) / msg_info->p.at(0);
     if (this->baseline == 0.0) {
         this->get_parameter("baseline_fallback", this->baseline);
         RCLCPP_ERROR_STREAM_ONCE(
@@ -102,7 +102,7 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
         z = this->baseline * this->fx / disparity;
 
         double disp_new = this->baseline * this->fx / (z - this->robot_radius) + 0.5;
-        table_d[disp_idx] = disp_new;
+        table_d.at(disp_idx) = disp_new;
 
         for (int v = (int)height - 1; v >= 0; --v) {
             y = (v - this->cy) * z / this->fy;
@@ -124,8 +124,8 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             if (v2 < 0) v2 = 0;
             if (v2 > (height - 1)) v2 = height - 1;
 
-            this->table_v[disp_idx][v].idx1 = v1;
-            this->table_v[disp_idx][v].idx2 = v2;
+            this->table_v.at(disp_idx).at(v).idx1 = v1;
+            this->table_v.at(disp_idx).at(v).idx2 = v2;
         }
 
         for (int u = (int)this->width - 1; u >= 0; --u) {
@@ -148,8 +148,8 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             if (u2 < 0) u2 = 0;
             if (u2 > (this->width - 1)) u2 = this->width - 1;
 
-            this->table_u[disp_idx][u].idx1 = u1;
-            this->table_u[disp_idx][u].idx2 = u2;
+            this->table_u.at(disp_idx).at(u).idx1 = u1;
+            this->table_u.at(disp_idx).at(u).idx2 = u2;
         }
     }
 
@@ -291,8 +291,8 @@ void DisparityExpansionNode::process_disparity_image(
                 continue;
             }
 
-            unsigned int u1 = this->table_u[int(disparity_value * this->scale) + 1][u].idx1;
-            unsigned int u2 = this->table_u[int(disparity_value * this->scale) + 1][u].idx2;
+            unsigned int u1 = this->table_u.at(int(disparity_value * this->scale) + 1).at(u).idx1;
+            unsigned int u2 = this->table_u.at(int(disparity_value * this->scale) + 1).at(u).idx2;
 
             if (disparity32F.empty()) {
                 RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
@@ -375,8 +375,8 @@ void DisparityExpansionNode::process_disparity_image(
                 continue;
             }
 
-            unsigned int v1 = this->table_v[int(disparity_value * this->scale) + 1][v].idx1;
-            unsigned int v2 = this->table_v[int(disparity_value * this->scale) + 1][v].idx2;
+            unsigned int v1 = this->table_v.at(int(disparity_value * this->scale) + 1).at(v).idx1;
+            unsigned int v2 = this->table_v.at(int(disparity_value * this->scale) + 1).at(v).idx2;
 
             cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
 
