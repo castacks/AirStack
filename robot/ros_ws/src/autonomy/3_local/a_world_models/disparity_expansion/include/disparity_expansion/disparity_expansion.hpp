@@ -65,7 +65,7 @@ class DisparityExpansionNode : public rclcpp::Node {
     double scale;
     std::vector<std::vector<LUTCell>> table_u;
     std::vector<std::vector<LUTCell>> table_v;
-    double table_d[200];
+    std::vector<double> table_d;
     double fx, fy, cx, cy;
     unsigned int width, height;
 

@@ -16,6 +16,7 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->get_parameter("expansion_radius", this->expansion_radius);
     this->declare_parameter("lut_max_disparity", 164);
     this->get_parameter("lut_max_disparity", this->lut_max_disparity);
+    table_d.resize(this->lut_max_disparity, 0.0);
     this->declare_parameter("padding", 2.0);
     this->get_parameter("padding", this->padding);
     this->declare_parameter("baseline_fallback", 0.5);
