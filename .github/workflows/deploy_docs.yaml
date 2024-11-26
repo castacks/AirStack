@@ -4,6 +4,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "*.md"
     branches:
       - master 
       - main
