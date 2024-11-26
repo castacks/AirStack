@@ -31,5 +31,5 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material mkdocs-same-dir
+      - run: pip install mkdocs-material mkdocs-same-dir mkdocs-redirects
       - run: mkdocs gh-deploy --force
