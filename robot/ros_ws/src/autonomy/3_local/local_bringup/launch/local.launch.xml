@@ -27,7 +27,7 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node pkg="droan_local_planner" exec="droan_local_planner" 
+        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
             args="--log-level DEBUG" >
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
                 allow_substs="true" />
@@ -39,7 +39,7 @@
             <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
         </node>
         <!-- DROAN local model -->
-        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion" >
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion" output="screen">
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             <!-- use estimated disparity -->
