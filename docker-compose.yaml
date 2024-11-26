@@ -6,11 +6,11 @@ include:
 
 services:
   docs:  # live mkdocs container. open localhost:8000 in browser to see the docs
-    image: mkdocs_with_plugins
+    image: airlab-storage.andrew.cmu.edu:5001/shared/mkdocs_with_plugins
     build:
       dockerfile: docs/Dockerfile
       tags:
-        - mkdocs_with_plugins
+        - airlab-storage.andrew.cmu.edu:5001/shared/mkdocs_with_plugins
     container_name: docs
     ports:
       - "8000:8000"
