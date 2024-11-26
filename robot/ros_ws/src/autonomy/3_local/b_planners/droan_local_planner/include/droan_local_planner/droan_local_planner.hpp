@@ -210,6 +210,9 @@ class DroanLocalPlanner : public rclcpp::Node {
         // get the dynamic trajectories
         std::vector<Trajectory> dynamic_trajectories =
             traj_lib->get_dynamic_trajectories(look_ahead_odom);
+        
+        // // debug to just one trajectory
+        // dynamic_trajectories.resize(1);
 
         // pick the best trajectory
         auto [is_success, best_traj] = this->get_best_trajectory(dynamic_trajectories, global_plan);
@@ -225,7 +228,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
             best_traj_msg.header.stamp = this->now();
             traj_pub->publish(best_traj_msg);
-            RCLCPP_INFO_STREAM(this->get_logger(), "Published local trajectory");
+            RCLCPP_DEBUG_STREAM(this->get_logger(), "Published local trajectory");
         } else {
             RCLCPP_INFO_STREAM(
                 this->get_logger(),
@@ -273,13 +276,17 @@ class DroanLocalPlanner : public rclcpp::Node {
 
             double min_safety_cost = std::numeric_limits<double>::infinity();
             double total_deviation_from_global_plan = std::numeric_limits<double>::infinity();
+            // std::cout << "Trajectory " << i << " safety costs: ";
             // for each waypoint in the trajectory, fetch its
             // (1) safety cost and (2) deviation from global plan cost
             for (size_t j = 0; j < traj.get_num_waypoints(); j++) {
                 Waypoint wp = traj.get_waypoint(j);
 
                 double safety_cost = trajectory_safety_costs_per_waypoint.at(i).at(j);
-                if (safety_cost == std::numeric_limits<double>::infinity()) {
+
+                // std::cout << safety_cost << " ";
+
+                if (std::isinf(safety_cost)) {
                     is_traj_unsafe_because_occupied = true;
                     // don't consider this trajectory as a best option, just add the debug marker
                     goto add_marker;
@@ -324,6 +331,7 @@ class DroanLocalPlanner : public rclcpp::Node {
             }
 
         add_marker:
+            // std::cout << std::endl;
 
             // TODO: factor out this marker stuff
             std::string marker_ns = "trajectory_" + std::to_string(i);
