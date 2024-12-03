@@ -34,7 +34,7 @@ class OdometryConversion : public rclcpp::Node {
 
    public:
     OdometryConversion() : Node("odometry_conversion") {
-        ;
+        RCLCPP_INFO_STREAM(get_logger(), "OdometryConversion node started");
         odom_input_qos_is_best_effort =
             airstack::get_param(this, "odom_input_qos_is_best_effort", false);
         new_frame_id = airstack::get_param(this, "new_frame_id", std::string(""));
@@ -77,6 +77,8 @@ class OdometryConversion : public rclcpp::Node {
         tf_buffer = new tf2_ros::Buffer(this->get_clock());
         tf_listener = new tf2_ros::TransformListener(*tf_buffer);
         tf_broadcaster = new tf2_ros::TransformBroadcaster(*this);
+
+        RCLCPP_WARN_STREAM(get_logger(), "Use odometry estimate as TF: " << std::boolalpha << convert_odometry_to_transform);
     }
 
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {

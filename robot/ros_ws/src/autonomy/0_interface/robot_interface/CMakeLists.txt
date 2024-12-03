@@ -83,11 +83,36 @@ ament_target_dependencies(odometry_conversion
 install(TARGETS odometry_conversion
   DESTINATION lib/${PROJECT_NAME})
 
+# stabilized tf node conversion
+add_executable(stabilized_tf_node src/stabilized_tf_node.cpp)
+
+target_include_directories(stabilized_tf_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+ament_target_dependencies(stabilized_tf_node
+  rclcpp
+  geometry_msgs
+  visualization_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  airstack_msgs
+  airstack_common
+  )
+install(TARGETS stabilized_tf_node
+  DESTINATION lib/${PROJECT_NAME})
+
+
+
 ament_export_include_directories(
   include
   ${mav_msgs_INCLUDE_DIRS}
   ${geometry_msgs_INCLUDE_DIRS}
 )
+
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
