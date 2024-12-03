@@ -93,9 +93,10 @@ class Trajectory {
     void clear();
     /**
      * @brief Get the closest Waypoint of this trajectory to a given target point
-     * 
+     *
      * @param point the target point
-     * @return std::tuple<bool, Waypoint, size_t, double> whether any are valid, the closest waypoint, the index of the closest waypoint, the distance along the path
+     * @return std::tuple<bool, Waypoint, size_t, double> whether any are valid, the closest
+     * waypoint, the index of the closest waypoint, the distance along the path
      */
     std::tuple<bool, Waypoint, size_t, double> get_closest_point(tf2::Vector3 point);
     bool get_trajectory_distance_at_closest_point(tf2::Vector3 point, double* trajectory_distance);
@@ -285,10 +286,12 @@ class TrajectoryLibrary {
                             parameter_name.c_str());
             }
             RCLCPP_DEBUG_STREAM(node_ptr->get_logger(), "parameter_value: " << parameter_value);
-            std::cout << str << " " << start << " " << end << std::endl;
+            RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+                                str << " " << start << " " << end << std::endl);
             str = str.substr(0, start) + get_string(parameter_value) +
                   str.substr(end + 1, str.size() - (end + 1));
-            std::cout << str << " " << str.find(param_label) << std::endl;
+            RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+                                str << " " << str.find(param_label) << std::endl);
             RCLCPP_DEBUG(node_ptr->get_logger(), "str: %s", str.c_str());
         }
 

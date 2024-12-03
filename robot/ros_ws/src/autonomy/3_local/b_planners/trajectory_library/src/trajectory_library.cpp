@@ -1263,16 +1263,16 @@ TrajectoryLibrary::TrajectoryLibrary(std::string config_filename,
             dynamic_trajectories.push_back(traj);
         }
     }
-    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
-                        "dt: " << node_ptr->get_parameter("dt").as_double());
-    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
-                        "ht: " << node_ptr->get_parameter("ht").as_double());
-    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
-                        "ht_long: " << node_ptr->get_parameter("ht_long").as_double());
-    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
-                        "max_velocity: " << node_ptr->get_parameter("max_velocity").as_double());
-    RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
-                        "magnitude: " << node_ptr->get_parameter("magnitude").as_double());
+    // RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+    //                     "dt: " << node_ptr->get_parameter("dt").as_double());
+    // RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+    //                     "ht: " << node_ptr->get_parameter("ht").as_double());
+    // RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+    //                     "ht_long: " << node_ptr->get_parameter("ht_long").as_double());
+    // RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+    //                     "max_velocity: " << node_ptr->get_parameter("max_velocity").as_double());
+    // RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
+    //                     "magnitude: " << node_ptr->get_parameter("magnitude").as_double());
 }
 
 std::vector<Trajectory> TrajectoryLibrary::get_static_trajectories() {
