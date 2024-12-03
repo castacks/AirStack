@@ -17,9 +17,9 @@
     <!-- I think the error is that MAVROS is running FASTER than our sim?? what about use_sim_time?? -->
     <!-- it seems MAVROS is sending odometry faster than isaac publishes the TF. so when it does a
     lookup, it doesn't yet exist?? -->
-    <node pkg="robot_interface" exec="odometry_conversion" output="screen">
-        <remap from="/$(env ROBOT_NAME)/odometry_in" to="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
-        <remap from="/$(env ROBOT_NAME)/odometry_out" to="odometry" />
+    <node pkg="robot_interface" namespace="odometry_conversion" exec="odometry_conversion" output="screen">
+        <remap from="odometry_in" to="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+        <remap from="odometry_out" to="odometry" />
 
         <param name="odom_input_qos_is_best_effort" value="true" />
         <param name="new_frame_id" value="map" />
