@@ -64,6 +64,17 @@ Remove
 docker compose down
 ```
 
+Launch only specific services:
+
+```bash
+# only robot
+docker compose up robot -d --scale robot=[NUM_ROBOTS]
+# only isaac
+docker compose up isaac-sim -d
+# only ground control station
+docker compose up gcs -d
+```
+
 ### Isaac Sim
 
 Start a bash shell in the Isaac Sim container:
