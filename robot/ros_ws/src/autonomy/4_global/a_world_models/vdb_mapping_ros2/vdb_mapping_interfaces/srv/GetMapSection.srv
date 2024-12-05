@@ -1,0 +1,5 @@
+std_msgs/Header header
+BoundingBox bounding_box
+---
+UpdateGrid section
+bool success

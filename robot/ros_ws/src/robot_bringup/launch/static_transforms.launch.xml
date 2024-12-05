@@ -1,0 +1,11 @@
+<launch>
+    <!-- Environment TFs -->
+    <node
+        pkg="tf2_ros"
+        exec="static_transform_publisher"
+        name="static_transform_publisher"
+        args="0 0 0 -1.57079632679 0 0 map_FLU map" />
+
+    <!-- Robot TFs -->
+    <!-- currently none -->
+</launch>

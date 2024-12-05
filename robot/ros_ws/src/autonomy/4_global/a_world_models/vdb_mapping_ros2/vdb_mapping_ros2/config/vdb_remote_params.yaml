@@ -1,0 +1,33 @@
+/**:
+  ros__parameters:
+    # Basic setup
+    map_frame: map
+    robot_frame: base_link
+    max_range: 10.0
+    resolution: 0.07
+    prob_hit: 0.8
+    prob_miss: 0.1
+    thres_min: 0.12
+    thres_max: 0.8
+    map_save_dir: ""
+
+    # Visualizations
+    publish_pointcloud: true
+    publish_vis_marker: true
+    visualization_rate: 2.0
+
+    # Sensor input
+    apply_raw_sensor_data: false
+
+    # Remote mapping
+    publish_updates: false
+    publish_overwrites: false
+    publish_sections: false
+
+    remote_sources: [vdb_mapping]
+    vdb_mapping:
+      namespace: vdb_mapping
+      apply_remote_updates: false
+      apply_remote_overwrites: true
+      apply_remote_sections: true
+
