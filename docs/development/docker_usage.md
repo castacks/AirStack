@@ -46,7 +46,7 @@ docker compose build
 Start
 
 ```bash
-docker compose up -d --scale robot=[NUM_ROBOTS]
+docker compose up --scale robot=[NUM_ROBOTS] -d
 
 # see running containers
 docker ps -a
@@ -68,7 +68,7 @@ Launch only specific services:
 
 ```bash
 # only robot
-docker compose up robot -d --scale robot=[NUM_ROBOTS]
+docker compose up robot --scale robot=[NUM_ROBOTS] -d
 # only isaac
 docker compose up isaac-sim -d
 # only ground control station
