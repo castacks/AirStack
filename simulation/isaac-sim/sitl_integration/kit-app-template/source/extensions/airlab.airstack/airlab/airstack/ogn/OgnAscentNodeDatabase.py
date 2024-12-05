@@ -531,11 +531,11 @@ class OgnAscentNodeDatabase(og.Database):
 
                             threading.Thread(target=f).start()
                     else:
-                        r = dronekit_connection._roll  # + np.pi / 2
+                        r = dronekit_connection._roll
                         p = dronekit_connection._pitch
                         y = dronekit_connection._yaw
 
-                        rot = Rotation.from_euler("xyz", [r, p, y], degrees=False)
+                        rot = Rotation.from_euler("xyz", [r, p, -y], degrees=False)
                         # quaternion: xyzw
                         q = rot.as_quat()
 

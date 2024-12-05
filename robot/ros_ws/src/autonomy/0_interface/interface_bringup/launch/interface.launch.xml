@@ -4,9 +4,6 @@
     sponsor demo. set use_sim_ground_truth_tf to true for demo -->
     <!-- basically we publish the ground truth base link tf from isaac. we then substitute that to
     the base_link tf -->
-    <!-- I think the error is that MAVROS is running FASTER than our sim?? what about use_sim_time?? -->
-    <!-- it seems MAVROS is sending odometry faster than isaac publishes the TF. so when it does a
-    lookup, it doesn't yet exist?? -->
     <arg name="use_sim_ground_truth_tf" default="false" />
 
     <let name="convert_estimated_odom_to_tf" value="true" unless="$(var use_sim_ground_truth_tf)" />
@@ -46,8 +43,8 @@
         name="tf_base_link_is_ground_truth"
         args="0 0 0 0 0 0 base_link_ground_truth base_link" />
 
-    <!-- Create the stabilized TF from the ground truth TF, since odometry_conversion now isn't
-    doing this from odometry estimate  -->
+    <!-- If using ground truth TF from sim, then create the stabilized TF from the ground truth TF, since 
+    odometry_conversion now isn't creating this from odometry estimate  -->
     <group if="$(var use_sim_ground_truth_tf)">
         <node pkg="robot_interface" exec="stabilized_tf_node" output="screen">
             <param name="parent_frame" value="map_FLU" />
