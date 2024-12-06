@@ -182,18 +182,21 @@ class GroundControlStation(Plugin):
         timeline_widgets = self.get_timeline_widgets()
         save_data = []
         for t in timeline_widgets:
-            save_data.append(t.get_save_data())
-        filename = qt.QFileDialog.getSaveFileName(self.widget, 'Save Mission', '', 'Pickle Files (*.pickle)')[0]
-        if not filename.endswith('.pickle'):
-            filename += '.pickle'
+            s = t.get_save_data()
+            save_data.append(s)#t.get_save_data())
+        filename = qt.QFileDialog.getSaveFileName(self.widget, 'Save Mission', '', 'Mission Files (*.mission)')[0]
+        if filename == '':
+            return
+        if not filename.endswith('.mission'):
+            filename += '.mission'
         with open(filename, 'wb') as handle:
             pickle.dump(save_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def load_timeline(self):
-        self.clear_timeline()
-        filename = qt.QFileDialog.getOpenFileName(self.widget, 'Load Mission', '', 'Pickle Files (*.pickle)')[0]
+        filename = qt.QFileDialog.getOpenFileName(self.widget, 'Load Mission', '', 'Mission Files (*.mission)')[0]
         if not os.path.isfile(filename):
             return
+        self.clear_timeline()
         with open(filename, 'rb') as handle:
             save_data = pickle.load(handle)
         for s in save_data:
@@ -504,9 +507,11 @@ class TimelineEventWidget(QWidget):
 
 
 class TimelineEvent:
-    def __init__(self, global_settings, local_settings={}):
+    def __init__(self, global_settings, local_settings=None):
         self.global_settings = global_settings
         self.local_settings = local_settings
+        if self.local_settings == None:
+            self.local_settings = {}
         
         self.done = False
 
@@ -526,7 +531,7 @@ class TimelineEvent:
         return self.done
 
 class RobotEvent(TimelineEvent):
-    def __init__(self, global_settings, local_settings={}):
+    def __init__(self, global_settings, local_settings=None):
         super(RobotEvent, self).__init__(global_settings, local_settings)
         if 'robot' not in self.local_settings.keys():
             self.local_settings['robot'] = self.global_settings['robots'][0]
@@ -552,7 +557,7 @@ class RobotEvent(TimelineEvent):
         self.local_settings['robot'] = self.robots_combo_box.itemText(index)
 
 class PublisherEvent(TimelineEvent):
-    def __init__(self, global_settings, local_settings={}):
+    def __init__(self, global_settings, local_settings=None):
         super(PublisherEvent, self).__init__(global_settings, local_settings)
 
     def init_widgets(self, parent_layout):
@@ -573,7 +578,7 @@ class PublisherEvent(TimelineEvent):
         pub.publish(msg)
 
 class CommandEvent(RobotEvent, PublisherEvent):
-    def __init__(self, global_settings, local_settings={}):
+    def __init__(self, global_settings, local_settings=None):
         super(CommandEvent, self).__init__(global_settings, local_settings)
         if 'command_title' not in self.local_settings.keys():
             self.local_settings['command_title'] = self.global_settings['groups']['commands']['condition_titles'][0]
@@ -590,7 +595,7 @@ class CommandEvent(RobotEvent, PublisherEvent):
         selected = self.local_settings['command_title']#self.commands_combo_box.currentText()
         for i in range(self.commands_combo_box.count()):
             command = BehaviorTreeCommand()
-            command.condition_name = self.local_settings['command_name']#self.commands_combo_box.itemData(i)
+            command.condition_name = self.commands_combo_box.itemData(i)
             if selected == self.commands_combo_box.itemText(i):
                 command.status = Status.SUCCESS
             else:
@@ -616,7 +621,7 @@ class CommandEvent(RobotEvent, PublisherEvent):
         self.local_settings['command_name'] = self.commands_combo_box.itemData(index)
 
 class TrajectoryEvent(RobotEvent, PublisherEvent):
-    def __init__(self, global_settings, local_settings={}):
+    def __init__(self, global_settings, local_settings=None):
         super(TrajectoryEvent, self).__init__(global_settings, local_settings)
         if 'trajectory_attributes' not in self.local_settings.keys():
             self.local_settings['trajectory_attributes'] = collections.OrderedDict()
@@ -665,7 +670,7 @@ class TrajectoryEvent(RobotEvent, PublisherEvent):
         parent_layout.addWidget(widget)
 
 class WaitEvent(TimelineEvent):
-    def __init__(self, global_settings, local_settings={}):
+    def __init__(self, global_settings, local_settings=None):
         super(WaitEvent, self).__init__(global_settings, local_settings)
         if 'wait_time' not in self.local_settings.keys():
             self.local_settings['wait_time'] = 5.
