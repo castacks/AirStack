@@ -23,7 +23,26 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
-    libcgal-dev 
+    ros-humble-ros2cli \
+    python3-colcon-common-extensions \
+    libglib2.0-dev \
+    libcgal-dev \
+    mosquitto \
+    mosquitto-clients
+
+# install gstreamer
+RUN apt-get update && apt-get install -y \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev  \
+    libgstreamer-plugins-bad1.0-dev \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gstreamer1.0-tools \
+    gstreamer1.0-x \
+    gstreamer1.0-alsa
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -45,7 +64,9 @@ RUN pip3 install \
     setuptools \
     six \
     toml \
-    scipy
+    scipy \
+    pytak \
+    paho-mqtt
 
 
 # Add ability to SSH

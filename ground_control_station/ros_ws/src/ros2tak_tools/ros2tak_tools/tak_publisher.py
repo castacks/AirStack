@@ -80,7 +80,7 @@ class MySender(pytak.QueueWorker):
             self.mqtt_client.loop_stop()
             print("MQTT loop stopped.")
 
-async def main(config):
+async def async_main(config):
     loop = asyncio.get_running_loop()  # Capture the main event loop
     clitool = pytak.CLITool(config["mycottool"])
     await clitool.setup()
@@ -92,9 +92,12 @@ def run_main_in_process(config):
     loop.run_until_complete(main(config))
 
 if __name__ == "__main__":
+    main()
+
+def main():
     parser = argparse.ArgumentParser(description="TAK Publisher Script")
     parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     # Load the YAML configuration
     with open(args.config, 'r') as file:
