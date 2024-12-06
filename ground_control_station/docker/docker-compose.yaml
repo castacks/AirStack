@@ -1,6 +1,11 @@
 services:
   ground-control-station:
-    image: TODO
+    image: &gcs airlab-storage.andrew.cmu.edu:5001/shared/ground-control-station_ros-humble:v1.0.0
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.gcs
+      tags:
+        - *gcs
     container_name: ground-control-station
     entrypoint: ""
     command: >
@@ -12,7 +17,7 @@ services:
     stdin_open: true # docker run -i
     tty: true # docker run -t
     # Needed to display graphical applications
-    ipc: host
+    # ipc: host
     privileged: true
     networks:
       - airstack_network
@@ -28,171 +33,17 @@ services:
               count: 1
               capabilities: [gpu]
     ports:
-      # for ssh
-      - 2222:22
+      - 2222:22 # for ssh
+      - 1883:1883 # for mosquitto
+      - 9001:9001 # for mosquitto
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - .bashrc:/root/.bashrc:rw # bash config
-      - .bash_history:/root/.bash_history:rw # save cmdline history
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       # autonomy stack stuff
-      - ../../common/ros_ws:/root/common/ros_ws:rw  # common ROS packages
+      - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
       - ../ros_ws:/root/ros_ws:rw  # gcs-specific ROS packages
-
-
-####################### GSTREAMER TO ROS TOPICS ######################
-  gst-ros-bridge-topic1:
-    container_name: "${PROJECT_NAME}-gst_ros_bridge1"
-    image: "${PROJECT_NAME}/gcs/gst-ros-bridge"
-    build:
-      context: .
-      dockerfile: Dockerfile.gst-ros-bridge
-    command: >
-      /bin/bash -c 'source /ros_ws/install/setup.bash && gst-launch-1.0 --gst-plugin-path=/ros_ws/install/gst_bridge/lib/gst_bridge/ 
-      rtspsrc location="${CAMERA1_STREAM_IP}" latency=0 ! 
-      rtph265depay ! h265parse ! avdec_h265 ! videoconvert ! 
-      rosimagesink ros-topic="${CAMERA1_ROS_TOPIC}"'
-    environment:
-      - DISPLAY=${DISPLAY}
-      - DOCKER_BUILDKIT=0
-      - CAMERA1_STREAM_IP=${CAMERA1_STREAM_IP}
-      - CAMERA1_ROS_TOPIC=${CAMERA1_ROS_TOPIC}
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
-    network_mode: host
-
-
-####################### ROS2TAK TOOLS ######################
-  ############### MQTT for the GCS
-  mqtt:
-    container_name: "mqtt"
-    image: eclipse-mosquitto:2.0.20
-    restart: always
-    volumes:
-      - ../ros_ws/src/ros2tak_tools/mosquitto/config:/mosquitto/config
-      - ../ros_ws/src/ros2tak_tools/mosquitto/data:/mosquitto/data
-      - ../ros_ws/src/ros2tak_tools/mosquitto/log:/mosquitto/log
-    env_file:
-      - .env
-    ports:
-      - "1883:1883"
-      - "9001:9001"
-    healthcheck:
-      test: [ "CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ping", "-u", "${MQTT_USERNAME}", "-P", "${MQTT_PASSWORD}" ]
-      interval: 5s
-      timeout: 3s
-      retries: 2
-      start_period: 5s
-    networks:
-      - airstack_network
-
-  ################## ROS2COT_AGENT
-  ros2cot_agent:
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.ros2cot_agent
-      args:
-        - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/gcs/ros2cot_agent"
-    container_name: "${PROJECT_NAME}-ros2cot_agent"
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    depends_on:
-      mqtt:
-        condition: service_healthy
-    networks:
-      - airstack_network
-    command: [
-      "/bin/bash",
-      "-c",
-      "source /opt/ros/humble/setup.bash && \
-       source $ROS_WS_DIR/install/setup.bash && \
-       ./install/ros2tak_tools/bin/ros2cot_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
-    ]
-
-  # ################### TAK_PUBLISHER
-  tak_publisher:
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.tak_publisher
-      args:
-        - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/gcs/tak_publisher"
-    container_name: "${PROJECT_NAME}-tak_publisher"
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    depends_on:
-      mqtt:
-        condition: service_healthy
-    networks:
-      - airstack_network
-    volumes:
-      - ../ros_ws/src/ros2tak_tools/:${ROS_WS_DIR}/src/ros2tak_tools/
-    command: [
-      "python3",
-      "$TAK_PUBLISHER_FILEPATH",
-      "--config",
-      "$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
-    ]
-
-  ################### TAK_SUBSCRIBER
-  tak_subscriber:
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.tak_subscriber
-      args:
-        - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/gcs/tak_subscriber"
-    container_name: "${PROJECT_NAME}-tak_subscriber"
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    depends_on:
-      mqtt:
-        condition: service_healthy
-    networks:
-      - airstack_network
-    volumes:
-      - ../ros_ws/src/ros2tak_tools/:${ROS_WS_DIR}/src/ros2tak_tools/
-    command: [
-      "python3",
-      "$TAK_SUBSCRIBER_FILEPATH",
-      "--config",
-      "$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
-    ]
-
-
-  ################## ROS2COT_AGENT
-  cot2planner_agent:
-    build:
-      context: ../../
-      dockerfile: ground_control_station/docker/Dockerfile.cot2planner_agent
-      args:
-        - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/gcs/cot2planner_agent"
-    container_name: "${PROJECT_NAME}-cot2planner_agent"
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    depends_on:
-      mqtt:
-        condition: service_healthy
-    networks:
-      - airstack_network
-    command: [
-      "/bin/bash",
-      "-c",
-      "source /opt/ros/humble/setup.bash && \
-       source $ROS_WS_DIR/install/setup.bash && \
-       ./install/ros2tak_tools/bin/cot2planner_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME"
-    ]
-
-########### NETWORKS ###########
-networks:
-  airstack_network:
-    driver: bridge
+      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml

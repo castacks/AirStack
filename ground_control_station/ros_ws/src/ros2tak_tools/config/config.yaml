@@ -43,10 +43,10 @@ tak_server:
 
 
 mqtt:
-  host: mqtt # TODO: This should be set as container name for MQTT Docker
+  host: localhost
   port: 1883
   username: airlab
-  password: # Enter your password here
+  password: 
 
 services:
   host:  '127.0.0.1'  # Host settings can be specified here (e.g., localhost or specific IP address).

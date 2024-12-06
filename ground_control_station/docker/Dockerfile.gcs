@@ -1,0 +1,91 @@
+FROM osrf/ros:humble-desktop-full
+
+WORKDIR /root/ros_ws
+
+RUN apt update
+# Install dev tools
+RUN apt install -y \
+    vim nano emacs wget curl tree \
+    iperf3 iftop iputils-ping net-tools htop \
+    cmake build-essential \
+    less htop jq \
+    python3-pip \
+    tmux \
+    gdb
+
+# Install any additional ROS2 packages
+RUN apt update -y && apt install -y \
+    ros-dev-tools \
+    ros-humble-mavros \ 
+    ros-humble-tf2* \
+    ros-humble-stereo-image-proc \
+    ros-humble-image-view \
+    ros-humble-topic-tools \
+    ros-humble-grid-map \
+    ros-humble-domain-bridge \
+    ros-humble-ros2cli \
+    python3-colcon-common-extensions \
+    libglib2.0-dev \
+    libcgal-dev \
+    mosquitto \
+    mosquitto-clients
+
+# install gstreamer
+RUN apt-get update && apt-get install -y \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev  \
+    libgstreamer-plugins-bad1.0-dev \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gstreamer1.0-tools \
+    gstreamer1.0-x \
+    gstreamer1.0-alsa
+
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+
+
+# Install Python dependencies
+RUN pip3 install \
+    empy \
+    future \
+    lxml \
+    matplotlib \
+    numpy \
+    pkgconfig \
+    psutil \
+    pygments \
+    wheel \
+    pymavlink \
+    pyyaml \
+    requests \
+    setuptools \
+    six \
+    toml \
+    scipy \
+    pytak \
+    paho-mqtt
+
+
+# Add ability to SSH
+RUN apt-get update && apt-get install -y openssh-server
+RUN mkdir /var/run/sshd
+
+# Password is airstack
+RUN echo 'root:airstack' | chpasswd
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+
+EXPOSE 22
+
+    
+
+# Cleanup. Prevent people accidentally doing git commits as root in Docker
+RUN apt purge git -y \
+    && apt autoremove -y \
+    && apt clean -y \
+    && rm -rf /var/lib/apt/lists/*
+

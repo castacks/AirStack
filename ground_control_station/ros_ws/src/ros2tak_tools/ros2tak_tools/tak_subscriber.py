@@ -143,10 +143,10 @@ class MyReceiver(pytak.QueueWorker):
             await self.handle_data(data)
 
 
-async def main():
+async def async_main():
     parser = argparse.ArgumentParser(description="TAK Subscriber Script")
     parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     # Load the YAML configuration
     with open(args.config, 'r') as file:
@@ -197,6 +197,8 @@ async def main():
     # Start all tasks.
     await clitool.run()
 
+def main():
+    asyncio.run(async_main())
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

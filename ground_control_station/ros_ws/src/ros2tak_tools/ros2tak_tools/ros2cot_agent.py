@@ -192,8 +192,8 @@ def main(args=None):
     )
 
     # Parse the arguments
-    input_args = parser.parse_args()
-
+    input_args, unknown = parser.parse_known_args()
+    
     # Load configuration
     config = load_config(input_args.config)
 

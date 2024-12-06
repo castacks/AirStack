@@ -4,3 +4,6 @@
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2
 	url = git@github.com:castacks/vdb_mapping_ros2.git
+[submodule "ground_control_station/ros_ws/src/ros-gst-bridge"]
+	path = ground_control_station/ros_ws/src/ros-gst-bridge
+	url = https://github.com/BrettRD/ros-gst-bridge.git

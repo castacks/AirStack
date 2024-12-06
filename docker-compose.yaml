@@ -2,7 +2,7 @@
 include: 
   - simulation/isaac-sim/docker/docker-compose.yaml
   - robot/docker/docker-compose.yaml
-  # - ground_control_station/docker/docker-compose.yaml
+  - ground_control_station/docker/docker-compose.yaml
 
 services:
   docs:  # live mkdocs container. open localhost:8000 in browser to see the docs

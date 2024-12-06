@@ -248,7 +248,7 @@ def main(args=None):
     import argparse
     parser = argparse.ArgumentParser(description="COT to Planner")
     parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     cot2planner = Cot2Planner(args.config)
     rclpy.spin(cot2planner)
