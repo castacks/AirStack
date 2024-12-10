@@ -1,0 +1,37 @@
+# Use the official ROS 2 Humble base image
+FROM ros:humble
+
+ARG ROS_WS_DIR
+
+# Set working directory
+WORKDIR ${ROS_WS_DIR}
+
+# Update and install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    ros-humble-rosbag2 \
+    ros-humble-rosbag2-storage-mcap \
+    python3-colcon-common-extensions \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install Python dependencies
+RUN pip3 install --upgrade pip \
+    && pip3 install setuptools==57.5.0 pytak pyyaml \
+    && pip3 install paho-mqtt
+
+# Source ROS 2 setup file to ensure environment variables are set
+# You may want to add this to ENTRYPOINT or CMD if you're working interactively
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+
+# COPY the agent code into the container
+COPY ground_control_station/ros_ws/src/ros2tak_tools ${ROS_WS_DIR}/src/ros2tak_tools
+COPY common/ros_packages/straps_msgs ${ROS_WS_DIR}/src/straps_msgs
+
+# Build the ROS 2 workspace
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
+                  colcon build --symlink-install --packages-select straps_msgs && \
+                  colcon build --symlink-install"
+
+# Source the workspace setup file to ensure environment variables are set
+RUN echo "source ${ROS_WS_DIR}/install/setup.bash" >> ~/.bashrc
+
