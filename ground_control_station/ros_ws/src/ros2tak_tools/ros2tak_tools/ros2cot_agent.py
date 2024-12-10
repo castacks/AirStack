@@ -64,12 +64,12 @@ def create_COT_pos_event(uuid, latitude, longitude, altitude):
     """Create a CoT event based on the GPS data."""
     root = ET.Element("event")
     root.set("version", "2.0")
-    root.set("type", "a-h-A-M-A")
+    root.set("type", "a-f-G")
     root.set("uid", uuid)  # Use topic name as UID for identification
     root.set("how", "m-g")
     root.set("time", pytak.cot_time())
     root.set("start", pytak.cot_time())
-    root.set("stale", pytak.cot_time(60))
+    root.set("stale", pytak.cot_time(3600))
 
     pt_attr = {
         "lat": str(latitude),
@@ -110,7 +110,7 @@ class ROS2COTPublisher(Node):
         self.mqtt_client.username_pw_set(self.mqtt_username, self.mqtt_pwd)
         try:
             print(f"Trying to connect to {self.mqtt_broker}:{self.mqtt_port}")
-            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port)
+            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, keepalive=65535)
             self.get_logger().info(
                 f"Connected to MQTT ({self.mqtt_broker}:{self.mqtt_port})"
             )
@@ -130,7 +130,7 @@ class ROS2COTPublisher(Node):
             subscriber = self.create_subscription(
                 NavSatFix,
                 topic_name,
-                lambda msg, topic_name=topic_name: self.gps_callback(msg, topic_name),
+                lambda msg, topic_name=topic_name: self.gps_callback(msg, f"/robot{i}"),
                 10,  # QoS depth
             )
             self.subscribers.append(subscriber)
@@ -192,8 +192,8 @@ def main(args=None):
     )
 
     # Parse the arguments
-    input_args, unknown = parser.parse_known_args()
-    
+    input_args = parser.parse_args()
+
     # Load configuration
     config = load_config(input_args.config)
 
