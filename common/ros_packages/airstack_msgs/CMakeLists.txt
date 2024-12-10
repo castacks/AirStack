@@ -8,6 +8,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
@@ -22,10 +23,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BeliefMapData.msg"
   "msg/SearchPrior.msg"
   "msg/TaskAssignment.msg"
+  "msg/query/TextQueryResponse.msg"
   "srv/RobotCommand.srv"
   "srv/TrajectoryMode.srv"
   "srv/TakeoffLandingCommand.srv"
-  DEPENDENCIES std_msgs geometry_msgs diagnostic_msgs
+  DEPENDENCIES std_msgs geometry_msgs sensor_msgs diagnostic_msgs
 )
 
 if(BUILD_TESTING)
