@@ -9,6 +9,36 @@ topics:
     from_domain: 1
     to_domain: 2
 
+  /robot_1/vdb_mapping/vdb_map_visualization:
+    from_domain: 1
+    to_domain: 0
+    type: visualization_msgs/msg/Marker
+
+  /robot_1/odometry_conversion/odometry:
+    from_domain: 1
+    to_domain: 0
+    type: nav_msgs/msg/Odometry
+
+  /robot_2/vdb_mapping/vdb_map_visualization:
+    from_domain: 2
+    to_domain: 0
+    type: visualization_msgs/msg/Marker
+
+  /robot_2/odometry_conversion/odometry:
+    from_domain: 2
+    to_domain: 0
+    type: nav_msgs/msg/Odometry
+
+  /robot_3/vdb_mapping/vdb_map_visualization:
+    from_domain: 3
+    to_domain: 0
+    type: visualization_msgs/msg/Marker
+
+  /robot_3/odometry_conversion/odometry:
+    from_domain: 3
+    to_domain: 0
+    type: nav_msgs/msg/Odometry
+
   robot_2/interface/mavros/state:
     type: mavros_msgs/msg/State
     from_domain: 2
