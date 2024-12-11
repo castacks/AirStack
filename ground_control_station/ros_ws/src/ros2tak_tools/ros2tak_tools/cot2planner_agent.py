@@ -118,7 +118,7 @@ class Cot2Planner(Node):
         self.mqtt_client.on_message = self._on_mqtt_message
 
         # Connect to MQTT broker and start loop
-        self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port)
+        self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, keepalive=65535)
         self.mqtt_client.subscribe(self.mqtt_topicname)  # Subscribe to the dynamic planner topic
         self.mqtt_client.loop_start()
 
@@ -248,7 +248,7 @@ def main(args=None):
     import argparse
     parser = argparse.ArgumentParser(description="COT to Planner")
     parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
 
     cot2planner = Cot2Planner(args.config)
     rclpy.spin(cot2planner)

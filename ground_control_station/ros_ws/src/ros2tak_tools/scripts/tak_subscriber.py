@@ -69,7 +69,7 @@ class MyReceiver(pytak.QueueWorker):
         # Connect to MQTT broker and subscribe to topic
         try:
             self._logger.info(f"Connecting to {self.mqtt_broker}:{self.mqtt_port}")
-            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port)
+            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, keepalive=65535)
             self._logger.info(f"Connected and subscribed to MQTT on broker {self.mqtt_broker}:{self.mqtt_port}")
         except Exception as e:
             self._logger.error(f"Failed to connect or subscribe to MQTT: {e}")
@@ -135,7 +135,6 @@ class MyReceiver(pytak.QueueWorker):
         except:
             self._logger.info(f"Failed to publish.")
 
-
     async def run(self):  # pylint: disable=arguments-differ
         """Read from the receive queue, put data onto handler."""
         while True:
@@ -143,10 +142,10 @@ class MyReceiver(pytak.QueueWorker):
             await self.handle_data(data)
 
 
-async def async_main():
+async def main():
     parser = argparse.ArgumentParser(description="TAK Subscriber Script")
     parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
 
     # Load the YAML configuration
     with open(args.config, 'r') as file:
@@ -197,8 +196,6 @@ async def async_main():
     # Start all tasks.
     await clitool.run()
 
-def main():
-    asyncio.run(async_main())
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

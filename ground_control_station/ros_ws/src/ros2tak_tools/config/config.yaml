@@ -72,29 +72,46 @@ services:
       # TAK_Subscriber (below) service has more information on the ROS topics.
       topic_name: planner_events # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
 
+    chat2ros_agent:
+      mqtt_subcribe_topic: dsta-operator  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+      ros_query_text_topic: '/query/text'  # ROS Topic name to publish the chat queries.
+      ros_query_response_topic: '/query/response'  # ROS Topic name to publish the chat responses.
+      filter_name: dsta-operator
+
+    ros2casevac_agent:
+      # this service is used to generate ROS messages from HOSTIP:PORT to ROS topics.
+      # TAK_Subscriber (below) service has more information on the ROS topics.
+      topic_name: to_tak # MQTT topic name to send the COT messages to.
+      ros_casualty_meta_topic_name: '/casualty/meta' # ROS Topic name to publish the casevac messages.
+      ros_casualty_image_topic_name: '/casualty/image' # ROS message type for the casevac messages.
+
   subscriber:
     tak_subscriber:
       # this service is used to subscribe to CoT messages from TAK server and send them to HOSTIP:PORT.
       filter_messages: # Type of messages to subscribe to. Options:
-      - name: 'target'
-        # ROS Topic name to publish the target messages. Use {n} as a placeholder for the robot number. 
-        # If provided, the topic name will be formatted with the robot number extracted from the message name.
-        ros_topic_name: '/target{n}/gps/gt'  
-        ros_msg_type: NavSatFix  # ROS message type for the target messages.
-        mqtt_topic_name: target_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
-      - name: 'iphone'
-        # ROS Topic name to publish the target messages. Use {n} as a placeholder for the robot number. 
-        # If provided, the topic name will be formatted with the robot number extracted from the message name.
-        ros_topic_name: '/iphone{n}/gps/gt'  
-        ros_msg_type: NavSatFix  # ROS message type for the target messages.
-        mqtt_topic_name: iphone_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
-      - name: 'base'
-        ros_topic_name: '/basestation/gps'  
-        ros_msg_type: NavSatFix  # ROS message type for the target messages.
-        mqtt_topic_name: base_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
-      - name: 'planner'
-        ros_topic_name: '/planner/planconfig'  # ROS Topic name to publish the shapes messages.
-        ros_msg_type: MarkerArray  # ROS message type for the shapes messages.
-        mqtt_topic_name: planner_events  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'target'
+          # ROS Topic name to publish the target messages. Use {n} as a placeholder for the robot number.
+          # If provided, the topic name will be formatted with the robot number extracted from the message name.
+          ros_topic_name: '/target{n}/gps/gt'
+          ros_msg_type: NavSatFix  # ROS message type for the target messages.
+          mqtt_topic_name: target_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'iphone'
+          # ROS Topic name to publish the target messages. Use {n} as a placeholder for the robot number.
+          # If provided, the topic name will be formatted with the robot number extracted from the message name.
+          ros_topic_name: '/iphone{n}/gps/gt'
+          ros_msg_type: NavSatFix  # ROS message type for the target messages.
+          mqtt_topic_name: iphone_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'base'
+          ros_topic_name: '/basestation/gps'
+          ros_msg_type: NavSatFix  # ROS message type for the target messages.
+          mqtt_topic_name: base_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'planner'
+          ros_topic_name: '/planner/planconfig'  # ROS Topic name to publish the shapes messages.
+          ros_msg_type: MarkerArray  # ROS message type for the shapes messages.
+          mqtt_topic_name: dsta-operator  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'dsta-operator'
+          ros_topic_name: 'NA'  # ROS Topic name to publish the shapes messages.
+          ros_msg_type: NA  # ROS message type for the shapes messages.
+          mqtt_topic_name: dsta-operator  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
       # target: Target messages
       # planner: Planner messages
