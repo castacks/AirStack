@@ -30,13 +30,13 @@ jobs:
       - name: Check Dockerfile changes and version increment for each image_name
         run: |
           # List the image_names and their corresponding Dockerfiles
-          cd docker/
           declare -A image_name_to_dockerfile
           image_name_to_dockerfile=( 
-            ["isaac-sim_ros-humble"]="Dockerfile.isaac-ros"
-            ["airstack-dev"]="Dockerfile.airstack-dev"
+            ["isaac-sim_ros-humble"]="simulation/isaac-sim/docker/Dockerfile.isaac-ros"
+            ["airstack-dev"]="robot/docker/Dockerfile.airstack-dev"
             # Add more mappings here
           )
+          declare -A image_name_to_dockercompose
           image_name_to_dockercompose=( 
             ["isaac-sim_ros-humble"]="simulation/isaac-sim/docker/docker-compose.yaml"
             ["airstack-dev"]="robot/docker/docker-compose.yaml"
