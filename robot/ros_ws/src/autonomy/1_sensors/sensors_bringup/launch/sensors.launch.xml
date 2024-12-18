@@ -1,4 +1,7 @@
 <!-- SENSORS -->
 <launch>
-
+    <group>
+        <push-ros-namespace namespace="$(env ROBOT_NAME)/sensors"/>
+        <include file="$(find-pkg-share camera_param_server)/launch/camera_param_server.launch.xml"/>
+    </group>
 </launch>

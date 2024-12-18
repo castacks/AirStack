@@ -1,0 +1,7 @@
+string[] camera_names
+string[] camera_types
+---
+bool success
+string[] camera_frame_ids
+sensor_msgs/CameraInfo[] camera_infos
+float64[] baselines
