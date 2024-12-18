@@ -176,30 +176,6 @@ services:
       - airstack_network
     command: [ "/bin/bash", "-c", "source /opt/ros/humble/setup.bash && source $ROS_WS_DIR/install/setup.bash && ./install/ros2tak_tools/bin/cot2planner_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME" ]
 
-  # ################## ROS2COT_AGENT
-  ros2casevac_agent:
-    build:
-      context: ../../
-      dockerfile: ground_control_station/docker/Dockerfile.ros2casevac_agent
-      args:
-        - ROS_WS_DIR=${ROS_WS_DIR}
-    image: "${PROJECT_NAME}/gcs/ros2casevac_agent"
-    container_name: "${PROJECT_NAME}-ros2casevac_agent"
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-    depends_on:
-      mqtt:
-        condition: service_healthy
-    environment:
-      - ROS_WS_DIR=${ROS_WS_DIR}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
-    working_dir: $ROS_WS_DIR
-    #    network_mode: host
-    networks:
-      - airstack_network
-    command: [ "/bin/bash", "-c", "source /opt/ros/humble/setup.bash && source $ROS_WS_DIR/install/setup.bash && ./install/ros2tak_tools/bin/ros2casevac_agent --config $ROS_WS_DIR/$ROS2TAK_TOOLS_CONFIG_DIR/$ROS2TAK_TOOLS_CONFIG_FILENAME" ]
-
   # ################## GCS_AI_AGENT
   gcs_ai_agent:
     build:
