@@ -31,7 +31,7 @@ RUN pip3 install \
     empy \
     future \
     lxml \
-    # matplotlib \
+    matplotlib==3.8.4 \
     numpy==1.24.0 \
     pkgconfig \
     psutil \
@@ -58,8 +58,7 @@ RUN pip3 install \
     timm==0.9.12 \
     rerun-sdk==0.17 \
     yacs \
-    wandb \
-    huggingface_hub
+    wandb
 
 # Override install newer openvdb 8.2.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
@@ -93,4 +92,7 @@ RUN apt purge git -y \
     && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
+
+RUN pip install huggingface_hub
+RUN pip uninstall matplotlib -y
 
