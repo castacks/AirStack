@@ -1,8 +1,28 @@
-FROM osrf/ros:humble-desktop-full
+# either ubuntu:22.04 or l4t
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+# ========================
+# install ros2 humble https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html
+RUN apt update && apt install -y locales
+RUN locale-gen en_US en_US.UTF-8
+RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+RUN export LANG=en_US.UTF-8
+
+RUN apt install -y software-properties-common
+RUN add-apt-repository universe
+
+RUN apt update && apt install curl -y
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+RUN apt update && apt install -y ros-humble-desktop
+
+# ========================
 
 WORKDIR /root/ros_ws
 
-RUN apt update
 # Install dev tools
 RUN apt install -y \
     vim nano wget curl tree \
@@ -23,7 +43,6 @@ RUN apt update -y && apt install -y \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
     libcgal-dev 
-
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 
@@ -66,7 +85,6 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
-
     
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker

@@ -1,12 +1,9 @@
 # docker compose file
+x-variables:
+  version: &robot_version v1.0.0
+
 services:
-# ==============================================================================
-  robot:
-    image: &airstack-dev-image airlab-storage.andrew.cmu.edu:5001/shared/airstack-dev:v0.5.5
-    build:
-      dockerfile: ./Dockerfile.airstack-dev
-      tags:
-        - *airstack-dev-image
+  robot_common: &robot_common
     entrypoint: ""
     # we use tmux send-keys so that the session stays alive
     command: >
@@ -49,3 +46,30 @@ services:
       - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
       - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml
       - ../ros_ws:/root/ros_ws:rw  # robot-specific ROS packages
+
+
+  # desktop
+  robot_x64:
+    <<: *robot_common
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-robot-x64
+    profiles:
+      - sitl
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: ubuntu:22.04
+      tags:
+        - *robot_version
+
+  # jetson
+  robot_l4t:
+    <<: *robot_common
+    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-robot-l4t
+    profiles:
+      - hitl
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: l4t-pytorch:r35.2.1-pth2.0-py3
+      tags:
+        - *robot_version
