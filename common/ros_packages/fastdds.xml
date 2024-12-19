@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles" >
+    <transport_descriptors>
+        <transport_descriptor>
+            <transport_id>UdpTransport</transport_id>
+            <type>UDPv4</type>
+        </transport_descriptor>
+    </transport_descriptors>
+
+    <participant profile_name="udp_transport_profile" is_default_profile="true">
+        <rtps>
+            <userTransports>
+                <transport_id>UdpTransport</transport_id>
+            </userTransports>
+            <!-- Disables shared memory; required for Isaac Sim ROS2 Extension to transmit topics, especially between Docker containers or over the network -->
+             <!-- this is because if shared memory is enabled, ROS2 looks up message pointers thinking it's all on the same machine when it's not -->
+            <!-- https://answers.ros.org/question/370595/ros2-foxy-nodes-cant-communicate-through-docker-container-border/ -->
+            <!-- https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#isaac-sim-app-install-ros:~:text=Run%20export%20FASTRTPS_DEFAULT_PROFILES_FILE%3D~/.ros/fastdds.xml%20in%20the%20terminals%20that%20will%20use%20ROS%202%20functions -->
+            <useBuiltinTransports>false</useBuiltinTransports>
+        </rtps>
+    </participant>
+</profiles>

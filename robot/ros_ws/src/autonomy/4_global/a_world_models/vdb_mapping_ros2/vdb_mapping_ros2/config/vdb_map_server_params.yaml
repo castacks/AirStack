@@ -1,0 +1,22 @@
+/**:
+  ros__parameters:
+    # Basic setup
+    map_frame: map
+    robot_frame: base_link
+    map_save_dir: ""
+
+    # Visualizations
+    publish_pointcloud: true
+    publish_vis_marker: false
+    visualization_rate: 5.0
+
+    # Sensor input
+    accumulate_updates: true
+    accumulation_period: 0.2
+
+    apply_raw_sensor_data: false
+
+    map_server: 
+      initial_map_file: "/home/ubuntu/bags/neuheim.pcd"
+      set_background: false
+      clear_map: true

@@ -1,0 +1,36 @@
+<launch>
+    <!-- GUI interface -->
+    <group>
+        <push-ros-namespace namespace="behavior" />
+        <node pkg="rqt_gui" exec="rqt_gui"
+            args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+            <remap from="fixed_trajectory_command"
+                to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
+        </node>
+
+        <!-- Behavior Tree -->
+        <node pkg="behavior_tree" exec="behavior_tree_implementation">
+            <param name="config" value="$(find-pkg-share behavior_tree)/config/drone.tree" />
+            <param name="timeout" value="1.0" />
+        </node>
+
+        <!-- Behavior Executive -->
+        <node pkg="behavior_executive" exec="behavior_executive"
+            output="screen">
+            <!-- remap glue to AirStack -->
+            <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
+            <!-- topics -->
+            <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
+            <!-- services -->
+            <remap from="robot_command" to="/$(env ROBOT_NAME)/interface/robot_command" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
+            <remap from="set_takeoff_landing_command" to="/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command" />
+            <remap from="/global/trajectory" to="/$(env ROBOT_NAME)/global/trajectory" />
+            <!-- <remap from="get_random_walk_plan" to="/$(env ROBOT_NAME)/global/get_random_walk_plan" /> -->
+            <remap from="takeoff_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/takeoff_state" />
+            <remap from="landing_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/landing_state" />
+
+        </node>
+
+    </group>
+</launch>

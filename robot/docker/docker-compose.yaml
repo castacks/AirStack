@@ -1,0 +1,45 @@
+# desktop build
+services:
+  # ===================================================================================================================
+  # for developing locally on a single machine
+  # note, this service name is currently used as the name of the robot
+  robot:
+    profiles:
+      - ""
+      - sitl
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_robot-x86-64
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: ubuntu:22.04
+      tags:
+        - *desktop_image
+    # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
+    networks:
+      - airstack_network
+    # allow scaling multiple robots on the same machine
+    ports:
+      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+      - "2223-2243:22"
+
+  # ===================================================================================================================
+  # for running on an NVIIDA jetson (linux for tegra) device
+  robot_l4t:
+    profiles:
+      - hitl
+      - deploy
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_robot-l4t
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+      tags:
+        - *l4t_image
+    # assumes network isolation via a physical router, so uses network_mode=host
+    network_mode: host

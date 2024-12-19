@@ -1,0 +1,2 @@
+geometry_msgs/Point min_corner
+geometry_msgs/Point max_corner

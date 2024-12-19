@@ -1,0 +1,41 @@
+# docker compose file
+services:
+  robot_base:
+    entrypoint: ""
+    # we use tmux send-keys so that the session stays alive
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s robot_bringup
+      && tmux send-keys -t robot_bringup 
+      'if [ ! -d "~/ros_ws/install" ]; then bws && sws; fi;
+      ros2 launch robot_bringup robot.launch.xml' ENTER
+      && sleep infinity"
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Needed to display graphical applications
+    privileged: true
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [ gpu ]
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - .dev:/root/.dev:rw # developer config
+      - .bashrc:/root/.bashrc:rw # bash config
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # autonomy stack stuff
+      - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml
+      - ../ros_ws:/root/ros_ws:rw  # robot-specific ROS packages
+

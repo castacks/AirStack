@@ -1,0 +1,43 @@
+/**:
+  ros__parameters:
+
+    # execution rate in hz
+    execute_rate: 5.0
+
+
+    # Trajectory parameters 
+    trajectory_library_config: "$(find-pkg-share trajectory_library)/config/acceleration_magnitudes.yaml"
+    dt: 0.2
+    ht: 2.4
+    ht_long: 3.0
+    max_velocity: 20.0
+    magnitude: 0.5
+
+    # DROAN parameters
+    robot_radius: 0.325  # spirit drone blade to blade
+    safety_cost_weight: 1.0
+    forward_progress_forgiveness_weight: 0.5
+
+    # map parameters. see disparity_graph_cost_map.cpp
+    cost_map: disparity_graph_cost_map::DisparityGraphCostMap
+    obstacle_check_radius: 1.0 # this value MUST be strictly greater than the robot radius
+    obstacle_check_num_points: 5
+    # disparity graph parameters. see disparity_graph.hpp
+    fixed_frame: "map"
+    stabilized_frame: "base_link_stabilized"  # the frame of the stabilized robot (roll and pitch removed)
+    baseline_fallback: 0.12  # if the baseline is 0 from the camera_info, use this value instead. in meters
+    assume_seen_within_radius: 1.0  # anything within this radius, assume it is seen and don't check for obstacles
+
+    # GLOBAL_PLAN mode parameters
+    # 0: use the yaw of the subscribed traj, 1: smoothly vary the yaw in the direction of the subscribed trajectory
+    # either SMOOTH_YAW or TRAJECTORY_YAW
+    yaw_mode: SMOOTH_YAW
+
+    # AUTO_WAYPOINT mode parameters
+    auto_waypoint_buffer_duration: 30.0
+    auto_waypoint_spacing_threshold: 0.5
+    auto_waypoint_angle_threshold: 30.0
+
+    # CUSTOM_WAYPOINT mode parameters
+    custom_waypoint_timeout_factor: 0.3
+    custom_waypoint_distance_threshold: 0.5

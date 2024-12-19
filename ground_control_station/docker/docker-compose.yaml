@@ -1,0 +1,50 @@
+services:
+  ground-control-station:
+    image: &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.gcs
+      tags:
+        - *gcs_image
+    container_name: ground-control-station
+    entrypoint: ""
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s gcs_bringup
+      && tmux send-keys -t gcs_bringup 'ros2 launch gcs_bringup gcs.launch.xml' ENTER
+      && sleep infinity"
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Needed to display graphical applications
+    # ipc: host
+    privileged: true
+    networks:
+      - airstack_network
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - 2222:22 # for ssh
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - .bashrc:/root/.bashrc:rw # bash config
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # autonomy stack stuff
+      - ../../common/ros_packages:/root/ros_ws/src/common:rw # common ROS packages
+      - ../ros_ws:/root/ros_ws:rw # gcs-specific ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
+
+# include: 
+  # - ./tak-docker-compose.yaml

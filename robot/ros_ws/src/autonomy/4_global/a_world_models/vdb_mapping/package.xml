@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>vdb_mapping</name>
+  <version>0.1.0</version>
+  <description>The vdb_mapping core package used for fast performant volumetric mapping.</description>
+
+  <maintainer email="grosse@fzi.de">Marvin Große Besselmann</maintainer>
+
+  <license>Apache-2.0</license>
+
+  <!-- Url tags are optional, but multiple are allowed, one per tag -->
+  <!-- Optional attribute type can be: website, bugtracker, or repository -->
+  <!-- Example: -->
+  <!-- <url type="website">http://wiki.ros.org/vdb_mapping</url> -->
+
+  <author email="grosse@fzi.de">Marvin Große Besselmann</author> 
+
+  <buildtool_depend>cmake</buildtool_depend>
+
+  <depend>eigen</depend>
+  <depend>libopenvdb-dev</depend>
+  <depend>libpcl-all-dev</depend>
+  <depend>libpcl-all</depend>
+  <depend>tbb</depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>

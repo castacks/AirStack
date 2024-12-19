@@ -1,0 +1,27 @@
+|| 2
+	?
+		(At Home)
+		[Spin]
+	?
+		->
+			(Visited Destination)
+			(At Home)
+			?
+				(On Ground)
+				[Land]
+		->
+			?
+				(In No Fly Zone)
+				(At Flight Altitude)
+				[Takeoff]
+			?
+				<!>
+					(In No Fly Zone)
+				(On Ground)
+				[Land]
+			?
+				(Visited Destination)
+				[Go To Destination]
+			?
+				(At Home)
+				[Go Home]
