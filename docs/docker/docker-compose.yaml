@@ -1,0 +1,17 @@
+# docs docker compose
+services:
+  docs:  # live mkdocs container. open localhost:8000 in browser to see the docs
+    profiles:
+      - ""
+      - sitl
+      - hitl
+    image: airlab-storage.andrew.cmu.edu:5001/shared/mkdocs_with_plugins
+    build:
+      dockerfile: docs/Dockerfile
+      tags:
+        - airlab-storage.andrew.cmu.edu:5001/shared/mkdocs_with_plugins
+    container_name: docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../:/docs:rw

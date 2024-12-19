@@ -3,19 +3,7 @@ include:
   - simulation/isaac-sim/docker/docker-compose.yaml
   - robot/docker/docker-compose.yaml
   - ground_control_station/docker/docker-compose.yaml
-
-services:
-  docs:  # live mkdocs container. open localhost:8000 in browser to see the docs
-    image: airlab-storage.andrew.cmu.edu:5001/shared/mkdocs_with_plugins
-    build:
-      dockerfile: docs/Dockerfile
-      tags:
-        - airlab-storage.andrew.cmu.edu:5001/shared/mkdocs_with_plugins
-    container_name: docs
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./:/docs:rw
+  - docs/docker/docker-compose.yaml
 
 networks:
   airstack_network:
