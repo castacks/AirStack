@@ -88,21 +88,11 @@ This will automatically launch and play the Isaac scene specified under `AirStac
 
 ## Move Robot
 
-Find the RQT GUI window. Hit `Takeoff`, then hit `Publish` in the trajectory window like in this video:
+Find the RQT GUI window. Hit `Arm and Takeoff`, then hit `Global Plan` in the trajectory window like in this video:
 
 <iframe src="https://drive.google.com/file/d/1XYgSUTU5tf6e6sOuStYJXIs2SK3XL7g6/preview?usp=sharing&t=0" width="840" height="480" allow="autoplay" allowfullscreen="allowfullscreen"></iframe>
 
-Note you can also use the `ros2 topic pub` command to move the robot. For example, to fly to a position:
-
-```bash
-# start another terminal in docker container
-docker exec -it airstack-robot-1 bash
-# in docker
-# FLY TO POSITION. Put whatever position you want
-ros2 topic pub /robot_1/interface/mavros/setpoint_position/local geometry_msgs/PoseStamped \
-    "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'base_link' }, \
-    pose: { position: { x: 10.0, y: 0.0, z: 20.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } } }" -1
-```
+You can also switch to `Fixed Trajectory` mode and hit `Publish` on the bottom right to fly a predefined trajectory.
 
 ## Shutdown
 
