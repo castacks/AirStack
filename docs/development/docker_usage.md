@@ -1,8 +1,8 @@
-# General Usage with Docker Compose
+# Workflow with Docker and Docker Compose
 
 To mimic interacting with multiple real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.
 
-The details of the docker compose setup is in `AirStack/docker-compose.yaml`.
+The details of the docker compose setup is in the project root's `docker-compose.yaml`.
 
 In essence, the compose file launches:
 
@@ -29,13 +29,9 @@ docker login airlab-storage.andrew.cmu.edu:5001
 docker compose pull
 ```
 
-Catelog: [AirLab Registry Images](https://airlab-storage.andrew.cmu.edu:5001/v2/_catalog).
+The available image tags are listed [here](https://airlab-storage.andrew.cmu.edu:5001/v2/shared/airstack/tags/list).
 
-Available image tags:
-[airstack-dev](https://airlab-storage.andrew.cmu.edu:5001/v2/shared/airstack-dev/tags/list),
-[isaac-sim_ros-humble](https://airlab-storage.andrew.cmu.edu:5001/v2/shared/isaac-sim_ros-humble/tags/list)
-
-## Build Images
+## Build Images From Scratch
 
 ```bash
 docker compose build
