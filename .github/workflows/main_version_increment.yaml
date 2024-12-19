@@ -1,0 +1,42 @@
+name: Check Project Version Increment
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check_version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Get Current Version from PR
+        run: |
+          PR_VERSION=$(grep 'PROJECT_VERSION=' .env | cut -d'=' -f2 | tr -d '"')
+          echo "PR_VERSION=$PR_VERSION" >> $GITHUB_ENV
+
+      - name: Get Previous Version from Main
+        run: |
+          git fetch origin main
+          PREV_VERSION=$(git show origin/main:.env | grep 'PROJECT_VERSION=' | cut -d'=' -f2 | tr -d '"')
+          echo "PREV_VERSION=$PREV_VERSION" >> $GITHUB_ENV
+
+      - name: Validate Version Increment
+        run: |
+          compare_versions() {
+            IFS='.' read -r -a CUR <<< "$PR_VERSION"
+            IFS='.' read -r -a PREV <<< "$PREV_VERSION"
+
+            if (( CUR[0] > PREV[0] )); then exit 0; fi
+            if (( CUR[0] == PREV[0] && CUR[1] > PREV[1] )); then exit 0; fi
+            if (( CUR[0] == PREV[0] && CUR[1] == PREV[1] && CUR[2] > PREV[2] )); then exit 0; fi
+            echo "ERROR: PROJECT_VERSION must be incremented semantically. Current: $PR_VERSION, Previous: $PREV_VERSION"
+            exit 1
+          }
+          compare_versions
+
+      - name: Report Success
+        run: |
+          echo "PROJECT_VERSION successfully incremented: $PR_VERSION"
