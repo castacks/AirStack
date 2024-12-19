@@ -2,7 +2,7 @@
 services:
   # ===================================================================================================================
   # for developing locally on a single machine
-  robot_desktop:
+  robot_sim:
     profiles:
       - ""
       - sitl
