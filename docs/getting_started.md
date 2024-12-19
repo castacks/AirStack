@@ -90,7 +90,7 @@ This will automatically launch and play the Isaac scene specified under `AirStac
 
 Find the RQT GUI window. Hit `Takeoff`, then hit `Publish` in the trajectory window like in this video:
 
-<iframe src="https://drive.google.com/file/d/1eF9mVqvIthb2NKyWrrZmk7dR8zTGBtmx/preview?usp=sharing&t=52" width="840" height="480" allow="autoplay" allowfullscreen="allowfullscreen"></iframe>
+<iframe src="https://drive.google.com/file/d/1XYgSUTU5tf6e6sOuStYJXIs2SK3XL7g6/preview?usp=sharing&t=0" width="840" height="480" allow="autoplay" allowfullscreen="allowfullscreen"></iframe>
 
 Note you can also use the `ros2 topic pub` command to move the robot. For example, to fly to a position:
 
