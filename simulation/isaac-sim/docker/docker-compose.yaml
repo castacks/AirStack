@@ -23,7 +23,6 @@ services:
       airstack_network:
         ipv4_address: 172.31.0.200
     env_file:
-      - ./version.env # this is where the ${VERSION} variable is defined
       - ./omni_pass.env
     environment:
       # NVIDIA stuff
