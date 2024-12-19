@@ -2,7 +2,8 @@
 services:
   # ===================================================================================================================
   # for developing locally on a single machine
-  robot_sim:
+  # note, this service name is currently used as the name of the robot
+  robot:
     profiles:
       - ""
       - sitl

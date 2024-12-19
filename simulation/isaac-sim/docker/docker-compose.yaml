@@ -10,9 +10,8 @@ services:
     entrypoint: "" # override the default entrypoint with nothing
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
-      bash -c "
-      tmux new -d -s isaac
-      && tmux send-keys -t isaac 'runapp' ENTER
+      bash -c " tmux new -d -s isaac 
+      && tmux send-keys -t isaac \"ros2 launch isaacsim run_isaacsim.launch.py gui:=${DEFAULT_ISAAC_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}\" ENTER 
       && sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
@@ -53,7 +52,7 @@ services:
       - ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw
       - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
       - ~/docker/isaac-sim/documents:/root/Documents:rw
-      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim/4.1/user.config.json:rw
+      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim/4.2/user.config.json:rw
       - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
       # developer stuff
       - .dev:/root/.dev:rw # developer config

@@ -84,8 +84,7 @@ xhost +  # allow docker access to X-Server
 docker compose up -d
 ```
 
-Then open the stage from the Nucleus server:
-`airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/neighborhood.scene.usd`
+This will automatically launch and play the Isaac scene specified under `AirStack/.env` (default is the Fire Academy).
 
 ## Move Robot
 

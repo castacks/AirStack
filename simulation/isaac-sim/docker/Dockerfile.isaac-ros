@@ -1,7 +1,13 @@
 # expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
-FROM nvcr.io/nvidia/isaac-sim:4.1.0
+FROM nvcr.io/nvidia/isaac-sim:4.2.0
 
 WORKDIR /isaac-sim
+
+# isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
+RUN mkdir -p /root/.local/share/ov/pkg/
+RUN ln -s /isaac-sim /root/.local/share/ov/pkg/isaac-sim-4.2.0
+# allows us to run isaac-sim as root
+ENV OMNI_KIT_ALLOW_ROOT=1
 
 # setup timezone
 RUN echo 'Etc/UTC' > /etc/timezone && \
