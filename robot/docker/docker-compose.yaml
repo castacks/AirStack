@@ -1,75 +1,44 @@
-# docker compose file
-x-variables:
-  version: &robot_version v1.0.0
-
+# desktop build
 services:
-  robot_common: &robot_common
-    entrypoint: ""
-    # we use tmux send-keys so that the session stays alive
-    command: >
-      bash -c "ssh service restart;
-      tmux new -d -s robot_bringup
-      && tmux send-keys -t robot_bringup 
-      'if [ ! -d "~/ros_ws/install" ]; then bws && sws; fi;
-      ros2 launch robot_bringup robot.launch.xml' ENTER
-      && sleep infinity"
-    # Interactive shell
-    stdin_open: true # docker run -i
-    tty: true # docker run -t
-    # Needed to display graphical applications
-    privileged: true
-    networks:
-      - airstack_network
-    environment:
-      - DISPLAY
-      - QT_X11_NO_MITSHM=1
-    deploy:
-      # let it use the GPU
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia # https://stackoverflow.com/a/70761193
-              count: 1
-              capabilities: [ gpu ]
-    ports:
-      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
-      - "2223-2243:22"
-    volumes:
-      # display stuff
-      - $HOME/.Xauthority:/root/.Xauthority
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      # developer stuff
-      - .dev:/root/.dev:rw # developer config
-      - .bashrc:/root/.bashrc:rw # bash config
-      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
-      # autonomy stack stuff
-      - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
-      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml
-      - ../ros_ws:/root/ros_ws:rw  # robot-specific ROS packages
-
-
-  # desktop
-  robot_x64:
-    <<: *robot_common
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-robot-x64
+  # ===================================================================================================================
+  # for developing locally on a single machine
+  robot_desktop:
     profiles:
+      - ""
       - sitl
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_robot-desktop
     build:
       dockerfile: ./Dockerfile.robot
       args:
         BASE_IMAGE: ubuntu:22.04
       tags:
-        - *robot_version
+        - *desktop_image
+    # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
+    networks:
+      - airstack_network
+    # allow scaling multiple robots on the same machine
+    ports:
+      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+      - "2223-2243:22"
 
-  # jetson
+  # ===================================================================================================================
+  # for running on an NVIIDA jetson (linux for tegra) device
   robot_l4t:
-    <<: *robot_common
-    image: airlab-storage.andrew.cmu.edu:5001/shared/airstack-robot-l4t
     profiles:
       - hitl
+      - deploy
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_robot-l4t
     build:
       dockerfile: ./Dockerfile.robot
       args:
-        BASE_IMAGE: l4t-pytorch:r35.2.1-pth2.0-py3
+        BASE_IMAGE: nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
       tags:
-        - *robot_version
+        - *l4t_image
+    # assumes network isolation via a physical router, so uses network_mode=host
+    network_mode: host

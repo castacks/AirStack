@@ -1,14 +1,13 @@
 services:
-# ==============================================================================
   isaac-sim:
-    image: &isaac-sim-image airlab-storage.andrew.cmu.edu:5001/shared/isaac-sim_ros-humble:v1.0.3
+    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_isaac-sim
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
-        - *isaac-sim-image
+        - *image_tag
     container_name: isaac-sim
-    entrypoint: ""  # override the default entrypoint with nothing
+    entrypoint: "" # override the default entrypoint with nothing
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
       bash -c "
@@ -23,7 +22,9 @@ services:
     networks:
       airstack_network:
         ipv4_address: 172.31.0.200
-    env_file: ./omni_pass.env
+    env_file:
+      - ./version.env # this is where the ${VERSION} variable is defined
+      - ./omni_pass.env
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
@@ -39,7 +40,7 @@ services:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     volumes:
       # display
       - $HOME/.Xauthority:/root/.Xauthority
