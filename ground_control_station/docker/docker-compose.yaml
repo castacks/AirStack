@@ -1,6 +1,6 @@
 services:
   ground-control-station:
-    image: &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs-dev-console
+    image: &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs
     build:
       context: ../
       dockerfile: docker/Dockerfile.gcs

@@ -10,7 +10,7 @@ services:
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
-    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_robot-desktop
+    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_robot-x86-64
     build:
       dockerfile: ./Dockerfile.robot
       args:

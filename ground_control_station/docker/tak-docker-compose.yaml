@@ -1,25 +1,4 @@
 services:
-  ####################### GSTREAMER TO ROS TOPICS ######################
-  # gst-ros-bridge-topic1:
-  #   container_name: "${PROJECT_NAME}-gst_ros_bridge1"
-  #   image: "${PROJECT_NAME}/gcs/gst-ros-bridge"
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.gst-ros-bridge
-  #   command: >
-  #     /bin/bash -c 'source /ros_ws/install/setup.bash && gst-launch-1.0 --gst-plugin-path=/ros_ws/install/gst_bridge/lib/gst_bridge/
-  #     rtspsrc location="${CAMERA1_STREAM_IP}" latency=0 !
-  #     rtph265depay ! h265parse ! avdec_h265 ! videoconvert !
-  #     rosimagesink ros-topic="${CAMERA1_ROS_TOPIC}"'
-  #   environment:
-  #     - DISPLAY=${DISPLAY}
-  #     - DOCKER_BUILDKIT=0
-  #     - CAMERA1_STREAM_IP=${CAMERA1_STREAM_IP}
-  #     - CAMERA1_ROS_TOPIC=${CAMERA1_ROS_TOPIC}
-  #   volumes:
-  #     - /tmp/.X11-unix:/tmp/.X11-unix
-  #   network_mode: host
-
   ####################### ROS2TAK TOOLS ######################
   ############### MQTT for the GCS
   mqtt:
@@ -59,7 +38,7 @@ services:
       - airstack_network
   ################## ROS2COT_AGENT
   ros2cot_agent:
-    image: &ros2cot_agent_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs-ros2cot-agent
+    image: &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs
     build:
       context: ../
       dockerfile: docker/Dockerfile.ros2tak_tools
@@ -88,14 +67,14 @@ services:
 
   # ################### TAK_PUBLISHER
   tak_publisher:
-    image: &tak_publisher_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs-tak-publisher
+    image: *gcs_image
     build:
       context: ../
       dockerfile: docker/Dockerfile.tak_publisher
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
       tags:
-        - *tak_publisher_image
+        - *gcs_image
     container_name: "${PROJECT_NAME}-tak_publisher"
     stdin_open: true
     tty: true
@@ -117,14 +96,14 @@ services:
       ]
   ################### TAK_SUBSCRIBER
   tak_subscriber:
-    image: &tak_subscriber_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs-tak-subscriber
+    image: *gcs_image
     build:
       context: ../
       dockerfile: docker/Dockerfile.tak_subscriber
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
       tags:
-        - *tak_subscriber_image
+        - *gcs_image
     container_name: "${PROJECT_NAME}-tak_subscriber"
     stdin_open: true
     tty: true
@@ -146,7 +125,7 @@ services:
 
   ################## ROS2COT_AGENT
   cot2planner_agent:
-    image: &cot2planner_agent_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs-cot2planner-agent
+    image: *gcs_image
     build:
       context: ../../
       dockerfile: ground_control_station/docker/Dockerfile.TAK
@@ -172,14 +151,14 @@ services:
 
   # ################## GCS_AI_AGENT
   gcs_ai_agent:
-    image: &gcs_ai_agent_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_gcs-ai-agent
+    image: *gcs_image
     build:
       context: ../../
       dockerfile: ground_control_station/docker/Dockerfile.TAK
       args:
         - ROS_WS_DIR=${ROS_WS_DIR}
       tags:
-        - *gcs_ai_agent_image
+        - *gcs_image
     container_name: "${PROJECT_NAME}-gcs_ai_agent"
     stdin_open: true
     tty: true
