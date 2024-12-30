@@ -76,18 +76,23 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
+<<<<<<< HEAD
     libcgal-dev \
     python3-colcon-common-extensions
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+=======
+    libcgal-dev 
+>>>>>>> d6a3ce9 (merging robot docker file into existing docker file)
 
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 # Install Python dependencies
 RUN pip3 install \
     empy \
     future \
     lxml \
-    matplotlib \
-    numpy \
+    matplotlib==3.8.4 \
+    numpy==1.24.0 \
     pkgconfig \
     psutil \
     pygments \
@@ -98,8 +103,22 @@ RUN pip3 install \
     setuptools \
     six \
     toml \
-    scipy
-
+    scipy \
+    torch \
+    torchvision \
+    pypose \
+    rich \
+    tqdm \
+    pillow \ 
+    flow_vis \
+    h5py \
+    evo \
+    tabulate \
+    einops \
+    timm==0.9.12 \
+    rerun-sdk==0.17 \
+    yacs \
+    wandb
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
@@ -120,6 +139,7 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
+<<<<<<< HEAD
 
 ARG REAL_ROBOT=false
 RUN if [ "$REAL_ROBOT"  = "true" ]; then \
@@ -132,10 +152,21 @@ else \
   
   echo "REAL_ROBOT is false"; \
 fi
+=======
+>>>>>>> d6a3ce9 (merging robot docker file into existing docker file)
 
+# Downloading model weights for MACVO
+WORKDIR /root/model_weights
+RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
+    rm -rf /root/model_weights/github.com
+
+WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
     && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
+    RUN pip install huggingface_hub
+    RUN pip uninstall matplotlib -y
