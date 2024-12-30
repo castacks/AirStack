@@ -168,5 +168,5 @@ RUN apt purge git -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
-    RUN pip install huggingface_hub
-    RUN pip uninstall matplotlib -y
+RUN pip install huggingface_hub
+RUN pip uninstall matplotlib -y
