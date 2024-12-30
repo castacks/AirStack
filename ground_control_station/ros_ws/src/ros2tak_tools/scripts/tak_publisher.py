@@ -51,7 +51,7 @@ class MySender(pytak.QueueWorker):
         # Connect to MQTT broker and subscribe to topic
         try:
             print(f"Connecting to {self.mqtt_broker}:{self.mqtt_port}")
-            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port)
+            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, keepalive=65535)
             self.mqtt_client.subscribe(self.mqtt_topicname)
             print(f"Connected and subscribed to MQTT topic '{self.mqtt_topicname}' on broker {self.mqtt_broker}:{self.mqtt_port}")
         except Exception as e:
@@ -80,7 +80,7 @@ class MySender(pytak.QueueWorker):
             self.mqtt_client.loop_stop()
             print("MQTT loop stopped.")
 
-async def async_main(config):
+async def main(config):
     loop = asyncio.get_running_loop()  # Capture the main event loop
     clitool = pytak.CLITool(config["mycottool"])
     await clitool.setup()
@@ -92,12 +92,9 @@ def run_main_in_process(config):
     loop.run_until_complete(main(config))
 
 if __name__ == "__main__":
-    main()
-
-def main():
     parser = argparse.ArgumentParser(description="TAK Publisher Script")
     parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
 
     # Load the YAML configuration
     with open(args.config, 'r') as file:
