@@ -77,16 +77,16 @@ RUN apt update -y && apt install -y \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
     libcgal-dev 
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 # Install Python dependencies
 RUN pip3 install \
     empy \
     future \
     lxml \
-    matplotlib \
-    numpy \
+    matplotlib==3.8.4 \
+    numpy==1.24.0 \
     pkgconfig \
     psutil \
     pygments \
@@ -97,8 +97,22 @@ RUN pip3 install \
     setuptools \
     six \
     toml \
-    scipy
-
+    scipy \
+    torch \
+    torchvision \
+    pypose \
+    rich \
+    tqdm \
+    pillow \ 
+    flow_vis \
+    h5py \
+    evo \
+    tabulate \
+    einops \
+    timm==0.9.12 \
+    rerun-sdk==0.17 \
+    yacs \
+    wandb
 
 # Override install newer openvdb 8.2.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
@@ -119,11 +133,19 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
-    
 
+# Downloading model weights for MACVO
+WORKDIR /root/model_weights
+RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
+    rm -rf /root/model_weights/github.com
+
+WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
     && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
+    RUN pip install huggingface_hub
+    RUN pip uninstall matplotlib -y
