@@ -1,6 +1,0 @@
-<launch>
-    <node pkg="MACVO_ROS2" exec="MACVO">
-        <param name="camera_config" value="$(find-pkg-share MACVO_ROS2)/ZedConfig.yaml"/>
-        <param from="$(find-pkg-share MACVO_ROS2)/macvo_config.yaml"/>
-    </node>
-</launch>

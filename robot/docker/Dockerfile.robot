@@ -76,7 +76,7 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
-    libcgal-dev 
+    libcgal-dev
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -147,5 +147,9 @@ RUN apt purge git -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Install colcon, seems to be getting removed
+RUN pip install -U colcon-common-extensions
+
+# Fixes for MACVO Integration
 RUN pip install huggingface_hub
 RUN pip uninstall matplotlib -y

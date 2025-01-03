@@ -81,16 +81,3 @@ Odometry:
       device: cpu
       vectorize: true
       parallel: true
-
-Camera:
-  fx: 732.527587890625
-  fy: 732.527587890625
-  cx: 982.960693359375
-  cy: 660.4515991210938
-  bl: 0.120022
-
-  width: 1920
-  height: 1200
-
-  scale_u: 3
-  scale_v: 4
