@@ -76,13 +76,8 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
-<<<<<<< HEAD
     libcgal-dev \
     python3-colcon-common-extensions
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
-=======
-    libcgal-dev 
->>>>>>> d6a3ce9 (merging robot docker file into existing docker file)
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -139,21 +134,16 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
-<<<<<<< HEAD
 
 ARG REAL_ROBOT=false
 RUN if [ "$REAL_ROBOT"  = "true" ]; then \
   # Put commands here that should run for the real robot but not the sim
-  
   echo "REAL_ROBOT is true"; \
   apt-get update && apt-get install -y libimath-dev; \
 else \
   # Put commands here that should be run for the sim but not the real robot
-  
   echo "REAL_ROBOT is false"; \
 fi
-=======
->>>>>>> d6a3ce9 (merging robot docker file into existing docker file)
 
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
@@ -168,5 +158,9 @@ RUN apt purge git -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Install colcon, seems to be getting removed
+RUN pip install -U colcon-common-extensions
+
+# Fixes for MACVO Integration
 RUN pip install huggingface_hub
 RUN pip uninstall matplotlib -y

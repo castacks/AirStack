@@ -9,24 +9,27 @@ from sensor_msgs.msg import Image, PointCloud
 from geometry_msgs.msg import PoseStamped
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
-
 from pathlib import Path
 from typing import TYPE_CHECKING
 from torchvision.transforms.functional import center_crop, resize
 import os, sys
 import argparse
 
-from .MessageFactory import to_stamped_pose, from_image, to_pointcloud, to_image
+from .MessageFactory import to_stamped_pose, to_pointcloud
 from sensor_interfaces.srv import GetCameraParams
 
 # Add the src directory to the Python path
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'src'))
 sys.path.insert(0, src_path)
-from src.Odometry.MACVO import MACVO
-from src.DataLoader import SourceDataFrame, MetaInfo
-from src.Utility.Config import load_config
-
-
+if TYPE_CHECKING:
+    # To make static type checker happy : )
+    from src.Odometry.MACVO import MACVO
+    from src.DataLoader import SourceDataFrame, MetaInfo
+    from src.Utility.Config import load_config
+else:
+    from Odometry.MACVO import MACVO                
+    from DataLoader import SourceDataFrame, MetaInfo
+    from Utility.Config import load_config
 
 class MACVONode(Node):
     def __init__(self):
@@ -37,7 +40,6 @@ class MACVONode(Node):
         self.get_logger().info(f"Loading macvo model from {camera_config}, this might take a while...")
         cfg, _ = load_config(Path(camera_config))
         self.frame_idx  = 0
-        self.camera     = cfg.Camera
         self.odometry   = MACVO.from_config(cfg)
         self.declare_parameter("camera_name", rclpy.Parameter.Type.STRING)
         self.camera_name = self.get_parameter("camera_name").get_parameter_value().string_value
