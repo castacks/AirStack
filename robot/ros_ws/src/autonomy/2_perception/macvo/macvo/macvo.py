@@ -34,22 +34,8 @@ else:
 class MACVONode(Node):
     def __init__(self):
         super().__init__("macvo_node")
-        
-        self.declare_parameter("camera_config", rclpy.Parameter.Type.STRING)
-        camera_config = self.get_parameter("camera_config").get_parameter_value().string_value
-        self.get_logger().info(f"Loading macvo model from {camera_config}, this might take a while...")
-        cfg, _ = load_config(Path(camera_config))
-        self.frame_idx  = 0
-        self.odometry   = MACVO.from_config(cfg)
-        self.declare_parameter("camera_name", rclpy.Parameter.Type.STRING)
-        self.camera_name = self.get_parameter("camera_name").get_parameter_value().string_value
 
-        self.odometry.register_on_optimize_finish(self.publish_latest_pose)
-        self.odometry.register_on_optimize_finish(self.publish_latest_points)
-        # self.odometry.register_on_optimize_finish(self.publish_latest_stereo)
-        self.odometry.register_on_optimize_finish(self.publish_latest_matches)
-        self.get_logger().info(f"MACVO Model loaded successfully! Initializing MACVO node ...")
-
+        # Declare subscriptions and publishers ----------------
         self.declare_parameter("imageL_sub_topic", rclpy.Parameter.Type.STRING)
         self.declare_parameter("imageR_sub_topic", rclpy.Parameter.Type.STRING)
         imageL_topic = self.get_parameter("imageL_sub_topic").get_parameter_value().string_value
@@ -57,10 +43,6 @@ class MACVONode(Node):
         self.imageL_sub = Subscriber(self, Image, imageL_topic, qos_profile=1)
         self.imageR_sub = Subscriber(self, Image, imageR_topic, qos_profile=1)
 
-        self.declare_parameter("camera_param_server_client_topic", rclpy.Parameter.Type.STRING)
-        camera_param_server_topic = self.get_parameter("camera_param_server_client_topic").get_parameter_value().string_value
-        self.camera_param_client = self.create_client(GetCameraParams, camera_param_server_topic)
-        
         self.sync_stereo = ApproximateTimeSynchronizer(
             [self.imageL_sub, self.imageR_sub], queue_size=2, slop=0.1
         )
@@ -83,6 +65,22 @@ class MACVONode(Node):
             self.img_pipes = self.create_publisher(Image, img_stream, qos_profile=1)
         else:
             self.img_pipes = None
+        
+        # Load the MACVO model ------------------------------------
+        self.declare_parameter("camera_config", rclpy.Parameter.Type.STRING)
+        camera_config = self.get_parameter("camera_config").get_parameter_value().string_value
+        self.get_logger().info(f"Loading macvo model from {camera_config}, this might take a while...")
+        cfg, _ = load_config(Path(camera_config))
+        self.frame_idx  = 0
+        self.odometry   = MACVO.from_config(cfg)
+        self.declare_parameter("camera_name", rclpy.Parameter.Type.STRING)
+        self.camera_name = self.get_parameter("camera_name").get_parameter_value().string_value
+
+        self.odometry.register_on_optimize_finish(self.publish_latest_pose)
+        self.odometry.register_on_optimize_finish(self.publish_latest_points)
+        # self.odometry.register_on_optimize_finish(self.publish_latest_stereo)
+        self.odometry.register_on_optimize_finish(self.publish_latest_matches)
+        self.get_logger().info(f"MACVO Model loaded successfully! Initializing MACVO node ...")
 
         self.declare_parameter("inference_dim_u", rclpy.Parameter.Type.INTEGER)
         self.declare_parameter("inference_dim_v", rclpy.Parameter.Type.INTEGER)
@@ -92,11 +90,15 @@ class MACVONode(Node):
         self.time  , self.prev_time  = None, None
         self.meta = None
 
+        # get camera params from the camera param server ----------------------------------------------------------
+        self.declare_parameter("camera_param_server_client_topic", rclpy.Parameter.Type.STRING)
+        camera_param_server_topic = self.get_parameter("camera_param_server_client_topic").get_parameter_value().string_value
+        self.camera_param_client = self.create_client(GetCameraParams, camera_param_server_topic)
         self.get_camera_params(camera_param_server_topic)
         
         self.bridge = CvBridge()
 
-        self.frame = None
+        self.frame = "left_camera"
         self.scale_u = float(self.camera_info.width / u_dim)
         self.scale_v = float(self.camera_info.height / v_dim)
 
@@ -106,21 +108,22 @@ class MACVONode(Node):
 
         self.get_logger().info(f"MACVO Node initialized with camera config: {camera_config}")
 
-    def get_camera_params(self, camera_param_server_topic, client_time_out: int = 5):
-        while not self.camera_param_client.wait_for_service(timeout_sec=client_time_out):
-            self.get_logger().error(f"Service {camera_param_server_topic} not available, waiting again...")
-        req = GetCameraParams.Request()
-        req.camera_names.append(self.camera_name)
-        req.camera_types.append("stereo")
-        future = self.camera_param_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
-        if future.result() is not None:
-            self.camera_info = future.result().camera_infos[0]
-            self.baseline = future.result().baselines[0]
-            self.get_logger().info(f"Received camera config from server!")
-        else:
-            self.get_logger().error(f"Failed to get camera config from server: {future.exception()}")
-            return
+    def get_camera_params(self, camera_param_server_topic, client_time_out: int = 1):
+        while True:
+            while not self.camera_param_client.wait_for_service(timeout_sec=client_time_out):
+                self.get_logger().error(f"Service {camera_param_server_topic} not available, waiting again...")
+            req = GetCameraParams.Request()
+            req.camera_names.append(self.camera_name)
+            req.camera_types.append("stereo")
+            future = self.camera_param_client.call_async(req)
+            rclpy.spin_until_future_complete(self, future)
+            if future.result() is not None:
+                self.camera_info = future.result().camera_infos[0]
+                self.baseline = future.result().baselines[0]
+                self.get_logger().info(f"Received camera config from server!")
+                return
+            else:
+                self.get_logger().error(f"Failed to get camera params from server")
         
     def publish_latest_pose(self, system: MACVO):
         pose = system.gmap.frames.pose[-1]
