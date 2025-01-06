@@ -15,7 +15,7 @@ from torchvision.transforms.functional import center_crop, resize
 import os, sys
 import argparse
 
-from .MessageFactory import to_stamped_pose, to_pointcloud
+from .MessageFactory import to_stamped_pose, from_image, to_pointcloud, to_image
 from sensor_interfaces.srv import GetCameraParams
 
 # Add the src directory to the Python path
@@ -99,6 +99,9 @@ class MACVONode(Node):
         self.frame = None
         self.scale_u = float(self.camera_info.width / u_dim)
         self.scale_v = float(self.camera_info.height / v_dim)
+
+        self.rot_correction_matrix = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+
         self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
 
         self.get_logger().info(f"MACVO Node initialized with camera config: {camera_config}")
@@ -126,6 +129,9 @@ class MACVONode(Node):
         assert frame is not None and time is not None
         
         out_msg = to_stamped_pose(pose, frame, time)
+
+        # Correction for the camera coordinate frame
+        out_msg.pose.position.x, out_msg.pose.position.y, out_msg.pose.position.z = np.dot(self.rot_correction_matrix, np.array([out_msg.pose.position.x, out_msg.pose.position.y, out_msg.pose.position.z]))
         
         self.pose_pipe.publish(out_msg)
    
@@ -147,6 +153,11 @@ class MACVONode(Node):
             colors    = latest_points.color,
             time      = time
         )
+
+        # Correction for the camera coordinate frame
+        for pt in out_msg.points:
+            pt.x, pt.y, pt.z = np.dot(self.rot_correction_matrix, np.array([pt.x, pt.y, pt.z]))
+
         self.point_pipe.publish(out_msg)
   
     def publish_latest_stereo(self, system: MACVO):
