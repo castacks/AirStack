@@ -79,6 +79,61 @@ def to_stamped_pose(pose: pp.LieTensor | torch.Tensor, frame_id: str, time: Time
     out_msg.pose.orientation.w = pose_[6].item()
     return out_msg
 
+
+def from_image(msg: sensor_msgs.Image) -> np.ndarray:
+    if msg.encoding not in _name_to_dtypes:
+        raise KeyError(f"Unsupported image encoding {msg.encoding}")
+    
+    dtype_name, channel = _name_to_dtypes[msg.encoding]
+    dtype = np.dtype(dtype_name)
+    dtype = dtype.newbyteorder('>' if msg.is_bigendian else '<')
+    shape = (msg.height, msg.width, channel)
+    
+    data = np.frombuffer(msg.data, dtype=dtype).reshape(shape)
+    data.strides = (msg.step, dtype.itemsize * channel, dtype.itemsize)
+    return data
+
+
+def to_image(arr: np.ndarray, frame_id: str, time: Time, encoding: str = "bgra8") -> sensor_msgs.Image:
+    if not encoding in _name_to_dtypes:
+        raise TypeError('Unrecognized encoding {}'.format(encoding))
+
+    im = sensor_msgs.Image(encoding=encoding)
+
+    # extract width, height, and channels
+    dtype_class, exp_channels = _name_to_dtypes[encoding]
+    dtype = np.dtype(dtype_class)
+    if len(arr.shape) == 2:
+        im.height, im.width, channels = arr.shape + (1,)
+    elif len(arr.shape) == 3:
+        im.height, im.width, channels = arr.shape
+    else:
+        raise TypeError("Array must be two or three dimensional")
+
+    # check type and channels
+    if exp_channels != channels:
+        raise TypeError("Array has {} channels, {} requires {}".format(
+            channels, encoding, exp_channels
+        ))
+    if dtype_class != arr.dtype.type:
+        raise TypeError("Array is {}, {} requires {}".format(
+            arr.dtype.type, encoding, dtype_class
+        ))
+
+    # make the array contiguous in memory, as mostly required by the format
+    contig = np.ascontiguousarray(arr)
+    im.data = contig.tobytes()
+    im.step = contig.strides[0]
+    im.header.stamp    = time
+    im.header.frame_id = frame_id
+    im.is_bigendian = (
+        arr.dtype.byteorder == '>' or
+        arr.dtype.byteorder == '=' and sys.byteorder == 'big'
+    )
+
+    return im
+
+
 def to_pointcloud(position: torch.Tensor, keypoints: torch.Tensor, colors: torch.Tensor, frame_id: str, time: Time) -> sensor_msgs.PointCloud:
     """
     position    should be a Nx3 pytorch Tensor (dtype=float)
