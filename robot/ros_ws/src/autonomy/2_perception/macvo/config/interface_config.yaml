@@ -1,4 +1,4 @@
-macvo_node:
+/**:
   ros__parameters:
     camera_name: "front_stereo"
     camera_param_server_client_topic: "sensors/get_camera_params"

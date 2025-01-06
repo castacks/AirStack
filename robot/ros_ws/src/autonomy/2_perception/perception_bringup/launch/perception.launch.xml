@@ -21,11 +21,11 @@
     <node pkg="macvo" exec="macvo">
         <param name="camera_config" value="$(find-pkg-share macvo)/config/model_config.yaml"/>
         <param from="$(find-pkg-share macvo)/config/interface_config.yaml"/>
-        <remap from="/left/image_rect" to="$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect" />
-        <remap from="/right/image_rect" to="$(env ROBOT_NAME)/sensors/front_stereo/right/image_rect" />
-        <remap from="/sensors/get_camera_params" to="$(env ROBOT_NAME)/sensors/get_camera_params" />
-        <remap from="/visual_odometry_pose" to="$(env ROBOT_NAME)/perception/visual_odometry_pose" />
-        <remap from="/visual_odometry_points" to="$(env ROBOT_NAME)/perception/visual_odometry_points" />
-        <remap from="/visual_odometry_img" to="$(env ROBOT_NAME)/perception/visual_odometry_img" />
+        <remap from="left/image_rect" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect" />
+        <remap from="right/image_rect" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/image_rect" />
+        <remap from="/sensors/get_camera_params" to="/$(env ROBOT_NAME)/sensors/get_camera_params" />
+        <remap from="visual_odometry_pose" to="/$(env ROBOT_NAME)/perception/visual_odometry_pose" />
+        <remap from="visual_odometry_points" to="/$(env ROBOT_NAME)/perception/visual_odometry_points" />
+        <remap from="visual_odometry_img" to="/$(env ROBOT_NAME)/perception/visual_odometry_img" />
     </node>
 </launch>
