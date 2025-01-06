@@ -229,7 +229,7 @@ class MACVONode(Node):
         start_time = self.get_clock().now()
         self.odometry.run(frame)
         end_time = self.get_clock().now()   
-        self.get_logger().info(f"Frame {self.frame_idx} processed in {end_time - start_time}")
+        # self.get_logger().info(f"Frame {self.frame_idx} processed in {end_time - start_time}")
         self.frame_idx += 1
 
 def main():
