@@ -1,6 +1,6 @@
-# either ubuntu:22.04 or l4t
+# either ubuntu:22.04 or l4t. ubuntu:22.04 is default
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE:-ubuntu:22.04}
 
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
@@ -76,7 +76,8 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
-    libcgal-dev 
+    libcgal-dev \
+    python3-colcon-common-extensions
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 
