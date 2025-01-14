@@ -101,9 +101,9 @@ RUN pip3 install \
     scipy
 
 
-# Override install newer openvdb 8.2.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
+# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
-    git clone --recurse --branch v8.2.0-debian https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
+    git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
     mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
     cmake .. && \
     make -j8 && make install && \
