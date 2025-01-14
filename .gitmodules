@@ -1,6 +1,6 @@
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping
-	url = git@github.com:fzi-forschungszentrum-informatik/vdb_mapping.git
+	url = git@github.com:castacks/vdb_mapping.git
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2
 	url = git@github.com:castacks/vdb_mapping_ros2.git
