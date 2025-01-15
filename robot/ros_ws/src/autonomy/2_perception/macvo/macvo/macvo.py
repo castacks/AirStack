@@ -35,6 +35,15 @@ class MACVONode(Node):
     def __init__(self):
         super().__init__("macvo_node")
 
+        self.bridge = None
+        self.time = None
+        self.prev_time = None
+        self.frame = None
+        self.camera_info = None
+        self.baseline = None
+        self.prev_frame = None
+        self.odometry = None
+
         # Declare subscriptions and publishers ----------------
         self.declare_parameter("imageL_sub_topic", rclpy.Parameter.Type.STRING)
         self.declare_parameter("imageR_sub_topic", rclpy.Parameter.Type.STRING)
@@ -65,6 +74,8 @@ class MACVONode(Node):
             self.img_pipes = self.create_publisher(Image, img_stream, qos_profile=1)
         else:
             self.img_pipes = None
+
+        self.frame = "left_camera"
         
         # Load the MACVO model ------------------------------------
         self.declare_parameter("camera_config", rclpy.Parameter.Type.STRING)
@@ -97,14 +108,12 @@ class MACVONode(Node):
         self.get_camera_params(camera_param_server_topic)
         
         self.bridge = CvBridge()
-
-        self.frame = "left_camera"
         self.scale_u = float(self.camera_info.width / u_dim)
         self.scale_v = float(self.camera_info.height / v_dim)
 
         self.rot_correction_matrix = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
 
-        self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
+        # self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
 
         self.get_logger().info(f"MACVO Node initialized with camera config: {camera_config}")
 
@@ -202,6 +211,10 @@ class MACVONode(Node):
             self.img_pipes.publish(msg)
 
     def receive_frame(self, msg_L: Image, msg_R: Image) -> None:
+        if self.frame is None or self.bridge is None:
+            self.get_logger().error("MACVO Node not initialized yet, skipping frame")
+            return
+        
         self.prev_frame, self.prev_time = self.frame, self.time
         
         self.frame        = msg_L.header.frame_id
