@@ -1,0 +1,22 @@
+<!-- AUTONOMY -->
+<launch>
+  <!-- Interface -->
+  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.xml" />
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+
+  <!-- Perception -->
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- Local -->
+  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
+
+  <!-- Global -->
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+
+  <!-- Behavior -->
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+
+
+</launch>

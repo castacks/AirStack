@@ -1,0 +1,86 @@
+<!-- LOCAL -->
+<launch>
+    <!-- Basic Planners -->
+    <node pkg="trajectory_library"
+        namespace="fixed_trajectory_generator" exec="fixed_trajectory_generator.py" output="screen">
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+    </node>
+
+    <!-- customize takeoff_landing_planner.launch.xml -->
+    <node pkg="takeoff_landing_planner"
+        namespace="takeoff_landing_planner"
+        exec="takeoff_landing_planner" output="screen">
+        <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
+            allow_substs="true" />
+
+        <!-- remap glue to AirStack -->
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="trajectory_completion_percentage"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
+        <remap from="tracking_point"
+            to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+        <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    </node>
+
+    <group>
+        <push-ros-namespace namespace="droan" />
+        <!-- DROAN Local Planner -->
+        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
+            args="--log-level DEBUG" >
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
+                allow_substs="true" />
+            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+            <remap from="tracking_point"
+                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+            <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+        </node>
+        <!-- DROAN local model -->
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion" output="screen">
+            <param
+                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
+            <!-- use estimated disparity -->
+            <!-- <remap from="disparity" to="/$(env ROBOT_NAME)/stereo_image_proc/disparity" /> -->
+            <!-- create disparity from ground truth depth instead of using estimated disparity -->
+            <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+        </node>
+    </group>
+
+    <!-- Control -->
+    <!-- customize trajectory_controller.launch.xml -->
+    <node pkg="trajectory_controller" exec="trajectory_controller" 
+        namespace="trajectory_controller"
+        output="screen">
+        <param name="tf_prefix" value="" />
+        <param name="target_frame" value="map" />
+        <param name="tracking_point_distance_limit" value="10.5" />
+        <param name="velocity_look_ahead_time" value="0.9" />
+        <!-- look ahead time controls the speed, greater is faster -->
+        <param name="look_ahead_time" value="2.0" />
+        <param name="virtual_tracking_ahead_time" value="0.5" />
+        <param name="min_virtual_tracking_velocity" value="0.1" />
+        <param name="sphere_radius" value="1." />
+        <param name="ff_min_velocity" value="0." />
+        <param name="search_ahead_factor" value="1.5" />
+        <param name="transition_velocity_scale" value="1.0" />
+        <param name="traj_vis_thickness" value="0.03" />
+
+        <param name="rewind_skip_max_velocity" value="0.1" />
+        <param name="rewind_skip_max_distance" value="0.1" />
+
+        <!-- remap glue to AirStack -->
+        <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+
+    </node>
+
+  <?ignore
+  <node pkg="rviz2" exec="rviz2"
+    args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"
+    output="screen" respawn="true" respawn_delay="1" />
+  ?>
+
+</launch>

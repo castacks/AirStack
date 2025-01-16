@@ -1,0 +1,56 @@
+?
+	->
+		(Auto Takeoff Commanded)
+		->
+			?
+				(Armed)
+				(Offboard Mode)
+				[Request Control]
+			?
+				(Armed)
+				[Arm]
+			?
+				(Takeoff Complete)
+				[Takeoff]
+	->
+		(Takeoff Commanded)
+		?
+			(Takeoff Complete)
+			[Takeoff]
+	->
+		(Land Commanded)
+		?
+			(Landing Complete)
+			[Land]
+	->
+		(Pause Commanded)
+		?
+			[Pause]
+	->
+		(Rewind Commanded)
+		?
+			[Rewind]
+	->
+		(Fixed Trajectory Commanded)
+		?
+			[Follow Fixed Trajectory]
+	->
+		(Global Plan Commanded)
+		?
+			[Follow Global Plan]
+	->
+		(Offboard Commanded)
+		?
+			(Offboard Mode)
+			[Request Control]
+	->
+		(Arm Commanded)
+		?
+			(Armed)
+			[Arm]
+	->
+		(Disarm Commanded)
+		?
+			<!>
+				(Armed)
+			[Disarm]

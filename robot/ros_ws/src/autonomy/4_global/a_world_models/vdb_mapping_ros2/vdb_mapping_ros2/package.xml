@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>vdb_mapping_ros2</name>
+  <version>0.0.1</version>
+  <description>The vdb_mapping_ros2 package is a ROS2 wrapper for the vdb_mapping packages used for fast volumetric mapping</description>
+  <maintainer email="grosse@fzi.de">Marvin Große Besselmann</maintainer>
+  <author>Marvin Große Besselmann</author>
+
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_ros</depend>
+  <depend>vdb_mapping</depend>
+  <depend>vdb_mapping_interfaces</depend>
+  <depend>visualization_msgs</depend>
+  <depend>pcl_conversions</depend>
+
+
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

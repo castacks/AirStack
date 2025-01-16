@@ -1,0 +1,54 @@
+trajectories:
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: -45
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: -30
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: -15
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: 0
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: 15
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: 30
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: curve
+    linear_velocity: 1
+    angular_velocity: 45
+    frame: tracking_point_stabilized
+    dt: 0.2
+    time: 3
+    yaw: heading
+  - type: acceleration
+    frame: tracking_point_stabilized
+    x: 2
+    yaw: heading

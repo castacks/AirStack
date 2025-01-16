@@ -1,0 +1,20 @@
+groups:
+  - commands:
+    - Arm and Takeoff:
+        condition_name: Auto Takeoff Commanded
+    - Fixed Trajectory:
+        condition_name: Fixed Trajectory Commanded
+    - Global Plan:
+        condition_name: Global Plan Commanded
+    - Pause:
+        condition_name: Pause Commanded
+    - Rewind:
+        condition_name: Rewind Commanded
+    - Disarm:
+        condition_name: Disarm Commanded
+    - Land:
+        condition_name: Land Commanded
+robots: # these should match a robot's namespace
+ - robot_1
+ - robot_2
+ - robot_3

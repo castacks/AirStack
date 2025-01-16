@@ -1,0 +1,79 @@
+name: my_domain_bridge
+from_domain: 1
+to_domain: 2
+topics:
+  # Bridge "/foo/chatter" topic from doman ID 2 to domain ID 3
+  # Automatically detect QoS settings and default to 'keep_last' history with depth 10
+  robot_1/interface/mavros/state:
+    type: mavros_msgs/msg/State
+    from_domain: 1
+    to_domain: 2
+
+  /robot_1/vdb_mapping/vdb_map_visualization:
+    from_domain: 1
+    to_domain: 0
+    type: visualization_msgs/msg/Marker
+
+  /robot_1/odometry_conversion/odometry:
+    from_domain: 1
+    to_domain: 0
+    type: nav_msgs/msg/Odometry
+
+  /robot_2/vdb_mapping/vdb_map_visualization:
+    from_domain: 2
+    to_domain: 0
+    type: visualization_msgs/msg/Marker
+
+  /robot_2/odometry_conversion/odometry:
+    from_domain: 2
+    to_domain: 0
+    type: nav_msgs/msg/Odometry
+
+  /robot_3/vdb_mapping/vdb_map_visualization:
+    from_domain: 3
+    to_domain: 0
+    type: visualization_msgs/msg/Marker
+
+  /robot_3/odometry_conversion/odometry:
+    from_domain: 3
+    to_domain: 0
+    type: nav_msgs/msg/Odometry
+
+  robot_2/interface/mavros/state:
+    type: mavros_msgs/msg/State
+    from_domain: 2
+    to_domain: 1
+
+  # Bridge "/clock" topic from doman ID 2 to domain ID 3,
+  # Override durability to be 'volatile' and override depth to be 1
+  clock:
+    type: rosgraph_msgs/msg/Clock
+    qos:
+      durability: volatile
+      depth: 1
+
+  # Bridge "/clock" topic from doman ID 2 to domain ID 6
+  # Automatically detect QoS settings and override history to 'keep_all'
+  # clock:
+  #   type: rosgraph_msgs/msg/Clock
+  #   to_domain: 6
+  #   qos:
+  #     history: keep_all
+
+  # Bridge "/chitter" topic from domain ID 2 to domain ID 3 with the name "/chatter"
+  # chitter:
+  #   type: example_interfaces/msg/String
+  #   remap: chatter
+
+# services:
+  # Bridge "add_two_ints" service from domain ID 4 to domain ID 6
+  # add_two_ints:
+  #   type: example_interfaces/srv/AddTwoInts
+  #   from_domain: 4
+  #   to_domain: 6
+
+# actions:
+  # Bridge "fibonacci" action from domain ID 1 to domain ID 3
+  # fibonacci:
+  #   type: example_interfaces/action/Fibonacci
+  #   from_domain: 1

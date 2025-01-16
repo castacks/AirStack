@@ -1,0 +1,64 @@
+services:
+  isaac-sim:
+    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_isaac-sim
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.isaac-ros
+      tags:
+        - *image_tag
+    container_name: isaac-sim
+    entrypoint: "" # override the default entrypoint with nothing
+    # for some reason the tmux session manager only works when isaac is running in tmux
+    command: >
+      bash -c " tmux new -d -s isaac 
+      && tmux send-keys -t isaac \"ros2 launch isaacsim run_isaacsim.launch.py gui:=${DEFAULT_ISAAC_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}\" ENTER 
+      && sleep infinity"
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    ipc: host
+    privileged: true
+    networks:
+      airstack_network:
+        ipv4_address: 172.31.0.200
+    env_file:
+      - ./omni_pass.env
+    environment:
+      # NVIDIA stuff
+      - ACCEPT_EULA=Y
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      # ROS2 stuff
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      # display
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # isaac sim stuff
+      - ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw
+      - ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw
+      - ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw
+      - ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw
+      - ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw
+      - ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw
+      - ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw
+      - ~/docker/isaac-sim/documents:/root/Documents:rw
+      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim/4.2/user.config.json:rw
+      - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
+      # developer stuff
+      - .dev:/root/.dev:rw # developer config
+      - .bashrc:/root/.bashrc:rw # bash config
+      # code
+      - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
+      - ../sitl_integration:/sitl_integration:rw
+      - ../sitl_integration/inputrc:/etc/inputrc
+      - ../sitl_integration/config:/root/.nvidia-omniverse/config:rw

@@ -1,0 +1,28 @@
+<launch>
+
+  <node pkg="ros2tak_tools" exec="ros2cot_agent"
+	args="--config $(find-pkg-share ros2tak_tools)/config/config.yaml"
+	output="screen" />
+  
+  <node pkg="ros2tak_tools" exec="cot2planner_agent"
+	args="--config $(find-pkg-share ros2tak_tools)/config/config.yaml"
+	output="screen" />
+
+  <!--
+  <node pkg="ros2tak_tools" exec="tak_subscriber"
+args="- -config $(find-pkg-share ros2tak_tools)/config/config.yaml"
+output="screen" />
+  -->
+
+  <!--
+  <node pkg="ros2tak_tools" exec="tak_publisher"
+	args="- -config $(find-pkg-share ros2tak_tools)/config/config.yaml"
+	output="screen" />
+-->
+
+  <executable cmd="mosquitto" />
+
+  <executable cmd="mosquitto_pub -h localhost -t healthcheck -m ping -u airlab"
+	      respawn="true" respawn_delay="5" />
+  
+</launch>
