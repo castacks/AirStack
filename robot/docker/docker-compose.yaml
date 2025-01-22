@@ -38,8 +38,9 @@ services:
     build:
       dockerfile: ./Dockerfile.robot
       args:
-        BASE_IMAGE: nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+        BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
       tags:
         - *l4t_image
+    runtime: nvidia
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
