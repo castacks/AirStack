@@ -176,5 +176,12 @@ CONTAINER_PREFIX="airstack-"
 export ROBOT_NAME=$(echo "$container_name" | sed "s#/$CONTAINER_PREFIX##" | sed 's#-#_#')
 export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
 
+if [ "$ROBOT_NAME" == "null" ]; then
+    num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
+    num=$((num)) #remove leading zeros
+    export ROBOT_NAME="robot_$num"
+    export ROS_DOMAIN_ID=$num
+fi
+
 export RCUTILS_COLORIZED_OUTPUT=1  # get colored output from ROS2 tools
 
