@@ -19,11 +19,11 @@
     args="/root/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
     output="screen" respawn="true" respawn_delay="1" />
 
-  <!-- GUI -->
-  
+  <!-- Sim -->
   <group if="$(var sim)">
     <set_parameter name="use_sim_time" value="true" />
     
+    <!-- GUI -->
     <node pkg="rviz2" exec="rviz2"
 	  args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
 	  output="screen" respawn="true" respawn_delay="1" />
@@ -34,6 +34,13 @@
       <remap from="fixed_trajectory_command"
              to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
     </node>
+  </group>
+  <!-- Real -->
+  <group unless="$(var sim)">
+    <push-ros-namespace namespace="interface" />
+    <include file="$(find-pkg-share mavros)/launch/apm.launch">
+      <arg name="fcu_url" value="/dev/ttyTHS1:115200" />
+    </include>
   </group>
 
 </launch>
