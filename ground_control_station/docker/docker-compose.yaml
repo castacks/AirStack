@@ -1,5 +1,8 @@
 services:
   ground-control-station:
+    profiles:
+      - ""
+      - sitl
     extends:
       file: ./ground-control-station-base-docker-compose.yaml
       service: ground-control-station-base
@@ -9,6 +12,9 @@ services:
       - 2222:22 # for ssh
   
   ground-control-station-real:
+    profiles:
+      - hitl
+      - deploy
     extends:
       file: ./ground-control-station-base-docker-compose.yaml
       service: ground-control-station-base
