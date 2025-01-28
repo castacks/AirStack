@@ -1,6 +1,6 @@
-# either ubuntu:22.04 or l4t
+# either ubuntu:22.04 or l4t. ubuntu:22.04 is default
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE:-ubuntu:22.04}
 
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
@@ -76,7 +76,9 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
-    libcgal-dev
+    libcgal-dev \
+    python3-colcon-common-extensions
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -114,9 +116,9 @@ RUN pip3 install \
     yacs \
     wandb
 
-# Override install newer openvdb 8.2.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
+# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
-    git clone --recurse --branch v8.2.0-debian https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
+    git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
     mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
     cmake .. && \
     make -j8 && make install && \
