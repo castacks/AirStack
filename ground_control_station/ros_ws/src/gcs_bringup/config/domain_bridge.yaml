@@ -1,11 +1,26 @@
 name: my_bridge
-from_domain: 0
-to_domain: 1
 topics:
   /robot_1/behavior/behavior_tree_commands:
     type: behavior_tree_msgs/msg/BehaviorTreeCommands
+    from_domain: 0
+    to_domain: 1
+  /robot_2/behavior/behavior_tree_commands:
+    type: behavior_tree_msgs/msg/BehaviorTreeCommands
+    from_domain: 0
+    to_domain: 2
+  /robot_3/behavior/behavior_tree_commands:
+    type: behavior_tree_msgs/msg/BehaviorTreeCommands
+    from_domain: 0
+    to_domain: 3
   /robot_1/fixed_trajectory_generator/fixed_trajectory_command:
     type: airstack_msgs/msg/FixedTrajectory
-  /robot_1/behavior/behavior_tree_graphviz:
-    type: std_msgs/msg/String
-    reversed: True
+    from_domain: 0
+    to_domain: 1
+  /robot_2/fixed_trajectory_generator/fixed_trajectory_command:
+    type: airstack_msgs/msg/FixedTrajectory
+    from_domain: 0
+    to_domain: 2
+  /robot_3/fixed_trajectory_generator/fixed_trajectory_command:
+    type: airstack_msgs/msg/FixedTrajectory
+    from_domain: 0
+    to_domain: 3
