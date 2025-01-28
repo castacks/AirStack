@@ -1,0 +1,11 @@
+/**:
+  ros__parameters:
+    camera_name: "front_stereo"
+    camera_param_server_client_topic: "sensors/get_camera_params"
+    imageL_sub_topic: "left/image_rect"
+    imageR_sub_topic: "right/image_rect"
+    pose_pub_topic: "visual_odometry_pose"
+    point_pub_topic: "visual_odometry_points"
+    img_pub_topic: "visual_odometry_img"
+    inference_dim_u: 450
+    inference_dim_v: 450
