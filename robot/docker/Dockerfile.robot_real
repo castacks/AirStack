@@ -1,7 +1,0 @@
-INCLUDE+ Dockerfile.robot
-
-RUN apt-get update && apt-get install -y libimath-dev
-
-RUN apt autoremove -y \
-    && apt clean -y \
-    && rm -rf /var/lib/apt/lists/*

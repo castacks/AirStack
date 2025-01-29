@@ -1,5 +1,6 @@
 # either ubuntu:22.04 or l4t. ubuntu:22.04 is default
 ARG BASE_IMAGE
+ARG REAL_ROBOT=false
 FROM ${BASE_IMAGE:-ubuntu:22.04}
 
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
@@ -120,7 +121,12 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
-    
+
+RUN if [ "$REAL_ROBOT" = "true" ]; then \
+  apt-get update && apt-get install -y libimath-dev; \
+else \
+  echo "Condition is false"; \
+fi
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
