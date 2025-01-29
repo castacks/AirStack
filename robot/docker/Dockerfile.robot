@@ -110,7 +110,7 @@ RUN apt remove -y libopenvdb*; \
     cd ..; rm -rf /opt/openvdb/build
 
 # Add ability to SSH
-RUN apt-get update && apt-get install -y openssh-server libimath-dev
+RUN apt-get update && apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
 
 # Password is airstack
@@ -120,7 +120,18 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
-    
+
+ARG REAL_ROBOT=false
+RUN if [ "$REAL_ROBOT"  = "true" ]; then \
+  # Put commands here that should run for the real robot but not the sim
+  
+  echo "REAL_ROBOT is true"; \
+  apt-get update && apt-get install -y libimath-dev; \
+else \
+  # Put commands here that should be run for the sim but not the real robot
+  
+  echo "REAL_ROBOT is false"; \
+fi
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
