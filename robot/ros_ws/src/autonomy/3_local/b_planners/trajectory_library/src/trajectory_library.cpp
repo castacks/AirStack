@@ -483,12 +483,12 @@ bool Trajectory::get_waypoint_sphere_intersection(double initial_time, double ah
             wp_end = wp_start.interpolate(
                 wp_end, (ahead_distance - current_path_distance) / segment_distance);
             if (end_waypoint != NULL) *end_waypoint = wp_end;
-        } else if (wp_end.get_time() > time_end) {
+        }/* else if (wp_end.get_time() > time_end) {
             should_break = true;
             wp_end = wp_start.interpolate(wp_end, (time_end - wp_start.get_time()) /
                                                       (wp_end.get_time() - wp_start.get_time()));
             if (end_waypoint != NULL) *end_waypoint = wp_end;
-        } else
+        }*/ else
             current_path_distance += segment_distance;
 
         // sphere line intersection equations:
