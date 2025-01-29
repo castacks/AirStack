@@ -123,10 +123,14 @@ EXPOSE 22
 
 ARG REAL_ROBOT=false
 RUN if [ "$REAL_ROBOT"  = "true" ]; then \
+  # Put commands here that should run for the real robot but not the sim
+  
+  echo "REAL_ROBOT is true"; \
   apt-get update && apt-get install -y libimath-dev; \
-  echo "Condition is true"; \
 else \
-  echo "Condition is false"; \
+  # Put commands here that should be run for the sim but not the real robot
+  
+  echo "REAL_ROBOT is false"; \
 fi
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
