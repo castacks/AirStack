@@ -1,0 +1,11 @@
+<launch>
+  <node 
+    pkg="frontier_planner" 
+    exec="frontier_planner" 
+    name="frontier_planner">
+    <param 
+      from="$(find frontier_planner)/config/frontier_config.yaml" />
+    <param
+      from="$(find global_planner_bringup)/config/global_planner_config.yaml" />
+  </node>
+</launch>

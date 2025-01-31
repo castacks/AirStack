@@ -269,6 +269,7 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
+    //global plan action
     if (global_plan_action->is_active()) {
         global_plan_action->set_running();
         if (global_plan_action->active_has_changed()) {
@@ -277,6 +278,7 @@ void BehaviorExecutive::timer_callback() {
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT;
             auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+            std::cout << "global plan async send request" << std::endl;
             std::cout << "mode 1" << std::endl;
             mode_result.wait();
             std::cout << "mode 2" << std::endl;
@@ -284,7 +286,9 @@ void BehaviorExecutive::timer_callback() {
             std_srvs::srv::Trigger::Request::SharedPtr request =
                 std::make_shared<std_srvs::srv::Trigger::Request>();
             auto result = global_planner_toggle_client->async_send_request(request);
+            std::cout << "global plan toggle client request" << std::endl;
             result.wait();
+            std::cout << "global plan toggle client request after wait" << std::endl;
             if (result.get()->success)
                 global_plan_action->set_success();
             else

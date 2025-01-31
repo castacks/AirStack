@@ -1,0 +1,11 @@
+/**:
+  ros__parameters:
+    robot_frame_id: "base_link"
+    pub_global_plan_topic: "~/global_plan"
+    pub_goal_point_viz_topic: "~/goal_point_viz"
+    pub_trajectory_viz_topic: "~/traj_viz"
+    sub_map_topic: "vdb_map_visualization"
+    sub_robot_tf_topic: "/tf"
+
+    publish_visualizations: false # should trajectory visualizations be published
+

@@ -1,0 +1,11 @@
+<launch>
+  <node 
+    pkg="lawnmower_planner" 
+    exec="lawnmower_planner" 
+    name="lawnmower_planner">
+    <param 
+      from="$(find lawnmower_planner)/config/lawnmower_config.yaml" />
+    <param
+      from="$(find global_planner_bringup)/config/global_planner_config.yaml" />
+  </node>
+</launch>

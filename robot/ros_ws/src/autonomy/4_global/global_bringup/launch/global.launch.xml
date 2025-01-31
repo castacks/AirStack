@@ -6,13 +6,28 @@
     </include>
 
     <!-- Planning -->
-    <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"
+    <!-- <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"
         output="screen">
         <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
-        <!-- <remap from="/tf" to="/$(env ROBOT_NAME)/tf" /> -->
+        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+    </node> -->
+
+    <!-- Planning -->
+    <!-- <node pkg="frontier_planner" exec="frontier_planner" name="frontier_planner"
+        output="screen">
+        <param from="$(find-pkg-share frontier_planner)/config/frontier_config.yaml" />
+        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+    </node> -->
+
+    <!-- Planning -->
+    <node pkg="lawnmower_planner" exec="lawnmower_planner" name="lawnmower_planner"
+        output="screen">
+        <param from="$(find-pkg-share lawnmower_planner)/config/lawnmower_config.yaml" />
         <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
         <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
     </node>
 
-    
+
 </launch>
