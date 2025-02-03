@@ -3,6 +3,9 @@ project(takeoff_landing_planner)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+  # Add these options for ARM64 compatibility
+  add_compile_options(-fPIC)
+  add_compile_options(-march=native)
 endif()
 
 # find dependencies
@@ -13,13 +16,22 @@ find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(trajectory_library REQUIRED)
 
+# Set position independent code
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_executable(takeoff_landing_planner src/takeoff_landing_planner.cpp)
 target_include_directories(takeoff_landing_planner PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(takeoff_landing_planner PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
+# Set compile features and options
+target_compile_features(takeoff_landing_planner PUBLIC c_std_99 cxx_std_17)
+target_compile_options(takeoff_landing_planner PRIVATE -fPIC)
+
+# Dependencies
 ament_target_dependencies(
   takeoff_landing_planner
+  rclcpp
   std_msgs
   airstack_msgs
   airstack_common

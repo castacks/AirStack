@@ -1,10 +1,10 @@
 /**
  * @file robot_interface_node.cpp
  * @author John Keller (jkeller2@andrew.cmu.edu), Andrew Jong
- * (ajong@andrew.cmu.edu)
+ * (ajong@andrew.cmu.edu), Yufan Liu (yufanliu@andrew.cmu.edu)
  * @brief main function for the robot interface node
  * @version 0.1
- * @date 2024-07-01
+ * @date 2025-01-29
  *
  * @copyright Copyright (c) 2024. This file is developed as part of software
  * from the AirLab at the Robotics Institute at Carnegie Mellon University
@@ -16,6 +16,9 @@
 #include <pluginlib/class_loader.hpp>
 #include <robot_interface/robot_interface.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <rclcpp/node_options.hpp>
+#include <vector>
+
 
 std::shared_ptr<robot_interface::RobotInterface> ri;
 
@@ -109,6 +112,8 @@ int main(int argc, char** argv) {
 
     try {
         ri = loader.createSharedInstance("mavros_interface::MAVROSInterface");
+
+    
 
         // subscribers
         attitude_thrust_sub = ri->create_subscription<mav_msgs::msg::AttitudeThrust>(

@@ -14,7 +14,9 @@
         namespace="interface"
         output="screen">
         <param name="interface" value="mavros_interface::MAVROSInterface" />
-        <param name="is_ardupilot" value="true" />
+        <!-- <param name="is_ardupilot" value="true" /> -->
+        <param name="is_PX4" value="true" />
+
     </node>
 
     <node pkg="mavros_interface" exec="position_setpoint_pub.py"

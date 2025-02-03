@@ -2,6 +2,13 @@
 <launch>
   <!-- Interface -->
   <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.xml" />
+  <include file="$(find-pkg-share mavros_interface)/launch/px4.launch">
+    <!-- For USB connection -->
+    <arg name="fcu_url" value="/dev/ttyACM0:921600" />
+    <!-- For UDP connection -->
+    <!-- <arg name="fcu_url" value="udp://:14540@127.0.0.1:14557" /> -->
+    <arg name="gcs_url" value="" />
+  </include>
 
   <!-- Sensors -->
   <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />

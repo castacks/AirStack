@@ -1,0 +1,13 @@
+/**:
+  ros__parameters:
+    plugin_denylist:
+      # common
+
+      # extras
+      - vibration
+      - distance_sensor
+      - rangefinder
+      - wheel_odometry
+
+    # plugin_allowlist:
+    #   - 'sys_*'

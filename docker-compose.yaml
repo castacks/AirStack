@@ -1,14 +1,20 @@
-# top-level docker-compose file for the autonomy stack
-include: 
-  - simulation/isaac-sim/docker/docker-compose.yaml
+
+
+
+include:
   - robot/docker/docker-compose.yaml
   - ground_control_station/docker/docker-compose.yaml
   - docs/docker/docker-compose.yaml
 
-networks:
-  airstack_network:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.31.0.0/24
+
+# networks:
+#   airstack_network:
+#     driver: bridge
+#     ipam:
+#       driver: default
+#       config:
+#         - subnet: 10.3.1.0/24
+
+# networks:
+#   airstack_network:
+#     driver: bridge

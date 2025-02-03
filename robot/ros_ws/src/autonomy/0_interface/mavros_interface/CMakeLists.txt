@@ -47,6 +47,13 @@ install(
   RUNTIME DESTINATION bin
 )
 
+# Add these lines to install launch files and configs
+install(DIRECTORY
+  launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
+
 install(PROGRAMS scripts/position_setpoint_pub.py DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

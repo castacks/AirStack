@@ -31,8 +31,8 @@ namespace mavros_interface {
 class MAVROSInterface : public robot_interface::RobotInterface {
    private:
     // parameters
-    bool is_ardupilot;  // TODO make this a launch file parameter
-
+    // bool is_ardupilot;  // TODO make this a launch file parameter
+    bool is_PX4;
     bool is_state_received_ = false;
     mavros_msgs::msg::State current_state_;
     bool in_air = false;
@@ -56,8 +56,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
    public:
     MAVROSInterface() : RobotInterface("mavros_interface") {
         // params
-        is_ardupilot = airstack::get_param(this, "is_ardupilot", false);
-
+        // is_ardupilot = airstack::get_param(this, "is_ardupilot", false);
+        is_PX4 = airstack::get_param(this, "is_PX4", false);
         // services
         service_callback_group =
             this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -128,7 +128,12 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     }
 
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override {
-        if (!is_ardupilot ||
+        // if (!is_ardupilot ||
+        //     (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > 5.))) {
+        //     geometry_msgs::msg::PoseStamped cmd_copy = *cmd;
+        //     local_position_target_pub_->publish(cmd_copy);
+        // }
+        if (!is_PX4 ||
             (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > 5.))) {
             geometry_msgs::msg::PoseStamped cmd_copy = *cmd;
             local_position_target_pub_->publish(cmd_copy);
@@ -139,7 +144,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     bool request_control() override {
         auto request = std::make_shared<mavros_msgs::srv::SetMode::Request>();
-        if (is_ardupilot)
+        // if (is_ardupilot)
+        if (is_PX4)
             request->custom_mode = "GUIDED";  //"OFFBOARD";
         else
             request->custom_mode = "OFFBOARD";
@@ -182,11 +188,14 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     bool has_control() override {
         return is_state_received_ &&
-               (is_ardupilot ? current_state_.mode == "GUIDED" : current_state_.mode == "OFFBOARD");
+            //    (is_ardupilot ? current_state_.mode == "GUIDED" : current_state_.mode == "OFFBOARD");
+               (is_PX4 ? current_state_.mode == "GUIDED" : current_state_.mode == "OFFBOARD");
+
     }
 
     bool takeoff() override {
-        if (is_ardupilot) {
+        // if (is_ardupilot) {
+        if (is_PX4) {
             mavros_msgs::srv::CommandTOL::Request::SharedPtr takeoff_request =
                 std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
             takeoff_request->altitude = 0.1;
