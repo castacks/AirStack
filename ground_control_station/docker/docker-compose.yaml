@@ -21,6 +21,7 @@ services:
       'if [ ! -f "/root/ros_ws/install/setup.bash" ]; then bws && sws; fi;
       ros2 launch gcs_bringup gcs.launch.xml' ENTER
       && sleep infinity"    
+
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
