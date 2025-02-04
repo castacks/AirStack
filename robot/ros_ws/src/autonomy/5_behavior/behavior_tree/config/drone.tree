@@ -3,10 +3,12 @@
 		(Auto Takeoff Commanded)
 		->
 			?
+				(In Air)
 				(Armed)
 				(Offboard Mode)
 				[Request Control]
 			?
+				(In Air)
 				(Armed)
 				[Arm]
 			?

@@ -34,6 +34,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Condition* disarm_commanded_condition;
     bt::Condition* takeoff_complete_condition;
     bt::Condition* landing_complete_condition;
+    bt::Condition* in_air_condition;
     std::vector<bt::Condition*> conditions;
 
     // Action variables
