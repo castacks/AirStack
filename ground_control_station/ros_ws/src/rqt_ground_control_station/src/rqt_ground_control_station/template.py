@@ -52,9 +52,11 @@ import pickle
 from behavior_tree_msgs.msg import Status, BehaviorTreeCommand, BehaviorTreeCommands
 from airstack_msgs.msg import FixedTrajectory
 from diagnostic_msgs.msg import KeyValue
+from std_msgs.msg import String
 
 from .drag_and_drop import DragWidget, DragItem
 from .trajectory_dialog import TrajectoryDialog
+import rclpy
 
 logger = None
 
@@ -74,6 +76,11 @@ class GroundControlStation(Plugin):
         self.node = self.context.node
         global logger
         logger = self.node.get_logger()
+
+        latched_qos = rclpy.qos.QoSProfile(history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                                           depth=1,
+                                           durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL)
+        self.robot_selection_pub = self.node.create_publisher(String, 'robot_selection', latched_qos)
         
         # main layout
         self.widget = QWidget()
@@ -92,6 +99,7 @@ class GroundControlStation(Plugin):
         self.config_layout.addWidget(self.robot_selection_label)
         
         self.robot_combo_box = qt.QComboBox()
+        self.robot_combo_box.currentIndexChanged.connect(self.robot_selection_change)
         self.config_layout.addWidget(self.robot_combo_box)
         
         self.vbox.addWidget(self.config_widget)
@@ -177,6 +185,11 @@ class GroundControlStation(Plugin):
 
         self.timer = core.QTimer(self)
         self.timer.timeout.connect(self.play)
+
+    def robot_selection_change(self, s):
+        msg = String()
+        msg.data = self.robot_combo_box.itemText(s)
+        self.robot_selection_pub.publish(msg)
 
     def save_timeline(self):
         timeline_widgets = self.get_timeline_widgets()

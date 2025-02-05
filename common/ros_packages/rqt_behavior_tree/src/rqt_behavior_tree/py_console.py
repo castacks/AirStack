@@ -47,6 +47,7 @@ print(dir(rqt_behavior_tree))
 from rqt_behavior_tree.xdot.xdot_qt import DotWidget
 
 from std_msgs.msg import String
+import rclpy
 
 try:
     from rqt_behavior_tree.spyder_console_widget import SpyderConsoleWidget
@@ -68,6 +69,8 @@ class PyConsole(Plugin):
 
         self.initialized_buttons = False
         self.prev_graphviz = ''
+
+        self.node = context.node
 
         #self.behavior_tree_graphviz_sub = rospy.Subscriber('behavior_tree_graphviz', String, self.behavior_tree_graphviz_callback)
         #self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
@@ -167,10 +170,18 @@ class PyConsole(Plugin):
 
         self.button_container_widget.hide()
         
-        self.behavior_tree_graphviz_sub = context.node.create_subscription(String,
-                                                                           'behavior_tree_graphviz',
-                                                                           self.behavior_tree_graphviz_callback,
-                                                                           10)
+        self.behavior_tree_graphviz_sub = self.node.create_subscription(String,
+                                                                        'behavior_tree_graphviz',
+                                                                        self.behavior_tree_graphviz_callback,
+                                                                        10)
+        self.behavior_tree_graphviz_subs = {}
+
+        self.selected_robot = ''
+        latched_qos = rclpy.qos.QoSProfile(history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                                           depth=1,
+                                           durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL)
+        self.robot_selection_sub = context.node.create_subscription(String, 'robot_selection',
+                                                                    self.robot_selection_callback, latched_qos)
         '''
         self.setObjectName('PyConsole')
 
@@ -185,6 +196,28 @@ class PyConsole(Plugin):
                 self._widget.windowTitle() + (' (%d)' % context.serial_number()))
         self._context.add_widget(self._widget)
         '''
+        
+    def robot_selection_callback(self, msg):
+        self.selected_robot = msg.data
+        if msg.data not in self.behavior_tree_graphviz_subs.keys():
+            def callback(m):
+                self.robot_graphviz_callback(msg.data, m)
+            self.behavior_tree_graphviz_subs[msg.data] = self.node.create_subscription(String,
+                                                                                       '/' + msg.data + \
+                                                                                       '/behavior/behavior_tree_graphviz',
+                                                                                       callback,
+                                                                                       10)
+        '''
+        self.behavior_tree_graphviz_sub.destroy()
+        self.behavior_tree_graphviz_sub = self.node.create_subscription(String,
+                                                                        '/' + msg.data + '/behavior/behavior_tree_graphviz',
+                                                                        self.behavior_tree_graphviz_callback,
+                                                                        10)
+        '''
+
+    def robot_graphviz_callback(self, robot, msg):
+        if robot == self.selected_robot:
+            self.behavior_tree_graphviz_callback(msg)
     
     def behavior_tree_graphviz_callback(self, msg):
         if msg.data != self.prev_graphviz:
