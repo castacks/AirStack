@@ -1,12 +1,6 @@
 <launch>
-    <!-- GUI interface -->
     <group>
         <push-ros-namespace namespace="behavior" />
-        <node pkg="rqt_gui" exec="rqt_gui"
-            args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
-            <remap from="fixed_trajectory_command"
-                to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
-        </node>
 
         <!-- Behavior Tree -->
         <node pkg="behavior_tree" exec="behavior_tree_implementation">
