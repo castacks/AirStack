@@ -24,6 +24,7 @@
 #include <mavros_msgs/srv/command_bool.hpp>
 #include <mavros_msgs/srv/command_tol.hpp>
 #include <mavros_msgs/srv/set_mode.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <robot_interface/robot_interface.hpp>
 
 namespace mavros_interface {
@@ -31,7 +32,8 @@ namespace mavros_interface {
 class MAVROSInterface : public robot_interface::RobotInterface {
    private:
     // parameters
-    bool is_ardupilot;  // TODO make this a launch file parameter
+    bool is_ardupilot;
+    float post_takeoff_command_delay_time;
 
     bool is_state_received_ = false;
     mavros_msgs::msg::State current_state_;
@@ -45,7 +47,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     rclcpp::CallbackGroup::SharedPtr service_callback_group;
     rclcpp::Client<mavros_msgs::srv::SetMode>::SharedPtr set_mode_client_;
     rclcpp::Client<mavros_msgs::srv::CommandBool>::SharedPtr arming_client_;
-    rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedPtr takeoff_client_;
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr ardupilot_takeoff_client_;
 
     rclcpp::Publisher<mavros_msgs::msg::AttitudeTarget>::SharedPtr attitude_target_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_position_target_pub_;
@@ -57,6 +59,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     MAVROSInterface() : RobotInterface("mavros_interface") {
         // params
         is_ardupilot = airstack::get_param(this, "is_ardupilot", false);
+	post_takeoff_command_delay_time = airstack::get_param(this, "post_takeoff_command_delay_time", 5.);
 
         // services
         service_callback_group =
@@ -65,8 +68,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
             "mavros/set_mode", rmw_qos_profile_services_default, service_callback_group);
         arming_client_ = this->create_client<mavros_msgs::srv::CommandBool>(
             "mavros/cmd/arming", rmw_qos_profile_services_default, service_callback_group);
-        takeoff_client_ = this->create_client<mavros_msgs::srv::CommandTOL>(
-            "mavros/cmd/takeoff", rmw_qos_profile_services_default, service_callback_group);
+        ardupilot_takeoff_client_ = this->create_client<std_srvs::srv::Trigger>(
+            "ardupilot_takeoff", rmw_qos_profile_services_default, service_callback_group);
 
         // publishers
         attitude_target_pub_ = this->create_publisher<mavros_msgs::msg::AttitudeTarget>(
@@ -129,7 +132,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override {
         if (!is_ardupilot ||
-            (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > 5.))) {
+            (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > post_takeoff_command_delay_time))) {
             geometry_msgs::msg::PoseStamped cmd_copy = *cmd;
             local_position_target_pub_->publish(cmd_copy);
         }
@@ -187,14 +190,13 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     bool takeoff() override {
         if (is_ardupilot) {
-            mavros_msgs::srv::CommandTOL::Request::SharedPtr takeoff_request =
-                std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
-            takeoff_request->altitude = 0.1;
+	  std_srvs::srv::Trigger::Request::SharedPtr takeoff_request =
+	    std::make_shared<std_srvs::srv::Trigger::Request>();
 
-            std::cout << "ardupilot takeoff 1" << std::endl;
-            auto takeoff_result = takeoff_client_->async_send_request(takeoff_request);
+            std::cout << "calling ardupilot takeoff 1" << std::endl;
+            auto takeoff_result = ardupilot_takeoff_client_->async_send_request(takeoff_request);
             takeoff_result.wait();
-            std::cout << "ardupilot takeoff 2" << std::endl;
+            std::cout << "calling ardupilot takeoff 2" << std::endl;
             if (takeoff_result.get()->success) {
                 in_air = true;
                 in_air_start_time = this->get_clock()->now();

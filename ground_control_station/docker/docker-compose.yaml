@@ -6,6 +6,7 @@ services:
     extends:
       file: ./ground-control-station-base-docker-compose.yaml
       service: ground-control-station-base
+    container_name: ground-control-station
     networks:
       - airstack_network
     ports:
@@ -18,7 +19,11 @@ services:
     extends:
       file: ./ground-control-station-base-docker-compose.yaml
       service: ground-control-station-base
+    container_name: ground-control-station-real
     network_mode: host
+    volumes:
+     - $HOME/bags/:/bags
+     - ../../robot/ros_ws/src/robot_bringup/rviz/:/bags/rviz
 
 # include: 
   # - ./tak-docker-compose.yaml

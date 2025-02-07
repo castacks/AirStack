@@ -7,7 +7,6 @@ services:
       dockerfile: docker/Dockerfile.gcs
       tags:
         - *gcs_image
-    container_name: ground-control-station
     entrypoint: ""
     command: >
       bash -c "ssh service restart;

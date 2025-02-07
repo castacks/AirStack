@@ -15,6 +15,9 @@
         output="screen">
         <param name="interface" value="mavros_interface::MAVROSInterface" />
         <param name="is_ardupilot" value="true" />
+        <param name="post_takeoff_command_delay_time" value="30." />
+	
+	<remap from="ardupilot_takeoff" to="/$(env ROBOT_NAME)/takeoff_landing_planner/ardupilot_takeoff" />
     </node>
 
     <node pkg="mavros_interface" exec="position_setpoint_pub.py"
