@@ -16,7 +16,7 @@
     # DROAN parameters
     robot_radius: 0.325  # spirit drone blade to blade
     safety_cost_weight: 1.0
-    forward_progress_forgiveness_weight: 0.5
+    forward_progress_forgiveness_weight: 0.1
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap
