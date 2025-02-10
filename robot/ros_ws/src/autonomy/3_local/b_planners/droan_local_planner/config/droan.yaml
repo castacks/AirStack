@@ -41,3 +41,6 @@
     # CUSTOM_WAYPOINT mode parameters
     custom_waypoint_timeout_factor: 0.3
     custom_waypoint_distance_threshold: 0.5
+
+    # Disparity Graph parameters
+    graph_size: 5
