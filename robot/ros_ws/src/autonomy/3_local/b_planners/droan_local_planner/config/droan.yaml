@@ -10,17 +10,17 @@
     dt: 0.2
     ht: 2.4
     ht_long: 3.0
-    max_velocity: 20.0
+    max_velocity: 1.0
     magnitude: 0.5
 
     # DROAN parameters
     robot_radius: 0.325  # spirit drone blade to blade
-    safety_cost_weight: 1.0
+    safety_cost_weight: 5.0
     forward_progress_forgiveness_weight: 0.1
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap
-    obstacle_check_radius: 1.0 # this value MUST be strictly greater than the robot radius
+    obstacle_check_radius: 2.0 # this value MUST be strictly greater than the robot radius
     obstacle_check_num_points: 5
     # disparity graph parameters. see disparity_graph.hpp
     fixed_frame: "map"

@@ -4,7 +4,7 @@
     map_frame: map
     robot_frame: base_link
     max_range: 10.0
-    resolution: 0.1
+    resolution: 0.5
     prob_hit: 0.99
     prob_miss: 0.1
     thres_min: 0.49
