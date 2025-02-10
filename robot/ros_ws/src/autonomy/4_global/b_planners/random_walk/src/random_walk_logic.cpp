@@ -11,7 +11,7 @@ RandomWalkPlanner::RandomWalkPlanner(init_params params)
     this->voxel_size_m = params.voxel_size_m;
     this->collision_padding_m = params.collision_padding_m;
     this->path_end_threshold_m = params.path_end_threshold_m;
-    this->max_z_angle_change_rad = params.max_z_angle_change_rad;
+    this->max_yaw_change_degrees = params.max_yaw_change_degrees;
 }
 
 std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
@@ -152,7 +152,7 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
                                      std::get<0>(rand_point) - std::get<0>(start_point_wo_yaw));
         float angle_diff = std::abs(std::get<3>(start_point) - new_angle);
         // if the z value of the point is low enough
-        if (angle_diff < this->max_z_angle_change_rad)
+        if (angle_diff <= this->max_yaw_change_degrees * 3.14159265359 / 180)
         {
             // if the point is close enough to the start point
             if (dist < this->max_start_to_goal_dist_m_)

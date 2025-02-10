@@ -75,9 +75,9 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: path_end_threshold_m");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<float>("max_z_angle_change_rad");
-    if (!this->get_parameter("max_z_angle_change_rad", params.max_z_angle_change_rad)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_angle_change_rad");
+    this->declare_parameter<float>("max_yaw_change_degrees");
+    if (!this->get_parameter("max_yaw_change_degrees", params.max_yaw_change_degrees)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_yaw_change_degrees");
         return std::optional<init_params>{};
     }
     this->declare_parameter<float>("position_change_threshold");

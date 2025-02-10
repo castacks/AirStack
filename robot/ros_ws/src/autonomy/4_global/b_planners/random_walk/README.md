@@ -21,7 +21,7 @@ This loop continues, allowing the system to explore various trajectories and str
 | `max_z_change_m`           | Maximum allowed change in height (z-axis) between the start and goal points.|
 | `collision_padding_m`      | Extra padding (in meters) added around a voxel's dimensions when checking for collisions.|
 | `path_end_threshold_m`     | Distance threshold (in meters) for considering the current path completed and generating a new one.|
-| `max_z_angle_change_rad`   | Maximum allowed change in angle (in radians) between consecutive straight-line segments to ensure a relatively consistent direction.|
+| `max_yaw_change_degrees`   | Maximum allowed change in angle (in radians) between consecutive straight-line segments to ensure a relatively consistent direction.|
 | `robot_frame_id`           | The frame name for the robot's base frame to look up the transform from the robot position to the world.|
 
 ## Services
