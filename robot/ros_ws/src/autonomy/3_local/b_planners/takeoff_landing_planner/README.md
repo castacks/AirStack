@@ -1,4 +1,6 @@
-### TakeoffLandingPlanner
+# Takeoff Landing Planner
 
 
-Author:
+Author: John Keller
+
+DOCS TODO. Help appreciated.
