@@ -19,7 +19,7 @@ struct init_params {
     float max_z_change_m;
     float collision_padding_m;
     float path_end_threshold_m;
-    float max_z_angle_change_rad;
+    float max_yaw_change_degrees;
     std::tuple<float, float, float> voxel_size_m;
 };
 
@@ -43,7 +43,7 @@ class RandomWalkPlanner {
     int checking_point_cnt;
     float max_z_change_m_;
     float collision_padding_m;
-    float max_z_angle_change_rad;
+    float max_yaw_change_degrees;
 
     // Variables
     std::tuple<float, float, float> voxel_size_m;

@@ -8,6 +8,8 @@ Panels:
         - /Sensors1
         - /Local1
         - /Local1/DROAN1
+        - /Local1/DROAN1/Trimmed Global Plan for DROAN1
+        - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
         - /Local1/Trajectory Controller1
         - /Global1
       Splitter Ratio: 0.590062141418457
@@ -101,8 +103,6 @@ Visualization Manager:
         world:
           map_FLU:
             base_link_ground_truth:
-              {}
-            map:
               base_link:
                 base_link_frd:
                   {}
@@ -113,6 +113,7 @@ Visualization Manager:
                     {}
                 ouster:
                   {}
+            map:
               base_link_stabilized:
                 {}
               look_ahead_point:
@@ -262,17 +263,17 @@ Visualization Manager:
                 Value: /robot_1/droan/disparity_map_debug
               Value: false
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
+              Enabled: false
               Name: Disparity Graph Poses
               Namespaces:
-                pose: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /robot_1/droan/disparity_graph
-              Value: true
+              Value: false
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
               Name: Trimmed Global Plan for DROAN
@@ -360,17 +361,17 @@ Visualization Manager:
                 Value: trajectory_controller/trajectory_vis
               Value: true
             - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
+              Enabled: true
               Name: Traj Debug
               Namespaces:
-                {}
+                default: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: trajectory_controller/trajectory_controller_debug_markers
-              Value: false
+              Value: true
           Enabled: true
           Name: Trajectory Controller
       Enabled: true
@@ -466,25 +467,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 21.319120407104492
+      Distance: 18.401203155517578
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.0440632104873657
-        Y: 1.6269922256469727
-        Z: 0.25401341915130615
+        X: -1.8554298877716064
+        Y: 5.675510883331299
+        Z: -2.8006136417388916
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.390395849943161
+      Pitch: 0.4553954601287842
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.8517506122589111
+      Yaw: 0.07311739027500153
     Saved: ~
 Window Geometry:
   Displays:

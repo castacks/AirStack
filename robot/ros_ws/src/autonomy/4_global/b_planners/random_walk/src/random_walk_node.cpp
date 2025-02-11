@@ -1,4 +1,3 @@
-
 #include "../include/random_walk_node.hpp"
 
 #include "../include/random_walk_logic.hpp"
@@ -76,9 +75,20 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: path_end_threshold_m");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<float>("max_z_angle_change_rad");
-    if (!this->get_parameter("max_z_angle_change_rad", params.max_z_angle_change_rad)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_angle_change_rad");
+    this->declare_parameter<float>("max_yaw_change_degrees");
+    if (!this->get_parameter("max_yaw_change_degrees", params.max_yaw_change_degrees)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_yaw_change_degrees");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("position_change_threshold");
+    if (!this->get_parameter("position_change_threshold", this->position_change_threshold)) {
+        
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: position_change_threshold");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("stall_timeout_seconds");
+    if (!this->get_parameter("stall_timeout_seconds", this->stall_timeout_seconds)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: stall_timeout_seconds");
         return std::optional<init_params>{};
     }
     return params;
@@ -257,6 +267,7 @@ void RandomWalkNode::publish_plan() {
     this->pub_global_plan->publish(full_path);
     RCLCPP_INFO(this->get_logger(), "Published full path");
 }
+
 void RandomWalkNode::timerCallback() {
     // get current TF to world
     try {
@@ -266,6 +277,8 @@ void RandomWalkNode::timerCallback() {
         this->current_location = transform_stamped.transform;
         if (!this->received_first_robot_tf) {
             this->received_first_robot_tf = true;
+            this->last_location = this->current_location;
+            this->last_position_change = this->now();
             RCLCPP_INFO(this->get_logger(), "Received first robot_tf");
         }
     } catch (tf2::TransformException & ex) {
@@ -279,10 +292,12 @@ void RandomWalkNode::timerCallback() {
             }
             this->publish_plan();
             this->is_path_executing = true;
+            this->last_position_change = this->now(); // Reset stall timer when starting new plan
         } else {
             RCLCPP_INFO_ONCE(this->get_logger(), "Waiting for map and robot tf to be received...");
         }
     } else if (this->enable_random_walk && this->is_path_executing) {
+        // check if the robot has reached the goal point
         std::tuple<float, float, float> current_point = std::make_tuple(
             this->current_location.translation.x, this->current_location.translation.y,
             this->current_location.translation.z);
@@ -294,6 +309,27 @@ void RandomWalkNode::timerCallback() {
             this->is_path_executing = false;
             this->generated_paths.clear();
             RCLCPP_INFO(this->get_logger(), "Reached goal point");
+        } else {
+            // Check if position has changed significantly
+            std::tuple<float, float, float> last_point = std::make_tuple(
+                this->last_location.translation.x, 
+                this->last_location.translation.y,
+                this->last_location.translation.z);
+            
+            if (get_point_distance(current_point, last_point) > this->position_change_threshold) {
+                this->last_location = this->current_location;
+                this->last_position_change = this->now();
+            } else {
+                // Check if we've been stationary for too long
+                rclcpp::Duration stall_duration = this->now() - this->last_position_change;
+                if (stall_duration.seconds() > this->stall_timeout_seconds) {
+                    RCLCPP_INFO(this->get_logger(), "Robot stationary for %f seconds, clearing plan", 
+                               stall_duration.seconds());
+                    this->is_path_executing = false;
+                    this->generated_paths.clear();
+                    this->last_position_change = this->now(); // Reset timer to avoid spam
+                }
+            }
         }
     }
 }

@@ -69,8 +69,16 @@ nav:
               - docs/robot/autonomy/3_local/index.md
               - World Model:
                 - docs/robot/autonomy/3_local/world_model/index.md
+                - DROAN (Obstacle Avoidance World Model):
+                  - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_expansion/README.md
+                  - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph/README.md
+                  - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph_cost_map/README.md
               - Planning:
                 - docs/robot/autonomy/3_local/planning/index.md
+                - robot/ros_ws/src/autonomy/3_local/b_planners/trajectory_library/README.md
+                - robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/README.md
+                - DROAN (Obstacle Avoidance Planner):
+                  - robot/ros_ws/src/autonomy/3_local/b_planners/droan_local_planner/README.md
               - Controls:
                 - docs/robot/autonomy/3_local/controls/index.md
                 - robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/README.md

@@ -192,12 +192,12 @@ class DroanLocalPlanner : public rclcpp::Node {
         double trajectory_distance;
         bool is_valid = global_plan.get_trajectory_distance_at_closest_point(look_ahead_position,
                                                                              &trajectory_distance);
-        // trim the global plan to only the next 10 meters
+        // trim the global plan to only the next 100 meters
         if (is_valid) {
-            this->global_plan_trajectory_distance += trajectory_distance;
-            global_plan = global_plan.trim_trajectory_between_distances(
-                this->global_plan_trajectory_distance,
-                this->global_plan_trajectory_distance + 10.0);
+            trajectory_distance = std::max(trajectory_distance, this->global_plan_trajectory_distance);
+            global_plan = global_plan.trim_trajectory_between_distances(trajectory_distance, trajectory_distance + std::numeric_limits<double>::infinity());
+            RCLCPP_INFO_STREAM(this->get_logger(), "using global plan from distance " << trajectory_distance);
+            this->global_plan_trajectory_distance = trajectory_distance;
         } else {
             RCLCPP_INFO(this->get_logger(), "invalid");
         }
