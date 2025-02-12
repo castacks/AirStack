@@ -52,6 +52,10 @@ class RandomWalkNode : public rclcpp::Node {
 
     geometry_msgs::msg::Transform current_location;       // x, y, z, yaw
     geometry_msgs::msg::Transform current_goal_location;  // x, y, z, yaw
+    geometry_msgs::msg::Transform last_location;         // Last recorded position
+    rclcpp::Time last_position_change;                  // Time of last position change
+    double position_change_threshold = 0.1;       // Minimum distance (meters) to consider as movement
+    double stall_timeout_seconds = 5.0;          // Time without movement before clearing plan
 
     // Callbacks
     void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
