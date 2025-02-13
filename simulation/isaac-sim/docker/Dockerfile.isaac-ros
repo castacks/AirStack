@@ -51,7 +51,8 @@ RUN apt update && apt install -y --no-install-recommends curl emacs vim nano tmu
     python3-pip \
     python3-rosdep \
     ros-humble-tf2* \
-    ros-humble-mavros
+    ros-humble-mavros \
+    ros-humble-ackermann-msgs
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 

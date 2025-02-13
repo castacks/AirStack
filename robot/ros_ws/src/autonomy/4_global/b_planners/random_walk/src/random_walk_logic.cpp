@@ -11,7 +11,7 @@ RandomWalkPlanner::RandomWalkPlanner(init_params params)
     this->voxel_size_m = params.voxel_size_m;
     this->collision_padding_m = params.collision_padding_m;
     this->path_end_threshold_m = params.path_end_threshold_m;
-    this->max_z_angle_change_rad = params.max_z_angle_change_rad;
+    this->max_yaw_change_degrees = params.max_yaw_change_degrees;
 }
 
 std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
@@ -110,6 +110,14 @@ bool RandomWalkPlanner::check_if_collided_single_voxel(
 
 bool RandomWalkPlanner::check_if_collided(const std::tuple<float, float, float>& point)
 {
+    // make sure the point is within the bounds -30 to 30
+    if (std::get<0>(point) > 30 || std::get<0>(point) < -30 || std::get<1>(point) > 30 ||
+        std::get<1>(point) < -30 || std::get<2>(point) > 30 || std::get<2>(point) < -30)
+    {
+        return true;
+    }
+
+
     std::lock_guard<std::mutex> lock(this->mutex);
     for (const std::tuple<float, float, float>& voxel : this->voxel_points)
     {
@@ -144,6 +152,7 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
         float rand_x = std::get<0>(start_point) + delta_x;
         float rand_y = std::get<1>(start_point) + delta_y;
         float rand_z = std::get<2>(start_point) + delta_z;
+        rand_z = std::max(0.5f, rand_z); // ensure don't go below the ground
         std::tuple<float, float, float> rand_point(rand_x, rand_y, rand_z);
         std::tuple<float, float, float> start_point_wo_yaw(
             std::get<0>(start_point), std::get<1>(start_point), std::get<2>(start_point));
@@ -152,7 +161,7 @@ std::tuple<float, float, float> RandomWalkPlanner::generate_goal_point(
                                      std::get<0>(rand_point) - std::get<0>(start_point_wo_yaw));
         float angle_diff = std::abs(std::get<3>(start_point) - new_angle);
         // if the z value of the point is low enough
-        if (angle_diff < this->max_z_angle_change_rad)
+        if (angle_diff <= this->max_yaw_change_degrees * 3.14159265359 / 180)
         {
             // if the point is close enough to the start point
             if (dist < this->max_start_to_goal_dist_m_)
