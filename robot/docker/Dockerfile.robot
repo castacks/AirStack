@@ -110,7 +110,7 @@ RUN apt remove -y libopenvdb*; \
     cd ..; rm -rf /opt/openvdb/build
 
 # Add ability to SSH
-RUN apt-get update && apt-get install -y openssh-server
+RUN apt-get update && apt-get install -y openssh-server libimath-dev
 RUN mkdir /var/run/sshd
 
 # Password is airstack
