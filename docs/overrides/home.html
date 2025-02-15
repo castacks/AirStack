@@ -3,8 +3,17 @@
 {% block tabs %}
   {{ super() }}
 
-  <!-- Hero section -->
-  <section class="mdx-container">
+  <!-- Hero section with background media -->
+  <section class="splash-container">
+    <!-- Background media -->
+    <div class="splash-background">
+      <div class="media-overlay"></div>
+      <div class="media-container">
+        <img src="assets/media/splash-background.gif" alt="Background Animation" class="splash-media">
+      </div>
+    </div>
+
+    <!-- Hero content -->
     <div class="md-grid md-typeset">
       <div class="mdx-hero">
         <div class="mdx-hero__content">
