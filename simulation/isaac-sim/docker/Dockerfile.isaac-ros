@@ -1,6 +1,7 @@
 ARG ISAAC_VERSION="4.2.0"
 # expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
+ARG ISAAC_VERSION
 
 WORKDIR /isaac-sim
 
