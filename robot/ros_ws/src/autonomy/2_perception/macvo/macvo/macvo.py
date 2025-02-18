@@ -75,7 +75,7 @@ class MACVONode(Node):
         else:
             self.img_pipes = None
 
-        self.frame = "left_camera"
+        self.frame = "map"
         
         # Load the MACVO model ------------------------------------
         self.declare_parameter("camera_config", rclpy.Parameter.Type.STRING)
@@ -112,6 +112,7 @@ class MACVONode(Node):
         self.scale_v = float(self.camera_info.height / v_dim)
 
         self.rot_correction_matrix = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+        self.rot_correction_matrix = np.eye(3)
 
         # self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
 
