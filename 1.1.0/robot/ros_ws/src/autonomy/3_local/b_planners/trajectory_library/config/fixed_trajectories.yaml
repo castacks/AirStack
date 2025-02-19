@@ -1,0 +1,38 @@
+trajectories:
+  - Figure8:
+      attributes:
+        - frame_id
+        - velocity
+        - max_acceleration
+        - length
+        - width
+        - height
+  - Racetrack:
+      attributes:
+        - frame_id
+        - velocity
+        - max_acceleration
+        - length
+        - width
+        - height
+  - Circle:
+      attributes:
+        - frame_id
+        - velocity
+        - radius
+  - Line:
+      attributes:
+        - frame_id
+        - velocity
+        - max_acceleration
+        - length
+        - width
+        - height
+  - Point:
+      attributes:
+        - frame_id
+        - velocity
+        - max_acceleration
+        - x
+        - y
+        - height

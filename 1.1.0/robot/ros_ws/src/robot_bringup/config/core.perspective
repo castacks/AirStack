@@ -1,0 +1,128 @@
+{
+  "keys": {},
+  "groups": {
+    "mainwindow": {
+      "keys": {
+        "geometry": {
+          "repr(QByteArray.hex)": "QtCore.QByteArray(b'01d9d0cb00030000000008490000015c00000fc800000492000008490000018100000fc80000049200000000000000000a00000008490000018100000fc800000492')",
+          "type": "repr(QByteArray.hex)",
+          "pretty-print": "     I \\     I            I      "
+        },
+        "state": {
+          "repr(QByteArray.hex)": "QtCore.QByteArray(b'000000ff00000000fd000000010000000300000780000002e8fc0100000002fc0000000000000780000003d200fffffffc0200000002fb00000042007200710074005f006200650068006100760069006f0072005f0074007200650065005f005f005000790043006f006e0073006f006c0065005f005f0031005f005f0100000014000000fe0000004a00fffffffc00000118000001e4000001e400fffffffc0100000002fb00000072007200710074005f006200650068006100760069006f0072005f0074007200650065005f0063006f006d006d0061006e0064005f005f004200650068006100760069006f007200540072006500650043006f006d006d0061006e00640050006c007500670069006e005f005f0031005f005f0100000000000005ba0000025d00fffffffb0000007a007200710074005f00660069007800650064005f007400720061006a006500630074006f00720079005f00670065006e0065007200610074006f0072005f005f00460069007800650064005400720061006a006500630074006f0072007900470065006e0065007200610074006f0072005f005f0031005f005f01000005c0000001c00000016f00fffffffb0000007a007200710074005f00660069007800650064005f007400720061006a006500630074006f00720079005f00670065006e0065007200610074006f0072005f005f00460069007800650064005400720061006a006500630074006f0072007900470065006e0065007200610074006f0072005f005f0031005f005f01000004b20000007e0000000000000000000007800000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720000000000ffffffff0000000000000000')",
+          "type": "repr(QByteArray.hex)",
+          "pretty-print": "                                                                    J               rrqt_behavior_tree_command__BehaviorTreeCommandPlugin__1__          zrqt_fixed_trajectory_generator__FixedTrajectoryGenerator__1__          zrqt_fixed_trajectory_generator__FixedTrajectoryGenerator__1__                            6MinimizedDockWidgetsToolbar        "
+        }
+      },
+      "groups": {
+        "toolbar_areas": {
+          "keys": {
+            "MinimizedDockWidgetsToolbar": {
+              "repr": "8",
+              "type": "repr"
+            }
+          },
+          "groups": {}
+        }
+      }
+    },
+    "pluginmanager": {
+      "keys": {
+        "running-plugins": {
+          "repr": "{'rqt_behavior_tree/PyConsole': [1], 'rqt_behavior_tree_command/BehaviorTreeCommandPlugin': [1], 'rqt_fixed_trajectory_generator/FixedTrajectoryGenerator': [1]}",
+          "type": "repr"
+        }
+      },
+      "groups": {
+        "plugin__rqt_behavior_tree__PyConsole__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dock_widget_title": {
+                  "repr": "''",
+                  "type": "repr"
+                },
+                "dockable": {
+                  "repr": "True",
+                  "type": "repr"
+                },
+                "parent": {
+                  "repr": "None",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            }
+          }
+        },
+        "plugin__rqt_behavior_tree_command__BehaviorTreeCommandPlugin__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dock_widget_title": {
+                  "repr": "''",
+                  "type": "repr"
+                },
+                "dockable": {
+                  "repr": "True",
+                  "type": "repr"
+                },
+                "parent": {
+                  "repr": "None",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            },
+            "plugin": {
+              "keys": {
+                "config_filename": {
+                  "repr": "'/root/ros_ws/install/rqt_behavior_tree_command/share/rqt_behavior_tree_command/config/gui_config.yaml'",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            }
+          }
+        },
+        "plugin__rqt_fixed_trajectory_generator__FixedTrajectoryGenerator__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dock_widget_title": {
+                  "repr": "''",
+                  "type": "repr"
+                },
+                "dockable": {
+                  "repr": "True",
+                  "type": "repr"
+                },
+                "parent": {
+                  "repr": "None",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            },
+            "plugin": {
+              "keys": {
+                "attribute_settings": {
+                  "repr": "b'\\x80\\x04\\x95*\\x02\\x00\\x00\\x00\\x00\\x00\\x00\\x8c\\x0bcollections\\x94\\x8c\\x0bOrderedDict\\x94\\x93\\x94)R\\x94(\\x8c\\x07Figure8\\x94}\\x94(\\x8c\\x08frame_id\\x94\\x8c\\tbase_link\\x94\\x8c\\x08velocity\\x94\\x8c\\x012\\x94\\x8c\\x10max_acceleration\\x94\\x8c\\x012\\x94\\x8c\\x06length\\x94\\x8c\\x015\\x94\\x8c\\x05width\\x94\\x8c\\x013\\x94\\x8c\\x06height\\x94\\x8c\\x010\\x94u\\x8c\\tRacetrack\\x94}\\x94(\\x8c\\x08frame_id\\x94\\x8c\\tbase_link\\x94\\x8c\\x08velocity\\x94\\x8c\\x030.2\\x94\\x8c\\x10max_acceleration\\x94\\x8c\\x030.1\\x94\\x8c\\x06length\\x94\\x8c\\x015\\x94\\x8c\\x05width\\x94\\x8c\\x013\\x94\\x8c\\x06height\\x94\\x8c\\x010\\x94u\\x8c\\x06Circle\\x94}\\x94(\\x8c\\x08frame_id\\x94\\x8c\\tbase_link\\x94\\x8c\\x08velocity\\x94\\x8c\\x030.2\\x94\\x8c\\x06radius\\x94\\x8c\\x012\\x94u\\x8c\\x04Line\\x94}\\x94(\\x8c\\x08frame_id\\x94\\x8c\\tbase_link\\x94\\x8c\\x08velocity\\x94\\x8c\\x030.2\\x94\\x8c\\x10max_acceleration\\x94\\x8c\\x030.1\\x94\\x8c\\x06length\\x94\\x8c\\x012\\x94\\x8c\\x05width\\x94\\x8c\\x010\\x94\\x8c\\x06height\\x94\\x8c\\x010\\x94u\\x8c\\x05Point\\x94}\\x94(\\x8c\\x08frame_id\\x94\\x8c\\tbase_link\\x94\\x8c\\x08velocity\\x94\\x8c\\x030.2\\x94\\x8c\\x10max_acceleration\\x94\\x8c\\x030.1\\x94\\x8c\\x01x\\x94\\x8c\\x010\\x94\\x8c\\x01y\\x94\\x8c\\x010\\x94\\x8c\\x06height\\x94\\x8c\\x010\\x94uu.'",
+                  "type": "repr"
+                },
+                "config_filename": {
+                  "repr": "'/root/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/fixed_trajectories.yaml'",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

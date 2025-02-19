@@ -1,0 +1,28 @@
+session_name: Ascent Spirit
+windows:
+  - window_name: SITL
+    layout: tiled
+    panes:
+      - shell_command:
+        - cd /AscentAeroSystemsSITLPackage
+        - gdb spirit_sitl -q --command=/sitl_integration/drag_and_drop/test.gdb -ex "r -S --model coaxial -I0 --base-port $BASE_PORT"
+      - shell_command:
+        - echo $ASCENT_SITL_PORT
+        - echo $ISAAC_SIM_PORT
+        - echo $AUTONOMY_STACK_PORT
+        - mavproxy.py --streamrate=100 --master tcp:127.0.0.1:$BASE_PORT --out udp:127.0.0.1:$ASCENT_SITL_PORT --out udp:127.0.0.1:$ISAAC_SIM_PORT --out udp:127.0.0.1:$AUTONOMY_STACK_PORT
+      - shell_command:
+        # - sleep 5
+        - export ROS_DOMAIN_ID=$DOMAIN_ID
+        # - ros2 launch mavros apm.launch fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" namespace:=$NAMESPACE/interface/mavros --ros-args -p use_sim_time:=true
+        - >
+          ros2 run mavros mavros_node 
+          --ros-args 
+          -r __ns:=/$NAMESPACE/interface/mavros 
+          -p fcu_url:="udp://127.0.0.1:$AUTONOMY_STACK_PORT@$MAVROS_LAUNCH_PORT" 
+          -p tgt_system:=1 
+          -p tgt_component:=1 
+          -p fcu_protocol:=v2.0
+          --params-file $(ros2 pkg prefix mavros)/share/mavros/launch/apm_pluginlists.yaml
+          --params-file $(ros2 pkg prefix mavros)/share/mavros/launch/apm_config.yaml
+          -p use_sim_time:=true

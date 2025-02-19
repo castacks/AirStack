@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="macvo" exec="macvo">
+        <param name="camera_config" value="$(find-pkg-share macvo)/model_config.yaml"/>
+        <param from="$(find-pkg-share macvo)/interface_config.yaml"/>
+    </node>
+</launch>

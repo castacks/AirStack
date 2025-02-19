@@ -1,0 +1,17 @@
+# docs docker compose
+services:
+  docs: # live mkdocs container. open localhost:8000 in browser to see the docs
+    profiles:
+      - ""
+      - sitl
+      - hitl
+    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_mkdocs
+    build:
+      dockerfile: ./Dockerfile
+      tags:
+        - *image_tag
+    container_name: docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../:/docs:rw
