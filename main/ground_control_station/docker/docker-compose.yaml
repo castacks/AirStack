@@ -1,0 +1,24 @@
+services:
+  ground-control-station:
+    profiles:
+      - ""
+      - sitl
+    extends:
+      file: ./ground-control-station-base-docker-compose.yaml
+      service: ground-control-station-base
+    networks:
+      - airstack_network
+    ports:
+      - 2222:22 # for ssh
+  
+  ground-control-station-real:
+    profiles:
+      - hitl
+      - deploy
+    extends:
+      file: ./ground-control-station-base-docker-compose.yaml
+      service: ground-control-station-base
+    network_mode: host
+
+# include: 
+  # - ./tak-docker-compose.yaml
