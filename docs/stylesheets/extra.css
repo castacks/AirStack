@@ -8,14 +8,21 @@
     --md-hue: 210; 
 }
 
+/* Ensure navigation tabs are above splash content */
+.md-tabs {
+    position: relative;
+    z-index: 10;
+}
+
 /* Splash container and background */
 .splash-container {
     position: relative;
     width: 100%;
-    height: 100vh;
+    height: calc(100vh - 98px); /* Subtract header height to prevent overlap */
     min-height: 600px;
     overflow: hidden;
-    margin-top: -3.5rem; /* Adjust based on your header height */
+    margin-top: 0; /* Remove negative margin */
+    padding-top: 1rem; /* Add some padding from the navigation */
 }
 
 .splash-background {
@@ -68,6 +75,7 @@
     justify-content: center;
     text-align: center;
     color: white;
+    padding-top: 5rem; /* Add padding to push content down */
 }
 
 .mdx-hero h1 {
@@ -75,14 +83,16 @@
     font-weight: 700;
     margin-bottom: 1rem;
     line-height: 1.15;
-    color: var(--md-default-fg-color);
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .mdx-hero p {
     font-size: 1.4rem;
     font-weight: 300;
     margin-bottom: 2rem;
-    color: var(--md-default-fg-color--light);
+    color: #ffffff;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
     max-width: 35rem;
     margin-left: auto;
     margin-right: auto;
@@ -138,7 +148,7 @@
 /* Feature grid */
 .feature-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Increased minimum width */
     gap: 2rem;
     margin: 2rem 0 4rem;
 }
@@ -167,6 +177,7 @@
     font-weight: 600;
     margin: 1rem 0;
     color: var(--md-primary-fg-color);
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .feature-card p {
