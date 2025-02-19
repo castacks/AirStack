@@ -1,0 +1,32 @@
+name: Build/Publish Develop Docs 
+on:
+  push:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "*.md"
+      - ".github/workflows/deploy_docs_from_develop.yaml"
+    branches:
+      - develop
+permissions:
+  contents: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.10.6
+      - name: Install Dependencies
+        run: |
+          pip install mkdocs-material mkdocs-same-dir mkdocs-redirects
+          pip install pillow cairosvg mike
+      - name: Setup Docs Deploy
+        run: |
+          git config --global user.name "Docs Deploy"
+          git config --global user.email "docs.deploy@example.co.uk"
+      - name: Build Docs Website
+        run: mike deploy --push develop
