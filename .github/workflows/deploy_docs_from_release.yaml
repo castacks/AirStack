@@ -18,7 +18,8 @@ jobs:
           python-version: 3.10.6
       - name: Install Dependencies
         run: |
-          pip install mkdocs-material
+          pip install mkdocs-material mkdocs-same-dir mkdocs-redirects
+
           pip install pillow cairosvg mike
       - name: Setup Docs Deploy
         run: |

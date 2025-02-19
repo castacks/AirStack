@@ -3,11 +3,14 @@ copyright: Copyright &copy; 2024 - 2030 AirLab CMU
 docs_dir: .
 site_name: AirStack
 site_dir: ../site
+site_url: 'https://docs.theairlab.org/docs/'  # Trailing slash is recommended
 exclude_docs: |
   **/ros_ws/build
   **/ros_ws/install
   **/kit-app-template/**
 extra:
+  version:
+    provider: mike
   generator: false
   social:
     - icon: fontawesome/brands/github
