@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
-  && apt-get update && apt-get install -y --no-install-recommends \
+  && apt-get update && apt upgrade -y && apt-get install -y --no-install-recommends \
     ros-humble-desktop \
     python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
@@ -63,6 +63,7 @@ RUN apt update && apt install -y \
     cmake build-essential \
     less htop jq \
     python3-pip \
+    python3-rosdep \
     tmux \
     gdb
 
@@ -78,16 +79,16 @@ RUN apt update -y && apt install -y \
     ros-humble-domain-bridge \
     libcgal-dev \
     python3-colcon-common-extensions
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
+RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 # Install Python dependencies
 RUN pip3 install \
     empy \
     future \
     lxml \
-    matplotlib \
-    numpy \
+    matplotlib==3.8.4 \
+    numpy==1.24.0 \
     pkgconfig \
     psutil \
     pygments \
@@ -98,8 +99,22 @@ RUN pip3 install \
     setuptools \
     six \
     toml \
-    scipy
-
+    scipy \
+    torch \
+    torchvision \
+    pypose \
+    rich \
+    tqdm \
+    pillow \ 
+    flow_vis \
+    h5py \
+    evo \
+    tabulate \
+    einops \
+    timm==0.9.12 \
+    rerun-sdk==0.17 \
+    yacs \
+    wandb
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
@@ -124,18 +139,29 @@ EXPOSE 22
 ARG REAL_ROBOT=false
 RUN if [ "$REAL_ROBOT"  = "true" ]; then \
   # Put commands here that should run for the real robot but not the sim
-  
   echo "REAL_ROBOT is true"; \
   apt-get update && apt-get install -y libimath-dev; \
 else \
   # Put commands here that should be run for the sim but not the real robot
-  
   echo "REAL_ROBOT is false"; \
 fi
 
+# Downloading model weights for MACVO
+WORKDIR /root/model_weights
+RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
+    rm -rf /root/model_weights/github.com
+
+WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
     && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Install colcon, seems to be getting removed
+RUN pip install -U colcon-common-extensions
+
+# Fixes for MACVO Integration
+RUN pip install huggingface_hub
+RUN pip uninstall matplotlib -y

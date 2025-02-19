@@ -10,6 +10,8 @@ services:
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
+    env_file:
+      - ${ROBOT_ENV_FILE_NAME}
     deploy:
       # let it use the GPU
       resources:

@@ -56,7 +56,6 @@ nav:
       - docs/development/frame_conventions.md
   - Robot:
       - docs/robot/index.md
-      - docs/robot/common_topics.md
       - Autonomy Modules:
           - Robot Interface: 
               - docs/robot/autonomy/0_interface/index.md
@@ -130,7 +129,7 @@ theme:
     - navigation.indexes
     - navigation.path
     - navigation.tabs
-    - navigation.expand
+    # - navigation.expand
     - navigation.footer
     - navigation.top
     - navigation.sections
