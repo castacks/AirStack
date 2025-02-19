@@ -1,0 +1,14 @@
+->
+	?
+		(In No Fly Zone)
+		(At Flight Altitude)
+		[Takeoff]
+	?
+		<!>
+			(In No Fly Zone)
+		(On Ground)
+		[Land]
+	include $(find behavior_tree_example)/config/example3_nested_subtree.tree
+	?
+		(At Home)
+		[Go Home]

@@ -1,0 +1,117 @@
+# Configuration for the Basestation Syetem interacting ROS and TAK server. 
+
+# Preliminary: 
+# Tak-server: Server that receives CoT messages and sends them to the TAK clients (e.g., ATAK, WinTAK, etc.)
+# COT (Cursor on Target) message: A message format used by TAK clients to share location and other information with/without Tak-server.
+
+# Instructions: 
+# (1) Please read the comments in the configuration file to understand the configuration parameters.
+# (2) The confguration key names are case-sensitive. Please use the same key names as mentioned in the comments.
+
+# Maintainer: Aditya Rauniyar (rauniyar@cmu.edu)
+
+
+project: 
+  name: Airstack # Name of the project. This will be used to name the services.
+
+robot:
+  count: 6  # Number of robots to subscribe to (e.g., 1 for robot1, 2 for robot2 and robot3, etc.)
+  gps_topicname: '/iphone{n}/gps'  # Topic name pattern for GPS data. Use {n} as a placeholder for the robot number.
+
+trackers:
+  - name: 'base' # Note stable GPS reading 
+    ip: '10.223.132.129'
+    input_port: 2947
+  - name: 'target1'
+    ip: '10.223.132.61'
+    input_port: 2947
+  - name: 'target2' # Name of the tracker. This can be the target or the robot streaming GPS data.
+    ip: '10.223.118.110' # IP address of the tracker. (Testing using Doodle labs mesh rider)
+    input_port: 2947 # Port of the Radio link to receive GPS data.
+  - name: 'target3' # NOTE: Stable GPS reading 
+    ip: '10.223.118.94'
+    input_port: 2947
+  - name: 'drone2'
+    ip: '10.4.1.20'
+    input_port: 2947
+
+
+tak_server:
+  cot_url:  # URL for the TAK server where CoT events are sent.
+  pytak_tls_client_cert:   # Path to the client certificate for TLS connection.
+  pytak_tls_client_key:   # Path to the client key for TLS connection.
+
+
+mqtt:
+  host: localhost
+  port: 1883
+  username: airlab
+  password: 
+
+services:
+  host:  '127.0.0.1'  # Host settings can be specified here (e.g., localhost or specific IP address).
+
+  # NOTE: 
+  # (1) The publishers and subscribers are in reference to the TAK server.
+  # (2) The name of the service would be in the format of <project_name>_<service_name> (e.g., dsta_tak_publisher).
+  publisher:
+    tak_publisher:
+      # this serivce is used to publish CoT messages from HOSTIP:PORT to the TAK server.
+      topic_name: to_tak 
+
+  mediator:
+    ros2cot_agent:
+      # this service is used to generate COT messages from ROS messages and send them to HOSTIP:PORT.
+      topic_name: to_tak
+    cot2ros_agent:
+      # this service is used to generate ROS messages from HOSTIP:PORT to ROS topics. 
+      # TAK_Subscriber (below) service has more information on the ROS topics.
+      topic_name: from_tak  # Port for the ROS publisher service.
+    cot2planner_agent:
+      # this service is used to generate ROS messages from HOSTIP:PORT to ROS topics. 
+      # TAK_Subscriber (below) service has more information on the ROS topics.
+      topic_name: planner_events # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+
+    chat2ros_agent:
+      mqtt_subcribe_topic: dsta-operator  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+      ros_query_text_topic: '/query/text'  # ROS Topic name to publish the chat queries.
+      ros_query_response_topic: '/query/response'  # ROS Topic name to publish the chat responses.
+      filter_name: dsta-operator
+
+    ros2casevac_agent:
+      # this service is used to generate ROS messages from HOSTIP:PORT to ROS topics.
+      # TAK_Subscriber (below) service has more information on the ROS topics.
+      topic_name: to_tak # MQTT topic name to send the COT messages to.
+      ros_casualty_meta_topic_name: '/casualty/meta' # ROS Topic name to publish the casevac messages.
+      ros_casualty_image_topic_name: '/casualty/image' # ROS message type for the casevac messages.
+
+  subscriber:
+    tak_subscriber:
+      # this service is used to subscribe to CoT messages from TAK server and send them to HOSTIP:PORT.
+      filter_messages: # Type of messages to subscribe to. Options:
+        - name: 'target'
+          # ROS Topic name to publish the target messages. Use {n} as a placeholder for the robot number.
+          # If provided, the topic name will be formatted with the robot number extracted from the message name.
+          ros_topic_name: '/target{n}/gps/gt'
+          ros_msg_type: NavSatFix  # ROS message type for the target messages.
+          mqtt_topic_name: target_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'iphone'
+          # ROS Topic name to publish the target messages. Use {n} as a placeholder for the robot number.
+          # If provided, the topic name will be formatted with the robot number extracted from the message name.
+          ros_topic_name: '/iphone{n}/gps/gt'
+          ros_msg_type: NavSatFix  # ROS message type for the target messages.
+          mqtt_topic_name: iphone_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'base'
+          ros_topic_name: '/basestation/gps'
+          ros_msg_type: NavSatFix  # ROS message type for the target messages.
+          mqtt_topic_name: base_from_tak  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'planner'
+          ros_topic_name: '/planner/planconfig'  # ROS Topic name to publish the shapes messages.
+          ros_msg_type: MarkerArray  # ROS message type for the shapes messages.
+          mqtt_topic_name: dsta-operator  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+        - name: 'dsta-operator'
+          ros_topic_name: 'NA'  # ROS Topic name to publish the shapes messages.
+          ros_msg_type: NA  # ROS message type for the shapes messages.
+          mqtt_topic_name: dsta-operator  # Topic name at MQTT for the subscriber service that sends COT messages subscribed from the TAK server.
+      # target: Target messages
+      # planner: Planner messages
