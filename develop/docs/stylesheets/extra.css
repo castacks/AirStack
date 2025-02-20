@@ -15,6 +15,7 @@
 }
 
 .md-version {
+    position: relative;
     z-index: 10;
 }
 
@@ -87,7 +88,7 @@
     font-weight: 700;
     margin-bottom: 1rem;
     line-height: 1.15;
-    color: #ffffff88;
+    color: #ffffff;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -103,7 +104,7 @@
 }
 
 .mdx-hero .md-button {
-    background-color: #ffffff;
+    background-color: #ffffffAA;
     margin: 0.5rem;
     font-size: 1rem;
     padding: 0.625em 2em;
