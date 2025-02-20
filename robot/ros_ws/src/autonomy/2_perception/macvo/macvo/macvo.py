@@ -109,7 +109,10 @@ class MACVONode(Node):
         self.scale_u = float(self.camera_info.width / u_dim)
         self.scale_v = float(self.camera_info.height / v_dim)
 
-        self.rot_correction_matrix = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+        x_rot = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+        z_rot = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+
+        self.rot_correction_matrix = np.dot(x_rot, z_rot)
 
         # self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
 
