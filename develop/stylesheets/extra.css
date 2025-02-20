@@ -11,12 +11,12 @@
 /* Ensure navigation tabs are above splash content */
 .md-tabs {
     position: relative;
-    z-index: 10;
+    z-index: 3;
 }
 
 .md-version * {
-    position: absolute;
-    z-index: 25;
+    position: relative;
+    z-index: 5;
 }
 
 /* Splash container and background */
