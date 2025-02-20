@@ -1,0 +1,24 @@
+<launch>
+
+  <arg name="robot_name" default="" /> <!-- include a / at the end if you need to, for example, uav1/ -->
+
+  <node pkg="trajectory_controller" exec="trajectory_controller" output="screen">
+    <param name="tf_prefix" value="$(var robot_name)" />
+    <param name="target_frame" value="$(var robot_name)map" />
+    <param name="tracking_point_distance_limit" value="10.5" />
+    <param name="velocity_look_ahead_time" value="0.9" />
+    <param name="look_ahead_time" value="1.0" />
+    <param name="virtual_tracking_ahead_time" value="0.5" />
+    <param name="min_virtual_tracking_velocity" value="0.1" />
+    <param name="sphere_radius" value="1." />
+    <param name="ff_min_velocity" value="0." />
+    <param name="search_ahead_factor" value="1.5" />
+    <param name="transition_velocity_scale" value="1.0" />
+    <param name="traj_vis_thickness" value="0.03" />
+
+    <param name="rewind_skip_max_velocity" value="0.1" />
+    <param name="rewind_skip_max_distance" value="0.1" />
+
+  </node>
+
+</launch>

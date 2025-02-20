@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    # parameters
+    scale: 1.0  # units size of a meter. depth value corresponds to this many meters
+    downsample_scale: 1.0  # the ratio to scale down the disparity image before processing
+    baseline_fallback: 0.12 # if the baseline is 0 from the camera_info, use this value instead
+    lut_max_disparity: 180  # maximum disparity value in the disparity image
+    # expansion_radius: 0.325  # 0.325 is the spirit drone blade to blade
+    expansion_radius: 0.1  # debug hack to make disparity expansion not crash
+    bg_multiplier: 1.0
+    # sensor_pixel_error: 0.5 # what is this? and why was it 0.5?
+    sensor_pixel_error: 0.0
+    
+  

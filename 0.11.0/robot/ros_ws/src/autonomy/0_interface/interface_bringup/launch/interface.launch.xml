@@ -1,0 +1,56 @@
+<launch>
+
+    <!-- the below is a hack to get ground truth TF from Isaac. this is to remove map noise for the
+    sponsor demo. set use_sim_ground_truth_tf to true for demo -->
+    <!-- basically we publish the ground truth base link tf from isaac. we then substitute that to
+    the base_link tf -->
+    <arg name="use_sim_ground_truth_tf" default="false" />
+
+    <let name="convert_estimated_odom_to_tf" value="true" unless="$(var use_sim_ground_truth_tf)" />
+    <let name="convert_estimated_odom_to_tf" value="false" if="$(var use_sim_ground_truth_tf)" />
+
+
+    <node pkg="robot_interface" exec="robot_interface_node"
+        namespace="interface"
+        output="screen">
+        <param name="interface" value="mavros_interface::MAVROSInterface" />
+        <param name="is_ardupilot" value="true" />
+    </node>
+
+    <node pkg="mavros_interface" exec="position_setpoint_pub.py"
+        namespace="interface"
+        output="screen" />
+
+    <node pkg="robot_interface" namespace="odometry_conversion" exec="odometry_conversion"
+        output="screen">
+        <remap from="odometry_in" to="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+        <remap from="odometry_out" to="odometry" />
+
+        <param name="odom_input_qos_is_best_effort" value="true" />
+        <param name="new_frame_id" value="map" />
+        <param name="new_child_frame_id" value="base_link" />
+        <param name="odometry_output_type" value="2" />
+
+        <!-- no longer publish TF from estimated odom, this is the hack -->
+        <param name="convert_odometry_to_transform" value="$(var convert_estimated_odom_to_tf)" />
+        <param name="convert_odometry_to_stabilized_transform"
+            value="$(var convert_estimated_odom_to_tf)" />
+        <param name="restamp_now_post" value="true" />
+    </node>
+    <node
+        pkg="tf2_ros"
+        exec="static_transform_publisher"
+        name="tf_base_link_is_ground_truth"
+        args="0 0 0 0 0 0 base_link_ground_truth base_link" />
+
+    <!-- If using ground truth TF from sim, then create the stabilized TF from the ground truth TF, since 
+    odometry_conversion now isn't creating this from odometry estimate  -->
+    <group if="$(var use_sim_ground_truth_tf)">
+        <node pkg="robot_interface" exec="stabilized_tf_node" output="screen">
+            <param name="parent_frame" value="map_FLU" />
+            <param name="child_frame" value="base_link" />
+        </node>
+    </group>
+
+
+</launch>
