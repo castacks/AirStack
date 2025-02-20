@@ -8,12 +8,5 @@
     "version": "develop",
     "title": "develop",
     "aliases": []
-  },
-  {
-    "version": "1.1.0",
-    "title": "1.1.0",
-    "aliases": [
-      "latest"
-    ]
   }
 ]
