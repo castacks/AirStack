@@ -14,9 +14,9 @@
     z-index: 10;
 }
 
-.md-version {
-    position: relative;
-    z-index: 10;
+.md-version * {
+    position: absolute;
+    z-index: 25;
 }
 
 /* Splash container and background */
