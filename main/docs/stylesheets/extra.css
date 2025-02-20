@@ -15,7 +15,7 @@
 }
 
 .md-version * {
-    position: relative;
+    position: absolute;
     z-index: 25;
 }
 
