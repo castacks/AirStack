@@ -1,0 +1,51 @@
+name: Docker Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/Dockerfile'
+      - '**/docker-compose.yml'
+      - '**/docker-compose.yaml'
+
+jobs:
+  build-x86:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build and push x86-64 images
+        uses: mr-smithers-excellent/docker-build-push@v6
+        with:
+          image: airstack
+          registry: ghcr.io
+          username: ${{ secrets.AIRLAB_DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.AIRLAB_DOCKER_REGISTRY_PASSWORD }}
+          addLatest: true
+          enableBuildKit: true
+          platform: linux/amd64
+
+  build-l4t:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and push L4T robot image
+        uses: mr-smithers-excellent/docker-build-push@v6
+        with:
+          image: airstack-robot-l4t
+          registry: ghcr.io
+          username: ${{ secrets.AIRLAB_DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.AIRLAB_DOCKER_REGISTRY_PASSWORD }}
+          addLatest: true
+          enableBuildKit: true
+          multiPlatform: true
+          platform: linux/arm64
+          directory: .
+          dockerfile: docker/robot/Dockerfile.l4t
