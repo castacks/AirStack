@@ -38,10 +38,8 @@ class MACVONode(Node):
         self.bridge = None
         self.time = None
         self.prev_time = None
-        self.frame = None
         self.camera_info = None
         self.baseline = None
-        self.prev_frame = None
         self.odometry = None
 
         # Declare subscriptions and publishers ----------------
@@ -112,7 +110,6 @@ class MACVONode(Node):
         self.scale_v = float(self.camera_info.height / v_dim)
 
         self.rot_correction_matrix = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
-        self.rot_correction_matrix = np.eye(3)
 
         # self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
 
@@ -216,10 +213,7 @@ class MACVONode(Node):
             self.get_logger().error("MACVO Node not initialized yet, skipping frame")
             return
         
-        self.prev_frame, self.prev_time = self.frame, self.time
-        
-        self.frame        = msg_L.header.frame_id
-
+        self.prev_time = self.time
         self.time = msg_L.header.stamp
         imageL = self.bridge.imgmsg_to_cv2(msg_L, desired_encoding="passthrough")
         imageR = self.bridge.imgmsg_to_cv2(msg_R, desired_encoding="passthrough")

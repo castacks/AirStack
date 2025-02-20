@@ -4,7 +4,7 @@
     <!-- State Estimation -->
     <!-- Visual Odometry -->
 
-    <node pkg="macvo" exec="macvo" if="$(env USE_MACVO)">
+    <node pkg="macvo" exec="macvo">
         <param name="camera_config" value="$(find-pkg-share macvo)/config/model_config.yaml" />
         <param from="$(find-pkg-share macvo)/config/interface_config.yaml" />
         <remap from="left/image_rect"
