@@ -51,6 +51,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     rclcpp::Publisher<mavros_msgs::msg::AttitudeTarget>::SharedPtr attitude_target_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr local_position_target_pub_;
+  rclcpp::Publisher<mavros_msgs::msg::PositionTarget>::SharedPtr velocity_target_pub_;
 
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr mavros_odometry_sub_;
@@ -76,6 +77,8 @@ class MAVROSInterface : public robot_interface::RobotInterface {
             "mavros/setpoint_raw/attitude", 1);
         local_position_target_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
             "mavros/setpoint_position/local", 1);
+	velocity_target_pub_ = this->create_publisher<mavros_msgs::msg::PositionTarget>(
+            "mavros/setpoint_raw/local", 1);
 
         // subscribers
         state_sub_ = this->create_subscription<mavros_msgs::msg::State>(
@@ -88,6 +91,26 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     // Control Callbacks. Translates commands to fit the MAVROS API.
     // The MAVROS API only has two types of control: Attitude Control and
     // Position Control.
+
+    void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr cmd) {
+        if (!is_ardupilot ||
+    	    (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > post_takeoff_command_delay_time))) {
+ 	    mavros_msgs::msg::PositionTarget msg;
+	    msg.coordinate_frame = mavros_msgs::msg::PositionTarget::FRAME_BODY_NED;
+	    msg.type_mask = mavros_msgs::msg::PositionTarget::IGNORE_PX |
+ 	        mavros_msgs::msg::PositionTarget::IGNORE_PY |
+  	        mavros_msgs::msg::PositionTarget::IGNORE_PZ |
+	        mavros_msgs::msg::PositionTarget::IGNORE_AFX |
+	        mavros_msgs::msg::PositionTarget::IGNORE_AFY |
+	        mavros_msgs::msg::PositionTarget::IGNORE_AFZ |
+	        mavros_msgs::msg::PositionTarget::IGNORE_YAW;
+	    msg.velocity.x = cmd->twist.linear.x;
+	    msg.velocity.y = cmd->twist.linear.y;
+	    msg.velocity.z = cmd->twist.linear.z;
+	    msg.yaw_rate = cmd->twist.angular.z;
+	    velocity_target_pub_->publish(msg);
+	}
+    }
 
     void attitude_thrust_callback(const mav_msgs::msg::AttitudeThrust::SharedPtr cmd) override {
         mavros_msgs::msg::AttitudeTarget mavros_cmd;
@@ -168,8 +191,6 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     }
 
     bool disarm() override {
-        bool success = false;
-
         auto request = std::make_shared<mavros_msgs::srv::CommandBool::Request>();
         request->value = false;
 
