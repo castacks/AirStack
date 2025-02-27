@@ -7,6 +7,8 @@ from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image, PointCloud
 from geometry_msgs.msg import PoseStamped
+from scipy.spatial.transform import Rotation
+from geometry_msgs.msg import Transform, Pose, Quaternion
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 from pathlib import Path
@@ -109,11 +111,16 @@ class MACVONode(Node):
         self.scale_u = float(self.camera_info.width / u_dim)
         self.scale_v = float(self.camera_info.height / v_dim)
 
+        # 180 degree rotation around x-axis
         x_rot = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+        # 90 degree rotation around z-axis
         z_rot = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 
         # self.rot_correction_matrix = np.dot(x_rot, z_rot)
-        self.rot_correction_matrix = np.dot(z_rot, x_rot)
+        # self.rot_correction_matrix = np.dot(z_rot, x_rot)
+        self.correction_matrix = np.eye(4)
+        # self.correction_matrix[:3, :3] = 
+        self.correction_matrix[:3, :3] = np.dot(x_rot, z_rot)
 
         # self.get_logger().info(f"scale u: {self.scale_u}, scale v: {self.scale_v}, u_dim: {u_dim}, v_dim: {v_dim}, width: {self.camera_info.width}, height: {self.camera_info.height}")
 
@@ -145,8 +152,10 @@ class MACVONode(Node):
         out_msg = to_stamped_pose(pose, frame, time)
 
         # Correction for the camera coordinate frame
-        out_msg.pose.position.x, out_msg.pose.position.y, out_msg.pose.position.z = np.dot(self.rot_correction_matrix, np.array([out_msg.pose.position.x, out_msg.pose.position.y, out_msg.pose.position.z]))
-        
+        transform = self.pose_to_homogeneous(out_msg.pose)
+        transform = np.dot(self.correction_matrix, transform)
+        out_msg.pose = self.homogeneous_to_pose(transform)
+
         self.pose_pipe.publish(out_msg)
    
     def publish_latest_points(self, system: MACVO):
@@ -170,7 +179,7 @@ class MACVONode(Node):
 
         # Correction for the camera coordinate frame
         for pt in out_msg.points:
-            pt.x, pt.y, pt.z = np.dot(self.rot_correction_matrix, np.array([pt.x, pt.y, pt.z]))
+            pt.x, pt.y, pt.z, _ = np.dot(self.correction_matrix, np.array([pt.x, pt.y, pt.z, 1]))
 
         self.point_pipe.publish(out_msg)
   
@@ -246,6 +255,61 @@ class MACVONode(Node):
         end_time = self.get_clock().now()   
         # self.get_logger().info(f"Frame {self.frame_idx} processed in {end_time - start_time}")
         self.frame_idx += 1
+    
+    def pose_to_homogeneous(self, pose):
+        """
+        Converts a Pose message into a 4x4 homogeneous transformation matrix.
+
+        Args:
+            Pose (Pose): The ROS Pose message to convert.
+
+        Returns:
+            np.ndarray: A 4x4 homogeneous transformation matrix.
+        """
+        assert isinstance(pose, Pose) , "Input must be a Pose message, got %s" % type(Pose)
+        # Extract translation components
+        translation = pose.position
+        translation_vector = np.array([translation.x, translation.y, translation.z])
+
+        # Extract rotation components
+        rotation = pose.orientation
+        # quaternion = np.array([rotation.x, rotation.y, rotation.z, rotation.w]) * np.array([1, -1, -1, 1])
+        quaternion = np.array([rotation.x, rotation.y, rotation.z, rotation.w])
+        rot_matrix = Rotation.from_quat(quaternion).as_matrix()
+        # assert False, f"rot_vector: {Rotation.from_quat(quaternion).as_rotvec()}"
+
+        # Combine into a homogeneous transformation matrix
+        homogeneous_matrix = np.eye(4)
+        homogeneous_matrix[:3, :3] = rot_matrix[:3, :3]
+        homogeneous_matrix[:3, 3] = translation_vector
+        assert homogeneous_matrix.shape == (4, 4), "Output must be a 4x4 numpy array, got %s" % homogeneous_matrix.shape
+        return homogeneous_matrix
+    
+    def homogeneous_to_pose(self, homogeneous_matrix):
+        """
+        Converts a 4x4 homogeneous transformation matrix into a Pose message.
+
+        Args:
+            homogeneous_matrix (np.ndarray): The 4x4 homogeneous transformation matrix to convert.
+
+        Returns:
+            Pose: A ROS Pose message.
+        """
+        assert isinstance(homogeneous_matrix, np.ndarray) and homogeneous_matrix.shape == (4, 4), "Input must be a 4x4 numpy array, got %s" % type(homogeneous_matrix)
+        # Extract translation components
+        translation_vector = homogeneous_matrix[:3, 3]
+        translation = translation_vector
+
+        # Extract rotation components
+        rot_matrix = homogeneous_matrix[:3, :3]
+        quaternion = Rotation.from_matrix(rot_matrix).as_quat()
+        rotation = quaternion
+
+        # Combine into a Pose message
+        pose = Pose()
+        pose.position.x, pose.position.y, pose.position.z = translation
+        pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w = rotation
+        return pose
 
 def main():
     rclpy.init()
