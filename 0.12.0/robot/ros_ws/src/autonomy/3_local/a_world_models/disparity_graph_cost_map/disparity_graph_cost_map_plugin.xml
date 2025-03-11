@@ -1,0 +1,6 @@
+<library path="disparity_graph_cost_map">
+  <class type="disparity_graph_cost_map::DisparityGraphCostMap"
+    base_class_type="cost_map_interface::CostMapInterface">
+    <description>DisparityGraphCostMap plugin.</description>
+  </class>
+</library>
