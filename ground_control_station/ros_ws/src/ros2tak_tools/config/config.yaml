@@ -15,8 +15,8 @@ project:
   name: Airstack # Name of the project. This will be used to name the services.
 
 robot:
-  count: 6  # Number of robots to subscribe to (e.g., 1 for robot1, 2 for robot2 and robot3, etc.)
-  gps_topicname: '/iphone{n}/gps'  # Topic name pattern for GPS data. Use {n} as a placeholder for the robot number.
+  count: 3  # Number of robots to subscribe to (e.g., 1 for robot1, 2 for robot2 and robot3, etc.)
+  gps_topicname: '/robot_{n}/interface/mavros/global_position/global'  # Topic name pattern for GPS data. Use {n} as a placeholder for the robot number.
 
 trackers:
   - name: 'base' # Note stable GPS reading 
