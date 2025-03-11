@@ -1,2 +1,2 @@
 all:
-	g++ inject.cpp -fPIC -shared -o inject.so
+	g++ inject.cpp -ggdb -fPIC -shared -o inject.so
