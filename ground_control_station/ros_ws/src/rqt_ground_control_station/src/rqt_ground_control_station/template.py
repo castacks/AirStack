@@ -95,6 +95,10 @@ class GroundControlStation(Plugin):
         self.config_widget.setLayout(self.config_layout)
         self.config_widget.setFixedHeight(50)
 
+        self.pause_all_button = qt.QPushButton('PAUSE ALL ROBOTS')
+        self.pause_all_button.clicked.connect(self.pause_all)
+        self.config_layout.addWidget(self.pause_all_button)
+
         self.robot_selection_label = qt.QLabel('Robot to command:')
         self.config_layout.addWidget(self.robot_selection_label)
         
@@ -185,6 +189,23 @@ class GroundControlStation(Plugin):
 
         self.timer = core.QTimer(self)
         self.timer.timeout.connect(self.play)
+
+    def pause_all(self):
+        commands = BehaviorTreeCommands()
+        for group in self.button_groups.keys():
+            for i in range(len(self.button_groups[group]['buttons'])):
+                b = self.button_groups[group]['buttons'][i]
+                command = BehaviorTreeCommand()
+                command.condition_name = self.button_groups[group]['condition_names'][i]
+                if b.isChecked():
+                    b.toggle()
+                    
+                command.status = Status.FAILURE
+                if command.condition_name == 'Pause Commanded':
+                    command.status = Status.SUCCESS
+                commands.commands.append(command)
+            for robot in self.settings['publishers'].keys():
+                self.settings['publishers'][robot]['command_pub'].publish(commands)
 
     def robot_selection_change(self, s):
         msg = String()

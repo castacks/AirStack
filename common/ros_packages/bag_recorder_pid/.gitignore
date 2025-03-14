@@ -1,0 +1,6 @@
+__pycache__/
+health_monitor/health_monitor/__pycache__
+health_monitor/__pycache__/*
+*.pyc
+.vscode/
+logging/

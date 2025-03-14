@@ -2,6 +2,8 @@
 	->
 		(Auto Takeoff Commanded)
 		->
+			<!>
+				(State Estimate Timed Out)
 			?
 				(In Air)
 				(Armed)

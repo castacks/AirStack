@@ -25,7 +25,7 @@
         output="screen">
 
       <param name="command_pose" value="False" />
-      <param name="max_velocity" value="0.5" />
+      <param name="max_velocity" value="1.0" />
       <param name="target_frame" value="base_link" />
       
     </node>
@@ -62,4 +62,12 @@
     </group>
 
 
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+          namespace="drone_safety_monitor"
+          output="screen">
+      <param name="state_estimate_timeout" value="1.0" />
+      
+      <remap from="state_estimate" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    </node>
+    
 </launch>

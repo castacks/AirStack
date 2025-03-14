@@ -6,6 +6,8 @@ from rclpy.node import Node
 from rclpy.time import Time
 from rclpy.duration import Duration
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+from rclpy.executors import MultiThreadedExecutor, Executor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from airstack_msgs.msg import Odometry
 from nav_msgs.msg import Odometry as NavOdometry
 from geometry_msgs.msg import PoseStamped, TwistStamped
@@ -14,6 +16,7 @@ import numpy as np
 import tf2_ros
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+import time
 
 class OdomModifier(Node):
     def __init__(self):
@@ -38,7 +41,9 @@ class OdomModifier(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
         self.odom_subscriber = self.create_subscription(NavOdometry, "/" + os.getenv('ROBOT_NAME', "") + '/odometry_conversion/odometry', self.odom_callback, 1)
-        self.tracking_point_subscriber = self.create_subscription(Odometry, "/" + os.getenv('ROBOT_NAME', "") + '/trajectory_controller/tracking_point', self.tracking_point_callback, 1)
+
+        self.callback_group = MutuallyExclusiveCallbackGroup()
+        self.tracking_point_subscriber = self.create_subscription(Odometry, "/" + os.getenv('ROBOT_NAME', "") + '/trajectory_controller/tracking_point', self.tracking_point_callback, 1, callback_group=self.callback_group)
         self.odom_publisher = self.create_publisher(PoseStamped, 'cmd_pose', 1)
         self.vel_publisher = self.create_publisher(TwistStamped, 'cmd_velocity', 1)
 
@@ -55,13 +60,26 @@ class OdomModifier(Node):
         #self.odom_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
         #self.odom_yaw = self.get_yaw(msg.pose.pose.orientation)
 
-    def get_tf(self, target_frame, source_frame, time):
+    def get_tf(self, target_frame, source_frame, lookup_time, timeout=Duration(nanoseconds=0)):
+        exception = False
         try:
-            t = self.tf_buffer.lookup_transform(target_frame, source_frame, time)
+            t = self.tf_buffer.lookup_transform(target_frame, source_frame, lookup_time)
             return t
         except tf2_ros.TransformException as ex:
             self.get_logger().info(
                 f'Could not transform {target_frame} to {source_frame}: {ex}')
+            exception = True
+
+        start_time = time.time()
+        if exception:
+            try:
+                t = self.tf_buffer.lookup_transform(target_frame, source_frame, lookup_time, timeout)
+                self.get_logger().info('elapsed %f' % (time.time() - start_time))
+                return t
+            except tf2_ros.TransformException as ex:
+                self.get_logger().info(
+                    f'Attempt 2: {target_frame} to {source_frame}: {ex}')
+                self.get_logger().info('elapsed %f' % (time.time() - start_time))
         return None
 
     def tracking_point_callback(self, msg):
@@ -75,7 +93,8 @@ class OdomModifier(Node):
             out.pose = msg.pose
             self.odom_publisher.publish(out)
         else:
-            t = self.get_tf(self.target_frame, msg.header.frame_id, rclpy.time.Time(seconds=0, nanoseconds=0))
+            t = self.get_tf(self.target_frame, msg.header.frame_id, rclpy.time.Time(seconds=0, nanoseconds=0),
+                            Duration(seconds=2, nanoseconds=0))
             if t == None:
                 return
 
@@ -129,6 +148,11 @@ class OdomModifier(Node):
 if __name__ == '__main__':
     rclpy.init(args=None)
     odom_modifier_node = OdomModifier()
-    rclpy.spin(odom_modifier_node)
-    odom_modifier_node.destroy_node()
+
+    executor = MultiThreadedExecutor()
+    executor.add_node(odom_modifier_node)
+    executor.spin()
+    
+    #rclpy.spin(odom_modifier_node)
+    #odom_modifier_node.destroy_node()
     rclpy.shutdown()

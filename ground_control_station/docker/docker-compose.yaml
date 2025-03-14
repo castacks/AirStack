@@ -24,6 +24,7 @@ services:
     volumes:
      - $HOME/bags/:/bags
      - ../../robot/ros_ws/src/robot_bringup/rviz/:/bags/rviz
+     - ../../plot:/plot
 
 # include: 
   # - ./tak-docker-compose.yaml
