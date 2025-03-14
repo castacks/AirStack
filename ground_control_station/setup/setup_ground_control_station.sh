@@ -44,7 +44,7 @@ mkdir -p ../ros_ws/src/ros2tak_tools/config
 mkdir -p ../ros_ws/src/ros2tak_tools/creds
 
 # Single rsync command to get all necessary files from airlab-storage
-log f"Copying all required files from airlab-storage to $HOME/vmware/..."
+log "Copying all required files from airlab-storage to $HOME/vmware/..."
 log "This may take some time depending on your network connection..."
 sudo rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume4/dsta/atak/setup/ "$HOME/vmware/" 2>&1 | tee -a "$LOG_FILE"
 
@@ -52,6 +52,20 @@ sudo rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume4/ds
 log "Copying config and creds to ROS workspace..."
 sudo cp -R "$HOME/vmware/config/"* ../ros_ws/src/ros2tak_tools/config/
 sudo cp -R "$HOME/vmware/creds/"* ../ros_ws/src/ros2tak_tools/creds/
+
+# Set secure permissions on creds directory
+log "Setting secure permissions on credentials directory..."
+# Go to the creds directory
+pushd ../ros_ws/src/ros2tak_tools/creds/ > /dev/null
+# Set restrictive permissions on directories (700: rwx------)
+sudo find . -type d -exec chmod 700 {} \; 2>&1 | tee -a "$LOG_FILE"
+# Set restrictive permissions on files (600: rw-------)
+sudo find . -type f -exec chmod 600 {} \; 2>&1 | tee -a "$LOG_FILE"
+# Ensure proper ownership
+sudo chown -R $USER:$USER . 2>&1 | tee -a "$LOG_FILE"
+log "Credentials directory secured with restricted permissions"
+# Return to original directory
+popd > /dev/null
 
 # Install VirtualBox with apt logs
 log "Installing VirtualBox..."
