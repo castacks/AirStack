@@ -21,24 +21,27 @@ RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime \
   && dpkg-reconfigure --frontend noninteractive tzdata \
   && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get -y upgrade \
+RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install common programs
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    emacs \
     curl \
     gnupg2 \
     lsb-release \
     sudo \
     software-properties-common \
     wget \
+    iputils-ping \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
 RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
-  && apt-get update && apt upgrade -y && apt-get install -y --no-install-recommends \
+  && apt-get update -y && apt-get install -y --no-install-recommends \
     ros-humble-desktop \
     python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
@@ -59,7 +62,7 @@ WORKDIR /root/ros_ws
 
 # Install dev tools
 RUN apt update && apt install -y \
-    vim nano wget curl tree \
+    vim nano emacs wget curl tree \
     cmake build-essential \
     less htop jq \
     python3-pip \

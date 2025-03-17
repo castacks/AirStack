@@ -17,6 +17,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     disarm_commanded_condition = new bt::Condition("Disarm Commanded", this);
     takeoff_complete_condition = new bt::Condition("Takeoff Complete", this);
     landing_complete_condition = new bt::Condition("Landing Complete", this);
+    in_air_condition = new bt::Condition("In Air", this);
+    state_estimate_timed_out_condition = new bt::Condition("State Estimate Timed Out", this);
     conditions.push_back(auto_takeoff_commanded_condition);
     conditions.push_back(takeoff_commanded_condition);
     conditions.push_back(armed_condition);
@@ -32,6 +34,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(disarm_commanded_condition);
     conditions.push_back(takeoff_complete_condition);
     conditions.push_back(landing_complete_condition);
+    conditions.push_back(in_air_condition);
+    conditions.push_back(state_estimate_timed_out_condition);
 
     // actions
     arm_action = new bt::Action("Arm", this);
@@ -70,6 +74,10 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     landing_state_sub = this->create_subscription<std_msgs::msg::String>("landing_state", 1,
 									 std::bind(&BehaviorExecutive::landing_state_callback,
 										   this, std::placeholders::_1));
+    state_estimate_timed_out_sub =
+      this->create_subscription<std_msgs::msg::Bool>("state_estimate_timed_out", 1,
+						     std::bind(&BehaviorExecutive::state_estimate_timed_out_callback,
+							       this, std::placeholders::_1));
 									 
 
     // publishers
@@ -128,6 +136,7 @@ void BehaviorExecutive::timer_callback() {
 
     if (disarm_action->is_active()) {
         if (disarm_action->active_has_changed()) {
+	    in_air_condition->set(false);
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
                 std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
             request->command = airstack_msgs::srv::RobotCommand::Request::DISARM;
@@ -146,6 +155,7 @@ void BehaviorExecutive::timer_callback() {
     if (takeoff_action->is_active()) {
         // std::cout << "takeoff" << std::endl;
         takeoff_action->set_running();
+	in_air_condition->set(true);
         if (takeoff_action->active_has_changed()) {
             // put trajectory controller in track mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
@@ -330,6 +340,10 @@ void BehaviorExecutive::takeoff_state_callback(const std_msgs::msg::String::Shar
 
 void BehaviorExecutive::landing_state_callback(const std_msgs::msg::String::SharedPtr msg){
   landing_state = msg->data;
+}
+
+void BehaviorExecutive::state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg){
+  state_estimate_timed_out_condition->set(msg->data);
 }
 
 int main(int argc, char** argv) {

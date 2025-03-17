@@ -7,7 +7,6 @@ services:
       dockerfile: docker/Dockerfile.gcs
       tags:
         - *gcs_image
-    container_name: ground-control-station
     entrypoint: ""
     command: >
       bash -c "ssh service restart;
@@ -44,3 +43,4 @@ services:
       - ../../common/ros_packages:/root/ros_ws/src/common:rw # common ROS packages
       - ../ros_ws:/root/ros_ws:rw # gcs-specific ROS packages
       - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
