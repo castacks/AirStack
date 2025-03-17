@@ -52,6 +52,8 @@ import xml.etree.ElementTree as ET
 import argparse
 import socket
 import yaml
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+
 
 
 def load_config(file_path):
@@ -85,9 +87,22 @@ def create_COT_pos_event(uuid, latitude, longitude, altitude):
 
 
 class ROS2COTPublisher(Node):
-    def __init__(self, config):
+    def __init__(self):
         super().__init__("ros2cot_publisher")
         self.subscribers = []
+
+        # Read config from config filename from the ros2 parameters
+        self.declare_parameter("config_file_path", "")
+        self.config_filepath = self.get_parameter("config_file_path").get_parameter_value().string_value
+        self.get_logger().info(f"Loading configuration from {self.config_filepath}")
+
+        # Load the configuration
+        config = load_config(self.config_filepath)
+
+        # Read the credentials dir from the ros2 parameters
+        self.declare_parameter("creds_dir", "")
+        self.creds_dir = self.get_parameter("creds_dir").get_parameter_value().string_value
+        self.get_logger().info(f"Loading credentials from {self.creds_dir}")
 
         # Get host and port from the config
         self.host = config["services"]["host"]
@@ -124,14 +139,22 @@ class ROS2COTPublisher(Node):
             f"Subscribing to {self.robots_count} robot(s) on topics matching: {self.gps_topicname_pattern}"
         )
 
+        # Create a QoS profile that matches the publisher
+        self.qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Match the publisher's BEST_EFFORT
+            durability=DurabilityPolicy.VOLATILE, # Match the publisher's VOLATILE
+            history = HistoryPolicy.KEEP_LAST,
+            depth = 10,
+        )
+
         # Subscribe to GPS topics based on the pattern
         for i in range(1, self.robots_count + 1):
             topic_name = self.gps_topicname_pattern.format(n=i)
             subscriber = self.create_subscription(
                 NavSatFix,
                 topic_name,
-                lambda msg, topic_name=topic_name: self.gps_callback(msg, f"/robot{i}"),
-                10,  # QoS depth
+                lambda msg, robot_id=i: self.gps_callback(msg, f"/robot_{robot_id}"),
+                self.qos_profile
             )
             self.subscribers.append(subscriber)
             self.get_logger().info(f"Subscribed to GPS topic: {topic_name}")
@@ -185,20 +208,8 @@ def main(args=None):
     # Initialize ROS 2 Python client library
     rclpy.init(args=args)
 
-    # Use argparse to handle command line arguments
-    parser = argparse.ArgumentParser(description="ROS to CoT Publisher Node")
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to the config YAML file."
-    )
-
-    # Parse the arguments
-    input_args = parser.parse_args()
-
-    # Load configuration
-    config = load_config(input_args.config)
-
     # Create an instance of the ROS2COTPublisher node with the provided configuration
-    gps_cot_publisher = ROS2COTPublisher(config)
+    gps_cot_publisher = ROS2COTPublisher()
 
     # Keep the node running to listen to incoming messages
     rclpy.spin(gps_cot_publisher)
