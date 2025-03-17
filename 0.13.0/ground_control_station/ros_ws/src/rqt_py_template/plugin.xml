@@ -1,0 +1,17 @@
+<library path="src">
+  <class name="Template" type="rqt_py_template.template.Template" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A Python GUI plugin providing an interactive Python console.
+    </description>
+    <qtgui>
+      <group>
+        <label>Miscellaneous Tools</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to miscellaneous tools.</statustip>
+      </group>
+      <label>PluginTitle</label>
+      <icon type="theme">applications-python</icon>
+      <statustip>A Python RQT GUI template.</statustip>
+    </qtgui>
+  </class>
+</library>

@@ -1,0 +1,29 @@
+<package format="2">
+  <name>rqt_behavior_tree</name>
+  <version>1.0.2</version>
+  <description>rqt_behavior_tree is a Python GUI plugin providing an interactive Python console.</description>
+  <maintainer email="scholz@sim.tu-darmstadt.de">Dorian Scholz</maintainer>
+  <maintainer email="mikeblautman@gmail.com">Michael Lautman</maintainer>
+
+  <license>BSD</license>
+
+  <url type="website">http://wiki.ros.org/rqt_behavior_tree</url>
+  <url type="repository">https://github.com/ros-visualization/rqt_behavior_tree</url>
+  <url type="bugtracker">https://github.com/ros-visualization/rqt_behavior_tree/issues</url>
+
+  <author>Dorian Scholz</author>
+
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend version_gte="0.2.19">python_qt_binding</exec_depend>
+  <exec_depend>qt_gui</exec_depend>
+  <exec_depend>qt_gui_py_common</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rqt_gui</exec_depend>
+  <exec_depend>rqt_gui_py</exec_depend>
+
+  <export>
+    <architecture_independent/>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,7 @@
+<!-- SENSORS -->
+<launch>
+    <group>
+        <push-ros-namespace namespace="sensors"/>
+        <include file="$(find-pkg-share camera_param_server)/launch/camera_param_server.launch.xml"/>
+    </group>
+</launch>
