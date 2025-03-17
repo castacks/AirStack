@@ -124,6 +124,61 @@ RUN apt remove -y libopenvdb*; \
     make -j8 && make install && \
     cd ..; rm -rf /opt/openvdb/build
 
+
+# Install colcon, seems to be getting removed
+RUN pip install -U colcon-common-extensions
+
+# Fixes for MACVO Integration
+RUN pip install huggingface_hub
+RUN pip uninstall matplotlib -y
+
+#for Rayfronts Integration#
+RUN pip install \
+  torch-scatter==2.1.2 \
+  ftfy \
+  regex \
+  nanobind \
+  hydra-core \
+  open_clip_torch \
+  transformers \
+  requests
+
+WORKDIR /usr/local/src
+RUN wget https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz && \
+  tar -xvzf boost_1_80_0.tar.gz && \
+  cd boost_1_80_0 && \
+  ./bootstrap.sh && \
+  ./b2 install --prefix=/usr/local && \
+  rm -rf /usr/local/src/boost_1_80_0.tar.gz
+
+WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts
+RUN git clone https://github.com/OasisArtisan/openvdb.git && \
+    mkdir -p openvdb/build && \
+    ls -l /root/ros_ws/src/autonomy/2_perception/rayfronts/openvdb && \
+    cd openvdb/build && \
+    cmake -DOPENVDB_BUILD_PYTHON_MODULE=ON \ 
+    -DOPENVDB_BUILD_PYTHON_UNITTESTS=ON \ 
+    -DOPENVDB_PYTHON_WRAP_ALL_GRID_TYPES=ON -DUSE_NUMPY=ON \
+    -Dnanobind_DIR=/usr/local/lib/python3.10/dist-packages/nanobind/cmake .. && \
+    make -j$(nproc) && \
+    make install && \
+    ls -l /root/ros_ws/src/autonomy/2_perception/rayfronts/openvdb
+
+#COPY ./robot/ros_ws/src/autonomy/2_perception/rayfronts/SSG /root/ros_ws/src/autonomy/2_perception/rayfronts
+#WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts/SSG/ssg/csrc
+#WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts/
+#RUN git clone https://github.com/OasisArtisan/SSG.git
+#RUN cd SSG/ssg/csrc && \
+#COPY ~/.ssh /root/.ssh
+#RUN chmod 600 /root/.ssh/id_rsa && ssh-keyscan github.com >> /root/.ssh/known_hosts
+#WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts/
+#RUN git clone https://github.com/OasisArtisan/SSG.git 
+#RUN cd SSG/ssg/csrc && \
+#RUN  sed -i 's/find_package(Python 3\.11/find_package(Python 3.10/' CMakeLists.txt
+#RUN cmake -S . -B build && \
+#  cmake --build build
+
+
 # Add ability to SSH
 RUN apt-get update && apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
@@ -155,13 +210,6 @@ RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_Fron
 WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
-    && apt autoremove -y \
-    && apt clean -y \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install colcon, seems to be getting removed
-RUN pip install -U colcon-common-extensions
-
-# Fixes for MACVO Integration
-RUN pip install huggingface_hub
-RUN pip uninstall matplotlib -y
+      && apt autoremove -y \
+      && apt clean -y \
+      && rm -rf /var/lib/apt/lists/*
