@@ -3,6 +3,8 @@
   <!-- Define paths using substitutions -->
   <let name="config_file_path" value="$(find-pkg-share ros2tak_tools)/config/config.yaml"/>
   <let name="creds_path" value="$(find-pkg-share ros2tak_tools)/creds"/>
+  <let name="tak_publisher" value="$(find-pkg-share ros2tak_tools)/scripts/tak_publisher.py"/>
+  <let name="tak_subscriber" value="$(find-pkg-share ros2tak_tools)/scripts/tak_subscriber.py"/>
 
   <!-- Launch ros2cot_agent node -->
   <node pkg="ros2tak_tools" exec="ros2cot_agent" name="ros2cot_agent" output="screen">
@@ -10,6 +12,14 @@
     <param name="creds_path" value="$(var creds_path)"/>
   </node>
 
+  <!--   Launch tak_publisher python executable-->
+  <executable cmd="python3 /root/ros_ws/src/ros2tak_tools/scripts/tak_publisher.py
+                    --config_file_path $(var config_file_path)
+                    --creds_path $(var creds_path)"
+          respawn="true" respawn_delay="5" />
+
+
+  <!--   Launch mosquitto broker-->
   <executable cmd="mosquitto" />
 
   <executable cmd="mosquitto_pub -h localhost -t healthcheck -m ping -u airlab"
