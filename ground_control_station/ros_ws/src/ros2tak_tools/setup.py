@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'ros2tak_tools'
 
@@ -10,6 +12,17 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        # Include all files in config directory
+        ('share/' + package_name + '/config', glob('config/*.*')),
+        # Include all files in launch directory
+        ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
+        # Include all files in creds directory and its subdirectories
+        ('share/' + package_name + '/creds', glob('creds/*.*')),
+    ] + [
+        # This will recursively include all subdirectories in creds
+        (os.path.join('share', package_name, os.path.dirname(p)), [p])
+        for p in glob('creds/**/*', recursive=True)
+        if os.path.isfile(p)
     ],
     install_requires=['setuptools'],
     zip_safe=True,
