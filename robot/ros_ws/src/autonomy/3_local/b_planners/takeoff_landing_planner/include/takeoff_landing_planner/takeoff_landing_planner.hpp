@@ -16,7 +16,7 @@
 class TakeoffLandingPlanner : public rclcpp::Node {
    private:
     // parameters
-    float takeoff_height, high_takeoff_height, takeoff_landing_velocity;
+    float takeoff_height, high_takeoff_height, takeoff_velocity, landing_velocity;
     float takeoff_acceptance_distance, takeoff_acceptance_time;
     float landing_stationary_distance, landing_acceptance_time;
     float landing_tracking_point_ahead_time;

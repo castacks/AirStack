@@ -4,7 +4,8 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
     // init parameters
     takeoff_height = airstack::get_param(this, "takeoff_height", 0.5);
     high_takeoff_height = airstack::get_param(this, "high_takeoff_height", 1.2);
-    takeoff_landing_velocity = airstack::get_param(this, "takeoff_landing_velocity", 0.3);
+    takeoff_velocity = airstack::get_param(this, "takeoff_velocity", 0.3);
+    landing_velocity = airstack::get_param(this, "landing_velocity", 0.3);
     takeoff_acceptance_distance = airstack::get_param(this, "takeoff_acceptance_distance", 0.1);
     takeoff_acceptance_time = airstack::get_param(this, "takeoff_acceptance_time", 2.0);
     landing_stationary_distance = airstack::get_param(this, "landing_stationary_distance", 0.02);
@@ -65,13 +66,13 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
     // track_mode_srv.request.mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
     high_takeoff = false;
     takeoff_traj_gen =
-        new TakeoffTrajectory(takeoff_height, takeoff_landing_velocity, takeoff_path_roll,
+        new TakeoffTrajectory(takeoff_height, takeoff_velocity, takeoff_path_roll,
                               takeoff_path_pitch, takeoff_path_relative_to_orientation);
     high_takeoff_traj_gen =
-        new TakeoffTrajectory(high_takeoff_height, takeoff_landing_velocity, takeoff_path_roll,
+        new TakeoffTrajectory(high_takeoff_height, takeoff_velocity, takeoff_path_roll,
                               takeoff_path_pitch, takeoff_path_relative_to_orientation);
     // TODO: this landing point is hardcoded. it should be parameterized
-    landing_traj_gen = new TakeoffTrajectory(-10000., takeoff_landing_velocity);
+    landing_traj_gen = new TakeoffTrajectory(-10000., landing_velocity);
     current_command = airstack_msgs::srv::TakeoffLandingCommand::Request::NONE;
 
     completion_percentage = 0.f;
@@ -192,10 +193,10 @@ void TakeoffLandingPlanner::timer_callback() {
                     "TransformException in TakeoffMonitor landing tf lookup: " << ex.what());
             }
             bool tracking_point_check =
-                (z_distance / takeoff_landing_velocity) > landing_tracking_point_ahead_time;
+                (z_distance / landing_velocity) > landing_tracking_point_ahead_time;
             RCLCPP_INFO_STREAM(
                 this->get_logger(),
-                "landing: " << z_distance << " " << (z_distance / takeoff_landing_velocity) << " "
+                "landing: " << z_distance << " " << (z_distance / landing_velocity) << " "
                             << landing_tracking_point_ahead_time << " " << tracking_point_check);
 
             // ROS_INFO_STREAM("LANDING CHECK: " << time_diff << " " << time_check << " " <<
