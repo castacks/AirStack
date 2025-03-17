@@ -12,7 +12,7 @@
 
 
 project: 
-  name: Airstack # Name of the project. This will be used to name the services.
+  name: Airstack # Name of the project. This will be used to name the services and set the UUID of all the COT messages.
 
 robot:
   count: 3  # Number of robots to subscribe to (e.g., 1 for robot1, 2 for robot2 and robot3, etc.)
@@ -22,18 +22,9 @@ trackers:
   - name: 'base' # Note stable GPS reading 
     ip: '10.223.132.129'
     input_port: 2947
-  - name: 'target1'
-    ip: '10.223.132.61'
-    input_port: 2947
   - name: 'target2' # Name of the tracker. This can be the target or the robot streaming GPS data.
     ip: '10.223.118.110' # IP address of the tracker. (Testing using Doodle labs mesh rider)
     input_port: 2947 # Port of the Radio link to receive GPS data.
-  - name: 'target3' # NOTE: Stable GPS reading 
-    ip: '10.223.118.94'
-    input_port: 2947
-  - name: 'drone2'
-    ip: '10.4.1.20'
-    input_port: 2947
 
 
 tak_server:
