@@ -6,3 +6,4 @@ cws
 bws
 sws
 bws --packages-select gcs_bringup
+mosquitto_sub -h localhost -t healthcheck -u airlab
