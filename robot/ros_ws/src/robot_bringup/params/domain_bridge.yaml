@@ -44,10 +44,32 @@ topics:
     from_domain: 2
     to_domain: 1
 
+  /robot_1/behavior/behavior_tree_graphviz:
+    type: std_msgs/msg/String
+    from_domain: 1
+    to_domain: 0
+  /robot_2/behavior/behavior_tree_graphviz:
+    type: std_msgs/msg/String
+    from_domain: 2
+    to_domain: 0
   /robot_3/behavior/behavior_tree_graphviz:
     type: std_msgs/msg/String
     from_domain: 3
     to_domain: 0
+
+  /robot_1/interface/mavros/global_position/raw/fix:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 1
+    to_domain: 0
+  /robot_2/interface/mavros/global_position/raw/fix:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 2
+    to_domain: 0
+  /robot_3/interface/mavros/global_position/raw/fix:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 3
+    to_domain: 0
+    
 
   # Bridge "/clock" topic from doman ID 2 to domain ID 3,
   # Override durability to be 'volatile' and override depth to be 1

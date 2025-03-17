@@ -43,11 +43,18 @@ TakeoffLandingPlanner::TakeoffLandingPlanner() : rclcpp::Node("takeoff_landing_p
     landing_state_pub = this->create_publisher<std_msgs::msg::String>("landing_state", 1);
 
     // init services
+    service_callback_group =
+      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    takeoff_client = this->create_client<mavros_msgs::srv::CommandTOL>("mavros/cmd/takeoff", rmw_qos_profile_services_default,
+								       service_callback_group);
     command_server = this->create_service<airstack_msgs::srv::TakeoffLandingCommand>(
         "set_takeoff_landing_command",
         std::bind(&TakeoffLandingPlanner::set_takeoff_landing_command, this, std::placeholders::_1,
                   std::placeholders::_2));
-
+    ardupilot_takeoff_server = this->create_service<std_srvs::srv::Trigger>("ardupilot_takeoff", 
+									    std::bind(&TakeoffLandingPlanner::ardupilot_takeoff, this,
+										      std::placeholders::_1, std::placeholders::_2));
+    
     // init variables
     got_completion_percentage = false;
     is_tracking_point_received = false;
@@ -266,9 +273,26 @@ void TakeoffLandingPlanner::set_takeoff_landing_command(
     response->accepted = true;
 }
 
+
+void TakeoffLandingPlanner::ardupilot_takeoff(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+					      std::shared_ptr<std_srvs::srv::Trigger::Response> response){
+  mavros_msgs::srv::CommandTOL::Request::SharedPtr takeoff_request =
+    std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
+  takeoff_request->altitude = takeoff_height;
+
+  std::cout << "ardupilot takeoff 1" << std::endl;
+  auto takeoff_result = takeoff_client->async_send_request(takeoff_request);
+  takeoff_result.wait();
+  std::cout << "ardupilot takeoff 2" << std::endl;
+  response->success = takeoff_result.get()->success;
+}
+
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<TakeoffLandingPlanner>());
+    std::shared_ptr<rclcpp::Node> node = std::make_shared<TakeoffLandingPlanner>();
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(node);
+    executor.spin();
     rclcpp::shutdown();
     return 0;
 }

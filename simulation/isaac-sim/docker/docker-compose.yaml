@@ -58,6 +58,7 @@ services:
       # developer stuff
       - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
+      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history	
       # code
       - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ../sitl_integration:/sitl_integration:rw

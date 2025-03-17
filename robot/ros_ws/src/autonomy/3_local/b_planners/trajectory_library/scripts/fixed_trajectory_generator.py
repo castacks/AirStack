@@ -10,6 +10,7 @@ import copy
 import rclpy
 from rclpy.node import Node
 
+logger = None
 
 def get_velocities(traj, velocity, max_acc):
     v_prev = 0.0
@@ -287,12 +288,13 @@ def get_box_waypoints(attributes):  # length, height):
     return traj
 
 
-def get_vertical_lawnmower_waypoints(attributes):  # length, width, height, velocity):
+def get_lawnmower_waypoints(attributes):  # length, width, height, velocity):
     frame_id = str(attributes["frame_id"])
     length = float(attributes["length"])
     width = float(attributes["width"])
     height = float(attributes["height"])
     velocity = float(attributes["velocity"])
+    vertical = bool(int(attributes["vertical"]))
 
     traj = TrajectoryXYZVYaw()
     traj.header.frame_id = frame_id
@@ -326,7 +328,15 @@ def get_vertical_lawnmower_waypoints(attributes):  # length, width, height, velo
         wp2_.yaw = 0.0
         wp2_.velocity = velocity
 
+        yaw = np.arctan2(wp2.position.y - wp1.position.y, wp2.position.z - wp1.position.z)
+
         if i % 2 == 0:
+            if not vertical:
+                wp1.yaw = yaw
+                wp1_.yaw = yaw
+                wp2_.yaw = yaw
+                wp2.yaw = yaw
+            
             traj.waypoints.append(wp1)
             wp1_slow = copy.deepcopy(wp1_)
             wp1_slow.velocity = 0.1
@@ -335,6 +345,12 @@ def get_vertical_lawnmower_waypoints(attributes):  # length, width, height, velo
             traj.waypoints.append(wp2_)
             traj.waypoints.append(wp2)
         else:
+            if not vertical:
+                wp2.yaw = -yaw
+                wp2_.yaw = -yaw
+                wp1_.yaw = -yaw
+                wp1.yaw = -yaw
+            
             traj.waypoints.append(wp2)
             wp2_slow = copy.deepcopy(wp2_)
             wp2_slow.velocity = 0.1
@@ -350,6 +366,10 @@ def get_vertical_lawnmower_waypoints(attributes):  # length, width, height, velo
     wp.yaw = 0.0
     wp.velocity = 0.5
     traj.waypoints.append(wp)
+    
+    if not vertical:
+        for i, wp in enumerate(traj.waypoints):
+            wp.position.x, wp.position.y, wp.position.z = wp.position.z, wp.position.y, wp.position.x
 
     return traj
 
@@ -439,6 +459,8 @@ class FixedTrajectoryGenerator(Node):
             trajectory_msg = get_line_waypoints(attributes)
         elif msg.type == "Point":
             trajectory_msg = get_point_waypoints(attributes)
+        elif msg.type == "Lawnmower":
+            trajectory_msg = get_lawnmower_waypoints(attributes)
 
         if trajectory_msg != None:
             self.trajectory_override_pub.publish(trajectory_msg)
@@ -450,7 +472,8 @@ if __name__ == "__main__":
     rclpy.init(args=None)
 
     node = FixedTrajectoryGenerator()
-
+    logger = node.get_logger()
+    
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
