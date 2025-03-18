@@ -6,7 +6,7 @@ package_name = 'ros2tak_tools'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -14,22 +14,22 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # Include all files in config directory
         ('share/' + package_name + '/config', glob('config/*.*')),
-        # Include all files in launch directory
-        ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
-        # Include all files in creds directory and its subdirectories
-        ('share/' + package_name + '/creds', glob('creds/*.*')),
+        # Include all files in scripts directory
+        ('share/' + package_name + '/scripts', glob('scripts/*.*')),
+        # Create lib directory for executables
+        ('lib/' + package_name, []),
     ] + [
-        # This will recursively include all subdirectories in creds
+        # This will recursively include all files in creds directory and its subdirectories
         (os.path.join('share', package_name, os.path.dirname(p)), [p])
         for p in glob('creds/**/*', recursive=True)
         if os.path.isfile(p)
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='mission-operator',
-    maintainer_email='mission-operator@todo.todo',
+    maintainer='Adi',
+    maintainer_email='rauniyar@cmu.edu',
     description='TODO: Package description',
-    license='TODO: License declaration',
+    license='BSD-3',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
