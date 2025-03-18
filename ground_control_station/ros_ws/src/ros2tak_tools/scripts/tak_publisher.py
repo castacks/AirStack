@@ -1,32 +1,68 @@
 #!/usr/bin/env python3
 
 """
-TAK Publisher Script with Enhanced Debugging
+TAK Publisher Script with Enhanced Logging
 
 Author: Aditya Rauniyar (rauniyar@cmu.edu)
 """
 
 import asyncio
-import xml.etree.ElementTree as ET
 from pathlib import Path
 import sys
-import time
-
-import pytak
-import socket
+import logging
+import logging.handlers
 import multiprocessing
 import argparse
 import yaml
 from configparser import ConfigParser
 import paho.mqtt.client as mqtt
+import pytak
 
-# Force output to be unbuffered
-print("SCRIPT STARTING - Print test", flush=True)
+
+def setup_logger(log_level):
+    """
+    Set up the logger with appropriate log level and formatting.
+
+    Args:
+        log_level: The log level from config (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+    Returns:
+        Configured logger object
+    """
+    # Convert string log level to logging constants
+    level_map = {
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL
+    }
+
+    # Default to INFO if level not recognized
+    numeric_level = level_map.get(log_level, logging.INFO)
+
+    # Configure root logger
+    logger = logging.getLogger()
+    logger.setLevel(numeric_level)
+
+    # Console handler with improved formatting
+    console = logging.StreamHandler()
+    console.setLevel(numeric_level)
+
+    # Format: timestamp - level - component - message
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+    console.setFormatter(formatter)
+
+    # Add handler to logger
+    logger.addHandler(console)
+
+    return logger
 
 
 class MySender(pytak.QueueWorker):
     def __init__(self, tx_queue, config, event_loop):
-        print("INIT: MySender class initialization started", flush=True)
+        self.logger = logging.getLogger("MySender")
+        self.logger.debug("Initializing MySender class")
         super().__init__(tx_queue, config["mycottool"])
 
         # MQTT parameters
@@ -39,36 +75,35 @@ class MySender(pytak.QueueWorker):
         # Capture the main event loop
         self.event_loop = event_loop
 
-        # Print MQTT connection details
-        print(f"DEBUG: MQTT config - Broker: {self.mqtt_broker}, Port: {self.mqtt_port}, Topic: {self.mqtt_topicname}",
-              flush=True)
+        # Log MQTT connection details
+        self.logger.info(
+            f"MQTT config - Broker: {self.mqtt_broker}, Port: {self.mqtt_port}, Topic: {self.mqtt_topicname}")
 
         # Set up MQTT client with explicit callbacks
-        print("DEBUG: Creating MQTT client", flush=True)
+        self.logger.debug("Creating MQTT client")
         self.mqtt_client = mqtt.Client(client_id="tak_publisher_client", protocol=mqtt.MQTTv311)
 
         # Set callbacks
-        print("DEBUG: Setting up MQTT callbacks", flush=True)
+        self.logger.debug("Setting up MQTT callbacks")
         self.mqtt_client.on_connect = self._on_connect
         self.mqtt_client.on_disconnect = self._on_disconnect
         self.mqtt_client.on_message = self._on_message_sync
 
         # Set credentials if provided
         if self.mqtt_username:
-            print(f"DEBUG: Setting up MQTT credentials for user: {self.mqtt_username}", flush=True)
+            self.logger.debug(f"Setting up MQTT credentials for user: {self.mqtt_username}")
             self.mqtt_client.username_pw_set(self.mqtt_username, self.mqtt_pwd)
 
         # Connect to MQTT broker
-        print(f"DEBUG: Attempting to connect to MQTT broker at {self.mqtt_broker}:{self.mqtt_port}", flush=True)
+        self.logger.info(f"Attempting to connect to MQTT broker at {self.mqtt_broker}:{self.mqtt_port}")
         try:
             self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, keepalive=60)
-            print("DEBUG: MQTT connect() method completed without exception", flush=True)
+            self.logger.debug("MQTT connect() method completed without exception")
         except Exception as e:
-            print(f"ERROR: MQTT Connection failed with exception: {e}", flush=True)
-            # Don't re-raise to allow the script to continue for debugging
-            print(f"ERROR: Exception type: {type(e)}", flush=True)
+            self.logger.error(f"MQTT Connection failed with exception: {e}")
+            self.logger.error(f"Exception type: {type(e)}")
 
-        print("DEBUG: MySender initialization completed", flush=True)
+        self.logger.debug("MySender initialization completed")
 
     def _on_connect(self, client, userdata, flags, rc):
         """Callback for when the client connects to the broker"""
@@ -82,97 +117,106 @@ class MySender(pytak.QueueWorker):
         }
 
         status = connection_responses.get(rc, f"Unknown error code: {rc}")
-        print(f"MQTT CONNECTION STATUS: {status} (code={rc})", flush=True)
+        self.logger.info(f"MQTT CONNECTION STATUS: {status} (code={rc})")
 
         if rc == 0:
-            print(f"SUCCESS: Connected to MQTT broker at {self.mqtt_broker}:{self.mqtt_port}", flush=True)
+            self.logger.info(f"Connected to MQTT broker at {self.mqtt_broker}:{self.mqtt_port}")
             # Subscribe to topic
             result, mid = self.mqtt_client.subscribe(self.mqtt_topicname)
-            print(f"MQTT Subscribe result: {result}, Message ID: {mid}", flush=True)
+            self.logger.debug(f"MQTT Subscribe result: {result}, Message ID: {mid}")
             if result == 0:
-                print(f"SUCCESS: Subscribed to MQTT topic: {self.mqtt_topicname}", flush=True)
+                self.logger.info(f"Subscribed to MQTT topic: {self.mqtt_topicname}")
             else:
-                print(f"ERROR: Failed to subscribe to MQTT topic: {self.mqtt_topicname}", flush=True)
+                self.logger.error(f"Failed to subscribe to MQTT topic: {self.mqtt_topicname}")
         else:
-            print(f"ERROR: MQTT connection failed: {status}", flush=True)
+            self.logger.error(f"MQTT connection failed: {status}")
 
     def _on_disconnect(self, client, userdata, rc):
         """Callback for when the client disconnects from the broker"""
         if rc == 0:
-            print("MQTT: Disconnected from broker cleanly", flush=True)
+            self.logger.info("Disconnected from broker cleanly")
         else:
-            print(f"MQTT: Unexpected disconnect with code {rc}", flush=True)
+            self.logger.warning(f"Unexpected disconnect with code {rc}")
 
     def start_mqtt_loop(self):
         """Start MQTT loop in a separate thread."""
-        print("DEBUG: Starting MQTT client loop", flush=True)
+        self.logger.debug("Starting MQTT client loop")
         self.mqtt_client.loop_start()
-        print("DEBUG: MQTT loop started", flush=True)
+        self.logger.debug("MQTT loop started")
 
     def _on_message_sync(self, client, userdata, message):
         """Synchronous wrapper for MQTT on_message to run handle_data in the main event loop."""
-        print(f"MQTT: Message received on topic: {message.topic}", flush=True)
+        self.logger.debug(f"Message received on topic: {message.topic}")
         asyncio.run_coroutine_threadsafe(self.handle_data(client, userdata, message), self.event_loop)
 
     async def handle_data(self, client, userdata, message):
         """Handle incoming MQTT data and put it on the async queue."""
         event = message.payload
         await self.put_queue(event)
-        print(f"MQTT: Processed message from topic '{message.topic}' and queued for transmission", flush=True)
+        self.logger.debug(f"Processed message from topic '{message.topic}' and queued for transmission")
 
     async def run(self, number_of_iterations=-1):
-        print("DEBUG: MySender.run() method started", flush=True)
+        self.logger.debug("MySender.run() method started")
         self.start_mqtt_loop()
-        print("DEBUG: MQTT loop started, now waiting in run loop", flush=True)
+        self.logger.debug("MQTT loop started, now waiting in run loop")
         try:
             while True:
                 await asyncio.sleep(10)  # Keep the loop running, check every 10 seconds
-                print("DEBUG: Still running in the MySender.run() loop", flush=True)
+                self.logger.debug("Still running in the MySender.run() loop")
         except asyncio.CancelledError:
-            print("DEBUG: CancelledError caught, stopping MQTT loop", flush=True)
+            self.logger.debug("CancelledError caught, stopping MQTT loop")
             self.mqtt_client.loop_stop()
-            print("DEBUG: MQTT loop stopped", flush=True)
+            self.logger.debug("MQTT loop stopped")
         except Exception as e:
-            print(f"ERROR: Unexpected exception in MySender.run(): {e}", flush=True)
+            self.logger.error(f"Unexpected exception in MySender.run(): {e}")
             raise
 
 
 async def main(config):
-    print("DEBUG: main() function started", flush=True)
+    logger = logging.getLogger("main")
+    logger.debug("main() function started")
     loop = asyncio.get_running_loop()  # Capture the main event loop
     clitool = pytak.CLITool(config["mycottool"])
     await clitool.setup()
-    print("DEBUG: Adding MySender task to CLITool", flush=True)
+    logger.debug("Adding MySender task to CLITool")
     clitool.add_task(MySender(clitool.tx_queue, config, loop))  # Pass the loop
-    print("DEBUG: Running CLITool", flush=True)
+    logger.debug("Running CLITool")
     await clitool.run()
 
 
 def run_main_in_process(config):
-    print("DEBUG: run_main_in_process() started", flush=True)
+    logger = logging.getLogger("process")
+    logger.debug("run_main_in_process() started")
     loop = asyncio.get_event_loop()
-    print("DEBUG: Event loop created, running main()", flush=True)
+    logger.debug("Event loop created, running main()")
     loop.run_until_complete(main(config))
 
 
 if __name__ == "__main__":
-    print("STARTUP: Script main block executing", flush=True)
+    logger = logging.getLogger("startup")
+    logger.info("Script main block executing")
+
     parser = argparse.ArgumentParser(description="TAK Publisher Script")
     parser.add_argument('--config_file_path', type=str, required=True, help='Path to the config YAML file.')
     parser.add_argument('--creds_path', type=str, required=True, help='Path to the creds directory.')
 
     args = parser.parse_args()
-    print(f"STARTUP: Args parsed - config_file_path: {args.config_file_path}, creds_path: {args.creds_path}",
-          flush=True)
+    logger.info(f"Args parsed - config_file_path: {args.config_file_path}, creds_path: {args.creds_path}")
 
     # Load the YAML configuration
     try:
         with open(args.config_file_path, 'r') as file:
-            print(f"STARTUP: Loading configuration from {args.config_file_path}", flush=True)
+            logger.info(f"Loading configuration from {args.config_file_path}")
             config_data = yaml.safe_load(file)
-            print("STARTUP: Configuration loaded successfully", flush=True)
+            logger.info("Configuration loaded successfully")
+
+            # Setup logger based on config
+            log_level = config_data.get('logging', {}).get('level', 'INFO')
+            logger = setup_logger(log_level)
+            logger.info(f"Logger configured with level: {log_level}")
+
     except Exception as e:
-        print(f"ERROR: Failed to load configuration: {e}", flush=True)
+        logger.error(f"Failed to load configuration: {e}")
         sys.exit(1)
 
     # Extract necessary parameters
@@ -184,6 +228,7 @@ if __name__ == "__main__":
         pytak_tls_client_key = config_data['tak_server']['pytak_tls_client_key']
         # Add the creds_path to the pytak_tls_client_key
         pytak_tls_client_key = Path(args.creds_path) / pytak_tls_client_key
+
         host = config_data['services']['host']
 
         # MQTT params
@@ -193,9 +238,9 @@ if __name__ == "__main__":
         mqtt_pwd = config_data['mqtt']['password']
         mqtt_topicname = config_data['services']['publisher']['tak_publisher']['topic_name']
 
-        print(f"MQTT CONFIG: Broker={mqtt_broker}, Port={mqtt_port}, Topic={mqtt_topicname}", flush=True)
+        logger.info(f"MQTT CONFIG: Broker={mqtt_broker}, Port={mqtt_port}, Topic={mqtt_topicname}")
     except KeyError as e:
-        print(f"ERROR: Missing required configuration key: {e}", flush=True)
+        logger.error(f"Missing required configuration key: {e}")
         sys.exit(1)
 
     # Setup config for pytak
@@ -220,10 +265,10 @@ if __name__ == "__main__":
     }
 
     # Start the asyncio event loop in a separate process
-    print("STARTUP: Starting TAK publisher process", flush=True)
+    logger.info("Starting TAK publisher process")
     process = multiprocessing.Process(target=run_main_in_process, args=(config,))
     process.start()
 
-    print("STARTUP: Main() is now running in a separate process", flush=True)
+    logger.info("Main() is now running in a separate process")
     process.join()
-    print("SHUTDOWN: Process completed", flush=True)
+    logger.info("Process completed")
