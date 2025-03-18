@@ -13,7 +13,13 @@
   </node>
 
   <!--   Launch tak_publisher python executable-->
-  <executable cmd="python3 /root/ros_ws/src/ros2tak_tools/scripts/tak_publisher.py
+  <executable cmd="python3 $(var tak_publisher)
+                    --config_file_path $(var config_file_path)
+                    --creds_path $(var creds_path)"
+          respawn="true" respawn_delay="5" />
+
+  <!--   Launch tak_subscriber python executable-->
+  <executable cmd="python3 $(var tak_subscriber)
                     --config_file_path $(var config_file_path)
                     --creds_path $(var creds_path)"
           respawn="true" respawn_delay="5" />
