@@ -69,7 +69,7 @@ popd > /dev/null
 
 # Install VirtualBox with apt logs
 log "Installing VirtualBox..."
-(sudo dpkg -i "$HOME/vmware/setup/virtualbox-7.1_7.1.6-167084~Ubuntu~jammy_amd64.deb" 2>&1 | tee -a "$LOG_FILE")
+(sudo dpkg -i "$HOME/vmware/virtualbox-7.1_7.1.6-167084~Ubuntu~jammy_amd64.deb" 2>&1 | tee -a "$LOG_FILE")
 (sudo apt-get install -f -y 2>&1 | tee -a "$LOG_FILE")
 
 # Configure VirtualBox
@@ -78,7 +78,7 @@ log "Configuring VirtualBox kernel modules..."
 
 # Import WinTAK VM
 log "Importing WinTAK virtual machine..."
-(VBoxManage import "$HOME/vmware/setup/Windows11.ova" --vsys 0 --vmname "WinTAK" 2>&1 | tee -a "$LOG_FILE")
+(VBoxManage import "$HOME/vmware/Windows11.ova" --vsys 0 --vmname "WinTAK" 2>&1 | tee -a "$LOG_FILE")
 
 # Start WinTAK VM
 log "Setup complete! Starting WinTAK..."
