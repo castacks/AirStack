@@ -58,6 +58,7 @@ import time
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from threading import Lock
 from tak_helper.create_cot_msgs import create_gps_COT
+from tak_helper.logger import setup_logger
 
 
 def load_config(file_path):

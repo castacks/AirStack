@@ -12,6 +12,12 @@
     <param name="creds_path" value="$(var creds_path)"/>
   </node>
 
+  <!-- Launch ros2cot_agent node -->
+  <node pkg="ros2tak_tools" exec="chat2ros_agent" name="chat2ros_agent" output="screen">
+    <param name="config_file_path" value="$(var config_file_path)"/>
+    <param name="creds_path" value="$(var creds_path)"/>
+  </node>
+
   <!--   Launch tak_publisher python executable-->
   <executable cmd="python3 $(var tak_publisher)
                     --config_file_path $(var config_file_path)
