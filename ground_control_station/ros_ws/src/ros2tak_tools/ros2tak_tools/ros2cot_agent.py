@@ -50,8 +50,6 @@ from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 import paho.mqtt.client as mqtt
 import pytak
-import xml.etree.ElementTree as ET
-import argparse
 import socket
 import yaml
 import logging
@@ -59,128 +57,13 @@ import sys
 import time
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from threading import Lock
-
-
-def setup_logger(node, log_level):
-    """
-    Set up the logger with appropriate log level and formatting.
-
-    Args:
-        node: ROS2 node instance for logging through ROS system
-        log_level: The log level from config (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-    Returns:
-        Configured logger object
-    """
-    # Convert string log level to logging constants
-    level_map = {
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO,
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR,
-        'CRITICAL': logging.CRITICAL
-    }
-
-    # Default to INFO if level not recognized
-    numeric_level = level_map.get(log_level, logging.INFO)
-
-    # Configure root logger
-    logger = logging.getLogger()
-    logger.setLevel(numeric_level)
-
-    # Remove any existing handlers to avoid duplicates
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-
-    # Console handler with improved formatting
-    console = logging.StreamHandler()
-    console.setLevel(numeric_level)
-
-    # Format: timestamp - level - component - message
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
-    console.setFormatter(formatter)
-
-    # Add handler to logger
-    logger.addHandler(console)
-
-    # Map Python logging levels to ROS2 logging levels
-    def log_bridge(record):
-        if record.levelno >= logging.CRITICAL:
-            node.get_logger().fatal(record.getMessage())
-        elif record.levelno >= logging.ERROR:
-            node.get_logger().error(record.getMessage())
-        elif record.levelno >= logging.WARNING:
-            node.get_logger().warn(record.getMessage())
-        elif record.levelno >= logging.INFO:
-            node.get_logger().info(record.getMessage())
-        elif record.levelno >= logging.DEBUG:
-            node.get_logger().debug(record.getMessage())
-
-    # Create a handler that bridges Python logging to ROS2 logging
-    class ROS2LogHandler(logging.Handler):
-        def emit(self, record):
-            log_bridge(record)
-
-    # Add ROS2 log handler
-    ros2_handler = ROS2LogHandler()
-    ros2_handler.setLevel(numeric_level)
-    logger.addHandler(ros2_handler)
-
-    return logger
+from tak_helper.create_cot_msgs import create_gps_COT
 
 
 def load_config(file_path):
     """Load configuration from a YAML file."""
     with open(file_path, "r") as f:
         return yaml.safe_load(f)
-
-
-def create_COT_pos_event(uuid, latitude, longitude, altitude, robot_type=None):
-    """Create a CoT event based on the GPS data."""
-    logger = logging.getLogger("COT_Event")
-
-    # Define CoT type based on robot type
-    cot_type = "a-f-G"  # Default generic
-    if robot_type:
-        if robot_type.lower() == 'uav':
-            cot_type = "a-f-A"  # Aircraft
-        elif robot_type.lower() in ['ugv', 'quadruped', 'offroad']:
-            cot_type = "a-f-G-U-C"  # Ground robot
-
-    logger.debug(f"Creating CoT event for {uuid} with type {cot_type}")
-
-    root = ET.Element("event")
-    root.set("version", "2.0")
-    root.set("type", cot_type)
-    root.set("uid", uuid)  # Use robot name as UID for identification
-    root.set("how", "m-g")
-    root.set("time", pytak.cot_time())
-    root.set("start", pytak.cot_time())
-    root.set("stale", pytak.cot_time(3600))
-
-    pt_attr = {
-        "lat": str(latitude),
-        "lon": str(longitude),
-        "hae": str(altitude),
-        "ce": "10",
-        "le": "10",
-    }
-
-    ET.SubElement(root, "point", attrib=pt_attr)
-
-    # Adding detail section
-    detail = ET.SubElement(root, "detail")
-
-    # Add robot type information if provided
-    if robot_type:
-        contact = ET.SubElement(detail, "contact")
-        contact.set("callsign", uuid)
-
-        takv = ET.SubElement(detail, "takv")
-        takv.set("device", robot_type)
-
-    logger.debug(f"CoT event created successfully for {uuid}")
-    return ET.tostring(root, encoding="utf-8")
 
 
 class RobotGPSData:
@@ -371,11 +254,12 @@ class ROS2COTPublisher(Node):
                 data = robot_data.get_data()
 
                 # Create a CoT event
-                cot_event = create_COT_pos_event(
+                cot_event = create_gps_COT(
                     f"{self.project_name}_{robot_name}",
                     data["latitude"],
                     data["longitude"],
                     data["altitude"],
+                    "COT_Event",
                     robot_data.robot_type
                 )
 
