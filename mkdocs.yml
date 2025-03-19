@@ -106,8 +106,8 @@ nav:
       - docs/ground_control_station/index.md
       - Usage:
           - docs/ground_control_station/usage/user_interface.md
-      - Multi-Robot:
-          - docs/ground_control_station/multi_robot/multi_robot.md
+      - Command Center:
+          - docs/ground_control_station/command_center/command_center.md
   - Simulation:
       - docs/simulation/index.md
       - Isaac Sim:
