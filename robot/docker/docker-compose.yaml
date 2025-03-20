@@ -19,7 +19,7 @@ services:
         - *desktop_image
     # we use tmux send-keys so that the session stays alive
     command: >
-      bash -c "ssh service restart;
+      bash -c "service ssh restart;
       tmux new -d -s robot_bringup
       && tmux send-keys -t robot_bringup 
       'if [ ! -f "/root/ros_ws/install/setup.bash" ]; then bws && sws; fi;
@@ -51,6 +51,7 @@ services:
       tags:
         - *l4t_image
     # we use tmux send-keys so that the session stays alive
+    ipc: host
     command: >
       bash -c "ssh service restart;
       tmux new -d -s robot_bringup

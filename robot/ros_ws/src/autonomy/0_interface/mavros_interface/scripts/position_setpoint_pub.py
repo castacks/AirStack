@@ -10,6 +10,7 @@ from rclpy.executors import MultiThreadedExecutor, Executor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from airstack_msgs.msg import Odometry
 from nav_msgs.msg import Odometry as NavOdometry
+from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from scipy.spatial.transform import Rotation as R
 import numpy as np
@@ -36,6 +37,9 @@ class OdomModifier(Node):
 
         self.declare_parameter('target_frame', 'base_link')
         self.target_frame = self.get_parameter('target_frame').get_parameter_value().string_value
+
+        self.declare_parameter('publish_goal', False)
+        self.publish_goal = self.get_parameter('publish_goal').get_parameter_value().bool_value
         
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -46,9 +50,28 @@ class OdomModifier(Node):
         self.tracking_point_subscriber = self.create_subscription(Odometry, "/" + os.getenv('ROBOT_NAME', "") + '/trajectory_controller/tracking_point', self.tracking_point_callback, 1, callback_group=self.callback_group)
         self.odom_publisher = self.create_publisher(PoseStamped, 'cmd_pose', 1)
         self.vel_publisher = self.create_publisher(TwistStamped, 'cmd_velocity', 1)
+        self.path_publisher = self.create_publisher(Path, "/" + os.getenv('ROBOT_NAME', "") + '/global_plan', 1)
 
         #self.odom_pos = [0., 0., 0.]
         self.odom = None
+
+        self.path = Path()
+        self.path.header.stamp = self.get_clock().now().to_msg()
+        self.path.header.frame_id = 'map'
+        pose1 = PoseStamped()
+        pose1.header = self.path.header
+        pose1.pose.position.x = 50.0
+        pose1.pose.position.y = 0.0
+        pose1.pose.position.z = 5.0
+        pose1.pose.orientation.w = 1.0
+        pose2 = PoseStamped()
+        pose2.header = self.path.header
+        pose2.pose.position.x = 60.0
+        pose2.pose.position.y = 0.0
+        pose2.pose.position.z = 5.0
+        pose2.pose.orientation.w = 1.0
+        self.path.poses.append(pose1)
+        self.path.poses.append(pose2)
 
     def get_yaw(self, q):
         yaw = R.from_quat([q.x, q.y, q.z, q.w])
@@ -85,6 +108,12 @@ class OdomModifier(Node):
     def tracking_point_callback(self, msg):
         if self.odom == None:
             return
+
+        if self.publish_goal:
+            self.path.header.stamp = self.get_clock().now().to_msg()
+            self.path.poses[0].header.stamp = self.path.header.stamp
+            self.path.poses[1].header.stamp = self.path.header.stamp
+            self.path_publisher.publish(self.path)
         
         if self.command_pose:
             out = PoseStamped()

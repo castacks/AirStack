@@ -36,7 +36,7 @@
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
             <remap from="tracking_point"
                 to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
             <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
         </node>
         <!-- DROAN local model -->
@@ -47,7 +47,7 @@
             <!-- <remap from="disparity" to="/$(env ROBOT_NAME)/stereo_image_proc/disparity" /> -->
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
             <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
-            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
         </node>
     </group>
 

@@ -10,11 +10,11 @@
     dt: 0.2
     ht: 2.4
     ht_long: 3.0
-    max_velocity: 1.0
+    max_velocity: 0.5
     magnitude: 0.5
 
     # DROAN parameters
-    robot_radius: 0.325  # spirit drone blade to blade
+    robot_radius: 2.  # spirit drone blade to blade
     safety_cost_weight: 5.0
     forward_progress_forgiveness_weight: 0.1
 

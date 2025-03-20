@@ -4,14 +4,14 @@
     "mainwindow": {
       "keys": {
         "geometry": {
-          "repr(QByteArray.hex)": "QtCore.QByteArray(b'01d9d0cb00030000000000640000006400000776000003ab000000640000008900000776000003ab00000000000000000a00000000640000008900000776000003ab')",
+          "repr(QByteArray.hex)": "QtCore.QByteArray(b'01d9d0cb0003000000000069000000660000077b000003ad000000690000008b0000077b000003ad00000000000000000a00000000690000008b0000077b000003ad')",
           "type": "repr(QByteArray.hex)",
-          "pretty-print": "     d d v   d   v        d   v  "
+          "pretty-print": "     i f {   i   {        i   {  "
         },
         "state": {
-          "repr(QByteArray.hex)": "QtCore.QByteArray(b'000000ff00000000fd000000010000000300000713000002f9fc0100000002fb0000006a007200710074005f00670072006f0075006e0064005f0063006f006e00740072006f006c005f00730074006100740069006f006e005f005f00470072006f0075006e00640043006f006e00740072006f006c00530074006100740069006f006e005f005f0031005f005f01000000000000038f000002cd00fffffffb00000042007200710074005f006200650068006100760069006f0072005f0074007200650065005f005f005000790043006f006e0073006f006c0065005f005f0031005f005f01000003950000037e0000007e00ffffff000007130000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720000000000ffffffff0000000000000000')",
+          "repr(QByteArray.hex)": "QtCore.QByteArray(b'000000ff00000000fd000000010000000300000713000002f9fc0100000002fb0000006a007200710074005f00670072006f0075006e0064005f0063006f006e00740072006f006c005f00730074006100740069006f006e005f005f00470072006f0075006e00640043006f006e00740072006f006c00530074006100740069006f006e005f005f0031005f005f01000000000000038f000002cd00fffffffc000003950000037e0000029c00fffffffa000000010200000002fb00000042007200710074005f006200650068006100760069006f0072005f0074007200650065005f005f005000790043006f006e0073006f006c0065005f005f0031005f005f0100000000ffffffff0000004a00fffffffb0000006a007200710074005f0061006900720073007400610063006b005f0063006f006e00740072006f006c005f00700061006e0065006c005f005f0041006900720073007400610063006b0043006f006e00740072006f006c00500061006e0065006c005f005f0031005f005f0100000000ffffffff000000cf00ffffff000007130000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720000000000ffffffff0000000000000000')",
           "type": "repr(QByteArray.hex)",
-          "pretty-print": "                 jrqt_ground_control_station__GroundControlStation__1__          Brqt_behavior_tree__PyConsole__1__                            6MinimizedDockWidgetsToolbar        "
+          "pretty-print": "                 jrqt_ground_control_station__GroundControlStation__1__            ~                                                  J                                                                                                                          "
         }
       },
       "groups": {
@@ -29,18 +29,49 @@
     "pluginmanager": {
       "keys": {
         "running-plugins": {
-          "repr": "{'rqt_behavior_tree/PyConsole': [1], 'rqt_ground_control_station/GroundControlStation': [1]}",
+          "repr": "{'rqt_airstack_control_panel/AirstackControlPanel': [1], 'rqt_behavior_tree/PyConsole': [1], 'rqt_ground_control_station/GroundControlStation': [1]}",
           "type": "repr"
         }
       },
       "groups": {
+        "plugin__rqt_airstack_control_panel__AirstackControlPanel__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dock_widget_title": {
+                  "repr": "'Control Panel'",
+                  "type": "repr"
+                },
+                "dockable": {
+                  "repr": "True",
+                  "type": "repr"
+                },
+                "parent": {
+                  "repr": "None",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            },
+            "plugin": {
+              "keys": {
+                "info_dcts": {
+                  "repr": "[{'excluded_services': [], 'hostname': 'localhost', 'name': 'Name', 'namespace': 'none', 'path': '~/airstack', 'username': 'airlab'}]",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            }
+          }
+        },
         "plugin__rqt_behavior_tree__PyConsole__1": {
           "keys": {},
           "groups": {
             "dock_widget__": {
               "keys": {
                 "dock_widget_title": {
-                  "repr": "''",
+                  "repr": "'Behavior Tree'",
                   "type": "repr"
                 },
                 "dockable": {
