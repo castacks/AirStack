@@ -15,7 +15,7 @@ def create_gps_COT(uuid, latitude, longitude, altitude, logger_name, device_type
         if device_type.lower() == 'uav':
             cot_type = "a-f-A"  # Aircraft
         elif device_type.lower() in ['ugv', 'quadruped', 'offroad']:
-            cot_type = "a-f-G-U-C"  # Ground robot
+            cot_type = "a-f-G"  # Ground robot
 
     logger.debug(f"Creating CoT event for {uuid} with type {cot_type}")
 
