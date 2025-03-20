@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Python dependencies
 RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
-    wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt
+    wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt sphinx
 
 # Configure SSH
 RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
