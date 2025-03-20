@@ -19,6 +19,3 @@ services:
       file: ./ground-control-station-base-docker-compose.yaml
       service: ground-control-station-base
     network_mode: host
-
-# include: 
-  # - ./tak-docker-compose.yaml
