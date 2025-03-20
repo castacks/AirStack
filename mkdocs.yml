@@ -108,6 +108,8 @@ nav:
           - docs/ground_control_station/usage/user_interface.md
       - Command Center:
           - docs/ground_control_station/command_center/command_center.md
+      - Casualty Assessment:
+          - docs/ground_control_station/casualty_assessment/casualty_assessment.md
   - Simulation:
       - docs/simulation/index.md
       - Isaac Sim:
