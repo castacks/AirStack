@@ -56,8 +56,10 @@ services:
       tmux new -d -s robot_bringup
       && tmux send-keys -t robot_bringup 
       'if [ ! -f "/root/ros_ws/install/setup.bash" ]; then bws && sws; fi;
-      ros2 launch robot_bringup robot.launch.xml sim:="false" ' ENTER
+      DATE=$(date | sed \"s/ /_/g\") ros2 launch robot_bringup robot.launch.xml sim:="false" ' ENTER
       && sleep infinity"
     runtime: nvidia
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
+    volumes:
+      - $HOME/bags:/bags:rw

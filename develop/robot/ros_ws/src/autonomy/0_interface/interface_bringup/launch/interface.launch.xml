@@ -15,11 +15,20 @@
         output="screen">
         <param name="interface" value="mavros_interface::MAVROSInterface" />
         <param name="is_ardupilot" value="true" />
+        <param name="post_takeoff_command_delay_time" value="10." />
+	
+	<remap from="ardupilot_takeoff" to="/$(env ROBOT_NAME)/takeoff_landing_planner/ardupilot_takeoff" />
     </node>
 
     <node pkg="mavros_interface" exec="position_setpoint_pub.py"
         namespace="interface"
-        output="screen" />
+        output="screen">
+
+      <param name="command_pose" value="False" />
+      <param name="max_velocity" value="1.0" />
+      <param name="target_frame" value="base_link" />
+      
+    </node>
 
     <node pkg="robot_interface" namespace="odometry_conversion" exec="odometry_conversion"
         output="screen">
@@ -53,4 +62,12 @@
     </group>
 
 
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+          namespace="drone_safety_monitor"
+          output="screen">
+      <param name="state_estimate_timeout" value="1.0" />
+      
+      <remap from="state_estimate" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    </node>
+    
 </launch>

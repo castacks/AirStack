@@ -2,11 +2,15 @@
 	->
 		(Auto Takeoff Commanded)
 		->
+			<!>
+				(State Estimate Timed Out)
 			?
+				(In Air)
 				(Armed)
 				(Offboard Mode)
 				[Request Control]
 			?
+				(In Air)
 				(Armed)
 				[Arm]
 			?
