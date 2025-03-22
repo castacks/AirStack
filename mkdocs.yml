@@ -43,7 +43,7 @@ markdown_extensions:
   - toc:
       permalink: true
 nav:
-  - Home: docs/README.md
+  - Home: docs/index.md
   - Getting Started: docs/getting_started.md
   - Development:
       - docs/development/index.md
