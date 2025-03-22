@@ -155,10 +155,6 @@ We welcome contributions to AirStack! Please see our [Contributing Guidelines](h
 
 AirStack is licensed under the Apache 2.0 or MIT license (to be finalized).
 
-## 🔗 Related Projects
-
-- [AirLab](https://theairlab.org): The Air Lab at Carnegie Mellon University
-- [DROAN](https://github.com/castacks/DROAN): Disparity-space Representation for Obstacle AvoidaNce
 
 ## 📧 Contact
 
