@@ -115,7 +115,7 @@ RUN pip3 install \
     tabulate \
     einops \
     timm==0.9.12 \
-    rerun-sdk==0.17 \
+    rerun-sdk==0.22.0 \
     yacs \
     wandb
 
