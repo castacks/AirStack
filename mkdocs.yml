@@ -117,6 +117,7 @@ nav:
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
   - Real World:
       - docs/real_world/index.md
+      - docs/real_world/data_offloading/index.md
       - Installation on Hardware:
           - docs/real_world/installation/index.md
   - About: docs/about.md
