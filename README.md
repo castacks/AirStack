@@ -1,4 +1,4 @@
-# AirStack: Modular Autonomy Stack for Aerial Robotics
+# AirStack: Democratizing Intelligent Mobile Robotics
 
 <div align="center">
   <img src="docs/assets/logo_horizontal_white.png" alt="AirStack Logo" width="400"/>
