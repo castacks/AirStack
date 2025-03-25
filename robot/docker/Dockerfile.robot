@@ -144,7 +144,9 @@ RUN pip install \
   hydra-core \
   open_clip_torch \
   transformers \
-  requests
+  idna==3.10 \
+  requests==2.32.3 \
+  scipy==1.15.2
 
 WORKDIR /usr/local/src
 RUN wget https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz && \
@@ -181,7 +183,6 @@ RUN git clone https://github.com/OasisArtisan/openvdb.git && \
 #RUN cmake -S . -B build && \
 #  cmake --build build
 
-
 # Add ability to SSH
 RUN apt-get update && apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
@@ -216,3 +217,5 @@ RUN apt purge git -y \
       && apt autoremove -y \
       && apt clean -y \
       && rm -rf /var/lib/apt/lists/*
+
+RUN pip install certifi
