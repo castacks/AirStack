@@ -66,6 +66,7 @@ nav:
               - docs/robot/autonomy/0_interface/index.md
           - Sensors:
               - docs/robot/autonomy/1_sensors/index.md
+              - docs/robot/autonomy/1_sensors/gimbal.md              
           - Perception:
               - docs/robot/autonomy/2_perception/index.md
               - docs/robot/autonomy/2_perception/state_estimation.md
