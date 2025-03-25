@@ -14,9 +14,11 @@
 project: 
   name: Airstack # Name of the project. This will be used to name the services and set the UUID of all the COT messages.
 
-robot:
-  count: 3  # Number of robots to subscribe to (e.g., 1 for robot1, 2 for robot2 and robot3, etc.)
-  gps_topicname: '/robot_{n}/interface/mavros/global_position/global'  # Topic name pattern for GPS data. Use {n} as a placeholder for the robot number.
+gps_streaming:
+  - name: 'drone1'
+    type: 'uav'  # Type of the robot (e.g., uav, quadruped, offroad)
+    topicname: '/robot_1/interface/mavros/global_position/raw/fix'
+    frequency: 1  # Frequency at which the GPS data should be published to TAK server in Hz.
 
 trackers:
   - name: 'base' # Note stable GPS reading 
