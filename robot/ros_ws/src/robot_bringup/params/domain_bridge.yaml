@@ -19,6 +19,11 @@ topics:
     to_domain: 0
     type: nav_msgs/msg/Odometry
 
+  /robot_1/sensors/front_stereo/left/image_rect:
+    from_domain: 1
+    to_domain: 0
+    type: sensor_msgs/msg/Image
+
   /robot_2/vdb_mapping/vdb_map_visualization:
     from_domain: 2
     to_domain: 0
