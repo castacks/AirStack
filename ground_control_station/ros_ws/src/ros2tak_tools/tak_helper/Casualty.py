@@ -41,6 +41,8 @@ class AlertnessLevel(Enum):
 class VitalType(Enum):
     HEART_RATE = Vitals.HEART_RATE
     RESPIRATORY_RATE = Vitals.RESPIRATORY_RATE
+    TEMPERATURE = Vitals.TEMPERATURE
+
 
 class ConditionType(Enum):
     SEVERE_HEMORRHAGE = Critical.SEVERE_HEMORRHAGE
@@ -245,6 +247,7 @@ class CasualtyCOT:
 
         self.heart_rate = VitalsCOT("Heart Rate")
         self.respiratory_rate = VitalsCOT("Respiratory Rate")
+        self.temperature = VitalsCOT("Temperature")
 
         self.trauma_head = InjuryCOT("Trauma Head")
         self.trauma_torso = InjuryCOT("Trauma Torso")
@@ -270,30 +273,31 @@ class CasualtyCOT:
 
     def get_injuries(self):
         """Returns the injuries sustained for preset status"""
-
+        
         injuries = []
         if self.trauma_head.status:
-            injuries.append(self.trauma_head)
+            injuries.append(repr(self.trauma_head))
         if self.trauma_torso.status:
-            injuries.append(self.trauma_torso)
+            injuries.append(repr(self.trauma_torso))
         if self.trauma_lower_ext.status:
-            injuries.append(self.trauma_lower_ext)
+            injuries.append(repr(self.trauma_lower_ext))
         if self.trauma_upper_ext.status:
-            injuries.append(self.trauma_upper_ext)
+            injuries.append(repr(self.trauma_upper_ext))
         return ", ".join(injuries)
+
 
     def get_signs_symptoms(self):
         """Returns the signs and symptoms for preset status"""
 
         signs = []
         if self.severe_hemorrhage.status:
-            signs.append(self.severe_hemorrhage)
+            signs.append(repr(self.severe_hemorrhage))
         if self.respiratory_distress.status:
-            signs.append(self.respiratory_distress)
+            signs.append(repr(self.respiratory_distress))
         if self.heart_rate.status:
-            signs.append(self.heart_rate)
+            signs.append(repr(self.heart_rate))
         if self.respiratory_rate.status:
-            signs.append(self.respiratory_rate)
+            signs.append(repr(self.respiratory_rate))
         return ", ".join(signs)
 
     def get_treatments(self):
@@ -303,136 +307,163 @@ class CasualtyCOT:
         """Updates the casualty metadata with the message data."""
         # Update GPS coordinates
         if msg.gps:  # Check if the array is not empty
-            for gps_data in msg.gps:
-                self.gps.set_gps(gps_data.latitude, gps_data.longitude, gps_data.altitude)
-                # Using the last GPS data point if multiple are provided
+            try:
+                for gps_data in msg.gps:
+                    self.gps.set_gps(gps_data.latitude, gps_data.longitude, gps_data.altitude)
+            except Exception as e:
+                print(f"Error updating GPS data: {e}")
 
         # Update critical conditions
         if msg.severe_hemorrhage:  # Check if the array is not empty
-            for hemorrhage_data in msg.severe_hemorrhage:
-                self.severe_hemorrhage.set_status(
-                    system="Circulatory",
-                    type_=ConditionType.SEVERE_HEMORRHAGE,
-                    value=ConditionStatus(hemorrhage_data.value),
-                    confidence=hemorrhage_data.confidence
-                )
-                # Using the last hemorrhage data point if multiple are provided
+            try:
+                for hemorrhage_data in msg.severe_hemorrhage:
+                    self.severe_hemorrhage.set_status(
+                        system="Circulatory",
+                        type_=ConditionType.SEVERE_HEMORRHAGE,
+                        value=ConditionStatus(hemorrhage_data.value),
+                        confidence=hemorrhage_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating severe hemorrhage data: {e}")
 
         if msg.respiratory_distress:  # Check if the array is not empty
-            for distress_data in msg.respiratory_distress:
-                self.respiratory_distress.set_status(
-                    system="Respiratory",
-                    type_=ConditionType.RESPIRATORY_DISTRESS,
-                    value=ConditionStatus(distress_data.value),
-                    confidence=distress_data.confidence
-                )
-                # Using the last distress data point if multiple are provided
+            try:
+                for distress_data in msg.respiratory_distress:
+                    self.respiratory_distress.set_status(
+                        system="Respiratory",
+                        type_=ConditionType.RESPIRATORY_DISTRESS,
+                        value=ConditionStatus(distress_data.value),
+                        confidence=distress_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating respiratory distress data: {e}")
 
         # Update vitals
         if msg.heart_rate:  # Check if the array is not empty
-            for heart_rate_data in msg.heart_rate:
-                self.heart_rate.set_vitals(
-                    system="Cardiovascular",
-                    type_=VitalType.HEART_RATE,
-                    value=heart_rate_data.value,
-                    time_ago=heart_rate_data.time_ago,
-                    confidence=heart_rate_data.confidence
-                )
-                # Using the last heart rate data point if multiple are provided
+            try:
+                for heart_rate_data in msg.heart_rate:
+                    self.heart_rate.set_vitals(
+                        system="Cardiovascular",
+                        type_=VitalType.HEART_RATE,
+                        value=heart_rate_data.value,
+                        time_ago=heart_rate_data.time_ago,
+                        confidence=heart_rate_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating heart rate data: {e}")
 
         if msg.respiratory_rate:  # Check if the array is not empty
-            for resp_rate_data in msg.respiratory_rate:
-                self.respiratory_rate.set_vitals(
-                    system="Respiratory",
-                    type_=VitalType.RESPIRATORY_RATE,
-                    value=resp_rate_data.value,
-                    time_ago=resp_rate_data.time_ago,
-                    confidence=resp_rate_data.confidence
-                )
-                # Using the last respiratory rate data point if multiple are provided
+            try:
+                for resp_rate_data in msg.respiratory_rate:
+                    self.respiratory_rate.set_vitals(
+                        system="Respiratory",
+                        type_=VitalType.RESPIRATORY_RATE,
+                        value=resp_rate_data.value,
+                        time_ago=resp_rate_data.time_ago,
+                        confidence=resp_rate_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating respiratory rate data: {e}")
 
         if msg.temperature:  # Check if the array is not empty
-            for temp_data in msg.temperature:
-                self.temperature.set_vitals(
-                    system="Body",
-                    type_=VitalType.TEMPERATURE,
-                    value=temp_data.value,
-                    time_ago=temp_data.time_ago,
-                    confidence=temp_data.confidence
-                )
-                # Using the last temperature data point if multiple are provided
+            try:
+                for temp_data in msg.temperature:
+                    self.temperature.set_vitals(
+                        system="Body",
+                        type_=VitalType.TEMPERATURE,
+                        value=temp_data.value,
+                        time_ago=temp_data.time_ago,
+                        confidence=temp_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating temperature data: {e}")
 
         # Update injuries
         if msg.trauma_head:  # Check if the array is not empty
-            for trauma_data in msg.trauma_head:
-                self.trauma_head.set_status(
-                    system="Head",
-                    type_=TraumaType.TRAUMA_HEAD,
-                    value=TraumaSeverity(trauma_data.value),
-                    confidence=trauma_data.confidence
-                )
-                # Using the last trauma data point if multiple are provided
+            try:
+                for trauma_data in msg.trauma_head:
+                    self.trauma_head.set_status(
+                        system="Head",
+                        type_=TraumaType.TRAUMA_HEAD,
+                        value=TraumaSeverity(trauma_data.value),
+                        confidence=trauma_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating trauma head data: {e}")
 
         if msg.trauma_torso:  # Check if the array is not empty
-            for trauma_data in msg.trauma_torso:
-                self.trauma_torso.set_status(
-                    system="Torso",
-                    type_=TraumaType.TRAUMA_TORSO,
-                    value=TraumaSeverity(trauma_data.value),
-                    confidence=trauma_data.confidence
-                )
-                # Using the last trauma data point if multiple are provided
+            try:
+                for trauma_data in msg.trauma_torso:
+                    self.trauma_torso.set_status(
+                        system="Torso",
+                        type_=TraumaType.TRAUMA_TORSO,
+                        value=TraumaSeverity(trauma_data.value),
+                        confidence=trauma_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating trauma torso data: {e}")
 
         if msg.trauma_lower_ext:  # Check if the array is not empty
-            for trauma_data in msg.trauma_lower_ext:
-                self.trauma_lower_ext.set_status(
-                    system="Lower Extremity",
-                    type_=TraumaType.TRAUMA_LOWER_EXT,
-                    value=TraumaSeverity(trauma_data.value),
-                    confidence=trauma_data.confidence
-                )
-                # Using the last trauma data point if multiple are provided
+            try:
+                for trauma_data in msg.trauma_lower_ext:
+                    self.trauma_lower_ext.set_status(
+                        system="Lower Extremity",
+                        type_=TraumaType.TRAUMA_LOWER_EXT,
+                        value=TraumaSeverity(trauma_data.value),
+                        confidence=trauma_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating trauma lower extremity data: {e}")
 
         if msg.trauma_upper_ext:  # Check if the array is not empty
-            for trauma_data in msg.trauma_upper_ext:
-                self.trauma_upper_ext.set_status(
-                    system="Upper Extremity",
-                    type_=TraumaType.TRAUMA_UPPER_EXT,
-                    value=TraumaSeverity(trauma_data.value),
-                    confidence=trauma_data.confidence
-                )
-                # Using the last trauma data point if multiple are provided
+            try:
+                for trauma_data in msg.trauma_upper_ext:
+                    self.trauma_upper_ext.set_status(
+                        system="Upper Extremity",
+                        type_=TraumaType.TRAUMA_UPPER_EXT,
+                        value=TraumaSeverity(trauma_data.value),
+                        confidence=trauma_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating trauma upper extremity data: {e}")
 
         # Update alertness levels
         if msg.alertness_ocular:  # Check if the array is not empty
-            for alertness_data in msg.alertness_ocular:
-                self.alertness_ocular.set_status(
-                    system="Neurological",
-                    type_=TraumaType.ALERTNESS_OCULAR,
-                    value=OcularAlertness(alertness_data.value),
-                    confidence=alertness_data.confidence
-                )
-                # Using the last alertness data point if multiple are provided
+            try:
+                for alertness_data in msg.alertness_ocular:
+                    self.alertness_ocular.set_status(
+                        system="Neurological",
+                        type_=TraumaType.ALERTNESS_OCULAR,
+                        value=OcularAlertness(alertness_data.value),
+                        confidence=alertness_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating alertness ocular data: {e}")
 
         if msg.alertness_verbal:  # Check if the array is not empty
-            for alertness_data in msg.alertness_verbal:
-                self.alertness_verbal.set_status(
-                    system="Neurological",
-                    type_=TraumaType.ALERTNESS_VERBAL,
-                    value=AlertnessLevel(alertness_data.value),
-                    confidence=alertness_data.confidence
-                )
-                # Using the last alertness data point if multiple are provided
+            try:
+                for alertness_data in msg.alertness_verbal:
+                    self.alertness_verbal.set_status(
+                        system="Neurological",
+                        type_=TraumaType.ALERTNESS_VERBAL,
+                        value=AlertnessLevel(alertness_data.value),
+                        confidence=alertness_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating alertness verbal data: {e}")
 
         if msg.alertness_motor:  # Check if the array is not empty
-            for alertness_data in msg.alertness_motor:
-                self.alertness_motor.set_status(
-                    system="Neurological",
-                    type_=TraumaType.ALERTNESS_MOTOR,
-                    value=AlertnessLevel(alertness_data.value),
-                    confidence=alertness_data.confidence
-                )
-                # Using the last alertness data point if multiple are provided
+            try:
+                for alertness_data in msg.alertness_motor:
+                    self.alertness_motor.set_status(
+                        system="Neurological",
+                        type_=TraumaType.ALERTNESS_MOTOR,
+                        value=AlertnessLevel(alertness_data.value),
+                        confidence=alertness_data.confidence
+                    )
+            except Exception as e:
+                print(f"Error updating alertness motor data: {e}")
+
 
     def generate_cot_event(self):
         # Create root event element
