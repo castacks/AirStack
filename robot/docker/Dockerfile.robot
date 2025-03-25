@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     software-properties-common \
     wget \
+    iputils-ping \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
@@ -60,7 +62,7 @@ WORKDIR /root/ros_ws
 
 # Install dev tools
 RUN apt update && apt install -y \
-    vim nano wget curl tree \
+    vim nano emacs wget curl tree \
     cmake build-essential \
     less htop jq \
     python3-pip \
