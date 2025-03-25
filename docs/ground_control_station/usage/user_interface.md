@@ -12,6 +12,11 @@
 
 # Debugging tips: 
 
+launch just the ground-control-station container:
+```bash
+docker compose --profile deploy up ground-control-station
+````
+
 ## 1. Running docker in interactive mode:
 ```bash
 docker exec -it ground-control-station /bin/bash
