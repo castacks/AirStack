@@ -5,7 +5,7 @@ WORKDIR /root/ros_ws
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    vim nano emacs wget curl tree \
+    vim nano emacs wget curl tree sshpass \
     iperf3 iftop iputils-ping net-tools htop \
     cmake build-essential less htop jq python3-pip tmux gdb \
     ros-dev-tools ros-humble-mavros ros-humble-tf2* ros-humble-stereo-image-proc \
@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
-    gstreamer1.0-x gstreamer1.0-alsa openssh-server
+    gstreamer1.0-x gstreamer1.0-alsa openssh-server \
+    xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11
 
 # Install Python dependencies
 RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
