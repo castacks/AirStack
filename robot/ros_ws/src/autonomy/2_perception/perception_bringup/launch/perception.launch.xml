@@ -31,6 +31,9 @@
             to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
     </node>
 
+    <!--RayFronts-->
+    <node pkg="rayfronts" exec="rayfronts_node" name="rayfronts" output="screen"/>
+
     <!-- Visualizer -->
     <node pkg="image_view" exec="disparity_view"
         namespace="disparity_view">
