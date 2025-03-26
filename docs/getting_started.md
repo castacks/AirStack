@@ -75,13 +75,7 @@ docker compose push
 ## Launch
 
 ```bash
-xhost +  # allow docker access to X-Server
-
-# Make sure you are in the AirStack directory.
-
-# Start docker compose services. This launches Isaac Sim and the robots.
-#  You can append `--scale robot=[NUM_ROBOTS]` for more robots, default is 1
-docker compose up -d
+./launch.sh # This will launch the docker containers, isaac sim, and WinTAK
 ```
 
 This will automatically launch and play the Isaac scene specified under `AirStack/.env` (default is the Fire Academy).
@@ -99,5 +93,5 @@ You can also switch to `Fixed Trajectory` mode and hit `Publish` on the bottom r
 To shutdown and remove docker containers:
 
 ```bash
-docker compose down
+./shutdown.sh # This will stop and remove the docker containers, isaac sim, and WinTAK
 ```

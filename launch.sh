@@ -19,8 +19,12 @@ echo ""
 echo "Docker services are now running."
 echo ""
 
+# Display information about WinTAK
+echo "To learn more about WinTAK, visit: https://www.youtube.com/watch?v=fiBt0wEiKh8"
+echo "AirStack uses WinTAK for human-robot team awareness and collaboration in mission environments."
+
 # Ask about WinTAK
-read -p "Would you like to run WinTAK (For user awareness and collaboration)? (y/n): " run_wintak
+read -p "Would you like to run WinTAK? (y/n): " run_wintak
 
 if [[ $run_wintak =~ ^[Yy]$ ]]; then
     echo "Attempting to start WinTAK virtual machine..."

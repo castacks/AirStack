@@ -25,3 +25,5 @@ NOTE: If it asks to reset the password, please reset to current password.
 
 ![WinTAK](asset/WinTAK_on_windows_virtualbox_vm.png)
 
+## Know more about TAK using the youtube link below:
+[![Video Title](https://img.youtube.com/vi/fiBt0wEiKh8/0.jpg)](https://www.youtube.com/watch?v=fiBt0wEiKh8&t=1s)
