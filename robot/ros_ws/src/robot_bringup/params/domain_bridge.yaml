@@ -58,7 +58,7 @@ topics:
     from_domain: 3
     to_domain: 0
 
-
+#  GPS related topics -----------
   /robot_1/interface/mavros/global_position/raw/fix:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 1
@@ -68,6 +68,18 @@ topics:
     from_domain: 2
     to_domain: 0
   /robot_3/interface/mavros/global_position/raw/fix:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 3
+    to_domain: 0
+  /robot_1/interface/mavros/global_position/global:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 1
+    to_domain: 0
+  /robot_2/interface/mavros/global_position/global:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 2
+    to_domain: 0
+  /robot_3/interface/mavros/global_position/global:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 3
     to_domain: 0
