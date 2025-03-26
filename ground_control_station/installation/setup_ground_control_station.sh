@@ -46,7 +46,7 @@ mkdir -p ../ros_ws/src/ros2tak_tools/creds
 # Single rsync command to get all necessary files from airlab-storage
 log "Copying all required files from airlab-storage to $HOME/vmware/..."
 log "This may take some time depending on your network connection..."
-sudo rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume4/dsta/atak/setup/ "$HOME/vmware/" 2>&1 | tee -a "$LOG_FILE"
+sudo rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume4/dsta/engineering/atak/setup/ "$HOME/vmware/" 2>&1 | tee -a "$LOG_FILE"
 
 # Copy config and creds to ROS workspace
 log "Copying config and creds to ROS workspace..."
