@@ -45,6 +45,8 @@ import threading
 import time
 import copy
 
+from std_msgs.msg import Bool
+
 try:
     from rqt_py_console.spyder_console_widget import SpyderConsoleWidget
     _has_spyderlib = True
@@ -172,11 +174,15 @@ class CommandThread(QtCore.QThread):
 
 
 class InfoWidget(qt.QWidget):
-    def __init__(self, settings={'name': 'Name', 'username': 'airlab', 'password': 'passme24', 'hostname': 'localhost', 'namespace': 'none', 'path': '~/airstack', 'excluded_services': [], 'enable_display': False}):
+    def __init__(self, node, settings={'name': 'Name', 'username': 'airlab', 'password': 'passme24', 'hostname': 'localhost', 'namespace': 'none', 'path': '~/airstack', 'excluded_services': [], 'enable_display': False}):
         super(qt.QWidget, self).__init__()
         self.layout = qt.QVBoxLayout(self)
         #self.setObjectName('info_widget')
         #self.setStyleSheet('#info_widget {border: 2px solid black;}')
+
+        self.node = node
+        self.recording_sub = None
+        self.recording_pub = None
         
         self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         self.setObjectName('info_widget')
@@ -234,7 +240,13 @@ class InfoWidget(qt.QWidget):
         self.command_layout.addWidget(self.down_button)
         
         self.record_button = qt.QPushButton(text='Record')
+        self.record_button.setCheckable(True)
+        self.record_button.clicked.connect(self.record)
         self.command_layout.addWidget(self.record_button)
+        
+        self.ssh_button = qt.QPushButton(text='ssh')
+        self.ssh_button.clicked.connect(self.ssh)
+        self.command_layout.addWidget(self.ssh_button)
 
         self.config_button = qt.QPushButton(text='Config')
         self.config_button.clicked.connect(self.config_clicked)
@@ -268,6 +280,13 @@ class InfoWidget(qt.QWidget):
     def delete_clicked(self):
         self.delete_function()
 
+    def record(self):
+        if self.recording_pub != None:
+            msg = Bool()
+            msg.data = self.record_button.isChecked()
+            self.recording_pub.publish(msg)
+            
+
     def update_info(self):
         self.name_label.setText(self.settings['name'])
         self.hostname_label.setText('Hostname: ' + self.settings['hostname'])
@@ -278,6 +297,18 @@ class InfoWidget(qt.QWidget):
             self.ping_thread = None
         #self.ping_thread = CommandThread('ping ' + self.settings['hostname'])
         self.ping_thread = CommandThread('HOST="' + self.settings['hostname'] + '"; while true; do OUTPUT=$(ping -c 1 -w 3 $HOST 2>&1); if echo "$OUTPUT" | grep -q "time="; then PING_TIME=$(echo "$OUTPUT" | grep -oP "time=\K[\d.]+"); echo "$PING_TIME ms"; else echo "failed"; fi; sleep 1; done', self.handle_ping)
+
+        if self.recording_sub != None:
+            self.node.destroy_subscription(self.recording_sub)
+        self.recording_sub = self.node.create_subscription(Bool, self.settings['namespace'] + '/bag_record/bag_recording_status',
+                                                           self.recording_callback, 1)
+        self.recording_pub = self.node.create_publisher(Bool, self.settings['namespace'] + '/bag_record/set_recording_status', 1)
+
+    def recording_callback(self, msg):
+        if msg.data:
+            self.recording_label.setText('Recording: YES')
+        else:
+            self.recording_label.setText('Recording: NO')
 
     def ssh_t(self, command):
         ssh = 'ssh -t -o StrictHostKeyChecking=no'
@@ -307,8 +338,7 @@ class InfoWidget(qt.QWidget):
         
         for i in reversed(range(self.docker_layout.count())): 
             self.docker_layout.itemAt(i).widget().setParent(None)
-        #self.prev_services = copy.deepcopy(self.services)
-        #self.services = {}
+        
         for service in services:
             if service != '' and service not in self.settings['excluded_services']:
                 button = qt.QPushButton(text=service)
@@ -351,22 +381,42 @@ class InfoWidget(qt.QWidget):
         logger.info('docker command: ' + command + ' ' + services_str)
                 
         if len(services_str) > 0:
-            command = 'gnome-terminal --wait -- bash -c \'' + \
+            command = 'dbus-launch gnome-terminal --wait -- bash -c \'' + \
                 self.ssh_t('cd ' + self.settings['path'] + ';  docker compose ' + command + ' ' + services_str + \
                            (' -d' if command == 'up' else '')) + '\''
-            #subprocess.Popen(command, shell=True)
+            logger.info('docker_command: ' + command)
             self.docker_command_thread = CommandThread(command, lambda :self.refresh_docker(), True)
 
     def docker_exec(self, service, command):
-        proc = 'gnome-terminal -- bash -c \'' + \
-            self.ssh_t('cd ' + self.settings['path'] + ';  docker exec -it '  + service + ' ' + command + '; sleep 5;') + '\''
-        subprocess.Popen(proc, shell=True)
+        proc = f'''
+        mapfile -t names <<< $(sshpass -p "{self.settings['password']}" \
+                               ssh -t -o StrictHostKeyChecking=no {self.settings['username']}@{self.settings['hostname']} \
+                                 "cd {self.settings['path']}; docker ps -f name={service} --format '{{{{.Names}}}}'");
+        for item in ${{names[@]}}; do
+            item=$(echo $item| tr -d '\\r')
+            command="dbus-launch gnome-terminal -- bash -c 'sshpass -p \\"{self.settings['password']}\\" \
+                                                ssh -t -o StrictHostKeyChecking=no \
+                                                  {self.settings['username']}@{self.settings['hostname']} \
+                                                    \\"cd {self.settings['path']};  docker exec -it $item {command};\\"';"
+            eval "$command"
+        done
+        '''
+        
+        logger.info(proc)
+        subprocess.Popen(proc, shell=True, executable='/usr/bin/bash')
+
+    def ssh(self):
+        proc = f'''dbus-launch gnome-terminal -- bash -c 'sshpass -p "{self.settings['password']}" \
+                                                          ssh -o StrictHostKeyChecking=no \
+                                                          {self.settings['username']}@{self.settings['hostname']}' '''
+        logger.info(proc)
+        subprocess.Popen(proc, shell=True, executable='/usr/bin/bash')
 
     def handle_ping(self, text):
         if text == 'failed':
             self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(255, 144, 144) }')
         else:
-            self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(239,239,239) }')
+            self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(239, 239, 239) }')
             
         self.ping_label.setText('Ping: ' + text)
 
@@ -416,9 +466,9 @@ class AirstackControlPanel(Plugin):
 
     def add_info_widget(self, settings=None):
         if settings == None:
-            info_widget = InfoWidget()
+            info_widget = InfoWidget(self.context.node)
         else:
-            info_widget = InfoWidget(settings)
+            info_widget = InfoWidget(self.context.node, settings)
         
         def get_delete_function(i):
             def delete_function():
