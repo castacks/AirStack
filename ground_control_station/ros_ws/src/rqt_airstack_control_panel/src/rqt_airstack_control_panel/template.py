@@ -277,7 +277,7 @@ class InfoWidget(qt.QWidget):
             del self.ping_thread
             self.ping_thread = None
         #self.ping_thread = CommandThread('ping ' + self.settings['hostname'])
-        self.ping_thread = CommandThread('HOST="' + self.settings['hostname'] + '"; while true; do OUTPUT=$(ping -c 1 -w 1 $HOST 2>&1); if echo "$OUTPUT" | grep -q "time="; then PING_TIME=$(echo "$OUTPUT" | grep -oP "time=\K[\d.]+"); echo "$PING_TIME ms"; else echo "failed"; fi; sleep 1; done', self.handle_ping)
+        self.ping_thread = CommandThread('HOST="' + self.settings['hostname'] + '"; while true; do OUTPUT=$(ping -c 1 -w 3 $HOST 2>&1); if echo "$OUTPUT" | grep -q "time="; then PING_TIME=$(echo "$OUTPUT" | grep -oP "time=\K[\d.]+"); echo "$PING_TIME ms"; else echo "failed"; fi; sleep 1; done', self.handle_ping)
 
     def ssh_t(self, command):
         ssh = 'ssh -t -o StrictHostKeyChecking=no'
@@ -359,12 +359,14 @@ class InfoWidget(qt.QWidget):
 
     def docker_exec(self, service, command):
         proc = 'gnome-terminal -- bash -c \'' + \
-            self.ssh_t('cd ' + self.settings['path'] + ';  docker exec -it '  + service + ' ' + command + '') + '\''
+            self.ssh_t('cd ' + self.settings['path'] + ';  docker exec -it '  + service + ' ' + command + '; sleep 5;') + '\''
         subprocess.Popen(proc, shell=True)
 
     def handle_ping(self, text):
         if text == 'failed':
             self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(255, 144, 144) }')
+        else:
+            self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(239,239,239) }')
             
         self.ping_label.setText('Ping: ' + text)
 

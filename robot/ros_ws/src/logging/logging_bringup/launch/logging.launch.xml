@@ -1,4 +1,10 @@
 <!-- LOGGING -->
 <launch>
 
+  <node name="bag_record" pkg="bag_record_pid" exec="bag_record_node">
+    <param name="cfg_path" value="$(find-pkg-share logging_bringup)/config/log.yaml" />
+    <param name="output_dir" value="/media/airlab/Storage/" />
+    <param name="mcap_qos_dir" value="$(find-pkg-share bag_record_pid)/config" />
+  </node>
+  
 </launch>
