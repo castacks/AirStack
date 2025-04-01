@@ -16,8 +16,10 @@ if [ -n "$DOCKER_FILES_CHANGED" ]; then
     if [ -f ".env" ]; then
         # Check if DOCKER_IMAGE_TAG line exists
         if grep -q "^DOCKER_IMAGE_TAG=" .env; then
-            # Replace the existing DOCKER_IMAGE_TAG line
-            sed -i "s/^DOCKER_IMAGE_TAG=.*$/DOCKER_IMAGE_TAG=\"$COMMIT_HASH\" # auto-generated from git commit hash/" .env
+            # Replace the existing DOCKER_IMAGE_TAG line and ensure comment is above it
+            sed -i '/^DOCKER_IMAGE_TAG=/i\# auto-generated from git commit hash' .env
+            sed -i 's/^# auto-generated from git commit hash\n# auto-generated from git commit hash/# auto-generated from git commit hash/' .env
+            sed -i "s/^DOCKER_IMAGE_TAG=.*$/DOCKER_IMAGE_TAG=\"$COMMIT_HASH\"/" .env
             echo "Updated DOCKER_IMAGE_TAG to $COMMIT_HASH in .env file"
             
             # Stage the modified .env file for commit
