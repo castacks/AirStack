@@ -8,6 +8,8 @@ This directory contains git hooks used in the AirStack repository.
 
 The pre-commit hook automatically updates the `DOCKER_IMAGE_TAG` in the `.env` file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified. It also adds a comment indicating that the value is auto-generated from the git commit hash.
 
+This ensures that Docker images are always tagged with the exact commit they were built from, eliminating version conflicts between parallel branches.
+
 ### Installation
 
 To install the hooks:
