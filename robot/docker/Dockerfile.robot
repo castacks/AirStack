@@ -115,25 +115,17 @@ RUN pip3 install \
     tabulate \
     einops \
     timm==0.9.12 \
-    rerun-sdk==0.17 \
+    rerun-sdk==0.22.0 \
     yacs \
     wandb
 
-# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
-RUN apt remove -y libopenvdb*; \
-    git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
-    mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
-    cmake .. && \
-    make -j8 && make install && \
-    cd ..; rm -rf /opt/openvdb/build
-
-
-# Install colcon, seems to be getting removed
-RUN pip install -U colcon-common-extensions
-
-# Fixes for MACVO Integration
-RUN pip install huggingface_hub
-RUN pip uninstall matplotlib -y
+# # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
+# RUN apt remove -y libopenvdb*; \
+#     git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
+#     mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
+#     cmake .. && \
+#     make -j8 && make install && \
+#     cd ..; rm -rf /opt/openvdb/build
 
 #for Rayfronts Integration#
 RUN pip install \
@@ -169,19 +161,6 @@ RUN git clone https://github.com/OasisArtisan/openvdb.git && \
     make install && \
     ls -l /root/ros_ws/src/autonomy/2_perception/rayfronts/openvdb
 
-#COPY ./robot/ros_ws/src/autonomy/2_perception/rayfronts/SSG /root/ros_ws/src/autonomy/2_perception/rayfronts
-#WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts/SSG/ssg/csrc
-#WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts/
-#RUN git clone https://github.com/OasisArtisan/SSG.git
-#RUN cd SSG/ssg/csrc && \
-#COPY ~/.ssh /root/.ssh
-#RUN chmod 600 /root/.ssh/id_rsa && ssh-keyscan github.com >> /root/.ssh/known_hosts
-#WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts/
-#RUN git clone https://github.com/OasisArtisan/SSG.git 
-#RUN cd SSG/ssg/csrc && \
-#RUN  sed -i 's/find_package(Python 3\.11/find_package(Python 3.10/' CMakeLists.txt
-#RUN cmake -S . -B build && \
-#  cmake --build build
 
 # Add ability to SSH
 RUN apt-get update && apt-get install -y openssh-server
@@ -208,14 +187,30 @@ fi
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
 RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \ 
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
+    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
     rm -rf /root/model_weights/github.com
 
 WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
-      && apt autoremove -y \
-      && apt clean -y \
-      && rm -rf /var/lib/apt/lists/*
+    && apt autoremove -y \
+    && apt clean -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install colcon, seems to be getting removed
+RUN pip install -U colcon-common-extensions
+
+# Fixes for MACVO Integration
+RUN pip install huggingface_hub
+RUN pip uninstall matplotlib -y
 
 RUN pip install certifi
+RUN pip install rerun-sdk==0.17
+
+RUN python3 -c "import torch; \
+    torch.hub.load('NVlabs/RADIO', 'radio_model', \
+                   version='radio_v2.5-b', progress=True, \
+                   skip_validation=True, adaptor_names=['siglip'], \
+                   trust_repo=True)"

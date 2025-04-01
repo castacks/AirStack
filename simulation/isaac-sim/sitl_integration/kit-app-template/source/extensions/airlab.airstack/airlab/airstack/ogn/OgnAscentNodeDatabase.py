@@ -88,7 +88,7 @@ def incremental_rotate(prim):
     else:
         o = prim.GetAttribute("xformOp:rotateXYZ")
         if o.Get() != None:
-            o.Set(o.Get() + Gf.Vec3d(0.0, 27, 0.0))
+            o.Set(o.Get() + Gf.Vec3d(0.0, 50, 0.0))
 
 
 class OgnAscentNodeDatabase(og.Database):
