@@ -17,8 +17,11 @@ if [ -n "$DOCKER_FILES_CHANGED" ]; then
         # Check if DOCKER_IMAGE_TAG line exists
         if grep -q "^DOCKER_IMAGE_TAG=" .env; then
             # Replace the existing DOCKER_IMAGE_TAG line and ensure comment is above it
+            # First, remove any existing auto-generated comment
+            sed -i '/^# auto-generated from git commit hash$/d' .env
+            # Add the comment above the DOCKER_IMAGE_TAG line
             sed -i '/^DOCKER_IMAGE_TAG=/i\# auto-generated from git commit hash' .env
-            sed -i 's/^# auto-generated from git commit hash\n# auto-generated from git commit hash/# auto-generated from git commit hash/' .env
+            # Update the DOCKER_IMAGE_TAG value
             sed -i "s/^DOCKER_IMAGE_TAG=.*$/DOCKER_IMAGE_TAG=\"$COMMIT_HASH\"/" .env
             echo "Updated DOCKER_IMAGE_TAG to $COMMIT_HASH in .env file"
             
