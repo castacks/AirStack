@@ -1,6 +1,7 @@
 # top-level docker-compose file for the autonomy stack
 # This file includes all component docker-compose files
 # Each component has its own docker-compose.yaml file
+# Components are organized by functionality
 include: 
   - simulation/isaac-sim/docker/docker-compose.yaml
   - robot/docker/docker-compose.yaml
