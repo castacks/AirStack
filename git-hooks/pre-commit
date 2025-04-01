@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# Pre-commit hook to update PROJECT_VERSION in .env file with git commit hash
+# Pre-commit hook to update DOCKER_IMAGE_TAG in .env file with git commit hash
 # when Dockerfile or docker-compose.yaml files are modified
 
 # Check if any Dockerfile or docker-compose.yaml files are staged for commit
 DOCKER_FILES_CHANGED=$(git diff --cached --name-only | grep -E 'Dockerfile|docker-compose\.yaml$')
 
 if [ -n "$DOCKER_FILES_CHANGED" ]; then
-    echo "Docker-related files changed. Updating PROJECT_VERSION in .env file..."
+    echo "Docker-related files changed. Updating DOCKER_IMAGE_TAG in .env file..."
     
     # Get the current commit hash (short version)
     COMMIT_HASH=$(git rev-parse --short HEAD)
     
-    # Update the PROJECT_VERSION in .env file
+    # Update the DOCKER_IMAGE_TAG in .env file
     if [ -f ".env" ]; then
-        # Check if PROJECT_VERSION line exists
-        if grep -q "^PROJECT_VERSION=" .env; then
-            # Replace the existing PROJECT_VERSION line
-            sed -i "s/^PROJECT_VERSION=.*$/PROJECT_VERSION=\"$COMMIT_HASH\"/" .env
-            echo "Updated PROJECT_VERSION to $COMMIT_HASH in .env file"
+        # Check if DOCKER_IMAGE_TAG line exists
+        if grep -q "^DOCKER_IMAGE_TAG=" .env; then
+            # Replace the existing DOCKER_IMAGE_TAG line
+            sed -i "s/^DOCKER_IMAGE_TAG=.*$/DOCKER_IMAGE_TAG=\"$COMMIT_HASH\" # auto-generated from git commit hash/" .env
+            echo "Updated DOCKER_IMAGE_TAG to $COMMIT_HASH in .env file"
             
             # Stage the modified .env file for commit
             git add .env
         else
-            echo "Error: PROJECT_VERSION line not found in .env file"
+            echo "Error: DOCKER_IMAGE_TAG line not found in .env file"
             exit 1
         fi
     else
