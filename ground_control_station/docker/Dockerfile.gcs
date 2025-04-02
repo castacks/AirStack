@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
-    gstreamer1.0-x gstreamer1.0-alsa openssh-server
+    gstreamer1.0-x gstreamer1.0-alsa openssh-server \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
@@ -29,13 +30,6 @@ RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
     sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
-
-# Build ROS2 workspace
-# COPY ground_control_station/ros_ws/src/ros2tak_tools /root/ros_ws/src/ros2tak_tools
-# COPY common/ros_packages/airstack_msgs /root/ros_ws/src/airstack_msgs
-# RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
-#                   colcon build --symlink-install --packages-select airstack_msgs && \
-#                   colcon build --symlink-install"
 
 # Cleanup
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
