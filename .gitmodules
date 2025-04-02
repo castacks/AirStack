@@ -13,6 +13,3 @@
 [submodule "robot/ros_ws/src/autonomy/2_perception/macvo2"]
 	path = robot/ros_ws/src/autonomy/2_perception/macvo2
 	url = git@github.com:castacks/MAC-VO-ROS2.git
-[submodule "common/ros_packages/straps_msgs"]
-	path = common/ros_packages/straps_msgs
-	url = git@github.com:strapsai/straps_msgs.git
