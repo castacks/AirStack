@@ -7,40 +7,42 @@ Author: Aditya Rauniyar (rauniyar@cmu.edu)
 
 This script acts as a ROS 2 node that subscribes to GPS data from multiple robots
 and converts that data into Cursor-On-Target (CoT) events. The CoT events are then sent 
-over a TCP socket to a designated server. The configuration for the host and port, as 
-well as the number of robots to subscribe to, is loaded from a YAML configuration file.
+over MQTT to a designated topic. The configuration for the MQTT connection,
+as well as the robot streaming configuration, is loaded from a YAML configuration file.
+
+The script now supports publishing GPS data at a specified frequency for each robot.
 
 Usage:
     1. Ensure you have Python 3.x installed with the necessary packages:
-       pip install rclpy sensor_msgs pytak pyyaml
+       pip install rclpy sensor_msgs paho-mqtt pytak pyyaml
 
     2. Create a YAML configuration file (e.g., config.yaml) with the following structure:
        project:
          name: test
-       robot:
-         count: 3
-         gps_topicname: '/iphone{n}/gps'  # Pattern for topic names
-       tak_server:
-         cot_url: {Enter the URL of the CoT server}
-         pytak_tls_client_cert: '/path/to/cert.pem'
-         pytak_tls_client_key: '/path/to/key.key'
+       logging:
+         level: 'INFO'  # Logging level for the services. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+       gps_streaming:
+         - name: 'drone1'
+           type: 'uav'
+           topicname: '/robot_1/interface/mavros/global_position/global'
+           frequency: 1  # Frequency in Hz
+         - name: 'drone2'
+           type: 'uav'
+           topicname: '/robot_2/interface/mavros/global_position/global'
+           frequency: 1  # Frequency in Hz
+       mqtt:
+         host: '127.0.0.1'
+         port: 1883
+         username: 'user'
+         password: 'pass'
        services:
          host: '127.0.0.1'
-         publisher:
-           tak_publisher:
-             port: 10000
          mediator:
            ros2cot_agent:
-             port: 10000
+             topic_name: 'ros2cot/events'
 
     3. Run the script with the following command, specifying the path to the config file:
-       python your_script.py --config config.yaml
-
-    4. The script will listen for incoming GPS messages and send CoT events to the 
-       configured server.
-
-Note:
-    Ensure the server receiving the CoT events is running and listening on the specified port.
+       ros2 run your_package your_script --ros-args -p config_file_path:=config.yaml -p creds_dir:=/path/to/creds
 """
 
 import rclpy
@@ -48,10 +50,15 @@ from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 import paho.mqtt.client as mqtt
 import pytak
-import xml.etree.ElementTree as ET
-import argparse
 import socket
 import yaml
+import logging
+import sys
+import time
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+from threading import Lock
+from tak_helper.create_cot_msgs import create_gps_COT
+from tak_helper.logger import setup_logger
 
 
 def load_config(file_path):
@@ -60,154 +67,280 @@ def load_config(file_path):
         return yaml.safe_load(f)
 
 
-def create_COT_pos_event(uuid, latitude, longitude, altitude):
-    """Create a CoT event based on the GPS data."""
-    root = ET.Element("event")
-    root.set("version", "2.0")
-    root.set("type", "a-f-G")
-    root.set("uid", uuid)  # Use topic name as UID for identification
-    root.set("how", "m-g")
-    root.set("time", pytak.cot_time())
-    root.set("start", pytak.cot_time())
-    root.set("stale", pytak.cot_time(3600))
+class RobotGPSData:
+    """Class to store the latest GPS data for a robot."""
 
-    pt_attr = {
-        "lat": str(latitude),
-        "lon": str(longitude),
-        "hae": str(altitude),
-        "ce": "10",
-        "le": "10",
-    }
+    def __init__(self, robot_name, robot_type, frequency):
+        self.robot_name = robot_name
+        self.robot_type = robot_type
+        self.frequency = frequency
+        self.latitude = 0.0
+        self.longitude = 0.0
+        self.altitude = 0.0
+        self.last_update_time = 0.0
+        self.last_publish_time = 0.0
+        self.has_new_data = False
+        self.lock = Lock()  # For thread safety
 
-    ET.SubElement(root, "point", attrib=pt_attr)
+    def update_data(self, latitude, longitude, altitude):
+        """Update the GPS data for this robot."""
+        with self.lock:
+            self.latitude = latitude
+            self.longitude = longitude
+            self.altitude = altitude
+            self.last_update_time = time.time()
+            self.has_new_data = True
 
-    return ET.tostring(root, encoding="utf-8")
+    def should_publish(self):
+        """Check if it's time to publish data based on frequency."""
+        current_time = time.time()
+        # Only publish if:
+        # 1. We have new data since the last publish
+        # 2. The publish interval has elapsed (1/frequency seconds)
+        with self.lock:
+            if not self.has_new_data:
+                return False
+
+            time_since_last_publish = current_time - self.last_publish_time
+            should_publish = time_since_last_publish >= (1.0 / self.frequency)
+
+            if should_publish:
+                # Update the last publish time and mark data as published
+                self.last_publish_time = current_time
+                self.has_new_data = False
+
+            return should_publish
+
+    def get_data(self):
+        """Get the current GPS data."""
+        with self.lock:
+            return {
+                "latitude": self.latitude,
+                "longitude": self.longitude,
+                "altitude": self.altitude
+            }
 
 
 class ROS2COTPublisher(Node):
-    def __init__(self, config):
+    def __init__(self):
         super().__init__("ros2cot_publisher")
         self.subscribers = []
+        self.robot_data = {}  # Dictionary to store the latest data for each robot
+
+        # Read config from config filename from the ros2 parameters
+        self.declare_parameter("config_file_path", "")
+        self.config_filepath = self.get_parameter("config_file_path").get_parameter_value().string_value
+
+        # Initialize a basic logger before loading the config
+        self.logger = logging.getLogger("ROS2COT")
+
+        self.get_logger().info(f"Loading configuration from {self.config_filepath}")
+
+        # Load the configuration
+        try:
+            config = load_config(self.config_filepath)
+
+            # Setup logger based on config
+            log_level = config.get('logging', {}).get('level', 'INFO')
+            self.logger = setup_logger(self, log_level)
+            self.logger.info(f"Logger configured with level: {log_level}")
+
+        except Exception as e:
+            self.get_logger().error(f"Failed to load configuration: {e}")
+            sys.exit(1)
+
+        # Read the credentials dir from the ros2 parameters
+        self.declare_parameter("creds_dir", "")
+        self.creds_dir = self.get_parameter("creds_dir").get_parameter_value().string_value
+        self.logger.info(f"Loading credentials from {self.creds_dir}")
 
         # Get host and port from the config
         self.host = config["services"]["host"]
-        self.robots_count = config["robot"]["count"]
-        self.gps_topicname_pattern = config["robot"]["gps_topicname"]
         self.project_name = config["project"]["name"]
 
+        # Get GPS streaming configuration
+        self.gps_streaming = config.get("gps_streaming", [])
+
+        if not self.gps_streaming:
+            self.logger.warning("No GPS streaming configurations found in config file")
+
         # MQTT related configs
-        self.mqtt_broker = config["mqtt"]["host"]
-        self.mqtt_port = config["mqtt"]["port"]
-        self.mqtt_username = config["mqtt"]["username"]
-        self.mqtt_pwd = config["mqtt"]["password"]
-        self.mqtt_topicname = config["services"]["mediator"]["ros2cot_agent"][
-            "topic_name"
-        ]
+        try:
+            self.mqtt_broker = config["mqtt"]["host"]
+            self.mqtt_port = config["mqtt"]["port"]
+            self.mqtt_username = config["mqtt"]["username"]
+            self.mqtt_pwd = config["mqtt"]["password"]
+            self.mqtt_topicname = config["services"]["mediator"]["ros2cot_agent"]["topic_name"]
+
+            self.logger.info(
+                f"MQTT CONFIG: Broker={self.mqtt_broker}, Port={self.mqtt_port}, Topic={self.mqtt_topicname}")
+        except KeyError as e:
+            self.logger.error(f"Missing required MQTT configuration key: {e}")
+            sys.exit(1)
 
         # Setting MQTT
         self.mqtt_client = mqtt.Client()
         # Set the username and password
         self.mqtt_client.username_pw_set(self.mqtt_username, self.mqtt_pwd)
         try:
-            print(f"Trying to connect to {self.mqtt_broker}:{self.mqtt_port}")
+            self.logger.info(f"Attempting to connect to MQTT broker at {self.mqtt_broker}:{self.mqtt_port}")
             self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, keepalive=65535)
-            self.get_logger().info(
-                f"Connected to MQTT ({self.mqtt_broker}:{self.mqtt_port})"
-            )
+            self.mqtt_client.loop_start()  # Start MQTT loop in background thread
+            self.logger.info(f"Connected to MQTT broker at {self.mqtt_broker}:{self.mqtt_port}")
         except Exception as e:
-            print(f"Failed to connect or publish: {e}")
+            self.logger.error(f"Failed to connect to MQTT broker: {e}")
+            self.logger.error(f"Exception type: {type(e)}")
 
-        self.get_logger().info(
-            f"Starting ROS2COTPublisher for project: {self.project_name}"
-        )
-        self.get_logger().info(
-            f"Subscribing to {self.robots_count} robot(s) on topics matching: {self.gps_topicname_pattern}"
+        self.logger.info(f"Starting ROS2COTPublisher for project: {self.project_name}")
+
+        # Create a QoS profile that matches the publisher
+        self.qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Match the publisher's BEST_EFFORT
+            durability=DurabilityPolicy.VOLATILE,  # Match the publisher's VOLATILE
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
         )
 
-        # Subscribe to GPS topics based on the pattern
-        for i in range(1, self.robots_count + 1):
-            topic_name = self.gps_topicname_pattern.format(n=i)
+        # Subscribe to GPS topics based on the configuration
+        for robot_config in self.gps_streaming:
+            robot_name = robot_config.get("name")
+            robot_type = robot_config.get("type")
+            topic_name = robot_config.get("topicname")
+            frequency = robot_config.get("frequency", 1.0)  # Default to 1Hz if not specified
+
+            if not robot_name or not topic_name:
+                self.logger.warning(f"Skipping invalid robot config: {robot_config}")
+                continue
+
+            # Create a data structure to hold GPS data for this robot
+            self.robot_data[robot_name] = RobotGPSData(robot_name, robot_type, frequency)
+
             subscriber = self.create_subscription(
                 NavSatFix,
                 topic_name,
-                lambda msg, topic_name=topic_name: self.gps_callback(msg, f"/robot{i}"),
-                10,  # QoS depth
+                lambda msg, name=robot_name: self.gps_callback(msg, name),
+                self.qos_profile
             )
             self.subscribers.append(subscriber)
-            self.get_logger().info(f"Subscribed to GPS topic: {topic_name}")
+            self.logger.info(f"Subscribed to GPS topic for {robot_name}: {topic_name}, publishing at {frequency} Hz")
 
-    def gps_callback(self, msg, topic_name):
+        # Create a timer to check and publish data at regular intervals
+        # Use the shortest interval possible (0.01 seconds) to check all robots
+        self.publisher_timer = self.create_timer(0.01, self.publish_timer_callback)
+
+    def gps_callback(self, msg, robot_name):
         """Callback for processing GPS data."""
+        logger = logging.getLogger(f"ROS2COT.{robot_name}")
+
         latitude = msg.latitude
         longitude = msg.longitude
         altitude = msg.altitude
 
         # Log the received GPS data
-        self.get_logger().info(
-            f"Received GPS from {topic_name}: Lat {latitude}, Lon {longitude}, Alt {altitude}"
+        logger.debug(
+            f"Received GPS data: Lat {latitude:.6f}, Lon {longitude:.6f}, Alt {altitude:.2f}"
         )
 
-        # Create a CoT event from the GPS data
-        cot_event = create_COT_pos_event(
-            f"{self.project_name}{topic_name}", latitude, longitude, altitude
-        )
+        # Update the stored data for this robot
+        if robot_name in self.robot_data:
+            self.robot_data[robot_name].update_data(latitude, longitude, altitude)
+        else:
+            logger.warning(f"Received data for unknown robot: {robot_name}")
 
-        # Send the CoT event over MQTT
-        self.send_cot_event_over_mqtt(cot_event)
+    def publish_timer_callback(self):
+        """Timer callback to check and publish data for all robots based on their frequency."""
+        for robot_name, robot_data in self.robot_data.items():
+            if robot_data.should_publish():
+                # Get the current data
+                data = robot_data.get_data()
 
-    def send_cot_event_over_mqtt(self, cot_event):
+                # Create a CoT event
+                cot_event = create_gps_COT(
+                    f"{self.project_name}_{robot_name}",
+                    data["latitude"],
+                    data["longitude"],
+                    data["altitude"],
+                    "COT_Event",
+                    robot_data.robot_type
+                )
+
+                # Send the CoT event over MQTT
+                self.send_cot_event_over_mqtt(cot_event, robot_name)
+
+    def send_cot_event_over_mqtt(self, cot_event, robot_name=None):
         """Send CoT event over the MQTT network"""
+        log_prefix = f"ROS2COT.MQTT.{robot_name}" if robot_name else "ROS2COT.MQTT"
+        logger = logging.getLogger(log_prefix)
+
         try:
             self.mqtt_client.publish(self.mqtt_topicname, cot_event)
-            self.get_logger().info(
-                f"Message '{cot_event}' published to topic '{self.mqtt_topicname}'"
-            )
-        except:
-            self.get_logger().error(f"Failed to publish.")
+            logger.debug(f"CoT event published to topic '{self.mqtt_topicname}'")
+        except Exception as e:
+            logger.error(f"Failed to publish to MQTT: {e}")
+            logger.error(f"Exception type: {type(e)}")
 
-    def send_cot_event_over_network(self, cot_event):
+    def send_cot_event_over_network(self, cot_event, host=None, port=None):
         """Send CoT event over a TCP socket to the configured host."""
+        logger = logging.getLogger("ROS2COT.TCP")
+
+        # Use provided host/port or fall back to class attributes
+        host = host or self.host
+        port = port or getattr(self, 'port', None)
+
+        if not port:
+            logger.error("No port configured for TCP connection")
+            return
+
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind((self.host, self.port))
-                s.connect((self.host, self.port))
+                s.connect((host, port))
                 s.sendall(cot_event)
-                self.get_logger().info(f"Sent CoT event to {self.host}:{self.port}")
+                logger.info(f"Sent CoT event to {host}:{port}")
         except ConnectionRefusedError:
-            self.get_logger().error(
-                f"Connection to {self.host}:{self.port} refused. Ensure the server is running."
-            )
+            logger.error(f"Connection to {host}:{port} refused. Ensure the server is running.")
         except Exception as e:
-            self.get_logger().error(f"Failed to send CoT event: {e}")
+            logger.error(f"Failed to send CoT event via TCP: {e}")
+            logger.error(f"Exception type: {type(e)}")
 
 
 def main(args=None):
+    # Initialize logger
+    logger = logging.getLogger("ROS2COT.main")
+    logger.info("Initializing ROS 2 Python client library")
+
     # Initialize ROS 2 Python client library
     rclpy.init(args=args)
 
-    # Use argparse to handle command line arguments
-    parser = argparse.ArgumentParser(description="ROS to CoT Publisher Node")
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to the config YAML file."
-    )
+    try:
+        # Create an instance of the ROS2COTPublisher node
+        logger.info("Creating ROS2COTPublisher node")
+        gps_cot_publisher = ROS2COTPublisher()
 
-    # Parse the arguments
-    input_args = parser.parse_args()
-
-    # Load configuration
-    config = load_config(input_args.config)
-
-    # Create an instance of the ROS2COTPublisher node with the provided configuration
-    gps_cot_publisher = ROS2COTPublisher(config)
-
-    # Keep the node running to listen to incoming messages
-    rclpy.spin(gps_cot_publisher)
-
-    # Shutdown and cleanup
-    gps_cot_publisher.destroy_node()
-    rclpy.shutdown()
-    print("Node has shut down cleanly.")
+        # Keep the node running to listen to incoming messages
+        logger.info("Node initialized successfully, starting spin")
+        rclpy.spin(gps_cot_publisher)
+    except Exception as e:
+        logger.critical(f"Fatal error occurred: {e}")
+    finally:
+        # Shutdown and cleanup
+        logger.info("Shutting down node")
+        if 'gps_cot_publisher' in locals():
+            # Stop the MQTT client loop
+            if hasattr(gps_cot_publisher, 'mqtt_client'):
+                gps_cot_publisher.mqtt_client.loop_stop()
+                gps_cot_publisher.mqtt_client.disconnect()
+            gps_cot_publisher.destroy_node()
+        rclpy.shutdown()
+        logger.info("Node has shut down cleanly")
 
 
 if __name__ == "__main__":
+    # Basic logger setup before config is loaded
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+    )
+    logger = logging.getLogger("ROS2COT.startup")
+    logger.info("Starting ROS 2 GPS to CoT Publisher")
+
     main()
