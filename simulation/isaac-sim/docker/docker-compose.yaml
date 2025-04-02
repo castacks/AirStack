@@ -1,6 +1,6 @@
 services:
   isaac-sim:
-    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${PROJECT_VERSION}_isaac-sim
+    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_isaac-sim
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
@@ -58,7 +58,7 @@ services:
       # developer stuff
       - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
-      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history	
+      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history 
       # code
       - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ../sitl_integration:/sitl_integration:rw
