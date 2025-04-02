@@ -2276,6 +2276,8 @@
       
         
       
+        
+      
     
     
     
@@ -2440,7 +2442,7 @@
   
   
   <span class="md-ellipsis">
-    Multi-Robot
+    Command Center
     
   </span>
   
@@ -2451,7 +2453,7 @@
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_3">
             <span class="md-nav__icon md-icon"></span>
-            Multi-Robot
+            Command Center
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -2462,12 +2464,93 @@
   
   
     <li class="md-nav__item">
-      <a href="multi_robot/multi_robot/" class="md-nav__link">
+      <a href="command_center/command_center/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Multi robot
+    Aerolens.ai - Talk to your robots
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Casualty Assessment
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Casualty Assessment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="casualty_assessment/casualty_assessment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ROS2 CASEVAC Agent
     
   </span>
   
@@ -2905,26 +2988,16 @@
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <p>WinTAK is setup as auto start on boot and connects to Airlabs TAK-Server. Its run on Windows 11 VirtualBox Virtual Machine.</p>
 <p><img alt="Setup" src="asset/setup.png" /></p>
-<ol>
-<li>Set your <code>ANDREWID</code> as an environment variable.
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANDREWID</span><span class="o">=</span>&lt;your_andrew_id&gt;
-</span></code></pre></div></li>
-<li>Run the following commands to setup WinTAK running over Windows VirtualBox.
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/vmware&quot;</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>sudo<span class="w"> </span>chown<span class="w"> </span>-R<span class="w"> </span><span class="nv">$USER</span>:<span class="nv">$USER</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/vmware&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>sudo<span class="w"> </span>chmod<span class="w"> </span>-R<span class="w"> </span><span class="m">755</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/vmware&quot;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>sudo<span class="w"> </span>rsync<span class="w"> </span>--progress<span class="w"> </span>-avz<span class="w"> </span><span class="si">${</span><span class="nv">ANDREWID</span><span class="si">}</span>@airlab-storage.andrew.cmu.edu:/volume4/dsta/atak/setup/<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/vmware&quot;</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>sudo<span class="w"> </span>dpkg<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/vmware/virtualbox-7.1_7.1.6-167084~Ubuntu~jammy_amd64.deb&quot;</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-f
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>sudo<span class="w"> </span>/sbin/vboxconfig
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>VBoxManage<span class="w"> </span>import<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/vmware/Windows11.ova&quot;</span><span class="w"> </span>--vsys<span class="w"> </span><span class="m">0</span><span class="w"> </span>--vmname<span class="w"> </span><span class="s2">&quot;WinTAK&quot;</span>
-</span></code></pre></div></li>
-<li>Run WinTAK using the following commands.
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>VBoxManage<span class="w"> </span>startvm<span class="w"> </span><span class="s2">&quot;WinTAK&quot;</span>
-</span></code></pre></div></li>
-</ol>
+<p>Run the following command from the setup folder 
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Move to the directory:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>ground_control_station/setup
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Execute the script</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./setup_ground_control_station.sh
+</span></code></pre></div></p>
 <p>NOTE: If it asks to reset the password, please reset to current password.</p>
 <p><img alt="WinTAK" src="asset/WinTAK_on_windows_virtualbox_vm.png" /></p>
+<h2 id="know-more-about-tak-using-the-youtube-link-below">Know more about TAK using the youtube link below:<a class="headerlink" href="#know-more-about-tak-using-the-youtube-link-below" title="Permanent link">&para;</a></h2>
+<p><a href="https://www.youtube.com/watch?v=fiBt0wEiKh8&amp;t=1s"><img alt="Video Title" src="https://img.youtube.com/vi/fiBt0wEiKh8/0.jpg" /></a></p>
 
 
 

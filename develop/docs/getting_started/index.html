@@ -2403,6 +2403,8 @@
       
         
       
+        
+      
     
     
     
@@ -2558,7 +2560,7 @@
   
   
   <span class="md-ellipsis">
-    Multi-Robot
+    Command Center
     
   </span>
   
@@ -2569,7 +2571,7 @@
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_3">
             <span class="md-nav__icon md-icon"></span>
-            Multi-Robot
+            Command Center
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -2580,12 +2582,90 @@
   
   
     <li class="md-nav__item">
-      <a href="../ground_control_station/multi_robot/multi_robot/" class="md-nav__link">
+      <a href="../ground_control_station/command_center/command_center/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Multi robot
+    Aerolens.ai - Talk to your robots
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Casualty Assessment
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Casualty Assessment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ground_control_station/casualty_assessment/casualty_assessment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ROS2 CASEVAC Agent
     
   </span>
   
@@ -3069,13 +3149,7 @@ If you have permission you can push updated images to the docker server.
 </details>
 
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>xhost<span class="w"> </span>+<span class="w">  </span><span class="c1"># allow docker access to X-Server</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Make sure you are in the AirStack directory.</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Start docker compose services. This launches Isaac Sim and the robots.</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1">#  You can append `--scale robot=[NUM_ROBOTS]` for more robots, default is 1</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./launch.sh<span class="w"> </span><span class="c1"># This will launch the docker containers, isaac sim, and WinTAK</span>
 </span></code></pre></div>
 <p>This will automatically launch and play the Isaac scene specified under <code>AirStack/.env</code> (default is the Fire Academy).</p>
 <h2 id="move-robot">Move Robot<a class="headerlink" href="#move-robot" title="Permanent link">&para;</a></h2>
@@ -3085,7 +3159,7 @@ If you have permission you can push updated images to the docker server.
 <p>You can also switch to <code>Fixed Trajectory</code> mode and hit <code>Publish</code> on the bottom right to fly a predefined trajectory.</p>
 <h2 id="shutdown">Shutdown<a class="headerlink" href="#shutdown" title="Permanent link">&para;</a></h2>
 <p>To shutdown and remove docker containers:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>down
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./shutdown.sh<span class="w"> </span><span class="c1"># This will stop and remove the docker containers, isaac sim, and WinTAK</span>
 </span></code></pre></div>
 
 

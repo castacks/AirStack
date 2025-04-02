@@ -18,5 +18,9 @@
     <arg name="config" value="$(find-pkg-share domain_bridge)/examples/example_bridge_config.yaml" />
   </include>
 -->
+
+    <!-- Include the TAK launch file -->
+  <include file="$(find-pkg-share gcs_bringup)/launch/tak.launch.xml">
+  </include>
   
 </launch>
