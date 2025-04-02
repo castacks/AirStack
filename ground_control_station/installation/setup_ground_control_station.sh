@@ -2,6 +2,8 @@
 
 # Exit on error
 set -e
+# get the path of this script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # Display banner
 echo "========================================================="
@@ -40,8 +42,8 @@ sudo chown -R $USER:$USER "$HOME/vmware"
 sudo chmod -R 755 "$HOME/vmware"
 
 # Create ROS config directories if they don't exist
-mkdir -p ../ros_ws/src/ros2tak_tools/config
-mkdir -p ../ros_ws/src/ros2tak_tools/creds
+mkdir -p "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/config"
+mkdir -p "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/creds"
 
 # Single rsync command to get all necessary files from airlab-storage
 log "Copying all required files from airlab-storage to $HOME/vmware/..."
@@ -50,8 +52,8 @@ sudo rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume4/ds
 
 # Copy config and creds to ROS workspace
 log "Copying config and creds to ROS workspace..."
-sudo cp -R "$HOME/vmware/config/"* ../ros_ws/src/ros2tak_tools/config/
-sudo cp -R "$HOME/vmware/creds/"* ../ros_ws/src/ros2tak_tools/creds/
+sudo cp -R "$HOME/vmware/config/"* "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/config/"
+sudo cp -R "$HOME/vmware/creds/"* "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/creds/"
 
 # Set secure permissions on creds directory
 log "Setting secure permissions on credentials directory..."
