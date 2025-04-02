@@ -4,6 +4,8 @@
 set -e
 # get the path of this script
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+YELLOW="\e[;33m"
+ENDCOLOR="\e[0m"
 
 # Display banner
 echo "========================================================="
@@ -22,18 +24,7 @@ log() {
 
 log "Starting WinTAK VirtualBox setup"
 
-# Prompt for ANDREWID
-read -p "Please enter your Andrew ID: " ANDREWID
-
-# Check if ANDREWID is provided
-if [ -z "$ANDREWID" ]; then
-    log "Error: Andrew ID cannot be empty"
-    exit 1
-fi
-
-# Set ANDREWID as environment variable
-export ANDREWID
-log "Setting up Ground Control Station for Andrew ID: $ANDREWID"
+log "Setting up Ground Control Station"
 
 # Create vmware directory
 log "Creating vmware directory..."
@@ -48,6 +39,18 @@ mkdir -p "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/creds"
 # Single rsync command to get all necessary files from airlab-storage
 log "Copying all required files from airlab-storage to $HOME/vmware/..."
 log "This may take some time depending on your network connection..."
+
+# Prompt for ANDREWID
+read -p "Please enter your Andrew ID: " ANDREWID
+
+# Check if ANDREWID is provided
+if [ -z "$ANDREWID" ]; then
+    log "Error: Andrew ID cannot be empty"
+    exit 1
+fi
+
+# Set ANDREWID as environment variable
+export ANDREWID
 sudo rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume4/dsta/engineering/atak/setup/ "$HOME/vmware/" 2>&1 | tee -a "$LOG_FILE"
 
 # Copy config and creds to ROS workspace
@@ -58,7 +61,7 @@ sudo cp -R "$HOME/vmware/creds/"* "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/creds
 # Set secure permissions on creds directory
 log "Setting secure permissions on credentials directory..."
 # Go to the creds directory
-pushd ../ros_ws/src/ros2tak_tools/creds/ > /dev/null
+pushd "$SCRIPT_DIR/../ros_ws/src/ros2tak_tools/creds/" > /dev/null
 # Set restrictive permissions on directories (700: rwx------)
 sudo find . -type d -exec chmod 700 {} \; 2>&1 | tee -a "$LOG_FILE"
 # Set restrictive permissions on files (600: rw-------)
@@ -88,10 +91,10 @@ log "Setup complete! Starting WinTAK..."
 
 log "WinTAK setup completed successfully"
 
-echo "========================================================="
-echo "  WinTAK is now running in VirtualBox"
-echo "  To start WinTAK in the future, simply run:"
-echo "  VBoxManage startvm \"WinTAK\""
-echo "  Setup logs are available at: $LOG_FILE"
-echo "  NOTE: WinTAK would ask you to reset the password on first boot"
-echo "========================================================="
+echo    "========================================================="
+echo    "  WinTAK is now running in VirtualBox"
+echo    "  To start WinTAK in the future, simply run:"
+echo    "  VBoxManage startvm \"WinTAK\""
+echo    "  Setup logs are available at: $LOG_FILE"
+echo -3 "  ${BOLDYELLOW} NOTE: WinTAK will ask you to reset the VM password on first boot. Just choose your own memorable password.${ENDCOLOR}"
+echo    "========================================================="
