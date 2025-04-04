@@ -69,9 +69,9 @@
         <param name="search_ahead_factor" value="1.5" />
         <param name="transition_velocity_scale" value="1.0" />
         <param name="traj_vis_thickness" value="0.03" />
-
         <param name="rewind_skip_max_velocity" value="0.1" />
         <param name="rewind_skip_max_distance" value="0.1" />
+	<param name="velocity_sphere_radius_multiplier" value="1.0" />
 
         <!-- remap glue to AirStack -->
         <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
