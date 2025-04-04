@@ -46,7 +46,7 @@
             <!-- use estimated disparity -->
             <!-- <remap from="disparity" to="/$(env ROBOT_NAME)/stereo_image_proc/disparity" /> -->
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
-            <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
+            <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" />
             <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
         </node>
     </group>

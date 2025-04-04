@@ -63,4 +63,4 @@ services:
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
-      - $HOME/bags:/bags:rw
+      - /media/airlab/Storage/airstack_collection:/bags:rw
