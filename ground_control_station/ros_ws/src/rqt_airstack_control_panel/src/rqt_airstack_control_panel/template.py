@@ -172,7 +172,6 @@ class CommandThread(QtCore.QThread):
         self.running = False
         self.terminate()
 
-
 class InfoWidget(qt.QWidget):
     def __init__(self, node, settings={'name': 'Name', 'username': 'airlab', 'password': 'passme24', 'hostname': 'localhost', 'namespace': 'none', 'path': '~/airstack', 'excluded_services': [], 'enable_display': False}):
         super(qt.QWidget, self).__init__()
@@ -192,6 +191,7 @@ class InfoWidget(qt.QWidget):
         self.settings = settings
 
         self.ping_thread = None
+        self.connected = False
         self.services = {}
 
         # info panel
@@ -269,7 +269,7 @@ class InfoWidget(qt.QWidget):
         self.layout.addWidget(self.docker_widget)
 
         self.update_info()
-        self.refresh_docker()
+        #self.refresh_docker()
 
     def config_clicked(self):
         dialog = InfoConfigDialog(self.settings)
@@ -415,8 +415,12 @@ class InfoWidget(qt.QWidget):
     def handle_ping(self, text):
         if text == 'failed':
             self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(255, 144, 144) }')
+            self.connected = False
         else:
             self.setStyleSheet('QWidget#info_widget { ' + self.stylesheet + 'background-color: rgb(239, 239, 239) }')
+            if not self.connected:
+                self.refresh_docker()
+            self.connected = True
             
         self.ping_label.setText('Ping: ' + text)
 
