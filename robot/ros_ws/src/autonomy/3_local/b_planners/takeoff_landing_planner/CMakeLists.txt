@@ -12,6 +12,8 @@ find_package(std_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(trajectory_library REQUIRED)
+find_package(mavros_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_executable(takeoff_landing_planner src/takeoff_landing_planner.cpp)
 target_include_directories(takeoff_landing_planner PUBLIC
@@ -24,6 +26,8 @@ ament_target_dependencies(
   airstack_msgs
   airstack_common
   trajectory_library
+  mavros_msgs
+  std_srvs
 )
 
 install(TARGETS takeoff_landing_planner

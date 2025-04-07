@@ -14,6 +14,8 @@
   <depend>airstack_msgs</depend>
   <depend>airstack_common</depend>
   <depend>trajectory_library</depend>
+  <depend>mavros_msgs</depend>
+  <depend>std_srvs</depend>
   
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

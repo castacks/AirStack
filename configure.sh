@@ -56,3 +56,10 @@ read -r -p "API Token: " API_TOKEN
 if [ ! -z "${API_TOKEN}" ]; then
     sed "s/PASTE-YOUR-API-TOKEN/$API_TOKEN/g" $OMNI_PASS_SOURCE > $OMNI_PASS_DESTINATION
 fi
+
+# Git Hooks
+echo -e "${BOLDCYAN}3. Setting up Git Hooks${ENDCOLOR}"
+cp ${SCRIPT_DIR}/git-hooks/docker-versioning/update-docker-image-tag.pre-commit ${SCRIPT_DIR}/.git/hooks/pre-commit
+
+
+echo -e "${BOLDCYAN}Setup Complete${ENDCOLOR}"
