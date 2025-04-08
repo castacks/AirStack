@@ -14,19 +14,25 @@
     magnitude: 0.5
 
     # DROAN parameters
-    robot_radius: 2.  # spirit drone blade to blade
+    robot_radius: 1.  # spirit drone blade to blade
     safety_cost_weight: 5.0
     forward_progress_forgiveness_weight: 0.1
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap
-    obstacle_check_radius: 2.0 # this value MUST be strictly greater than the robot radius
-    obstacle_check_num_points: 5
+    obstacle_check_radius: 0.0 # this value MUST be strictly greater than the robot radius
+    obstacle_check_num_points: 0
     # disparity graph parameters. see disparity_graph.hpp
     fixed_frame: "map"
     stabilized_frame: "base_link_stabilized"  # the frame of the stabilized robot (roll and pitch removed)
     baseline_fallback: 0.12  # if the baseline is 0 from the camera_info, use this value instead. in meters
     assume_seen_within_radius: 1.0  # anything within this radius, assume it is seen and don't check for obstacles
+    
+    everything_seen_and_free: true
+    use_virtual_cylinder: true
+    virtual_cylinder_x: 10.0
+    virtual_cylinder_y: 0.0
+    virtual_cylinder_radius: 4.0
 
     # GLOBAL_PLAN mode parameters
     # 0: use the yaw of the subscribed traj, 1: smoothly vary the yaw in the direction of the subscribed trajectory
