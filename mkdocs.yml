@@ -3,7 +3,7 @@ copyright: Copyright &copy; 2024 - 2030 AirLab CMU
 docs_dir: .
 site_name: AirStack
 site_dir: ../site
-site_url: 'https://docs.theairlab.org/docs/'  # Trailing slash is recommended
+site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
   **/ros_ws/build
   **/ros_ws/install
@@ -62,39 +62,41 @@ nav:
   - Robot:
       - docs/robot/index.md
       - Autonomy Modules:
-          - Robot Interface: 
+          - Robot Interface:
               - docs/robot/autonomy/0_interface/index.md
           - Sensors:
               - docs/robot/autonomy/1_sensors/index.md
-              - docs/robot/autonomy/1_sensors/gimbal.md              
+              - docs/robot/autonomy/1_sensors/gimbal.md
           - Perception:
               - docs/robot/autonomy/2_perception/index.md
               - docs/robot/autonomy/2_perception/state_estimation.md
           - Local:
               - docs/robot/autonomy/3_local/index.md
               - World Model:
-                - docs/robot/autonomy/3_local/world_model/index.md
-                - DROAN (Obstacle Avoidance World Model):
-                  - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_expansion/README.md
-                  - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph/README.md
-                  - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph_cost_map/README.md
+                  - docs/robot/autonomy/3_local/world_model/index.md
+                  - DROAN (Obstacle Avoidance World Model):
+                      - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_expansion/README.md
+                      - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph/README.md
+                      - robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph_cost_map/README.md
               - Planning:
-                - docs/robot/autonomy/3_local/planning/index.md
-                - robot/ros_ws/src/autonomy/3_local/b_planners/trajectory_library/README.md
-                - robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/README.md
-                - DROAN (Obstacle Avoidance Planner):
-                  - robot/ros_ws/src/autonomy/3_local/b_planners/droan_local_planner/README.md
+                  - docs/robot/autonomy/3_local/planning/index.md
+                  - robot/ros_ws/src/autonomy/3_local/b_planners/trajectory_library/README.md
+                  - Takeoff Landing Planner:
+                      - robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/README.md
+                      - robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/test/README.md
+                  - DROAN (Obstacle Avoidance Planner):
+                      - robot/ros_ws/src/autonomy/3_local/b_planners/droan_local_planner/README.md
               - Controls:
-                - docs/robot/autonomy/3_local/controls/index.md
-                - robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/README.md
+                  - docs/robot/autonomy/3_local/controls/index.md
+                  - robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/README.md
           - Global:
               - docs/robot/autonomy/4_global/index.md
               - World Model:
-                - docs/robot/autonomy/4_global/world_model/index.md
-                - robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2/README.md
+                  - docs/robot/autonomy/4_global/world_model/index.md
+                  - robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2/README.md
               - Planning:
-                - docs/robot/autonomy/4_global/planning/index.md
-                - robot/ros_ws/src/autonomy/4_global/b_planners/random_walk/README.md
+                  - docs/robot/autonomy/4_global/planning/index.md
+                  - robot/ros_ws/src/autonomy/4_global/b_planners/random_walk/README.md
           - Behavior:
               - docs/robot/autonomy/5_behavior/index.md
               - docs/robot/autonomy/5_behavior/behavior_tree.md
@@ -129,7 +131,7 @@ plugins:
   - same-dir
   - redirects:
       redirect_maps:
-        'README.md': 'docs/README.md'
+        "README.md": "docs/README.md"
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
 theme:

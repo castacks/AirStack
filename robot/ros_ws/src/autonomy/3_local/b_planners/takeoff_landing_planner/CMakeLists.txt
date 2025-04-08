@@ -46,9 +46,10 @@ install(DIRECTORY
   test
   DESTINATION share/${PROJECT_NAME})
 
-# Isolated Integration Testing from (https://arnebaeyens.com/blog/2024/ros2-integration-testing/)
 find_package(ament_cmake_ros REQUIRED)
 find_package(launch_testing_ament_cmake REQUIRED)
+
+# Isolated Integration Testing from (https://arnebaeyens.com/blog/2024/ros2-integration-testing/)
 function(add_ros_isolated_launch_test path)
   set(RUNNER "${ament_cmake_ros_DIR}/run_test_isolated.py")
   add_launch_test("${path}" RUNNER "${RUNNER}" ${ARGN})
