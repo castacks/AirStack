@@ -429,18 +429,18 @@ EOF
             shell_profile="$HOME/.bashrc"
         else
             log_warn "Could not determine shell profile. Please add the following line manually:"
-            echo "export PATH=\"$PROJECT_ROOT:\$PATH\""
+            echo "alias airstack=\"$PROJECT_ROOT/airstack.sh\""
             return
         fi
         
-        if grep -q "# AirStack PATH" "$shell_profile"; then
-            log_info "AirStack already in PATH"
+        if grep -q "# AirStack alias" "$shell_profile"; then
+            log_info "'airstack' alias already registered"
         else
-            log_info "Adding AirStack to PATH in $shell_profile"
+            log_info "Adding 'airstack' alias in $shell_profile"
             echo "" >> "$shell_profile"
-            echo "# AirStack PATH" >> "$shell_profile"
-            echo "export PATH=\"$PROJECT_ROOT:\$PATH\"" >> "$shell_profile"
-            echo "Added to $shell_profile. Please restart your shell or run 'source $shell_profile'"
+            echo "# AirStack alias" >> "$shell_profile"
+            echo "alias airstack=\"$PROJECT_ROOT/airstack.sh\"" >> "$shell_profile"
+            echo "Added to $shell_profile. Please restart your shell or run 'source $shell_profile'. Then you'll be able to use the 'airstack' command from any directory."
         fi
     fi
     
