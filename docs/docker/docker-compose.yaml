@@ -5,6 +5,7 @@ services:
       - ""
       - sitl
       - hitl
+      - idle
     image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_mkdocs
     build:
       dockerfile: ./Dockerfile

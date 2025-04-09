@@ -1,5 +1,9 @@
 services:
   isaac-sim:
+    profiles:
+      - ""
+      - sitl
+      - hitl
     image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_isaac-sim
     build:
       context: ../
@@ -64,3 +68,11 @@ services:
       - ../sitl_integration:/sitl_integration:rw
       - ../sitl_integration/inputrc:/etc/inputrc
       - ../sitl_integration/config:/root/.nvidia-omniverse/config:rw
+
+  # -------------------------------------------------------------------------------------------------------------------
+  # idle container for developer debugging
+  isaac-sim-idle:
+    profiles:
+      - idle
+    extends: isaac-sim
+    command: "sleep infinity"

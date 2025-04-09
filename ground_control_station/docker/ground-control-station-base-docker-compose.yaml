@@ -1,6 +1,6 @@
 # docker compose file
 services:
-  ground-control-station-base:
+  gcs-base:
     image: &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
     build:
       context: ../
