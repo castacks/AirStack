@@ -34,6 +34,8 @@
             to="/$(env ROBOT_NAME)/perception/visual_odometry_points" />
         <remap from="visual_odometry_img"
             to="/$(env ROBOT_NAME)/perception/visual_odometry_img" />
+        <remap from="visual_odometry_disparity"
+            to="/$(env ROBOT_NAME)/perception/visual_odometry_disparity" />
     </node>
 
     <!-- Depth Estimation -->
