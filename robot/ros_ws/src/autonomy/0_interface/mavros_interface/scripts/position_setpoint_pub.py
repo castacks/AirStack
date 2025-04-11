@@ -85,7 +85,30 @@ class OdomModifier(Node):
         return yaw[2]
 
     def odom_callback(self, msg):
+        '''
+        if self.odom == None:
+            q = R.from_quat([msg.pose.pose.orientation.x,
+                             msg.pose.pose.orientation.y,
+                             msg.pose.pose.orientation.z,
+                             msg.pose.pose.orientation.w])
+            p0 = np.array([self.path.poses[0].pose.position.x,
+                           self.path.poses[0].pose.position.y,
+                           self.path.poses[0].pose.position.z])
+            p1 = np.array([self.path.poses[1].pose.position.x,
+                           self.path.poses[1].pose.position.y,
+                           self.path.poses[1].pose.position.z])
+            p0 = q.apply(p0)
+            p1 = q.apply(p1)
+
+            self.path.poses[0].pose.position.x = p0[0]
+            self.path.poses[0].pose.position.y = p0[1]
+            self.path.poses[0].pose.position.z = p0[2]
+            self.path.poses[1].pose.position.x = p1[0]
+            self.path.poses[1].pose.position.y = p1[1]
+            self.path.poses[1].pose.position.z = p1[2]
+        '''
         self.odom = msg
+        
         #self.odom_pos = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
         #self.odom_yaw = self.get_yaw(msg.pose.pose.orientation)
 
