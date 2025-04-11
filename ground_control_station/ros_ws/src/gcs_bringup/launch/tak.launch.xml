@@ -12,14 +12,20 @@
     <param name="creds_path" value="$(var creds_path)"/>
   </node>
 
-  <!-- Launch ros2cot_agent node -->
-  <node pkg="ros2tak_tools" exec="chat2ros_agent" name="chat2ros_agent" output="screen">
-    <param name="config_file_path" value="$(var config_file_path)"/>
-    <param name="creds_path" value="$(var creds_path)"/>
-  </node>
+<!--  &lt;!&ndash; Launch ros2cot_agent node &ndash;&gt;-->
+<!--  <node pkg="ros2tak_tools" exec="chat2ros_agent" name="chat2ros_agent" output="screen">-->
+<!--    <param name="config_file_path" value="$(var config_file_path)"/>-->
+<!--    <param name="creds_path" value="$(var creds_path)"/>-->
+<!--  </node>-->
 
-  <!-- Launch ros2casevac_agent node -->
-  <node pkg="ros2tak_tools" exec="ros2casevac_agent" name="ros2casevac_agent" output="screen">
+<!--  &lt;!&ndash; Launch ros2casevac_agent node &ndash;&gt;-->
+<!--  <node pkg="ros2tak_tools" exec="ros2casevac_agent" name="ros2casevac_agent" output="screen">-->
+<!--    <param name="config_file_path" value="$(var config_file_path)"/>-->
+<!--    <param name="creds_path" value="$(var creds_path)"/>-->
+<!--  </node>-->
+
+<!--   Launch reidperson2cot_agent node-->
+  <node pkg="ros2tak_tools" exec="reidperson2cot_agent" name="reidperson2cot_agent" output="screen">
     <param name="config_file_path" value="$(var config_file_path)"/>
     <param name="creds_path" value="$(var creds_path)"/>
   </node>

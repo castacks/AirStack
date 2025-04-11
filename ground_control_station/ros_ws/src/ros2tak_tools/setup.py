@@ -38,6 +38,7 @@ setup(
             'cot2planner_agent = ros2tak_tools.cot2planner_agent:main',
             'ros2casevac_agent = ros2tak_tools.ros2casevac_agent:main',
             'chat2ros_agent = ros2tak_tools.chat2ros_agent:main',
+            'reidperson2cot_agent = ros2tak_tools.reidperson2cot_agent:main',
         ],
     },
 )
