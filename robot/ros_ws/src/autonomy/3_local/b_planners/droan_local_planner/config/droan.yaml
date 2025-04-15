@@ -29,7 +29,7 @@
     assume_seen_within_radius: 1.0  # anything within this radius, assume it is seen and don't check for obstacles
     
     everything_seen_and_free: true
-    use_virtual_cylinder: true
+    use_virtual_cylinder: false
     virtual_cylinder_x: 10.0
     virtual_cylinder_y: 0.0
     virtual_cylinder_radius: 4.0
