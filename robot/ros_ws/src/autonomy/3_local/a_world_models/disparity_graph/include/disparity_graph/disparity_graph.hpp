@@ -441,6 +441,8 @@ class DisparityGraph {
     }
 
   void virtual_cylinder_viz(){
+    if(!use_virtual_cylinder)
+      return;
     visualization_msgs::msg::MarkerArray marker_array;
 
     visualization_msgs::msg::Marker cylinder;

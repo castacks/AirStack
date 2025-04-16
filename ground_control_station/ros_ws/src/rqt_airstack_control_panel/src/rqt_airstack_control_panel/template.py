@@ -47,6 +47,8 @@ import copy
 
 from std_msgs.msg import Bool
 
+from .drag_and_drop import DragWidget, DragItem
+
 try:
     from rqt_py_console.spyder_console_widget import SpyderConsoleWidget
     _has_spyderlib = True
@@ -446,13 +448,14 @@ class AirstackControlPanel(Plugin):
         global logger
         logger = self.context.node.get_logger()
 
-        self.info_widgets = []
-
         self.widget = qt.QWidget()
         self.layout = qt.QVBoxLayout(self.widget)
 
         self.info_widget = qt.QWidget()
         self.info_layout = qt.QVBoxLayout(self.info_widget)
+
+        self.drag_widget = DragWidget(orientation=QtCore.Qt.Orientation.Vertical)
+        self.info_layout.addWidget(self.drag_widget)
         
         self.info_scroll_area = qt.QScrollArea()
         self.info_scroll_area.setWidget(self.info_widget)
@@ -470,25 +473,14 @@ class AirstackControlPanel(Plugin):
 
     def add_info_widget(self, settings=None):
         if settings == None:
-            info_widget = InfoWidget(self.context.node)
+            info_widget = DragItem(InfoWidget(self.context.node))
         else:
-            info_widget = InfoWidget(self.context.node, settings)
-        
-        def get_delete_function(i):
-            def delete_function():
-                self.info_layout.removeWidget(self.info_widgets[i])
-                self.info_widgets[i] = None
-            return delete_function
-        info_widget.delete_function = get_delete_function(len(self.info_widgets))
-        self.info_layout.addWidget(info_widget)
-        self.info_widgets.append(info_widget)
-
-    def remove_info_widget(self, index):
-        del self.info_widgets[index]
-        self.info_widgets[index] = None
+            info_widget = DragItem(InfoWidget(self.context.node, settings))
+        info_widget.widget.delete_function = info_widget.deleteLater
+        self.drag_widget.add_item(info_widget)
 
     def save_settings(self, plugin_settings, instance_settings):
-        info_dcts = [copy.deepcopy(w.get_dct()) for w in self.info_widgets if w != None]
+        info_dcts = [copy.deepcopy(w.get_dct()) for w in self.drag_widget.getWidgets()]
         for settings in info_dcts:
             settings['password'] = xor_encrypt_decrypt(settings['password'])
         instance_settings.set_value('info_dcts', info_dcts)
