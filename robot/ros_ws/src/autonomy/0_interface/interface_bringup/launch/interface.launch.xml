@@ -25,7 +25,7 @@
         output="screen">
 
       <param name="command_pose" value="False" />
-      <param name="max_velocity" value="3.0" />
+      <param name="max_velocity" value="5.0" />
       <param name="target_frame" value="base_link" />
       <param name="publish_goal" value="True" />
       
