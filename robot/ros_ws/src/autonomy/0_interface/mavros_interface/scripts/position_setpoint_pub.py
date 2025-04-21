@@ -65,13 +65,13 @@ class OdomModifier(Node):
         pose1.header = self.path.header
         pose1.pose.position.x = 50.0
         pose1.pose.position.y = 0.0
-        pose1.pose.position.z = 5.0
+        pose1.pose.position.z = 15.0
         pose1.pose.orientation.w = 1.0
         pose2 = PoseStamped()
         pose2.header = self.path.header
         pose2.pose.position.x = 60.0
         pose2.pose.position.y = 0.0
-        pose2.pose.position.z = 5.0
+        pose2.pose.position.z = 15.0
         pose2.pose.orientation.w = 1.0
         self.path.poses.append(pose1)
         self.path.poses.append(pose2)

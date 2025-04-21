@@ -24,7 +24,7 @@
     <node pkg="mavros_interface" exec="position_setpoint_pub.py"
         namespace="interface"
         output="screen">
-
+      
       <param name="command_pose" value="false" />
       <param name="max_velocity" value="3.0" />
       <param name="target_frame" value="base_link" />
