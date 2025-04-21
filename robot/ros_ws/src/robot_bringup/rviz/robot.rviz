@@ -30,7 +30,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Lidar
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -65,11 +65,7 @@ Visualization Manager:
           Value: true
         base_link_stabilized:
           Value: false
-        front_stereo:
-          Value: true
         front_stereo_camera_link:
-          Value: true
-        left_camera:
           Value: true
         look_ahead_point:
           Value: false
@@ -81,22 +77,14 @@ Visualization Manager:
           Value: false
         map_ned:
           Value: false
-        mavros_enu:
-          Value: true
         odom:
           Value: false
         odom_ned:
           Value: false
-        ouster:
-          Value: true
-        right_camera:
-          Value: true
         tracking_point:
           Value: true
         tracking_point_stabilized:
           Value: false
-        world:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -108,14 +96,7 @@ Visualization Manager:
             base_link:
               base_link_frd:
                 {}
-              front_stereo:
-                left_camera:
-                  {}
-                right_camera:
-                  {}
               front_stereo_camera_link:
-                {}
-              ouster:
                 {}
             base_link_stabilized:
               {}
@@ -550,7 +531,7 @@ Visualization Manager:
               Enabled: true
               Name: Virtual Obstacles
               Namespaces:
-                virtual_obstacle: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -616,7 +597,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            "": true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -701,7 +682,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 23.887706756591797
+      Distance: 10.692620277404785
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -743,5 +724,5 @@ Window Geometry:
   Visual Odometry Features:
     collapsed: false
   Width: 2190
-  X: 120
-  Y: 158
+  X: 128
+  Y: 68

@@ -16,6 +16,7 @@
         <param name="interface" value="mavros_interface::MAVROSInterface" />
         <param name="is_ardupilot" value="true" />
         <param name="post_takeoff_command_delay_time" value="10." />
+	<param name="do_global_pose_command" value="false" />
 	
 	<remap from="ardupilot_takeoff" to="/$(env ROBOT_NAME)/takeoff_landing_planner/ardupilot_takeoff" />
     </node>
@@ -24,10 +25,10 @@
         namespace="interface"
         output="screen">
 
-      <param name="command_pose" value="False" />
+      <param name="command_pose" value="false" />
       <param name="max_velocity" value="3.0" />
       <param name="target_frame" value="base_link" />
-      <param name="publish_goal" value="True" />
+      <param name="publish_goal" value="true" />
       
     </node>
 

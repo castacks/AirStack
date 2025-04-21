@@ -10,16 +10,24 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(robot_interface REQUIRED)
 find_package(mavros_msgs REQUIRED)
+find_package(geographic_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(message_filters REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};/usr/share/cmake/geographiclib")
+find_package(GeographicLib REQUIRED)
 
 add_library(mavros_interface src/mavros_interface.cpp)
 target_compile_features(mavros_interface PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
 target_include_directories(mavros_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:include>
+  ${GeographicLib_INCLUDE_DIRS})
 
 ament_target_dependencies(
   mavros_interface
@@ -29,6 +37,7 @@ ament_target_dependencies(
   tf2
   airstack_common
   std_srvs
+  GeographicLib
 )
 
 pluginlib_export_plugin_description_file(robot_interface plugins.xml)

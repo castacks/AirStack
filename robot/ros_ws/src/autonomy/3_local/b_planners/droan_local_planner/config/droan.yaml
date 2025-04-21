@@ -10,18 +10,18 @@
     dt: 0.2
     ht: 2.4
     ht_long: 3.0
-    max_velocity: 0.5
+    max_velocity: 2.5
     magnitude: 0.5
 
     # DROAN parameters
-    robot_radius: 1.  # spirit drone blade to blade
+    robot_radius: 2.  # spirit drone blade to blade
     safety_cost_weight: 5.0
     forward_progress_forgiveness_weight: 0.1
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap
-    obstacle_check_radius: 0.0 # this value MUST be strictly greater than the robot radius
-    obstacle_check_num_points: 0
+    obstacle_check_radius: 3.0 # this value MUST be strictly greater than the robot radius
+    obstacle_check_num_points: 6
     # disparity graph parameters. see disparity_graph.hpp
     fixed_frame: "map"
     stabilized_frame: "base_link_stabilized"  # the frame of the stabilized robot (roll and pitch removed)
