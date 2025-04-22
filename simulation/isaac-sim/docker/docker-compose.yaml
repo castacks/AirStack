@@ -74,5 +74,6 @@ services:
     extends:
       service: isaac-sim
     network_mode: host
+    networks: !reset null
     profiles:
       - hitl
