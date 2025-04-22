@@ -14,19 +14,19 @@
         <link rel="prev" href="../data_offloading/">
       
       
-        <link rel="next" href="../../about/">
+        <link rel="next" href="../HITL/">
       
       
       <link rel="icon" href="../../assets/StackedWhite.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.11">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
     
     
       
-        <title>Installation on Hardware - AirStack</title>
+        <title>Installation on ORIN AGX/NX - AirStack</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.4af4bdda.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.2afb09e1.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation-on-hardware" class="md-skip">
+        <a href="#installation-on-orin-agxnx" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation on Hardware
+              Installation on ORIN AGX/NX
             
           </span>
         </div>
@@ -2789,6 +2789,8 @@
       
         
       
+        
+      
     
     
     
@@ -2926,6 +2928,70 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../HITL/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    HITL Test
+    
+  </span>
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            HITL Test
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2974,7 +3040,25 @@
   
 
 
-<h1 id="installation-on-hardware">Installation on Hardware<a class="headerlink" href="#installation-on-hardware" title="Permanent link">&para;</a></h1>
+<h1 id="installation-on-orin-agxnx">Installation on ORIN AGX/NX<a class="headerlink" href="#installation-on-orin-agxnx" title="Permanent link">&para;</a></h1>
+<p>We have tested installation and running robot container on Jetson ORIN AGX/NX and Ubuntu 22.04.</p>
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<p>Ensure you have docker installed.</p>
+<h3 id="clone">Clone<a class="headerlink" href="#clone" title="Permanent link">&para;</a></h3>
+<p><div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git clone --recursive -j8 git@github.com:castacks/AirStack.git
+</span></code></pre></div>
+Checkout to the correct branch:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git checkout jkeller/jetson_36.4
+</span></code></pre></div></p>
+<h2 id="configure">Configure<a class="headerlink" href="#configure" title="Permanent link">&para;</a></h2>
+<p>Run <code>./configure.sh</code> and follow the instructions in the prompts to do an initial configuration of the repo.</p>
+<p>Pull the correct image:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker compose pull robot_l4t
+</span></code></pre></div></p>
+<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
+<p><div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker compose up robot_l4t
+</span></code></pre></div>
+You should be able to see the rviz GUI being launched.</p>
 
 
 
@@ -3027,13 +3111,13 @@
         
         
           
-          <a href="../../about/" class="md-footer__link md-footer__link--next" aria-label="Next: About">
+          <a href="../HITL/" class="md-footer__link md-footer__link--next" aria-label="Next: Hardware-In-The-Loop Simulation">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                About
+                Hardware-In-The-Loop Simulation
               </div>
             </div>
             <div class="md-footer__button md-icon">
