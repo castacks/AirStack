@@ -10,6 +10,3 @@
 [submodule "robot/ros_ws/src/autonomy/2_perception/macvo/macvo/src"]
 	path = robot/ros_ws/src/autonomy/2_perception/macvo/macvo/src
 	url = https://github.com/MAC-VO/MAC-VO.git
-[submodule "robot/ros_ws/src/autonomy/2_perception/macvo2"]
-	path = robot/ros_ws/src/autonomy/2_perception/macvo2
-	url = git@github.com:castacks/MAC-VO-ROS2.git
