@@ -7,6 +7,7 @@ BOLDCYAN="\e[1;96m"
 YELLOW="\e[;33m"
 ENDCOLOR="\e[0m"
 
+# helper function
 confirm_no() { #https://stackoverflow.com/questions/3231804/in-bash-how-to-add-are-you-sure-y-n-to-any-command-or-alias
     read -r -p "${1:-Are you sure? [y/N]} " response
     case "$response" in
@@ -20,7 +21,7 @@ confirm_no() { #https://stackoverflow.com/questions/3231804/in-bash-how-to-add-a
 }
 
 
-# Generate user.config.json
+# Generate user.config.json for IsaacSim settings
 USER_CONFIG_JSON_SOURCE=${SCRIPT_DIR}/simulation/isaac-sim/docker/user_TEMPLATE.config.json
 USER_CONFIG_JSON_DESTINATION=${SCRIPT_DIR}/simulation/isaac-sim/docker/user.config.json
 
@@ -41,7 +42,7 @@ else
 fi
 
 
-# AirLab Nucleus Login Config
+# AirLab Omniverse Nucleus Server Login Config
 OMNI_PASS_SOURCE=${SCRIPT_DIR}/simulation/isaac-sim/docker/omni_pass_TEMPLATE.env
 OMNI_PASS_DESTINATION=${SCRIPT_DIR}/simulation/isaac-sim/docker/omni_pass.env
 
