@@ -88,6 +88,8 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
     marker_array.markers.clear();
     points_marker.points.clear();
     points_marker.colors.clear();
+    
+    disp_graph.virtual_cylinder_viz();
 
     // initialize cost_values to 0
     std::vector<std::vector<double> > cost_values(trajectories.size());

@@ -12,6 +12,7 @@ topics:
     type: behavior_tree_msgs/msg/BehaviorTreeCommands
     from_domain: 0
     to_domain: 3
+    
   /robot_1/fixed_trajectory_generator/fixed_trajectory_command:
     type: airstack_msgs/msg/FixedTrajectory
     from_domain: 0
@@ -22,5 +23,30 @@ topics:
     to_domain: 2
   /robot_3/fixed_trajectory_generator/fixed_trajectory_command:
     type: airstack_msgs/msg/FixedTrajectory
+    from_domain: 0
+    to_domain: 3
+    
+  /robot_1/bag_record/bag_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: 1
+    to_domain: 0
+  /robot_1/bag_record/set_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: 0
+    to_domain: 1
+  /robot_2/bag_record/bag_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: 2
+    to_domain: 0
+  /robot_2/bag_record/set_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: 0
+    to_domain: 2
+  /robot_3/bag_record/bag_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: 3
+    to_domain: 0
+  /robot_3/bag_record/set_recording_status:
+    type: std_msgs/msg/Bool
     from_domain: 0
     to_domain: 3

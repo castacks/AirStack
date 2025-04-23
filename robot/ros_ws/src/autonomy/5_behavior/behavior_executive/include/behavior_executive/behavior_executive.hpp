@@ -60,6 +60,7 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr state_estimate_timed_out_sub;
 
     // publishers
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr recording_pub;
 
     // services
     rclcpp::CallbackGroup::SharedPtr service_callback_group;
