@@ -123,6 +123,8 @@ nav:
       - docs/real_world/data_offloading/index.md
       - Installation on Hardware:
           - docs/real_world/installation/index.md
+      - HITL Test:
+          - docs/real_world/HITL/index.md    
   - About: docs/about.md
 plugins:
   - search
