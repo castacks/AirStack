@@ -10,12 +10,12 @@ services:
       - airstack_network
     ports:
       - 2222:22 # for ssh
-  
+
   # -------------------------------------------------------------------------------------------------------------------
-  # idle container for developer debugging
-  gcs-idle:
-    profiles:
-      - idle
+  # dev container for developer debugging
+  gcs-dev:
+    profiles: !override
+      - dev
     extends: gcs
     command: "sleep infinity"
 
@@ -30,6 +30,6 @@ services:
       service: gcs-base
     network_mode: host
     volumes:
-     - $HOME/bags/:/bags
-     - ../../robot/ros_ws/src/robot_bringup/rviz/:/bags/rviz
-     - ../../plot:/plot
+      - $HOME/bags/:/bags
+      - ../../robot/ros_ws/src/robot_bringup/rviz/:/bags/rviz
+      - ../../plot:/plot

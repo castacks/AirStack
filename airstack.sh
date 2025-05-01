@@ -104,8 +104,8 @@ function print_command_help {
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
             ;;
-        launch)
-            echo "Usage: airstack launch [service_name] [options]"
+        up)
+            echo "Usage: airstack up [service_name] [options]"
             echo ""
             echo "Options:"
             echo "  --build       Build images before starting containers"
@@ -117,10 +117,10 @@ function print_command_help {
             echo "Options:"
             echo "  --command=CMD  Run specific command instead of shell (default: bash)"
             ;;
-        stop)
-            echo "Usage: airstack stop [service_name]"
+        down)
+            echo "Usage: airstack down [service_name]"
             echo ""
-            echo "If no service name is provided, all services will be stopped."
+            echo "If no service name is provided, all services will be shutdown."
             ;;
         status)
             echo "Usage: airstack status"
@@ -447,61 +447,32 @@ EOF
     log_info "Setup complete!"
 }
 
-function cmd_launch {
+function cmd_up {
     check_docker
     
-    local services=()
-    local build=false
-    local recreate=false
-    
-    # Parse arguments
-    for arg in "$@"; do
-        if [ "$arg" == "--build" ]; then
-            build=true
-        elif [ "$arg" == "--recreate" ]; then
-            recreate=true
-        elif [[ "$arg" != --* ]]; then
-            services+=("$arg")
-        fi
-    done
-    
     # Build docker-compose command
-    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml up -d"
+    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml up $@ -d"
     
-    if [ "$build" = true ]; then
-        cmd="$cmd --build"
-    fi
-    
-    if [ "$recreate" = true ]; then
-        cmd="$cmd --force-recreate"
-    fi
-    
-    # Add services if specified
-    if [ ${#services[@]} -gt 0 ]; then
-        cmd="$cmd ${services[*]}"
-    fi
-    
-    log_info "Launching services: ${services[*]:-all}"
     eval "$cmd"
-    log_info "Services launched successfully"
+    log_info "Services brought up successfully"
 }
 
-function cmd_stop {
+function cmd_down {
     check_docker
     
     local services=("$@")
     
     # Build docker-compose command
-    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml down"
+    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml --profile '*' down"
     
     # Add services if specified
     if [ ${#services[@]} -gt 0 ]; then
-        cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml stop ${services[*]}"
+        cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml down ${services[*]}"
     fi
     
-    log_info "Stopping services: ${services[*]:-all}"
+    log_info "Shutting down services: ${services[*]:-all}"
     eval "$cmd"
-    log_info "Services stopped successfully"
+    log_info "Services shutdown successfully"
 }
 
 function cmd_connect {
@@ -653,8 +624,8 @@ declare -A COMMAND_HELP
 function register_builtin_commands {
     COMMANDS["install"]="cmd_install"
     COMMANDS["setup"]="cmd_setup"
-    COMMANDS["launch"]="cmd_launch"
-    COMMANDS["stop"]="cmd_stop"
+    COMMANDS["up"]="cmd_up"
+    COMMANDS["down"]="cmd_down"
     COMMANDS["connect"]="cmd_connect"
     COMMANDS["status"]="cmd_status"
     COMMANDS["logs"]="cmd_logs"
@@ -663,8 +634,8 @@ function register_builtin_commands {
     # Register help text for built-in commands
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, Docker Compose, etc.)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
-    COMMAND_HELP["launch"]="Start services using Docker Compose"
-    COMMAND_HELP["stop"]="Stop services"
+    COMMAND_HELP["up"]="Start services using Docker Compose"
+    COMMAND_HELP["down"]="down services"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
     COMMAND_HELP["status"]="Show status of all containers"
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"

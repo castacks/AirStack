@@ -32,14 +32,13 @@ services:
     ports:
       # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
       - "2223-2243:22"
-  
+
   # -------------------------------------------------------------------------------------------------------------------
-  # idle container for developer debugging
-  robot-idle:
-    profiles:
-      - "idle"
-    extends:
-      robot
+  # dev container for developer debugging
+  robot-dev:
+    profiles: !override
+      - "dev"
+    extends: robot
     command: sleep infinity
 
   # ===================================================================================================================
