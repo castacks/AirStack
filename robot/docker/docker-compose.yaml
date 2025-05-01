@@ -70,7 +70,7 @@ services:
     command: >
       bash -il -c "
       echo 'Building and sourcing workspace...';
-      bws >> /dev/null && sws >> /dev/null &&
+      bws &> /dev/null && sws &> /dev/null &&
       echo 'Starting tests for packages: takeoff_landing_planner';
       colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+;
       TEST_EXIT_CODE=$$?;
