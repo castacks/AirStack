@@ -23,6 +23,7 @@ The recommended way to install WinTAK is using the AirStack CLI tool:
 ```
 
 This will:
+
 1. Download the necessary files from airlab-storage
 2. Install VirtualBox
 3. Import the WinTAK virtual machine
