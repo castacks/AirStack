@@ -24,9 +24,6 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration file
-CONFIG_FILE="$HOME/.airstack.conf"
-
 # Print usage information
 function print_usage {
     echo -e "${BLUE}AirStack Development Tool${NC}"
@@ -402,22 +399,6 @@ function cmd_setup {
             modify_shell=false
         fi
     done
-    
-    # Create config file if it doesn't exist
-    if [ ! -f "$CONFIG_FILE" ] || [ "$force" = true ]; then
-        log_info "Creating configuration file at $CONFIG_FILE"
-        
-        # Prompt for configuration values
-        read -p "Enter your private key (or leave blank): " private_key
-        
-        # Save to config file
-        cat > "$CONFIG_FILE" << EOF
-# AirStack Configuration
-# Generated on $(date)
-PRIVATE_KEY="$private_key"
-EOF
-        chmod 600 "$CONFIG_FILE"
-    fi
     
     # Add to shell profile if requested
     if [ "$modify_shell" = true ]; then
