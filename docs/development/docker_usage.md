@@ -71,6 +71,8 @@ docker compose up isaac-sim -d
 docker compose up gcs -d
 ```
 
+
+
 ### Isaac Sim
 
 Start a bash shell in the Isaac Sim container:
@@ -163,3 +165,17 @@ graph TD
     style D fill:#fbf,stroke:#333,stroke-width:2px
 
 ```
+
+## Automated Testing
+
+To perform automated tests for the configured packages, please use the `autotest` service which
+extends the `robot` service with testing specific commands. Presently only `takeoff_landing_planner`
+is configured to be tested.
+
+```bash
+# On your development PC, do:
+
+docker compose up autotest
+```
+
+This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
