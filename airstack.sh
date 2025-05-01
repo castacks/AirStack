@@ -94,6 +94,7 @@ function print_command_help {
             echo "Options:"
             echo "  --force       Force reinstallation of components"
             echo "  --no-docker   Skip Docker installation"
+            echo "  --with-wintak Install WinTAK VirtualBox environment"
             ;;
         setup)
             echo "Usage: airstack setup [options]"
@@ -270,17 +271,18 @@ function cmd_install {
     
     # Check for --force flag
     local force=false
+    # Check for --no-docker flag
+    local install_docker=true
+    # Check for --with-wintak flag
+    local install_wintak=false
+    
     for arg in "$@"; do
         if [ "$arg" == "--force" ]; then
             force=true
-        fi
-    done
-    
-    # Check for --no-docker flag
-    local install_docker=true
-    for arg in "$@"; do
-        if [ "$arg" == "--no-docker" ]; then
+        elif [ "$arg" == "--no-docker" ]; then
             install_docker=false
+        elif [ "$arg" == "--with-wintak" ]; then
+            install_wintak=true
         fi
     done
     
@@ -384,6 +386,18 @@ function cmd_install {
                 sudo chmod +x /usr/local/bin/docker-compose
                 log_info "Docker Compose installation complete"
             fi
+        fi
+    fi
+    
+    # Install WINTAK if requested
+    if [ "$install_wintak" = true ]; then
+        # Check if the wintak module is available
+        if declare -f "cmd_wintak_install" > /dev/null; then
+            log_info "Installing WINTAK..."
+            cmd_wintak_install
+        else
+            log_error "WINTAK module not loaded. Cannot install WINTAK."
+            log_info "Please make sure the wintak.sh module is in the .airstack/modules directory."
         fi
     fi
     
