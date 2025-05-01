@@ -100,6 +100,7 @@ function print_command_help {
             echo ""
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
+            echo "  --no-config   Skip configuration tasks (Isaac Sim, Nucleus, Git hooks)"
             ;;
         up)
             echo "Usage: airstack up [service_name] [options]"
@@ -394,9 +395,13 @@ function cmd_setup {
     
     # Check for --no-shell flag
     local modify_shell=true
+    local skip_config=false
+    
     for arg in "$@"; do
         if [ "$arg" == "--no-shell" ]; then
             modify_shell=false
+        elif [ "$arg" == "--no-config" ]; then
+            skip_config=true
         fi
     done
     
@@ -422,6 +427,17 @@ function cmd_setup {
             echo "# AirStack alias" >> "$shell_profile"
             echo "alias airstack=\"$PROJECT_ROOT/airstack.sh\"" >> "$shell_profile"
             echo "Added to $shell_profile. Please restart your shell or run 'source $shell_profile'. Then you'll be able to use the 'airstack' command from any directory."
+        fi
+    fi
+    
+    # Run configuration tasks if not skipped
+    if [ "$skip_config" = false ]; then
+        # Check if the config module is available
+        if declare -f "cmd_config_all" > /dev/null; then
+            log_info "Running configuration tasks..."
+            cmd_config_all
+        else
+            log_warn "Configuration module not loaded. Skipping configuration tasks."
         fi
     fi
     
