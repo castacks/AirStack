@@ -3,7 +3,6 @@ services:
     profiles:
       - ""
       - sitl
-      - hitl
     image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_isaac-sim
     build:
       context: ../
@@ -72,7 +71,18 @@ services:
   # -------------------------------------------------------------------------------------------------------------------
   # idle container for developer debugging
   isaac-sim-idle:
-    profiles:
+    profiles: !override
       - idle
     extends: isaac-sim
     command: "sleep infinity"
+  
+  # ===================================================================================================================
+  # for running over ethernet for hitl to stream to the NVIDIA jetson device
+  isaac-sim-hitl:
+    extends:
+      service: isaac-sim
+    profiles: !override
+      - hitl
+    container_name: isaac-sim
+    network_mode: host
+    networks: !reset null
