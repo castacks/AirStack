@@ -9,19 +9,49 @@ Requirements:
 - Ubuntu 22.04
 
 ## Setup 
-WinTAK is setup as auto start on boot and connects to Airlabs TAK-Server. Its run on Windows 11 VirtualBox Virtual Machine.
+WinTAK is setup as auto start on boot and connects to Airlabs TAK-Server. It runs on a Windows 11 VirtualBox Virtual Machine.
 
 ![Setup](asset/setup.png)
 
-Run the following command from the setup folder 
+### Installation using AirStack CLI
+
+The recommended way to install WinTAK is using the AirStack CLI tool:
+
+```bash
+# From the AirStack root directory
+./airstack.sh install --with-wintak
+```
+
+This will:
+1. Download the necessary files from airlab-storage
+2. Install VirtualBox
+3. Import the WinTAK virtual machine
+4. Configure the necessary credentials and settings
+
+### Alternative Manual Installation
+
+Alternatively, you can run the setup script directly:
+
 ```bash
 # Move to the directory:
-cd ground_control_station/setup
+cd ground_control_station/installation
 # Execute the script
 ./setup_ground_control_station.sh
 ```
 
-NOTE: If it asks to reset the password, please reset to current password.
+### Starting and Stopping WinTAK
+
+Once installed, you can start and stop WinTAK using the AirStack CLI:
+
+```bash
+# Start WinTAK
+./airstack.sh wintak:start
+
+# Stop WinTAK
+./airstack.sh wintak:stop
+```
+
+**NOTE:** If it asks to reset the password on first boot, please choose your own memorable password.
 
 ![WinTAK](asset/WinTAK_on_windows_virtualbox_vm.png)
 
