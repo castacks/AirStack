@@ -66,6 +66,9 @@ function print_usage {
     echo ""
     echo "For more information on a command, run: airstack help <command>"
     echo "To see all available commands, run: airstack commands"
+    echo ""
+    echo "Note: The airstack command will automatically use the airstack.sh script from the"
+    echo "current directory or nearest parent directory containing an AirStack repository."
 }
 
 # Print command-specific help
@@ -102,6 +105,10 @@ function print_command_help {
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
             echo "  --no-config   Skip configuration tasks (Isaac Sim, Nucleus, Git hooks)"
+            echo ""
+            echo "This command adds an 'airstack' function to your shell profile that will"
+            echo "automatically find and use the airstack.sh script from the current directory"
+            echo "or nearest parent directory containing an AirStack repository."
             ;;
         up)
             echo "Usage: airstack up [service_name] [options]"
@@ -428,18 +435,54 @@ function cmd_setup {
         elif [ -f "$HOME/.bashrc" ]; then
             shell_profile="$HOME/.bashrc"
         else
-            log_warn "Could not determine shell profile. Please add the following line manually:"
-            echo "alias airstack=\"$PROJECT_ROOT/airstack.sh\""
+            log_warn "Could not determine shell profile. Please add the airstack function to your shell profile manually."
+            echo "You can find the function definition in the setup section of $PROJECT_ROOT/airstack.sh"
             return
         fi
         
-        if grep -q "# AirStack alias" "$shell_profile"; then
-            log_info "'airstack' alias already registered"
+        if grep -q "# AirStack function" "$shell_profile"; then
+            log_info "'airstack' function already registered"
         else
-            log_info "Adding 'airstack' alias in $shell_profile"
+            log_info "Adding 'airstack' function in $shell_profile"
             echo "" >> "$shell_profile"
-            echo "# AirStack alias" >> "$shell_profile"
-            echo "alias airstack=\"$PROJECT_ROOT/airstack.sh\"" >> "$shell_profile"
+            echo "# AirStack function" >> "$shell_profile"
+            echo 'function airstack() {' >> "$shell_profile"
+            echo '    # Start from the current directory and look for airstack.sh' >> "$shell_profile"
+            echo '    local current_dir="$(pwd)"' >> "$shell_profile"
+            echo '    local found_scripts=()' >> "$shell_profile"
+            echo '    local script_path=""' >> "$shell_profile"
+            echo '' >> "$shell_profile"
+            echo '    # First check if there is an airstack.sh in the current directory or any parent directory' >> "$shell_profile"
+            echo '    while [[ "$current_dir" != "" ]]; do' >> "$shell_profile"
+            echo '        if [[ -f "$current_dir/airstack.sh" ]]; then' >> "$shell_profile"
+            echo '            found_scripts+=("$current_dir/airstack.sh")' >> "$shell_profile"
+            echo '            # We found one, but keep looking to check for ambiguities' >> "$shell_profile"
+            echo '        fi' >> "$shell_profile"
+            echo '        # Stop if we reach the root directory' >> "$shell_profile"
+            echo '        if [[ "$current_dir" == "/" ]]; then' >> "$shell_profile"
+            echo '            break' >> "$shell_profile"
+            echo '        fi' >> "$shell_profile"
+            echo '        # Move up one directory' >> "$shell_profile"
+            echo '        current_dir="$(dirname "$current_dir")"' >> "$shell_profile"
+            echo '    done' >> "$shell_profile"
+            echo '' >> "$shell_profile"
+            echo '    # Check how many scripts we found' >> "$shell_profile"
+            echo '    if [[ ${#found_scripts[@]} -eq 0 ]]; then' >> "$shell_profile"
+            echo '        echo -e "\033[0;31m[ERROR]\033[0m No airstack.sh script found in the current directory or any parent directory."' >> "$shell_profile"
+            echo '        return 1' >> "$shell_profile"
+            echo '    elif [[ ${#found_scripts[@]} -gt 1 ]]; then' >> "$shell_profile"
+            echo '        echo -e "\033[0;31m[ERROR]\033[0m Multiple airstack.sh scripts found in the directory hierarchy:"' >> "$shell_profile"
+            echo '        for script in "${found_scripts[@]}"; do' >> "$shell_profile"
+            echo '            echo "  - $script"' >> "$shell_profile"
+            echo '        done' >> "$shell_profile"
+            echo '        echo "Please cd to the specific AirStack repository you want to use."' >> "$shell_profile"
+            echo '        return 1' >> "$shell_profile"
+            echo '    else' >> "$shell_profile"
+            echo '        # We found exactly one script, use it' >> "$shell_profile"
+            echo '        script_path="${found_scripts[0]}"' >> "$shell_profile"
+            echo '        "$script_path" "$@"' >> "$shell_profile"
+            echo '    fi' >> "$shell_profile"
+            echo '}' >> "$shell_profile"
             echo "Added to $shell_profile. Please restart your shell or run 'source $shell_profile'. Then you'll be able to use the 'airstack' command from any directory."
         fi
     fi
