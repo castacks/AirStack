@@ -39,7 +39,7 @@ airstack help <command>
 
 - `install`: Install dependencies (Docker Engine, Docker Compose, etc.)
 - `setup`: Configure AirStack settings and add to shell profile
-- `launch [service]`: Start services using Docker Compose
+- `up [service]`: Start services using Docker Compose
 - `stop [service]`: Stop services
 - `connect [container]`: Connect to a running container (supports partial name matching)
 - `status`: Show status of all containers
