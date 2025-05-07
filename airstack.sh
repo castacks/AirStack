@@ -33,7 +33,7 @@ function print_usage {
     echo "Available commands:"
     
     # Sort commands alphabetically
-    local sorted_commands=($(echo "${!COMMANDS[@]}" | tr ' ' '\n' | sort))
+    local sorted_ommands=($(echo "${!COMMANDS[@]}" | tr ' ' '\n' | sort))
     
     # Calculate the longest command name for padding
     local max_len=0
@@ -479,11 +479,11 @@ function cmd_setup {
             echo '        return 1' >> "$shell_profile"
             echo '    else' >> "$shell_profile"
             echo '        # We found exactly one script, use it' >> "$shell_profile"
-            echo '        script_path="${found_scripts[0]}"' >> "$shell_profile"
+            echo '        script_path="${found_scripts[@]:0:1}"' >> "$shell_profile"
             echo '        "$script_path" "$@"' >> "$shell_profile"
             echo '    fi' >> "$shell_profile"
             echo '}' >> "$shell_profile"
-            echo "Added to $shell_profile. Please restart your shell or run 'source $shell_profile'. Then you'll be able to use the 'airstack' command from any directory."
+            echo "Added to $shell_profile. Please restart your shell or run 'source $shell_profile'. Then you'll be able to use the 'airstack' command from any sub-directory."
         fi
     fi
     
