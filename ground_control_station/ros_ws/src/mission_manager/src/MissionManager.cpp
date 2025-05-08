@@ -362,7 +362,9 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   std::vector<std::vector<double>> cluster_centroids;
   std::vector<std::vector<ClusterPoint>> clusters;
   std::vector<std::vector<std::vector<double>>> cluster_bounds = allocate_search_map(logger, number_of_search_tasks, search_mission_request, cluster_centroids, clusters);
-  
+  RCLCPP_INFO(logger, "Map Allocated");
+
+
   //convert to task assignment
   std::vector<airstack_msgs::msg::TaskAssignment> task_assignments(max_number_agents_);
   // TODO: should allocate both search and track. Right now assumes all search tasks
@@ -423,6 +425,7 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   {
     pub->publish(visualize_multi_agent_search_request(num_active_agents, cluster_centroids, clusters, cluster_bounds));
   }
+  RCLCPP_INFO(logger, "Assignments published!");
 
   scenario_coutner_++;
   return task_assignments;

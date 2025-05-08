@@ -16,3 +16,9 @@ ros2 run --prefix 'gdb -ex run --args'  mission_manager mission_manager_node
 ros2 launch mission_manager mission_manager_launch.py
 ros2 run rviz2 rviz2
 ```
+
+Launch an example mission
+```
+docker exec -it airstack-ground-control-station-1 /bin/bash
+ros2 run mission_manager example_search_request_node
+```

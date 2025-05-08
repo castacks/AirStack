@@ -127,7 +127,7 @@ class MissionManagerNode : public rclcpp::Node
     rclcpp::TimerBase::SharedPtr timer_;
     double grid_cell_size_;
     bool visualize_search_allocation_;
-    int max_number_agents_; // TODO: get from param server
+    int max_number_agents_;
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
     double max_planning_time_;
@@ -166,7 +166,6 @@ class MissionManagerNode : public rclcpp::Node
       RCLCPP_INFO(this->get_logger(), "Received new search mission request");
       latest_search_mission_request_ = *msg;
 
-      // TODO: visualize the seach mission request
       this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg, grid_cell_size_);
       this->publish_tasks(this->mission_manager_->assign_tasks(
           this->get_logger(), latest_search_mission_request_,

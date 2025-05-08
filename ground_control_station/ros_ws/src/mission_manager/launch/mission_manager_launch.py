@@ -46,7 +46,7 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
-    ld.add_action(rviz2_node)
+    # ld.add_action(rviz2_node)
     # ld.add_action(grid_map_visualization_node)
     ld.add_action(mission_manager)
 

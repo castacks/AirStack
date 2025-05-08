@@ -34,7 +34,6 @@ bool BeliefMap::reset_map(rclcpp::Logger logger, airstack_msgs::msg::SearchMissi
       max_y = point.y;
     }
   }
-  // TODO param for grid resolution
   // TODO fix coordinate frames. Match airstack to IPP to grid map. grid map is NWU, IPP is ENU, airstack is ...
   // round to nearest resolution
   min_x = std::floor(min_x / grid_cell_size_) * grid_cell_size_;
@@ -123,6 +122,7 @@ bool BeliefMap::update_map(rclcpp::Logger logger, const airstack_msgs::msg::Beli
     const grid_map::Index index(*iterator);
     // always save with the lower value
     // TODO: Check not overwriting the values that are outside of the drone search area
+    // This could cause issues if precision is not enough. Another way would be to set an exact flag value, such as 1 instead of 0.
     if (new_belief_data->map_values[cur_index_num] != 0 && 
         new_belief_data->map_values[cur_index_num] < probability_data(index(0), index(1)))
     {
