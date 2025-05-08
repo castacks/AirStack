@@ -6,20 +6,21 @@ By the end of this tutorial, you will have the autonomy stack running on your ma
 
 You need at least 25GB free to install the Docker image.
 
-Have an NVIDIA GPU >= RTX 3070 to run Isaac Sim locally.
+Check the hardware requirements for the NVIDIA Isaac Sim [here](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html).
+A GPU of GeForce RTX 4080 or higher is recommended for the best performance.
 
-## Setup
-
-### Clone
-
-```
+## Clone
+```bash
 git clone --recursive -j8 git@github.com:castacks/AirStack.git
+cd AirStack
 ```
 
-### Docker
+## Install and Setup
 
-Follow [NVIDIA's instructions](https://docs.nvidia.com/ai-enterprise/deployment/vmware/latest/docker.html) for installing Docker to be compatible with NVIDIA GPUs, including adding the NVIDIA Container Toolkit.
-Make sure `docker-compose-plugin` is also installed with Docker.
+```bash
+./airstack.sh install  # installs docker and docker-compose
+./airstack.sh setup  # this lets you use the `airstack` command
+```
 
 ## Configure
 
@@ -75,7 +76,7 @@ docker compose push
 ## Launch
 
 ```bash
-./launch.sh # This will launch the docker containers, isaac sim, and WinTAK
+airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
 This will automatically launch and play the Isaac scene specified under `AirStack/.env` (default is the Fire Academy).
@@ -93,5 +94,5 @@ You can also switch to `Fixed Trajectory` mode and hit `Publish` on the bottom r
 To shutdown and remove docker containers:
 
 ```bash
-./shutdown.sh # This will stop and remove the docker containers, isaac sim, and WinTAK
+airstack down # This will stop and remove the docker containers
 ```
