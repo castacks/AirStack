@@ -84,6 +84,59 @@ namespace airstack {
     return get_param(node.get(), name, default_value, &set);
   }
 
+
+  struct ParamInfo{
+    void* variable;
+    rclcpp::ParameterType type;
+  };
+  std::unordered_map<std::string, ParamInfo> dynamic_params;
+  rclcpp::Node* temp_node = NULL;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
+
+  rcl_interfaces::msg::SetParametersResult on_param_change(const std::vector<rclcpp::Parameter> & params){
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    if(temp_node != NULL){
+      for (const auto & param : params) {
+	RCLCPP_INFO_STREAM(temp_node->get_logger(), param.get_name());
+
+	if(dynamic_params.count(param.get_name()) > 0){
+	  ParamInfo pi = dynamic_params[param.get_name()];
+
+	  if(pi.type == rclcpp::ParameterType::PARAMETER_INTEGER)
+	    *((int*)pi.variable) = param.as_int();
+	  else if(pi.type == rclcpp::ParameterType::PARAMETER_DOUBLE)
+	    *((double*)pi.variable) = param.as_double();
+	  else if(pi.type == rclcpp::ParameterType::PARAMETER_STRING)
+	    *((std::string*)pi.variable) = param.as_string();
+	  else if(pi.type == rclcpp::ParameterType::PARAMETER_BOOL)
+	    *((bool*)pi.variable) = param.as_bool();
+	}
+      }
+    }
+	
+    
+    
+    return result;
+  }
+
+  template <typename T>
+  inline void dynamic_param(rclcpp::Node* node, std::string name, T default_value, T* variable){
+    temp_node = node;
+    //rclcpp::ParameterValue pv = node->declare_parameter(name, rclcpp::ParameterValue(default_value));
+    //*variable = default_value;
+    *variable = get_param(node, name, default_value);
+
+    ParamInfo pi;
+    pi.variable = (void*)variable;
+    pi.type = node->get_parameter(name).get_type();//pv.get_type();
+    dynamic_params[name] = pi;
+
+    if(!param_callback_handle)
+      param_callback_handle = node->add_on_set_parameters_callback(&on_param_change);
+  }
+
   // services
 
   template <typename T>
