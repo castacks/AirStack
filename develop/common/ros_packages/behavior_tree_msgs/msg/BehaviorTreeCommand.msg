@@ -1,2 +1,0 @@
-string condition_name
-int8 status
