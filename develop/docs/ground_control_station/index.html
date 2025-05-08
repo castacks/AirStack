@@ -504,6 +504,8 @@
       
         
       
+        
+      
     
     
     
@@ -635,6 +637,122 @@
       
         
       
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../development/airstack-cli/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    AirStack CLI Tool
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            AirStack CLI Tool
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/airstack-cli/extending/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extending the AirStack CLI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/airstack-cli/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AirStack CLI Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
         
       
         
@@ -654,7 +772,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -671,14 +789,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Testing
           </label>
@@ -3049,15 +3167,36 @@
 - min 4 CPU Cores
 - Ubuntu 22.04</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<p>WinTAK is setup as auto start on boot and connects to Airlabs TAK-Server. Its run on Windows 11 VirtualBox Virtual Machine.</p>
+<p>WinTAK is setup as auto start on boot and connects to Airlabs TAK-Server. It runs on a Windows 11 VirtualBox Virtual Machine.</p>
 <p><img alt="Setup" src="asset/setup.png" /></p>
-<p>Run the following command from the setup folder 
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Move to the directory:</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>ground_control_station/setup
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Execute the script</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./setup_ground_control_station.sh
-</span></code></pre></div></p>
-<p>NOTE: If it asks to reset the password, please reset to current password.</p>
+<h3 id="installation-using-airstack-cli">Installation using AirStack CLI<a class="headerlink" href="#installation-using-airstack-cli" title="Permanent link">&para;</a></h3>
+<p>The recommended way to install WinTAK is using the AirStack CLI tool:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># From the AirStack root directory</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./airstack.sh<span class="w"> </span>install<span class="w"> </span>--with-wintak
+</span></code></pre></div>
+<p>This will:</p>
+<ol>
+<li>Download the necessary files from airlab-storage</li>
+<li>Install VirtualBox</li>
+<li>Import the WinTAK virtual machine</li>
+<li>Configure the necessary credentials and settings</li>
+</ol>
+<h3 id="alternative-manual-installation">Alternative Manual Installation<a class="headerlink" href="#alternative-manual-installation" title="Permanent link">&para;</a></h3>
+<p>Alternatively, you can run the setup script directly:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Move to the directory:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>ground_control_station/installation
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Execute the script</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>./setup_ground_control_station.sh
+</span></code></pre></div>
+<h3 id="starting-and-stopping-wintak">Starting and Stopping WinTAK<a class="headerlink" href="#starting-and-stopping-wintak" title="Permanent link">&para;</a></h3>
+<p>Once installed, you can start and stop WinTAK using the AirStack CLI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Start WinTAK</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./airstack.sh<span class="w"> </span>wintak:start
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Stop WinTAK</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>./airstack.sh<span class="w"> </span>wintak:stop
+</span></code></pre></div>
+<p><strong>NOTE:</strong> If it asks to reset the password on first boot, please choose your own memorable password.</p>
 <p><img alt="WinTAK" src="asset/WinTAK_on_windows_virtualbox_vm.png" /></p>
 <h2 id="know-more-about-tak-using-the-youtube-link-below">Know more about TAK using the youtube link below:<a class="headerlink" href="#know-more-about-tak-using-the-youtube-link-below" title="Permanent link">&para;</a></h2>
 <p><a href="https://www.youtube.com/watch?v=fiBt0wEiKh8&amp;t=1s"><img alt="Video Title" src="https://img.youtube.com/vi/fiBt0wEiKh8/0.jpg" /></a></p>

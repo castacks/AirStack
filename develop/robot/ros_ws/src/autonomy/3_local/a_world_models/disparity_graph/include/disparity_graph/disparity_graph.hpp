@@ -41,11 +41,16 @@ class DisparityGraph {
     std::string sensor_frame, fixed_frame, stabilized_frame;
     visualization_msgs::msg::Marker marker_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr disparity_graph_marker_pub_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr virtual_obstacles_marker_pub_;
     double angle_tol, displacement_tol, assume_seen_within_radius;
     bool first;
     bool got_cam_info;
     double fx_, fy_, cx_, cy_, baseline_, downsample_scale;
     unsigned int width_, height_;
+  
+    bool everything_seen_and_free;
+    bool use_virtual_cylinder;
+    double virtual_cylinder_x, virtual_cylinder_y, virtual_cylinder_radius;
 
     std::mutex io_mutex;
 
@@ -77,6 +82,8 @@ class DisparityGraph {
         this->tf_buffer_ptr = tf_buffer_ptr;
         disparity_graph_marker_pub_ =
             node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_graph", 10);
+        virtual_obstacles_marker_pub_ =
+	  node_ptr->create_publisher<visualization_msgs::msg::MarkerArray>("virtual_obstacles", 10);
 
         node_ptr->declare_parameter("baseline_fallback", 0.5);
 
@@ -96,6 +103,19 @@ class DisparityGraph {
         node_ptr->get_parameter("displacement_tolerance", displacement_tol);
         node_ptr->declare_parameter("angle_tolerance", 30.0);
         angle_tol = node_ptr->get_parameter("angle_tolerance").as_double() * M_PI / 180.0;
+
+	node_ptr->declare_parameter<bool>("everything_seen_and_free", false);
+	node_ptr->get_parameter("everything_seen_and_free", this->everything_seen_and_free);
+
+	// virtual obstacle parameters
+	node_ptr->declare_parameter<bool>("use_virtual_cylinder", false);
+	node_ptr->get_parameter("use_virtual_cylinder", this->use_virtual_cylinder);
+	node_ptr->declare_parameter<double>("virtual_cylinder_x", 0.0);
+	node_ptr->get_parameter("virtual_cylinder_x", this->virtual_cylinder_x);
+	node_ptr->declare_parameter<double>("virtual_cylinder_y", 0.0);
+	node_ptr->get_parameter("virtual_cylinder_y", this->virtual_cylinder_y);
+	node_ptr->declare_parameter<double>("virtual_cylinder_radius", 0.0);
+	node_ptr->get_parameter("virtual_cylinder_radius", this->virtual_cylinder_radius);
 
         node_ptr->declare_parameter("expanded_disparity_fg_topic", "expanded_disparity_fg");
         disp_fg_sub_.subscribe(node_ptr,
@@ -353,6 +373,18 @@ class DisparityGraph {
         // RCLCPP_INFO_STREAM(node_ptr->get_logger(),"occupancy:" << occupancy << " is_free: " <<
         // is_free << " is_seen: " << is_seen);
 
+	if(everything_seen_and_free){
+	  is_seen = true;
+	  is_free = true;
+	}
+
+	if(use_virtual_cylinder){
+	  tf2::Vector3 p(world_point_stamped.point.x, world_point_stamped.point.y, 0.);
+	  tf2::Vector3 c(virtual_cylinder_x, virtual_cylinder_y, 0.);
+
+	  is_free = p.distance(c) >= virtual_cylinder_radius;
+	}
+
         return {is_seen, is_free, occupancy};
     }
 
@@ -407,6 +439,43 @@ class DisparityGraph {
         }
         return true;
     }
+
+  void virtual_cylinder_viz(){
+    if(!use_virtual_cylinder)
+      return;
+    visualization_msgs::msg::MarkerArray marker_array;
+
+    visualization_msgs::msg::Marker cylinder;
+    cylinder.header.frame_id = this->fixed_frame;  // Change to your reference frame
+    cylinder.header.stamp = node_ptr->now();
+    cylinder.ns = "virtual_obstacle";
+    cylinder.id = 0;
+    cylinder.type = visualization_msgs::msg::Marker::CYLINDER;
+    cylinder.action = visualization_msgs::msg::Marker::ADD;
+
+    // Position
+    cylinder.pose.position.x = this->virtual_cylinder_x;
+    cylinder.pose.position.y = this->virtual_cylinder_y;
+    cylinder.pose.position.z = 0.0;  // Half height for proper placement on ground
+    cylinder.pose.orientation.w = 1.0;
+
+    // Size
+    cylinder.scale.x = this->virtual_cylinder_radius*2.;  // Diameter in x
+    cylinder.scale.y = this->virtual_cylinder_radius*2.;  // Diameter in y
+    cylinder.scale.z = 100.;  // Height
+
+    // Color
+    cylinder.color.r = 1.0f;
+    cylinder.color.g = 0.0f;
+    cylinder.color.b = 0.0f;
+    cylinder.color.a = 6.0f;
+
+    cylinder.lifetime = rclcpp::Duration::from_seconds(0);  // Forever
+
+    marker_array.markers.push_back(cylinder);
+
+    virtual_obstacles_marker_pub_->publish(marker_array);
+  }
 
     void clear_graph(void) {
         std::lock_guard<std::mutex> lock(io_mutex);

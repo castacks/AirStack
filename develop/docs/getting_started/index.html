@@ -523,16 +523,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      Setup
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
   <a href="#clone" class="md-nav__link">
     <span class="md-ellipsis">
       Clone
@@ -540,18 +530,13 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#docker" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#install-and-setup" class="md-nav__link">
     <span class="md-ellipsis">
-      Docker
+      Install and Setup
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -619,6 +604,8 @@
       
         
           
+        
+      
         
       
         
@@ -764,6 +751,122 @@
       
         
       
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../development/airstack-cli/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    AirStack CLI Tool
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            AirStack CLI Tool
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/airstack-cli/extending/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extending the AirStack CLI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/airstack-cli/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AirStack CLI Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
         
       
         
@@ -783,7 +886,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -800,14 +903,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Testing
           </label>
@@ -3160,14 +3263,16 @@
 <p>By the end of this tutorial, you will have the autonomy stack running on your machine.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <p>You need at least 25GB free to install the Docker image.</p>
-<p>Have an NVIDIA GPU &gt;= RTX 3070 to run Isaac Sim locally.</p>
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<h3 id="clone">Clone<a class="headerlink" href="#clone" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git clone --recursive -j8 git@github.com:castacks/AirStack.git
+<p>Check the hardware requirements for the NVIDIA Isaac Sim <a href="https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html">here</a>.
+A GPU of GeForce RTX 4080 or higher is recommended for the best performance.</p>
+<h2 id="clone">Clone<a class="headerlink" href="#clone" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>-j8<span class="w"> </span>git@github.com:castacks/AirStack.git
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>AirStack
 </span></code></pre></div>
-<h3 id="docker">Docker<a class="headerlink" href="#docker" title="Permanent link">&para;</a></h3>
-<p>Follow <a href="https://docs.nvidia.com/ai-enterprise/deployment/vmware/latest/docker.html">NVIDIA's instructions</a> for installing Docker to be compatible with NVIDIA GPUs, including adding the NVIDIA Container Toolkit.
-Make sure <code>docker-compose-plugin</code> is also installed with Docker.</p>
+<h2 id="install-and-setup">Install and Setup<a class="headerlink" href="#install-and-setup" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./airstack.sh<span class="w"> </span>install<span class="w">  </span><span class="c1"># installs docker and docker-compose</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./airstack.sh<span class="w"> </span>setup<span class="w">  </span><span class="c1"># this lets you use the `airstack` command</span>
+</span></code></pre></div>
 <h2 id="configure">Configure<a class="headerlink" href="#configure" title="Permanent link">&para;</a></h2>
 <p>Run <code>./configure.sh</code> and follow the instructions in the prompts to do an initial configuration of the repo.</p>
 <h2 id="docker-images">Docker Images<a class="headerlink" href="#docker-images" title="Permanent link">&para;</a></h2>
@@ -3175,13 +3280,13 @@ Make sure <code>docker-compose-plugin</code> is also installed with Docker.</p>
 <details open> <summary>Option 1: Pull From the Airlab Registry (Preferred)</summary>
 To use the AirLab Docker registry do the following
 
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-storage.andrew.cmu.edu:5001
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1">## &lt;Enter your andrew id (without @andrew.cmu.edu)&gt;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1">## &lt;Enter your andrew password&gt;</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1">## Pull the images in the docker compose file</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>docker<span class="w"> </span>compose<span class="w"> </span>pull
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-storage.andrew.cmu.edu:5001
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">## &lt;Enter your andrew id (without @andrew.cmu.edu)&gt;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">## &lt;Enter your andrew password&gt;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1">## Pull the images in the docker compose file</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>docker<span class="w"> </span>compose<span class="w"> </span>pull
 </span></code></pre></div>
 
 The images will be pulled from the server automatically. This might take a while since the images are large.
@@ -3192,27 +3297,27 @@ The images will be pulled from the server automatically. This might take a while
 
 1.  Download the Ascent Spirit SITL software package by running this script (pip3 is required):
 
-    <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cd AirStack/
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>bash simulation/isaac-sim/installation/download_sitl.bash
+    <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cd AirStack/
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>bash simulation/isaac-sim/installation/download_sitl.bash
 </span></code></pre></div>
 
 2.  Next, gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
 
     Then:
 
-    <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>build<span class="w">  </span><span class="c1"># build the images locally</span>
+    <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>build<span class="w">  </span><span class="c1"># build the images locally</span>
 </span></code></pre></div>
 
 If you have permission you can push updated images to the docker server.
 
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>push
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>push
 </span></code></pre></div>
 
 </details>
 
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./launch.sh<span class="w"> </span><span class="c1"># This will launch the docker containers, isaac sim, and WinTAK</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="c1"># This will launch the robot, ground control station, and isaac sim</span>
 </span></code></pre></div>
 <p>This will automatically launch and play the Isaac scene specified under <code>AirStack/.env</code> (default is the Fire Academy).</p>
 <h2 id="move-robot">Move Robot<a class="headerlink" href="#move-robot" title="Permanent link">&para;</a></h2>
@@ -3222,7 +3327,7 @@ If you have permission you can push updated images to the docker server.
 <p>You can also switch to <code>Fixed Trajectory</code> mode and hit <code>Publish</code> on the bottom right to fly a predefined trajectory.</p>
 <h2 id="shutdown">Shutdown<a class="headerlink" href="#shutdown" title="Permanent link">&para;</a></h2>
 <p>To shutdown and remove docker containers:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./shutdown.sh<span class="w"> </span><span class="c1"># This will stop and remove the docker containers, isaac sim, and WinTAK</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>airstack<span class="w"> </span>down<span class="w"> </span><span class="c1"># This will stop and remove the docker containers</span>
 </span></code></pre></div>
 
 
