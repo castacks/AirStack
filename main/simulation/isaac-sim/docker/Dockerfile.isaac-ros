@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     gnupg2 \
     unzip \
     tmux \
+    iputils-ping \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # setup keys
@@ -76,6 +78,15 @@ RUN cd /tmp/ && \
     . /opt/ros/humble/setup.sh && \
     colcon build --symlink-install && \
     rm -rf /tmp/IsaacSim-${ISAAC_VERSION}.zip /tmp/${isaac_dir_name}
+
+# Install mavlink-router
+RUN apt update && apt install meson ninja-build
+RUN git clone https://github.com/mavlink-router/mavlink-router.git --recurse /mavlink-router
+WORKDIR /mavlink-router
+RUN meson setup build .
+RUN ninja -C build install
+RUN rm -rf /mavlink-router
+WORKDIR /isaac-sim
 
 # copy over the AscentAeroSystemsSITLPackage
 COPY sitl_integration/AscentAeroSystemsSITLPackage /AscentAeroSystemsSITLPackage

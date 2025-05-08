@@ -11,6 +11,7 @@ trajectories:
       attributes:
         - frame_id
         - velocity
+        - turn_velocity
         - max_acceleration
         - length
         - width
@@ -36,3 +37,11 @@ trajectories:
         - x
         - y
         - height
+  - Lawnmower:
+      attributes:
+        - frame_id
+        - length
+        - width
+        - height
+        - velocity
+        - vertical

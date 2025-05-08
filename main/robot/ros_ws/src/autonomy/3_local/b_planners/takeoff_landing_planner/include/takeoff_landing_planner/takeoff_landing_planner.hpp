@@ -4,6 +4,8 @@
 #include <airstack_msgs/msg/odometry.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <airstack_msgs/srv/takeoff_landing_command.hpp>
+#include <mavros_msgs/srv/command_tol.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
@@ -14,7 +16,7 @@
 class TakeoffLandingPlanner : public rclcpp::Node {
    private:
     // parameters
-    float takeoff_height, high_takeoff_height, takeoff_landing_velocity;
+    float takeoff_height, high_takeoff_height, takeoff_velocity, landing_velocity;
     float takeoff_acceptance_distance, takeoff_acceptance_time;
     float landing_stationary_distance, landing_acceptance_time;
     float landing_tracking_point_ahead_time;
@@ -58,7 +60,10 @@ class TakeoffLandingPlanner : public rclcpp::Node {
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr landing_state_pub;
 
     // services
+    rclcpp::CallbackGroup::SharedPtr service_callback_group;
     rclcpp::Service<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr command_server;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr ardupilot_takeoff_server;
+    rclcpp::Client<mavros_msgs::srv::CommandTOL>::SharedPtr takeoff_client;
 
     // timers
     rclcpp::TimerBase::SharedPtr timer;
@@ -73,7 +78,9 @@ class TakeoffLandingPlanner : public rclcpp::Node {
     void set_takeoff_landing_command(
         const airstack_msgs::srv::TakeoffLandingCommand::Request::SharedPtr request,
         airstack_msgs::srv::TakeoffLandingCommand::Response::SharedPtr response);
-
+    void ardupilot_takeoff(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+			   std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+  
    public:
     TakeoffLandingPlanner();
     void timer_callback();

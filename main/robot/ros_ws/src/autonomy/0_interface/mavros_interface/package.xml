@@ -12,11 +12,16 @@
   <depend>robot_interface</depend>
   <depend>mavros</depend>
   <depend>mavros_msgs</depend>
+  <depend>geographic_msgs</depend>
   <depend>vision_msgs</depend>
   <depend>ackerman_msgs</depend>
   <depend>pluginlib</depend>
   <depend>tf2</depend>
   <depend>airstack_common</depend>
+  <depend>std_srvs</depend>
+  <depend>message_filters</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

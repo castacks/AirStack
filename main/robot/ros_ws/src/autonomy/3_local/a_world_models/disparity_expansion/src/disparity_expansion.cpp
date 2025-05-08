@@ -10,8 +10,8 @@
 
 DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& options)
     : Node("DisparityExpansionNode", options) {
-    this->declare_parameter("scale", 2.0);
-    this->get_parameter("scale", this->scale);
+    this->declare_parameter("metric_depth_scale", 2.0);
+    this->get_parameter("metric_depth_scale", this->metric_depth_scale);
     this->declare_parameter("expansion_radius", 2.0);
     this->get_parameter("expansion_radius", this->expansion_radius);
     this->declare_parameter("lut_max_disparity", 164);
@@ -73,7 +73,7 @@ void DisparityExpansionNode::set_cam_info(
             "Baseline from camera_info was 0, setting to this->baseline_fallback:"
                 << this->baseline);
     }
-    this->baseline *= this->downsample_scale;
+    // this->baseline *= this->downsample_scale;
     this->generate_expansion_lookup_table();
     this->got_cam_info = true;
     RCLCPP_INFO(this->get_logger(), "Baseline: %.4f meters", this->baseline);
@@ -98,8 +98,8 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
     double disparity;
 
     for (unsigned int disp_idx = 1; disp_idx < lut_max_disparity; disp_idx++) {
-        disparity = disp_idx / this->scale;  // 1 cell = 0.5m, z is in meters
-        r = this->expansion_radius;          // * exp(DEPTH_ERROR_COEFF*z);
+        disparity = disp_idx / this->metric_depth_scale;  // 1 cell = 0.5m, z is in meters
+        r = this->expansion_radius;                       // * exp(DEPTH_ERROR_COEFF*z);
         z = this->baseline * this->fx / disparity;
 
         double disp_new = this->baseline * this->fx / (z - this->expansion_radius) + 0.5;
@@ -117,7 +117,11 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             v2 = this->fy * r2 / z + this->cy;
 
             if ((v2 - v1) < 0)
-                RCLCPP_ERROR(this->get_logger(), "Something MESSED %d %d %d", v1, v2, disp_idx);
+                RCLCPP_ERROR(this->get_logger(),
+                             "Something MESSED disp_idx=%d v=%d cy=%f fy=%f r=%f x=%f y=%f z=%f "
+                             "beta=%f beta1=%f r1=%f r2=%f v1=%d v2=%d",
+                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, r1, r2, v1,
+                             v2);
 
             if (v1 < 0) v1 = 0;
             if (v1 > (height - 1)) v1 = height - 1;
@@ -141,7 +145,11 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             u2 = this->fx * r2 / z + this->cx;
 
             if ((u2 - u1) < 0)
-                RCLCPP_ERROR(this->get_logger(), "Something MESSED %d %d %d", u1, u2, disp_idx);
+                RCLCPP_ERROR(this->get_logger(),
+                             "Something MESSED disp_idx=%d u=%d cx=%f fx=%f r=%f x=%f y=%f z=%f "
+                             "alpha=%f alpha1=%f r1=%f r2=%f u1=%d u2=%d",
+                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, r1, r2, u1,
+                             u2);
 
             if (u1 < 0) u1 = 0;
             if (u1 > (this->width - 1)) u1 = this->width - 1;
@@ -281,19 +289,22 @@ void DisparityExpansionNode::process_disparity_image(
         for (int u = (int)this->width - 1; u >= 0; u -= 1) {
             float disparity_value = disparity32F.at<float>(v, u);
 
-            if (std::isnan(double(disparity_value * this->scale)) ||
-                ((int(disparity_value * this->scale) + 1) >= this->lut_max_disparity) ||
-                ((int(disparity_value * this->scale) + 1) <= 0)) {
+            if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
+                ((int(disparity_value * this->metric_depth_scale) + 1) >=
+                 this->lut_max_disparity) ||
+                ((int(disparity_value * this->metric_depth_scale) + 1) <= 0)) {
                 RCLCPP_INFO_STREAM_THROTTLE(
                     this->get_logger(), *this->get_clock(), 5000,
                     "Step 1 Expand u: Disparity out of range: "
                         << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
-                        << " Scale: " << this->scale);
+                        << " metric_depth_scale: " << this->metric_depth_scale);
                 continue;
             }
 
-            unsigned int u1 = this->table_u.at(int(disparity_value * this->scale) + 1).at(u).idx1;
-            unsigned int u2 = this->table_u.at(int(disparity_value * this->scale) + 1).at(u).idx2;
+            unsigned int u1 =
+                this->table_u.at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx1;
+            unsigned int u2 =
+                this->table_u.at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx2;
 
             if (disparity32F.empty()) {
                 RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
@@ -365,19 +376,22 @@ void DisparityExpansionNode::process_disparity_image(
             float disparity_value = disparity32F.at<float>(v, u) +
                                     this->pixel_error;  // disparity_row[v * row_step + u];// + 0.5;
 
-            if (std::isnan(double(disparity_value * this->scale)) ||
-                ((int(disparity_value * this->scale) + 1) >= this->lut_max_disparity) ||
-                ((int(disparity_value * this->scale) + 1) <= 0)) {
+            if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
+                ((int(disparity_value * this->metric_depth_scale) + 1) >=
+                 this->lut_max_disparity) ||
+                ((int(disparity_value * this->metric_depth_scale) + 1) <= 0)) {
                 RCLCPP_INFO_STREAM_THROTTLE(
                     this->get_logger(), *this->get_clock(), 5000,
                     "Step 2 Expand v: Disparity out of range: "
                         << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
-                        << " Scale: " << this->scale);
+                        << " metric_depth_scale: " << this->metric_depth_scale);
                 continue;
             }
 
-            unsigned int v1 = this->table_v.at(int(disparity_value * this->scale) + 1).at(v).idx1;
-            unsigned int v2 = this->table_v.at(int(disparity_value * this->scale) + 1).at(v).idx2;
+            unsigned int v1 =
+                this->table_v.at(int(disparity_value * this->metric_depth_scale) + 1).at(v).idx1;
+            unsigned int v2 =
+                this->table_v.at(int(disparity_value * this->metric_depth_scale) + 1).at(v).idx2;
 
             cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
 

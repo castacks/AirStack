@@ -34,6 +34,8 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Condition* disarm_commanded_condition;
     bt::Condition* takeoff_complete_condition;
     bt::Condition* landing_complete_condition;
+    bt::Condition* in_air_condition;
+    bt::Condition* state_estimate_timed_out_condition;
     std::vector<bt::Condition*> conditions;
 
     // Action variables
@@ -55,8 +57,10 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr has_control_sub;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr takeoff_state_sub;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr landing_state_sub;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr state_estimate_timed_out_sub;
 
     // publishers
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr recording_pub;
 
     // services
     rclcpp::CallbackGroup::SharedPtr service_callback_group;
@@ -76,6 +80,7 @@ class BehaviorExecutive : public rclcpp::Node {
     void has_control_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void takeoff_state_callback(const std_msgs::msg::String::SharedPtr msg);
     void landing_state_callback(const std_msgs::msg::String::SharedPtr msg);
+    void state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
    public:
     BehaviorExecutive();

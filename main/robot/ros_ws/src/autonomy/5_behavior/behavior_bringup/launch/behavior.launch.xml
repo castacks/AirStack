@@ -23,6 +23,8 @@
             <!-- <remap from="get_random_walk_plan" to="/$(env ROBOT_NAME)/global/get_random_walk_plan" /> -->
             <remap from="takeoff_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/takeoff_state" />
             <remap from="landing_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/landing_state" />
+            <remap from="state_estimate_timed_out" to="/$(env ROBOT_NAME)/drone_safety_monitor/state_estimate_timed_out" />
+            <remap from="set_recording_status" to="/$(env ROBOT_NAME)/bag_record/set_recording_status" />
 
         </node>
 

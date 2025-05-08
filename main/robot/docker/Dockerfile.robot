@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     software-properties-common \
     wget \
+    iputils-ping \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
@@ -60,7 +62,7 @@ WORKDIR /root/ros_ws
 
 # Install dev tools
 RUN apt update && apt install -y \
-    vim nano wget curl tree \
+    vim nano emacs wget curl tree \
     cmake build-essential \
     less htop jq \
     python3-pip \
@@ -78,6 +80,7 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
+    ros-humble-rosbag2-storage-mcap \
     libcgal-dev \
     python3-colcon-common-extensions
 
@@ -113,7 +116,7 @@ RUN pip3 install \
     tabulate \
     einops \
     timm==0.9.12 \
-    rerun-sdk==0.17 \
+    rerun-sdk==0.22.0 \
     yacs \
     wandb
 
@@ -150,7 +153,9 @@ fi
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
 RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \ 
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
+    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
     rm -rf /root/model_weights/github.com
 
 WORKDIR /root/ros_ws

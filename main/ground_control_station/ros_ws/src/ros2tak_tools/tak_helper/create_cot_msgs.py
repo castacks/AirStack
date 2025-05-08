@@ -3,13 +3,26 @@ import pytak
 from datetime import datetime
 import uuid
 from typing import List, Tuple
+import logging
 
-def create_gps_COT(uuid: str, cot_type : str, latitude : str, longitude: str, altitude : str):
+def create_gps_COT(uuid, latitude, longitude, altitude, logger_name, device_type=None):
     """Create a CoT event based on the GPS data."""
+    logger = logging.getLogger(logger_name)
+
+    # Define CoT type based on robot type
+    cot_type = "a-f-G"  # Default generic
+    if device_type:
+        if device_type.lower() == 'uav':
+            cot_type = "a-f-A"  # Aircraft
+        elif device_type.lower() in ['ugv', 'quadruped', 'offroad']:
+            cot_type = "a-f-G"  # Ground robot
+
+    logger.debug(f"Creating CoT event for {uuid} with type {cot_type}")
+
     root = ET.Element("event")
     root.set("version", "2.0")
     root.set("type", cot_type)
-    root.set("uid", uuid)  # Use topic name as UID for identification
+    root.set("uid", uuid)  # Use robot name as UID for identification
     root.set("how", "m-g")
     root.set("time", pytak.cot_time())
     root.set("start", pytak.cot_time())
@@ -25,6 +38,18 @@ def create_gps_COT(uuid: str, cot_type : str, latitude : str, longitude: str, al
 
     ET.SubElement(root, "point", attrib=pt_attr)
 
+    # Adding detail section
+    detail = ET.SubElement(root, "detail")
+
+    # Add robot type information if provided
+    if device_type:
+        contact = ET.SubElement(detail, "contact")
+        contact.set("callsign", uuid)
+
+        takv = ET.SubElement(detail, "takv")
+        takv.set("device", device_type)
+
+    logger.debug(f"CoT event created successfully for {uuid}")
     return ET.tostring(root, encoding="utf-8")
 
 def create_casevac_COT(uuid, casualty_id, gps, zap_num, mechanism, injury, signs_symptoms, treatments, physician_name):

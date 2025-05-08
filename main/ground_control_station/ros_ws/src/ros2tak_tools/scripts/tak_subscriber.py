@@ -24,11 +24,12 @@ import asyncio
 import xml.etree.ElementTree as ET
 import pytak
 import argparse
-import socket
 import yaml
 from configparser import ConfigParser
 import logging
 import paho.mqtt.client as mqtt
+import sys
+from pathlib import Path
 
 # Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
 LOG_LEVEL = "DEBUG"
@@ -144,35 +145,54 @@ class MyReceiver(pytak.QueueWorker):
 
 async def main():
     parser = argparse.ArgumentParser(description="TAK Subscriber Script")
-    parser.add_argument('--config', type=str, required=True, help='Path to the config YAML file.')
+    parser.add_argument('--config_file_path', type=str, required=True, help='Path to the config YAML file.')
+    parser.add_argument('--creds_path', type=str, required=True, help='Path to the creds directory.')
+
     args = parser.parse_args()
+    print(f"STARTUP: Args parsed - config_file_path: {args.config_file_path}, creds_path: {args.creds_path}",
+          flush=True)
 
     # Load the YAML configuration
-    with open(args.config, 'r') as file:
-        config_data = yaml.safe_load(file)
+    try:
+        with open(args.config_file_path, 'r') as file:
+            print(f"STARTUP: Loading configuration from {args.config_file_path}", flush=True)
+            config_data = yaml.safe_load(file)
+            print("STARTUP: Configuration loaded successfully", flush=True)
+    except Exception as e:
+        print(f"ERROR: Failed to load configuration: {e}", flush=True)
+        sys.exit(1)
 
     # Extract necessary parameters from the configuration
-    cot_url = config_data['tak_server']['cot_url']
-    pytak_tls_client_cert = config_data['tak_server']['pytak_tls_client_cert']
-    pytak_tls_client_key = config_data['tak_server']['pytak_tls_client_key']
-    host = config_data['services']['host']
-    filter_messages = config_data['services']['subscriber']['tak_subscriber']['filter_messages']
-    # Extract the filter name and corresponding mqtt topic_name
-    message_name2topic = [{"name": msg['name'], "mqtt_topic": msg["mqtt_topic_name"]} for msg in filter_messages]
+    try:
+        cot_url = config_data['tak_server']['cot_url']
+        pytak_tls_client_cert = config_data['tak_server']['pytak_tls_client_cert']
+        # Add the creds_path to the pytak_tls_client_cert
+        pytak_tls_client_cert = Path(args.creds_path) / pytak_tls_client_cert
+        pytak_tls_client_key = config_data['tak_server']['pytak_tls_client_key']
+        # Add the creds_path to the pytak_tls_client_key
+        pytak_tls_client_key = Path(args.creds_path) / pytak_tls_client_key
 
-    # MQTT params
-    mqtt_broker = config_data['mqtt']['host']
-    # mqtt_broker = "localhost" # Uncomment if running from the host
-    mqtt_port = config_data['mqtt']['port']
-    mqtt_username = config_data['mqtt']['username']
-    mqtt_pwd = config_data['mqtt']['password']
+        host = config_data['services']['host']
+        filter_messages = config_data['services']['subscriber']['tak_subscriber']['filter_messages']
+        # Extract the filter name and corresponding mqtt topic_name
+        message_name2topic = [{"name": msg['name'], "mqtt_topic": msg["mqtt_topic_name"]} for msg in filter_messages]
+
+        # MQTT params
+        mqtt_broker = config_data['mqtt']['host']
+        # mqtt_broker = "localhost" # Uncomment if running from the host
+        mqtt_port = config_data['mqtt']['port']
+        mqtt_username = config_data['mqtt']['username']
+        mqtt_pwd = config_data['mqtt']['password']
+    except KeyError as e:
+        print(f"ERROR: Missing parameter in configuration: {e}", flush=True)
+        sys.exit(1)
 
     # Setup config for pytak
     config = ConfigParser()
     config["mycottool"] = {
         "COT_URL": cot_url,
-        "PYTAK_TLS_CLIENT_CERT": pytak_tls_client_cert,
-        "PYTAK_TLS_CLIENT_KEY": pytak_tls_client_key,
+        "PYTAK_TLS_CLIENT_CERT": str(pytak_tls_client_cert),
+        "PYTAK_TLS_CLIENT_KEY": str(pytak_tls_client_key),
         "PYTAK_TLS_CLIENT_PASSWORD": "atakatak",
         "PYTAK_TLS_DONT_VERIFY": "1"
     }
@@ -183,9 +203,9 @@ async def main():
 
     config["mqtt"] = {
         "host": mqtt_broker,
-        "port": mqtt_port,
+        "port": str(mqtt_port),
         "username": mqtt_username,
-        "password": mqtt_pwd
+        "password": mqtt_pwd or ""
     }
 
     # Initialize worker queues and tasks.
