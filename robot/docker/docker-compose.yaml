@@ -23,7 +23,7 @@ services:
       tmux new -d -s robot_bringup
       && tmux send-keys -t robot_bringup 
       'bws && sws && 
-      ros2 launch robot_bringup robot.launch.xml' ENTER
+      ros2 launch ${ROBOT_MAIN_LAUNCH}' ENTER
       && sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
     networks:

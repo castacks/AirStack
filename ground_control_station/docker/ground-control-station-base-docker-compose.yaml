@@ -12,7 +12,7 @@ services:
       bash -c "ssh service restart;
       tmux new -d -s gcs_bringup
       && tmux send-keys -t gcs_bringup 
-      'bws && sws; ros2 launch gcs_bringup gcs.launch.xml' ENTER
+      'bws && sws; ros2 launch ${GCS_MAIN_LAUNCH}' ENTER
       && sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
