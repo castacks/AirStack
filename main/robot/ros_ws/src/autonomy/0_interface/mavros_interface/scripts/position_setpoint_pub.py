@@ -19,6 +19,10 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import time
 
+COMMAND_NONE=0
+COMMAND_POSE=1
+COMMAND_VEL=2
+
 class OdomModifier(Node):
     def __init__(self):
         super().__init__('odom_modifier')
@@ -29,8 +33,8 @@ class OdomModifier(Node):
             depth=1)
         '''
 
-        self.declare_parameter('command_pose', True)
-        self.command_pose = self.get_parameter('command_pose').get_parameter_value().bool_value
+        self.declare_parameter('command_type', COMMAND_POSE)
+        self.command_type = self.get_parameter('command_type').get_parameter_value().integer_value
         
         self.declare_parameter('max_velocity', 0.5)
         self.max_velocity = self.get_parameter('max_velocity').get_parameter_value().double_value
@@ -129,7 +133,7 @@ class OdomModifier(Node):
         if exception:
             try:
                 t = self.tf_buffer.lookup_transform(target_frame, source_frame, lookup_time, timeout)
-                self.get_logger().info('elapsed %f' % (time.time() - start_time))
+                #self.get_logger().info('elapsed %f' % (time.time() - start_time))
                 return t
             except tf2_ros.TransformException as ex:
                 self.get_logger().info(
@@ -147,13 +151,13 @@ class OdomModifier(Node):
             self.path.poses[1].header.stamp = self.path.header.stamp
             self.path_publisher.publish(self.path)
         
-        if self.command_pose:
+        if self.command_type == COMMAND_POSE:
             out = PoseStamped()
             out.header = msg.header
             out.header.frame_id = 'base_link'
             out.pose = msg.pose
             self.odom_publisher.publish(out)
-        else:
+        elif self.command_type == COMMAND_VEL:
             t = self.get_tf(self.target_frame, msg.header.frame_id, rclpy.time.Time(seconds=0, nanoseconds=0),
                             Duration(seconds=2, nanoseconds=0))
             if t == None:
@@ -187,7 +191,7 @@ class OdomModifier(Node):
                 cross_track_x = self.projected_pose.pose.position.x - self.odom.pose.pose.position.x
                 cross_track_y = self.projected_pose.pose.position.y - self.odom.pose.pose.position.y
                 cross_track_z = self.projected_pose.pose.position.z - self.odom.pose.pose.position.z
-            self.get_logger().info('cross track: ' + str(cross_track_x) + ' ' + str(cross_track_y) + ' ' + str(cross_track_z))
+            #self.get_logger().info('cross track: ' + str(cross_track_x) + ' ' + str(cross_track_y) + ' ' + str(cross_track_z))
             ct = PoseStamped()
             ct.header = self.odom.header
             ct.pose.position.x = cross_track_x

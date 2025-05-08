@@ -267,9 +267,9 @@ def get_line_waypoints(attributes):  # length, height):
     for y in np.arange(0, -length, -0.5):
         wp = WaypointXYZVYaw()
         wp.position.x = -y
-        wp.position.y = 0
+        wp.position.y = 0.
         wp.position.z = height
-        wp.yaw = 0
+        wp.yaw = 0.
 
         traj.waypoints.append(wp)
 
@@ -294,7 +294,7 @@ def get_point_waypoints(attributes):  # length, height):
     wp.position.x = x
     wp.position.y = y
     wp.position.z = height
-    wp.yaw = 0
+    wp.yaw = 0.
 
     traj.waypoints.append(wp)
 

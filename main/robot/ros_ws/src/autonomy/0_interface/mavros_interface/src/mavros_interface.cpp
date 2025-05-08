@@ -29,6 +29,7 @@
 #include <mavros_msgs/srv/command_tol.hpp>
 #include <mavros_msgs/srv/set_mode.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <robot_interface/robot_interface.hpp>
 
 #include "GeographicLib/Geoid.hpp"
@@ -321,6 +322,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
     rclcpp::Publisher<geographic_msgs::msg::GeoPoseStamped>::SharedPtr global_position_target_pub_;
     rclcpp::Publisher<mavros_msgs::msg::PositionTarget>::SharedPtr velocity_target_pub_;
     rclcpp::Publisher<mavros_msgs::msg::HomePosition>::SharedPtr set_home_pub_;
+    rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr reset_integrators_pub_;
 
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub_;
     rclcpp::Subscription<mavros_msgs::msg::HomePosition>::SharedPtr home_sub_;
@@ -379,6 +381,9 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 	qos_profile.reliable(); 
 	set_home_pub_ = this->create_publisher<mavros_msgs::msg::HomePosition>(
             "mavros/home_position/set", qos_profile);
+
+	reset_integrators_pub_ = this->create_publisher<std_msgs::msg::Empty>(
+            "reset_integrators", 1);
 
         // subscribers
         state_sub_ = this->create_subscription<mavros_msgs::msg::State>(
@@ -467,30 +472,40 @@ class MAVROSInterface : public robot_interface::RobotInterface {
 
     void roll_pitch_yawrate_thrust_callback(
         const mav_msgs::msg::RollPitchYawrateThrust::SharedPtr cmd) override {
+      /*
         if (!is_yaw_received_) {
             RCLCPP_ERROR(this->get_logger(),
                          "roll_pitch_yawrate_thrust command called but haven't yet "
                          "received drone current yaw");
             return;
         }
+      */
+	if (!is_ardupilot ||
+ 	    (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > post_takeoff_command_delay_time))) {
+	  
+	  if(fabs((this->get_clock()->now() - in_air_start_time).seconds() - post_takeoff_command_delay_time) < 1.){
+	    std_msgs::msg::Empty empty;
+	    reset_integrators_pub_->publish(empty);
+	  }
+	    
+ 	  mavros_msgs::msg::AttitudeTarget mavros_cmd;
+ 	  mavros_cmd.header.stamp = this->get_clock()->now();  //.to_msg();
+ 	  mavros_cmd.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE |
+ 	    mavros_msgs::msg::AttitudeTarget::IGNORE_PITCH_RATE |
+ 	    mavros_msgs::msg::AttitudeTarget::IGNORE_YAW_RATE;
+ 	  //mavros_cmd.body_rate.z = cmd->yaw_rate;
+ 	  mavros_cmd.thrust = cmd->thrust.z;
+ 	  
+ 	  tf2::Quaternion q;
+ 	  q.setRPY(cmd->roll, cmd->pitch, cmd->yaw_rate);
+ 	  mavros_cmd.orientation.x = q.x();
+ 	  mavros_cmd.orientation.y = q.y();
+ 	  mavros_cmd.orientation.z = q.z();
+ 	  mavros_cmd.orientation.w = q.w();
+ 	  
+ 	  attitude_target_pub_->publish(mavros_cmd);
+       }
 
-        mavros_msgs::msg::AttitudeTarget mavros_cmd;
-        mavros_cmd.header.stamp = this->get_clock()->now();  //.to_msg();
-        mavros_cmd.type_mask = mavros_msgs::msg::AttitudeTarget::IGNORE_ROLL_RATE |
-                               mavros_msgs::msg::AttitudeTarget::IGNORE_PITCH_RATE;
-        tf2::Matrix3x3 m;
-        m.setRPY(cmd->roll, cmd->pitch, yaw_);
-        tf2::Quaternion q;
-        m.getRotation(q);
-        mavros_cmd.body_rate.z = cmd->yaw_rate;
-        mavros_cmd.thrust = cmd->thrust.z;
-
-        mavros_cmd.orientation.x = q.x();
-        mavros_cmd.orientation.y = q.y();
-        mavros_cmd.orientation.z = q.z();
-        mavros_cmd.orientation.w = q.w();
-
-        attitude_target_pub_->publish(mavros_cmd);
     }
 
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override {
