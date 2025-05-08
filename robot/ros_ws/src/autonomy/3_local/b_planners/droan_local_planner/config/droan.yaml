@@ -28,11 +28,11 @@
     baseline_fallback: 0.12  # if the baseline is 0 from the camera_info, use this value instead. in meters
     assume_seen_within_radius: 1.0  # anything within this radius, assume it is seen and don't check for obstacles
     
-    everything_seen_and_free: false
-    use_virtual_cylinder: false
+    everything_seen_and_free: true
+    use_virtual_cylinder: true
     virtual_cylinder_x: 10.0
     virtual_cylinder_y: 0.0
-    virtual_cylinder_radius: 4.0
+    virtual_cylinder_radius: 8.0
 
     # GLOBAL_PLAN mode parameters
     # 0: use the yaw of the subscribed traj, 1: smoothly vary the yaw in the direction of the subscribed trajectory

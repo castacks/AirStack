@@ -27,10 +27,10 @@
         namespace="interface"
         output="screen">
       
-      <param name="command_type" value="2" />
+      <param name="command_type" value="0" />
       <param name="max_velocity" value="3.0" />
       <param name="target_frame" value="base_link" />
-      <param name="publish_goal" value="false" />
+      <param name="publish_goal" value="true" />
       
     </node>
 
