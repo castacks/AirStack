@@ -1,4 +1,5 @@
 data:
+  odom: odometry_conversion/odometry
   odom_x: odometry_conversion/odometry.pose.pose.position.x
   odom_y: odometry_conversion/odometry.pose.pose.position.y
   vel_x: odometry_conversion/odometry.twist.twist.linear.x
@@ -83,6 +84,11 @@ figures:
             y: tp_y
             fmt: .-
             label: Tracking Point
+      - set_title: 'Cross Track'
+        plots:
+          - x: odom.header_time
+            y: np.min(np.hypot(odom_x[None, :] - tp_x[:, None], odom_y[None, :] - tp_y[:, None]), axis=0)
+            fmt: .-
   - profiles: fixed_traj_split, pid(title='X', pid=xpid)
   - profiles: fixed_traj_split, pid(title='Y', pid=ypid)
   - profiles: fixed_traj_split, pid(title='Z', pid=zpid)
