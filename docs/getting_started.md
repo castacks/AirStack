@@ -79,6 +79,7 @@ docker compose push
 ## Launch
 
 ```bash
+xhost +     # This is needed every system boot to allow Docker to access the X server
 airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
