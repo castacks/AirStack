@@ -14,6 +14,21 @@ sections:
       - 1073741824 # 1GB
     exclude:
       - sensors/*
+      - control/*
+  control:
+    mcap_qos: mcap_qos.yaml
+    args: 
+      - -b
+      - 4000000000 # ~4GB
+      - --max-cache-size 
+      - 1073741824 # 1GB
+    topics:
+      - control/vx_pid_info
+      - control/vy_pid_info
+      - control/vz_pid_info
+      - control/x_pid_info
+      - control/y_pid_info
+      - control/z_pid_info
   zed:
     mcap_qos: mcap_qos.yaml
     args: 
