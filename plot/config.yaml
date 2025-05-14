@@ -30,7 +30,7 @@ profiles:
       field: fixed_traj
       condition: x != None
       as: axes
-      keep_indices: 1, 2
+      #keep_indices: 1, 2
   test:
     set_aspect: aspect_type
   pid:

@@ -181,11 +181,18 @@ def load_data(bag_path, data_map):
                 data[name].append(value)
                 data_bag_times[name].append(recorded_time)
 
+
+    keys_to_delete = []
     for k,v in data.items():
+        if len(v) == 0:
+            keys_to_delete.append(k)
         o = create_object(v, np.array(data_bag_times[k]))
         if hasattr(o, 'header'):
             o.header_time = o.header.stamp.sec + o.header.stamp.nanosec*1e-9
         data[k] = o
+
+    for k in keys_to_delete:
+        del data[k]
                 
     return data
             
@@ -224,15 +231,22 @@ def plot(yaml_filename, bag_path):
     for fig in figs:
         fig_context = {}
         if 'profiles' in fig:
-            fig_context = apply_profiles(fig, profiles, make_list(eval(fig['profiles'], globals(), profiles_context)))
+            try:
+                fig_context = apply_profiles(fig, profiles, make_list(eval(fig['profiles'], globals(), profiles_context)))
+            except Exception as e:
+                print('skipping ' + str(fig) + ' because ' + str(e))
+                continue
 
         # configure splitting
         split_bag_times = [0]
         if 'split' in fig:
-            field = eval(fig['split']['field'])
-            for i, x in enumerate(field):
-                if eval(fig['split']['condition']):
-                    split_bag_times.append(field.bag_times[i])
+            try:
+                field = eval(fig['split']['field'])
+                for i, x in enumerate(field):
+                    if eval(fig['split']['condition']):
+                        split_bag_times.append(field.bag_times[i])
+            except Exception as e:
+                print('skipping split field "' + fig['split']['field'] + '" because ' + str(e))
         split_bag_times.append(10**100)
         split_bag_times = np.array(split_bag_times)
 
