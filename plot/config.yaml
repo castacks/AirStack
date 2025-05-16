@@ -15,6 +15,9 @@ data:
   vxpid: control/vx_pid_info
   vypid: control/vy_pid_info
   vzpid: control/vz_pid_info
+
+  mavros_state: interface/mavros/state
+  global_plan_active: behavior/follow_global_plan_active.active
   
 rcparams:
   font.size: 14
@@ -28,10 +31,16 @@ rcparams:
 profiles:
   fixed_traj_split:
     split:
-      field: fixed_traj
-      condition: x != None
-      as: axes
-      #keep_indices: 1, 2
+      #keep_indices: 2
+      #remove_indices: 0
+      as: figures
+      critera:
+      - field: fixed_traj
+        condition: x != None
+      - field: mavros_state.mode
+        condition: mavros_state.mode[i] != 'GUIDED' and mavros_state.mode[i-1] == 'GUIDED'
+      - field: global_plan_active
+        condition: global_plan_active[i] and not global_plan_active[i-1]
   test:
     set_aspect: aspect_type
   pid:
@@ -72,7 +81,8 @@ profiles:
 
 figures:
   - profiles: fixed_traj_split
-    suptitle: "'Tracking, max velocity: %0.2f m/s' % max(np.sqrt(vel_x**2 + vel_y**2))"
+    suptitle: '"Tracking, max velocity: %0.2f m/s" % max(np.sqrt(vel_x**2 + vel_y**2))'
+    tight_layout:
     axes:
       - profiles: test(aspect_type='equal')
         plots:
