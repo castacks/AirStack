@@ -120,13 +120,48 @@ RUN pip3 install \
     yacs \
     wandb
 
-# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
-RUN apt remove -y libopenvdb*; \
-    git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
-    mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
-    cmake .. && \
-    make -j8 && make install && \
-    cd ..; rm -rf /opt/openvdb/build
+# # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
+# RUN apt remove -y libopenvdb*; \
+#     git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
+#     mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
+#     cmake .. && \
+#     make -j8 && make install && \
+#     cd ..; rm -rf /opt/openvdb/build
+
+#for Rayfronts Integration#
+RUN pip install \
+  torch-scatter==2.1.2 \
+  ftfy \
+  regex \
+  nanobind \
+  hydra-core \
+  open_clip_torch \
+  transformers \
+  idna==3.10 \
+  requests==2.32.3 \
+  scipy==1.15.2
+
+WORKDIR /usr/local/src
+RUN wget https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz && \
+  tar -xvzf boost_1_80_0.tar.gz && \
+  cd boost_1_80_0 && \
+  ./bootstrap.sh && \
+  ./b2 install --prefix=/usr/local && \
+  rm -rf /usr/local/src/boost_1_80_0.tar.gz
+
+WORKDIR /root/ros_ws/src/autonomy/2_perception/rayfronts
+RUN git clone https://github.com/OasisArtisan/openvdb.git && \
+    mkdir -p openvdb/build && \
+    ls -l /root/ros_ws/src/autonomy/2_perception/rayfronts/openvdb && \
+    cd openvdb/build && \
+    cmake -DOPENVDB_BUILD_PYTHON_MODULE=ON \ 
+    -DOPENVDB_BUILD_PYTHON_UNITTESTS=ON \ 
+    -DOPENVDB_PYTHON_WRAP_ALL_GRID_TYPES=ON -DUSE_NUMPY=ON \
+    -Dnanobind_DIR=/usr/local/lib/python3.10/dist-packages/nanobind/cmake .. && \
+    make -j$(nproc) && \
+    make install && \
+    ls -l /root/ros_ws/src/autonomy/2_perception/rayfronts/openvdb
+
 
 # Add ability to SSH
 RUN apt-get update && apt-get install -y openssh-server
@@ -171,3 +206,12 @@ RUN pip install -U colcon-common-extensions
 # Fixes for MACVO Integration
 RUN pip install huggingface_hub
 RUN pip uninstall matplotlib -y
+
+RUN pip install certifi
+RUN pip install rerun-sdk==0.17
+
+RUN python3 -c "import torch; \
+    torch.hub.load('NVlabs/RADIO', 'radio_model', \
+                   version='radio_v2.5-b', progress=True, \
+                   skip_validation=True, adaptor_names=['siglip'], \
+                   trust_repo=True)"
