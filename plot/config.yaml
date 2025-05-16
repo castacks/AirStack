@@ -33,7 +33,7 @@ profiles:
     split:
       #keep_indices: 2
       #remove_indices: 0
-      as: figures
+      as: axes
       critera:
       - field: fixed_traj
         condition: x != None
@@ -94,6 +94,8 @@ figures:
             y: tp_y
             fmt: .-
             label: Tracking Point
+          - script:
+              path: scripts/markers.py
       - set_title: 'Cross Track'
         plots:
           - x: odom.header_time

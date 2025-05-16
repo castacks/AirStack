@@ -10,6 +10,8 @@ import math
 import yaml
 import utm
 import glob
+import importlib.util
+import os
 
 
 class CustomArrayContainer:
@@ -46,32 +48,6 @@ class CustomArrayContainer:
             context[k] = a
 
 custom_array_container = CustomArrayContainer()
-
-custom_standalone_arrays = []
-custom_arrays = []
-custom_arrays_backup = []
-custom_standalone_arrays_backup = []
-
-def slice_arrays(start_time, end_time, context):
-    global custom_arrays, custom_standalone_arrays, custom_arrays_backup, custom_standalone_arrays_backup
-    custom_arrays_backup = []
-    for obj, field in custom_arrays:
-        a = getattr(obj, field)
-        custom_arrays_backup.append(a)
-        setattr(obj, field, a[np.where(np.logical_and(a.bag_times >= start_time, a.bag_times <= end_time))])
-
-    for k in custom_standalone_arrays:
-        a = context[k]
-        custom_standalone_arrays_backup.append((k, a.copy()))
-        context[k] = a[np.where(np.logical_and(a.bag_times >= start_time, a.bag_times <= end_time))]
-
-def unslice_arrays(context):
-    global custom_arrays, custom_standalone_arrays, custom_arrays_backup, custom_standalone_arrays_backup
-    for i, (obj, field) in enumerate(custom_arrays):
-        setattr(obj, field, custom_arrays_backup[i])
-
-    for k, a in custom_standalone_arrays_backup:
-        context[k] = a
 
 def get_time(stamp):
     return stamp.sec + stamp.nanosec*1e-9
@@ -161,14 +137,21 @@ def get_row_col_info(axes):
 
     return total_rows, total_cols
 
-def load_functions(functions):
-    context = {}
-    for name, dct in functions.items():
-        def get_func():
-            def func(**kwargs):
-                pass
-            return func
-        context[name] = get_func()
+def get_module(script_path):
+    module_name = os.path.splitext(os.path.basename(script_path))[0]
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+def handle_scripts(dct):
+    if 'script' not in dct:
+        return dct
+
+    module = get_module(dct['script']['path'])
+    #del dct['script']
+    dct.update(module.plot({}))
+    
 
 def create_object(msgs, bag_times, input_field=''):
     if len(msgs) == 0:
@@ -437,6 +420,10 @@ def plot(yaml_filename, bag_paths):
 
                 # plotting
                 for plot in ax['plots']:
+                    handle_scripts(plot)
+                    if 'script' in plot:
+                        continue
+                    
                     args = []
                     # configure x
                     if 'x' in plot.keys():
@@ -458,7 +445,7 @@ def plot(yaml_filename, bag_paths):
                     # configure args
                     if 'fmt' in plot.keys():
                         args.append(eval("'" + plot['fmt'] + "'"))
-                    kwargs = {k:eval("'" + v + "'") for k,v in plot.items() if (k != 'x' and k != 'y' and k != 'fmt')}
+                    kwargs = {k:eval("'" + v + "'") for k,v in plot.items() if (k not in ['x', 'y', 'fmt', 'script'])}
 
                     # plot
                     a.plot(*args, **kwargs)
