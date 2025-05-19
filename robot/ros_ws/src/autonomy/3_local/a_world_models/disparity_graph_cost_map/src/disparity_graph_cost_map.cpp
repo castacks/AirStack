@@ -140,6 +140,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                     // Check the pose:
                     auto [is_seen, is_free, occupancy] =
                         disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
+		    
                     // Add marker:
                     add_check_marker(is_seen, is_free, dist, pose_to_check);
 
