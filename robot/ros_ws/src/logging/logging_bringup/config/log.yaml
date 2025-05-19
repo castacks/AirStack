@@ -29,6 +29,9 @@ sections:
       - control/x_pid_info
       - control/y_pid_info
       - control/z_pid_info
+      - odometry_conversion/odometry
+      - trajectory_controller/tracking_point
+      - fixed_trajectory_generator/fixed_trajectory_command
   zed:
     mcap_qos: mcap_qos.yaml
     args: 
