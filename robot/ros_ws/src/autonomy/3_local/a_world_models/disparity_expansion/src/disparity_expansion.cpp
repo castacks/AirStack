@@ -313,6 +313,8 @@ void DisparityExpansionNode::process_disparity_image(
 
             // top left corner, then width and height
             cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
+	    if(roi.width <= 0)
+	      continue;
 
             cv::Mat submat_t = disparity32F(roi).clone();
 
@@ -394,6 +396,8 @@ void DisparityExpansionNode::process_disparity_image(
                 this->table_v.at(int(disparity_value * this->metric_depth_scale) + 1).at(v).idx2;
 
             cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
+	    if(roi.height <= 0)
+	      continue;
 
             cv::Mat submat_t = disparity32F_bg(roi).clone();
 
