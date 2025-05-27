@@ -72,3 +72,38 @@ services:
     network_mode: host
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
+
+  zed-l4t:
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0
+    build: 
+      context: ./
+      dockerfile: zed/Dockerfile.zed-l4t
+      args:
+        L4T_MAJOR: 36
+        L4T_MINOR: 4
+        L4T_PATCH: 0
+    command: >
+      bash -c "sleep infinity"
+    network_mode: host
+    runtime: nvidia
+    privileged: true
+    ipc: host
+    pid: host
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=2
+    stdin_open: true  # Equivalent to -it for interactive terminal
+    tty: true  # Ensures that a pseudo-terminal is allocated
+    volumes:
+      - /dev:/dev 
+      - /tmp:/tmp 
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /var/nvidia/nvcam/settings/:/var/nvidia/nvcam/settings/
+      - /etc/systemd/system/zed_x_daemon.service:/etc/systemd/system/zed_x_daemon.service
+      - /usr/local/zed/resources/:/usr/local/zed/resources/
+      - /usr/local/zed/settings/:/usr/local/zed/settings/
+      - ./zed/ws/:/root/ros2_ws/
+      - ./zed/bashrc:/root/.bashrc
+      - /media/airlab/Storage/zed_svo/:/zed_svo/

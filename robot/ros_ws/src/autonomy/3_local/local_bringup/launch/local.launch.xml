@@ -44,8 +44,9 @@
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             <!-- use estimated disparity -->
-            <remap from="disparity" to="/$(env ROBOT_NAME)/front_stereo/disparity" />
+            <!-- <remap from="disparity" to="/$(env ROBOT_NAME)/front_stereo/disparity" /> -->
 	    <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
+	    <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" />
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
 
 	    <!-- <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" /> -->
@@ -119,8 +120,8 @@
       <param name="vx_d"         value="0.0" />
       <param name="vx_ff"        value="0.0" />
       <param name="vx_d_alpha"   value="0.9" />
-      <param name="vx_min"       value="-0.17" />
-      <param name="vx_max"       value="0.17" />
+      <param name="vx_min"       value="-0.34" />
+      <param name="vx_max"       value="0.34" />
       <param name="vx_constant"  value="0.0" />
       
       <param name="vy_p"         value="0.2" />
@@ -128,8 +129,8 @@
       <param name="vy_d"         value="0.0" />
       <param name="vy_ff"        value="0.0" />
       <param name="vy_d_alpha"   value="0.9" />
-      <param name="vy_min"       value="-0.17" />
-      <param name="vy_max"       value="0.17" />
+      <param name="vy_min"       value="-0.34" />
+      <param name="vy_max"       value="0.34" />
       <param name="vy_constant"  value="0.0" />
       
       <param name="vz_p"         value="0.2" />
