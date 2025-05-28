@@ -18,6 +18,7 @@ MODULES_DIR="$PROJECT_ROOT/.airstack/modules"
 mkdir -p "$MODULES_DIR"
 
 # Color codes for output formatting
+BOLDCYAN='\033[38;5;14;1m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -26,7 +27,7 @@ NC='\033[0m' # No Color
 
 # Print usage information
 function print_usage {
-    echo -e "${BLUE}AirStack Development Tool${NC}"
+    echo -e "${BOLDCYAN}AirStack Development Tool ($SCRIPT_DIR)${NC}"
     echo ""
     echo "Usage: airstack <command> [options]"
     echo ""

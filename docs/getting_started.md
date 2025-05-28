@@ -1,5 +1,12 @@
 # Getting Started
 
+!!! warning ""
+
+    AirStack is currently in ALPHA and only meant for internal usage. 
+    You will need to have an account with AirLab to access the AirLab Docker registry, Nucleus server, and other resources.
+    The API and functionality are not stable and are subject to change. 
+
+
 By the end of this tutorial, you will have the autonomy stack running on your machine.
 
 ## Requirements
@@ -19,12 +26,8 @@ cd AirStack
 
 ```bash
 ./airstack.sh install  # installs docker and docker-compose
-./airstack.sh setup  # this lets you use the `airstack` command
+./airstack.sh setup  # this lets you use the `airstack` command and sets up your keys
 ```
-
-## Configure
-
-Run `./configure.sh` and follow the instructions in the prompts to do an initial configuration of the repo.
 
 ## Docker Images
 
@@ -49,7 +52,7 @@ The images will be pulled from the server automatically. This might take a while
 
 <details><summary>Option 2: Build Docker Images From Scratch</summary>
 
-1.  Download the Ascent Spirit SITL software package by running this script (pip3 is required):
+1.  Download the Ascent Spirit SITL software package by running this script:
 
     ```
     cd AirStack/
@@ -76,6 +79,7 @@ docker compose push
 ## Launch
 
 ```bash
+xhost +     # This is needed every system boot to allow Docker to access the X server
 airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
@@ -96,3 +100,5 @@ To shutdown and remove docker containers:
 ```bash
 airstack down # This will stop and remove the docker containers
 ```
+
+Congratulations! You did it. Keep reading the Developer Guide to learn how to work with AirStack.
