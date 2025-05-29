@@ -19,21 +19,20 @@ MissionManager::MissionManager(int max_number_agents, double active_agent_check_
 
 bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id, geometry_msgs::msg::Pose robot_pose, rclcpp::Time current_time)
 {
-  RCLCPP_INFO(logger, "Checking agent changes");
-
   time_of_last_call_[robot_id] = current_time;
   agent_poses_[robot_id] = robot_pose;
 
   // Only check at the specified number of loops
-  if (time_of_last_check_ - current_time < active_agent_check_n_seconds_)
+  if (current_time - time_of_last_check_ < active_agent_check_n_seconds_)
   {
     return false;
   }
   time_of_last_check_ = current_time;
+  RCLCPP_INFO(logger, "Checking agent changes");
 
   // Check how many agents have reported in the last x seconds
   // If change in the agents reporting, reassign tasks
-  std::vector<bool> curr_valid_agents{false, false, false, false, false};
+  std::vector<bool> curr_valid_agents(max_number_agents_, false);
   rclcpp::Duration time_till_agent_not_valid = rclcpp::Duration::from_seconds(10.0);
   for (uint8_t i = 0; i < max_number_agents_; i++)
   {
@@ -47,6 +46,10 @@ bool MissionManager::check_agent_changes(rclcpp::Logger logger, uint8_t robot_id
   if (curr_valid_agents != valid_agents_)
   {
     change_in_agents = true;
+    int num_valid_agents = std::accumulate(valid_agents_.begin(), valid_agents_.end(), 0);
+    RCLCPP_INFO_STREAM(logger, "Number of valid agents changed from " 
+      << num_valid_agents << " to " << std::accumulate(curr_valid_agents.begin(), curr_valid_agents.end(), 0)
+      << ". Reassigning tasks.");
   }
   valid_agents_ = curr_valid_agents;
 

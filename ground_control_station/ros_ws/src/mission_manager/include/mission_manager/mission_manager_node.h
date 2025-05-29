@@ -128,6 +128,7 @@ class MissionManagerNode : public rclcpp::Node
     double grid_cell_size_;
     bool visualize_search_allocation_;
     int max_number_agents_;
+    bool has_first_mission_request_ = false;
     airstack_msgs::msg::SearchMissionRequest latest_search_mission_request_;
     std::shared_ptr<MissionManager> mission_manager_;
     double max_planning_time_;
@@ -164,6 +165,7 @@ class MissionManagerNode : public rclcpp::Node
     void search_mission_request_callback(const airstack_msgs::msg::SearchMissionRequest::SharedPtr msg)
     {
       RCLCPP_INFO(this->get_logger(), "Received new search mission request");
+      has_first_mission_request_ = true;
       latest_search_mission_request_ = *msg;
 
       this->mission_manager_->belief_map_.reset_map(this->get_logger(), *msg, grid_cell_size_);
@@ -175,8 +177,9 @@ class MissionManagerNode : public rclcpp::Node
 
     void agent_odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg, const uint8_t &robot_id)
     {
-      RCLCPP_INFO(this->get_logger(), "Received agent odom for robot %d", robot_id);
-      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, msg->pose.pose, this->now()))
+      RCLCPP_DEBUG(this->get_logger(), "Received agent odom for robot %d", robot_id);
+      if (this->mission_manager_->check_agent_changes(this->get_logger(), robot_id, msg->pose.pose, this->now())
+          && has_first_mission_request_)
       {
         this->publish_tasks(this->mission_manager_->assign_tasks(
           this->get_logger(), latest_search_mission_request_,
@@ -191,7 +194,8 @@ class MissionManagerNode : public rclcpp::Node
       // TODO: save the list of tracked target
 
       // Check if change in the number of targets or id numbers
-      if (this->mission_manager_->check_target_changes(this->get_logger(), msg->data, this->now()))
+      if (this->mission_manager_->check_target_changes(this->get_logger(), msg->data, this->now())
+          && has_first_mission_request_)
       {
         this->publish_tasks(this->mission_manager_->assign_tasks(
           this->get_logger(), latest_search_mission_request_,
