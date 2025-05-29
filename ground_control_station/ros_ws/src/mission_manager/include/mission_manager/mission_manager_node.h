@@ -74,7 +74,7 @@ class MissionManagerNode : public rclcpp::Node
       // Create subscribers and publishers for max number of agents
       for (uint8_t i = 0; i < max_number_agents_; i++)
       {
-        std::string topic_name = "agent_" + std::to_string(i) + "/odom";
+        std::string topic_name = "robot_" + std::to_string(i) + "/odometry_conversion/odometry";
         agent_odoms_subs_.push_back(
                 this->create_subscription<nav_msgs::msg::Odometry>(
                     topic_name, 1,
@@ -84,7 +84,7 @@ class MissionManagerNode : public rclcpp::Node
                 )
             );
         
-        std::string agent_topic = "agent_" + std::to_string(i) + "/plan_request";
+        std::string agent_topic = "robot_" + std::to_string(i) + "/plan_request";
         plan_request_pubs_.push_back(
           this->create_publisher<airstack_msgs::msg::TaskAssignment>(agent_topic, 10));
       }

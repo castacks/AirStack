@@ -340,8 +340,9 @@ std::vector<airstack_msgs::msg::TaskAssignment> MissionManager::assign_tasks(
   RCLCPP_INFO(logger, "Assigning tasks to drones");
 
   // Find how many active robots
-  // int num_active_agents = std::accumulate(valid_agents_.begin(), valid_agents_.end(), 0);
-  int num_active_agents = 3; //MAGIC NUMBER. TODO: UPDATE FOR LINE ABOVE WHEN REST OF SYSTEM COMPLETE
+  int num_active_agents = std::accumulate(valid_agents_.begin(), valid_agents_.end(), 0);
+  RCLCPP_INFO_STREAM(logger, "Number of active agents: " << num_active_agents);
+  // int num_active_agents = 3; //MAGIC NUMBER. TODO: UPDATE FOR LINE ABOVE WHEN REST OF SYSTEM COMPLETE
 
   // Decide how many search vs track tasks to assign
   int number_of_track_tasks = 0; // TODO
