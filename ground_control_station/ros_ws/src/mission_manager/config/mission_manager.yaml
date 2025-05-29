@@ -4,7 +4,7 @@ mission_manager_node:
     visualize_search_allocation: true
     max_number_agents: 3
     active_agent_check_n_seconds: 5.0
-    min_agent_altitude_to_be_active: 3.0
+    min_agent_altitude_to_be_active: -30.0  # If you want altitude to be considered in regard to an agent being deemed as active for mission allocation
     time_till_agent_not_valid: 10.0
     max_planning_time: 5.0
     budget: 100.0
