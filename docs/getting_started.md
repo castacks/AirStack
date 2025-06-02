@@ -1,29 +1,33 @@
 # Getting Started
 
+!!! warning ""
+
+    AirStack is currently in ALPHA and only meant for internal usage. 
+    You will need to have an account with AirLab to access the AirLab Docker registry, Nucleus server, and other resources.
+    The API and functionality are not stable and are subject to change. 
+
+
 By the end of this tutorial, you will have the autonomy stack running on your machine.
 
 ## Requirements
 
 You need at least 25GB free to install the Docker image.
 
-Have an NVIDIA GPU >= RTX 3070 to run Isaac Sim locally.
+Check the hardware requirements for the NVIDIA Isaac Sim [here](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html).
+A GPU of GeForce RTX 4080 or higher is recommended for the best performance.
 
-## Setup
-
-### Clone
-
-```
+## Clone
+```bash
 git clone --recursive -j8 git@github.com:castacks/AirStack.git
+cd AirStack
 ```
 
-### Docker
+## Install and Setup
 
-Follow [NVIDIA's instructions](https://docs.nvidia.com/ai-enterprise/deployment/vmware/latest/docker.html) for installing Docker to be compatible with NVIDIA GPUs, including adding the NVIDIA Container Toolkit.
-Make sure `docker-compose-plugin` is also installed with Docker.
-
-## Configure
-
-Run `./configure.sh` and follow the instructions in the prompts to do an initial configuration of the repo.
+```bash
+./airstack.sh install  # installs docker and docker-compose
+./airstack.sh setup  # this lets you use the `airstack` command and sets up your keys
+```
 
 ## Docker Images
 
@@ -48,7 +52,7 @@ The images will be pulled from the server automatically. This might take a while
 
 <details><summary>Option 2: Build Docker Images From Scratch</summary>
 
-1.  Download the Ascent Spirit SITL software package by running this script (pip3 is required):
+1.  Download the Ascent Spirit SITL software package by running this script:
 
     ```
     cd AirStack/
@@ -75,7 +79,8 @@ docker compose push
 ## Launch
 
 ```bash
-./launch.sh # This will launch the docker containers, isaac sim, and WinTAK
+xhost +     # This is needed every system boot to allow Docker to access the X server
+airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
 This will automatically launch and play the Isaac scene specified under `AirStack/.env` (default is the Fire Academy).
@@ -93,5 +98,7 @@ You can also switch to `Fixed Trajectory` mode and hit `Publish` on the bottom r
 To shutdown and remove docker containers:
 
 ```bash
-./shutdown.sh # This will stop and remove the docker containers, isaac sim, and WinTAK
+airstack down # This will stop and remove the docker containers
 ```
+
+Congratulations! You did it. Keep reading the Developer Guide to learn how to work with AirStack.

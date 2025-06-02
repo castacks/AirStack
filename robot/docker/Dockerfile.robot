@@ -80,6 +80,7 @@ RUN apt update -y && apt install -y \
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
+    ros-humble-rosbag2-storage-mcap \
     libcgal-dev \
     python3-colcon-common-extensions
 

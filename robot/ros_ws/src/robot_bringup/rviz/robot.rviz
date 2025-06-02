@@ -30,7 +30,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Expansion Cloud
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -65,10 +65,6 @@ Visualization Manager:
           Value: true
         base_link_stabilized:
           Value: false
-        front_stereo:
-          Value: true
-        left_camera:
-          Value: true
         look_ahead_point:
           Value: false
         look_ahead_point_stabilized:
@@ -85,16 +81,10 @@ Visualization Manager:
           Value: false
         odom_ned:
           Value: false
-        ouster:
-          Value: true
-        right_camera:
-          Value: true
         tracking_point:
           Value: true
         tracking_point_stabilized:
           Value: false
-        world:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -369,6 +359,7 @@ Visualization Manager:
               Name: Trimmed Global Plan for DROAN
               Namespaces:
                 {}
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -434,6 +425,18 @@ Visualization Manager:
                 Reliability Policy: Reliable
                 Value: droan/trajectory_library_vis
               Value: true
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Virtual Obstacles
+              Namespaces:
+                {}
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: droan/virtual_obstacles
+              Value: true
           Enabled: true
           Name: DROAN
         - Class: rviz_common/Group
@@ -472,7 +475,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            "": true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -557,25 +560,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 38.85853958129883
+      Distance: 27.589771270751953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -4.674562454223633
-        Y: 3.8448660373687744
-        Z: -5.191961288452148
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5503988862037659
+      Pitch: 0.2603984475135803
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.1453978717327118
+      Yaw: 4.9203948974609375
     Saved: ~
 Window Geometry:
   Displays:

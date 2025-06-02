@@ -1,13 +1,19 @@
 #!/bin/bash
 
-echo "Installing gdown package"
+echo "Downloading the Ascent Aerosystems SITL package from AirLab Storage..."
 
-pip install gdown
+ANDREWID=""
+# Prompt for ANDREWID
+read -p "Please enter your Andrew ID: " ANDREWID
 
-echo "Downloading the SITL package from Google Drive"
+# Check if ANDREWID is provided
+if [ -z "$ANDREWID" ]; then
+    log_error "Error: Andrew ID cannot be empty"
+    return 1
+fi
 
-gdown https://drive.google.com/uc\?id\=1UxgezaTrHe4WJ28zsVeRhv1VYfOU5VK8
-
+# Set ANDREWID as environment variable
+rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume1/airstack/ascent_sitl/AscentAeroSystemsSITLPackage.zip /tmp/
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
@@ -15,6 +21,6 @@ UNZIP_DIR=$SCRIPT_DIR/../sitl_integration
 
 echo "Unzipping the SITL package to $(readlink -f $UNZIP_DIR)"
 
-unzip AscentAeroSystemsSITLPackage.zip -d $UNZIP_DIR
+unzip /tmp/AscentAeroSystemsSITLPackage.zip -d $UNZIP_DIR
 
-rm AscentAeroSystemsSITLPackage.zip
+rm /tmp/AscentAeroSystemsSITLPackage.zip
