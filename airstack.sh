@@ -824,50 +824,16 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-# Process arguments to handle global options
-global_options=()
-command_args=()
-found_command=false
+# Simple command detection - just look for the first argument that matches a command
 command=""
 
-# Convert arguments to array for easier processing
-args=("$@")
-i=0
-while [ $i -lt ${#args[@]} ]; do
-    arg="${args[$i]}"
-    
-    if [ "$found_command" = true ]; then
-        # After the command, collect all arguments
-        command_args+=("$arg")
-    elif [[ "$arg" == "--"* ]]; then
-        # This is a global option
-        global_options+=("$arg")
-        
-        # If it's --env-file, also grab the next argument
-        if [[ "$arg" == "--env-file" && $((i+1)) -lt ${#args[@]} ]]; then
-            next_arg="${args[$((i+1))]}"
-            if [[ "$next_arg" != "--"* && -n "${COMMANDS[$next_arg]}" ]]; then
-                # Next arg is a command, don't grab it
-                :
-            else
-                # Next arg is the env file path, grab it
-                i=$((i+1))
-                global_options+=("$next_arg")
-            fi
-        fi
-    else
-        # This is the command
-        command="$arg"
-        found_command=true
-    fi
-    
-    i=$((i+1))
-done
-
-# If no command was found, the first non-option argument is the command
-if [ "$found_command" = false ]; then
-    for arg in "${args[@]}"; do
-        if [[ "$arg" != "--"* ]]; then
+# First check if the first argument is a command
+if [[ -n "${COMMANDS[$1]}" || "$1" == "commands" || "$1" == "help" ]]; then
+    command="$1"
+else
+    # Otherwise, look through all arguments for a command
+    for arg in "$@"; do
+        if [[ -n "${COMMANDS[$arg]}" || "$arg" == "commands" || "$arg" == "help" ]]; then
             command="$arg"
             break
         fi
