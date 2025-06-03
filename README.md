@@ -133,11 +133,11 @@ Robot
 
 AirStack is designed with modularity in mind, making it straightforward to extend or replace components. The development workflow is centered around Docker containers for consistent environments.
 
-For detailed development guidelines, see the [Developer Guide](https://docs.theairlab.org/docs/development/).
+For detailed development guidelines, see the [Developer Guide](https://docs.theairlab.org/main/docs/development/).
 
 ## 📚 Documentation
 
-Comprehensive documentation is available at [https://docs.theairlab.org/docs/](https://docs.theairlab.org/docs/)
+Comprehensive documentation is available at [https://docs.theairlab.org/main/docs/](https://docs.theairlab.org/main/docs/)
 
 The documentation covers:
 - Getting started guides
@@ -149,7 +149,7 @@ The documentation covers:
 
 ## 🤝 Contributing
 
-We welcome contributions to AirStack! Please see our [Contributing Guidelines](https://docs.theairlab.org/docs/development/contributing/) for more information.
+We welcome contributions to AirStack! Please see our [Contributing Guidelines](https://docs.theairlab.org/main/docs/development/contributing/) for more information.
 
 ## 📄 License
 
