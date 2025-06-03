@@ -1,19 +1,13 @@
 <launch>
     <!-- Environment TFs -->
+
+    <!-- connects isaac sim prim to robot frame -->
     <node
         pkg="tf2_ros"
         exec="static_transform_publisher"
         name="static_transform_publisher"
-        args="0 0 0 -1.57079632679 0 0 map_FLU map" />
+        args="0 0 0 0 0 0 mavros_enu map" />
 
-    <!--
-    <node
-	pkg="tf2_ros"
-	exec="static_transform_publisher"
-	name="zed_link_static_transform_publisher"
-	args="0 0 0 0 0.261799 0 base_link front_stereo_camera_link" />
-    -->
-    
     <!-- Robot TFs -->
     <!-- currently none -->
 </launch>

@@ -563,7 +563,7 @@
   
   
   <span class="md-ellipsis">
-    Workflow with Docker and Docker Compose
+    Launch Workflow with Docker and Docker Compose
     
   </span>
   
@@ -3184,8 +3184,7 @@
 <p>Environment variables are used to configure the robot Docker container. The top level <code>AirStack/.env</code> file points to a <code>ROBOT_ENV_FILE_NAME</code> (default: <code>robot.env</code>), that in turn is used to load environment variables for the robot Docker container. The file that <code>ROBOT_ENV_FILE_NAME</code> points to gets added into the container under <code>robot/docker/robot-base-docker-compose.yaml</code>.</p>
 <p>The environment variables can be used to trigger nodes to launch. For example, the <code>USE_MACVO</code> environmental variable is checked by <code>perception.launch.xml</code> to determine whether to launch the <code>macvo</code> node.</p>
 <p>The file <code>robot.env</code> is reproduced below:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># These become environment variables in the robot container</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">USE_MACVO</span><span class="o">=</span><span class="s2">&quot;true&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>
 </span></code></pre></div></p>
 <h2 id="common-topics">Common Topics<a class="headerlink" href="#common-topics" title="Permanent link">&para;</a></h2>
 <table>

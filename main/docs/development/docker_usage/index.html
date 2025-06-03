@@ -22,7 +22,7 @@
     
     
       
-        <title>Workflow with Docker and Docker Compose - AirStack</title>
+        <title>Launch Workflow with Docker and Docker Compose - AirStack</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#workflow-with-docker-and-docker-compose" class="md-skip">
+        <a href="#launch-workflow-with-docker-and-docker-compose" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Workflow with Docker and Docker Compose
+              Launch Workflow with Docker and Docker Compose
             
           </span>
         </div>
@@ -577,7 +577,7 @@
   
   
   <span class="md-ellipsis">
-    Workflow with Docker and Docker Compose
+    Launch Workflow with Docker and Docker Compose
     
   </span>
   
@@ -590,7 +590,7 @@
   
   
   <span class="md-ellipsis">
-    Workflow with Docker and Docker Compose
+    Launch Workflow with Docker and Docker Compose
     
   </span>
   
@@ -685,6 +685,15 @@
   <a href="#container-details" class="md-nav__link">
     <span class="md-ellipsis">
       Container Details
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-compose-variable-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      Docker Compose Variable Overrides
     </span>
   </a>
   
@@ -3276,7 +3285,7 @@
   
 
 
-<h1 id="workflow-with-docker-and-docker-compose">Workflow with Docker and Docker Compose<a class="headerlink" href="#workflow-with-docker-and-docker-compose" title="Permanent link">&para;</a></h1>
+<h1 id="launch-workflow-with-docker-and-docker-compose">Launch Workflow with Docker and Docker Compose<a class="headerlink" href="#launch-workflow-with-docker-and-docker-compose" title="Permanent link">&para;</a></h1>
 <p>To mimic interacting with multiple real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.</p>
 <p>The details of the docker compose setup is in the project root's <code>docker-compose.yaml</code>.</p>
 <p>In essence, the compose file launches:</p>
@@ -3378,6 +3387,22 @@ The <code>--path</code> argument can be passed with a path to a <code>.usd</code
     style C fill:#fbb,stroke:#333,stroke-width:2px
     style D fill:#fbf,stroke:#333,stroke-width:2px
 </code></pre>
+<h2 id="docker-compose-variable-overrides">Docker Compose Variable Overrides<a class="headerlink" href="#docker-compose-variable-overrides" title="Permanent link">&para;</a></h2>
+<p>Sometimes you may want to test different configurations of the autonomy stack. For example, you may want to disable automatically playing the sim on startup, 
+or to change a child launch file.</p>
+<p>The <code>docker compose</code> workflow is designed to support these overrides for local development.
+<code>docker compose</code> uses <code>.env</code> files to set docker-compose variables that get propagated and interpolated into <code>docker-compose.yaml</code> files.
+See the <a href="https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/">docker compose documentation</a> for more details.</p>
+<p>The default <code>.env</code> file is in the project root directory. 
+When no <code>--env-file</code> argument is passed to <code>docker compose</code>, it automatically uses this default <code>.env</code> file.</p>
+<p>To override the default <code>.env</code> file, you can pass the <code>--env-file</code> argument to <code>docker compose</code> with a path to your custom <code>.env</code> file.</p>
+<p>For example, this command disables playing the simulation on startup by overriding the <code>PLAY_SIM_ON_START</code> variable:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>overrides/no_play_sim_on_start.env<span class="w"> </span>up<span class="w"> </span>-d
+</span></code></pre></div></p>
+<p>As another example, this command changes the perception launch file to <code>perception_no_macvo.launch.xml</code>:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>overrides/no_macvo.env<span class="w"> </span>up<span class="w"> </span>-d
+</span></code></pre></div></p>
+<p>When overriding, the default <code>.env</code> file must be loaded first. The overrides are applied on top of it.</p>
 
 
 
