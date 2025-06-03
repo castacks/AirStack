@@ -3,6 +3,10 @@
 !!! warning ""
 
     AirStack is currently in ALPHA and only meant for internal usage. 
+
+    We'd really appreciate your feedback and contributions to improve this project for everyone! 
+    Please join our #airstack channel on Slack to contribute or ask questions.
+
     You will need to have an account with AirLab to access the AirLab Docker registry, Nucleus server, and other resources.
     The API and functionality are not stable and are subject to change. 
 
