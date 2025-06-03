@@ -34,7 +34,7 @@ function print_usage {
     echo "Available commands:"
     
     # Sort commands alphabetically
-    local sorted_ommands=($(echo "${!COMMANDS[@]}" | tr ' ' '\n' | sort))
+    local sorted_commands=($(echo "${!COMMANDS[@]}" | tr ' ' '\n' | sort))
     
     # Calculate the longest command name for padding
     local max_len=0
