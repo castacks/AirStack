@@ -34,7 +34,7 @@ function print_usage {
     echo "Available commands:"
     
     # Sort commands alphabetically
-    local sorted_ommands=($(echo "${!COMMANDS[@]}" | tr ' ' '\n' | sort))
+    local sorted_commands=($(echo "${!COMMANDS[@]}" | tr ' ' '\n' | sort))
     
     # Calculate the longest command name for padding
     local max_len=0
@@ -505,9 +505,58 @@ function cmd_setup {
 function cmd_up {
     check_docker
     
-    # Build docker-compose command
-    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml up $@ -d"
+    local env_files=()
+    local other_args=()
     
+    # Convert arguments to array for easier processing
+    local args=("$@")
+    local i=0
+    
+    while [ $i -lt ${#args[@]} ]; do
+        local arg="${args[$i]}"
+        
+        if [[ "$arg" == "--env-file" ]]; then
+            # Get the next argument as the env file path
+            i=$((i+1))
+            if [ $i -lt ${#args[@]} ]; then
+                env_files+=("--env-file" "${args[$i]}")
+            else
+                log_error "Missing value for --env-file argument"
+                return 1
+            fi
+        elif [[ "$arg" == "--env-file="* ]]; then
+            # Handle --env-file=path format
+            env_files+=("$arg")
+        else
+            # Skip the command name 'up' itself
+            if [[ "$arg" != "up" ]]; then
+                other_args+=("$arg")
+            fi
+        fi
+        
+        i=$((i+1))
+    done
+
+    # Build docker-compose command with env files before the 'up' command
+    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml"
+    
+    # Add all env files
+    for env_file in "${env_files[@]}"; do
+        cmd="$cmd $env_file"
+    done
+    
+    # Add the 'up' command and other arguments
+    cmd="$cmd up"
+    
+    # Add other arguments if any
+    if [ ${#other_args[@]} -gt 0 ]; then
+        cmd="$cmd ${other_args[*]}"
+    fi
+    
+    # Add -d flag
+    cmd="$cmd -d"
+
+    log_info "Executing: $cmd"
     eval "$cmd"
     log_info "Services brought up successfully"
 }
@@ -775,13 +824,41 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-command="$1"
-shift
+# Simple command detection - just look for the first argument that matches a command
+command=""
+
+# First check if the first argument is a command
+if [[ -n "${COMMANDS[$1]}" || "$1" == "commands" || "$1" == "help" ]]; then
+    command="$1"
+else
+    # Otherwise, look through all arguments for a command
+    for arg in "$@"; do
+        if [[ -n "${COMMANDS[$arg]}" || "$arg" == "commands" || "$arg" == "help" ]]; then
+            command="$arg"
+            break
+        fi
+    done
+    
+    # If still no command found, show usage
+    if [ -z "$command" ]; then
+        print_usage
+        exit 1
+    fi
+fi
 
 # Check if command exists
 if [[ -n "${COMMANDS[$command]}" ]]; then
-    # Execute the command function
-    ${COMMANDS[$command]} "$@"
+    # Execute the command function with filtered arguments
+    # We need to remove the command name from the arguments
+    filtered_args=()
+    for arg in "$@"; do
+        if [[ "$arg" != "$command" ]]; then
+            filtered_args+=("$arg")
+        fi
+    done
+    
+    # Execute the command with the filtered arguments
+    ${COMMANDS[$command]} "${filtered_args[@]}"
 elif [ "$command" == "commands" ]; then
     # Special case for listing all commands
     list_commands
