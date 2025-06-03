@@ -1,0 +1,22 @@
+<!-- AUTONOMY -->
+<launch>
+  <!-- Interface -->
+  <include file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/$(env INTERFACE_LAUNCH_PATH)" />
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/$(env SENSORS_LAUNCH_PATH)" />
+
+  <!-- Perception -->
+  <include file="$(find-pkg-share $(env PERCEPTION_LAUNCH_PACKAGE))/$(env PERCEPTION_LAUNCH_PATH)" />
+
+  <!-- Local -->
+  <include file="$(find-pkg-share $(env LOCAL_LAUNCH_PACKAGE))/$(env LOCAL_LAUNCH_PATH)" />
+
+  <!-- Global -->
+  <include file="$(find-pkg-share $(env GLOBAL_LAUNCH_PACKAGE))/$(env GLOBAL_LAUNCH_PATH)" />
+
+  <!-- Behavior -->
+  <include file="$(find-pkg-share $(env BEHAVIOR_LAUNCH_PACKAGE))/$(env BEHAVIOR_LAUNCH_PATH)" />
+
+
+</launch>
