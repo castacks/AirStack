@@ -16,6 +16,8 @@ You need at least 25GB free to install the Docker image.
 Check the hardware requirements for the NVIDIA Isaac Sim [here](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html).
 A GPU of GeForce RTX 4080 or higher is recommended for the best performance.
 
+AirStack is primarily tested on Ubuntu 22.04. 
+
 ## Clone
 ```bash
 git clone --recursive -j8 git@github.com:castacks/AirStack.git
