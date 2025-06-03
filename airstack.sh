@@ -505,9 +505,58 @@ function cmd_setup {
 function cmd_up {
     check_docker
     
-    # Build docker-compose command
-    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml up $@ -d"
+    local env_files=()
+    local other_args=()
     
+    # Convert arguments to array for easier processing
+    local args=("$@")
+    local i=0
+    
+    while [ $i -lt ${#args[@]} ]; do
+        local arg="${args[$i]}"
+        
+        if [[ "$arg" == "--env-file" ]]; then
+            # Get the next argument as the env file path
+            i=$((i+1))
+            if [ $i -lt ${#args[@]} ]; then
+                env_files+=("--env-file" "${args[$i]}")
+            else
+                log_error "Missing value for --env-file argument"
+                return 1
+            fi
+        elif [[ "$arg" == "--env-file="* ]]; then
+            # Handle --env-file=path format
+            env_files+=("$arg")
+        else
+            # Skip the command name 'up' itself
+            if [[ "$arg" != "up" ]]; then
+                other_args+=("$arg")
+            fi
+        fi
+        
+        i=$((i+1))
+    done
+
+    # Build docker-compose command with env files before the 'up' command
+    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml"
+    
+    # Add all env files
+    for env_file in "${env_files[@]}"; do
+        cmd="$cmd $env_file"
+    done
+    
+    # Add the 'up' command and other arguments
+    cmd="$cmd up"
+    
+    # Add other arguments if any
+    if [ ${#other_args[@]} -gt 0 ]; then
+        cmd="$cmd ${other_args[*]}"
+    fi
+    
+    # Add -d flag
+    cmd="$cmd -d"
+
+    log_info "Executing: $cmd"
     eval "$cmd"
     log_info "Services brought up successfully"
 }
@@ -775,12 +824,66 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-command="$1"
-shift
+# Process arguments to handle global options
+global_options=()
+command_args=()
+found_command=false
+command=""
+
+# Convert arguments to array for easier processing
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+    arg="${args[$i]}"
+    
+    if [ "$found_command" = true ]; then
+        # After the command, collect all arguments
+        command_args+=("$arg")
+    elif [[ "$arg" == "--"* ]]; then
+        # This is a global option
+        global_options+=("$arg")
+        
+        # If it's --env-file, also grab the next argument
+        if [[ "$arg" == "--env-file" && $((i+1)) -lt ${#args[@]} ]]; then
+            next_arg="${args[$((i+1))]}"
+            if [[ "$next_arg" != "--"* && -n "${COMMANDS[$next_arg]}" ]]; then
+                # Next arg is a command, don't grab it
+                :
+            else
+                # Next arg is the env file path, grab it
+                i=$((i+1))
+                global_options+=("$next_arg")
+            fi
+        fi
+    else
+        # This is the command
+        command="$arg"
+        found_command=true
+    fi
+    
+    i=$((i+1))
+done
+
+# If no command was found, the first non-option argument is the command
+if [ "$found_command" = false ]; then
+    for arg in "${args[@]}"; do
+        if [[ "$arg" != "--"* ]]; then
+            command="$arg"
+            break
+        fi
+    done
+    
+    # If still no command found, show usage
+    if [ -z "$command" ]; then
+        print_usage
+        exit 1
+    fi
+fi
 
 # Check if command exists
 if [[ -n "${COMMANDS[$command]}" ]]; then
-    # Execute the command function
+    # Execute the command function with all arguments
+    # We pass all args to preserve the original order which is important for some commands
     ${COMMANDS[$command]} "$@"
 elif [ "$command" == "commands" ]; then
     # Special case for listing all commands
