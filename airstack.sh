@@ -848,9 +848,17 @@ fi
 
 # Check if command exists
 if [[ -n "${COMMANDS[$command]}" ]]; then
-    # Execute the command function with all arguments
-    # We pass all args to preserve the original order which is important for some commands
-    ${COMMANDS[$command]} "$@"
+    # Execute the command function with filtered arguments
+    # We need to remove the command name from the arguments
+    filtered_args=()
+    for arg in "$@"; do
+        if [[ "$arg" != "$command" ]]; then
+            filtered_args+=("$arg")
+        fi
+    done
+    
+    # Execute the command with the filtered arguments
+    ${COMMANDS[$command]} "${filtered_args[@]}"
 elif [ "$command" == "commands" ]; then
     # Special case for listing all commands
     list_commands
