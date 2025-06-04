@@ -4,7 +4,7 @@
     <!-- State Estimation -->
     <!-- Visual Odometry -->
 
-    <!-- <node pkg="macvo" exec="macvo" if="$(env USE_MACVO)">
+    <!-- <node pkg="macvo" exec="macvo">
         <param name="camera_config" value="$(find-pkg-share macvo)/config/model_config.yaml" />
         <param from="$(find-pkg-share macvo)/config/interface_config.yaml" />
         <remap from="left/image_rect"
@@ -19,7 +19,7 @@
             to="/$(env ROBOT_NAME)/perception/visual_odometry_points" />
         <remap from="visual_odometry_img" to="/$(env ROBOT_NAME)/perception/visual_odometry_img" />
     </node> -->
-    <node pkg="macvo2" exec="macvo2" if="$(env USE_MACVO)">
+    <node pkg="macvo2" exec="macvo2">
         <param name="camera_config" value="$(find-pkg-share macvo2)/config/model_config.yaml" />
         <param from="$(find-pkg-share macvo2)/config/interface_config.yaml" />
         <remap from="left/image_rect"

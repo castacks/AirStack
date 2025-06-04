@@ -37,7 +37,7 @@
   <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml" />
 
   <!-- Autonomy -->
-  <include file="$(find-pkg-share autonomy_bringup)/launch/autonomy.launch.xml" />
+  <include file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/$(env AUTONOMY_LAUNCH_PATH)" />
 
   <!-- Logging -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
