@@ -1706,9 +1706,34 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -1717,7 +1742,50 @@
   </span>
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_2_4_3_3" id="__nav_4_2_4_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_4_2_4_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2_4_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Takeoff Landing Planner
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TakeoffLandingPlanner Launch Tests
+    
+  </span>
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3180,56 +3248,57 @@ The variables in the <code>.env</code> file get propagated into the <code>docker
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Warning: all variables get propagated to all sub-level docker-compose files, so be careful about naming conflicts.</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># =============== PROJECT ====================</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># This top-level .env file under AirStack/ defines variables that are propagated through docker-compose.yaml</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># These variables are used to tag the docker images.</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nv">PROJECT_NAME</span><span class="o">=</span><span class="s2">&quot;airstack&quot;</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Auto-generated from git commit hash</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nv">DOCKER_IMAGE_TAG</span><span class="o">=</span><span class="s2">&quot;0.14.0&quot;</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Can replace with your docker hub username</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="nv">PROJECT_DOCKER_REGISTRY</span><span class="o">=</span><span class="s2">&quot;airlab-storage.andrew.cmu.edu:5001/shared&quot;</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># ============================================</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># ================ SIMULATION =================</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="nv">DEFAULT_ISAAC_SCENE</span><span class="o">=</span><span class="s2">&quot;omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd&quot;</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="s2">&quot;true&quot;</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># =============================================</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="c1"># ================= ROBOT =====================</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># See robot/docker/docker-compose.yaml for how these variables get propagated in </span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># the container&#39;s entry command.</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="nv">ROBOT_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;robot_bringup&quot;</span>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nv">ROBOT_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;robot.launch.xml&quot;</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="c1"># See robot-base-docker-compose.yaml for how these variables get propagated. </span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="c1"># We use relative launch path (not file) because these are launch files get included</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="c1"># from the top level robot launch file, and the include-format requires a path.</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="nv">AUTONOMY_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;autonomy_bringup&quot;</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="nv">AUTONOMY_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/autonomy.launch.xml&quot;</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="c1"># --</span>
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="nv">INTERFACE_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;interface_bringup&quot;</span>
-</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="nv">INTERFACE_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/interface.launch.xml&quot;</span>
-</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="c1"># --</span>
-</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="nv">SENSORS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;sensors_bringup&quot;</span>
-</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nv">SENSORS_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/sensors.launch.xml&quot;</span>
-</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="c1"># --</span>
-</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="nv">PERCEPTION_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;perception_bringup&quot;</span>
-</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="nv">PERCEPTION_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/perception.launch.xml&quot;</span>
-</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="c1"># --</span>
-</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="nv">LOCAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;local_bringup&quot;</span>
-</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="nv">LOCAL_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/local.launch.xml&quot;</span>
-</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="c1"># --</span>
-</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="nv">GLOBAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;global_bringup&quot;</span>
-</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nv">GLOBAL_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/global.launch.xml&quot;</span>
-</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="c1"># --</span>
-</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="nv">BEHAVIOR_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;behavior_bringup&quot;</span>
-</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a><span class="nv">BEHAVIOR_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/behavior.launch.xml&quot;</span>
-</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a><span class="c1"># ===============================================</span>
-</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>
-</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a><span class="c1"># =========== GROUND CONTROL STATION ============</span>
-</span><span id="__span-0-56"><a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a><span class="c1"># See ground_control_station/docker/docker-compose.yaml for how these variables </span>
-</span><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a><span class="c1"># get propagated in the container&#39;s entry command.</span>
-</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a><span class="nv">GCS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;gcs_bringup&quot;</span>
-</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a><span class="nv">GCS_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;gcs.launch.xml&quot;</span>
-</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="c1"># ===============================================</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># If you&#39;ve run ./airstack.sh setup, then this will auto-generate from the git commit hash every time a change is made </span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># to a Dockerfile or docker-compose.yaml file. Otherwise this can also be set explicitly to make a release version.</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nv">DOCKER_IMAGE_TAG</span><span class="o">=</span><span class="s2">&quot;8b5529e&quot;</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># Can replace with your docker hub username</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="nv">PROJECT_DOCKER_REGISTRY</span><span class="o">=</span><span class="s2">&quot;airlab-storage.andrew.cmu.edu:5001/shared&quot;</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># ============================================</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># ================ SIMULATION =================</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nv">DEFAULT_ISAAC_SCENE</span><span class="o">=</span><span class="s2">&quot;omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd&quot;</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="s2">&quot;true&quot;</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="c1"># =============================================</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># ================= ROBOT =====================</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># See robot/docker/docker-compose.yaml for how these variables get propagated in </span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="c1"># the container&#39;s entry command.</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nv">ROBOT_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;robot_bringup&quot;</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="nv">ROBOT_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;robot.launch.xml&quot;</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="c1"># See robot-base-docker-compose.yaml for how these variables get propagated. </span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="c1"># We use relative launch path (not file) because these are launch files get included</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="c1"># from the top level robot launch file, and the include-format requires a path.</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="nv">AUTONOMY_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;autonomy_bringup&quot;</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="nv">AUTONOMY_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/autonomy.launch.xml&quot;</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="c1"># --</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="nv">INTERFACE_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;interface_bringup&quot;</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="nv">INTERFACE_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/interface.launch.xml&quot;</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="c1"># --</span>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nv">SENSORS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;sensors_bringup&quot;</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="nv">SENSORS_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/sensors.launch.xml&quot;</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="c1"># --</span>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="nv">PERCEPTION_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;perception_bringup&quot;</span>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="nv">PERCEPTION_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/perception.launch.xml&quot;</span>
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="c1"># --</span>
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="nv">LOCAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;local_bringup&quot;</span>
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="nv">LOCAL_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/local.launch.xml&quot;</span>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="c1"># --</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nv">GLOBAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;global_bringup&quot;</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="nv">GLOBAL_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/global.launch.xml&quot;</span>
+</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="c1"># --</span>
+</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a><span class="nv">BEHAVIOR_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;behavior_bringup&quot;</span>
+</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a><span class="nv">BEHAVIOR_LAUNCH_PATH</span><span class="o">=</span><span class="s2">&quot;launch/behavior.launch.xml&quot;</span>
+</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a><span class="c1"># ===============================================</span>
+</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>
+</span><span id="__span-0-56"><a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a><span class="c1"># =========== GROUND CONTROL STATION ============</span>
+</span><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a><span class="c1"># See ground_control_station/docker/docker-compose.yaml for how these variables </span>
+</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a><span class="c1"># get propagated in the container&#39;s entry command.</span>
+</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a><span class="nv">GCS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;gcs_bringup&quot;</span>
+</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="nv">GCS_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;gcs.launch.xml&quot;</span>
+</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a><span class="c1"># ===============================================</span>
 </span></code></pre></div></p>
 
 

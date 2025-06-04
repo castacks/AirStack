@@ -14,7 +14,7 @@
         <link rel="prev" href="../trajectory_library/">
       
       
-        <link rel="next" href="../droan_local_planner/">
+        <link rel="next" href="test/">
       
       
       <link rel="icon" href="../../../../../../../docs/assets/StackedWhite.png">
@@ -1701,16 +1701,34 @@
   
   
   
-    <li class="md-nav__item md-nav__item--active">
+    
+    
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+        
+          
+        
+      
+        
+      
+    
+    
+    
       
       
         
       
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
-      <a href="./" class="md-nav__link md-nav__link--active">
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./" class="md-nav__link md-nav__link--active">
+              
   
   
   <span class="md-ellipsis">
@@ -1719,7 +1737,49 @@
   </span>
   
 
+            </a>
+            
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_4_2_4_3_3" id="__nav_4_2_4_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_4_2_4_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_2_4_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Takeoff Landing Planner
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TakeoffLandingPlanner Launch Tests
+    
+  </span>
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -3176,8 +3236,227 @@
 
 
 <h1 id="takeoff-landing-planner">Takeoff Landing Planner<a class="headerlink" href="#takeoff-landing-planner" title="Permanent link">&para;</a></h1>
-<p>Author: John Keller</p>
-<p>DOCS TODO. Help appreciated.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The TakeoffLandingPlanner provides a rich interface for handling takeoff/landing commands, with support for both trajectory-based and ArduPilot command-based modes. It monitors the robot's position, generates appropriate trajectories, and tracks the completion status of takeoff and landing maneuvers.</p>
+<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Two takeoff modes: standard and high altitude</li>
+<li>Configurable takeoff and landing velocities</li>
+<li>Configurable takeoff trajectory direction</li>
+<li>Trajectory-based takeoff and landing with position tracking</li>
+<li>Direct ArduPilot takeoff command support</li>
+<li>Completion monitoring with distance and time thresholds</li>
+<li>State publishing for integration with higher-level systems</li>
+</ul>
+<h2 id="topics">Topics<a class="headerlink" href="#topics" title="Permanent link">&para;</a></h2>
+<h3 id="subscriptions">Subscriptions<a class="headerlink" href="#subscriptions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trajectory_completion_percentage</code></td>
+<td><code>std_msgs/Float32</code></td>
+<td>Current completion percentage of trajectory (from <a href="../../c_controls/trajectory_controller/src/trajectory_controller.cpp">trajectory_controller</a>)</td>
+</tr>
+<tr>
+<td><code>tracking_point</code></td>
+<td><code>airstack_msgs/Odometry</code></td>
+<td>Current tracking point for trajectory (from <a href="../../c_controls/trajectory_controller/src/trajectory_controller.cpp">trajectory_controller</a>)</td>
+</tr>
+<tr>
+<td><code>odometry</code></td>
+<td><code>nav_msgs/Odometry</code></td>
+<td>Robot odometry data</td>
+</tr>
+<tr>
+<td><code>ekf_active</code></td>
+<td><code>std_msgs/Bool</code></td>
+<td>EKF status flag</td>
+</tr>
+<tr>
+<td><code>high_takeoff</code></td>
+<td><code>std_msgs/Bool</code></td>
+<td>Flag to trigger high altitude takeoff</td>
+</tr>
+</tbody>
+</table>
+<h3 id="publications">Publications<a class="headerlink" href="#publications" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trajectory_override</code></td>
+<td><code>airstack_msgs/TrajectoryXYZVYaw</code></td>
+<td>Generated takeoff/landing trajectory</td>
+</tr>
+<tr>
+<td><code>takeoff_state</code></td>
+<td><code>std_msgs/String</code></td>
+<td>Current takeoff state ("NONE", "TAKING_OFF", "COMPLETE")</td>
+</tr>
+<tr>
+<td><code>landing_state</code></td>
+<td><code>std_msgs/String</code></td>
+<td>Current landing state ("NONE", "LANDING", "COMPLETE")</td>
+</tr>
+</tbody>
+</table>
+<h2 id="services">Services<a class="headerlink" href="#services" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>set_takeoff_landing_command</code></td>
+<td><code>airstack_msgs/TakeoffLandingCommand</code></td>
+<td>Sets command mode (NONE, TAKEOFF, LAND)</td>
+</tr>
+<tr>
+<td><code>ardupilot_takeoff</code></td>
+<td><code>std_srvs/Trigger</code></td>
+<td>Triggers direct ArduPilot takeoff command</td>
+</tr>
+</tbody>
+</table>
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>takeoff_height</code></td>
+<td>float</td>
+<td>0.5</td>
+<td>Standard takeoff height in meters</td>
+</tr>
+<tr>
+<td><code>high_takeoff_height</code></td>
+<td>float</td>
+<td>1.2</td>
+<td>High altitude takeoff height in meters</td>
+</tr>
+<tr>
+<td><code>takeoff_velocity</code></td>
+<td>float</td>
+<td>0.3</td>
+<td>Velocity during takeoff in m/s</td>
+</tr>
+<tr>
+<td><code>landing_velocity</code></td>
+<td>float</td>
+<td>0.3</td>
+<td>Velocity during landing in m/s</td>
+</tr>
+<tr>
+<td><code>takeoff_acceptance_distance</code></td>
+<td>float</td>
+<td>0.1</td>
+<td>Maximum distance to consider takeoff complete in meters</td>
+</tr>
+<tr>
+<td><code>takeoff_acceptance_time</code></td>
+<td>float</td>
+<td>2.0</td>
+<td>Required time at acceptance distance in seconds</td>
+</tr>
+<tr>
+<td><code>landing_stationary_distance</code></td>
+<td>float</td>
+<td>0.02</td>
+<td>Maximum movement distance to consider landed in meters</td>
+</tr>
+<tr>
+<td><code>landing_acceptance_time</code></td>
+<td>float</td>
+<td>5.0</td>
+<td>Required time at stationary distance in seconds</td>
+</tr>
+<tr>
+<td><code>landing_tracking_point_ahead_time</code></td>
+<td>float</td>
+<td>5.0</td>
+<td>How far ahead the tracking point should be</td>
+</tr>
+<tr>
+<td><code>takeoff_path_roll</code></td>
+<td>float</td>
+<td>0.0</td>
+<td>Roll angle for takeoff path in degrees</td>
+</tr>
+<tr>
+<td><code>takeoff_path_pitch</code></td>
+<td>float</td>
+<td>0.0</td>
+<td>Pitch angle for takeoff path in degrees</td>
+</tr>
+<tr>
+<td><code>takeoff_path_relative_to_orientation</code></td>
+<td>bool</td>
+<td>false</td>
+<td>Whether to use robot's current orientation for takeoff</td>
+</tr>
+</tbody>
+</table>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<h3 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
+<p>To launch the TakeoffLandingPlanner node:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ros2<span class="w"> </span>run<span class="w"> </span>takeoff_landing_planner<span class="w"> </span>takeoff_landing_planner
+</span></code></pre></div>
+<h3 id="initiating-takeoff">Initiating Takeoff<a class="headerlink" href="#initiating-takeoff" title="Permanent link">&para;</a></h3>
+<p>To command a takeoff:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ros2<span class="w"> </span>service<span class="w"> </span>call<span class="w"> </span>/set_takeoff_landing_command<span class="w"> </span>airstack_msgs/srv/TakeoffLandingCommand<span class="w"> </span><span class="s2">&quot;{command: 1}&quot;</span>
+</span></code></pre></div>
+<h3 id="initiating-landing">Initiating Landing<a class="headerlink" href="#initiating-landing" title="Permanent link">&para;</a></h3>
+<p>To command a landing:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ros2<span class="w"> </span>service<span class="w"> </span>call<span class="w"> </span>/set_takeoff_landing_command<span class="w"> </span>airstack_msgs/srv/TakeoffLandingCommand<span class="w"> </span><span class="s2">&quot;{command: 2}&quot;</span>
+</span></code></pre></div>
+<h3 id="ardupilot-takeoff">ArduPilot Takeoff<a class="headerlink" href="#ardupilot-takeoff" title="Permanent link">&para;</a></h3>
+<p>To use direct ArduPilot takeoff commands:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ros2<span class="w"> </span>service<span class="w"> </span>call<span class="w"> </span>/ardupilot_takeoff<span class="w"> </span>std_srvs/srv/Trigger<span class="w"> </span><span class="s2">&quot;{}&quot;</span>
+</span></code></pre></div>
+<h2 id="state-monitoring">State Monitoring<a class="headerlink" href="#state-monitoring" title="Permanent link">&para;</a></h2>
+<p>The node publishes the current state of takeoff and landing operations through the <code>takeoff_state</code> and <code>landing_state</code> topics. Monitor these topics to track the progress and completion of operations:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/takeoff_state
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/landing_state
+</span></code></pre></div>
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<ul>
+<li>airstack_msgs</li>
+<li>nav_msgs</li>
+<li>mavros_msgs</li>
+<li>std_msgs</li>
+<li>std_srvs</li>
+<li>tf2_ros</li>
+</ul>
+<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The node uses TF2 to track relative positions between the robot and tracking points</li>
+<li>Landing completion detection relies on both position stability and tracking point metrics</li>
+<li>The default landing target is hardcoded (-10000.0) and should be parameterized in future versions</li>
+</ul>
 
 
 
@@ -3230,13 +3509,13 @@
         
         
           
-          <a href="../droan_local_planner/" class="md-footer__link md-footer__link--next" aria-label="Next: DROAN Local Planner">
+          <a href="test/" class="md-footer__link md-footer__link--next" aria-label="Next: TakeoffLandingPlanner Launch Tests">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                DROAN Local Planner
+                TakeoffLandingPlanner Launch Tests
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -810,6 +810,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#automated-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automated Testing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#docker-compose-variable-overrides" class="md-nav__link">
     <span class="md-ellipsis">
       Docker Compose Variable Overrides
@@ -1825,9 +1834,34 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -1836,7 +1870,50 @@
   </span>
   
 
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_2_4_3_3" id="__nav_4_2_4_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_4_2_4_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2_4_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Takeoff Landing Planner
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TakeoffLandingPlanner Launch Tests
+    
+  </span>
+  
+
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3387,6 +3464,15 @@ The <code>--path</code> argument can be passed with a path to a <code>.usd</code
     style C fill:#fbb,stroke:#333,stroke-width:2px
     style D fill:#fbf,stroke:#333,stroke-width:2px
 </code></pre>
+<h2 id="automated-testing">Automated Testing<a class="headerlink" href="#automated-testing" title="Permanent link">&para;</a></h2>
+<p>To perform automated tests for the configured packages, please use the <code>autotest</code> service which
+extends the <code>robot</code> service with testing specific commands. Presently only <code>takeoff_landing_planner</code>
+is configured to be tested.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># On your development PC, do:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>autotest
+</span></code></pre></div>
+<p>This command will spin up a <code>robot</code> container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using <code>colcon test</code>. Excessive output log from the build process is presently piped away to preserve readability.</p>
 <h2 id="docker-compose-variable-overrides">Docker Compose Variable Overrides<a class="headerlink" href="#docker-compose-variable-overrides" title="Permanent link">&para;</a></h2>
 <p>Sometimes you may want to test different configurations of the autonomy stack. For example, you may want to disable automatically playing the sim on startup, 
 or to change a child launch file.</p>
@@ -3397,10 +3483,10 @@ See the <a href="https://docs.docker.com/compose/how-tos/environment-variables/v
 When no <code>--env-file</code> argument is passed to <code>docker compose</code>, it automatically uses this default <code>.env</code> file.</p>
 <p>To override the default <code>.env</code> file, you can pass the <code>--env-file</code> argument to <code>docker compose</code> with a path to your custom <code>.env</code> file.</p>
 <p>For example, this command disables playing the simulation on startup by overriding the <code>PLAY_SIM_ON_START</code> variable:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>overrides/no_play_sim_on_start.env<span class="w"> </span>up<span class="w"> </span>-d
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>overrides/no_play_sim_on_start.env<span class="w"> </span>up<span class="w"> </span>-d
 </span></code></pre></div></p>
 <p>As another example, this command changes the perception launch file to <code>perception_no_macvo.launch.xml</code>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>overrides/no_macvo.env<span class="w"> </span>up<span class="w"> </span>-d
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>overrides/no_macvo.env<span class="w"> </span>up<span class="w"> </span>-d
 </span></code></pre></div></p>
 <p>When overriding, the default <code>.env</code> file must be loaded first. The overrides are applied on top of it.</p>
 

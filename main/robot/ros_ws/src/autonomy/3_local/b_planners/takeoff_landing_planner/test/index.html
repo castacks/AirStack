@@ -8,28 +8,28 @@
       
       
       
-        <link rel="canonical" href="https://docs.theairlab.org/docs/main/docs/robot/autonomy/2_perception/">
+        <link rel="canonical" href="https://docs.theairlab.org/docs/main/robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/test/">
       
       
-        <link rel="prev" href="../1_sensors/gimbal/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="state_estimation/">
+        <link rel="next" href="../../droan_local_planner/">
       
       
-      <link rel="icon" href="../../../assets/StackedWhite.png">
+      <link rel="icon" href="../../../../../../../../docs/assets/StackedWhite.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
     
     
       
-        <title>Perception - AirStack</title>
+        <title>TakeoffLandingPlanner Launch Tests - AirStack</title>
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.342714a4.min.css">
+      <link rel="stylesheet" href="../../../../../../../../assets/stylesheets/main.342714a4.min.css">
       
         
-        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../../../../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -48,9 +48,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../../../../../../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../../../../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#perception" class="md-skip">
+        <a href="#takeofflandingplanner-launch-tests" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +94,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
+    <a href="../../../../../../../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
       
-  <img src="../../../assets/logo_horizontal_white.png" alt="logo">
+  <img src="../../../../../../../../docs/assets/logo_horizontal_white.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Perception
+              TakeoffLandingPlanner Launch Tests
             
           </span>
         </div>
@@ -226,7 +226,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../" class="md-tabs__link">
+      <a href="../../../../../../../../docs/" class="md-tabs__link">
         
   
   
@@ -245,7 +245,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../getting_started/" class="md-tabs__link">
+      <a href="../../../../../../../../docs/getting_started/" class="md-tabs__link">
         
   
   
@@ -266,7 +266,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../development/" class="md-tabs__link">
+        <a href="../../../../../../../../docs/development/" class="md-tabs__link">
           
   
   
@@ -290,7 +290,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+        <a href="../../../../../../../../docs/robot/" class="md-tabs__link">
           
   
   
@@ -312,7 +312,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../ground_control_station/" class="md-tabs__link">
+        <a href="../../../../../../../../docs/ground_control_station/" class="md-tabs__link">
           
   
   
@@ -334,7 +334,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../simulation/" class="md-tabs__link">
+        <a href="../../../../../../../../docs/simulation/" class="md-tabs__link">
           
   
   
@@ -356,7 +356,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../real_world/" class="md-tabs__link">
+        <a href="../../../../../../../../docs/real_world/" class="md-tabs__link">
           
   
   
@@ -376,7 +376,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../about/" class="md-tabs__link">
+      <a href="../../../../../../../../docs/about/" class="md-tabs__link">
         
   
   
@@ -413,9 +413,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../../.." title="AirStack" class="md-nav__button md-logo" aria-label="AirStack" data-md-component="logo">
+    <a href="../../../../../../../.." title="AirStack" class="md-nav__button md-logo" aria-label="AirStack" data-md-component="logo">
       
-  <img src="../../../assets/logo_horizontal_white.png" alt="logo">
+  <img src="../../../../../../../../docs/assets/logo_horizontal_white.png" alt="logo">
 
     </a>
     AirStack
@@ -442,7 +442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../" class="md-nav__link">
+      <a href="../../../../../../../../docs/" class="md-nav__link">
         
   
   
@@ -464,7 +464,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting_started/" class="md-nav__link">
+      <a href="../../../../../../../../docs/getting_started/" class="md-nav__link">
         
   
   
@@ -523,7 +523,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/development/" class="md-nav__link ">
               
   
   
@@ -585,7 +585,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/airstack-cli/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/development/airstack-cli/" class="md-nav__link ">
               
   
   
@@ -620,7 +620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/airstack-cli/extending/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/airstack-cli/extending/" class="md-nav__link">
         
   
   
@@ -643,7 +643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/airstack-cli/architecture/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/airstack-cli/architecture/" class="md-nav__link">
         
   
   
@@ -674,7 +674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/docker_usage/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/docker_usage/" class="md-nav__link">
         
   
   
@@ -697,7 +697,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/vscode/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/vscode/" class="md-nav__link">
         
   
   
@@ -720,7 +720,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/project_configuration/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/project_configuration/" class="md-nav__link">
         
   
   
@@ -776,7 +776,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/testing/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/development/testing/" class="md-nav__link ">
               
   
   
@@ -811,7 +811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/testing/testing_frameworks/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/testing/testing_frameworks/" class="md-nav__link">
         
   
   
@@ -834,7 +834,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/testing/integration_testing/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/testing/integration_testing/" class="md-nav__link">
         
   
   
@@ -857,7 +857,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/testing/unit_testing/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/testing/unit_testing/" class="md-nav__link">
         
   
   
@@ -880,7 +880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/testing/system_testing/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/testing/system_testing/" class="md-nav__link">
         
   
   
@@ -903,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/testing/ci_cd/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/testing/ci_cd/" class="md-nav__link">
         
   
   
@@ -934,7 +934,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/contributing/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/contributing/" class="md-nav__link">
         
   
   
@@ -957,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/frame_conventions/" class="md-nav__link">
+      <a href="../../../../../../../../docs/development/frame_conventions/" class="md-nav__link">
         
   
   
@@ -1021,7 +1021,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/" class="md-nav__link ">
               
   
   
@@ -1141,7 +1141,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../0_interface/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/0_interface/" class="md-nav__link ">
               
   
   
@@ -1204,7 +1204,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../1_sensors/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/1_sensors/" class="md-nav__link ">
               
   
   
@@ -1239,7 +1239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../1_sensors/gimbal/" class="md-nav__link">
+      <a href="../../../../../../../../docs/robot/autonomy/1_sensors/gimbal/" class="md-nav__link">
         
   
   
@@ -1267,8 +1267,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1289,15 +1287,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../../../../../../../../docs/robot/autonomy/2_perception/" class="md-nav__link ">
               
   
   
@@ -1310,13 +1308,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_4_2_3" id="__nav_4_2_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_2_3" id="__nav_4_2_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_2_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_2_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_2_3">
             <span class="md-nav__icon md-icon"></span>
             Perception
@@ -1332,7 +1330,7 @@
   
   
     <li class="md-nav__item">
-      <a href="state_estimation/" class="md-nav__link">
+      <a href="../../../../../../../../docs/robot/autonomy/2_perception/state_estimation/" class="md-nav__link">
         
   
   
@@ -1360,6 +1358,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1384,15 +1384,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../3_local/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/3_local/" class="md-nav__link ">
               
   
   
@@ -1411,7 +1411,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_2_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_2_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_2_4">
             <span class="md-nav__icon md-icon"></span>
             Local
@@ -1452,7 +1452,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../3_local/world_model/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/3_local/world_model/" class="md-nav__link ">
               
   
   
@@ -1514,7 +1514,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_expansion/" class="md-nav__link ">
+            <a href="../../../a_world_models/disparity_expansion/" class="md-nav__link ">
               
   
   
@@ -1549,7 +1549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph/" class="md-nav__link">
+      <a href="../../../a_world_models/disparity_graph/" class="md-nav__link">
         
   
   
@@ -1572,7 +1572,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/3_local/a_world_models/disparity_graph_cost_map/" class="md-nav__link">
+      <a href="../../../a_world_models/disparity_graph_cost_map/" class="md-nav__link">
         
   
   
@@ -1608,6 +1608,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1632,15 +1634,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../3_local/planning/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/3_local/planning/" class="md-nav__link ">
               
   
   
@@ -1659,7 +1661,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_4_2_4_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_4_2_4_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_2_4_3">
             <span class="md-nav__icon md-icon"></span>
             Planning
@@ -1675,7 +1677,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/3_local/b_planners/trajectory_library/" class="md-nav__link">
+      <a href="../../trajectory_library/" class="md-nav__link">
         
   
   
@@ -1695,6 +1697,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1715,15 +1719,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1742,7 +1746,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_4_2_4_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_4_2_4_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_2_4_3_3">
             <span class="md-nav__icon md-icon"></span>
             Takeoff Landing Planner
@@ -1755,10 +1759,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/3_local/b_planners/takeoff_landing_planner/test/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    TakeoffLandingPlanner Launch Tests
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1769,6 +1795,149 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-execution-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test Execution Process
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unit Tests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unit Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test_takeoff_parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      test_takeoff_parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test_node_active" class="md-nav__link">
+    <span class="md-ellipsis">
+      test_node_active
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test_service_response" class="md-nav__link">
+    <span class="md-ellipsis">
+      test_service_response
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test_takeoff_and_landing" class="md-nav__link">
+    <span class="md-ellipsis">
+      test_takeoff_and_landing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#helper-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      Helper Methods
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simulated-message-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Simulated Message Types
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Further Reading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cmake-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      CMake Integration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the Tests
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1812,7 +1981,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/autonomy/3_local/b_planners/droan_local_planner/" class="md-nav__link ">
+            <a href="../../droan_local_planner/" class="md-nav__link ">
               
   
   
@@ -1883,7 +2052,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../3_local/controls/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/3_local/controls/" class="md-nav__link ">
               
   
   
@@ -1918,7 +2087,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/3_local/c_controls/trajectory_controller/" class="md-nav__link">
+      <a href="../../../c_controls/trajectory_controller/" class="md-nav__link">
         
   
   
@@ -1984,7 +2153,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../4_global/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/4_global/" class="md-nav__link ">
               
   
   
@@ -2044,7 +2213,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../4_global/world_model/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/4_global/world_model/" class="md-nav__link ">
               
   
   
@@ -2079,7 +2248,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2/README.md" class="md-nav__link">
+      <a href="../../../../4_global/a_world_models/vdb_mapping_ros2/README.md" class="md-nav__link">
         
   
   
@@ -2135,7 +2304,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../4_global/planning/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/4_global/planning/" class="md-nav__link ">
               
   
   
@@ -2170,7 +2339,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/4_global/b_planners/random_walk/" class="md-nav__link">
+      <a href="../../../../4_global/b_planners/random_walk/" class="md-nav__link">
         
   
   
@@ -2236,7 +2405,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../5_behavior/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/autonomy/5_behavior/" class="md-nav__link ">
               
   
   
@@ -2271,7 +2440,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../5_behavior/behavior_tree/" class="md-nav__link">
+      <a href="../../../../../../../../docs/robot/autonomy/5_behavior/behavior_tree/" class="md-nav__link">
         
   
   
@@ -2294,7 +2463,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../5_behavior/behavior_executive/" class="md-nav__link">
+      <a href="../../../../../../../../docs/robot/autonomy/5_behavior/behavior_executive/" class="md-nav__link">
         
   
   
@@ -2359,7 +2528,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../static_transforms/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/static_transforms/" class="md-nav__link ">
               
   
   
@@ -2423,7 +2592,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../logging/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/robot/logging/" class="md-nav__link ">
               
   
   
@@ -2497,7 +2666,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../ground_control_station/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/ground_control_station/" class="md-nav__link ">
               
   
   
@@ -2579,7 +2748,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../ground_control_station/usage/user_interface/" class="md-nav__link">
+      <a href="../../../../../../../../docs/ground_control_station/usage/user_interface/" class="md-nav__link">
         
   
   
@@ -2657,7 +2826,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../ground_control_station/command_center/command_center/" class="md-nav__link">
+      <a href="../../../../../../../../docs/ground_control_station/command_center/command_center/" class="md-nav__link">
         
   
   
@@ -2735,7 +2904,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../ground_control_station/casualty_assessment/casualty_assessment/" class="md-nav__link">
+      <a href="../../../../../../../../docs/ground_control_station/casualty_assessment/casualty_assessment/" class="md-nav__link">
         
   
   
@@ -2798,7 +2967,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/simulation/" class="md-nav__link ">
               
   
   
@@ -2862,7 +3031,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/isaac_sim/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/simulation/isaac_sim/" class="md-nav__link ">
               
   
   
@@ -2897,7 +3066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
+      <a href="../../../../../../../../docs/simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
         
   
   
@@ -2920,7 +3089,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/scene_setup/" class="md-nav__link">
+      <a href="../../../../../../../../docs/simulation/isaac_sim/scene_setup/" class="md-nav__link">
         
   
   
@@ -2943,7 +3112,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
+      <a href="../../../../../../../../docs/simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
         
   
   
@@ -3010,7 +3179,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/real_world/" class="md-nav__link ">
               
   
   
@@ -3045,7 +3214,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../real_world/data_offloading/" class="md-nav__link">
+      <a href="../../../../../../../../docs/real_world/data_offloading/" class="md-nav__link">
         
   
   
@@ -3091,7 +3260,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/installation/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/real_world/installation/" class="md-nav__link ">
               
   
   
@@ -3152,7 +3321,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/HITL/" class="md-nav__link ">
+            <a href="../../../../../../../../docs/real_world/HITL/" class="md-nav__link ">
               
   
   
@@ -3197,7 +3366,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../about/" class="md-nav__link">
+      <a href="../../../../../../../../docs/about/" class="md-nav__link">
         
   
   
@@ -3231,17 +3400,142 @@
   
 
 
-<h1 id="perception">Perception<a class="headerlink" href="#perception" title="Permanent link">&para;</a></h1>
-<p>These modules process raw sensor data into useful information for the robot. For example: for detecting obstacles, localizing the robot, and recognizing objects.</p>
-<p>Perception modules typically output topics in image space or point cloud space. This information then gets aggregated into global and local world models later in the pipeline.</p>
-<p>Common perception modules include:</p>
+<h1 id="takeofflandingplanner-launch-tests">TakeoffLandingPlanner Launch Tests<a class="headerlink" href="#takeofflandingplanner-launch-tests" title="Permanent link">&para;</a></h1>
+<p>This file contains integration tests for the TakeoffLandingPlanner ROS2 node using the ROS2 launch testing framework. The tests verify that the node correctly handles takeoff and landing commands, generates appropriate trajectories, and tracks completion states.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The test harness launches the TakeoffLandingPlanner node with test-specific parameters and performs a series of tests to verify its behavior. It simulates sensor data, sends commands, and checks the responses to ensure the node operates as expected.</p>
+<h2 id="test-configuration">Test Configuration<a class="headerlink" href="#test-configuration" title="Permanent link">&para;</a></h2>
+<p>The test uses a specific YAML configuration file:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>test/config/test_takeoff_landing_planner.yaml
+</span></code></pre></div>
+<p>This configuration file contains test-specific parameters for the TakeoffLandingPlanner node, separate from the default parameters used in production. This allows for controlled testing without modifying the production configuration.</p>
+<p>The parameter file is passed to both the target TakeoffLandingPlanner node via the <code>ParameterFile</code> class in the launch description, and is also parsed using PyYAML within the test class itself:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Send parameters to the node being tested</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">takeoff_landing_planner</span> <span class="o">=</span> <span class="n">Node</span><span class="p">(</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">package</span><span class="o">=</span><span class="s2">&quot;takeoff_landing_planner&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">executable</span><span class="o">=</span><span class="s2">&quot;takeoff_landing_planner&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">ParameterFile</span><span class="p">(</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>            <span class="n">param_file</span><span class="o">=</span><span class="n">param_file</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>            <span class="n">allow_substs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="p">],</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="c1"># ...</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">)</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Later in the test class, parse the same file for test verification</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">param_file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">param_file</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="bp">cls</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">param_file</span><span class="p">[</span><span class="s2">&quot;/**&quot;</span><span class="p">][</span><span class="s2">&quot;ros__parameters&quot;</span><span class="p">]</span>
+</span></code></pre></div>
+<p>This dual use ensures that the test logic operates with the same parameter values as the node being tested.</p>
+<h2 id="test-execution-process">Test Execution Process<a class="headerlink" href="#test-execution-process" title="Permanent link">&para;</a></h2>
+<p>The test follows the ROS2 launch testing pattern as described in the <a href="https://github.com/ros2/launch/tree/master/launch_testing/doc">ROS2 Launch Testing Documentation</a>:</p>
+<ol>
+<li>A test description is generated using <code>generate_test_description()</code></li>
+<li>The TakeoffLandingPlanner node is launched with test-specific parameters</li>
+<li>A timer ensures a 1-second delay before starting tests (<a href="https://github.com/ros2/launch/blob/master/launch_testing/doc/nodes.md#allowing-nodes-time-to-start">recommended practice</a>) to allow the node to initialize</li>
+<li>Tests are run against the live node</li>
+</ol>
+<h2 id="unit-tests">Unit Tests<a class="headerlink" href="#unit-tests" title="Permanent link">&para;</a></h2>
+<p>The test suite includes the following test cases:</p>
+<h3 id="test_takeoff_parameters"><code>test_takeoff_parameters</code><a class="headerlink" href="#test_takeoff_parameters" title="Permanent link">&para;</a></h3>
+<p>Verifies that all required parameters are properly loaded from the configuration file:</p>
 <ul>
-<li>semantic segmentation</li>
-<li>VIO (Visual Inertial Odometry)</li>
+<li><code>takeoff_height</code></li>
+<li><code>high_takeoff_height</code></li>
+<li><code>takeoff_landing_velocity</code></li>
+<li><code>takeoff_acceptance_distance</code></li>
+<li>And others...</li>
 </ul>
-<h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<p>Launch files are under <code>src/robot/autonomy/perception/perception_bringup/launch</code>.</p>
-<p>The main launch command is <code>ros2 launch perception_bringup perception.launch.xml</code>.</p>
+<h3 id="test_node_active"><code>test_node_active</code><a class="headerlink" href="#test_node_active" title="Permanent link">&para;</a></h3>
+<p>Ensures that the node is active and its services are available by checking that the service client can connect within a timeout period.</p>
+<h3 id="test_service_response"><code>test_service_response</code><a class="headerlink" href="#test_service_response" title="Permanent link">&para;</a></h3>
+<p>Tests the service interface by:</p>
+<ol>
+<li>Sending takeoff, landing, and reset commands</li>
+<li>Verifying that responses indicate acceptance</li>
+<li>Verifying correct response types</li>
+</ol>
+<h3 id="test_takeoff_and_landing"><code>test_takeoff_and_landing</code><a class="headerlink" href="#test_takeoff_and_landing" title="Permanent link">&para;</a></h3>
+<p>A comprehensive integration test that:</p>
+<ol>
+<li>Simulates the full takeoff sequence:</li>
+<li>Publishes initial ground position</li>
+<li>Sends takeoff command</li>
+<li>Checks generated trajectory parameters</li>
+<li>Simulates in-progress flight</li>
+<li>Verifies "TAKING_OFF" state</li>
+<li>Simulates completion conditions</li>
+<li>Verifies "COMPLETE" state</li>
+<li>Simulates the full landing sequence:</li>
+<li>Sends landing command</li>
+<li>Checks generated trajectory</li>
+<li>Simulates in-progress landing</li>
+<li>Verifies "LANDING" state</li>
+<li>Simulates landed condition</li>
+<li>Verifies "COMPLETE" state</li>
+</ol>
+<h2 id="helper-methods">Helper Methods<a class="headerlink" href="#helper-methods" title="Permanent link">&para;</a></h2>
+<p>The test includes several helper methods:</p>
+<ul>
+<li><code>call_service(command)</code>: Sends commands to the node and verifies response</li>
+<li><code>reset_states()</code>: Resets internal test state between test cases</li>
+<li><code>yaw_to_quat(yaw)</code>: Converts yaw angle to quaternion</li>
+<li><code>get_fake_odom(kind, yaw, curr_odom)</code>: Generates simulated odometry messages</li>
+<li><code>get_fake_ref_point(kind)</code>: Generates simulated reference points</li>
+<li><code>check_takeoff_trajectory()</code>: Verifies trajectory parameters</li>
+<li><code>wait_for(secs)</code>: Waits for specified time while processing ROS callbacks</li>
+</ul>
+<h2 id="simulated-message-types">Simulated Message Types<a class="headerlink" href="#simulated-message-types" title="Permanent link">&para;</a></h2>
+<p>The test creates fake data of different types to simulate various conditions:</p>
+<ul>
+<li><code>TYPE_ODOM_GROUNDED</code>: Robot on the ground</li>
+<li><code>TYPE_ODOM_TAKEOFF_PENDING</code>: Robot in process of taking off</li>
+<li><code>TYPE_ODOM_TAKEOFF_COMPLETE</code>: Robot successfully taken off</li>
+<li><code>TYPE_ODOM_LAND_PENDING</code>: Robot in process of landing</li>
+<li><code>TYPE_ODOM_LAND_COMPLETE</code>: Robot successfully landed</li>
+</ul>
+<h2 id="further-reading">Further Reading<a class="headerlink" href="#further-reading" title="Permanent link">&para;</a></h2>
+<p>For more information on ROS2 launch testing:</p>
+<ul>
+<li><a href="https://github.com/ros2/launch/blob/master/launch_testing/doc/nodes.md">Launch Testing Nodes Documentation</a></li>
+<li><a href="https://github.com/ros2/launch/tree/master/launch_testing/examples">Launch Testing Examples</a></li>
+<li><a href="https://github.com/ros2/launch/blob/master/launch_testing/doc/api.md">Launch Testing API Reference</a></li>
+</ul>
+<h2 id="cmake-integration">CMake Integration<a class="headerlink" href="#cmake-integration" title="Permanent link">&para;</a></h2>
+<p>The tests are integrated into the CMake build system using isolated launch testing, which provides better isolation between test runs. The CMakeLists.txt contains the following configuration:</p>
+<div class="language-cmake highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">find_package</span><span class="p">(</span><span class="s">ament_cmake_ros</span><span class="w"> </span><span class="s">REQUIRED</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">find_package</span><span class="p">(</span><span class="s">launch_testing_ament_cmake</span><span class="w"> </span><span class="s">REQUIRED</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c"># Isolated Integration Testing from (https://arnebaeyens.com/blog/2024/ros2-integration-testing/)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">function</span><span class="p">(</span><span class="s">add_ros_isolated_launch_test</span><span class="w"> </span><span class="s">path</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nb">set</span><span class="p">(</span><span class="s">RUNNER</span><span class="w"> </span><span class="s2">&quot;${ament_cmake_ros_DIR}/run_test_isolated.py&quot;</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nb">add_launch_test</span><span class="p">(</span><span class="s2">&quot;${path}&quot;</span><span class="w"> </span><span class="s">RUNNER</span><span class="w"> </span><span class="s2">&quot;${RUNNER}&quot;</span><span class="w"> </span><span class="o">${</span><span class="nv">ARGN</span><span class="o">}</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nb">endfunction</span><span class="p">()</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">if</span><span class="p">(</span><span class="s">BUILD_TESTING</span><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="c"># Linter configuration is skipped for brevity</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="nb">add_ros_isolated_launch_test</span><span class="p">(</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="s">test/scripts/test_takeoff_landing_planner.py</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span><span class="p">)</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nb">endif</span><span class="p">()</span>
+</span></code></pre></div>
+<p>This setup:</p>
+<ol>
+<li>Requires the necessary ROS2 testing packages</li>
+<li>Defines a custom function <code>add_ros_isolated_launch_test</code> that uses a special runner script for better test isolation</li>
+<li>Registers our test script with this isolated runner</li>
+</ol>
+<p>The isolated testing approach helps prevent interference between test runs and improves test reliability, as described in <a href="https://arnebaeyens.com/blog/2024/ros2-integration-testing/">this reference article</a>.</p>
+<h2 id="running-the-tests">Running the Tests<a class="headerlink" href="#running-the-tests" title="Permanent link">&para;</a></h2>
+<p>To run these tests:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>colcon<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--packages-select<span class="w"> </span>takeoff_landing_planner<span class="w"> </span>--event-handlers<span class="o">=</span>console_direct+
+</span></code></pre></div>
+<p>For more verbose output:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>colcon<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--packages-select<span class="w"> </span>takeoff_landing_planner<span class="w"> </span>--event-handlers<span class="o">=</span>console_direct+<span class="w"> </span>--pytest-args<span class="w"> </span>-v
+</span></code></pre></div>
 
 
 
@@ -3277,7 +3571,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../1_sensors/gimbal/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Gimbal Extension">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Takeoff Landing Planner">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3287,20 +3581,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Gimbal Extension
+                Takeoff Landing Planner
               </div>
             </div>
           </a>
         
         
           
-          <a href="state_estimation/" class="md-footer__link md-footer__link--next" aria-label="Next: State estimation">
+          <a href="../../droan_local_planner/" class="md-footer__link md-footer__link--next" aria-label="Next: DROAN Local Planner">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                State estimation
+                DROAN Local Planner
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -3361,10 +3655,10 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../../../../../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../../../../../../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      <script src="../../../../../../../../assets/javascripts/bundle.13a4f30d.min.js"></script>
       
     
   </body>
