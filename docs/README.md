@@ -1,13 +1,13 @@
 # AirStack: Democratizing Intelligent Mobile Robotics
 
 <div align="center">
-  <img src="docs/assets/logo_horizontal_color.png" alt="AirStack Logo" width="400"/>
+  <img src="assets/logo_horizontal_color.png" alt="AirStack Logo" width="400"/>
 </div>
 
 AirStack is a comprehensive, modular autonomy stack for embodied AI and robotics developed by the [AirLab](https://theairlab.org) at Carnegie Mellon University's Robotics Institute. It provides a complete framework for developing, testing, and deploying autonomous mobile systems in both simulated and real-world environments.
 
 [![GitHub](https://img.shields.io/github/license/castacks/AirStack)](https://github.com/castacks/AirStack/blob/main/LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://docs.theairlab.org/docs/)
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://docs.theairlab.org)
 
 ## 🚀 Features
 
