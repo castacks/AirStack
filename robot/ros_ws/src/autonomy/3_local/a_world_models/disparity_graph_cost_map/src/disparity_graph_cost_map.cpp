@@ -38,7 +38,7 @@ void DisparityGraphCostMap::initialize(const rclcpp::Node::SharedPtr& node_ptr,
     node_ptr->get_parameter("robot_radius", this->robot_radius);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(), "robot_radius: " << this->robot_radius);
 
-    node_ptr->declare_parameter<int>("obstacle_check_num_points", 69);
+    node_ptr->declare_parameter<int>("obstacle_check_num_points", 4);
     node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(),
                        "obstacle_check_num_points: " << this->obstacle_check_num_points);

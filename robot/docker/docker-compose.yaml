@@ -74,6 +74,9 @@ services:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
   zed-l4t:
+    profiles:
+      - hitl
+      - deploy
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0
     build: 
       context: ./

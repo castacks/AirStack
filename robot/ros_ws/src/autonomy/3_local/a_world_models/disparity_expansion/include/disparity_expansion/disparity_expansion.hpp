@@ -50,6 +50,7 @@ class DisparityExpansionNode : public rclcpp::Node {
     bool got_cam_info = false;
 
     double downsample_scale;
+    int ignore_left_pixels;
     image_geometry::PinholeCameraModel model_;
     double baseline;
 

@@ -20,8 +20,8 @@
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap
-    obstacle_check_radius: 2.0 # this value MUST be strictly greater than the robot radius
-    obstacle_check_num_points: 0
+    obstacle_check_radius: 1.0 # this value MUST be strictly greater than the robot radius
+    obstacle_check_num_points: 2
     # disparity graph parameters. see disparity_graph.hpp
     fixed_frame: "map"
     stabilized_frame: "base_link_stabilized"  # the frame of the stabilized robot (roll and pitch removed)
