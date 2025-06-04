@@ -481,35 +481,23 @@ bool Trajectory::get_waypoint_sphere_intersection(double initial_time, double ah
                                                   double time_end, tf2::Vector3 sphere_center,
                                                   double sphere_radius, double min_velocity,
                                                   Waypoint* waypoint, Waypoint* end_waypoint) {
-    double current_path_distance = 0;
-    bool found = false;
-
+  int last_waypoint_index = -1;
     // ROS_INFO("\n\n");
     for (size_t i = 1; i < waypoints.size(); i++) {
         if (waypoints[i].get_time() < initial_time) continue;
 
         Waypoint wp_start = waypoints[i - 1];
         Waypoint wp_end = waypoints[i];
+	last_waypoint_index = i;
+
+	// if the very first waypoint we check isn't within the sphere, then return not found
+	if(i == 1 && wp_start.position().distance(sphere_center) > sphere_radius)
+	  return false;
 
         // handle the case that the initial_time is between waypoint i-1 and waypoint i
         if (wp_start.get_time() < initial_time)
             wp_start = wp_start.interpolate(wp_end, (initial_time - wp_start.get_time()) /
                                                         (wp_end.get_time() - wp_start.get_time()));
-
-        double segment_distance = wp_start.position().distance(wp_end.position());
-        bool should_break = false;
-        if (current_path_distance + segment_distance >= ahead_distance) {
-            should_break = true;
-            wp_end = wp_start.interpolate(
-                wp_end, (ahead_distance - current_path_distance) / segment_distance);
-            if (end_waypoint != NULL) *end_waypoint = wp_end;
-        }/* else if (wp_end.get_time() > time_end) {
-            should_break = true;
-            wp_end = wp_start.interpolate(wp_end, (time_end - wp_start.get_time()) /
-                                                      (wp_end.get_time() - wp_start.get_time()));
-            if (end_waypoint != NULL) *end_waypoint = wp_end;
-        }*/ else
-            current_path_distance += segment_distance;
 
         // sphere line intersection equations:
         // http://www.ambrsoft.com/TrigoCalc/Sphere/SpherLineIntersection_.htm
@@ -554,17 +542,19 @@ bool Trajectory::get_waypoint_sphere_intersection(double initial_time, double ah
                 if (waypoint != NULL) {
                     // ROS_INFO_STREAM("t: " << t);
                     *waypoint = wp_start.interpolate(wp_end, t);
-                    found = true;
+		    return true;
                 }
             }
         }
-
-        if (should_break) break;
     }
-    // if(!found)
-    //   ROS_INFO("NOT FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
-    return found;
+    // if the last waypoint is within the sphere radius return it
+    if(last_waypoint_index != -1 && waypoints[last_waypoint_index].position().distance(sphere_center) <= sphere_radius){
+      *waypoint = waypoints[last_waypoint_index];
+      return true;
+    }
+    
+    return false;
 }
 
 bool Trajectory::get_waypoint(double time, Waypoint* waypoint) {

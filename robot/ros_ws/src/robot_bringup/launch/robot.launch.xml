@@ -25,10 +25,10 @@
   <group unless="$(var sim)">
     <push-ros-namespace namespace="interface" />
     <include file="$(find-pkg-share mavros)/launch/apm.launch">
-      <arg name="fcu_url" value="/dev/ttyTHS1:115200" />
+      <arg name="fcu_url" value="/dev/ttyTHS4:115200" />
     </include>
 
-    <executable cmd="ros2 bag record -a -o /bags/autonomy_$(env DATE)" />
+    <!-- <executable cmd="ros2 bag record -a -o /bags/autonomy_$(env DATE) -x '/robot_2/sensors/*'" /> -->
   </group>
 
   
@@ -37,7 +37,7 @@
   <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml" />
 
   <!-- Autonomy -->
-  <include file="$(find-pkg-share autonomy_bringup)/launch/autonomy.launch.xml" />
+  <include file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/$(env AUTONOMY_LAUNCH_PATH)" />
 
   <!-- Logging -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />

@@ -47,6 +47,10 @@ nav:
   - Getting Started: docs/getting_started.md
   - Development:
       - docs/development/index.md
+      - AirStack CLI Tool:
+          - docs/development/airstack-cli/index.md
+          - docs/development/airstack-cli/extending.md
+          - docs/development/airstack-cli/architecture.md
       - docs/development/docker_usage.md
       - docs/development/vscode/index.md
       - docs/development/project_configuration.md
@@ -125,13 +129,17 @@ nav:
       - docs/real_world/data_offloading/index.md
       - Installation on Hardware:
           - docs/real_world/installation/index.md
+      - HITL Test:
+          - docs/real_world/HITL/index.md    
   - About: docs/about.md
 plugins:
   - search
+  # the same-dir plugin lets mkdocs point to README.md files under our source code, not just the docs directory
   - same-dir
+  # redirects is necessary with the same-dir plugin to ensure that the home page index.md file redirects to the correct location
   - redirects:
       redirect_maps:
-        "README.md": "docs/README.md"
+        'index.md': 'docs/index.md'
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
 theme:

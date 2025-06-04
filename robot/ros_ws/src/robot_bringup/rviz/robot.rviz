@@ -30,7 +30,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Expansion Cloud
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -65,10 +65,6 @@ Visualization Manager:
           Value: true
         base_link_stabilized:
           Value: false
-        front_stereo:
-          Value: true
-        left_camera:
-          Value: true
         look_ahead_point:
           Value: false
         look_ahead_point_stabilized:
@@ -83,50 +79,33 @@ Visualization Manager:
           Value: false
         odom_ned:
           Value: false
-        ouster:
-          Value: true
-        right_camera:
-          Value: true
         tracking_point:
           Value: true
         tracking_point_stabilized:
           Value: false
-        world:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          base_link:
-            base_link_frd:
-              {}
-            front_stereo:
-              left_camera:
-                {}
-              right_camera:
-                {}
-            ouster:
-              {}
-          base_link_stabilized:
-            {}
-          look_ahead_point:
-            {}
-          look_ahead_point_stabilized:
-            {}
-          map_ned:
-            {}
-          tracking_point:
-            {}
-          tracking_point_stabilized:
-            {}
         map_FLU:
-          base_link_ground_truth:
-            {}
-        world:
-          {}
+          map:
+            base_link:
+              base_link_frd:
+                {}
+            base_link_stabilized:
+              {}
+            look_ahead_point:
+              {}
+            look_ahead_point_stabilized:
+              {}
+            map_ned:
+              {}
+            tracking_point:
+              {}
+            tracking_point_stabilized:
+              {}
       Update Interval: 0
       Value: true
     - Class: rviz_common/Group
@@ -351,7 +330,7 @@ Visualization Manager:
               Enabled: true
               Name: Trimmed Global Plan for DROAN
               Namespaces:
-                global_plan: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -409,174 +388,25 @@ Visualization Manager:
               Enabled: true
               Name: Traj Library
               Namespaces:
-                trajectory_0: true
-                trajectory_1: true
-                trajectory_10: true
-                trajectory_100: true
-                trajectory_101: true
-                trajectory_102: true
-                trajectory_103: true
-                trajectory_104: true
-                trajectory_105: true
-                trajectory_106: true
-                trajectory_107: true
-                trajectory_108: true
-                trajectory_109: true
-                trajectory_11: true
-                trajectory_110: true
-                trajectory_111: true
-                trajectory_112: true
-                trajectory_113: true
-                trajectory_114: true
-                trajectory_115: true
-                trajectory_116: true
-                trajectory_117: true
-                trajectory_118: true
-                trajectory_119: true
-                trajectory_12: true
-                trajectory_120: true
-                trajectory_121: true
-                trajectory_122: true
-                trajectory_123: true
-                trajectory_124: true
-                trajectory_125: true
-                trajectory_126: true
-                trajectory_127: true
-                trajectory_128: true
-                trajectory_129: true
-                trajectory_13: true
-                trajectory_130: true
-                trajectory_131: true
-                trajectory_132: true
-                trajectory_133: true
-                trajectory_134: true
-                trajectory_135: true
-                trajectory_136: true
-                trajectory_137: true
-                trajectory_138: true
-                trajectory_139: true
-                trajectory_14: true
-                trajectory_140: true
-                trajectory_141: true
-                trajectory_142: true
-                trajectory_143: true
-                trajectory_144: true
-                trajectory_145: true
-                trajectory_146: true
-                trajectory_147: true
-                trajectory_148: true
-                trajectory_149: true
-                trajectory_15: true
-                trajectory_150: true
-                trajectory_151: true
-                trajectory_152: true
-                trajectory_153: true
-                trajectory_154: true
-                trajectory_155: true
-                trajectory_156: true
-                trajectory_157: true
-                trajectory_158: true
-                trajectory_159: true
-                trajectory_16: true
-                trajectory_160: true
-                trajectory_161: true
-                trajectory_17: true
-                trajectory_18: true
-                trajectory_19: true
-                trajectory_2: true
-                trajectory_20: true
-                trajectory_21: true
-                trajectory_22: true
-                trajectory_23: true
-                trajectory_24: true
-                trajectory_25: true
-                trajectory_26: true
-                trajectory_27: true
-                trajectory_28: true
-                trajectory_29: true
-                trajectory_3: true
-                trajectory_30: true
-                trajectory_31: true
-                trajectory_32: true
-                trajectory_33: true
-                trajectory_34: true
-                trajectory_35: true
-                trajectory_36: true
-                trajectory_37: true
-                trajectory_38: true
-                trajectory_39: true
-                trajectory_4: true
-                trajectory_40: true
-                trajectory_41: true
-                trajectory_42: true
-                trajectory_43: true
-                trajectory_44: true
-                trajectory_45: true
-                trajectory_46: true
-                trajectory_47: true
-                trajectory_48: true
-                trajectory_49: true
-                trajectory_5: true
-                trajectory_50: true
-                trajectory_51: true
-                trajectory_52: true
-                trajectory_53: true
-                trajectory_54: true
-                trajectory_55: true
-                trajectory_56: true
-                trajectory_57: true
-                trajectory_58: true
-                trajectory_59: true
-                trajectory_6: true
-                trajectory_60: true
-                trajectory_61: true
-                trajectory_62: true
-                trajectory_63: true
-                trajectory_64: true
-                trajectory_65: true
-                trajectory_66: true
-                trajectory_67: true
-                trajectory_68: true
-                trajectory_69: true
-                trajectory_7: true
-                trajectory_70: true
-                trajectory_71: true
-                trajectory_72: true
-                trajectory_73: true
-                trajectory_74: true
-                trajectory_75: true
-                trajectory_76: true
-                trajectory_77: true
-                trajectory_78: true
-                trajectory_79: true
-                trajectory_8: true
-                trajectory_80: true
-                trajectory_81: true
-                trajectory_82: true
-                trajectory_83: true
-                trajectory_84: true
-                trajectory_85: true
-                trajectory_86: true
-                trajectory_87: true
-                trajectory_88: true
-                trajectory_89: true
-                trajectory_9: true
-                trajectory_90: true
-                trajectory_91: true
-                trajectory_92: true
-                trajectory_93: true
-                trajectory_94: true
-                trajectory_95: true
-                trajectory_96: true
-                trajectory_97: true
-                trajectory_98: true
-                trajectory_99: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: droan/trajectory_library_vis
+              Value: true
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Virtual Obstacles
+              Namespaces:
+                {}
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: droan/virtual_obstacles
               Value: true
           Enabled: true
           Name: DROAN
@@ -616,7 +446,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            "": true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -701,25 +531,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 38.85853958129883
+      Distance: 27.589771270751953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -4.674562454223633
-        Y: 3.8448660373687744
-        Z: -5.191961288452148
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5503988862037659
+      Pitch: 0.2603984475135803
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.1453978717327118
+      Yaw: 4.9203948974609375
     Saved: ~
 Window Geometry:
   Displays:
@@ -743,5 +573,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1920
-  X: 0
+  X: 72
   Y: 155

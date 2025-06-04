@@ -101,6 +101,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
 									 
 
     // publishers
+    recording_pub = this->create_publisher<std_msgs::msg::Bool>("set_recording_status", 1);
 
     // services
     service_callback_group =
@@ -139,6 +140,10 @@ void BehaviorExecutive::timer_callback() {
 
     if (arm_action->is_active()) {
         if (arm_action->active_has_changed()) {
+	    std_msgs::msg::Bool start_msg;
+	    start_msg.data = true;
+	    recording_pub->publish(start_msg);
+	
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
                 std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
             request->command = airstack_msgs::srv::RobotCommand::Request::ARM;
@@ -156,6 +161,10 @@ void BehaviorExecutive::timer_callback() {
 
     if (disarm_action->is_active()) {
         if (disarm_action->active_has_changed()) {
+	    std_msgs::msg::Bool stop_msg;
+	    stop_msg.data = false;
+	    recording_pub->publish(stop_msg);
+	
 	    in_air_condition->set(false);
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
                 std::make_shared<airstack_msgs::srv::RobotCommand::Request>();

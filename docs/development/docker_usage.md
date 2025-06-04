@@ -1,4 +1,4 @@
-# Workflow with Docker and Docker Compose
+# Launch Workflow with Docker and Docker Compose
 
 To mimic interacting with multiple real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.
 
@@ -179,3 +179,29 @@ docker compose up autotest
 ```
 
 This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
+
+## Docker Compose Variable Overrides
+Sometimes you may want to test different configurations of the autonomy stack. For example, you may want to disable automatically playing the sim on startup, 
+or to change a child launch file.
+
+The `docker compose` workflow is designed to support these overrides for local development.
+`docker compose` uses `.env` files to set docker-compose variables that get propagated and interpolated into `docker-compose.yaml` files.
+See the [docker compose documentation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) for more details.
+
+The default `.env` file is in the project root directory. 
+When no `--env-file` argument is passed to `docker compose`, it automatically uses this default `.env` file.
+
+To override the default `.env` file, you can pass the `--env-file` argument to `docker compose` with a path to your custom `.env` file.
+
+For example, this command disables playing the simulation on startup by overriding the `PLAY_SIM_ON_START` variable:
+```bash
+docker compose --env-file .env --env-file overrides/no_play_sim_on_start.env up -d
+```
+
+As another example, this command changes the perception launch file to `perception_no_macvo.launch.xml`:
+```bash
+docker compose --env-file .env --env-file overrides/no_macvo.env up -d
+```
+
+
+When overriding, the default `.env` file must be loaded first. The overrides are applied on top of it.

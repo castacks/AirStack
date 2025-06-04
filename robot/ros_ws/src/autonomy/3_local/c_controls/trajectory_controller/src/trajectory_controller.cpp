@@ -47,6 +47,7 @@ class TrajectoryControlNode : public rclcpp::Node {
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr drone_point_pub;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr drone_pose_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr virtual_tracking_point_pub;
     rclcpp::Publisher<airstack_msgs::msg::Odometry>::SharedPtr closest_point_pub;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr trajectory_completion_percentage_pub;
@@ -94,9 +95,12 @@ class TrajectoryControlNode : public rclcpp::Node {
     bool new_rewind;
     float rewind_skip_max_velocity;
     float rewind_skip_max_distance;
+    float velocity_sphere_radius_multiplier;
 
     vis::MarkerArray markers;
 
+    float get_sphere_radius(float vel);
+  
    public:
     TrajectoryControlNode();
     void timer_callback();
@@ -129,6 +133,8 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     traj_vis_thickness = airstack::get_param(this, "traj_vis_thickness", 0.03);
     rewind_skip_max_velocity = airstack::get_param(this, "rewind_skip_max_velocity", 0.1);
     rewind_skip_max_distance = airstack::get_param(this, "rewind_skip_max_distance", 0.1);
+    velocity_sphere_radius_multiplier = airstack::get_param(this, "velocity_sphere_radius_multiplier", -1.0);
+    
     got_odom = false;
 
     trajectory_mode = airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE;
@@ -155,6 +161,7 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     tracking_point_pub = this->create_publisher<airstack_msgs::msg::Odometry>("tracking_point", 1);
     look_ahead_pub = this->create_publisher<airstack_msgs::msg::Odometry>("look_ahead", 1);
     drone_point_pub = this->create_publisher<airstack_msgs::msg::Odometry>("traj_drone_point", 1);
+    drone_pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("projected_drone_pose", 1);
     virtual_tracking_point_pub =
         this->create_publisher<airstack_msgs::msg::Odometry>("virtual_tracking_point", 1);
     closest_point_pub = this->create_publisher<airstack_msgs::msg::Odometry>("closest_point", 1);
@@ -196,6 +203,13 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     prev_vtp_time = 0;
 }
 
+float TrajectoryControlNode::get_sphere_radius(float vel){
+  if(velocity_sphere_radius_multiplier > 0)
+    return vel*velocity_sphere_radius_multiplier;
+  else
+    return sphere_radius;
+}
+
 void TrajectoryControlNode::timer_callback() {
     static rclcpp::Time prev_execute_time = this->get_clock()->now();
     static rclcpp::Time curr_execute_time = this->get_clock()->now();
@@ -226,11 +240,7 @@ void TrajectoryControlNode::timer_callback() {
 
     // visualization
     markers.overwrite();
-    markers
-        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3), robot_point.x(),
-                    robot_point.y(), robot_point.z(), sphere_radius)
-        .set_color(0.f, 0.f, 1.f, 0.7f);
-    trajectory_vis_pub->publish(trajectory->get_markers(now - rclcpp::Duration::from_seconds(0.3),
+    trajectory_vis_pub->publish(trajectory->get_markers(now,
                                                         "traj_controller", 1, 1, 0, 1, false, false,
                                                         traj_vis_thickness));
 
@@ -257,11 +267,24 @@ void TrajectoryControlNode::timer_callback() {
             bool closest_ahead_valid = trajectory->get_closest_waypoint(
                 robot_point, virtual_time, prev_vtp_time + look_ahead_time, &closest_ahead_wp);
             if (closest_ahead_valid) {
-                virtual_time = closest_ahead_wp.get_time();
 
+ 	        geometry_msgs::msg::PoseStamped drone_pose;
+		drone_pose.header = drone_point.header;
+		drone_pose.pose.position.x = closest_ahead_wp.position().x();
+		drone_pose.pose.position.y = closest_ahead_wp.position().y();
+		drone_pose.pose.position.z = closest_ahead_wp.position().z();
+		drone_pose.pose.orientation.w = 1.0;
+		drone_pose_pub->publish(drone_pose);
+		
                 // visualization
+	        markers
+  		    .add_sphere(target_frame, now, robot_point.x(),
+		  	        robot_point.y(), robot_point.z(), get_sphere_radius(closest_ahead_wp.velocity().length()))
+		    .set_color(0.f, 0.f, 1.f, 0.7f);
+                virtual_time = closest_ahead_wp.get_time();
+		
                 markers
-                    .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                    .add_sphere(target_frame, now,
                                 closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
                                 closest_ahead_wp.get_z(), 0.025f)
                     .set_color(0.f, 1.f, 0.f);
@@ -269,29 +292,35 @@ void TrajectoryControlNode::timer_callback() {
                 Waypoint vtp_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                 Waypoint end_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
                 bool vtp_valid = trajectory->get_waypoint_sphere_intersection(
-                    virtual_time, search_ahead_factor * sphere_radius,
-                    prev_vtp_time + look_ahead_time, robot_point, sphere_radius,
+                    virtual_time, search_ahead_factor * get_sphere_radius(closest_ahead_wp.velocity().length()),
+                    prev_vtp_time + look_ahead_time, robot_point, get_sphere_radius(closest_ahead_wp.velocity().length()),
                     min_virtual_tracking_velocity, &vtp_wp, &end_wp);
                 if (vtp_valid) current_virtual_ahead_time = vtp_wp.get_time() - virtual_time;
 
                 // visualization
                 if (vtp_valid)
                     markers
-                        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                        .add_sphere(target_frame, now,
                                     vtp_wp.get_x(), vtp_wp.get_y(), vtp_wp.get_z(), 0.025f)
                         .set_color(0.f, 1.f, 0.f);
                 else
                     markers
-                        .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                        .add_sphere(target_frame, now,
                                     closest_ahead_wp.get_x(), closest_ahead_wp.get_y(),
-                                    closest_ahead_wp.get_z() + sphere_radius, 0.025f)
+                                    closest_ahead_wp.get_z() + get_sphere_radius(closest_ahead_wp.velocity().length()), 0.025f)
                         .set_color(1.f, 0.f, 0.f);
                 markers
-                    .add_sphere(target_frame, now - rclcpp::Duration::from_seconds(0.3),
+                    .add_sphere(target_frame, now,
                                 end_wp.get_x(), end_wp.get_y(), end_wp.get_z(), 0.025f)
                     .set_color(0.f, 0.f, 1.f);
-            } else
+            } else{
                 RCLCPP_INFO(this->get_logger(), "AHEAD NOT VALID");
+		
+	        markers
+  		    .add_sphere(target_frame, now, robot_point.x(),
+		  	        robot_point.y(), robot_point.z(), 1.)
+		    .set_color(1.f, 0.f, 0.f, 0.7f);
+	    }
         } else {
             if (new_rewind) {
                 float before = virtual_time;

@@ -3,12 +3,13 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.srv import CommandBool, CommandTOL, SetMode
-from mavros_msgs.msg import PositionTarget
+from mavros_msgs.msg import PositionTarget, AttitudeTarget
 import time
 
 POS = 1
 POS_RAW = 2
 POS_VEL_RAW = 3
+ATT = 4
 
 class TimeValueSeries:
     def __init__(self):
@@ -40,7 +41,7 @@ class DroneControlNode(Node):
         # Get parameters
         self.takeoff_wait_time = 10.
         self.takeoff_height = 5.
-        self.setpoint_mode = POS_VEL_RAW
+        self.setpoint_mode = ATT#POS_VEL_RAW
         self.control_rate = 3.
         self.do_plan = False
 
@@ -63,15 +64,17 @@ class DroneControlNode(Node):
         self.y_plan.add(40., 0.)
 
         # MAVROS service clients
-        self.set_mode_client = self.create_client(SetMode, 'mavros/set_mode')
-        self.arming_client = self.create_client(CommandBool, 'mavros/cmd/arming')
-        self.takeoff_client = self.create_client(CommandTOL, 'mavros/cmd/takeoff')
+        self.set_mode_client = self.create_client(SetMode, 'interface/mavros/set_mode')
+        self.arming_client = self.create_client(CommandBool, 'interface/mavros/cmd/arming')
+        self.takeoff_client = self.create_client(CommandTOL, 'interface/mavros/cmd/takeoff')
 
         # Publishers
         if self.setpoint_mode == POS:
-            self.control_publisher = self.create_publisher(PoseStamped, 'mavros/setpoint_position/local', 10)
+            self.control_publisher = self.create_publisher(PoseStamped, 'interface/mavros/setpoint_position/local', 10)
+        elif self.setpoint_mode == ATT:
+            self.control_publisher = self.create_publisher(AttitudeTarget, 'interface/mavros/setpoint_raw/attitude', 10)
         else:
-            self.control_publisher = self.create_publisher(PositionTarget, 'mavros/setpoint_raw/local', 10)
+            self.control_publisher = self.create_publisher(PositionTarget, 'interface/mavros/setpoint_raw/local', 10)
 
         # Start mission
         self.set_guided_mode_and_takeoff()
@@ -162,6 +165,17 @@ class DroneControlNode(Node):
                 msg.velocity.y = 0.
                 msg.velocity.z = 0.
                 msg.yaw = 0.0
+            elif self.setpoint_mode == ATT:
+                msg = AttitudeTarget()
+                msg.type_mask = AttitudeTarget.IGNORE_ROLL_RATE | AttitudeTarget.IGNORE_PITCH_RATE
+                msg.orientation.x = 0.0871557
+                msg.orientation.y = 0.
+                msg.orientation.z = 0.
+                msg.orientation.w = 0.9961947
+                msg.body_rate.x = 2.
+                msg.body_rate.y = 2.
+                msg.body_rate.z = 2.
+                msg.thrust = .65
 
             self.control_publisher.publish(msg)
             #rate.sleep()
