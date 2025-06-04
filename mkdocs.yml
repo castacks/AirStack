@@ -135,7 +135,7 @@ plugins:
   - same-dir
   - redirects:
       redirect_maps:
-        'README.md': 'docs/README.md'
+        'index.md': 'docs/index.md'
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
 theme:
