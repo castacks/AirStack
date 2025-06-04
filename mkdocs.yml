@@ -47,13 +47,13 @@ nav:
   - Getting Started: docs/getting_started.md
   - Development:
       - docs/development/index.md
-      - docs/development/docker_usage.md
-      - docs/development/vscode/index.md
-      - docs/development/project_configuration.md
       - AirStack CLI Tool:
           - docs/development/airstack-cli/index.md
           - docs/development/airstack-cli/extending.md
           - docs/development/airstack-cli/architecture.md
+      - docs/development/docker_usage.md
+      - docs/development/vscode/index.md
+      - docs/development/project_configuration.md
       - Testing:
           - docs/development/testing/index.md
           - docs/development/testing/testing_frameworks.md

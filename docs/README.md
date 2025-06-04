@@ -33,73 +33,7 @@ AirStack is a comprehensive, modular autonomy stack for embodied AI and robotics
 
 ## 🔧 Quick Start
 
-### 1. Clone the Repository
-
-```bash
-git clone --recursive -j8 git@github.com:castacks/AirStack.git
-cd AirStack
-```
-
-### 2. Install Docker with NVIDIA Support
-
-Follow [NVIDIA's instructions](https://docs.nvidia.com/ai-enterprise/deployment/vmware/latest/docker.html) for installing Docker with NVIDIA GPU support. Make sure `docker-compose-plugin` is also installed.
-
-### 3. Configure the Repository
-
-```bash
-./configure.sh
-```
-
-Follow the prompts to complete the initial configuration.
-
-### 4. Get the Docker Images
-
-#### Option 1: Pull from AirLab Registry (Preferred)
-
-```bash
-docker login airlab-storage.andrew.cmu.edu:5001
-# Enter your andrew id (without @andrew.cmu.edu)
-# Enter your andrew password
-
-# Pull the images in the docker compose file
-docker compose pull
-```
-
-#### Option 2: Build Docker Images From Scratch
-
-```bash
-# Download the Ascent Spirit SITL software package
-bash simulation/isaac-sim/installation/download_sitl.bash
-
-# Build the images locally (requires NVIDIA NGC access)
-docker compose build
-```
-
-### 5. Launch the System
-
-```bash
-xhost +  # allow docker access to X-Server
-
-# Start docker compose services
-docker compose up -d
-# For multiple robots: docker compose up -d --scale robot=3
-```
-
-This will automatically launch and play the Isaac Sim scene specified in the `.env` file.
-
-### 6. Control the Robot
-
-Find the RQT GUI window:
-1. Click "Arm and Takeoff"
-2. Click "Global Plan" in the trajectory window
-
-You can also switch to "Fixed Trajectory" mode and click "Publish" to follow a predefined trajectory.
-
-### 7. Shutdown
-
-```bash
-docker compose down
-```
+Follow the instructions at https://docs.theairlab.org/main/docs/getting_started/ to set up AirStack on your machine. 
 
 ## 🏗️ System Architecture
 
