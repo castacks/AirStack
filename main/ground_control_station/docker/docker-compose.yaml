@@ -11,14 +11,6 @@ services:
     ports:
       - 2222:22 # for ssh
 
-  # -------------------------------------------------------------------------------------------------------------------
-  # dev container for developer debugging
-  gcs-dev:
-    profiles: !override
-      - dev
-    extends: gcs
-    command: "sleep infinity"
-
   # ===================================================================================================================
   # for running on a real world laptop on the local network, set network mode to host
   gcs-real:

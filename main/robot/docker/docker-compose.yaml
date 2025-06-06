@@ -19,12 +19,14 @@ services:
         - *desktop_image
     # we use tmux send-keys so that the session stays alive
     command: >
-      bash -c "service ssh restart;
-      tmux new -d -s robot_bringup
-      && tmux send-keys -t robot_bringup 
-      'bws && sws && 
-      ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER
-      && sleep infinity"
+      bash -c "
+      service ssh restart;
+      tmux new -d -s robot_bringup;
+      autolaunch=${AUTOLAUNCH};
+      if [ $$autolaunch = 'true' ]; then
+        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      fi;
+      sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
     networks:
       - airstack_network
@@ -35,14 +37,6 @@ services:
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
-
-  # -------------------------------------------------------------------------------------------------------------------
-  # dev container for developer debugging
-  robot-dev:
-    profiles: !override
-      - "dev"
-    extends: robot
-    command: sleep infinity
 
   # ===================================================================================================================
   # for running on an NVIIDA jetson (linux for tegra) device
