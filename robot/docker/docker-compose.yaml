@@ -71,7 +71,10 @@ services:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
 # ===================================================================================================================
-  autotest:
+# for running tests on the robot
+  robot-test:
+    profiles:
+      - "test"
     extends:
       service: robot
     command: >
