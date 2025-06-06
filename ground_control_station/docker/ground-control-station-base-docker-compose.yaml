@@ -10,10 +10,12 @@ services:
     entrypoint: ""
     command: >
       bash -c "ssh service restart;
-      tmux new -d -s gcs_bringup
-      && tmux send-keys -t gcs_bringup 
-      'bws && sws; ros2 launch ${GCS_LAUNCH_PACKAGE} ${GCS_LAUNCH_FILE}' ENTER
-      && sleep infinity"
+      tmux new -d -s gcs_bringup;
+      autolaunch=${AUTOLAUNCH};
+      if [ $$autolaunch = 'true' ]; then
+        tmux send-keys -t gcs_bringup 'bws && sws; ros2 launch ${GCS_LAUNCH_PACKAGE} ${GCS_LAUNCH_FILE}' ENTER
+      fi;
+      sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t

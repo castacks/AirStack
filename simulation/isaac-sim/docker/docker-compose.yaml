@@ -13,9 +13,13 @@ services:
     entrypoint: "" # override the default entrypoint with nothing
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
-      bash -c "tmux new -d -s isaac 
-      && tmux send-keys -t isaac \"ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}\" ENTER 
-      && sleep infinity"
+      bash -c "
+      tmux new -d -s isaac 
+      autolaunch=${AUTOLAUNCH};
+      if [ $$autolaunch = 'true' ]; then
+        tmux send-keys -t isaac \"ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}\" ENTER 
+      fi;
+      sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -67,18 +71,6 @@ services:
       - ../sitl_integration:/sitl_integration:rw
       - ../sitl_integration/inputrc:/etc/inputrc
       - ../sitl_integration/config:/root/.nvidia-omniverse/config:rw
-
-  # -------------------------------------------------------------------------------------------------------------------
-  # dev container for developer debugging
-  isaac-sim-dev:
-    profiles: !override
-      - dev
-    extends: isaac-sim
-    container_name: isaac-sim-dev
-    command: >
-      bash -c "tmux new -d -s isaac 
-      && tmux send-keys -t isaac \"ros2 launch isaacsim run_isaacsim.launch.py\" ENTER 
-      && sleep infinity"
 
   # ===================================================================================================================
   # for running over ethernet for hitl to stream to the NVIDIA jetson device

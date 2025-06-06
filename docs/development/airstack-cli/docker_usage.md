@@ -195,18 +195,20 @@ To change the Isaac Sim scene:
 ISAAC_SIM_SCENE=path/to/your_scene.usd airstack up
 ```
 
+To disable autolaunching the stack and simply spawn idle docker containers (useful for debugging):
+```bash
+AUTOLAUNCH=false airstack up
+```
+
 A list of all available environment variables is in the default `.env` file in the project root directory, which allows specifying all the variables in one place.
 When no `--env-file` argument is passed to `docker compose`, it automatically uses this default `.env` file.
 
-The top-level env file is reproduced below:
+The default `.env` file is reproduced below:
 ```bash
 --8<-- ".env"
 ```
 
 To override the default `.env` file, you can pass the `--env-file` argument with the syntax `airstack --env-file [env_file] up` (or `docker compose --env-file [env_file] up -d`).
 
-Multiple `--env-file` arguments can be passed to compose overriding sets of variables.env` file.
-When overriding, the default `.env` file must be loaded first. The overrides are applied on top of it.
-
-
-
+Multiple `--env-file` arguments can be passed to compose overriding sets of `variables.env` files.
+All subsequent `--env-file` arguments override the previous ones, allowing you to layer configurations.
