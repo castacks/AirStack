@@ -14,10 +14,10 @@ services:
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
       bash -c "
-      tmux new -d -s isaac 
+      tmux new -d -s isaac;
       autolaunch=${AUTOLAUNCH};
       if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t isaac \"ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}\" ENTER 
+        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}' ENTER 
       fi;
       sleep infinity"
     # Interactive shell
