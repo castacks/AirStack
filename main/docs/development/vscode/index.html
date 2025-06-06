@@ -11,10 +11,10 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/main/docs/development/vscode/">
       
       
-        <link rel="prev" href="../docker_usage/">
+        <link rel="prev" href="../airstack-cli/architecture/">
       
       
-        <link rel="next" href="../project_configuration/">
+        <link rel="next" href="../testing/">
       
       
       <link rel="icon" href="../../assets/StackedWhite.png">
@@ -504,10 +504,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -573,6 +569,8 @@
       
         
       
+        
+      
     
     
     
@@ -628,12 +626,35 @@
   
   
     <li class="md-nav__item">
+      <a href="../airstack-cli/docker_usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Launch Workflow with Docker and Docker Compose
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../airstack-cli/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Extending the AirStack CLI
+    Advanced: Extending the AirStack CLI
     
   </span>
   
@@ -656,7 +677,7 @@
   
   
   <span class="md-ellipsis">
-    AirStack CLI Architecture
+    Advanced: AirStack CLI Architecture
     
   </span>
   
@@ -670,29 +691,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../docker_usage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Launch Workflow with Docker and Docker Compose
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -787,29 +785,6 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../project_configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Project Configuration
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
     
     
       
@@ -843,7 +818,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -860,14 +835,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Testing
           </label>
@@ -3286,8 +3261,8 @@
 
 <h1 id="vs-code-docker-integration-and-debugger-setup">VS Code: Docker Integration and Debugger Setup<a class="headerlink" href="#vs-code-docker-integration-and-debugger-setup" title="Permanent link">&para;</a></h1>
 <p>Start containers
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># optionally pass the --scale robot=N argument to start N robots</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>dc<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">  </span><span class="c1"># --scale robot=2</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># optionally prepend NUM_ROBOTS=N argument to start N robots</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>-d
 </span></code></pre></div></p>
 <p>Open AirStack folder</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack
@@ -3349,7 +3324,7 @@ If you accidentally create files as root, you can change the owner to your user 
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../docker_usage/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Launch Workflow with Docker and Docker Compose">
+          <a href="../airstack-cli/architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Advanced: AirStack CLI Architecture">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3359,20 +3334,20 @@ If you accidentally create files as root, you can change the owner to your user 
                 Previous
               </span>
               <div class="md-ellipsis">
-                Launch Workflow with Docker and Docker Compose
+                Advanced: AirStack CLI Architecture
               </div>
             </div>
           </a>
         
         
           
-          <a href="../project_configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Project Configuration">
+          <a href="../testing/" class="md-footer__link md-footer__link--next" aria-label="Next: Testing">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Project Configuration
+                Testing
               </div>
             </div>
             <div class="md-footer__button md-icon">

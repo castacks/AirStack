@@ -502,10 +502,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -568,6 +564,8 @@
       
         
       
+        
+      
     
     
     
@@ -620,12 +618,35 @@
   
   
     <li class="md-nav__item">
+      <a href="../development/airstack-cli/docker_usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Launch Workflow with Docker and Docker Compose
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../development/airstack-cli/extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Extending the AirStack CLI
+    Advanced: Extending the AirStack CLI
     
   </span>
   
@@ -648,7 +669,7 @@
   
   
   <span class="md-ellipsis">
-    AirStack CLI Architecture
+    Advanced: AirStack CLI Architecture
     
   </span>
   
@@ -674,58 +695,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/docker_usage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Launch Workflow with Docker and Docker Compose
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../development/vscode/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     VS Code: Docker Integration and Debugger Setup
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/project_configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Project Configuration
     
   </span>
   
@@ -772,7 +747,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -789,14 +764,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Testing
           </label>
@@ -3248,12 +3223,6 @@
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <h3 id="desktop-vs-jetson">Desktop vs Jetson<a class="headerlink" href="#desktop-vs-jetson" title="Permanent link">&para;</a></h3>
 <p>If you look at the <code>robot/docker/docker-compose.yaml</code> file, you'll see it contains two services. <code>robot</code> is meant for x86-64 desktop development whereas <code>robot_l4t</code> is meant to run on NVIDIA Jetson devices. Both extend a base service in <code>robot/docker/robot-base-docker-compose.yaml</code>.</p>
-<h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
-<p>Environment variables are used to configure the robot Docker container. The top level <code>AirStack/.env</code> file points to a <code>ROBOT_ENV_FILE_NAME</code> (default: <code>robot.env</code>), that in turn is used to load environment variables for the robot Docker container. The file that <code>ROBOT_ENV_FILE_NAME</code> points to gets added into the container under <code>robot/docker/robot-base-docker-compose.yaml</code>.</p>
-<p>The environment variables can be used to trigger nodes to launch. For example, the <code>USE_MACVO</code> environmental variable is checked by <code>perception.launch.xml</code> to determine whether to launch the <code>macvo</code> node.</p>
-<p>The file <code>robot.env</code> is reproduced below:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>
-</span></code></pre></div></p>
 <h2 id="common-topics">Common Topics<a class="headerlink" href="#common-topics" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

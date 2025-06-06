@@ -14,7 +14,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="extending/">
+        <link rel="next" href="docker_usage/">
       
       
       <link rel="icon" href="../../assets/StackedWhite.png">
@@ -504,10 +504,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -575,6 +571,8 @@
       
         
       
+        
+      
     
     
     
@@ -630,12 +628,35 @@
   
   
     <li class="md-nav__item">
+      <a href="docker_usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Launch Workflow with Docker and Docker Compose
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="extending/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Extending the AirStack CLI
+    Advanced: Extending the AirStack CLI
     
   </span>
   
@@ -658,7 +679,7 @@
   
   
   <span class="md-ellipsis">
-    AirStack CLI Architecture
+    Advanced: AirStack CLI Architecture
     
   </span>
   
@@ -684,58 +705,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../docker_usage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Launch Workflow with Docker and Docker Compose
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../vscode/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     VS Code: Docker Integration and Debugger Setup
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../project_configuration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Project Configuration
     
   </span>
   
@@ -785,7 +760,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -802,14 +777,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Testing
           </label>
@@ -3236,6 +3211,7 @@
 <li><strong>Helpful</strong>: Includes detailed help text and error messages</li>
 <li><strong>Extensible</strong>: New commands can be added without modifying the core script</li>
 </ul>
+<p>At its core, <code>airstack.sh</code> is simply a light wrapper around <a href="https://docs.docker.com/compose/">docker compose</a>, providing additional functionality and convenience for AirStack development.</p>
 <h2 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./airstack.sh<span class="w"> </span>&lt;command&gt;<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
@@ -3245,6 +3221,13 @@
 <p>To get help for a specific command:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./airstack.sh<span class="w"> </span><span class="nb">help</span><span class="w"> </span>&lt;command&gt;
 </span></code></pre></div>
+<h2 id="adding-to-shell-profile">Adding to Shell Profile<a class="headerlink" href="#adding-to-shell-profile" title="Permanent link">&para;</a></h2>
+<p>For convenience, you can add the AirStack CLI to your shell profile to make it available from any directory:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./airstack.sh<span class="w"> </span>setup
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># now you can use `airstack` instead of `./airstack.sh`</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>airstack<span class="w"> </span>commands
+</span></code></pre></div>
+<p>This will add the necessary aliases to your shell profile (<code>~/.bashrc</code>, <code>~/.zshrc</code>, etc.) so you can use the <code>airstack</code> command from any directory.</p>
 <h2 id="core-commands">Core Commands<a class="headerlink" href="#core-commands" title="Permanent link">&para;</a></h2>
 <p>The AirStack CLI includes several built-in commands:</p>
 <table>
@@ -3291,7 +3274,7 @@
 </table>
 <h3 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h3>
 <p>The <code>install</code> command sets up the necessary dependencies for AirStack development:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./airstack.sh<span class="w"> </span>install<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>airstack<span class="w"> </span>install<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 <p>Options:
 - <code>--force</code>: Force reinstallation of components
@@ -3299,58 +3282,57 @@
 - <code>--with-wintak</code>: Install WinTAK VirtualBox environment</p>
 <h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h3>
 <p>The <code>setup</code> command configures your environment for AirStack development:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./airstack.sh<span class="w"> </span>setup<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>airstack<span class="w"> </span>setup<span class="w"> </span><span class="o">[</span>options<span class="o">]</span>
 </span></code></pre></div>
 <p>Options:
 - <code>--no-shell</code>: Skip adding to shell profile
 - <code>--no-config</code>: Skip configuration tasks</p>
 <h3 id="container-management">Container Management<a class="headerlink" href="#container-management" title="Permanent link">&para;</a></h3>
 <p>The AirStack CLI provides several commands for managing Docker containers:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Start services</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./airstack.sh<span class="w"> </span>up<span class="w"> </span><span class="o">[</span>service...<span class="o">]</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Stop services</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>./airstack.sh<span class="w"> </span>down<span class="w"> </span><span class="o">[</span>service...<span class="o">]</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Show container status</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>./airstack.sh<span class="w"> </span>status
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Connect to a container shell</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>./airstack.sh<span class="w"> </span>connect<span class="w"> </span>&lt;container_name&gt;
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># View container logs</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>./airstack.sh<span class="w"> </span>logs<span class="w"> </span>&lt;container_name&gt;
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Start services</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="o">[</span>service...<span class="o">]</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>airstack<span class="w"> </span>up<span class="w"> </span>robot<span class="w">  </span><span class="c1"># start only the robot service</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim<span class="w">  </span><span class="c1"># start only the Isaac Sim service</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>gcs<span class="w">  </span><span class="c1"># start only the Ground Control Station service</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>airstack<span class="w"> </span>up<span class="w"> </span>docs<span class="w"> </span><span class="c1"># start only the documentation service</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Stop services</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>airstack<span class="w"> </span>down<span class="w"> </span><span class="o">[</span>service...<span class="o">]</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="c1"># Show container status</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>airstack<span class="w"> </span>status
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="c1"># Connect to a container shell, supports partial name matching</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>airstack<span class="w"> </span>connect<span class="w"> </span>&lt;container_name&gt;
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="c1"># View container logs</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>airstack<span class="w"> </span>logs<span class="w"> </span>&lt;container_name&gt;
 </span></code></pre></div>
 <h2 id="module-specific-commands">Module-Specific Commands<a class="headerlink" href="#module-specific-commands" title="Permanent link">&para;</a></h2>
 <p>In addition to the core commands, the AirStack CLI includes several module-specific commands:</p>
 <h3 id="configuration-commands">Configuration Commands<a class="headerlink" href="#configuration-commands" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Run all configuration tasks</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>./airstack.sh<span class="w"> </span>config
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Configure Isaac Sim</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>./airstack.sh<span class="w"> </span>config:isaac-sim
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Configure Nucleus</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>./airstack.sh<span class="w"> </span>config:nucleus
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Configure Git hooks</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>./airstack.sh<span class="w"> </span>config:git-hooks
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Run all configuration tasks</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>airstack<span class="w"> </span>config
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Configure Isaac Sim</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>airstack<span class="w"> </span>config:isaac-sim
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Configure Nucleus</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>airstack<span class="w"> </span>config:nucleus
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Configure Git hooks</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>airstack<span class="w"> </span>config:git-hooks
 </span></code></pre></div>
 <h3 id="wintak-commands">WinTAK Commands<a class="headerlink" href="#wintak-commands" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Install WinTAK</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>./airstack.sh<span class="w"> </span>wintak:install
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Start WinTAK VM</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>./airstack.sh<span class="w"> </span>wintak:start
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Stop WinTAK VM</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>./airstack.sh<span class="w"> </span>wintak:stop
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Install WinTAK</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>airstack<span class="w"> </span>wintak:install
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Start WinTAK VM</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>airstack<span class="w"> </span>wintak:start
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Stop WinTAK VM</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>airstack<span class="w"> </span>wintak:stop
 </span></code></pre></div>
-<h2 id="adding-to-shell-profile">Adding to Shell Profile<a class="headerlink" href="#adding-to-shell-profile" title="Permanent link">&para;</a></h2>
-<p>For convenience, you can add the AirStack CLI to your shell profile to make it available from any directory:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./airstack.sh<span class="w"> </span>setup
-</span></code></pre></div>
-<p>This will add the necessary aliases to your shell profile (<code>~/.bashrc</code>, <code>~/.zshrc</code>, etc.) so you can use the <code>airstack</code> command from any directory.</p>
 
 
 
@@ -3403,13 +3385,13 @@
         
         
           
-          <a href="extending/" class="md-footer__link md-footer__link--next" aria-label="Next: Extending the AirStack CLI">
+          <a href="docker_usage/" class="md-footer__link md-footer__link--next" aria-label="Next: Launch Workflow with Docker and Docker Compose">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Extending the AirStack CLI
+                Launch Workflow with Docker and Docker Compose
               </div>
             </div>
             <div class="md-footer__button md-icon">
