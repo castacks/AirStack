@@ -1,4 +1,4 @@
-# Extending the AirStack CLI
+# Advanced: Extending the AirStack CLI
 
 The AirStack CLI tool is designed to be easily extensible through modules. This guide explains how to create new modules and add commands to the AirStack CLI.
 

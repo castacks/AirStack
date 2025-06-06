@@ -1,4 +1,4 @@
-# AirStack CLI Architecture
+# Advanced: AirStack CLI Architecture
 
 This document describes the architecture of the AirStack CLI tool, explaining how it's organized and how the different components work together.
 
