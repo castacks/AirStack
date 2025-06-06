@@ -11,6 +11,8 @@ The AirStack CLI tool is designed to be:
 - **Helpful**: Includes detailed help text and error messages
 - **Extensible**: New commands can be added without modifying the core script
 
+At its core, `airstack.sh` is simply a light wrapper around [docker compose](https://docs.docker.com/compose/), providing additional functionality and convenience for AirStack development.
+
 ## Basic Usage
 
 ```bash
@@ -28,6 +30,18 @@ To get help for a specific command:
 ```bash
 ./airstack.sh help <command>
 ```
+
+## Adding to Shell Profile
+
+For convenience, you can add the AirStack CLI to your shell profile to make it available from any directory:
+
+```bash
+./airstack.sh setup
+# now you can use `airstack` instead of `./airstack.sh`
+airstack commands
+```
+
+This will add the necessary aliases to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) so you can use the `airstack` command from any directory.
 
 ## Core Commands
 
@@ -49,7 +63,7 @@ The AirStack CLI includes several built-in commands:
 The `install` command sets up the necessary dependencies for AirStack development:
 
 ```bash
-./airstack.sh install [options]
+airstack install [options]
 ```
 
 Options:
@@ -62,7 +76,7 @@ Options:
 The `setup` command configures your environment for AirStack development:
 
 ```bash
-./airstack.sh setup [options]
+airstack setup [options]
 ```
 
 Options:
@@ -75,19 +89,23 @@ The AirStack CLI provides several commands for managing Docker containers:
 
 ```bash
 # Start services
-./airstack.sh up [service...]
+airstack up [service...]
+airstack up robot  # start only the robot service
+airstack up isaac-sim  # start only the Isaac Sim service
+airstack up gcs  # start only the Ground Control Station service
+airstack up docs # start only the documentation service
 
 # Stop services
-./airstack.sh down [service...]
+airstack down [service...]
 
 # Show container status
-./airstack.sh status
+airstack status
 
-# Connect to a container shell
-./airstack.sh connect <container_name>
+# Connect to a container shell, supports partial name matching
+airstack connect <container_name>
 
 # View container logs
-./airstack.sh logs <container_name>
+airstack logs <container_name>
 ```
 
 ## Module-Specific Commands
@@ -98,37 +116,27 @@ In addition to the core commands, the AirStack CLI includes several module-speci
 
 ```bash
 # Run all configuration tasks
-./airstack.sh config
+airstack config
 
 # Configure Isaac Sim
-./airstack.sh config:isaac-sim
+airstack config:isaac-sim
 
 # Configure Nucleus
-./airstack.sh config:nucleus
+airstack config:nucleus
 
 # Configure Git hooks
-./airstack.sh config:git-hooks
+airstack config:git-hooks
 ```
 
 ### WinTAK Commands
 
 ```bash
 # Install WinTAK
-./airstack.sh wintak:install
+airstack wintak:install
 
 # Start WinTAK VM
-./airstack.sh wintak:start
+airstack wintak:start
 
 # Stop WinTAK VM
-./airstack.sh wintak:stop
+airstack wintak:stop
 ```
-
-## Adding to Shell Profile
-
-For convenience, you can add the AirStack CLI to your shell profile to make it available from any directory:
-
-```bash
-./airstack.sh setup
-```
-
-This will add the necessary aliases to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) so you can use the `airstack` command from any directory.

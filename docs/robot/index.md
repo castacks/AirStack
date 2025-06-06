@@ -28,16 +28,6 @@ At a high level, the launch files are organized as follows:
 ### Desktop vs Jetson
 If you look at the `robot/docker/docker-compose.yaml` file, you'll see it contains two services. `robot` is meant for x86-64 desktop development whereas `robot_l4t` is meant to run on NVIDIA Jetson devices. Both extend a base service in `robot/docker/robot-base-docker-compose.yaml`.
 
-### Environment Variables
-Environment variables are used to configure the robot Docker container. The top level `AirStack/.env` file points to a `ROBOT_ENV_FILE_NAME` (default: `robot.env`), that in turn is used to load environment variables for the robot Docker container. The file that `ROBOT_ENV_FILE_NAME` points to gets added into the container under `robot/docker/robot-base-docker-compose.yaml`.
-
-The environment variables can be used to trigger nodes to launch. For example, the `USE_MACVO` environmental variable is checked by `perception.launch.xml` to determine whether to launch the `macvo` node.
-
-The file `robot.env` is reproduced below:
-```bash
---8<-- "robot/docker/robot.env"
-```
-
 ## Common Topics
 | Topic                          | Type              | Description                                                                                                                             |
 | -------------------------------| ------------------| ---------------------------------------------------------------------------------------------------------------------------|

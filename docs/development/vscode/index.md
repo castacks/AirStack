@@ -2,8 +2,8 @@
 
 Start containers
 ```bash
-# optionally pass the --scale robot=N argument to start N robots
-dc compose up -d  # --scale robot=2
+# optionally prepend NUM_ROBOTS=N argument to start N robots
+airstack up -d
 ```
 
 Open AirStack folder

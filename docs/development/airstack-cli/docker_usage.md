@@ -1,6 +1,8 @@
 # Launch Workflow with Docker and Docker Compose
 
-To mimic interacting with multiple real world robots, we use Docker Compose to manage Docker containers that isolate the simulation, each robot, and the ground control station.
+At its core, the `airstack` CLI is simply a wrapper around Docker Compose. `airstack up` is equivalent to `docker compose up -d`, and `airstack down` is equivalent to `docker compose down`.
+
+Docker Compose is useful to mimic interacting with multiple robots in a simulated environment, such as Isaac Sim, while isolating each robot's environment and the ground control station.
 
 The details of the docker compose setup is in the project root's `docker-compose.yaml`.
 
@@ -13,7 +15,7 @@ In essence, the compose file launches:
 all get created on the same default Docker bridge network.
 This lets them communicate with ROS2 on the same network.
 
-Each robot has its own ROS_DOMAIN_ID.
+Each robot has its own ROS_DOMAIN_ID, which is extracted from the container name, e.g. `airstack-robot-1` has `ROS_DOMAIN_ID=1`. See the robot `.bashrc` for details.
 
 ## Pull Images
 
@@ -42,33 +44,27 @@ docker compose build
 Start
 
 ```bash
-docker compose up --scale robot=[NUM_ROBOTS] -d
+airstack up  # or equivalently: docker compose up -d
 
 # see running containers
-docker ps -a
-```
-
-Stop
-
-```bash
-docker compose stop
+airstack status  # or equivalently: docker ps -a
 ```
 
 Remove
 
 ```bash
-docker compose down
+airstack down  # or equivalently: docker compose down
 ```
 
 Launch only specific services:
 
 ```bash
 # only robot
-docker compose up robot --scale robot=[NUM_ROBOTS] -d
+airstack up robot  # or equivalently: docker compose up robot -d
 # only isaac
-docker compose up isaac-sim -d
+airstack up isaac-sim  # or equivalently: docker compose up isaac-sim -d
 # only ground control station
-docker compose up gcs -d
+airstack up gcs  # or equivalently: docker compose up gcs -d
 ```
 
 
@@ -79,9 +75,7 @@ Start a bash shell in the Isaac Sim container:
 
 ```bash
 # if the isaac container is already running, execute a bash shell in it
-docker exec -it isaac-sim bash
-# or if not, start a new container
-docker compose run isaac-sim bash
+airstack connect isaac-sim  # or equivalently: docker exec -it isaac-sim bash
 ```
 
 Within the isaac-sim Docker container, the alias `runapp` launches Isaac Sim.
@@ -96,10 +90,17 @@ The container also has the isaacsim ROS2 package within that can be launched wit
 Start a bash shell in a robot container, e.g. for robot_1:
 
 ```bash
-docker exec -it airstack-robot-1 bash
+airstack connect robot  # or equivalently: docker exec -it airstack-robot-1 bash
 ```
 
-The previous `docker compose up` launches robot_bringup in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux attach`.
+To launch more than one robot, prepend with the `NUM_ROBOTS=[NUM]` environment variable, e.g. to launch 2 robots (along with the ground control station and Isaac Sim):
+```bash
+NUM_ROBOTS=2 airstack up
+airstack connect robot-1  # to connect to robot 1
+airstack connect robot-2  # to connect to robot 2
+```
+
+The previous `docker compose up` launches robot_bringup in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux a`.
 
 The following commands are available within the robot container:
 
@@ -112,7 +113,7 @@ sws  # sources workspace
 ros2 launch robot_bringup robot.launch.xml  # top-level launch
 ```
 
-These aliases are in `AirStack/robot/.bashrc`.
+These aliases are defined in `AirStack/robot/.bashrc`.
 
 Each robot has `ROS_DOMAIN_ID` set to its ID number. `ROBOT_NAME` is set to `robot_$ROS_DOMAIN_ID`.
 
@@ -123,7 +124,7 @@ Currently the ground control station uses the same image as the robot container.
 Start a bash shell in a robot container:
 
 ```bash
-docker exec -it ground-control-station bash
+airstack connect gcs  # or equivalently: docker exec -it ground-control-station bash
 ```
 
 The available aliases within the container are currently the same.
@@ -181,27 +182,31 @@ docker compose up autotest
 This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
 
 ## Docker Compose Variable Overrides
-Sometimes you may want to test different configurations of the autonomy stack. For example, you may want to disable automatically playing the sim on startup, 
-or to change a child launch file.
+As mentioned above, the `airstack` CLI is a wrapper around Docker Compose.
+Therefore, it supports [variable interpolation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) in the `docker-compose.yaml` file, allowing you to adjust project settings by modifying environment variables.
 
-The `docker compose` workflow is designed to support these overrides for local development.
-`docker compose` uses `.env` files to set docker-compose variables that get propagated and interpolated into `docker-compose.yaml` files.
-See the [docker compose documentation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) for more details.
+For example, to disable playing the simulation on startup, you can set the `PLAY_SIM_ON_START` variable to `false`:
+```bash
+PLAY_SIM_ON_START=false airstack up 
+```
 
-The default `.env` file is in the project root directory. 
+To change the Isaac Sim scene:
+```bash
+ISAAC_SIM_SCENE=path/to/your_scene.usd airstack up
+```
+
+A list of all available environment variables is in the default `.env` file in the project root directory, which allows specifying all the variables in one place.
 When no `--env-file` argument is passed to `docker compose`, it automatically uses this default `.env` file.
 
-To override the default `.env` file, you can pass the `--env-file` argument to `docker compose` with a path to your custom `.env` file.
-
-For example, this command disables playing the simulation on startup by overriding the `PLAY_SIM_ON_START` variable:
+The top-level env file is reproduced below:
 ```bash
-docker compose --env-file .env --env-file overrides/no_play_sim_on_start.env up -d
+--8<-- ".env"
 ```
 
-As another example, this command changes the perception launch file to `perception_no_macvo.launch.xml`:
-```bash
-docker compose --env-file .env --env-file overrides/no_macvo.env up -d
-```
+To override the default `.env` file, you can pass the `--env-file` argument with the syntax `airstack --env-file [env_file] up` (or `docker compose --env-file [env_file] up -d`).
 
-
+Multiple `--env-file` arguments can be passed to compose overriding sets of variables.env` file.
 When overriding, the default `.env` file must be loaded first. The overrides are applied on top of it.
+
+
+
