@@ -35,13 +35,8 @@ class DisparityPublisher(IFrontend):
     
     def init_context(self): return None
     
-    @overload
-    def estimate(self, frame_t1: None, frame_t2: StereoData) -> tuple[IStereoDepth.Output, None]: ...
-    @overload
-    def estimate(self, frame_t1: StereoData, frame_t2: StereoData) -> tuple[IStereoDepth.Output, IMatcher.Output]: ...
-    
-    def estimate(self, frame_t1: StereoData | None, frame_t2: StereoData) -> tuple[IStereoDepth.Output, IMatcher.Output | None]:
-        depth, match = self.internal_module.estimate(frame_t1, frame_t2)
+    def estimate_pair(self, frame_t1: StereoData, frame_t2: StereoData) -> tuple[IStereoDepth.Output, IMatcher.Output]:
+        depth, match = self.internal_module.estimate_pair(frame_t1, frame_t2)
         
         if (depth.disparity is not None) and (self.curr_timestamp is not None):
             disparity_msg = to_image(
@@ -53,3 +48,6 @@ class DisparityPublisher(IFrontend):
             self.publisher.publish(disparity_msg)
         
         return depth, match
+
+    def estimate_depth(self, frame: StereoData) -> IStereoDepth.Output:
+        return self.internal_module.estimate_depth(frame)

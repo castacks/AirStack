@@ -86,6 +86,14 @@ RUN apt update -y && apt install -y \
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
+# Install TensorRT
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \ 
+  dpkg -i cuda-keyring_1.1-1_all.deb && \
+  apt update -y && \
+  apt install -y \
+    libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
+    python3-libnvinfer python3-libnvinfer-dev
+
 # Install Python dependencies
 RUN pip3 install \
     empy \
@@ -122,7 +130,9 @@ RUN pip3 install \
     loguru \
     jaxtyping \
     kornia \
-    typeguard==2.13.3
+    typeguard==2.13.3 \
+    onnx \
+    tensorrt
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
