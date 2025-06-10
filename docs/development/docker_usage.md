@@ -71,6 +71,8 @@ docker compose up isaac-sim -d
 docker compose up gcs -d
 ```
 
+
+
 ### Isaac Sim
 
 Start a bash shell in the Isaac Sim container:
@@ -164,6 +166,20 @@ graph TD
 
 ```
 
+## Automated Testing
+
+To perform automated tests for the configured packages, please use the `autotest` service which
+extends the `robot` service with testing specific commands. Presently only `takeoff_landing_planner`
+is configured to be tested.
+
+```bash
+# On your development PC, do:
+
+docker compose up autotest
+```
+
+This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
+
 ## Docker Compose Variable Overrides
 Sometimes you may want to test different configurations of the autonomy stack. For example, you may want to disable automatically playing the sim on startup, 
 or to change a child launch file.
@@ -189,6 +205,3 @@ docker compose --env-file .env --env-file overrides/no_macvo.env up -d
 
 
 When overriding, the default `.env` file must be loaded first. The overrides are applied on top of it.
-
-
-
