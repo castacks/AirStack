@@ -2702,6 +2702,7 @@
             "exts": {
                 "enabled": {
                     "0": "airlab.airstack-1.19.1",
+                    "1": "pegasus.simulator"
                 }
             },
             "window": {
