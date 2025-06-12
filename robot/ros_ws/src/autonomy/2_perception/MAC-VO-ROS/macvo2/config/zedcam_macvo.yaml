@@ -1,0 +1,106 @@
+Common:
+  # Some configurations are shared across multiple modules in Odometry, so I write them here.
+  device: &device cuda
+  max_depth: &max_depth auto
+
+Odometry:
+  name: MACVO_Jetson
+  args:
+    # Device directive to the VO system
+    # NOTE: the system may not follow this device config strictly since some module
+    # e.g. those rely on PWC-Net, only support running on cuda device.
+    device: *device
+    edgewidth: 32
+    num_point: 200 # Upper bound of KPs in each frame
+
+    # Match covariance for keypoint on first observation (sub-pixel uncertainty
+    # caused by the quantized pixel)
+    match_cov_default: 0.25
+
+    # Profiling the system using torch, generate chrome json trace file.
+    profile: false
+
+    mapping: true
+
+  cov:
+    obs:
+      type: MatchCovariance
+      args:
+        device: *device
+        kernel_size: 31
+        match_cov_default: 0.25
+        min_depth_cov: 0.05
+        min_flow_cov: 0.25
+
+  keypoint:
+    type: CovAwareSelector
+    args:
+      device: *device
+      kernel_size: 7
+      mask_width: 32
+      max_depth: *max_depth
+      max_depth_cov: 250.0
+      max_match_cov: 100.0
+  
+  mappoint:
+    type: MappingPointSelector
+    args:
+      device: *device
+      max_depth: 5.0
+      max_depth_cov: 0.005
+      mask_width: 32
+
+  frontend:
+    type: CUDAGraph_FlowFormerCovFrontend
+    args:
+      device: *device
+      weight: ./model/MACVO_FrontendCov.pth
+      dtype: fp32
+      max_flow: -1
+      enforce_positive_disparity: false
+
+  motion:
+    type: StaticMotionModel
+    args:
+
+  outlier:
+    type: FilterCompose
+    args:
+      filter_args:
+        - type: CovarianceSanityFilter
+          args:
+        - type: SimpleDepthFilter
+          args:
+            min_depth: 0.05
+            max_depth: *max_depth
+        - type: LikelyFrontOfCamFilter
+          args:
+  
+  postprocess:
+    type: MotionInterpolate
+    args:
+  
+  keyframe:
+    type: AllKeyframe
+    args:
+  
+  optimizer:
+    type: TwoFramePoseOptimizer
+    args:
+      device: cpu
+      vectorize: true
+      parallel: true
+
+Camera:
+  # NOTE: Since in zedcam_config.yaml we have down-sampled the image by 4, changed
+  # the intrinsic accordingly.
+  # fx: 732.527587890625
+  # fy: 732.527587890625
+  # cx: 982.960693359375
+  # cy: 660.4515991210938
+  fx: 183.1318969727
+  fy: 183.1318969727
+  cx: 245.7401733398
+  cy: 165.1128997803
+  
+  bl: 0.120022

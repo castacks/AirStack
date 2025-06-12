@@ -1,4 +1,5 @@
 import std_msgs.msg as std_msgs
+import nav_msgs.msg as nav_msgs
 import sensor_msgs.msg as sensor_msgs
 import geometry_msgs.msg as geometry_msgs
 from builtin_interfaces.msg import Time
@@ -79,6 +80,23 @@ def to_stamped_pose(pose: pp.LieTensor | torch.Tensor, frame_id: str, time: Time
     out_msg.pose.orientation.w = pose_[6].item()
     return out_msg
 
+def to_nav_msgs_odmetry(pose: pp.LieTensor | torch.Tensor, frame_id: str, time: Time) -> nav_msgs.Odometry:
+    pose_ = pose.detach().cpu()
+    out_msg                 = nav_msgs.Odometry()
+    out_msg.header          = std_msgs.Header()
+    out_msg.header.stamp    = time
+    out_msg.header.frame_id = frame_id
+    out_msg.child_frame_id  = "base_link"  # TODO: UNHARDCODE
+    
+    out_msg.pose.pose.position.x = pose_[0].item()
+    out_msg.pose.pose.position.y = pose_[1].item()
+    out_msg.pose.pose.position.z = pose_[2].item()
+    
+    out_msg.pose.pose.orientation.x = pose_[3].item()
+    out_msg.pose.pose.orientation.y = pose_[4].item()
+    out_msg.pose.pose.orientation.z = pose_[5].item()
+    out_msg.pose.pose.orientation.w = pose_[6].item()
+    return out_msg
 
 def from_image(msg: sensor_msgs.Image) -> np.ndarray:
     if msg.encoding not in _name_to_dtypes:
@@ -134,21 +152,20 @@ def to_image(arr: np.ndarray, frame_id: str, time: Time, encoding: str = "bgra8"
     return im
 
 
-def to_pointcloud(position: torch.Tensor, keypoints: torch.Tensor, colors: torch.Tensor, frame_id: str, time: Time) -> sensor_msgs.PointCloud:
+def to_pointcloud(position: torch.Tensor, keypoints: torch.Tensor | None, colors: torch.Tensor, frame_id: str, time: Time) -> sensor_msgs.PointCloud:
     """
     position    should be a Nx3 pytorch Tensor (dtype=float)
     keypoints   should be a Nx2 pytorch Tensor (dtype=float)
     """
-    assert position.size(0) == keypoints.size(0)
     
     out_msg     = sensor_msgs.PointCloud()
     position_   = position.detach().cpu().numpy()
-    keypoints_  = keypoints.detach().cpu().numpy()
     colors_      = colors.detach().cpu().numpy()
     
     out_msg.header = std_msgs.Header()
     out_msg.header.stamp    = time
     out_msg.header.frame_id = frame_id
+    
     
     out_msg.points = [
         geometry_msgs.Point32(x=float(position_[pt_idx, 0]), y=float(position_[pt_idx, 1]), z=float(position_[pt_idx, 2]))
@@ -156,20 +173,24 @@ def to_pointcloud(position: torch.Tensor, keypoints: torch.Tensor, colors: torch
     ]
     out_msg.channels = [
         sensor_msgs.ChannelFloat32(
-            name="kp_u", values=keypoints_[..., 0].tolist()
-        ),
-        sensor_msgs.ChannelFloat32(
-            name="kp_v", values=keypoints_[..., 1].tolist()
-        ),
-        sensor_msgs.ChannelFloat32(
-            name="r" , values=colors_[..., 0].tolist()
+            name="r" , values=colors_[..., 2].tolist()
         ),
         sensor_msgs.ChannelFloat32(
             name="g" , values=colors_[..., 1].tolist()
         ),
         sensor_msgs.ChannelFloat32(
-            name="b" , values=colors_[..., 2].tolist()
+            name="b" , values=colors_[..., 0].tolist()
         )
     ]
+    
+    if keypoints is not None:
+        assert position.size(0) == keypoints.size(0)
+        keypoints_  = keypoints.detach().cpu().numpy()
+        out_msg.channels.append(sensor_msgs.ChannelFloat32(
+            name="kp_u", values=keypoints_[..., 0].tolist()
+        ))
+        out_msg.channels.append(sensor_msgs.ChannelFloat32(
+            name="kp_v", values=keypoints_[..., 1].tolist()
+        ))
     
     return out_msg
