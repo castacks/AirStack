@@ -54,7 +54,7 @@ Odometry:
       mask_width: 8
 
   frontend:
-    type: CUDAGraph_FlowFormerCovFrontend
+    type: TRT_FlowFormerCovFrontend
     args:
       device: *device
       weight: /root/model_weights/MACVO_FrontendCov.pth
