@@ -86,6 +86,14 @@ RUN apt update -y && apt install -y \
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
+# Install TensorRT
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \ 
+  dpkg -i cuda-keyring_1.1-1_all.deb && \
+  apt update -y && \
+  apt install -y \
+    libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
+    python3-libnvinfer python3-libnvinfer-dev
+
 # Install Python dependencies
 RUN pip3 install \
     empy \
@@ -118,7 +126,13 @@ RUN pip3 install \
     timm==0.9.12 \
     rerun-sdk==0.22.0 \
     yacs \
-    wandb
+    wandb \ 
+    loguru \
+    jaxtyping \
+    kornia \
+    typeguard==2.13.3 \
+    onnx \
+    tensorrt
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
@@ -153,9 +167,11 @@ fi
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
 RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
-    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \ 
+    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
+    wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
+    mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /root/model_weights/dsta_efficient.ckpt && \
     rm -rf /root/model_weights/github.com
 
 WORKDIR /root/ros_ws
@@ -171,3 +187,22 @@ RUN pip install -U colcon-common-extensions
 # Fixes for MACVO Integration
 RUN pip install huggingface_hub
 RUN pip uninstall matplotlib -y
+
+# Temporary fix for UFM
+WORKDIR /root/model_weights
+RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
+    apt update && apt install -y unzip && \
+    mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /root/model_weights/UFM_Env2.zip && \
+    unzip UFM_Env2.zip && \
+    rm UFM_Env2.zip
+
+WORKDIR /root/model_weights/UFM
+RUN pip install -e .
+
+WORKDIR /root/model_weights/UFM/UniCeption
+RUN pip install -e .
+
+WORKDIR /root/model_weights/UFM/benchmarks
+RUN pip install -e .
+
+WORKDIR /root/ros_ws

@@ -51,7 +51,7 @@ Visualization Manager:
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
-      Class: rviz_default_plugins/Pose
+      Class: rviz_default_plugins/Axes
       Color: 255; 25; 0
       Enabled: true
       Head Length: 0.30000001192092896

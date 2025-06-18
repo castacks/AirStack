@@ -73,7 +73,7 @@ services:
 # ===================================================================================================================
 # for running tests on the robot
   robot-test:
-    profiles:
+    profiles: !override
       - "test"
     extends:
       service: robot
