@@ -1,7 +1,7 @@
 import os
 from setuptools import find_packages, setup
 
-package_name = "macvo2"
+package_name = "macvo"
 
 
 def package_files(directory):
@@ -41,7 +41,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "macvo2 = macvo2.macvo:main",
+            "macvo = macvo.macvo:main",
         ],
     },
 )

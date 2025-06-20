@@ -34,12 +34,12 @@ else:
     from Utility.Config import load_config
 
 
-PACKAGE_NAME = "macvo2"
+PACKAGE_NAME = "macvo"
 
 
-class MACVO2Node(Node):
+class macvoNode(Node):
     def __init__(self) -> None:
-        super().__init__("macvo2_node")
+        super().__init__("macvo_node")
         self.coord_frame = "map_ned"  # FIXME: this is probably wrong? Should be the camera optical center frame
         self.frame_id = 0      # Frame ID
         self.init_time = None  # ROS2 time stamp
@@ -256,7 +256,7 @@ class MACVO2Node(Node):
 
 def main():
     rclpy.init()
-    node = MACVO2Node()
+    node = macvoNode()
     rclpy.spin(node)
 
     node.destroy_node()
