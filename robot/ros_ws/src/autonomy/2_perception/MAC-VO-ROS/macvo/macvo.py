@@ -115,6 +115,7 @@ class macvoNode(Node):
         # End
 
         self.time, self.prev_time = None, None
+        self.get_logger().info("macvo initialized")
 
     def get_integer_param(self, parameter_name: str) -> int:
         if parameter_name not in self.declared_parameters:
