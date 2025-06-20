@@ -78,9 +78,9 @@ class macvoNode(Node):
         self.map_send = self.create_publisher(
             PointCloud, self.get_string_param("point_pub_topic"), qos_profile=1
         )
-        self.img_send = self.create_publisher(
-            Image, self.get_string_param("img_pub_topic"), qos_profile=1
-        )
+        # self.img_send = self.create_publisher(
+        #     Image, self.get_string_param("img_pub_topic"), qos_profile=1
+        # )
         # End
 
         # Load the MACVO model ------------------------------------
