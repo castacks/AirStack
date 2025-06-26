@@ -17,7 +17,7 @@ ENV DEBIAN_FRONTEND noninteractive
 # ZED SDK link
 ENV ZED_SDK_URL="https://download.stereolabs.com/zedsdk/4.2/l4t$L4T_MAJOR.$L4T_MINOR/jetsons"
 
-RUN chmod 1777 /tmp
+RUN mkdir -p /tmp && chmod 1777 /tmp
 
 # Disable apt-get warnings
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 42D5A192B819C5DA || true && \
@@ -25,6 +25,8 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 42D5A192B819C5DA ||
   rm -rf /var/lib/apt/lists/*
 
 ENV TZ=Europe/Paris
+
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \ 
   apt-get update && \
