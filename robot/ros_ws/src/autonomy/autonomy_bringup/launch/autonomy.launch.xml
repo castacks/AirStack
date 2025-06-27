@@ -1,6 +1,6 @@
 <!-- AUTONOMY -->
+<!-- for perception: uses simulated mavros GPS state estimation and ground truth depth. MACVO only runs for visualization -->
 <launch>
-
 
   <!-- Interface -->
   <include

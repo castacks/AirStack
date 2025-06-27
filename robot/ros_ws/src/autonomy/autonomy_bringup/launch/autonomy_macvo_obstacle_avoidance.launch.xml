@@ -1,6 +1,7 @@
 <!-- AUTONOMY -->
-<launch>
+<!-- for perception: uses macvo for both state estimation and disparity estimation -->
 
+<launch>
 
   <!-- Interface -->
   <include
