@@ -40,14 +40,14 @@ PACKAGE_NAME = "macvo"
 class macvoNode(Node):
     def __init__(self) -> None:
         super().__init__("macvo_node")
-        self.coord_frame = "map_ned"  # FIXME: this is probably wrong? Should be the camera optical center frame
+        self.coord_frame = "macvo_ned"  # Coordinate frame for the camera, in NED (North-East-Down) convention
         self.frame_id = 0      # Frame ID
         self.init_time = None  # ROS2 time stamp
         self.get_logger().set_level(logging.INFO)
         self.get_logger().info(f"{os.getcwd()}")
         self.declared_parameters = set()
 
-        self.coord_frame = self.get_string_param("coordinate_frame")  # FIXME: this is probably wrong? Should be the camera optical center frame
+        self.coord_frame = self.get_string_param("coordinate_frame") 
         self.frame_id = 0  # Frame ID
 
         # Load the Camera model ------------------------------------

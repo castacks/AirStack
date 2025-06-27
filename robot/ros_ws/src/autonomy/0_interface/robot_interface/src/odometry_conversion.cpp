@@ -26,8 +26,8 @@
 /**
  * @brief
  * Does several things
- * - if there's an odometry, republishes it with a new frame_id
- * - if there's an odometry, republishes it as a transform
+ * - if the input odometry is in a different frame, either transform it or overwrite it to new frame_id
+ * - if there's an input odometry, republishes into the tf2 transform tree
  * - converts MAVROS odometry BEST_EFFORT to RELIABLE
  *
  */

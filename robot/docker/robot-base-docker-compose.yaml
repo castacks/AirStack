@@ -12,25 +12,25 @@ services:
       - QT_X11_NO_MITSHM=1
       # docker compose interpolation to env variables
       - AUTONOMY_LAUNCH_PACKAGE=${AUTONOMY_LAUNCH_PACKAGE}
-      - AUTONOMY_LAUNCH_PATH=${AUTONOMY_LAUNCH_PATH}
+      - AUTONOMY_LAUNCH_FILE=${AUTONOMY_LAUNCH_FILE}
       # --
       - INTERFACE_LAUNCH_PACKAGE=${INTERFACE_LAUNCH_PACKAGE}
-      - INTERFACE_LAUNCH_PATH=${INTERFACE_LAUNCH_PATH}
+      - INTERFACE_LAUNCH_FILE=${INTERFACE_LAUNCH_FILE}
       # --
       - SENSORS_LAUNCH_PACKAGE=${SENSORS_LAUNCH_PACKAGE}
-      - SENSORS_LAUNCH_PATH=${SENSORS_LAUNCH_PATH}
+      - SENSORS_LAUNCH_FILE=${SENSORS_LAUNCH_FILE}
       # --
       - PERCEPTION_LAUNCH_PACKAGE=${PERCEPTION_LAUNCH_PACKAGE}
-      - PERCEPTION_LAUNCH_PATH=${PERCEPTION_LAUNCH_PATH}
+      - PERCEPTION_LAUNCH_FILE=${PERCEPTION_LAUNCH_FILE}
       # --
       - LOCAL_LAUNCH_PACKAGE=${LOCAL_LAUNCH_PACKAGE}
-      - LOCAL_LAUNCH_PATH=${LOCAL_LAUNCH_PATH}
+      - LOCAL_LAUNCH_FILE=${LOCAL_LAUNCH_FILE}
       # --
       - GLOBAL_LAUNCH_PACKAGE=${GLOBAL_LAUNCH_PACKAGE}
-      - GLOBAL_LAUNCH_PATH=${GLOBAL_LAUNCH_PATH}
+      - GLOBAL_LAUNCH_FILE=${GLOBAL_LAUNCH_FILE}
       # --
       - BEHAVIOR_LAUNCH_PACKAGE=${BEHAVIOR_LAUNCH_PACKAGE}
-      - BEHAVIOR_LAUNCH_PATH=${BEHAVIOR_LAUNCH_PATH}
+      - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
     deploy:
       # let it use the GPU
       resources:
@@ -38,7 +38,7 @@ services:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
@@ -49,7 +49,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
       # autonomy stack stuff
-      - ../../common/ros_packages:/root/ros_ws/src/common:rw  # common ROS packages
-      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml
-      - ../ros_ws:/root/ros_ws:rw  # robot-specific ROS packages
+      - ../../common/ros_packages:/root/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../ros_ws:/root/ros_ws:rw # robot-specific ROS packages
 
