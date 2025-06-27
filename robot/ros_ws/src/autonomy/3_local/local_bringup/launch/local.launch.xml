@@ -51,7 +51,7 @@
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             <!-- use estimated disparity -->
-            <remap from="disparity" to="$(var disparity_in_topic)" />
+            <!-- <remap from="disparity" to="$(var disparity_in_topic)" /> -->
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
             <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
             <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />

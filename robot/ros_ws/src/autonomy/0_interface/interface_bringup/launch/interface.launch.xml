@@ -38,7 +38,7 @@
         <param name="odom_input_qos_is_best_effort" value="true" />
         <param name="new_frame_id" value="map" />
         <param name="new_child_frame_id" value="base_link" />
-        <param name="odometry_output_type" value="2" />
+        <param name="odometry_output_type" value="1" />
 
         <param name="convert_odometry_to_transform" value="true" />
         <param name="convert_odometry_to_stabilized_transform" value="true" />

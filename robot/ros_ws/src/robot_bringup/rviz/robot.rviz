@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1
         - /TF1/Frames1
         - /Sensors1
         - /Perception1
@@ -31,7 +32,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: MACVO PointCloud
 Visualization Manager:
   Class: ""
   Displays:
@@ -58,6 +59,12 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        CameraLeft:
+          Value: true
+        CameraRight:
+          Value: true
+        ZED_X:
+          Value: false
         base_link:
           Value: true
         base_link_frd:
@@ -66,31 +73,19 @@ Visualization Manager:
           Value: false
         base_link_stabilized:
           Value: false
-        front_stereo:
+        macvo_ned:
           Value: true
-        left_camera:
-          Value: true
-        look_ahead_point:
-          Value: false
-        look_ahead_point_stabilized:
-          Value: false
         map:
           Value: true
         map_ned:
           Value: false
         mavros_enu:
-          Value: true
+          Value: false
         odom:
           Value: false
         odom_ned:
           Value: false
         ouster:
-          Value: true
-        right_camera:
-          Value: true
-        tracking_point:
-          Value: true
-        tracking_point_stabilized:
           Value: false
         world:
           Value: true
@@ -100,34 +95,26 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        mavros_enu:
-          base_link_ground_truth:
-            {}
-          map:
-            base_link:
-              base_link_frd:
-                {}
-              front_stereo:
-                left_camera:
-                  {}
-                right_camera:
-                  {}
-              ouster:
-                {}
-            base_link_stabilized:
-              {}
-            look_ahead_point:
-              {}
-            look_ahead_point_stabilized:
-              {}
-            map_ned:
-              {}
-            tracking_point:
-              {}
-            tracking_point_stabilized:
-              {}
         world:
-          {}
+          mavros_enu:
+            base_link_ground_truth:
+              {}
+            map:
+              base_link:
+                ZED_X:
+                  CameraLeft:
+                    macvo_ned:
+                      {}
+                  CameraRight:
+                    {}
+                base_link_frd:
+                  {}
+                ouster:
+                  {}
+              base_link_stabilized:
+                {}
+              map_ned:
+                {}
       Update Interval: 0
       Value: true
     - Class: rviz_common/Group
@@ -479,7 +466,7 @@ Visualization Manager:
               Value: false
           Enabled: true
           Name: Trajectory Controller
-      Enabled: false
+      Enabled: true
       Name: Local
     - Class: rviz_common/Group
       Displays:
@@ -572,25 +559,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 24.52810287475586
+      Distance: 15.65699577331543
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.9481586813926697
-        Y: -0.9523058533668518
-        Z: 1.7931503057479858
+        X: 0.4246240556240082
+        Y: 1.604090690612793
+        Z: -0.884032666683197
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.39539819955825806
+      Pitch: 0.6303980350494385
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.7704055309295654
+      Yaw: 3.9404115676879883
     Saved: ~
 Window Geometry:
   Displays:

@@ -2,10 +2,10 @@
     "persistent": {
         "isaac": {
             "asset_root": {
-                "default": "https://airlab-storage.andrew.cmu.edu:8443/omni/web3/NVIDIA/Assets/Isaac/4.1",
+                "default": "https://airlab-storage.andrew.cmu.edu:8443/omni/web3/NVIDIA/Assets/Isaac/4.2",
                 "nvidia": "omniverse://localhost/NVIDIA",
-                "isaac": "omniverse://localhost/NVIDIA/Assets/Isaac/4.1/Isaac",
-                "cloud": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1",
+                "isaac": "omniverse://localhost/NVIDIA/Assets/Isaac/4.2/Isaac",
+                "cloud": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.2",
                 "timeout": 5.0
             }
         },
