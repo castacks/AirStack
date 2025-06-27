@@ -5,7 +5,7 @@
   <!-- Interface -->
   <include
     file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)">
-    <arg name="odometry_in_topic" default="/$(env ROBOT_NAME)/macvo/odometry" />
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/macvo/odometry" />
   </include>
 
   <!-- Sensors -->
@@ -17,8 +17,9 @@
 
   <!-- Local -->
   <include file="$(find-pkg-share $(env LOCAL_LAUNCH_PACKAGE))/launch/$(env LOCAL_LAUNCH_FILE)">
-    <arg name="disparity_in_topic" default="/$(env ROBOT_NAME)/macvo/disparity" />
-    <arg name="depth_in_topic" default="NONE" />
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="disparity_in_topic" value="/$(env ROBOT_NAME)/macvo/disparity" />
+    <arg name="depth_in_topic" value="NONE" />
   </include>
 
   <!-- Global -->
