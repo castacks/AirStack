@@ -11,6 +11,7 @@ Panels:
         - /Perception1/MACVO PointCloud1
         - /Local1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
+        - /Global1
       Splitter Ratio: 0.590062141418457
     Tree Height: 704
   - Class: rviz_common/Selection
@@ -30,7 +31,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Lidar
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -99,33 +100,34 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        world:
-          mavros_enu:
-            base_link_ground_truth:
+        mavros_enu:
+          base_link_ground_truth:
+            {}
+          map:
+            base_link:
+              base_link_frd:
+                {}
+              front_stereo:
+                left_camera:
+                  {}
+                right_camera:
+                  {}
+              ouster:
+                {}
+            base_link_stabilized:
               {}
-            map:
-              base_link:
-                base_link_frd:
-                  {}
-                front_stereo:
-                  left_camera:
-                    {}
-                  right_camera:
-                    {}
-                ouster:
-                  {}
-              base_link_stabilized:
-                {}
-              look_ahead_point:
-                {}
-              look_ahead_point_stabilized:
-                {}
-              map_ned:
-                {}
-              tracking_point:
-                {}
-              tracking_point_stabilized:
-                {}
+            look_ahead_point:
+              {}
+            look_ahead_point_stabilized:
+              {}
+            map_ned:
+              {}
+            tracking_point:
+              {}
+            tracking_point_stabilized:
+              {}
+        world:
+          {}
       Update Interval: 0
       Value: true
     - Class: rviz_common/Group
@@ -482,10 +484,10 @@ Visualization Manager:
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Marker
-          Enabled: false
+          Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            {}
+            "": true
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -493,7 +495,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: vdb_mapping/vdb_map_visualization
-          Value: false
+          Value: true
         - Alpha: 1
           Buffer Length: 1
           Class: rviz_default_plugins/Path
@@ -570,25 +572,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 36.6747932434082
+      Distance: 24.52810287475586
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.8583331108093262
-        Y: 9.488014221191406
-        Z: -3.2465572357177734
+        X: -0.9481586813926697
+        Y: -0.9523058533668518
+        Z: 1.7931503057479858
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2703983187675476
+      Pitch: 0.39539819955825806
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.9104061126708984
+      Yaw: 2.7704055309295654
     Saved: ~
 Window Geometry:
   Displays:

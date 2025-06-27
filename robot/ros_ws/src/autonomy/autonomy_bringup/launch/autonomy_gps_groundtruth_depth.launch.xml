@@ -1,0 +1,32 @@
+<!-- AUTONOMY -->
+<launch>
+
+
+  <!-- Interface -->
+  <include
+    file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)">
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+  </include>
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/launch/$(env SENSORS_LAUNCH_FILE)" />
+
+  <!-- Perception -->
+  <!-- none -->
+
+  <!-- Local -->
+  <include file="$(find-pkg-share $(env LOCAL_LAUNCH_PACKAGE))/launch/$(env LOCAL_LAUNCH_FILE)">
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="disparity_in_topic" value="NONE" />
+    <arg name="depth_in_topic" value="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
+  </include>
+
+  <!-- Global -->
+  <include file="$(find-pkg-share $(env GLOBAL_LAUNCH_PACKAGE))/launch/$(env GLOBAL_LAUNCH_FILE)" />
+
+  <!-- Behavior -->
+  <include
+    file="$(find-pkg-share $(env BEHAVIOR_LAUNCH_PACKAGE))/launch/$(env BEHAVIOR_LAUNCH_FILE)" />
+
+
+</launch>
