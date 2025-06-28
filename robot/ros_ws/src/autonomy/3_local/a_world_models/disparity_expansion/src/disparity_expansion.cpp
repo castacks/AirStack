@@ -319,7 +319,7 @@ void DisparityExpansionNode::process_disparity_image(
                 this->table_u.at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx2;
 
             if (disparity32F.empty()) {
-                RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
+                RCLCPP_DEBUG(this->get_logger(), "disparity32F matrix is empty.");
                 return;
             }
 
@@ -328,7 +328,7 @@ void DisparityExpansionNode::process_disparity_image(
 
             cv::Mat submat_t = disparity32F(roi).clone();
             if (submat_t.empty()) {
-                RCLCPP_ERROR(this->get_logger(), "submat_t is empty for roi: %s", roi);
+                RCLCPP_DEBUG(this->get_logger(), "submat_t is empty for roi: %s", roi);
                 continue;
             }
 
@@ -413,7 +413,7 @@ void DisparityExpansionNode::process_disparity_image(
 
             cv::Mat submat_t = disparity32F_bg(roi).clone();
             if (submat_t.empty()) {
-                RCLCPP_ERROR(this->get_logger(), "submat_t is empty for roi: %s", roi);
+                RCLCPP_DEBUG(this->get_logger(), "submat_t is empty for roi: %s", roi);
                 continue;
             }
 
