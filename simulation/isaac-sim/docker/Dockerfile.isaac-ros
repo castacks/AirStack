@@ -87,6 +87,12 @@ RUN meson setup build .
 RUN ninja -C build install
 RUN rm -rf /mavlink-router
 # WORKDIR /isaac-sim
+WORKDIR /root/Documents/Kit/shared/exts/
+RUN git clone https://github.com/PegasusSimulator/PegasusSimulator.git /tmp/PegasusSimulator && \
+    mv /tmp/PegasusSimulator/extensions/pegasus.simulator ./pegasus.simulator && \
+    rm -rf /tmp/PegasusSimulator
+
+RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
 
 
 # isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
@@ -98,6 +104,3 @@ COPY docker/fastdds.xml /isaac-sim/fastdds.xml
 RUN apt purge -y git &&  apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
-
-# Entrypoint wrapper (optional)
-# ENTRYPOINT ["./isaac-sim/isaac-sim.sh", "--ext-folder", "/root/PegasusSimulator/extensions", "--enable", "pegasus.simulator"]
