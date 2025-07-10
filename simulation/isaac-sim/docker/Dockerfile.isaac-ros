@@ -5,10 +5,16 @@ ARG ISAAC_VERSION
 WORKDIR /isaac-sim
 
 # isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
-RUN mkdir -p /root/.local/share/ov/pkg/
-RUN ln -s /isaac-sim /root/.local/share/ov/pkg/isaac-sim-4.2.0
+RUN mkdir -p /root/.local/share/ov/pkg/ && \
+    ln -s /isaac-sim /root/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
+
 # allows us to run isaac-sim as root
 ENV OMNI_KIT_ALLOW_ROOT=1
+
+# setup environment
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV ROS_DISTRO=humble
 
 # setup timezone
 RUN echo 'Etc/UTC' > /etc/timezone && \
@@ -17,7 +23,7 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
     apt-get install -q -y --no-install-recommends tzdata && \
     rm -rf /var/lib/apt/lists/*
 
-# install packages
+# install base packages
 RUN apt-get update && apt-get install -q -y --no-install-recommends \
     dirmngr \
     gnupg2 \
@@ -25,9 +31,29 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     tmux \
     iputils-ping \
     net-tools \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    emacs \
+    vim \
+    nano \
+    gdb \
+    xterm \
+    tree \
+    less \
+    htop \
+    jq \
+    git \
+    build-essential \
+    cmake \
+    python3-pip \
+    python3-setuptools \
+    python3-wheel \
+    meson \
+    ninja-build \
+    wget \
+    libcgal-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# setup keys
+# setup ros2 key
 RUN set -eux; \
     key='C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654'; \
     export GNUPGHOME="$(mktemp -d)"; \
@@ -37,21 +63,13 @@ RUN set -eux; \
     gpgconf --kill all; \
     rm -rf "$GNUPGHOME"
 
-# setup sources.list
+# setup ros2 apt source
 RUN echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu jammy main" > /etc/apt/sources.list.d/ros2-latest.list
 
-# setup environment
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-ENV ROS_DISTRO=humble
-
-# Install ROS2 packages
-RUN apt update && apt install -y --no-install-recommends curl emacs vim nano tmux gdb xterm tree less htop jq \
-    cmake \
-    git \
+# install ROS2 packages
+RUN apt update && apt install -y --no-install-recommends \
     ros-humble-desktop \
     ros-dev-tools \
-    python3-pip \
     python3-rosdep \
     ros-humble-tf2* \
     ros-humble-mavros \
@@ -59,19 +77,21 @@ RUN apt update && apt install -y --no-install-recommends curl emacs vim nano tmu
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
-    libcgal-dev \
-    python3-colcon-common-extensions
+    python3-colcon-common-extensions && \
+    rm -rf /var/lib/apt/lists/*
 
+# setup mavros dependencies
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
-RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
-RUN pip install PyYAML mavproxy tmuxp scipy
+# install python packages
+RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
+    pip install PyYAML mavproxy tmuxp scipy \
+    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
 RUN cd /tmp/ && \
     curl -L -O https://github.com/isaac-sim/IsaacSim-ros_workspaces/archive/refs/tags/IsaacSim-${ISAAC_VERSION}.zip && \
-    ls -l && \
     unzip IsaacSim-${ISAAC_VERSION}.zip && \
     mv ${isaac_dir_name}/humble_ws /humble_ws && \
     cd /humble_ws && \
@@ -80,27 +100,37 @@ RUN cd /tmp/ && \
     rm -rf /tmp/IsaacSim-${ISAAC_VERSION}.zip /tmp/${isaac_dir_name}
 
 # Install mavlink-router
-RUN apt update && apt install meson ninja-build
-RUN git clone https://github.com/mavlink-router/mavlink-router.git --recurse /mavlink-router
-WORKDIR /mavlink-router
-RUN meson setup build .
-RUN ninja -C build install
-RUN rm -rf /mavlink-router
-# WORKDIR /isaac-sim
+RUN git clone https://github.com/mavlink-router/mavlink-router.git --recurse /mavlink-router && \
+    cd /mavlink-router && \
+    meson setup build . && \
+    ninja -C build install && \
+    rm -rf /mavlink-router
+
+# Install PegasusSimulator extension
 WORKDIR /root/Documents/Kit/shared/exts/
 RUN git clone https://github.com/PegasusSimulator/PegasusSimulator.git /tmp/PegasusSimulator && \
     mv /tmp/PegasusSimulator/extensions/pegasus.simulator ./pegasus.simulator && \
     rm -rf /tmp/PegasusSimulator
-
 RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
 
+# build PX4
+ARG PX4_VERSION="v1.14.3"
+WORKDIR /root
+RUN git clone https://github.com/PX4/PX4-Autopilot.git && \
+    cd PX4-Autopilot && \
+    git checkout ${PX4_VERSION} && \
+    git submodule update --init --recursive && \
+    mkdir -p build/px4_sitl_default && \
+    cd build/px4_sitl_default && \
+    cmake ../.. -G Ninja -DCONFIG=px4_sitl_default && \
+    ninja
 
-# isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
-RUN mkdir -p /root/.local/share/ov/pkg/ && ln -s /isaac-sim /root/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
+RUN /isaac-sim/python.sh -m pip install lark-parser
 
+# copy FastDDS config
 COPY docker/fastdds.xml /isaac-sim/fastdds.xml
 
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
-RUN apt purge -y git &&  apt autoremove -y \
+RUN apt purge -y git && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*

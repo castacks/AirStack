@@ -42,6 +42,27 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 import os.path
 from scipy.spatial.transform import Rotation
 
+from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig
+
+# mavlink_cfg = PX4MavlinkBackendConfig({
+#   "vehicle_id": 0,                  # Unique ID for multi-vehicle systems
+#   "connection_type": "tcpin",      # Options: "tcpin", "udp", "udpin", etc.
+#   "connection_ip": "localhost",    # Host IP for MAVLink link
+#   "connection_baseport": 4560,     # Base port (actual = base + vehicle_id)
+#   "px4_autolaunch": True,          # Whether to auto-start PX4 SITL
+#   "px4_dir": "PegasusInterface().px4_path",    # Path to PX4 source
+#   "px4_vehicle_model": "iris",     # PX4 airframe
+#   "enable_lockstep": True,         # Synchronize sim and PX4 steps
+#   "num_rotors": 4,                 # Vehicle rotor count
+#   "input_offset": [0.0]*4,         # RC input calibration
+#   "input_scaling": [1000.0]*4,     # RC input gain
+#   "zero_position_armed": [100.0]*4,# Neutral input when armed
+#   "update_rate": 250.0,            # MAVLink sensor streaming Hz
+# })
+
+# config = MultirotorConfig()
+# config.backends = [PX4MavlinkBackend(mavlink_cfg)]
+
 class PegasusApp:
     """
     A Template class that serves as an example on how to build a simple Isaac Sim standalone App.
@@ -79,10 +100,24 @@ class PegasusApp:
         # Create the multirotor configuration
         mavlink_config = PX4MavlinkBackendConfig({
             "vehicle_id": 0,
+            "connection_type": "tcpin",
+            "connection_ip": "localhost",
+            # The actual port that gets used = "connection_baseport" + "vehicle_id"
+            "connection_baseport": 4560,
+            "enable_lockstep": True,
+            "num_rotors": 4,
+            "input_offset": [0.0, 0.0, 0.0, 0.0],
+            "input_scaling": [1000.0, 1000.0, 1000.0, 1000.0],
+            "zero_position_armed": [100.0, 100.0, 100.0, 100.0],
+            "update_rate": 250.0,
+
+            # Settings for automatically launching PX4
+            # If px4_autolaunch==False, then "px4_dir" and "px4_vehicle_model" are unused
             "px4_autolaunch": True,
             "px4_dir": self.pg.px4_path,
-            "px4_vehicle_model": self.pg.px4_default_airframe # CHANGE this line to 'iris' if using PX4 version bellow v1.14
+            "px4_vehicle_model": self.pg.px4_default_airframe, # "iris",
         })
+        
         config_multirotor.backends = [PX4MavlinkBackend(mavlink_config)]
 
         Multirotor(
@@ -125,13 +160,21 @@ class PegasusApp:
 
 import sys
 
+import threading
+from mavros_util import run_mavros_launch_nonblocking, wait_for_mavlink
+
 def main():
 
     # Instantiate the template app
     pg_app = PegasusApp()
-    for ext in sys.argv[1].split(","):
-        enable_extension(ext)
+
+    if (len(sys.argv) >= 1): # Only if extensions are present
+        for ext in sys.argv[1].split(","):
+            enable_extension(ext)
     
+    mavros_process = run_mavros_launch_nonblocking() # Start MAVROS launch 
+
+
     # Run the application loop
     pg_app.run()
 
