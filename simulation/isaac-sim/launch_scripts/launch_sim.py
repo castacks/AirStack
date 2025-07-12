@@ -101,7 +101,7 @@ class PegasusApp:
         mavlink_config = PX4MavlinkBackendConfig({
             "vehicle_id": 0,
             "connection_type": "tcpin",
-            "connection_ip": "localhost",
+            "connection_ip": "172.31.0.200",
             # The actual port that gets used = "connection_baseport" + "vehicle_id"
             "connection_baseport": 4560,
             "enable_lockstep": True,

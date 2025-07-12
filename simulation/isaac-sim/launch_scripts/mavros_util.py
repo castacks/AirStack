@@ -15,7 +15,7 @@ def wait_for_mavlink(host='localhost', port=4560, timeout=15):
     print("Timeout waiting for MAVLink endpoint.")
     return False
 
-def run_mavros_launch_nonblocking(fcu_url="tcp://localhost:4560"):
+def run_mavros_launch_nonblocking(fcu_url="tcp://172.31.0.200:4560"):
     mavros_cmd = [
         "ros2", "launch", "mavros", "px4.launch",
         f"fcu_url:={fcu_url}"
