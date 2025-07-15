@@ -20,6 +20,10 @@
       <remap from="fixed_trajectory_command"
         to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
     </node>
+    <push-ros-namespace namespace="interface" />
+    <include file="$(find-pkg-share mavros)/launch/apm.launch">
+      <arg name="fcu_url" value="udp://:14540@172.31.0.200:14580" />
+    </include>
   </group>
   <!-- Real -->
   <group unless="$(var sim)">

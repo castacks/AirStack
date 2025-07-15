@@ -9,7 +9,7 @@
         namespace="interface"
         output="screen">
         <param name="interface" value="mavros_interface::MAVROSInterface" />
-        <param name="is_ardupilot" value="true" />
+        <param name="is_ardupilot" value="false" />
         <param name="post_takeoff_command_delay_time" value="10." />
         <param name="do_global_pose_command" value="false" />
 
