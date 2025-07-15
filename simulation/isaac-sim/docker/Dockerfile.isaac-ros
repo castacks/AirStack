@@ -116,14 +116,19 @@ RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
 # build PX4
 ARG PX4_VERSION="v1.14.3"
 WORKDIR /root
-RUN git clone https://github.com/PX4/PX4-Autopilot.git && \
-    cd PX4-Autopilot && \
-    git checkout ${PX4_VERSION} && \
-    git submodule update --init --recursive && \
-    mkdir -p build/px4_sitl_default && \
-    cd build/px4_sitl_default && \
-    cmake ../.. -G Ninja -DCONFIG=px4_sitl_default && \
-    ninja
+RUN git clone https://github.com/PX4/PX4-Autopilot.git --recursive
+RUN ./PX4-Autopilot/Tools/setup/ubuntu.sh
+
+WORKDIR /root/PX4-Autopilot
+RUN make px4_sitl
+# RUN git clone https://github.com/PX4/PX4-Autopilot.git && \
+#     cd PX4-Autopilot && \
+#     git checkout ${PX4_VERSION} && \
+#     git submodule update --init --recursive && \
+#     mkdir -p build/px4_sitl_default && \
+#     cd build/px4_sitl_default && \
+#     cmake ../.. -G Ninja -DCONFIG=px4_sitl_default && \
+#     ninja
 
 RUN /isaac-sim/python.sh -m pip install lark-parser
 
