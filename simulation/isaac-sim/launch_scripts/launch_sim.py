@@ -44,25 +44,6 @@ from scipy.spatial.transform import Rotation
 
 from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig
 
-# mavlink_cfg = PX4MavlinkBackendConfig({
-#   "vehicle_id": 0,                  # Unique ID for multi-vehicle systems
-#   "connection_type": "tcpin",      # Options: "tcpin", "udp", "udpin", etc.
-#   "connection_ip": "localhost",    # Host IP for MAVLink link
-#   "connection_baseport": 4560,     # Base port (actual = base + vehicle_id)
-#   "px4_autolaunch": True,          # Whether to auto-start PX4 SITL
-#   "px4_dir": "PegasusInterface().px4_path",    # Path to PX4 source
-#   "px4_vehicle_model": "iris",     # PX4 airframe
-#   "enable_lockstep": True,         # Synchronize sim and PX4 steps
-#   "num_rotors": 4,                 # Vehicle rotor count
-#   "input_offset": [0.0]*4,         # RC input calibration
-#   "input_scaling": [1000.0]*4,     # RC input gain
-#   "zero_position_armed": [100.0]*4,# Neutral input when armed
-#   "update_rate": 250.0,            # MAVLink sensor streaming Hz
-# })
-
-# config = MultirotorConfig()
-# config.backends = [PX4MavlinkBackend(mavlink_cfg)]
-
 class PegasusApp:
     """
     A Template class that serves as an example on how to build a simple Isaac Sim standalone App.
@@ -92,7 +73,7 @@ class PegasusApp:
         self.node = Node("pegasus_app_node")
 
         # Create a publisher on a new topic 'dummy_topic'
-        self.dummy_publisher = self.node.create_publisher(String, "dummy_topic", 10)
+        # self.dummy_publisher = self.node.create_publisher(String, "dummy_topic", 10)
 
         # Create the vehicle
         # Try to spawn the selected robot in the world to the specified namespace
@@ -100,22 +81,9 @@ class PegasusApp:
         # Create the multirotor configuration
         mavlink_config = PX4MavlinkBackendConfig({
             "vehicle_id": 0,
-            "connection_type": "tcpin",
-            "connection_ip": "172.31.0.200",
-            # The actual port that gets used = "connection_baseport" + "vehicle_id"
-            "connection_baseport": 4560,
-            "enable_lockstep": True,
-            "num_rotors": 4,
-            "input_offset": [0.0, 0.0, 0.0, 0.0],
-            "input_scaling": [1000.0, 1000.0, 1000.0, 1000.0],
-            "zero_position_armed": [100.0, 100.0, 100.0, 100.0],
-            "update_rate": 250.0,
-
-            # Settings for automatically launching PX4
-            # If px4_autolaunch==False, then "px4_dir" and "px4_vehicle_model" are unused
             "px4_autolaunch": True,
             "px4_dir": self.pg.px4_path,
-            "px4_vehicle_model": self.pg.px4_default_airframe, # "iris",
+            "px4_vehicle_model": self.pg.px4_default_airframe,
         })
         
         config_multirotor.backends = [PX4MavlinkBackend(mavlink_config)]
@@ -136,44 +104,35 @@ class PegasusApp:
         self.stop_sim = False
 
     def run(self):
+        """
+        Method that implements the application main loop, where the physics steps are executed.
+        """
+
+        # Start the simulation
         self.timeline.play()
 
-        count = 0
+        # The "infinite" loop
         while simulation_app.is_running() and not self.stop_sim:
-            # Publish dummy message
-            msg = String()
-            msg.data = f"Hello from PegasusApp count {count}"
-            self.dummy_publisher.publish(msg)
-            count += 1
 
-            # Allow rclpy to process any ROS messages (even if none subscribed)
-            rclpy.spin_once(self.node, timeout_sec=0)
-
+            # Update the UI of the app and perform the physics step
             self.world.step(render=True)
-
+        
+        # Cleanup and stop
         carb.log_warn("PegasusApp Simulation App is closing.")
         self.timeline.stop()
         simulation_app.close()
-        # Shutdown rclpy when done
-        self.node.destroy_node()
-        rclpy.shutdown()
 
 import sys
-
 import threading
-from mavros_util import run_mavros_launch_nonblocking, wait_for_mavlink
 
 def main():
-
-    # Instantiate the template app
-    pg_app = PegasusApp()
 
     if (len(sys.argv) >= 1): # Only if extensions are present
         for ext in sys.argv[1].split(","):
             enable_extension(ext)
-    
-    mavros_process = run_mavros_launch_nonblocking() # Start MAVROS launch 
 
+    # Instantiate the template app
+    pg_app = PegasusApp()
 
     # Run the application loop
     pg_app.run()
