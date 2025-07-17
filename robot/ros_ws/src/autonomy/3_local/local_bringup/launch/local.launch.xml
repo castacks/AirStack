@@ -1,8 +1,11 @@
 <!-- LOCAL -->
 <launch>
-    <arg name="odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-    <arg name="disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/depth/disparity" />
-    <arg name="depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
+    <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
+    <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/depth/disparity" />
+    <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
+
+    <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
 
 
     <!-- Basic Planners -->
@@ -26,7 +29,7 @@
             to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
         <remap from="tracking_point"
             to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-        <remap from="odometry" to="$(var odometry_in_topic)" />
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
         <remap from="mavros/cmd/takeoff" to="/$(env ROBOT_NAME)/interface/mavros/cmd/takeoff" />
     </node>
 
@@ -51,7 +54,7 @@
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             <!-- use estimated disparity -->
-            <remap from="disparity" to="$(var disparity_in_topic)" />
+            <remap from="disparity" to="$(var local_disparity_in_topic)" />
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
             <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth" />
             <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
@@ -81,7 +84,7 @@
         <param name="velocity_sphere_radius_multiplier" value="1.0" />
 
         <!-- remap glue to AirStack -->
-        <remap from="odometry" to="$(var odometry_in_topic)" />
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
 
     </node>
     <?ignore
@@ -143,7 +146,7 @@
       <param name="vz_constant"  value="0.5" />
       
       <!-- remap glue to AirStack -->
-      <remap from="odometry" to="$(var odometry_in_topic)" />
+      <remap from="odometry" to="$(var local_odometry_in_topic)" />
       <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
       <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
     </node>
