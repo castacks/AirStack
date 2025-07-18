@@ -1,0 +1,34 @@
+<!-- AUTONOMY -->
+<!-- for perception: uses macvo for both state estimation and disparity estimation -->
+
+<launch>
+
+  <!-- Interface -->
+  <include
+    file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)">
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/macvo/odometry" />
+  </include>
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/launch/$(env SENSORS_LAUNCH_FILE)" />
+
+  <!-- Perception -->
+  <include
+    file="$(find-pkg-share $(env PERCEPTION_LAUNCH_PACKAGE))/launch/$(env PERCEPTION_LAUNCH_FILE)" />
+
+  <!-- Local -->
+  <include file="$(find-pkg-share $(env LOCAL_LAUNCH_PACKAGE))/launch/$(env LOCAL_LAUNCH_FILE)">
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="disparity_in_topic" value="/$(env ROBOT_NAME)/macvo/disparity" />
+    <arg name="depth_in_topic" value="NONE" />
+  </include>
+
+  <!-- Global -->
+  <include file="$(find-pkg-share $(env GLOBAL_LAUNCH_PACKAGE))/launch/$(env GLOBAL_LAUNCH_FILE)" />
+
+  <!-- Behavior -->
+  <include
+    file="$(find-pkg-share $(env BEHAVIOR_LAUNCH_PACKAGE))/launch/$(env BEHAVIOR_LAUNCH_FILE)" />
+
+
+</launch>

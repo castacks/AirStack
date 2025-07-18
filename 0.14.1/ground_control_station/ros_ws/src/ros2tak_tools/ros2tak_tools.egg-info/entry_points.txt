@@ -1,0 +1,6 @@
+[console_scripts]
+chat2ros_agent = ros2tak_tools.chat2ros_agent:main
+cot2planner_agent = ros2tak_tools.cot2planner_agent:main
+cot2ros_agent = ros2tak_tools.cot2ros_agent:main
+ros2casevac_agent = ros2tak_tools.ros2casevac_agent:main
+ros2cot_agent = ros2tak_tools.ros2cot_agent:main

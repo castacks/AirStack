@@ -1,0 +1,25 @@
+?
+	->
+		(User Pressed Estop)
+		?
+			(Not Stopped)
+			[Stop]
+	->
+		(User Pressed Return Home Button)
+		?
+			(At Home)
+			[Go To Home]
+	->
+		(User Pressed Resume)
+		?
+			(Stopped)
+			[Initiate]
+		?
+			(Low Battery)
+			[Explore]
+		?
+			(At Home)
+			[Go To Home]
+		?
+			(Not Stopped)
+			[Stop]
