@@ -1,0 +1,8 @@
+base_link_frame_id: "base_link"
+camera_list:
+  - camera_name: "front_stereo"
+    camera_type: "stereo"
+    left_camera_info_sub_topic: "/robot_1/left/color/camera_info"
+    right_camera_info_sub_topic: "/robot_1/right/color/camera_info"
+    left_camera_frame_id: "left" 
+    right_camera_frame_id: "right"

@@ -31,6 +31,11 @@ services:
       # --
       - BEHAVIOR_LAUNCH_PACKAGE=${BEHAVIOR_LAUNCH_PACKAGE}
       - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
+      # Config paths
+      - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
+      # Robot identification
+      - ROBOT_NAME=${ROBOT_NAME:-robot_1}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
     deploy:
       # let it use the GPU
       resources:
@@ -38,11 +43,13 @@ services:
           devices:
             - driver: nvidia # https://stackoverflow.com/a/70761193
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     volumes:
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
+      # config
+      - ../../config:${CONFIG_MOUNT_PATH}:ro
       # developer stuff
       - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
@@ -52,4 +59,3 @@ services:
       - ../../common/ros_packages:/root/ros_ws/src/common:rw # common ROS packages
       - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
       - ../ros_ws:/root/ros_ws:rw # robot-specific ROS packages
-

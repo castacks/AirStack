@@ -1,0 +1,25 @@
+# Isaac Sim Configuration
+# This file contains Isaac Sim-specific settings including extensions and scene configuration
+
+isaac_sim:
+  # Extensions to load on Isaac Sim startup
+  enabled_extensions:
+    - "airlab.airstack"
+    - "pegasus.simulator"
+  
+  # Default scene to load
+  scene: "/isaac-sim/kit/exts/pegasus.simulator/pegasus/simulator/assets/Worlds/Base.usd"
+  # Alternative scenes:
+  # scene: "/isaac-sim/kit/exts/pegasus.simulator/pegasus/simulator/assets/Worlds/Lisbon.usd"
+  # scene: "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd"
+  
+  # Whether to start simulation playback automatically
+  play_on_start: true
+  
+  # Additional Isaac Sim settings can be added here
+  # viewport:
+  #   resolution: [1920, 1080]
+  # physics:
+  #   timestep: 0.016667  # 60 FPS
+
+# Note: Robot configurations will be moved to a separate robot config file

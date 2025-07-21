@@ -1,7 +1,0 @@
-base_link_frame_id: "base_link"
-camera_list:
-  - camera_name: "front_stereo"
-    camera_type: "stereo"
-    camera_info_sub_topic: "camera_info"
-    left_camera_frame_id: "CameraLeft" 
-    right_camera_frame_id: "CameraRight"

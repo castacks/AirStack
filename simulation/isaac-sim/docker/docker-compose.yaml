@@ -14,7 +14,7 @@ services:
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
       bash -c "tmux new -d -s isaac; 
-        tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py ${ENABLED_EXTENSIONS}' ENTER; 
+        tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py' ENTER; 
       sleep infinity"
     # Interactive shell
     stdin_open: true # docker run -i
@@ -24,8 +24,8 @@ services:
     networks:
       airstack_network:
         ipv4_address: 172.31.0.200
-    env_file:
-      - ./omni_pass.env
+    # env_file:
+    #   - ./omni_pass.env
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
@@ -34,6 +34,12 @@ services:
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
+      # AirStack robot configuration
+      - ROBOT_NAME=${ROBOT_NAME:-robot_1}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
+      # Config paths
+      - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
+      - ISAAC_SIM_CONFIG_FILE=${CONFIG_MOUNT_PATH}/isaac_sim_config.yaml
     deploy:
       # let it use the GPU
       resources:
@@ -46,6 +52,8 @@ services:
       # display
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
+      # config
+      - ../../../config:${CONFIG_MOUNT_PATH}:ro
       # isaac sim stuff
       - ./isaac_sim_data/cache/kit:/isaac-sim/kit/cache:rw
       - ./isaac_sim_data/cache/ov:/root/.cache/ov:rw

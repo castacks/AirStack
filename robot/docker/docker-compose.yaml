@@ -19,14 +19,9 @@ services:
         - *desktop_image
     # we use tmux send-keys so that the session stays alive
     command: >
-      bash -c "
-      service ssh restart;
-      tmux new -d -s robot_bringup;
-      autolaunch=${AUTOLAUNCH};
-      if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
-      fi;
-      sleep infinity"
+      bash -c " service ssh restart; tmux new -d -s robot_bringup; autolaunch=${AUTOLAUNCH}; if [ $$autolaunch = 'true' ]; then
+        tmux send-keys -t robot_bringup 'source /root/.bashrc && bws && sws && echo \"Waiting 30 seconds for Isaac Sim to start...\" && sleep 30 && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      fi; sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
     networks:
       - airstack_network
@@ -58,32 +53,20 @@ services:
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
-      bash -c "ssh service restart;
-      tmux new -d -s robot_bringup
-      && tmux send-keys -t robot_bringup 
-      'bws && sws && 
-      DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER
-      && sleep infinity"
+      bash -c "ssh service restart; tmux new -d -s robot_bringup && tmux send-keys -t robot_bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER && sleep infinity"
     runtime: nvidia
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
-# ===================================================================================================================
-# for running tests on the robot
+  # ===================================================================================================================
+  # for running tests on the robot
   robot-test:
     profiles: !override
       - "test"
     extends:
       service: robot
     command: >
-      bash -il -c "
-      echo 'Building and sourcing workspace...';
-      bws &> /dev/null && sws &> /dev/null &&
-      echo 'Starting tests for packages: takeoff_landing_planner';
-      colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+;
-      TEST_EXIT_CODE=$$?;
-      echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
-      exit $$TEST_EXIT_CODE"
+      bash -il -c " echo 'Building and sourcing workspace...'; bws &> /dev/null && sws &> /dev/null && echo 'Starting tests for packages: takeoff_landing_planner'; colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+; TEST_EXIT_CODE=$$?; echo \"Tests completed with exit code: $$TEST_EXIT_CODE\"; exit $$TEST_EXIT_CODE"
     entrypoint: []
