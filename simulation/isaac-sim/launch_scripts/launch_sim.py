@@ -38,7 +38,7 @@ import os
 import sys
 
 # Import the Pegasus API for simulating drones
-from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS
+from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS, NVIDIA_SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.state import State
 from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig
 from pegasus.simulator.logic.backends.ros2_backend import ROS2Backend
@@ -55,7 +55,7 @@ class AirStackPegasusApp:
     Spawns a drone with stereo cameras matching AirStack camera configuration.
     """
 
-    def __init__(self):
+    def __init__(self, environment=SIMULATION_ENVIRONMENTS["Curved Gridroom"]):
         """
         Method that initializes the AirStackPegasusApp and sets up the simulation environment.
         """
@@ -71,8 +71,32 @@ class AirStackPegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        # Launch one of the worlds provided by NVIDIA
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        # Load Isaac Sim configuration first to get scene info
+        self.isaac_sim_config = self.load_isaac_sim_config()
+
+        # ALWAYS load a Pegasus environment first to ensure proper World initialization
+        # This is critical for the World object to have all required attributes like _scene
+        carb.log_info("Initializing Pegasus environment for proper World setup...")
+        if (environment in NVIDIA_SIMULATION_ENVIRONMENTS):
+            self.pg.load_environment(SIMULATION_ENVIRONMENTS[environment])
+        else:
+            self.pg.load_environment(environment)
+
+        # After Pegasus environment is loaded, check if we should override with custom Omniverse scene
+        # custom_scene = self.isaac_sim_config.get('scene')
+        # self.pg.load_environment(custom_scene)
+        # if custom_scene and (custom_scene.startswith('omniverse://') or custom_scene.endswith('.usd')):
+        #     carb.log_info(f"Loading custom Omniverse scene to override environment: {custom_scene}")
+        #     if self.load_omniverse_scene(custom_scene):
+        #         carb.log_info("Custom Omniverse scene loaded successfully")
+        #         self.using_custom_scene = True
+        #     else:
+        #         carb.log_warn("Failed to load custom scene, using default Pegasus environment")
+        #         self.using_custom_scene = False
+        # else:
+        #     # Using default Pegasus environment
+        #     carb.log_info("Using default Pegasus environment")
+        #     self.using_custom_scene = False
 
         # Initialize rclpy and create a ROS node
         rclpy.init()
@@ -88,9 +112,6 @@ class AirStackPegasusApp:
         # Create timer to publish simulation time
         self.clock_timer = self.node.create_timer(0.01, self.publish_clock)  # Publish at 100Hz
 
-        # Load Isaac Sim configuration
-        self.isaac_sim_config = self.load_isaac_sim_config()
-
         # Load camera configuration from AirStack config
         self.camera_config = self.load_camera_config()
         
@@ -98,13 +119,70 @@ class AirStackPegasusApp:
         self.robot_config = self.get_robot_config()
 
         # Create the vehicle with sensors
+        # The world should now be properly initialized by Pegasus
+        carb.log_info("Creating vehicle...")
+        carb.log_info(f"World object type: {type(self.world)}")
+        carb.log_info(f"World has _scene attribute: {hasattr(self.world, '_scene')}")
+        if hasattr(self.world, '_scene'):
+            carb.log_info(f"World._scene value: {self.world._scene}")
+        
         self.create_vehicle()
 
         # Reset the simulation environment so that all articulations (aka robots) are initialized
+        # This works for both Pegasus environments and custom Omniverse scenes
+        carb.log_info("Resetting simulation world...")
         self.world.reset()
+
+        # If using custom scene, ensure everything is properly initialized
+        if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
+            carb.log_info("Custom Omniverse scene is ready for simulation")
 
         # Auxiliar variable for the timeline callback example
         self.stop_sim = False
+
+    def load_omniverse_scene(self, scene_url):
+        """
+        Load an Omniverse USD scene to override the default environment.
+        This assumes the World is already properly initialized by Pegasus.
+        """
+        try:
+            carb.log_info(f"Loading Omniverse scene: {scene_url}")
+            
+            # Get USD context - this is the proper way to access USD functionality
+            usd_context = omni.usd.get_context()
+            
+            # Open the stage synchronously to replace the current scene
+            # This will override the Pegasus environment visually
+            result = usd_context.open_stage(scene_url)
+            
+            if result:
+                carb.log_info("Omniverse scene loaded successfully")
+                
+                # Verify stage is valid
+                stage = usd_context.get_stage()
+                if stage:
+                    carb.log_info("USD stage is valid")
+                    
+                    # Since Pegasus environment was loaded first, physics should already be set up
+                    # We may need to refresh physics for the new scene
+                    try:
+                        from omni.isaac.core.utils.physics import setup_physics_scene
+                        setup_physics_scene()
+                        carb.log_info("Physics scene refreshed for custom scene")
+                    except Exception as e:
+                        carb.log_warn(f"Could not refresh physics scene: {e}")
+                    
+                    return True
+                else:
+                    carb.log_error("USD stage is invalid after loading")
+                    return False
+            else:
+                carb.log_error(f"Failed to open Omniverse stage: {scene_url}")
+                return False
+                
+        except Exception as e:
+            carb.log_error(f"Exception while loading Omniverse scene: {e}")
+            return False
 
     def get_robot_config(self):
         """
@@ -139,6 +217,17 @@ class AirStackPegasusApp:
             'spawn_position': spawn_position,
             'spawn_orientation': spawn_orientation
         }
+
+    def get_spawn_position_for_scene(self):
+        """
+        Get appropriate spawn position based on the scene type.
+        """
+        if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
+            # For fire academy or other custom scenes, spawn at safe height
+            return [0.0, 0.0, 5.0]  # 5 meters above ground
+        else:
+            # Use default spawn position for Pegasus environments  
+            return [0.0, 0.0, 0.07]  # Just above ground
 
     def load_isaac_sim_config(self):
         """
@@ -261,11 +350,14 @@ class AirStackPegasusApp:
         config_multirotor.graphical_sensors = cameras
 
         # Create the multirotor vehicle
+        spawn_position = self.get_spawn_position_for_scene()
+        carb.log_info(f"Spawning vehicle at position: {spawn_position}")
+        
         Multirotor(
             "/World/quadrotor",
             ROBOTS['Iris'],
             self.robot_config['number'],  # Vehicle ID should be 1-indexed to match ROS2 backend
-            [0.0, 0.0, 0.07],
+            spawn_position,
             Rotation.from_euler("XYZ", [0.0, 0.0, 0.0], degrees=True).as_quat(),
             config=config_multirotor,
         )
@@ -307,6 +399,17 @@ class AirStackPegasusApp:
         carb.log_info(f"Robot: {self.robot_config['name']}")
         carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']}")
         carb.log_info(f"Vehicle ID: {self.robot_config['number'] - 1}")
+        
+        # Show environment type
+        if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
+            scene_url = self.isaac_sim_config.get('scene', 'Unknown')
+            carb.log_info(f"Environment: Custom Omniverse Scene")
+            carb.log_info(f"Scene URL: {scene_url}")
+        else:
+            carb.log_info(f"Environment: Default Pegasus Environment")
+            
+        spawn_pos = self.get_spawn_position_for_scene()
+        carb.log_info(f"Spawn Position: {spawn_pos}")
         carb.log_info(f"Cameras: {len(self.camera_config.get('camera_list', []))} system(s)")
         carb.log_info(f"MAVLink: UDP port 14540")
         carb.log_info(f"Network: 172.31.0.200")
@@ -335,10 +438,29 @@ def main():
     try:
         with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
-            enabled_extensions = config.get('simulation', {}).get('enabled_extensions', ['airlab.airstack', 'pegasus.simulator'])
+            isaac_sim_config = config.get('isaac_sim', {})
+            enabled_extensions = isaac_sim_config.get('enabled_extensions', ['airlab.airstack', 'pegasus.simulator'])
+            
+            # Get scene from isaac_sim config
+            scene = isaac_sim_config.get('scene', SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+            
+            # For Omniverse URLs, we'll handle them in the AirStackPegasusApp
+            # Use default environment here as fallback
+            if isinstance(scene, str) and scene.startswith('omniverse://'):
+                environment = SIMULATION_ENVIRONMENTS["Curved Gridroom"]
+                print("################################################")
+                print(f"Custom Omniverse scene configured: {scene}")
+                print("################################################")
+            else:
+                environment = scene
+                print("################################################")
+                print(f"Using simulation environment: {environment}")
+                print("################################################")
+
     except Exception as e:
         carb.log_warn(f"Could not load Isaac Sim config from {config_path}: {e}, using default extensions")
         enabled_extensions = ['airlab.airstack', 'pegasus.simulator']
+        environment = SIMULATION_ENVIRONMENTS["Curved Gridroom"]
     
     # Enable the extensions from config
     for ext in enabled_extensions:
@@ -346,7 +468,7 @@ def main():
         enable_extension(ext)
 
     # Instantiate the AirStack Pegasus app
-    pg_app = AirStackPegasusApp()
+    pg_app = AirStackPegasusApp(environment)
 
     # Run the application loop
     pg_app.run()

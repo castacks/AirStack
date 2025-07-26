@@ -106,11 +106,19 @@ RUN git clone https://github.com/mavlink-router/mavlink-router.git --recurse /ma
     ninja -C build install && \
     rm -rf /mavlink-router
 
+# TODO: Hacky way to make sure the Isaac Sim app is installed.
+# PegasusSimulator extension requires this file to exist
+# This is a workaround until we find a better way to ensure the app is installed
+RUN mkdir -p /isaac-sim/apps && \
+    touch /isaac-sim/apps/isaacsim.exp.base.kit
+
 # Install PegasusSimulator extension
 WORKDIR /root/Documents/Kit/shared/exts/
 RUN git clone https://github.com/PegasusSimulator/PegasusSimulator.git /tmp/PegasusSimulator && \
-    mv /tmp/PegasusSimulator/extensions/pegasus.simulator ./pegasus.simulator && \
-    rm -rf /tmp/PegasusSimulator
+    mv /tmp/PegasusSimulator/extensions/pegasus.simulator . 
+# rm -rf /tmp/PegasusSimulator
+ENV ISAACSIM_PATH=/isaac-sim
+ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
 
 # build PX4

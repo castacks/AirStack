@@ -8,18 +8,29 @@ isaac_sim:
     - "pegasus.simulator"
   
   # Default scene to load
-  scene: "/isaac-sim/kit/exts/pegasus.simulator/pegasus/simulator/assets/Worlds/Base.usd"
-  # Alternative scenes:
-  # scene: "/isaac-sim/kit/exts/pegasus.simulator/pegasus/simulator/assets/Worlds/Lisbon.usd"
+  # scene: "Default Environment"
+
+  # Alternative default nvidia scenes:
+  # scene: "Black Gridroom"
+  # scene: "Curved Gridroom"
+  # scene: "Hospital"
+  # scene: "Office"
+  # scene: "Simple Room"
+  # scene: "Warehouse"
+  # scene: "Warehouse with Forklifts"
+  # scene: "Warehouse with Shelves"
+  # scene: "Full Warehouse"
+  # scene: "Flat Plane"
+  # scene: "Rough Plane"
+  # scene: "Slope Plane"
+  # scene: "Stairs Plane"
+
+  # Custom scene to load, can be an Omniverse URL or local USD file
+  # scene: /root/fire_academy_faro_with_sky.scene.usd
   # scene: "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd"
-  
+  # scene: "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/AFCA.usd"
+
   # Whether to start simulation playback automatically
   play_on_start: true
-  
-  # Additional Isaac Sim settings can be added here
-  # viewport:
-  #   resolution: [1920, 1080]
-  # physics:
-  #   timestep: 0.016667  # 60 FPS
 
 # Note: Robot configurations will be moved to a separate robot config file
