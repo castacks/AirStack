@@ -24,8 +24,8 @@ services:
     networks:
       airstack_network:
         ipv4_address: 172.31.0.200
-    # env_file:
-    #   - ./omni_pass.env
+    env_file:
+      - ./omni_pass.env
     environment:
       # NVIDIA stuff
       - ACCEPT_EULA=Y
