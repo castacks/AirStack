@@ -112,7 +112,8 @@ RUN git clone https://github.com/mavlink-router/mavlink-router.git --recurse /ma
 RUN mkdir -p /isaac-sim/apps && \
     touch /isaac-sim/apps/isaacsim.exp.base.kit
 
-# Install PegasusSimulator extension
+# "Install" PegasusSimulator extension. This installs in editable mode; when we run the container we mount the PegasusSimulator repo
+# over the same directory so that we can edit the code and have it reflected in the container.
 WORKDIR /root/Documents/Kit/shared/exts/
 RUN git clone https://github.com/PegasusSimulator/PegasusSimulator.git /tmp/PegasusSimulator && \
     mv /tmp/PegasusSimulator/extensions/pegasus.simulator . 
