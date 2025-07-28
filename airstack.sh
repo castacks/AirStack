@@ -498,6 +498,9 @@ function cmd_setup {
             log_warn "Configuration module not loaded. Skipping configuration tasks."
         fi
     fi
+
+    echo "Making sure git submodules are initialized and updated..."
+    git submodule update --init --recursive
     
     log_info "Setup complete!"
 }

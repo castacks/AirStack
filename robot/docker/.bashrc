@@ -171,9 +171,9 @@ source /opt/ros/humble/setup.bash
 sws # source the ROS2 workspace by default
 
 container_name=$(curl -s --unix-socket /var/run/docker.sock http://localhost/containers/$HOSTNAME/json | jq -r .Name)
-CONTAINER_PREFIX="airstack-"
 
-export ROBOT_NAME=$(echo "$container_name" | sed "s#/$CONTAINER_PREFIX##" | sed 's#-#_#')
+# remove the prefix and convert dashes to underscores
+export ROBOT_NAME=$(echo "$container_name" | sed 's/.*-\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
 export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
 
 if [ "$ROBOT_NAME" == "null" ]; then
