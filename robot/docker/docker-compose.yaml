@@ -20,7 +20,7 @@ services:
     # we use tmux send-keys so that the session stays alive
     command: >
       bash -c " service ssh restart; tmux new -d -s robot_bringup; autolaunch=${AUTOLAUNCH}; if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t robot_bringup 'source /root/.bashrc && bws && sws && echo \"Waiting 30 seconds for Isaac Sim to start...\" && sleep 30 && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+        tmux send-keys -t robot_bringup 'source /root/.bashrc; bws && sws && echo \"Waiting 30 seconds for Isaac Sim to start...\" && sleep 30 && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi; sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
     networks:
