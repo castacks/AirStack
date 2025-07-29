@@ -148,3 +148,5 @@ COPY docker/fastdds.xml /isaac-sim/fastdds.xml
 RUN apt purge -y git && apt autoremove -y \
     && apt clean -y \
     && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /isaac-sim
