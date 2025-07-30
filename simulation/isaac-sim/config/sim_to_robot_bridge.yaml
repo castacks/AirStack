@@ -1,0 +1,169 @@
+# ROS 2 Domain Bridge Configuration for AirStack Isaac Sim Integration
+# This bridges topics from simulation domain (100) to robot domain (1)
+# 
+# Simulation topics (domain 100) - namespaced for Isaac Sim:
+#   /robot_1/left/color/camera_info
+#   /robot_1/left/color/image_raw
+#   /robot_1/right/color/camera_info
+#   /robot_1/right/color/image_raw
+#   /robot_1/sensors/gps
+#   /robot_1/sensors/gps_twist
+#   /robot_1/sensors/imu
+#   /robot_1/sensors/mag
+#   /robot_1/state/accel
+#   /robot_1/state/pose
+#   /robot_1/state/twist
+#   /robot_1/state/twist_inertial
+#   /clock
+#   /tf
+#   /tf_static
+#
+# Robot domain topics (domain 1): 
+#   Same topic names - robot services expect namespaced topics
+#
+# TF frames remain non-namespaced to match static_transforms.launch.xml
+#
+# Usage:
+#   domain_bridge /config/sim_to_robot_bridge.yaml
+
+name: airstack_sim_domain_bridge
+from_domain: 100  # Simulation domain
+to_domain: 1      # Robot domain
+
+topics:
+  # Camera topics - bridge namespaced topics from simulation to robot domain
+  
+  # Left camera image
+  /robot_1/left/color/image_raw:
+    type: sensor_msgs/msg/Image
+    from_domain: 100
+    to_domain: 1
+
+  # Left camera info  
+  /robot_1/left/color/camera_info:
+    type: sensor_msgs/msg/CameraInfo
+    from_domain: 100
+    to_domain: 1
+
+  # Right camera image
+  /robot_1/right/color/image_raw:
+    type: sensor_msgs/msg/Image
+    from_domain: 100
+    to_domain: 1
+
+  # Right camera info
+  /robot_1/right/color/camera_info:
+    type: sensor_msgs/msg/CameraInfo
+    from_domain: 100 
+    to_domain: 1
+
+  # Rectified images for MAC-VO (republished from image_raw)
+  /robot_1/left/image_rect:
+    type: sensor_msgs/msg/Image
+    from_domain: 100
+    to_domain: 1
+
+  /robot_1/right/image_rect:
+    type: sensor_msgs/msg/Image
+    from_domain: 100
+    to_domain: 1
+
+  # Rectified camera info for MAC-VO
+  /robot_1/left/camera_info:
+    type: sensor_msgs/msg/CameraInfo
+    from_domain: 100
+    to_domain: 1
+
+  /robot_1/right/camera_info:
+    type: sensor_msgs/msg/CameraInfo
+    from_domain: 100
+    to_domain: 1
+
+  # GPS data
+  /robot_1/sensors/gps:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 100
+    to_domain: 1
+
+  # GPS twist/velocity
+  /robot_1/sensors/gps_twist:
+    type: geometry_msgs/msg/TwistStamped
+    from_domain: 100
+    to_domain: 1
+
+  # IMU data
+  /robot_1/sensors/imu:
+    type: sensor_msgs/msg/Imu
+    from_domain: 100
+    to_domain: 1
+
+  # Magnetometer data
+  /robot_1/sensors/mag:
+    type: sensor_msgs/msg/MagneticField
+    from_domain: 100
+    to_domain: 1
+
+  # LiDAR point cloud 
+  /robot_1/ouster/pointcloud:
+    type: sensor_msgs/msg/PointCloud2
+    from_domain: 100
+    to_domain: 1
+
+  # Robot state - acceleration
+  /robot_1/state/accel:
+    type: geometry_msgs/msg/AccelStamped
+    from_domain: 100
+    to_domain: 1
+
+  # Robot state - pose
+  /robot_1/state/pose:
+    type: geometry_msgs/msg/PoseStamped
+    from_domain: 100
+    to_domain: 1
+
+  # Robot state - twist (body frame)
+  /robot_1/state/twist:
+    type: geometry_msgs/msg/TwistStamped
+    from_domain: 100
+    to_domain: 1
+
+  # Robot state - twist inertial frame
+  /robot_1/state/twist_inertial:
+    type: geometry_msgs/msg/TwistStamped
+    from_domain: 100
+    to_domain: 1
+
+  # TF transforms (important for camera frames)
+  /tf:
+    type: tf2_msgs/msg/TFMessage
+    from_domain: 100
+    to_domain: 1
+
+  /tf_static:
+    type: tf2_msgs/msg/TFMessage
+    from_domain: 100
+    to_domain: 1
+
+  # Clock for simulation time synchronization
+  /clock:
+    type: rosgraph_msgs/msg/Clock
+    from_domain: 100
+    to_domain: 1
+
+# Services (if needed)
+# services:
+#   /robot_1/some_service:
+#     type: some_msgs/srv/SomeService
+#     from_domain: 100
+#     to_domain: 1
+
+# Notes:
+# - Start simulation with ROS_DOMAIN_ID=100 (set in docker-compose.yaml)
+# - Start domain bridge with: domain_bridge /config/sim_to_robot_bridge.yaml
+# - Monitor topics in robot domain: export ROS_DOMAIN_ID=1 && ros2 topic list
+# - Monitor topics in simulation domain: export ROS_DOMAIN_ID=100 && ros2 topic list
+#
+# For testing without domain bridge:
+# - Set ROS_DOMAIN_ID=1 in docker-compose.yaml (comment out ROS_DOMAIN_ID=100)
+# - Don't run the domain bridge
+# - Both simulation and robot will communicate directly on domain 1

@@ -22,6 +22,7 @@ simulation_app = SimulationApp({
 })
 
 from omni.isaac.core.utils.extensions import enable_extension
+import omni.usd
 
 # -----------------------------------
 # The actual script should start here
@@ -39,6 +40,8 @@ import os
 import sys
 import subprocess
 import atexit
+import signal
+import threading
 
 # Import the Pegasus API for simulating drones
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS, NVIDIA_SIMULATION_ENVIRONMENTS
@@ -142,6 +145,13 @@ class AirStackPegasusApp:
         carb.log_info("Starting image republisher...")
         self.image_republisher = ImageRepublisher(self.robot_config['name'])
 
+        # Start domain bridge to bridge topics from simulation domain (100) to robot domain (1)
+        carb.log_info("Starting domain bridge...")
+        self.domain_bridge_process = self.start_domain_bridge()
+        
+        # Register cleanup handler for domain bridge
+        atexit.register(self.cleanup_domain_bridge)
+
         # If using custom scene, ensure everything is properly initialized
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
             carb.log_info("Custom Omniverse scene is ready for simulation")
@@ -210,6 +220,7 @@ class AirStackPegasusApp:
             robot_number = 1
             
         # Set ROS Domain ID to match the robot number (as per AirStack convention)
+        # Robot domain is 1, simulation domain is 100 (bridged via domain_bridge)
         ros_domain_id = robot_number
         
         # Use default robot spawn configuration (will be moved to separate robot config file later)
@@ -299,10 +310,10 @@ class AirStackPegasusApp:
             "px4_vehicle_model": self.pg.px4_default_airframe,
         })
         
-        # Set up ROS2 backend for sensor publishing with correct domain ID
+        # Set up ROS2 backend for sensor publishing with correct domain ID (simulation domain)
         ros2_config = {
             "namespace": "robot_",  # Namespace prefix - will be combined with vehicle_id to form "robot_1/", "robot_2/", etc.
-            "ros_domain_id": self.robot_config['domain_id'],  # Set the domain ID for this robot
+            "ros_domain_id": 100,             # Simulation domain - bridged to robot domain (1) by domain_bridge
             "pub_sensors": True,           # Publish basic sensors (IMU, etc.)
             "pub_graphical_sensors": True, # Publish camera and lidar data
             "pub_state": True,            # Publish vehicle state
@@ -406,8 +417,9 @@ class AirStackPegasusApp:
         carb.log_info("AirStack Pegasus Simulator Started")
         carb.log_info("=" * 60)
         carb.log_info(f"Robot: {self.robot_config['name']}")
-        carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']}")
+        carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']} (Simulation in domain 100)")
         carb.log_info(f"Vehicle ID: {self.robot_config['number'] - 1}")
+        carb.log_info(f"Domain Bridge: {'Running' if self.domain_bridge_process else 'Failed to start'}")
         
         # Show environment type
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
@@ -435,8 +447,86 @@ class AirStackPegasusApp:
         
         # Cleanup and stop
         carb.log_warn("AirStack Pegasus Simulation App is closing.")
+        
+        # Stop domain bridge first
+        self.cleanup_domain_bridge()
+        
+        # Stop simulation
         self.timeline.stop()
         simulation_app.close()
+
+    def start_domain_bridge(self):
+        """
+        Start the ROS 2 domain bridge to bridge topics from simulation domain (100) to robot domain (1).
+        """
+        try:
+            # Path to the domain bridge configuration file (mounted in docker-compose.yaml)
+            bridge_config_path = "/sim_to_robot_bridge.yaml"
+            
+            # Verify the config file exists
+            if not os.path.exists(bridge_config_path):
+                carb.log_error(f"Domain bridge config file not found: {bridge_config_path}")
+                return None
+            
+            # Set up environment for domain bridge process
+            bridge_env = os.environ.copy()
+            bridge_env['RMW_IMPLEMENTATION'] = 'rmw_fastrtps_cpp'
+            
+            # Start domain bridge process
+            cmd = ['domain_bridge', bridge_config_path]
+            carb.log_info(f"Starting domain bridge with command: {' '.join(cmd)}")
+            
+            process = subprocess.Popen(
+                cmd,
+                env=bridge_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                preexec_fn=os.setsid  # Create new process group for clean shutdown
+            )
+            
+            # Start a thread to monitor domain bridge output
+            def monitor_domain_bridge():
+                try:
+                    for line in process.stdout:
+                        carb.log_info(f"[domain_bridge] {line.strip()}")
+                except:
+                    pass
+                    
+            monitor_thread = threading.Thread(target=monitor_domain_bridge, daemon=True)
+            monitor_thread.start()
+            
+            carb.log_info(f"Domain bridge started with PID: {process.pid}")
+            return process
+            
+        except Exception as e:
+            carb.log_error(f"Failed to start domain bridge: {e}")
+            return None
+
+    def cleanup_domain_bridge(self):
+        """
+        Clean up the domain bridge process on exit.
+        """
+        if hasattr(self, 'domain_bridge_process') and self.domain_bridge_process:
+            try:
+                carb.log_info("Stopping domain bridge...")
+                
+                # Send SIGTERM to the process group to ensure clean shutdown
+                os.killpg(os.getpgid(self.domain_bridge_process.pid), signal.SIGTERM)
+                
+                # Wait for process to terminate gracefully
+                try:
+                    self.domain_bridge_process.wait(timeout=5)
+                    carb.log_info("Domain bridge stopped gracefully")
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't stop gracefully
+                    carb.log_warn("Domain bridge didn't stop gracefully, force killing...")
+                    os.killpg(os.getpgid(self.domain_bridge_process.pid), signal.SIGKILL)
+                    self.domain_bridge_process.wait()
+                    carb.log_info("Domain bridge force killed")
+                    
+            except Exception as e:
+                carb.log_error(f"Error stopping domain bridge: {e}")
 
 class ImageRepublisher(Node):
     """

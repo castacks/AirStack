@@ -36,7 +36,7 @@ services:
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
       # AirStack robot configuration
       - ROBOT_NAME=${ROBOT_NAME:-robot_1}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
+      - ROS_DOMAIN_ID=1
       # Config paths
       - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
       - ISAAC_SIM_CONFIG_FILE=${CONFIG_MOUNT_PATH}/isaac_sim_config.yaml
@@ -74,6 +74,7 @@ services:
       - ../extensions/PegasusSimulator:/isaac_extensions/PegasusSimulator
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/root/Documents/Kit/shared/exts/pegasus.simulator/
       - ../launch_scripts/:/root/launch_scripts:rw
+      - ../config/sim_to_robot_bridge.yaml:/sim_to_robot_bridge.yaml:ro
       # code
       - ../sitl_integration/kit-app-template/source/extensions/airlab.airstack:/root/Documents/Kit/shared/exts/airlab.airstack
       - ../sitl_integration/kit-app-template/source/extensions/airlab.gimbal:/root/Documents/Kit/shared/exts/airlab.gimbal
