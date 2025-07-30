@@ -33,9 +33,12 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
+from sensor_msgs.msg import Image, CameraInfo
 import yaml
 import os
 import sys
+import subprocess
+import atexit
 
 # Import the Pegasus API for simulating drones
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS, NVIDIA_SIMULATION_ENVIRONMENTS
@@ -132,6 +135,12 @@ class AirStackPegasusApp:
         # This works for both Pegasus environments and custom Omniverse scenes
         carb.log_info("Resetting simulation world...")
         self.world.reset()
+
+        # Start image republisher node to convert image_raw to image_rect topics
+        # This is needed because MAC-VO expects image_rect topics, but Isaac Sim publishes image_raw
+        # Since Isaac Sim has no distortion, image_raw = image_rect
+        carb.log_info("Starting image republisher...")
+        self.image_republisher = ImageRepublisher(self.robot_config['name'])
 
         # If using custom scene, ensure everything is properly initialized
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
@@ -420,13 +429,71 @@ class AirStackPegasusApp:
             # Let the simulation run
             self.world.step(render=True)
             
-            # Spin ROS node to process timers and callbacks
+            # Spin ROS nodes to process timers and callbacks
             rclpy.spin_once(self.node, timeout_sec=0.0)
+            rclpy.spin_once(self.image_republisher, timeout_sec=0.0)
         
         # Cleanup and stop
         carb.log_warn("AirStack Pegasus Simulation App is closing.")
         self.timeline.stop()
         simulation_app.close()
+
+class ImageRepublisher(Node):
+    """
+    Simple node to republish image_raw topics as image_rect topics.
+    Since Isaac Sim generates synthetic images with no distortion, 
+    image_raw is effectively already rectified.
+    """
+    
+    def __init__(self, robot_name):
+        super().__init__('image_republisher')
+        self.robot_name = robot_name
+        
+        # Subscribe to raw image topics from Isaac Sim
+        self.left_sub = self.create_subscription(
+            Image, f'/{robot_name}/left/color/image_raw', 
+            self.left_callback, 10)
+        self.right_sub = self.create_subscription(
+            Image, f'/{robot_name}/right/color/image_raw', 
+            self.right_callback, 10)
+        
+        # Subscribe to camera info topics
+        self.left_info_sub = self.create_subscription(
+            CameraInfo, f'/{robot_name}/left/color/camera_info',
+            self.left_info_callback, 10)
+        self.right_info_sub = self.create_subscription(
+            CameraInfo, f'/{robot_name}/right/color/camera_info',
+            self.right_info_callback, 10)
+        
+        # Publish rectified image topics for MAC-VO
+        self.left_pub = self.create_publisher(
+            Image, f'/{robot_name}/left/image_rect', 10)
+        self.right_pub = self.create_publisher(
+            Image, f'/{robot_name}/right/image_rect', 10)
+        
+        # Publish simplified camera info topics
+        self.left_info_pub = self.create_publisher(
+            CameraInfo, f'/{robot_name}/left/camera_info', 10)
+        self.right_info_pub = self.create_publisher(
+            CameraInfo, f'/{robot_name}/right/camera_info', 10)
+        
+        self.get_logger().info(f'Image republisher started for {robot_name}')
+    
+    def left_callback(self, msg):
+        """Republish left image_raw as image_rect"""
+        self.left_pub.publish(msg)
+    
+    def right_callback(self, msg):
+        """Republish right image_raw as image_rect"""
+        self.right_pub.publish(msg)
+    
+    def left_info_callback(self, msg):
+        """Republish left camera info with simplified topic name"""
+        self.left_info_pub.publish(msg)
+    
+    def right_info_callback(self, msg):
+        """Republish right camera info with simplified topic name"""
+        self.right_info_pub.publish(msg)
 
 import sys
 import threading
