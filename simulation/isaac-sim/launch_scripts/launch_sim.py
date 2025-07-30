@@ -472,8 +472,8 @@ class AirStackPegasusApp:
             bridge_env = os.environ.copy()
             bridge_env['RMW_IMPLEMENTATION'] = 'rmw_fastrtps_cpp'
             
-            # Start domain bridge process
-            cmd = ['domain_bridge', bridge_config_path]
+            # Start domain bridge process using ros2 run command
+            cmd = ['ros2', 'run', 'domain_bridge', 'domain_bridge', bridge_config_path]
             carb.log_info(f"Starting domain bridge with command: {' '.join(cmd)}")
             
             process = subprocess.Popen(
@@ -555,17 +555,17 @@ class ImageRepublisher(Node):
             CameraInfo, f'/{robot_name}/right/color/camera_info',
             self.right_info_callback, 10)
         
-        # Publish rectified image topics for MAC-VO
+        # Publish rectified image topics for MAC-VO (using robot expected paths)
         self.left_pub = self.create_publisher(
-            Image, f'/{robot_name}/left/image_rect', 10)
+            Image, f'/{robot_name}/sensors/front_stereo/left/image_rect', 10)
         self.right_pub = self.create_publisher(
-            Image, f'/{robot_name}/right/image_rect', 10)
+            Image, f'/{robot_name}/sensors/front_stereo/right/image_rect', 10)
         
-        # Publish simplified camera info topics
+        # Publish simplified camera info topics (using robot expected paths)
         self.left_info_pub = self.create_publisher(
-            CameraInfo, f'/{robot_name}/left/camera_info', 10)
+            CameraInfo, f'/{robot_name}/sensors/front_stereo/left/camera_info', 10)
         self.right_info_pub = self.create_publisher(
-            CameraInfo, f'/{robot_name}/right/camera_info', 10)
+            CameraInfo, f'/{robot_name}/sensors/front_stereo/right/camera_info', 10)
         
         self.get_logger().info(f'Image republisher started for {robot_name}')
     
