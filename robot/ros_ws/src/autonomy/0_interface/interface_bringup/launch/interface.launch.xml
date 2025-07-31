@@ -1,7 +1,7 @@
 <launch>
     <!-- Args -->
 
-    <arg name="odometry_in_topic" default="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+    <arg name="interface_odometry_in_topic" default="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
 
     <!-- Nodes -->
 
@@ -32,7 +32,7 @@
     <!-- Converts odometry topic into a TF -->
     <node pkg="robot_interface" namespace="odometry_conversion" exec="odometry_conversion"
         output="screen">
-        <remap from="odometry_in" to="$(var odometry_in_topic)" />
+        <remap from="odometry_in" to="$(var interface_odometry_in_topic)" />
         <remap from="odometry_out" to="odometry" />
 
         <param name="odom_input_qos_is_best_effort" value="true" />

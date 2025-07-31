@@ -8,7 +8,7 @@ DOCKER_FILES_CHANGED=$(git diff --cached --name-only | grep -E 'Dockerfile|docke
 
 on_gh_pages=$([ "$(git rev-parse --abbrev-ref HEAD)" = "gh-pages" ] && echo true || echo false)
 
-if [ "$on_github_pages" = false ] && [ -n "$DOCKER_FILES_CHANGED" ]; then
+if [ "$on_gh_pages" = false ] && [ -n "$DOCKER_FILES_CHANGED" ]; then
     echo "Docker-related files changed. Updating DOCKER_IMAGE_TAG in .env file..."
     
     # Get the current commit hash (short version)
