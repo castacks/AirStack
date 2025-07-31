@@ -21,7 +21,7 @@ simulation_app = SimulationApp({
     "use_exts": True
 })
 
-from omni.isaac.core.utils.extensions import enable_extension
+from isaacsim.core.utils.extensions import enable_extension
 import omni.usd
 
 # -----------------------------------
@@ -180,7 +180,7 @@ class AirStackPegasusApp:
                     # Since Pegasus environment was loaded first, physics should already be set up
                     # We may need to refresh physics for the new scene
                     try:
-                        from omni.isaac.core.utils.physics import setup_physics_scene
+                        from isaacsim.core.utils.physics import setup_physics_scene
                         setup_physics_scene()
                         carb.log_info("Physics scene refreshed for custom scene")
                     except Exception as e:

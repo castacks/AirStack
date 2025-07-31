@@ -1,4 +1,4 @@
-ARG ISAAC_VERSION="4.2.0"
+ARG ISAAC_VERSION="4.5.0"
 # expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
 ARG ISAAC_VERSION
@@ -66,8 +66,15 @@ RUN set -eux; \
 # setup ros2 apt source
 RUN echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu jammy main" > /etc/apt/sources.list.d/ros2-latest.list
 
-# install ROS2 packages
-RUN apt update && apt install -y --no-install-recommends \
+# Remove conflicting third-party apt sources that cause libbrotli conflicts
+RUN rm -f /etc/apt/sources.list.d/*deb.sury.org*.list || true && apt-get update
+
+RUN apt-get update && \
+    apt-get install -y --allow-downgrades --no-install-recommends libbrotli1=1.0.9-2build6 && \
+    apt-mark hold libbrotli1 && \
+    apt-get install -y --no-install-recommends \
+    libfreetype6-dev \
+    libfontconfig1-dev \
     ros-humble-desktop \
     ros-dev-tools \
     python3-rosdep \
@@ -80,13 +87,18 @@ RUN apt update && apt install -y --no-install-recommends \
     python3-colcon-common-extensions && \
     rm -rf /var/lib/apt/lists/*
 
+
 # setup mavros dependencies
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 # install python packages
-RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
-    pip install PyYAML mavproxy tmuxp scipy \
+RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
+    /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
+    /isaac-sim/python.sh -m pip install PyYAML mavproxy tmuxp scipy \
     kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
+# RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
+#     pip install PyYAML mavproxy tmuxp scipy \
+#     kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
@@ -115,11 +127,15 @@ RUN mkdir -p /isaac-sim/apps && \
 # "Install" PegasusSimulator extension. This installs in editable mode; when we run the container we mount the PegasusSimulator repo
 # over the same directory so that we can edit the code and have it reflected in the container.
 WORKDIR /root/Documents/Kit/shared/exts/
+# RUN git clone https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
+#     mv /tmp/PegasusSimulator/extensions/pegasus.simulator . 
+
 RUN git clone https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
     mv /tmp/PegasusSimulator/extensions/pegasus.simulator . 
+
 # rm -rf /tmp/PegasusSimulator
 ENV ISAACSIM_PATH=/isaac-sim
-ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
+# ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
 
 # build PX4

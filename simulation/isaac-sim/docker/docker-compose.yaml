@@ -40,6 +40,9 @@ services:
       # Config paths
       - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
       - ISAAC_SIM_CONFIG_FILE=${CONFIG_MOUNT_PATH}/isaac_sim_config.yaml
+      # Isaac Sim stuff
+      - ISAACSIM_PATH=/isaac-sim
+      - ISAACSIM_PYTHON=/isaac-sim/python.sh
     deploy:
       # let it use the GPU
       resources:
