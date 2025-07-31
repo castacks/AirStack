@@ -43,7 +43,9 @@
 
 
   <!-- Static TFs -->
-  <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml" />
+  <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml">
+    <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
+  </include>
 
   <!-- Autonomy -->
   <include file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
