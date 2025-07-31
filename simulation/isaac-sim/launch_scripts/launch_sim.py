@@ -313,6 +313,7 @@ class AirStackPegasusApp:
             "pub_graphical_sensors": True, # Publish camera and lidar data
             "pub_state": True,            # Publish vehicle state
             "sub_control": False,         # Don't subscribe to control (handled by MAVLink)
+            "use_sim_time": True,         # Use simulation time published on /clock topic
         }
         
         # Configure backends - MAVLink for control, ROS2 for sensor data
