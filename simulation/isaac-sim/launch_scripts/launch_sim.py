@@ -51,6 +51,7 @@ from pegasus.simulator.logic.backends.ros2_backend import ROS2Backend
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.logic.graphical_sensors.monocular_camera import MonocularCamera
+from pegasus.simulator.logic.graphical_sensors.lidar import Lidar
 # Auxiliary scipy and numpy modules
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -138,12 +139,6 @@ class AirStackPegasusApp:
         # This works for both Pegasus environments and custom Omniverse scenes
         carb.log_info("Resetting simulation world...")
         self.world.reset()
-
-        # Start image republisher node to convert image_raw to image_rect topics
-        # This is needed because MAC-VO expects image_rect topics, but Isaac Sim publishes image_raw
-        # Since Isaac Sim has no distortion, image_raw = image_rect
-        carb.log_info("Starting image republisher...")
-        self.image_republisher = ImageRepublisher(self.robot_config['name'])
 
         # Start domain bridge to bridge topics from simulation domain (100) to robot domain (1)
         carb.log_info("Starting domain bridge...")
@@ -327,7 +322,9 @@ class AirStackPegasusApp:
         ]
 
         # Create stereo camera sensors based on AirStack configuration
-        cameras = []
+        sensors = []
+        
+        # Add cameras
         for cam_config in self.camera_config.get('camera_list', []):
             if cam_config.get('camera_type') == 'stereo':
                 # Create left camera
@@ -364,10 +361,28 @@ class AirStackPegasusApp:
                     }
                 )
                 
-                cameras.extend([left_camera, right_camera])
+                sensors.extend([left_camera, right_camera])
         
-        # Assign cameras to the multirotor configuration
-        config_multirotor.graphical_sensors = cameras
+        # Add LiDAR sensors
+        for lidar_config in self.camera_config.get('lidar_list', []):
+            if lidar_config.get('lidar_type') == 'RTX_lidar':
+                # Create LiDAR sensor
+                lidar = Lidar(
+                    lidar_name=f"sensors/{lidar_config['lidar_name']}",
+                    config={
+                        "position": np.array(lidar_config.get('position', [0.0, 0.0, 0.15])),
+                        "orientation": np.array(lidar_config.get('orientation', [0.0, 0.0, 0.0])),
+                        "sensor_configuration": lidar_config.get('sensor_configuration', 'Velodyne_VLS128'),
+                        "frequency": lidar_config.get('frequency', 60.0),
+                        "show_render": lidar_config.get('show_render', False),
+                    }
+                )
+                
+                sensors.append(lidar)
+                carb.log_info(f"Added LiDAR sensor: {lidar_config['lidar_name']}")
+        
+        # Assign sensors to the multirotor configuration
+        config_multirotor.graphical_sensors = sensors
 
         # Create the multirotor vehicle
         spawn_position = self.get_spawn_position_for_scene()
@@ -432,6 +447,7 @@ class AirStackPegasusApp:
         spawn_pos = self.get_spawn_position_for_scene()
         carb.log_info(f"Spawn Position: {spawn_pos}")
         carb.log_info(f"Cameras: {len(self.camera_config.get('camera_list', []))} system(s)")
+        carb.log_info(f"LiDAR: {len(self.camera_config.get('lidar_list', []))} sensor(s)")
         carb.log_info(f"MAVLink: UDP port 14540")
         carb.log_info(f"Network: 172.31.0.200")
         carb.log_info("=" * 60)
@@ -443,7 +459,6 @@ class AirStackPegasusApp:
             
             # Spin ROS nodes to process timers and callbacks
             rclpy.spin_once(self.node, timeout_sec=0.0)
-            rclpy.spin_once(self.image_republisher, timeout_sec=0.0)
         
         # Cleanup and stop
         carb.log_warn("AirStack Pegasus Simulation App is closing.")
@@ -527,63 +542,6 @@ class AirStackPegasusApp:
                     
             except Exception as e:
                 carb.log_error(f"Error stopping domain bridge: {e}")
-
-class ImageRepublisher(Node):
-    """
-    Simple node to republish image_raw topics as image_rect topics.
-    Since Isaac Sim generates synthetic images with no distortion, 
-    image_raw is effectively already rectified.
-    """
-    
-    def __init__(self, robot_name):
-        super().__init__('image_republisher')
-        self.robot_name = robot_name
-        
-        # Subscribe to raw image topics from Isaac Sim
-        self.left_sub = self.create_subscription(
-            Image, f'/{robot_name}/left/color/image_raw', 
-            self.left_callback, 10)
-        self.right_sub = self.create_subscription(
-            Image, f'/{robot_name}/right/color/image_raw', 
-            self.right_callback, 10)
-        
-        # Subscribe to camera info topics
-        self.left_info_sub = self.create_subscription(
-            CameraInfo, f'/{robot_name}/left/color/camera_info',
-            self.left_info_callback, 10)
-        self.right_info_sub = self.create_subscription(
-            CameraInfo, f'/{robot_name}/right/color/camera_info',
-            self.right_info_callback, 10)
-        
-        # Publish rectified image topics for MAC-VO (using robot expected paths)
-        self.left_pub = self.create_publisher(
-            Image, f'/{robot_name}/sensors/front_stereo/left/image_rect', 10)
-        self.right_pub = self.create_publisher(
-            Image, f'/{robot_name}/sensors/front_stereo/right/image_rect', 10)
-        
-        # Publish simplified camera info topics (using robot expected paths)
-        self.left_info_pub = self.create_publisher(
-            CameraInfo, f'/{robot_name}/sensors/front_stereo/left/camera_info', 10)
-        self.right_info_pub = self.create_publisher(
-            CameraInfo, f'/{robot_name}/sensors/front_stereo/right/camera_info', 10)
-        
-        self.get_logger().info(f'Image republisher started for {robot_name}')
-    
-    def left_callback(self, msg):
-        """Republish left image_raw as image_rect"""
-        self.left_pub.publish(msg)
-    
-    def right_callback(self, msg):
-        """Republish right image_raw as image_rect"""
-        self.right_pub.publish(msg)
-    
-    def left_info_callback(self, msg):
-        """Republish left camera info with simplified topic name"""
-        self.left_info_pub.publish(msg)
-    
-    def right_info_callback(self, msg):
-        """Republish right camera info with simplified topic name"""
-        self.right_info_pub.publish(msg)
 
 import sys
 import threading
