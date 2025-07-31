@@ -12,4 +12,4 @@
 	url = git@github.com:castacks/MAC-SLAM-Stable.git
 [submodule "simulation/isaac-sim/extensions/PegasusSimulator"]
 	path = simulation/isaac-sim/extensions/PegasusSimulator
-	url = https://github.com/JohnYanxinLiu/PegasusSimulator.git
+	url = https://github.com/castacks/PegasusSimulator-AirStack-Integration.git
