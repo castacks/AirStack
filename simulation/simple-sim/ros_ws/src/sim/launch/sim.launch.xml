@@ -1,0 +1,34 @@
+<launch>
+
+  <node pkg="sim" exec="sim" name="sim">
+    <!-- TODO add params -->
+  </node>
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="sim_left_camera_tf"
+      args="0.2 0.06 0.3 0 0.261799 0 base_link left_camera_link" />
+
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="left_camera_to_optical_tf"
+      output="screen"
+      args="0 0 0 -1.5708 0 -1.5708 left_camera_link left_camera"/>
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="sim_right_camera_tf"
+      args="0.2 -0.06 0.3 0 0.261799 0 base_link right_camera_link" />
+
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="right_camera_to_optical_tf"
+      output="screen"
+      args="0 0 0 -1.5708 0 -1.5708 right_camera_link right_camera"/>
+  
+</launch>

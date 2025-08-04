@@ -18,6 +18,8 @@ data:
 
   mavros_state: interface/mavros/state
   global_plan_active: behavior/follow_global_plan_active.active
+
+  markers: droan/virtual_obstacles
   
 rcparams:
   font.size: 14
@@ -96,6 +98,8 @@ figures:
             label: Tracking Point
           - script:
               path: scripts/markers.py
+              params:
+                markers: markers
       - set_title: 'Cross Track'
         plots:
           - x: odom.header_time
