@@ -72,3 +72,47 @@ services:
     network_mode: host
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
+
+  ros1_bridge:
+    image: ros1_bridge
+    # profiles:
+    #   - ipp
+    build:
+      context: .
+      dockerfile: ./rosbridge.Dockerfile
+      args:
+        ADD_example_custom_msgs: 1
+    # command: >
+    #   bash -c "
+    #     echo 'export FASTRTPS_DEFAULT_PROFILES_FILE=/root/fastdds.xml' >> ~/.bashrc && \
+    #     export FASTRTPS_DEFAULT_PROFILES_FILE=/root/fastdds.xml && \
+    #     while true; do sleep 30; done
+    #   "
+    environment:
+      - ACCEPT_EULA=Y
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [ gpu ]   
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .bashrc:/root/.bashrc:rw # bash config
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      # developer stuff
+      # - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name    
+      # - ./bridge.param:/root/ros1_bridge/bridge.param
+      # - ./domain_bridge.yaml:/root/ros1_bridge/domain_bridge.yaml
+    # runtime: nvidia
+    privileged: true
+    stdin_open: true
+    tty: true
+    networks:
+      - airstack_network
