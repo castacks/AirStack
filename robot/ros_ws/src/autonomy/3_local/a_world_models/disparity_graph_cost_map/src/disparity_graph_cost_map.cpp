@@ -58,7 +58,7 @@ void DisparityGraphCostMap::initialize(const rclcpp::Node::SharedPtr& node_ptr,
     node_ptr->get_parameter("robot_radius", this->robot_radius);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(), "robot_radius: " << this->robot_radius);
 
-    node_ptr->declare_parameter<int>("obstacle_check_num_points", 69);
+    node_ptr->declare_parameter<int>("obstacle_check_num_points", 4);
     node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(),
                        "obstacle_check_num_points: " << this->obstacle_check_num_points);
@@ -160,6 +160,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                     // Check the pose:
                     auto [is_seen, is_free, occupancy] =
                         disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
+		    
                     // Add marker:
                     add_check_marker(is_seen, is_free, dist, pose_to_check);
 
