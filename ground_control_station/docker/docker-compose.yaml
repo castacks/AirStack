@@ -3,6 +3,7 @@ services:
     profiles:
       - ""
       - sitl
+      - simple
     extends:
       file: ./ground-control-station-base-docker-compose.yaml
       service: gcs-base
