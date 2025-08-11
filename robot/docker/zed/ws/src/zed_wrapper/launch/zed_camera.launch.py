@@ -258,9 +258,9 @@ def launch_setup(context, *args, **kwargs):
             name=node_name_val,
             parameters=node_parameters,
             extra_arguments=[{'use_intra_process_comms': True}],
-            remappings=[('/robot_2/sensors/front_stereo/left/image_rect_color', '/robot_2/sensors/front_stereo/left/image'),
-                        ('/robot_2/sensors/front_stereo/right/image_rect_color', '/robot_2/sensors/front_stereo/right/image'),
-                        ('/robot_2/sensors/front_stereo/disparity/disparity_image', '/robot_2/front_stereo/disparity')]
+            remappings=[('/robot_1/sensors/front_stereo/left/image_rect_color', '/robot_1/sensors/front_stereo/left/image_rect'),
+                        ('/robot_1/sensors/front_stereo/right/image_rect_color', '/robot_1/sensors/front_stereo/right/image_rect'),
+                        ('/robot_1/sensors/front_stereo/disparity/disparity_image', '/robot_1/sensors/front_stereo/disparity')]
         )
     else: # 'zedxonegs' or 'zedxone4k')
         zed_wrapper_component = ComposableNode(

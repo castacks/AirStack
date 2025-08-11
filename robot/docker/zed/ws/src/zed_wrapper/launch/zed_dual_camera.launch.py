@@ -33,7 +33,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(launch_file_path),
             launch_arguments={
-                'namespace': 'robot_2/sensors',
+                'namespace': 'robot_1/sensors',
                 'camera_name': 'front_stereo',
                 'camera_model': 'zedx',
                 'serial_number': LaunchConfiguration('wire_cam_serial'),

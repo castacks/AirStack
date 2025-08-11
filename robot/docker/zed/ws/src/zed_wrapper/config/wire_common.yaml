@@ -22,8 +22,8 @@
             self_calib: false # Enable the self-calibration process at camera opening. See https://www.stereolabs.com/docs/api/structsl_1_1InitParameters.html#affeaa06cfc1d849e311e484ceb8edcc5
             serial_number: 0 # usually overwritten by launch file
             pub_resolution: 'CUSTOM' # The resolution used for output. 'NATIVE' to use the same `general.grab_resolution` - `OPTIMIZED` Automatically selects the most efficient resolution based on the NEURAL depth mode native output for optimal performance - [obsolete] `CUSTOM`  to apply the `general.pub_downscale_factor` downscale factory to reduce bandwidth in transmission 
-            pub_downscale_factor: 2.0 # rescale factor used to rescale image before publishing when 'pub_resolution' is 'CUSTOM' or 'OPTIMIZED'
-            pub_frame_rate: 60.0 # frequency of publishing of visual images and depth images
+            pub_downscale_factor: 4.0 # rescale factor used to rescale image before publishing when 'pub_resolution' is 'CUSTOM' or 'OPTIMIZED'
+            pub_frame_rate: 15.0 # frequency of publishing of visual images and depth images
             gpu_id: -1
             optional_opencv_calibration_file: '' # Optional path where the ZED SDK can find a file containing the calibration information of the camera computed by OpenCV. Read the ZED SDK documentation for more information: https://www.stereolabs.com/docs/api/structsl_1_1InitParameters.html#a9eab2753374ef3baec1d31960859ba19
             async_image_retrieval: false # Enable/disable the asynchronous image retrieval - Note: enable only to improve SVO recording performance
@@ -156,7 +156,7 @@
             gop_size: -1 # [max 256] The GOP size determines the maximum distance between IDR/I-frames. Very high GOP size will result in slightly more efficient compression, especially on static scenes. But latency will increase.
             adaptative_bitrate: false # Bitrate will be adjusted depending the number of packet dropped during streaming. If activated, the bitrate can vary between [bitrate/4, bitrate].
             chunk_size: 16084 # [1024 - 65000] Stream buffers are divided into X number of chunks where each chunk is chunk_size bytes long. You can lower chunk_size value if network generates a lot of packet lost: this will generates more chunk for a single image, but each chunk sent will be lighter to avoid inside-chunk corruption. Increasing this value can decrease latency.
-            target_framerate: 0 # Framerate for the streaming output. This framerate must be below or equal to the camera framerate. Allowed framerates are 15, 30, 60 or 100 if possible. Any other values will be discarded and camera FPS will be taken.
+            target_framerate: 15 # Framerate for the streaming output. This framerate must be below or equal to the camera framerate. Allowed framerates are 15, 30, 60 or 100 if possible. Any other values will be discarded and camera FPS will be taken.
 
         advanced: # WARNING: do not modify unless you are confident of what you are doing
             # Reference documentation: https://man7.org/linux/man-pages/man7/sched.7.html
