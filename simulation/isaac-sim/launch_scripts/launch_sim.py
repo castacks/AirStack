@@ -8,6 +8,9 @@
 | a single vehicle controlled using MAVLink, including stereo camera sensors as specified in AirStack config.
 """
 
+# Configuration flag: Set to True to use domain bridge, False for manual topic republishing
+USE_DOMAIN_BRIDGE = True
+
 # Imports to start Isaac Sim from this script
 import carb
 from isaacsim import SimulationApp
@@ -119,8 +122,10 @@ class AirStackPegasusApp:
         # Create timer to publish simulation time
         self.clock_timer = self.node.create_timer(0.01, self.publish_clock)  # Publish at 100Hz
 
-        # Manual topic republishing to replace domain bridge
-        self.setup_topic_republishing()
+        # Configure topic handling based on flag
+        if not USE_DOMAIN_BRIDGE:
+            # Manual topic republishing to replace domain bridge
+            self.setup_topic_republishing()
 
         # Load camera configuration from AirStack config
         self.camera_config = self.load_camera_config()
@@ -143,8 +148,18 @@ class AirStackPegasusApp:
         carb.log_info("Resetting simulation world...")
         self.world.reset()
 
-        # Skip domain bridge - using manual topic republishing instead
-        carb.log_info("Using manual topic republishing instead of domain bridge...")
+        # Configure domain bridge or manual republishing based on flag
+        if USE_DOMAIN_BRIDGE:
+            # Start domain bridge to bridge topics from simulation domain (100) to robot domain (1)
+            carb.log_info("Starting domain bridge...")
+            self.domain_bridge_process = self.start_domain_bridge()
+            
+            # Register cleanup handler for domain bridge
+            atexit.register(self.cleanup_domain_bridge)
+        else:
+            # Skip domain bridge - using manual topic republishing instead
+            carb.log_info("Using manual topic republishing instead of domain bridge...")
+            self.domain_bridge_process = None
 
         # If using custom scene, ensure everything is properly initialized
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
@@ -304,10 +319,10 @@ class AirStackPegasusApp:
             "px4_vehicle_model": self.pg.px4_default_airframe,
         })
         
-        # Set up ROS2 backend for sensor publishing with robot domain ID (no domain bridging)
+        # Set up ROS2 backend for sensor publishing with domain configuration based on flag
         ros2_config = {
             "namespace": "robot_",  # Namespace prefix - will be combined with vehicle_id to form "robot_1/", "robot_2/", etc.
-            "ros_domain_id": 1,               # Robot domain - publish directly to robot domain
+            "ros_domain_id": 100 if USE_DOMAIN_BRIDGE else 1,  # Simulation domain (100) if using bridge, robot domain (1) if direct
             "pub_sensors": True,           # Publish basic sensors (IMU, etc.)
             "pub_graphical_sensors": True, # Publish camera and lidar data
             "pub_state": True,            # Publish vehicle state
@@ -484,9 +499,15 @@ class AirStackPegasusApp:
         carb.log_info("AirStack Pegasus Simulator Started")
         carb.log_info("=" * 60)
         carb.log_info(f"Robot: {self.robot_config['name']}")
-        carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']} (Direct publishing - no bridge)")
+        
+        if USE_DOMAIN_BRIDGE:
+            carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']} (Simulation in domain 100)")
+            carb.log_info(f"Domain Bridge: {'Running' if hasattr(self, 'domain_bridge_process') and self.domain_bridge_process else 'Failed to start'}")
+        else:
+            carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']} (Direct publishing - no bridge)")
+            carb.log_info(f"Topic Republishing: Manual (replacing domain bridge)")
+            
         carb.log_info(f"Vehicle ID: {self.robot_config['number'] - 1}")
-        carb.log_info(f"Topic Republishing: Manual (replacing domain bridge)")
         
         # Show environment type
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
@@ -514,6 +535,10 @@ class AirStackPegasusApp:
         
         # Cleanup and stop
         carb.log_warn("AirStack Pegasus Simulation App is closing.")
+        
+        # Stop domain bridge if it was used
+        if USE_DOMAIN_BRIDGE and hasattr(self, 'domain_bridge_process') and self.domain_bridge_process:
+            self.cleanup_domain_bridge()
         
         # Stop simulation
         self.timeline.stop()
