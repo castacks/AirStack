@@ -32,6 +32,8 @@ public:
     this->declare_parameter<double>("model_x_offset", 0.0);
     this->declare_parameter<double>("model_y_offset", 0.0);
     this->declare_parameter<double>("model_z_offset", 0.0);
+    this->declare_parameter<int>("screen_width", 0);
+    this->declare_parameter<int>("screen_height", 0);
 
     image_fov = this->get_parameter("image_fov").as_double();
     image_width = this->get_parameter("image_width").as_int();
@@ -42,10 +44,12 @@ public:
     model_x_offset = this->get_parameter("model_x_offset").as_double();
     model_y_offset = this->get_parameter("model_y_offset").as_double();
     model_z_offset = this->get_parameter("model_z_offset").as_double();
+    int screen_width  = this->get_parameter("screen_width").as_int();
+    int screen_height  = this->get_parameter("screen_height").as_int();
     
 
     sim = new Sim(image_fov, image_width, image_height, baseline, model_filename,
-		  model_scale, model_x_offset, model_y_offset, model_z_offset);
+		  model_scale, model_x_offset, model_y_offset, model_z_offset, screen_width, screen_height);
     state.connected = true;
     state.armed = false;
 

@@ -2,14 +2,16 @@
 
   <node pkg="sim" exec="sim" name="sim">
     <param name="image_fov" value="60." />
-    <param name="image_width" value="800" />
-    <param name="image_height" value="600" />
+    <param name="image_width" value="480" />
+    <param name="image_height" value="270" />
     <param name="baseline" value="0.12" />
     <param name="model_filename" value="/models/fire_academy_no_box.fbx" />
     <param name="model_scale" value="0.01" />
     <param name="model_x_offset" value="0.0" />
     <param name="model_y_offset" value="-0.3" />
     <param name="model_z_offset" value="0.0" />
+    <param name="screen_width" value="640" />
+    <param name="screen_height" value="480" />
   </node>
   
   <node

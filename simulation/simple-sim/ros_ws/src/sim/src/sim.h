@@ -52,7 +52,7 @@ public:
   int screen_width, screen_height;
   
   Sim(float image_fov, int image_width, int image_height, float baseline, std::string model_filename,
-      float model_scale, float model_x_offset, float model_y_offset, float model_z_offset);
+      float model_scale, float model_x_offset, float model_y_offset, float model_z_offset, int screen_width, int screen_height);
   ~Sim();
   float step(std::vector<unsigned char>& left_image_bytes, std::vector<unsigned char>& right_image_bytes);
 
@@ -87,15 +87,15 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 
 Sim::Sim(float image_fov, int image_width, int image_height, float baseline, std::string model_filename,
-	 float model_scale, float model_x_offset, float model_y_offset, float model_z_offset)
+	 float model_scale, float model_x_offset, float model_y_offset, float model_z_offset, int screen_width, int screen_height)
   : image_fov(image_fov)
   , image_width(image_width)
   , image_height(image_height)
   , baseline(baseline)
   , sim_time(0.f)
-  , fast_mode(false){
-  screen_width = image_width;
-  screen_height = image_height;
+  , fast_mode(false)
+  , screen_width(screen_width)
+  , screen_height(screen_height){
   
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -105,7 +105,7 @@ Sim::Sim(float image_fov, int image_width, int image_height, float baseline, std
   image_width_f = image_width;
   image_height_f = image_height;
 
-  window = glfwCreateWindow(image_width, image_height, "Drone Simulation", NULL, NULL);
+  window = glfwCreateWindow(screen_width, screen_height, "Drone Simulation", NULL, NULL);
   if (!window) {
     std::cerr << "Failed to create GLFW window" << std::endl;
     glfwTerminate();
