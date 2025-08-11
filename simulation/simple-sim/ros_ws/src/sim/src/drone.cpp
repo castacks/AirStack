@@ -20,6 +20,7 @@ void Drone::init(){
   mass = 1.f;
   inertia = 1.f;
   offboard = false;
+  armed = false;
 }
 
 glm::vec3 Drone::getForward() const {

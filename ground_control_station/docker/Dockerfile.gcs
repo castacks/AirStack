@@ -4,7 +4,8 @@ FROM osrf/ros:humble-desktop-full
 WORKDIR /root/ros_ws
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt-get -o APT::Get::AllowUnauthenticated=true install -y \
     vim nano emacs wget curl tree sshpass \
     iperf3 iftop iputils-ping net-tools htop \
     cmake build-essential less htop jq python3-pip tmux gdb \

@@ -99,7 +99,6 @@ private:
   // Service callbacks
   void handle_set_mode(const std::shared_ptr<mavros_msgs::srv::SetMode::Request> req,
 		       std::shared_ptr<mavros_msgs::srv::SetMode::Response> res) {
-    //RCLCPP_INFO(this->get_logger(), "Set mode to: %s", req->custom_mode.c_str());
     res->mode_sent = true;
 
     if(req->custom_mode == "GUIDED"){
@@ -107,6 +106,8 @@ private:
     }
     else
       sim->drone.offboard = false;
+    
+    RCLCPP_INFO(this->get_logger(), "Set mode to: %s %d", req->custom_mode.c_str(), sim->drone.offboard);
   }
 
   void handle_arming(const std::shared_ptr<mavros_msgs::srv::CommandBool::Request> req,
@@ -114,7 +115,8 @@ private:
     //RCLCPP_INFO(this->get_logger(), "Arming request: %s", req->value ? "true" : "false");
     res->success = true;
     
-    state.armed = req->value;
+    //state.armed = req->value;
+    sim->drone.armed = req->value;
   }
 
   void handle_takeoff(const std::shared_ptr<mavros_msgs::srv::CommandTOL::Request> req,
@@ -295,6 +297,7 @@ private:
       state.mode = "GUIDED";
     else
       state.mode = "LOITER";
+    state.armed = sim->drone.armed;
     state_pub->publish(state);
   }
 

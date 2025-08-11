@@ -21,6 +21,7 @@ public:
   glm::vec3 angularVelocity;
 
   bool offboard;
+  bool armed;
 
   Drone();
   void init();
