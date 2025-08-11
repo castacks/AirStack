@@ -1,0 +1,44 @@
+<launch>
+
+  <node pkg="sim" exec="sim" name="sim">
+    <param name="image_fov" value="60." />
+    <param name="image_width" value="480" />
+    <param name="image_height" value="270" />
+    <param name="baseline" value="0.12" />
+    <param name="model_filename" value="/models/fire_academy_no_box.fbx" />
+    <param name="model_scale" value="0.01" />
+    <param name="model_x_offset" value="0.0" />
+    <param name="model_y_offset" value="-0.3" />
+    <param name="model_z_offset" value="0.0" />
+    <param name="screen_width" value="640" />
+    <param name="screen_height" value="480" />
+  </node>
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="sim_left_camera_tf"
+      args="0.2 0.06 0.3 0 0.261799 0 base_link left_camera_link" />
+
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="left_camera_to_optical_tf"
+      output="screen"
+      args="0 0 0 -1.5708 0 -1.5708 left_camera_link front_stereo_left_camera_optical_frame"/>
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="sim_right_camera_tf"
+      args="0.2 -0.06 0.3 0 0.261799 0 base_link right_camera_link" />
+
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="right_camera_to_optical_tf"
+      output="screen"
+      args="0 0 0 -1.5708 0 -1.5708 right_camera_link front_stereo_right_camera_optical_frame"/>
+  
+</launch>

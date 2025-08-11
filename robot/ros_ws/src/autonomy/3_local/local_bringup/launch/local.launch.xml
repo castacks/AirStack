@@ -72,7 +72,7 @@
         <!-- look ahead time controls the speed, greater is faster -->
         <param name="look_ahead_time" value="1.0" />
         <param name="virtual_tracking_ahead_time" value="0.5" />
-        <param name="min_virtual_tracking_velocity" value="0.1" />
+        <param name="min_virtual_tracking_velocity" value="0.5" />
         <param name="sphere_radius" value="1.0" />
         <param name="ff_min_velocity" value="0." />
         <param name="search_ahead_factor" value="1.5" />
@@ -86,7 +86,7 @@
         <remap from="odometry" to="$(var local_odometry_in_topic)" />
 
     </node>
-    
+
     <node pkg="pid_controller" exec="pid_controller" namespace="control" output="screen">
       <param name="target_frame" value="base_link_stabilized" />
 

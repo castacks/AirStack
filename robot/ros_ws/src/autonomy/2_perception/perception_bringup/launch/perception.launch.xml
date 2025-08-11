@@ -11,6 +11,7 @@
         name="static_transform_publisher"
         args="--x 0 --y 0 --z 0 --yaw 1.5708 --pitch -1.5708 --roll 3.14159 --frame-id front_stereo_left_camera_optical_frame --child-frame-id macvo_ned" />
 
+    <?ignore
     <node pkg="macvo" exec="macvo" namespace="macvo">
         <param name="camera_config" value="$(find-pkg-share macvo)/config/model_config.yaml" />
         <!-- override -->
@@ -22,7 +23,8 @@
         <remap from="sensors/get_camera_params"
             to="/$(env ROBOT_NAME)/sensors/get_camera_params" />
     </node>
-
+   ?>
+    
     <!-- Depth Estimation -->
     <!-- Disparity -->
     <node pkg="stereo_image_proc" exec="disparity_node"

@@ -26,7 +26,7 @@
     fixed_frame: "map"
     stabilized_frame: "base_link_stabilized"  # the frame of the stabilized robot (roll and pitch removed)
     baseline_fallback: 0.12  # if the baseline is 0 from the camera_info, use this value instead. in meters
-    assume_seen_within_radius: 1.0  # anything within this radius, assume it is seen and don't check for obstacles
+    assume_seen_within_radius: 1.5  # anything within this radius, assume it is seen and don't check for obstacles
     
     everything_seen_and_free: false
     use_virtual_cylinder: false
