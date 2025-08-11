@@ -12,7 +12,7 @@ isaac_sim:
 
   # Alternative default nvidia scenes:
   # scene: "Black Gridroom"
-  # scene: "Curved Gridroom"
+  scene: "Curved Gridroom"
   # scene: "Hospital"
   # scene: "Office"
   # scene: "Simple Room"

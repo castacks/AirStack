@@ -22,28 +22,28 @@ RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime \
   && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update \
-    && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/*
 
 # Install common programs
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    emacs \
-    curl \
-    gnupg2 \
-    lsb-release \
-    sudo \
-    software-properties-common \
-    wget \
-    iputils-ping \
-    net-tools \
-    && rm -rf /var/lib/apt/lists/*
+  emacs \
+  curl \
+  gnupg2 \
+  lsb-release \
+  sudo \
+  software-properties-common \
+  wget \
+  iputils-ping \
+  net-tools \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
 RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get update -y && apt-get install -y --no-install-recommends \
-    ros-humble-desktop \
-    python3-argcomplete \
+  ros-humble-desktop \
+  python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
 ENV ROS_DISTRO=humble
@@ -62,27 +62,27 @@ WORKDIR /root/ros_ws
 
 # Install dev tools
 RUN apt update && apt install -y \
-    vim nano emacs wget curl tree \
-    cmake build-essential \
-    less htop jq \
-    python3-pip \
-    python3-rosdep \
-    tmux \
-    gdb
+  vim nano emacs wget curl tree \
+  cmake build-essential \
+  less htop jq \
+  python3-pip \
+  python3-rosdep \
+  tmux \
+  gdb
 
 # Install any additional ROS2 packages
 RUN apt update -y && apt install -y \
-    ros-dev-tools \
-    ros-humble-mavros \ 
-    ros-humble-tf2* \
-    ros-humble-stereo-image-proc \
-    ros-humble-image-view \
-    ros-humble-topic-tools \
-    ros-humble-grid-map \
-    ros-humble-domain-bridge \
-    ros-humble-rosbag2-storage-mcap \
-    libcgal-dev \
-    python3-colcon-common-extensions
+  ros-dev-tools \
+  ros-humble-mavros \ 
+  ros-humble-tf2* \
+  ros-humble-stereo-image-proc \
+  ros-humble-image-view \
+  ros-humble-topic-tools \
+  ros-humble-grid-map \
+  ros-humble-domain-bridge \
+  ros-humble-rosbag2-storage-mcap \
+  libcgal-dev \
+  python3-colcon-common-extensions
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -91,56 +91,56 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_re
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt update -y && \
   apt install -y \
-    libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
-    python3-libnvinfer python3-libnvinfer-dev
+  libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
+  python3-libnvinfer python3-libnvinfer-dev
 
 # Install Python dependencies
 RUN pip3 install \
-    empy \
-    future \
-    lxml \
-    matplotlib==3.8.4 \
-    numpy==1.24.0 \
-    pkgconfig \
-    psutil \
-    pygments \
-    wheel \
-    pymavlink \
-    pyyaml \
-    requests \
-    setuptools \
-    six \
-    toml \
-    scipy \
-    torch \
-    torchvision \
-    pypose \
-    rich \
-    tqdm \
-    pillow \ 
-    flow_vis \
-    h5py \
-    evo \
-    tabulate \
-    einops \
-    timm==0.9.12 \
-    rerun-sdk==0.22.0 \
-    yacs \
-    wandb \ 
-    loguru \
-    jaxtyping \
-    kornia \
-    typeguard==2.13.3 \
-    onnx \
-    tensorrt
+  empy \
+  future \
+  lxml \
+  matplotlib==3.8.4 \
+  numpy==1.24.0 \
+  pkgconfig \
+  psutil \
+  pygments \
+  wheel \
+  pymavlink \
+  pyyaml \
+  requests \
+  setuptools \
+  six \
+  toml \
+  scipy \
+  torch \
+  torchvision \
+  pypose \
+  rich \
+  tqdm \
+  pillow \ 
+  flow_vis \
+  h5py \
+  evo \
+  tabulate \
+  einops \
+  timm==0.9.12 \
+  rerun-sdk==0.22.0 \
+  yacs \
+  wandb \ 
+  loguru \
+  jaxtyping \
+  kornia \
+  typeguard==2.13.3 \
+  onnx \
+  tensorrt
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
 RUN apt remove -y libopenvdb*; \
-    git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
-    mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
-    cmake .. && \
-    make -j8 && make install && \
-    cd ..; rm -rf /opt/openvdb/build
+  git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
+  mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
+  cmake .. && \
+  make -j8 && make install && \
+  cd ..; rm -rf /opt/openvdb/build
 
 # Add ability to SSH
 RUN apt-get update && apt-get install -y openssh-server
@@ -159,27 +159,27 @@ RUN if [ "$REAL_ROBOT"  = "true" ]; then \
   # Put commands here that should run for the real robot but not the sim
   echo "REAL_ROBOT is true"; \
   apt-get update && apt-get install -y libimath-dev; \
-else \
+  else \
   # Put commands here that should be run for the sim but not the real robot
   echo "REAL_ROBOT is false"; \
-fi
+  fi
 
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
 RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
-    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
-    wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
-    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
-    mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
-    mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /root/model_weights/dsta_efficient.ckpt && \
-    rm -rf /root/model_weights/github.com
+  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
+  wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
+  mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
+  mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
+  mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /root/model_weights/dsta_efficient.ckpt && \
+  rm -rf /root/model_weights/github.com
 
 WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge git -y \
-    && apt autoremove -y \
-    && apt clean -y \
-    && rm -rf /var/lib/apt/lists/*
+  && apt autoremove -y \
+  && apt clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install colcon, seems to be getting removed
 RUN pip install -U colcon-common-extensions
@@ -191,10 +191,10 @@ RUN pip uninstall matplotlib -y
 # Temporary fix for UFM
 WORKDIR /root/model_weights
 RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
-    apt update && apt install -y unzip && \
-    mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /root/model_weights/UFM_Env2.zip && \
-    unzip UFM_Env2.zip && \
-    rm UFM_Env2.zip
+  apt update && apt install -y unzip && \
+  mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /root/model_weights/UFM_Env2.zip && \
+  unzip UFM_Env2.zip && \
+  rm UFM_Env2.zip
 
 WORKDIR /root/model_weights/UFM
 RUN pip install -e .
@@ -204,5 +204,9 @@ RUN pip install -e .
 
 WORKDIR /root/model_weights/UFM/benchmarks
 RUN pip install -e .
+
+RUN apt-get update && apt-get install -y ros-humble-xacro
+# RUN apt-get update && apt-get install -y ros-humble-xacro ros-humble-robot-state-publisher
+
 
 WORKDIR /root/ros_ws

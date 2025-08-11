@@ -42,7 +42,12 @@
   </group>
 
 
-  <!-- Static TFs -->
+  <!-- Robot State Publisher (replaces static transforms) -->
+  <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
+    <arg name="robot_name" value="$(env ROBOT_NAME)" />
+  </include>
+
+  <!-- Static TFs for simulation connection -->
   <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml">
     <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
   </include>
@@ -50,7 +55,7 @@
   <!-- Autonomy -->
   <include file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
 
-  <!-- Logging -->
+    <!-- Logging -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
   <!-- Domain Bridge -->

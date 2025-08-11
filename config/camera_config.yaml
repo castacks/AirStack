@@ -1,19 +1,20 @@
-base_link_frame_id: "robot_1_base_link"
+base_link_frame_id: "base_link"
 camera_list:
   - camera_name: "front_stereo"
     camera_type: "stereo"
     left_camera_info_sub_topic: "/robot_1/sensors/front_stereo/left/camera_info"
     right_camera_info_sub_topic: "/robot_1/sensors/front_stereo/right/camera_info"
-    left_camera_frame_id: "robot_1_left" 
-    right_camera_frame_id: "robot_1_right"
+    left_camera_frame_id: "left_camera" 
+    right_camera_frame_id: "right_camera"
 
 # LiDAR sensor configuration
-# lidar_list:
-#   - lidar_name: "ouster"
-#     lidar_type: "RTX_lidar"
-#     sensor_configuration: "Velodyne_VLS128" # Available configs: Velodyne_VLS128, OS1_64, etc.
-#     position: [0.0, 0.0, 0.15]  # X, Y, Z offset from vehicle center in meters
-#     orientation: [0.0, 0.0, 0.0]  # Roll, Pitch, Yaw in degrees
-#     frequency: 60.0  # Hz
-#     show_render: false  # Show debug visualization in Isaac Sim
-#     topic: "sensors/ouster/point_cloud"  # Expected by VDB mapping
+lidar_list:
+  - lidar_name: "ouster"
+    lidar_type: "RTX_lidar"
+    sensor_configuration: "OS0_REV7_128ch10hz2048res" # Ultra-wide FOV (90°) + highest resolution for indoor mapping
+    # sensor_configuration: "Velodyne_VLS128"  # Use Velodyne VLS-128 for high-resolution mapping
+    position: [0.0, 0.0, 0.3]  # X, Y, Z offset from vehicle center in meters
+    orientation: [0.0, 0.0, 90.0]  # Roll, Pitch, Yaw in degrees
+    frequency: 40.0  # Hz
+    show_render: True  # Show debug visualization in Isaac Sim
+    topic: "sensors/ouster/point_cloud"  # Expected by VDB mapping

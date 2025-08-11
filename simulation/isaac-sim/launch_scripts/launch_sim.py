@@ -119,6 +119,9 @@ class AirStackPegasusApp:
         # Create timer to publish simulation time
         self.clock_timer = self.node.create_timer(0.01, self.publish_clock)  # Publish at 100Hz
 
+        # Manual topic republishing to replace domain bridge
+        self.setup_topic_republishing()
+
         # Load camera configuration from AirStack config
         self.camera_config = self.load_camera_config()
         
@@ -140,12 +143,8 @@ class AirStackPegasusApp:
         carb.log_info("Resetting simulation world...")
         self.world.reset()
 
-        # Start domain bridge to bridge topics from simulation domain (100) to robot domain (1)
-        carb.log_info("Starting domain bridge...")
-        self.domain_bridge_process = self.start_domain_bridge()
-        
-        # Register cleanup handler for domain bridge
-        atexit.register(self.cleanup_domain_bridge)
+        # Skip domain bridge - using manual topic republishing instead
+        carb.log_info("Using manual topic republishing instead of domain bridge...")
 
         # If using custom scene, ensure everything is properly initialized
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
@@ -305,15 +304,16 @@ class AirStackPegasusApp:
             "px4_vehicle_model": self.pg.px4_default_airframe,
         })
         
-        # Set up ROS2 backend for sensor publishing with correct domain ID (simulation domain)
+        # Set up ROS2 backend for sensor publishing with robot domain ID (no domain bridging)
         ros2_config = {
             "namespace": "robot_",  # Namespace prefix - will be combined with vehicle_id to form "robot_1/", "robot_2/", etc.
-            "ros_domain_id": 100,             # Simulation domain - bridged to robot domain (1) by domain_bridge
+            "ros_domain_id": 1,               # Robot domain - publish directly to robot domain
             "pub_sensors": True,           # Publish basic sensors (IMU, etc.)
             "pub_graphical_sensors": True, # Publish camera and lidar data
             "pub_state": True,            # Publish vehicle state
             "sub_control": False,         # Don't subscribe to control (handled by MAVLink)
             "use_sim_time": True,         # Use simulation time published on /clock topic
+            "pub_tf": False,              # Enable TF publishing for dynamic map→robot_1_base_link transform
         }
         
         # Configure backends - MAVLink for control, ROS2 for sensor data
@@ -367,9 +367,9 @@ class AirStackPegasusApp:
         # Add LiDAR sensors
         for lidar_config in self.camera_config.get('lidar_list', []):
             if lidar_config.get('lidar_type') == 'RTX_lidar':
-                # Create LiDAR sensor
+                # Create LiDAR sensor with simpler path
                 lidar = Lidar(
-                    lidar_name=f"sensors/{lidar_config['lidar_name']}",
+                    lidar_name=lidar_config['lidar_name'],  # Just use the name without "sensors/" prefix
                     config={
                         "position": np.array(lidar_config.get('position', [0.0, 0.0, 0.15])),
                         "orientation": np.array(lidar_config.get('orientation', [0.0, 0.0, 0.0])),
@@ -420,6 +420,57 @@ class AirStackPegasusApp:
         except Exception as e:
             carb.log_error(f"Error publishing clock: {e}")
 
+    def setup_topic_republishing(self):
+        """
+        Set up manual topic republishing to replace domain bridge functionality.
+        Subscribe to simulation topics and republish them to robot expected topic names.
+        """
+        from sensor_msgs.msg import NavSatFix, Imu, MagneticField, PointCloud2, LaserScan
+        from geometry_msgs.msg import TwistStamped, AccelStamped, PoseStamped
+        from tf2_msgs.msg import TFMessage
+        
+        # Camera topics - republish from simulation names to robot expected names
+        # Left camera
+        self.left_image_pub = self.node.create_publisher(
+            Image, '/robot_1/sensors/front_stereo/left/image_rect', 10)
+        self.left_image_sub = self.node.create_subscription(
+            Image, '/robot_1/left/color/image_raw', 
+            lambda msg: self.left_image_pub.publish(msg), 10)
+        
+        self.left_info_pub = self.node.create_publisher(
+            CameraInfo, '/robot_1/sensors/front_stereo/left/camera_info', 10)
+        self.left_info_sub = self.node.create_subscription(
+            CameraInfo, '/robot_1/left/color/camera_info',
+            lambda msg: self.left_info_pub.publish(msg), 10)
+        
+        # Right camera
+        self.right_image_pub = self.node.create_publisher(
+            Image, '/robot_1/sensors/front_stereo/right/image_rect', 10)
+        self.right_image_sub = self.node.create_subscription(
+            Image, '/robot_1/right/color/image_raw',
+            lambda msg: self.right_image_pub.publish(msg), 10)
+        
+        self.right_info_pub = self.node.create_publisher(
+            CameraInfo, '/robot_1/sensors/front_stereo/right/camera_info', 10)
+        self.right_info_sub = self.node.create_subscription(
+            CameraInfo, '/robot_1/right/color/camera_info',
+            lambda msg: self.right_info_pub.publish(msg), 10)
+        
+        # LiDAR topics
+        self.lidar_pointcloud_pub = self.node.create_publisher(
+            PointCloud2, '/robot_1/sensors/ouster/point_cloud', 10)
+        self.lidar_pointcloud_sub = self.node.create_subscription(
+            PointCloud2, '/robot_1/ouster/pointcloud',
+            lambda msg: self.lidar_pointcloud_pub.publish(msg), 10)
+        
+        self.lidar_laserscan_pub = self.node.create_publisher(
+            LaserScan, '/robot_1/sensors/ouster/laser_scan', 10)
+        self.lidar_laserscan_sub = self.node.create_subscription(
+            LaserScan, '/robot_1/ouster/laserscan',
+            lambda msg: self.lidar_laserscan_pub.publish(msg), 10)
+        
+        carb.log_info("Topic republishing setup complete - replacing domain bridge functionality")
+
     def run(self):
         """
         Method that implements the application main loop, where the physics steps are executed.
@@ -433,9 +484,9 @@ class AirStackPegasusApp:
         carb.log_info("AirStack Pegasus Simulator Started")
         carb.log_info("=" * 60)
         carb.log_info(f"Robot: {self.robot_config['name']}")
-        carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']} (Simulation in domain 100)")
+        carb.log_info(f"ROS Domain ID: {self.robot_config['domain_id']} (Direct publishing - no bridge)")
         carb.log_info(f"Vehicle ID: {self.robot_config['number'] - 1}")
-        carb.log_info(f"Domain Bridge: {'Running' if self.domain_bridge_process else 'Failed to start'}")
+        carb.log_info(f"Topic Republishing: Manual (replacing domain bridge)")
         
         # Show environment type
         if hasattr(self, 'using_custom_scene') and self.using_custom_scene:
@@ -463,9 +514,6 @@ class AirStackPegasusApp:
         
         # Cleanup and stop
         carb.log_warn("AirStack Pegasus Simulation App is closing.")
-        
-        # Stop domain bridge first
-        self.cleanup_domain_bridge()
         
         # Stop simulation
         self.timeline.stop()

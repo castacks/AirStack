@@ -36,7 +36,8 @@ services:
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
       # AirStack robot configuration
       - ROBOT_NAME=${ROBOT_NAME:-robot_1}
-      - ROS_DOMAIN_ID=100
+      # - ROS_DOMAIN_ID=100
+      - ROS_DOMAIN_ID=1
       # Config paths
       - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
       - ISAAC_SIM_CONFIG_FILE=${CONFIG_MOUNT_PATH}/isaac_sim_config.yaml
