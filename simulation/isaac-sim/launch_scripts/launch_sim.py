@@ -92,22 +92,6 @@ class AirStackPegasusApp:
         else:
             self.pg.load_environment(environment)
 
-        # After Pegasus environment is loaded, check if we should override with custom Omniverse scene
-        # custom_scene = self.isaac_sim_config.get('scene')
-        # self.pg.load_environment(custom_scene)
-        # if custom_scene and (custom_scene.startswith('omniverse://') or custom_scene.endswith('.usd')):
-        #     carb.log_info(f"Loading custom Omniverse scene to override environment: {custom_scene}")
-        #     if self.load_omniverse_scene(custom_scene):
-        #         carb.log_info("Custom Omniverse scene loaded successfully")
-        #         self.using_custom_scene = True
-        #     else:
-        #         carb.log_warn("Failed to load custom scene, using default Pegasus environment")
-        #         self.using_custom_scene = False
-        # else:
-        #     # Using default Pegasus environment
-        #     carb.log_info("Using default Pegasus environment")
-        #     self.using_custom_scene = False
-
         # Initialize rclpy and create a ROS node
         rclpy.init()
         self.node = Node("airstack_pegasus_app_node")
@@ -167,50 +151,6 @@ class AirStackPegasusApp:
 
         # Auxiliar variable for the timeline callback example
         self.stop_sim = False
-
-    def load_omniverse_scene(self, scene_url):
-        """
-        Load an Omniverse USD scene to override the default environment.
-        This assumes the World is already properly initialized by Pegasus.
-        """
-        try:
-            carb.log_info(f"Loading Omniverse scene: {scene_url}")
-            
-            # Get USD context - this is the proper way to access USD functionality
-            usd_context = omni.usd.get_context()
-            
-            # Open the stage synchronously to replace the current scene
-            # This will override the Pegasus environment visually
-            result = usd_context.open_stage(scene_url)
-            
-            if result:
-                carb.log_info("Omniverse scene loaded successfully")
-                
-                # Verify stage is valid
-                stage = usd_context.get_stage()
-                if stage:
-                    carb.log_info("USD stage is valid")
-                    
-                    # Since Pegasus environment was loaded first, physics should already be set up
-                    # We may need to refresh physics for the new scene
-                    try:
-                        from isaacsim.core.utils.physics import setup_physics_scene
-                        setup_physics_scene()
-                        carb.log_info("Physics scene refreshed for custom scene")
-                    except Exception as e:
-                        carb.log_warn(f"Could not refresh physics scene: {e}")
-                    
-                    return True
-                else:
-                    carb.log_error("USD stage is invalid after loading")
-                    return False
-            else:
-                carb.log_error(f"Failed to open Omniverse stage: {scene_url}")
-                return False
-                
-        except Exception as e:
-            carb.log_error(f"Exception while loading Omniverse scene: {e}")
-            return False
 
     def get_robot_config(self):
         """
