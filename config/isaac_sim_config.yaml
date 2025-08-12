@@ -7,29 +7,6 @@ isaac_sim:
     - "airlab.airstack"
     - "pegasus.simulator"
   
-  # Default scene to load
-  # scene: "Default Environment"
-
-  # Alternative default nvidia scenes:
-  # scene: "Black Gridroom"
-  scene: "Curved Gridroom"
-  # scene: "Hospital"
-  # scene: "Office"
-  # scene: "Simple Room"
-  # scene: "Warehouse"
-  # scene: "Warehouse with Forklifts"
-  # scene: "Warehouse with Shelves"
-  # scene: "Full Warehouse"
-  # scene: "Flat Plane"
-  # scene: "Rough Plane"
-  # scene: "Slope Plane"
-  # scene: "Stairs Plane"
-
-  # Custom scene to load, can be an Omniverse URL or local USD file
-  # scene: /root/fire_academy_faro_with_sky.scene.usd
-  # scene: "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd"
-  # scene: "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/AFCA.usd"
-
   # Whether to start simulation playback automatically
   play_on_start: true
 
