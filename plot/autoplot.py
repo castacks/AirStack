@@ -12,7 +12,30 @@ import utm
 import glob
 import importlib.util
 import os
+from profiling import tic, toc, print_stats
 
+class EvalString(str):
+    pass
+
+def do_eval(s, context, try_as_string=True, no_eval_str=False):
+    if not isinstance(s, str):
+        return s
+    else:
+        if not isinstance(s, EvalString) and no_eval_str:
+            return s
+    try:
+        return eval(s, globals(), context)
+    except Exception as e1:
+        if try_as_string:
+            try:
+                s2 = "'" + s + "'"
+                return eval(s2, globals(), context)
+            except Exception as e2:
+                print(f'eval failed on {s}. Exception: ' + str(e1))
+                print(f'eval backup string attempt also failed on {s2}. Exception: ' + str(e2))
+        else:
+            print(f'eval failed on {s}. Exception: ' + str(e1))
+            return None
 
 class CustomArrayContainer:
     def __init__(self):
@@ -141,16 +164,24 @@ def get_module(script_path):
     module_name = os.path.splitext(os.path.basename(script_path))[0]
     spec = importlib.util.spec_from_file_location(module_name, script_path)
     module = importlib.util.module_from_spec(spec)
+    module.EvalString = EvalString
     spec.loader.exec_module(module)
     return module
 
-def handle_scripts(dct):
+def handle_scripts(dct, context, extra_params):
     if 'script' not in dct:
         return dct
 
     module = get_module(dct['script']['path'])
+    params = {}
+    params.update(extra_params)
+    if 'params' in dct['script']:
+        p = dct['script']['params']
+        for key in p:
+            params[key] = do_eval(p[key], context)
     #del dct['script']
-    dct.update(module.plot({}))
+    ret = module.plot(**params)
+    dct.update(ret)
     
 
 def create_object(msgs, bag_times, input_field=''):
@@ -275,7 +306,9 @@ def plot(yaml_filename, bag_paths):
         figs = y['figures']
         d = y['data']
         rcparams = y['rcparams']
-        profiles = y['profiles']
+        profiles = {}
+        if 'profiles' in y:
+            profiles = y['profiles']
         def get_profile_context_function(k):
             def profile_context_function(**kwargs):
                 return {'key': k, 'kwargs': kwargs}
@@ -344,17 +377,18 @@ def plot(yaml_filename, bag_paths):
                     split_as_figures = fig['split']['as'] == 'figures'
 
         # choose which splits to keep
-        if 'keep_indices' in fig['split']:
-            keep_indices = np.array(make_list(eval(str(fig['split']['keep_indices']))))
-            keep = list(set(np.append(keep_indices, keep_indices+1)))
-            split_bag_times = split_bag_times[keep]
-            if 'remove_indices' in fig['split']:
-                print('warning: can\'t do keep_indices and remove_indices in same split. only using keep_indices.')
-        elif 'remove_indices' in fig['split']:
-            remove = make_list(eval(str(fig['split']['remove_indices'])))
-            keep = [x for x in range(len(split_bag_times)) if x not in remove]
-            split_bag_times = split_bag_times[keep]
-        del fig['split']
+        if 'split' in fig:
+            if 'keep_indices' in fig['split']:
+                keep_indices = np.array(make_list(eval(str(fig['split']['keep_indices']))))
+                keep = list(set(np.append(keep_indices, keep_indices+1)))
+                split_bag_times = split_bag_times[keep]
+                if 'remove_indices' in fig['split']:
+                    print('warning: can\'t do keep_indices and remove_indices in same split. only using keep_indices.')
+            elif 'remove_indices' in fig['split']:
+                remove = make_list(eval(str(fig['split']['remove_indices'])))
+                keep = [x for x in range(len(split_bag_times)) if x not in remove]
+                split_bag_times = split_bag_times[keep]
+            del fig['split']
 
         # check if splitting can be done as axes
         if not split_as_figures:
@@ -420,15 +454,15 @@ def plot(yaml_filename, bag_paths):
 
                 # plotting
                 for plot in ax['plots']:
-                    handle_scripts(plot)
-                    if 'script' in plot:
-                        continue
+                    handle_scripts(plot, ax_context, {'ax': a})
+                    #if 'script' in plot:
+                    #    continue
                     
                     args = []
                     # configure x
                     if 'x' in plot.keys():
                         try:
-                            x = eval(plot['x'], globals(), ax_context)
+                            x = do_eval(plot['x'], ax_context)
                         except Exception as e:
                             print(f'error in x ({plot["x"]}): {e}. skipping {plot}')
                             continue
@@ -436,7 +470,7 @@ def plot(yaml_filename, bag_paths):
                         
                     # configure y
                     try:
-                        y = eval(plot['y'], globals(), ax_context)
+                        y = do_eval(plot['y'], ax_context)
                     except Exception as e:
                         print(f'error in y ({plot["y"]}): {e}. skipping {plot}')
                         continue
@@ -452,6 +486,7 @@ def plot(yaml_filename, bag_paths):
                     if 'label' in kwargs:
                         a.legend()
             custom_array_container.unslice(current_context)
+    #print_stats()
     plt.show()
         
 if __name__ == "__main__":
