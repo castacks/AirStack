@@ -65,7 +65,7 @@ class AirStackPegasusApp:
     Spawns a drone with stereo cameras matching AirStack camera configuration.
     """
 
-    def __init__(self, environment=SIMULATION_ENVIRONMENTS["Curved Gridroom"]):
+    def __init__(self, stage=SIMULATION_ENVIRONMENTS["Curved Gridroom"]):
         """
         Method that initializes the AirStackPegasusApp and sets up the simulation environment.
         """
@@ -87,10 +87,10 @@ class AirStackPegasusApp:
         # ALWAYS load a Pegasus environment first to ensure proper World initialization
         # This is critical for the World object to have all required attributes like _scene
         carb.log_info("Initializing Pegasus environment for proper World setup...")
-        if (environment in NVIDIA_SIMULATION_ENVIRONMENTS):
-            self.pg.load_environment(SIMULATION_ENVIRONMENTS[environment])
+        if (stage in NVIDIA_SIMULATION_ENVIRONMENTS):
+            self.pg.load_environment(SIMULATION_ENVIRONMENTS[stage])
         else:
-            self.pg.load_environment(environment)
+            self.pg.load_environment(stage)
 
         # Initialize rclpy and create a ROS node
         rclpy.init()
