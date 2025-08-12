@@ -88,6 +88,16 @@ services:
       - ../sitl_integration/config:/root/.nvidia-omniverse/config:rw
 
   # ===================================================================================================================
+  isaac-sim-gui:
+    extends:
+      service: isaac-sim
+    container_name: isaac-sim-gui
+    command: >
+      bash -c "tmux new -d -s isaac; 
+        tmux send-keys -t isaac '/isaac-sim/runapp.sh' ENTER; 
+      sleep infinity"
+    networks: !reset null
+  # ===================================================================================================================
   # for running over ethernet for hitl to stream to the NVIDIA jetson device
   isaac-sim-hitl:
     extends:
