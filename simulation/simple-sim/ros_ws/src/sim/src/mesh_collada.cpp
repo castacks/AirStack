@@ -3,7 +3,7 @@
 ColladaMesh::ColladaMesh(std::string filename){
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(filename,
-					   aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenNormals | aiProcess_PreTransformVertices);
+					   aiProcess_Triangulate);
 
   if (!scene || !scene->HasMeshes()) {
     std::cerr << "Model load failed: " << importer.GetErrorString() << "\n";
@@ -13,7 +13,7 @@ ColladaMesh::ColladaMesh(std::string filename){
   // load all meshes
   for (unsigned int i = 0; i < scene->mNumMeshes; ++i) {
     aiMesh* mesh = scene->mMeshes[i];
-    std::cout << "Loaded mesh " << i << " with " << mesh->mNumVertices << " vertices\n";
+    std::cout << "Loaded mesh " << i << " with " << mesh->mNumVertices << " vertices" << std::endl;
     meshes.push_back(loadMesh(mesh));
   }
 }
@@ -23,6 +23,22 @@ void ColladaMesh::draw(){
     glBindVertexArray(mesh.VAO);
     glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, 0);
   }
+}
+
+void ColladaMesh::draw_except(int index){
+  for(int i = 0; i < meshes.size(); i++){
+    if(i == index)
+      continue;
+    Mesh& mesh = meshes[i];
+    glBindVertexArray(mesh.VAO);
+    glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, 0);
+  }
+}
+
+void ColladaMesh::draw_only(int index){
+  Mesh& mesh = meshes[index];
+  glBindVertexArray(mesh.VAO);
+  glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, 0);
 }
 
 Mesh ColladaMesh::loadMesh(const aiMesh* mesh) {

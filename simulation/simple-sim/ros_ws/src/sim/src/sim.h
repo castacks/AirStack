@@ -250,7 +250,12 @@ float Sim::step(std::vector<unsigned char>& left_image_bytes, std::vector<unsign
   glUniformMatrix4fv(glGetUniformLocation(collada_shader_program, "view"), 1, GL_FALSE, glm::value_ptr(view));
   glUniformMatrix4fv(glGetUniformLocation(collada_shader_program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
   glUniformMatrix4fv(glGetUniformLocation(collada_shader_program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-  drone_mesh->draw();
+  drone_mesh->draw_except(51);
+  glm::mat4 spin_model = model;
+  if(drone.armed || ((!drone.armed) && drone.thrustPower != 0.f))
+     spin_model *= glm::toMat4(glm::angleAxis(sim_time*1000.f, glm::vec3(0, 1, 0)));
+  glUniformMatrix4fv(glGetUniformLocation(collada_shader_program, "model"), 1, GL_FALSE, glm::value_ptr(spin_model));
+  drone_mesh->draw_only(51);
 
 
   // offscreen

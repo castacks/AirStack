@@ -26,4 +26,6 @@ private:
 public:
   ColladaMesh(std::string filename);
   void draw();
+  void draw_except(int index);
+  void draw_only(int index);
 };
