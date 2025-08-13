@@ -1,0 +1,11 @@
+<launch>
+  <node 
+    pkg="exploration_planner" 
+    exec="exploration_planner" 
+    name="exploration_planner">
+    <param 
+      from="$(find exploration_planner)/config/exploration_config.yaml" />
+    <param
+      from="$(find global_planner_bringup)/config/global_planner_config.yaml" />
+  </node>
+</launch>
