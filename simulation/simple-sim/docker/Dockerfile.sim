@@ -17,7 +17,6 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     ros-humble-rosbag2-storage-mcap ros-humble-plotjuggler ros-humble-plotjuggler-ros unzip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install gdown requests
     
 # Install Python dependencies
 #RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
@@ -33,3 +32,5 @@ EXPOSE 22
 
 # Cleanup
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install gdown requests
