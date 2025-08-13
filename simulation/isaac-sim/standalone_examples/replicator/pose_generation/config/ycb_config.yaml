@@ -1,0 +1,160 @@
+---
+# Default rendering parameters
+CONFIG:
+  renderer: RaytracedLighting
+  headless: false
+  width: 1280
+  height: 720
+
+# Index of part in array of classes in PoseCNN training
+CLASS_NAME_TO_INDEX:
+  _03_cracker_box: 1
+  _35_power_drill: 2
+
+# prim_type is determined by the usd file. 
+# To determine, open the usd file in Isaac Sim and see the prim path. If you load it in /World, the path will be /World/<prim_type>
+OBJECTS_TO_GENERATE: 
+- { part_name: 003_cracker_box, num: 1, prim_type: _03_cracker_box } 
+- { part_name: 035_power_drill, num: 1, prim_type: _35_power_drill }
+
+# Maximum force component to apply to objects to keep them in motion
+FORCE_RANGE: 30
+
+# Camera Intrinsics
+WIDTH: 1280
+HEIGHT: 720
+F_X: 665.80768
+F_Y: 665.80754
+C_X: 637.642
+C_Y: 367.56
+pixel_size: 0.04 # in mm
+
+# Number of sphere lights added to the scene
+NUM_LIGHTS: 6
+
+# Minimum and maximum distances of objects away from the camera (along the optical axis)
+MIN_DISTANCE: 0.2
+MAX_DISTANCE: 1.2
+
+# Rotation of camera rig with respect to world frame, expressed as XYZ euler angles
+CAMERA_RIG_ROTATION:
+- 0
+- 0
+- 0
+
+# Rotation of camera with respect to camera rig, expressed as XYZ euler angles. Please note that in this example, we
+# define poses with respect to the camera rig instead of the camera prim. By using the rig's frame as a surrogate for
+# the camera's frame, we effectively change the coordinate system of the camera. When
+# CAMERA_RIG_ROTATION = np.array([0, 0, 0]) and CAMERA_ROTATION = np.array([0, 0, 0]), this corresponds to the default
+# Isaac-Sim camera coordinate system of -z out the face of the camera, +x to the right, and +y up. When
+# CAMERA_RIG_ROTATION = np.array([0, 0, 0]) and CAMERA_ROTATION = np.array([180, 0, 0]), this corresponds to
+# the YCB Video Dataset camera coordinate system of +z out the face of the camera, +x to the right, and +y down.
+CAMERA_ROTATION:
+- 180
+- 0
+- 0
+
+# Minimum and maximum XYZ euler angles for the part being trained on to be rotated, with respect to the camera rig
+MIN_ROTATION_RANGE:
+- -180
+- -90
+- -180
+
+# Minimum and maximum XYZ euler angles for the part being trained on to be rotated, with respect to the camera rig
+MAX_ROTATION_RANGE:
+- 180
+- 90
+- 180
+
+# How close the center of the part being trained on is allowed to be to the edge of the screen
+FRACTION_TO_SCREEN_EDGE: 0.9
+
+# MESH and DOME datasets
+SHAPE_SCALE:
+- 0.05
+- 0.05
+- 0.05
+SHAPE_MASS: 1
+OBJECT_SCALE:
+- 1
+- 1
+- 1
+OBJECT_MASS: 1
+
+TRAIN_PART_SCALE: # Scale for the training objects 
+- 1
+- 1
+- 1
+
+# Asset paths 
+DISTRACTOR_ASSET_PATH: /Isaac/Props/YCB/Axis_Aligned/
+TRAIN_ASSET_PATH: /Isaac/Props/YCB/Axis_Aligned/
+DOME_TEXTURE_PATH: /NVIDIA/Assets/Skies/ 
+
+# MESH dataset
+NUM_MESH_SHAPES: 500
+NUM_MESH_OBJECTS: 200
+MESH_FRACTION_GLASS: 0.15
+MESH_FILENAMES:
+- 002_master_chef_can
+- 004_sugar_box
+- 005_tomato_soup_can
+- 006_mustard_bottle
+- 007_tuna_fish_can
+- 008_pudding_box
+- 009_gelatin_box
+- 010_potted_meat_can
+- 011_banana
+- 019_pitcher_base
+- 021_bleach_cleanser
+- 024_bowl
+- 025_mug
+- 035_power_drill
+- 036_wood_block
+- 037_scissors
+- 040_large_marker
+- 051_large_clamp
+- 052_extra_large_clamp
+- 061_foam_brick
+
+# DOME dataset
+NUM_DOME_SHAPES: 30
+NUM_DOME_OBJECTS: 20
+DOME_FRACTION_GLASS: 0.2
+DOME_TEXTURES:
+- Clear/evening_road_01_4k
+- Clear/kloppenheim_02_4k
+- Clear/mealie_road_4k
+- Clear/noon_grass_4k
+- Clear/qwantani_4k
+- Clear/signal_hill_sunrise_4k
+- Clear/sunflowers_4k
+- Clear/syferfontein_18d_clear_4k
+- Clear/venice_sunset_4k
+- Clear/white_cliff_top_4k
+- Cloudy/abandoned_parking_4k
+- Cloudy/champagne_castle_1_4k
+- Cloudy/evening_road_01_4k
+- Cloudy/kloofendal_48d_partly_cloudy_4k
+- Cloudy/lakeside_4k
+- Cloudy/sunflowers_4k
+- Cloudy/table_mountain_1_4k
+- Evening/evening_road_01_4k
+- Indoor/adams_place_bridge_4k
+- Indoor/autoshop_01_4k
+- Indoor/bathroom_4k
+- Indoor/carpentry_shop_01_4k
+- Indoor/en_suite_4k
+- Indoor/entrance_hall_4k
+- Indoor/hospital_room_4k
+- Indoor/hotel_room_4k
+- Indoor/lebombo_4k
+- Indoor/old_bus_depot_4k
+- Indoor/small_empty_house_4k
+- Indoor/studio_small_04_4k
+- Indoor/surgery_4k
+- Indoor/vulture_hide_4k
+- Indoor/wooden_lounge_4k
+- Night/kloppenheim_02_4k
+- Night/moonlit_golf_4k
+- Storm/approaching_storm_4k
