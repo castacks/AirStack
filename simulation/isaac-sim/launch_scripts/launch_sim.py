@@ -250,16 +250,14 @@ class AirStackPegasusApp:
             carb.log_warn(f"Could not load camera config from {config_path}: {e}")
             # Return default stereo config
             return {
-                "base_link_frame_id": "base_link",
-                "camera_list": [
-                    {
-                        "camera_name": "front_stereo",
-                        "camera_type": "stereo",
-                        "camera_info_sub_topic": "camera_info",
-                        "left_camera_frame_id": "CameraLeft",
-                        "right_camera_frame_id": "CameraRight",
-                    }
-                ],
+                'base_link_frame_id': 'base_link',
+                'camera_list': [{
+                    'camera_name': 'front_stereo',
+                    'camera_type': 'stereo',
+                    'camera_info_sub_topic': 'camera_info',
+                    'left_camera_frame_id': 'left_camera',
+                    'right_camera_frame_id': 'right_camera'
+                }]
             }
 
     def create_vehicle(self):

@@ -2,22 +2,6 @@
     <arg name="robot_namespace" default="robot1" />
     <!-- Environment TFs -->
 
-    <!-- connects isaac sim prim to robot frame -->
-    <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_publisher" args="0 0 0 0 0 0 $(var robot_namespace)_mavros_enu $(var robot_namespace)_map">
-    </node>
-
     <!-- Robot TFs -->
-
-    <!-- Base link to camera mount -->
-    <node pkg="tf2_ros" exec="static_transform_publisher" name="base_link_to_camera_mount" args="0.30 0 0 0 0 0 $(var robot_namespace)_base_link $(var robot_namespace)_camera_mount">
-    </node>
-
-    <!-- Camera mount to left camera -->
-    <node pkg="tf2_ros" exec="static_transform_publisher" name="camera_mount_to_left_camera" args="0 -0.05 0 0 0 0 $(var robot_namespace)_camera_mount $(var robot_namespace)_left">
-    </node>
-
-    <!-- Camera mount to right camera -->
-    <node pkg="tf2_ros" exec="static_transform_publisher" name="camera_mount_to_right_camera" args="0 0.05 0 0 0 0 $(var robot_namespace)_camera_mount $(var robot_namespace)_right">
-    </node>
 
 </launch>

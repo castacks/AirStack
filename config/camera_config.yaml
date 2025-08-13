@@ -4,8 +4,8 @@ camera_list:
     camera_type: "stereo"
     left_camera_info_sub_topic: "/robot_1/sensors/front_stereo/left/camera_info"
     right_camera_info_sub_topic: "/robot_1/sensors/front_stereo/right/camera_info"
-    left_camera_frame_id: "left_camera" 
-    right_camera_frame_id: "right_camera"
+    left_camera_frame_id: "left" 
+    right_camera_frame_id: "right"
 
 # LiDAR sensor configuration
 lidar_list:
