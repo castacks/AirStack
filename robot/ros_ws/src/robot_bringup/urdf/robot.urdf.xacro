@@ -62,7 +62,7 @@
   <joint name="camera_mount_to_left" type="fixed">
     <parent link="camera_mount"/>
     <child link="left"/>
-    <origin xyz="0 -0.05 0" rpy="0 0 0"/>
+    <origin xyz="0 -0.05 0" rpy="-1.5708 0 -1.5708"/>
   </joint>
 
   <!-- Right camera -->
@@ -80,7 +80,7 @@
   <joint name="camera_mount_to_right" type="fixed">
     <parent link="camera_mount"/>
     <child link="right"/>
-    <origin xyz="0 0.05 0" rpy="0 0 0"/>
+    <origin xyz="0 0.05 0" rpy="-1.5708 0 -1.5708"/>
   </joint>
 
   <!-- LiDAR sensor -->
