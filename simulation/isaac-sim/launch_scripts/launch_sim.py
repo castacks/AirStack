@@ -654,7 +654,6 @@ class AirStackPegasusApp:
 
 import sys
 import threading
-
 import argparse
 
 
@@ -666,6 +665,13 @@ def main(config_path, scene):
             enabled_extensions = isaac_sim_config.get(
                 "enabled_extensions", ["airlab.airstack", "pegasus.simulator"]
             )
+
+        if scene in SIMULATION_ENVIRONMENTS:
+            # If scene is a known Pegasus environment, use it
+            stage = SIMULATION_ENVIRONMENTS[scene]
+        else:
+            # If the scene is not a known Pegasus environment, use the provided scene path (assumed to be a full stage path)
+            stage = scene
 
     except Exception as e:
         carb.log_warn(
@@ -680,7 +686,7 @@ def main(config_path, scene):
         enable_extension(ext)
 
     # Instantiate the AirStack Pegasus app
-    pg_app = AirStackPegasusApp(scene)
+    pg_app = AirStackPegasusApp(stage)
 
     # Run the application loop
     pg_app.run()
