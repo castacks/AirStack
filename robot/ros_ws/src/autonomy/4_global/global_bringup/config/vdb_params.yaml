@@ -3,22 +3,22 @@
     # Basic setup
     map_frame: map
     robot_frame: base_link
-    max_range: 50.0
-    resolution: 0.2
-    prob_hit: 0.95
-    prob_miss: 0.05
-    thres_min: 0.3
-    thres_max: 0.7
+    max_range: 10.0
+    resolution: 0.5
+    prob_hit: 0.99
+    prob_miss: 0.1
+    thres_min: 0.49
+    thres_max: 0.51
     map_save_dir: ""
 
     # Visualizations
     publish_pointcloud: true
     publish_vis_marker: true
-    visualization_rate: 5.0
+    visualization_rate: 2.0
 
     # Sensor input
     accumulate_updates: true
-    accumulation_period: 0.1
+    accumulation_period: 0.2
 
     apply_raw_sensor_data: true
     sources: [ouster]
@@ -31,14 +31,14 @@
     publish_overwrites: true
     publish_sections: true
     section_update:
-      rate: 5.0
+      rate: 1.0
       min_coord:
-        x: -50.0
-        y: -50.0
+        x: -10.0
+        y: -10.0
         z: -10.0
       max_coord:
-        x: 50.0
-        y: 50.0
+        x: 10.0
+        y: 10.0
         z: 10.0
 
 
