@@ -92,6 +92,9 @@ services:
     extends:
       service: isaac-sim
     container_name: isaac-sim-gui
+    # don't spawn by default, only when you want to use the GUI
+    profiles: !override
+      - ""
     command: >
       bash -c "tmux new -d -s isaac; 
         tmux send-keys -t isaac '/isaac-sim/runapp.sh' ENTER; 
