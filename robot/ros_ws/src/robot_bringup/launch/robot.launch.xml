@@ -10,36 +10,21 @@
   <!-- Sim -->
   <group if="$(var sim)">
     <!-- GUI -->
-    <node pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO" output="screen" respawn="true" respawn_delay="1" />
+    <node pkg="rviz2" exec="rviz2"
+      args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
+      output="screen" respawn="true" respawn_delay="1" />
 
     <group>
       <push-ros-namespace namespace="behavior" />
-      <node pkg="rqt_gui" exec="rqt_gui" args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
-        <remap from="fixed_trajectory_command" to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
+      <node pkg="rqt_gui" exec="rqt_gui"
+        args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+        <remap from="fixed_trajectory_command"
+          to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
       </node>
     </group>
 
-    <group>
-      <push-ros-namespace namespace="interface" />
-      <include file="$(find-pkg-share mavros)/launch/apm.launch">
-        <arg name="fcu_url" value="udp://:14540@172.31.0.200:14580" />
-        <arg name="config_yaml" value="$(find-pkg-share robot_bringup)/config/mavros_config.yaml" />
-        <!-- <arg name="gcs_url" value="" />
-        <arg name="target_system_id" value="1" />
-        <arg name="target_component_id" value="1" /> -->
-      </include>
-    </group>
   </group>
   <!-- Real -->
-  <group unless="$(var sim)">
-    <push-ros-namespace namespace="interface" />
-    <include file="$(find-pkg-share mavros)/launch/apm.launch">
-      <arg name="fcu_url" value="/dev/ttyTHS4:115200" />
-      <arg name="config_yaml" value="$(find-pkg-share robot_bringup)/config/mavros_config.yaml" />
-    </include>
-
-    <!-- <executable cmd="ros2 bag record -a -o /bags/autonomy_$(env DATE) -x '/robot_2/sensors/*'" /> -->
-  </group>
 
 
   <!-- Robot State Publisher (replaces static transforms) -->
@@ -53,12 +38,15 @@
   </include>
 
   <!-- Autonomy -->
-  <include file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
+  <include
+    file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
 
-    <!-- Logging -->
+  <!-- Logging -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
   <!-- Domain Bridge -->
-  <node pkg="domain_bridge" exec="domain_bridge" args="/root/ros_ws/src/robot_bringup/params/domain_bridge.yaml" output="screen" respawn="true" respawn_delay="1" />
+  <node pkg="domain_bridge" exec="domain_bridge"
+    args="/root/ros_ws/src/robot_bringup/params/domain_bridge.yaml" output="screen" respawn="true"
+    respawn_delay="1" />
 
 </launch>
