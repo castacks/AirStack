@@ -140,10 +140,10 @@ class AirStackPegasusApp:
         # Add clock publisher for simulation time synchronization
         self.clock_pub = self.node.create_publisher(Clock, "/clock", 10)
 
-        # Create timer to publish simulation time
-        self.clock_timer = self.node.create_timer(
-            0.01, self.publish_clock
-        )  # Publish at 100Hz
+        # # Create timer to publish simulation time
+        # self.clock_timer = self.node.create_timer(
+        #     0.01, self.publish_clock
+        # )  # Publish at 100Hz
 
         # Configure topic handling based on flag
         if not USE_DOMAIN_BRIDGE:
@@ -553,6 +553,8 @@ class AirStackPegasusApp:
         while simulation_app.is_running() and not self.stop_sim:
             # Let the simulation run
             self.world.step(render=True)
+
+            self.publish_clock()  # Publish simulation clock
 
             # Spin ROS nodes to process timers and callbacks
             rclpy.spin_once(self.node, timeout_sec=0.0)
