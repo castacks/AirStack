@@ -8,6 +8,7 @@
 
 Drone::Drone(){
   init();
+  pause_pressed = false;
 }
 
 void Drone::init(){
@@ -21,6 +22,8 @@ void Drone::init(){
   inertia = 1.f;
   offboard = false;
   armed = false;
+  on_ground = false;
+  paused = false;
 }
 
 glm::vec3 Drone::getForward() const {
@@ -84,8 +87,13 @@ glm::mat4 Drone::get_right_camera_mat(float baseline) {
 void Drone::applyInput(GLFWwindow* window, float deltaTime) {
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
       init();
+
+    bool p_pressed = glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS;
+    if(p_pressed && !pause_pressed)
+      paused = !paused;
+    pause_pressed = p_pressed;
     
-    if(offboard)
+    if(offboard || paused)
       return;
     
     constexpr float pitchRollSpeed = 45.0f; // degrees per second max change
@@ -179,7 +187,8 @@ void Drone::update(float deltaTime) {
     velocity += acceleration * deltaTime;
     position += velocity * deltaTime;
 
-    if(position.y < 0.f){
+    on_ground = position.y < 0.f;
+    if(on_ground){
       position.y = 0.f;
       
       velocity.x = 0.f;

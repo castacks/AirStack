@@ -6,7 +6,7 @@
 
 
     # Trajectory parameters 
-    trajectory_library_config: "$(find-pkg-share trajectory_library)/config/acceleration_magnitudes.yaml"
+    trajectory_library_config: "$(find-pkg-share trajectory_library)/config/flat.yaml"
     dt: 0.2
     ht: 2.4
     ht_long: 3.0
@@ -15,8 +15,10 @@
 
     # DROAN parameters
     robot_radius: 1.0
-    safety_cost_weight: 5.0
-    forward_progress_forgiveness_weight: 0.5
+    safety_cost_weight: 1.0
+    deviation_from_global_plan_weight: 1.0
+    forward_progress_forgiveness_weight: 1.0
+    evaluate_only_last_waypoint: true  # only use the last waypoint for forward progress and global plan deviation checking
 
     # map parameters. see disparity_graph_cost_map.cpp
     cost_map: disparity_graph_cost_map::DisparityGraphCostMap

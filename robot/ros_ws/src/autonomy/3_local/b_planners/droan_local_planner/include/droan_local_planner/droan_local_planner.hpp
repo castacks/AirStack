@@ -37,8 +37,11 @@
 #include <string>
 #include <trajectory_library/trajectory_library.hpp>
 #include <vector>
+#include <unordered_map>
+#include <set>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <airstack_common/templib.hpp>
 
 using std::placeholders::_1;
 
@@ -56,7 +59,8 @@ class DroanLocalPlanner : public rclcpp::Node {
     airstack_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
 
     double execute_rate, obstacle_check_radius, safety_cost_weight,
-        forward_progress_forgiveness_weight;
+      deviation_from_global_plan_weight, forward_progress_forgiveness_weight;
+    bool evaluate_only_last_waypoint;
 
     float auto_waypoint_buffer_duration, auto_waypoint_spacing_threshold,
         auto_waypoint_angle_threshold;
@@ -71,6 +75,11 @@ class DroanLocalPlanner : public rclcpp::Node {
     double custom_waypoint_timeout_factor, custom_waypoint_distance_threshold;
 
     std::shared_ptr<cost_map_interface::CostMapInterface> cost_map;
+
+    airstack::TimeOutMonitor* stuck_monitor;
+    airstack::TimeOutMonitor* all_in_collision_monitor;
+  
+    std::set<std::string> namespaces;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
     tf2_ros::TransformListener tf_listener;
@@ -133,11 +142,16 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->get_parameter("execute_rate", this->execute_rate);
         this->declare_parameter("safety_cost_weight", 1.);
         this->get_parameter("safety_cost_weight", safety_cost_weight);
+        this->declare_parameter("deviation_from_global_plan_weight", 1.);
+        this->get_parameter("deviation_from_global_plan_weight", deviation_from_global_plan_weight);
         this->declare_parameter("obstacle_check_radius", 1.);
         this->get_parameter("obstacle_check_radius", obstacle_check_radius);
         this->declare_parameter("forward_progress_forgiveness_weight", 0.5);
         this->get_parameter("forward_progress_forgiveness_weight",
                             forward_progress_forgiveness_weight);
+	this->declare_parameter("evaluate_only_last_waypoint", false);
+        this->get_parameter("evaluate_only_last_waypoint",
+                            evaluate_only_last_waypoint);
         this->declare_parameter("yaw_mode", "SMOOTH_YAW");
         auto yaw_mode_str = this->get_parameter("yaw_mode").as_string();
         if (yaw_mode_str == "TRAJECTORY_YAW") {
@@ -164,6 +178,10 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
+
+	// TODO make parameters
+	stuck_monitor = new airstack::TimeOutMonitor(5.0);
+	all_in_collision_monitor = new airstack::TimeOutMonitor(2.0);
     }
 
     void initialize() {
@@ -195,6 +213,14 @@ class DroanLocalPlanner : public rclcpp::Node {
             return true;
         }
 
+	if((!stuck_monitor->is_timed_out(this->now()))){// || (!map_clearing_rewind_monitor->is_timed_out())){
+	  //ROS_WARN_STREAM("REWINDING: " << (!stuck_monitor->is_timed_out()) << " " << (!map_clearing_rewind_monitor->is_timed_out())
+	  //		  << " time: " << ros::Time::now());
+	  RCLCPP_INFO_STREAM(this->get_logger(), "REWINDING");
+	  //stuck_msg.data = true;
+	  //stuck_pub.publish(stuck_msg);
+	}
+
         Trajectory global_plan(this, global_plan_msg);
 
         // transform the look ahead point to the global plan frame
@@ -216,7 +242,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         if (is_valid) {
             trajectory_distance = std::max(trajectory_distance, this->global_plan_trajectory_distance);
             global_plan = global_plan.trim_trajectory_between_distances(trajectory_distance, trajectory_distance + std::numeric_limits<double>::infinity());
-            RCLCPP_INFO_STREAM(this->get_logger(), "using global plan from distance " << trajectory_distance);
+            //RCLCPP_INFO_STREAM(this->get_logger(), "using global plan from distance " << trajectory_distance);
             this->global_plan_trajectory_distance = trajectory_distance;
         } else {
             RCLCPP_INFO(this->get_logger(), "invalid");
@@ -247,12 +273,21 @@ class DroanLocalPlanner : public rclcpp::Node {
                 apply_smooth_yaw(best_traj_msg);
             }
             best_traj_msg.header.stamp = this->now();
-            traj_pub->publish(best_traj_msg);
+
+	    // only publish the trajectory if we aren't rewinding because of being stuck
+	    if(stuck_monitor->is_timed_out(this->now()))
+	      traj_pub->publish(best_traj_msg);
+	    all_in_collision_monitor->add_time(this->now());
+	    
             RCLCPP_DEBUG_STREAM(this->get_logger(), "Published local trajectory");
         } else {
             RCLCPP_INFO_STREAM(
                 this->get_logger(),
                 "No valid trajectories, all trajectories either collide or are unseen");
+	    if(all_in_collision_monitor->is_timed_out(this->now()) && stuck_monitor->is_timed_out(this->now())){
+	      RCLCPP_INFO_STREAM(this->get_logger(), "ALL IN COLLISION");
+	      stuck_monitor->add_time(this->now());
+	    }
         }
         return true;
     }
@@ -274,6 +309,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         double min_cost = std::numeric_limits<double>::max();
 
         visualization_msgs::msg::MarkerArray traj_lib_marker_arr;
+	std::unordered_map<std::string, int> next_id;
 
         auto trajectory_safety_costs_per_waypoint =
             this->cost_map->get_trajectory_costs_per_waypoint(trajectory_candidates);
@@ -294,8 +330,9 @@ class DroanLocalPlanner : public rclcpp::Node {
             bool is_traj_unsafe_because_occupied = false;
             bool is_traj_unsafe_because_unobserved = false;
 
-            double min_safety_cost = std::numeric_limits<double>::infinity();
-            double total_deviation_from_global_plan = std::numeric_limits<double>::infinity();
+            double max_safety_cost = -std::numeric_limits<double>::infinity();
+            double deviation_from_global_plan = std::numeric_limits<double>::infinity();
+	    double forward_progress_forgiveness = -std::numeric_limits<double>::infinity();
             // std::cout << "Trajectory " << i << " safety costs: ";
             // for each waypoint in the trajectory, fetch its
             // (1) safety cost and (2) deviation from global plan cost
@@ -314,36 +351,44 @@ class DroanLocalPlanner : public rclcpp::Node {
                     is_traj_unsafe_because_unobserved = true;
                     goto add_marker;
                 } else {
-                    min_safety_cost = std::min(min_safety_cost, safety_cost);
+                    max_safety_cost = std::max(max_safety_cost, safety_cost);
                 }
 
                 // get the closest global plan point to the current trajectory waypoint
                 auto [is_valid, closest_waypoint_to_global_plan, wp_index, path_distance] =
                     global_plan_in_traj_frame.get_closest_point(wp.position());
 
-                // reward making progress along the global plan
-                double forward_progress_forgiveness =
-                    forward_progress_forgiveness_weight * path_distance;
-
-                if (is_valid) {
-                    if (std::isinf(total_deviation_from_global_plan)) {
-                        total_deviation_from_global_plan = 0;
-                    }
-                    double deviation =
-                        closest_waypoint_to_global_plan.position().distance(wp.position());
-                    total_deviation_from_global_plan += deviation - forward_progress_forgiveness;
+                if (is_valid && (!evaluate_only_last_waypoint || (evaluate_only_last_waypoint && j == traj.get_num_waypoints()-1))) {
+                    if (std::isinf(deviation_from_global_plan))
+                        deviation_from_global_plan = 0;
+                    if (std::isinf(forward_progress_forgiveness))
+                        forward_progress_forgiveness = 0;
+		    
+		    // reward making progress along the global plan
+		    forward_progress_forgiveness += path_distance;
+		    
+                    deviation_from_global_plan +=
+		        closest_waypoint_to_global_plan.position().distance(wp.position());
                 }
             }
+	    if(std::isinf(max_safety_cost))
+	        max_safety_cost = std::numeric_limits<double>::infinity();
+
+	    if(!evaluate_only_last_waypoint){
+	      forward_progress_forgiveness /= traj.get_num_waypoints();
+	      deviation_from_global_plan /= traj.get_num_waypoints();
+	    }
+	    deviation_from_global_plan *= deviation_from_global_plan_weight;
+	    forward_progress_forgiveness *= forward_progress_forgiveness_weight;
+	    max_safety_cost *= safety_cost_weight;
 
             // bigger distance from obstacles makes the cost smaller (more negative). cap by the
             // obstacle check radius
+	    double cost;
             if (!is_traj_unsafe_because_occupied && !is_traj_unsafe_because_unobserved) {
                 is_at_least_one_trajectory_valid = true;
 
-                double avg_deviation_from_global_plan =
-                    total_deviation_from_global_plan / traj.get_num_waypoints();
-
-                double cost = avg_deviation_from_global_plan + safety_cost_weight * min_safety_cost;
+                cost = deviation_from_global_plan - forward_progress_forgiveness + max_safety_cost;
                 if (cost < min_cost) {
                     min_cost = cost;
                     best_traj_ret = traj;
@@ -357,21 +402,40 @@ class DroanLocalPlanner : public rclcpp::Node {
             std::string marker_ns = "trajectory_" + std::to_string(i);
 
             visualization_msgs::msg::MarkerArray traj_markers;
-            if (is_traj_unsafe_because_unobserved) {
-                // gray for unobserved
-                traj_markers = traj.get_markers(this->now(), marker_ns, .7, .7, .7, .3);
-            } else if (is_traj_unsafe_because_occupied) {
-                // red for collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3);
-            } else {
-                // green for no collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5);
-            }
+	    std::string text = "X_" + std::to_string(max_safety_cost) + "\n" +
+  	        "|_" + std::to_string(deviation_from_global_plan) + "\n" +
+	        ">_" + std::to_string(-forward_progress_forgiveness) + "\n" +
+	        std::to_string(cost);
+	    
+            if (is_traj_unsafe_because_unobserved) // gray for unobserved
+	        traj_markers = traj.get_markers(this->now(), "unseen", .7, .7, .7, .3, false, false, 0.03f, text);
+	    else if (is_traj_unsafe_because_occupied) // red for collision
+	        traj_markers = traj.get_markers(this->now(), "collision", 1, 0, 0, .3, false, false, 0.03f, text);
+            else // green for no collision
+                traj_markers = traj.get_markers(this->now(), "free", 0, 1, 0, .5, false, false, 0.03f, text);
+	    
+	    for(visualization_msgs::msg::Marker& marker : traj_markers.markers){
+	      namespaces.insert(marker.ns);
+	      if(next_id.count(marker.ns) == 0)
+		next_id[marker.ns] = 0;
+
+	      marker.id = next_id[marker.ns]++;
+	    }
+	    
             traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.end(),
                                                traj_markers.markers.begin(),
                                                traj_markers.markers.end());
         }
 
+	for(visualization_msgs::msg::Marker& marker : traj_lib_marker_arr.markers)
+	  if(marker.action == visualization_msgs::msg::Marker::DELETEALL)
+	    marker.action = visualization_msgs::msg::Marker::ADD;
+	for(const std::string& ns : namespaces){
+	  visualization_msgs::msg::Marker clear;
+	  clear.ns = ns;
+	  clear.action = visualization_msgs::msg::Marker::DELETEALL;
+	  traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.begin(), clear);
+	}
         traj_lib_vis_pub->publish(traj_lib_marker_arr);
         map_debug_pub->publish(this->cost_map->get_debug_markerarray());
 
@@ -436,7 +500,7 @@ class DroanLocalPlanner : public rclcpp::Node {
      * @param global_plan_msg
      */
     void global_plan_callback(const nav_msgs::msg::Path::SharedPtr global_plan_msg) {
-        RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
+      //RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
         if (this->goal_mode != GLOBAL_PLAN) return;
 
         this->global_plan_msg = *global_plan_msg;  // copies

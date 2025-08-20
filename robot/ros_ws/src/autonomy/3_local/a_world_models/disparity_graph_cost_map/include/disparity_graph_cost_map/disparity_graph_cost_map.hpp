@@ -45,7 +45,7 @@ class DisparityGraphCostMap : public cost_map_interface::CostMapInterface {
     disparity_graph::DisparityGraph disp_graph;
 
     visualization_msgs::msg::MarkerArray marker_array;
-    visualization_msgs::msg::Marker points_marker;
+    visualization_msgs::msg::Marker unseen_marker, collision_marker, free_marker;
     std_msgs::msg::ColorRGBA green;
     std_msgs::msg::ColorRGBA gray;
     std_msgs::msg::ColorRGBA red;

@@ -165,9 +165,9 @@ class DisparityGraph {
         marker_.pose.orientation.y = 0.0;
         marker_.pose.orientation.z = 0.0;
         marker_.pose.orientation.w = 1.0;
-        marker_.scale.x = 1;
-        marker_.scale.y = 0.2;
-        marker_.scale.z = 0.2;
+        marker_.scale.x = 0.5;
+        marker_.scale.y = 0.1;
+        marker_.scale.z = 0.1;
         marker_.color.a = 1.0;  // Don't forget to set the alpha!
         marker_.color.r = 0.0;
         marker_.color.g = 1.0;
@@ -252,7 +252,9 @@ class DisparityGraph {
         for (uint i = 0; i < disp_graph_.size(); i++) {
             auto position = disp_graph_.at(i).s2w_tf.getOrigin();
             tf2::toMsg(position, marker_.pose.position);
-            auto rotation = disp_graph_.at(i).s2w_tf.getRotation();
+	    tf2::Quaternion q;
+	    q.setRPY(0, -M_PI_2, 0); // rotate so the arrow faces the +z instead of +x axis
+            auto rotation = disp_graph_.at(i).s2w_tf.getRotation()*q;
             marker_.pose.orientation = tf2::toMsg(rotation);
             marker_.header.stamp = node_ptr->now();
             marker_.ns = "pose";

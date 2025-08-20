@@ -48,6 +48,7 @@ Mesh FBXMesh::loadMesh(const aiMesh* m, const aiScene* scene, std::string base_p
 
     Mesh mesh{vao,vbo,ebo,idx.size(),0};
 
+    auto start = std::chrono::high_resolution_clock::now();
     if(m->mMaterialIndex>=0){
         aiMaterial* mat = scene->mMaterials[m->mMaterialIndex];
         aiString path;
@@ -56,6 +57,8 @@ Mesh FBXMesh::loadMesh(const aiMesh* m, const aiScene* scene, std::string base_p
             mesh.tex = loadTexture(base_path + "/" + p);
         }
     }
+    double elapsed_seconds = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start).count();
+    std::cout << "texture load time: " << elapsed_seconds << " seconds" << std::endl;
     
     std::cout << "done loading mesh" << std::endl;
     
@@ -70,8 +73,7 @@ FBXMesh::FBXMesh(std::string filename, float scale, float x_offset, float y_offs
   std::string base_path = std::filesystem::path(filename).parent_path().string();
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(filename,
-					   aiProcess_Triangulate|aiProcess_GenSmoothNormals|
-					   aiProcess_JoinIdenticalVertices|aiProcess_PreTransformVertices);
+					   aiProcess_Triangulate|aiProcess_PreTransformVertices);
   if(!scene || !scene->HasMeshes()){
     std::cerr<<"FBX load failed\n";
     return;

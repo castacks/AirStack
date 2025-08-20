@@ -148,8 +148,9 @@ private:
 
   // Timer callback
   void timer_callback(){
-    
     float sim_time_seconds = sim->step(left_image_data, right_image_data);
+    if(sim_time_seconds < 0.f)
+      return;
 
     // fast forwarding past autonomy's 10 second wait period after takeoff for sending commands
     //RCLCPP_INFO(this->get_logger(), "fast mode start: %.2f %.2f", fast_mode_start, sim_time_seconds);
@@ -245,7 +246,7 @@ private:
         0, 0, 1
     };
     right_cam_info.p = {
-        fx,  0, cx, -fx*baseline,
+	 fx,  0, cx, -fx*baseline/2., // TODO figure out the real issue here, /2. isn't the right fix
          0, fy, cy, 0,
          0,  0,  1, 0
     };
