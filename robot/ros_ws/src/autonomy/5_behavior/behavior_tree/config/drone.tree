@@ -58,3 +58,25 @@
 			<!>
 				(Armed)
 			[Disarm]
+	->
+		(Autonomously Explore Commanded)
+		->
+			<!>
+				(State Estimate Timed Out)
+			?
+				(In Air)
+				(Armed)
+				(Offboard Mode)
+				[Request Control]
+			?
+				(In Air)
+				(Armed)
+				[Arm]
+			?
+				(Takeoff Complete)
+				[Takeoff]
+		?
+			->
+				(Stuck)
+				[Rewind]
+			[Follow Global Plan]

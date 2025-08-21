@@ -25,6 +25,9 @@
             <remap from="landing_state" to="/$(env ROBOT_NAME)/takeoff_landing_planner/landing_state" />
             <remap from="state_estimate_timed_out" to="/$(env ROBOT_NAME)/drone_safety_monitor/state_estimate_timed_out" />
             <remap from="set_recording_status" to="/$(env ROBOT_NAME)/bag_record/set_recording_status" />
+            <remap from="reset_stuck" to="/$(env ROBOT_NAME)/droan/reset_stuck" />
+            <remap from="clear_map" to="/$(env ROBOT_NAME)/droan/clear_map" />
+            <remap from="stuck" to="/$(env ROBOT_NAME)/droan/stuck" />
 
         </node>
 

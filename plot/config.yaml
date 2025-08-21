@@ -1,0 +1,113 @@
+data:
+  odom: odometry_conversion/odometry
+  odom_x: odometry_conversion/odometry.pose.pose.position.x
+  odom_y: odometry_conversion/odometry.pose.pose.position.y
+  vel_x: odometry_conversion/odometry.twist.twist.linear.x
+  vel_y: odometry_conversion/odometry.twist.twist.linear.y
+  tp_x: trajectory_controller/tracking_point.pose.position.x
+  tp_y: trajectory_controller/tracking_point.pose.position.y
+  
+  fixed_traj: fixed_trajectory_generator/fixed_trajectory_command.type
+  
+  xpid: control/x_pid_info
+  ypid: control/y_pid_info
+  zpid: control/z_pid_info
+  vxpid: control/vx_pid_info
+  vypid: control/vy_pid_info
+  vzpid: control/vz_pid_info
+
+  mavros_state: interface/mavros/state
+  global_plan_active: behavior/follow_global_plan_active.active
+
+  markers: droan/virtual_obstacles
+  
+rcparams:
+  font.size: 14
+  axes.titlesize: 20
+  axes.labelsize: 16
+  xtick.labelsize: 14
+  ytick.labelsize: 14
+  legend.fontsize: 16
+  figure.titlesize: 24
+
+profiles:
+  fixed_traj_split:
+    split:
+      #keep_indices: 2
+      #remove_indices: 0
+      as: axes
+      critera:
+      - field: fixed_traj
+        condition: x != None
+      - field: mavros_state.mode
+        condition: mavros_state.mode[i] != 'GUIDED' and mavros_state.mode[i-1] == 'GUIDED'
+      - field: global_plan_active
+        condition: global_plan_active[i] and not global_plan_active[i-1]
+  test:
+    set_aspect: aspect_type
+  pid:
+    suptitle: title
+    axes:
+        - col: 1
+          plots:
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.measured
+            fmt: .-
+            label: Measured
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.target
+            fmt: .-
+            label: Target
+        - col: 2
+          plots:
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.p_component
+            fmt: .-
+            label: p
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.i_component
+            fmt: .-
+            label: i
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.d_component
+            fmt: .-
+            label: d
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.ff_component
+            fmt: .-
+            label: ff
+          - x: pid.header_time - pid.header_time[0]
+            y: pid.control
+            fmt: .-
+            label: control
+
+figures:
+  - profiles: fixed_traj_split
+    suptitle: '"Tracking, max velocity: %0.2f m/s" % max(np.sqrt(vel_x**2 + vel_y**2))'
+    tight_layout:
+    axes:
+      - profiles: test(aspect_type='equal')
+        plots:
+          - x: odom_x
+            y: odom_y
+            fmt: .-
+            label: Robot Position
+          - x: tp_x
+            y: tp_y
+            fmt: .-
+            label: Tracking Point
+          - script:
+              path: scripts/markers.py
+              params:
+                markers: markers
+      - set_title: 'Cross Track'
+        plots:
+          - x: odom.header_time
+            y: np.min(np.hypot(odom_x[None, :] - tp_x[:, None], odom_y[None, :] - tp_y[:, None]), axis=0)
+            fmt: .-
+  - profiles: fixed_traj_split, pid(title='X', pid=xpid)
+  - profiles: fixed_traj_split, pid(title='Y', pid=ypid)
+  - profiles: fixed_traj_split, pid(title='Z', pid=zpid)
+  - profiles: fixed_traj_split, pid(title='VX', pid=vxpid)
+  - profiles: fixed_traj_split, pid(title='VY', pid=vypid)
+  - profiles: fixed_traj_split, pid(title='VZ', pid=vzpid)

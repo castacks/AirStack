@@ -1,0 +1,74 @@
+data:
+  odom_x: odometry_conversion/odometry.pose.pose.position.x
+  odom_y: odometry_conversion/odometry.pose.pose.position.y
+  vel_x: odometry_conversion/odometry.twist.twist.linear.x
+  vel_y: odometry_conversion/odometry.twist.twist.linear.y
+  tp_x: trajectory_controller/tracking_point.pose.position.x
+  tp_y: trajectory_controller/tracking_point.pose.position.y
+  gsp_lat: interface/mavros/setpoint_position/global.pose.position.latitude
+  gsp_lon: interface/mavros/setpoint_position/global.pose.position.longitude
+  lat: interface/mavros/global_position/global.latitude
+  lon: interface/mavros/global_position/global.longitude
+  home_lat: interface/mavros/home_position/home.geo.latitude
+  home_lon: interface/mavros/home_position/home.geo.longitude
+  fixed_traj: fixed_trajectory_generator/fixed_trajectory_command.type
+
+rcparams:
+  font.size: 14
+  axes.titlesize: 20
+  axes.labelsize: 16
+  xtick.labelsize: 14
+  ytick.labelsize: 14
+  legend.fontsize: 16
+  figure.titlesize: 24
+
+figs:
+  - suptitle: "'Tracking, max velocity: %0.2f m/s' % max(np.sqrt(vel_x**2 + vel_y**2))"
+    split:
+      field: fixed_traj
+      condition: x != None
+    axes:
+      - set_aspect: equal
+        plots:
+          - x: odom_x
+            y: odom_y
+            fmt: .-
+            label: Robot Position
+          - x: tp_x
+            y: tp_y
+            fmt: .-
+            label: Tracking Point
+  - suptitle: GPS
+    axes:
+      - set_xlabel: "'Latitude', fontsize=16" # example
+        set_ylabel: Longitude
+        plots:
+          - x: lat
+            y: lon
+            fmt: .-
+            label: Robot Position
+          - x: gsp_lat
+            y: gsp_lon
+            fmt: .-
+            label: Global Setpoint
+          - x: home_lat
+            y: home_lon
+            fmt: y.-
+            label: Home
+  - suptitle: UTM
+    axes:
+      - set_xlabel: Easting
+        set_ylabel: Northing
+        plots:
+          - x: list(map(lambda x:utm.from_latlon(x[0], x[1])[0], zip(lat, lon)))
+            y: list(map(lambda x:utm.from_latlon(x[0], x[1])[1], zip(lat, lon)))
+            fmt: .-
+            label: Robot Position
+          - x: list(map(lambda x:utm.from_latlon(x[0], x[1])[0], zip(gsp_lat, gsp_lon)))
+            y: list(map(lambda x:utm.from_latlon(x[0], x[1])[1], zip(gsp_lat, gsp_lon)))
+            fmt: .-
+            label: Global Setpoint
+          - x: list(map(lambda x:utm.from_latlon(x[0], x[1])[0], zip(home_lat, home_lon)))
+            y: list(map(lambda x:utm.from_latlon(x[0], x[1])[1], zip(home_lat, home_lon)))
+            fmt: y.-
+            label: Home
