@@ -58,11 +58,14 @@ public:
   float step(std::vector<unsigned char>& left_image_bytes, std::vector<unsigned char>& right_image_bytes);
 
   float get_fx(){
-    return get_fy() * (image_width_f / image_height_f);
+    float fovx = 2 * atan(tan(glm::radians(image_fov) / 2.) * (image_width_f/image_height_f));
+    return (image_width_f / 2.0) / tan(fovx / 2.);
+    //return get_fy() * (image_width_f / image_height_f);
   }
   
   float get_fy(){
-    return image_height_f / (2.0f * std::tan(glm::radians(image_fov) / 2.0f));
+    return (image_height_f / 2.0) / tan(glm::radians(image_fov) / 2.);
+    //return image_height_f / (2.0f * std::tan(glm::radians(image_fov) / 2.0f));
   }
   
   float get_cx(){

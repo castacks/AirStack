@@ -246,7 +246,7 @@ private:
         0, 0, 1
     };
     right_cam_info.p = {
-	 fx,  0, cx, -fx*baseline/2., // TODO figure out the real issue here, /2. isn't the right fix
+	 fx,  0, cx, -fx*baseline,
          0, fy, cy, 0,
          0,  0,  1, 0
     };

@@ -34,6 +34,7 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <string>
 #include <trajectory_library/trajectory_library.hpp>
 #include <vector>
@@ -42,8 +43,15 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <airstack_common/templib.hpp>
+#include <airstack_common/tflib.hpp>
+#include <airstack_common/ros2_helper.hpp>
 
 using std::placeholders::_1;
+
+inline std::ostream &operator<<(std::ostream &os, const rclcpp::Time &t){
+  os << t.seconds() << "s";
+  return os;
+}
 
 class DroanLocalPlanner : public rclcpp::Node {
    private:
@@ -78,6 +86,17 @@ class DroanLocalPlanner : public rclcpp::Node {
 
     airstack::TimeOutMonitor* stuck_monitor;
     airstack::TimeOutMonitor* all_in_collision_monitor;
+    airstack::TimeOutMonitor* map_clearing_rewind_monitor;
+    airstack::TemporalThresholdMonitor<tf2::Vector3, double>* stationary_monitor;
+    double stuck_duration_threshold;
+    double all_in_collision_duration_threshold;
+    double map_clearing_max_rewind_time;
+    double map_clearing_rewind_distance;
+    double stationary_distance_threshold;
+    double stationary_history_duration;
+    double map_clearing_wait_time;
+    tf2::Vector3 map_clearing_point;
+    rclcpp::Time map_clearing_time;
   
     std::set<std::string> namespaces;
 
@@ -89,12 +108,16 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr custom_waypoint_sub;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr reset_stuck_sub;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr clear_map_sub;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr traj_lib_vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr map_clearing_point_pub;
+     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stuck_pub;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr map_debug_pub;
 
@@ -121,9 +144,14 @@ class DroanLocalPlanner : public rclcpp::Node {
         custom_waypoint_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "custom_waypoint", 1,
             std::bind(&DroanLocalPlanner::custom_waypoint_callback, this, _1));
+        reset_stuck_sub = this->create_subscription<std_msgs::msg::Empty>(
+            "reset_stuck", 1,
+            std::bind(&DroanLocalPlanner::reset_stuck_callback, this, _1));
+        clear_map_sub = this->create_subscription<std_msgs::msg::Empty>(
+            "clear_map", 1,
+            std::bind(&DroanLocalPlanner::clear_map_callback, this, _1));
 
         // publishers
-
         traj_lib_vis_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
             "trajectory_library_vis", 10);
         obst_vis_pub = this->create_publisher<sensor_msgs::msg::Range>("obstacle_vis", 10);
@@ -133,6 +161,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             "trajectory_segment_to_add", 10);
         traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
             "trajectory_override", 10);
+        map_clearing_point_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+            "map_clearing_point", 10);
+        stuck_pub = this->create_publisher<std_msgs::msg::Bool>(
+            "stuck", 10);
 
         map_debug_pub =
             this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_map_debug", 1);
@@ -179,9 +211,23 @@ class DroanLocalPlanner : public rclcpp::Node {
         RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
 
-	// TODO make parameters
-	stuck_monitor = new airstack::TimeOutMonitor(5.0);
-	all_in_collision_monitor = new airstack::TimeOutMonitor(2.0);
+	stuck_duration_threshold = airstack::get_param(this, "stuck_duration_threshold", 6.0);
+	all_in_collision_duration_threshold = airstack::get_param(this, "all_in_collision_duration_threshold", 2.0);
+	map_clearing_max_rewind_time = airstack::get_param(this, "map_clearing_max_rewind_time", 10.0);
+	map_clearing_rewind_distance = airstack::get_param(this, "map_clearing_rewind_distance", 1.5);
+	stationary_distance_threshold = airstack::get_param(this, "stationary_distance_threshold", 0.5);
+	stationary_history_duration = airstack::get_param(this, "stationary_history_duration", 10.0);
+	map_clearing_wait_time = airstack::get_param(this, "map_clearing_wait_time", 30.0);
+
+	map_clearing_time = this->now() - rclcpp::Duration(1000, 0);
+	
+	stuck_monitor = new airstack::TimeOutMonitor(stuck_duration_threshold);
+	all_in_collision_monitor = new airstack::TimeOutMonitor(all_in_collision_duration_threshold);
+	map_clearing_rewind_monitor = new airstack::TimeOutMonitor(map_clearing_max_rewind_time);
+	stationary_monitor = new airstack::TemporalThresholdMonitor<tf2::Vector3, double>(stationary_distance_threshold,
+											  stationary_history_duration,
+											  0.2f,
+											  airstack::vector3_distance);
     }
 
     void initialize() {
@@ -213,12 +259,18 @@ class DroanLocalPlanner : public rclcpp::Node {
             return true;
         }
 
-	if((!stuck_monitor->is_timed_out(this->now()))){// || (!map_clearing_rewind_monitor->is_timed_out())){
-	  //ROS_WARN_STREAM("REWINDING: " << (!stuck_monitor->is_timed_out()) << " " << (!map_clearing_rewind_monitor->is_timed_out())
-	  //		  << " time: " << ros::Time::now());
-	  RCLCPP_INFO_STREAM(this->get_logger(), "REWINDING");
-	  //stuck_msg.data = true;
-	  //stuck_pub.publish(stuck_msg);
+	// check if we are stuck or are rewinding after clearing the map
+	std_msgs::msg::Bool stuck_msg;
+	if(!stuck_monitor->is_timed_out(this->now()) || !map_clearing_rewind_monitor->is_timed_out(this->now())){
+	  RCLCPP_INFO_STREAM(this->get_logger(), "REWINDING: " << (!stuck_monitor->is_timed_out(this->now())) << " "
+			     << (!map_clearing_rewind_monitor->is_timed_out(this->now()))
+			     << " time: " << this->now());
+	  stuck_msg.data = true;
+	  stuck_pub->publish(stuck_msg);
+	}
+	else{
+	  stuck_msg.data = false;
+	  stuck_pub->publish(stuck_msg);
 	}
 
         Trajectory global_plan(this, global_plan_msg);
@@ -741,5 +793,70 @@ class DroanLocalPlanner : public rclcpp::Node {
         RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
                                 "tracking point received with frame id: " << odom->header.frame_id);
         tracking_point_odom = *odom;
+
+	rclcpp::Time now = this->now();
+	tf2::Vector3 position = tflib::to_tf(odom->pose.position);
+	stationary_monitor->add_measurement(position, odom->header.stamp);
+	static bool prev_map_clearing_rewind_monitor_state = false;
+	bool curr_map_clearing_rewind_monitor_state = map_clearing_rewind_monitor->is_timed_out(now);
+
+	if(!curr_map_clearing_rewind_monitor_state){
+	  RCLCPP_INFO_STREAM(this->get_logger(), "CURRENT REWIND DISTANCE: " << map_clearing_point.distance(position) << " | "
+			     << map_clearing_point.x() << ", " << map_clearing_point.y() << ", " << map_clearing_point.z() << " | "
+			     << position.x() << ", " << position.y() << ", " << position.z());
+	}
+  
+	if(((!curr_map_clearing_rewind_monitor_state) && map_clearing_point.distance(position) > map_clearing_rewind_distance) ||
+	   (curr_map_clearing_rewind_monitor_state && !prev_map_clearing_rewind_monitor_state) ||
+	   ((now - map_clearing_time).seconds() < map_clearing_wait_time)){
+	  /*
+	  RCLCPP_INFO_STREAM(this->get_logger(), "DONE CLEARING: " <<
+	    ((!curr_map_clearing_rewind_monitor_state) && map_clearing_point.distance(position) > map_clearing_rewind_distance)
+	    << " " << (curr_map_clearing_rewind_monitor_state && !prev_map_clearing_rewind_monitor_state)
+	    << " " << ((now - map_clearing_time).seconds() < map_clearing_wait_time));
+	  //*/
+	  map_clearing_rewind_monitor->clear_history();
+	  stationary_monitor->clear_history();
+	}
+  
+	if(stationary_monitor->has_full_history() && !stationary_monitor->threshold_exceeded() &&
+	   map_clearing_rewind_monitor->is_timed_out(now)){
+	  cost_map->clear();
+	  stationary_monitor->clear_history();
+
+	  geometry_msgs::msg::PoseStamped p;
+	  p.header = odom->header;
+	  p.pose = odom->pose;
+	  map_clearing_point_pub->publish(p);
+	  map_clearing_point = tf2::Vector3(position);
+
+	  map_clearing_rewind_monitor->add_time(now);
+	  RCLCPP_INFO_STREAM(this->get_logger(), "STATIONARY " << now);
+	}
+
+	prev_map_clearing_rewind_monitor_state = curr_map_clearing_rewind_monitor_state;
     }
+
+    void reset_stuck_callback(const std_msgs::msg::Empty::SharedPtr msg){
+        all_in_collision_monitor->add_time(this->now());
+    }
+  
+    void clear_map_callback(const std_msgs::msg::Empty::SharedPtr msg){
+        cost_map->clear();
+	rclcpp::Time now = this->now();
+
+	geometry_msgs::msg::PoseStamped p;
+	p.header = tracking_point_odom.header;
+	p.pose = tracking_point_odom.pose;
+	map_clearing_point_pub->publish(p);
+
+	map_clearing_rewind_monitor->clear_history();
+	stationary_monitor->clear_history();
+	all_in_collision_monitor->add_time(now);
+	stuck_monitor->clear_history();
+	map_clearing_time = now;
+	for(int i = 0; i < 10; i++)
+	  RCLCPP_INFO_STREAM(this->get_logger(), "CLEARED " << map_clearing_time);
+    }
+    
 }; 

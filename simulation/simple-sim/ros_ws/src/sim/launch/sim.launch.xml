@@ -1,7 +1,7 @@
 <launch>
 
   <node pkg="sim" exec="sim" name="sim" output="screen">
-    <param name="image_fov" value="60." />
+    <param name="image_fov" value="72." />
     <param name="image_width" value="480" />
     <param name="image_height" value="270" />
     <param name="baseline" value="0.12" />

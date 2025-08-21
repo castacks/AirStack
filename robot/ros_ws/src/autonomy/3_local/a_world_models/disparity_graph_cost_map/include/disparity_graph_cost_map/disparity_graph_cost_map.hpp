@@ -104,5 +104,7 @@ class DisparityGraphCostMap : public cost_map_interface::CostMapInterface {
 
     virtual void initialize(const rclcpp::Node::SharedPtr& node_ptr,
                             const std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr) override;
+
+    virtual void clear();
 };
 }  // namespace disparity_graph_cost_map 

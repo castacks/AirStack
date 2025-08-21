@@ -151,7 +151,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
 
             auto [side, up] = create_side_and_up_vectors(waypoint_direction);
 
-            std::set<tf2::Vector3> direction_vectors = {up, -up};//{up, side, -up, -side};
+            std::set<tf2::Vector3> direction_vectors = {up, side, -up, -side};
 
             // for this waypoint, check around the waypoint for obstacles
             // the cost is inversely proportional to how close the nearest non-free space is
@@ -245,6 +245,10 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
     return cost_values;
 }
 
+void DisparityGraphCostMap::clear(){
+  disp_graph.clear_graph();
+}
+  
 void DisparityGraphCostMap::add_check_marker(bool is_seen, bool is_free, double distance,
                                              const geometry_msgs::msg::PoseStamped& pose_to_check) {
     std_msgs::msg::ColorRGBA color;
