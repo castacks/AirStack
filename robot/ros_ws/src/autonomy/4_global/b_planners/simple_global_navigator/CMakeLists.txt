@@ -7,9 +7,47 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(task_msgs REQUIRED)
+
+# Add executable
+add_executable(simple_global_navigator_node src/simple_global_navigator_node.cpp)
+
+# Include directories
+target_include_directories(simple_global_navigator_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+# Link dependencies
+ament_target_dependencies(simple_global_navigator_node
+  rclcpp
+  rclcpp_action
+  nav_msgs
+  geometry_msgs
+  sensor_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  task_msgs)
+
+# Install targets
+install(TARGETS simple_global_navigator_node
+  DESTINATION lib/${PROJECT_NAME})
+
+# Install header files
+install(DIRECTORY include/
+  DESTINATION include/)
+
+# Install launch files
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch/)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
