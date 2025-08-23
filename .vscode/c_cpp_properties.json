@@ -1,0 +1,38 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "${workspaceFolder}/robot/ros_ws/install/vdb_mapping_interfaces/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/trajectory_library/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/mavros_interface/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/robot_interface/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/px4_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/mav_system_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/mav_state_machine_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/mav_planning_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/mav_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/disparity_map_representation/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/map_representation_interface/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/disparity_graph/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/behavior_tree/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/behavior_tree_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/airstack_common/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/airstack_msgs/include/**",
+        "${workspaceFolder}/robot/ros_ws/install/**/*",
+        "${workspaceFolder}/robot/ros_ws/src/**",
+        "/opt/ros/humble/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
