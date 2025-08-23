@@ -18,7 +18,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/TrajectoryXYZVYaw.msg"
   "msg/WaypointXYZVYaw.msg"
   "msg/KeepOutZone.msg"
-  "msg/PlanRequest.msg"
   "msg/SearchMissionRequest.msg"
   "msg/BeliefMapData.msg"
   "msg/SearchPrior.msg"

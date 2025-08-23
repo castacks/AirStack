@@ -1,0 +1,27 @@
+# NavigationTask.action - Navigate to some goal poses
+
+# === Request (Goal) ===
+geometry_msgs/PoseStamped[] goal_poses # List of goal poses for multi-goal planning
+
+# hyperparameters
+float32 max_planning_seconds # set negative to disable planning timeout
+
+# constraints and objectives:
+float32 max_velocity 2.0
+float32 maximum_range # budget
+geometry_msgs/PolygonStamped[] stay_within_area # Stay within these polygons. If empty, no constraints are applied
+geometry_msgs/PolygonStamped[] keep_out_area # Keep out of these polygons. If empty, no constraints are applied
+
+---
+# === Result ===
+bool success
+string message
+geometry_msgs/PoseStamped final_pose
+float32 distance_traveled
+
+---
+# === Feedback ===
+geometry_msgs/PoseStamped current_pose
+float32 distance_remaining
+float32 time_elapsed
+string current_phase
