@@ -1,0 +1,29 @@
+# SearchTask.action - Search for objects or targets in a specified area
+# Request (Goal)
+geometry_msgs/Polygon search_area
+string[] target_classes  # Object classes to search for
+float32 search_altitude 15.0
+float32 confidence_threshold 0.7
+int32 max_detections 10
+string search_pattern "spiral"  # Options: "spiral", "grid", "random"
+float32 flight_speed 2.0
+string frame_id "map"
+
+---
+# Result
+bool success
+string message
+int32 total_detections
+float32 area_searched
+float32 total_distance_traveled
+string[] detected_classes
+geometry_msgs/Point[] detection_positions
+
+---
+# Feedback
+geometry_msgs/PoseStamped current_pose
+int32 current_detections
+float32 search_progress_percentage
+float32 time_elapsed
+string current_phase
+string[] recent_detections
