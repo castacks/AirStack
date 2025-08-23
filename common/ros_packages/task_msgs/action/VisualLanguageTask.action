@@ -1,0 +1,20 @@
+# VisualLanguageTask.action - Execute visual-language model tasks
+# Request (Goal)
+
+string text_prompt
+sensor_msgs/Image[] input_images
+
+geometry_msgs/PolygonStamped area_of_interest
+
+---
+# Result
+bool success
+string message
+string response_text
+
+---
+# Feedback
+geometry_msgs/PoseStamped current_pose
+string current_observation
+float32 processing_progress
+float32 time_elapsed
