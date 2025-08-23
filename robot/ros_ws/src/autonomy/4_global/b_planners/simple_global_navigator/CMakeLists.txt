@@ -18,7 +18,9 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(task_msgs REQUIRED)
 
 # Add executable
-add_executable(simple_global_navigator_node src/simple_global_navigator_node.cpp)
+add_executable(simple_global_navigator_node 
+  src/simple_global_navigator_node.cpp
+  src/simple_global_navigator.cpp)
 
 # Include directories
 target_include_directories(simple_global_navigator_node PUBLIC
