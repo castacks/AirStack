@@ -6,6 +6,7 @@ A ROS2 global planner implementation that handles NavigationTask actions using R
 
 - **PointCloud2 Cost Map Integration**: Subscribes to 3D cost maps where intensity values encode traversal costs
 - **RRT* Path Planning**: Implements RRT* algorithm for cost-optimal path planning in 3D space
+- **Time-Constrained Planning**: Respects `max_planning_seconds` constraint, returning best path found within time limit
 - **Multi-Goal Navigation**: Supports sequential navigation through multiple goal poses
 - **Real-time Feedback**: Monitors robot odometry and provides progress feedback
 - **Configurable Parameters**: Tunable RRT* parameters for different environments
@@ -71,9 +72,20 @@ ros2 launch simple_global_navigator simple_global_navigator.launch.py \
 ### Send Navigation Goals
 
 ```bash
-# Example using action client
+# Basic navigation goal
 ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
     "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 1.0}}}]}"
+
+# Navigation with time constraint (30 seconds max)
+ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
+    "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 1.0}}}], max_planning_seconds: 30.0}"
+
+# Multi-goal navigation with time limit
+ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
+    "{goal_poses: [
+        {header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 1.0}}},
+        {header: {frame_id: 'map'}, pose: {position: {x: 8.0, y: 6.0, z: 1.5}}}
+    ], max_planning_seconds: 60.0}"
 ```
 
 ## Algorithm Details
@@ -98,6 +110,14 @@ ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
 - **Sequential Processing**: Goals processed in order
 - **Progress Tracking**: Current goal index updated based on proximity
 - **Distance Calculation**: Remaining distance computed across all pending goals
+
+### Time Constraint Handling
+
+- **Global Timeout**: `max_planning_seconds` applies to entire navigation task
+- **Per-Goal Planning**: Remaining time allocated dynamically to each goal
+- **Best Effort**: Returns best path found when time limit reached
+- **Fallback Strategy**: If exact goal unreachable, returns path to closest viable point
+- **Graceful Degradation**: Provides partial completion status in timeout scenarios
 
 ## Dependencies
 
@@ -130,21 +150,24 @@ The planner implements the `NavigationTask` action defined in `task_msgs`:
 ```
 # Goal
 geometry_msgs/PoseStamped[] goal_poses
-float64 max_planning_seconds
-string constraints
+float32 max_planning_seconds  # Time limit for planning (negative disables timeout)
+float32 max_velocity
+float32 maximum_range
+geometry_msgs/PolygonStamped[] stay_within_area
+geometry_msgs/PolygonStamped[] keep_out_area
 
 ---
 # Result  
 bool success
 string message
 geometry_msgs/PoseStamped final_pose
-float64 distance_traveled
+float32 distance_traveled
 
 ---
 # Feedback
 geometry_msgs/PoseStamped current_pose
-float64 distance_remaining
-float64 time_elapsed
+float32 distance_remaining
+float32 time_elapsed
 string current_phase
 ```
 

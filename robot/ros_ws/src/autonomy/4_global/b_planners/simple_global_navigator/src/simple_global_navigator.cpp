@@ -103,6 +103,9 @@ void SimpleGlobalNavigator::execute(
     rclcpp::Rate loop_rate(10); // 10 Hz feedback rate
     auto start_time = this->now();
     
+    // Check if max_planning_seconds is valid
+    bool has_time_limit = action_goal->max_planning_seconds > 0.0;
+    
     // Main execution loop
     while (rclcpp::ok() && current_goal_index_ < current_goal_poses_.size()) {
         if (action_handle->is_canceling()) {
@@ -111,6 +114,17 @@ void SimpleGlobalNavigator::execute(
             action_handle->canceled(action_result);
             RCLCPP_INFO(this->get_logger(), "Navigation cancelled");
             return;
+        }
+        
+        // Check global time constraint
+        if (has_time_limit) {
+            double elapsed_time = (this->now() - start_time).seconds();
+            if (elapsed_time >= action_goal->max_planning_seconds) {
+                RCLCPP_WARN(this->get_logger(), 
+                           "Navigation timeout reached (%.2fs), stopping at current progress", 
+                           elapsed_time);
+                break;
+            }
         }
         
         // Get current position
@@ -134,7 +148,11 @@ void SimpleGlobalNavigator::execute(
         if (current_goal_index_ < current_goal_poses_.size()) {
             geometry_msgs::msg::Point goal_pos = current_goal_poses_[current_goal_index_].pose.position;
             
-            auto path_poses = plan_rrt_star_path(current_pos, goal_pos);
+            // Calculate remaining planning time
+            double elapsed_time = (this->now() - start_time).seconds();
+            double remaining_planning_time = action_goal->max_planning_seconds - elapsed_time;
+            
+            auto path_poses = plan_rrt_star_path(current_pos, goal_pos, remaining_planning_time);
             
             if (!path_poses.empty()) {
                 auto path_msg = create_path_message(path_poses);
@@ -162,11 +180,8 @@ void SimpleGlobalNavigator::execute(
         loop_rate.sleep();
     }
     
-    // Check if we completed all goals
-    if (current_goal_index_ >= current_goal_poses_.size()) {
-        action_result->success = true;
-        action_result->message = "Navigation completed successfully";
-        
+    // Determine final result based on completion status
+    {
         std::lock_guard<std::mutex> lock(state_mutex_);
         action_result->final_pose.header.stamp = this->now();
         action_result->final_pose.header.frame_id = current_odom_.header.frame_id;
@@ -175,27 +190,47 @@ void SimpleGlobalNavigator::execute(
         // Calculate total distance traveled (simplified)
         action_result->distance_traveled = 0.0;
         if (current_goal_poses_.size() > 1) {
-            for (size_t i = 1; i < current_goal_poses_.size(); ++i) {
+            for (size_t i = 1; i < std::min(current_goal_index_ + 1, current_goal_poses_.size()); ++i) {
                 action_result->distance_traveled += distance(
                     current_goal_poses_[i-1].pose.position,
                     current_goal_poses_[i].pose.position
                 );
             }
         }
-        
+    }
+    
+    // Check completion status
+    if (current_goal_index_ >= current_goal_poses_.size()) {
+        // All goals completed successfully
+        action_result->success = true;
+        action_result->message = "Navigation completed successfully";
         action_handle->succeed(action_result);
         RCLCPP_INFO(this->get_logger(), "Navigation completed successfully");
-    } else {
+    } else if (has_time_limit && (this->now() - start_time).seconds() >= action_goal->max_planning_seconds) {
+        // Timeout reached, but we made some progress
         action_result->success = false;
-        action_result->message = "Navigation incomplete";
+        action_result->message = "Navigation timeout reached - completed " + 
+                                std::to_string(current_goal_index_) + "/" + 
+                                std::to_string(current_goal_poses_.size()) + " goals";
         action_handle->abort(action_result);
-        RCLCPP_WARN(this->get_logger(), "Navigation incomplete");
+        RCLCPP_WARN(this->get_logger(), "Navigation timeout - completed %zu/%zu goals", 
+                   current_goal_index_, current_goal_poses_.size());
+    } else {
+        // Other failure case
+        action_result->success = false;
+        action_result->message = "Navigation incomplete - completed " + 
+                                std::to_string(current_goal_index_) + "/" + 
+                                std::to_string(current_goal_poses_.size()) + " goals";
+        action_handle->abort(action_result);
+        RCLCPP_WARN(this->get_logger(), "Navigation incomplete - completed %zu/%zu goals", 
+                   current_goal_index_, current_goal_poses_.size());
     }
 }
 
 std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_star_path(
     const geometry_msgs::msg::Point& start, 
-    const geometry_msgs::msg::Point& goal) {
+    const geometry_msgs::msg::Point& goal,
+    double max_planning_time) {
     
     if (!cost_map_data_.valid) {
         RCLCPP_WARN(this->get_logger(), "Cannot plan path: no valid cost map");
@@ -207,10 +242,22 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     auto start_node = std::make_shared<RRTNode>(start, nullptr, 0.0);
     nodes.push_back(start_node);
     
-    std::shared_ptr<RRTNode> goal_node = nullptr;
+    std::shared_ptr<RRTNode> best_goal_node = nullptr;
+    auto planning_start_time = this->now();
     
     // RRT* main loop
     for (int i = 0; i < rrt_max_iterations_; ++i) {
+        // Check time constraint if specified (negative values disable timeout)
+        if (max_planning_time > 0.0) {
+            double elapsed_time = (this->now() - planning_start_time).seconds();
+            if (elapsed_time >= max_planning_time) {
+                RCLCPP_INFO(this->get_logger(), 
+                           "RRT* planning timeout reached (%.2fs), returning best path found", 
+                           elapsed_time);
+                break;
+            }
+        }
+        
         // Sample random point
         geometry_msgs::msg::Point rand_point = get_random_point();
         
@@ -255,19 +302,44 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         
         // Check if we reached the goal
         if (distance(new_point, goal) <= rrt_goal_tolerance_) {
-            if (!goal_node || new_cost < goal_node->cost) {
-                goal_node = new_node;
+            if (!best_goal_node || new_cost < best_goal_node->cost) {
+                best_goal_node = new_node;
+                RCLCPP_DEBUG(this->get_logger(), 
+                           "Found improved path to goal with cost: %.2f (iteration %d)", 
+                           new_cost, i);
             }
         }
     }
     
     // Extract path if goal was reached
-    if (goal_node) {
-        RCLCPP_INFO(this->get_logger(), "RRT* found path with cost: %.2f", goal_node->cost);
-        return extract_path(goal_node);
+    if (best_goal_node) {
+        double planning_time = (this->now() - planning_start_time).seconds();
+        RCLCPP_INFO(this->get_logger(), 
+                   "RRT* found path with cost: %.2f in %.2fs", 
+                   best_goal_node->cost, planning_time);
+        return extract_path(best_goal_node);
     } else {
-        RCLCPP_WARN(this->get_logger(), "RRT* failed to find path to goal");
-        return {};
+        // If no goal was reached, try to find the closest node to goal
+        std::shared_ptr<RRTNode> closest_node = nullptr;
+        double min_distance = std::numeric_limits<double>::max();
+        
+        for (const auto& node : nodes) {
+            double dist = distance(node->position, goal);
+            if (dist < min_distance) {
+                min_distance = dist;
+                closest_node = node;
+            }
+        }
+        
+        if (closest_node && min_distance < rrt_goal_tolerance_ * 3.0) {
+            RCLCPP_WARN(this->get_logger(), 
+                       "RRT* couldn't reach goal exactly, returning path to closest point (%.2fm away)", 
+                       min_distance);
+            return extract_path(closest_node);
+        } else {
+            RCLCPP_WARN(this->get_logger(), "RRT* failed to find any viable path to goal");
+            return {};
+        }
     }
 }
 
