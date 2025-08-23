@@ -128,7 +128,8 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     // RRT* algorithm functions
     std::vector<geometry_msgs::msg::PoseStamped> plan_rrt_star_path(
         const geometry_msgs::msg::Point& start, 
-        const geometry_msgs::msg::Point& goal);
+        const geometry_msgs::msg::Point& goal,
+        double max_planning_time = -1.0);
     
     std::shared_ptr<RRTNode> get_nearest_node(
         const std::vector<std::shared_ptr<RRTNode>>& nodes, 
