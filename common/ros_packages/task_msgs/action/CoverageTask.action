@@ -1,7 +1,7 @@
 # CoverageTask.action - Execute a coverage pattern over a specified area
 # Request (Goal)
 geometry_msgs/Polygon coverage_area
-string pattern_type "lawnmower"  # Options: "lawnmower", "spiral", "boustrophedon"
+string pattern_type "lawnmower"  # Options: "lawnmower", "spiral"
 float32 altitude 10.0
 float32 overlap_ratio 0.2
 float32 flight_speed 3.0
