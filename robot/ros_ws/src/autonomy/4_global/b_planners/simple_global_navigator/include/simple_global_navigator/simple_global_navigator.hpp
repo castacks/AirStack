@@ -1,9 +1,46 @@
+#pragma once
+
 #include <functional>
+#include <memory>
+#include <vector>
+#include <random>
+#include <cmath>
+#include <thread>
+#include <mutex>
+
 #include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "task_msgs/action/navigation_task.hpp"
+
+struct RRTNode {
+    geometry_msgs::msg::Point position;
+    std::shared_ptr<RRTNode> parent;
+    double cost;
+    std::vector<std::shared_ptr<RRTNode>> children;
+    
+    RRTNode(const geometry_msgs::msg::Point& pos, std::shared_ptr<RRTNode> par = nullptr, double c = 0.0)
+        : position(pos), parent(par), cost(c) {}
+};
+
+struct CostMapData {
+    std::vector<geometry_msgs::msg::Point> points;
+    std::vector<float> costs;
+    double resolution;
+    geometry_msgs::msg::Point min_bounds;
+    geometry_msgs::msg::Point max_bounds;
+    bool valid;
+    
+    CostMapData() : resolution(0.1), valid(false) {}
+};
 
 class SimpleGlobalNavigator : public rclcpp::Node {
    public:
@@ -11,13 +48,42 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     using GoalHandleNavigationTask = rclcpp_action::ServerGoalHandle<NavigationTask>;
 
     SimpleGlobalNavigator(const rclcpp::NodeOptions& options)
-        : Node("simple_global_navigator", options) {
-        // Initialize the navigator
+        : Node("simple_global_navigator", options), 
+          rng_(std::random_device{}()),
+          current_goal_index_(0) {
+        
         RCLCPP_INFO(this->get_logger(), "Simple Global Navigator initialized.");
 
+        // Declare parameters
+        this->declare_parameter("rrt_max_iterations", 5000);
+        this->declare_parameter("rrt_step_size", 0.5);
+        this->declare_parameter("rrt_goal_tolerance", 0.3);
+        this->declare_parameter("rrt_rewire_radius", 1.0);
+        this->declare_parameter("cost_map_topic", "/cost_map");
+        this->declare_parameter("odom_topic", "/odom");
+
+        // Get parameters
+        rrt_max_iterations_ = this->get_parameter("rrt_max_iterations").as_int();
+        rrt_step_size_ = this->get_parameter("rrt_step_size").as_double();
+        rrt_goal_tolerance_ = this->get_parameter("rrt_goal_tolerance").as_double();
+        rrt_rewire_radius_ = this->get_parameter("rrt_rewire_radius").as_double();
+
+        // Publishers
         global_plan_publisher_ = this->create_publisher<nav_msgs::msg::Path>(
             "global_plan", rclcpp::QoS(10).transient_local());
 
+        // Subscribers
+        cost_map_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            this->get_parameter("cost_map_topic").as_string(), 
+            rclcpp::QoS(10),
+            std::bind(&SimpleGlobalNavigator::cost_map_callback, this, std::placeholders::_1));
+
+        odom_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            this->get_parameter("odom_topic").as_string(),
+            rclcpp::QoS(10),
+            std::bind(&SimpleGlobalNavigator::odom_callback, this, std::placeholders::_1));
+
+        // Action server
         using namespace std::placeholders;
         this->action_server_ = rclcpp_action::create_server<NavigationTask>(
             this, 
@@ -28,53 +94,68 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     }
 
    private:
+    // Publishers and subscribers
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr global_plan_publisher_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cost_map_subscriber_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber_;
     rclcpp_action::Server<NavigationTask>::SharedPtr action_server_;
 
+    // State variables
+    CostMapData cost_map_data_;
+    nav_msgs::msg::Odometry current_odom_;
+    std::vector<geometry_msgs::msg::PoseStamped> current_goal_poses_;
+    size_t current_goal_index_;
+    std::mutex state_mutex_;
+
+    // RRT* parameters
+    int rrt_max_iterations_;
+    double rrt_step_size_;
+    double rrt_goal_tolerance_;
+    double rrt_rewire_radius_;
+    std::mt19937 rng_;
+
+    // Callback functions
+    void cost_map_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+    // Action server handlers
     rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& uuid,
-                                            std::shared_ptr<const NavigationTask::Goal> goal) {
-        RCLCPP_INFO(this->get_logger(), "Received goal request.");
-        // Here you can validate the goal and return ACCEPT or REJECT
-        (void) uuid;
-        return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
-    }
+                                            std::shared_ptr<const NavigationTask::Goal> goal);
+    rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleNavigationTask> action_handle);
+    void handle_accepted(const std::shared_ptr<GoalHandleNavigationTask> action_handle);
+    void execute(const std::shared_ptr<rclcpp_action::ServerGoalHandle<NavigationTask>>& action_handle);
 
-    rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
-        RCLCPP_INFO(this->get_logger(), "Received cancel request.");
-        // Here you can handle the cancel request
-        return rclcpp_action::CancelResponse::ACCEPT;
-    }
+    // RRT* algorithm functions
+    std::vector<geometry_msgs::msg::PoseStamped> plan_rrt_star_path(
+        const geometry_msgs::msg::Point& start, 
+        const geometry_msgs::msg::Point& goal);
+    
+    std::shared_ptr<RRTNode> get_nearest_node(
+        const std::vector<std::shared_ptr<RRTNode>>& nodes, 
+        const geometry_msgs::msg::Point& point);
+    
+    geometry_msgs::msg::Point steer(
+        const geometry_msgs::msg::Point& from, 
+        const geometry_msgs::msg::Point& to, 
+        double step_size);
+    
+    bool is_collision_free(const geometry_msgs::msg::Point& from, const geometry_msgs::msg::Point& to);
+    double get_cost_at_point(const geometry_msgs::msg::Point& point);
+    double distance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2);
+    
+    std::vector<std::shared_ptr<RRTNode>> get_near_nodes(
+        const std::vector<std::shared_ptr<RRTNode>>& nodes, 
+        const geometry_msgs::msg::Point& point, 
+        double radius);
+    
+    void rewire(std::shared_ptr<RRTNode> new_node, 
+                const std::vector<std::shared_ptr<RRTNode>>& near_nodes);
+    
+    std::vector<geometry_msgs::msg::PoseStamped> extract_path(std::shared_ptr<RRTNode> goal_node);
+    nav_msgs::msg::Path create_path_message(const std::vector<geometry_msgs::msg::PoseStamped>& poses);
 
-    void handle_accepted(const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
-        RCLCPP_INFO(this->get_logger(), "Goal accepted.");
-        // Here you can start processing the goal
-
-        using namespace std::placeholders;
-        std::thread{std::bind(&SimpleGlobalNavigator::execute, this, _1), action_handle}.detach();
-    }
-
-    void execute(
-        const std::shared_ptr<rclcpp_action::ServerGoalHandle<NavigationTask>>& action_handle) {
-        RCLCPP_INFO(this->get_logger(), "Executing goal.");
-        // Here you can implement the goal execution logic
-        rclcpp::Rate loop_rate(1);
-
-        /* --------------- */
-        const auto action_goal = action_handle->get_goal();
-
-
-        const std::vector<geometry_msgs::msg::PoseStamped> &goal_poses = action_goal->goal_poses;
-
-
-        /* --------------- */
-        auto action_feedback = std::make_shared<NavigationTask::Feedback>();
-
-
-
-
-
-        /* --------------- */
-        auto action_result = std::make_shared<NavigationTask::Result>();
-
-    }
+    // Utility functions
+    geometry_msgs::msg::Point get_random_point();
+    size_t get_current_goal_index(const geometry_msgs::msg::Point& current_pos);
+    double calculate_distance_remaining(const geometry_msgs::msg::Point& current_pos);
 };

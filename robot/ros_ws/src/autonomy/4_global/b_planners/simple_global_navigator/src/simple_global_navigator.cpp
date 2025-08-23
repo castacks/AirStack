@@ -1,0 +1,511 @@
+#include "simple_global_navigator/simple_global_navigator.hpp"
+
+void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    
+    cost_map_data_.points.clear();
+    cost_map_data_.costs.clear();
+    
+    // Extract points and intensity values from PointCloud2
+    sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*msg, "intensity");
+    
+    bool first_point = true;
+    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity) {
+        geometry_msgs::msg::Point point;
+        point.x = *iter_x;
+        point.y = *iter_y;
+        point.z = *iter_z;
+        
+        cost_map_data_.points.push_back(point);
+        cost_map_data_.costs.push_back(*iter_intensity);
+        
+        // Update bounds
+        if (first_point) {
+            cost_map_data_.min_bounds = point;
+            cost_map_data_.max_bounds = point;
+            first_point = false;
+        } else {
+            cost_map_data_.min_bounds.x = std::min(cost_map_data_.min_bounds.x, point.x);
+            cost_map_data_.min_bounds.y = std::min(cost_map_data_.min_bounds.y, point.y);
+            cost_map_data_.min_bounds.z = std::min(cost_map_data_.min_bounds.z, point.z);
+            cost_map_data_.max_bounds.x = std::max(cost_map_data_.max_bounds.x, point.x);
+            cost_map_data_.max_bounds.y = std::max(cost_map_data_.max_bounds.y, point.y);
+            cost_map_data_.max_bounds.z = std::max(cost_map_data_.max_bounds.z, point.z);
+        }
+    }
+    
+    cost_map_data_.valid = !cost_map_data_.points.empty();
+    
+    if (cost_map_data_.valid) {
+        RCLCPP_INFO(this->get_logger(), "Received cost map with %zu points", cost_map_data_.points.size());
+    }
+}
+
+void SimpleGlobalNavigator::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    current_odom_ = *msg;
+}
+
+rclcpp_action::GoalResponse SimpleGlobalNavigator::handle_goal(
+    const rclcpp_action::GoalUUID& uuid,
+    std::shared_ptr<const NavigationTask::Goal> goal) {
+    
+    RCLCPP_INFO(this->get_logger(), "Received goal request with %zu poses", goal->goal_poses.size());
+    
+    if (goal->goal_poses.empty()) {
+        RCLCPP_WARN(this->get_logger(), "Received empty goal poses list");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    
+    if (!cost_map_data_.valid) {
+        RCLCPP_WARN(this->get_logger(), "No valid cost map available");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    
+    (void)uuid;
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse SimpleGlobalNavigator::handle_cancel(
+    const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
+    
+    RCLCPP_INFO(this->get_logger(), "Received cancel request");
+    (void)action_handle;
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void SimpleGlobalNavigator::handle_accepted(const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
+    RCLCPP_INFO(this->get_logger(), "Goal accepted, starting execution");
+    
+    using namespace std::placeholders;
+    std::thread{std::bind(&SimpleGlobalNavigator::execute, this, _1), action_handle}.detach();
+}
+
+void SimpleGlobalNavigator::execute(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<NavigationTask>>& action_handle) {
+    
+    RCLCPP_INFO(this->get_logger(), "Executing navigation task");
+    
+    const auto action_goal = action_handle->get_goal();
+    auto action_feedback = std::make_shared<NavigationTask::Feedback>();
+    auto action_result = std::make_shared<NavigationTask::Result>();
+    
+    // Store goal poses
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        current_goal_poses_ = action_goal->goal_poses;
+        current_goal_index_ = 0;
+    }
+    
+    rclcpp::Rate loop_rate(10); // 10 Hz feedback rate
+    auto start_time = this->now();
+    
+    // Main execution loop
+    while (rclcpp::ok() && current_goal_index_ < current_goal_poses_.size()) {
+        if (action_handle->is_canceling()) {
+            action_result->success = false;
+            action_result->message = "Navigation cancelled";
+            action_handle->canceled(action_result);
+            RCLCPP_INFO(this->get_logger(), "Navigation cancelled");
+            return;
+        }
+        
+        // Get current position
+        geometry_msgs::msg::Point current_pos;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            current_pos.x = current_odom_.pose.pose.position.x;
+            current_pos.y = current_odom_.pose.pose.position.y;
+            current_pos.z = current_odom_.pose.pose.position.z;
+        }
+        
+        // Update current goal index based on proximity
+        size_t new_goal_index = get_current_goal_index(current_pos);
+        if (new_goal_index != current_goal_index_) {
+            current_goal_index_ = new_goal_index;
+            RCLCPP_INFO(this->get_logger(), "Advanced to goal %zu/%zu", 
+                       current_goal_index_ + 1, current_goal_poses_.size());
+        }
+        
+        // Plan path to current goal
+        if (current_goal_index_ < current_goal_poses_.size()) {
+            geometry_msgs::msg::Point goal_pos = current_goal_poses_[current_goal_index_].pose.position;
+            
+            auto path_poses = plan_rrt_star_path(current_pos, goal_pos);
+            
+            if (!path_poses.empty()) {
+                auto path_msg = create_path_message(path_poses);
+                global_plan_publisher_->publish(path_msg);
+                
+                RCLCPP_DEBUG(this->get_logger(), "Published path with %zu poses", path_poses.size());
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Failed to plan path to goal %zu", current_goal_index_);
+            }
+        }
+        
+        // Publish feedback
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            action_feedback->current_pose.header.stamp = this->now();
+            action_feedback->current_pose.header.frame_id = current_odom_.header.frame_id;
+            action_feedback->current_pose.pose = current_odom_.pose.pose;
+            action_feedback->distance_remaining = calculate_distance_remaining(current_pos);
+            action_feedback->time_elapsed = (this->now() - start_time).seconds();
+            action_feedback->current_phase = "navigating_to_goal_" + std::to_string(current_goal_index_);
+        }
+        
+        action_handle->publish_feedback(action_feedback);
+        
+        loop_rate.sleep();
+    }
+    
+    // Check if we completed all goals
+    if (current_goal_index_ >= current_goal_poses_.size()) {
+        action_result->success = true;
+        action_result->message = "Navigation completed successfully";
+        
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        action_result->final_pose.header.stamp = this->now();
+        action_result->final_pose.header.frame_id = current_odom_.header.frame_id;
+        action_result->final_pose.pose = current_odom_.pose.pose;
+        
+        // Calculate total distance traveled (simplified)
+        action_result->distance_traveled = 0.0;
+        if (current_goal_poses_.size() > 1) {
+            for (size_t i = 1; i < current_goal_poses_.size(); ++i) {
+                action_result->distance_traveled += distance(
+                    current_goal_poses_[i-1].pose.position,
+                    current_goal_poses_[i].pose.position
+                );
+            }
+        }
+        
+        action_handle->succeed(action_result);
+        RCLCPP_INFO(this->get_logger(), "Navigation completed successfully");
+    } else {
+        action_result->success = false;
+        action_result->message = "Navigation incomplete";
+        action_handle->abort(action_result);
+        RCLCPP_WARN(this->get_logger(), "Navigation incomplete");
+    }
+}
+
+std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_star_path(
+    const geometry_msgs::msg::Point& start, 
+    const geometry_msgs::msg::Point& goal) {
+    
+    if (!cost_map_data_.valid) {
+        RCLCPP_WARN(this->get_logger(), "Cannot plan path: no valid cost map");
+        return {};
+    }
+    
+    // Initialize RRT* tree
+    std::vector<std::shared_ptr<RRTNode>> nodes;
+    auto start_node = std::make_shared<RRTNode>(start, nullptr, 0.0);
+    nodes.push_back(start_node);
+    
+    std::shared_ptr<RRTNode> goal_node = nullptr;
+    
+    // RRT* main loop
+    for (int i = 0; i < rrt_max_iterations_; ++i) {
+        // Sample random point
+        geometry_msgs::msg::Point rand_point = get_random_point();
+        
+        // Find nearest node
+        auto nearest_node = get_nearest_node(nodes, rand_point);
+        
+        // Steer towards random point
+        geometry_msgs::msg::Point new_point = steer(nearest_node->position, rand_point, rrt_step_size_);
+        
+        // Check collision
+        if (!is_collision_free(nearest_node->position, new_point)) {
+            continue;
+        }
+        
+        // Create new node
+        double new_cost = nearest_node->cost + distance(nearest_node->position, new_point) + 
+                         get_cost_at_point(new_point);
+        auto new_node = std::make_shared<RRTNode>(new_point, nearest_node, new_cost);
+        
+        // Find near nodes for rewiring
+        auto near_nodes = get_near_nodes(nodes, new_point, rrt_rewire_radius_);
+        
+        // Choose parent with minimum cost
+        for (auto& near_node : near_nodes) {
+            if (is_collision_free(near_node->position, new_point)) {
+                double potential_cost = near_node->cost + distance(near_node->position, new_point) + 
+                                      get_cost_at_point(new_point);
+                if (potential_cost < new_cost) {
+                    new_node->parent = near_node;
+                    new_cost = potential_cost;
+                    new_node->cost = new_cost;
+                }
+            }
+        }
+        
+        // Add new node to tree
+        nodes.push_back(new_node);
+        new_node->parent->children.push_back(new_node);
+        
+        // Rewire tree
+        rewire(new_node, near_nodes);
+        
+        // Check if we reached the goal
+        if (distance(new_point, goal) <= rrt_goal_tolerance_) {
+            if (!goal_node || new_cost < goal_node->cost) {
+                goal_node = new_node;
+            }
+        }
+    }
+    
+    // Extract path if goal was reached
+    if (goal_node) {
+        RCLCPP_INFO(this->get_logger(), "RRT* found path with cost: %.2f", goal_node->cost);
+        return extract_path(goal_node);
+    } else {
+        RCLCPP_WARN(this->get_logger(), "RRT* failed to find path to goal");
+        return {};
+    }
+}
+
+std::shared_ptr<RRTNode> SimpleGlobalNavigator::get_nearest_node(
+    const std::vector<std::shared_ptr<RRTNode>>& nodes, 
+    const geometry_msgs::msg::Point& point) {
+    
+    std::shared_ptr<RRTNode> nearest = nodes[0];
+    double min_dist = distance(nearest->position, point);
+    
+    for (const auto& node : nodes) {
+        double dist = distance(node->position, point);
+        if (dist < min_dist) {
+            min_dist = dist;
+            nearest = node;
+        }
+    }
+    
+    return nearest;
+}
+
+geometry_msgs::msg::Point SimpleGlobalNavigator::steer(
+    const geometry_msgs::msg::Point& from, 
+    const geometry_msgs::msg::Point& to, 
+    double step_size) {
+    
+    double dist = distance(from, to);
+    if (dist <= step_size) {
+        return to;
+    }
+    
+    geometry_msgs::msg::Point result;
+    result.x = from.x + (to.x - from.x) * step_size / dist;
+    result.y = from.y + (to.y - from.y) * step_size / dist;
+    result.z = from.z + (to.z - from.z) * step_size / dist;
+    
+    return result;
+}
+
+bool SimpleGlobalNavigator::is_collision_free(
+    const geometry_msgs::msg::Point& from, 
+    const geometry_msgs::msg::Point& to) {
+    
+    // Simple collision checking: sample points along the line and check costs
+    int num_samples = static_cast<int>(distance(from, to) / (cost_map_data_.resolution * 0.5)) + 1;
+    
+    for (int i = 0; i <= num_samples; ++i) {
+        double t = static_cast<double>(i) / num_samples;
+        geometry_msgs::msg::Point sample;
+        sample.x = from.x + t * (to.x - from.x);
+        sample.y = from.y + t * (to.y - from.y);
+        sample.z = from.z + t * (to.z - from.z);
+        
+        double cost = get_cost_at_point(sample);
+        if (cost > 0.8) { // High cost threshold indicates obstacle
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+double SimpleGlobalNavigator::get_cost_at_point(const geometry_msgs::msg::Point& point) {
+    if (!cost_map_data_.valid || cost_map_data_.points.empty()) {
+        return 0.0;
+    }
+    
+    // Find nearest cost map point (simple nearest neighbor)
+    double min_dist = std::numeric_limits<double>::max();
+    size_t nearest_idx = 0;
+    
+    for (size_t i = 0; i < cost_map_data_.points.size(); ++i) {
+        double dist = distance(point, cost_map_data_.points[i]);
+        if (dist < min_dist) {
+            min_dist = dist;
+            nearest_idx = i;
+        }
+    }
+    
+    return cost_map_data_.costs[nearest_idx];
+}
+
+double SimpleGlobalNavigator::distance(
+    const geometry_msgs::msg::Point& p1, 
+    const geometry_msgs::msg::Point& p2) {
+    
+    double dx = p1.x - p2.x;
+    double dy = p1.y - p2.y;
+    double dz = p1.z - p2.z;
+    return std::sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+std::vector<std::shared_ptr<RRTNode>> SimpleGlobalNavigator::get_near_nodes(
+    const std::vector<std::shared_ptr<RRTNode>>& nodes, 
+    const geometry_msgs::msg::Point& point, 
+    double radius) {
+    
+    std::vector<std::shared_ptr<RRTNode>> near_nodes;
+    
+    for (const auto& node : nodes) {
+        if (distance(node->position, point) <= radius) {
+            near_nodes.push_back(node);
+        }
+    }
+    
+    return near_nodes;
+}
+
+void SimpleGlobalNavigator::rewire(
+    std::shared_ptr<RRTNode> new_node, 
+    const std::vector<std::shared_ptr<RRTNode>>& near_nodes) {
+    
+    for (auto& near_node : near_nodes) {
+        if (near_node == new_node || near_node == new_node->parent) {
+            continue;
+        }
+        
+        double new_cost = new_node->cost + distance(new_node->position, near_node->position);
+        
+        if (new_cost < near_node->cost && is_collision_free(new_node->position, near_node->position)) {
+            // Remove near_node from its current parent's children
+            if (near_node->parent) {
+                auto& siblings = near_node->parent->children;
+                siblings.erase(std::remove(siblings.begin(), siblings.end(), near_node), siblings.end());
+            }
+            
+            // Set new parent
+            near_node->parent = new_node;
+            near_node->cost = new_cost;
+            new_node->children.push_back(near_node);
+            
+            // Update costs of all descendants
+            std::function<void(std::shared_ptr<RRTNode>)> update_descendants = 
+                [&](std::shared_ptr<RRTNode> node) {
+                    for (auto& child : node->children) {
+                        child->cost = node->cost + distance(node->position, child->position) + 
+                                     get_cost_at_point(child->position);
+                        update_descendants(child);
+                    }
+                };
+            update_descendants(near_node);
+        }
+    }
+}
+
+std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::extract_path(
+    std::shared_ptr<RRTNode> goal_node) {
+    
+    std::vector<geometry_msgs::msg::PoseStamped> path;
+    std::shared_ptr<RRTNode> current = goal_node;
+    
+    // Trace back from goal to start
+    while (current) {
+        geometry_msgs::msg::PoseStamped pose;
+        pose.header.frame_id = "map"; // Assume map frame
+        pose.header.stamp = this->now();
+        pose.pose.position = current->position;
+        
+        // Set orientation (simplified - pointing towards next waypoint)
+        pose.pose.orientation.w = 1.0;
+        
+        path.insert(path.begin(), pose);
+        current = current->parent;
+    }
+    
+    return path;
+}
+
+nav_msgs::msg::Path SimpleGlobalNavigator::create_path_message(
+    const std::vector<geometry_msgs::msg::PoseStamped>& poses) {
+    
+    nav_msgs::msg::Path path_msg;
+    path_msg.header.frame_id = "map";
+    path_msg.header.stamp = this->now();
+    path_msg.poses = poses;
+    
+    return path_msg;
+}
+
+geometry_msgs::msg::Point SimpleGlobalNavigator::get_random_point() {
+    if (!cost_map_data_.valid) {
+        geometry_msgs::msg::Point point;
+        point.x = 0.0;
+        point.y = 0.0;
+        point.z = 0.0;
+        return point;
+    }
+    
+    std::uniform_real_distribution<double> dist_x(cost_map_data_.min_bounds.x, cost_map_data_.max_bounds.x);
+    std::uniform_real_distribution<double> dist_y(cost_map_data_.min_bounds.y, cost_map_data_.max_bounds.y);
+    std::uniform_real_distribution<double> dist_z(cost_map_data_.min_bounds.z, cost_map_data_.max_bounds.z);
+    
+    geometry_msgs::msg::Point point;
+    point.x = dist_x(rng_);
+    point.y = dist_y(rng_);
+    point.z = dist_z(rng_);
+    
+    return point;
+}
+
+size_t SimpleGlobalNavigator::get_current_goal_index(const geometry_msgs::msg::Point& current_pos) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    
+    if (current_goal_poses_.empty()) {
+        return 0;
+    }
+    
+    // Find the closest unvisited goal
+    size_t best_index = current_goal_index_;
+    double min_dist = distance(current_pos, current_goal_poses_[current_goal_index_].pose.position);
+    
+    // Check if we're close enough to current goal to advance
+    if (min_dist <= rrt_goal_tolerance_ && current_goal_index_ + 1 < current_goal_poses_.size()) {
+        return current_goal_index_ + 1;
+    }
+    
+    return current_goal_index_;
+}
+
+double SimpleGlobalNavigator::calculate_distance_remaining(const geometry_msgs::msg::Point& current_pos) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    
+    if (current_goal_poses_.empty() || current_goal_index_ >= current_goal_poses_.size()) {
+        return 0.0;
+    }
+    
+    double total_distance = 0.0;
+    
+    // Distance to current goal
+    total_distance += distance(current_pos, current_goal_poses_[current_goal_index_].pose.position);
+    
+    // Distance between remaining goals
+    for (size_t i = current_goal_index_; i + 1 < current_goal_poses_.size(); ++i) {
+        total_distance += distance(
+            current_goal_poses_[i].pose.position,
+            current_goal_poses_[i + 1].pose.position
+        );
+    }
+    
+    return total_distance;
+}
