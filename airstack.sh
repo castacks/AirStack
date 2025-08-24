@@ -500,7 +500,7 @@ function cmd_setup {
     fi
 
     echo "Making sure git submodules are initialized and updated..."
-    git submodule update --init --recursive
+    git submodule update --init --recursive || log_warn "Failed to update git submodules. Some packages may not launch, please check your git credentials."
     
     log_info "Setup complete!"
 }
