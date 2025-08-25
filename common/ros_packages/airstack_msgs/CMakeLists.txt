@@ -21,7 +21,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SearchMissionRequest.msg"
   "msg/BeliefMapData.msg"
   "msg/SearchPrior.msg"
-  "msg/TaskAssignment.msg"
   "msg/query/TextQueryResponse.msg"
   "srv/RobotCommand.srv"
   "srv/TrajectoryMode.srv"
