@@ -282,6 +282,9 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         return {};
     }
     
+    // Clear previous visualization markers
+    clear_rrt_tree_markers();
+    
     // Initialize RRT* tree
     std::vector<std::shared_ptr<RRTNode>> nodes;
     auto start_node = std::make_shared<RRTNode>(start, nullptr, 0.0);
@@ -289,6 +292,11 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     
     std::shared_ptr<RRTNode> best_goal_node = nullptr;
     auto planning_start_time = this->now();
+    
+    // Initial visualization
+    if (enable_debug_visualization_) {
+        publish_rrt_tree_markers(nodes, start, goal);
+    }
     
     // RRT* main loop
     for (int i = 0; i < rrt_max_iterations_; ++i) {
@@ -345,6 +353,11 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         // Rewire tree
         rewire(new_node, near_nodes);
         
+        // Periodic visualization update (every 50 iterations to avoid overwhelming RViz)
+        if (enable_debug_visualization_ && (i % 50 == 0 || i < 100)) {
+            publish_rrt_tree_markers(nodes, start, goal);
+        }
+        
         // Check if we reached the goal
         if (distance(new_point, goal) <= rrt_goal_tolerance_) {
             if (!best_goal_node || new_cost < best_goal_node->cost) {
@@ -352,8 +365,18 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
                 RCLCPP_DEBUG(this->get_logger(), 
                            "Found improved path to goal with cost: %.2f (iteration %d)", 
                            new_cost, i);
+                
+                // Update visualization when goal is found
+                if (enable_debug_visualization_) {
+                    publish_rrt_tree_markers(nodes, start, goal);
+                }
             }
         }
+    }
+    
+    // Final visualization update
+    if (enable_debug_visualization_) {
+        publish_rrt_tree_markers(nodes, start, goal);
     }
     
     // Extract path if goal was reached
@@ -625,4 +648,139 @@ double SimpleGlobalNavigator::calculate_distance_remaining(const geometry_msgs::
     }
     
     return total_distance;
+}
+
+void SimpleGlobalNavigator::publish_rrt_tree_markers(
+    const std::vector<std::shared_ptr<RRTNode>>& nodes,
+    const geometry_msgs::msg::Point& start,
+    const geometry_msgs::msg::Point& goal) {
+    
+    if (!enable_debug_visualization_ || !rrt_tree_marker_publisher_) {
+        return;
+    }
+    
+    visualization_msgs::msg::MarkerArray marker_array;
+    
+    // Clear previous markers
+    visualization_msgs::msg::Marker clear_marker;
+    clear_marker.header.frame_id = "map";
+    clear_marker.header.stamp = this->now();
+    clear_marker.ns = "rrt_tree";
+    clear_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    marker_array.markers.push_back(clear_marker);
+    
+    // Create tree edges marker (LINE_LIST)
+    visualization_msgs::msg::Marker edges_marker;
+    edges_marker.header.frame_id = "map";
+    edges_marker.header.stamp = this->now();
+    edges_marker.ns = "rrt_tree";
+    edges_marker.id = 0;
+    edges_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+    edges_marker.action = visualization_msgs::msg::Marker::ADD;
+    edges_marker.pose.orientation.w = 1.0;
+    edges_marker.scale.x = 0.02; // Line width
+    edges_marker.color.r = 0.0;
+    edges_marker.color.g = 0.8;
+    edges_marker.color.b = 1.0;
+    edges_marker.color.a = 0.6;
+    
+    // Add edges to the marker
+    for (const auto& node : nodes) {
+        if (node->parent) {
+            // Add parent position
+            geometry_msgs::msg::Point parent_point = node->parent->position;
+            edges_marker.points.push_back(parent_point);
+            
+            // Add current node position
+            geometry_msgs::msg::Point current_point = node->position;
+            edges_marker.points.push_back(current_point);
+        }
+    }
+    
+    if (!edges_marker.points.empty()) {
+        marker_array.markers.push_back(edges_marker);
+    }
+    
+    // Create nodes marker (SPHERE_LIST)
+    visualization_msgs::msg::Marker nodes_marker;
+    nodes_marker.header.frame_id = "map";
+    nodes_marker.header.stamp = this->now();
+    nodes_marker.ns = "rrt_tree";
+    nodes_marker.id = 1;
+    nodes_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    nodes_marker.action = visualization_msgs::msg::Marker::ADD;
+    nodes_marker.pose.orientation.w = 1.0;
+    nodes_marker.scale.x = 0.05; // Sphere diameter
+    nodes_marker.scale.y = 0.05;
+    nodes_marker.scale.z = 0.05;
+    nodes_marker.color.r = 0.2;
+    nodes_marker.color.g = 1.0;
+    nodes_marker.color.b = 0.2;
+    nodes_marker.color.a = 0.8;
+    
+    // Add all node positions
+    for (const auto& node : nodes) {
+        nodes_marker.points.push_back(node->position);
+    }
+    
+    if (!nodes_marker.points.empty()) {
+        marker_array.markers.push_back(nodes_marker);
+    }
+    
+    // Create start marker
+    visualization_msgs::msg::Marker start_marker;
+    start_marker.header.frame_id = "map";
+    start_marker.header.stamp = this->now();
+    start_marker.ns = "rrt_tree";
+    start_marker.id = 2;
+    start_marker.type = visualization_msgs::msg::Marker::SPHERE;
+    start_marker.action = visualization_msgs::msg::Marker::ADD;
+    start_marker.pose.position = start;
+    start_marker.pose.orientation.w = 1.0;
+    start_marker.scale.x = 0.15;
+    start_marker.scale.y = 0.15;
+    start_marker.scale.z = 0.15;
+    start_marker.color.r = 0.0;
+    start_marker.color.g = 1.0;
+    start_marker.color.b = 0.0;
+    start_marker.color.a = 1.0;
+    marker_array.markers.push_back(start_marker);
+    
+    // Create goal marker
+    visualization_msgs::msg::Marker goal_marker;
+    goal_marker.header.frame_id = "map";
+    goal_marker.header.stamp = this->now();
+    goal_marker.ns = "rrt_tree";
+    goal_marker.id = 3;
+    goal_marker.type = visualization_msgs::msg::Marker::SPHERE;
+    goal_marker.action = visualization_msgs::msg::Marker::ADD;
+    goal_marker.pose.position = goal;
+    goal_marker.pose.orientation.w = 1.0;
+    goal_marker.scale.x = 0.15;
+    goal_marker.scale.y = 0.15;
+    goal_marker.scale.z = 0.15;
+    goal_marker.color.r = 1.0;
+    goal_marker.color.g = 0.0;
+    goal_marker.color.b = 0.0;
+    goal_marker.color.a = 1.0;
+    marker_array.markers.push_back(goal_marker);
+    
+    // Publish the markers
+    rrt_tree_marker_publisher_->publish(marker_array);
+}
+
+void SimpleGlobalNavigator::clear_rrt_tree_markers() {
+    if (!enable_debug_visualization_ || !rrt_tree_marker_publisher_) {
+        return;
+    }
+    
+    visualization_msgs::msg::MarkerArray marker_array;
+    visualization_msgs::msg::Marker clear_marker;
+    clear_marker.header.frame_id = "map";
+    clear_marker.header.stamp = this->now();
+    clear_marker.ns = "rrt_tree";
+    clear_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    marker_array.markers.push_back(clear_marker);
+    
+    rrt_tree_marker_publisher_->publish(marker_array);
 }
