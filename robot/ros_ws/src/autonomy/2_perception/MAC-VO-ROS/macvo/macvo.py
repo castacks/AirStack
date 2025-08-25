@@ -160,7 +160,7 @@ class macvoNode(Node):
     def publish_data(self, system: MACVO):
         # Latest pose
         pose = pp.SE3(system.graph.frames.data["pose"][-1])
-        self.get_logger().info(f"Publish {pose}")
+        self.get_logger().debug(f"Publish {pose}")
         time_ns = int(system.graph.frames.data["time_ns"][-1].item())
 
         time = Time()
@@ -198,7 +198,7 @@ class macvoNode(Node):
         if self.camera_info is None:
             self.get_logger().error("Skipped a frame since camera info is not received yet")
             return
-        self.get_logger().info(f"Frame {self.frame_id}")
+        self.get_logger().debug(f"Frame {self.frame_id}")
         imageL, timestamp = from_image(msg_imageL), msg_imageL.header.stamp
         imageR = from_image(msg_imageR)
         if self.init_time is None:
