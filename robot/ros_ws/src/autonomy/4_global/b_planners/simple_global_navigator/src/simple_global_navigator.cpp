@@ -6,35 +6,80 @@ void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud
     cost_map_data_.points.clear();
     cost_map_data_.costs.clear();
     
-    // Extract points and intensity values from PointCloud2
+    // Check if intensity field exists
+    bool has_intensity = false;
+    for (const auto& field : msg->fields) {
+        if (field.name == "intensity") {
+            has_intensity = true;
+            break;
+        }
+    }
+    
+    // Extract points and optionally intensity values from PointCloud2
     sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
     sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
     sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
-    sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*msg, "intensity");
     
     bool first_point = true;
-    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity) {
-        geometry_msgs::msg::Point point;
-        point.x = *iter_x;
-        point.y = *iter_y;
-        point.z = *iter_z;
+    
+    if (has_intensity) {
+        // Use intensity field for costs
+        sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*msg, "intensity");
         
-        cost_map_data_.points.push_back(point);
-        cost_map_data_.costs.push_back(*iter_intensity);
-        
-        // Update bounds
-        if (first_point) {
-            cost_map_data_.min_bounds = point;
-            cost_map_data_.max_bounds = point;
-            first_point = false;
-        } else {
-            cost_map_data_.min_bounds.x = std::min(cost_map_data_.min_bounds.x, point.x);
-            cost_map_data_.min_bounds.y = std::min(cost_map_data_.min_bounds.y, point.y);
-            cost_map_data_.min_bounds.z = std::min(cost_map_data_.min_bounds.z, point.z);
-            cost_map_data_.max_bounds.x = std::max(cost_map_data_.max_bounds.x, point.x);
-            cost_map_data_.max_bounds.y = std::max(cost_map_data_.max_bounds.y, point.y);
-            cost_map_data_.max_bounds.z = std::max(cost_map_data_.max_bounds.z, point.z);
+        for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity) {
+            geometry_msgs::msg::Point point;
+            point.x = *iter_x;
+            point.y = *iter_y;
+            point.z = *iter_z;
+            
+            cost_map_data_.points.push_back(point);
+            cost_map_data_.costs.push_back(*iter_intensity);
+            
+            // Update bounds
+            if (first_point) {
+                cost_map_data_.min_bounds = point;
+                cost_map_data_.max_bounds = point;
+                first_point = false;
+            } else {
+                cost_map_data_.min_bounds.x = std::min(cost_map_data_.min_bounds.x, point.x);
+                cost_map_data_.min_bounds.y = std::min(cost_map_data_.min_bounds.y, point.y);
+                cost_map_data_.min_bounds.z = std::min(cost_map_data_.min_bounds.z, point.z);
+                cost_map_data_.max_bounds.x = std::max(cost_map_data_.max_bounds.x, point.x);
+                cost_map_data_.max_bounds.y = std::max(cost_map_data_.max_bounds.y, point.y);
+                cost_map_data_.max_bounds.z = std::max(cost_map_data_.max_bounds.z, point.z);
+            }
         }
+        
+        RCLCPP_DEBUG(this->get_logger(), "Using intensity field for cost values");
+    } else {
+        // Use default cost of 1.0 for all points
+        const float default_cost = 1.0f;
+        
+        for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+            geometry_msgs::msg::Point point;
+            point.x = *iter_x;
+            point.y = *iter_y;
+            point.z = *iter_z;
+            
+            cost_map_data_.points.push_back(point);
+            cost_map_data_.costs.push_back(default_cost);
+            
+            // Update bounds
+            if (first_point) {
+                cost_map_data_.min_bounds = point;
+                cost_map_data_.max_bounds = point;
+                first_point = false;
+            } else {
+                cost_map_data_.min_bounds.x = std::min(cost_map_data_.min_bounds.x, point.x);
+                cost_map_data_.min_bounds.y = std::min(cost_map_data_.min_bounds.y, point.y);
+                cost_map_data_.min_bounds.z = std::min(cost_map_data_.min_bounds.z, point.z);
+                cost_map_data_.max_bounds.x = std::max(cost_map_data_.max_bounds.x, point.x);
+                cost_map_data_.max_bounds.y = std::max(cost_map_data_.max_bounds.y, point.y);
+                cost_map_data_.max_bounds.z = std::max(cost_map_data_.max_bounds.z, point.z);
+            }
+        }
+        
+        RCLCPP_INFO(this->get_logger(), "No intensity field found, using default cost of %.1f for all points", default_cost);
     }
     
     cost_map_data_.valid = !cost_map_data_.points.empty();
