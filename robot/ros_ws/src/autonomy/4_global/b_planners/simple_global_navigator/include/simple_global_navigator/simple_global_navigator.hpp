@@ -14,6 +14,8 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <tf2/LinearMath/Quaternion.h>
@@ -61,16 +63,24 @@ class SimpleGlobalNavigator : public rclcpp::Node {
         this->declare_parameter("rrt_rewire_radius", 1.0);
         this->declare_parameter("cost_map_topic", "/cost_map");
         this->declare_parameter("odom_topic", "/odom");
+        this->declare_parameter("enable_debug_visualization", false);
 
         // Get parameters
         rrt_max_iterations_ = this->get_parameter("rrt_max_iterations").as_int();
         rrt_step_size_ = this->get_parameter("rrt_step_size").as_double();
         rrt_goal_tolerance_ = this->get_parameter("rrt_goal_tolerance").as_double();
         rrt_rewire_radius_ = this->get_parameter("rrt_rewire_radius").as_double();
+        enable_debug_visualization_ = this->get_parameter("enable_debug_visualization").as_bool();
 
         // Publishers
         global_plan_publisher_ = this->create_publisher<nav_msgs::msg::Path>(
             "global_plan", rclcpp::QoS(10).transient_local());
+        
+        if (enable_debug_visualization_) {
+            rrt_tree_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+                "rrt_tree_markers", rclcpp::QoS(10));
+            RCLCPP_INFO(this->get_logger(), "RRT tree debug visualization enabled");
+        }
 
         // Subscribers
         cost_map_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -96,6 +106,7 @@ class SimpleGlobalNavigator : public rclcpp::Node {
    private:
     // Publishers and subscribers
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr global_plan_publisher_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr rrt_tree_marker_publisher_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cost_map_subscriber_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscriber_;
     rclcpp_action::Server<NavigationTask>::SharedPtr action_server_;
@@ -112,6 +123,7 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     double rrt_step_size_;
     double rrt_goal_tolerance_;
     double rrt_rewire_radius_;
+    bool enable_debug_visualization_;
     std::mt19937 rng_;
 
     // Callback functions
@@ -159,4 +171,10 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     geometry_msgs::msg::Point get_random_point();
     size_t get_current_goal_index(const geometry_msgs::msg::Point& current_pos);
     double calculate_distance_remaining(const geometry_msgs::msg::Point& current_pos);
+    
+    // Visualization functions
+    void publish_rrt_tree_markers(const std::vector<std::shared_ptr<RRTNode>>& nodes,
+                                  const geometry_msgs::msg::Point& start,
+                                  const geometry_msgs::msg::Point& goal);
+    void clear_rrt_tree_markers();
 };
