@@ -34,13 +34,24 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <string>
 #include <trajectory_library/trajectory_library.hpp>
 #include <vector>
+#include <unordered_map>
+#include <set>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <airstack_common/templib.hpp>
+#include <airstack_common/tflib.hpp>
+#include <airstack_common/ros2_helper.hpp>
 
 using std::placeholders::_1;
+
+inline std::ostream &operator<<(std::ostream &os, const rclcpp::Time &t){
+  os << t.seconds() << "s";
+  return os;
+}
 
 class DroanLocalPlanner : public rclcpp::Node {
    private:
@@ -56,7 +67,8 @@ class DroanLocalPlanner : public rclcpp::Node {
     airstack_msgs::msg::Odometry look_ahead_odom, tracking_point_odom;
 
     double execute_rate, obstacle_check_radius, safety_cost_weight,
-        forward_progress_forgiveness_weight;
+      deviation_from_global_plan_weight, forward_progress_forgiveness_weight;
+    bool evaluate_only_last_waypoint;
 
     float auto_waypoint_buffer_duration, auto_waypoint_spacing_threshold,
         auto_waypoint_angle_threshold;
@@ -72,6 +84,22 @@ class DroanLocalPlanner : public rclcpp::Node {
 
     std::shared_ptr<cost_map_interface::CostMapInterface> cost_map;
 
+    airstack::TimeOutMonitor* stuck_monitor;
+    airstack::TimeOutMonitor* all_in_collision_monitor;
+    airstack::TimeOutMonitor* map_clearing_rewind_monitor;
+    airstack::TemporalThresholdMonitor<tf2::Vector3, double>* stationary_monitor;
+    double stuck_duration_threshold;
+    double all_in_collision_duration_threshold;
+    double map_clearing_max_rewind_time;
+    double map_clearing_rewind_distance;
+    double stationary_distance_threshold;
+    double stationary_history_duration;
+    double map_clearing_wait_time;
+    tf2::Vector3 map_clearing_point;
+    rclcpp::Time map_clearing_time;
+  
+    std::set<std::string> namespaces;
+
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_ptr;
     tf2_ros::TransformListener tf_listener;
 
@@ -80,12 +108,16 @@ class DroanLocalPlanner : public rclcpp::Node {
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
     rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr custom_waypoint_sub;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr reset_stuck_sub;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr clear_map_sub;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr traj_lib_vis_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
     rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_track_pub;
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr obst_vis_pub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr map_clearing_point_pub;
+     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr stuck_pub;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr map_debug_pub;
 
@@ -112,9 +144,14 @@ class DroanLocalPlanner : public rclcpp::Node {
         custom_waypoint_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "custom_waypoint", 1,
             std::bind(&DroanLocalPlanner::custom_waypoint_callback, this, _1));
+        reset_stuck_sub = this->create_subscription<std_msgs::msg::Empty>(
+            "reset_stuck", 1,
+            std::bind(&DroanLocalPlanner::reset_stuck_callback, this, _1));
+        clear_map_sub = this->create_subscription<std_msgs::msg::Empty>(
+            "clear_map", 1,
+            std::bind(&DroanLocalPlanner::clear_map_callback, this, _1));
 
         // publishers
-
         traj_lib_vis_pub = this->create_publisher<visualization_msgs::msg::MarkerArray>(
             "trajectory_library_vis", 10);
         obst_vis_pub = this->create_publisher<sensor_msgs::msg::Range>("obstacle_vis", 10);
@@ -124,6 +161,10 @@ class DroanLocalPlanner : public rclcpp::Node {
             "trajectory_segment_to_add", 10);
         traj_track_pub = this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>(
             "trajectory_override", 10);
+        map_clearing_point_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+            "map_clearing_point", 10);
+        stuck_pub = this->create_publisher<std_msgs::msg::Bool>(
+            "stuck", 10);
 
         map_debug_pub =
             this->create_publisher<visualization_msgs::msg::MarkerArray>("disparity_map_debug", 1);
@@ -133,11 +174,16 @@ class DroanLocalPlanner : public rclcpp::Node {
         this->get_parameter("execute_rate", this->execute_rate);
         this->declare_parameter("safety_cost_weight", 1.);
         this->get_parameter("safety_cost_weight", safety_cost_weight);
+        this->declare_parameter("deviation_from_global_plan_weight", 1.);
+        this->get_parameter("deviation_from_global_plan_weight", deviation_from_global_plan_weight);
         this->declare_parameter("obstacle_check_radius", 1.);
         this->get_parameter("obstacle_check_radius", obstacle_check_radius);
         this->declare_parameter("forward_progress_forgiveness_weight", 0.5);
         this->get_parameter("forward_progress_forgiveness_weight",
                             forward_progress_forgiveness_weight);
+	this->declare_parameter("evaluate_only_last_waypoint", false);
+        this->get_parameter("evaluate_only_last_waypoint",
+                            evaluate_only_last_waypoint);
         this->declare_parameter("yaw_mode", "SMOOTH_YAW");
         auto yaw_mode_str = this->get_parameter("yaw_mode").as_string();
         if (yaw_mode_str == "TRAJECTORY_YAW") {
@@ -164,6 +210,24 @@ class DroanLocalPlanner : public rclcpp::Node {
 
         RCLCPP_INFO_STREAM(this->get_logger(), "DROAN node name is: " << this->get_name());
         this->declare_parameter("trajectory_library_config", std::string(""));
+
+	stuck_duration_threshold = airstack::get_param(this, "stuck_duration_threshold", 6.0);
+	all_in_collision_duration_threshold = airstack::get_param(this, "all_in_collision_duration_threshold", 2.0);
+	map_clearing_max_rewind_time = airstack::get_param(this, "map_clearing_max_rewind_time", 10.0);
+	map_clearing_rewind_distance = airstack::get_param(this, "map_clearing_rewind_distance", 1.5);
+	stationary_distance_threshold = airstack::get_param(this, "stationary_distance_threshold", 0.5);
+	stationary_history_duration = airstack::get_param(this, "stationary_history_duration", 10.0);
+	map_clearing_wait_time = airstack::get_param(this, "map_clearing_wait_time", 30.0);
+
+	map_clearing_time = this->now() - rclcpp::Duration(1000, 0);
+	
+	stuck_monitor = new airstack::TimeOutMonitor(stuck_duration_threshold);
+	all_in_collision_monitor = new airstack::TimeOutMonitor(all_in_collision_duration_threshold);
+	map_clearing_rewind_monitor = new airstack::TimeOutMonitor(map_clearing_max_rewind_time);
+	stationary_monitor = new airstack::TemporalThresholdMonitor<tf2::Vector3, double>(stationary_distance_threshold,
+											  stationary_history_duration,
+											  0.2f,
+											  airstack::vector3_distance);
     }
 
     void initialize() {
@@ -195,6 +259,20 @@ class DroanLocalPlanner : public rclcpp::Node {
             return true;
         }
 
+	// check if we are stuck or are rewinding after clearing the map
+	std_msgs::msg::Bool stuck_msg;
+	if(!stuck_monitor->is_timed_out(this->now()) || !map_clearing_rewind_monitor->is_timed_out(this->now())){
+	  RCLCPP_INFO_STREAM(this->get_logger(), "REWINDING: " << (!stuck_monitor->is_timed_out(this->now())) << " "
+			     << (!map_clearing_rewind_monitor->is_timed_out(this->now()))
+			     << " time: " << this->now());
+	  stuck_msg.data = true;
+	  stuck_pub->publish(stuck_msg);
+	}
+	else{
+	  stuck_msg.data = false;
+	  stuck_pub->publish(stuck_msg);
+	}
+
         Trajectory global_plan(this, global_plan_msg);
 
         // transform the look ahead point to the global plan frame
@@ -216,7 +294,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         if (is_valid) {
             trajectory_distance = std::max(trajectory_distance, this->global_plan_trajectory_distance);
             global_plan = global_plan.trim_trajectory_between_distances(trajectory_distance, trajectory_distance + std::numeric_limits<double>::infinity());
-            RCLCPP_INFO_STREAM(this->get_logger(), "using global plan from distance " << trajectory_distance);
+            //RCLCPP_INFO_STREAM(this->get_logger(), "using global plan from distance " << trajectory_distance);
             this->global_plan_trajectory_distance = trajectory_distance;
         } else {
             RCLCPP_INFO(this->get_logger(), "invalid");
@@ -247,12 +325,21 @@ class DroanLocalPlanner : public rclcpp::Node {
                 apply_smooth_yaw(best_traj_msg);
             }
             best_traj_msg.header.stamp = this->now();
-            traj_pub->publish(best_traj_msg);
+
+	    // only publish the trajectory if we aren't rewinding because of being stuck
+	    if(stuck_monitor->is_timed_out(this->now()))
+	      traj_pub->publish(best_traj_msg);
+	    all_in_collision_monitor->add_time(this->now());
+	    
             RCLCPP_DEBUG_STREAM(this->get_logger(), "Published local trajectory");
         } else {
             RCLCPP_INFO_STREAM(
                 this->get_logger(),
                 "No valid trajectories, all trajectories either collide or are unseen");
+	    if(all_in_collision_monitor->is_timed_out(this->now()) && stuck_monitor->is_timed_out(this->now())){
+	      RCLCPP_INFO_STREAM(this->get_logger(), "ALL IN COLLISION");
+	      stuck_monitor->add_time(this->now());
+	    }
         }
         return true;
     }
@@ -274,6 +361,7 @@ class DroanLocalPlanner : public rclcpp::Node {
         double min_cost = std::numeric_limits<double>::max();
 
         visualization_msgs::msg::MarkerArray traj_lib_marker_arr;
+	std::unordered_map<std::string, int> next_id;
 
         auto trajectory_safety_costs_per_waypoint =
             this->cost_map->get_trajectory_costs_per_waypoint(trajectory_candidates);
@@ -294,8 +382,9 @@ class DroanLocalPlanner : public rclcpp::Node {
             bool is_traj_unsafe_because_occupied = false;
             bool is_traj_unsafe_because_unobserved = false;
 
-            double min_safety_cost = std::numeric_limits<double>::infinity();
-            double total_deviation_from_global_plan = std::numeric_limits<double>::infinity();
+            double max_safety_cost = -std::numeric_limits<double>::infinity();
+            double deviation_from_global_plan = std::numeric_limits<double>::infinity();
+	    double forward_progress_forgiveness = -std::numeric_limits<double>::infinity();
             // std::cout << "Trajectory " << i << " safety costs: ";
             // for each waypoint in the trajectory, fetch its
             // (1) safety cost and (2) deviation from global plan cost
@@ -314,36 +403,44 @@ class DroanLocalPlanner : public rclcpp::Node {
                     is_traj_unsafe_because_unobserved = true;
                     goto add_marker;
                 } else {
-                    min_safety_cost = std::min(min_safety_cost, safety_cost);
+                    max_safety_cost = std::max(max_safety_cost, safety_cost);
                 }
 
                 // get the closest global plan point to the current trajectory waypoint
                 auto [is_valid, closest_waypoint_to_global_plan, wp_index, path_distance] =
                     global_plan_in_traj_frame.get_closest_point(wp.position());
 
-                // reward making progress along the global plan
-                double forward_progress_forgiveness =
-                    forward_progress_forgiveness_weight * path_distance;
-
-                if (is_valid) {
-                    if (std::isinf(total_deviation_from_global_plan)) {
-                        total_deviation_from_global_plan = 0;
-                    }
-                    double deviation =
-                        closest_waypoint_to_global_plan.position().distance(wp.position());
-                    total_deviation_from_global_plan += deviation - forward_progress_forgiveness;
+                if (is_valid && (!evaluate_only_last_waypoint || (evaluate_only_last_waypoint && j == traj.get_num_waypoints()-1))) {
+                    if (std::isinf(deviation_from_global_plan))
+                        deviation_from_global_plan = 0;
+                    if (std::isinf(forward_progress_forgiveness))
+                        forward_progress_forgiveness = 0;
+		    
+		    // reward making progress along the global plan
+		    forward_progress_forgiveness += path_distance;
+		    
+                    deviation_from_global_plan +=
+		        closest_waypoint_to_global_plan.position().distance(wp.position());
                 }
             }
+	    if(std::isinf(max_safety_cost))
+	        max_safety_cost = std::numeric_limits<double>::infinity();
+
+	    if(!evaluate_only_last_waypoint){
+	      forward_progress_forgiveness /= traj.get_num_waypoints();
+	      deviation_from_global_plan /= traj.get_num_waypoints();
+	    }
+	    deviation_from_global_plan *= deviation_from_global_plan_weight;
+	    forward_progress_forgiveness *= forward_progress_forgiveness_weight;
+	    max_safety_cost *= safety_cost_weight;
 
             // bigger distance from obstacles makes the cost smaller (more negative). cap by the
             // obstacle check radius
+	    double cost;
             if (!is_traj_unsafe_because_occupied && !is_traj_unsafe_because_unobserved) {
                 is_at_least_one_trajectory_valid = true;
 
-                double avg_deviation_from_global_plan =
-                    total_deviation_from_global_plan / traj.get_num_waypoints();
-
-                double cost = avg_deviation_from_global_plan + safety_cost_weight * min_safety_cost;
+                cost = deviation_from_global_plan - forward_progress_forgiveness + max_safety_cost;
                 if (cost < min_cost) {
                     min_cost = cost;
                     best_traj_ret = traj;
@@ -357,21 +454,40 @@ class DroanLocalPlanner : public rclcpp::Node {
             std::string marker_ns = "trajectory_" + std::to_string(i);
 
             visualization_msgs::msg::MarkerArray traj_markers;
-            if (is_traj_unsafe_because_unobserved) {
-                // gray for unobserved
-                traj_markers = traj.get_markers(this->now(), marker_ns, .7, .7, .7, .3);
-            } else if (is_traj_unsafe_because_occupied) {
-                // red for collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 1, 0, 0, .3);
-            } else {
-                // green for no collision
-                traj_markers = traj.get_markers(this->now(), marker_ns, 0, 1, 0, .5);
-            }
+	    std::string text = "X_" + std::to_string(max_safety_cost) + "\n" +
+  	        "|_" + std::to_string(deviation_from_global_plan) + "\n" +
+	        ">_" + std::to_string(-forward_progress_forgiveness) + "\n" +
+	        std::to_string(cost);
+	    
+            if (is_traj_unsafe_because_unobserved) // gray for unobserved
+	        traj_markers = traj.get_markers(this->now(), "unseen", .7, .7, .7, .3, false, false, 0.03f, text);
+	    else if (is_traj_unsafe_because_occupied) // red for collision
+	        traj_markers = traj.get_markers(this->now(), "collision", 1, 0, 0, .3, false, false, 0.03f, text);
+            else // green for no collision
+                traj_markers = traj.get_markers(this->now(), "free", 0, 1, 0, .5, false, false, 0.03f, text);
+	    
+	    for(visualization_msgs::msg::Marker& marker : traj_markers.markers){
+	      namespaces.insert(marker.ns);
+	      if(next_id.count(marker.ns) == 0)
+		next_id[marker.ns] = 0;
+
+	      marker.id = next_id[marker.ns]++;
+	    }
+	    
             traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.end(),
                                                traj_markers.markers.begin(),
                                                traj_markers.markers.end());
         }
 
+	for(visualization_msgs::msg::Marker& marker : traj_lib_marker_arr.markers)
+	  if(marker.action == visualization_msgs::msg::Marker::DELETEALL)
+	    marker.action = visualization_msgs::msg::Marker::ADD;
+	for(const std::string& ns : namespaces){
+	  visualization_msgs::msg::Marker clear;
+	  clear.ns = ns;
+	  clear.action = visualization_msgs::msg::Marker::DELETEALL;
+	  traj_lib_marker_arr.markers.insert(traj_lib_marker_arr.markers.begin(), clear);
+	}
         traj_lib_vis_pub->publish(traj_lib_marker_arr);
         map_debug_pub->publish(this->cost_map->get_debug_markerarray());
 
@@ -436,7 +552,7 @@ class DroanLocalPlanner : public rclcpp::Node {
      * @param global_plan_msg
      */
     void global_plan_callback(const nav_msgs::msg::Path::SharedPtr global_plan_msg) {
-        RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
+      //RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
         if (this->goal_mode != GLOBAL_PLAN) return;
 
         this->global_plan_msg = *global_plan_msg;  // copies
@@ -677,5 +793,70 @@ class DroanLocalPlanner : public rclcpp::Node {
         RCLCPP_INFO_STREAM_ONCE(this->get_logger(),
                                 "tracking point received with frame id: " << odom->header.frame_id);
         tracking_point_odom = *odom;
+
+	rclcpp::Time now = this->now();
+	tf2::Vector3 position = tflib::to_tf(odom->pose.position);
+	stationary_monitor->add_measurement(position, odom->header.stamp);
+	static bool prev_map_clearing_rewind_monitor_state = false;
+	bool curr_map_clearing_rewind_monitor_state = map_clearing_rewind_monitor->is_timed_out(now);
+
+	if(!curr_map_clearing_rewind_monitor_state){
+	  RCLCPP_INFO_STREAM(this->get_logger(), "CURRENT REWIND DISTANCE: " << map_clearing_point.distance(position) << " | "
+			     << map_clearing_point.x() << ", " << map_clearing_point.y() << ", " << map_clearing_point.z() << " | "
+			     << position.x() << ", " << position.y() << ", " << position.z());
+	}
+  
+	if(((!curr_map_clearing_rewind_monitor_state) && map_clearing_point.distance(position) > map_clearing_rewind_distance) ||
+	   (curr_map_clearing_rewind_monitor_state && !prev_map_clearing_rewind_monitor_state) ||
+	   ((now - map_clearing_time).seconds() < map_clearing_wait_time)){
+	  /*
+	  RCLCPP_INFO_STREAM(this->get_logger(), "DONE CLEARING: " <<
+	    ((!curr_map_clearing_rewind_monitor_state) && map_clearing_point.distance(position) > map_clearing_rewind_distance)
+	    << " " << (curr_map_clearing_rewind_monitor_state && !prev_map_clearing_rewind_monitor_state)
+	    << " " << ((now - map_clearing_time).seconds() < map_clearing_wait_time));
+	  //*/
+	  map_clearing_rewind_monitor->clear_history();
+	  stationary_monitor->clear_history();
+	}
+  
+	if(stationary_monitor->has_full_history() && !stationary_monitor->threshold_exceeded() &&
+	   map_clearing_rewind_monitor->is_timed_out(now)){
+	  cost_map->clear();
+	  stationary_monitor->clear_history();
+
+	  geometry_msgs::msg::PoseStamped p;
+	  p.header = odom->header;
+	  p.pose = odom->pose;
+	  map_clearing_point_pub->publish(p);
+	  map_clearing_point = tf2::Vector3(position);
+
+	  map_clearing_rewind_monitor->add_time(now);
+	  RCLCPP_INFO_STREAM(this->get_logger(), "STATIONARY " << now);
+	}
+
+	prev_map_clearing_rewind_monitor_state = curr_map_clearing_rewind_monitor_state;
     }
+
+    void reset_stuck_callback(const std_msgs::msg::Empty::SharedPtr msg){
+        all_in_collision_monitor->add_time(this->now());
+    }
+  
+    void clear_map_callback(const std_msgs::msg::Empty::SharedPtr msg){
+        cost_map->clear();
+	rclcpp::Time now = this->now();
+
+	geometry_msgs::msg::PoseStamped p;
+	p.header = tracking_point_odom.header;
+	p.pose = tracking_point_odom.pose;
+	map_clearing_point_pub->publish(p);
+
+	map_clearing_rewind_monitor->clear_history();
+	stationary_monitor->clear_history();
+	all_in_collision_monitor->add_time(now);
+	stuck_monitor->clear_history();
+	map_clearing_time = now;
+	for(int i = 0; i < 10; i++)
+	  RCLCPP_INFO_STREAM(this->get_logger(), "CLEARED " << map_clearing_time);
+    }
+    
 }; 

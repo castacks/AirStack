@@ -912,7 +912,8 @@ visualization_msgs::msg::MarkerArray Trajectory::get_markers(rclcpp::Time stamp,
                                                              const std::string& marker_namespace,
                                                              float r, float g, float b, float a,
                                                              bool show_poses, bool show_velocity,
-                                                             float thickness) {
+                                                             float thickness,
+							     std::string extra_text) {
     visualization_msgs::msg::MarkerArray marker_array;
     // rclcpp::Time now = rclcpp::Time::now();
 
@@ -988,6 +989,32 @@ visualization_msgs::msg::MarkerArray Trajectory::get_markers(rclcpp::Time stamp,
 
             marker_array.markers.push_back(vel_arrow);
         }
+	
+	if(i == waypoints.size()-1){
+	    visualization_msgs::msg::Marker text;
+	    text.header.stamp = stamp;
+	    text.header.frame_id = frame_id;
+	    text.ns = marker_namespace + "_extra_text";
+	    text.id = 0;
+	    text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+	    text.action = visualization_msgs::msg::Marker::ADD;
+
+	    text.text = extra_text;
+	    text.pose.position.x = wp.position().x();
+	    text.pose.position.y = wp.position().y();
+	    text.pose.position.z = wp.position().z();
+	    text.scale.z = 0.05;
+
+	    text.color.r = 1.;
+	    text.color.g = 1.;
+	    text.color.b = 1.;
+	    text.color.a = 1.;
+
+	    visualization_msgs::msg::Marker clear;
+	    clear.ns = marker_namespace + "_extra_text";
+	    marker_array.markers.push_back(clear);
+	    marker_array.markers.push_back(text);
+	}
 
         geometry_msgs::msg::Point p;
         p.x = wp.position().x();

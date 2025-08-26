@@ -1,0 +1,11 @@
+<launch>
+
+  <node pkg="sim" exec="sim" name="sim" />
+  
+  <node
+      pkg="tf2_ros"
+      exec="static_transform_publisher"
+      name="zed_link_static_transform_publisher"
+      args="0 0 0 0 0.261799 0 base_link left_camera" />
+  
+</launch>

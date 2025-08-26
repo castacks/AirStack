@@ -16,6 +16,7 @@ find_package(cost_map_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(trajectory_controller REQUIRED)
@@ -39,6 +40,7 @@ ament_target_dependencies(
   "pluginlib"
   "rclcpp"
   "std_msgs"
+  "geometry_msgs"
   "tf2"
   "tf2_ros"
 )

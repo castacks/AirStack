@@ -11,6 +11,7 @@ trajectories:
       attributes:
         - frame_id
         - velocity
+        - turn_velocity
         - max_acceleration
         - length
         - width

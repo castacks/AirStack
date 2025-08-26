@@ -26,6 +26,7 @@ namespace vis {
     Marker& add_point(float x, float y, float z);
     Marker& add_color(float r, float g, float b, float a);
     Marker& set_pose(geometry_msgs::msg::Pose pose);
+    Marker& set_namespace(std::string ns);
       
     Marker& set_action(uint8_t action);
     
