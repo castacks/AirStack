@@ -291,7 +291,7 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     nodes.push_back(start_node);
     
     std::shared_ptr<RRTNode> best_goal_node = nullptr;
-    auto planning_start_time = this->now();
+    auto planning_start_time = std::chrono::steady_clock::now();
     
     // Initial visualization
     if (enable_debug_visualization_) {
@@ -302,7 +302,8 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     for (int i = 0; i < rrt_max_iterations_; ++i) {
         // Check time constraint if specified (negative values disable timeout)
         if (max_planning_time > 0.0) {
-            double elapsed_time = (this->now() - planning_start_time).seconds();
+            auto elapsed_duration = std::chrono::steady_clock::now() - planning_start_time;
+            double elapsed_time = std::chrono::duration<double>(elapsed_duration).count();
             if (elapsed_time >= max_planning_time) {
                 RCLCPP_INFO(this->get_logger(), 
                            "RRT* planning timeout reached (%.2fs), returning best path found", 
@@ -316,6 +317,9 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         
         // Find nearest node
         auto nearest_node = get_nearest_node(nodes, rand_point);
+        if (!nearest_node) {
+            continue;
+        }
         
         // Steer towards random point
         geometry_msgs::msg::Point new_point = steer(nearest_node->position, rand_point, rrt_step_size_);
@@ -381,7 +385,8 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     
     // Extract path if goal was reached
     if (best_goal_node) {
-        double planning_time = (this->now() - planning_start_time).seconds();
+        auto elapsed_duration = std::chrono::steady_clock::now() - planning_start_time;
+        double planning_time = std::chrono::duration<double>(elapsed_duration).count();
         RCLCPP_INFO(this->get_logger(), 
                    "RRT* found path with cost: %.2f in %.2fs", 
                    best_goal_node->cost, planning_time);
@@ -414,6 +419,10 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
 std::shared_ptr<RRTNode> SimpleGlobalNavigator::get_nearest_node(
     const std::vector<std::shared_ptr<RRTNode>>& nodes, 
     const geometry_msgs::msg::Point& point) {
+    
+    if (nodes.empty()) {
+        return nullptr;
+    }
     
     std::shared_ptr<RRTNode> nearest = nodes[0];
     double min_dist = distance(nearest->position, point);
@@ -563,7 +572,8 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::extract_path
     while (current) {
         geometry_msgs::msg::PoseStamped pose;
         pose.header.frame_id = "map"; // Assume map frame
-        pose.header.stamp = this->now();
+        pose.header.stamp = rclcpp::Time(std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
         pose.pose.position = current->position;
         
         // Set orientation (simplified - pointing towards next waypoint)

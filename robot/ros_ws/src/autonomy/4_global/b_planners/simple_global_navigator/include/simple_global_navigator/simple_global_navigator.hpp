@@ -7,6 +7,7 @@
 #include <cmath>
 #include <thread>
 #include <mutex>
+#include <chrono>
 
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -101,6 +102,13 @@ class SimpleGlobalNavigator : public rclcpp::Node {
             std::bind(&SimpleGlobalNavigator::handle_goal, this, _1, _2),
             std::bind(&SimpleGlobalNavigator::handle_cancel, this, _1),
             std::bind(&SimpleGlobalNavigator::handle_accepted, this, _1));
+    }
+
+    ~SimpleGlobalNavigator() {
+        // Ensure action server is properly shut down
+        if (action_server_) {
+            action_server_.reset();
+        }
     }
 
    private:
