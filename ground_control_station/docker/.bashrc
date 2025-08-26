@@ -1,4 +1,4 @@
-# ========== BASHRC FOR ROBOT DOCKER CONTAINER ==========
+# ========== BASHRC FOR GCS DOCKER CONTAINER ==========
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
@@ -107,7 +107,7 @@ fi
 # Define the ROS2 workspace directory
 ROS2_WS_DIR="$HOME/ros_ws"
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/$ROS2_WS_DIR/fastdds.xml"
+export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/fastdds.xml"
 # for local development, prevent conflict with other desktops
 export ROS_LOCALHOST_ONLY=1
 
@@ -118,12 +118,12 @@ export PYTHONWARNINGS
 # Convenience functions for ROS2 workspace
 
 function bws(){
-    echo "Running \`colcon build\` in $ROS2_WS_DIR"
-    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/
+    echo "Running \`colcon build $@\` in $ROS2_WS_DIR"
+    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
 }
 function sws(){
     echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
-    source "$ROS2_WS_DIR"/install/local_setup.bash
+    source "$ROS2_WS_DIR"/install/local_setup.bash || echo "Please make sure to build first with 'bws'"
 }
 
 # Function to prompt user for confirmation
@@ -140,14 +140,22 @@ confirm_cws() {
 }
 function cws(){
     # Call the confirmation function
-    if confirm_sws; then
+    if confirm_cws; then
         echo "Cleaning ROS2 workspace..."
         set -x
-        rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/
+        # Remove build, install, and log directories
+        if ! rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/; then
+            { set +x; } 2>/dev/null
+            echo "Error: Failed to remove ROS2 workspace directories."
+            exit 1
+        fi
+
+        # Set environment variables
         export AMENT_PREFIX_PATH="/opt/ros/humble"
         export CMAKE_PREFIX_PATH=""
+
         { set +x; } 2>/dev/null  # set +x w/out it being printed
-        echo "ROS2 workspace has been cleaned."
+        echo "ROS2 workspace has been cleaned successfully."
     else
         echo "Operation cancelled."
     fi

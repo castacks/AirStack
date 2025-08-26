@@ -1,7 +1,6 @@
 FROM osrf/ros:humble-desktop-full
 
-# Set working directory
-WORKDIR /root/ros_ws
+SHELL ["/bin/bash", "-c"]
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -35,3 +34,23 @@ EXPOSE 22
 
 # Cleanup
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/gcs/ros_ws
+# Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
+# need to give access to docker to access container name
+# creates user "gcs" with UID 1000, home directory /home/gcs, and shell /bin/sh
+# creates group "gcs" with GID 1000
+RUN addgroup --gid 1000 gcs && \
+  adduser --uid 1000 --ingroup gcs --home /home/gcs --shell /bin/sh --disabled-password --gecos "" gcs && \
+  chown -R gcs:gcs /home/gcs
+
+RUN USER=gcs && \
+  GROUP=gcs && \
+  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
+  chown root:root /usr/local/bin/fixuid && \
+  chmod 4755 /usr/local/bin/fixuid && \
+  mkdir -p /etc/fixuid && \
+  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
+
+USER gcs:gcs
+ENTRYPOINT ["fixuid"]

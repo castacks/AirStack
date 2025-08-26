@@ -560,7 +560,7 @@ function cmd_up {
     cmd="$cmd -d"
 
     log_info "Executing: $cmd"
-    eval "$cmd"
+    eval "USER_ID=$(id -u) GROUP_ID=$(id -g) $cmd"
     log_info "Services brought up successfully"
 }
 
@@ -578,7 +578,7 @@ function cmd_down {
     fi
     
     log_info "Shutting down services: ${services[*]:-all}"
-    eval "$cmd"
+    eval "USER_ID=$(id -u) GROUP_ID=$(id -g) $cmd"
     log_info "Services shutdown successfully"
 }
 
