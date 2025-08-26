@@ -23,7 +23,7 @@ services:
       bash -c "
       service ssh restart;
       tmux new -d -s robot_bringup;
-      autolaunch=${AUTOLAUNCH};
+      autolaunch=${AUTOLAUNCH:-'false'};
       if [ $$autolaunch = 'true' ]; then
         tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;

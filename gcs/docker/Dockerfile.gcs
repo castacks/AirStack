@@ -1,0 +1,60 @@
+FROM osrf/ros:humble-desktop-full
+
+SHELL ["/bin/bash", "-c"]
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    vim nano emacs wget curl tree sshpass \
+    iperf3 iftop iputils-ping net-tools htop \
+    cmake build-essential less htop jq python3-pip tmux gdb \
+    ros-dev-tools ros-humble-mavros ros-humble-tf2* ros-humble-stereo-image-proc \
+    ros-humble-image-view ros-humble-topic-tools ros-humble-grid-map \
+    ros-humble-domain-bridge ros-humble-ros2cli python3-colcon-common-extensions \
+    libglib2.0-dev libcgal-dev mosquitto mosquitto-clients \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
+    gstreamer1.0-x gstreamer1.0-alsa openssh-server \
+    xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11 \
+    ros-humble-rosbag2-storage-mcap ros-humble-plotjuggler ros-humble-plotjuggler \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
+    wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt sphinx utm
+
+# Configure SSH
+RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+# open port 22 for ssh
+EXPOSE 22
+
+# TMux config
+RUN git clone https://github.com/tmux-plugins/tpm /home/gcs/.tmux/plugins/tpm
+
+
+WORKDIR /home/gcs/ros_ws
+# Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
+# need to give access to docker to access container name
+# creates user "gcs" with UID 1000, home directory /home/gcs, and shell /bin/sh
+# creates group "gcs" with GID 1000
+RUN addgroup --gid 1000 gcs && \
+  adduser --uid 1000 --ingroup gcs --home /home/gcs --shell /bin/sh --disabled-password --gecos "" gcs && \
+  chown -R gcs:gcs /home/gcs
+
+RUN USER=gcs && \
+  GROUP=gcs && \
+  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
+  chown root:root /usr/local/bin/fixuid && \
+  chmod 4755 /usr/local/bin/fixuid && \
+  mkdir -p /etc/fixuid && \
+  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
+
+# Cleanup. Prevent people accidentally doing git commits from within Docker
+RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
+
+USER gcs:gcs
+ENTRYPOINT ["fixuid"]

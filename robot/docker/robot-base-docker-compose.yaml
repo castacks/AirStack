@@ -44,9 +44,10 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - .dev:/home/robot/.dev:rw # developer config
+      - ../../common/.bash_profile:/home/robot/.bash_profile:rw
       - .bashrc:/home/robot/.bashrc:rw # bash config
-      # - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
       - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../common/.tmux.conf:/home/robot/.tmux.conf:rw # tmux config
       # autonomy stack stuff
       - ../../common/ros_packages:/home/robot/ros_ws/src/common:rw # common ROS packages
       - ../../common/ros_packages/fastdds.xml:/home/robot/ros_ws/fastdds.xml:rw # fastdds.xml

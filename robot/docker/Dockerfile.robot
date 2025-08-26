@@ -175,12 +175,6 @@ RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_Fron
   mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /model_weights/dsta_efficient.ckpt && \
   rm -rf /model_weights/github.com
 
-# Cleanup. Prevent people accidentally doing git commits as root in Docker
-RUN apt purge git -y \
-  && apt autoremove -y \
-  && apt clean -y \
-  && rm -rf /var/lib/apt/lists/*
-
 # Install colcon, seems to be getting removed
 RUN pip install -U colcon-common-extensions
 
@@ -205,6 +199,9 @@ RUN pip install -e .
 WORKDIR /model_weights/UFM/benchmarks
 RUN pip install -e .
 
+# TMux config
+RUN git clone https://github.com/tmux-plugins/tpm /home/robot/.tmux/plugins/tpm
+
 WORKDIR /home/robot/ros_ws
 
 # Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
@@ -222,6 +219,12 @@ RUN USER=robot && \
   chmod 4755 /usr/local/bin/fixuid && \
   mkdir -p /etc/fixuid && \
   printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
+
+# Cleanup. Prevent people accidentally doing git commits from within Docker
+RUN apt purge git -y \
+  && apt autoremove -y \
+  && apt clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
 USER robot:robot
 ENTRYPOINT ["fixuid"]

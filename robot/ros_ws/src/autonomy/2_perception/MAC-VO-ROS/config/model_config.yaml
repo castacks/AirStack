@@ -30,7 +30,6 @@ Odometry:
       type: MatchCovariance
       args:
         device: *device
-    args="/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
         match_cov_default: 0.25
         min_depth_cov: 0.05
         min_flow_cov: 0.25
