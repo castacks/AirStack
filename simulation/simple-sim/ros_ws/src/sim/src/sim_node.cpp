@@ -117,6 +117,9 @@ private:
     
     //state.armed = req->value;
     sim->drone.armed = req->value;
+    
+    RCLCPP_INFO_STREAM(this->get_logger(), "drone pose: " << sim->drone.position.x << " " << sim->drone.position.y
+		       << " " << sim->drone.position.z << " " << sim->drone.yaw);
   }
 
   void handle_takeoff(const std::shared_ptr<mavros_msgs::srv::CommandTOL::Request> req,

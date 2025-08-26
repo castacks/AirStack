@@ -342,6 +342,8 @@ class DisparityGraph {
                 "No disparity images in graph, can't see anything, everything is invalid");
         }
 
+	int occupied_count = 0;
+	int free_count = 0;
         for (const auto &graph_node : disp_graph_) {
             tf2::Vector3 local_point = graph_node.w2s_tf * optical_point;
 
@@ -381,10 +383,12 @@ class DisparityGraph {
                     // heuristic based on distance. also shouldn't we clamp this at 1.0? or is it
                     // not really a probability?
                     occupancy += (state_disparity - 0.5) / state_disparity;
+		    occupied_count++;
                 } else {
                     // otherwise it's outside, we subtdroan.rvizract from the occupancy value
                     occupancy -= 0.5 * (state_disparity - 0.5) / state_disparity;
-                    occupancy = std::clamp(occupancy, 0.0, 1.0);
+		    occupancy = occupancy < 0. ? 0. : occupancy;
+		    free_count++;
                 }
             }
             if (occupancy >= thresh) {
@@ -392,6 +396,12 @@ class DisparityGraph {
                 break;
             }
         }
+
+	// if the point we are checking has only been seen as an obstacle,
+	// then mark it as not free even if it doesn't pass the threshold
+	if(is_free && (occupied_count > 0) && (free_count <= 0))
+	  is_free = false;
+	
         // RCLCPP_INFO_STREAM(node_ptr->get_logger(),"occupancy:" << occupancy << " is_free: " <<
         // is_free << " is_seen: " << is_seen);
 
