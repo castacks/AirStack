@@ -1,0 +1,3 @@
+# this file is for openhands, see for details: https://docs.all-hands.dev/usage/configuration-options#location-of-the-config-toml-file
+[sandbox]
+docker_runtime_kwargs = { privileged = true }

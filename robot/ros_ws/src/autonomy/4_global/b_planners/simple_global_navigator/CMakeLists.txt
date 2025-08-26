@@ -59,6 +59,8 @@ install(PROGRAMS scripts/test_time_constraint.py
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
+  
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
@@ -67,6 +69,84 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  # Unit tests for core functionality
+  ament_add_gtest(test_simple_global_navigator_unit
+    test/test_simple_global_navigator_unit.cpp
+    src/simple_global_navigator.cpp)
+  
+  target_include_directories(test_simple_global_navigator_unit PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  
+  ament_target_dependencies(test_simple_global_navigator_unit
+    rclcpp
+    rclcpp_action
+    nav_msgs
+    geometry_msgs
+    sensor_msgs
+    visualization_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
+    task_msgs)
+
+  # Integration tests for ROS functionality
+  ament_add_gtest(test_simple_global_navigator_integration
+    test/test_simple_global_navigator_integration.cpp
+    src/simple_global_navigator.cpp)
+  
+  target_include_directories(test_simple_global_navigator_integration PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  
+  ament_target_dependencies(test_simple_global_navigator_integration
+    rclcpp
+    rclcpp_action
+    nav_msgs
+    geometry_msgs
+    sensor_msgs
+    visualization_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
+    task_msgs)
+
+  # Visualization tests
+  ament_add_gtest(test_simple_global_navigator_visualization
+    test/test_simple_global_navigator_visualization.cpp
+    src/simple_global_navigator.cpp)
+  
+  target_include_directories(test_simple_global_navigator_visualization PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  
+  ament_target_dependencies(test_simple_global_navigator_visualization
+    rclcpp
+    rclcpp_action
+    nav_msgs
+    geometry_msgs
+    sensor_msgs
+    visualization_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
+    task_msgs)
+
+  # Minimal test without action server
+  ament_add_gtest(test_simple_global_navigator_minimal
+    test/test_simple_global_navigator_minimal.cpp)
+  
+  target_include_directories(test_simple_global_navigator_minimal PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  
+  ament_target_dependencies(test_simple_global_navigator_minimal
+    rclcpp
+    nav_msgs
+    geometry_msgs
+    sensor_msgs)
+
 endif()
 
 ament_package()

@@ -1,0 +1,26 @@
+cmake_minimum_required(VERSION 3.16)
+project(simple_global_navigator_tests)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find required packages
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTEST REQUIRED gtest>=1.10.0)
+
+# Include directories
+include_directories(${GTEST_INCLUDE_DIRS})
+
+# Create test executable
+add_executable(test_rrt_logic test_rrt_logic.cpp)
+
+# Link libraries
+target_link_libraries(test_rrt_logic ${GTEST_LIBRARIES} pthread)
+
+# Add compiler flags
+target_compile_options(test_rrt_logic PRIVATE ${GTEST_CFLAGS_OTHER})
+
+# Enable testing
+enable_testing()
+add_test(NAME RRTLogicTests COMMAND test_rrt_logic)
