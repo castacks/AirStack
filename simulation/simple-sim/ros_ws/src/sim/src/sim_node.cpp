@@ -117,6 +117,9 @@ private:
     
     //state.armed = req->value;
     sim->drone.armed = req->value;
+    
+    RCLCPP_INFO_STREAM(this->get_logger(), "drone pose: " << sim->drone.position.x << " " << sim->drone.position.y
+		       << " " << sim->drone.position.z << " " << sim->drone.yaw);
   }
 
   void handle_takeoff(const std::shared_ptr<mavros_msgs::srv::CommandTOL::Request> req,
@@ -148,8 +151,9 @@ private:
 
   // Timer callback
   void timer_callback(){
-    
     float sim_time_seconds = sim->step(left_image_data, right_image_data);
+    if(sim_time_seconds < 0.f)
+      return;
 
     // fast forwarding past autonomy's 10 second wait period after takeoff for sending commands
     //RCLCPP_INFO(this->get_logger(), "fast mode start: %.2f %.2f", fast_mode_start, sim_time_seconds);
@@ -245,7 +249,7 @@ private:
         0, 0, 1
     };
     right_cam_info.p = {
-        fx,  0, cx, -fx*baseline,
+	 fx,  0, cx, -fx*baseline,
          0, fy, cy, 0,
          0,  0,  1, 0
     };

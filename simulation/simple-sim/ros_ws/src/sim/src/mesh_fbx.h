@@ -18,6 +18,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <chrono>
 
 #include "mesh.h"
 

@@ -22,6 +22,9 @@ public:
 
   bool offboard;
   bool armed;
+  bool on_ground;
+  bool paused;
+  bool pause_pressed;
 
   Drone();
   void init();

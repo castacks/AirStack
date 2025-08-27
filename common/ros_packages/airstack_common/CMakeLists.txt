@@ -92,6 +92,30 @@ install(
   )
 ament_export_libraries(vislib)
 
+# templib
+add_library(templib src/templib.cpp)
+target_include_directories(templib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(templib PUBLIC c_std_99 cxx_std_17)
+ament_target_dependencies(
+  templib
+  rclcpp
+  tf2
+)
+install(TARGETS templib
+  DESTINATION lib/${PROJECT_NAME}
+  )
+install(
+  TARGETS templib
+  EXPORT templib
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+  )
+ament_export_libraries(templib)
+
 
 # install
 ament_export_include_directories(include)

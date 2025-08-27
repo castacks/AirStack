@@ -7,6 +7,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include <iostream>
+#include <chrono>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -57,11 +58,14 @@ public:
   float step(std::vector<unsigned char>& left_image_bytes, std::vector<unsigned char>& right_image_bytes);
 
   float get_fx(){
-    return get_fy() * (image_width_f / image_height_f);
+    float fovx = 2 * atan(tan(glm::radians(image_fov) / 2.) * (image_width_f/image_height_f));
+    return (image_width_f / 2.0) / tan(fovx / 2.);
+    //return get_fy() * (image_width_f / image_height_f);
   }
   
   float get_fy(){
-    return image_height_f / (2.0f * std::tan(glm::radians(image_fov) / 2.0f));
+    return (image_height_f / 2.0) / tan(glm::radians(image_fov) / 2.);
+    //return image_height_f / (2.0f * std::tan(glm::radians(image_fov) / 2.0f));
   }
   
   float get_cx(){
@@ -188,23 +192,34 @@ Sim::Sim(float image_fov, int image_width, int image_height, float baseline, std
   render_fbx = true;
 
   world_mesh = NULL;
-  if(render_fbx)
+  if(render_fbx){
+    auto start = std::chrono::high_resolution_clock::now();
     world_mesh = new FBXMesh(model_filename, model_scale, model_x_offset, model_y_offset, model_z_offset);
+    double elapsed_seconds = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start).count();
+    std::cout << "FBX load time: " << elapsed_seconds << " seconds" << std::endl;
+  }
     //world_mesh = new FBXMesh("/data/fire_academy/fire_academy_no_box.fbx", 0.01);
+  
+  auto start = std::chrono::high_resolution_clock::now();
   drone_mesh = new ColladaMesh("/models/model.dae");
+  double elapsed_seconds = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start).count();
+  std::cout << "Collada load time: " << elapsed_seconds << " seconds" << std::endl;
 }
 
 float Sim::step(std::vector<unsigned char>& left_image_bytes, std::vector<unsigned char>& right_image_bytes){
+  glfwPollEvents();
   float currentFrame = glfwGetTime();
   float deltaTime = currentFrame - lastFrame;
   lastFrame = currentFrame;
-
+  drone.applyInput(window, deltaTime);
+  if(drone.paused)
+    return -1.f;
   sim_time += 1./60.;//deltaTime; // TODO have a fixed dt and multiply an int by that
+  
 
   //std::cout << (1./deltaTime) << std::endl;
   glViewport(0, 0, screen_width, screen_height);
 
-  drone.applyInput(window, deltaTime);
   drone.update(deltaTime);
 
   glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
@@ -252,7 +267,7 @@ float Sim::step(std::vector<unsigned char>& left_image_bytes, std::vector<unsign
   glUniformMatrix4fv(glGetUniformLocation(collada_shader_program, "model"), 1, GL_FALSE, glm::value_ptr(model));
   drone_mesh->draw_except(51);
   glm::mat4 spin_model = model;
-  if(drone.armed || ((!drone.armed) && drone.thrustPower != 0.f))
+  if(drone.armed || !drone.on_ground)
      spin_model *= glm::toMat4(glm::angleAxis(sim_time*1000.f, glm::vec3(0, 1, 0)));
   glUniformMatrix4fv(glGetUniformLocation(collada_shader_program, "model"), 1, GL_FALSE, glm::value_ptr(spin_model));
   drone_mesh->draw_only(51);
@@ -309,7 +324,6 @@ float Sim::step(std::vector<unsigned char>& left_image_bytes, std::vector<unsign
   glDrawBuffer(GL_BACK);
 
   glfwSwapBuffers(window);
-  glfwPollEvents();
 	
   //return !glfwWindowShouldClose(window);
   return sim_time;

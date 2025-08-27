@@ -118,13 +118,14 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             v1 = this->fy * r1 / z + this->cy;
             v2 = this->fy * r2 / z + this->cy;
 
+	    /*
             if ((v2 - v1) < 0)
                 RCLCPP_ERROR(this->get_logger(),
                              "Something MESSED disp_idx=%d v=%d cy=%f fy=%f r=%f x=%f y=%f z=%f "
                              "beta=%f beta1=%f r1=%f r2=%f v1=%d v2=%d",
                              disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, r1, r2, v1,
                              v2);
-
+	    */
             if (v1 < 0) v1 = 0;
             if (v1 > (height - 1)) v1 = height - 1;
 
@@ -145,14 +146,14 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             double r2 = z / tan(alpha - alpha1);
             u1 = this->fx * r1 / z + this->cx;
             u2 = this->fx * r2 / z + this->cx;
-
+	    /*
             if ((u2 - u1) < 0)
                 RCLCPP_ERROR(this->get_logger(),
                              "Something MESSED disp_idx=%d u=%d cx=%f fx=%f r=%f x=%f y=%f z=%f "
                              "alpha=%f alpha1=%f r1=%f r2=%f u1=%d u2=%d",
                              disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, r1, r2, u1,
                              u2);
-
+	    */
             if (u1 < 0) u1 = 0;
             if (u1 > (this->width - 1)) u1 = this->width - 1;
 
@@ -297,12 +298,14 @@ void DisparityExpansionNode::process_disparity_image(
                 ((int(disparity_value * this->metric_depth_scale) + 1) >=
                  this->lut_max_disparity) ||
                 ((int(disparity_value * this->metric_depth_scale) + 1) <= 0)) {
+	        /*
                 RCLCPP_INFO_STREAM_THROTTLE(
                     this->get_logger(), *this->get_clock(), 5000,
                     "Step 1 Expand u: Disparity out of range: "
                         << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
                         << " metric_depth_scale: " << this->metric_depth_scale);
-                continue;
+		*/
+	        continue;
             }
 
             unsigned int u1 =
@@ -386,11 +389,13 @@ void DisparityExpansionNode::process_disparity_image(
                 ((int(disparity_value * this->metric_depth_scale) + 1) >=
                  this->lut_max_disparity) ||
                 ((int(disparity_value * this->metric_depth_scale) + 1) <= 0)) {
+	        /*
                 RCLCPP_INFO_STREAM_THROTTLE(
                     this->get_logger(), *this->get_clock(), 5000,
                     "Step 2 Expand v: Disparity out of range: "
                         << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
                         << " metric_depth_scale: " << this->metric_depth_scale);
+		*/
                 continue;
             }
 
