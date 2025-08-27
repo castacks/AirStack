@@ -206,10 +206,10 @@ WORKDIR /home/robot/ros_ws
 
 # Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
 # need to give access to docker to access container name
-# creates user "robot" with UID 1000, home directory /home/robot, and shell /bin/sh
+# creates user "robot" with UID 1000, home directory /home/robot, and shell /bin/bash
 # creates group "robot" with GID 1000
 RUN addgroup --gid 1000 robot && \
-  adduser --uid 1000 --ingroup robot --home /home/robot --shell /bin/sh --disabled-password --gecos "" robot && \
+  adduser --uid 1000 --ingroup robot --home /home/robot --shell /bin/bash --disabled-password --gecos "" robot && \
   chown -R robot:robot /home/robot
 
 RUN USER=robot && \
