@@ -1,12 +1,15 @@
 {
-  "version": "0.2.0",
   "configurations": [
     {
-      "name": "ROS2: Launch robot.launch.xml",
-      "type": "ros",
+      "name": "ROS2: Launch Robot Bringup",
+      "type": "ros2",
       "request": "launch",
-      // "preLaunchTask": "build ros_ws debug",
-      "target": "${workspaceFolder}/install/robot_bringup/share/robot_bringup/launch/robot.launch.xml",
-    }
+      "target": "${workspaceFolder}/src/robot_bringup/launch/robot.launch.xml",
+    },
+    {
+      "name": "ROS2: Attach",
+      "type": "ros2",
+      "request": "attach",
+    },
   ]
 }

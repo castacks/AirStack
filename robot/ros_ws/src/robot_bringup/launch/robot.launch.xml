@@ -2,6 +2,7 @@
 <launch>
 
   <arg name="sim" default="true" />
+  <arg name="record_bag" default="false" />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 

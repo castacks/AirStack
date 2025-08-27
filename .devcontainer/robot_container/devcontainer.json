@@ -1,0 +1,6 @@
+{
+  "name": "Robot Container",
+  "dockerComposeFile": ["../../docker-compose.yml"],
+  "service": "robot",
+  "workspaceFolder": "/home/robot/ros_ws"
+}
