@@ -102,6 +102,8 @@ fi
 #    . /etc/bash_completion
 #fi
 
+tmux source ~/.tmux.conf
+
 
 # Creates a history file that stores locally on the developer computer
 # check if we previously created a symlink to ~/.bash_history
