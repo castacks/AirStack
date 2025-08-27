@@ -9,27 +9,11 @@
 
   <!-- Sim -->
   <group if="$(var sim)">
-    <!-- GUI -->
-    <node pkg="rviz2" exec="rviz2"
-      args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
-      output="screen" respawn="true" respawn_delay="1" />
-
-    <push-ros-namespace namespace="behavior" />
-    <node pkg="rqt_gui" exec="rqt_gui"
-      args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
-      <remap from="fixed_trajectory_command"
-        to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
-    </node>
+    <include file="$(find-pkg-share robot_bringup)/launch/sim.launch.xml" />
   </group>
   <!-- Real -->
   <group unless="$(var sim)">
-    <push-ros-namespace namespace="interface" />
-    <include file="$(find-pkg-share mavros)/launch/apm.launch">
-      <arg name="fcu_url" value="/dev/ttyTHS4:115200" />
-    </include>
-
-    <!-- <executable cmd="ros2 bag record -a -o /bags/autonomy_$(env DATE) -x '/robot_2/sensors/*'"
-    /> -->
+    <include file="$(find-pkg-share robot_bringup)/launch/real.launch.xml" />
   </group>
 
 
