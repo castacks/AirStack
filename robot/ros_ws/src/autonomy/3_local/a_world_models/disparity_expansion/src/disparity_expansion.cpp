@@ -1,22 +1,9 @@
-// Copyright (c) 2024 Carnegie Mellon University
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/*
+ * Copyright (c) 2016 Carnegie Mellon University, Author <gdubey@andrew.cmu.edu>
+ *
+ * For License information please see the LICENSE file in the root directory.
+ *
+ */
 
 // Applies C-Space expansion on disparity images.
 #include <disparity_expansion/disparity_expansion.hpp>
@@ -27,6 +14,9 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->get_parameter("metric_depth_scale", this->metric_depth_scale);
     this->declare_parameter("expansion_radius", 2.0);
     this->get_parameter("expansion_radius", this->expansion_radius);
+    this->declare_parameter("lut_max_disparity", 164);
+    this->get_parameter("lut_max_disparity", this->lut_max_disparity);
+    table_d.resize(this->lut_max_disparity, 0.0);
     this->declare_parameter("padding", 2.0);
     this->get_parameter("padding", this->padding);
     this->declare_parameter("baseline_fallback", 0.5);
@@ -101,12 +91,10 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
     RCLCPP_INFO(this->get_logger(), "Fx Fy Cx Cy: %f %f , %f %f \nW H this->baseline: %d %d %f",
                 this->fx, this->fy, this->cx, this->cy, this->width, this->height, this->baseline);
     double r = this->expansion_radius;  // expansion radius in cm
-    this->lut_max_disparity = (int) std::ceil(this->baseline * this->fx * this->metric_depth_scale);
     this->table_u = std::vector<std::vector<LUTCell>>(this->lut_max_disparity,
                                                       std::vector<LUTCell>(this->width));
     this->table_v = std::vector<std::vector<LUTCell>>(this->lut_max_disparity,
                                                       std::vector<LUTCell>(this->height));
-    this->table_d.resize(this->lut_max_disparity, 0.0);
     int u1, u2, v1, v2;
     double x, y, z;
     double disparity;
@@ -117,7 +105,7 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
         z = this->baseline * this->fx / disparity;
 
         double disp_new = this->baseline * this->fx / (z - this->expansion_radius) + 0.5;
-        this->table_d.at(disp_idx) = disp_new;
+        table_d.at(disp_idx) = disp_new;
 
         for (int v = (int)height - 1; v >= 0; --v) {
             y = (v - this->cy) * z / this->fy;
@@ -197,7 +185,6 @@ void DisparityExpansionNode::process_depth_image(
     }
     cv::Mat disparity_image = this->convert_depth_to_disparity(cv_ptr->image);
 
-
     auto disparity_msg = std::make_shared<stereo_msgs::msg::DisparityImage>();
     disparity_msg->header = msg->header;
     disparity_msg->image =
@@ -224,6 +211,9 @@ cv::Mat DisparityExpansionNode::convert_depth_to_disparity(const cv::Mat& depth_
 
     RCLCPP_INFO_ONCE(this->get_logger(), "Baseline: %.4f", this->baseline);
     RCLCPP_INFO_ONCE(this->get_logger(), "Focal length (fx): %.4f", this->fx);
+    cv::patchNaNs(disparity_image, 0.0f);
+
+    disparity_image.setTo(0.0f, disparity_image == std::numeric_limits<float>::infinity());
 
     return disparity_image;
 }
@@ -245,7 +235,6 @@ void DisparityExpansionNode::process_disparity_image(
     img_msg->is_bigendian = msg_disp->image.is_bigendian;
     img_msg->step = msg_disp->image.step;
     img_msg->data = msg_disp->image.data;
-
 
     cv_bridge::CvImagePtr fg_msg(new cv_bridge::CvImage());
     cv_bridge::CvImagePtr bg_msg(new cv_bridge::CvImage());
@@ -270,7 +259,6 @@ void DisparityExpansionNode::process_disparity_image(
     }
     if(ignore_left_pixels > 0)
       disparity32F(cv::Range::all(), cv::Range(0, ignore_left_pixels)) = std::numeric_limits<float>::quiet_NaN();
-
 
     cv::Mat disparity_fg;
     cv::Mat disparity_bg;
@@ -323,7 +311,7 @@ void DisparityExpansionNode::process_disparity_image(
                 this->table_u.at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx2;
 
             if (disparity32F.empty()) {
-                RCLCPP_DEBUG(this->get_logger(), "disparity32F matrix is empty.");
+                RCLCPP_ERROR(this->get_logger(), "disparity32F matrix is empty.");
                 return;
             }
 
@@ -333,10 +321,6 @@ void DisparityExpansionNode::process_disparity_image(
 	      continue;
 
             cv::Mat submat_t = disparity32F(roi).clone();
-            if (submat_t.empty()) {
-                RCLCPP_DEBUG(this->get_logger(), "submat_t is empty for roi: %s", roi);
-                continue;
-            }
 
             double min, max;
             cv::Point p1, p2;
@@ -420,10 +404,6 @@ void DisparityExpansionNode::process_disparity_image(
 	      continue;
 
             cv::Mat submat_t = disparity32F_bg(roi).clone();
-            if (submat_t.empty()) {
-                RCLCPP_DEBUG(this->get_logger(), "submat_t is empty for roi: %s", roi);
-                continue;
-            }
 
             double min, max;
             cv::Point p1, p2;
@@ -699,4 +679,4 @@ int main(int argc, char** argv) {
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
-} 
+}

@@ -54,6 +54,7 @@ services:
       args:
         BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
         REAL_ROBOT: true
+        SKIP_MACVO: true
       tags:
         - *l4t_image
     # we use tmux send-keys so that the session stays alive

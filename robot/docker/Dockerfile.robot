@@ -2,11 +2,16 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE:-ubuntu:22.04}
 
+ARG SKIP_MACVO=false
+
+ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
+ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
+
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install language
-RUN apt-get update && apt-get install -y \
+RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y \
   locales \
   && locale-gen en_US.UTF-8 \
   && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
@@ -16,16 +21,16 @@ ENV LANG=en_US.UTF-8
 # Install timezone
 RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime \
   && export DEBIAN_FRONTEND=noninteractive \
-  && apt-get update \
-  && apt-get install -y tzdata \
+  && apt-get ${UPDATE_FLAGS} update \
+  && apt-get ${INSTALL_FLAGS} install -y tzdata \
   && dpkg-reconfigure --frontend noninteractive tzdata \
   && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update \
+RUN apt-get ${UPDATE_FLAGS} update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install common programs
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
     emacs \
     curl \
     gnupg2 \
@@ -41,7 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
-  && apt-get update -y && apt-get install -y --no-install-recommends \
+  && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
     ros-humble-desktop \
     python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
@@ -87,12 +92,14 @@ RUN apt update -y && apt install -y \
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
 # Install TensorRT
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \ 
+RUN if [ "$SKIP_MACVO" != "true" ]; then \
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \ 
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt update -y && \
   apt install -y \
     libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
-    python3-libnvinfer python3-libnvinfer-dev
+    python3-libnvinfer python3-libnvinfer-dev \
+  fi
 
 # Install Python dependencies
 RUN pip3 install \
@@ -143,7 +150,7 @@ RUN apt remove -y libopenvdb*; \
     cd ..; rm -rf /opt/openvdb/build
 
 # Add ability to SSH
-RUN apt-get update && apt-get install -y openssh-server
+RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y openssh-server
 RUN mkdir /var/run/sshd
 
 # Password is airstack
@@ -158,7 +165,7 @@ ARG REAL_ROBOT=false
 RUN if [ "$REAL_ROBOT"  = "true" ]; then \
   # Put commands here that should run for the real robot but not the sim
   echo "REAL_ROBOT is true"; \
-  apt-get update && apt-get install -y libimath-dev; \
+  apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y libimath-dev; \
 else \
   # Put commands here that should be run for the sim but not the real robot
   echo "REAL_ROBOT is false"; \
@@ -166,13 +173,15 @@ fi
 
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
-RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+RUN if [ "$SKIP_MACVO" != "true" ]; then \
+    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
     wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
     wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
     mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /root/model_weights/dsta_efficient.ckpt && \
-    rm -rf /root/model_weights/github.com
+    rm -rf /root/model_weights/github.com \
+    fi
 
 WORKDIR /root/ros_ws
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
@@ -185,24 +194,26 @@ RUN apt purge git -y \
 RUN pip install -U colcon-common-extensions
 
 # Fixes for MACVO Integration
-RUN pip install huggingface_hub
-RUN pip uninstall matplotlib -y
+RUN if [ "$SKIP_MACVO" != "true" ]; then pip install huggingface_hub; fi
+RUN if [ "$SKIP_MACVO" != "true" ]; then pip uninstall matplotlib -y; fi
 
 # Temporary fix for UFM
 WORKDIR /root/model_weights
-RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
+RUN if [ "$SKIP_MACVO" != "true" ]; then
+    wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
     apt update && apt install -y unzip && \
     mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /root/model_weights/UFM_Env2.zip && \
     unzip UFM_Env2.zip && \
-    rm UFM_Env2.zip
+    rm UFM_Env2.zip \
+    fi
 
 WORKDIR /root/model_weights/UFM
-RUN pip install -e .
+RUN if [ "$SKIP_MACVO" != "true" ]; then pip install -e .; fi
 
 WORKDIR /root/model_weights/UFM/UniCeption
-RUN pip install -e .
+RUN if [ "$SKIP_MACVO" != "true" ]; then pip install -e .; fi
 
 WORKDIR /root/model_weights/UFM/benchmarks
-RUN pip install -e .
+RUN if [ "$SKIP_MACVO" != "true" ]; then pip install -e .; fi
 
 WORKDIR /root/ros_ws

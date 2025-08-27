@@ -27,6 +27,7 @@
     
     <!-- Depth Estimation -->
     <!-- Disparity -->
+    <!--
     <node pkg="stereo_image_proc" exec="disparity_node"
         namespace="stereo_image_proc">
         <remap from="left/image_rect" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect" />
@@ -37,7 +38,7 @@
 
 	<remap from="/$(env ROBOT_NAME)/stereo_image_proc/disparity" to="/$(env ROBOT_NAME)/sensors/front_stereo/disparity" />
     </node>
-
+    -->
     <!-- Visualizer -->
     <node pkg="image_view" exec="disparity_view"
         namespace="disparity_view">
