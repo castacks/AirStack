@@ -36,7 +36,7 @@ EXPOSE 22
 RUN git clone https://github.com/tmux-plugins/tpm /home/gcs/.tmux/plugins/tpm
 
 
-WORKDIR /home/gcs/ros_ws
+WORKDIR /home/gcs/AirStack/gcs/ros_ws
 # Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
 # need to give access to docker to access container name
 # creates user "gcs" with UID 1000, home directory /home/gcs, and shell /bin/sh

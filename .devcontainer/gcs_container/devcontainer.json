@@ -1,6 +1,0 @@
-{
-  "name": "GCS Container",
-  "dockerComposeFile": ["../../docker-compose.yml"],
-  "service": "gcs",
-  "workspaceFolder": "/home/gcs/ros_ws"
-}

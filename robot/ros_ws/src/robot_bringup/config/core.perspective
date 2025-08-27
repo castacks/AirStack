@@ -79,7 +79,7 @@
             "plugin": {
               "keys": {
                 "config_filename": {
-                  "repr": "'/home/robot/ros_ws/install/rqt_behavior_tree_command/share/rqt_behavior_tree_command/config/gui_config.yaml'",
+                  "repr": "'/home/robot/AirStack/robot/ros_ws/install/rqt_behavior_tree_command/share/rqt_behavior_tree_command/config/gui_config.yaml'",
                   "type": "repr"
                 }
               },
@@ -114,7 +114,7 @@
                   "type": "repr"
                 },
                 "config_filename": {
-                  "repr": "'/home/robot/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/fixed_trajectories.yaml'",
+                  "repr": "'/home/robot/AirStack/robot/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/fixed_trajectories.yaml'",
                   "type": "repr"
                 }
               },

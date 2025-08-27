@@ -1,0 +1,23 @@
+{
+  "name": "GCS Container",
+  "dockerComposeFile": [
+    "../../docker-compose.yaml",
+  ],
+  "runServices": [
+    "gcs"
+  ],
+  "service": "gcs",
+  "workspaceFolder": "/home/gcs/AirStack",
+  "remoteEnv": {
+    "AUTOLAUNCH": "false"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Ranch-Hand-Robotics.rde-pack",
+        "ms-vscode.cpptools",
+        "ms-python.black-formatter"
+      ]
+    }
+  }
+}

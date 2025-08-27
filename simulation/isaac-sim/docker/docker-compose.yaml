@@ -75,11 +75,11 @@ services:
 
   # ===================================================================================================================
   # for running over ethernet for hitl to stream to the NVIDIA jetson device
-  isaac-sim-hitl:
-    extends:
-      service: isaac-sim
-    profiles: !override
-      - hitl
-    container_name: isaac-sim
-    network_mode: host
-    networks: !reset null
+  # isaac-sim-hitl:
+  #   extends:
+  #     service: isaac-sim
+  #   profiles: !override
+  #     - hitl
+  #   container_name: isaac-sim
+  #   network_mode: host
+  #   networks: !reset null

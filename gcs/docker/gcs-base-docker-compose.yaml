@@ -45,5 +45,6 @@ services:
       - ../../common/ros_packages:/home/gcs/ros_ws/src/common:rw
       - ../../common/inputrc:/etc/inputrc:rw
       # autonomy stack stuff
-      - ../ros_ws:/home/gcs/ros_ws:rw
-      - ../../common/ros_packages/fastdds.xml:/home/gcs/ros_ws/fastdds.xml:rw
+      - ../..:/home/gcs/AirStack
+      - ../../common/ros_packages:/home/gcs/AirStack/gcs/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/home/gcs/AirStack/gcs/ros_ws/fastdds.xml:rw # fastdds.xml

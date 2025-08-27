@@ -202,7 +202,7 @@ RUN pip install -e .
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /home/robot/.tmux/plugins/tpm
 
-WORKDIR /home/robot/ros_ws
+WORKDIR /home/robot/AirStack/robot/ros_ws
 
 # Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
 # need to give access to docker to access container name
@@ -220,9 +220,8 @@ RUN USER=robot && \
   mkdir -p /etc/fixuid && \
   printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
 
-# Cleanup. Prevent people accidentally doing git commits from within Docker
-RUN apt purge git -y \
-  && apt autoremove -y \
+# Cleanup
+RUN apt autoremove -y \
   && apt clean -y \
   && rm -rf /var/lib/apt/lists/*
 

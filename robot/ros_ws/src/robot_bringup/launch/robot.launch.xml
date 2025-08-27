@@ -42,11 +42,11 @@
     file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
 
   <!-- Logging -->
-  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
+  <!-- <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" /> -->
 
   <!-- Domain Bridge -->
   <node pkg="domain_bridge" exec="domain_bridge"
-    args="/home/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    args="/home/robot/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
     output="screen" respawn="true" respawn_delay="1" />
 
 </launch>
