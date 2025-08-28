@@ -9,11 +9,6 @@
         args="0 0 0 0 0 0 mavros_enu map" />
 
     <!-- Robot TFs -->
-    <node
-	pkg="tf2_ros"
-	exec="static_transform_publisher"
-	name="zed_link_static_transform_publisher"
-	args="0 0 0 0 0.261799 0 base_link front_stereo_camera_link" />
 
     <!-- currently none -->
 </launch>
