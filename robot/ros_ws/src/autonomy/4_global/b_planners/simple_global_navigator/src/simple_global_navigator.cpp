@@ -300,6 +300,7 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     
     // RRT* main loop
     for (int i = 0; i < rrt_max_iterations_; ++i) {
+        RCLCPP_INFO_STREAM(this->get_logger(), "RRT* iteration " << i);
         // Check time constraint if specified (negative values disable timeout)
         if (max_planning_time > 0.0) {
             auto elapsed_duration = std::chrono::steady_clock::now() - planning_start_time;
@@ -314,18 +315,23 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         
         // Sample random point
         geometry_msgs::msg::Point rand_point = get_random_point();
-        
+        RCLCPP_INFO_STREAM(this->get_logger(), "RRT* sampled random point at: " << rand_point.x << ", " << rand_point.y << ", " << rand_point.z);
+
         // Find nearest node
         auto nearest_node = get_nearest_node(nodes, rand_point);
         if (!nearest_node) {
             continue;
+        } else {
+            RCLCPP_INFO_STREAM(this->get_logger(), "RRT* found nearest node at: " << nearest_node->position.x << ", " << nearest_node->position.y << ", " << nearest_node->position.z);
         }
         
         // Steer towards random point
         geometry_msgs::msg::Point new_point = steer(nearest_node->position, rand_point, rrt_step_size_);
+        RCLCPP_INFO_STREAM(this->get_logger(), "RRT* steering from: " << nearest_node->position.x << ", " << nearest_node->position.y << ", " << nearest_node->position.z << " to: " << new_point.x << ", " << new_point.y << ", " << new_point.z);
         
         // Check collision
         if (!is_collision_free(nearest_node->position, new_point)) {
+            RCLCPP_INFO_STREAM(this->get_logger(), "RRT* collision detected between: " << nearest_node->position.x << ", " << nearest_node->position.y << ", " << nearest_node->position.z << " and: " << new_point.x << ", " << new_point.y << ", " << new_point.z);
             continue;
         }
         
@@ -333,9 +339,11 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         double new_cost = nearest_node->cost + distance(nearest_node->position, new_point) + 
                          get_cost_at_point(new_point);
         auto new_node = std::make_shared<RRTNode>(new_point, nearest_node, new_cost);
+        RCLCPP_INFO_STREAM(this->get_logger(), "RRT* created new node at: " << new_point.x << ", " << new_point.y << ", " << new_point.z << " with cost: " << new_cost);
         
         // Find near nodes for rewiring
         auto near_nodes = get_near_nodes(nodes, new_point, rrt_rewire_radius_);
+        RCLCPP_INFO_STREAM(this->get_logger(), "RRT* found " << near_nodes.size() << " near nodes for rewiring");
         
         // Choose parent with minimum cost
         for (auto& near_node : near_nodes) {
@@ -353,7 +361,8 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         // Add new node to tree
         nodes.push_back(new_node);
         new_node->parent->children.push_back(new_node);
-        
+        RCLCPP_INFO_STREAM(this->get_logger(), "New tree size: " << nodes.size());
+
         // Rewire tree
         rewire(new_node, near_nodes);
         
@@ -366,7 +375,7 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         if (distance(new_point, goal) <= rrt_goal_tolerance_) {
             if (!best_goal_node || new_cost < best_goal_node->cost) {
                 best_goal_node = new_node;
-                RCLCPP_DEBUG(this->get_logger(), 
+                RCLCPP_INFO(this->get_logger(), 
                            "Found improved path to goal with cost: %.2f (iteration %d)", 
                            new_cost, i);
                 
@@ -410,7 +419,7 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
                        min_distance);
             return extract_path(closest_node);
         } else {
-            RCLCPP_WARN(this->get_logger(), "RRT* failed to find any viable path to goal");
+            RCLCPP_WARN_STREAM(this->get_logger(), "RRT* failed to find any viable path to goal. min_distance: " << min_distance << ", tolerance: " << rrt_goal_tolerance_);
             return {};
         }
     }
@@ -424,7 +433,7 @@ std::shared_ptr<RRTNode> SimpleGlobalNavigator::get_nearest_node(
         return nullptr;
     }
     
-    std::shared_ptr<RRTNode> nearest = nodes[0];
+    std::shared_ptr<RRTNode> nearest = nodes.at(0);
     double min_dist = distance(nearest->position, point);
     
     for (const auto& node : nodes) {
