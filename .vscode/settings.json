@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.launch": "xml",
+        "*.config": "python",
+        "*.env": "shellscript",
+        "chrono": "cpp"
+    }
+}
