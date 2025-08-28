@@ -37,9 +37,9 @@
     stall_timeout_seconds: 20.0     # Time without movement before clearing plan
 
     # view sampling
-    bbox_length                         : 1.0
-    bbox_breadth                        : 1.0
-    bbox_height                         : 1.0
+    bbox_length                         : 2.5
+    bbox_breadth                        : 2.5
+    bbox_height                         : 2.5
     viewing_distance                    : 1.5 # not used
     num_viewpts_per_cluster             : 6
     kViewingDistanceInnerR              : 1.5

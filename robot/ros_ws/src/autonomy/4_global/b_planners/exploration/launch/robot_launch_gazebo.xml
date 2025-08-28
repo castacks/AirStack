@@ -1,0 +1,60 @@
+<!-- ROBOT -->
+<launch>
+
+  <arg name="sim" default="true" />
+
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
+
+  <!-- Sim -->
+  <group if="$(var sim)">
+    <!-- GUI -->
+    <node pkg="rviz2" exec="rviz2"
+      args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
+      output="screen" respawn="true" respawn_delay="1" />
+
+    <push-ros-namespace namespace="behavior" />
+    <node pkg="rqt_gui" exec="rqt_gui"
+      args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+      <remap from="fixed_trajectory_command"
+        to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
+    </node>
+  </group>
+  
+  <!-- Static TFs -->
+  <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_static_transforms.launch.xml" />
+
+  <!-- Autonomy -->
+  <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_autonomy_launch.xml" />
+
+  <!-- Logging -->
+  <!-- <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" /> -->
+
+  <!-- Interface: From tracking point to command_vel -->
+  <include file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)" />
+  <!-- <node pkg="mavros_interface" exec="position_setpoint_pub.py"
+        namespace="interface"
+        output="screen">
+
+        <param name="command_type" value="2" />
+        <param name="max_velocity" value="3.0" />
+        <param name="target_frame" value="base_link" />
+        <param name="publish_goal" value="false" />
+
+  </node>
+
+  <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+        namespace="drone_safety_monitor"
+        output="screen">
+        <param name="state_estimate_timeout" value="1.0" />
+
+        <remap from="state_estimate" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+  </node> -->
+
+  <!-- Domain Bridge -->
+  <node pkg="domain_bridge" exec="domain_bridge"
+    args="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_domain_bridge.yaml"
+    output="screen" respawn="true" respawn_delay="1" />
+
+</launch>
