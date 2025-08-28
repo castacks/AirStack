@@ -14,6 +14,7 @@
       "extensions": [
         "Ranch-Hand-Robotics.rde-pack",
         "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
         "ms-python.black-formatter"
       ]
     }
