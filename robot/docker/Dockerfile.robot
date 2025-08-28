@@ -98,7 +98,7 @@ RUN if [ "$SKIP_MACVO" != "true" ]; then \
   apt update -y && \
   apt install -y \
     libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
-    python3-libnvinfer python3-libnvinfer-dev \
+    python3-libnvinfer python3-libnvinfer-dev; \
   fi
 
 # Install Python dependencies
@@ -169,7 +169,7 @@ RUN if [ "$REAL_ROBOT"  = "true" ]; then \
 else \
   # Put commands here that should be run for the sim but not the real robot
   echo "REAL_ROBOT is false"; \
-fi
+  fi
 
 # Downloading model weights for MACVO
 WORKDIR /root/model_weights
@@ -180,7 +180,7 @@ RUN if [ "$SKIP_MACVO" != "true" ]; then \
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
     mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
     mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /root/model_weights/dsta_efficient.ckpt && \
-    rm -rf /root/model_weights/github.com \
+    rm -rf /root/model_weights/github.com; \
     fi
 
 WORKDIR /root/ros_ws
@@ -199,12 +199,12 @@ RUN if [ "$SKIP_MACVO" != "true" ]; then pip uninstall matplotlib -y; fi
 
 # Temporary fix for UFM
 WORKDIR /root/model_weights
-RUN if [ "$SKIP_MACVO" != "true" ]; then
+RUN if [ "$SKIP_MACVO" != "true" ]; then \
     wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
     apt update && apt install -y unzip && \
     mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /root/model_weights/UFM_Env2.zip && \
     unzip UFM_Env2.zip && \
-    rm UFM_Env2.zip \
+    rm UFM_Env2.zip; \
     fi
 
 WORKDIR /root/model_weights/UFM
