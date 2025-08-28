@@ -55,85 +55,19 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz_default_plugins/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        ZED_X:
-          Value: true
-        base_link:
-          Value: true
-        base_link_frd:
-          Value: true
-        base_link_ground_truth:
-          Value: true
-        base_link_stabilized:
-          Value: false
-        front_stereo_left_camera_optical_frame:
-          Value: false
-        front_stereo_right_camera_optical_frame:
-          Value: false
-        look_ahead_point:
-          Value: true
-        look_ahead_point_stabilized:
-          Value: false
-        macvo_ned:
-          Value: false
-        map:
-          Value: false
-        map_ned:
-          Value: true
-        mavros_enu:
-          Value: false
-        odom:
-          Value: true
-        odom_ned:
-          Value: true
-        ouster:
-          Value: true
-        tracking_point:
-          Value: true
-        tracking_point_stabilized:
-          Value: false
-        world:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        mavros_enu:
-          base_link_ground_truth:
-            {}
-          map:
-            base_link:
-              ZED_X:
-                front_stereo_left_camera_optical_frame:
-                  macvo_ned:
-                    {}
-                front_stereo_right_camera_optical_frame:
-                  {}
-              base_link_frd:
-                {}
-              ouster:
-                {}
-            base_link_stabilized:
-              {}
-            look_ahead_point:
-              {}
-            look_ahead_point_stabilized:
-              {}
-            map_ned:
-              {}
-            tracking_point:
-              {}
-            tracking_point_stabilized:
-              {}
-        world:
-          {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Image
@@ -469,11 +403,11 @@ Visualization Manager:
               Name: Traj Library
               Namespaces:
                 collision: true
-                collision_extra_text: true
+                collision_extra_text: false
                 free: true
-                free_extra_text: true
+                free_extra_text: false
                 unseen: true
-                unseen_extra_text: true
+                unseen_extra_text: false
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -617,7 +551,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 11.390841484069824
+      Distance: 19.335098266601562
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -632,10 +566,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5347964763641357
+      Pitch: 0.4447965621948242
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 4.481771469116211
+      Yaw: 4.391773223876953
     Saved: ~
 Window Geometry:
   Displays:

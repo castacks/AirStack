@@ -54,8 +54,8 @@
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             
-            <!-- <remap from="disparity" to="$(var local_disparity_in_topic)" /> -->
-	    <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" />
+            <remap from="disparity" to="$(var local_disparity_in_topic)" />
+	    <!-- <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" /> -->
 	    <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
             <!-- <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" /> -->
         </node>
