@@ -8,9 +8,7 @@
   ],
   "service": "gcs",
   "workspaceFolder": "/home/gcs/AirStack",
-  "remoteEnv": {
-    "AUTOLAUNCH": "false"
-  },
+  "initializeCommand": "export AUTOLAUNCH=false && echo 'You may close this window'",
   "customizations": {
     "vscode": {
       "extensions": [

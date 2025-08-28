@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0", 
+    "configurations": [
+        {
+            "name": "ROS2: Launch Robot Bringup",
+            "type": "ros2",
+            "request": "launch",
+            "target": "${workspaceFolder}/robot/ros_ws/src/robot_bringup/launch/robot.launch.xml"
+        }
+    ]
+}

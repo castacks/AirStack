@@ -8,9 +8,7 @@
   ],
   "service": "robot",
   "workspaceFolder": "/home/robot/AirStack",
-  "remoteEnv": {
-    "AUTOLAUNCH": "false",
-  },
+  "initializeCommand": "export AUTOLAUNCH=false && echo 'You may close this window'",
   "customizations": {
     "vscode": {
       "extensions": [
