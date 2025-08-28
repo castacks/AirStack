@@ -6,6 +6,11 @@
             "type": "ros2",
             "request": "launch",
             "target": "${workspaceFolder}/robot/ros_ws/src/robot_bringup/launch/robot.launch.xml"
+        },
+        {
+            "name": "ROS2: Attach",
+            "type": "ros2",
+            "request": "attach"
         }
     ]
 }
