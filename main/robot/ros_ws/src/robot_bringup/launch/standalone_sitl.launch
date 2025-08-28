@@ -2,20 +2,20 @@
 <launch>
 
   <arg name="sim" default="true" />
-  
+
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
   <!-- GUI -->
   <group>
     <node pkg="rviz2" exec="rviz2"
-	  args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
-	  output="screen" respawn="true" respawn_delay="1" />
-    
+      args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
+      output="screen" respawn="true" respawn_delay="1" />
+
     <push-ros-namespace namespace="behavior" />
     <node pkg="rqt_gui" exec="rqt_gui"
-          args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+      args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
       <remap from="fixed_trajectory_command"
-             to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
+        to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
     </node>
   </group>
 
@@ -30,7 +30,7 @@
 
   <!-- Domain Bridge -->
   <node pkg="domain_bridge" exec="domain_bridge"
-    args="/root/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    args="/home/robot/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
     output="screen" respawn="true" respawn_delay="1" />
 
 </launch>

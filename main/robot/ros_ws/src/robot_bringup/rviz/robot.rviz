@@ -5,14 +5,17 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1
         - /TF1/Frames1
         - /Sensors1
         - /Perception1
+        - /Perception1/MACVO PointCloud1
+        - /Perception1/MACVO PointCloud1/Status1
         - /Local1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
         - /Global1
       Splitter Ratio: 0.590062141418457
-    Tree Height: 704
+    Tree Height: 1037
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -30,7 +33,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: MACVO PointCloud
 Visualization Manager:
   Class: ""
   Displays:
@@ -57,55 +60,63 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        CameraLeft:
+          Value: true
+        CameraRight:
+          Value: true
+        ZED_X:
+          Value: false
         base_link:
           Value: true
         base_link_frd:
           Value: false
         base_link_ground_truth:
-          Value: true
+          Value: false
         base_link_stabilized:
           Value: false
-        look_ahead_point:
-          Value: false
-        look_ahead_point_stabilized:
-          Value: false
+        macvo_ned:
+          Value: true
         map:
           Value: true
-        map_FLU:
-          Value: false
         map_ned:
+          Value: false
+        mavros_enu:
           Value: false
         odom:
           Value: false
         odom_ned:
           Value: false
-        tracking_point:
-          Value: true
-        tracking_point_stabilized:
+        ouster:
           Value: false
+        world:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        map_FLU:
+        mavros_enu:
+          base_link_ground_truth:
+            {}
           map:
             base_link:
+              ZED_X:
+                CameraLeft:
+                  macvo_ned:
+                    {}
+                CameraRight:
+                  {}
               base_link_frd:
+                {}
+              ouster:
                 {}
             base_link_stabilized:
               {}
-            look_ahead_point:
-              {}
-            look_ahead_point_stabilized:
-              {}
             map_ned:
               {}
-            tracking_point:
-              {}
-            tracking_point_stabilized:
-              {}
+        world:
+          {}
       Update Interval: 0
       Value: true
     - Class: rviz_common/Group
@@ -150,7 +161,7 @@ Visualization Manager:
           Color: 170; 170; 255
           Color Transformer: FlatColor
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -171,7 +182,7 @@ Visualization Manager:
             Value: sensors/ouster/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
         - Angle Tolerance: 0
           Class: rviz_default_plugins/Odometry
           Covariance:
@@ -189,7 +200,7 @@ Visualization Manager:
               Scale: 1
               Value: true
             Value: true
-          Enabled: true
+          Enabled: false
           Keep: 1
           Name: Odometry
           Position Tolerance: 0
@@ -210,44 +221,24 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: odometry_conversion/odometry
-          Value: true
+          Value: false
       Enabled: true
       Name: Sensors
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Image
-          Enabled: false
+          Enabled: true
           Max Value: 1
           Median window: 5
           Min Value: 0
-          Name: MACVO Image Features
+          Name: MACVO Disparity
           Normalize Range: true
           Topic:
             Depth: 5
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/perception/visual_odometry_img
-          Value: false
-        - Alpha: 1
-          Axes Length: 1
-          Axes Radius: 0.10000000149011612
-          Class: rviz_default_plugins/Pose
-          Color: 255; 25; 0
-          Enabled: true
-          Head Length: 0.30000001192092896
-          Head Radius: 0.10000000149011612
-          Name: MACVO State Estimation
-          Shaft Length: 1
-          Shaft Radius: 0.05000000074505806
-          Shape: Axes
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /robot_1/perception/visual_odometry_pose
+            Value: /robot_1/macvo/disparity
           Value: true
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -260,7 +251,7 @@ Visualization Manager:
           Class: rviz_default_plugins/PointCloud
           Color: 255; 255; 255
           Color Transformer: RGBF32
-          Decay Time: 1000
+          Decay Time: 5
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
@@ -271,17 +262,56 @@ Visualization Manager:
           Position Transformer: XYZ
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.10000000149011612
-          Style: Spheres
+          Size (m): 0.009999999776482582
+          Style: Flat Squares
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/perception/visual_odometry_points
+            Value: /robot_1/macvo/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
+          Value: true
+        - Angle Tolerance: 0.10000000149011612
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.5
+              Color: 255; 255; 127
+              Color Style: Unique
+              Frame: Local
+              Offset: 1
+              Scale: 1
+              Value: true
+            Position:
+              Alpha: 0.30000001192092896
+              Color: 204; 51; 204
+              Scale: 1
+              Value: true
+            Value: true
+          Enabled: true
+          Keep: 100
+          Name: MACVO Odometry
+          Position Tolerance: 0.10000000149011612
+          Shape:
+            Alpha: 1
+            Axes Length: 1
+            Axes Radius: 0.10000000149011612
+            Color: 255; 25; 0
+            Head Length: 0.30000001192092896
+            Head Radius: 0.10000000149011612
+            Shaft Length: 1
+            Shaft Radius: 0.05000000074505806
+            Value: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/macvo/odometry
           Value: true
       Enabled: true
       Name: Perception
@@ -416,7 +446,7 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                traj_controller: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -446,7 +476,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            {}
+            "": true
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -531,25 +561,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 27.589771270751953
+      Distance: 14.608461380004883
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 0.4246240556240082
+        Y: 1.604090690612793
+        Z: -0.884032666683197
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2603984475135803
+      Pitch: 0.725398063659668
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 4.9203948974609375
+      Yaw: 3.020411968231201
     Saved: ~
 Window Geometry:
   Displays:
@@ -558,12 +588,12 @@ Window Geometry:
     collapsed: false
   Front Left RGB:
     collapsed: false
-  Height: 1043
+  Height: 1376
   Hide Left Dock: false
   Hide Right Dock: false
-  MACVO Image Features:
+  MACVO Disparity:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001e500000349fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000349000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca0000002800ffffff00000001000001f600000349fc0200000007fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b0000016a0000002800fffffffb0000002000460072006f006e00740020004c00650066007400200044006500700074006801000001ab000001d90000002800fffffffb0000000a00560069006500770073000000025900000114000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000006efc0100000002fb0000000800540069006d00650100000000000007800000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000003990000034900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001e500000496fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000496000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f600000496fc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b0000017c0000002800fffffffb0000002000460072006f006e00740020004c00650066007400200044006500700074006801000001bd0000011b0000002800fffffffb0000001e004d004100430056004f002000440069007300700061007200690074007901000002de000001f30000002800fffffffb0000000a00560069006500770073000000025900000114000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba0000006efc0100000002fb0000000800540069006d00650100000000000009ba0000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000005d30000049600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -572,6 +602,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1920
-  X: 72
-  Y: 155
+  Width: 2490
+  X: 1990
+  Y: 27
