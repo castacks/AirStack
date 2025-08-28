@@ -43,7 +43,10 @@ WORKDIR /home/gcs/AirStack/gcs/ros_ws
 # creates group "gcs" with GID 1000
 RUN addgroup --gid 1000 gcs && \
   adduser --uid 1000 --ingroup gcs --home /home/gcs --shell /bin/bash --disabled-password --gecos "" gcs && \
-  chown -R gcs:gcs /home/gcs
+  chown -R gcs:gcs /home/gcs && \
+  usermod -aG sudo gcs && \
+  echo "gcs ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/gcs && \
+  echo "gcs:gcs" | chpasswd
 
 RUN USER=gcs && \
   GROUP=gcs && \

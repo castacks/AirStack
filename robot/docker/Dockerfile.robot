@@ -210,7 +210,10 @@ WORKDIR /home/robot/AirStack/robot/ros_ws
 # creates group "robot" with GID 1000
 RUN addgroup --gid 1000 robot && \
   adduser --uid 1000 --ingroup robot --home /home/robot --shell /bin/bash --disabled-password --gecos "" robot && \
-  chown -R robot:robot /home/robot
+  chown -R robot:robot /home/robot && \
+  usermod -aG sudo robot && \
+  echo "robot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/robot && \
+  echo "robot:robot" | chpasswd
 
 RUN USER=robot && \
   GROUP=robot && \
