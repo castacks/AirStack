@@ -1,21 +1,24 @@
 ---
-# top-level docker-compose file for the autonomy stack
-# This file includes all component docker-compose files
-# Each component has its own docker-compose.yaml file
-# Components are organized by functionality
-# This allows for modular development and deployment
-include:
-  - simulation/isaac-sim/docker/docker-compose.yaml
-  - robot/docker/docker-compose.yaml
-  - gcs/docker/docker-compose.yaml
-  - docs/docker/docker-compose.yaml
-networks:
-  airstack_network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.31.0.0/24
-      driver: default  - stylesheets/extra.css
+copyright: Copyright &copy; 2024 - 2030 AirLab CMU
+docs_dir: .
+site_name: AirStack
+site_dir: ../site
+site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
+exclude_docs: |
+  **/ros_ws/build
+  **/ros_ws/install
+  **/kit-app-template/**
+extra:
+  version:
+    provider: mike
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/castacks
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/airlabcmu
+extra_css:
+  - stylesheets/extra.css
 markdown_extensions:
   - admonition
   - attr_list
@@ -106,13 +109,13 @@ nav:
       - Logging:
           - docs/robot/logging/index.md
   - Ground Control Station:
-      - docs/gcs/index.md
+      - docs/ground_control_station/index.md
       - Usage:
-          - docs/gcs/usage/user_interface.md
+          - docs/ground_control_station/usage/user_interface.md
       - Command Center:
-          - docs/gcs/command_center/command_center.md
+          - docs/ground_control_station/command_center/command_center.md
       - Casualty Assessment:
-          - docs/gcs/casualty_assessment/casualty_assessment.md
+          - docs/ground_control_station/casualty_assessment/casualty_assessment.md
   - Simulation:
       - docs/simulation/index.md
       - Isaac Sim:
