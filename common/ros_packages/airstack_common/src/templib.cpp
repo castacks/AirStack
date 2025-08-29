@@ -35,5 +35,12 @@ namespace airstack {
   void TimeOutMonitor::clear_history(){
     initialized = false;
   }
+
+  float TimeOutMonitor::time_until_timed_out(rclcpp::Time time){
+    if(!initialized)
+      return -1.f;
+
+    return (time - most_recent_time).seconds();
+  }
   
 };

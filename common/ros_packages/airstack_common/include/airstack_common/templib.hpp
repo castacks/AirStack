@@ -91,6 +91,7 @@ namespace airstack {
     void add_time(rclcpp::Time time);
     bool is_timed_out(rclcpp::Time time);
     void clear_history();
+    float time_until_timed_out(rclcpp::Time time);
   };
 
 }

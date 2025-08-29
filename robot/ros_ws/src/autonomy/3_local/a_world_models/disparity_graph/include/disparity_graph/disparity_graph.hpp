@@ -376,6 +376,14 @@ class DisparityGraph {
                 bool is_state_between_fg_and_bg =
                     (state_disparity < graph_node.Im_fg->image.at<float>(v, u)) &&
                     (state_disparity > graph_node.Im_bg->image.at<float>(v, u));
+		
+
+		/*
+		RCLCPP_INFO_STREAM(node_ptr->get_logger(), "fg: " << graph_node.Im_fg->image.at<float>(v, u)
+				   << " bg: " << graph_node.Im_bg->image.at<float>(v, u)
+				   << " disp: " << state_disparity << " occ: " << ((state_disparity - 0.5) / state_disparity)
+				   << " bt: " << is_state_between_fg_and_bg);
+		*/
                 if (is_state_between_fg_and_bg) {
                     // if the disparity point lies between the disparity images, it is occupied and
                     // we add to the occupancy value.
@@ -385,7 +393,7 @@ class DisparityGraph {
                     occupancy += (state_disparity - 0.5) / state_disparity;
 		    occupied_count++;
                 } else {
-                    // otherwise it's outside, we subtdroan.rvizract from the occupancy value
+                    // otherwise it's outside, we subtract from the occupancy value
                     occupancy -= 0.5 * (state_disparity - 0.5) / state_disparity;
 		    occupancy = occupancy < 0. ? 0. : occupancy;
 		    free_count++;
