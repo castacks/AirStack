@@ -12,7 +12,7 @@
             "type": "ros2",
             "request": "launch",
             "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/4_global/b_planners/simple_global_navigator/launch/simple_global_navigator.launch.py",
-            "arguments": ["cost_map_topic:=/robot_1/vdb_mapping/vdb_map_pointcloud", "enable_debug_visualization:=true"]
+            "arguments": ["cost_map_topic:=/robot_1/vdb_mapping/vdb_map_pointcloud", "odom_topic:=/robot_1/odometry_conversion/odometry", "enable_debug_visualization:=true"]
         },
         {
             "name": "ROS2: Attach",

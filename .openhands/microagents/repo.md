@@ -114,3 +114,6 @@ Because everything runs within Docker containers, testing is primarily done thro
 Do not run tests directly on the host machine, instead run tests within the appropriate container, e.g. any tests for anything under robot/ros_ws should run within the robot container.
 
 You can launch the robot docker container with this command: `./airstack.sh up robot`. After that, you must interact with the docker container by running docker commands, and NOT in interactive CLI mode because you get stuck on interactive prompts. So run things as `docker exec airstack-robot-1 bash -c "<command>"`.
+
+### Debugging
+To enable breakpointing, add the following to your colcon build : `--cmake-args -DCMAKE_BUILD_TYPE=Debug`. 

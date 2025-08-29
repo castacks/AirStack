@@ -53,7 +53,8 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     SimpleGlobalNavigator(const rclcpp::NodeOptions& options)
         : Node("simple_global_navigator", options), 
           rng_(std::random_device{}()),
-          current_goal_index_(0) {
+          current_goal_index_(0),
+          odom_received_(false) {
         
         RCLCPP_INFO(this->get_logger(), "Simple Global Navigator initialized.");
 
@@ -124,6 +125,7 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     nav_msgs::msg::Odometry current_odom_;
     std::vector<geometry_msgs::msg::PoseStamped> current_goal_poses_;
     size_t current_goal_index_;
+    bool odom_received_;
     std::mutex state_mutex_;
 
     // RRT* parameters
@@ -183,6 +185,8 @@ class SimpleGlobalNavigator : public rclcpp::Node {
     // Visualization functions
     void publish_rrt_tree_markers(const std::vector<std::shared_ptr<RRTNode>>& nodes,
                                   const geometry_msgs::msg::Point& start,
-                                  const geometry_msgs::msg::Point& goal);
+                                  const geometry_msgs::msg::Point& goal,
+                                  const geometry_msgs::msg::Point* sampled_point = nullptr,
+                                  const geometry_msgs::msg::Point* steered_point = nullptr);
     void clear_rrt_tree_markers();
 };

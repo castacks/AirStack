@@ -92,6 +92,10 @@ void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud
 void SimpleGlobalNavigator::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     current_odom_ = *msg;
+    if (!odom_received_) {
+        odom_received_ = true;
+        RCLCPP_INFO(this->get_logger(), "First odometry message received");
+    }
 }
 
 rclcpp_action::GoalResponse SimpleGlobalNavigator::handle_goal(
@@ -108,6 +112,14 @@ rclcpp_action::GoalResponse SimpleGlobalNavigator::handle_goal(
     if (!cost_map_data_.valid) {
         RCLCPP_WARN(this->get_logger(), "No valid cost map available");
         return rclcpp_action::GoalResponse::REJECT;
+    }
+    
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        if (!odom_received_) {
+            RCLCPP_WARN(this->get_logger(), "No odometry data received yet, rejecting goal");
+            return rclcpp_action::GoalResponse::REJECT;
+        }
     }
     
     (void)uuid;
@@ -329,9 +341,20 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         geometry_msgs::msg::Point new_point = steer(nearest_node->position, rand_point, rrt_step_size_);
         RCLCPP_INFO_STREAM(this->get_logger(), "RRT* steering from: " << nearest_node->position.x << ", " << nearest_node->position.y << ", " << nearest_node->position.z << " to: " << new_point.x << ", " << new_point.y << ", " << new_point.z);
         
+        // Debug visualization: show current sampled and steered points
+        if (enable_debug_visualization_) {
+            publish_rrt_tree_markers(nodes, start, goal, &rand_point, &new_point);
+            // Small delay to make visualization easier to follow during debugging
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        
         // Check collision
         if (!is_collision_free(nearest_node->position, new_point)) {
             RCLCPP_INFO_STREAM(this->get_logger(), "RRT* collision detected between: " << nearest_node->position.x << ", " << nearest_node->position.y << ", " << nearest_node->position.z << " and: " << new_point.x << ", " << new_point.y << ", " << new_point.z);
+            // Show collision case in visualization (sampled and steered points still visible)
+            if (enable_debug_visualization_) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50)); // Brief pause to see collision case
+            }
             continue;
         }
         
@@ -366,9 +389,11 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
         // Rewire tree
         rewire(new_node, near_nodes);
         
-        // Periodic visualization update (every 50 iterations to avoid overwhelming RViz)
-        if (enable_debug_visualization_ && (i % 50 == 0 || i < 100)) {
+        // Update visualization after adding new node (show final state of this iteration)
+        if (enable_debug_visualization_) {
             publish_rrt_tree_markers(nodes, start, goal);
+            // Small delay to make visualization easier to follow during debugging
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         
         // Check if we reached the goal
@@ -481,6 +506,7 @@ bool SimpleGlobalNavigator::is_collision_free(
         
         double cost = get_cost_at_point(sample);
         if (cost > 0.8) { // High cost threshold indicates obstacle
+            RCLCPP_INFO_STREAM(this->get_logger(), "Collision at sampled point: " << sample.x << ", " << sample.y << ", " << sample.z << " with cost: " << cost);
             return false;
         }
     }
@@ -672,7 +698,9 @@ double SimpleGlobalNavigator::calculate_distance_remaining(const geometry_msgs::
 void SimpleGlobalNavigator::publish_rrt_tree_markers(
     const std::vector<std::shared_ptr<RRTNode>>& nodes,
     const geometry_msgs::msg::Point& start,
-    const geometry_msgs::msg::Point& goal) {
+    const geometry_msgs::msg::Point& goal,
+    const geometry_msgs::msg::Point* sampled_point,
+    const geometry_msgs::msg::Point* steered_point) {
     
     if (!enable_debug_visualization_ || !rrt_tree_marker_publisher_) {
         return;
@@ -765,6 +793,25 @@ void SimpleGlobalNavigator::publish_rrt_tree_markers(
     start_marker.color.a = 1.0;
     marker_array.markers.push_back(start_marker);
     
+    // Create start text marker
+    visualization_msgs::msg::Marker start_text;
+    start_text.header.frame_id = "map";
+    start_text.header.stamp = this->now();
+    start_text.ns = "rrt_tree";
+    start_text.id = 6;
+    start_text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+    start_text.action = visualization_msgs::msg::Marker::ADD;
+    start_text.pose.position = start;
+    start_text.pose.position.z += 0.2; // Offset text above the marker
+    start_text.pose.orientation.w = 1.0;
+    start_text.scale.z = 0.1; // Text height
+    start_text.color.r = 1.0;
+    start_text.color.g = 1.0;
+    start_text.color.b = 1.0;
+    start_text.color.a = 1.0;
+    start_text.text = "START";
+    marker_array.markers.push_back(start_text);
+    
     // Create goal marker
     visualization_msgs::msg::Marker goal_marker;
     goal_marker.header.frame_id = "map";
@@ -783,6 +830,105 @@ void SimpleGlobalNavigator::publish_rrt_tree_markers(
     goal_marker.color.b = 0.0;
     goal_marker.color.a = 1.0;
     marker_array.markers.push_back(goal_marker);
+    
+    // Create goal text marker
+    visualization_msgs::msg::Marker goal_text;
+    goal_text.header.frame_id = "map";
+    goal_text.header.stamp = this->now();
+    goal_text.ns = "rrt_tree";
+    goal_text.id = 7;
+    goal_text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+    goal_text.action = visualization_msgs::msg::Marker::ADD;
+    goal_text.pose.position = goal;
+    goal_text.pose.position.z += 0.2; // Offset text above the marker
+    goal_text.pose.orientation.w = 1.0;
+    goal_text.scale.z = 0.1; // Text height
+    goal_text.color.r = 1.0;
+    goal_text.color.g = 1.0;
+    goal_text.color.b = 1.0;
+    goal_text.color.a = 1.0;
+    goal_text.text = "GOAL";
+    marker_array.markers.push_back(goal_text);
+    
+    // Create sampled point marker (if provided)
+    if (sampled_point) {
+        visualization_msgs::msg::Marker sampled_marker;
+        sampled_marker.header.frame_id = "map";
+        sampled_marker.header.stamp = this->now();
+        sampled_marker.ns = "rrt_tree";
+        sampled_marker.id = 4;
+        sampled_marker.type = visualization_msgs::msg::Marker::SPHERE;
+        sampled_marker.action = visualization_msgs::msg::Marker::ADD;
+        sampled_marker.pose.position = *sampled_point;
+        sampled_marker.pose.orientation.w = 1.0;
+        sampled_marker.scale.x = 0.12;
+        sampled_marker.scale.y = 0.12;
+        sampled_marker.scale.z = 0.12;
+        sampled_marker.color.r = 1.0;
+        sampled_marker.color.g = 1.0;
+        sampled_marker.color.b = 0.0;  // Yellow for sampled point
+        sampled_marker.color.a = 0.9;
+        marker_array.markers.push_back(sampled_marker);
+        
+        // Create sampled point text marker
+        visualization_msgs::msg::Marker sampled_text;
+        sampled_text.header.frame_id = "map";
+        sampled_text.header.stamp = this->now();
+        sampled_text.ns = "rrt_tree";
+        sampled_text.id = 8;
+        sampled_text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+        sampled_text.action = visualization_msgs::msg::Marker::ADD;
+        sampled_text.pose.position = *sampled_point;
+        sampled_text.pose.position.z += 0.2; // Offset text above the marker
+        sampled_text.pose.orientation.w = 1.0;
+        sampled_text.scale.z = 0.08; // Text height
+        sampled_text.color.r = 1.0;
+        sampled_text.color.g = 1.0;
+        sampled_text.color.b = 0.0;  // Yellow text to match marker
+        sampled_text.color.a = 1.0;
+        sampled_text.text = "SAMPLED";
+        marker_array.markers.push_back(sampled_text);
+    }
+    
+    // Create steered point marker (if provided)
+    if (steered_point) {
+        visualization_msgs::msg::Marker steered_marker;
+        steered_marker.header.frame_id = "map";
+        steered_marker.header.stamp = this->now();
+        steered_marker.ns = "rrt_tree";
+        steered_marker.id = 5;
+        steered_marker.type = visualization_msgs::msg::Marker::SPHERE;
+        steered_marker.action = visualization_msgs::msg::Marker::ADD;
+        steered_marker.pose.position = *steered_point;
+        steered_marker.pose.orientation.w = 1.0;
+        steered_marker.scale.x = 0.10;
+        steered_marker.scale.y = 0.10;
+        steered_marker.scale.z = 0.10;
+        steered_marker.color.r = 1.0;
+        steered_marker.color.g = 0.5;
+        steered_marker.color.b = 0.0;  // Orange for steered point
+        steered_marker.color.a = 0.9;
+        marker_array.markers.push_back(steered_marker);
+        
+        // Create steered point text marker
+        visualization_msgs::msg::Marker steered_text;
+        steered_text.header.frame_id = "map";
+        steered_text.header.stamp = this->now();
+        steered_text.ns = "rrt_tree";
+        steered_text.id = 9;
+        steered_text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+        steered_text.action = visualization_msgs::msg::Marker::ADD;
+        steered_text.pose.position = *steered_point;
+        steered_text.pose.position.z += 0.2; // Offset text above the marker
+        steered_text.pose.orientation.w = 1.0;
+        steered_text.scale.z = 0.08; // Text height
+        steered_text.color.r = 1.0;
+        steered_text.color.g = 0.5;
+        steered_text.color.b = 0.0;  // Orange text to match marker
+        steered_text.color.a = 1.0;
+        steered_text.text = "STEERED";
+        marker_array.markers.push_back(steered_text);
+    }
     
     // Publish the markers
     rrt_tree_marker_publisher_->publish(marker_array);
