@@ -56,8 +56,8 @@
     # Rewind parameters
     stuck_duration_threshold: 6.0
     all_in_collision_duration_threshold: 2.0
-    map_clearing_max_rewind_time: 10.0
-    map_clearing_rewind_distance: 1.5
+    map_clearing_max_rewind_time: 20.0
+    map_clearing_rewind_distance: 5.0
     stationary_distance_threshold: 0.5
     stationary_history_duration: 10.0
     map_clearing_wait_time: 30.0

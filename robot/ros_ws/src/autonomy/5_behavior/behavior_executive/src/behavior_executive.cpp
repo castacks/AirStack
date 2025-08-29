@@ -332,15 +332,17 @@ void BehaviorExecutive::timer_callback() {
             std::cout << "mode 1" << std::endl;
             mode_result.wait();
             std::cout << "mode 2" << std::endl;
-	    
-            std_srvs::srv::Trigger::Request::SharedPtr request =
-                std::make_shared<std_srvs::srv::Trigger::Request>();
-            auto result = global_planner_toggle_client->async_send_request(request);
-            result.wait();
-            if (result.get()->success)
-                global_plan_action->set_success();
-            else
-                global_plan_action->set_failure();
+
+	    if(global_planner_toggle_client->service_is_ready()){
+	        std_srvs::srv::Trigger::Request::SharedPtr request =
+                    std::make_shared<std_srvs::srv::Trigger::Request>();
+	        auto result = global_planner_toggle_client->async_send_request(request);
+	        result.wait();
+	        if (result.get()->success)
+                    global_plan_action->set_success();
+	        else
+                    global_plan_action->set_failure();
+	    }
         };
     }
 
