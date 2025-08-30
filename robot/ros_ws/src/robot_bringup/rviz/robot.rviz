@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1
         - /TF1/Frames1
         - /Sensors1
         - /Perception1
@@ -60,9 +61,9 @@ Visualization Manager:
       Frames:
         All Enabled: false
         CameraLeft:
-          Value: true
+          Value: false
         CameraRight:
-          Value: true
+          Value: false
         ZED_X:
           Value: false
         base_link:
@@ -74,13 +75,13 @@ Visualization Manager:
         base_link_stabilized:
           Value: false
         look_ahead_point:
-          Value: true
+          Value: false
         look_ahead_point_stabilized:
-          Value: true
+          Value: false
         macvo_ned:
-          Value: true
+          Value: false
         map:
-          Value: true
+          Value: false
         map_ned:
           Value: false
         mavros_enu:
@@ -92,11 +93,11 @@ Visualization Manager:
         ouster:
           Value: false
         tracking_point:
-          Value: true
+          Value: false
         tracking_point_stabilized:
-          Value: true
+          Value: false
         world:
-          Value: true
+          Value: false
       Marker Scale: 1
       Name: TF
       Show Arrows: true
@@ -621,25 +622,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 10.01745891571045
+      Distance: 5.623197555541992
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.508908271789551
-        Y: 0.4658271074295044
-        Z: -1.9747774600982666
+        X: 2.9046618938446045
+        Y: 0.9846888184547424
+        Z: -1.1069581508636475
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6203975677490234
+      Pitch: 0.3403979539871216
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 3.5504164695739746
+      Yaw: 3.315410614013672
     Saved: ~
 Window Geometry:
   Displays:
