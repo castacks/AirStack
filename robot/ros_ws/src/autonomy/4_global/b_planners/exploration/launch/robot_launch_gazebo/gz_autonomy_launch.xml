@@ -4,7 +4,7 @@ runs for visualization -->
 <launch>
 
   <!-- Interface -->
-  <!-- <include file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)" /> -->
+  <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_interface_launch.xml" />
 
   <!-- Sensors -->
   <!-- <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/launch/$(env SENSORS_LAUNCH_FILE)" /> -->
@@ -19,7 +19,7 @@ runs for visualization -->
   <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_global_launch.xml" />
 
   <!-- Behavior -->
-  <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_behavior_launch.xml" />
+  <!-- <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_behavior_launch.xml" /> -->
 
 
 </launch>

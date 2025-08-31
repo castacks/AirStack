@@ -22,6 +22,7 @@
 #include "../include/exploration_logic.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/filters/filter.h>
 #include <tf2_eigen/tf2_eigen.hpp>
 
 #include "utils/utils.hpp"
@@ -373,6 +374,27 @@ void ExplorationNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedP
                      ex.what());
         return;
     }
+
+    // pre-processing: remove nan
+    std::vector<int> idx;
+    pcl::removeNaNFromPointCloud(*incoming_cloud, *incoming_cloud, idx);
+
+    double min_range = 0.5;
+    
+    // pre-processing: remove too close points
+    pcl::PointCloud<pcl::PointXYZ>::Ptr tmp(new pcl::PointCloud<pcl::PointXYZ>);
+    tmp->reserve(incoming_cloud->size());
+    const float r2min = min_range * min_range;
+    for (const auto &p : incoming_cloud->points)
+    {
+        const float r2 = p.x * p.x + p.y * p.y + p.z * p.z;
+        if (r2 >= r2min)
+            tmp->points.push_back(p);
+    }
+    tmp->width = static_cast<uint32_t>(tmp->points.size());
+    tmp->height = 1;
+    tmp->is_dense = true;
+    incoming_cloud.swap(tmp);
 
     pcl::transformPointCloud(*incoming_cloud, *incoming_cloud, tf2::transformToEigen(cloud_origin_tf).matrix());
     tf2::Vector3 origin_vec(cloud_origin_tf.transform.translation.x,
