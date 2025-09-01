@@ -74,11 +74,11 @@ ros2 launch simple_global_navigator simple_global_navigator.launch.py \
 ```bash
 # Basic navigation goal
 ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
-    "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 1.0}}}]}"
+    "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 5.0}}}]}"
 
 # Navigation with time constraint (30 seconds max)
 ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
-    "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 1.0}}}], max_planning_seconds: 30.0}"
+    "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 5.0}}}], max_planning_seconds: 30.0}"
 
 # Multi-goal navigation with time limit
 ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \

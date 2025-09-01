@@ -18,6 +18,7 @@ void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud
     // Extract points and optionally intensity values from PointCloud2
     sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
     sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
+    
     sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
     
     bool first_point = true;
@@ -60,7 +61,7 @@ void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud
             point.x = *iter_x;
             point.y = *iter_y;
             point.z = *iter_z;
-            
+
             cost_map_data_.points.push_back(point);
             cost_map_data_.costs.push_back(default_cost);
             
@@ -85,7 +86,8 @@ void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud
     cost_map_data_.valid = !cost_map_data_.points.empty();
     
     if (cost_map_data_.valid) {
-        RCLCPP_INFO(this->get_logger(), "Received cost map with %zu points", cost_map_data_.points.size());
+        RCLCPP_INFO(this->get_logger(), "Received cost map with %zu points, voxel size: %.3f", 
+                   cost_map_data_.points.size(), cost_map_data_.resolution);
     }
 }
 
@@ -531,6 +533,12 @@ double SimpleGlobalNavigator::get_cost_at_point(const geometry_msgs::msg::Point&
         }
     }
     
+    // Check if the nearest neighbor is within the voxel size
+    // If the distance is greater than the voxel size, return 0 (free space)
+    if (min_dist > cost_map_data_.resolution) {
+        return 0.0;
+    }
+    
     return cost_map_data_.costs[nearest_idx];
 }
 
@@ -694,6 +702,7 @@ double SimpleGlobalNavigator::calculate_distance_remaining(const geometry_msgs::
     
     return total_distance;
 }
+
 
 void SimpleGlobalNavigator::publish_rrt_tree_markers(
     const std::vector<std::shared_ptr<RRTNode>>& nodes,

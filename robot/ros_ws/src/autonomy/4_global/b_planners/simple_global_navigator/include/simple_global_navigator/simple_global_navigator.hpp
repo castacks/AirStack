@@ -42,7 +42,7 @@ struct CostMapData {
     geometry_msgs::msg::Point max_bounds;
     bool valid;
     
-    CostMapData() : resolution(0.1), valid(false) {}
+    CostMapData() : resolution(0.5), valid(false) {}
 };
 
 class SimpleGlobalNavigator : public rclcpp::Node {
@@ -66,6 +66,7 @@ class SimpleGlobalNavigator : public rclcpp::Node {
         this->declare_parameter("cost_map_topic", "/cost_map");
         this->declare_parameter("odom_topic", "/odom");
         this->declare_parameter("enable_debug_visualization", true);
+        this->declare_parameter("resolution", 0.5);
 
         // Get parameters
         rrt_max_iterations_ = this->get_parameter("rrt_max_iterations").as_int();
@@ -73,6 +74,7 @@ class SimpleGlobalNavigator : public rclcpp::Node {
         rrt_goal_tolerance_ = this->get_parameter("rrt_goal_tolerance").as_double();
         rrt_rewire_radius_ = this->get_parameter("rrt_rewire_radius").as_double();
         enable_debug_visualization_ = this->get_parameter("enable_debug_visualization").as_bool();
+        cost_map_data_.resolution = this->get_parameter("resolution").as_double();
 
         // Publishers
         global_plan_publisher_ = this->create_publisher<nav_msgs::msg::Path>(
