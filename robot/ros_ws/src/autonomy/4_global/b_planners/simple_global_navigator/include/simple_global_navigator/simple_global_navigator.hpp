@@ -61,7 +61,7 @@ class SimpleGlobalNavigator : public rclcpp::Node {
         // Declare parameters
         this->declare_parameter("rrt_max_iterations", 5000);
         this->declare_parameter("rrt_step_size", 5.0);
-        this->declare_parameter("rrt_goal_tolerance", 2.0);
+        this->declare_parameter("rrt_goal_tolerance", 5.0);
         this->declare_parameter("rrt_rewire_radius", 2.0);
         this->declare_parameter("cost_map_topic", "/cost_map");
         this->declare_parameter("odom_topic", "/odom");

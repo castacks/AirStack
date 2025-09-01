@@ -22,7 +22,7 @@ def generate_launch_description():
     
     rrt_goal_tolerance_arg = DeclareLaunchArgument(
         'rrt_goal_tolerance',
-        default_value='0.3',
+        default_value='3.0',
         description='Goal tolerance for RRT* algorithm'
     )
     

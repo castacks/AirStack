@@ -568,7 +568,7 @@ Visualization Manager:
       Enabled: true
       Name: RRTTreeMarkers
       Namespaces:
-        rrt_tree: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -622,7 +622,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 5.623197555541992
+      Distance: 13.722342491149902
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -637,10 +637,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3403979539871216
+      Pitch: 0.4553978741168976
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 3.315410614013672
+      Yaw: 3.2804102897644043
     Saved: ~
 Window Geometry:
   Displays:

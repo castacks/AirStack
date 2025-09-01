@@ -83,8 +83,8 @@ ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
 # Multi-goal navigation with time limit
 ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
     "{goal_poses: [
-        {header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 1.0}}},
-        {header: {frame_id: 'map'}, pose: {position: {x: 8.0, y: 6.0, z: 1.5}}}
+        {header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 5.0}}},
+        {header: {frame_id: 'map'}, pose: {position: {x: 8.0, y: 6.0, z: 5.5}}}
     ], max_planning_seconds: 60.0}"
 ```
 
