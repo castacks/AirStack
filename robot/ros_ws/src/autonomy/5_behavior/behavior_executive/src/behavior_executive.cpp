@@ -184,7 +184,7 @@ void BehaviorExecutive::timer_callback() {
     if (takeoff_action->is_active()) {
         // std::cout << "takeoff" << std::endl;
         takeoff_action->set_running();
-	in_air_condition->set(true);
+        in_air_condition->set(true);
         if (takeoff_action->active_has_changed()) {
             // put trajectory controller in track mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
