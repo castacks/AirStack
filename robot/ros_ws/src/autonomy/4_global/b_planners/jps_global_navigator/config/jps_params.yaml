@@ -1,0 +1,27 @@
+jps_global_navigator:
+  ros__parameters:
+    # JPS Algorithm Parameters
+    jps_max_iterations: 10000          # Maximum iterations for JPS search
+    jps_goal_tolerance: 2.0            # Distance tolerance to consider goal reached (meters)
+    cost_threshold: 0.9               # Cost threshold above which cells are considered obstacles
+    
+    # Path Smoothing Parameters
+    smoothing_iterations: 5            # Number of smoothing iterations to apply
+    smoothing_step_size: 0.1          # Step size for smoothing algorithm
+    
+    # Grid Parameters
+    resolution: 0.5                    # Grid resolution in meters
+    
+    # Topic Configuration
+    cost_map_topic: "/cost_map"        # Input cost map topic
+    odom_topic: "/odom"               # Input odometry topic
+    
+    # Visualization
+    enable_debug_visualization: true   # Enable visualization of search process
+    
+    # Performance Tuning
+    # These parameters can be adjusted based on your specific use case:
+    # - Increase jps_max_iterations for more complex environments
+    # - Decrease resolution for faster planning (but less precise paths)
+    # - Increase smoothing_iterations for smoother paths
+    # - Adjust cost_threshold based on your cost map values
