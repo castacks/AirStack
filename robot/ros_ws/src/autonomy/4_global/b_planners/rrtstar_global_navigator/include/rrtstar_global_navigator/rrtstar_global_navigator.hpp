@@ -45,13 +45,13 @@ struct CostMapData {
     CostMapData() : resolution(0.5), valid(false) {}
 };
 
-class SimpleGlobalNavigator : public rclcpp::Node {
+class RRTStarGlobalNavigator : public rclcpp::Node {
    public:
     using NavigationTask = task_msgs::action::NavigationTask;
     using GoalHandleNavigationTask = rclcpp_action::ServerGoalHandle<NavigationTask>;
 
-    SimpleGlobalNavigator(const rclcpp::NodeOptions& options)
-        : Node("simple_global_navigator", options), 
+    RRTStarGlobalNavigator(const rclcpp::NodeOptions& options)
+        : Node("rrtstar_global_navigator", options), 
           rng_(std::random_device{}()),
           current_goal_index_(0),
           odom_received_(false) {
@@ -90,24 +90,24 @@ class SimpleGlobalNavigator : public rclcpp::Node {
         cost_map_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             this->get_parameter("cost_map_topic").as_string(), 
             rclcpp::QoS(10),
-            std::bind(&SimpleGlobalNavigator::cost_map_callback, this, std::placeholders::_1));
+            std::bind(&RRTStarGlobalNavigator::cost_map_callback, this, std::placeholders::_1));
 
         odom_subscriber_ = this->create_subscription<nav_msgs::msg::Odometry>(
             this->get_parameter("odom_topic").as_string(),
             rclcpp::QoS(10),
-            std::bind(&SimpleGlobalNavigator::odom_callback, this, std::placeholders::_1));
+            std::bind(&RRTStarGlobalNavigator::odom_callback, this, std::placeholders::_1));
 
         // Action server
         using namespace std::placeholders;
         this->action_server_ = rclcpp_action::create_server<NavigationTask>(
             this, 
-            "simple_navigator", 
-            std::bind(&SimpleGlobalNavigator::handle_goal, this, _1, _2),
-            std::bind(&SimpleGlobalNavigator::handle_cancel, this, _1),
-            std::bind(&SimpleGlobalNavigator::handle_accepted, this, _1));
+            "rrtstar_navigator", 
+            std::bind(&RRTStarGlobalNavigator::handle_goal, this, _1, _2),
+            std::bind(&RRTStarGlobalNavigator::handle_cancel, this, _1),
+            std::bind(&RRTStarGlobalNavigator::handle_accepted, this, _1));
     }
 
-    ~SimpleGlobalNavigator() {
+    ~RRTStarGlobalNavigator() {
         // Ensure action server is properly shut down
         if (action_server_) {
             action_server_.reset();

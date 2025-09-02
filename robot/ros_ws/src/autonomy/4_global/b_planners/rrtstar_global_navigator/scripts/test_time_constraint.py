@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Test script for verifying time constraint functionality in SimpleGlobalNavigator.
+Test script for verifying time constraint functionality in RRTStarGlobalNavigator.
 This script sends navigation goals with different time constraints and monitors the results.
 """
 
@@ -17,7 +17,7 @@ class TimeConstraintTester(Node):
     def __init__(self):
         super().__init__('time_constraint_tester')
         
-        self.action_client = ActionClient(self, NavigationTask, '/simple_navigator')
+        self.action_client = ActionClient(self, NavigationTask, '/rrtstar_navigator')
         
         # Wait for action server
         self.get_logger().info('Waiting for action server...')

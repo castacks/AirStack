@@ -22,7 +22,7 @@ A ROS2 global planner implementation that handles NavigationTask actions using R
 
 ### Key Classes
 
-- `SimpleGlobalNavigator`: Main node class implementing the action server
+- `RRTStarGlobalNavigator`: Main node class implementing the action server
 - `RRTNode`: Tree node structure for RRT* algorithm
 - `CostMapData`: Container for processed cost map information
 
@@ -39,7 +39,7 @@ A ROS2 global planner implementation that handles NavigationTask actions using R
 
 ### Action Interface
 
-- `/simple_navigator` (`task_msgs/NavigationTask`): Main navigation action interface
+- `/rrtstar_navigator` (`task_msgs/NavigationTask`): Main navigation action interface
 
 ## Parameters
 
@@ -57,13 +57,13 @@ A ROS2 global planner implementation that handles NavigationTask actions using R
 ### Launch the Node
 
 ```bash
-ros2 launch simple_global_navigator simple_global_navigator.launch.py
+ros2 launch rrtstar_global_navigator rrtstar_global_navigator.launch.py
 ```
 
 ### With Custom Parameters
 
 ```bash
-ros2 launch simple_global_navigator simple_global_navigator.launch.py \
+ros2 launch rrtstar_global_navigator rrtstar_global_navigator.launch.py \
     rrt_max_iterations:=10000 \
     rrt_step_size:=0.3 \
     cost_map_topic:=/my_cost_map
@@ -73,15 +73,15 @@ ros2 launch simple_global_navigator simple_global_navigator.launch.py \
 
 ```bash
 # Basic navigation goal
-ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
+ros2 action send_goal /rrtstar_navigator task_msgs/action/NavigationTask \
     "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 5.0}}}]}"
 
 # Navigation with time constraint (30 seconds max)
-ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
+ros2 action send_goal /rrtstar_navigator task_msgs/action/NavigationTask \
     "{goal_poses: [{header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 5.0}}}], max_planning_seconds: 30.0}"
 
 # Multi-goal navigation with time limit
-ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
+ros2 action send_goal /rrtstar_navigator task_msgs/action/NavigationTask \
     "{goal_poses: [
         {header: {frame_id: 'map'}, pose: {position: {x: 5.0, y: 3.0, z: 5.0}}},
         {header: {frame_id: 'map'}, pose: {position: {x: 8.0, y: 6.0, z: 5.5}}}
@@ -131,7 +131,7 @@ ros2 action send_goal /simple_navigator task_msgs/action/NavigationTask \
 
 ```bash
 cd /path/to/ros_ws
-colcon build --packages-select simple_global_navigator
+colcon build --packages-select rrtstar_global_navigator
 source install/setup.bash
 ```
 
@@ -141,10 +141,10 @@ The Simple Global Navigator includes a comprehensive test suite to verify planne
 
 ### Test Categories
 
-1. **Unit Tests** (`test_simple_global_navigator_unit`): Core functionality without ROS integration
-2. **Integration Tests** (`test_simple_global_navigator_integration`): ROS action server and topic functionality  
-3. **Visualization Tests** (`test_simple_global_navigator_visualization`): RRT tree and path visualization
-4. **Minimal Tests** (`test_simple_global_navigator_minimal`): Basic node creation and data handling
+1. **Unit Tests** (`test_rrtstar_global_navigator_unit`): Core functionality without ROS integration
+2. **Integration Tests** (`test_rrtstar_global_navigator_integration`): ROS action server and topic functionality  
+3. **Visualization Tests** (`test_rrtstar_global_navigator_visualization`): RRT tree and path visualization
+4. **Minimal Tests** (`test_rrtstar_global_navigator_minimal`): Basic node creation and data handling
 
 ### Running Tests
 
@@ -152,14 +152,14 @@ The Simple Global Navigator includes a comprehensive test suite to verify planne
 
 ```bash
 cd /path/to/ros_ws
-colcon build --packages-select simple_global_navigator
+colcon build --packages-select rrtstar_global_navigator
 source install/setup.bash
 ```
 
 #### Run All Tests
 
 ```bash
-cd build/simple_global_navigator
+cd build/rrtstar_global_navigator
 source /opt/ros/humble/setup.bash
 source ../../install/setup.bash
 ctest --output-on-failure
@@ -169,16 +169,16 @@ ctest --output-on-failure
 
 ```bash
 # Unit tests only (always stable)
-ctest --output-on-failure -R 'test_simple_global_navigator_unit'
+ctest --output-on-failure -R 'test_rrtstar_global_navigator_unit'
 
 # Minimal tests (basic functionality)
-ctest --output-on-failure -R 'test_simple_global_navigator_minimal'
+ctest --output-on-failure -R 'test_rrtstar_global_navigator_minimal'
 
 # Integration tests (may have threading issues when run together)
-ctest --output-on-failure -R 'test_simple_global_navigator_integration'
+ctest --output-on-failure -R 'test_rrtstar_global_navigator_integration'
 
 # Visualization tests (may have threading issues when run together)
-ctest --output-on-failure -R 'test_simple_global_navigator_visualization'
+ctest --output-on-failure -R 'test_rrtstar_global_navigator_visualization'
 ```
 
 #### Run Individual Tests
@@ -187,13 +187,13 @@ For more reliable results, run integration and visualization tests individually:
 
 ```bash
 # Individual integration tests
-./test_simple_global_navigator_integration --gtest_filter='SimpleGlobalNavigatorIntegrationTest.CostMapSubscription'
-./test_simple_global_navigator_integration --gtest_filter='SimpleGlobalNavigatorIntegrationTest.ActionServerAvailability'
-./test_simple_global_navigator_integration --gtest_filter='SimpleGlobalNavigatorIntegrationTest.NavigationActionValidGoal'
+./test_rrtstar_global_navigator_integration --gtest_filter='RRTStarGlobalNavigatorIntegrationTest.CostMapSubscription'
+./test_rrtstar_global_navigator_integration --gtest_filter='RRTStarGlobalNavigatorIntegrationTest.ActionServerAvailability'
+./test_rrtstar_global_navigator_integration --gtest_filter='RRTStarGlobalNavigatorIntegrationTest.NavigationActionValidGoal'
 
 # Individual visualization tests  
-./test_simple_global_navigator_visualization --gtest_filter='SimpleGlobalNavigatorVisualizationTest.VisualizationEnabled'
-./test_simple_global_navigator_visualization --gtest_filter='SimpleGlobalNavigatorVisualizationTest.RRTTreeMarkerPublication'
+./test_rrtstar_global_navigator_visualization --gtest_filter='RRTStarGlobalNavigatorVisualizationTest.VisualizationEnabled'
+./test_rrtstar_global_navigator_visualization --gtest_filter='RRTStarGlobalNavigatorVisualizationTest.RRTTreeMarkerPublication'
 ```
 
 ### Test Coverage
@@ -255,7 +255,7 @@ For CI/CD pipelines, use the stable test subset:
 
 ```bash
 # Recommended CI test command
-ctest --output-on-failure -R 'test_simple_global_navigator_(unit|minimal)'
+ctest --output-on-failure -R 'test_rrtstar_global_navigator_(unit|minimal)'
 ```
 
 This ensures reliable test results while still validating core functionality.

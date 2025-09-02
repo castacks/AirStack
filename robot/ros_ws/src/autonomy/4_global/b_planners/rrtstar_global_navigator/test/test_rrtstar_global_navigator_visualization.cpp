@@ -11,11 +11,11 @@
 #include <task_msgs/action/navigation_task.hpp>
 #include <chrono>
 #include <thread>
-#include "simple_global_navigator/simple_global_navigator.hpp"
+#include "rrtstar_global_navigator/rrtstar_global_navigator.hpp"
 
 using namespace std::chrono_literals;
 
-class SimpleGlobalNavigatorVisualizationTest : public ::testing::Test {
+class RRTStarGlobalNavigatorVisualizationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         rclcpp::init(0, nullptr);
@@ -24,7 +24,7 @@ protected:
         node_options_ = rclcpp::NodeOptions();
         node_options_.parameter_overrides().push_back(
             rclcpp::Parameter("enable_debug_visualization", true));
-        navigator_ = std::make_shared<SimpleGlobalNavigator>(node_options_);
+        navigator_ = std::make_shared<RRTStarGlobalNavigator>(node_options_);
         
         // Create test client node
         test_node_ = rclcpp::Node::make_shared("test_node");
@@ -52,7 +52,7 @@ protected:
         
         // Create action client
         action_client_ = rclcpp_action::create_client<task_msgs::action::NavigationTask>(
-            test_node_, "/simple_navigator");
+            test_node_, "/rrtstar_navigator");
         
         // Start executor in separate thread
         executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
@@ -149,7 +149,7 @@ protected:
         return goal;
     }
 
-    std::shared_ptr<SimpleGlobalNavigator> navigator_;
+    std::shared_ptr<RRTStarGlobalNavigator> navigator_;
     std::shared_ptr<rclcpp::Node> test_node_;
     rclcpp::NodeOptions node_options_;
     
@@ -171,13 +171,13 @@ protected:
 };
 
 // Test that visualization is enabled
-TEST_F(SimpleGlobalNavigatorVisualizationTest, VisualizationEnabled) {
+TEST_F(RRTStarGlobalNavigatorVisualizationTest, VisualizationEnabled) {
     // Check that debug visualization parameter is set to true
     EXPECT_TRUE(navigator_->get_parameter("enable_debug_visualization").as_bool());
 }
 
 // Test RRT tree marker publication
-TEST_F(SimpleGlobalNavigatorVisualizationTest, RRTTreeMarkerPublication) {
+TEST_F(RRTStarGlobalNavigatorVisualizationTest, RRTTreeMarkerPublication) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     
@@ -246,7 +246,7 @@ TEST_F(SimpleGlobalNavigatorVisualizationTest, RRTTreeMarkerPublication) {
 }
 
 // Test global plan visualization
-TEST_F(SimpleGlobalNavigatorVisualizationTest, GlobalPlanVisualization) {
+TEST_F(RRTStarGlobalNavigatorVisualizationTest, GlobalPlanVisualization) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     
@@ -316,7 +316,7 @@ TEST_F(SimpleGlobalNavigatorVisualizationTest, GlobalPlanVisualization) {
 }
 
 // Test marker clearing functionality
-TEST_F(SimpleGlobalNavigatorVisualizationTest, MarkerClearing) {
+TEST_F(RRTStarGlobalNavigatorVisualizationTest, MarkerClearing) {
     // This test would verify that markers are properly cleared between planning sessions
     // For now, we'll just verify that the visualization system is working
     
@@ -383,7 +383,7 @@ TEST_F(SimpleGlobalNavigatorVisualizationTest, MarkerClearing) {
 }
 
 // Test visualization topic availability
-TEST_F(SimpleGlobalNavigatorVisualizationTest, VisualizationTopicsAvailable) {
+TEST_F(RRTStarGlobalNavigatorVisualizationTest, VisualizationTopicsAvailable) {
     // Check that visualization topics are available
     auto topic_names = navigator_->get_topic_names_and_types();
     
@@ -404,7 +404,7 @@ TEST_F(SimpleGlobalNavigatorVisualizationTest, VisualizationTopicsAvailable) {
 }
 
 // Test marker message structure
-TEST_F(SimpleGlobalNavigatorVisualizationTest, MarkerMessageStructure) {
+TEST_F(RRTStarGlobalNavigatorVisualizationTest, MarkerMessageStructure) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     

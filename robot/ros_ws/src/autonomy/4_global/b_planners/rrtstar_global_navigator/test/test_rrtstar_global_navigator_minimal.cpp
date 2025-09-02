@@ -10,7 +10,7 @@
 
 using namespace std::chrono_literals;
 
-class SimpleGlobalNavigatorMinimalTest : public ::testing::Test {
+class RRTStarGlobalNavigatorMinimalTest : public ::testing::Test {
 protected:
     void SetUp() override {
         rclcpp::init(0, nullptr);
@@ -83,7 +83,7 @@ protected:
 };
 
 // Test that we can publish cost map and odometry data
-TEST_F(SimpleGlobalNavigatorMinimalTest, BasicDataPublication) {
+TEST_F(RRTStarGlobalNavigatorMinimalTest, BasicDataPublication) {
     auto cost_map = create_simple_cost_map();
     auto odom = create_simple_odometry();
     
@@ -99,19 +99,19 @@ TEST_F(SimpleGlobalNavigatorMinimalTest, BasicDataPublication) {
 }
 
 // Test that the navigator node can be created and destroyed safely
-TEST_F(SimpleGlobalNavigatorMinimalTest, NavigatorNodeCreation) {
+TEST_F(RRTStarGlobalNavigatorMinimalTest, NavigatorNodeCreation) {
     // This test just verifies that we can create the navigator node
     // without it crashing during construction/destruction
     
     // Launch the navigator node in a separate process to avoid threading issues
-    auto navigator_node = rclcpp::Node::make_shared("simple_global_navigator");
+    auto navigator_node = rclcpp::Node::make_shared("rrtstar_global_navigator");
     
     // Give it time to initialize
     std::this_thread::sleep_for(100ms);
     
     // Verify node was created
     EXPECT_NE(navigator_node, nullptr);
-    EXPECT_STREQ(navigator_node->get_name(), "simple_global_navigator");
+    EXPECT_STREQ(navigator_node->get_name(), "rrtstar_global_navigator");
     
     // Clean shutdown
     navigator_node.reset();

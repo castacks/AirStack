@@ -35,11 +35,11 @@
 - Timeout detection has minimal computational impact on algorithm performance
 
 ### Files Modified
-- `include/simple_global_navigator/simple_global_navigator.hpp`: Added time parameter to planning method
-- `src/simple_global_navigator.cpp`: Implemented time constraint logic throughout
+- `include/rrtstar_global_navigator/rrtstar_global_navigator.hpp`: Added time parameter to planning method
+- `src/rrtstar_global_navigator.cpp`: Implemented time constraint logic throughout
 - `README.md`: Updated documentation with time constraint examples and behavior
 - `CMakeLists.txt`: Added test script installation
-- `launch/simple_global_navigator.launch.py`: Launch file remains compatible
+- `launch/rrtstar_global_navigator.launch.py`: Launch file remains compatible
 
 ### Testing
 - Added comprehensive test script with multiple time constraint scenarios

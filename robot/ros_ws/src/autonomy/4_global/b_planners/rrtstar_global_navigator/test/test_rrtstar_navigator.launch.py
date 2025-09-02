@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Launch file to run the SimpleGlobalNavigator with tests.
+Launch file to run the RRTStarGlobalNavigator with tests.
 """
 
 from launch import LaunchDescription
@@ -13,13 +13,13 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # Get package directory
-    pkg_dir = get_package_share_directory('simple_global_navigator')
+    pkg_dir = get_package_share_directory('rrtstar_global_navigator')
     
     # Navigator node
     navigator_node = Node(
-        package='simple_global_navigator',
-        executable='simple_global_navigator_node',
-        name='simple_global_navigator',
+        package='rrtstar_global_navigator',
+        executable='rrtstar_global_navigator_node',
+        name='rrtstar_global_navigator',
         parameters=[{
             'max_planning_time': 10.0,
             'max_iterations': 1000,
@@ -36,9 +36,9 @@ def generate_launch_description():
         period=3.0,  # Wait 3 seconds before starting tests
         actions=[
             Node(
-                package='simple_global_navigator',
+                package='rrtstar_global_navigator',
                 executable='run_simple_tests.py',
-                name='simple_navigator_tester',
+                name='rrtstar_navigator_tester',
                 output='screen'
             )
         ]

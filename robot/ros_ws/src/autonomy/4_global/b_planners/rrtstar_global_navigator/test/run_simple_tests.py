@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Simple test runner for the SimpleGlobalNavigator package.
+Simple test runner for the RRTStarGlobalNavigator package.
 This script runs basic functionality tests without requiring the full build system.
 """
 
@@ -24,7 +24,7 @@ import numpy as np
 
 class SimpleNavigatorTester(Node):
     def __init__(self):
-        super().__init__('simple_navigator_tester')
+        super().__init__('rrtstar_navigator_tester')
         
         # Test state
         self.tests_passed = 0
@@ -42,7 +42,7 @@ class SimpleNavigatorTester(Node):
             MarkerArray, '/rrt_tree_markers', self.rrt_markers_callback, 10)
         
         # Action client
-        self.action_client = ActionClient(self, NavigationTask, '/simple_navigator')
+        self.action_client = ActionClient(self, NavigationTask, '/rrtstar_navigator')
         
         # Test state variables
         self.received_global_plan = None
@@ -264,7 +264,7 @@ class SimpleNavigatorTester(Node):
 
     def run_all_tests(self):
         """Run all tests."""
-        self.get_logger().info('Starting SimpleGlobalNavigator tests...')
+        self.get_logger().info('Starting RRTStarGlobalNavigator tests...')
         
         # Wait a bit for the navigator to start up
         time.sleep(2.0)

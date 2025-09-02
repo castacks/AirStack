@@ -10,11 +10,11 @@
 #include <task_msgs/action/navigation_task.hpp>
 #include <chrono>
 #include <thread>
-#include "simple_global_navigator/simple_global_navigator.hpp"
+#include "rrtstar_global_navigator/rrtstar_global_navigator.hpp"
 
 using namespace std::chrono_literals;
 
-class SimpleGlobalNavigatorIntegrationTest : public ::testing::Test {
+class RRTStarGlobalNavigatorIntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         rclcpp::init(0, nullptr);
@@ -23,7 +23,7 @@ protected:
         node_options_ = rclcpp::NodeOptions();
         node_options_.parameter_overrides().push_back(
             rclcpp::Parameter("enable_debug_visualization", false));
-        navigator_ = std::make_shared<SimpleGlobalNavigator>(node_options_);
+        navigator_ = std::make_shared<RRTStarGlobalNavigator>(node_options_);
         
         // Create test client node
         test_node_ = rclcpp::Node::make_shared("test_node");
@@ -44,7 +44,7 @@ protected:
         
         // Create action client
         action_client_ = rclcpp_action::create_client<task_msgs::action::NavigationTask>(
-            test_node_, "/simple_navigator");
+            test_node_, "/rrtstar_navigator");
         
         // Start executor in separate thread
         executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
@@ -147,7 +147,7 @@ protected:
         return goal;
     }
 
-    std::shared_ptr<SimpleGlobalNavigator> navigator_;
+    std::shared_ptr<RRTStarGlobalNavigator> navigator_;
     std::shared_ptr<rclcpp::Node> test_node_;
     rclcpp::NodeOptions node_options_;
     
@@ -166,7 +166,7 @@ protected:
 };
 
 // Test cost map subscription and processing
-TEST_F(SimpleGlobalNavigatorIntegrationTest, CostMapSubscription) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, CostMapSubscription) {
     // Publish test cost map
     auto cost_map = create_test_cost_map();
     cost_map_pub_->publish(*cost_map);
@@ -180,7 +180,7 @@ TEST_F(SimpleGlobalNavigatorIntegrationTest, CostMapSubscription) {
 }
 
 // Test odometry subscription
-TEST_F(SimpleGlobalNavigatorIntegrationTest, OdometrySubscription) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, OdometrySubscription) {
     // Publish test odometry
     auto odom = create_test_odometry(1.0, 2.0, 3.0);
     odom_pub_->publish(*odom);
@@ -193,14 +193,14 @@ TEST_F(SimpleGlobalNavigatorIntegrationTest, OdometrySubscription) {
 }
 
 // Test action server availability
-TEST_F(SimpleGlobalNavigatorIntegrationTest, ActionServerAvailability) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, ActionServerAvailability) {
     // Wait for action server
     bool server_available = action_client_->wait_for_action_server(5s);
     EXPECT_TRUE(server_available);
 }
 
 // Test navigation action with valid goal
-TEST_F(SimpleGlobalNavigatorIntegrationTest, NavigationActionValidGoal) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, NavigationActionValidGoal) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     
@@ -236,7 +236,7 @@ TEST_F(SimpleGlobalNavigatorIntegrationTest, NavigationActionValidGoal) {
 }
 
 // Test global plan publication
-TEST_F(SimpleGlobalNavigatorIntegrationTest, GlobalPlanPublication) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, GlobalPlanPublication) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     
@@ -290,7 +290,7 @@ TEST_F(SimpleGlobalNavigatorIntegrationTest, GlobalPlanPublication) {
 }
 
 // Test action cancellation
-TEST_F(SimpleGlobalNavigatorIntegrationTest, ActionCancellation) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, ActionCancellation) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     
@@ -326,7 +326,7 @@ TEST_F(SimpleGlobalNavigatorIntegrationTest, ActionCancellation) {
 }
 
 // Test multiple waypoint navigation
-TEST_F(SimpleGlobalNavigatorIntegrationTest, MultipleWaypointNavigation) {
+TEST_F(RRTStarGlobalNavigatorIntegrationTest, MultipleWaypointNavigation) {
     // Wait for action server
     ASSERT_TRUE(action_client_->wait_for_action_server(5s));
     

@@ -45,10 +45,10 @@ def generate_launch_description():
     )
 
     # Create the node
-    simple_global_navigator_node = Node(
-        package='simple_global_navigator',
-        executable='simple_global_navigator_node',
-        name='simple_global_navigator',
+    rrtstar_global_navigator_node = Node(
+        package='rrtstar_global_navigator',
+        executable='rrtstar_global_navigator_node',
+        name='rrtstar_global_navigator',
         output='screen',
         parameters=[{
             'rrt_max_iterations': LaunchConfiguration('rrt_max_iterations'),
@@ -59,7 +59,7 @@ def generate_launch_description():
             'odom_topic': LaunchConfiguration('odom_topic'),
         }],
         remappings=[
-            ('simple_navigator', '/simple_navigator'),
+            ('rrtstar_navigator', '/rrtstar_navigator'),
             ('global_plan', '/global_plan'),
         ]
     )
@@ -71,5 +71,5 @@ def generate_launch_description():
         rrt_rewire_radius_arg,
         cost_map_topic_arg,
         odom_topic_arg,
-        simple_global_navigator_node,
+        rrtstar_global_navigator_node,
     ])

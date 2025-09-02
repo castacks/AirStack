@@ -4,9 +4,9 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include "simple_global_navigator/simple_global_navigator.hpp"
+#include "rrtstar_global_navigator/rrtstar_global_navigator.hpp"
 
-class SimpleGlobalNavigatorTest : public ::testing::Test {
+class RRTStarGlobalNavigatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
         rclcpp::init(0, nullptr);
@@ -14,7 +14,7 @@ protected:
         // Disable debug visualization for tests
         node_options_.parameter_overrides().push_back(
             rclcpp::Parameter("enable_debug_visualization", false));
-        navigator_ = std::make_shared<SimpleGlobalNavigator>(node_options_);
+        navigator_ = std::make_shared<RRTStarGlobalNavigator>(node_options_);
     }
 
     void TearDown() override {
@@ -22,18 +22,18 @@ protected:
         rclcpp::shutdown();
     }
 
-    std::shared_ptr<SimpleGlobalNavigator> navigator_;
+    std::shared_ptr<RRTStarGlobalNavigator> navigator_;
     rclcpp::NodeOptions node_options_;
 };
 
 // Test basic node initialization
-TEST_F(SimpleGlobalNavigatorTest, NodeInitialization) {
+TEST_F(RRTStarGlobalNavigatorTest, NodeInitialization) {
     ASSERT_NE(navigator_, nullptr);
-    EXPECT_EQ(navigator_->get_name(), std::string("simple_global_navigator"));
+    EXPECT_EQ(navigator_->get_name(), std::string("rrtstar_global_navigator"));
 }
 
 // Test parameter loading
-TEST_F(SimpleGlobalNavigatorTest, ParameterLoading) {
+TEST_F(RRTStarGlobalNavigatorTest, ParameterLoading) {
     // Test default parameters
     EXPECT_EQ(navigator_->get_parameter("rrt_max_iterations").as_int(), 5000);
     EXPECT_DOUBLE_EQ(navigator_->get_parameter("rrt_step_size").as_double(), 0.5);
@@ -45,7 +45,7 @@ TEST_F(SimpleGlobalNavigatorTest, ParameterLoading) {
 }
 
 // Test distance calculation
-TEST_F(SimpleGlobalNavigatorTest, DistanceCalculation) {
+TEST_F(RRTStarGlobalNavigatorTest, DistanceCalculation) {
     geometry_msgs::msg::Point p1, p2;
     
     // Test zero distance
@@ -58,7 +58,7 @@ TEST_F(SimpleGlobalNavigatorTest, DistanceCalculation) {
 }
 
 // Test RRT node creation
-TEST_F(SimpleGlobalNavigatorTest, RRTNodeCreation) {
+TEST_F(RRTStarGlobalNavigatorTest, RRTNodeCreation) {
     geometry_msgs::msg::Point pos;
     pos.x = 1.0;
     pos.y = 2.0;
@@ -75,7 +75,7 @@ TEST_F(SimpleGlobalNavigatorTest, RRTNodeCreation) {
 }
 
 // Test RRT node with parent
-TEST_F(SimpleGlobalNavigatorTest, RRTNodeWithParent) {
+TEST_F(RRTStarGlobalNavigatorTest, RRTNodeWithParent) {
     geometry_msgs::msg::Point parent_pos, child_pos;
     parent_pos.x = 0.0; parent_pos.y = 0.0; parent_pos.z = 0.0;
     child_pos.x = 1.0; child_pos.y = 1.0; child_pos.z = 1.0;
@@ -93,7 +93,7 @@ TEST_F(SimpleGlobalNavigatorTest, RRTNodeWithParent) {
 }
 
 // Test CostMapData initialization
-TEST_F(SimpleGlobalNavigatorTest, CostMapDataInitialization) {
+TEST_F(RRTStarGlobalNavigatorTest, CostMapDataInitialization) {
     CostMapData cost_map;
     
     EXPECT_TRUE(cost_map.points.empty());
@@ -103,7 +103,7 @@ TEST_F(SimpleGlobalNavigatorTest, CostMapDataInitialization) {
 }
 
 // Test cost map data processing with mock PointCloud2
-TEST_F(SimpleGlobalNavigatorTest, CostMapProcessing) {
+TEST_F(RRTStarGlobalNavigatorTest, CostMapProcessing) {
     // Create a mock PointCloud2 message
     auto cloud_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
     cloud_msg->header.frame_id = "map";
@@ -152,7 +152,7 @@ TEST_F(SimpleGlobalNavigatorTest, CostMapProcessing) {
 }
 
 // Test odometry message processing
-TEST_F(SimpleGlobalNavigatorTest, OdometryProcessing) {
+TEST_F(RRTStarGlobalNavigatorTest, OdometryProcessing) {
     auto odom_msg = std::make_shared<nav_msgs::msg::Odometry>();
     odom_msg->header.frame_id = "odom";
     odom_msg->header.stamp = navigator_->get_clock()->now();
@@ -169,7 +169,7 @@ TEST_F(SimpleGlobalNavigatorTest, OdometryProcessing) {
 }
 
 // Test topic and service interfaces
-TEST_F(SimpleGlobalNavigatorTest, TopicInterfaces) {
+TEST_F(RRTStarGlobalNavigatorTest, TopicInterfaces) {
     // Verify publishers exist
     auto topic_names = navigator_->get_topic_names_and_types();
     
@@ -184,13 +184,13 @@ TEST_F(SimpleGlobalNavigatorTest, TopicInterfaces) {
 }
 
 // Test action server interface
-TEST_F(SimpleGlobalNavigatorTest, ActionServerInterface) {
+TEST_F(RRTStarGlobalNavigatorTest, ActionServerInterface) {
     // Verify action server exists by checking service names
     auto service_names = navigator_->get_service_names_and_types();
     
     bool has_action_server = false;
     for (const auto& service : service_names) {
-        if (service.first.find("simple_navigator") != std::string::npos) {
+        if (service.first.find("rrtstar_navigator") != std::string::npos) {
             has_action_server = true;
             break;
         }

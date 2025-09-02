@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(simple_global_navigator)
+project(rrtstar_global_navigator)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -19,17 +19,17 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(task_msgs REQUIRED)
 
 # Add executable
-add_executable(simple_global_navigator_node 
-  src/simple_global_navigator_node.cpp
-  src/simple_global_navigator.cpp)
+add_executable(rrtstar_global_navigator_node 
+  src/rrtstar_global_navigator_node.cpp
+  src/rrtstar_global_navigator.cpp)
 
 # Include directories
-target_include_directories(simple_global_navigator_node PUBLIC
+target_include_directories(rrtstar_global_navigator_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
 # Link dependencies
-ament_target_dependencies(simple_global_navigator_node
+ament_target_dependencies(rrtstar_global_navigator_node
   rclcpp
   rclcpp_action
   nav_msgs
@@ -42,7 +42,7 @@ ament_target_dependencies(simple_global_navigator_node
   task_msgs)
 
 # Install targets
-install(TARGETS simple_global_navigator_node
+install(TARGETS rrtstar_global_navigator_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Install header files
@@ -71,15 +71,15 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   # Unit tests for core functionality
-  ament_add_gtest(test_simple_global_navigator_unit
-    test/test_simple_global_navigator_unit.cpp
-    src/simple_global_navigator.cpp)
+  ament_add_gtest(test_rrtstar_global_navigator_unit
+    test/test_rrtstar_global_navigator_unit.cpp
+    src/rrtstar_global_navigator.cpp)
   
-  target_include_directories(test_simple_global_navigator_unit PUBLIC
+  target_include_directories(test_rrtstar_global_navigator_unit PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
   
-  ament_target_dependencies(test_simple_global_navigator_unit
+  ament_target_dependencies(test_rrtstar_global_navigator_unit
     rclcpp
     rclcpp_action
     nav_msgs
@@ -92,15 +92,15 @@ if(BUILD_TESTING)
     task_msgs)
 
   # Integration tests for ROS functionality
-  ament_add_gtest(test_simple_global_navigator_integration
-    test/test_simple_global_navigator_integration.cpp
-    src/simple_global_navigator.cpp)
+  ament_add_gtest(test_rrtstar_global_navigator_integration
+    test/test_rrtstar_global_navigator_integration.cpp
+    src/rrtstar_global_navigator.cpp)
   
-  target_include_directories(test_simple_global_navigator_integration PUBLIC
+  target_include_directories(test_rrtstar_global_navigator_integration PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
   
-  ament_target_dependencies(test_simple_global_navigator_integration
+  ament_target_dependencies(test_rrtstar_global_navigator_integration
     rclcpp
     rclcpp_action
     nav_msgs
@@ -113,15 +113,15 @@ if(BUILD_TESTING)
     task_msgs)
 
   # Visualization tests
-  ament_add_gtest(test_simple_global_navigator_visualization
-    test/test_simple_global_navigator_visualization.cpp
-    src/simple_global_navigator.cpp)
+  ament_add_gtest(test_rrtstar_global_navigator_visualization
+    test/test_rrtstar_global_navigator_visualization.cpp
+    src/rrtstar_global_navigator.cpp)
   
-  target_include_directories(test_simple_global_navigator_visualization PUBLIC
+  target_include_directories(test_rrtstar_global_navigator_visualization PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
   
-  ament_target_dependencies(test_simple_global_navigator_visualization
+  ament_target_dependencies(test_rrtstar_global_navigator_visualization
     rclcpp
     rclcpp_action
     nav_msgs
@@ -134,14 +134,14 @@ if(BUILD_TESTING)
     task_msgs)
 
   # Minimal test without action server
-  ament_add_gtest(test_simple_global_navigator_minimal
-    test/test_simple_global_navigator_minimal.cpp)
+  ament_add_gtest(test_rrtstar_global_navigator_minimal
+    test/test_rrtstar_global_navigator_minimal.cpp)
   
-  target_include_directories(test_simple_global_navigator_minimal PUBLIC
+  target_include_directories(test_rrtstar_global_navigator_minimal PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
   
-  ament_target_dependencies(test_simple_global_navigator_minimal
+  ament_target_dependencies(test_rrtstar_global_navigator_minimal
     rclcpp
     nav_msgs
     geometry_msgs

@@ -104,34 +104,35 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        world:
-          mavros_enu:
-            base_link_ground_truth:
-              {}
-            map:
-              base_link:
-                ZED_X:
-                  CameraLeft:
-                    macvo_ned:
-                      {}
-                  CameraRight:
+        mavros_enu:
+          base_link_ground_truth:
+            {}
+          map:
+            base_link:
+              ZED_X:
+                CameraLeft:
+                  macvo_ned:
                     {}
-                base_link_frd:
+                CameraRight:
                   {}
-                ouster:
-                  {}
-              base_link_stabilized:
+              base_link_frd:
                 {}
-              look_ahead_point:
+              ouster:
                 {}
-              look_ahead_point_stabilized:
-                {}
-              map_ned:
-                {}
-              tracking_point:
-                {}
-              tracking_point_stabilized:
-                {}
+            base_link_stabilized:
+              {}
+            look_ahead_point:
+              {}
+            look_ahead_point_stabilized:
+              {}
+            map_ned:
+              {}
+            tracking_point:
+              {}
+            tracking_point_stabilized:
+              {}
+        world:
+          {}
       Update Interval: 0
       Value: true
     - Class: rviz_common/Group
@@ -575,6 +576,18 @@ Visualization Manager:
         History Policy: Keep All
         Reliability Policy: Reliable
         Value: /rrt_tree_markers
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: JPS Search Markers
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /jps_search_markers
       Value: true
   Enabled: true
   Global Options:

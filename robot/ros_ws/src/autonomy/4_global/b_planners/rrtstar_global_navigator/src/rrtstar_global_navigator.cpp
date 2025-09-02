@@ -1,6 +1,6 @@
-#include "simple_global_navigator/simple_global_navigator.hpp"
+#include "rrtstar_global_navigator/rrtstar_global_navigator.hpp"
 
-void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+void RRTStarGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     
     cost_map_data_.points.clear();
@@ -91,7 +91,7 @@ void SimpleGlobalNavigator::cost_map_callback(const sensor_msgs::msg::PointCloud
     }
 }
 
-void SimpleGlobalNavigator::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+void RRTStarGlobalNavigator::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     current_odom_ = *msg;
     if (!odom_received_) {
@@ -100,7 +100,7 @@ void SimpleGlobalNavigator::odom_callback(const nav_msgs::msg::Odometry::SharedP
     }
 }
 
-rclcpp_action::GoalResponse SimpleGlobalNavigator::handle_goal(
+rclcpp_action::GoalResponse RRTStarGlobalNavigator::handle_goal(
     const rclcpp_action::GoalUUID& uuid,
     std::shared_ptr<const NavigationTask::Goal> goal) {
     
@@ -128,7 +128,7 @@ rclcpp_action::GoalResponse SimpleGlobalNavigator::handle_goal(
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse SimpleGlobalNavigator::handle_cancel(
+rclcpp_action::CancelResponse RRTStarGlobalNavigator::handle_cancel(
     const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
     
     RCLCPP_INFO(this->get_logger(), "Received cancel request");
@@ -136,14 +136,14 @@ rclcpp_action::CancelResponse SimpleGlobalNavigator::handle_cancel(
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void SimpleGlobalNavigator::handle_accepted(const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
+void RRTStarGlobalNavigator::handle_accepted(const std::shared_ptr<GoalHandleNavigationTask> action_handle) {
     RCLCPP_INFO(this->get_logger(), "Goal accepted, starting execution");
     
     using namespace std::placeholders;
-    std::thread{std::bind(&SimpleGlobalNavigator::execute, this, _1), action_handle}.detach();
+    std::thread{std::bind(&RRTStarGlobalNavigator::execute, this, _1), action_handle}.detach();
 }
 
-void SimpleGlobalNavigator::execute(
+void RRTStarGlobalNavigator::execute(
     const std::shared_ptr<rclcpp_action::ServerGoalHandle<NavigationTask>>& action_handle) {
     
     RCLCPP_INFO(this->get_logger(), "Executing navigation task");
@@ -286,7 +286,7 @@ void SimpleGlobalNavigator::execute(
     }
 }
 
-std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_star_path(
+std::vector<geometry_msgs::msg::PoseStamped> RRTStarGlobalNavigator::plan_rrt_star_path(
     const geometry_msgs::msg::Point& start, 
     const geometry_msgs::msg::Point& goal,
     double max_planning_time) {
@@ -452,7 +452,7 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::plan_rrt_sta
     }
 }
 
-std::shared_ptr<RRTNode> SimpleGlobalNavigator::get_nearest_node(
+std::shared_ptr<RRTNode> RRTStarGlobalNavigator::get_nearest_node(
     const std::vector<std::shared_ptr<RRTNode>>& nodes, 
     const geometry_msgs::msg::Point& point) {
     
@@ -474,7 +474,7 @@ std::shared_ptr<RRTNode> SimpleGlobalNavigator::get_nearest_node(
     return nearest;
 }
 
-geometry_msgs::msg::Point SimpleGlobalNavigator::steer(
+geometry_msgs::msg::Point RRTStarGlobalNavigator::steer(
     const geometry_msgs::msg::Point& from, 
     const geometry_msgs::msg::Point& to, 
     double step_size) {
@@ -492,7 +492,7 @@ geometry_msgs::msg::Point SimpleGlobalNavigator::steer(
     return result;
 }
 
-bool SimpleGlobalNavigator::is_collision_free(
+bool RRTStarGlobalNavigator::is_collision_free(
     const geometry_msgs::msg::Point& from, 
     const geometry_msgs::msg::Point& to) {
     
@@ -516,7 +516,7 @@ bool SimpleGlobalNavigator::is_collision_free(
     return true;
 }
 
-double SimpleGlobalNavigator::get_cost_at_point(const geometry_msgs::msg::Point& point) {
+double RRTStarGlobalNavigator::get_cost_at_point(const geometry_msgs::msg::Point& point) {
     if (!cost_map_data_.valid || cost_map_data_.points.empty()) {
         return 0.0;
     }
@@ -542,7 +542,7 @@ double SimpleGlobalNavigator::get_cost_at_point(const geometry_msgs::msg::Point&
     return cost_map_data_.costs[nearest_idx];
 }
 
-double SimpleGlobalNavigator::distance(
+double RRTStarGlobalNavigator::distance(
     const geometry_msgs::msg::Point& p1, 
     const geometry_msgs::msg::Point& p2) {
     
@@ -552,7 +552,7 @@ double SimpleGlobalNavigator::distance(
     return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-std::vector<std::shared_ptr<RRTNode>> SimpleGlobalNavigator::get_near_nodes(
+std::vector<std::shared_ptr<RRTNode>> RRTStarGlobalNavigator::get_near_nodes(
     const std::vector<std::shared_ptr<RRTNode>>& nodes, 
     const geometry_msgs::msg::Point& point, 
     double radius) {
@@ -568,7 +568,7 @@ std::vector<std::shared_ptr<RRTNode>> SimpleGlobalNavigator::get_near_nodes(
     return near_nodes;
 }
 
-void SimpleGlobalNavigator::rewire(
+void RRTStarGlobalNavigator::rewire(
     std::shared_ptr<RRTNode> new_node, 
     const std::vector<std::shared_ptr<RRTNode>>& near_nodes) {
     
@@ -605,7 +605,7 @@ void SimpleGlobalNavigator::rewire(
     }
 }
 
-std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::extract_path(
+std::vector<geometry_msgs::msg::PoseStamped> RRTStarGlobalNavigator::extract_path(
     std::shared_ptr<RRTNode> goal_node) {
     
     std::vector<geometry_msgs::msg::PoseStamped> path;
@@ -629,7 +629,7 @@ std::vector<geometry_msgs::msg::PoseStamped> SimpleGlobalNavigator::extract_path
     return path;
 }
 
-nav_msgs::msg::Path SimpleGlobalNavigator::create_path_message(
+nav_msgs::msg::Path RRTStarGlobalNavigator::create_path_message(
     const std::vector<geometry_msgs::msg::PoseStamped>& poses) {
     
     nav_msgs::msg::Path path_msg;
@@ -640,7 +640,7 @@ nav_msgs::msg::Path SimpleGlobalNavigator::create_path_message(
     return path_msg;
 }
 
-geometry_msgs::msg::Point SimpleGlobalNavigator::get_random_point() {
+geometry_msgs::msg::Point RRTStarGlobalNavigator::get_random_point() {
     if (!cost_map_data_.valid) {
         geometry_msgs::msg::Point point;
         point.x = 0.0;
@@ -661,7 +661,7 @@ geometry_msgs::msg::Point SimpleGlobalNavigator::get_random_point() {
     return point;
 }
 
-size_t SimpleGlobalNavigator::get_current_goal_index(const geometry_msgs::msg::Point& current_pos) {
+size_t RRTStarGlobalNavigator::get_current_goal_index(const geometry_msgs::msg::Point& current_pos) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     
     if (current_goal_poses_.empty()) {
@@ -680,7 +680,7 @@ size_t SimpleGlobalNavigator::get_current_goal_index(const geometry_msgs::msg::P
     return current_goal_index_;
 }
 
-double SimpleGlobalNavigator::calculate_distance_remaining(const geometry_msgs::msg::Point& current_pos) {
+double RRTStarGlobalNavigator::calculate_distance_remaining(const geometry_msgs::msg::Point& current_pos) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     
     if (current_goal_poses_.empty() || current_goal_index_ >= current_goal_poses_.size()) {
@@ -704,7 +704,7 @@ double SimpleGlobalNavigator::calculate_distance_remaining(const geometry_msgs::
 }
 
 
-void SimpleGlobalNavigator::publish_rrt_tree_markers(
+void RRTStarGlobalNavigator::publish_rrt_tree_markers(
     const std::vector<std::shared_ptr<RRTNode>>& nodes,
     const geometry_msgs::msg::Point& start,
     const geometry_msgs::msg::Point& goal,
@@ -943,7 +943,7 @@ void SimpleGlobalNavigator::publish_rrt_tree_markers(
     rrt_tree_marker_publisher_->publish(marker_array);
 }
 
-void SimpleGlobalNavigator::clear_rrt_tree_markers() {
+void RRTStarGlobalNavigator::clear_rrt_tree_markers() {
     if (!enable_debug_visualization_ || !rrt_tree_marker_publisher_) {
         return;
     }
