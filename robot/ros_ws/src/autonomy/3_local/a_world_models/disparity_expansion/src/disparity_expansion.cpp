@@ -101,8 +101,9 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
 
     for (unsigned int disp_idx = 1; disp_idx < lut_max_disparity; disp_idx++) {
         disparity = disp_idx / this->metric_depth_scale;  // 1 cell = 0.5m, z is in meters
-        r = this->expansion_radius;                       // * exp(DEPTH_ERROR_COEFF*z);
+        //r = this->expansion_radius;                       // * exp(DEPTH_ERROR_COEFF*z);
         z = this->baseline * this->fx / disparity;
+	r = std::min(this->expansion_radius, z-0.01);
 
         double disp_new = this->baseline * this->fx / (z - this->expansion_radius) + 0.5;
         table_d.at(disp_idx) = disp_new;
@@ -118,14 +119,20 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             v1 = this->fy * r1 / z + this->cy;
             v2 = this->fy * r2 / z + this->cy;
 
-	    /*
+	    //*
             if ((v2 - v1) < 0)
                 RCLCPP_ERROR(this->get_logger(),
                              "Something MESSED disp_idx=%d v=%d cy=%f fy=%f r=%f x=%f y=%f z=%f "
-                             "beta=%f beta1=%f r1=%f r2=%f v1=%d v2=%d",
-                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, r1, r2, v1,
-                             v2);
-	    */
+                             "beta=%f beta1=%f b+=%f b-=%f r1=%f r2=%f v1=%d v2=%d tan+=%f tan-=%f",
+                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, (beta+beta1), (beta-beta1), r1, r2, v1,
+                             v2, tan(beta + beta1), tan(beta - beta1));
+	    else if((z < r) && std::isfinite(beta1)){
+	      RCLCPP_ERROR(this->get_logger(), "Z WAS LESS THAN R BUT THERE IS NO PROBLEMdisp_idx=%d v=%d cy=%f fy=%f r=%f x=%f y=%f z=%f "
+                             "beta=%f beta1=%f b+=%f b-=%f r1=%f r2=%f v1=%d v2=%d tan+=%f tan-=%f",
+                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, (beta+beta1), (beta-beta1), r1, r2, v1,
+                             v2, tan(beta + beta1), tan(beta - beta1));
+	    }
+	    //*/
             if (v1 < 0) v1 = 0;
             if (v1 > (height - 1)) v1 = height - 1;
 
@@ -146,14 +153,20 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             double r2 = z / tan(alpha - alpha1);
             u1 = this->fx * r1 / z + this->cx;
             u2 = this->fx * r2 / z + this->cx;
-	    /*
+	    //*
             if ((u2 - u1) < 0)
                 RCLCPP_ERROR(this->get_logger(),
                              "Something MESSED disp_idx=%d u=%d cx=%f fx=%f r=%f x=%f y=%f z=%f "
-                             "alpha=%f alpha1=%f r1=%f r2=%f u1=%d u2=%d",
-                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, r1, r2, u1,
+                             "alpha=%f alpha1=%f a+=%f a-=%f r1=%f r2=%f u1=%d u2=%d",
+                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, (alpha+alpha1), (alpha-alpha1), r1, r2, u1,
                              u2);
-	    */
+	    else if((z < r) && std::isfinite(alpha1)){
+	      RCLCPP_ERROR(this->get_logger(), "Z WAS LESS THAN R BUT THERE IS NO PROBLEMdisp_idx=%d u=%d cx=%f fx=%f r=%f x=%f y=%f z=%f "
+                             "alpha=%f alpha1=%f a+=%f a-=%f r1=%f r2=%f u1=%d u2=%d",
+                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, (alpha+alpha1), (alpha-alpha1), r1, r2, u1,
+                             u2);
+	    }
+	    //*/
             if (u1 < 0) u1 = 0;
             if (u1 > (this->width - 1)) u1 = this->width - 1;
 
@@ -423,6 +436,8 @@ void DisparityExpansionNode::process_disparity_image(
 
             disp_new_fg = this->baseline * this->fx / (disp_to_depth - this->expansion_radius) +
                           this->pixel_error;
+	    if(disp_new_fg <= 0.f)
+	      disp_new_fg = std::numeric_limits<float>::infinity();
 
             cv::Mat submat;
             cv::divide(baseline * this->fx, submat_t, submat);
