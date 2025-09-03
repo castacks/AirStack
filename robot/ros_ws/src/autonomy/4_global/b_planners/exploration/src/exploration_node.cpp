@@ -838,13 +838,3 @@ void ExplorationNode::timerCallback()
 
     RCLCPP_INFO(this->get_logger(), "timer callback end");
 }
-
-int main(int argc, char *argv[])
-{
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<ExplorationNode>();
-    node->initialize();
-    rclcpp::spin(node);
-    rclcpp::shutdown();
-    return 0;
-}

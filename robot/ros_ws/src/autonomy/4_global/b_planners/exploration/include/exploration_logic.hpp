@@ -104,7 +104,9 @@ public:
         std::tuple<float, float, float, float> start_point,
         float timeout_duration); // x, y, z, yaw
 
-    std::optional<Path> select_viewpoint_and_plan(ViewPoint, float timeout_duration);
+    std::optional<Path> select_viewpoint_and_plan(const ViewPoint& start_point, float timeout_duration);
+
+    std::optional<Path> plan_to_given_waypoint(const ViewPoint& start_point, const ViewPoint& goal_point);
 
     float path_end_threshold_m;
 

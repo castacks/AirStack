@@ -52,7 +52,7 @@
 
 class ExplorationNode : public rclcpp::Node
 {
-private:
+protected:
     // Planner
     // ExplorationPlanner exploration_planner;
     std::unique_ptr<ExplorationPlanner> exploration_planner;
@@ -112,9 +112,9 @@ private:
     void ExplorationToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
                                    std_srvs::srv::Trigger::Response::SharedPtr response);
 
-    void timerCallback();
+    virtual void timerCallback();
 
-    void generate_plan();
+    virtual void generate_plan();
 
     void publish_plan();
 
@@ -126,7 +126,7 @@ public:
     ExplorationNode();
     ~ExplorationNode() = default;
 
-    void initialize();
+    virtual void initialize();
     // TF buffer
     std::shared_ptr<tf2_ros::Buffer> tf_buffer;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener;

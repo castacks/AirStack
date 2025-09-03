@@ -108,7 +108,53 @@ ExplorationPlanner::ExplorationPlanner(init_params params)
                           rrt_region_nodes_z_layers_step_);
 }
 
-std::optional<Path> ExplorationPlanner::select_viewpoint_and_plan(ViewPoint start_point, float timeout_duration)
+std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint& start_point, const ViewPoint& goal_point)
+{
+    Path output_path;
+    bool is_traj = false;
+
+    is_traj = rrt_planner_.build_RRT(start_point, goal_point, collision_checker_, true);
+
+    // success
+    if (is_traj)
+    {
+        PointSet traj = rrt_planner_.getPath();
+        output_path.reserve(traj.size());
+
+        // convert to our path format
+        for (const auto &vp : traj)
+        {
+            float yaw_val;
+            if (vp.orientation_set)
+            {
+                // Convert quaternion to yaw
+                tf2::Quaternion q(vp.orientation.x, vp.orientation.y, vp.orientation.z, vp.orientation.w);
+                double roll, pitch, yaw;
+                tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+                yaw_val = static_cast<float>(yaw);
+            }
+            else
+            {
+                yaw_val = static_cast<float>(vp.orientation_yaw); // fallback if yaw is already set
+            }
+
+            output_path.emplace_back(static_cast<float>(vp.x),
+                                        static_cast<float>(vp.y),
+                                        static_cast<float>(vp.z),
+                                        yaw_val);
+        }
+
+        RCLCPP_WARN(rclcpp::get_logger("exploration_planner"), "RRT Path generated");
+
+        return output_path;
+    }
+
+    RCLCPP_WARN(rclcpp::get_logger("exploration_planner"),
+                "No RRT path created");
+    return output_path;
+}
+
+std::optional<Path> ExplorationPlanner::select_viewpoint_and_plan(const ViewPoint& start_point, float timeout_duration)
 {
     RCLCPP_WARN(rclcpp::get_logger("exploration_planner"), "Start planning");
     robot_pos_ = start_point;
