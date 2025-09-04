@@ -23,7 +23,7 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         # (
         #     "share/" + package_name + "/model",
-        #     ["/root/model_weights/MACVO_FrontendCov.pth", "/root/model_weights/MACVO_posenet.pkl"],
+        #     ["/model_weights/MACVO_FrontendCov.pth", "/model_weights/MACVO_posenet.pkl"],
         # ),
         ("share/" + package_name, ["launch/macvo.launch.xml"]),
         (

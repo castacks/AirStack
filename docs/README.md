@@ -33,7 +33,7 @@ AirStack is a comprehensive, modular autonomy stack for embodied AI and robotics
 
 ## 🔧 Quick Start
 
-Follow the instructions at https://docs.theairlab.org/main/docs/getting_started/ to set up AirStack on your machine. 
+Follow the instructions at https://docs.theairlab.org/main/docs/getting_started/ to set up AirStack on your machine.
 
 ## 🏗️ System Architecture
 
@@ -44,7 +44,7 @@ Robot
 ├── Interface Layer: Communication with robot controllers
 ├── Sensors Layer: Data acquisition from various sensors
 ├── Perception Layer: State estimation and environment understanding
-├── Local Layer: 
+├── Local Layer:
 │   ├── World Model: Local environment representation
 │   ├── Planning: Trajectory generation and obstacle avoidance
 │   └── Controls: Trajectory following
@@ -57,7 +57,7 @@ Robot
 ## 📁 Repository Structure
 
 - `robot/`: Contains the ROS 2 workspace for the robot autonomy stack
-- `ground_control_station/`: Software for monitoring and controlling robots
+- `gcs/`: Software for monitoring and controlling robots
 - `simulation/`: Integration with Isaac Sim and simulation environments
 - `docs/`: Comprehensive documentation
 - `common/`: Shared libraries and utilities
@@ -74,6 +74,7 @@ For detailed development guidelines, see the [Developer Guide](https://docs.thea
 Comprehensive documentation is available at [https://docs.theairlab.org/main/docs/](https://docs.theairlab.org/main/docs/)
 
 The documentation covers:
+
 - Getting started guides
 - Development workflows
 - Component descriptions
@@ -88,7 +89,6 @@ We welcome contributions to AirStack! Please see our [Contributing Guidelines](h
 ## 📄 License
 
 AirStack is licensed under the Apache 2.0 or MIT license (to be finalized).
-
 
 ## 📧 Contact
 

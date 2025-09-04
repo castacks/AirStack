@@ -11,6 +11,7 @@ services:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
     image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -21,9 +22,9 @@ services:
     command: >
       bash -c "
       service ssh restart;
-      tmux new -d -s robot_bringup;
       autolaunch=${AUTOLAUNCH};
-      if [ $$autolaunch = 'true' ]; then
+      if [ $$autolaunch == 'true' ]; then
+        tmux new -d -s robot_bringup;
         tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
       sleep infinity"
@@ -86,4 +87,3 @@ services:
       TEST_EXIT_CODE=$$?;
       echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
       exit $$TEST_EXIT_CODE"
-    entrypoint: []
