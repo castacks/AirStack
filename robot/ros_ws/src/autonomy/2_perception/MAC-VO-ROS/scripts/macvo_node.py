@@ -20,13 +20,13 @@ from .MessageFactory import to_stamped_pose, from_image, to_pointcloud, to_image
 from sensor_interfaces.srv import GetCameraParams
 
 # Add the src directory to the Python path
-src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "src"))
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "macvo"))
 sys.path.insert(0, src_path)
 if TYPE_CHECKING:
     # To make static type checker happy : )
-    from src.Odometry.MACVO import MACVO
-    from src.DataLoader import StereoFrameData, StereoData, SmartResizeFrame
-    from src.Utility.Config import load_config
+    from macvo.Odometry.MACVO import MACVO
+    from macvo.DataLoader import StereoFrameData, StereoData, SmartResizeFrame
+    from macvo.Utility.Config import load_config
 else:
     import DataLoader
     from Odometry.MACVO import MACVO
