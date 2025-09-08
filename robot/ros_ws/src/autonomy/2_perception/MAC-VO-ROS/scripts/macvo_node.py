@@ -37,7 +37,7 @@ else:
 PACKAGE_NAME = "macvo"
 
 
-class macvoNode(Node):
+class MacvoNode(Node):
     def __init__(self) -> None:
         super().__init__("macvo_node")
         self.coord_frame = "macvo_ned"  # Coordinate frame for the camera, in NED (North-East-Down) convention
@@ -257,7 +257,7 @@ class macvoNode(Node):
 
 def main():
     rclpy.init()
-    node = macvoNode()
+    node = MacvoNode()
     rclpy.spin(node)
 
     node.destroy_node()
