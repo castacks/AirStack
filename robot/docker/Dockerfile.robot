@@ -165,39 +165,40 @@ RUN if [ "$REAL_ROBOT"  = "true" ]; then \
   echo "REAL_ROBOT is false"; \
   fi
 
-# Downloading model weights for MACVO
-WORKDIR /model_weights
-RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
-  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
-  wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
-  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
-  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
-  mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /model_weights/dsta_efficient.ckpt && \
-  rm -rf /model_weights/github.com
-
 # Install colcon, seems to be getting removed
 RUN pip install -U colcon-common-extensions
 
-# Fixes for MACVO Integration
-RUN pip install huggingface_hub
-RUN pip uninstall matplotlib -y
+# # Downloading model weights for MACVO
+# WORKDIR /model_weights
+# RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+#   wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
+#   wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
+#   mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
+#   mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
+#   mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /model_weights/dsta_efficient.ckpt && \
+#   rm -rf /model_weights/github.com
 
-# Temporary fix for UFM
-WORKDIR /model_weights
-RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
-  apt update && apt install -y unzip && \
-  mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /model_weights/UFM_Env2.zip && \
-  unzip UFM_Env2.zip && \
-  rm UFM_Env2.zip
 
-WORKDIR /model_weights/UFM
-RUN pip install -e .
+# # Fixes for MACVO Integration
+# RUN pip install huggingface_hub
+# RUN pip uninstall matplotlib -y
 
-WORKDIR /model_weights/UFM/UniCeption
-RUN pip install -e .
+# # Temporary fix for UFM
+# WORKDIR /model_weights
+# RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
+#   apt update && apt install -y unzip && \
+#   mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /model_weights/UFM_Env2.zip && \
+#   unzip UFM_Env2.zip && \
+#   rm UFM_Env2.zip
 
-WORKDIR /model_weights/UFM/benchmarks
-RUN pip install -e .
+# WORKDIR /model_weights/UFM
+# RUN pip install -e .
+
+# WORKDIR /model_weights/UFM/UniCeption
+# RUN pip install -e .
+
+# WORKDIR /model_weights/UFM/benchmarks
+# RUN pip install -e .
 
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /home/robot/.tmux/plugins/tpm
