@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../assets/StackedWhite.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.19">
     
     
       
@@ -3329,11 +3329,11 @@ A GPU of GeForce RTX 4080 or higher is recommended for the best performance.</p>
 </span></code></pre></div>
 <h2 id="docker-images">Docker Images<a class="headerlink" href="#docker-images" title="Permanent link">&para;</a></h2>
 <p>Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.</p>
-<details open> <summary>Option 1: Pull From the Airlab Registry (Preferred)</summary>
+<details open> <summary>Option 1: Pull From the Airlab Docker Registry (Preferred)</summary>
 To use the AirLab Docker registry do the following
 
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-storage.andrew.cmu.edu:5001
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-storage.andrew.cmu.edu:442
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">## &lt;Enter your andrew id (without @andrew.cmu.edu)&gt;</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">## &lt;Enter your andrew password&gt;</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
