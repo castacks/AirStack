@@ -4,6 +4,3 @@
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2
 	url = git@github.com:castacks/vdb_mapping_ros2.git
-[submodule "robot/ros_ws/src/autonomy/2_perception/MAC-VO-ROS/macvo/src"]
-	path = robot/ros_ws/src/autonomy/2_perception/MAC-VO-ROS/macvo/src
-	url = git@github.com:castacks/MAC-SLAM-Stable.git
