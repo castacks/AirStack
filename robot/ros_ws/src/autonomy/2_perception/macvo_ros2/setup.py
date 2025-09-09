@@ -1,7 +1,7 @@
 import os
 from setuptools import find_packages, setup
 
-package_name = "macvo"
+package_name = "macvo_ros2"
 
 
 def package_files(directory):
@@ -25,7 +25,7 @@ setup(
         #     "share/" + package_name + "/model",
         #     ["/model_weights/MACVO_FrontendCov.pth", "/model_weights/MACVO_posenet.pkl"],
         # ),
-        ("share/" + package_name, ["launch/macvo.launch.xml"]),
+        ("share/" + package_name, ["launch/macvo_ros2.launch.xml"]),
         (
             "share/" + package_name + "/config",
             ["config/interface_config.yaml", "config/model_config.yaml"],
@@ -41,7 +41,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "macvo = macvo.macvo:main",
+            "macvo_node = macvo_ros2.macvo_node:main",
         ],
     },
 )
