@@ -169,19 +169,17 @@ RUN if [ "$REAL_ROBOT"  = "true" ]; then \
 RUN pip install -U colcon-common-extensions
 
 # # Downloading model weights for MACVO
-# WORKDIR /model_weights
-# RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
-#   wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
-#   wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
-#   mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
-#   mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
-#   mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /model_weights/dsta_efficient.ckpt && \
-#   rm -rf /model_weights/github.com
+WORKDIR /model_weights
+RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
+  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
+  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
+  rm -rf /model_weights/github.com
 
 
-# # Fixes for MACVO Integration
-# RUN pip install huggingface_hub
-# RUN pip uninstall matplotlib -y
+# Fixes for MACVO Integration
+RUN pip install huggingface_hub
+RUN pip uninstall matplotlib -y
 
 # # Temporary fix for UFM
 # WORKDIR /model_weights
