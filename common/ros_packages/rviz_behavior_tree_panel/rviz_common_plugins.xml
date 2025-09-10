@@ -1,0 +1,5 @@
+<library path="demo_panel">
+  <class type="rviz_panel_tutorial::DemoPanel" base_class_type="rviz_common::Panel">
+    <description>A very basic panel for a tutorial</description>
+  </class>
+</library>
