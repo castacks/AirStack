@@ -70,7 +70,8 @@ Odometry:
     type: CUDAGraph_FlowFormerCovFrontend
     args:
       device: *device
-      weight: ./Model/MACVO_FrontendCov.pth
+      # downloaded in Dockerfile.robot
+      weight: /model_weights/MACVO_FrontendCov.pth
       enc_dtype: fp16
       dec_dtype: bf16
       decoder_depth: 12
@@ -100,6 +101,3 @@ Odometry:
       parallel: true
       graph_type: disp
       autodiff: false
-
-Data: !include ../../Sequence/TartanAir_example.yaml
-Preprocess: !include ../Common/Preprocess.yaml
