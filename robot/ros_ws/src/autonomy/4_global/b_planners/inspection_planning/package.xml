@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>inspection_planning</name>
+  <version>0.0.0</version>
+  <description>The inspection planning package for semantic-aware inspection planning</description>
+
+  <maintainer email="todo@example.com">todo</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>message_filters</depend>
+  <depend>vdb_mapping</depend>
+  <depend>Eigen3</depend>
+  <depend>PCL</depend>
+  <depend>pcl_conversions</depend>
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
