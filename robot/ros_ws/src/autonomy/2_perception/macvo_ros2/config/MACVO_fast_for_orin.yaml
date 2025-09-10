@@ -42,7 +42,7 @@ Odometry:
       type: MatchCovariance
       args:
         device: *device
-        kernel_size: 31
+        kernel_size: 7
         match_cov_default: 0.25
         min_depth_cov: 0.05
         min_flow_cov: 0.25
