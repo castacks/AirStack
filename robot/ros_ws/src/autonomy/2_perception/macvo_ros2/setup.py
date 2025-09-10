@@ -12,7 +12,7 @@ def package_files(directory):
     return paths
 
 
-extra_files = package_files("MACVO_ROS2/src") + package_files("MACVO_ROS2/config")
+extra_files = package_files("macvo_ros2/src") + package_files("macvo_ros2/config")
 
 setup(
     name=package_name,
