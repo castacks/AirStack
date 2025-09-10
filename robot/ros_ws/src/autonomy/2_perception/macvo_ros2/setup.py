@@ -21,10 +21,6 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
-        # (
-        #     "share/" + package_name + "/model",
-        #     ["/model_weights/MACVO_FrontendCov.pth", "/model_weights/MACVO_posenet.pkl"],
-        # ),
         ("share/" + package_name, ["launch/macvo_ros2.launch.xml"]),
         (
             "share/" + package_name + "/config",

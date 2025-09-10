@@ -181,22 +181,6 @@ RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_Fron
 RUN pip install huggingface_hub
 RUN pip uninstall matplotlib -y
 
-# # Temporary fix for UFM
-# WORKDIR /model_weights
-# RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
-#   apt update && apt install -y unzip && \
-#   mv /model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /model_weights/UFM_Env2.zip && \
-#   unzip UFM_Env2.zip && \
-#   rm UFM_Env2.zip
-
-# WORKDIR /model_weights/UFM
-# RUN pip install -e .
-
-# WORKDIR /model_weights/UFM/UniCeption
-# RUN pip install -e .
-
-# WORKDIR /model_weights/UFM/benchmarks
-# RUN pip install -e .
 
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /home/robot/.tmux/plugins/tpm
