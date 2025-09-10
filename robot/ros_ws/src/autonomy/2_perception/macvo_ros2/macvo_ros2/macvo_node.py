@@ -84,7 +84,7 @@ class MacvoNode(Node):
         # End
 
         # Load the MACVO model ------------------------------------
-        macvo_config_path = self.get_string_param("camera_config")
+        macvo_config_path = self.get_string_param("macvo_config")
         self.get_logger().info(
             f"Loading macvo model from {macvo_config_path}, this might take a while..."
         )

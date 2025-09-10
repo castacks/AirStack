@@ -1,15 +1,30 @@
+#
+# This configuration is **not** used to report numbers in the paper.
+# To reproduce result in the paper, please use Paper_Reproduce.yaml
+#
+#
+# MAC-VO Fast Mode (Jun 2025 Update)
+#   Comparing to the Performant mode (MACVO_Performant), the Fast Mode uses 
+#   mixed-precision inference of fp32, fp16 and bf16. The fast mode can run
+#   at 12.5fps on 480x640 images on RTX Ada 6000 GPU, almost twice the speed
+#   as Performant Mode.
+#   
+#   If minor degrade in accuracy (~5% increase in RTE and ROE) is acceptable,
+#   then you should use Fast Mode for most of the time.
+# 
+
 Common:
   # Some configurations are shared across multiple modules in Odometry, so I write them here.
   device: &device cuda
 
 Odometry:
-  name: MACVO_Airstack_TRT
+  name: MACVO-Fast-for-Orin
   args:
     # Device directive to the VO system
     # NOTE: the system may not follow this device config strictly since some module
     # e.g. those rely on PWC-Net, only support running on cuda device.
     device: *device
-    edgewidth: 8
+    edgewidth: 32
     num_point: 200 # Upper bound of KPs in each frame
 
     # Match covariance for keypoint on first observation (sub-pixel uncertainty
@@ -20,20 +35,19 @@ Odometry:
     profile: false
 
     # Mapping mode provides the dense mapping
-    mapping: 5000
-
-    # Online mode does not keep accumulated data inside the VO module.
-    online: true
+    mapping: true
 
   cov:
     obs:
       type: MatchCovariance
       args:
         device: *device
+        kernel_size: 31
         match_cov_default: 0.25
         min_depth_cov: 0.05
         min_flow_cov: 0.25
 
+# keypoint and mappoint tuned for AGX Orin by Yutian Chen
   keypoint:
     type: CovAwareSelector_NoDepth
     args:
@@ -53,15 +67,14 @@ Odometry:
       mask_width: 8
 
   frontend:
-    # type: TRT_FlowFormerCovFrontend
     type: CUDAGraph_FlowFormerCovFrontend
     args:
       device: *device
-      weight: /model_weights/MACVO_FrontendCov.pth
-      dtype: fp32
-      max_flow: -1
+      weight: ./Model/MACVO_FrontendCov.pth
+      enc_dtype: fp16
+      dec_dtype: bf16
+      decoder_depth: 12
       enforce_positive_disparity: false
-      decoder_depth: 4
 
   motion:
     type: StaticMotionModel
@@ -80,10 +93,13 @@ Odometry:
     args:
   
   optimizer:
-    type: Local_TwoFrame_PGO
+    type: TwoFrame_PGO
     args:
       device: cpu
       vectorize: true
-      autodiff: false
       parallel: true
       graph_type: disp
+      autodiff: false
+
+Data: !include ../../Sequence/TartanAir_example.yaml
+Preprocess: !include ../Common/Preprocess.yaml

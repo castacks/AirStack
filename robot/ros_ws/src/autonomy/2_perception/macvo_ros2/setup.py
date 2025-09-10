@@ -28,7 +28,7 @@ setup(
         ("share/" + package_name, ["launch/macvo_ros2.launch.xml"]),
         (
             "share/" + package_name + "/config",
-            ["config/interface_config.yaml", "config/model_config.yaml"],
+            ["config/interface_config.yaml", "config/MACVO_fast_for_orin.yaml"],
         ),
     ],
     package_data={package_name: extra_files},
