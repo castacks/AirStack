@@ -34,7 +34,7 @@ else:
     from Utility.Config import load_config
 
 
-PACKAGE_NAME = "macvo"
+PACKAGE_NAME = "macvo_ros2"
 
 
 class MacvoNode(Node):
@@ -141,7 +141,8 @@ class MacvoNode(Node):
         while True:
             while not camera_param_client.wait_for_service(timeout_sec=client_time_out):
                 self.get_logger().error(
-                    f"Service {camera_param_server_topic} not available, waiting again..."
+                    f"Service {camera_param_server_topic} not available, waiting again...",
+                    throttle_duration_sec=5
                 )
             req = GetCameraParams.Request()
             req.camera_names.append(camera_name)
