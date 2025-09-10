@@ -12,8 +12,8 @@
             "type": "ros2",
             "request": "launch",
             "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/2_perception/macvo_ros2/launch/macvo_ros2.launch.xml"
-	},
-	{
+	    },
+	    {
             "name": "ROS2: Launch RRT Star",
             "type": "ros2",
             "request": "launch",
