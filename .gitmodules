@@ -3,7 +3,7 @@
 	url = https://github.com/castacks/vdb_mapping.git
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2
-	url = https://github.com:castacks/vdb_mapping_ros2.git
+	url = https://github.com/castacks/vdb_mapping_ros2.git
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/resilience"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/resilience
 	url = git@github.com:N47IN/resilience.git
