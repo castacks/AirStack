@@ -1,5 +1,5 @@
-<library path="demo_panel">
-  <class type="rviz_panel_tutorial::DemoPanel" base_class_type="rviz_common::Panel">
-    <description>A very basic panel for a tutorial</description>
+<library path="behavior_tree_panel">
+  <class type="rviz_behavior_tree_panel::BehaviorTreePanel" base_class_type="rviz_common::Panel">
+    <description>A panel for visualizing behavior trees from graphviz xdot data</description>
   </class>
 </library>

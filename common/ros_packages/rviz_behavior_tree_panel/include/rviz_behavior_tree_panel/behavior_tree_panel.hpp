@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2024, Metro Robots
+ *  Copyright (c) 2024, AirLab - Carnegie Mellon University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of Metro Robots nor the names of its
+ *   * Neither the name of AirLab nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,42 +32,43 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: David V. Lu!! */
+#ifndef RVIZ_BEHAVIOR_TREE_PANEL__BEHAVIOR_TREE_PANEL_HPP_
+#define RVIZ_BEHAVIOR_TREE_PANEL__BEHAVIOR_TREE_PANEL_HPP_
 
-#ifndef RVIZ_PANEL_TUTORIAL__DEMO_PANEL_HPP_
-#define RVIZ_PANEL_TUTORIAL__DEMO_PANEL_HPP_
-
+#include <QVBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <rviz_common/panel.hpp>
 #include <rviz_common/ros_integration/ros_node_abstraction_iface.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <xdot_cpp/ui/dot_widget.h>
 
-namespace rviz_panel_tutorial
+namespace rviz_behavior_tree_panel
 {
-class DemoPanel : public rviz_common::Panel
+
+class BehaviorTreePanel : public rviz_common::Panel
 {
   Q_OBJECT
+
 public:
-  explicit DemoPanel(QWidget * parent = 0);
-  ~DemoPanel() override;
+  explicit BehaviorTreePanel(QWidget * parent = nullptr);
+  ~BehaviorTreePanel() override;
 
   void onInitialize() override;
 
 protected:
   std::shared_ptr<rviz_common::ros_integration::RosNodeAbstractionIface> node_ptr_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr behavior_tree_subscription_;
 
-  void topicCallback(const std_msgs::msg::String& msg);
+  void behaviorTreeCallback(const std_msgs::msg::String::SharedPtr msg);
 
-  QLabel * label_;
-  QPushButton * button_;
-
-private Q_SLOTS:
-  void buttonActivated();
+private:
+  QVBoxLayout * layout_;
+  QLabel * status_label_;
+  xdot_cpp::ui::DotWidget * dot_widget_;
+  
+  std::string previous_graphviz_;
 };
 
-}  // namespace rviz_panel_tutorial
+}  // namespace rviz_behavior_tree_panel
 
-#endif  // RVIZ_PANEL_TUTORIAL__DEMO_PANEL_HPP_
+#endif  // RVIZ_BEHAVIOR_TREE_PANEL__BEHAVIOR_TREE_PANEL_HPP_
