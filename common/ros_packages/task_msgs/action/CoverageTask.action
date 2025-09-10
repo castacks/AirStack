@@ -1,0 +1,26 @@
+# CoverageTask.action - Execute a coverage pattern over a specified area
+# Request (Goal)
+geometry_msgs/Polygon coverage_area
+string pattern_type "lawnmower"  # Options: "lawnmower", "spiral"
+float32 altitude 10.0
+float32 overlap_ratio 0.2
+float32 flight_speed 3.0
+string frame_id "map"
+bool return_to_start true
+
+---
+# Result
+bool success
+string message
+float32 area_covered
+float32 total_distance_traveled
+int32 waypoints_visited
+
+---
+# Feedback
+geometry_msgs/PoseStamped current_pose
+float32 coverage_percentage
+int32 current_waypoint
+int32 total_waypoints
+float32 time_elapsed
+string current_phase

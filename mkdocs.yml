@@ -52,6 +52,7 @@ nav:
           - docs/development/airstack-cli/docker_usage.md
           - docs/development/airstack-cli/extending.md
           - docs/development/airstack-cli/architecture.md
+      - docs/development/openhands_cli.md
       - docs/development/vscode/index.md
       - Testing:
           - docs/development/testing/index.md

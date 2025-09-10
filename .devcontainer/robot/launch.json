@@ -12,6 +12,20 @@
             "type": "ros2",
             "request": "launch",
             "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/2_perception/macvo_ros2/launch/macvo_ros2.launch.xml"
+	},
+	{
+            "name": "ROS2: Launch RRT Star",
+            "type": "ros2",
+            "request": "launch",
+            "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/4_global/b_planners/rrtstar_global_navigator/launch/rrtstar_global_navigator.launch.py",
+            "arguments": ["cost_map_topic:=/robot_1/vdb_mapping/vdb_map_pointcloud", "odom_topic:=/robot_1/odometry_conversion/odometry", "enable_debug_visualization:=true"]
+        },
+        {
+            "name": "ROS2: Launch JPS Planner",
+            "type": "ros2",
+            "request": "launch",
+            "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/4_global/b_planners/jps_global_navigator/launch/jps_global_navigator.launch.py",
+            "arguments": ["cost_map_topic:=/robot_1/vdb_mapping/vdb_map_pointcloud", "odom_topic:=/robot_1/odometry_conversion/odometry", "global_plan_topic:=/robot_1/global_plan", "enable_debug_visualization:=true"]
         },
         {
             "name": "ROS2: Attach",
