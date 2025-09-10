@@ -24,13 +24,13 @@ src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "macvo"))
 sys.path.insert(0, src_path)
 if TYPE_CHECKING:
     # To make static type checker happy : )
-    from macvo.Odometry.MACVO import MACVO
-    from macvo.DataLoader import StereoFrameData, StereoData, SmartResizeFrame
-    from macvo.Utility.Config import load_config
+    from Odometry.MACVO import MACVO
+    from DataLoader import StereoFrame, StereoData, SmartResizeFrame
+    from Utility.Config import load_config
 else:
     import DataLoader
     from Odometry.MACVO import MACVO
-    from DataLoader import StereoFrameData, StereoData, SmartResizeFrame
+    from DataLoader import StereoFrame, StereoData, SmartResizeFrame
     from Utility.Config import load_config
 
 
@@ -94,7 +94,7 @@ class MacvoNode(Node):
         try:
             os.chdir(get_package_share_directory(PACKAGE_NAME))
             self.get_logger().info(get_package_share_directory(PACKAGE_NAME))
-            self.odometry = MACVO[StereoFrameData].from_config(cfg)
+            self.odometry = MACVO[StereoFrame].from_config(cfg)
             self.odometry.register_on_optimize_finish(self.publish_data)
         finally:
             os.chdir(original_cwd)
@@ -214,7 +214,7 @@ class MacvoNode(Node):
                 "interp": "bilinear",
             }
         )(
-            StereoFrameData(
+            StereoFrame(
                 idx=torch.tensor([self.frame_id], dtype=torch.long),
                 time_ns=[elapsed],
                 stereo=StereoData(
