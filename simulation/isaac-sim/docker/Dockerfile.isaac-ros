@@ -64,7 +64,7 @@ RUN apt update && apt install -y --no-install-recommends curl emacs vim nano tmu
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
-RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit
+RUN /isaac-sim/python.sh -m pip install future git+https://github.com/dronekit/dronekit-python#egg=dronekit
 RUN pip install PyYAML mavproxy tmuxp scipy
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"

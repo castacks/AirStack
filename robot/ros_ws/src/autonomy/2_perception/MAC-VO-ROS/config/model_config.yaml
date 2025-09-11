@@ -30,7 +30,6 @@ Odometry:
       type: MatchCovariance
       args:
         device: *device
-        kernel_size: 7
         match_cov_default: 0.25
         min_depth_cov: 0.05
         min_flow_cov: 0.25
@@ -58,7 +57,7 @@ Odometry:
     type: CUDAGraph_FlowFormerCovFrontend
     args:
       device: *device
-      weight: /root/model_weights/MACVO_FrontendCov.pth
+      weight: /model_weights/MACVO_FrontendCov.pth
       dtype: fp32
       max_flow: -1
       enforce_positive_disparity: false

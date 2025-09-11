@@ -15,7 +15,7 @@ services:
     command: >
       bash -c "
       tmux new -d -s isaac;
-      autolaunch=${AUTOLAUNCH};
+      autolaunch=${AUTOLAUNCH:-'false'};
       if [ $$autolaunch = 'true' ]; then
         tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}' ENTER 
       fi;
@@ -66,6 +66,7 @@ services:
       - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
       - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw
       # code
       - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ../sitl_integration:/sitl_integration:rw
@@ -74,11 +75,11 @@ services:
 
   # ===================================================================================================================
   # for running over ethernet for hitl to stream to the NVIDIA jetson device
-  isaac-sim-hitl:
-    extends:
-      service: isaac-sim
-    profiles: !override
-      - hitl
-    container_name: isaac-sim
-    network_mode: host
-    networks: !reset null
+  # isaac-sim-hitl:
+  #   extends:
+  #     service: isaac-sim
+  #   profiles: !override
+  #     - hitl
+  #   container_name: isaac-sim
+  #   network_mode: host
+  #   networks: !reset null
