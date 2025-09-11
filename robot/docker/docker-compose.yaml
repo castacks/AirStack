@@ -74,7 +74,6 @@ services:
     extends:
       service: robot
     command: >
-<<<<<<< HEAD
       bash -il -c "
       echo 'Building and sourcing workspace...';
       bws &> /dev/null && sws &> /dev/null &&
@@ -83,7 +82,3 @@ services:
       TEST_EXIT_CODE=$$?;
       echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
       exit $$TEST_EXIT_CODE"
-=======
-      bash -il -c " echo 'Building and sourcing workspace...'; bws &> /dev/null && sws &> /dev/null && echo 'Starting tests for packages: takeoff_landing_planner'; colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+; TEST_EXIT_CODE=$$?; echo \"Tests completed with exit code: $$TEST_EXIT_CODE\"; exit $$TEST_EXIT_CODE"
-    entrypoint: []
->>>>>>> 2d5142109ef4a1887895a954e2111da3ba147e75
