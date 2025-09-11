@@ -23,18 +23,18 @@ services:
       bash -c "
       service ssh restart;
       autolaunch=${AUTOLAUNCH};
-      if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t robot_bringup 'bws' ENTER;
+      if [ $$autolaunch == 'true' ]; then
+        tmux new -d -s robot_bringup;
+        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
-    # networks:
-    #   - airstack_network
+    networks:
+      - airstack_network
     # allow scaling multiple robots on the same machine
-    # ports:
-    #   # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
-    #   - "2223-2243:22"
-    network_mode: host
+    ports:
+      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+      - "2223-2243:22"
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
@@ -59,15 +59,20 @@ services:
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
-      bash -c "ssh service restart; tmux new -d -s robot_bringup && tmux send-keys -t robot_bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER && sleep infinity"
+      bash -c "ssh service restart;
+      tmux new -d -s robot_bringup
+      && tmux send-keys -t robot_bringup 
+      'bws && sws && 
+      DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER
+      && sleep infinity"
     runtime: nvidia
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
-  # ===================================================================================================================
-  # for running tests on the robot
+# ===================================================================================================================
+# for running tests on the robot
   robot-test:
     profiles: !override
       - "test"
