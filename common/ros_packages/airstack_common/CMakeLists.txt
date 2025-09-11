@@ -116,6 +116,7 @@ install(
   )
 ament_export_libraries(templib)
 
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 # install
 ament_export_include_directories(include)

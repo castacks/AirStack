@@ -234,6 +234,9 @@ cv::Mat DisparityExpansionNode::convert_depth_to_disparity(const cv::Mat& depth_
 
 void DisparityExpansionNode::process_disparity_image(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp) {
+
+    auto begin = std::chrono::high_resolution_clock::now();
+  
     if (!this->LUT_ready) {
         auto& clock = *this->get_clock();
         RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1,
@@ -273,6 +276,8 @@ void DisparityExpansionNode::process_disparity_image(
     }
     if(ignore_left_pixels > 0)
       disparity32F(cv::Range::all(), cv::Range(0, ignore_left_pixels)) = std::numeric_limits<float>::quiet_NaN();
+    
+    cv::patchNaNs(disparity32F, 0.f);
 
     cv::Mat disparity_fg;
     cv::Mat disparity_bg;
@@ -283,8 +288,10 @@ void DisparityExpansionNode::process_disparity_image(
         disparity32F.copyTo(bg_msg->image);
 
         disparity32F.copyTo(disparity_fg);
+	disparity_fg.setTo(-std::numeric_limits<float>::infinity());
         disparity32F.copyTo(disparity_bg);
-        disparity32F.copyTo(disparity32F_bg);
+	disparity_bg.setTo(std::numeric_limits<float>::infinity()); // TODO do this in a more efficient way than copying and setting, just set
+        //disparity32F.copyTo(disparity32F_bg);
     } catch (cv_bridge::Exception& e) {
         RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
         return;
@@ -376,8 +383,10 @@ void DisparityExpansionNode::process_disparity_image(
                 disp_to_depth += this->padding;
 
             disp_new_bg = this->baseline * this->fx / (disp_to_depth);
-            disparity_fg(roi).setTo(disp_new_fg);
-            disparity_bg(roi).setTo(disp_new_bg);
+            //disparity_fg(roi).setTo(disp_new_fg);
+	    cv::max(disparity_fg(roi), disp_new_fg, disparity_fg(roi));
+            //disparity_bg(roi).setTo(disp_new_bg);
+	    cv::min(disparity_bg(roi), disp_new_bg, disparity_bg(roi));
 
             int u_temp = u1 + max_idx;
             if (u_temp >= u)
@@ -387,6 +396,10 @@ void DisparityExpansionNode::process_disparity_image(
         }
     }
 
+    //cv::Mat intermediate_fg, intermediate_bg;
+    //disparity_fg.copyTo(intermediate_fg);
+    //disparity_bg.copyTo(intermediate_bg);
+    
     disparity_fg.copyTo(disparity32F);
     disparity_bg.copyTo(disparity32F_bg);
 
@@ -441,7 +454,7 @@ void DisparityExpansionNode::process_disparity_image(
 
             cv::Mat submat;
             cv::divide(baseline * this->fx, submat_t, submat);
-            cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
+            cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2, disparity32F_bg(roi) != std::numeric_limits<float>::infinity());
             disp_to_depth = this->baseline * this->fx / max;
             submat = (submat - disp_to_depth);  /// this->expansion_radius;
 
@@ -463,7 +476,7 @@ void DisparityExpansionNode::process_disparity_image(
                     }
                     ctr++;
                 }
-                disp_to_depth += max_depth;
+                disp_to_depth += max_depth + (-this->padding);
             } else
                 disp_to_depth += this->padding;  // this->baseline * this->fx/min;
 
@@ -471,8 +484,10 @@ void DisparityExpansionNode::process_disparity_image(
                           this->pixel_error;
             disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
 
-            disparity_fg(roi).setTo(disp_new_fg);
-            disparity_bg(roi).setTo(disp_new_bg);
+            //disparity_fg(roi).setTo(disp_new_fg);
+            //disparity_bg(roi).setTo(disp_new_bg);
+	    cv::max(disparity_fg(roi), disp_new_fg, disparity_fg(roi));
+	    cv::min(disparity_bg(roi), disp_new_bg, disparity_bg(roi));
 
             int v_temp = v1 + max_idx;
             if (v_temp >= v)
@@ -482,8 +497,17 @@ void DisparityExpansionNode::process_disparity_image(
         }
     }
 
+    disparity_fg.setTo(-1.f, disparity_fg == -std::numeric_limits<float>::infinity());
+    disparity_bg.setTo(-1.f, disparity_bg == std::numeric_limits<float>::infinity());
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - begin;
+    //RCLCPP_INFO_STREAM(this->get_logger(), "elapsed: " << elapsed.count() << " s");
+    
     fg_msg->image = disparity_fg;
     bg_msg->image = disparity_bg;
+    //fg_msg->image = intermediate_fg;
+    //bg_msg->image = intermediate_bg;
 
     expanded_disparity_fg_pub->publish(*(fg_msg->toImageMsg()));
     expanded_disparity_bg_pub->publish(*(bg_msg->toImageMsg()));

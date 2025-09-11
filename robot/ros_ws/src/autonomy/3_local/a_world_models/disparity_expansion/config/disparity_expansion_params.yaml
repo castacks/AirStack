@@ -11,3 +11,4 @@
     # sensor_pixel_error: 0.5 # what is this? and why was it 0.5?
     sensor_pixel_error: 0.0
     ignore_left_pixels: 0
+    padding: -2.
