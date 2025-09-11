@@ -13,6 +13,7 @@
     sub_map_topic: "vdb_map_visualization"
     sub_vdb_topic: "vdb_grid"
     sub_robot_tf_topic: "/tf"
+    sub_target_path_topic: "/perspective_goals"
     srv_exploration_toggle_topic: "/robot_1/behavior/global_plan_toggle"
 
     publish_visualizations: false # should trajectory visualizations be published
