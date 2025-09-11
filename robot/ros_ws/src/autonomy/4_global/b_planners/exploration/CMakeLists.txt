@@ -23,7 +23,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 
 # set(OpenVDB_INCLUDE_DIR "/usr/local/include/openvdb" CACHE STRING "Path to OpenVDB installation")
 find_package(OpenVDB REQUIRED)
-find_package(vdb_mapping REQUIRED)
+# find_package(vdb_mapping REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
@@ -58,7 +58,7 @@ target_include_directories(exploration_planner
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(exploration_planner
-  vdb_mapping::vdb_mapping
+  # vdb_mapping::vdb_mapping
   OpenVDB::openvdb
   ${EIGEN3_LIBRARIES}
   ${PCL_LIBRARIES})
@@ -79,7 +79,7 @@ target_include_directories(waypoint_routing_planner
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(waypoint_routing_planner
-  vdb_mapping::vdb_mapping
+  # vdb_mapping::vdb_mapping
   OpenVDB::openvdb
   ${EIGEN3_LIBRARIES}
   ${PCL_LIBRARIES})
