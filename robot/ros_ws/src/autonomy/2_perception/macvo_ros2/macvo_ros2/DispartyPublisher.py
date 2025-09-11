@@ -9,13 +9,13 @@ import os, sys
 
 from .MessageFactory import to_image
 
-# Add the src directory to the Python path
-src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'src'))
-sys.path.insert(0, src_path)
+# Add the macvo directory to the Python path
+macvo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'macvo'))
+sys.path.insert(0, macvo_path)
 if TYPE_CHECKING:
     # To make static type checker happy : )
-    from src.Module import IFrontend, IMatcher, IStereoDepth
-    from src.DataLoader import StereoData
+    from Module import IFrontend, IMatcher, IStereoDepth
+    from DataLoader import StereoData
 else:
     from Module import IFrontend, IMatcher, IStereoDepth
     from DataLoader import StereoData

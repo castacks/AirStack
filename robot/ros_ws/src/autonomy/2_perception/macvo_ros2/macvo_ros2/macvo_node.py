@@ -20,24 +20,24 @@ from .MessageFactory import to_stamped_pose, from_image, to_pointcloud, to_image
 from sensor_interfaces.srv import GetCameraParams
 
 # Add the src directory to the Python path
-src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "src"))
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "macvo"))
 sys.path.insert(0, src_path)
 if TYPE_CHECKING:
     # To make static type checker happy : )
-    from src.Odometry.MACVO import MACVO
-    from src.DataLoader import StereoFrameData, StereoData, SmartResizeFrame
-    from src.Utility.Config import load_config
+    from Odometry.MACVO import MACVO
+    from DataLoader import StereoFrame, StereoData, SmartResizeFrame
+    from Utility.Config import load_config
 else:
     import DataLoader
     from Odometry.MACVO import MACVO
-    from DataLoader import StereoFrameData, StereoData, SmartResizeFrame
+    from DataLoader import StereoFrame, StereoData, SmartResizeFrame
     from Utility.Config import load_config
 
 
-PACKAGE_NAME = "macvo"
+PACKAGE_NAME = "macvo_ros2"
 
 
-class macvoNode(Node):
+class MacvoNode(Node):
     def __init__(self) -> None:
         super().__init__("macvo_node")
         self.coord_frame = "macvo_ned"  # Coordinate frame for the camera, in NED (North-East-Down) convention
@@ -84,7 +84,7 @@ class macvoNode(Node):
         # End
 
         # Load the MACVO model ------------------------------------
-        macvo_config_path = self.get_string_param("camera_config")
+        macvo_config_path = self.get_string_param("macvo_config")
         self.get_logger().info(
             f"Loading macvo model from {macvo_config_path}, this might take a while..."
         )
@@ -94,7 +94,7 @@ class macvoNode(Node):
         try:
             os.chdir(get_package_share_directory(PACKAGE_NAME))
             self.get_logger().info(get_package_share_directory(PACKAGE_NAME))
-            self.odometry = MACVO[StereoFrameData].from_config(cfg)
+            self.odometry = MACVO[StereoFrame].from_config(cfg)
             self.odometry.register_on_optimize_finish(self.publish_data)
         finally:
             os.chdir(original_cwd)
@@ -141,7 +141,8 @@ class macvoNode(Node):
         while True:
             while not camera_param_client.wait_for_service(timeout_sec=client_time_out):
                 self.get_logger().error(
-                    f"Service {camera_param_server_topic} not available, waiting again..."
+                    f"Service {camera_param_server_topic} not available, waiting again...",
+                    throttle_duration_sec=5
                 )
             req = GetCameraParams.Request()
             req.camera_names.append(camera_name)
@@ -160,7 +161,7 @@ class macvoNode(Node):
     def publish_data(self, system: MACVO):
         # Latest pose
         pose = pp.SE3(system.graph.frames.data["pose"][-1])
-        self.get_logger().info(f"Publish {pose}")
+        self.get_logger().debug(f"Publish {pose}")
         time_ns = int(system.graph.frames.data["time_ns"][-1].item())
 
         time = Time()
@@ -198,7 +199,7 @@ class macvoNode(Node):
         if self.camera_info is None:
             self.get_logger().error("Skipped a frame since camera info is not received yet")
             return
-        self.get_logger().info(f"Frame {self.frame_id}")
+        self.get_logger().debug(f"Frame {self.frame_id}")
         imageL, timestamp = from_image(msg_imageL), msg_imageL.header.stamp
         imageR = from_image(msg_imageR)
         if self.init_time is None:
@@ -214,7 +215,7 @@ class macvoNode(Node):
                 "interp": "bilinear",
             }
         )(
-            StereoFrameData(
+            StereoFrame(
                 idx=torch.tensor([self.frame_id], dtype=torch.long),
                 time_ns=[elapsed],
                 stereo=StereoData(
@@ -257,7 +258,7 @@ class macvoNode(Node):
 
 def main():
     rclpy.init()
-    node = macvoNode()
+    node = MacvoNode()
     rclpy.spin(node)
 
     node.destroy_node()

@@ -1,6 +1,6 @@
 # MAC-VO ROS2 Wrapper
 
-This repository is the ROS-2 wrapper for our work *MAC-VO: Metrics-aware Covariance for Learning-based Stereo Visual Odometry*. To visit our original codebase, see [https://github.com/MAC-VO/MAC-VO](https://github.com/MAC-VO/MAC-VO).
+Fork of the MAC-VO ROS2 Wrapper for AirStack
 
 ## Install and Configuration
 
