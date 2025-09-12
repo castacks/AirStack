@@ -571,13 +571,18 @@ void DisparityExpansionNode::expand(cv::Mat& disparity_fg_in, cv::Mat& disparity
       cv::minMaxLoc(disparity_fg_in(roi), &min, &max, &p1, &p2);
       int max_idx = p2.x;
       float disp_new_fg = max;
+      if(second_pass){
+	disp_new_fg = this->baseline * this->fx / (this->baseline * this->fx / max - this->expansion_radius) + this->pixel_error;
+	if(disp_new_fg < 0.f)
+	  disp_new_fg = std::numeric_limits<float>::infinity();
+      }
 
       cv::Mat submat_t = disparity_bg_in(roi);
       cv::minMaxLoc(submat_t, &min, &max, &p1, &p2, disparity_bg_in(roi) != std::numeric_limits<float>::infinity());
       float disp_to_depth = this->baseline * this->fx / max;
 
       // find how much this region of background disp should be expanded by looking at the connected components of the max disp
-      if(this->padding < 0.0){
+      if(second_pass && this->padding < 0.0){
 	cv::Mat submat;
 	cv::divide(baseline * this->fx, submat_t, submat);
 	submat = (submat - disp_to_depth);

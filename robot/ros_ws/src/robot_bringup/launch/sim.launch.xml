@@ -11,6 +11,8 @@
            to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
 
     <remap from="/$(env ROBOT_NAME)/stereo_image_proc/disparity" to="/$(env ROBOT_NAME)/sensors/front_stereo/disparity" />
+
+    <param name="speckle_size" value="300" />
   </node>
 
   <!-- Visualizer -->
