@@ -75,6 +75,11 @@ class DisparityExpansionNode : public rclcpp::Node {
 
     void generate_expansion_lookup_table();
 
+    void expand(cv::Mat& disparity_fg_in, cv::Mat& disparity_bg_in,
+  	        cv::Mat& disparity_fg_out, cv::Mat& disparity_bg_out,
+		bool second_pass);
+
+
    public:
     DisparityExpansionNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
