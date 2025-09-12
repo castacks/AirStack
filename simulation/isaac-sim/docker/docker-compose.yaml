@@ -14,7 +14,7 @@ services:
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
       bash -c "tmux new -d -s isaac; 
-        tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus.py' ENTER;
+        tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus_launch.py' ENTER;
       sleep infinity"
     # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py --scene \"${ISAAC_SIM_SCENE}\"' ENTER;
     # Interactive shell

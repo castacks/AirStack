@@ -1,4 +1,4 @@
-"""Support for simplified access to data on nodes of type airlab.pegasus.AscentNode
+"""Support for simplified access to data on nodes of type airlab.pegasus.PegasusMultirotorNode
 
  __   ___ .  .  ___  __       ___  ___  __      __   __   __   ___
 / _` |__  |\ | |__  |__)  /\   |  |__  |  \    /  ` /  \ |  \ |__
@@ -97,8 +97,8 @@ def incremental_rotate(prim):
             o.Set(o.Get() + Gf.Vec3d(0.0, 50, 0.0))
 
 
-class OgnAscentNodeDatabase(og.Database):
-    """Helper class providing simplified access to data on nodes of type airlab.pegasus.AscentNode
+class OgnPegasusMultirotorNodeDatabase(og.Database):
+    """Helper class providing simplified access to data on nodes of type airlab.pegasus.PegasusMultirotorNode
 
     Class Members:
         node: Node being evaluated
@@ -413,19 +413,19 @@ class OgnAscentNodeDatabase(og.Database):
         dynamic_attributes = self.dynamic_attribute_data(
             node, og.AttributePortType.ATTRIBUTE_PORT_TYPE_INPUT
         )
-        self.inputs = OgnAscentNodeDatabase.ValuesForInputs(
+        self.inputs = OgnPegasusMultirotorNodeDatabase.ValuesForInputs(
             node, self.attributes.inputs, dynamic_attributes
         )
         dynamic_attributes = self.dynamic_attribute_data(
             node, og.AttributePortType.ATTRIBUTE_PORT_TYPE_OUTPUT
         )
-        self.outputs = OgnAscentNodeDatabase.ValuesForOutputs(
+        self.outputs = OgnPegasusMultirotorNodeDatabase.ValuesForOutputs(
             node, self.attributes.outputs, dynamic_attributes
         )
         dynamic_attributes = self.dynamic_attribute_data(
             node, og.AttributePortType.ATTRIBUTE_PORT_TYPE_STATE
         )
-        self.state = OgnAscentNodeDatabase.ValuesForState(
+        self.state = OgnPegasusMultirotorNodeDatabase.ValuesForState(
             node, self.attributes.state, dynamic_attributes
         )
     
@@ -450,11 +450,11 @@ class OgnAscentNodeDatabase(og.Database):
         @staticmethod
         def get_node_type():
             get_node_type_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "get_node_type", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "get_node_type", None
             )
             if callable(get_node_type_function):  # pragma: no cover
                 return get_node_type_function()
-            return "airlab.pegasus.AscentNode"
+            return "airlab.pegasus.PegasusMultirotorNode"
 
         @staticmethod
         def compute(context, node):
@@ -463,16 +463,16 @@ class OgnAscentNodeDatabase(og.Database):
                 return True
 
             try:
-                per_node_data = OgnAscentNodeDatabase.PER_NODE_DATA[node.node_id()]
+                per_node_data = OgnPegasusMultirotorNodeDatabase.PER_NODE_DATA[node.node_id()]
                 db = per_node_data.get("_db")
                 if db is None:
-                    db = OgnAscentNodeDatabase(node)
+                    db = OgnPegasusMultirotorNodeDatabase(node)
                     per_node_data["_db"] = db
                 if not database_valid():
                     per_node_data["_db"] = None
                     return False
             except Exception as e:
-                db = OgnAscentNodeDatabase(node)
+                db = OgnPegasusMultirotorNodeDatabase(node)
 
             try:
                 if db.inputs.dronePrim:
@@ -524,7 +524,7 @@ class OgnAscentNodeDatabase(og.Database):
 
             try:
                 compute_function = getattr(
-                    OgnAscentNodeDatabase.NODE_TYPE_CLASS, "compute", None
+                    OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "compute", None
                 )
                 if (
                     callable(compute_function)
@@ -535,7 +535,7 @@ class OgnAscentNodeDatabase(og.Database):
                 db.inputs._prefetch()
                 db.inputs._setting_locked = True
                 with og.in_compute():
-                    return OgnAscentNodeDatabase.NODE_TYPE_CLASS.compute(db)
+                    return OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS.compute(db)
             except Exception as error:  # pragma: no cover
                 stack_trace = "".join(traceback.format_tb(sys.exc_info()[2].tb_next))
                 db.log_error(
@@ -549,14 +549,14 @@ class OgnAscentNodeDatabase(og.Database):
 
         @staticmethod
         def initialize(context, node):
-            OgnAscentNodeDatabase._initialize_per_node_data(node)
+            OgnPegasusMultirotorNodeDatabase._initialize_per_node_data(node)
             initialize_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "initialize", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "initialize", None
             )
             if callable(initialize_function):  # pragma: no cover
                 initialize_function(context, node)
 
-            per_node_data = OgnAscentNodeDatabase.PER_NODE_DATA[node.node_id()]
+            per_node_data = OgnPegasusMultirotorNodeDatabase.PER_NODE_DATA[node.node_id()]
 
             def on_connection_or_disconnection(*args):
                 per_node_data["_db"] = None
@@ -567,16 +567,16 @@ class OgnAscentNodeDatabase(og.Database):
         @staticmethod
         def release(node):
             release_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "release", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "release", None
             )
             if callable(release_function):  # pragma: no cover
                 release_function(node)
-            OgnAscentNodeDatabase._release_per_node_data(node)
+            OgnPegasusMultirotorNodeDatabase._release_per_node_data(node)
 
         @staticmethod
         def init_instance(node, graph_instance_id):
             init_instance_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "init_instance", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "init_instance", None
             )
             if callable(init_instance_function):  # pragma: no cover
                 init_instance_function(node, graph_instance_id)
@@ -584,18 +584,18 @@ class OgnAscentNodeDatabase(og.Database):
         @staticmethod
         def release_instance(node, graph_instance_id):
             release_instance_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "release_instance", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "release_instance", None
             )
             if callable(release_instance_function):  # pragma: no cover
                 release_instance_function(node, graph_instance_id)
-            OgnAscentNodeDatabase._release_per_node_instance_data(
+            OgnPegasusMultirotorNodeDatabase._release_per_node_instance_data(
                 node, graph_instance_id
             )
 
         @staticmethod
         def update_node_version(context, node, old_version, new_version):
             update_node_version_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "update_node_version", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "update_node_version", None
             )
             if callable(update_node_version_function):  # pragma: no cover
                 return update_node_version_function(
@@ -606,7 +606,7 @@ class OgnAscentNodeDatabase(og.Database):
         @staticmethod
         def initialize_type(node_type):
             initialize_type_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS, "initialize_type", None
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "initialize_type", None
             )
             needs_initializing = True
             if callable(initialize_type_function):  # pragma: no cover
@@ -623,20 +623,20 @@ class OgnAscentNodeDatabase(og.Database):
                 icon_path = carb.tokens.get_tokens_interface().resolve(
                     "${airlab.pegasus}"
                 )
-                icon_path = icon_path + "/" + "ogn/icons/airlab.pegasus.AscentNode.svg"
+                icon_path = icon_path + "/" + "ogn/icons/airlab.pegasus.PegasusMultirotorNode.svg"
                 node_type.set_metadata(ogn.MetadataKeys.ICON_PATH, icon_path)
                 __hints = node_type.get_scheduling_hints()
                 if __hints is not None:
                     __hints.set_data_access(
                         og.eAccessLocation.E_USD, og.eAccessType.E_WRITE
                     )
-                OgnAscentNodeDatabase.INTERFACE.add_to_node_type(node_type)
+                OgnPegasusMultirotorNodeDatabase.INTERFACE.add_to_node_type(node_type)
                 node_type.set_has_state(True)
 
         @staticmethod
         def on_connection_type_resolve(node):
             on_connection_type_resolve_function = getattr(
-                OgnAscentNodeDatabase.NODE_TYPE_CLASS,
+                OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS,
                 "on_connection_type_resolve",
                 None,
             )
@@ -648,9 +648,9 @@ class OgnAscentNodeDatabase(og.Database):
     @staticmethod
     def register(node_type_class):
         print("node type class", node_type_class, type(node_type_class))
-        OgnAscentNodeDatabase.NODE_TYPE_CLASS = node_type_class
-        og.register_node_type(OgnAscentNodeDatabase.abi, 2)
+        OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS = node_type_class
+        og.register_node_type(OgnPegasusMultirotorNodeDatabase.abi, 2)
 
     @staticmethod
     def deregister():
-        og.deregister_node_type("airlab.pegasus.AscentNode")
+        og.deregister_node_type("airlab.pegasus.PegasusMultirotorNode")

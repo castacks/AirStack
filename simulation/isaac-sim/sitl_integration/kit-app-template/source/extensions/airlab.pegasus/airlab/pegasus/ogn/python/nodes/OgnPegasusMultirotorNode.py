@@ -7,7 +7,7 @@ import omni.client
 import omni.graph.core as og
 import omni.graph.tools.ogn as ogn
 import omni.usd
-from airlab.pegasus.ogn.OgnAscentNodeDatabase import OgnAscentNodeDatabase
+from airlab.pegasus.ogn.OgnPegasusMultirotorNodeDatabase import OgnPegasusMultirotorNodeDatabase
 
 
 # A hacky context manager that captures local variable name declarations and saves them in a dict
@@ -40,7 +40,7 @@ class UserCode:
         self.script_context = {}  # namespace for the executed code
 
 
-class OgnAscentNodeState:
+class OgnPegasusMultirotorNodeState:
     def __init__(self):
         self.code = UserCode()  # The cached code data
         self.tempfile_path: str = None  # Name of the temporary file for storing the script
@@ -50,10 +50,10 @@ class OgnAscentNodeState:
         self.node_initialized: bool = False  # Flag used to check if the per-instance node state is initialized.
 
 
-class OgnAscentNode:
+class OgnPegasusMultirotorNode:
     @staticmethod
     def internal_state():
-        return OgnAscentNodeState()
+        return OgnPegasusMultirotorNodeState()
 
     @staticmethod
     def _is_initialized(node: og.Node) -> bool:
@@ -65,21 +65,21 @@ class OgnAscentNode:
 
     @staticmethod
     def initialize(context, node: og.Node):
-        state = OgnAscentNodeDatabase.shared_internal_state(node)
+        state = OgnPegasusMultirotorNodeDatabase.shared_internal_state(node)
         state.node_initialized = True
 
         # Create a temporary file for storing the script
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as tf:
             state.tempfile_path = tf.name
 
-        OgnAscentNode._set_initialized(node, False)
+        OgnPegasusMultirotorNode._set_initialized(node, False)
 
     @staticmethod
     def release(node: og.Node):
-        state = OgnAscentNodeDatabase.shared_internal_state(node)
+        state = OgnPegasusMultirotorNodeDatabase.shared_internal_state(node)
 
         # Same logic as when the reset button is pressed
-        OgnAscentNode.try_cleanup(node)
+        OgnPegasusMultirotorNode.try_cleanup(node)
 
         # Delete the temporary file for storing the script
         if state.tempfile_path is not None and os.path.exists(state.tempfile_path):
@@ -91,39 +91,39 @@ class OgnAscentNode:
         is deleted.
         """
         # Same logic as when the reset button is pressed
-        OgnAscentNode.try_cleanup(node)
+        OgnPegasusMultirotorNode.try_cleanup(node)
 
     @staticmethod
     def try_cleanup(node: og.Node):
         # Skip if not setup in the fist place or already cleaned up
-        if not OgnAscentNode._is_initialized(node):
+        if not OgnPegasusMultirotorNode._is_initialized(node):
             return
 
-        state = OgnAscentNodeDatabase.shared_internal_state(node)
+        state = OgnPegasusMultirotorNodeDatabase.shared_internal_state(node)
 
         # Call the user-defined cleanup function
         if state.code.cleanup_fn is not None:
             # Get the database object
-            per_node_data = OgnAscentNodeDatabase.PER_NODE_DATA[node.node_id()]
+            per_node_data = OgnPegasusMultirotorNodeDatabase.PER_NODE_DATA[node.node_id()]
             db = per_node_data.get("_db")
 
             try:
                 db.inputs._setting_locked = True  # noqa: PLW0212
                 state.code.cleanup_fn(db)
             except Exception:  # pylint: disable=broad-except
-                OgnAscentNode._print_stacktrace(db)
+                OgnPegasusMultirotorNode._print_stacktrace(db)
             finally:
                 db.inputs._setting_locked = False  # noqa: PLW0212
-        OgnAscentNode._set_initialized(node, False)
+        OgnPegasusMultirotorNode._set_initialized(node, False)
 
     @staticmethod
-    def _print_stacktrace(db: OgnAscentNodeDatabase):
+    def _print_stacktrace(db: OgnPegasusMultirotorNodeDatabase):
         stacktrace = traceback.format_exc().splitlines(keepends=True)
         stacktrace_iter = iter(stacktrace)
         stacktrace_output = ""
 
         for stacktrace_line in stacktrace_iter:
-            if "OgnAscentNode.py" in stacktrace_line:
+            if "OgnPegasusMultirotorNode.py" in stacktrace_line:
                 # The stack trace shows that the exception originates from this file
                 # Removing this useless information from the stack trace
                 next(stacktrace_iter, None)
@@ -154,7 +154,7 @@ class OgnAscentNode:
         return cur_script
 
     @staticmethod
-    def _legacy_compute(db: OgnAscentNodeDatabase):
+    def _legacy_compute(db: OgnPegasusMultirotorNodeDatabase):
         # Legacy compute we just exec the whole script every compute
         with ScriptContextSaver(db.shared_state.code.script_context):
             exec(db.shared_state.code.code_object)  # noqa: PLW0122
@@ -163,14 +163,14 @@ class OgnAscentNode:
     def compute(db) -> bool:
         #print('compute 2')
         return True
-        # Note that we initialize this node's OgnAscentNodeState in the OgnAscentNode initialize
+        # Note that we initialize this node's OgnPegasusMultirotorNodeState in the OgnPegasusMultirotorNode initialize
         # method. While this works for non-instanced workflows, if we try to instance an OmniGraph
-        # that contains a AscentNode we run into issues, mainly because the instanced AscentNode
-        # will NOT have an initialized OgnAscentNodeState (since the instanced node's initialize()
+        # that contains a PegasusMultirotorNode we run into issues, mainly because the instanced PegasusMultirotorNode
+        # will NOT have an initialized OgnPegasusMultirotorNodeState (since the instanced node's initialize()
         # method was never actually executed). To account for this, in the compute method we'll
-        # simply call the OgnAscentNode initialize() if said method was never called.
+        # simply call the OgnPegasusMultirotorNode initialize() if said method was never called.
         if not db.shared_state.node_initialized:
-            OgnAscentNode.initialize(db.abi_context, db.abi_node)
+            OgnPegasusMultirotorNode.initialize(db.abi_context, db.abi_node)
 
         use_path = db.inputs.usePath
         cur_script: str = ""  # The script contents
@@ -196,7 +196,7 @@ class OgnAscentNode:
                 db.shared_state.script = None
                 try:
                     if use_path:
-                        cur_script = OgnAscentNode._read_script_file(script_path)
+                        cur_script = OgnPegasusMultirotorNode._read_script_file(script_path)
                         db.shared_state.script_path = script_path
                     # If the script content has changed we need to re-compile
                     if db.shared_state.script != cur_script:
@@ -220,7 +220,7 @@ class OgnAscentNode:
                 if db.shared_state.code.compute_fn is None:
                     # Assume the script is legacy, so execute on every compute
                     db.log_warning("compute(db) not defined in user script, running in legacy mode")
-                    db.shared_state.code.compute_fn = OgnAscentNode._legacy_compute
+                    db.shared_state.code.compute_fn = OgnPegasusMultirotorNode._legacy_compute
                     return True
 
                 db.shared_state.code.setup_fn = db.shared_state.code.script_context.get("setup")
@@ -254,6 +254,6 @@ class OgnAscentNode:
             if db.node.get_attribute("outputs:execOut").get_metadata(ogn.MetadataKeys.HIDDEN) != "1":
                 db.outputs.execOut = og.ExecutionAttributeState.ENABLED
         except Exception:  # pylint: disable=broad-except
-            OgnAscentNode._print_stacktrace(db)
+            OgnPegasusMultirotorNode._print_stacktrace(db)
             return False
         return True

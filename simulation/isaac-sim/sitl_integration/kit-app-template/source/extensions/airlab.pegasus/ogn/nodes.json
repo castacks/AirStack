@@ -1,7 +1,7 @@
 {
   "extension": "airlab.pegasus",
   "nodes": {
-    "AscentNode": {
+    "PegasusMultirotorNode": {
       "description": [
         "This script node allows you to execute arbitrary Python code inside an OmniGraph.\n",
         "The compute function is defined by you at runtime and can be unique in every instance of a script node\n",
