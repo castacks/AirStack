@@ -1,0 +1,10 @@
+<!-- SENSORS -->
+<launch>
+    <group>
+        <push-ros-namespace namespace="sensors"/>
+        <include file="$(find-pkg-share camera_param_server)/launch/camera_param_server.launch.xml"/>
+    </group>
+    <node
+        pkg="gimbal_stabilizer" exec="gimbal_stabilizer_node" name="gimbal_stabilizer" output="screen">
+    </node>    
+</launch>
