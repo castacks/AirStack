@@ -14,8 +14,9 @@ services:
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
       bash -c "tmux new -d -s isaac; 
-        tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py --scene \"${ISAAC_SIM_SCENE}\"' ENTER; 
+        tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus.py' ENTER;
       sleep infinity"
+    # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py --scene \"${ISAAC_SIM_SCENE}\"' ENTER;
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -81,6 +82,7 @@ services:
       - ../config/sim_to_robot_bridge.yaml:/sim_to_robot_bridge.yaml:ro
       # code
       - ../sitl_integration/kit-app-template/source/extensions/airlab.airstack:/root/Documents/Kit/shared/exts/airlab.airstack
+      - ../sitl_integration/kit-app-template/source/extensions/airlab.pegasus:/root/Documents/Kit/shared/exts/airlab.pegasus
       - ../sitl_integration/kit-app-template/source/extensions/airlab.gimbal:/root/Documents/Kit/shared/exts/airlab.gimbal
       - ../sitl_integration/kit-app-template/source/extensions/airlab.tmux_manager:/root/Documents/Kit/shared/exts/airlab.tmux_manager
       - ../sitl_integration:/sitl_integration:rw

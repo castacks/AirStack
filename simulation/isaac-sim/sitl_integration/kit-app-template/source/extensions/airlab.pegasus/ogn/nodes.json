@@ -1,0 +1,16 @@
+{
+  "extension": "airlab.pegasus",
+  "nodes": {
+    "AscentNode": {
+      "description": [
+        "This script node allows you to execute arbitrary Python code inside an OmniGraph.\n",
+        "The compute function is defined by you at runtime and can be unique in every instance of a script node\n",
+        "that you create. Inside that function you can access the database for the node, which is used for\n",
+        "getting and setting all attribute values that you define.\n"
+      ],
+      "version": 2,
+      "uiName": "Script Node",
+      "language": "Python"
+    }
+  }
+}

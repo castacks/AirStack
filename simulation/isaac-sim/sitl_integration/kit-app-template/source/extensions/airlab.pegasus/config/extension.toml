@@ -1,0 +1,84 @@
+
+[package]
+# Semantic Versioning is used: https://semver.org/
+version = "1.19.1"
+authors = ["NVIDIA"]
+title = "Airstack Pegasus"
+description="Python Node for OmniGraph"
+readme  = "docs/README.md"
+repository = ""
+category = "graph"
+keywords = ["script"]
+changelog="docs/CHANGELOG.md"
+feature = true
+preview_image = "data/preview.png"
+icon = "data/icon.png"
+writeTarget.kit = true
+support_level = "Core"
+
+# Watch the .ogn files for hot reloading (only works for Python files)
+[fswatcher.patterns]
+include = ["*.ogn", "*.py"]
+exclude = ["Ogn*Database.py"]
+
+[dependencies]
+"omni.graph.core" = { version = "2.168.1" }
+"omni.graph" = { version = "1.134.1" }
+"omni.graph.tools" = { version = "1.76.0" }
+"omni.kit.widget.text_editor" = { optional = true } # Note: omni.kit.widget.text_editor is brought in by omni.graph.ui
+"omni.graph.ui" = { optional = true }
+"omni.kit.widget.searchfield" = { optional = true }
+"omni.kit.property.usd" = { optional = true }
+"omni.kit.window.popup_dialog" = { optional = true }
+"omni.kit.window.property" = { optional = true }
+
+# Main python module this extension provides, it will be publicly available as "import airlab.pegasus".
+[[python.module]]
+name = "airlab.pegasus"
+
+[documentation]
+pages = [
+    "docs/Overview.md",
+    "docs/CHANGELOG.md",
+]
+deps = [
+    # Internal docs from other extension in this repo
+    ["omni.graph.action", "_build/docs/omni.graph.action/latest"],
+    ["omni.graph.window.action", "_build/docs/omni.graph.window.action/latest"],
+    # External docs from Kit
+    ["omni.graph", "https://docs.omniverse.nvidia.com/kit/docs/omni.graph/latest"],
+    ["omni.graph.tools", "https://docs.omniverse.nvidia.com/kit/docs/omni.graph.tools/latest"],
+]
+terms = [
+    "../../../_build/_docSrcLinks/exts/omni.graph.tools/docs/TERMS",
+    "../omni.graph.action/docs/TERMS",
+]
+
+[[test]]
+dependencies = [
+    "omni.warp-1.0.1",
+    "omni.graph.action",
+    "omni.graph.ui",
+    "omni.kit.test_suite.helpers",
+    "omni.kit.ui_test",
+    "omni.kit.window.property",
+    "omni.kit.widget.searchfield"
+]
+
+args = [
+    "--/renderer/enabled=pxr",
+    "--/renderer/active=pxr",
+    "--/renderer/multiGpu/enabled=false",
+    "--/renderer/multiGpu/autoEnable=false",  # Disable mGPU with PXR due to OM-51026, OM-53611
+    "--/renderer/multiGpu/maxGpuCount=1",
+    "--/app/asyncRendering=false",
+    "--/app/airlab.pegasus/enable_opt_in=false",  # Disable script-node opt-in
+    "--/app/window/dpiScaleOverride=1.0",
+    "--/app/window/scaleToMonitor=false",
+    "--/app/file/ignoreUnsavedOnExit=true",
+    "--no-window"
+]
+
+stdoutFailPatterns.exclude = [
+    "*[Error]*[/TestGraph] OmniGraph Error*",
+]
