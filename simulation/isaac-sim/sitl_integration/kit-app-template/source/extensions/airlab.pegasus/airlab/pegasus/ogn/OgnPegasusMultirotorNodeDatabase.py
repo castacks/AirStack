@@ -106,9 +106,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
     Attribute Value Properties:
         Inputs:
             inputs.execIn
-            inputs.script
-            inputs.scriptPath
-            inputs.usePath
         Outputs:
             outputs.execOut
         State:
@@ -143,7 +140,7 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
             ),
             (
                 "inputs:dronePrim",
-                "target",
+                "string",
                 0,
                 "Drone Prim",
                 "Description.",
@@ -190,18 +187,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                 "",
             ),
             (
-                "inputs:nodeNamespace",
-                "string",
-                0,
-                "Node Namespace",
-                "Description.",
-                {},
-                True,
-                None,
-                False,
-                "",
-            ),
-            (
                 "state:omni_initialized",
                 "bool",
                 0,
@@ -233,7 +218,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
             "dronePrim",
             "vehicleID",
             "domain_id",
-            "nodeNamespace",
             "_setting_locked",
             "_batchedReadAttributes",
             "_batchedReadValues",
@@ -259,7 +243,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                 self._attributes.dronePrim,
                 self._attributes.vehicleID,
                 self._attributes.domain_id,
-                self._attributes.nodeNamespace,
             ]
             print("init 4")
             self._batchedReadValues = [None, None, None, False]
@@ -314,14 +297,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
         @domain_id.setter
         def domain_id(self, value):
             self._batchedReadValues[3] = value
-
-        @property
-        def nodeNamespace(self):
-            return self._batchedReadValues[4]
-
-        @nodeNamespace.setter
-        def nodeNamespace(self, value):
-            self._batchedReadValues[4] = value
 
         def __getattr__(self, item: str):
             if item in self.LOCAL_PROPERTY_NAMES:
@@ -485,7 +460,7 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                         backend_config = PX4MavlinkBackendConfig({
                             "vehicle_id": db.inputs.vehicleID,
                             "px4_autolaunch": True,
-                            "px4_dir": '~/PX4-Autopilot',
+                            "px4_dir": '/root/PX4-Autopilot',
                             "px4_vehicle_model": 'gazebo-classic_iris'
                         })
                         backend = PX4MavlinkBackend(config=backend_config)
@@ -493,9 +468,9 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                         multirotor_config = MultirotorConfig()
                         multirotor_config.backends = [backend]
                         selected_robot = 'Iris'
-                        print('PASSED IN MODEL NAME ', str(db.inputs.dronePrim[0]))
+                        print('PASSED IN MODEL NAME ', db.inputs.dronePrim)
                         multirotor = Multirotor(
-                            str(db.inputs.dronePrim[0]),
+                            db.inputs.dronePrim,
                             ROBOTS[selected_robot],
                             0,
                             [0.0, 0.0, 0.07],
