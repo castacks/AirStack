@@ -9,7 +9,7 @@
         "getting and setting all attribute values that you define.\n"
       ],
       "version": 2,
-      "uiName": "Script Node",
+      "uiName": "Pegasus Multirotor Node",
       "language": "Python"
     }
   }

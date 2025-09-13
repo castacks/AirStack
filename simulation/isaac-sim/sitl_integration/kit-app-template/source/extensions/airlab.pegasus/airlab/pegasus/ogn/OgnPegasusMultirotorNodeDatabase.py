@@ -32,70 +32,6 @@ import omni.kit.commands
 from omni.isaac.core.utils.stage import get_current_stage
 from omni.isaac.core.utils.prims import define_prim, get_prim_at_path
 
-import sys
-import dronekit
-import os
-import numpy as np
-from scipy.spatial.transform import Rotation
-import carb
-import omni
-import omni.graph.core as og
-import omni.replicator.core as rep
-import omni.timeline
-import usdrt.Sdf
-from omni.isaac.core.prims import GeometryPrim, RigidPrim
-from omni.isaac.core.utils import extensions, stage
-from omni.isaac.core.world import World
-from pxr import Gf, Usd, UsdGeom
-import time
-import threading
-import struct
-import socket
-
-import asyncio
-
-sys.path.append('/root/Documents/Kit/shared/exts/airlab.pegasus/airlab/pegasus/AirStackPegasusSimulator/extensions/pegasus.simulator')
-from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS, BACKENDS, WORLD_SETTINGS
-from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
-from pegasus.simulator.logic.backends import Backend, BackendConfig, PX4MavlinkBackend, PX4MavlinkBackendConfig, ArduPilotMavlinkBackend, ArduPilotMavlinkBackendConfig
-from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
-from pegasus.simulator.logic.vehicle_manager import VehicleManager
-from pegasus.simulator.logic.graphical_sensors.monocular_camera import MonocularCamera
-
-drone_sim_dict = {}
-initialized_timeline_callback = False
-
-
-def timeline_callback(event):
-    global drone_sim_dict
-    print("ascent node timeline callback", event, event.type, dir(event))
-
-    if event.type == int(omni.timeline.TimelineEventType.PLAY):
-        pass
-    elif event.type == int(omni.timeline.TimelineEventType.PAUSE):
-        pass
-    elif event.type == int(omni.timeline.TimelineEventType.STOP):
-
-        # reset orientation and position of the drone
-        for k, v in drone_sim_dict.items():
-            prim = v["prim"]
-            if prim.GetAttribute("xformOp:orient").Get() is not None:
-                prim.GetAttribute("xformOp:orient").Set(Gf.Quatf(1, 0, 0, 0))
-            prim.GetAttribute("xformOp:translate").Set((0, 0, 0))
-
-        drone_sim_dict = {}
-
-
-def incremental_rotate(prim):
-    rot = Gf.Quatf(0.9702957272529602, 0, 0.2419208437204361, 0)  # 7 degrees
-    o = prim.GetAttribute("xformOp:orient")
-    if o.Get() != None:
-        o.Set(o.Get() * rot)
-    else:
-        o = prim.GetAttribute("xformOp:rotateXYZ")
-        if o.Get() != None:
-            o.Set(o.Get() + Gf.Vec3d(0.0, 50, 0.0))
-
 
 class OgnPegasusMultirotorNodeDatabase(og.Database):
     """Helper class providing simplified access to data on nodes of type airlab.pegasus.PegasusMultirotorNode
@@ -231,11 +167,8 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
             dynamic_attributes: og.DynamicAttributeInterface,
         ):
             """Initialize simplified access for the attribute data"""
-            print("init 1")
             context = node.get_graph().get_default_graph_context()
-            print("init 2")
             super().__init__(context, node, attributes, dynamic_attributes)
-            print("init 3")
             self._batchedReadAttributes = [
                 self._attributes.execIn,
                 #self._attributes.deltaSimulationTime,
@@ -244,36 +177,16 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                 self._attributes.vehicleID,
                 self._attributes.domain_id,
             ]
-            print("init 4")
             self._batchedReadValues = [None, None, None, False]
-            print("init 5")
 
         @property
         def execIn(self):
-            print("execIn 1")
             return self._batchedReadValues[0]
 
         @execIn.setter
         def execIn(self, value):
-            print("execIn 2")
             self._batchedReadValues[0] = value
-        '''
-        @property
-        def deltaSimulationTime(self):
-            return self._batchedReadValues[1]
 
-        @deltaSimulationTime.setter
-        def deltaSimulationTime(self, value):
-            self._batchedReadValues[1] = value
-
-        @property
-        def deltaSystemTime(self):
-            return self._batchedReadValues[2]
-
-        @deltaSystemTime.setter
-        def deltaSystemTime(self, value):
-            self._batchedReadValues[2] = value
-        '''
         @property
         def dronePrim(self):
             return self._batchedReadValues[1]
@@ -403,21 +316,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
         self.state = OgnPegasusMultirotorNodeDatabase.ValuesForState(
             node, self.attributes.state, dynamic_attributes
         )
-    
-        # init timeline callback
-        global initialized_timeline_callback
-        if not initialized_timeline_callback:
-            initialized_timeline_callback = True
-            self.timeline = omni.timeline.get_timeline_interface()
-            self.play_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
-                int(omni.timeline.TimelineEventType.PLAY), timeline_callback
-            )
-            self.pause_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
-                int(omni.timeline.TimelineEventType.PAUSE), timeline_callback
-            )
-            self.stop_listener = self.timeline.get_timeline_event_stream().create_subscription_to_pop_by_type(
-                int(omni.timeline.TimelineEventType.STOP), timeline_callback
-            )
 
     class abi:
         """Class defining the ABI interface for the node type"""
@@ -433,7 +331,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
 
         @staticmethod
         def compute(context, node):
-            #print('compute 1')
             def database_valid():
                 return True
 
@@ -449,45 +346,6 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
             except Exception as e:
                 db = OgnPegasusMultirotorNodeDatabase(node)
 
-            try:
-                if db.inputs.dronePrim:
-                    global drone_sim_dict
-                    node_id = node.node_id()
-                    #print(node_id, list(drone_sim_dict.keys()))
-
-                    if node_id not in drone_sim_dict.keys():
-                        print('VEHICLE ID', db.inputs.vehicleID)
-                        backend_config = PX4MavlinkBackendConfig({
-                            "vehicle_id": db.inputs.vehicleID,
-                            "px4_autolaunch": True,
-                            "px4_dir": '/root/PX4-Autopilot',
-                            "px4_vehicle_model": 'gazebo-classic_iris'
-                        })
-                        backend = PX4MavlinkBackend(config=backend_config)
-
-                        multirotor_config = MultirotorConfig()
-                        multirotor_config.backends = [backend]
-                        selected_robot = 'Iris'
-                        print('PASSED IN MODEL NAME ', db.inputs.dronePrim)
-                        multirotor = Multirotor(
-                            db.inputs.dronePrim,
-                            ROBOTS[selected_robot],
-                            0,
-                            [0.0, 0.0, 0.07],
-                            [0.0, 0.0, 0.0, 1.0],
-                            config=multirotor_config,
-                        )
-
-                        drone_sim_dict[node_id] = {
-                            'backend_config': backend_config,
-                            'backend': backend,
-                            'multirotor_config': multirotor_config,
-                            'multirotor': multirotor,
-                        }
-            except Exception as e:
-                print('9', e)
-                traceback.print_exc()
-            
             # Set outputs:execOut if not hidden
             if (
                 db.node.get_attribute("outputs:execOut").get_metadata(
@@ -501,6 +359,7 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                 compute_function = getattr(
                     OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS, "compute", None
                 )
+                
                 if (
                     callable(compute_function)
                     and compute_function.__code__.co_argcount > 1
@@ -512,6 +371,7 @@ class OgnPegasusMultirotorNodeDatabase(og.Database):
                 with og.in_compute():
                     return OgnPegasusMultirotorNodeDatabase.NODE_TYPE_CLASS.compute(db)
             except Exception as error:  # pragma: no cover
+                print('Error in compute:', error)
                 stack_trace = "".join(traceback.format_tb(sys.exc_info()[2].tb_next))
                 db.log_error(
                     f"Assertion raised in compute - {error}\n{stack_trace}",
