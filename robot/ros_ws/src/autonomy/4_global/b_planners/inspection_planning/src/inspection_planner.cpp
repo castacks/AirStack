@@ -62,6 +62,12 @@ InspectionPlanner::InspectionPlanner()
     this->declare_parameter("workspace_z_min", 0.0);
     this->declare_parameter("workspace_z_max", 5.0);
 
+    // Add new parameters for MarkerArray publishers
+    this->declare_parameter("pub_observed_inspection_markers_topic",
+                            "~/observed_inspection_markers");
+    this->declare_parameter("pub_predicted_inspection_markers_topic",
+                            "~/predicted_inspection_markers");
+
     // Get parameters
     robot_frame_id_ = this->get_parameter("robot_frame_id").as_string();
     map_frame_id_ = this->get_parameter("map_frame_id").as_string();
@@ -107,10 +113,10 @@ InspectionPlanner::InspectionPlanner()
         RCLCPP_WARN(this->get_logger(),
                     "Could not parse inspection_offsets parameter, using defaults: %s", e.what());
     }
-    
+
     // Get robot radius parameter
     robot_radius_ = this->get_parameter("robot_radius").as_double();
-    
+
     // Get workspace boundary parameters
     workspace_x_min_ = this->get_parameter("workspace_x_min").as_double();
     workspace_x_max_ = this->get_parameter("workspace_x_max").as_double();
@@ -118,6 +124,12 @@ InspectionPlanner::InspectionPlanner()
     workspace_y_max_ = this->get_parameter("workspace_y_max").as_double();
     workspace_z_min_ = this->get_parameter("workspace_z_min").as_double();
     workspace_z_max_ = this->get_parameter("workspace_z_max").as_double();
+
+    // Get new MarkerArray topic parameters
+    pub_observed_inspection_markers_topic_ =
+        this->get_parameter("pub_observed_inspection_markers_topic").as_string();
+    pub_predicted_inspection_markers_topic_ =
+        this->get_parameter("pub_predicted_inspection_markers_topic").as_string();
 }
 
 void InspectionPlanner::initialize() {
@@ -135,6 +147,13 @@ void InspectionPlanner::initialize() {
         this->create_publisher<geometry_msgs::msg::PoseArray>(pub_observed_local_frames_topic_, 10);
     pub_predicted_local_frames_ = this->create_publisher<geometry_msgs::msg::PoseArray>(
         pub_predicted_local_frames_topic_, 10);
+
+    // Create new MarkerArray publishers
+    pub_observed_inspection_markers_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+        pub_observed_inspection_markers_topic_, 10);
+    pub_predicted_inspection_markers_ =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>(
+            pub_predicted_inspection_markers_topic_, 10);
 
     // Create subscribers
     sub_vdb_map_ = this->create_subscription<visualization_msgs::msg::Marker>(
@@ -310,13 +329,13 @@ void InspectionPlanner::generateInspectionPlan() {
         generateInspectionPoses(observed_semantics_);
     geometry_msgs::msg::PoseArray predicted_inspection_poses_raw =
         generateInspectionPoses(predicted_semantics_);
-    
+
     // Filter out poses that are in collision with VDB map
     geometry_msgs::msg::PoseArray observed_collision_free =
         filterCollisionFreePoses(observed_inspection_poses_raw);
     geometry_msgs::msg::PoseArray predicted_collision_free =
         filterCollisionFreePoses(predicted_inspection_poses_raw);
-    
+
     // Filter out poses that are outside workspace boundaries
     geometry_msgs::msg::PoseArray observed_inspection_poses =
         filterWorkspacePoses(observed_collision_free);
@@ -333,6 +352,12 @@ void InspectionPlanner::generateInspectionPlan() {
     geometry_msgs::msg::PoseArray predicted_local_frames =
         generateLocalFramePoses(predicted_semantics_);
 
+    // Generate MarkerArray messages for inspection poses
+    visualization_msgs::msg::MarkerArray observed_inspection_markers =
+        generateInspectionPoseMarkers(observed_semantics_, "observed_inspection");
+    visualization_msgs::msg::MarkerArray predicted_inspection_markers =
+        generateInspectionPoseMarkers(predicted_semantics_, "predicted_inspection");
+
     // Publish all poses
     // pub_global_plan_->publish(inspection_path);
     pub_observed_inspection_poses_->publish(observed_inspection_poses);
@@ -341,6 +366,10 @@ void InspectionPlanner::generateInspectionPlan() {
     pub_predicted_semantic_poses_->publish(predicted_semantic_poses);
     pub_observed_local_frames_->publish(observed_local_frames);
     pub_predicted_local_frames_->publish(predicted_local_frames);
+
+    // Publish MarkerArray messages
+    pub_observed_inspection_markers_->publish(observed_inspection_markers);
+    pub_predicted_inspection_markers_->publish(predicted_inspection_markers);
 
     RCLCPP_INFO(this->get_logger(),
                 "Inspection plan generated with %zu waypoints, %zu observed inspection poses, %zu "
@@ -883,10 +912,10 @@ bool InspectionPlanner::isInCollision(const geometry_msgs::msg::Point& position)
         // No VDB map data available, assume no collision
         return false;
     }
-    
+
     // Get voxel size from the marker
     double voxel_size = vdb_map_data_.scale.x;
-    
+
     // Check distance to each voxel in the VDB map
     for (const auto& voxel_point : vdb_map_data_.points) {
         // Calculate distance from robot position to voxel center
@@ -894,16 +923,16 @@ bool InspectionPlanner::isInCollision(const geometry_msgs::msg::Point& position)
         double dy = position.y - voxel_point.y;
         double dz = position.z - voxel_point.z;
         double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-        
+
         // Check if robot radius overlaps with voxel
         // Distance threshold = robot_radius + half_voxel_size
         double collision_threshold = robot_radius_ + (voxel_size / 2.0);
-        
+
         if (distance < collision_threshold) {
             return true;  // Collision detected
         }
     }
-    
+
     return false;  // No collision
 }
 
@@ -918,21 +947,21 @@ geometry_msgs::msg::PoseArray InspectionPlanner::filterCollisionFreePoses(
     const geometry_msgs::msg::PoseArray& poses) const {
     geometry_msgs::msg::PoseArray collision_free_poses;
     collision_free_poses.header = poses.header;
-    
+
     int total_poses = poses.poses.size();
     int collision_free_count = 0;
-    
+
     for (const auto& pose : poses.poses) {
         if (!isInCollision(pose.position)) {
             collision_free_poses.poses.push_back(pose);
             collision_free_count++;
         }
     }
-    
-    RCLCPP_INFO(this->get_logger(), 
+
+    RCLCPP_INFO(this->get_logger(),
                 "Collision filtering: %d/%d poses are collision-free (robot_radius: %.2f m)",
                 collision_free_count, total_poses, robot_radius_);
-    
+
     return collision_free_poses;
 }
 
@@ -940,24 +969,95 @@ geometry_msgs::msg::PoseArray InspectionPlanner::filterWorkspacePoses(
     const geometry_msgs::msg::PoseArray& poses) const {
     geometry_msgs::msg::PoseArray workspace_poses;
     workspace_poses.header = poses.header;
-    
+
     int total_poses = poses.poses.size();
     int inside_workspace_count = 0;
-    
+
     for (const auto& pose : poses.poses) {
         if (isInsideWorkspace(pose.position)) {
             workspace_poses.poses.push_back(pose);
             inside_workspace_count++;
         }
     }
-    
-    RCLCPP_INFO(this->get_logger(), 
+
+    RCLCPP_INFO(this->get_logger(),
                 "Workspace filtering: %d/%d poses are inside workspace "
                 "(x:[%.1f,%.1f], y:[%.1f,%.1f], z:[%.1f,%.1f])",
-                inside_workspace_count, total_poses,
-                workspace_x_min_, workspace_x_max_,
-                workspace_y_min_, workspace_y_max_,
-                workspace_z_min_, workspace_z_max_);
-    
+                inside_workspace_count, total_poses, workspace_x_min_, workspace_x_max_,
+                workspace_y_min_, workspace_y_max_, workspace_z_min_, workspace_z_max_);
+
     return workspace_poses;
+}
+
+visualization_msgs::msg::MarkerArray InspectionPlanner::generateInspectionPoseMarkers(
+    const std::vector<SemanticObject>& semantic_objects, const std::string& marker_namespace) {
+    visualization_msgs::msg::MarkerArray marker_array;
+    marker_array.markers.clear();
+
+    int marker_id = 0;
+
+    for (const auto& obj : semantic_objects) {
+        // For each semantic object, generate inspection pose markers for all offset positions
+        for (const auto& offset_vec : inspection_offsets_) {
+            if (offset_vec.size() >= 3) {
+                geometry_msgs::msg::Point offset;
+                offset.x = offset_vec[0];
+                offset.y = offset_vec[1];
+                offset.z = offset_vec[2];
+
+                geometry_msgs::msg::Pose inspection_pose = calculateInspectionPose(obj, offset);
+
+                // Create marker for this inspection pose
+                visualization_msgs::msg::Marker pose_marker =
+                    createInspectionPoseMarker(inspection_pose, obj.semantic_class, obj.instance_id,
+                                               marker_id, marker_namespace);
+
+                marker_array.markers.push_back(pose_marker);
+                marker_id++;
+            }
+        }
+    }
+
+    return marker_array;
+}
+
+visualization_msgs::msg::Marker InspectionPlanner::createInspectionPoseMarker(
+    const geometry_msgs::msg::Pose& pose, const std::string& class_name, int instance_id,
+    int marker_id, const std::string& marker_namespace) {
+    visualization_msgs::msg::Marker marker;
+
+    // Set header
+    marker.header.frame_id = map_frame_id_;
+    marker.header.stamp = this->get_clock()->now();
+
+    // Set marker properties
+    marker.ns = marker_namespace;
+    marker.id = marker_id;
+    marker.type = visualization_msgs::msg::Marker::ARROW;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    // Set pose
+    marker.pose = pose;
+
+    // Set scale (arrow size)
+    marker.scale.x = 0.5;  // Arrow length
+    marker.scale.y = 0.1;  // Arrow width
+    marker.scale.z = 0.1;  // Arrow height
+
+    // Set color based on whether it's observed or predicted
+    if (marker_namespace == "observed_inspection") {
+        marker.color.r = 0.0;  // Green for observed
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
+    } else {
+        marker.color.r = 1.0;  // Red for predicted
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
+    }
+    marker.color.a = 0.8;
+
+    // Set text label
+    marker.text = class_name + "_#" + std::to_string(instance_id);
+
+    return marker;
 }
