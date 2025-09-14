@@ -8,6 +8,7 @@
   <license>BSD</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>behavior_tree_msgs</depend>
   <depend>pluginlib</depend>
   <depend>rviz_common</depend>
   <depend>std_msgs</depend>

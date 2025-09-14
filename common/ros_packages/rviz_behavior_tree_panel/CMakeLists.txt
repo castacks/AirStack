@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rviz_common REQUIRED)
+find_package(behavior_tree_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Core Widgets Gui)
@@ -39,6 +40,7 @@ ament_target_dependencies(behavior_tree_panel
   pluginlib
   rviz_common
   std_msgs
+  behavior_tree_msgs
   rclcpp
 )
 

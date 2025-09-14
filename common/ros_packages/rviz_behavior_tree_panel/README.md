@@ -48,20 +48,22 @@ Your behavior tree system should publish String messages containing Graphviz xdo
 
 ```cpp
 // C++ example
-auto publisher = node->create_publisher<std_msgs::msg::String>("behavior_tree_graphviz", 10);
-std_msgs::msg::String msg;
-msg.data = "digraph G { root [label=\"Root\"]; action [label=\"Action\"]; root -> action; }";
+auto publisher = node->create_publisher<behavior_tree_msgs::msg::GraphVizXdot>("behavior_tree_graphviz", 10);
+behavior_tree_msgs::msg::GraphVizXdot msg;
+msg.header.stamp = node->now();
+msg.xdot.data = "digraph G { root [label=\"Root\"]; action [label=\"Action\"]; root -> action; }";
 publisher->publish(msg);
 ```
 
 ```python
 # Python example
 import rclpy
-from std_msgs.msg import String
+from behavior_tree_msgs.msg import GraphVizXdot
 
-publisher = node.create_publisher(String, 'behavior_tree_graphviz', 10)
-msg = String()
-msg.data = 'digraph G { root [label="Root"]; action [label="Action"]; root -> action; }'
+publisher = node.create_publisher(GraphVizXdot, 'behavior_tree_graphviz', 10)
+msg = GraphVizXdot()
+msg.header.stamp = node.get_clock().now().to_msg()
+msg.xdot.data = 'digraph G { root [label="Root"]; action [label="Action"]; root -> action; }'
 publisher.publish(msg)
 ```
 

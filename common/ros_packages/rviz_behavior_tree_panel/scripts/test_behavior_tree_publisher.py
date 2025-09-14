@@ -8,6 +8,7 @@ Publishes sample graphviz xdot data to the behavior_tree_graphviz topic.
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from behavior_tree_msgs.msg import GraphVizXdot
 import time
 
 class BehaviorTreeTestPublisher(Node):
@@ -15,8 +16,8 @@ class BehaviorTreeTestPublisher(Node):
         super().__init__('behavior_tree_test_publisher')
         
         # Create publisher for behavior tree graphviz data
-        self.publisher = self.create_publisher(String, 'behavior_tree_graphviz', 10)
-        
+        self.publisher = self.create_publisher(GraphVizXdot, 'behavior_tree_graphviz', 10)
+
         # Create timer to publish test data every 3 seconds
         self.timer = self.create_timer(3.0, self.publish_test_data)
         
@@ -128,9 +129,10 @@ class BehaviorTreeTestPublisher(Node):
 
     def publish_test_data(self):
         """Publish the current test scenario"""
-        msg = String()
-        msg.data = self.test_scenarios[self.current_scenario]
-        
+        msg = GraphVizXdot()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.xdot.data = self.test_scenarios[self.current_scenario]
+
         self.publisher.publish(msg)
         
         scenario_names = ["Simple Tree", "Complex Tree", "Running Tree"]

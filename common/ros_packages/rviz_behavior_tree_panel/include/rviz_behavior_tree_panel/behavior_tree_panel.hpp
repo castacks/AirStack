@@ -41,6 +41,8 @@
 #include <rviz_common/ros_integration/ros_node_abstraction_iface.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <xdot_cpp/ui/dot_widget.h>
+#include <behavior_tree_msgs/msg/graph_viz_xdot.hpp>
+#include <behavior_tree_msgs/msg/graph_viz_xdot_compressed.hpp>
 
 namespace rviz_behavior_tree_panel
 {
@@ -57,9 +59,9 @@ public:
 
 protected:
   std::shared_ptr<rviz_common::ros_integration::RosNodeAbstractionIface> node_ptr_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr behavior_tree_subscription_;
+  rclcpp::Subscription<behavior_tree_msgs::msg::GraphVizXdot>::SharedPtr behavior_tree_subscription_;
 
-  void behaviorTreeCallback(const std_msgs::msg::String::SharedPtr msg);
+  void behaviorTreeCallback(const behavior_tree_msgs::msg::GraphVizXdot::SharedPtr msg);
 
 private:
   QVBoxLayout * layout_;

@@ -70,7 +70,7 @@ void BehaviorTreePanel::onInitialize()
   rclcpp::Node::SharedPtr node = node_ptr_->get_raw_node();
   
   // Subscribe to the behavior tree graphviz topic
-  behavior_tree_subscription_ = node->create_subscription<std_msgs::msg::String>(
+  behavior_tree_subscription_ = node->create_subscription<behavior_tree_msgs::msg::GraphVizXdot>(
     "behavior_tree_graphviz", 
     10, 
     std::bind(&BehaviorTreePanel::behaviorTreeCallback, this, std::placeholders::_1)
@@ -81,22 +81,22 @@ void BehaviorTreePanel::onInitialize()
   status_label_->setStyleSheet("QLabel { color: green; }");
 }
 
-void BehaviorTreePanel::behaviorTreeCallback(const std_msgs::msg::String::SharedPtr msg)
+void BehaviorTreePanel::behaviorTreeCallback(const behavior_tree_msgs::msg::GraphVizXdot::SharedPtr msg)
 {
   // Only update if the graphviz data has changed to avoid unnecessary redraws
-  if (msg->data != previous_graphviz_)
+  if (msg->xdot.data != previous_graphviz_)
   {
     try
     {
       // Set the xdot code to render the behavior tree
-      dot_widget_->set_dot_code(msg->data);
+      dot_widget_->set_dot_code(msg->xdot.data);
       
       // Update status
       status_label_->setText("Behavior tree updated");
       status_label_->setStyleSheet("QLabel { color: blue; }");
       
       // Store the current graphviz data
-      previous_graphviz_ = msg->data;
+      previous_graphviz_ = msg->xdot.data;
     }
     catch (const std::exception& e)
     {

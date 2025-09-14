@@ -8,13 +8,14 @@ Publishes a basic graphviz tree to test the panel.
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from behavior_tree_msgs.msg import GraphVizXdot
 
 class SimpleBehaviorTreePublisher(Node):
     def __init__(self):
         super().__init__('simple_behavior_tree_publisher')
         
         # Create publisher for behavior tree graphviz data
-        self.publisher = self.create_publisher(String, 'behavior_tree_graphviz', 10)
+        self.publisher = self.create_publisher(GraphVizXdot, 'behavior_tree_graphviz', 10)
         
         # Create timer to publish test data every 5 seconds (slower)
         self.timer = self.create_timer(5.0, self.publish_simple_tree)
@@ -57,8 +58,9 @@ class SimpleBehaviorTreePublisher(Node):
     root -> action2;
 }}'''
         
-        msg = String()
-        msg.data = simple_tree
+        msg = GraphVizXdot()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.xdot.data = simple_tree
         self.publisher.publish(msg)
         self.get_logger().info(f'Published behavior tree update {self.counter}')
 
