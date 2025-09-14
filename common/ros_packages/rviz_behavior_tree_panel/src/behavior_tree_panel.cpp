@@ -39,15 +39,45 @@ namespace rviz_behavior_tree_panel
 {
 
 BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
-: Panel(parent), layout_(nullptr), status_label_(nullptr), dot_widget_(nullptr)
+: Panel(parent), layout_(nullptr), topic_layout_(nullptr), topic_label_(nullptr), 
+  topic_combo_(nullptr), refresh_button_(nullptr), status_label_(nullptr), 
+  dot_widget_(nullptr), topic_refresh_timer_(nullptr), current_topic_("behavior_tree_graphviz")
 {
   // Create the main layout
   layout_ = new QVBoxLayout(this);
   
-  // Create status label
+  // Create topic selection layout
+  topic_layout_ = new QHBoxLayout();
+  
+  // Create topic selection label
+  topic_label_ = new QLabel("Topic:");
+  topic_layout_->addWidget(topic_label_);
+  
+  // Create topic combo box
+  topic_combo_ = new QComboBox();
+  topic_combo_->setEditable(true);
+  topic_combo_->setMinimumWidth(200);
+  topic_combo_->setInsertPolicy(QComboBox::NoInsert);  // Don't auto-add typed text to dropdown
+  topic_layout_->addWidget(topic_combo_);
+  
+  // Create refresh button
+  refresh_button_ = new QPushButton("Refresh");
+  refresh_button_->setMaximumWidth(80);
+  topic_layout_->addWidget(refresh_button_);
+  
+  // Add some spacing between controls and status
+  topic_layout_->addSpacing(20);
+  
+  // Create status label and add it to the same horizontal layout
   status_label_ = new QLabel("Waiting for behavior tree data...");
   status_label_->setStyleSheet("QLabel { color: gray; font-style: italic; }");
-  layout_->addWidget(status_label_);
+  topic_layout_->addWidget(status_label_);
+  
+  // Add stretch to push status to the right
+  topic_layout_->addStretch();
+  
+  // Add topic layout to main layout
+  layout_->addLayout(topic_layout_);
   
   // Create the xdot widget for rendering the behavior tree
   dot_widget_ = new xdot_cpp::ui::DotWidget(this);
@@ -55,8 +85,22 @@ BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
   layout_->addWidget(dot_widget_);
   
   // Set layout stretch factors so the dot widget takes most of the space
-  layout_->setStretchFactor(status_label_, 0);
+  layout_->setStretchFactor(topic_layout_, 0);
   layout_->setStretchFactor(dot_widget_, 1);
+  
+  // Connect signals
+  connect(topic_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+          this, &BehaviorTreePanel::onTopicChanged);
+  connect(topic_combo_, &QComboBox::editTextChanged,
+          this, &BehaviorTreePanel::onTopicTextChanged);
+  connect(refresh_button_, &QPushButton::clicked, 
+          this, &BehaviorTreePanel::onRefreshTopics);
+  
+  // Create timer for periodic topic refresh
+  topic_refresh_timer_ = new QTimer(this);
+  connect(topic_refresh_timer_, &QTimer::timeout, 
+          this, &BehaviorTreePanel::updateAvailableTopics);
+  topic_refresh_timer_->start(5000); // Refresh every 5 seconds
 }
 
 BehaviorTreePanel::~BehaviorTreePanel() = default;
@@ -66,19 +110,22 @@ void BehaviorTreePanel::onInitialize()
   // Access the abstract ROS Node and lock it for exclusive use
   node_ptr_ = getDisplayContext()->getRosNodeAbstraction().lock();
   
-  // Get a pointer to the familiar rclcpp::Node for making subscriptions
-  rclcpp::Node::SharedPtr node = node_ptr_->get_raw_node();
+  // Update available topics and subscribe to the current topic
+  updateAvailableTopics();
+  subscribeToTopic(current_topic_);
   
-  // Subscribe to the behavior tree graphviz topic
-  behavior_tree_subscription_ = node->create_subscription<behavior_tree_msgs::msg::GraphVizXdot>(
-    "behavior_tree_graphviz", 
-    10, 
-    std::bind(&BehaviorTreePanel::behaviorTreeCallback, this, std::placeholders::_1)
-  );
-  
-  // Update status
-  status_label_->setText("Subscribed to behavior_tree_graphviz topic");
-  status_label_->setStyleSheet("QLabel { color: green; }");
+  // Create a single-shot timer to retry topic discovery after a short delay
+  // This helps with the initial loading when topics might not be discovered yet
+  QTimer::singleShot(1000, this, [this]() {
+    updateAvailableTopics();
+    // If we have a saved topic but it's not currently selected, try to select it
+    if (!current_topic_.empty()) {
+      int index = topic_combo_->findText(QString::fromStdString(current_topic_));
+      if (index >= 0 && topic_combo_->currentIndex() != index) {
+        topic_combo_->setCurrentIndex(index);
+      }
+    }
+  });
 }
 
 void BehaviorTreePanel::behaviorTreeCallback(const behavior_tree_msgs::msg::GraphVizXdot::SharedPtr msg)
@@ -103,6 +150,156 @@ void BehaviorTreePanel::behaviorTreeCallback(const behavior_tree_msgs::msg::Grap
       // Handle any parsing errors
       status_label_->setText(QString("Error parsing behavior tree: %1").arg(e.what()));
       status_label_->setStyleSheet("QLabel { color: red; }");
+    }
+  }
+}
+
+void BehaviorTreePanel::updateAvailableTopics()
+{
+  if (!node_ptr_) {
+    return;
+  }
+  
+  rclcpp::Node::SharedPtr node = node_ptr_->get_raw_node();
+  
+  // Get all topics and their types
+  auto topic_names_and_types = node->get_topic_names_and_types();
+  
+  // Find topics with GraphVizXdot message type
+  std::vector<std::string> graphviz_topics;
+  for (const auto& topic_info : topic_names_and_types) {
+    const std::string& topic_name = topic_info.first;
+    const std::vector<std::string>& types = topic_info.second;
+    
+    // Check if this topic publishes GraphVizXdot messages
+    for (const std::string& type : types) {
+      if (type == "behavior_tree_msgs/msg/GraphVizXdot") {
+        graphviz_topics.push_back(topic_name);
+        break;
+      }
+    }
+  }
+  
+  // Update combo box
+  QString current_selection = topic_combo_->currentText();
+  topic_combo_->clear();
+  
+  if (graphviz_topics.empty()) {
+    topic_combo_->addItem("No GraphVizXdot topics found");
+    topic_combo_->setEnabled(false);
+  } else {
+    topic_combo_->setEnabled(true);
+    
+    // Add all found topics
+    for (const std::string& topic : graphviz_topics) {
+      topic_combo_->addItem(QString::fromStdString(topic));
+    }
+    
+    // Try to restore previous selection
+    int index = topic_combo_->findText(current_selection);
+    if (index >= 0) {
+      topic_combo_->setCurrentIndex(index);
+    } else {
+      // Try to select the current topic
+      index = topic_combo_->findText(QString::fromStdString(current_topic_));
+      if (index >= 0) {
+        topic_combo_->setCurrentIndex(index);
+      }
+    }
+  }
+}
+
+void BehaviorTreePanel::subscribeToTopic(const std::string& topic_name)
+{
+  if (!node_ptr_) {
+    return;
+  }
+  
+  // Unsubscribe from previous topic
+  behavior_tree_subscription_.reset();
+  
+  // Clear previous data
+  previous_graphviz_.clear();
+  dot_widget_->set_dot_code("");
+  
+  if (topic_name.empty()) {
+    status_label_->setText("No topic selected");
+    status_label_->setStyleSheet("QLabel { color: gray; font-style: italic; }");
+    return;
+  }
+  
+  rclcpp::Node::SharedPtr node = node_ptr_->get_raw_node();
+  
+  try {
+    // Subscribe to the new topic
+    behavior_tree_subscription_ = node->create_subscription<behavior_tree_msgs::msg::GraphVizXdot>(
+      topic_name, 
+      10, 
+      std::bind(&BehaviorTreePanel::behaviorTreeCallback, this, std::placeholders::_1)
+    );
+    
+    current_topic_ = topic_name;
+    
+    // Update status
+    status_label_->setText(QString("Subscribed to %1").arg(QString::fromStdString(topic_name)));
+    status_label_->setStyleSheet("QLabel { color: green; }");
+  } catch (const std::exception& e) {
+    status_label_->setText(QString("Error subscribing to %1: %2")
+                          .arg(QString::fromStdString(topic_name))
+                          .arg(e.what()));
+    status_label_->setStyleSheet("QLabel { color: red; }");
+  }
+}
+
+void BehaviorTreePanel::onTopicChanged()
+{
+  if (!topic_combo_->isEnabled()) {
+    return;
+  }
+  
+  QString selected_topic = topic_combo_->currentText();
+  if (!selected_topic.isEmpty() && selected_topic != "No GraphVizXdot topics found") {
+    subscribeToTopic(selected_topic.toStdString());
+  }
+}
+
+void BehaviorTreePanel::onTopicTextChanged(const QString & text)
+{
+  if (!topic_combo_->isEnabled()) {
+    return;
+  }
+  
+  // Subscribe to manually typed topic name
+  if (!text.isEmpty() && text != "No GraphVizXdot topics found") {
+    subscribeToTopic(text.toStdString());
+  }
+}
+
+void BehaviorTreePanel::onRefreshTopics()
+{
+  updateAvailableTopics();
+}
+
+void BehaviorTreePanel::save(rviz_common::Config config) const
+{
+  Panel::save(config);
+  config.mapSetValue("topic", QString::fromStdString(current_topic_));
+}
+
+void BehaviorTreePanel::load(const rviz_common::Config & config)
+{
+  Panel::load(config);
+  
+  QString topic;
+  if (config.mapGetString("topic", &topic)) {
+    current_topic_ = topic.toStdString();
+    
+    // Update combo box selection if it's already populated
+    if (topic_combo_->count() > 0) {
+      int index = topic_combo_->findText(topic);
+      if (index >= 0) {
+        topic_combo_->setCurrentIndex(index);
+      }
     }
   }
 }
