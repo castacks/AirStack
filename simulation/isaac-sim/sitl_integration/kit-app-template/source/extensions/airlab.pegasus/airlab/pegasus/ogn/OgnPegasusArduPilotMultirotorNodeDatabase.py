@@ -25,54 +25,60 @@ from omni.isaac.core.utils.prims import define_prim, get_prim_at_path
 import carb
 import sys
 import traceback
-from enum import IntEnum
+from enum import IntEnum, auto
 
 import omni.graph.core as og
 import omni.graph.core._omni_graph_core as _og
 import omni.graph.tools.ogn as ogn
 
-class ArduPilotInputIndex(IntEnum):
-    """Enumeration for ArduPilot multirotor node input indices."""
-    EXEC_IN = 0
-    DRONE_PRIM = 1
-    VEHICLE_ID = 2
-    ROBOT_MODEL = 3
-    CONNECTION_TYPE = 4
-    CONNECTION_IP = 5
-    CONNECTION_BASEPORT = 6
-    ARDUPILOT_AUTOLAUNCH = 7
-    ARDUPILOT_DIR = 8
-    ARDUPILOT_VEHICLE_MODEL = 9
-    ENABLE_LOCKSTEP = 10
-    NUM_ROTORS = 11
-    UPDATE_RATE = 12
-    INIT_POS_X = 13
-    INIT_POS_Y = 14
-    INIT_POS_Z = 15
-    INIT_ORIENT_X = 16
-    INIT_ORIENT_Y = 17
-    INIT_ORIENT_Z = 18
-    INIT_ORIENT_W = 19
-    INPUT_OFFSET_0 = 20
-    INPUT_OFFSET_1 = 21
-    INPUT_OFFSET_2 = 22
-    INPUT_OFFSET_3 = 23
-    INPUT_SCALING_0 = 24
-    INPUT_SCALING_1 = 25
-    INPUT_SCALING_2 = 26
-    INPUT_SCALING_3 = 27
-    ZERO_POSITION_ARMED_0 = 28
-    ZERO_POSITION_ARMED_1 = 29
-    ZERO_POSITION_ARMED_2 = 30
-    ZERO_POSITION_ARMED_3 = 31
-    INPUT_MIN_0 = 32
-    INPUT_MIN_1 = 33
-    INPUT_MIN_2 = 34
-    INPUT_MIN_3 = 35
-    INPUT_MAX_0 = 36
-    INPUT_MAX_1 = 37
-    INPUT_MAX_2 = 38
-    INPUT_MAX_3 = 39
+ARDUPILOT_FIELDS = [
+    "EXEC_IN",
+    "DRONE_PRIM",
+    "VEHICLE_ID",
+    "ROBOT_MODEL",
+    "CONNECTION_TYPE",
+    "CONNECTION_IP",
+    "CONNECTION_BASEPORT",
+    "ARDUPILOT_AUTOLAUNCH",
+    "ARDUPILOT_DIR",
+    "ARDUPILOT_VEHICLE_MODEL",
+    "ENABLE_LOCKSTEP",
+    "NUM_ROTORS",
+    "UPDATE_RATE",
+    "INIT_POS_X",
+    "INIT_POS_Y",
+    "INIT_POS_Z",
+    "INIT_ORIENT_X",
+    "INIT_ORIENT_Y",
+    "INIT_ORIENT_Z",
+    "INIT_ORIENT_W",
+    "INPUT_OFFSET_0",
+    "INPUT_OFFSET_1",
+    "INPUT_OFFSET_2",
+    "INPUT_OFFSET_3",
+    "INPUT_SCALING_0",
+    "INPUT_SCALING_1",
+    "INPUT_SCALING_2",
+    "INPUT_SCALING_3",
+    "ZERO_POSITION_ARMED_0",
+    "ZERO_POSITION_ARMED_1",
+    "ZERO_POSITION_ARMED_2",
+    "ZERO_POSITION_ARMED_3",
+    "INPUT_MIN_0",
+    "INPUT_MIN_1",
+    "INPUT_MIN_2",
+    "INPUT_MIN_3",
+    "INPUT_MAX_0",
+    "INPUT_MAX_1",
+    "INPUT_MAX_2",
+    "INPUT_MAX_3",
+]
+
+# Dynamically create the IntEnum class
+ArduPilotInputIndex = IntEnum(
+    "ArduPilotInputIndex",
+    {name: i for i, name in enumerate(ARDUPILOT_FIELDS)}
+)
 
 class OgnPegasusArduPilotMultirotorNodeDatabase(og.Database):    # Imprint the generator and target ABI versions in the file for JIT generation
     GENERATOR_VERSION = (1, 76, 0)

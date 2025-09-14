@@ -8,7 +8,7 @@ import traceback
 import omni.graph.core as og
 import omni.graph.tools.ogn as ogn
 
-sys.path.append('/root/Documents/Kit/shared/exts/airlab.pegasus/airlab/pegasus/AirStackPegasusSimulator/extensions/pegasus.simulator')
+# sys.path.append('/root/Documents/Kit/shared/exts/airlab.pegasus/airlab/pegasus/AirStackPegasusSimulator/extensions/pegasus.simulator')
 from pegasus.simulator.logic.backends import ArduPilotMavlinkBackend, ArduPilotMavlinkBackendConfig
 
 from airlab.pegasus.ogn.OgnPegasusArduPilotMultirotorNodeDatabase import OgnPegasusArduPilotMultirotorNodeDatabase

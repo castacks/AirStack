@@ -28,7 +28,7 @@ import struct
 import socket
 import asyncio
 
-sys.path.append('/root/Documents/Kit/shared/exts/airlab.pegasus/airlab/pegasus/AirStackPegasusSimulator/extensions/pegasus.simulator')
+# sys.path.append('/root/Documents/Kit/shared/exts/airlab.pegasus/airlab/pegasus/AirStackPegasusSimulator/extensions/pegasus.simulator')
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS, BACKENDS, WORLD_SETTINGS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.logic.backends import Backend, BackendConfig
