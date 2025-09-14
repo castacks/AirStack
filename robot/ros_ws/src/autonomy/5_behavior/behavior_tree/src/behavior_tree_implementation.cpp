@@ -612,19 +612,19 @@ std::string BehaviorTree::get_graphviz() {
         if (node->is_active) {
             style += "penwidth=2 color=black style=filled ";
             if (node->status == behavior_tree_msgs::msg::Status::SUCCESS)
-                style += "fillcolor=green";  // dark green
+                style += "fillcolor=chartreuse";  // dark green
             else if (node->status == behavior_tree_msgs::msg::Status::RUNNING)
-                style += "fillcolor=lightblue";  // dark blue
+                style += "fillcolor=skyblue";  // dark blue
             else if (node->status == behavior_tree_msgs::msg::Status::FAILURE)
-                style += "fillcolor=red";  // dark red
+                style += "fillcolor=tomato";  // dark red
         } else {
             style += "penwidth=2 ";
             if (node->status == behavior_tree_msgs::msg::Status::SUCCESS)
-                style += "color=green";  // light green
+                style += "color=chartreuse";  // light green
             else if (node->status == behavior_tree_msgs::msg::Status::RUNNING)
-                style += "color=lightblue";  // light blue
+                style += "color=skyblue";  // light blue
             else if (node->status == behavior_tree_msgs::msg::Status::FAILURE)
-                style += "color=red";  // light red
+                style += "color=tomato";  // light red
         }
 
         if (dynamic_cast<ConditionNode*>(node) != NULL) {
