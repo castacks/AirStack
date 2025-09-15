@@ -8,7 +8,7 @@
         "cwd": "${workspaceFolder}"
       },
       "command": [
-        "source /root/.bashrc &&",
+        "source /.bashrc &&",
         "bws --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
       ],
       "problemMatcher": [],

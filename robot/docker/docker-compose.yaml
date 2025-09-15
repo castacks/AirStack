@@ -11,6 +11,7 @@ services:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
     image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -19,11 +20,14 @@ services:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
     command: >
-      bash -c " service ssh restart; tmux new -d -s robot_bringup; autolaunch=${AUTOLAUNCH}; if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t robot_bringup 'source /root/.bashrc; bws && sws && echo \"Waiting 30 seconds for Isaac Sim to start...\" && sleep 30 && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;        
-      fi; sleep infinity"
-    # TODO: uncomment this line to automatically wait for PX4 MAVLink backend once wait_for_px4.py is working.
-    # tmux send-keys -t robot_bringup 'source /root/.bashrc; bws && sws && echo \"Waiting for PX4 MAVLink backend for ${ROBOT_NAME:-robot_1}...\" && python3 /root/docker/wait_for_px4.py ${ROBOT_NAME:-robot_1} 120 && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      bash -c "
+      service ssh restart;
+      autolaunch=${AUTOLAUNCH};
+      if [ $$autolaunch == 'true' ]; then
+        tmux new -d -s robot_bringup;
+        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      fi;
+      sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
     networks:
       - airstack_network
@@ -70,5 +74,11 @@ services:
     extends:
       service: robot
     command: >
-      bash -il -c " echo 'Building and sourcing workspace...'; bws &> /dev/null && sws &> /dev/null && echo 'Starting tests for packages: takeoff_landing_planner'; colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+; TEST_EXIT_CODE=$$?; echo \"Tests completed with exit code: $$TEST_EXIT_CODE\"; exit $$TEST_EXIT_CODE"
-    entrypoint: []
+      bash -il -c "
+      echo 'Building and sourcing workspace...';
+      bws &> /dev/null && sws &> /dev/null &&
+      echo 'Starting tests for packages: takeoff_landing_planner';
+      colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+;
+      TEST_EXIT_CODE=$$?;
+      echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
+      exit $$TEST_EXIT_CODE"

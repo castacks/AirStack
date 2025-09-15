@@ -13,7 +13,6 @@ if [ -n "$COMPOSE_FILES" ]; then
     for file in $COMPOSE_FILES; do
         # Get the diff for the docker-compose.yaml file
         DIFF_OUTPUT=$(git diff --cached "$file")
-        
         # Check if any lines with changes (+ or -) contain build: or are indented under a build: section
         # This regex looks for lines that:
         # 1. Start with + or - (indicating changes)
@@ -63,7 +62,6 @@ if [ "$on_gh_pages" = false ] && ([ -n "$DOCKERFILE_CHANGED" ] || [ "$COMPOSE_BU
             # Update the DOCKER_IMAGE_TAG value
             sed -i "s/^DOCKER_IMAGE_TAG=.*$/DOCKER_IMAGE_TAG=\"$COMMIT_HASH\"/" .env
             echo "Updated DOCKER_IMAGE_TAG to $COMMIT_HASH in .env file"
-
 
             # Stage the modified .env file for commit
             git add .env

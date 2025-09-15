@@ -5,6 +5,8 @@ FROM ${BASE_IMAGE:-ubuntu:22.04}
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
 
+SHELL ["/bin/bash", "-c"]
+
 # Install language
 RUN apt-get update && apt-get install -y \
   locales \
@@ -35,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
   iputils-ping \
   net-tools \
+  bind9-host \
   && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
@@ -57,8 +60,6 @@ ENV ROS_VERSION=2
 ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ENV DEBIAN_FRONTEND=
 # ========================
-
-WORKDIR /root/ros_ws
 
 # Install dev tools
 RUN apt update && apt install -y \
@@ -164,49 +165,52 @@ RUN if [ "$REAL_ROBOT"  = "true" ]; then \
   echo "REAL_ROBOT is false"; \
   fi
 
-# Downloading model weights for MACVO
-WORKDIR /root/model_weights
-RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
-  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
-  wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt" && \ 
-  mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /root/model_weights/MACVO_FrontendCov.pth && \
-  mv /root/model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /root/model_weights/MACVO_posenet.pkl && \
-  mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/dsta_efficient.ckpt /root/model_weights/dsta_efficient.ckpt && \
-  rm -rf /root/model_weights/github.com
-
-WORKDIR /root/ros_ws
-# Cleanup. Prevent people accidentally doing git commits as root in Docker
-RUN apt purge git -y \
-  && apt autoremove -y \
-  && apt clean -y \
-  && rm -rf /var/lib/apt/lists/*
-
 # Install colcon, seems to be getting removed
 RUN pip install -U colcon-common-extensions
+
+# # Downloading model weights for MACVO
+WORKDIR /model_weights
+RUN wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \ 
+  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
+  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
+  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
+  rm -rf /model_weights/github.com
+
 
 # Fixes for MACVO Integration
 RUN pip install huggingface_hub
 RUN pip uninstall matplotlib -y
 
-# Temporary fix for UFM
-WORKDIR /root/model_weights
-RUN wget -r "https://github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip" && \
-  apt update && apt install -y unzip && \
-  mv /root/model_weights/github.com/castacks/MAC-VO-ROS2/releases/download/dsta-efficient-v0/UFM_Env2.zip /root/model_weights/UFM_Env2.zip && \
-  unzip UFM_Env2.zip && \
-  rm UFM_Env2.zip
 
-WORKDIR /root/model_weights/UFM
-RUN pip install -e .
+# TMux config
+RUN git clone https://github.com/tmux-plugins/tpm /home/robot/.tmux/plugins/tpm
 
-WORKDIR /root/model_weights/UFM/UniCeption
-RUN pip install -e .
+WORKDIR /home/robot/AirStack/robot/ros_ws
 
-WORKDIR /root/model_weights/UFM/benchmarks
-RUN pip install -e .
+# Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
+# need to give access to docker to access container name
+# creates user "robot" with UID 1000, home directory /home/robot, and shell /bin/bash
+# creates group "robot" with GID 1000
+RUN addgroup --gid 1000 robot && \
+  adduser --uid 1000 --ingroup robot --home /home/robot --shell /bin/bash --disabled-password --gecos "" robot && \
+  chown -R robot:robot /home/robot && \
+  usermod -aG sudo robot && \
+  echo "robot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/robot && \
+  echo "robot:robot" | chpasswd
 
-RUN apt-get update && apt-get install -y ros-humble-xacro
-# RUN apt-get update && apt-get install -y ros-humble-xacro ros-humble-robot-state-publisher
+RUN USER=robot && \
+  GROUP=robot && \
+  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
+  chown root:root /usr/local/bin/fixuid && \
+  chmod 4755 /usr/local/bin/fixuid && \
+  mkdir -p /etc/fixuid && \
+  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
 
+# Cleanup
+RUN apt autoremove -y \
+  && apt clean -y \
+  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /root/ros_ws
+USER robot:robot
+ENTRYPOINT ["fixuid"]
+

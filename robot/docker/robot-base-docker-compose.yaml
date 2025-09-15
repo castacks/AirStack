@@ -1,7 +1,6 @@
 # docker compose file
 services:
   robot_base:
-    entrypoint: ""
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
@@ -46,17 +45,19 @@ services:
               capabilities: [ gpu ]
     volumes:
       # display stuff
-      - $HOME/.Xauthority:/root/.Xauthority
+      - $HOME/.Xauthority:/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # config
       - ../../config:${CONFIG_MOUNT_PATH}:ro
       # developer stuff
-      - .dev:/root/.dev:rw # developer config
-      - .bashrc:/root/.bashrc:rw # bash config
-      - ./wait_for_px4.py:/root/docker/wait_for_px4.py:ro # PX4 wait script (python)
-      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      - .dev:/home/robot/.dev:rw # developer config
+      - ../../common/.bash_profile:/home/robot/.bash_profile:rw
+      - .bashrc:/home/robot/.bashrc:rw # bash config
       - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../common/.tmux.conf:/home/robot/.tmux.conf:rw # tmux config
+      - ../../.devcontainer/robot/launch.json:/home/robot/AirStack/.vscode/launch.json:rw
       # autonomy stack stuff
-      - ../../common/ros_packages:/root/ros_ws/src/common:rw # common ROS packages
-      - ../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
-      - ../ros_ws:/root/ros_ws:rw # robot-specific ROS packages
+      - ../..:/home/robot/AirStack
+      - ../../common/ros_packages:/home/robot/AirStack/robot/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/home/robot/AirStack/robot/ros_ws/fastdds.xml:rw # fastdds.xml
+

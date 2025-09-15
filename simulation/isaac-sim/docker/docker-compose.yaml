@@ -13,8 +13,12 @@ services:
     entrypoint: "" # override the default entrypoint with nothing
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
-      bash -c "tmux new -d -s isaac; 
+      bash -c "
+      tmux new -d -s isaac;
+      autolaunch=${AUTOLAUNCH:-'false'};
+      if [ $$autolaunch = 'true' ]; then
         tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/spawn_pegasus_prim_test.py' ENTER;
+      fi;
       sleep infinity"
     # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus_launch.py' ENTER;
     # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py --scene \"${ISAAC_SIM_SCENE}\"' ENTER;
@@ -75,7 +79,8 @@ services:
       # developer stuff
       - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
-      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../../common/.tmux.conf:/root/.tmux.conf:rw
       # pegasus integration
       - ../extensions/PegasusSimulator:/isaac_extensions/PegasusSimulator
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/root/Documents/Kit/shared/exts/pegasus.simulator/
@@ -105,11 +110,11 @@ services:
     networks: !reset null
   # ===================================================================================================================
   # for running over ethernet for hitl to stream to the NVIDIA jetson device
-  isaac-sim-hitl:
-    extends:
-      service: isaac-sim
-    profiles: !override
-      - hitl
-    container_name: isaac-sim
-    network_mode: host
-    networks: !reset null
+  # isaac-sim-hitl:
+  #   extends:
+  #     service: isaac-sim
+  #   profiles: !override
+  #     - hitl
+  #   container_name: isaac-sim
+  #   network_mode: host
+  #   networks: !reset null

@@ -11,10 +11,9 @@
         name="static_transform_publisher"
         args="--x 0 --y 0 --z 0 --yaw 1.5708 --pitch -1.5708 --roll 3.14159 --frame-id CameraLeft --child-frame-id macvo_ned" />
 
-    <node pkg="macvo" exec="macvo" namespace="macvo">
-        <param name="camera_config" value="$(find-pkg-share macvo)/config/model_config.yaml" />
-        <!-- override -->
-        <param from="$(find-pkg-share macvo)/config/interface_config.yaml" />
+    <node pkg="macvo_ros2" exec="macvo_node" namespace="macvo">
+        <param name="macvo_config" value="$(find-pkg-share macvo_ros2)/config/MACVO_fast_for_orin.yaml"/>
+        <param from="$(find-pkg-share macvo_ros2)/config/interface_config.yaml"/>
         <remap from="left/image_rect"
             to="/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect" />
         <remap from="right/image_rect"

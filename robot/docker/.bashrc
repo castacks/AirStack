@@ -1,10 +1,94 @@
 # ========== BASHRC FOR ROBOT DOCKER CONTAINER ==========
-# ~/.bashrc: executed by bash(1) for non-login shells.
+# /.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
 
+# --- ROS2 workspace setup ---
+
+# Define the ROS2 workspace directory
+ROS2_WS_DIR="$HOME/AirStack/robot/ros_ws"
+# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
+export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/fastdds.xml"
+# for local development, prevent conflict with other desktops
+export ROS_LOCALHOST_ONLY=1
+
+# fix ROS2 humble setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
+PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"
+export PYTHONWARNINGS
+
+# Convenience functions for ROS2 workspace
+
+function bws(){
+    echo "Running \`colcon build $@\` in $ROS2_WS_DIR"
+    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
+}
+function sws(){
+    echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
+    source "$ROS2_WS_DIR"/install/local_setup.bash || echo "Please make sure to build first with 'bws'"
+}
+
+# Function to prompt user for confirmation
+confirm_cws() {
+    while true; do
+        read -p "Are you sure you want to clean the ROS2 workspace under $ROS2_WS_DIR? (y/N): " yn
+        yn=${yn:-no} # Default to 'no' if no answer is given
+        case $yn in
+            [Yy] | [Yy][Ee][Ss] ) return 0;;
+            [Nn] | [Nn][Oo] ) return 1;;
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
+}
+function cws(){
+    # Call the confirmation function
+    if confirm_cws; then
+        echo "Cleaning ROS2 workspace..."
+        set -x
+        # Remove build, install, and log directories
+        if ! rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/; then
+            { set +x; } 2>/dev/null
+            echo "Error: Failed to remove ROS2 workspace directories."
+            exit 1
+        fi
+
+        # Set environment variables
+        export AMENT_PREFIX_PATH="/opt/ros/humble"
+        export CMAKE_PREFIX_PATH=""
+
+        { set +x; } 2>/dev/null  # set +x w/out it being printed
+        echo "ROS2 workspace has been cleaned successfully."
+    else
+        echo "Operation cancelled."
+    fi
+}
+
+source /opt/ros/humble/setup.bash
+sws # source the ROS2 workspace by default
+
+# https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+container_name=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+
+# remove the prefix and convert dashes to underscores
+export ROBOT_NAME=$(echo "$container_name" | sed 's/.*-\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
+export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
+
+# case: will be null on real world robot
+if [ "$ROBOT_NAME" == "null" ]; then
+    num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
+    num=$((num)) #remove leading zeros
+
+    if [[ "$num" == 0 ]]; then
+	export ROBOT_NAME="ERROR"
+	export ROS_DOMAIN_ID="ERROR"
+    else
+	export ROBOT_NAME="robot_$num"
+	export ROS_DOMAIN_ID=$num
+    fi
+fi
+
+# -----------------------------------------------------
 # If not running interactively, don't do anything
-# [ -z "$PS1" ] && return
+[ -z "$PS1" ] && return
 
 # don't put duplicate lines in the history. See bash(1) for more options
 # ... or force ignoredups and ignorespace
@@ -14,6 +98,7 @@ HISTCONTROL=ignoredups:ignorespace
 shopt -s histappend
 
 # for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
+HISTFILE=$HOME/.bash_history
 HISTSIZE=1000
 HISTFILESIZE=2000
 
@@ -91,103 +176,31 @@ alias l='ls -CF'
 alias emacs='emacs -nw'
 alias sis='source install/setup.bash'
 
-if [ -f ~/.bash_aliases ]; then
-    . ~/.bash_aliases
-fi
+# if [ -f ~/.bash_aliases ]; then
+#     . ~/.bash_aliases
+# fi
 
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
 # sources /etc/bash.bashrc).
-#if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
-#    . /etc/bash_completion
-#fi
-
+if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+   . /etc/bash_completion
+fi
 
 # Creates a history file that stores locally on the developer computer
-# check if we previously created a symlink to ~/.bash_history
-if [ ! -h ~/.bash_history ]; then
-    # File is not a symlink
-    rm ~/.bash_history
+# check if we previously created a symlink to ~/.bash_history.
+# if file is not a symlink...
+if [ ! -h $HISTFILE ]; then
+    # remove existing .bash_history file if it exists
+    rm $HISTFILE > /dev/null 2>&1
     # initialize .bash_history file if doesn't exist yet
-    if [ ! -d ~/.dev/.bash_history ]; then
-        cp ~/.dev/.bash_history_init ~/.dev/.bash_history
+    if [ ! -d /.dev/.bash_history ]; then
+        cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history
     fi
-    # symlink to ~/.dev/.bash_history
-    ln -s ~/.dev/.bash_history ~/.bash_history
+    # symlink to /.dev/.bash_history
+    ln -s $HOME/.dev/.bash_history $HISTFILE
 fi
 
-# --- ROS2 workspace setup ---
-
-# Define the ROS2 workspace directory
-ROS2_WS_DIR="$HOME/ros_ws"
-# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/$ROS2_WS_DIR/fastdds.xml"
-# for local development, prevent conflict with other desktops
-export ROS_LOCALHOST_ONLY=1
-
-# fix ROS2 humble setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
-PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"
-export PYTHONWARNINGS
-
-# Convenience functions for ROS2 workspace
-
-function bws(){
-    echo "Running \`colcon build $@\` in $ROS2_WS_DIR"
-    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
-}
-function sws(){
-    echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
-    source "$ROS2_WS_DIR"/install/local_setup.bash || echo "Please make sure to build first with 'bws'"
-}
-
-# Function to prompt user for confirmation
-confirm_cws() {
-    while true; do
-        read -p "Are you sure you want to clean the ROS2 workspace under $ROS2_WS_DIR? (y/N): " yn
-        yn=${yn:-no} # Default to 'no' if no answer is given
-        case $yn in
-            [Yy] | [Yy][Ee][Ss] ) return 0;;
-            [Nn] | [Nn][Oo] ) return 1;;
-            * ) echo "Please answer yes or no.";;
-        esac
-    done
-}
-function cws(){
-    # Call the confirmation function
-    if confirm_cws; then
-        echo "Cleaning ROS2 workspace..."
-        set -x
-        rm -rf "$ROS2_WS_DIR"/build/ "$ROS2_WS_DIR"/install/ "$ROS2_WS_DIR"/log/
-        export AMENT_PREFIX_PATH="/opt/ros/humble"
-        export CMAKE_PREFIX_PATH=""
-        { set +x; } 2>/dev/null  # set +x w/out it being printed
-        echo "ROS2 workspace has been cleaned."
-    else
-        echo "Operation cancelled."
-    fi
-}
-
-source /opt/ros/humble/setup.bash
-sws # source the ROS2 workspace by default
-
-container_name=$(curl -s --unix-socket /var/run/docker.sock http://localhost/containers/$HOSTNAME/json | jq -r .Name)
-
-# remove the prefix and convert dashes to underscores
-export ROBOT_NAME=$(echo "$container_name" | sed 's/.*-\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
-export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
-
-if [ "$ROBOT_NAME" == "null" ]; then
-    num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
-    num=$((num)) #remove leading zeros
-
-    if [[ "$num" == 0 ]]; then
-	export ROBOT_NAME="ERROR"
-	export ROS_DOMAIN_ID="ERROR"
-    else
-	export ROBOT_NAME="robot_$num"
-	export ROS_DOMAIN_ID=$num
-    fi
-fi
 
 export RCUTILS_COLORIZED_OUTPUT=1  # get colored output from ROS2 tools
 

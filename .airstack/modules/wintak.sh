@@ -27,7 +27,7 @@ function cmd_wintak_install {
     sudo chmod -R 755 "$HOME/vmware"
     
     # Create ROS config directories if they don't exist
-    local GCS_DIR="$PROJECT_ROOT/ground_control_station"
+    local GCS_DIR="$PROJECT_ROOT/gcs"
     mkdir -p "$GCS_DIR/ros_ws/src/ros2tak_tools/config"
     mkdir -p "$GCS_DIR/ros_ws/src/ros2tak_tools/creds"
     
