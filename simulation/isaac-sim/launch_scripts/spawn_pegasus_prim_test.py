@@ -94,7 +94,7 @@ class PegasusApp:
         # print(og.get_node_type("action"))
         spawn_px4_multirotor_node(
             node_name="PX4Multirotor",
-            drone_prim="/World/Quadrotor",
+            drone_prim="/World/drone/Quadrotor",
             vehicle_id=0,
             usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
         )

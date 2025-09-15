@@ -108,7 +108,7 @@ class AirStackPegasusApp:
             self.pg.load_environment(SIMULATION_ENVIRONMENTS[stage])
 
         else:
-            self.pg.load_environment(stage)
+            self.pg.load_environment(stage, force_clear=False)
 
         # The world should now be properly initialized by Pegasus
         carb.log_info(f"World object type: {type(self.world)}")
