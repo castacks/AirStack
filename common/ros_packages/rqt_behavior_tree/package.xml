@@ -13,6 +13,7 @@
 
   <author>Dorian Scholz</author>
 
+  <depend>behavior_tree_msgs</depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend version_gte="0.2.19">python_qt_binding</exec_depend>
   <exec_depend>qt_gui</exec_depend>

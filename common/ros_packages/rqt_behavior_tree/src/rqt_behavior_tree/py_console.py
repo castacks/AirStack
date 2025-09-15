@@ -31,6 +31,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from python_qt_binding.QtWidgets import QVBoxLayout, QWidget
+from behavior_tree_msgs.msg import GraphVizXdot, GraphVizXdotCompressed
 from rqt_gui_py.plugin import Plugin
 from qt_gui_py_common.simple_settings_dialog import SimpleSettingsDialog
 from rqt_behavior_tree.py_console_widget import PyConsoleWidget
@@ -72,8 +73,6 @@ class PyConsole(Plugin):
 
         self.node = context.node
 
-        #self.behavior_tree_graphviz_sub = rospy.Subscriber('behavior_tree_graphviz', String, self.behavior_tree_graphviz_callback)
-        #self.timer = rospy.Timer(rospy.Duration(0.1), self.timer_callback)
         self.functions_mutex = threading.Lock()
         self.functions = {}
         self.last_graphviz_string = ''
@@ -169,8 +168,8 @@ class PyConsole(Plugin):
         self.vbox.addWidget(self.horizontal_splitter)
 
         self.button_container_widget.hide()
-        
-        self.behavior_tree_graphviz_sub = self.node.create_subscription(String,
+
+        self.behavior_tree_graphviz_sub = self.node.create_subscription(GraphVizXdot,
                                                                         'behavior_tree_graphviz',
                                                                         self.behavior_tree_graphviz_callback,
                                                                         10)
@@ -220,9 +219,9 @@ class PyConsole(Plugin):
             self.behavior_tree_graphviz_callback(msg)
     
     def behavior_tree_graphviz_callback(self, msg):
-        if msg.data != self.prev_graphviz:
-            self.xdot_widget.set_dotcode(msg.data)
-        self.prev_graphviz = msg.data
+        if msg.xdot.data != self.prev_graphviz:
+            self.xdot_widget.set_dotcode(msg.xdot.data)
+        self.prev_graphviz = msg.xdot.data
         
     def _switch_console_widget(self):
         return
