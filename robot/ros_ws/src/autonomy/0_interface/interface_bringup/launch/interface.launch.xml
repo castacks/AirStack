@@ -9,13 +9,13 @@
     <!-- MAVROS -->
     <group if="$(var sim)">
         <push-ros-namespace namespace="interface" />
-        <include file="$(find-pkg-share mavros)/launch/apm.launch">
+        <include file="$(find-pkg-share mavros)/launch/px4.launch">
             <arg name="fcu_url" value="udp://:14540@172.31.0.200:14580" />
         </include>
     </group>
     <group unless="$(var sim)">
         <push-ros-namespace namespace="interface" />
-        <include file="$(find-pkg-share mavros)/launch/apm.launch">
+        <include file="$(find-pkg-share mavros)/launch/px4.launch">
             <arg name="fcu_url" value="/dev/ttyTHS4:115200" />
         </include>
 
