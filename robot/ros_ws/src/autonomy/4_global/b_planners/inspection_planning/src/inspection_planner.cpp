@@ -191,7 +191,7 @@ void InspectionPlanner::vdbMapCallback(const visualization_msgs::msg::Marker::Sh
     vdb_map_data_ = *msg;
     vdb_map_received_ = true;
 
-    RCLCPP_INFO(this->get_logger(), "Received VDB map marker: %s", msg->ns.c_str());
+    // RCLCPP_INFO(this->get_logger(), "Received VDB map marker: %s", msg->ns.c_str());
 
     // Generate inspection plan if active
     if (is_active_) {
@@ -316,7 +316,7 @@ void InspectionPlanner::inspectionToggleCallback(
 }
 
 void InspectionPlanner::generateInspectionPlan() {
-    RCLCPP_INFO(this->get_logger(), "Generating inspection plan...");
+    // RCLCPP_INFO(this->get_logger(), "Generating inspection plan...");
 
     // Log current semantics data
     logSemanticsInfo();
@@ -371,12 +371,12 @@ void InspectionPlanner::generateInspectionPlan() {
     pub_observed_inspection_markers_->publish(observed_inspection_markers);
     pub_predicted_inspection_markers_->publish(predicted_inspection_markers);
 
-    RCLCPP_INFO(this->get_logger(),
-                "Inspection plan generated with %zu waypoints, %zu observed inspection poses, %zu "
-                "predicted inspection poses, %zu observed objects, %zu predicted objects",
-                inspection_path.poses.size(), observed_inspection_poses.poses.size(),
-                predicted_inspection_poses.poses.size(), observed_semantic_poses.poses.size(),
-                predicted_semantic_poses.poses.size());
+    // RCLCPP_INFO(this->get_logger(),
+    //             "Inspection plan generated with %zu waypoints, %zu observed inspection poses, %zu
+    //             " "predicted inspection poses, %zu observed objects, %zu predicted objects",
+    //             inspection_path.poses.size(), observed_inspection_poses.poses.size(),
+    //             predicted_inspection_poses.poses.size(), observed_semantic_poses.poses.size(),
+    //             predicted_semantic_poses.poses.size());
 }
 
 nav_msgs::msg::Path InspectionPlanner::createInspectionPath() {
@@ -460,17 +460,19 @@ double InspectionPlanner::calculateDistance(const geometry_msgs::msg::Point& p1,
 }
 
 void InspectionPlanner::logSemanticsInfo() {
-    RCLCPP_INFO(this->get_logger(), "Current semantics data:");
-    RCLCPP_INFO(this->get_logger(), "  Observed semantics: %zu objects",
-                observed_semantics_.size());
-    RCLCPP_INFO(this->get_logger(), "  Predicted semantics: %zu objects",
-                predicted_semantics_.size());
-    RCLCPP_INFO(this->get_logger(), "  VDB map received: %s", vdb_map_received_ ? "Yes" : "No");
-    RCLCPP_INFO(this->get_logger(), "  Odometry received: %s", odometry_received_ ? "Yes" : "No");
+    // RCLCPP_INFO(this->get_logger(), "Current semantics data:");
+    // RCLCPP_INFO(this->get_logger(), "  Observed semantics: %zu objects",
+    //             observed_semantics_.size());
+    // RCLCPP_INFO(this->get_logger(), "  Predicted semantics: %zu objects",
+    //             predicted_semantics_.size());
+    // RCLCPP_INFO(this->get_logger(), "  VDB map received: %s", vdb_map_received_ ? "Yes" : "No");
+    // RCLCPP_INFO(this->get_logger(), "  Odometry received: %s", odometry_received_ ? "Yes" :
+    // "No");
     if (odometry_received_) {
-        RCLCPP_INFO(this->get_logger(), "  Current position: [%.2f, %.2f, %.2f]",
-                    current_odometry_.pose.pose.position.x, current_odometry_.pose.pose.position.y,
-                    current_odometry_.pose.pose.position.z);
+        // RCLCPP_INFO(this->get_logger(), "  Current position: [%.2f, %.2f, %.2f]",
+        //             current_odometry_.pose.pose.position.x,
+        //             current_odometry_.pose.pose.position.y,
+        //             current_odometry_.pose.pose.position.z);
     }
 
     // Log details about semantic objects
@@ -662,11 +664,11 @@ geometry_msgs::msg::Pose InspectionPlanner::calculateInspectionPose(
     tf2::Vector3 offset_local(offset.x, offset.y, offset.z);
     tf2::Vector3 offset_world = rotation_matrix * offset_local;
     if (abs(offset_world.x()) < 0.1) {
-        std::cout
-            << "------------------------------------------------------------------------------"
-            << std::endl;
-        std::cout << "offset_world: " << offset_world.x() << ", " << offset_world.y() << ", "
-                  << offset_world.z() << std::endl;
+        // std::cout
+        //     << "------------------------------------------------------------------------------"
+        //     << std::endl;
+        // std::cout << "offset_world: " << offset_world.x() << ", " << offset_world.y() << ", "
+        //           << offset_world.z() << std::endl;
     }
 
     // Calculate inspection position in world frame
@@ -741,16 +743,16 @@ geometry_msgs::msg::Pose InspectionPlanner::calculateInspectionPose(
             double robot_local_y = offset_local.y();
 
             if (abs(offset_world.x()) < 0.1) {
-                std::cout << "robot_local_y: " << robot_local_y << std::endl;
+                // std::cout << "robot_local_y: " << robot_local_y << std::endl;
             }
 
             if (abs(offset_world.x()) < 0.1) {
-                std::cout << "obj_y_horizontal: " << obj_y_horizontal.x() << ", "
-                          << obj_y_horizontal.y() << ", " << obj_y_horizontal.z() << std::endl;
-                std::cout << "to_obj_horizontal: " << to_obj_horizontal.x() << ", "
-                          << to_obj_horizontal.y() << ", " << to_obj_horizontal.z() << std::endl;
-                std::cout << "dot_positive: " << dot_positive << std::endl;
-                std::cout << "dot_negative: " << dot_negative << std::endl;
+                // std::cout << "obj_y_horizontal: " << obj_y_horizontal.x() << ", "
+                //           << obj_y_horizontal.y() << ", " << obj_y_horizontal.z() << std::endl;
+                // std::cout << "to_obj_horizontal: " << to_obj_horizontal.x() << ", "
+                //           << to_obj_horizontal.y() << ", " << to_obj_horizontal.z() << std::endl;
+                // std::cout << "dot_positive: " << dot_positive << std::endl;
+                // std::cout << "dot_negative: " << dot_negative << std::endl;
             }
 
             // Set robot_x based on robot's position in object's local frame
@@ -958,9 +960,9 @@ geometry_msgs::msg::PoseArray InspectionPlanner::filterCollisionFreePoses(
         }
     }
 
-    RCLCPP_INFO(this->get_logger(),
-                "Collision filtering: %d/%d poses are collision-free (robot_radius: %.2f m)",
-                collision_free_count, total_poses, robot_radius_);
+    // RCLCPP_INFO(this->get_logger(),
+    //             "Collision filtering: %d/%d poses are collision-free (robot_radius: %.2f m)",
+    //             collision_free_count, total_poses, robot_radius_);
 
     return collision_free_poses;
 }
@@ -980,11 +982,11 @@ geometry_msgs::msg::PoseArray InspectionPlanner::filterWorkspacePoses(
         }
     }
 
-    RCLCPP_INFO(this->get_logger(),
-                "Workspace filtering: %d/%d poses are inside workspace "
-                "(x:[%.1f,%.1f], y:[%.1f,%.1f], z:[%.1f,%.1f])",
-                inside_workspace_count, total_poses, workspace_x_min_, workspace_x_max_,
-                workspace_y_min_, workspace_y_max_, workspace_z_min_, workspace_z_max_);
+    // RCLCPP_INFO(this->get_logger(),
+    //             "Workspace filtering: %d/%d poses are inside workspace "
+    //             "(x:[%.1f,%.1f], y:[%.1f,%.1f], z:[%.1f,%.1f])",
+    //             inside_workspace_count, total_poses, workspace_x_min_, workspace_x_max_,
+    //             workspace_y_min_, workspace_y_max_, workspace_z_min_, workspace_z_max_);
 
     return workspace_poses;
 }

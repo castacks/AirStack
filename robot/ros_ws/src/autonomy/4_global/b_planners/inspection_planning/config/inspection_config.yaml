@@ -11,11 +11,11 @@
     pub_predicted_local_frames_topic: "~/predicted_local_frames"
     sub_vdb_map_topic: "vdb_map_visualization"
     sub_observed_semantics_topic: "observed_semantics"
-    sub_predicted_semantics_topic: "predicted_semantics"
+    sub_predicted_semantics_topic: "filtered_predicted_semantics"
     sub_odometry_topic: "/odom"
     srv_inspection_toggle_topic: "~/inspection_toggle"
     robot_radius: 0.5
-    inspection_offsets: [0.4, 0.8, 0.0, 0.8, -0.4, 0.0, -0.4, 0.8, 0.0, -0.4, -0.8, 0.0]
+    inspection_offsets: [0.4, 0.8, 0.0, 0.4, -0.8, 0.0, -0.4, 0.8, 0.0, -0.4, -0.8, 0.0]
     workspace_x_min: -50.0
     workspace_x_max: 50.0
     workspace_y_min: -30.0
