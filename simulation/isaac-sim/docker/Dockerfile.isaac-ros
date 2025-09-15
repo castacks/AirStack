@@ -149,6 +149,9 @@ RUN make px4_sitl
 
 RUN /isaac-sim/python.sh -m pip install lark-parser
 
+# TMux config
+RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
+
 # copy FastDDS config
 COPY docker/fastdds.xml /isaac-sim/fastdds.xml
 
