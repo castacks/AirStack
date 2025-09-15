@@ -38,9 +38,9 @@
     stall_timeout_seconds: 20.0     # Time without movement before clearing plan
 
     # view sampling
-    bbox_length                         : 2.5
-    bbox_breadth                        : 2.5
-    bbox_height                         : 2.5
+    bbox_length                         : 0.5
+    bbox_breadth                        : 0.5
+    bbox_height                         : 0.5
     viewing_distance                    : 1.5 # not used
     num_viewpts_per_cluster             : 6
     kViewingDistanceInnerR              : 1.5
@@ -76,8 +76,8 @@
     max_connection_iter: 1000
 
     # RRT force adding nodes around the start and goal
-    rrt_region_nodes_count: 16
-    rrt_region_nodes_radius: 0.8
+    rrt_region_nodes_count: 60
+    rrt_region_nodes_radius: 1.8
     rrt_region_nodes_z_layers_count_up: 1
     rrt_region_nodes_z_layers_step: 0.4
 

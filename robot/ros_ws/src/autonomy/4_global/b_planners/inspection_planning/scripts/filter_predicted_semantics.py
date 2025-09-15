@@ -31,7 +31,7 @@ class FilterPredictedSemantics(Node):
         super().__init__('filter_predicted_semantics')
         
         # Parameters
-        self.declare_parameter('distance_threshold', 1.0)
+        self.declare_parameter('distance_threshold', 0.3)
         self.declare_parameter('camera_fov_distance_threshold', 15.0)  # New parameter for camera FOV distance
         self.distance_threshold = self.get_parameter('distance_threshold').get_parameter_value().double_value
         self.camera_fov_distance_threshold = self.get_parameter('camera_fov_distance_threshold').get_parameter_value().double_value

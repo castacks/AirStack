@@ -304,7 +304,7 @@ void WaypointRoutingNode::timerCallback()
             {
                 this->is_path_executing = false;
                 this->generated_paths.clear();
-                this->target_path.pop_front();
+                // this->target_path.pop_front();
                 RCLCPP_INFO(this->get_logger(), "Reached goal point");
             }
             else
@@ -329,7 +329,7 @@ void WaypointRoutingNode::timerCallback()
                                     stall_duration.seconds());
                         this->is_path_executing = false;
                         this->generated_paths.clear();
-                        this->target_path.pop_front();
+                        // this->target_path.pop_front();
                         this->last_position_change = this->now(); // Reset timer to avoid spam
                     }
                 }
