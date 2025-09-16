@@ -44,6 +44,7 @@ services:
       - ../../common/.tmux.conf:/home/gcs/.tmux.conf:rw
       - ../../common/inputrc:/etc/inputrc:rw
       - ../../.devcontainer/gcs/launch.json:/home/gcs/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/gcs/tasks.json:/home/gcs/AirStack/.vscode/tasks.json:rw
       # autonomy stack stuff
       - ../..:/home/gcs/AirStack
       - ../../common/ros_packages:/home/gcs/AirStack/gcs/ros_ws/src/common:rw # common ROS packages

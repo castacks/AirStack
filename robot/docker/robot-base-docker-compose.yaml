@@ -56,6 +56,7 @@ services:
       - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
       - ../../common/.tmux.conf:/home/robot/.tmux.conf:rw # tmux config
       - ../../.devcontainer/robot/launch.json:/home/robot/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/robot/tasks.json:/home/robot/AirStack/.vscode/tasks.json:rw
       # autonomy stack stuff
       - ../..:/home/robot/AirStack
       - ../../common/ros_packages:/home/robot/AirStack/robot/ros_ws/src/common:rw # common ROS packages

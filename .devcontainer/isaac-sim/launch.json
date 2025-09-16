@@ -1,5 +1,20 @@
 {
-    "version": "2.0.0", 
+    "version": "2.0.0",
     "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "RESOURCE_NAME": "IsaacSim"
+            },
+            "python": "/isaac-sim/kit/python/bin/python3",
+            "envFile": "/isaac-sim/.vscode/.standalone_examples.env",
+            "preLaunchTask": "setup_python_env"
+        },
+
     ]
 }
+

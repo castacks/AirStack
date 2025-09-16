@@ -1,0 +1,25 @@
+{
+    // `bws` is the same command across robot and gcs containers
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build ros_ws Debug",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": [
+                "source ${userHome}/.bashrc &&",
+                "bws --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+    ],
+    "configurations": [
+    
+    ]
+}

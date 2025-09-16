@@ -81,12 +81,12 @@ services:
       - .bashrc:/root/.bashrc:rw # bash config
       - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
       - ../../../common/.tmux.conf:/root/.tmux.conf:rw
+      - ../../..:/root/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../../.devcontainer/isaac-sim/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       # pegasus integration
       - ../extensions/PegasusSimulator:/isaac_extensions/PegasusSimulator
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/root/Documents/Kit/shared/exts/pegasus.simulator/
-      # - ../launch_scripts/:/root/launch_scripts:rw
-      - ../../..:/root/AirStack:rw
       - ../config/sim_to_robot_bridge.yaml:/sim_to_robot_bridge.yaml:ro
       # code
       - ../sitl_integration/kit-app-template/source/extensions/airlab.airstack:/root/Documents/Kit/shared/exts/airlab.airstack
