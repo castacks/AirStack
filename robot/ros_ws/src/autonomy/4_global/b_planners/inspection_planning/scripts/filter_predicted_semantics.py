@@ -235,17 +235,17 @@ class FilterPredictedSemantics(Node):
         return self.camera_pose
     
     def create_camera_frustum_markers(self):
-        """Create camera frustum visualization markers"""
+        """Create camera frustum visualization markers (with orientation)"""
         if not self.camera_info or not self.camera_pose:
             return MarkerArray()
         
+        import numpy as np
+
         marker_array = MarkerArray()
         
         # Get camera parameters
         fx = self.camera_info.k[0]
         fy = self.camera_info.k[4]
-        cx = self.camera_info.k[2]
-        cy = self.camera_info.k[5]
         width = self.camera_info.width
         height = self.camera_info.height
         
@@ -257,61 +257,91 @@ class FilterPredictedSemantics(Node):
         near_distance = 0.1  # Near plane distance
         far_distance = 10.0  # Far plane distance
         
-        # Calculate frustum corners
-        near_height = 2 * near_distance * math.tan(v_fov / 2)
-        near_width = 2 * near_distance * math.tan(h_fov / 2)
-        far_height = 2 * far_distance * math.tan(v_fov / 2)
-        far_width = 2 * far_distance * math.tan(h_fov / 2)
+        # Calculate frustum corners in camera frame (camera looks along +X)
+        def frustum_corners(distance):
+            h = 2 * distance * math.tan(v_fov / 2)
+            w = 2 * distance * math.tan(h_fov / 2)
+            # Order: TL, TR, BR, BL
+            return [
+                np.array([distance, -w/2,  h/2]),  # Top left
+                np.array([distance,  w/2,  h/2]),  # Top right
+                np.array([distance,  w/2, -h/2]),  # Bottom right
+                np.array([distance, -w/2, -h/2]),  # Bottom left
+            ]
         
-        # Camera position
+        near_corners = frustum_corners(near_distance)
+        far_corners = frustum_corners(far_distance)
+        
+        # Camera pose
         cam_pos = self.camera_pose.pose.position
+        cam_ori = self.camera_pose.pose.orientation
+
+        # Quaternion to rotation matrix
+        def quaternion_to_rotmat(q):
+            x, y, z, w = q
+            xx = x * x
+            yy = y * y
+            zz = z * z
+            xy = x * y
+            xz = x * z
+            yz = y * z
+            wx = w * x
+            wy = w * y
+            wz = w * z
+            return np.array([
+                [1 - 2*(yy + zz),     2*(xy - wz),         2*(xz + wy)],
+                [2*(xy + wz),         1 - 2*(xx + zz),     2*(yz - wx)],
+                [2*(xz - wy),         2*(yz + wx),         1 - 2*(xx + yy)]
+            ])
         
-        # Create frustum corner points in camera frame
-        # Near plane corners
-        near_tl = Point(x=near_distance, y=-near_width/2, z=near_height/2)  # Top left
-        near_tr = Point(x=near_distance, y=near_width/2, z=near_height/2)   # Top right
-        near_bl = Point(x=near_distance, y=-near_width/2, z=-near_height/2) # Bottom left
-        near_br = Point(x=near_distance, y=near_width/2, z=-near_height/2)  # Bottom right
-        
-        # Far plane corners
-        far_tl = Point(x=far_distance, y=-far_width/2, z=far_height/2)      # Top left
-        far_tr = Point(x=far_distance, y=far_width/2, z=far_height/2)       # Top right
-        far_bl = Point(x=far_distance, y=-far_width/2, z=-far_height/2)     # Bottom left
-        far_br = Point(x=far_distance, y=far_width/2, z=-far_height/2)      # Bottom right
-        
-        # Transform points to world frame (assuming camera is looking along +X axis)
-        # For now, we'll create a simple frustum visualization
-        frustum_points = [
-            # Near plane
-            Point(x=cam_pos.x + near_tl.x, y=cam_pos.y + near_tl.y, z=cam_pos.z + near_tl.z),
-            Point(x=cam_pos.x + near_tr.x, y=cam_pos.y + near_tr.y, z=cam_pos.z + near_tr.z),
-            Point(x=cam_pos.x + near_br.x, y=cam_pos.y + near_br.y, z=cam_pos.z + near_br.z),
-            Point(x=cam_pos.x + near_bl.x, y=cam_pos.y + near_bl.y, z=cam_pos.z + near_bl.z),
-            Point(x=cam_pos.x + near_tl.x, y=cam_pos.y + near_tl.y, z=cam_pos.z + near_tl.z),  # Close the loop
-            
-            # Far plane
-            Point(x=cam_pos.x + far_tl.x, y=cam_pos.y + far_tl.y, z=cam_pos.z + far_tl.z),
-            Point(x=cam_pos.x + far_tr.x, y=cam_pos.y + far_tr.y, z=cam_pos.z + far_tr.z),
-            Point(x=cam_pos.x + far_br.x, y=cam_pos.y + far_br.y, z=cam_pos.z + far_br.z),
-            Point(x=cam_pos.x + far_bl.x, y=cam_pos.y + far_bl.y, z=cam_pos.z + far_bl.z),
-            Point(x=cam_pos.x + far_tl.x, y=cam_pos.y + far_tl.y, z=cam_pos.z + far_tl.z),  # Close the loop
-        ]
-        
-        # Create frustum wireframe marker
+        q = np.array([cam_ori.x, cam_ori.y, cam_ori.z, cam_ori.w])
+        R = quaternion_to_rotmat(q)
+        t = np.array([cam_pos.x, cam_pos.y, cam_pos.z])
+
+        # Transform a point from camera to world
+        def cam_to_world(pt):
+            return R @ pt + t
+
+        # Build frustum lines (wireframe)
+        # 8 corners: near (0-3), far (4-7)
+        corners_cam = near_corners + far_corners
+        corners_world = [cam_to_world(pt) for pt in corners_cam]
+
+        # Helper to make Point from np array
+        def np_to_point(arr):
+            return Point(x=float(arr[0]), y=float(arr[1]), z=float(arr[2]))
+
+        # Frustum edges (as lines)
+        # Near plane: 0-1, 1-2, 2-3, 3-0
+        # Far plane: 4-5, 5-6, 6-7, 7-4
+        # Sides: 0-4, 1-5, 2-6, 3-7
         frustum_marker = Marker()
         frustum_marker.header.frame_id = 'map'
         frustum_marker.header.stamp = self.get_clock().now().to_msg()
         frustum_marker.ns = 'camera_frustum'
         frustum_marker.id = 0
-        frustum_marker.type = Marker.LINE_STRIP
+        frustum_marker.type = Marker.LINE_LIST
         frustum_marker.action = Marker.ADD
-        frustum_marker.points = frustum_points
         frustum_marker.scale.x = 0.02  # Line width
         frustum_marker.color.r = 0.0
         frustum_marker.color.g = 1.0
         frustum_marker.color.b = 0.0
         frustum_marker.color.a = 0.8
-        
+
+        frustum_marker.points = []
+        # Near plane
+        for i in range(4):
+            frustum_marker.points.append(np_to_point(corners_world[i]))
+            frustum_marker.points.append(np_to_point(corners_world[(i+1)%4]))
+        # Far plane
+        for i in range(4,8):
+            frustum_marker.points.append(np_to_point(corners_world[i]))
+            frustum_marker.points.append(np_to_point(corners_world[4 + (i+1-4)%4]))
+        # Sides
+        for i in range(4):
+            frustum_marker.points.append(np_to_point(corners_world[i]))
+            frustum_marker.points.append(np_to_point(corners_world[i+4]))
+
         marker_array.markers.append(frustum_marker)
         
         # Create camera position marker
@@ -334,7 +364,7 @@ class FilterPredictedSemantics(Node):
         
         marker_array.markers.append(camera_marker)
         
-        # Create camera direction arrow
+        # Create camera direction arrow (from camera position along +X in camera frame, rotated)
         direction_marker = Marker()
         direction_marker.header.frame_id = 'map'
         direction_marker.header.stamp = self.get_clock().now().to_msg()
@@ -343,9 +373,13 @@ class FilterPredictedSemantics(Node):
         direction_marker.type = Marker.ARROW
         direction_marker.action = Marker.ADD
         
-        # Camera direction (assuming looking along +X axis)
-        start_point = Point(x=cam_pos.x, y=cam_pos.y, z=cam_pos.z)
-        end_point = Point(x=cam_pos.x + 1.0, y=cam_pos.y, z=cam_pos.z)
+        # Camera direction: +X in camera frame, rotated to world
+        start_np = np.array([0, 0, 0])
+        end_np = np.array([1.0, 0, 0])  # 1m forward in camera frame
+        start_world = cam_to_world(start_np)
+        end_world = cam_to_world(end_np)
+        start_point = np_to_point(start_world)
+        end_point = np_to_point(end_world)
         
         direction_marker.points = [start_point, end_point]
         direction_marker.scale.x = 0.05
@@ -506,15 +540,19 @@ class FilterPredictedSemantics(Node):
         # Transform point to camera frame
         point_camera = self.transform_point_to_camera_frame(point)
         # self.get_logger().info(
+        #     f"Point world: {point.x}, {point.y}, {point.z}"
+        # )
+        # self.get_logger().info(
         #     f"Point camera: {point_camera.x}, {point_camera.y}, {point_camera.z}"
         # )
         # Check if point is in front of camera
-        if point_camera.z <= 0:
+        if point_camera.x <= 0:
             return False
             
         # Calculate angles from camera center
-        angle_x = math.atan2(point_camera.y, point_camera.x)
-        angle_y = math.atan2(point_camera.z, point_camera.x)
+        # Yes, math.atan2 returns values in the range [-pi, pi]
+        angle_x = math.atan2(point_camera.y, point_camera.x)  # [-pi, pi]
+        angle_y = math.atan2(point_camera.z, point_camera.x)  # [-pi, pi]
         # self.get_logger().info(
         #     f"Angle x: {angle_x/math.pi*180}, Angle y: {angle_y/math.pi*180}"
         # )
@@ -523,31 +561,43 @@ class FilterPredictedSemantics(Node):
         return (abs(angle_x) <= h_fov/2 and abs(angle_y) <= v_fov/2)
 
     def transform_point_to_camera_frame(self, point):
-        """Transform a point from world frame to camera frame using proper inverse transform"""
+        """Transform a point from world frame to camera frame"""
         if self.camera_pose is None:
             return point
 
-        # Get camera pose in world frame
+        # Camera position (translation)
         cam_pos = self.camera_pose.pose.position
+        t = np.array([cam_pos.x, cam_pos.y, cam_pos.z])
+
+        # Camera orientation (quaternion)
         cam_ori = self.camera_pose.pose.orientation
+        q = np.array([cam_ori.x, cam_ori.y, cam_ori.z, cam_ori.w])
 
         # Convert quaternion to rotation matrix
-        qx, qy, qz, qw = cam_ori.x, cam_ori.y, cam_ori.z, cam_ori.w
-        # Rotation matrix (world to camera)
-        R = np.array([
-            [1 - 2*qy**2 - 2*qz**2,     2*qx*qy - 2*qz*qw,     2*qx*qz + 2*qy*qw],
-            [2*qx*qy + 2*qz*qw,     1 - 2*qx**2 - 2*qz**2,     2*qy*qz - 2*qx*qw],
-            [2*qx*qz - 2*qy*qw,     2*qy*qz + 2*qx*qw,     1 - 2*qx**2 - 2*qy**2]
-        ])
+        def quaternion_to_rotmat(q):
+            x, y, z, w = q
+            xx = x * x
+            yy = y * y
+            zz = z * z
+            xy = x * y
+            xz = x * z
+            yz = y * z
+            wx = w * x
+            wy = w * y
+            wz = w * z
+            return np.array([
+                [1 - 2*(yy + zz),     2*(xy - wz),         2*(xz + wy)],
+                [2*(xy + wz),         1 - 2*(xx + zz),     2*(yz - wx)],
+                [2*(xz - wy),         2*(yz + wx),         1 - 2*(xx + yy)]
+            ])
 
-        # Point in world frame as vector
-        p_world = np.array([point.x, point.y, point.z])
-        cam_t = np.array([cam_pos.x, cam_pos.y, cam_pos.z])
+        R = quaternion_to_rotmat(q)
 
-        # Transform: first translate, then rotate (inverse transform)
-        p_rel = p_world - cam_t
-        # Inverse rotation: R^T
-        p_cam = R.T @ p_rel
+        # World point as vector
+        pw = np.array([point.x, point.y, point.z])
+
+        # Transform: p_cam = R^T * (p_world - t)
+        p_cam = R.T @ (pw - t)
 
         return Point(x=p_cam[0], y=p_cam[1], z=p_cam[2])
 
