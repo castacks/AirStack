@@ -8,7 +8,6 @@
   ],
   "service": "robot",
   "workspaceFolder": "/home/robot/AirStack",
-  "initializeCommand": "export AUTOLAUNCH=false && echo 'You may close this window'",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -17,5 +16,6 @@
         "ms-python.black-formatter"
       ],
     }
-  }
+  },
+  "postStartCommand": "tmux kill-session -t robot_bringup"
 }

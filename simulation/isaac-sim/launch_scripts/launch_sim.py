@@ -100,14 +100,17 @@ class AirStackPegasusApp:
         if isinstance(stage, str) and stage.endswith(".py"):
             
             carb.log_info(f"Loading custom scene from: {stage}")
+            # import from same directory
             import importlib
             module = importlib.import_module(stage.replace(".py", "").replace("/", "."))
             module.customize_world(self.world, self.pg)
 
         elif stage in NVIDIA_SIMULATION_ENVIRONMENTS:
+            carb.log_info(f"Loading known NVIDIA Pegasus environment: {stage}")
             self.pg.load_environment(SIMULATION_ENVIRONMENTS[stage])
 
         else:
+            carb.log_info(f"Loading custom stage from: {stage}")
             self.pg.load_environment(stage, force_clear=False)
 
         # The world should now be properly initialized by Pegasus
@@ -670,6 +673,7 @@ def main(config_path, scene):
 
         if scene in SIMULATION_ENVIRONMENTS:
             # If scene is a known Pegasus environment, use it
+            carb.log_info(f"Loading known Pegasus environment: {scene}")
             stage = SIMULATION_ENVIRONMENTS[scene]
         else:
             # If the scene is not a known Pegasus environment, use the provided scene path (assumed to be a full stage path)
