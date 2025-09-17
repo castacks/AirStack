@@ -65,7 +65,7 @@ class PegasusApp:
 
         add_reference_to_stage(
             usd_path="omniverse://airlab-storage.andrew.cmu.edu:8443/Users/ajong/pegasus_scene.usd",
-            prim_path="/World/layout",
+            prim_path="/World/stage",
         )
 
         # Reset so physics/articulations are ready
