@@ -12,7 +12,7 @@
       "uiName": "Pegasus Multirotor Node",
       "language": "Python"
     },
-    "PegasusPX4MultirotorNode": {
+    "PegasusMultirotorPX4Node": {
       "description": [
         "This script node allows you to execute arbitrary Python code inside an OmniGraph.\n",
         "The compute function is defined by you at runtime and can be unique in every instance of a script node\n",
@@ -23,7 +23,7 @@
       "uiName": "Pegasus Multirotor Node",
       "language": "Python"
     },
-    "PegasusArduPilotMultirotorNode": {
+    "PegasusMultirotorArduPilotNode": {
       "description": [
         "This script node allows you to execute arbitrary Python code inside an OmniGraph.\n",
         "The compute function is defined by you at runtime and can be unique in every instance of a script node\n",
