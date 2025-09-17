@@ -8,7 +8,7 @@
     "dockerComposeFile": [
         "../../docker-compose.yaml"
     ],
-    "workspaceFolder": "/root/AirStack/.devcontainer/isaac-sim/isaac-container.code-workspace",
+    "workspaceFolder": "/",
     "customizations": {
         "vscode": {
             "extensions": [
