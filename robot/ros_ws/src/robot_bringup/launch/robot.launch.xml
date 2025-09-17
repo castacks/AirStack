@@ -29,9 +29,9 @@
 
 
   <!-- Robot State Publisher (replaces static transforms) -->
-  <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
+  <!-- <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
     <arg name="robot_name" value="$(env ROBOT_NAME)" />
-  </include>
+  </include> -->
 
   <!-- Static TFs for simulation connection -->
   <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml">
