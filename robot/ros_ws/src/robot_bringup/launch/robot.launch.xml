@@ -29,9 +29,10 @@
 
 
   <!-- Robot State Publisher (replaces static transforms) -->
-  <!-- <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
+  <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
     <arg name="robot_name" value="$(env ROBOT_NAME)" />
-  </include> -->
+    <arg name="urdf_file_path" value="$(find-pkg-share iris_with_sensors_description)/urdf/iris_with_sensors.pegasus.robot.urdf" />
+  </include>
 
   <!-- Static TFs for simulation connection -->
   <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml">

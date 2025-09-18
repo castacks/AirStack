@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="iris_with_sensors.pegasus.robot">
+  <joint name="joint_base_link-camera_left" type="fixed">
+    <origin xyz="0.1560792 0.05994 -0.0052773" rpy="1.3962634 -0. -1.5707964"/>
+    <parent link="base_link"/>
+    <child link="camera_left"/>
+  </joint>
+  <joint name="joint_base_link-camera_right" type="fixed">
+    <origin xyz="0.1560792 -0.05994 -0.0052773" rpy="1.3962634 -0. -1.5707964"/>
+    <parent link="base_link"/>
+    <child link="camera_right"/>
+  </joint>
+  <joint name="joint_base_link-imu" type="fixed">
+    <origin xyz="0.1332829 0.06 -0.0012577" rpy="0.1745329 0. 1.5707964"/>
+    <parent link="base_link"/>
+    <child link="imu"/>
+  </joint>
+  <joint name="joint_base_link-lidar" type="fixed">
+    <origin xyz="0.0056069 0. 0.0798107" rpy="0. 0. 0."/>
+    <parent link="base_link"/>
+    <child link="lidar"/>
+  </joint>
+  <link name="base_link">
+    <visual>
+      <origin xyz="0.0056069 0. 0.0435907" rpy="1.5707964 0. 1.5707964"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/os1_mesh.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="0.1315904 0. -0.0008966" rpy="1.7453293 0. 1.5707964"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/ZED_X_mesh.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.1315904 0. -0.0008966" rpy="1.7453293 0. 1.5707964"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/ZED_X_mesh.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="camera_left"/>
+  <link name="camera_left_OmniverseKitViewportCameraMesh"/>
+  <link name="camera_right"/>
+  <link name="camera_right_OmniverseKitViewportCameraMesh"/>
+  <link name="imu"/>
+  <link name="lidar"/>
+</robot>
