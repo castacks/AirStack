@@ -518,8 +518,16 @@ void DisparityExpansionNode::process_disparity_image(
     disparity_bg.setTo(-1.f, disparity_bg == std::numeric_limits<float>::infinity());
 
     auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - begin;
-    RCLCPP_INFO_STREAM(this->get_logger(), "elapsed: " << elapsed.count() << " s");
+    double elapsed = ((std::chrono::duration<double>)(end - begin)).count();
+    static std::vector<double> elapsed_history;
+    elapsed_history.push_back(elapsed);
+    if(elapsed_history.size() > 10)
+      elapsed_history.erase(elapsed_history.begin());
+    double average = 0.;
+    for(double e : elapsed_history)
+      average += e;
+    average /= elapsed_history.size();
+    RCLCPP_INFO_STREAM(this->get_logger(), "elapsed: " << elapsed << " s | average: " << average << " s");
     
     fg_msg->image = disparity_fg;
     bg_msg->image = disparity_bg;
@@ -759,7 +767,7 @@ void DisparityExpansionNode::publish_expansion_poly(
         }
     }
     marker_arr.markers.push_back(marker);
-    this->expansion_poly_pub->publish(marker_arr);
+    //this->expansion_poly_pub->publish(marker_arr);
 }
 
 void DisparityExpansionNode::publish_expansion_cloud(
@@ -773,6 +781,21 @@ void DisparityExpansionNode::publish_expansion_cloud(
     cloud->is_dense = false;
     int point_counter = 0;
     pcl::PointXYZI pt_fg, pt_bg, pt_free1, pt_free2, pt_real;
+
+    visualization_msgs::msg::MarkerArray marker_array;
+    visualization_msgs::msg::Marker spheres;
+    spheres.header = msg_disp->header;
+    spheres.ns = "spheres";
+    spheres.id = 0;
+    spheres.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    spheres.action = visualization_msgs::msg::Marker::ADD;
+    spheres.scale.x = this->expansion_radius*2.f;
+    spheres.scale.y = this->expansion_radius*2.f;
+    spheres.scale.z = this->expansion_radius*2.f;
+    spheres.color.r = 0.0f;
+    spheres.color.g = 1.0f;
+    spheres.color.b = 0.0f;
+    spheres.color.a = 1.0f;
 
     for (int v = (int)this->height - 1; v >= 0; v -= 4) {
         for (int u = (int)this->width - 1; u >= 0; u -= 4) {
@@ -799,6 +822,13 @@ void DisparityExpansionNode::publish_expansion_cloud(
             pt_real.y = (v - this->cy) * depth_value / this->fy;
             pt_real.z = depth_value;
             pt_real.intensity = 170;  //*disparity32F.at<float>(v,u)/200;
+	    
+	    geometry_msgs::msg::Point p;
+	    p.x = pt_real.x;
+	    p.y = pt_real.y;
+	    p.z = pt_real.z;
+	    if(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z))
+	      spheres.points.push_back(p);
 
             point_counter++;
             cloud->points.push_back(pt_fg);
@@ -816,6 +846,9 @@ void DisparityExpansionNode::publish_expansion_cloud(
     sensor_msgs::msg::PointCloud2 cloud_PC2;
     pcl::toROSMsg(*cloud, cloud_PC2);
     this->expansion_cloud_pub->publish(cloud_PC2);
+
+    marker_array.markers.push_back(spheres);    
+    this->expansion_poly_pub->publish(marker_array);
 }
 
 int main(int argc, char** argv) {

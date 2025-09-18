@@ -25,6 +25,8 @@ public:
   bool on_ground;
   bool paused;
   bool pause_pressed;
+  bool frozen;
+  bool freeze_pressed;
 
   Drone();
   void init();

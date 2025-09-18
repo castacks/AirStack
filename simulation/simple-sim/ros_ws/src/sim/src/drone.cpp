@@ -9,6 +9,7 @@
 Drone::Drone(){
   init();
   pause_pressed = false;
+  freeze_pressed = false;
 }
 
 void Drone::init(){
@@ -24,6 +25,7 @@ void Drone::init(){
   armed = false;
   on_ground = false;
   paused = false;
+  frozen = false;
 }
 
 glm::vec3 Drone::getForward() const {
@@ -92,6 +94,11 @@ void Drone::applyInput(GLFWwindow* window, float deltaTime) {
     if(p_pressed && !pause_pressed)
       paused = !paused;
     pause_pressed = p_pressed;
+
+    bool o_pressed = glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS;
+    if(o_pressed && !freeze_pressed)
+      frozen = !frozen;
+    freeze_pressed = o_pressed;
     
     if(offboard || paused)
       return;
@@ -184,8 +191,11 @@ void Drone::update(float deltaTime) {
     //std::cout << "thrust: " << worldThrust.x << " " << worldThrust.y << " " << worldThrust.z << std::endl;
     //std::cout << "accel: " << acceleration.x << " " << acceleration.y << " " << acceleration.z << std::endl;
 
-    velocity += acceleration * deltaTime;
-    position += velocity * deltaTime;
+    
+    if(!frozen){
+      velocity += acceleration * deltaTime;
+      position += velocity * deltaTime;
+    }
 
     on_ground = position.y < 0.f;
     if(on_ground){
