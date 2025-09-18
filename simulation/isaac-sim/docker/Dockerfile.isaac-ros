@@ -155,6 +155,9 @@ RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 # copy FastDDS config
 COPY docker/fastdds.xml /isaac-sim/fastdds.xml
 
+# ROS2 humble launch script seeks this
+RUN ln -s /isaac-sim /root/isaacsim
+
 # Cleanup. Prevent people accidentally doing git commits as root in Docker
 RUN apt purge -y git && apt autoremove -y \
     && apt clean -y \

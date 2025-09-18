@@ -6,6 +6,8 @@
 
     <!-- Nodes -->
 
+    <var name="robot_id" value="$(env ROS_DOMAIN_ID)" />
+
     <!-- MAVROS -->
     <group if="$(var sim)">
         <push-ros-namespace namespace="interface" />

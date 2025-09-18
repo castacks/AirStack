@@ -17,7 +17,7 @@ services:
       tmux new -d -s isaac;
       autolaunch=${AUTOLAUNCH:-'false'};
       if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t isaac '/isaac-sim/python.sh /root/AirStack/simulation/isaac-sim/launch_scripts/launch_sim.py --scene \"${ISAAC_SIM_SCENE}\"' ENTER;
+        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}' ENTER 
       fi;
       sleep infinity"
     # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus_launch.py' ENTER;

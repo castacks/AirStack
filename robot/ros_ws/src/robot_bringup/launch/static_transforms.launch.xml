@@ -1,6 +1,8 @@
 <launch>
-    <arg name="robot_namespace" default="robot1" />
     <!-- Environment TFs -->
+     <!-- make world be equal to map frame -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="world_to_map_broadcaster"
+        args="0 0 0 0 0 0 world map" />
 
     <!-- Robot TFs -->
 
