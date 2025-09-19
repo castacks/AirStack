@@ -26,6 +26,7 @@
     /> -->
     </group>
 
+    <!-- Interface between AirStack and MAVROS -->
     <node pkg="robot_interface" exec="robot_interface_node" namespace="interface" output="screen">
         <param name="interface" value="mavros_interface::MAVROSInterface" />
         <param name="is_ardupilot" value="false" />
@@ -37,6 +38,7 @@
         <remap from="reset_integrators" to="/$(env ROBOT_NAME)/control/reset_integrators" />
     </node>
 
+    <!-- position setpoints -->
     <node pkg="mavros_interface" exec="position_setpoint_pub.py" namespace="interface"
         output="screen">
 
