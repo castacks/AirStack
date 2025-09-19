@@ -78,16 +78,24 @@ if [ "$ROBOT_NAME" == "null" ]; then
     num=$((num)) #remove leading zeros
 
     if [[ "$num" == 0 ]]; then
-	export ROBOT_NAME="ERROR"
-	export ROS_DOMAIN_ID="ERROR"
+        export ROBOT_NAME="ERROR"
+        export ROS_DOMAIN_ID="ERROR"
     else
-	export ROBOT_NAME="robot_$num"
-	export ROS_DOMAIN_ID=$num
+        export ROBOT_NAME="robot_$num"
+        export ROS_DOMAIN_ID=$num
     fi
+    export MAVROS_FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
+else
+    # case: robot name found from docker, then we're in sim
+    export PX4_PORT=$((PX4_BASE_PORT + ROS_DOMAIN_ID))
+    # TODO: ardupilot case not handled yet
+    export MAVROS_PORT=$((MAVROS_BASE_PORT + ROS_DOMAIN_ID))
+    export MAVROS_FCU_URL="udp://isaac-sim:$PX4_PORT@localhost:$MAVROS_PORT"
 fi
 
-# -----------------------------------------------------
-# If not running interactively, don't do anything
+
+# ===========================================================================
+# If not running interactively, don't do anything. Exit immediately
 [ -z "$PS1" ] && return
 
 # don't put duplicate lines in the history. See bash(1) for more options

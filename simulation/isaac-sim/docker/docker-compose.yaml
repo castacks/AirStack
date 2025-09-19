@@ -17,7 +17,7 @@ services:
       tmux new -d -s isaac;
       autolaunch=${AUTOLAUNCH:-'false'};
       if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_SCENE} play_sim_on_start:=${PLAY_SIM_ON_START}' ENTER 
+        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_GUI} standalone:=${ISAAC_SIM_STANDALONE} play_sim_on_start:=${PLAY_SIM_ON_START}' ENTER 
       fi;
       sleep infinity"
     # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus_launch.py' ENTER;
@@ -50,6 +50,13 @@ services:
       # Isaac Sim stuff
       - ISAACSIM_PATH=/isaac-sim
       - ISAACSIM_PYTHON=/isaac-sim/python.sh
+      - PX4_BASE_PORT=${PX4_BASE_PORT}
+      - ARDUPILOT_BASE_PORT=${ARDUPILOT_BASE_PORT}
+    ports:
+      # expose 100 px4 sitl udp ports
+      - "${PX4_BASE_PORT}-${PX4_CEILING_PORT}:${PX4_BASE_PORT}-${PX4_CEILING_PORT}/udp"
+      # expose 100 ArduPilot sitl udp ports
+      - "${ARDUPILOT_BASE_PORT}-${ARDUPILOT_CEILING_PORT}:${ARDUPILOT_BASE_PORT}-${ARDUPILOT_CEILING_PORT}/udp"
     deploy:
       # let it use the GPU
       resources:

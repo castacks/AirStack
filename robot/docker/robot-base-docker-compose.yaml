@@ -32,9 +32,10 @@ services:
       - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
       # Config paths
       - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
-      # Robot identification
-      - ROBOT_NAME=${ROBOT_NAME:-robot_1}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
+      # MAVROS
+      - PX4_BASE_PORT=${PX4_BASE_PORT}
+      - ARDUPILOT_BASE_PORT=${ARDUPILOT_BASE_PORT}
+      - MAVROS_BASE_PORT=${MAVROS_BASE_PORT}
     deploy:
       # let it use the GPU
       resources:

@@ -65,7 +65,8 @@ function cws(){
 source /opt/ros/humble/setup.bash
 sws # source the ROS2 workspace by default
 
-# If not running interactively, don't do anything
+# ===========================================================================
+# If not running interactively, don't do anything. Exit immediately
 [ -z "$PS1" ] && return
 
 # don't put duplicate lines in the history. See bash(1) for more options
