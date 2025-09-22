@@ -7,6 +7,7 @@ services:
     profiles:
       - ""
       - sitl
+      - simple
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
@@ -54,6 +55,7 @@ services:
       args:
         BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
         REAL_ROBOT: true
+        SKIP_MACVO: true
       tags:
         - *l4t_image
     # we use tmux send-keys so that the session stays alive
@@ -71,6 +73,48 @@ services:
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
+  zed-l4t:
+    profiles:
+      - hitl
+      - deploy
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0
+    build: 
+      context: ./
+      dockerfile: zed/Dockerfile.zed-l4t
+      args:
+        L4T_MAJOR: 36
+        L4T_MINOR: 4
+        L4T_PATCH: 0
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s zed_driver
+      && tmux send-keys -t zed_driver
+      'bws && sws && ros2 launch zed_wrapper zed_dual_camera.launch.py pose_cam_serial:='41591402' wire_cam_serial:='44405253' camera_name:=\"robot_1/sensors\" node_name:=\"front_stereo\" ' ENTER
+      && sleep infinity"
+    network_mode: host
+    runtime: nvidia
+    privileged: true
+    ipc: host
+    pid: host
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=1
+    stdin_open: true  # Equivalent to -it for interactive terminal
+    tty: true  # Ensures that a pseudo-terminal is allocated
+    volumes:
+      - /dev:/dev 
+      - /tmp:/tmp 
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /var/nvidia/nvcam/settings/:/var/nvidia/nvcam/settings/
+      - /etc/systemd/system/zed_x_daemon.service:/etc/systemd/system/zed_x_daemon.service
+      - /usr/local/zed/resources/:/usr/local/zed/resources/
+      - /usr/local/zed/settings/:/usr/local/zed/settings/
+      - ./zed/ws/:/root/ros2_ws/
+      - ./zed/bashrc:/root/.bashrc
+      - /media/airlab/Storage/zed_svo/:/zed_svo/
+      
 # ===================================================================================================================
 # for running tests on the robot
   robot-test:

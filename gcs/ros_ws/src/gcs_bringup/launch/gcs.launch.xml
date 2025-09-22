@@ -20,7 +20,7 @@
 -->
 
     <!-- Include the TAK launch file -->
-  <include file="$(find-pkg-share gcs_bringup)/launch/tak.launch.xml">
-  </include>
+  <!-- <include file="$(find-pkg-share gcs_bringup)/launch/tak.launch.xml">
+  </include> -->
   
 </launch>
