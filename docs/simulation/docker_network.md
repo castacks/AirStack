@@ -9,7 +9,7 @@ Each robot has its own ROS_DOMAIN_ID.
 
 ## SSH into Robots
 
-The `ground-control-station` and `docker-robot` containers are setup with ssh daemon, so you can ssh into the containers using the IP address.
+The `gcs` and `docker-robot` containers are setup with ssh daemon, so you can ssh into the containers using the IP address.
 
 You can get the IP address of each container by running the following command:
 

@@ -39,12 +39,12 @@ cd AirStack
 
 Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.
 
-<details open> <summary>Option 1: Pull From the Airlab Registry (Preferred)</summary>
+<details open> <summary>Option 1: Pull From the Airlab Docker Registry (Preferred)</summary>
 To use the AirLab Docker registry do the following
 
 ```bash
 cd AirStack/
-docker login airlab-storage.andrew.cmu.edu:5001
+docker login airlab-storage.andrew.cmu.edu:442
 ## <Enter your andrew id (without @andrew.cmu.edu)>
 ## <Enter your andrew password>
 

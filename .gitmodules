@@ -1,12 +1,12 @@
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping
-	url = git@github.com:castacks/vdb_mapping.git
+	url = https://github.com/castacks/vdb_mapping.git
 [submodule "robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/autonomy/4_global/a_world_models/vdb_mapping_ros2
-	url = git@github.com:castacks/vdb_mapping_ros2.git
-[submodule "ground_control_station/ros_ws/src/ros-gst-bridge"]
-	path = ground_control_station/ros_ws/src/ros-gst-bridge
-	url = https://github.com/BrettRD/ros-gst-bridge.git
-[submodule "robot/ros_ws/src/autonomy/2_perception/MAC-VO-ROS/macvo/src"]
-	path = robot/ros_ws/src/autonomy/2_perception/MAC-VO-ROS/macvo/src
-	url = git@github.com:castacks/MAC-SLAM-Stable.git
+	url = https://github.com/castacks/vdb_mapping_ros2.git
+[submodule "robot/ros_ws/src/autonomy/2_perception/MAC-VO-ROS/scripts/macvo"]
+	path = robot/ros_ws/src/autonomy/2_perception/macvo_ros2/macvo_ros2/macvo
+	url = https://github.com/MAC-VO/MAC-VO.git
+[submodule "common/ros_packages/rviz_behavior_tree_panel/xdot_cpp"]
+	path = common/ros_packages/rviz_behavior_tree_panel/xdot_cpp
+	url = https://github.com/castacks/xdot_cpp.git

@@ -23,7 +23,7 @@ To use the AirLab docker registry:
 
 ```bash
 cd AirStack/
-docker login airlab-storage.andrew.cmu.edu:5001
+docker login airlab-storage.andrew.cmu.edu:442
 ## <Enter your andrew id (without @andrew.cmu.edu)>
 ## <Enter your andrew password>
 
@@ -31,7 +31,7 @@ docker login airlab-storage.andrew.cmu.edu:5001
 docker compose pull
 ```
 
-The available image tags are listed [here](https://airlab-storage.andrew.cmu.edu:5001/v2/shared/airstack/tags/list).
+The available image tags are listed [here](https://airlab-storage.andrew.cmu.edu:442/v2/airstack/airstack/tags/list).
 
 ## Build Images From Scratch
 
@@ -67,8 +67,6 @@ airstack up isaac-sim  # or equivalently: docker compose up isaac-sim -d
 airstack up gcs  # or equivalently: docker compose up gcs -d
 ```
 
-
-
 ### Isaac Sim
 
 Start a bash shell in the Isaac Sim container:
@@ -94,6 +92,7 @@ airstack connect robot  # or equivalently: docker exec -it airstack-robot-1 bash
 ```
 
 To launch more than one robot, prepend with the `NUM_ROBOTS=[NUM]` environment variable, e.g. to launch 2 robots (along with the ground control station and Isaac Sim):
+
 ```bash
 NUM_ROBOTS=2 airstack up
 airstack connect robot-1  # to connect to robot 1
@@ -124,7 +123,7 @@ Currently the ground control station uses the same image as the robot container.
 Start a bash shell in a robot container:
 
 ```bash
-airstack connect gcs  # or equivalently: docker exec -it ground-control-station bash
+airstack connect gcs  # or equivalently: docker exec -it gcs bash
 ```
 
 The available aliases within the container are currently the same.
@@ -135,7 +134,7 @@ On the GCS `ROS_DOMAIN_ID` is set to 0.
 
 The containers mimic the robots' onboard computers on the same network. Therefore we intend to interface with the robots through ssh.
 
-The `ground-control-station` and `docker-robot-*` containers are setup with ssh daemon, so you can ssh into the containers using the IP address.
+The `gcs` and `docker-robot-*` containers are setup with ssh daemon, so you can ssh into the containers using the IP address.
 
 You can get the IP address of each container by running the following command:
 
@@ -182,20 +181,24 @@ docker compose up autotest
 This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
 
 ## Docker Compose Variable Overrides
+
 As mentioned above, the `airstack` CLI is a wrapper around Docker Compose.
 Therefore, it supports [variable interpolation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) in the `docker-compose.yaml` file, allowing you to adjust project settings by modifying environment variables.
 
 For example, to disable playing the simulation on startup, you can set the `PLAY_SIM_ON_START` variable to `false`:
+
 ```bash
-PLAY_SIM_ON_START=false airstack up 
+PLAY_SIM_ON_START=false airstack up
 ```
 
 To change the Isaac Sim scene:
+
 ```bash
 ISAAC_SIM_SCENE=path/to/your_scene.usd airstack up
 ```
 
 To disable autolaunching the stack and simply spawn idle docker containers (useful for debugging):
+
 ```bash
 AUTOLAUNCH=false airstack up
 ```
@@ -204,6 +207,7 @@ A list of all available environment variables is in the default `.env` file in t
 When no `--env-file` argument is passed to `docker compose`, it automatically uses this default `.env` file.
 
 The default `.env` file is reproduced below:
+
 ```bash
 --8<-- ".env"
 ```
