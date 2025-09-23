@@ -46,6 +46,8 @@ services:
     profiles:
       - hitl
       - deploy
+    group_add:
+      - "20"
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
