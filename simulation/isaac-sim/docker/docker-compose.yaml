@@ -17,7 +17,7 @@ services:
       tmux new -d -s isaac;
       autolaunch=${AUTOLAUNCH:-'false'};
       if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=${ISAAC_SIM_GUI} standalone:=${ISAAC_SIM_STANDALONE} play_sim_on_start:=${PLAY_SIM_ON_START}' ENTER 
+        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER 
       fi;
       sleep infinity"
     # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus_launch.py' ENTER;
@@ -29,34 +29,21 @@ services:
     privileged: true
     networks:
       airstack_network:
-        ipv4_address: 172.31.0.200
+        ipv4_address: 172.31.0.200 # required to not conflict with other default docker networks on the host machine
     env_file:
       - ./omni_pass.env
     environment:
-      # NVIDIA stuff
-      - ACCEPT_EULA=Y
       - DISPLAY
       - QT_X11_NO_MITSHM=1
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
-      # AirStack robot configuration
-      - ROBOT_NAME=${ROBOT_NAME:-robot_1}
-      - ROS_DOMAIN_ID=100
-      # - ROS_DOMAIN_ID=1
       # Config paths
       - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
       - ISAAC_SIM_CONFIG_FILE=${CONFIG_MOUNT_PATH}/isaac_sim_config.yaml
       # Isaac Sim stuff
       - ISAACSIM_PATH=/isaac-sim
       - ISAACSIM_PYTHON=/isaac-sim/python.sh
-      - PX4_BASE_PORT=${PX4_BASE_PORT}
-      - ARDUPILOT_BASE_PORT=${ARDUPILOT_BASE_PORT}
-    ports:
-      # expose 100 px4 sitl udp ports
-      - "${PX4_BASE_PORT}-${PX4_CEILING_PORT}:${PX4_BASE_PORT}-${PX4_CEILING_PORT}/udp"
-      # expose 100 ArduPilot sitl udp ports
-      - "${ARDUPILOT_BASE_PORT}-${ARDUPILOT_CEILING_PORT}:${ARDUPILOT_BASE_PORT}-${ARDUPILOT_CEILING_PORT}/udp"
     deploy:
       # let it use the GPU
       resources:

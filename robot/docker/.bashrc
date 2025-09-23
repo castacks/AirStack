@@ -84,13 +84,13 @@ if [ "$ROBOT_NAME" == "null" ]; then
         export ROBOT_NAME="robot_$num"
         export ROS_DOMAIN_ID=$num
     fi
-    export MAVROS_FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
+    export FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
 else
     # case: robot name found from docker, then we're in sim
-    export PX4_PORT=$((PX4_BASE_PORT + ROS_DOMAIN_ID))
+    export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
+    export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
     # TODO: ardupilot case not handled yet
-    export MAVROS_PORT=$((MAVROS_BASE_PORT + ROS_DOMAIN_ID))
-    export MAVROS_FCU_URL="udp://isaac-sim:$PX4_PORT@localhost:$MAVROS_PORT"
+    export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
 fi
 
 

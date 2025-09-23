@@ -11,7 +11,7 @@
         <push-ros-namespace namespace="interface" />
         <include file="$(find-pkg-share mavros_interface)/launch/mavros_connection_poll.launch.py">
             <!-- See robot .bashrc for how this gets set -->
-            <arg name="fcu_url" value="$(env MAVROS_FCU_URL)" />
+            <arg name="fcu_url" value="$(env FCU_URL)" />
         </include>
     </group>
 

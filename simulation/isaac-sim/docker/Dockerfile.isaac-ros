@@ -135,6 +135,7 @@ RUN git clone https://github.com/castacks/PegasusSimulator-AirStack-Integration.
 
 # rm -rf /tmp/PegasusSimulator
 ENV ISAACSIM_PATH=/isaac-sim
+ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
 

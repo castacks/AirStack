@@ -33,9 +33,8 @@ services:
       # Config paths
       - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
       # MAVROS
-      - PX4_BASE_PORT=${PX4_BASE_PORT}
-      - ARDUPILOT_BASE_PORT=${ARDUPILOT_BASE_PORT}
-      - MAVROS_BASE_PORT=${MAVROS_BASE_PORT}
+      - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
+      - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
     deploy:
       # let it use the GPU
       resources:

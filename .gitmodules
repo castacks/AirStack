@@ -13,3 +13,6 @@
 [submodule "simulation/isaac-sim/extensions/PegasusSimulator"]
 	path = simulation/isaac-sim/extensions/PegasusSimulator
 	url = https://github.com/castacks/PegasusSimulator-AirStack-Integration.git
+[submodule "robot/ros_ws/src/autonomy/0_interface/mavros"]
+	path = robot/ros_ws/src/autonomy/0_interface/mavros
+	url = https://github.com/castacks/mavros.git
