@@ -73,7 +73,7 @@ export ROBOT_NAME=$(echo "$container_name" | sed 's/.*-\(robot-[0-9]*\)$/\1/' | 
 export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
 
 # case: will be null on real world robot
-if [ "$ROBOT_NAME" == "null" ]; then
+if [ "$ROBOT_NAME" == "null" ] || echo "$ROBOT_NAME" | grep -q "refused"; then
     num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
     num=$((num)) #remove leading zeros
 
@@ -99,8 +99,8 @@ shopt -s histappend
 
 # for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
 HISTFILE=$HOME/.bash_history
-HISTSIZE=1000
-HISTFILESIZE=2000
+HISTSIZE=-1
+HISTFILESIZE=-1
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.
