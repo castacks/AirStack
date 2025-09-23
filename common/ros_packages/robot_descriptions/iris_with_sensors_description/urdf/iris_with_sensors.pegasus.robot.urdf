@@ -45,12 +45,12 @@
     <child link="lidar"/>
   </joint>
   <joint name="joint_base_link_ZED_X-camera_left" type="fixed">
-    <origin xyz="0.05994 -0.00909 0.0134 " rpy="1.5707964 0. -3.1415927"/>
+    <origin xyz="0.05994 -0.00909 0.0134 " rpy="-1.5707964 0. -3.1415927"/>
     <parent link="base_link_ZED_X"/>
     <child link="camera_left"/>
   </joint>
   <joint name="joint_base_link_ZED_X-camera_right" type="fixed">
-    <origin xyz="-0.05994 -0.00909 0.0134 " rpy="1.5707964 0. -3.1415927"/>
+    <origin xyz="-0.05994 -0.00909 0.0134 " rpy="-1.5707964 0. -3.1415927"/>
     <parent link="base_link_ZED_X"/>
     <child link="camera_right"/>
   </joint>
