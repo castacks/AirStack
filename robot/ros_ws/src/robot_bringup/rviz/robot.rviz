@@ -6,9 +6,11 @@ Panels:
       Expanded:
         - /Global Options1
         - /TF1
+        - /TF1/Frames1
         - /Sensors1
-        - /Sensors1/Front Left Depth1
+        - /Sensors1/Front Right RGB1
         - /Perception1
+        - /Perception1/MACVO Disparity1
         - /Perception1/MACVO PointCloud1
         - /Local1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
@@ -32,7 +34,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: MACVO PointCloud
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
@@ -62,46 +64,44 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        CameraLeft:
-          Value: false
         OS1_REV6_128_10hz___512_resolution:
-          Value: true
+          Value: false
         base_link:
           Value: true
         base_link_ZED_X:
-          Value: true
+          Value: false
         base_link_body_body_link:
-          Value: true
+          Value: false
         base_link_frd:
-          Value: true
+          Value: false
         base_link_stabilized:
-          Value: true
+          Value: false
         camera_left:
           Value: true
         camera_right:
           Value: true
         imu:
-          Value: true
+          Value: false
         lidar:
-          Value: true
+          Value: false
         look_ahead_point:
-          Value: true
+          Value: false
         look_ahead_point_stabilized:
-          Value: true
+          Value: false
         macvo_ned:
           Value: false
         map:
           Value: true
         map_ned:
-          Value: true
+          Value: false
         odom:
-          Value: true
+          Value: false
         odom_ned:
-          Value: true
+          Value: false
         tracking_point:
-          Value: true
+          Value: false
         tracking_point_stabilized:
-          Value: true
+          Value: false
         world:
           Value: true
       Marker Scale: 0.30000001192092896
@@ -119,7 +119,8 @@ Visualization Manager:
                     {}
                 base_link_ZED_X:
                   camera_left:
-                    {}
+                    macvo_ned:
+                      {}
                   camera_right:
                     {}
                   imu:
@@ -140,7 +141,7 @@ Visualization Manager:
               {}
       Update Interval: 0
       Value: true
-    - Alpha: 1
+    - Alpha: 0.5
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
       Description File: ""
@@ -228,14 +229,14 @@ Visualization Manager:
           Max Value: 1
           Median window: 5
           Min Value: 0
-          Name: Front Left RGB
+          Name: Front Right RGB
           Normalize Range: true
           Topic:
             Depth: 5
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: sensors/front_stereo/left/image_rect
+            Value: /robot_1/sensors/front_stereo/right/image_rect
           Value: true
         - Class: rviz_default_plugins/Image
           Enabled: true
@@ -254,15 +255,15 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 6.571824073791504
-            Min Value: -0.5682187080383301
+            Max Value: 0.938877284526825
+            Min Value: -0.06335462629795074
             Value: true
           Axis: Z
           Channel Name: intensity
           Class: rviz_default_plugins/PointCloud2
           Color: 170; 170; 255
-          Color Transformer: FlatColor
-          Decay Time: 0
+          Color Transformer: AxisColor
+          Decay Time: 1
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
@@ -272,7 +273,7 @@ Visualization Manager:
           Name: Lidar
           Position Transformer: XYZ
           Selectable: true
-          Size (Pixels): 1
+          Size (Pixels): 10
           Size (m): 0.009999999776482582
           Style: Points
           Topic:
@@ -281,7 +282,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: sensors/ouster/point_cloud
+            Value: /robot_1/sensors/lidar/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: false
@@ -324,6 +325,20 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: odometry_conversion/odometry
           Value: false
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Max Value: 100
+          Median window: 5
+          Min Value: 0
+          Name: Front Right Depth
+          Normalize Range: false
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/sensors/front_stereo/right/depth_ground_truth
+          Value: true
       Enabled: true
       Name: Sensors
     - Class: rviz_common/Group
@@ -340,7 +355,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/macvo/disparity
+            Value: /robot_1/perception/macvo/disparity
           Value: true
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -372,7 +387,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/macvo/point_cloud
+            Value: /robot_1/perception/macvo/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
@@ -578,7 +593,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            "": true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -615,7 +630,7 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /robot_1/global_plan
           Value: true
-      Enabled: true
+      Enabled: false
       Name: Global
   Enabled: true
   Global Options:
@@ -663,25 +678,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.3680510520935059
+      Distance: 3.9041318893432617
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.4179893434047699
-        Y: -0.4417550265789032
-        Z: -0.2906123101711273
+        X: 0.37285664677619934
+        Y: -0.5981442928314209
+        Z: -0.36566054821014404
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.45039743185043335
+      Pitch: 0.5753970146179199
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.6404159069061279
+      Yaw: 1.9804056882858276
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
@@ -690,14 +705,16 @@ Window Geometry:
     collapsed: false
   Front Left Depth:
     collapsed: false
-  Front Left RGB:
+  Front Right Depth:
+    collapsed: false
+  Front Right RGB:
     collapsed: false
   Height: 1376
   Hide Left Dock: false
   Hide Right Dock: false
   MACVO Disparity:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001ce000004cdfc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b000004cd000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f6000004cdfc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b000000e20000002800fffffffb0000002000460072006f006e00740020004c0065006600740020004400650070007400680100000123000001d60000002800fffffffb0000001e004d004100430056004f002000440069007300700061007200690074007901000002ff000002090000002800fffffffb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba00000037fc0100000003fb0000000800540069006d00650100000000000009ba0000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c000000034c0000066e0000023300fffffffb0000000800540069006d00650100000000000004500000000000000000000005ea000004cd00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001ce000004cdfc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b000004cd000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca0000000000000000fb0000002200460072006f006e00740020005200690067006800740020004400650070007400680000000336000001d20000002800ffffff00000001000001f6000004cdfc0200000009fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001e00460072006f006e00740020005200690067006800740020005200470042010000003b000000f50000002800fffffffc00000136000001f00000002800fffffffa000000010100000002fb0000002200460072006f006e00740020005200690067006800740020004400650070007400680000000000ffffffff0000000000000000fb0000002000460072006f006e00740020004c00650066007400200044006500700074006801000007c4000001f60000009500fffffffb0000002200460072006f006e0074002000520069006700680074002000440065007000740068010000014a000001cc0000000000000000fb0000001e004d004100430056004f0020004400690073007000610072006900740079010000032c000001dc0000002800fffffffb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba00000037fc0100000003fb0000000800540069006d00650100000000000009ba0000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c000000034c0000066e0000023300fffffffb0000000800540069006d00650100000000000004500000000000000000000005ea000004cd00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
