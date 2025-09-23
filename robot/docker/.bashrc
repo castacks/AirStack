@@ -91,6 +91,7 @@ else
     export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
     # TODO: ardupilot case not handled yet
     export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
+    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))  # target system for mavros
 fi
 
 

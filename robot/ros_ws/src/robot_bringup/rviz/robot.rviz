@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /TF1/Frames1
-        - /RobotModel1/Status1
         - /Sensors1
         - /Sensors1/Front Left Depth1
         - /Perception1
@@ -73,6 +72,10 @@ Visualization Manager:
           Value: true
         base_link_body_body_link:
           Value: true
+        base_link_frd:
+          Value: true
+        base_link_stabilized:
+          Value: true
         camera_left:
           Value: true
         camera_right:
@@ -81,9 +84,23 @@ Visualization Manager:
           Value: true
         lidar:
           Value: true
+        look_ahead_point:
+          Value: true
+        look_ahead_point_stabilized:
+          Value: true
         macvo_ned:
           Value: false
         map:
+          Value: true
+        map_ned:
+          Value: true
+        odom:
+          Value: true
+        odom_ned:
+          Value: true
+        tracking_point:
+          Value: true
+        tracking_point_stabilized:
           Value: true
         world:
           Value: true
@@ -105,9 +122,22 @@ Visualization Manager:
                 {}
               imu:
                 {}
+          base_link_frd:
+            {}
         world:
           map:
-            {}
+            base_link_stabilized:
+              {}
+            look_ahead_point:
+              {}
+            look_ahead_point_stabilized:
+              {}
+            map_ned:
+              {}
+            tracking_point:
+              {}
+            tracking_point_stabilized:
+              {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -518,7 +548,7 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                {}
+                traj_controller: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -590,7 +620,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_link
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -633,25 +663,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.1246670484542847
+      Distance: 8.984491348266602
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.028348367661237717
-        Y: 0.32209721207618713
-        Z: 0.13931527733802795
+        X: 0.4548409879207611
+        Y: 1.0677824020385742
+        Z: -2.7400527000427246
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.25039801001548767
+      Pitch: 0.36539748311042786
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 1.710415244102478
+      Yaw: 1.0354158878326416
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:

@@ -9,9 +9,11 @@
     <!-- Launch MAVROS (poll until connection is established) -->
     <group>
         <push-ros-namespace namespace="interface" />
-        <include file="$(find-pkg-share mavros_interface)/launch/mavros_connection_poll.launch.py">
+        <!-- <include file="$(find-pkg-share mavros_interface)/launch/mavros_connection_poll.launch.py"> -->
+        <include file="$(find-pkg-share mavros)/launch/px4.launch">
             <!-- See robot .bashrc for how this gets set -->
             <arg name="fcu_url" value="$(env FCU_URL)" />
+            <arg name="tgt_system" value="$(env TGT_SYSTEM)" />
         </include>
     </group>
 
