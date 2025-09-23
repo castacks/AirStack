@@ -162,17 +162,6 @@ RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so
 
 EXPOSE 22
 
-ARG REAL_ROBOT=false
-RUN if [ "$REAL_ROBOT"  = "true" ]; then \
-  # Put commands here that should run for the real robot but not the sim
-  echo "REAL_ROBOT is true"; \
-  apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y libimath-dev; \
-else \
-  # Put commands here that should be run for the sim but not the real robot
-  echo "REAL_ROBOT is false"; \
-  fi
-
-
 # Install colcon, seems to be getting removed
 RUN pip install -U colcon-common-extensions
 
@@ -228,13 +217,34 @@ RUN addgroup --gid 1000 robot && \
   echo "robot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/robot && \
   echo "robot:robot" | chpasswd
 
-RUN USER=robot && \
+
+ARG REAL_ROBOT=false
+RUN if [ "$REAL_ROBOT"  = "true" ]; then \
+  # Put commands here that should run for the real robot but not the sim
+  echo "REAL_ROBOT is true"; \
+  apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y libimath-dev; \
+  groupadd -g 20 dialout; \
+  usermod -aG dialout robot; \
+  USER=robot && \
+  GROUP=robot && \
+  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-arm64.tar.gz | tar -C /usr/local/bin -xzf - && \
+  chown root:root /usr/local/bin/fixuid && \
+  chmod 4755 /usr/local/bin/fixuid && \
+  mkdir -p /etc/fixuid && \
+  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml; \
+else \
+  # Put commands here that should be run for the sim but not the real robot
+  echo "REAL_ROBOT is false"; \
+  USER=robot && \
   GROUP=robot && \
   curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
   chown root:root /usr/local/bin/fixuid && \
   chmod 4755 /usr/local/bin/fixuid && \
   mkdir -p /etc/fixuid && \
-  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
+  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml; \
+  fi
+
+
 
 # Cleanup
 RUN apt autoremove -y \
