@@ -1,3 +1,4 @@
+<!-- WARNING: THIS FILE IS JUST A TEMPLATE AND IS NOT USED BY PERCEPTION.LAUNCH.XML -->
 <launch>
     <node pkg="macvo_ros2" exec="macvo_node" name="macvo_node" output="screen">
         <param name="macvo_config" value="$(find-pkg-share macvo_ros2)/config/MACVO_fast_for_orin.yaml"/>

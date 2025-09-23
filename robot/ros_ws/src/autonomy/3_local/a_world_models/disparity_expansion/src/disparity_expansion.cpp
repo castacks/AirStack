@@ -230,8 +230,8 @@ void DisparityExpansionNode::process_disparity_image(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp) {
     if (!this->LUT_ready) {
         auto& clock = *this->get_clock();
-        RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 1,
-                             "LUT not ready yet, not processing disparity");
+        RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 5,
+                             "LUT not ready yet, probably waiting for camera info. Not processing disparity");
         return;
     }
 

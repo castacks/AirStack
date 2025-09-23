@@ -5,7 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /TF1/Frames1
+        - /TF1
         - /Sensors1
         - /Sensors1/Front Left Depth1
         - /Perception1
@@ -104,28 +104,28 @@ Visualization Manager:
           Value: true
         world:
           Value: true
-      Marker Scale: 1
+      Marker Scale: 0.30000001192092896
       Name: TF
-      Show Arrows: true
+      Show Arrows: false
       Show Axes: true
       Show Names: true
       Tree:
-        base_link:
-          base_link_body_body_link:
-            OS1_REV6_128_10hz___512_resolution:
-              lidar:
-                {}
-            base_link_ZED_X:
-              camera_left:
-                {}
-              camera_right:
-                {}
-              imu:
-                {}
-          base_link_frd:
-            {}
         world:
           map:
+            base_link:
+              base_link_body_body_link:
+                OS1_REV6_128_10hz___512_resolution:
+                  lidar:
+                    {}
+                base_link_ZED_X:
+                  camera_left:
+                    {}
+                  camera_right:
+                    {}
+                  imu:
+                    {}
+              base_link_frd:
+                {}
             base_link_stabilized:
               {}
             look_ahead_point:
@@ -578,7 +578,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            {}
+            "": true
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -663,25 +663,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.984491348266602
+      Distance: 1.3680510520935059
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.4548409879207611
-        Y: 1.0677824020385742
-        Z: -2.7400527000427246
+        X: -0.4179893434047699
+        Y: -0.4417550265789032
+        Z: -0.2906123101711273
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.36539748311042786
+      Pitch: 0.45039743185043335
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 1.0354158878326416
+      Yaw: 0.6404159069061279
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:

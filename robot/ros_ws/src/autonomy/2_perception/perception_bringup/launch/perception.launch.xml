@@ -14,6 +14,7 @@
     <node pkg="macvo_ros2" exec="macvo_node" namespace="macvo">
         <param name="macvo_config" value="$(find-pkg-share macvo_ros2)/config/MACVO_fast_for_orin.yaml"/>
         <param from="$(find-pkg-share macvo_ros2)/config/interface_config.yaml"/>
+        <param name="camera_param_server_client_topic" value="/$(env ROBOT_NAME)/sensors/camera_param_server/get_parameters"/>
         <remap from="left/image_rect"
             to="/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect" />
         <remap from="right/image_rect"
