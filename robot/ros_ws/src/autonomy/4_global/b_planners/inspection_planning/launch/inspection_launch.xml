@@ -1,0 +1,23 @@
+<launch>
+    <set_parameter name="use_sim_time" value="true" />
+
+    <node pkg="inspection_planning" exec="inspection_planner" name="inspection_planner"
+        output="screen">
+        <param from="$(find-pkg-share inspection_planning)/config/inspection_config.yaml" />
+        <remap from="vdb_map_visualization" to="/robot_1/exploration_planner/vdb_viz" />
+        <!-- <remap from="observed_semantics" to="/$(env ROBOT_NAME)/semantics/observed" /> -->
+        <!-- <remap from="predicted_semantics" to="/$(env ROBOT_NAME)/semantics/predicted" /> -->
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+    </node>
+
+    <node pkg="inspection_planning" exec="filter_predicted_semantics.py" name="filter_predicted_semantics"
+        output="screen">
+        <remap from="vdb_map_visualization" to="/robot_1/exploration_planner/vdb_viz" />
+        <!-- <param name="distance_threshold" value="1.0" />
+        <remap from="observed_semantics" to="/$(env ROBOT_NAME)/semantics/observed" />
+        <remap from="predicted_semantics" to="/$(env ROBOT_NAME)/semantics/predicted" />
+        <remap from="filtered_predicted_semantics" to="/$(env ROBOT_NAME)/semantics/filtered_predicted" />
+        <remap from="camera_frustum" to="/$(env ROBOT_NAME)/camera/frustum" />
+        <remap from="camera_path" to="/$(env ROBOT_NAME)/camera/path" /> -->
+    </node>
+</launch>

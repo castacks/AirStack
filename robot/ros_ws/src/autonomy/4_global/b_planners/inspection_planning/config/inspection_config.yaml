@@ -1,0 +1,24 @@
+/**:
+  ros__parameters:
+    robot_frame_id: "base_link"
+    map_frame_id: "map"
+    pub_global_plan_topic: "~/global_plan"
+    pub_observed_inspection_poses_topic: "~/observed_inspection_poses"
+    pub_predicted_inspection_poses_topic: "~/predicted_inspection_poses"
+    pub_observed_semantic_poses_topic: "~/observed_semantic_poses"
+    pub_predicted_semantic_poses_topic: "~/predicted_semantic_poses"
+    pub_observed_local_frames_topic: "~/observed_local_frames"
+    pub_predicted_local_frames_topic: "~/predicted_local_frames"
+    sub_vdb_map_topic: "vdb_map_visualization"
+    sub_observed_semantics_topic: "observed_semantics"
+    sub_predicted_semantics_topic: "filtered_predicted_semantics"
+    sub_odometry_topic: "/odom"
+    srv_inspection_toggle_topic: "~/inspection_toggle"
+    robot_radius: 0.5
+    inspection_offsets: [0.4, 0.8, 0.0, 0.4, -0.8, 0.0, -0.4, 0.8, 0.0, -0.4, -0.8, 0.0]
+    workspace_x_min: -50.0
+    workspace_x_max: 50.0
+    workspace_y_min: -30.0
+    workspace_y_max: 30.0
+    workspace_z_min: 0.5
+    workspace_z_max: 4.0
