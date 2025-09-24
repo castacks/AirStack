@@ -45,16 +45,16 @@ topics:
     to_domain: 1
 
   /robot_1/behavior/behavior_tree_graphviz:
-    type: std_msgs/msg/String
+    type: behavior_tree_msgs/msg/GraphVizXdot
     from_domain: 1
     to_domain: 0
   /robot_2/behavior/behavior_tree_graphviz:
-    type: std_msgs/msg/String
+    type: behavior_tree_msgs/msg/GraphVizXdot
     from_domain: 2
     to_domain: 0
 
   /robot_3/behavior/behavior_tree_graphviz:
-    type: std_msgs/msg/String
+    type: behavior_tree_msgs/msg/GraphVizXdot
     from_domain: 3
     to_domain: 0
 

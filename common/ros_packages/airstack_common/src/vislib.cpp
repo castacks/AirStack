@@ -84,6 +84,11 @@ namespace vis{
     
     return *this;
   }
+
+  Marker& Marker::set_namespace(std::string ns){
+    marker.ns = ns;
+    return *this;
+  }
   
   Marker& Marker::set_action(uint8_t action){
     marker.action = action;
