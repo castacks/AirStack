@@ -39,6 +39,10 @@ services:
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
+    runtime: nvidia
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    
 
   # ===================================================================================================================
   # for running on an NVIIDA jetson (linux for tegra) device
