@@ -124,11 +124,6 @@ Sim::Sim(float image_fov, int image_width, int image_height, float baseline, std
     exit(1);
   }
 
-  std::cout << "Renderer: " << glGetString(GL_RENDERER) << "\n";
-  std::cout << "Vendor:   " << glGetString(GL_VENDOR)   << "\n";
-  std::cout << "Version:  " << glGetString(GL_VERSION)  << "\n";
-
-
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
 
