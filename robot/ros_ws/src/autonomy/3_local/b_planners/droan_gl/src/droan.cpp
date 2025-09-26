@@ -4,6 +4,7 @@
 #include <stereo_msgs/msg/disparity_image.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -13,6 +14,10 @@
 #include <glm/gtx/quaternion.hpp>
 #include <EGL/egl.h>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include <vector>
 #include <mutex>
 
@@ -20,6 +25,13 @@ struct CameraIntrinsics {
   float fx, fy, cx, cy;
   bool valid = false;
 };
+
+
+struct Mesh {
+  unsigned int VAO, VBO, EBO;
+  size_t index_count;
+};
+
 
 class DisparitySphereRenderer : public rclcpp::Node {
 public:
@@ -57,6 +69,7 @@ private:
   GLuint sphere_vao_, sphere_vbo_, instance_vbo_;
   GLuint framebuffer_, color_tex_;
   GLuint shader_program_;
+  Mesh sphere_mesh;
 
   void init_opengl() {
     /*
@@ -182,6 +195,53 @@ private:
   }
 
   void create_instanced_sphere() {
+    std::string mesh_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/config/half_sphere.dae";
+    RCLCPP_INFO_STREAM(get_logger(), "mesh filename: " << mesh_filename);
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(mesh_filename,
+					     aiProcess_Triangulate);
+    if(!scene || !scene->HasMeshes()){
+      RCLCPP_ERROR_STREAM(get_logger(), "Model load failed: " << importer.GetErrorString());
+      exit(1);
+    }
+    if(scene->mNumMeshes > 1)
+      RCLCPP_ERROR_STREAM(get_logger(), "Model has " << scene->mNumMeshes << ". Only loading the first one.");
+    
+    aiMesh* mesh = scene->mMeshes[0];
+    RCLCPP_INFO_STREAM(get_logger(), "Loaded mesh " << 0 << " with " << mesh->mNumVertices << " vertices");
+
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+    
+    for(unsigned i = 0; i < mesh->mNumVertices; i++){
+        vertices.push_back(mesh->mVertices[i].x*0.05);
+        vertices.push_back(mesh->mVertices[i].y*0.05);
+        vertices.push_back(mesh->mVertices[i].z*0.05);
+    }
+    for(unsigned i = 0; i < mesh->mNumFaces; i++)
+      for(unsigned j = 0; j < mesh->mFaces[i].mNumIndices; j++)
+	indices.push_back(mesh->mFaces[i].mIndices[j]);
+    sphere_mesh.index_count = indices.size();
+
+    glGenVertexArrays(1, &sphere_mesh.VAO);
+    glBindVertexArray(sphere_mesh.VAO);
+
+    glGenBuffers(1, &sphere_mesh.VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, sphere_mesh.VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
+    glEnableVertexAttribArray(0);
+
+    glGenBuffers(1, &sphere_mesh.EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_mesh.EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &instance_vbo_);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_);
+    glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1,1);
+    /*
     std::vector<float> vertices;
     const int lat = 10, lon = 10;
     for(int i=0;i<=lat;i++){
@@ -211,6 +271,7 @@ private:
     glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribDivisor(1,1);
+    */
   }
 
   void disparity_callback(const stereo_msgs::msg::DisparityImage::SharedPtr msg) {
@@ -262,10 +323,13 @@ private:
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "proj"), 1, GL_FALSE, &proj[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "view"), 1, GL_FALSE, &view[0][0]);
 
-    glBindVertexArray(sphere_vao_);
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 121, offsets.size()/3);
+    //glBindVertexArray(sphere_vao_);
+    //glDrawArraysInstanced(GL_TRIANGLES, 0, 121, offsets.size()/3);
+    glBindVertexArray(sphere_mesh.VAO);
+    glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size()/3);
 
-    //publish_texture();
+    
+    publish_texture();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
 
