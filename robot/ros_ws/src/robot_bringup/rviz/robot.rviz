@@ -33,11 +33,11 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Expansion Cloud
+    SyncSource: ""
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
-    zoom_factor: 0.33534282616898414
+    zoom_factor: 0.3375290967239577
 Visualization Manager:
   Class: ""
   Displays:
@@ -76,12 +76,6 @@ Visualization Manager:
           Value: true
         base_link_ground_truth:
           Value: true
-        base_link_stabilized:
-          Value: true
-        look_ahead_point:
-          Value: true
-        look_ahead_point_stabilized:
-          Value: true
         macvo_ned:
           Value: true
         map:
@@ -96,10 +90,6 @@ Visualization Manager:
           Value: true
         ouster:
           Value: true
-        tracking_point:
-          Value: true
-        tracking_point_stabilized:
-          Value: true
         world:
           Value: true
       Marker Scale: 1
@@ -108,34 +98,13 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          base_link:
-            ZED_X:
-              CameraLeft:
-                macvo_ned:
-                  {}
-              CameraRight:
-                {}
-            base_link_frd:
-              {}
-            ouster:
-              {}
-          base_link_stabilized:
-            {}
-          look_ahead_point:
-            {}
-          look_ahead_point_stabilized:
-            {}
-          map_ned:
-            {}
-          tracking_point:
-            {}
-          tracking_point_stabilized:
-            {}
         world:
           mavros_enu:
             base_link_ground_truth:
               {}
+            map:
+              map_ned:
+                {}
       Update Interval: 0
       Value: false
     - Class: rviz_common/Group
@@ -531,7 +500,7 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                traj_controller: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -561,7 +530,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            "": true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile

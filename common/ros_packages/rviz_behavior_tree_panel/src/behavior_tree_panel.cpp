@@ -87,9 +87,9 @@ BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
   dot_widget_->setMinimumSize(400, 300);
   layout_->addWidget(dot_widget_);
 
-  // Apply saved zoom factor if available
+  // Apply saved zoom factor if available (don't emit signal during initialization)
   if (saved_zoom_factor_ != 1.0) {
-    dot_widget_->set_zoom_factor(saved_zoom_factor_);
+    dot_widget_->set_zoom_factor(saved_zoom_factor_, false);
   }
   
   // Set layout stretch factors so the dot widget takes most of the space
@@ -97,12 +97,14 @@ BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
   layout_->setStretchFactor(dot_widget_, 1);
   
   // Connect signals
-  connect(topic_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+  connect(topic_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, &BehaviorTreePanel::onTopicChanged);
   connect(topic_combo_, &QComboBox::editTextChanged,
           this, &BehaviorTreePanel::onTopicTextChanged);
-  connect(refresh_button_, &QPushButton::clicked, 
+  connect(refresh_button_, &QPushButton::clicked,
           this, &BehaviorTreePanel::onRefreshTopics);
+  connect(dot_widget_, &xdot_cpp::ui::DotWidget::zoom_changed,
+          this, &BehaviorTreePanel::configChanged);
   
   // Create timer for periodic topic refresh
   topic_refresh_timer_ = new QTimer(this);
@@ -352,9 +354,9 @@ void BehaviorTreePanel::load(const rviz_common::Config & config)
   if (config.mapGetFloat("zoom_factor", &zoom_factor)) {
     saved_zoom_factor_ = static_cast<double>(zoom_factor);
 
-    // Apply zoom factor if dot_widget_ is already available
+    // Apply zoom factor if dot_widget_ is already available (don't emit signal during loading)
     if (dot_widget_) {
-      dot_widget_->set_zoom_factor(saved_zoom_factor_);
+      dot_widget_->set_zoom_factor(saved_zoom_factor_, false);
     }
   }
 }
