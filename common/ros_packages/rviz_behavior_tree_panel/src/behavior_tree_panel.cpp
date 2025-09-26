@@ -34,14 +34,17 @@
 
 #include <rviz_behavior_tree_panel/behavior_tree_panel.hpp>
 #include <rviz_common/display_context.hpp>
+#include <regex>
+#include <algorithm>
 
 namespace rviz_behavior_tree_panel
 {
 
 BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
-: Panel(parent), layout_(nullptr), topic_layout_(nullptr), topic_label_(nullptr), 
-  topic_combo_(nullptr), refresh_button_(nullptr), status_label_(nullptr), 
-  dot_widget_(nullptr), topic_refresh_timer_(nullptr), current_topic_("behavior_tree_graphviz")
+: Panel(parent), layout_(nullptr), topic_layout_(nullptr), topic_label_(nullptr),
+  topic_combo_(nullptr), refresh_button_(nullptr), status_label_(nullptr),
+  dot_widget_(nullptr), topic_refresh_timer_(nullptr), update_throttle_timer_(nullptr),
+  current_topic_("behavior_tree_graphviz"), has_pending_update_(false)
 {
   // Create the main layout
   layout_ = new QVBoxLayout(this);
@@ -98,9 +101,15 @@ BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
   
   // Create timer for periodic topic refresh
   topic_refresh_timer_ = new QTimer(this);
-  connect(topic_refresh_timer_, &QTimer::timeout, 
+  connect(topic_refresh_timer_, &QTimer::timeout,
           this, &BehaviorTreePanel::updateAvailableTopics);
   topic_refresh_timer_->start(5000); // Refresh every 5 seconds
+
+  // Create timer for throttled updates
+  update_throttle_timer_ = new QTimer(this);
+  update_throttle_timer_->setSingleShot(true);
+  connect(update_throttle_timer_, &QTimer::timeout,
+          this, &BehaviorTreePanel::onThrottledUpdate);
 }
 
 BehaviorTreePanel::~BehaviorTreePanel() = default;
@@ -133,23 +142,21 @@ void BehaviorTreePanel::behaviorTreeCallback(const behavior_tree_msgs::msg::Grap
   // Only update if the graphviz data has changed to avoid unnecessary redraws
   if (msg->xdot.data != previous_graphviz_)
   {
-    try
+    // Compute what changed between old and new graph
+    GraphDiff diff = computeGraphDiff(previous_graphviz_, msg->xdot.data);
+
+    // Only proceed if there are meaningful changes
+    if (diff.hasChanges())
     {
-      // Set the xdot code to render the behavior tree
-      dot_widget_->set_dot_code(msg->xdot.data);
-      
-      // Update status
-      status_label_->setText("Behavior tree updated");
-      status_label_->setStyleSheet("QLabel { color: blue; }");
-      
-      // Store the current graphviz data
-      previous_graphviz_ = msg->xdot.data;
-    }
-    catch (const std::exception& e)
-    {
-      // Handle any parsing errors
-      status_label_->setText(QString("Error parsing behavior tree: %1").arg(e.what()));
-      status_label_->setStyleSheet("QLabel { color: red; }");
+      // Store the pending update
+      pending_graphviz_ = msg->xdot.data;
+      has_pending_update_ = true;
+
+      // Start throttle timer if not already running
+      if (!update_throttle_timer_->isActive())
+      {
+        update_throttle_timer_->start(UPDATE_INTERVAL_MS);
+      }
     }
   }
 }
@@ -280,6 +287,35 @@ void BehaviorTreePanel::onRefreshTopics()
   updateAvailableTopics();
 }
 
+void BehaviorTreePanel::onThrottledUpdate()
+{
+  if (has_pending_update_)
+  {
+    try
+    {
+      // Set the xdot code to render the behavior tree
+      dot_widget_->set_dot_code(pending_graphviz_);
+
+      // Update status
+      status_label_->setText("Behavior tree updated");
+      status_label_->setStyleSheet("QLabel { color: blue; }");
+
+      // Store the current graphviz data
+      previous_graphviz_ = pending_graphviz_;
+
+      // Clear pending update
+      has_pending_update_ = false;
+    }
+    catch (const std::exception& e)
+    {
+      // Handle any parsing errors
+      status_label_->setText(QString("Error parsing behavior tree: %1").arg(e.what()));
+      status_label_->setStyleSheet("QLabel { color: red; }");
+      has_pending_update_ = false;
+    }
+  }
+}
+
 void BehaviorTreePanel::save(rviz_common::Config config) const
 {
   Panel::save(config);
@@ -302,6 +338,101 @@ void BehaviorTreePanel::load(const rviz_common::Config & config)
       }
     }
   }
+}
+
+GraphDiff BehaviorTreePanel::computeGraphDiff(const std::string& old_graph, const std::string& new_graph)
+{
+  GraphDiff diff;
+
+  // Extract nodes and edges from both graphs
+  auto old_nodes = extractNodes(old_graph);
+  auto new_nodes = extractNodes(new_graph);
+  auto old_edges = extractEdges(old_graph);
+  auto new_edges = extractEdges(new_graph);
+
+  // Find added nodes
+  for (const auto& node : new_nodes) {
+    if (old_nodes.find(node) == old_nodes.end()) {
+      diff.added_nodes.insert(node);
+    }
+  }
+
+  // Find removed nodes
+  for (const auto& node : old_nodes) {
+    if (new_nodes.find(node) == new_nodes.end()) {
+      diff.removed_nodes.insert(node);
+    }
+  }
+
+  // Find added edges
+  for (const auto& edge : new_edges) {
+    if (old_edges.find(edge) == old_edges.end()) {
+      diff.added_edges.insert(edge);
+    }
+  }
+
+  // Find removed edges
+  for (const auto& edge : old_edges) {
+    if (new_edges.find(edge) == new_edges.end()) {
+      diff.removed_edges.insert(edge);
+    }
+  }
+
+  // For now, we'll assume any node that exists in both graphs but has different
+  // attributes is modified. A full implementation would parse attributes.
+  // This is a simplified heuristic based on content length changes.
+  if (old_graph.length() != new_graph.length() &&
+      diff.added_nodes.empty() && diff.removed_nodes.empty()) {
+    // If graphs are different sizes but same nodes/edges, assume modifications
+    for (const auto& node : new_nodes) {
+      if (old_nodes.find(node) != old_nodes.end()) {
+        diff.modified_nodes.insert(node);
+        break; // For now, just mark one node as modified
+      }
+    }
+  }
+
+  return diff;
+}
+
+std::unordered_set<std::string> BehaviorTreePanel::extractNodes(const std::string& graph_data)
+{
+  std::unordered_set<std::string> nodes;
+
+  // Simple regex to find node declarations: node_name [attributes];
+  std::regex node_pattern(R"((\w+)\s*\[)");
+  std::sregex_iterator iter(graph_data.begin(), graph_data.end(), node_pattern);
+  std::sregex_iterator end;
+
+  for (; iter != end; ++iter) {
+    std::smatch match = *iter;
+    std::string node_name = match[1].str();
+    // Skip common DOT keywords
+    if (node_name != "graph" && node_name != "node" && node_name != "edge" &&
+        node_name != "digraph" && node_name != "subgraph") {
+      nodes.insert(node_name);
+    }
+  }
+
+  return nodes;
+}
+
+std::unordered_set<std::string> BehaviorTreePanel::extractEdges(const std::string& graph_data)
+{
+  std::unordered_set<std::string> edges;
+
+  // Simple regex to find edges: node1 -> node2;
+  std::regex edge_pattern(R"((\w+)\s*->\s*(\w+))");
+  std::sregex_iterator iter(graph_data.begin(), graph_data.end(), edge_pattern);
+  std::sregex_iterator end;
+
+  for (; iter != end; ++iter) {
+    std::smatch match = *iter;
+    std::string edge = match[1].str() + "->" + match[2].str();
+    edges.insert(edge);
+  }
+
+  return edges;
 }
 
 }  // namespace rviz_behavior_tree_panel

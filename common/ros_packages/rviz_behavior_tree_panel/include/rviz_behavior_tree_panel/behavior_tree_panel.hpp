@@ -48,9 +48,24 @@
 #include <xdot_cpp/ui/dot_widget.h>
 #include <behavior_tree_msgs/msg/graph_viz_xdot.hpp>
 #include <behavior_tree_msgs/msg/graph_viz_xdot_compressed.hpp>
+#include <unordered_set>
+#include <unordered_map>
 
 namespace rviz_behavior_tree_panel
 {
+
+struct GraphDiff {
+  std::unordered_set<std::string> added_nodes;
+  std::unordered_set<std::string> removed_nodes;
+  std::unordered_set<std::string> modified_nodes;
+  std::unordered_set<std::string> added_edges;
+  std::unordered_set<std::string> removed_edges;
+
+  bool hasChanges() const {
+    return !added_nodes.empty() || !removed_nodes.empty() || !modified_nodes.empty() ||
+           !added_edges.empty() || !removed_edges.empty();
+  }
+};
 
 class BehaviorTreePanel : public rviz_common::Panel
 {
@@ -72,10 +87,15 @@ protected:
   void updateAvailableTopics();
   void subscribeToTopic(const std::string& topic_name);
 
+  GraphDiff computeGraphDiff(const std::string& old_graph, const std::string& new_graph);
+  std::unordered_set<std::string> extractNodes(const std::string& graph_data);
+  std::unordered_set<std::string> extractEdges(const std::string& graph_data);
+
 private slots:
   void onTopicChanged();
   void onTopicTextChanged(const QString & text);
   void onRefreshTopics();
+  void onThrottledUpdate();
 
 private:
   QVBoxLayout * layout_;
@@ -86,9 +106,14 @@ private:
   QLabel * status_label_;
   xdot_cpp::ui::DotWidget * dot_widget_;
   QTimer * topic_refresh_timer_;
-  
+  QTimer * update_throttle_timer_;
+
   std::string previous_graphviz_;
+  std::string pending_graphviz_;
   std::string current_topic_;
+  bool has_pending_update_;
+
+  static constexpr int UPDATE_INTERVAL_MS = 100;
 };
 
 }  // namespace rviz_behavior_tree_panel
