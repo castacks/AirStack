@@ -124,7 +124,9 @@ namespace collision_checker_ns
 
         void updateGridPtr(const openvdb::FloatGrid::Ptr &grid);
         void setOdometryForVirtualObstacles(const ViewPoint &robot_pos);
-
+        
+        bool estimateSurfaceNormalAtHit(const openvdb::Vec3d &hit_point_world, double inflation_factor, openvdb::Vec3d &normal_out);
+        bool collisionCheckRayStrict(const ViewPoint &p_start, const ViewPoint &p_end, openvdb::Vec3d& hit_point);
         bool collisionCheckInFreeSpace(const ViewPoint &p);
         bool collisionCheckInFreeSpaceVector(const ViewPoint &p_start, const ViewPoint &p_end);
         bool collisionCheckInFreeSpaceVectorStepSize(const ViewPoint &p_start, const ViewPoint &p_end, const float step_size);

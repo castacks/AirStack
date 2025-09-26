@@ -91,6 +91,7 @@ struct init_params
     double rrt_region_nodes_z_layers_step_;
 
     int priority_level_thred_;
+    double dense_step_;
 };
 
 class ExplorationPlanner
@@ -129,6 +130,9 @@ public:
 
     std::vector<ViewPoint> executed_trajectory_;
     std::vector<TimedViewPoint> momentum_executed_trajectory_;
+
+    RRT_Planner rrt_planner_;
+    double dense_step_;
 
 private:
     // Numerical constants
@@ -169,8 +173,6 @@ private:
     double rrt_region_nodes_z_layers_step_;
 
     int priority_level_thred_;
-
-    RRT_Planner rrt_planner_;
 
     ViewPoint robot_pos_, explore_goal_;
 

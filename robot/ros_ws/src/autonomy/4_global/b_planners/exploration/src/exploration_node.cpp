@@ -241,6 +241,7 @@ std::optional<init_params> ExplorationNode::readParameters()
     params.rrt_region_nodes_z_layers_step_ = this->declare_parameter<double>("rrt_region_nodes_z_layers_step", 0.4);
 
     params.priority_level_thred_ = this->declare_parameter<int>("priority_level_thred", 20);
+    params.dense_step_ = this->declare_parameter<double>("dense_step", 0.1);
     return params;
 }
 
@@ -321,6 +322,8 @@ void ExplorationNode::initialize()
         this->create_publisher<visualization_msgs::msg::Marker>(pub_frontier_viz_topic_, 10);
     this->pub_clustered_frontier_vis =
         this->create_publisher<visualization_msgs::msg::Marker>(pub_clustered_frontier_viz_topic_, 10);
+    this->planning_debug_vis =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>("/exploration_debug_vis", 10);
 
     // Set up the timer
     this->timer = this->create_wall_timer(std::chrono::seconds(5),
@@ -380,7 +383,7 @@ void ExplorationNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedP
     pcl::removeNaNFromPointCloud(*incoming_cloud, *incoming_cloud, idx);
 
     double min_range = 0.5;
-    
+
     // pre-processing: remove too close points
     pcl::PointCloud<pcl::PointXYZ>::Ptr tmp(new pcl::PointCloud<pcl::PointXYZ>);
     tmp->reserve(incoming_cloud->size());
@@ -604,6 +607,79 @@ void ExplorationNode::generate_plan()
         this->current_goal_location.translation.z = last_goal_loc.pose.position.z;
         this->current_goal_location.rotation.z = last_goal_loc.pose.orientation.z;
         this->generated_paths.push_back(generated_single_path);
+
+        // debug vis of RRT
+        PointSet coarse_path = this->exploration_planner->rrt_planner_.getCoarsePath();
+        visualization_msgs::msg::MarkerArray rrt_vis_array;
+
+        if (coarse_path.empty())
+        {
+            planning_debug_vis->publish(rrt_vis_array);
+        }
+        else
+        {
+            const std::string frame_id = "map";
+            const rclcpp::Time stamp = this->now();
+
+            // ----- LINE_STRIP for the polyline -----
+            visualization_msgs::msg::Marker line;
+            line.header.frame_id = frame_id;
+            line.header.stamp = stamp;
+            line.ns = "rrt_coarse_path";
+            line.id = 0;
+            line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+            line.action = visualization_msgs::msg::Marker::ADD;
+            line.pose.orientation.w = 1.0; // identity
+            line.scale.x = 0.03;           // line width (m)
+            line.color.r = 0.1f;
+            line.color.g = 0.5f;
+            line.color.b = 1.0f;
+            line.color.a = 0.9f;
+            line.lifetime = rclcpp::Duration(0, 0); // forever
+
+            line.points.reserve(coarse_path.size());
+            for (const auto &v : coarse_path)
+            {
+                geometry_msgs::msg::Point p;
+                p.x = v.x;
+                p.y = v.y;
+                p.z = v.z;
+                line.points.push_back(p);
+            }
+            rrt_vis_array.markers.push_back(line);
+
+            // ----- SPHERE_LIST for vertices -----
+            visualization_msgs::msg::Marker verts;
+            verts.header.frame_id = frame_id;
+            verts.header.stamp = stamp;
+            verts.ns = "rrt_coarse_path";
+            verts.id = 1;
+            verts.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+            verts.action = visualization_msgs::msg::Marker::ADD;
+            verts.pose.orientation.w = 1.0;
+            verts.scale.x = 0.10;
+            verts.scale.y = 0.10;
+            verts.scale.z = 0.10; // sphere diameter (m)
+            verts.color.r = 1.0f;
+            verts.color.g = 0.2f;
+            verts.color.b = 0.2f;
+            verts.color.a = 0.9f;
+            verts.lifetime = rclcpp::Duration(0, 0);
+
+            verts.points.reserve(coarse_path.size());
+            for (const auto &v : coarse_path)
+            {
+                geometry_msgs::msg::Point p;
+                p.x = v.x;
+                p.y = v.y;
+                p.z = v.z;
+                verts.points.push_back(p);
+            }
+            rrt_vis_array.markers.push_back(verts);
+
+            // publish
+            planning_debug_vis->publish(rrt_vis_array);
+        }
     }
     else
     {

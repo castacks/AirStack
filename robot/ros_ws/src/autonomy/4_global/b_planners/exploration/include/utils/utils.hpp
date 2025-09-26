@@ -103,7 +103,7 @@ public:
                                                  const float unknown_fraction_thresh,
                                                  const float occupied_fraction_thresh);
 
-    static bool checkCollisionAlongRay(const openvdb::FloatGrid::Ptr grid,
+    static bool checkCollisionAlongRay(const openvdb::FloatGrid::Ptr& grid,
                                        const openvdb::Vec3d &p1_xyz,
                                        const openvdb::Vec3d &p2_xyz,
                                        const float bbox_length,

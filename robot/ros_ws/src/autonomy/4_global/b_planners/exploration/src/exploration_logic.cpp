@@ -72,6 +72,7 @@ ExplorationPlanner::ExplorationPlanner(init_params params)
     this->rrt_region_nodes_z_layers_step_ = params.rrt_region_nodes_z_layers_step_;
 
     this->priority_level_thred_ = params.priority_level_thred_;
+    this->dense_step_ = params.dense_step_;
 
     viewp_sample_ = std::make_shared<viewpoint_sampling_ns::ViewpointSampling>(clustered_points_,
                                                                                kViewingDistance_,
@@ -105,7 +106,8 @@ ExplorationPlanner::ExplorationPlanner(init_params params)
                           rrt_region_nodes_count_,
                           rrt_region_nodes_radius_,
                           rrt_region_nodes_z_layers_count_up_,
-                          rrt_region_nodes_z_layers_step_);
+                          rrt_region_nodes_z_layers_step_,
+                          dense_step_);
 }
 
 std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint& start_point, const ViewPoint& goal_point)
@@ -151,6 +153,7 @@ std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint& 
 
     RCLCPP_WARN(rclcpp::get_logger("exploration_planner"),
                 "No RRT path created");
+    
     return output_path;
 }
 

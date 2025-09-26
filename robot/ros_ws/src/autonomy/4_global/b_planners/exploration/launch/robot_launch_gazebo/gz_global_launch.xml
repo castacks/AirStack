@@ -1,9 +1,9 @@
 <!-- GLOBAL -->
 <launch>
     <!-- World Model -->
-    <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" >
+    <!-- <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" >
         <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
-    </include>
+    </include> -->
 
     <!-- Random Walk Planning -->
     <!-- <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"

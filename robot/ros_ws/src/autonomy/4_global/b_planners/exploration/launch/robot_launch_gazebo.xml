@@ -17,14 +17,12 @@
   <!-- Autonomy -->
   <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_autonomy_launch.xml" />
 
-  <!-- <include file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" /> -->
-
   <!-- Logging -->
   <!-- <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" /> -->
 
   <!-- Domain Bridge -->
-  <node pkg="domain_bridge" exec="domain_bridge"
+  <!-- <node pkg="domain_bridge" exec="domain_bridge"
     args="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_domain_bridge.yaml"
-    output="screen" respawn="true" respawn_delay="1" />
+    output="screen" respawn="true" respawn_delay="1" /> -->
 
 </launch>

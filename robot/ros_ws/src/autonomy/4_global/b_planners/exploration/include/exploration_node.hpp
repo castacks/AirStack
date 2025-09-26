@@ -43,6 +43,7 @@
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "exploration_logic.hpp"
@@ -147,6 +148,7 @@ public:
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_vdb;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_frontier_vis;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_clustered_frontier_vis;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_debug_vis;
 
     // ROS services
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_exploration_toggle;

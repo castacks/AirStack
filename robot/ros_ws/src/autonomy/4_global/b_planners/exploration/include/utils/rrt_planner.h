@@ -63,11 +63,13 @@ public:
         const int rrt_region_nodes_count,
         const float rrt_region_nodes_radius,
         const int rrt_region_nodes_z_layers_count_up,
-        const float rrt_region_nodes_z_layers_step);
+        const float rrt_region_nodes_z_layers_step,
+        const float dense_step);
 
     bool build_RRT(const ViewPoint &start_point, const ViewPoint &end_point,
                    collision_checker_ns::CollisionChecker &collision_checker, const bool reset_trees = true);
     PointSet getPath();
+    PointSet getCoarsePath();
     // void updateGridPtr(const openvdb::BoolGrid::Ptr& grid);
     bool visualizeTrees();
     // void setRobotModelCubeDim(const float robot_model_cube_dim){kRobot_model_cube_dim_ = robot_model_cube_dim;}
@@ -83,6 +85,7 @@ private:
     // ros::Publisher viz_tree_end_pub_;
 
     // RRT constants
+    float dense_step_;
     float kNorm_limit_, kNorm_limit_sq_;
     float kMax_explore_dist_;
     // float kRobot_model_cube_dim_;
@@ -107,6 +110,7 @@ private:
 
     // Solution
     PointSet path_;
+    PointSet coarse_path_;
 
     // Mapping variables
     // openvdb::BoolGrid::Ptr grid_map_ = NULL;
