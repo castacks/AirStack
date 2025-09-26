@@ -5,15 +5,17 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Perception1/MACVO PointCloud1
-        - /Local1/DROAN1
-        - /Local1/DROAN1/Disparity Map Collision Checking1/Namespaces1
+        - /TF1
+        - /TF1/Frames1
+        - /Sensors1
+        - /Perception1
+        - /Local1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
         - /Local1/DROAN1/Traj Library1/Namespaces1
         - /Local1/Trajectory Controller1/Traj Vis1/Namespaces1
         - /Global1
       Splitter Ratio: 0.590062141418457
-    Tree Height: 561
+    Tree Height: 365
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -31,10 +33,11 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Disparity Cloud
+    SyncSource: ""
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
+    zoom_factor: 0.3375290967239577
 Visualization Manager:
   Class: ""
   Displays:
@@ -61,13 +64,47 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        CameraLeft:
+          Value: true
+        CameraRight:
+          Value: true
+        ZED_X:
+          Value: true
+        base_link:
+          Value: true
+        base_link_frd:
+          Value: true
+        base_link_ground_truth:
+          Value: true
+        macvo_ned:
+          Value: true
+        map:
+          Value: true
+        map_ned:
+          Value: true
+        mavros_enu:
+          Value: false
+        odom:
+          Value: true
+        odom_ned:
+          Value: true
+        ouster:
+          Value: true
+        world:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        world:
+          mavros_enu:
+            base_link_ground_truth:
+              {}
+            map:
+              map_ned:
+                {}
       Update Interval: 0
       Value: false
     - Class: rviz_common/Group
@@ -237,7 +274,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: RGBF32
           Decay Time: 5
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -258,7 +295,7 @@ Visualization Manager:
             Value: /robot_1/macvo/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
         - Angle Tolerance: 0.10000000149011612
           Class: rviz_default_plugins/Odometry
           Covariance:
@@ -276,7 +313,7 @@ Visualization Manager:
               Scale: 1
               Value: true
             Value: true
-          Enabled: true
+          Enabled: false
           Keep: 100
           Name: MACVO Odometry
           Position Tolerance: 0.10000000149011612
@@ -297,7 +334,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /robot_1/macvo/odometry
-          Value: true
+          Value: false
       Enabled: true
       Name: Perception
     - Class: rviz_common/Group
@@ -345,8 +382,7 @@ Visualization Manager:
               Enabled: true
               Name: Trimmed Global Plan for DROAN
               Namespaces:
-                global_plan: true
-                global_plan_extra_text: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -404,12 +440,7 @@ Visualization Manager:
               Enabled: true
               Name: Traj Library
               Namespaces:
-                collision: true
-                collision_extra_text: false
-                free: true
-                free_extra_text: false
-                unseen: true
-                unseen_extra_text: false
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -469,8 +500,7 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                traj_controller: true
-                traj_controller_extra_text: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -585,41 +615,41 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 21.67503547668457
+      Distance: 20.502628326416016
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 0.7587476968765259
+        Y: 1.8086673021316528
+        Z: -0.5577518343925476
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5197955369949341
+      Pitch: 0.4703981578350067
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.746737003326416
+      Yaw: 2.9804108142852783
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
     collapsed: false
   Displays:
-    collapsed: false
+    collapsed: true
   Front Left Depth:
     collapsed: false
   Front Left RGB:
     collapsed: false
-  Height: 1186
-  Hide Left Dock: false
+  Height: 1376
+  Hide Left Dock: true
   Hide Right Dock: false
   MACVO Disparity:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001e5000002bafc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b000002ba000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f6000002bafc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b000000e00000002800fffffffb0000002000460072006f006e00740020004c0065006600740020004400650070007400680100000121000000ab0000002800fffffffb0000001e004d004100430056004f002000440069007300700061007200690074007901000001d2000001230000002800fffffffb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000008950000018cfc0100000002fc00000000000008950000025300fffffffa000000010200000002fb0000000800540069006d00650100000000ffffffff0000003700fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c0100000000ffffffff0000017100fffffffb0000000800540069006d00650100000000000004500000000000000000000004ae000002ba00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001e500000393fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b00000393000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f600000393fc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b000001170000002800fffffffb0000002000460072006f006e00740020004c0065006600740020004400650070007400680100000158000001330000002800fffffffb0000001e004d004100430056004f002000440069007300700061007200690074007901000002910000013d0000002800fffffffb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba00000171fc0100000003fb0000000800540069006d00650100000000000003400000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c010000034600000674000001fa00fffffffb0000000800540069006d00650100000000000004500000000000000000000007be0000039300000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -628,6 +658,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 2197
-  X: 202
-  Y: 162
+  Width: 2490
+  X: 1990
+  Y: 27
