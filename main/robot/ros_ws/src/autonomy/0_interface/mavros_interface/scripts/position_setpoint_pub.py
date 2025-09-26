@@ -64,18 +64,18 @@ class OdomModifier(Node):
 
         self.path = Path()
         self.path.header.stamp = self.get_clock().now().to_msg()
-        self.path.header.frame_id = 'map'
+        self.path.header.frame_id = 'base_link_stabilized'
         pose1 = PoseStamped()
         pose1.header = self.path.header
         pose1.pose.position.x = 50.0
         pose1.pose.position.y = 0.0
-        pose1.pose.position.z = 15.0
+        pose1.pose.position.z = 0.0
         pose1.pose.orientation.w = 1.0
         pose2 = PoseStamped()
         pose2.header = self.path.header
         pose2.pose.position.x = 60.0
         pose2.pose.position.y = 0.0
-        pose2.pose.position.z = 15.0
+        pose2.pose.position.z = 0.0
         pose2.pose.orientation.w = 1.0
         self.path.poses.append(pose1)
         self.path.poses.append(pose2)

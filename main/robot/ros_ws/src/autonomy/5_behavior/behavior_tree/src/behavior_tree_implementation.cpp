@@ -403,9 +403,9 @@ BehaviorTree::BehaviorTree(std::string config_filename, rclcpp::Node* node) : ro
     first_tick = true;
 
     active_actions_pub = node->create_publisher<std_msgs::msg::String>("active_actions", 1);
-    graphviz_pub = node->create_publisher<std_msgs::msg::String>("behavior_tree_graphviz", 1);
+    graphviz_pub = node->create_publisher<behavior_tree_msgs::msg::GraphVizXdot>("behavior_tree_graphviz", 1);
     compressed_pub =
-        node->create_publisher<std_msgs::msg::String>("behavior_tree_graphviz_compressed", 1);
+        node->create_publisher<behavior_tree_msgs::msg::GraphVizXdotCompressed>("behavior_tree_graphviz_compressed", 1);
 
     parse_config();
     for (int i = 0; i < nodes.size(); i++) {
@@ -612,19 +612,19 @@ std::string BehaviorTree::get_graphviz() {
         if (node->is_active) {
             style += "penwidth=2 color=black style=filled ";
             if (node->status == behavior_tree_msgs::msg::Status::SUCCESS)
-                style += "fillcolor=green";
+                style += "fillcolor=chartreuse";  // dark green
             else if (node->status == behavior_tree_msgs::msg::Status::RUNNING)
-                style += "fillcolor=blue";
+                style += "fillcolor=skyblue";  // dark blue
             else if (node->status == behavior_tree_msgs::msg::Status::FAILURE)
-                style += "fillcolor=red";
+                style += "fillcolor=tomato";  // dark red
         } else {
             style += "penwidth=2 ";
             if (node->status == behavior_tree_msgs::msg::Status::SUCCESS)
-                style += "color=green";
+                style += "color=chartreuse";  // light green
             else if (node->status == behavior_tree_msgs::msg::Status::RUNNING)
-                style += "color=blue";
+                style += "color=skyblue";  // light blue
             else if (node->status == behavior_tree_msgs::msg::Status::FAILURE)
-                style += "color=red";
+                style += "color=tomato";  // light red
         }
 
         if (dynamic_cast<ConditionNode*>(node) != NULL) {
@@ -682,16 +682,19 @@ std::string string_compress_encode(const std::string& data) {
 }
 
 BehaviorTree* bt;
-std_msgs::msg::String graphviz_msg;
-std_msgs::msg::String compressed_msg;
+
+behavior_tree_msgs::msg::GraphVizXdot graphviz_msg;
+behavior_tree_msgs::msg::GraphVizXdotCompressed compressed_msg;
 bool only_publish_on_change;
 void timer_callback() {  // const rclcpp::TimerEvent& te){
     bool changed = bt->tick();
     // ROS_INFO_STREAM("Changed: " << changed);
 
     if (changed) {
-        graphviz_msg.data = bt->get_graphviz();
-        compressed_msg.data = string_compress_encode(graphviz_msg.data);
+        graphviz_msg.header.stamp = bt->ros2_node->get_clock()->now();  // rclcpp::Time::now();
+        graphviz_msg.xdot.data = bt->get_graphviz();
+        compressed_msg.header.stamp = graphviz_msg.header.stamp;
+        compressed_msg.xdot_compressed.data = string_compress_encode(graphviz_msg.xdot.data);
 
         if (only_publish_on_change) {
             bt->graphviz_pub->publish(graphviz_msg);

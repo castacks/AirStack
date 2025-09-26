@@ -26,6 +26,7 @@
 #include <behavior_tree_msgs/msg/behavior_tree_commands.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <vector>
 
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -56,6 +57,8 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Condition* landing_complete_condition;
     bt::Condition* in_air_condition;
     bt::Condition* state_estimate_timed_out_condition;
+    bt::Condition* stuck_condition;
+    bt::Condition* autonomously_explore_condition;
     std::vector<bt::Condition*> conditions;
 
     // Action variables
@@ -78,9 +81,12 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr takeoff_state_sub;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr landing_state_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr state_estimate_timed_out_sub;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stuck_sub;
 
     // publishers
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr recording_pub;
+    rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr reset_stuck_pub;
+    rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr clear_map_pub;
 
     // services
     rclcpp::CallbackGroup::SharedPtr service_callback_group;
@@ -101,6 +107,7 @@ class BehaviorExecutive : public rclcpp::Node {
     void takeoff_state_callback(const std_msgs::msg::String::SharedPtr msg);
     void landing_state_callback(const std_msgs::msg::String::SharedPtr msg);
     void state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void stuck_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
    public:
     BehaviorExecutive();

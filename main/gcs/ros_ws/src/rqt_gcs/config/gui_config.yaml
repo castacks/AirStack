@@ -14,6 +14,8 @@ groups:
         condition_name: Disarm Commanded
     - Land:
         condition_name: Land Commanded
+    - Autonomously Explore:
+        condition_name: Autonomously Explore Commanded
 robots: # these should match a robot's namespace
  - robot_1
  - robot_2

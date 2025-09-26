@@ -21,13 +21,19 @@
 #include <disparity_graph_cost_map/disparity_graph_cost_map.hpp>
 namespace disparity_graph_cost_map {
 DisparityGraphCostMap::DisparityGraphCostMap() : CostMapInterface(), disp_graph() {
-    points_marker.ns = "obstacles";
-    points_marker.id = 0;
-    points_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
-    points_marker.action = visualization_msgs::msg::Marker::ADD;
-    points_marker.scale.x = 0.03;
-    points_marker.scale.y = 0.03;
-    points_marker.scale.z = 0.03;
+    unseen_marker.ns = "unseen";
+    unseen_marker.id = 0;
+    unseen_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    unseen_marker.action = visualization_msgs::msg::Marker::ADD;
+    unseen_marker.scale.x = 0.03;
+    unseen_marker.scale.y = 0.03;
+    unseen_marker.scale.z = 0.03;
+    
+    collision_marker = unseen_marker;
+    collision_marker.ns = "collision";
+    
+    free_marker = unseen_marker;
+    free_marker.ns = "free";
 
     green.r = 0;
     green.b = 0;
@@ -58,7 +64,7 @@ void DisparityGraphCostMap::initialize(const rclcpp::Node::SharedPtr& node_ptr,
     node_ptr->get_parameter("robot_radius", this->robot_radius);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(), "robot_radius: " << this->robot_radius);
 
-    node_ptr->declare_parameter<int>("obstacle_check_num_points", 69);
+    node_ptr->declare_parameter<int>("obstacle_check_num_points", 4);
     node_ptr->get_parameter("obstacle_check_num_points", this->obstacle_check_num_points);
     RCLCPP_INFO_STREAM(node_ptr->get_logger(),
                        "obstacle_check_num_points: " << this->obstacle_check_num_points);
@@ -106,8 +112,19 @@ tf2::Vector3 DisparityGraphCostMap::determine_waypoint_direction(const Trajector
 std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_per_waypoint(
     const std::vector<Trajectory>& trajectories) {
     marker_array.markers.clear();
-    points_marker.points.clear();
-    points_marker.colors.clear();
+    unseen_marker.points.clear();
+    unseen_marker.colors.clear();
+    collision_marker.points.clear();
+    collision_marker.colors.clear();
+    free_marker.points.clear();
+    free_marker.colors.clear();
+
+    // TODO trajectories are not guaranteed to all be in the same frame
+    if(!trajectories.empty()){
+      unseen_marker.header.frame_id = trajectories[0].get_frame_id();
+      free_marker.header.frame_id = trajectories[0].get_frame_id();
+      collision_marker.header.frame_id = trajectories[0].get_frame_id();
+    }
     
     disp_graph.virtual_cylinder_viz();
 
@@ -118,9 +135,10 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
     }
 
     size_t trajectory_index = -1;
+    //RCLCPP_INFO_STREAM(node_ptr->get_logger(), "BEGIN---------------------------------------------------");
     for (const Trajectory& trajectory : trajectories) {
         ++trajectory_index;
-        points_marker.header.frame_id = trajectory.get_frame_id();
+        //points_marker.header.frame_id = trajectory.get_frame_id();
 
         size_t waypoint_index = -1;
         for (const Waypoint& waypoint : trajectory.get_waypoints()) {
@@ -140,8 +158,15 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
             // if the nearest occupied space is within the robot radius, the cost is infinite
             // if the nearest unknown space is within the robot radius, the cost is NAN
             bool has_checked_center = false;
-            double closest_distance_to_unsafe = std::numeric_limits<double>::infinity();
+            double closest_distance_to_unsafe = obstacle_check_radius;
+	    // if the obstacle check radius is 1m, for example, then if the point at 1m was in collision,
+	    // then closest distance to unsafe would also be 1m
+	    // if everything is free, the closest distance to unsafe would also be 1m, which isn't good since its more free
+	    // adding this extra increment makes the case where everything is free score slightly better to account for this
+	    if(obstacle_check_num_points > 0)
+	      closest_distance_to_unsafe += obstacle_check_radius / obstacle_check_num_points;
             bool is_non_free_within_robot_radius = false;
+	    //RCLCPP_INFO_STREAM(node_ptr->get_logger(), "start");
             for (auto direction : direction_vectors) {
                 if (is_non_free_within_robot_radius) {
                     break;
@@ -152,7 +177,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                         continue;
                     }
                     has_checked_center = true;
-                    double dist = k * obstacle_check_radius / (obstacle_check_num_points + 1);
+                    double dist = k * obstacle_check_radius / obstacle_check_num_points;
 
                     // Get pose to check:
                     auto pose_to_check =
@@ -160,6 +185,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                     // Check the pose:
                     auto [is_seen, is_free, occupancy] =
                         disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
+		    
                     // Add marker:
                     add_check_marker(is_seen, is_free, dist, pose_to_check);
 
@@ -167,7 +193,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
 
                     // if the point is within the robot radius, and is collision, the cost is
                     // infinite
-                    if (dist <= this->robot_radius && !is_free) {
+                    if (/*dist <= this->robot_radius*/is_center && !is_free) {
                         RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),
                                            "Trajectory " << trajectory_index << " waypoint "
                                                          << waypoint_index << " is non-free within "
@@ -180,7 +206,7 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                         break;
                     }
                     // if the point is within the robot radius, and is unseen, the cost is NAN
-                    if (dist <= this->robot_radius && !is_seen) {
+                    if (/*dist <= this->robot_radius*/is_center && !is_seen) {
                         RCLCPP_DEBUG_STREAM(
                             node_ptr->get_logger(),
                             "Trajectory " << trajectory_index << " waypoint " << waypoint_index
@@ -194,25 +220,35 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                     // seen, say the cost is the distance
                     if (!is_seen || !is_free) {
                         closest_distance_to_unsafe = std::min(dist, closest_distance_to_unsafe);
+			//RCLCPP_INFO_STREAM(node_ptr->get_logger(), "\tk: " << k << " " << dist << " " << closest_distance_to_unsafe);
                         // we can break here because we know the closest distance for this
                         // direction, don't have to check farther distances break;
                     }
                 }
             }
             if (!is_non_free_within_robot_radius) {
-                double cost = 1 / (1 + closest_distance_to_unsafe);
+  	        double cost = -closest_distance_to_unsafe;//1 / (1 + closest_distance_to_unsafe);
                 cost_values[trajectory_index][waypoint_index] = cost;
+		//RCLCPP_INFO_STREAM(node_ptr->get_logger(), "cost: " << cost << " " << closest_distance_to_unsafe);
             }
             // continue to next waypoint
         }
     }
 
-    points_marker.header.stamp = node_ptr->now();
-    marker_array.markers.push_back(points_marker);
+    unseen_marker.header.stamp = node_ptr->now();
+    collision_marker.header.stamp = node_ptr->now();
+    free_marker.header.stamp = node_ptr->now();
+    marker_array.markers.push_back(unseen_marker);
+    marker_array.markers.push_back(collision_marker);
+    marker_array.markers.push_back(free_marker);
 
     return cost_values;
 }
 
+void DisparityGraphCostMap::clear(){
+  disp_graph.clear_graph();
+}
+  
 void DisparityGraphCostMap::add_check_marker(bool is_seen, bool is_free, double distance,
                                              const geometry_msgs::msg::PoseStamped& pose_to_check) {
     std_msgs::msg::ColorRGBA color;
@@ -229,8 +265,18 @@ void DisparityGraphCostMap::add_check_marker(bool is_seen, bool is_free, double 
     double alpha = (distance <= this->robot_radius) ? 1.0 : 0.1;
     color.a = alpha;
 
-    points_marker.points.push_back(pose_to_check.pose.position);
-    points_marker.colors.push_back(color);
+    if(!is_seen){
+      unseen_marker.points.push_back(pose_to_check.pose.position);
+      unseen_marker.colors.push_back(color);
+    }
+    else if(!is_free){
+      collision_marker.points.push_back(pose_to_check.pose.position);
+      collision_marker.colors.push_back(color);
+    }
+    else{
+      free_marker.points.push_back(pose_to_check.pose.position);
+      free_marker.colors.push_back(color);
+    }
 }
 
 geometry_msgs::msg::PoseStamped DisparityGraphCostMap::get_pose_at_direction_and_distance(

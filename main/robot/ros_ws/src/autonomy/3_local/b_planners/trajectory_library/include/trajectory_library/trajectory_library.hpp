@@ -153,10 +153,10 @@ class Trajectory {
 
     visualization_msgs::msg::MarkerArray get_markers(rclcpp::Time stamp,
                                                      const std::string& marker_namespace,
-                                                     float r = 1, float g = 0, float b = 0,
-                                                     float a = 1, bool show_poses = false,
-                                                     bool show_velocity = false,
-                                                     float thickness = 0.03f);
+                                                     float r = 1, float g = 0, float b = 0, float a = 1,
+						     bool show_poses = false, bool show_velocity = false,
+                                                     float thickness = 0.03f,
+						     std::string extra_text="");
 };
 
 //===================================================================================
