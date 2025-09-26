@@ -1,7 +1,8 @@
 /*
- * RRT Connection Function for Subt Voxel Planner
+ * Modified RRT Connection Function with Voxel Planner
  * Copyright (C) 2020 Fan Yang - All rights reserved
- * fanyang2@andrew.cmu.edu
+ * Original Author: fanyang2@andrew.cmu.edu
+ * Modified by: junbiny@andrew.cmu.edu
  */
 
 #include "utils/rrt_planner.h"

@@ -34,7 +34,7 @@
     voxel_cluster_count_thresh: 50
 
     # Stall detection parameters
-    position_change_threshold: 0.1  # Minimum distance (meters) to consider as movement
+    position_change_threshold: 0.2  # Minimum distance (meters) to consider as movement
     stall_timeout_seconds: 20.0     # Time without movement before clearing plan
 
     # view sampling

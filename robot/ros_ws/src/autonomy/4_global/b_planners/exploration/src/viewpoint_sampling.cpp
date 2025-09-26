@@ -1,8 +1,8 @@
 /*
  * Viewpoint Sampling Module
  * Copyright (C) 2020 Rohit Garg - All rights reserved
- * rg1@cmu.edu / rohitgarg617@gmail.com
- * Junbin removed matplotlib part and modify viewpoint sampling method
+ * Original author: rg1@cmu.edu / rohitgarg617@gmail.com
+ * Modified by junbiny@andrew.cmu.edu, removed matplotlib part and modified viewpoint sampling method
  */
 
 #include "../include/viewpoint_sampling.hpp"

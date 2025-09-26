@@ -15,18 +15,6 @@
 #include "utils/viewpoint.hpp"
 #include "utils/collision_checker.h"
 
-/*
-// GRAEME redefined points in custom_point.h
-typedef std::vector<double> ViewPoint;
-typedef std::vector<ViewPoint> PointSet;
-
-#define POINTSIZE  6
-#define    NUMDOF  3
-#define   NUMDOFY  4
-#define   INFOIDX  4
-#define  AWARDIDX  5
-*/
-
 // Define a Tree
 struct Tree
 {
