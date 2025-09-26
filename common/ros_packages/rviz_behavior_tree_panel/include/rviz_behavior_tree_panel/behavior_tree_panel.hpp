@@ -112,6 +112,7 @@ private:
   std::string pending_graphviz_;
   std::string current_topic_;
   bool has_pending_update_;
+  double saved_zoom_factor_;
 
   static constexpr int UPDATE_INTERVAL_MS = 100;
 };

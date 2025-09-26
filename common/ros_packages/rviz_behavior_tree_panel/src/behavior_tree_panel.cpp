@@ -44,7 +44,7 @@ BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
 : Panel(parent), layout_(nullptr), topic_layout_(nullptr), topic_label_(nullptr),
   topic_combo_(nullptr), refresh_button_(nullptr), status_label_(nullptr),
   dot_widget_(nullptr), topic_refresh_timer_(nullptr), update_throttle_timer_(nullptr),
-  current_topic_("behavior_tree_graphviz"), has_pending_update_(false)
+  current_topic_("behavior_tree_graphviz"), has_pending_update_(false), saved_zoom_factor_(1.0)
 {
   // Create the main layout
   layout_ = new QVBoxLayout(this);
@@ -86,6 +86,11 @@ BehaviorTreePanel::BehaviorTreePanel(QWidget * parent)
   dot_widget_ = new xdot_cpp::ui::DotWidget(this);
   dot_widget_->setMinimumSize(400, 300);
   layout_->addWidget(dot_widget_);
+
+  // Apply saved zoom factor if available
+  if (saved_zoom_factor_ != 1.0) {
+    dot_widget_->set_zoom_factor(saved_zoom_factor_);
+  }
   
   // Set layout stretch factors so the dot widget takes most of the space
   layout_->setStretchFactor(topic_layout_, 0);
@@ -320,22 +325,36 @@ void BehaviorTreePanel::save(rviz_common::Config config) const
 {
   Panel::save(config);
   config.mapSetValue("topic", QString::fromStdString(current_topic_));
+
+  if (dot_widget_) {
+    config.mapSetValue("zoom_factor", dot_widget_->get_zoom_factor());
+  }
 }
 
 void BehaviorTreePanel::load(const rviz_common::Config & config)
 {
   Panel::load(config);
-  
+
   QString topic;
   if (config.mapGetString("topic", &topic)) {
     current_topic_ = topic.toStdString();
-    
+
     // Update combo box selection if it's already populated
     if (topic_combo_->count() > 0) {
       int index = topic_combo_->findText(topic);
       if (index >= 0) {
         topic_combo_->setCurrentIndex(index);
       }
+    }
+  }
+
+  float zoom_factor;
+  if (config.mapGetFloat("zoom_factor", &zoom_factor)) {
+    saved_zoom_factor_ = static_cast<double>(zoom_factor);
+
+    // Apply zoom factor if dot_widget_ is already available
+    if (dot_widget_) {
+      dot_widget_->set_zoom_factor(saved_zoom_factor_);
     }
   }
 }
