@@ -26,7 +26,7 @@ services:
       autolaunch=${AUTOLAUNCH};
       if [ $$autolaunch == 'true' ]; then
         tmux new -d -s robot_bringup;
-        tmux send-keys -t robot_bringup 'bws && sws' ENTER;
+        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
