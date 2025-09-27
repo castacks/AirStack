@@ -1,0 +1,25 @@
+<launch>
+    <!-- Environment TFs -->
+    <!-- connects isaac sim prim to robot frame -->
+    <node
+        pkg="tf2_ros"
+        exec="static_transform_publisher"
+        name="static_transform_publisher"
+        args="0 0 0 0 0 0 world map" />
+    
+    <node
+        pkg="tf2_ros"
+        exec="static_transform_publisher"
+        name="static_transform_publisher"
+        args="0 0 0 0 0 0 rmf_owl/base_link base_link" />
+
+    <node
+        pkg="tf2_ros"
+        exec="static_transform_publisher"
+        name="static_transform_publisher"
+        args="0 0 0 0 0 0 rmf_owl/laser_link/gpu_lidar ouster" />
+
+    <!-- Robot TFs -->
+
+    <!-- currently none -->
+</launch>
