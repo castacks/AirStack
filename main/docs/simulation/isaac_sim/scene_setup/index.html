@@ -3297,7 +3297,7 @@
 <h1 id="airstack-scene-setup">AirStack Scene Setup<a class="headerlink" href="#airstack-scene-setup" title="Permanent link">&para;</a></h1>
 <h2 id="creating-a-new-scene-with-robots">Creating a New Scene with Robots<a class="headerlink" href="#creating-a-new-scene-with-robots" title="Permanent link">&para;</a></h2>
 <p>The easiest way to create a scene is to copy and customize an existing scene.</p>
-<p>Example scenes are located on the AirLab Nucleus Server under <a href="https://airlab-storage.andrew.cmu.edu:8443/omni/web3/omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/">Projects &gt; AirStack</a>.
+<p>Example scenes are located on the AirLab Nucleus Server under <a href="https://airlab-nucleus.andrew.cmu.edu/omni/web3/omniverse://airlab-nucleus.andrew.cmu.edu/Projects/AirStack/">Projects &gt; AirStack</a>.
 This can be opened in Isaac's Content Browser:
 <img alt="Image of content browser" src="../content_browser.png" /></p>
 <p>For example, <code>simple_tree_one_drone.scene.usd</code> looks like this:
@@ -3307,7 +3307,7 @@ This can be opened in Isaac's Content Browser:
 <li>A "World" prim, which is the root of the scene</li>
 <li>The Root layer is set to use meters as the unit of length</li>
 <li>Prims that make up the scene. Scene prims should have collision physics enabled with Colliders Preset (Property &gt; Add &gt; Physics &gt; Collider Preset)</li>
-<li>Robot instances, added to the scene as a reference to the robot USD file. Currently this file is <a href="https://airlab-storage.andrew.cmu.edu:8443/omni/web3/omniverse://airlab-storage.andrew.cmu.edu:8443/Library/Assets/Ascent_Aerosystems/Spirit_UAV/TEMPLATE_spirit_uav.robot.usd">Library &gt; Assets &gt; Ascent_Aerosystems &gt; TEMPLATE_spirit_uav.robot.usd</a></li>
+<li>Robot instances, added to the scene as a reference to the robot USD file. Currently this file is <a href="https://airlab-nucleus.andrew.cmu.edu/omni/web3/omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/TEMPLATE_spirit_uav.robot.usd">Library &gt; Assets &gt; Ascent_Aerosystems &gt; TEMPLATE_spirit_uav.robot.usd</a></li>
 <li>The robot has default sensors added, including a LiDAR and stereo cameras</li>
 <li>Sensors publish to ROS using the attached ActionGraph</li>
 <li>Robot dynamics are controlled by the <a href="../ascent_sitl_extension/">AirStack Extension</a></li>
