@@ -5,7 +5,7 @@
     <!-- <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/perception/macvo/disparity" /> -->
     <!-- <arg name="local_depth_in_topic" default="none" /> -->
     <arg name="local_disparity_in_topic" default="none" />
-    <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth" />
+    <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth" />
     <arg name="local_camera_info_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
 
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
