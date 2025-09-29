@@ -35,8 +35,9 @@
 
 typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
-class DisparityExpansionNode : public rclcpp::Node {
-   protected:
+class DisparityExpansionNode : public rclcpp::Node
+{
+protected:
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
     rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
@@ -55,7 +56,8 @@ class DisparityExpansionNode : public rclcpp::Node {
     image_geometry::PinholeCameraModel model_;
     double baseline;
 
-    struct LUTCell {
+    struct LUTCell
+    {
         unsigned int idx1;
         unsigned int idx2;
     };
@@ -71,19 +73,18 @@ class DisparityExpansionNode : public rclcpp::Node {
     double fx, fy, cx, cy;
     unsigned int width, height;
 
-    cv::Mat convert_depth_to_disparity(const cv::Mat& depth_image);
+    cv::Mat convert_depth_to_disparity(const cv::Mat &depth_image);
 
     void generate_expansion_lookup_table();
 
-    void expand(cv::Mat& disparity_fg_in, cv::Mat& disparity_bg_in,
-  	        cv::Mat& disparity_fg_out, cv::Mat& disparity_bg_out,
-		bool second_pass);
+    void expand(cv::Mat &disparity_fg_in, cv::Mat &disparity_bg_in,
+                cv::Mat &disparity_fg_out, cv::Mat &disparity_bg_out,
+                bool second_pass);
 
+public:
+    DisparityExpansionNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
 
-   public:
-    DisparityExpansionNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
-
-    void set_cam_info(const sensor_msgs::msg::CameraInfo::ConstSharedPtr& msg_info);
+    void set_cam_info(const sensor_msgs::msg::CameraInfo::ConstSharedPtr &msg_info);
 
     /**
      * @brief Use depth image input instead of disparity. Converts depth to disparity, then call
@@ -91,18 +92,18 @@ class DisparityExpansionNode : public rclcpp::Node {
      *
      * @param msg
      */
-    void process_depth_image(const sensor_msgs::msg::Image::ConstSharedPtr& msg);
+    void process_depth_image(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
 
-    void process_disparity_image(const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp);
+    void process_disparity_image(const stereo_msgs::msg::DisparityImage::ConstSharedPtr &msg_disp);
 
-    void publish_expansion_poly(const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp,
-                                const cv_bridge::CvImagePtr& fg_msg,
-                                const cv_bridge::CvImagePtr& bg_msg);
+    void publish_expansion_poly(const stereo_msgs::msg::DisparityImage::ConstSharedPtr &msg_disp,
+                                const cv_bridge::CvImagePtr &fg_msg,
+                                const cv_bridge::CvImagePtr &bg_msg);
 
-    void publish_expansion_cloud(const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp,
-                                 const cv_bridge::CvImageConstPtr& cv_ptrdisparity,
-                                 const cv_bridge::CvImagePtr& fg_msg,
-                                 const cv_bridge::CvImagePtr& bg_msg);
+    void publish_expansion_cloud(const stereo_msgs::msg::DisparityImage::ConstSharedPtr &msg_disp,
+                                 const cv_bridge::CvImageConstPtr &cv_ptrdisparity,
+                                 const cv_bridge::CvImagePtr &fg_msg,
+                                 const cv_bridge::CvImagePtr &bg_msg);
 
-    void publish_frustum(const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg);
+    void publish_frustum(const stereo_msgs::msg::DisparityImage::ConstSharedPtr &msg);
 };
