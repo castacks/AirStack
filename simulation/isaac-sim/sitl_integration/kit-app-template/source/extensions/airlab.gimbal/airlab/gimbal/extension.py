@@ -33,7 +33,7 @@ class GimbalUI:
         self.usd_file_path = ""
         self.robot_prim_path = ""
         self.robot_name = 1
-        self.default_usd_path = "omniverse://airlab-storage.andrew.cmu.edu:8443/Library/Assets/Gimbal/gimbal_test.usd"
+        self.default_usd_path = "omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Gimbal/gimbal_test.usd"
         self.default_robot_path = "/World/TEMPLATE_spirit_uav_robot/map_FLU/spirit_uav"
 
         self.build_ui()
