@@ -38,9 +38,6 @@ services:
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
-      # Config paths
-      - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
-      - ISAAC_SIM_CONFIG_FILE=${CONFIG_MOUNT_PATH}/isaac_sim_config.yaml
       # Isaac Sim stuff
       - ISAACSIM_PATH=/isaac-sim
       - ISAACSIM_PYTHON=/isaac-sim/python.sh
@@ -56,8 +53,6 @@ services:
       # display
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
-      # config
-      - ../../../config:${CONFIG_MOUNT_PATH}:ro
       # isaac sim stuff
       - ./isaac_sim_data/cache/kit:/isaac-sim/kit/cache:rw
       - ./isaac_sim_data/cache/ov:/root/.cache/ov:rw

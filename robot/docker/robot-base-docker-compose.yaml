@@ -30,8 +30,6 @@ services:
       # --
       - BEHAVIOR_LAUNCH_PACKAGE=${BEHAVIOR_LAUNCH_PACKAGE}
       - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
-      # Config paths
-      - CAMERA_CONFIG_FILE=${CONFIG_MOUNT_PATH}/camera_config.yaml
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
@@ -47,8 +45,6 @@ services:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
-      # config
-      - ../../config:${CONFIG_MOUNT_PATH}:ro
       # developer stuff
       - .dev:/home/robot/.dev:rw # developer config
       - ../../common/.bash_profile:/home/robot/.bash_profile:rw
