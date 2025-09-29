@@ -1,22 +1,9 @@
-// Copyright (c) 2024 Carnegie Mellon University
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/*
+ * Copyright (c) 2016 Carnegie Mellon University, Author <gdubey@andrew.cmu.edu>
+ *
+ * For License information please see the LICENSE file in the root directory.
+ *
+ */
 
 // Applies C-Space expansion on disparity images.
 #include <disparity_expansion/disparity_expansion.hpp>
@@ -27,6 +14,9 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->get_parameter("metric_depth_scale", this->metric_depth_scale);
     this->declare_parameter("expansion_radius", 2.0);
     this->get_parameter("expansion_radius", this->expansion_radius);
+    this->declare_parameter("lut_max_disparity", 164);
+    this->get_parameter("lut_max_disparity", this->lut_max_disparity);
+    table_d.resize(this->lut_max_disparity, 0.0);
     this->declare_parameter("padding", 2.0);
     this->get_parameter("padding", this->padding);
     this->declare_parameter("baseline_fallback", 0.5);
@@ -36,15 +26,17 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->get_parameter("sensor_pixel_error", this->pixel_error);
     this->declare_parameter("downsample_scale", 2.0);
     this->get_parameter("downsample_scale", this->downsample_scale);
+    this->declare_parameter("ignore_left_pixels", 0);
+    this->get_parameter("ignore_left_pixels", this->ignore_left_pixels);
 
     // subscribers
     this->cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
         "camera_info", 1,
         std::bind(&DisparityExpansionNode::set_cam_info, this, std::placeholders::_1));
 
-    // this->disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
-    //     "disparity", 1,
-    //     std::bind(&DisparityExpansionNode::process_disparity_image, this, std::placeholders::_1));
+    this->disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
+        "disparity", 1,
+        std::bind(&DisparityExpansionNode::process_disparity_image, this, std::placeholders::_1));
 
     this->depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
         "depth", 1,
@@ -99,23 +91,22 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
     RCLCPP_INFO(this->get_logger(), "Fx Fy Cx Cy: %f %f , %f %f \nW H this->baseline: %d %d %f",
                 this->fx, this->fy, this->cx, this->cy, this->width, this->height, this->baseline);
     double r = this->expansion_radius;  // expansion radius in cm
-    this->lut_max_disparity = (int) std::ceil(this->baseline * this->fx * this->metric_depth_scale);
     this->table_u = std::vector<std::vector<LUTCell>>(this->lut_max_disparity,
                                                       std::vector<LUTCell>(this->width));
     this->table_v = std::vector<std::vector<LUTCell>>(this->lut_max_disparity,
                                                       std::vector<LUTCell>(this->height));
-    this->table_d.resize(this->lut_max_disparity, 0.0);
     int u1, u2, v1, v2;
     double x, y, z;
     double disparity;
 
     for (unsigned int disp_idx = 1; disp_idx < lut_max_disparity; disp_idx++) {
         disparity = disp_idx / this->metric_depth_scale;  // 1 cell = 0.5m, z is in meters
-        r = this->expansion_radius;                       // * exp(DEPTH_ERROR_COEFF*z);
+        //r = this->expansion_radius;                       // * exp(DEPTH_ERROR_COEFF*z);
         z = this->baseline * this->fx / disparity;
+	r = std::min(this->expansion_radius, z-0.01);
 
         double disp_new = this->baseline * this->fx / (z - this->expansion_radius) + 0.5;
-        this->table_d.at(disp_idx) = disp_new;
+        table_d.at(disp_idx) = disp_new;
 
         for (int v = (int)height - 1; v >= 0; --v) {
             y = (v - this->cy) * z / this->fy;
@@ -128,13 +119,20 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             v1 = this->fy * r1 / z + this->cy;
             v2 = this->fy * r2 / z + this->cy;
 
+	    //*
             if ((v2 - v1) < 0)
                 RCLCPP_ERROR(this->get_logger(),
                              "Something MESSED disp_idx=%d v=%d cy=%f fy=%f r=%f x=%f y=%f z=%f "
-                             "beta=%f beta1=%f r1=%f r2=%f v1=%d v2=%d",
-                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, r1, r2, v1,
-                             v2);
-
+                             "beta=%f beta1=%f b+=%f b-=%f r1=%f r2=%f v1=%d v2=%d tan+=%f tan-=%f",
+                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, (beta+beta1), (beta-beta1), r1, r2, v1,
+                             v2, tan(beta + beta1), tan(beta - beta1));
+	    else if((z < r) && std::isfinite(beta1)){
+	      RCLCPP_ERROR(this->get_logger(), "Z WAS LESS THAN R BUT THERE IS NO PROBLEMdisp_idx=%d v=%d cy=%f fy=%f r=%f x=%f y=%f z=%f "
+                             "beta=%f beta1=%f b+=%f b-=%f r1=%f r2=%f v1=%d v2=%d tan+=%f tan-=%f",
+                             disp_idx, v, this->cy, this->fy, r, x, y, z, beta, beta1, (beta+beta1), (beta-beta1), r1, r2, v1,
+                             v2, tan(beta + beta1), tan(beta - beta1));
+	    }
+	    //*/
             if (v1 < 0) v1 = 0;
             if (v1 > (height - 1)) v1 = height - 1;
 
@@ -155,14 +153,20 @@ void DisparityExpansionNode::generate_expansion_lookup_table() {
             double r2 = z / tan(alpha - alpha1);
             u1 = this->fx * r1 / z + this->cx;
             u2 = this->fx * r2 / z + this->cx;
-
+	    //*
             if ((u2 - u1) < 0)
                 RCLCPP_ERROR(this->get_logger(),
                              "Something MESSED disp_idx=%d u=%d cx=%f fx=%f r=%f x=%f y=%f z=%f "
-                             "alpha=%f alpha1=%f r1=%f r2=%f u1=%d u2=%d",
-                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, r1, r2, u1,
+                             "alpha=%f alpha1=%f a+=%f a-=%f r1=%f r2=%f u1=%d u2=%d",
+                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, (alpha+alpha1), (alpha-alpha1), r1, r2, u1,
                              u2);
-
+	    else if((z < r) && std::isfinite(alpha1)){
+	      RCLCPP_ERROR(this->get_logger(), "Z WAS LESS THAN R BUT THERE IS NO PROBLEMdisp_idx=%d u=%d cx=%f fx=%f r=%f x=%f y=%f z=%f "
+                             "alpha=%f alpha1=%f a+=%f a-=%f r1=%f r2=%f u1=%d u2=%d",
+                             disp_idx, u, this->cx, this->fx, r, x, y, z, alpha, alpha1, (alpha+alpha1), (alpha-alpha1), r1, r2, u1,
+                             u2);
+	    }
+	    //*/
             if (u1 < 0) u1 = 0;
             if (u1 > (this->width - 1)) u1 = this->width - 1;
 
@@ -195,7 +199,6 @@ void DisparityExpansionNode::process_depth_image(
     }
     cv::Mat disparity_image = this->convert_depth_to_disparity(cv_ptr->image);
 
-
     auto disparity_msg = std::make_shared<stereo_msgs::msg::DisparityImage>();
     disparity_msg->header = msg->header;
     disparity_msg->image =
@@ -222,12 +225,18 @@ cv::Mat DisparityExpansionNode::convert_depth_to_disparity(const cv::Mat& depth_
 
     RCLCPP_INFO_ONCE(this->get_logger(), "Baseline: %.4f", this->baseline);
     RCLCPP_INFO_ONCE(this->get_logger(), "Focal length (fx): %.4f", this->fx);
+    cv::patchNaNs(disparity_image, 0.0f);
+
+    disparity_image.setTo(0.0f, disparity_image == std::numeric_limits<float>::infinity());
 
     return disparity_image;
 }
 
 void DisparityExpansionNode::process_disparity_image(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp) {
+
+    //auto begin = std::chrono::high_resolution_clock::now();
+  
     if (!this->LUT_ready) {
         auto& clock = *this->get_clock();
         RCLCPP_INFO_THROTTLE(this->get_logger(), clock, 5,
@@ -243,7 +252,6 @@ void DisparityExpansionNode::process_disparity_image(
     img_msg->is_bigendian = msg_disp->image.is_bigendian;
     img_msg->step = msg_disp->image.step;
     img_msg->data = msg_disp->image.data;
-
 
     cv_bridge::CvImagePtr fg_msg(new cv_bridge::CvImage());
     cv_bridge::CvImagePtr bg_msg(new cv_bridge::CvImage());
@@ -266,23 +274,24 @@ void DisparityExpansionNode::process_disparity_image(
         RCLCPP_ERROR(this->get_logger(), "Resized disparity image is empty");
         return;
     }
+    if(ignore_left_pixels > 0)
+      disparity32F(cv::Range::all(), cv::Range(0, ignore_left_pixels)) = std::numeric_limits<float>::quiet_NaN();
+    
+    cv::patchNaNs(disparity32F, 0.f);
 
-
-    cv::Mat disparity_fg;
-    cv::Mat disparity_bg;
+    static cv::Mat disparity_fg;
+    static cv::Mat disparity_bg;
     cv::Mat disparity32F_bg;
 
-    try {
-        disparity32F.copyTo(fg_msg->image);
-        disparity32F.copyTo(bg_msg->image);
+    if(disparity_fg.size() != disparity32F.size())
+      disparity_fg = cv::Mat(disparity32F.size(), disparity32F.type(), -std::numeric_limits<float>::infinity());
+    else
+      disparity_fg.setTo(-std::numeric_limits<float>::infinity());
 
-        disparity32F.copyTo(disparity_fg);
-        disparity32F.copyTo(disparity_bg);
-        disparity32F.copyTo(disparity32F_bg);
-    } catch (cv_bridge::Exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
-        return;
-    }
+    if(disparity_bg.size() != disparity32F.size())
+      disparity_bg = cv::Mat(disparity32F.size(), disparity32F.type(), std::numeric_limits<float>::infinity());
+    else
+      disparity_bg.setTo(std::numeric_limits<float>::infinity());
 
     fg_msg->header = msg_disp->header;
     fg_msg->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
@@ -292,188 +301,40 @@ void DisparityExpansionNode::process_disparity_image(
     RCLCPP_INFO_ONCE(this->get_logger(), "IMG TYPE 32FC, GOOD");
 
     rclcpp::Time start = this->get_clock()->now();
-
+    
     // In a first step, an intermediate disparity image is generated by horizontally expanding all
     // disparity values from the stereo disparity map using the u1/u2 look-up table.
 
     // The first step expands disparities along the image XY axis Figure 3 (right)
-    for (int v = (int)this->height - 2; (v >= 0); v -= 1) {
-        for (int u = (int)this->width - 1; u >= 0; u -= 1) {
-            float disparity_value = disparity32F.at<float>(v, u);
-
-            if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
-                ((int(disparity_value * this->metric_depth_scale) + 1) >=
-                 this->lut_max_disparity) ||
-                ((int(disparity_value * this->metric_depth_scale) + 1) <= 0)) {
-                RCLCPP_INFO_STREAM_THROTTLE(
-                    this->get_logger(), *this->get_clock(), 5000,
-                    "Step 1 Expand u: Disparity out of range: "
-                        << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
-                        << " metric_depth_scale: " << this->metric_depth_scale);
-                continue;
-            }
-
-            unsigned int u1 =
-                this->table_u.at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx1;
-            unsigned int u2 =
-                this->table_u.at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx2;
-
-            if (disparity32F.empty()) {
-                RCLCPP_DEBUG(this->get_logger(), "disparity32F matrix is empty.");
-                return;
-            }
-
-            // top left corner, then width and height
-            cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
-
-            cv::Mat submat_t = disparity32F(roi).clone();
-            if (submat_t.empty()) {
-                RCLCPP_DEBUG(this->get_logger(), "submat_t is empty for roi: %s", roi);
-                continue;
-            }
-
-            double min, max;
-            cv::Point p1, p2;
-            int min_idx, max_idx;
-
-            cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
-            min_idx = p1.x;
-            max_idx = p2.x;
-            float disp_new_fg = max;
-            float disp_new_bg = min;
-            float disp_to_depth = this->baseline * this->fx / max;
-
-            cv::Mat submat;
-            cv::divide(baseline * this->fx, submat_t, submat);
-            submat = (submat - disp_to_depth);  /// this->expansion_radius;
-
-            if (this->padding < 0.0) {
-                float range = this->bg_multiplier * this->expansion_radius;
-                float max_depth = 0.0;
-                bool found = true;
-                int ctr = 1;
-                while (found) {
-                    found = false;
-                    for (int j = 0; j < submat.cols; j++) {
-                        float val = submat.at<float>(0, j);
-                        if (std::isfinite(val)) {
-                            if (val < ctr * range && val > max_depth) {
-                                found = true;
-                                max_depth = val;
-                            }
-                        }
-                    }
-                    ctr++;
-                }
-                disp_to_depth += max_depth;
-            } else
-                disp_to_depth += this->padding;
-
-            disp_new_bg = this->baseline * this->fx / (disp_to_depth);
-            disparity_fg(roi).setTo(disp_new_fg);
-            disparity_bg(roi).setTo(disp_new_bg);
-
-            int u_temp = u1 + max_idx;
-            if (u_temp >= u)
-                u = u1;
-            else
-                u = u_temp + 1;
-        }
-    }
-
-    disparity_fg.copyTo(disparity32F);
-    disparity_bg.copyTo(disparity32F_bg);
-
+    expand(disparity32F, disparity32F, disparity_fg, disparity_bg, false);
+    
     // In a second step, each pixel in the intermediate disparity image is expanded vertically using
-    // the v1/v2 look-up table and the expansion column is stored with a new disparity value from
-    // the dnew look-up table in the final C-space disparity map
-    for (int u = (int)width - 2; (u >= 0) && true; u -= 1) {
-        for (int v = (int)height - 1; v >= 0; v -= 1) {
-            float disparity_value = disparity32F.at<float>(v, u) +
-                                    this->pixel_error;  // disparity_row[v * row_step + u];// + 0.5;
+    // the v1/v2 look-up table and the expansion column is stored with a new disparity value
+    cv::transpose(disparity_fg, disparity32F);
+    cv::transpose(disparity_bg, disparity32F_bg);
+    cv::transpose(disparity_fg, disparity_fg);
+    cv::transpose(disparity_bg, disparity_bg);
+    expand(disparity32F, disparity32F_bg, disparity_fg, disparity_bg, true);
+    cv::transpose(disparity_fg, disparity_fg);
+    cv::transpose(disparity_bg, disparity_bg);
+    
+    disparity_fg.setTo(-1.f, disparity_fg == -std::numeric_limits<float>::infinity());
+    disparity_bg.setTo(-1.f, disparity_bg == std::numeric_limits<float>::infinity());
 
-            if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
-                ((int(disparity_value * this->metric_depth_scale) + 1) >=
-                 this->lut_max_disparity) ||
-                ((int(disparity_value * this->metric_depth_scale) + 1) <= 0)) {
-                RCLCPP_INFO_STREAM_THROTTLE(
-                    this->get_logger(), *this->get_clock(), 5000,
-                    "Step 2 Expand v: Disparity out of range: "
-                        << disparity_value << ", lut_max_disparity: " << this->lut_max_disparity
-                        << " metric_depth_scale: " << this->metric_depth_scale);
-                continue;
-            }
-
-            unsigned int v1 =
-                this->table_v.at(int(disparity_value * this->metric_depth_scale) + 1).at(v).idx1;
-            unsigned int v2 =
-                this->table_v.at(int(disparity_value * this->metric_depth_scale) + 1).at(v).idx2;
-
-            cv::Rect roi = cv::Rect(u, v1, 1, (v2 - v1));
-
-            cv::Mat submat_t = disparity32F_bg(roi).clone();
-            if (submat_t.empty()) {
-                RCLCPP_DEBUG(this->get_logger(), "submat_t is empty for roi: %s", roi);
-                continue;
-            }
-
-            double min, max;
-            cv::Point p1, p2;
-            int min_idx, max_idx;
-
-            cv::minMaxLoc(disparity32F(roi), &min, &max, &p1, &p2);
-            min_idx = p1.y;
-            max_idx = p2.y;
-            float disp_new_fg;
-            float disp_new_bg;
-            float disp_to_depth = this->baseline * this->fx / max;
-
-            disp_new_fg = this->baseline * this->fx / (disp_to_depth - this->expansion_radius) +
-                          this->pixel_error;
-
-            cv::Mat submat;
-            cv::divide(baseline * this->fx, submat_t, submat);
-            cv::minMaxLoc(disparity32F_bg(roi), &min, &max, &p1, &p2);
-            disp_to_depth = this->baseline * this->fx / max;
-            submat = (submat - disp_to_depth);  /// this->expansion_radius;
-
-            if (this->padding < 0.0) {
-                float range = this->bg_multiplier * this->expansion_radius;
-                float max_depth = 0.0;
-                bool found = true;
-                int ctr = 1;
-                while (found) {
-                    found = false;
-                    for (int j = 0; j < submat.rows; j++) {
-                        float val = submat.at<float>(j, 0);
-                        if (std::isfinite(val)) {
-                            if (val < ctr * range && val > max_depth) {
-                                found = true;
-                                max_depth = val;
-                            }
-                        }
-                    }
-                    ctr++;
-                }
-                disp_to_depth += max_depth;
-            } else
-                disp_to_depth += this->padding;  // this->baseline * this->fx/min;
-
-            disp_new_bg = this->baseline * this->fx / (disp_to_depth + this->expansion_radius) -
-                          this->pixel_error;
-            disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
-
-            disparity_fg(roi).setTo(disp_new_fg);
-            disparity_bg(roi).setTo(disp_new_bg);
-
-            int v_temp = v1 + max_idx;
-            if (v_temp >= v)
-                v = v1;
-            else
-                v = v_temp + 1;
-        }
-    }
-
+    /*
+    auto end = std::chrono::high_resolution_clock::now();
+    double elapsed = ((std::chrono::duration<double>)(end - begin)).count();
+    static std::vector<double> elapsed_history;
+    elapsed_history.push_back(elapsed);
+    if(elapsed_history.size() > 10)
+      elapsed_history.erase(elapsed_history.begin());
+    double average = 0.;
+    for(double e : elapsed_history)
+      average += e;
+    average /= elapsed_history.size();
+    RCLCPP_INFO_STREAM(this->get_logger(), "elapsed: " << elapsed << " s | average: " << average << " s");
+    */
+    
     fg_msg->image = disparity_fg;
     bg_msg->image = disparity_bg;
 
@@ -489,6 +350,90 @@ void DisparityExpansionNode::process_disparity_image(
         this->publish_expansion_cloud(msg_disp, cv_ptrdisparity, fg_msg, bg_msg);
 
     return;
+}
+
+void DisparityExpansionNode::expand(cv::Mat& disparity_fg_in, cv::Mat& disparity_bg_in,
+				    cv::Mat& disparity_fg_out, cv::Mat& disparity_bg_out,
+				    bool second_pass){
+  for (int v = 0; v < disparity_fg_in.rows - 1; v++) {
+    for (int u = 0; u < disparity_fg_in.cols - 1; u++) {
+      float disparity_value = disparity_fg_in.at<float>(v, u);
+
+      // skip invalid disparities
+      if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
+	  ((int(disparity_value * this->metric_depth_scale) + 1) >=
+	   this->lut_max_disparity) ||
+	  ((int(disparity_value * this->metric_depth_scale) + 1) <= 0))
+	continue;
+
+      // get expansion bounds
+      std::vector<std::vector<LUTCell>>* table = &table_u;
+      if(second_pass)
+	table = &table_v;
+      unsigned int u1 =
+	table->at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx1;
+      unsigned int u2 =
+	table->at(int(disparity_value * this->metric_depth_scale) + 1).at(u).idx2;
+      cv::Rect roi = cv::Rect(u1, v, (u2 - u1), 1);
+      if(roi.width <= 0)
+	continue;
+
+      double min, max;
+      cv::Point p1, p2;
+      cv::minMaxLoc(disparity_fg_in(roi), &min, &max, &p1, &p2);
+      int max_idx = p2.x;
+      float disp_new_fg = max;
+      if(second_pass){
+	disp_new_fg = this->baseline * this->fx / (this->baseline * this->fx / max - this->expansion_radius) + this->pixel_error;
+	if(disp_new_fg < 0.f)
+	  disp_new_fg = std::numeric_limits<float>::infinity();
+      }
+
+      cv::Mat submat_t = disparity_bg_in(roi);
+      cv::minMaxLoc(submat_t, &min, &max, &p1, &p2, disparity_bg_in(roi) != std::numeric_limits<float>::infinity());
+      float disp_to_depth = this->baseline * this->fx / max;
+
+      // find how much this region of background disp should be expanded by looking at the connected components of the max disp
+      if(second_pass && this->padding < 0.0){
+	cv::Mat submat;
+	cv::divide(baseline * this->fx, submat_t, submat);
+	submat = (submat - disp_to_depth);
+      
+	float range = this->bg_multiplier * this->expansion_radius;
+	float max_depth = 0.0;
+	bool found = true;
+	int ctr = 1;
+	while(found){
+	  found = false;
+	  for(int j = 0; j < submat.cols; j++){
+	    float val = submat.at<float>(0, j);
+	    if(std::isfinite(val) && (val < ctr * range) && (val > max_depth)){
+	      found = true;
+	      max_depth = val;
+	    }
+	  }
+	  ctr++;
+	}
+	disp_to_depth += max_depth;
+      }
+
+      if(second_pass)
+	disp_to_depth += fabs(this->padding) + this->expansion_radius;
+      float disp_new_bg = this->baseline * this->fx / (disp_to_depth);
+      if(second_pass){
+	disp_new_bg -= this->pixel_error;
+	disp_new_bg = disp_new_bg < 0.0 ? 0.0001 : disp_new_bg;
+      }
+      cv::max(disparity_fg_out(roi), disp_new_fg, disparity_fg_out(roi));
+      cv::min(disparity_bg_out(roi), disp_new_bg, disparity_bg_out(roi));
+
+      int u_temp = u1 + max_idx;
+      if(u_temp <= u)
+	u = u2;
+      else
+	u = u_temp - 1;
+    }
+  }
 }
 
 void DisparityExpansionNode::publish_frustum(
@@ -626,7 +571,7 @@ void DisparityExpansionNode::publish_expansion_poly(
         }
     }
     marker_arr.markers.push_back(marker);
-    this->expansion_poly_pub->publish(marker_arr);
+    //this->expansion_poly_pub->publish(marker_arr);
 }
 
 void DisparityExpansionNode::publish_expansion_cloud(
@@ -640,6 +585,21 @@ void DisparityExpansionNode::publish_expansion_cloud(
     cloud->is_dense = false;
     int point_counter = 0;
     pcl::PointXYZI pt_fg, pt_bg, pt_free1, pt_free2, pt_real;
+
+    visualization_msgs::msg::MarkerArray marker_array;
+    visualization_msgs::msg::Marker spheres;
+    spheres.header = msg_disp->header;
+    spheres.ns = "spheres";
+    spheres.id = 0;
+    spheres.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    spheres.action = visualization_msgs::msg::Marker::ADD;
+    spheres.scale.x = this->expansion_radius*2.f;
+    spheres.scale.y = this->expansion_radius*2.f;
+    spheres.scale.z = this->expansion_radius*2.f;
+    spheres.color.r = 0.0f;
+    spheres.color.g = 1.0f;
+    spheres.color.b = 0.0f;
+    spheres.color.a = 1.0f;
 
     for (int v = (int)this->height - 1; v >= 0; v -= 4) {
         for (int u = (int)this->width - 1; u >= 0; u -= 4) {
@@ -666,6 +626,13 @@ void DisparityExpansionNode::publish_expansion_cloud(
             pt_real.y = (v - this->cy) * depth_value / this->fy;
             pt_real.z = depth_value;
             pt_real.intensity = 170;  //*disparity32F.at<float>(v,u)/200;
+	    
+	    geometry_msgs::msg::Point p;
+	    p.x = pt_real.x;
+	    p.y = pt_real.y;
+	    p.z = pt_real.z;
+	    if(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z))
+	      spheres.points.push_back(p);
 
             point_counter++;
             cloud->points.push_back(pt_fg);
@@ -683,6 +650,9 @@ void DisparityExpansionNode::publish_expansion_cloud(
     sensor_msgs::msg::PointCloud2 cloud_PC2;
     pcl::toROSMsg(*cloud, cloud_PC2);
     this->expansion_cloud_pub->publish(cloud_PC2);
+
+    marker_array.markers.push_back(spheres);    
+    this->expansion_poly_pub->publish(marker_array);
 }
 
 int main(int argc, char** argv) {
@@ -691,4 +661,4 @@ int main(int argc, char** argv) {
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
-} 
+}

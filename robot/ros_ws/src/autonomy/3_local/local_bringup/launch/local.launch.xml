@@ -57,7 +57,7 @@
             output="screen">
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
-            <!-- use estimated disparity -->
+            
             <remap from="disparity" to="$(var local_disparity_in_topic)" />
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
             <!-- we use right because The baseline (\(B\)) is encoded in the last column of the right camera's projection matrix. -->
@@ -78,7 +78,7 @@
         <!-- look ahead time controls the speed, greater is faster -->
         <param name="look_ahead_time" value="1.0" />
         <param name="virtual_tracking_ahead_time" value="0.5" />
-        <param name="min_virtual_tracking_velocity" value="0.1" />
+        <param name="min_virtual_tracking_velocity" value="0.5" />
         <param name="sphere_radius" value="1.0" />
         <param name="ff_min_velocity" value="0." />
         <param name="search_ahead_factor" value="1.5" />
@@ -92,7 +92,7 @@
         <remap from="odometry" to="$(var local_odometry_in_topic)" />
 
     </node>
-    <?ignore
+
     <node pkg="pid_controller" exec="pid_controller" namespace="control" output="screen">
       <param name="target_frame" value="base_link_stabilized" />
 
@@ -101,8 +101,8 @@
       <param name="x_d"         value="0.0" />
       <param name="x_ff"        value="0.0" />
       <param name="x_d_alpha"   value="0.0" />
-      <param name="x_min"       value="-1.0" />
-      <param name="x_max"       value="1.0" />
+      <param name="x_min"       value="-3.0" />
+      <param name="x_max"       value="3.0" />
       <param name="x_constant"  value="0.0" />
       
       <param name="y_p"         value="1.0" />
@@ -110,8 +110,8 @@
       <param name="y_d"         value="0.0" />
       <param name="y_ff"        value="0.0" />
       <param name="y_d_alpha"   value="0.0" />
-      <param name="y_min"       value="-1.0" />
-      <param name="y_max"       value="1.0" />
+      <param name="y_min"       value="-3.0" />
+      <param name="y_max"       value="3.0" />
       <param name="y_constant"  value="0.0" />
       
       <param name="z_p"         value="1.0" />
@@ -124,21 +124,21 @@
       <param name="z_constant"  value="0.0" />
       
       <param name="vx_p"         value="0.2" />
-      <param name="vx_i"         value="0.05" />
-      <param name="vx_d"         value="0.1" />
+      <param name="vx_i"         value="0.025" />
+      <param name="vx_d"         value="0.0" />
       <param name="vx_ff"        value="0.0" />
       <param name="vx_d_alpha"   value="0.9" />
-      <param name="vx_min"       value="-0.17" />
-      <param name="vx_max"       value="0.17" />
+      <param name="vx_min"       value="-0.34" />
+      <param name="vx_max"       value="0.34" />
       <param name="vx_constant"  value="0.0" />
       
       <param name="vy_p"         value="0.2" />
-      <param name="vy_i"         value="0.05" />
-      <param name="vy_d"         value="0.1" />
+      <param name="vy_i"         value="0.025" />
+      <param name="vy_d"         value="0.0" />
       <param name="vy_ff"        value="0.0" />
       <param name="vy_d_alpha"   value="0.9" />
-      <param name="vy_min"       value="-0.17" />
-      <param name="vy_max"       value="0.17" />
+      <param name="vy_min"       value="-0.34" />
+      <param name="vy_max"       value="0.34" />
       <param name="vy_constant"  value="0.0" />
       
       <param name="vz_p"         value="0.2" />
@@ -146,7 +146,7 @@
       <param name="vz_d"         value="0.0" />
       <param name="vz_ff"        value="0.0" />
       <param name="vz_d_alpha"   value="0.0" />
-      <param name="vz_min"       value="0.0" />
+      <param name="vz_min"       value="-0.5" />
       <param name="vz_max"       value="1.0" />
       <param name="vz_constant"  value="0.5" />
       
@@ -155,7 +155,6 @@
       <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
       <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
     </node>
-    ?>
 
   <?ignore
   <node pkg="rviz2" exec="rviz2"

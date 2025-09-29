@@ -1,51 +1,114 @@
-name: Docker Build
+name: Auto Build on Docker Image Tag Change
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, develop ]  # Adjust branches as needed
     paths:
-      - '**/Dockerfile'
-      - '**/docker-compose.yml'
-      - '**/docker-compose.yaml'
+      - '.env'
 
 jobs:
-  build-x86:
+  check-docker-tag-change:
     runs-on: ubuntu-latest
+    outputs:
+      tag-changed: ${{ steps.check-changes.outputs.tag-changed }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Build and push x86-64 images
-        uses: mr-smithers-excellent/docker-build-push@v6
+        uses: actions/checkout@v4
         with:
-          image: airstack
-          registry: ghcr.io
-          username: ${{ secrets.AIRLAB_DOCKER_REGISTRY_USERNAME }}
-          password: ${{ secrets.AIRLAB_DOCKER_REGISTRY_PASSWORD }}
-          addLatest: true
-          enableBuildKit: true
-          platform: linux/amd64
+          fetch-depth: 2  # Fetch current and previous commit
 
-  build-l4t:
+      - name: Check if DOCKER_IMAGE_TAG changed
+        id: check-changes
+        run: |
+          # Get the current DOCKER_IMAGE_TAG value
+          CURRENT_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          
+          # Get the previous DOCKER_IMAGE_TAG value
+          git show HEAD~1:.env > .env.prev 2>/dev/null || echo "" > .env.prev
+          PREVIOUS_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env.prev | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
+          
+          echo "Current tag: $CURRENT_TAG"
+          echo "Previous tag: $PREVIOUS_TAG"
+          
+          if [ "$CURRENT_TAG" != "$PREVIOUS_TAG" ] && [ -n "$CURRENT_TAG" ]; then
+            echo "DOCKER_IMAGE_TAG has changed from '$PREVIOUS_TAG' to '$CURRENT_TAG'"
+            echo "tag-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "DOCKER_IMAGE_TAG has not changed"
+            echo "tag-changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  docker-build:
+    needs: check-docker-tag-change
+    if: needs.check-docker-tag-change.outputs.tag-changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build and push L4T robot image
-        uses: mr-smithers-excellent/docker-build-push@v6
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
         with:
-          image: airstack-robot-l4t
-          registry: ghcr.io
-          username: ${{ secrets.AIRLAB_DOCKER_REGISTRY_USERNAME }}
-          password: ${{ secrets.AIRLAB_DOCKER_REGISTRY_PASSWORD }}
-          addLatest: true
-          enableBuildKit: true
-          multiPlatform: true
-          platform: linux/arm64
-          directory: .
-          dockerfile: docker/robot/Dockerfile.l4t
+          registry: ${{ secrets.DOCKER_REGISTRY_URL }}  # e.g., your-registry.com or leave empty for Docker Hub
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Verify .env file and extract tag
+        run: |
+          # Ensure .env file exists and is readable
+          if [ ! -f .env ]; then
+            echo "Error: .env file not found"
+            exit 1
+          fi
+          
+          # Display the current DOCKER_IMAGE_TAG for debugging
+          DOCKER_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          echo "Building with DOCKER_IMAGE_TAG: $DOCKER_TAG"
+          
+          if [ -z "$DOCKER_TAG" ]; then
+            echo "Error: DOCKER_IMAGE_TAG is empty"
+            exit 1
+          fi
+
+      - name: Run Docker Compose Build
+        run: |
+          # Load environment variables and run docker compose build
+          set -a  # Export all variables
+          source .env
+          set +a  # Stop exporting
+          
+          docker compose build
+
+      - name: Run Docker Compose Push
+        run: |
+          # Load environment variables and run docker compose push
+          set -a  # Export all variables
+          source .env
+          set +a  # Stop exporting
+          
+          docker compose push
+
+      - name: Optional - Run Docker Compose Up (uncomment if needed)
+        run: |
+          # Uncomment the following lines if you also want to start the services
+          # set -a
+          # source .env  
+          # set +a
+          # docker compose up -d
+
+  notify:
+    needs: [check-docker-tag-change, docker-build]
+    if: always() && needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify build and push result
+        run: |
+          if [ "${{ needs.docker-build.result }}" == "success" ]; then
+            echo "✅ Docker Compose build and push completed successfully"
+          else
+            echo "❌ Docker Compose build or push failed"
+            exit 1
+          fi
