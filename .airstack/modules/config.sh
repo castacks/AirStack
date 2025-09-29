@@ -53,7 +53,7 @@ function cmd_config_nucleus {
     
     log_info "Configure AirLab Nucleus Login ($OMNI_PASS_DESTINATION)"
     
-    log_info "Go to https://airlab-storage.andrew.cmu.edu:8443/omni/web3/, log in, then right click on the cloud and click the \"API Tokens\" window to generate an API token and paste it here. Leave this blank if you want to skip this step: "
+    log_info "Go to https://airlab-nucleus.andrew.cmu.edu/omni/web3/, log in, then right click on the cloud and click the \"API Tokens\" window to generate an API token and paste it here. Leave this blank if you want to skip this step: "
     if [ -f "$OMNI_PASS_DESTINATION" ]; then
         log_warn "The file $OMNI_PASS_DESTINATION already exists, leave it blank to skip."
     fi
