@@ -45,7 +45,7 @@ def create_fan_with_wind(
 
     # load the fan model from USD
     box_fan = add_reference_to_stage(
-        usd_path="omniverse://airlab-storage.andrew.cmu.edu:8443/Library/Assets/box_fan.usd",
+        usd_path="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/box_fan.usd",
         prim_path=f"/World/box_fan_{id}",
     )
 

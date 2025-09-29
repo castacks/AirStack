@@ -130,7 +130,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 export ROS_LOCALHOST_ONLY=1
 
 # --- Isaac Setup ---
-alias runapp="/isaac-sim/runapp.sh --path omniverse://airlab-storage.andrew.cmu.edu:8443/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.prop.usd"
+alias runapp="/isaac-sim/runapp.sh --path omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.prop.usd"
 alias runheadless.native=/isaac-sim/runheadless.native.sh
 alias runheadless.webrtc=/isaac-sim/runheadless.webrtc.sh
 

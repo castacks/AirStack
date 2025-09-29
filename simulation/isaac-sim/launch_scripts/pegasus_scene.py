@@ -64,7 +64,7 @@ class PegasusApp:
         # self.world.scene.add_default_ground_plane()
 
         add_reference_to_stage(
-            usd_path="omniverse://airlab-storage.andrew.cmu.edu:8443/Users/ajong/pegasus_scene.usd",
+            usd_path="omniverse://airlab-nucleus.andrew.cmu.edu/Users/ajong/pegasus_scene.usd",
             prim_path="/World/stage",
         )
 

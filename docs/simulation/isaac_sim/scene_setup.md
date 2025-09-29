@@ -3,7 +3,7 @@
 ## Creating a New Scene with Robots
 The easiest way to create a scene is to copy and customize an existing scene.
 
-Example scenes are located on the AirLab Nucleus Server under [Projects > AirStack](https://airlab-storage.andrew.cmu.edu:8443/omni/web3/omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/).
+Example scenes are located on the AirLab Nucleus Server under [Projects > AirStack](https://airlab-nucleus.andrew.cmu.edu/omni/web3/omniverse://airlab-nucleus.andrew.cmu.edu/Projects/AirStack/).
 This can be opened in Isaac's Content Browser:
 ![Image of content browser](content_browser.png)
 
@@ -15,7 +15,7 @@ The example scenes are setup with the following:
 - A "World" prim, which is the root of the scene
 - The Root layer is set to use meters as the unit of length
 - Prims that make up the scene. Scene prims should have collision physics enabled with Colliders Preset (Property > Add > Physics > Collider Preset)
-- Robot instances, added to the scene as a reference to the robot USD file. Currently this file is [Library > Assets > Ascent_Aerosystems > TEMPLATE_spirit_uav.robot.usd](https://airlab-storage.andrew.cmu.edu:8443/omni/web3/omniverse://airlab-storage.andrew.cmu.edu:8443/Library/Assets/Ascent_Aerosystems/Spirit_UAV/TEMPLATE_spirit_uav.robot.usd)
+- Robot instances, added to the scene as a reference to the robot USD file. Currently this file is [Library > Assets > Ascent_Aerosystems > TEMPLATE_spirit_uav.robot.usd](https://airlab-nucleus.andrew.cmu.edu/omni/web3/omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/TEMPLATE_spirit_uav.robot.usd)
   - The robot has default sensors added, including a LiDAR and stereo cameras
   - Sensors publish to ROS using the attached ActionGraph
   - Robot dynamics are controlled by the [AirStack Extension](ascent_sitl_extension.md)

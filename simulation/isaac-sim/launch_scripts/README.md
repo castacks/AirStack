@@ -24,5 +24,5 @@ Alternative default nvidia scenes:
 - "Stairs Plane"
 
  - "/root/fire_academy_faro_with_sky.scene.usd"
- - "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd"
- - "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/AFCA/AFCA.usd"
+ - "omniverse://airlab-nucleus.andrew.cmu.edu/Projects/AirStack/AFCA/fire_academy_faro_with_sky.scene.usd"
+ - "omniverse://airlab-nucleus.andrew.cmu.edu/Projects/AirStack/AFCA/AFCA.usd"

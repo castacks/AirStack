@@ -2,7 +2,7 @@
     "persistent": {
         "isaac": {
             "asset_root": {
-                "default": "https://airlab-storage.andrew.cmu.edu:8443/omni/web3/NVIDIA/Assets/Isaac/4.5",
+                "default": "https://airlab-nucleus.andrew.cmu.edu/omni/web3/NVIDIA/Assets/Isaac/4.5",
                 "nvidia": "omniverse://localhost/NVIDIA",
                 "isaac": "omniverse://localhost/NVIDIA/Assets/Isaac/4.5/Isaac",
                 "cloud": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5",
