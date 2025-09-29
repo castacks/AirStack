@@ -512,7 +512,7 @@ namespace mavros_interface
                 (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > post_takeoff_command_delay_time)))
             {
 
-                if (fabs((this->get_clock()->now() - in_air_start_time).seconds() - post_takeoff_command_delay_time) < 1.)
+                if (is_ardupilot && fabs((this->get_clock()->now() - in_air_start_time).seconds() - post_takeoff_command_delay_time) < 1.)
                 {
                     std_msgs::msg::Empty empty;
                     reset_integrators_pub_->publish(empty);
