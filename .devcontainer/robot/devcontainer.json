@@ -17,5 +17,7 @@
       ],
     }
   },
-  "postStartCommand": "tmux kill-session -t robot_bringup"
+  "containerEnv": {
+    "AUTOLAUNCH": "false"
+  }
 }

@@ -20,5 +20,7 @@
             }
         }
     },
-    "postStartCommand": "tmux kill-session -t isaac"
+    "containerEnv": {
+        "AUTOLAUNCH": "false"
+    }
 }

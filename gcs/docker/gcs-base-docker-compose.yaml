@@ -9,8 +9,7 @@ services:
         - ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
     command: >
       bash -c "ssh service restart;
-      autolaunch=${AUTOLAUNCH:-'false'};
-      if [ $$autolaunch = 'true' ]; then
+      if [ $$AUTOLAUNCH = 'true' ]; then
         tmux new -d -s gcs_bringup;
         tmux send-keys -t gcs_bringup 'bws && sws; ros2 launch ${GCS_LAUNCH_PACKAGE} ${GCS_LAUNCH_FILE}' ENTER;
       fi;
@@ -26,6 +25,7 @@ services:
               driver: nvidia
     entrypoint: ''
     environment:
+      - AUTOLAUNCH=${AUTOLAUNCH:-false}
       - DISPLAY
       - QT_X11_NO_MITSHM=1
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs

@@ -19,11 +19,12 @@ services:
       tags:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
+    environment:
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
     command: >
       bash -c "
       service ssh restart;
-      autolaunch=${AUTOLAUNCH};
-      if [ $$autolaunch == 'true' ]; then
+      if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s robot_bringup;
         tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
