@@ -190,8 +190,9 @@ namespace disparity_graph
             tf2::Stamped<tf2::Transform> transform;
             try
             {
+                auto timeout = rclcpp::Duration::from_seconds(0.1);
                 auto tf_msg =
-                    tf_buffer_ptr->lookupTransform(this->sensor_frame, this->fixed_frame, disp_fg->header.stamp);
+                    tf_buffer_ptr->lookupTransform(this->sensor_frame, this->fixed_frame, disp_fg->header.stamp, timeout);
                 tf2::fromMsg(tf_msg, transform);
             }
             catch (tf2::TransformException &ex)
