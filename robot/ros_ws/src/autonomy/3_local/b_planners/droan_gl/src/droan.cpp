@@ -165,14 +165,18 @@ private:
         layout(location=1) in vec3 offset;
         uniform mat4 proj;
         uniform mat4 view;
+        out float disparity;
         void main() {
-            gl_Position = proj * view * vec4(aPos + offset, 1.0);
+            vec4 eye_pos = view * vec4(aPos + offset, 1.0);
+            disparity = -eye_pos.z;
+            gl_Position = proj * eye_pos;
         })glsl";
 
     const char* fs_src = R"glsl(
         #version 430
+        in float disparity;
         out vec4 FragColor;
-        void main() { FragColor = vec4(1,0,0,1); })glsl";
+        void main() { FragColor = vec4(disparity/10.,0,0,1); })glsl";
 
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vs_src, nullptr);
