@@ -22,7 +22,8 @@
 #include <mutex>
 
 struct CameraIntrinsics {
-  float fx, fy, cx, cy;
+  float fx, fy, cx, cy, baseline;
+  int width, height;
   bool valid = false;
 };
 
@@ -47,9 +48,6 @@ public:
 									   std::bind(&DisparitySphereRenderer::camera_info_callback, this, std::placeholders::_1));
 
     rendered_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/disparity_spheres_image", 10);
-
-    init_opengl();
-    create_instanced_sphere();
   }
 
   ~DisparitySphereRenderer() {
@@ -95,8 +93,8 @@ private:
     };
 
     static const EGLint pbufferAttribs[] = {
-					    EGL_WIDTH, 640,
-					    EGL_HEIGHT, 480,
+					    EGL_WIDTH, intrinsics_.width,
+					    EGL_HEIGHT, intrinsics_.height,
 					    EGL_NONE,
     };
     std::cout << "1" << std::endl;
@@ -149,7 +147,7 @@ private:
 
     glGenTextures(1, &color_tex_);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, 640, 480, 1);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, intrinsics_.width, intrinsics_.height, 1);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0);
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -287,6 +285,15 @@ private:
     intrinsics_.fy = msg->k[4];
     intrinsics_.cx = msg->k[2];
     intrinsics_.cy = msg->k[5];
+    intrinsics_.baseline = -msg->p.at(3) / msg->p.at(0);
+    intrinsics_.width = msg->width;
+    intrinsics_.height = msg->height;
+
+    if(!intrinsics_.valid){
+      init_opengl();
+      create_instanced_sphere();
+    }
+    
     intrinsics_.valid = true;
   }
 
@@ -299,7 +306,7 @@ private:
 	float d = disparity_image_.at<float>(y,x);
 	if(d <= 0) continue;
 
-	float Z = 1.0f / d; // simplistic depth
+	float Z = intrinsics_.baseline * intrinsics_.fx / d;
 	float X = (x - intrinsics_.cx) * Z / intrinsics_.fx;
 	float Y = (y - intrinsics_.cy) * Z / intrinsics_.fy;
 	offsets.push_back(X);
@@ -312,13 +319,15 @@ private:
     glBufferData(GL_ARRAY_BUFFER, offsets.size()*sizeof(float), offsets.data(), GL_DYNAMIC_DRAW);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-    glViewport(0,0,640,480);
+    glViewport(0,0,intrinsics_.width,intrinsics_.height);
     glClearColor(0,0,0,1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
     glUseProgram(shader_program_);
-    glm::mat4 proj = glm::perspective(glm::radians(60.0f), 640.0f/480.0f, 0.01f, 100.0f);
+    glm::mat4 proj = glm::perspective(2*atan(((float)intrinsics_.height)/(2.f*intrinsics_.fy)),
+				      ((float)intrinsics_.width)/((float)intrinsics_.height),
+				      0.01f, 100.0f);
     glm::mat4 view = glm::lookAt(glm::vec3(0,0,0), glm::vec3(0,0,1), glm::vec3(0,1,0));
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "proj"), 1, GL_FALSE, &proj[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "view"), 1, GL_FALSE, &view[0][0]);
@@ -335,7 +344,7 @@ private:
 
   void publish_texture() {
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    cv::Mat image(480,640,CV_8UC4);
+    cv::Mat image(intrinsics_.height,intrinsics_.width,CV_8UC4);
     glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data);
 
     cv_bridge::CvImage out_msg;
