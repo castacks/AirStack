@@ -87,7 +87,7 @@ private:
 					   EGL_BLUE_SIZE, 8,
 					   EGL_GREEN_SIZE, 8,
 					   EGL_RED_SIZE, 8,
-					   EGL_DEPTH_SIZE, 8,
+					   EGL_DEPTH_SIZE, 24,
 					   EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
 					   EGL_NONE
     };
@@ -147,9 +147,24 @@ private:
 
     glGenTextures(1, &color_tex_);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, intrinsics_.width, intrinsics_.height, 1);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32F, intrinsics_.width, intrinsics_.height, 1);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0);
 
+    GLuint depth_tex_;
+    glGenTextures(1, &depth_tex_);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depth_tex_);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY,
+		   1,
+		   GL_DEPTH_COMPONENT32F,
+		   intrinsics_.width, intrinsics_.height,
+		   1);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0);
+
+    
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       throw std::runtime_error("Framebuffer not complete");
 
@@ -165,18 +180,25 @@ private:
         layout(location=1) in vec3 offset;
         uniform mat4 proj;
         uniform mat4 view;
+        uniform float baseline_fx;
         out float disparity;
         void main() {
-            vec4 eye_pos = view * vec4(aPos + offset, 1.0);
-            disparity = -eye_pos.z;
+            vec3 viewDir = normalize(-offset); //camera pos - offset, but camera pos is 0,0,0
+            vec3 up = vec3(0.0, 1.0, 0.0);
+            vec3 right = normalize(cross(up, viewDir));
+            vec3 newUp = normalize(cross(viewDir, right));
+            mat3 rot = mat3(right, newUp, viewDir);
+            
+            vec4 eye_pos = view * vec4(rot*aPos + offset, 1.0);
+            disparity = baseline_fx * -eye_pos.z;
             gl_Position = proj * eye_pos;
         })glsl";
 
     const char* fs_src = R"glsl(
         #version 430
         in float disparity;
-        out vec4 FragColor;
-        void main() { FragColor = vec4(disparity/10.,0,0,1); })glsl";
+        out float FragColor;
+        void main() { FragColor = disparity; })glsl";
 
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vs_src, nullptr);
@@ -216,9 +238,9 @@ private:
     std::vector<unsigned int> indices;
     
     for(unsigned i = 0; i < mesh->mNumVertices; i++){
-        vertices.push_back(mesh->mVertices[i].x*0.05);
-        vertices.push_back(mesh->mVertices[i].y*0.05);
-        vertices.push_back(mesh->mVertices[i].z*0.05);
+        vertices.push_back(mesh->mVertices[i].x*0.5);
+        vertices.push_back(mesh->mVertices[i].y*0.5);
+        vertices.push_back(mesh->mVertices[i].z*0.5);
     }
     for(unsigned i = 0; i < mesh->mNumFaces; i++)
       for(unsigned j = 0; j < mesh->mFaces[i].mNumIndices; j++)
@@ -327,6 +349,7 @@ private:
     glClearColor(0,0,0,1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
+    //glDepthFunc(GL_GREATER);
 
     glUseProgram(shader_program_);
     glm::mat4 proj = glm::perspective(2*atan(((float)intrinsics_.height)/(2.f*intrinsics_.fy)),
@@ -335,6 +358,7 @@ private:
     glm::mat4 view = glm::lookAt(glm::vec3(0,0,0), glm::vec3(0,0,1), glm::vec3(0,1,0));
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "proj"), 1, GL_FALSE, &proj[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "view"), 1, GL_FALSE, &view[0][0]);
+    glUniform1f(glGetUniformLocation(shader_program_, "baseline_fx"), intrinsics_.baseline * intrinsics_.fx);
 
     //glBindVertexArray(sphere_vao_);
     //glDrawArraysInstanced(GL_TRIANGLES, 0, 121, offsets.size()/3);
@@ -348,13 +372,14 @@ private:
 
   void publish_texture() {
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    cv::Mat image(intrinsics_.height,intrinsics_.width,CV_8UC4);
-    glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data);
+    cv::Mat image(intrinsics_.height,intrinsics_.width,CV_32FC1);
+    glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED, GL_FLOAT, image.data);
+    cv::flip(image, image, 1);
 
     cv_bridge::CvImage out_msg;
     out_msg.header.stamp = this->now();
     out_msg.header.frame_id = "camera_frame";
-    out_msg.encoding = "rgba8";
+    out_msg.encoding = "32FC1";
     out_msg.image = image;
 
     rendered_pub_->publish(*out_msg.toImageMsg());
