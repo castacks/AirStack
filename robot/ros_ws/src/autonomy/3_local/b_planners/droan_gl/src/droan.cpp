@@ -6,6 +6,11 @@
 #include <opencv2/opencv.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -48,6 +53,8 @@ public:
 									   std::bind(&DisparitySphereRenderer::camera_info_callback, this, std::placeholders::_1));
 
     rendered_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/disparity_spheres_image", 10);
+    fg_bg_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("fg_bg_cloud", 10);
+	
 
     total_layers = 2; // TODO make parameter as number of poses in graph, then mulitply by 2 to get the number of layers
   }
@@ -60,6 +67,8 @@ private:
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr caminfo_sub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr rendered_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
+  pcl::PointCloud<pcl::PointXYZI> fg_bg_cloud;
 
   std::mutex data_mutex_;
   cv::Mat disparity_image_;
@@ -74,7 +83,8 @@ private:
   int total_layers;
 
   void init_opengl() {
-    /*
+    // TODO auto detect whether or not to use egl or glfw based on whether egl is able to find a non software renderer
+    //*
     if(!glfwInit()) {
       throw std::runtime_error("Failed to initialize GLFW");
     }
@@ -85,7 +95,7 @@ private:
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     //*/
 
-    //*
+    /*
     static const EGLint configAttribs[] = {
 					   EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
 					   EGL_BLUE_SIZE, 8,
@@ -101,43 +111,20 @@ private:
 					    EGL_HEIGHT, intrinsics_.height,
 					    EGL_NONE,
     };
-    std::cout << "1" << std::endl;
-    // 1. Initialize EGL
     EGLDisplay eglDpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    std::cout << "2" << std::endl;
-
     EGLint major, minor;
-
     eglInitialize(eglDpy, &major, &minor);
-    std::cout << "3" << std::endl;
-
-    // 2. Select an appropriate configuration
     EGLint numConfigs;
     EGLConfig eglCfg;
-
     eglChooseConfig(eglDpy, configAttribs, &eglCfg, 1, &numConfigs);
-    std::cout << "4" << std::endl;
-
-    // 3. Create a surface
     EGLSurface eglSurf = eglCreatePbufferSurface(eglDpy, eglCfg, 
 						 pbufferAttribs);
-    std::cout << "5" << std::endl;
-
-    // 4. Bind the API
     eglBindAPI(EGL_OPENGL_API);
-    std::cout << "6" << std::endl;
-
-    // 5. Create a context and make it current
     EGLContext eglCtx = eglCreateContext(eglDpy, eglCfg, EGL_NO_CONTEXT, 
 					 NULL);
-    std::cout << "7" << std::endl;
-
     eglMakeCurrent(eglDpy, eglSurf, eglSurf, eglCtx);
-    std::cout << "8" << std::endl;
-
     if(!gladLoadGLLoader((GLADloadproc)eglGetProcAddress))
       std::cout << "Failed to initialize GLAD!" << std::endl;
-    std::cout << "9" << std::endl;
     //*/
 
     // from now on use your OpenGL context
@@ -174,6 +161,11 @@ private:
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     shader_program_ = create_shader();
+
+    
+    glViewport(0,0,intrinsics_.width,intrinsics_.height);
+    glClearColor(0,0,0,1);
+    glEnable(GL_DEPTH_TEST);
   }
 
   GLuint create_shader() {
@@ -184,32 +176,76 @@ private:
         uniform mat4 proj;
         uniform mat4 view;
         uniform float baseline_fx;
+        uniform float sign;
         out float disparity;
+        out vec2 fragUV;
         void main() {
-            vec3 viewDir = normalize(-offset); //camera pos - offset, but camera pos is 0,0,0
+            vec3 viewDir = sign*normalize(-offset); //camera pos - offset, but camera pos is 0,0,0
             vec3 up = vec3(0.0, 1.0, 0.0);
             vec3 right = normalize(cross(up, viewDir));
             vec3 newUp = normalize(cross(viewDir, right));
             mat3 rot = mat3(right, newUp, viewDir);
             
             vec4 eye_pos = view * vec4(rot*aPos + offset, 1.0);
-            disparity = baseline_fx * -eye_pos.z;
+            disparity = baseline_fx / -eye_pos.z;
+            
             gl_Position = proj * eye_pos;
+            fragUV = (gl_Position.xy / gl_Position.w) * 0.5 + 0.5;
         })glsl";
 
     const char* fs_src = R"glsl(
         #version 430
+        uniform sampler2DArray tex_array;
+        uniform float baseline_fx;
+        uniform float sign;
         in float disparity;
+        in vec2 fragUV;
         out float FragColor;
-        void main() { FragColor = disparity; })glsl";
+        void main() {
+            if(sign > 0)
+              FragColor = disparity;
+            else{
+              float front_depth = baseline_fx / texture(tex_array, vec3(fragUV, 0)).r; // TODO: 0 is hardcoded texture index
+              float back_depth = baseline_fx / disparity;
+              if(abs(front_depth - back_depth) > 3.) // TODO dont do abs, instead have the correct order, remove hardcoded 3
+                discard; // TODO double check whether discard always works or there is still some culling happening
+              else
+                FragColor = disparity;
+            }
+        })glsl";
 
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vs_src, nullptr);
     glCompileShader(vs);
+    
+    // check compilation status
+    GLint success;
+    glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        GLint logLength = 0;
+        glGetShaderiv(vs, GL_INFO_LOG_LENGTH, &logLength);
+
+        std::vector<GLchar> infoLog(logLength);
+        glGetShaderInfoLog(vs, logLength, nullptr, infoLog.data());
+
+        std::cout << "Shader compilation failed:\n" << infoLog.data() << std::endl;
+    }
 
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fs_src, nullptr);
     glCompileShader(fs);
+
+    // check compilation status
+    glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
+    if (!success) {
+      GLint logLength = 0;
+      glGetShaderiv(fs, GL_INFO_LOG_LENGTH, &logLength);
+
+      std::vector<GLchar> infoLog(logLength);
+      glGetShaderInfoLog(fs, logLength, nullptr, infoLog.data());
+
+      std::cout << "Shader compilation failed:\n" << infoLog.data() << std::endl;
+    }
 
     GLuint prog = glCreateProgram();
     glAttachShader(prog, vs);
@@ -268,37 +304,6 @@ private:
     glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribDivisor(1,1);
-    /*
-    std::vector<float> vertices;
-    const int lat = 10, lon = 10;
-    for(int i=0;i<=lat;i++){
-      float theta = i * M_PI / lat;
-      for(int j=0;j<=lon;j++){
-	float phi = j * 2*M_PI / lon;
-	float x = sin(theta)*cos(phi);
-	float y = cos(theta);
-	float z = sin(theta)*sin(phi);
-	vertices.push_back(x*0.05f);
-	vertices.push_back(y*0.05f);
-	vertices.push_back(z*0.05f);
-      }
-    }
-
-    glGenVertexArrays(1, &sphere_vao_);
-    glBindVertexArray(sphere_vao_);
-
-    glGenBuffers(1, &sphere_vbo_);
-    glBindBuffer(GL_ARRAY_BUFFER, sphere_vbo_);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
-    glEnableVertexAttribArray(0);
-
-    glGenBuffers(1, &instance_vbo_);
-    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_);
-    glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribDivisor(1,1);
-    */
   }
 
   void disparity_callback(const stereo_msgs::msg::DisparityImage::SharedPtr msg) {
@@ -347,41 +352,83 @@ private:
     glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_);
     glBufferData(GL_ARRAY_BUFFER, offsets.size()*sizeof(float), offsets.data(), GL_DYNAMIC_DRAW);
 
+    // foreground
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, 0);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, 0);
-
-    glViewport(0,0,intrinsics_.width,intrinsics_.height);
-    glClearColor(0,0,0,1);
+    glClearDepth(1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-    //glDepthFunc(GL_GREATER);
+    glDepthFunc(GL_LESS);
+    //glCullFace(GL_BACK);
 
     glUseProgram(shader_program_);
-    glm::mat4 proj = glm::perspective(2*atan(((float)intrinsics_.height)/(2.f*intrinsics_.fy)),
+    glm::mat4 proj = glm::perspective(2.f*atan(((float)intrinsics_.height)/(2.f*intrinsics_.fy)),
 				      ((float)intrinsics_.width)/((float)intrinsics_.height),
 				      0.01f, 100.0f);
     glm::mat4 view = glm::lookAt(glm::vec3(0,0,0), glm::vec3(0,0,1), glm::vec3(0,1,0));
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "proj"), 1, GL_FALSE, &proj[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shader_program_, "view"), 1, GL_FALSE, &view[0][0]);
     glUniform1f(glGetUniformLocation(shader_program_, "baseline_fx"), intrinsics_.baseline * intrinsics_.fx);
-
-    //glBindVertexArray(sphere_vao_);
-    //glDrawArraysInstanced(GL_TRIANGLES, 0, 121, offsets.size()/3);
+    glUniform1i(glGetUniformLocation(shader_program_, "tex_array"), 0);
+    glUniform1f(glGetUniformLocation(shader_program_, "sign"), 1.f);
+    
     glBindVertexArray(sphere_mesh.VAO);
     glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size()/3);
 
+    // background
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, 1);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, 1);
+    glClearDepth(0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDepthFunc(GL_GREATER);
+    //glCullFace(GL_FRONT);
+    glUniform1f(glGetUniformLocation(shader_program_, "sign"), -1.f);
+    
+    glBindVertexArray(sphere_mesh.VAO);
+    glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size()/3);
     
     publish_texture();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
 
   void publish_texture() {
-    std::vector<float> data(intrinsics_.width * intrinsics_.height * total_layers);
-    int selected_layer = 0;
+    fg_bg_cloud.points.clear();
     
+    std::vector<float> data(intrinsics_.width * intrinsics_.height * total_layers);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
     glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED, GL_FLOAT, data.data());
+
+    for(int i = 0; i < total_layers; i++){
+      cv::Mat image(intrinsics_.height, intrinsics_.width, CV_32FC1, data.data() + i*intrinsics_.width*intrinsics_.height);
+      cv::flip(image, image, 1);
+      pcl::PointXYZI p;
+      
+      for(int y = 0; y < image.rows; y++){
+	for(int x = 0; x < image.cols; x++){
+	  float disp = image.at<float>(y, x);
+	  p.z = intrinsics_.baseline*intrinsics_.fx/disp;
+	  p.x = (x-intrinsics_.cx)*p.z/intrinsics_.fx;
+	  p.y = (y-intrinsics_.cy)*p.z/intrinsics_.fy;
+	  p.intensity = i%2;
+
+	  if(disp > 0.f && std::isfinite(disp))
+	    fg_bg_cloud.points.push_back(p);
+	}
+      }
+    }
+
+    sensor_msgs::msg::PointCloud2 output;
+    pcl::toROSMsg(fg_bg_cloud, output);
+    // TODO handle transforms correctly
+    output.header.stamp = this->now();
+    output.header.frame_id = "map";
+    fg_bg_cloud_pub_->publish(output);
+
+    
+    int selected_layer = 1;
     cv::Mat image(intrinsics_.height, intrinsics_.width, CV_32FC1, data.data() + selected_layer*intrinsics_.width*intrinsics_.height);
     cv::flip(image, image, 1);
 
