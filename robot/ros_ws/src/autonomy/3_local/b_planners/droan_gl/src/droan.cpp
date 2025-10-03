@@ -48,6 +48,8 @@ public:
 									   std::bind(&DisparitySphereRenderer::camera_info_callback, this, std::placeholders::_1));
 
     rendered_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/disparity_spheres_image", 10);
+
+    total_layers = 2; // TODO make parameter as number of poses in graph, then mulitply by 2 to get the number of layers
   }
 
   ~DisparitySphereRenderer() {
@@ -65,9 +67,11 @@ private:
 
   GLFWwindow* window_;
   GLuint sphere_vao_, sphere_vbo_, instance_vbo_;
-  GLuint framebuffer_, color_tex_;
+  GLuint framebuffer_, color_tex_, depth_tex_;
   GLuint shader_program_;
   Mesh sphere_mesh;
+
+  int total_layers;
 
   void init_opengl() {
     /*
@@ -147,17 +151,16 @@ private:
 
     glGenTextures(1, &color_tex_);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32F, intrinsics_.width, intrinsics_.height, 1);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32F, intrinsics_.width, intrinsics_.height, total_layers);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0);
-
-    GLuint depth_tex_;
+    
     glGenTextures(1, &depth_tex_);
     glBindTexture(GL_TEXTURE_2D_ARRAY, depth_tex_);
     glTexStorage3D(GL_TEXTURE_2D_ARRAY,
 		   1,
 		   GL_DEPTH_COMPONENT32F,
 		   intrinsics_.width, intrinsics_.height,
-		   1);
+		   total_layers);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -345,6 +348,9 @@ private:
     glBufferData(GL_ARRAY_BUFFER, offsets.size()*sizeof(float), offsets.data(), GL_DYNAMIC_DRAW);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, 0);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, 0);
+
     glViewport(0,0,intrinsics_.width,intrinsics_.height);
     glClearColor(0,0,0,1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -371,9 +377,12 @@ private:
   }
 
   void publish_texture() {
+    std::vector<float> data(intrinsics_.width * intrinsics_.height * total_layers);
+    int selected_layer = 0;
+    
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    cv::Mat image(intrinsics_.height,intrinsics_.width,CV_32FC1);
-    glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED, GL_FLOAT, image.data);
+    glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED, GL_FLOAT, data.data());
+    cv::Mat image(intrinsics_.height, intrinsics_.width, CV_32FC1, data.data() + selected_layer*intrinsics_.width*intrinsics_.height);
     cv::flip(image, image, 1);
 
     cv_bridge::CvImage out_msg;
