@@ -1,0 +1,21 @@
+<launch>
+    <node pkg="exploration_planner" exec="exploration_planner" name="exploration_planner"
+        output="screen">
+        <param from="$(find-pkg-share exploration_planner)/config/exploration_config.yaml" />
+        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="vdb_grid" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_grid" />
+        <remap from="sensor_pointcloud" to="/$(env ROBOT_NAME)/sensors/ouster/point_cloud" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+    </node>
+</launch>
+
+<!-- <launch>
+    <node pkg="exploration_planner" exec="waypoint_routing_planner" name="exploration_planner"
+        output="screen">
+        <param from="$(find-pkg-share exploration_planner)/config/exploration_config.yaml" />
+        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="vdb_grid" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_grid" />
+        <remap from="sensor_pointcloud" to="/$(env ROBOT_NAME)/sensors/ouster/point_cloud" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+    </node>
+</launch> -->
