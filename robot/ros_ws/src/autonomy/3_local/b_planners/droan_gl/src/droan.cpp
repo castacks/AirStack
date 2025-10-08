@@ -1,10 +1,20 @@
 #include <rclcpp/rclcpp.hpp>
+#include <airstack_common/ros2_helper.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
+#include <airstack_msgs/msg/odometry.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
+
+#include <tf2/exceptions.h>
+#include <tf2/utils.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/buffer_interface.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl/point_cloud.h>
@@ -32,31 +42,41 @@ struct CameraIntrinsics {
   bool valid = false;
 };
 
-
 struct Mesh {
   unsigned int VAO, VBO, EBO;
   size_t index_count;
 };
 
+struct GraphNode {
+  int fg_index;
+  int bg_index;
+  tf2::Stamped<tf2::Transform> tf;
+};
 
 class DisparitySphereRenderer : public rclcpp::Node {
 public:
   DisparitySphereRenderer()
     : Node("disparity_sphere_renderer") 
   {
-    disparity_sub_ = this->create_subscription<stereo_msgs::msg::DisparityImage>(
-										 "/robot_1/sensors/front_stereo/disparity", 10, 
-										 std::bind(&DisparitySphereRenderer::disparity_callback, this, std::placeholders::_1));
+    disparity_sub_ = create_subscription<stereo_msgs::msg::DisparityImage>("/robot_1/sensors/front_stereo/disparity", 10, 
+									   std::bind(&DisparitySphereRenderer::disparity_callback,
+										     this, std::placeholders::_1));
+    caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>("/robot_1/sensors/front_stereo/right/camera_info", 10,
+								     std::bind(&DisparitySphereRenderer::camera_info_callback,
+									       this, std::placeholders::_1));
+    tracking_point_sub = create_subscription<airstack_msgs::msg::Odometry>("/robot_1/trajectory_controller/tracking_point", 10,
+									   std::bind(&DisparitySphereRenderer::tracking_point_callback,
+										     this, std::placeholders::_1));
+    tf_buffer = new tf2_ros::Buffer(get_clock());
+    tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
-    caminfo_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-									   "/robot_1/sensors/front_stereo/right/camera_info", 10,
-									   std::bind(&DisparitySphereRenderer::camera_info_callback, this, std::placeholders::_1));
-
-    rendered_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/disparity_spheres_image", 10);
-    fg_bg_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("fg_bg_cloud", 10);
+    rendered_pub_ = create_publisher<sensor_msgs::msg::Image>("/disparity_spheres_image", 10);
+    fg_bg_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("fg_bg_cloud", 10);
 	
 
-    total_layers = 2; // TODO make parameter as number of poses in graph, then mulitply by 2 to get the number of layers
+    target_frame = airstack::get_param(this, "target_frame", std::string("map"));
+    graph_nodes = airstack::get_param(this, "graph_nodes", 5);
+    total_layers = graph_nodes*2;
   }
 
   ~DisparitySphereRenderer() {
@@ -66,8 +86,13 @@ public:
 private:
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr caminfo_sub_;
+  rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr rendered_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
+  tf2_ros::TransformListener* tf_listener;
+  tf2_ros::Buffer* tf_buffer;
+
+  
   pcl::PointCloud<pcl::PointXYZI> fg_bg_cloud;
 
   std::mutex data_mutex_;
@@ -80,7 +105,13 @@ private:
   GLuint shader_program_;
   Mesh sphere_mesh;
 
+  GLuint traj_shader;
+
+  std::string target_frame;
+  int graph_nodes;
   int total_layers;
+
+  std::deque<GraphNode> graph;
 
   void init_opengl() {
     // TODO auto detect whether or not to use egl or glfw based on whether egl is able to find a non software renderer
@@ -128,9 +159,15 @@ private:
     //*/
 
     // from now on use your OpenGL context
-    std::cout << "Renderer: " << glGetString(GL_RENDERER) << "\n";
-    std::cout << "Vendor:   " << glGetString(GL_VENDOR)   << "\n";
-    std::cout << "Version:  " << glGetString(GL_VERSION)  << "\n";
+    std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+    std::cout << "Vendor:   " << glGetString(GL_VENDOR)   << std::endl;
+    std::cout << "Version:  " << glGetString(GL_VERSION)  << std::endl;
+    GLint maxVertexUniforms = 0;
+    glGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS, &maxVertexUniforms);
+    std::cout << "Max vertex uniforms: " << maxVertexUniforms << std::endl;
+    GLint maxFragmentUniforms = 0;
+    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &maxFragmentUniforms);
+    std::cout << "Max fragment uniforms: " << maxFragmentUniforms << std::endl;
 
     // Create framebuffer
     glGenFramebuffers(1, &framebuffer_);
@@ -162,6 +199,12 @@ private:
 
     shader_program_ = create_shader();
 
+    std::string traj_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/trajectory.cs";
+    GLuint traj_cs = compile_shader(GL_COMPUTE_SHADER, traj_comp_filename);
+    traj_shader = glCreateProgram();
+    glAttachShader(traj_shader, traj_cs);
+    glLinkProgram(traj_shader);
+    glDeleteShader(traj_cs);
     
     glViewport(0,0,intrinsics_.width,intrinsics_.height);
     glClearColor(0,0,0,1);
@@ -169,83 +212,10 @@ private:
   }
 
   GLuint create_shader() {
-    const char* vs_src = R"glsl(
-        #version 430
-        layout(location=0) in vec3 aPos;
-        layout(location=1) in vec3 offset;
-        uniform mat4 proj;
-        uniform mat4 view;
-        uniform float baseline_fx;
-        uniform float sign;
-        out float disparity;
-        out vec2 fragUV;
-        void main() {
-            vec3 viewDir = sign*normalize(-offset); //camera pos - offset, but camera pos is 0,0,0
-            vec3 up = vec3(0.0, 1.0, 0.0);
-            vec3 right = normalize(cross(up, viewDir));
-            vec3 newUp = normalize(cross(viewDir, right));
-            mat3 rot = mat3(right, newUp, viewDir);
-            
-            vec4 eye_pos = view * vec4(rot*aPos + offset, 1.0);
-            disparity = baseline_fx / -eye_pos.z;
-            
-            gl_Position = proj * eye_pos;
-            fragUV = (gl_Position.xy / gl_Position.w) * 0.5 + 0.5;
-        })glsl";
-
-    const char* fs_src = R"glsl(
-        #version 430
-        uniform sampler2DArray tex_array;
-        uniform float baseline_fx;
-        uniform float sign;
-        in float disparity;
-        in vec2 fragUV;
-        out float FragColor;
-        void main() {
-            if(sign > 0)
-              FragColor = disparity;
-            else{
-              float front_depth = baseline_fx / texture(tex_array, vec3(fragUV, 0)).r; // TODO: 0 is hardcoded texture index
-              float back_depth = baseline_fx / disparity;
-              if(abs(front_depth - back_depth) > 3.) // TODO dont do abs, instead have the correct order, remove hardcoded 3
-                discard; // TODO double check whether discard always works or there is still some culling happening
-              else
-                FragColor = disparity;
-            }
-        })glsl";
-
-    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &vs_src, nullptr);
-    glCompileShader(vs);
-    
-    // check compilation status
-    GLint success;
-    glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        GLint logLength = 0;
-        glGetShaderiv(vs, GL_INFO_LOG_LENGTH, &logLength);
-
-        std::vector<GLchar> infoLog(logLength);
-        glGetShaderInfoLog(vs, logLength, nullptr, infoLog.data());
-
-        std::cout << "Shader compilation failed:\n" << infoLog.data() << std::endl;
-    }
-
-    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &fs_src, nullptr);
-    glCompileShader(fs);
-
-    // check compilation status
-    glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
-    if (!success) {
-      GLint logLength = 0;
-      glGetShaderiv(fs, GL_INFO_LOG_LENGTH, &logLength);
-
-      std::vector<GLchar> infoLog(logLength);
-      glGetShaderInfoLog(fs, logLength, nullptr, infoLog.data());
-
-      std::cout << "Shader compilation failed:\n" << infoLog.data() << std::endl;
-    }
+    std::string expansion_vert_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/expansion.vert";
+    std::string expansion_frag_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/expansion.frag";
+    GLuint vs = compile_shader(GL_VERTEX_SHADER, expansion_vert_filename);
+    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, expansion_frag_filename);
 
     GLuint prog = glCreateProgram();
     glAttachShader(prog, vs);
@@ -255,6 +225,37 @@ private:
     glDeleteShader(vs);
     glDeleteShader(fs);
     return prog;
+  }
+
+  GLuint compile_shader(GLenum shader_type, std::string filename){
+    std::ifstream file(filename);
+    //RCLCPP_INFO_STREAM(get_logger(), "SHADER FILENAME: " << filename);
+    if (!file.is_open())
+      RCLCPP_ERROR_STREAM(get_logger(), "Failed to open shader file: " << filename);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string buffer_str = buffer.str();
+    const char* shader_source = buffer_str.c_str();
+
+    //RCLCPP_INFO_STREAM(get_logger(), "SHADER: " << shader_source);
+    
+    GLuint id = glCreateShader(shader_type);
+    glShaderSource(id, 1, &shader_source, nullptr);
+    glCompileShader(id);
+
+    int success;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &success);
+    if (!success) {
+      GLint logLength = 0;
+      glGetShaderiv(id, GL_INFO_LOG_LENGTH, &logLength);
+
+      std::vector<GLchar> infoLog(logLength);
+      glGetShaderInfoLog(id, logLength, nullptr, infoLog.data());
+
+      RCLCPP_ERROR_STREAM(get_logger(), "Shader compilation failed:\n" << infoLog.data());
+    }
+
+    return id;
   }
 
   void create_instanced_sphere() {
@@ -305,15 +306,7 @@ private:
     glEnableVertexAttribArray(1);
     glVertexAttribDivisor(1,1);
   }
-
-  void disparity_callback(const stereo_msgs::msg::DisparityImage::SharedPtr msg) {
-    std::lock_guard<std::mutex> lock(data_mutex_);
-    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg->image, "32FC1");
-    disparity_image_ = cv_ptr->image.clone();
-
-    render_spheres();
-  }
-
+  
   void camera_info_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
     intrinsics_.fx = msg->k[0];
     intrinsics_.fy = msg->k[4];
@@ -330,13 +323,43 @@ private:
     
     intrinsics_.valid = true;
   }
-
-  void render_spheres() {
+  
+  void disparity_callback(const stereo_msgs::msg::DisparityImage::SharedPtr msg) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg->image, "32FC1");
+    disparity_image_ = cv_ptr->image.clone();
+    
     if(!intrinsics_.valid || disparity_image_.empty()) return;
 
+    GraphNode node;
+    
+    try{
+      geometry_msgs::msg::TransformStamped t;
+      t = tf_buffer->lookupTransform(target_frame, msg->header.frame_id,
+				     rclcpp::Time(msg->header.stamp), rclcpp::Duration::from_seconds(0.1));
+      tf2::fromMsg(t, node.tf);
+    }
+    catch(tf2::TransformException& ex){
+      RCLCPP_ERROR_STREAM(get_logger(), "Transform exception in render_spheres: " << ex.what());
+      return;
+    }
+
+    if(graph.size() < graph_nodes){
+      node.fg_index = graph.size()*2;
+      node.bg_index = graph.size()*2 + 1;
+      graph.push_front(node);
+    }
+    else{
+      node.fg_index = graph.back().fg_index;
+      node.bg_index = graph.back().bg_index;
+      graph.pop_back();
+      graph.push_front(node);
+    }
+
+
     std::vector<float> offsets;
-    for(int y=0; y<disparity_image_.rows; y+=5){
-      for(int x=0; x<disparity_image_.cols; x+=5){
+    for(int y=0; y<disparity_image_.rows; y++){
+      for(int x=0; x<disparity_image_.cols; x++){
 	float d = disparity_image_.at<float>(y,x);
 	if(d <= 0) continue;
 
@@ -356,8 +379,8 @@ private:
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, 0);
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, 0);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, node.fg_index);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, node.fg_index);
     glClearDepth(1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_LESS);
@@ -379,8 +402,8 @@ private:
 
     // background
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, 1);
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, 1);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, node.bg_index);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0, node.bg_index);
     glClearDepth(0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_GREATER);
@@ -400,22 +423,29 @@ private:
     std::vector<float> data(intrinsics_.width * intrinsics_.height * total_layers);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
     glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED, GL_FLOAT, data.data());
-
-    for(int i = 0; i < total_layers; i++){
-      cv::Mat image(intrinsics_.height, intrinsics_.width, CV_32FC1, data.data() + i*intrinsics_.width*intrinsics_.height);
-      cv::flip(image, image, 1);
-      pcl::PointXYZI p;
+    
+    for(const GraphNode& node : graph){
+      std::vector<int> indices{node.fg_index, node.bg_index};
+      tf2::Transform tf = node.tf.inverse();
+      for(const int& index : indices){
+	cv::Mat image(intrinsics_.height, intrinsics_.width, CV_32FC1, data.data() + index*intrinsics_.width*intrinsics_.height);
+	cv::flip(image, image, 1);
+	pcl::PointXYZI p;
       
-      for(int y = 0; y < image.rows; y++){
-	for(int x = 0; x < image.cols; x++){
-	  float disp = image.at<float>(y, x);
-	  p.z = intrinsics_.baseline*intrinsics_.fx/disp;
-	  p.x = (x-intrinsics_.cx)*p.z/intrinsics_.fx;
-	  p.y = (y-intrinsics_.cy)*p.z/intrinsics_.fy;
-	  p.intensity = i%2;
+	for(int y = 0; y < image.rows; y++){
+	  for(int x = 0; x < image.cols; x++){
+	    float disp = image.at<float>(y, x);
+	    float depth = intrinsics_.baseline*intrinsics_.fx/disp;
+	    tf2::Vector3 v((x-intrinsics_.cx)*depth/intrinsics_.fx, (y-intrinsics_.cy)*depth/intrinsics_.fy, depth);
+	    tf2::Vector3 v_world = node.tf*v;
+	    p.x = v_world.x();
+	    p.y = v_world.y();
+	    p.z = v_world.z();
+	    p.intensity = (index+1)%2;
 
-	  if(disp > 0.f && std::isfinite(disp))
-	    fg_bg_cloud.points.push_back(p);
+	    if(disp > 0.f && std::isfinite(disp))
+	      fg_bg_cloud.points.push_back(p);
+	  }
 	}
       }
     }
@@ -439,6 +469,10 @@ private:
     out_msg.image = image;
 
     rendered_pub_->publish(*out_msg.toImageMsg());
+  }
+
+  void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg) {
+    
   }
 };
 
