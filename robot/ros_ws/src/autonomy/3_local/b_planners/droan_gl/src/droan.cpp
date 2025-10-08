@@ -15,6 +15,7 @@
 #include <tf2_ros/buffer_interface.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <airstack_common/tflib.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl/point_cloud.h>
@@ -36,6 +37,50 @@
 #include <vector>
 #include <mutex>
 
+void printUniformBlockLayout(GLuint program, const std::string& blockName)
+{
+    GLuint blockIndex = glGetUniformBlockIndex(program, blockName.c_str());
+    if (blockIndex == GL_INVALID_INDEX) {
+        std::cerr << "Block " << blockName << " not found in shader.\n";
+        return;
+    }
+
+    // Get the number of active uniforms in the block
+    GLint numUniforms = 0;
+    glGetActiveUniformBlockiv(program, blockIndex, GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS, &numUniforms);
+
+    std::vector<GLint> uniformIndices(numUniforms);
+    glGetActiveUniformBlockiv(program, blockIndex, GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES, uniformIndices.data());
+
+    std::cout << "=== Layout of UBO: " << blockName << " ===\n";
+
+for (int i = 0; i < numUniforms; ++i) {
+    GLuint uniformIndex = uniformIndices[i];
+
+    // Query uniform name
+    char nameBuf[128];
+    GLsizei nameLen;
+    glGetActiveUniformName(program, uniformIndex, sizeof(nameBuf), &nameLen, nameBuf);
+
+    // Query properties individually
+    GLint offset = 0;
+    GLint arrayStride = 0;
+    GLint matrixStride = 0;
+    GLint type = 0;
+
+    glGetActiveUniformsiv(program, 1, &uniformIndex, GL_UNIFORM_OFFSET, &offset);
+    glGetActiveUniformsiv(program, 1, &uniformIndex, GL_UNIFORM_ARRAY_STRIDE, &arrayStride);
+    glGetActiveUniformsiv(program, 1, &uniformIndex, GL_UNIFORM_MATRIX_STRIDE, &matrixStride);
+    glGetActiveUniformsiv(program, 1, &uniformIndex, GL_UNIFORM_TYPE, &type);
+
+    std::cout << "  " << nameBuf
+              << " @ offset=" << offset
+              << ", arrayStride=" << arrayStride
+              << ", matrixStride=" << matrixStride
+              << ", type=0x" << std::hex << type << std::dec << "\n";
+}
+}
+
 struct CameraIntrinsics {
   float fx, fy, cx, cy, baseline;
   int width, height;
@@ -53,6 +98,48 @@ struct GraphNode {
   tf2::Stamped<tf2::Transform> tf;
 };
 
+struct alignas(16) Vec3 {
+  float x, y, z;
+};
+
+struct alignas(16) State {
+  Vec3 pos;
+  Vec3 vel;
+  Vec3 acc;
+  Vec3 jerk;
+
+  State(){}
+  State(airstack_msgs::msg::Odometry odom){
+    pos.x = odom.pose.position.x;
+    pos.y = odom.pose.position.y;
+    pos.z = odom.pose.position.z;
+
+    vel.x = odom.twist.linear.x;
+    vel.y = odom.twist.linear.y;
+    vel.z = odom.twist.linear.z;
+
+    acc.x = odom.acceleration.x;
+    acc.y = odom.acceleration.y;
+    acc.z = odom.acceleration.z;
+
+    jerk.x = odom.jerk.x;
+    jerk.y = odom.jerk.y;
+    jerk.z = odom.jerk.z;
+  }
+};
+
+struct TrajectoryParams {
+  float vel_desired[3];
+  float vel_max;
+};
+
+struct alignas(16) CommonInit {
+  State initial_state;
+  int traj_count;
+  int traj_size;
+  float dt;
+};
+
 class DisparitySphereRenderer : public rclcpp::Node {
 public:
   DisparitySphereRenderer()
@@ -64,19 +151,29 @@ public:
     caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>("/robot_1/sensors/front_stereo/right/camera_info", 10,
 								     std::bind(&DisparitySphereRenderer::camera_info_callback,
 									       this, std::placeholders::_1));
-    tracking_point_sub = create_subscription<airstack_msgs::msg::Odometry>("/robot_1/trajectory_controller/tracking_point", 10,
-									   std::bind(&DisparitySphereRenderer::tracking_point_callback,
-										     this, std::placeholders::_1));
+    look_ahead_sub = create_subscription<airstack_msgs::msg::Odometry>("/robot_1/trajectory_controller/look_ahead", 10,
+								       std::bind(&DisparitySphereRenderer::look_ahead_callback,
+										 this, std::placeholders::_1));
     tf_buffer = new tf2_ros::Buffer(get_clock());
     tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
     rendered_pub_ = create_publisher<sensor_msgs::msg::Image>("/disparity_spheres_image", 10);
     fg_bg_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("fg_bg_cloud", 10);
-	
+
+    
 
     target_frame = airstack::get_param(this, "target_frame", std::string("map"));
+    look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point"));
     graph_nodes = airstack::get_param(this, "graph_nodes", 5);
+    dt = airstack::get_param(this, "dt", 0.2);
+    ht = airstack::get_param(this, "ht", 2.0);
+    
     total_layers = graph_nodes*2;
+    look_ahead_valid = false;
+    opengl_inited = false;
+
+    timer = rclcpp::create_timer(this, get_clock(), rclcpp::Duration::from_seconds(1./5.),
+				 std::bind(&DisparitySphereRenderer::timer_callback, this));
   }
 
   ~DisparitySphereRenderer() {
@@ -86,15 +183,19 @@ public:
 private:
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr caminfo_sub_;
-  rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr rendered_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
+  rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
   tf2_ros::TransformListener* tf_listener;
   tf2_ros::Buffer* tf_buffer;
+  
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr rendered_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
 
+  rclcpp::TimerBase::SharedPtr timer;
   
   pcl::PointCloud<pcl::PointXYZI> fg_bg_cloud;
 
+  bool opengl_inited;
+  
   std::mutex data_mutex_;
   cv::Mat disparity_image_;
   CameraIntrinsics intrinsics_;
@@ -112,6 +213,13 @@ private:
   int total_layers;
 
   std::deque<GraphNode> graph;
+
+  bool look_ahead_valid;
+  airstack_msgs::msg::Odometry look_ahead;
+  std::string look_ahead_frame;
+  std::vector<TrajectoryParams> traj_params;
+  float dt, ht;
+  GLuint common_ubo, params_ssbo, output_ssbo;
 
   void init_opengl() {
     // TODO auto detect whether or not to use egl or glfw based on whether egl is able to find a non software renderer
@@ -209,6 +317,46 @@ private:
     glViewport(0,0,intrinsics_.width,intrinsics_.height);
     glClearColor(0,0,0,1);
     glEnable(GL_DEPTH_TEST);
+
+    // trajectory generation init
+    for(float y = 0.f; y < 360.f; y += 15.f){
+      float yaw = y*M_PI/180.f;
+
+      TrajectoryParams params;
+      params.vel_desired[0] = sin(yaw);
+      params.vel_desired[1] = cos(yaw);
+      params.vel_desired[2] = 0.f;
+      params.vel_max = 2.f;
+
+      traj_params.push_back(params);
+    }
+    
+    glGenBuffers(1, &common_ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(CommonInit), nullptr, GL_DYNAMIC_DRAW);
+
+    CommonInit ci;
+    std::cout << "c1" << std::endl;
+    glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
+    std::cout << "c2" << std::endl;
+    CommonInit* ptr = (CommonInit*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+						    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    std::cout << "c3 " << ptr << std::endl;
+    
+    *ptr = ci;
+    std::cout << "c4" << std::endl;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    std::cout << "c5" << std::endl;
+
+    glGenBuffers(1, &params_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, params_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, traj_params.size()*sizeof(TrajectoryParams), traj_params.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &output_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, output_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, traj_params.size()*get_traj_size()*sizeof(State), nullptr, GL_DYNAMIC_COPY);
+
+    opengl_inited = true;
   }
 
   GLuint create_shader() {
@@ -471,8 +619,60 @@ private:
     rendered_pub_->publish(*out_msg.toImageMsg());
   }
 
-  void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg) {
+  void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr msg) {
+    look_ahead = *msg;
+    look_ahead_valid = true;
+  }
+
+  void timer_callback(){
+    if(!look_ahead_valid || !opengl_inited)
+      return;
+
+    airstack_msgs::msg::Odometry look_ahead_odom;
+    if(!tflib::transform_odometry(tf_buffer, look_ahead, look_ahead_frame, look_ahead_frame, &look_ahead_odom))
+      return;
     
+    CommonInit ci;
+    ci.initial_state = State(look_ahead_odom);
+    ci.traj_count = traj_params.size();
+    ci.traj_size = get_traj_size();
+    ci.dt = dt;
+
+    glUseProgram(traj_shader);
+    
+    printUniformBlockLayout(traj_shader, "CommonInit");
+    RCLCPP_INFO_STREAM(get_logger(), offsetof(CommonInit, initial_state) << "|" << sizeof(State) << " " << offsetof(CommonInit, traj_count) << " " << offsetof(CommonInit, traj_size) << " " << offsetof(CommonInit, dt));
+    
+    glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
+    CommonInit* ptr = (CommonInit*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+						    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    
+    *ptr = ci;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    
+    
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, common_ubo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, params_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, output_ssbo);
+    
+    
+    glDispatchCompute((traj_params.size() + 255) / 256, 1, 1);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, output_ssbo);
+    State* output_data = (State*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    std::vector<State> output_states(traj_params.size()*get_traj_size());
+    memcpy(output_states.data(), output_data, output_states.size() * sizeof(State));
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    
+    RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
+    for(int i = 0; i < output_states.size(); i++)
+      RCLCPP_INFO_STREAM(get_logger(), "i " << output_states[i].pos.x << " " << output_states[i].pos.y << " " << output_states[i].pos.z);
+    RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
+  }
+
+  int get_traj_size(){
+    return ht/dt;
   }
 };
 
