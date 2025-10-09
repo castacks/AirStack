@@ -200,6 +200,17 @@ namespace vis{
     return markers[marker.get_id()];
   }
   
+  Marker& MarkerArray::add_points(std::string frame_id, rclcpp::Time stamp){
+    Marker marker(frame_id, stamp, ns, id++, visualization_msgs::msg::Marker::POINTS);
+    
+    if(marker.get_id() >= markers.size())
+      markers.push_back(marker);
+    else
+      markers[marker.get_id()] = marker;
+    
+    return markers[marker.get_id()];
+  }
+  
   visualization_msgs::msg::MarkerArray MarkerArray::get_marker_array(){
     visualization_msgs::msg::MarkerArray marker_array;
     

@@ -51,6 +51,7 @@ namespace vis {
     Marker& add_arrow(std::string frame_id, rclcpp::Time stamp, geometry_msgs::msg::Pose pose,
 		      float length=0.5f, float width=0.05f, float height=0.05f);
     Marker& add_sphere(std::string frame_id, rclcpp::Time stamp, float x, float y, float z, float radius=0.1f);
+    Marker& add_points(std::string frame_id, rclcpp::Time stamp);
     
     void overwrite();
     visualization_msgs::msg::MarkerArray get_marker_array();

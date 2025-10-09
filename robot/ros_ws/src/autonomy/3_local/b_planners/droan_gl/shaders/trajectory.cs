@@ -6,6 +6,7 @@ struct State {
   vec3 vel;
   vec3 acc;
   vec3 jerk;
+  vec3 collision;
 };
 
 struct TrajectoryParams {
@@ -29,16 +30,27 @@ layout(std430, binding = 2) buffer OutputBuffer {
 };
 
 void main() {
-  uint trajID = gl_GlobalInvocationID.x;
-  TrajectoryParams p = params[trajID];
-
+  uint traj_index = gl_GlobalInvocationID.x;
+  TrajectoryParams p = params[traj_index];
+  
+  float k_v = 8.165;
+  float k_a = 8.1096;
+  float k_j = 4.027;
+  float snap_lim = 100.f;
+  
   State state = initial_state;
   
   for(int i = 0; i < traj_size; i++){
-    state.pos += p.vel_desired * dt;
-    state.pos.x = i;
-    state.pos.y = traj_count;
-    state.pos.z = traj_size;
-    points[trajID * traj_size + i] = state;
+    vec3 snap = -k_v*(state.vel - p.vel_desired) - k_a*state.acc - k_j*state.jerk;
+    snap = clamp(snap, -snap_lim, snap_lim);
+    state.jerk += snap*dt;
+    state.acc += state.jerk*dt;
+    state.vel += state.acc*dt;
+    state.pos += state.vel*dt;
+
+    // TODO remove
+    state.collision = vec3(0, 0, 0);
+    
+    points[traj_index * traj_size + i] = state;
   }
 }
