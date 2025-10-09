@@ -78,6 +78,9 @@ struct init_params
     double momentum_minimum_distance;
     double momentum_time;
     double momentum_collision_check_step_size;
+
+    bool bound_exploration_;
+    double x_min, y_min, z_min, x_max, y_max, z_max;
     
     // RRT
     double planner_norm_limit_;
@@ -161,6 +164,9 @@ private:
     double momentum_minimum_distance_;
     double momentum_time_;
     double momentum_collision_check_step_size_;
+
+    bool bound_exploration_;
+    double x_min, y_min, z_min, x_max, y_max, z_max;
 
     double planner_norm_limit_;
     double max_explore_dist_;

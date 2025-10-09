@@ -24,7 +24,7 @@
     checking_point_cnt: 100 # how many points to collision check between the start and goal points
     max_z_change_m: 2.0 # max height that the goal can deviate from the current height
     collision_padding_m: 0.5 # how much space should the path have to any obstacles
-    path_end_threshold_m: 0.2 # how close to the goal will the path be considered complete
+    path_end_threshold_m: 3.0 # how close to the goal will the path be considered complete
     max_yaw_change_degrees: 180.0 # how much the goal can deviate from the current orientation
 
     # Mapping Parameters
@@ -50,6 +50,14 @@
     viewp_bbox_known_occ_thresh         : 0.0 # No occupation allowed
     coll_check_endpoint_offset          : 0.4
     robot_model_bbox_fraction           : 0.1
+
+    bound_exploration: true
+    x_min: -200.0
+    y_min: -200.0
+    z_min: -10.0
+    x_max: 200.0
+    y_max: 200.0
+    z_max: 20.0
 
     # Traj Planning
     too_close_distance: 4.0

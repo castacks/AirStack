@@ -187,6 +187,8 @@ std::vector<std::vector<double> > DisparityGraphCostMap::get_trajectory_costs_pe
                         disp_graph.is_pose_seen_and_free(pose_to_check, 0.9);
 		    
                     // Add marker:
+                    is_seen = true;
+                    is_free = true;
                     add_check_marker(is_seen, is_free, dist, pose_to_check);
 
                     // Calculate the cost:

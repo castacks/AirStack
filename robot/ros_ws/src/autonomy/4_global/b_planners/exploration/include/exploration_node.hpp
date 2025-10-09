@@ -143,6 +143,7 @@ public:
 
     // ROS publishers
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_plan;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_goal_posestamped;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_vdb;

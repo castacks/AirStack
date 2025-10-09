@@ -229,6 +229,15 @@ std::optional<init_params> ExplorationNode::readParameters()
     params.momentum_collision_check_step_size = this->declare_parameter<double>("momentum_collision_check_step_size", 0.4);
 
     this->momentum_time_ = params.momentum_time;
+
+    params.bound_exploration_ = this->declare_parameter<bool>("bound_exploration", false);
+    params.x_min = this->declare_parameter<double>("x_min", -10.0);
+    params.y_min = this->declare_parameter<double>("y_min", -10.0);
+    params.z_min = this->declare_parameter<double>("z_min", -10.0);
+    params.x_max = this->declare_parameter<double>("x_max", 10.0);
+    params.y_max = this->declare_parameter<double>("y_max", 10.0);
+    params.z_max = this->declare_parameter<double>("z_max", 10.0);
+
     // RRT
     params.planner_norm_limit_ = this->declare_parameter<double>("planner_norm_limit", 0.1);
     params.max_explore_dist_ = this->declare_parameter<double>("max_explore_dist", 100.0);
@@ -324,6 +333,8 @@ void ExplorationNode::initialize()
         this->create_publisher<visualization_msgs::msg::Marker>(pub_clustered_frontier_viz_topic_, 10);
     this->planning_debug_vis =
         this->create_publisher<visualization_msgs::msg::MarkerArray>("/exploration_debug_vis", 10);
+    this->pub_goal_posestamped =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/move_base_simple/goal", 10);
 
     // Set up the timer
     this->timer = this->create_wall_timer(std::chrono::seconds(5),
@@ -701,6 +712,11 @@ void ExplorationNode::publish_plan()
     full_path.header.frame_id = this->world_frame_id_;
     this->pub_global_plan->publish(full_path);
     RCLCPP_INFO(this->get_logger(), "Published full path");
+
+    if (!full_path.poses.empty())
+    {
+        this->pub_goal_posestamped->publish(full_path.poses.back());
+    }
 }
 
 void ExplorationNode::timerCallback()

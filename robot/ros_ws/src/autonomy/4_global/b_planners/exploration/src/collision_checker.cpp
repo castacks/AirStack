@@ -57,7 +57,7 @@ namespace collision_checker_ns
 
         return VDBUtil::checkCollisionAlongRay(grid_map_, vec_start, vec_end,
                                                kBboxLength_, kBboxBreadth_, kBboxHeight_,
-                                               kL_occ_, hit_point, 0, false);
+                                               kL_occ_, hit_point, 0, true);
     }
 
     bool CollisionChecker::collisionCheckInFreeSpace(const ViewPoint &p)

@@ -45,6 +45,14 @@ ExplorationPlanner::ExplorationPlanner(init_params params)
     this->kViewpBBoxUnknownFracThresh_ = params.kViewpBBoxUnknownFracThresh_;
     this->kViewpBBoxOccupiedFracThresh_ = params.kViewpBBoxOccupiedFracThresh_;
 
+    this->bound_exploration_ = params.bound_exploration_;
+    this->x_min = params.x_min;
+    this->y_min = params.y_min;
+    this->z_min = params.z_min;
+    this->x_max = params.x_max;
+    this->y_max = params.y_max;
+    this->z_max = params.z_max;
+
     this->too_close_distance_ = params.too_close_distance;
     this->too_close_penalty_ = params.too_close_penalty;
     this->odometry_match_distance_ = params.odometry_match_distance;
@@ -88,7 +96,10 @@ ExplorationPlanner::ExplorationPlanner(init_params params)
                                                                                kCollCheckEndpointOffset_,
                                                                                kRobotModelBBoxFraction_,
                                                                                kViewpBBoxUnknownFracThresh_,
-                                                                               kViewpBBoxOccupiedFracThresh_);
+                                                                               kViewpBBoxOccupiedFracThresh_,
+                                                                               bound_exploration_,
+                                                                               Eigen::Vector3d(x_min, y_min, z_min),
+                                                                               Eigen::Vector3d(x_max, y_max, z_max));
 
     collision_checker_.init(kVoxSize_,
                             kBboxLength_,
@@ -110,7 +121,7 @@ ExplorationPlanner::ExplorationPlanner(init_params params)
                           dense_step_);
 }
 
-std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint& start_point, const ViewPoint& goal_point)
+std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint &start_point, const ViewPoint &goal_point)
 {
     Path output_path;
     bool is_traj = false;
@@ -141,9 +152,9 @@ std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint& 
             }
 
             output_path.emplace_back(static_cast<float>(vp.x),
-                                        static_cast<float>(vp.y),
-                                        static_cast<float>(vp.z),
-                                        yaw_val);
+                                     static_cast<float>(vp.y),
+                                     static_cast<float>(vp.z),
+                                     yaw_val);
         }
 
         RCLCPP_WARN(rclcpp::get_logger("exploration_planner"), "RRT Path generated");
@@ -153,11 +164,11 @@ std::optional<Path> ExplorationPlanner::plan_to_given_waypoint(const ViewPoint& 
 
     RCLCPP_WARN(rclcpp::get_logger("exploration_planner"),
                 "No RRT path created");
-    
+
     return output_path;
 }
 
-std::optional<Path> ExplorationPlanner::select_viewpoint_and_plan(const ViewPoint& start_point, float timeout_duration)
+std::optional<Path> ExplorationPlanner::select_viewpoint_and_plan(const ViewPoint &start_point, float timeout_duration)
 {
     RCLCPP_WARN(rclcpp::get_logger("exploration_planner"), "Start planning");
     robot_pos_ = start_point;

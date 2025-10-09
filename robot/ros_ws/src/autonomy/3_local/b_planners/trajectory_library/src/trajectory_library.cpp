@@ -1294,10 +1294,18 @@ TrajectoryLibrary::TrajectoryLibrary(std::string config_filename,
             double ht = parse<double>(traj_node["ht"]);
             double max_velocity = parse<double>(traj_node["max_velocity"]);
 
-            AccelerationTrajectory* traj =
-                new AccelerationTrajectory(buffer, frame, x, y, z, dt, ht, max_velocity);
+            for (int mag_rate_id=1; mag_rate_id <= 2; mag_rate_id++)
+            {
+                double mag_rate = (double)mag_rate_id / 2;
+                AccelerationTrajectory* traj =
+                    new AccelerationTrajectory(buffer, frame, x * mag_rate, y * mag_rate, z * mag_rate, dt, ht, max_velocity);
 
-            dynamic_trajectories.push_back(traj);
+                dynamic_trajectories.push_back(traj); 
+            }
+            // AccelerationTrajectory* traj =
+            //     new AccelerationTrajectory(buffer, frame, x, y, z, dt, ht, max_velocity);
+
+            // dynamic_trajectories.push_back(traj);
         }
     }
     // RCLCPP_DEBUG_STREAM(node_ptr->get_logger(),

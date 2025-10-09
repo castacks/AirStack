@@ -162,14 +162,18 @@ class OdomModifier(Node):
                             Duration(seconds=2, nanoseconds=0))
             if t == None:
                 return
+            
+            kp_x = 2
+            kp_y = 2
+            kp_z = 4
 
             rot = R.from_quat([t.transform.rotation.x,
                                t.transform.rotation.y,
                                t.transform.rotation.z,
                                t.transform.rotation.w])
-            vel = np.array([msg.pose.position.x - self.odom.pose.pose.position.x,
-                            msg.pose.position.y - self.odom.pose.pose.position.y,
-                            msg.pose.position.z - self.odom.pose.pose.position.z])
+            vel = np.array([kp_x * (msg.pose.position.x - self.odom.pose.pose.position.x),
+                            kp_y * (msg.pose.position.y - self.odom.pose.pose.position.y),
+                            kp_z * (msg.pose.position.z - self.odom.pose.pose.position.z)])
             vel = rot.apply(vel)
             mag = np.linalg.norm(vel)
             if mag > self.max_velocity:

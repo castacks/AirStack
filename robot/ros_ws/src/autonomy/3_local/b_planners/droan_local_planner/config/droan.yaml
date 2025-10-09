@@ -2,16 +2,16 @@
   ros__parameters:
 
     # execution rate in hz
-    execute_rate: 5.0
+    execute_rate: 4.0
 
 
     # Trajectory parameters 
     trajectory_library_config: "$(find-pkg-share trajectory_library)/config/long.yaml"
     dt: 0.2
-    ht: 2.4
-    ht_long: 3.0
+    ht: 0.6
+    ht_long: 0.6
     max_velocity: 1.0
-    magnitude: 0.5
+    magnitude: 1.0
 
     # DROAN parameters
     robot_radius: 1.0
