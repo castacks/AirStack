@@ -1,0 +1,24 @@
+output_bags:
+- uri: merged  # required
+  storage_id: ""  # will use the default storage plugin, if unspecified
+  max_bagfile_size: 0
+  max_bagfile_duration: 0
+  storage_preset_profile: ""
+  storage_config_uri: ""
+  all_topics: true
+  topics: []
+  topic_types: []
+  all_services: true
+  services: []
+  rmw_serialization_format: ""  # defaults to using the format of the input topic
+  regex: ""
+  exclude_regex: ""
+  exclude_topics: []
+  exclude_topic_types: []
+  exclude_services: []
+  compression_mode: ""
+  compression_format: ""
+  compression_queue_size: 1
+  compression_threads: 0
+  include_hidden_topics: true
+  include_unpublished_topics: true

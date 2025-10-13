@@ -10,7 +10,7 @@
     dt: 0.2
     ht: 2.4
     ht_long: 3.0
-    max_velocity: 1.0
+    max_velocity: 2.0
     magnitude: 0.5
 
     # DROAN parameters
@@ -54,8 +54,8 @@
     graph_size: 5
 
     # Rewind parameters
-    stuck_duration_threshold: 6.0
-    all_in_collision_duration_threshold: 2.0
+    stuck_duration_threshold: 5.0
+    all_in_collision_duration_threshold: 4.0
     map_clearing_max_rewind_time: 20.0
     map_clearing_rewind_distance: 5.0
     stationary_distance_threshold: 0.5

@@ -37,3 +37,11 @@ trajectories:
         - x
         - y
         - height
+  - Lawnmower:
+      attributes:
+        - frame_id
+        - length
+        - width
+        - height
+        - velocity
+        - vertical

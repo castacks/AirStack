@@ -4,7 +4,8 @@
       pkg="tf2_ros"
       exec="static_transform_publisher"
       name="zed_link_static_transform_publisher"
-      args="0 0 0 0 0.261799 0 base_link front_stereo_camera_link" />
+      args="0 0 0 0 0.31 0 base_link front_stereo_camera_link" />
+  <!-- 15 deg 0.261799 rad, 18 deg 0.31 rad, 20 deg 0.35 rad -->
   
   <push-ros-namespace namespace="interface" />
   <include file="$(find-pkg-share mavros)/launch/apm.launch">
