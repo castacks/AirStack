@@ -462,7 +462,7 @@ private:
   }
 
   void create_instanced_sphere() {
-    std::string mesh_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/config/half_sphere.dae";
+    std::string mesh_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/config/half_sphere_low_res.dae";
     RCLCPP_INFO_STREAM(get_logger(), "mesh filename: " << mesh_filename);
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(mesh_filename,
@@ -574,6 +574,11 @@ private:
 	offsets.push_back(Z);
       }
     }
+    
+    // measuring
+    GLuint q;
+    glGenQueries(1, &q);
+    glBeginQuery(GL_TIME_ELAPSED, q);
 
     glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_);
     glBufferData(GL_ARRAY_BUFFER, offsets.size()*sizeof(float), offsets.data(), GL_DYNAMIC_DRAW);
@@ -615,6 +620,13 @@ private:
     
     glBindVertexArray(sphere_mesh.VAO);
     glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size()/3);
+
+    // measuring
+    glEndQuery(GL_TIME_ELAPSED);
+    GLuint64 elapsed_ns = 0;
+    glGetQueryObjectui64v(q, GL_QUERY_RESULT, &elapsed_ns);
+    double elapsed_ms = elapsed_ns / 1e6;
+    RCLCPP_INFO_STREAM(get_logger(), "DISPARITY " << offsets.size()/3.f << " " << elapsed_ms);
     
     publish_texture();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
