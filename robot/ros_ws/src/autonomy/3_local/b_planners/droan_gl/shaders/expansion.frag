@@ -5,6 +5,7 @@ uniform float baseline_fx;
 uniform float sign;
 
 in float disparity;
+in float back_disparity;
 in vec2 fragUV;
 
 out float FragColor;

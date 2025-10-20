@@ -186,6 +186,17 @@ struct alignas(16) CollisionInfo {
   int limit;
 };
 
+struct DisparityPoint {
+    float x, y, z;
+  
+    bool operator<(const DisparityPoint& other) const {
+      float dist = x*x + y*y + z*z;
+      float other_dist = other.x*other.x + other.y*other.y + other.z*other.z;
+      return dist < other_dist;
+      //return z < other.z;
+    }
+};
+
 class DisparitySphereRenderer : public rclcpp::Node {
 public:
   DisparitySphereRenderer()
@@ -211,6 +222,7 @@ public:
     target_frame = airstack::get_param(this, "target_frame", std::string("map"));
     look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point"));
     graph_nodes = airstack::get_param(this, "graph_nodes", 1);
+    expansion_radius = airstack::get_param(this, "expansion_radius", 2.0);
     dt = airstack::get_param(this, "dt", 0.2);
     ht = airstack::get_param(this, "ht", 60.0);
     
@@ -258,6 +270,7 @@ private:
   std::string target_frame;
   int graph_nodes;
   int total_layers;
+  float expansion_radius;
 
   std::deque<GraphNode> graph;
 
@@ -270,6 +283,20 @@ private:
   GLuint params_ssbo, traj_ssbo, transform_ssbo;
 
   vis::MarkerArray traj_markers;
+
+  GLuint elapsed_query;
+
+  void gl_tic(){
+    glBeginQuery(GL_TIME_ELAPSED, elapsed_query);
+  }
+
+  float gl_toc(){
+    glEndQuery(GL_TIME_ELAPSED);
+    GLuint64 elapsed_ns = 0;
+    glGetQueryObjectui64v(elapsed_query, GL_QUERY_RESULT, &elapsed_ns);
+    float elapsed_ms = elapsed_ns / 1e6;
+    return elapsed_ms;
+  }
 
   void init_opengl() {
     // TODO auto detect whether or not to use egl or glfw based on whether egl is able to find a non software renderer
@@ -374,6 +401,9 @@ private:
     glViewport(0,0,intrinsics_.width,intrinsics_.height);
     glClearColor(0,0,0,1);
     glEnable(GL_DEPTH_TEST);
+    //glDepthMask(GL_TRUE);
+
+    glGenQueries(1, &elapsed_query);
 
     // trajectory generation init
     for(int p = -60.f; p < 60.f; p += 5.f){
@@ -410,7 +440,7 @@ private:
     glGenBuffers(1, &collision_info_ubo);
     glBindBuffer(GL_UNIFORM_BUFFER, collision_info_ubo);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(CollisionInfo), nullptr, GL_DYNAMIC_DRAW);
-
+    
     opengl_inited = true;
   }
 
@@ -481,9 +511,9 @@ private:
     std::vector<unsigned int> indices;
     
     for(unsigned i = 0; i < mesh->mNumVertices; i++){
-        vertices.push_back(mesh->mVertices[i].x*0.5);
-        vertices.push_back(mesh->mVertices[i].y*0.5);
-        vertices.push_back(mesh->mVertices[i].z*0.5);
+        vertices.push_back(mesh->mVertices[i].x*expansion_radius);
+        vertices.push_back(mesh->mVertices[i].y*expansion_radius);
+        vertices.push_back(mesh->mVertices[i].z*expansion_radius);
     }
     for(unsigned i = 0; i < mesh->mNumFaces; i++)
       for(unsigned j = 0; j < mesh->mFaces[i].mNumIndices; j++)
@@ -560,7 +590,7 @@ private:
     }
 
 
-    std::vector<float> offsets;
+    std::vector<DisparityPoint> offsets;
     for(int y=0; y<disparity_image_.rows; y++){
       for(int x=0; x<disparity_image_.cols; x++){
 	float d = disparity_image_.at<float>(y,x);
@@ -569,19 +599,15 @@ private:
 	float Z = intrinsics_.baseline * intrinsics_.fx / d;
 	float X = (x - intrinsics_.cx) * Z / intrinsics_.fx;
 	float Y = (y - intrinsics_.cy) * Z / intrinsics_.fy;
-	offsets.push_back(X);
-	offsets.push_back(Y);
-	offsets.push_back(Z);
+	offsets.push_back({X, Y , Z});
       }
     }
+    //std::sort(offsets.begin(), offsets.end());
     
-    // measuring
-    GLuint q;
-    glGenQueries(1, &q);
-    glBeginQuery(GL_TIME_ELAPSED, q);
-
+    gl_tic();
+    
     glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_);
-    glBufferData(GL_ARRAY_BUFFER, offsets.size()*sizeof(float), offsets.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, offsets.size()*sizeof(DisparityPoint), offsets.data(), GL_DYNAMIC_DRAW);
 
     // foreground
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
@@ -606,8 +632,11 @@ private:
     glUniform1f(glGetUniformLocation(shader_program_, "sign"), 1.f);
     
     glBindVertexArray(sphere_mesh.VAO);
-    glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size()/3);
+    glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size());
 
+    float fg_elapsed = gl_toc();
+    gl_tic();
+    
     // background
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, node.bg_index);
@@ -619,14 +648,11 @@ private:
     glUniform1f(glGetUniformLocation(shader_program_, "sign"), -1.f);
     
     glBindVertexArray(sphere_mesh.VAO);
-    glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size()/3);
+    glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size());
+    
+    float bg_elapsed = gl_toc();
 
-    // measuring
-    glEndQuery(GL_TIME_ELAPSED);
-    GLuint64 elapsed_ns = 0;
-    glGetQueryObjectui64v(q, GL_QUERY_RESULT, &elapsed_ns);
-    double elapsed_ms = elapsed_ns / 1e6;
-    RCLCPP_INFO_STREAM(get_logger(), "DISPARITY " << offsets.size()/3.f << " " << elapsed_ms);
+    RCLCPP_INFO_STREAM(get_logger(), "DISP TIMING: " << offsets.size() << " " << fg_elapsed << " " << bg_elapsed << " " << (fg_elapsed + bg_elapsed));
     
     publish_texture();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
