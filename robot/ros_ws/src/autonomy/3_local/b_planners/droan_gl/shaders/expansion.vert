@@ -10,6 +10,8 @@ uniform float sign;
 
 out float disparity;
 out float back_disparity;
+out float origin_disparity;
+out float circle_depth;
 out vec2 fragUV;
 
 void main() {
@@ -27,10 +29,14 @@ void main() {
             
   vec4 eye_pos = view * vec4(rot*aPos + offset, 1.0);
   disparity = baseline_fx / -eye_pos.z;
-
+  
   vec4 eye_pos_bg = view * vec4(rot_bg*aPos + offset, 1.0);
   back_disparity = baseline_fx / -eye_pos_bg.z;
+  origin_disparity = baseline_fx / offset.z;
+
+  circle_depth = aPos.z;
             
   gl_Position = proj * eye_pos;
   fragUV = (gl_Position.xy / gl_Position.w) * 0.5 + 0.5;
+  fragUV.x = 1. - fragUV.x;
 }

@@ -224,7 +224,7 @@ public:
     graph_nodes = airstack::get_param(this, "graph_nodes", 1);
     expansion_radius = airstack::get_param(this, "expansion_radius", 2.0);
     dt = airstack::get_param(this, "dt", 0.2);
-    ht = airstack::get_param(this, "ht", 60.0);
+    ht = airstack::get_param(this, "ht", 5.0);
     
     total_layers = graph_nodes*2;
     look_ahead_valid = false;
@@ -261,7 +261,7 @@ private:
 
   GLFWwindow* window_;
   GLuint sphere_vao_, sphere_vbo_, instance_vbo_;
-  GLuint framebuffer_, color_tex_, depth_tex_;
+  GLuint framebuffer_, color_tex_, depth_tex_, disparity_tex_;
   GLuint shader_program_;
   Mesh sphere_mesh;
 
@@ -376,6 +376,13 @@ private:
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_tex_, 0);
 
+    // disparity texture
+    glGenTextures(1, &disparity_tex_);
+    glBindTexture(GL_TEXTURE_2D, disparity_tex_);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32F, intrinsics_.width, intrinsics_.height);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
     
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       throw std::runtime_error("Framebuffer not complete");
@@ -406,8 +413,8 @@ private:
     glGenQueries(1, &elapsed_query);
 
     // trajectory generation init
-    for(int p = -60.f; p < 60.f; p += 5.f){
-      for(float y = 0.f; y < 360.f; y += 5.f){
+    for(float p = -15.f; p < 16.f; p += 15.f){
+      for(float y = 0.f; y < 360.f; y += 10.f){
 	float yaw = y*M_PI/180.f;
 	float pitch = p*M_PI/180.f;
 
@@ -603,6 +610,18 @@ private:
       }
     }
     //std::sort(offsets.begin(), offsets.end());
+
+    glBindTexture(GL_TEXTURE_2D, disparity_tex_);
+    glTexSubImage2D(
+		    GL_TEXTURE_2D,
+		    0,            // mipmap level
+		    0, 0,         // x/y offset
+		    intrinsics_.width,
+		    intrinsics_.height,
+		    GL_RED,       // format of CPU data (single channel)
+		    GL_FLOAT,     // type of CPU data
+		    disparity_image_.data);
+    
     
     gl_tic();
     
@@ -630,13 +649,16 @@ private:
     glUniform1f(glGetUniformLocation(shader_program_, "baseline_fx"), intrinsics_.baseline * intrinsics_.fx);
     glUniform1i(glGetUniformLocation(shader_program_, "tex_array"), 0);
     glUniform1f(glGetUniformLocation(shader_program_, "sign"), 1.f);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, disparity_tex_);
+    glUniform1i(glGetUniformLocation(shader_program_, "disparity_tex"), 0);
     
     glBindVertexArray(sphere_mesh.VAO);
     glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size());
 
     float fg_elapsed = gl_toc();
     gl_tic();
-    
+    /*
     // background
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, node.bg_index);
@@ -649,7 +671,7 @@ private:
     
     glBindVertexArray(sphere_mesh.VAO);
     glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size());
-    
+    */
     float bg_elapsed = gl_toc();
 
     RCLCPP_INFO_STREAM(get_logger(), "DISP TIMING: " << offsets.size() << " " << fg_elapsed << " " << bg_elapsed << " " << (fg_elapsed + bg_elapsed));
@@ -762,8 +784,11 @@ private:
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, params_ssbo);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, traj_ssbo);
     
-    
+
+    gl_tic();
     glDispatchCompute((traj_params.size() + 255) / 256, 1, 1);
+    float traj_gen_elapsed = gl_toc();
+    RCLCPP_INFO_STREAM(get_logger(), "TRAJ GEN TIMING: " << traj_gen_elapsed);
     //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -808,7 +833,10 @@ private:
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, color_tex_);
 
+    gl_tic();
     glDispatchCompute((traj_params.size() * get_traj_size() + 255) / 256, 1, 1);
+    float traj_collision_check_elapsed = gl_toc();
+    RCLCPP_INFO_STREAM(get_logger(), "TRAJ COLLISION CHECK TIMING: " << traj_collision_check_elapsed);
     //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 

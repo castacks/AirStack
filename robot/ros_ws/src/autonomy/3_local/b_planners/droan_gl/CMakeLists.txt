@@ -30,10 +30,22 @@ target_compile_features(droan PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++
 ament_target_dependencies(droan rclcpp sensor_msgs stereo_msgs nav_msgs visualization_msgs tf2 tf2_ros tf2_geometry_msgs cv_bridge ament_index_cpp pcl_conversions airstack_common airstack_msgs)
 target_link_libraries(droan glfw dl assimp EGL GL)
 
+
+add_executable(expand src/expand.cpp src/glad/src/glad.c)
+target_include_directories(expand PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(expand PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(expand rclcpp sensor_msgs stereo_msgs nav_msgs visualization_msgs tf2 tf2_ros tf2_geometry_msgs cv_bridge ament_index_cpp pcl_conversions airstack_common airstack_msgs)
+target_link_libraries(expand glfw dl assimp EGL GL)
+
 install(TARGETS droan DESTINATION lib/${PROJECT_NAME})
+install(TARGETS expand DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY shaders DESTINATION share/${PROJECT_NAME})
+
+install(PROGRAMS scripts/scale_camera_info.py DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
