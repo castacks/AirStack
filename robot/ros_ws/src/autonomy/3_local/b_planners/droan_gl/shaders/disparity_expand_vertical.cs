@@ -11,18 +11,28 @@ layout(binding = 3, r32i) uniform iimage2D bgFinal;
 
 uniform float baseline;
 uniform float fx;
+uniform float fy;
+uniform float cx;
+uniform float cy;
 uniform float expansion_radius;
 uniform float discontinuityThresh;
+uniform float scale;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   ivec2 size = imageSize(fgHoriz);
   if (coord.x >= size.x || coord.y >= size.y) return;
+  
+  // TODO remove
+  imageStore(fgFinal, coord, imageLoad(fgHoriz, coord));
+  return;
 
   int centerInt = imageLoad(fgHoriz, coord).r;
   if (centerInt <= 0) return;
 
-  int radius = int(expansion_radius * float(centerInt) / 10000.0 / baseline);
+  
+
+  int radius = int(expansion_radius * float(centerInt) / scale / baseline);
 
   for (int dy = -radius; dy <= radius; ++dy) {
     ivec2 p = coord + ivec2(0, dy);

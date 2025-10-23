@@ -59,6 +59,8 @@ public:
     initGL();
     horizProg_ = createComputeShader(ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/disparity_expand_horizontal.cs");
     vertProg_  = createComputeShader(ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/disparity_expand_vertical.cs");
+
+    scale = 1000000.0;
   }
 
 private:
@@ -85,7 +87,7 @@ private:
 
     // Convert float disparity → int (×10000)
     cv::Mat disp_i;
-    disp.convertTo(disp_i, CV_32S, 10000.0);
+    disp.convertTo(disp_i, CV_32S, scale);
 
     GLuint texIn, fgHoriz, bgHoriz, fgFinal, bgFinal;
     setupTextures(disp_i, width, height, texIn, fgHoriz, bgHoriz, fgFinal, bgFinal);
@@ -104,8 +106,12 @@ private:
     glBindImageTexture(2, bgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glUniform1f(glGetUniformLocation(horizProg_, "baseline"), baseline_);
     glUniform1f(glGetUniformLocation(horizProg_, "fx"), fx_);
+    glUniform1f(glGetUniformLocation(horizProg_, "fy"), fy_);
+    glUniform1f(glGetUniformLocation(horizProg_, "cx"), fx_);
+    glUniform1f(glGetUniformLocation(horizProg_, "cy"), cy_);
     glUniform1f(glGetUniformLocation(horizProg_, "expansion_radius"), 2.f);
     glUniform1f(glGetUniformLocation(horizProg_, "discontinuityThresh"), 1.0f);
+    glUniform1f(glGetUniformLocation(horizProg_, "scale"), scale);
     glDispatchCompute((width + work_group_size_x-1) / work_group_size_x, (height + work_group_size_y-1) / work_group_size_y, 1);
     
     glEndQuery(GL_TIME_ELAPSED);
@@ -126,10 +132,14 @@ private:
     glBindImageTexture(1, bgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
     glBindImageTexture(2, fgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glBindImageTexture(3, bgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
-    glUniform1f(glGetUniformLocation(horizProg_, "baseline"), baseline_);
-    glUniform1f(glGetUniformLocation(horizProg_, "fx"), fx_);
+    glUniform1f(glGetUniformLocation(vertProg_, "baseline"), baseline_);
+    glUniform1f(glGetUniformLocation(vertProg_, "fx"), fx_);
+    glUniform1f(glGetUniformLocation(vertProg_, "fy"), fy_);
+    glUniform1f(glGetUniformLocation(vertProg_, "cx"), fx_);
+    glUniform1f(glGetUniformLocation(vertProg_, "cy"), cy_);
     glUniform1f(glGetUniformLocation(vertProg_, "expansion_radius"), 2.f);
     glUniform1f(glGetUniformLocation(vertProg_, "discontinuityThresh"), 1.0f);
+    glUniform1f(glGetUniformLocation(vertProg_, "scale"), scale);
     glDispatchCompute((width + work_group_size_x-1) / work_group_size_x, (height + work_group_size_y-1) / work_group_size_y, 1);
 
     glEndQuery(GL_TIME_ELAPSED);
@@ -262,8 +272,8 @@ private:
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RED_INTEGER, GL_INT, bg_i.data);
 
     cv::Mat fg_f, bg_f;
-    fg_i.convertTo(fg_f, CV_32F, 1.0 / 10000.0);
-    bg_i.convertTo(bg_f, CV_32F, 1.0 / 10000.0);
+    fg_i.convertTo(fg_f, CV_32F, 1.0 / scale);
+    bg_i.convertTo(bg_f, CV_32F, 1.0 / scale);
 
     auto fg_msg = cv_bridge::CvImage(hdr, "32FC1", fg_f).toImageMsg();
     auto bg_msg = cv_bridge::CvImage(hdr, "32FC1", bg_f).toImageMsg();
@@ -277,10 +287,24 @@ private:
 	float disp = fg_f.at<float>(y, x);
 	float depth = baseline_*fx_/disp;
 	tf2::Vector3 v((x-cx_)*depth/fx_, (y-cy_)*depth/fy_, depth);
-	p.x = v_world.x();
-	p.y = v_world.y();
-	p.z = v_world.z();
-	p.intensity = (index+1)%2;
+	p.x = v.x();
+	p.y = v.y();
+	p.z = v.z();
+	p.intensity = 1;
+	
+	if(disp > 0.f && std::isfinite(disp))
+	  fg_bg_cloud.points.push_back(p);
+      }
+    }
+    for(int y = 0; y < bg_f.rows; y++){
+      for(int x = 0; x < bg_f.cols; x++){
+	float disp = bg_f.at<float>(y, x);
+	float depth = baseline_*fx_/disp;
+	tf2::Vector3 v((x-cx_)*depth/fx_, (y-cy_)*depth/fy_, depth);
+	p.x = v.x();
+	p.y = v.y();
+	p.z = v.z();
+	p.intensity = 0;
 	
 	if(disp > 0.f && std::isfinite(disp))
 	  fg_bg_cloud.points.push_back(p);
@@ -301,6 +325,7 @@ private:
   GLFWwindow *window_;
   GLuint horizProg_, vertProg_;
   float fx_, fy_, cx_, cy_, baseline_;
+  float scale;
 };
 
 int main(int argc, char **argv) {
