@@ -84,6 +84,8 @@ private:
     cv::Mat disp = cv_bridge::toCvCopy(msg->image, "32FC1")->image;
     int width = disp.cols;
     int height = disp.rows;
+    //disp = 0.f;
+    //disp.at<float>(cy_, cx_) = 2.f;
 
     // Convert float disparity → int (×10000)
     cv::Mat disp_i;

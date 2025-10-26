@@ -32,7 +32,7 @@ void main() {
 
   float a_0 = (float(coord.x) - cx)/fx;
   float b = (float(coord.y) - cy)/fy;
-  float b_0 = b;
+  float b_0 = (float(coord.y) - cy)/fy;//b;
 
   float Zc = center_depth;
   float Xc = a_0*Zc;
@@ -46,20 +46,31 @@ void main() {
     float A = a*a + b*b + 1;
     float B = -2.*Zc*(a*a_0 + b*b_0 + 1);
     float C = Zc*Zc*(a_0*a_0 + b_0*b_0  + 1) - expansion_radius*expansion_radius;
+    if((B*B - 4.*A*C) < 0.)
+      break;
     float Zp = (-B - sqrt(B*B - 4.*A*C))/(2.*A);
     int new_disp = int(scale*fx*baseline / Zp);
-    new_disp = (new_disp >> 10) << 10;
+    //new_disp = (new_disp >> 10) << 10;
 
     float Xp = a*Zp;
-    int angle = int((atan(Zp - Zc, Xp - Xc) + PI/2.) / PI * 1000.);
+    float raw_angle = atan(Xp - Xc, Zp - Zc);
+    int angle = int((raw_angle + PI/2.) / PI * 1000.);
 
-    new_disp += angle;
+    //new_disp += angle;
+    new_disp = (new_disp & ~0x3FF) | (angle & 0x3FF);
+
+    float new_angle = float(new_disp & 0x3FF) / 1000. * PI - PI/2.;
     
     //float sphere_depth = sqrt(expansion_radius*expansion_radius - pow(expansion_radius * int(dx)/int(radius), 2));
     //int new_disp = int(scale*fx*baseline / (center_depth - sphere_depth));
     
     imageAtomicMax(fgHoriz, p, new_disp);
+    //imageAtomicMax(fgHoriz, p, int(center_depth*scale));
     //imageAtomicMax(fgHoriz, p, centerInt);
-    imageAtomicMin(bgHoriz, p, centerInt);
+
+    imageAtomicMin(bgHoriz, p, new_disp);
+    //imageAtomicMin(bgHoriz, p, int((float(raw_angle > 0.) + 1.)*scale));
+    //imageAtomicMin(bgHoriz, p, int(Zc*scale));
+    //imageAtomicMin(bgHoriz, p, centerInt);
   }
 }
