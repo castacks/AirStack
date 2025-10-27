@@ -61,14 +61,17 @@ public:
     vertProg_  = createComputeShader(ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/disparity_expand_vertical.cs");
 
     scale = 1000000.0;
+    downsample_scale = 2.f;
   }
 
 private:
   void onCameraInfo(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
-    fx_ = static_cast<float>(msg->k[0]);
-    fy_ = static_cast<float>(msg->k[4]);
-    cx_ = static_cast<float>(msg->k[2]);
-    cy_ = static_cast<float>(msg->k[5]);
+    fx_ = static_cast<float>(msg->k[0])/downsample_scale;
+    fy_ = static_cast<float>(msg->k[4])/downsample_scale;
+    cx_ = static_cast<float>(msg->k[2])/downsample_scale;
+    cy_ = static_cast<float>(msg->k[5])/downsample_scale;
+    width_ = msg->width/downsample_scale;
+    height_ = msg->height/downsample_scale;
     baseline_ = (msg->p[3] / -msg->p[0]); // assuming right camera
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
 			 "Camera intrinsics loaded: fx=%.2f fy=%.2f baseline=%.3f",
@@ -114,7 +117,8 @@ private:
     glUniform1f(glGetUniformLocation(horizProg_, "expansion_radius"), 2.f);
     glUniform1f(glGetUniformLocation(horizProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(horizProg_, "scale"), scale);
-    glDispatchCompute((width + work_group_size_x-1) / work_group_size_x, (height + work_group_size_y-1) / work_group_size_y, 1);
+    glUniform1i(glGetUniformLocation(horizProg_, "downsample_scale"), downsample_scale);
+    glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
     
     glEndQuery(GL_TIME_ELAPSED);
     GLuint64 horizontal_time = 0;
@@ -142,7 +146,8 @@ private:
     glUniform1f(glGetUniformLocation(vertProg_, "expansion_radius"), 2.f);
     glUniform1f(glGetUniformLocation(vertProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(vertProg_, "scale"), scale);
-    glDispatchCompute((width + work_group_size_x-1) / work_group_size_x, (height + work_group_size_y-1) / work_group_size_y, 1);
+    glUniform1i(glGetUniformLocation(vertProg_, "downsample_scale"), downsample_scale);
+    glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
 
     glEndQuery(GL_TIME_ELAPSED);
     GLuint64 vertical_time = 0;
@@ -162,7 +167,7 @@ private:
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 
-    publishResults(msg->image.header, fgFinal, bgFinal, width, height);
+    publishResults(msg->image.header, fgFinal, bgFinal, width_, height_);
 
     glDeleteTextures(1, &texIn);
     glDeleteTextures(1, &fgHoriz);
@@ -246,22 +251,22 @@ private:
   void setupTextures(const cv::Mat &disp_i, int w, int h,
 		     GLuint &texIn, GLuint &fgH, GLuint &bgH,
 		     GLuint &fgF, GLuint &bgF) {
-    auto initTex = [&](GLuint &t, GLenum fmt, const void *data) {
+    auto initTex = [&](GLuint &t, GLenum fmt, const void *data, int width, int height) {
 		     glGenTextures(1, &t);
 		     glBindTexture(GL_TEXTURE_2D, t);
-		     glTexStorage2D(GL_TEXTURE_2D, 1, fmt, w, h);
+		     glTexStorage2D(GL_TEXTURE_2D, 1, fmt, width, height);
 		     if (data)
-		       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED_INTEGER, GL_INT, data);
+		       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, data);
 		   };
 
-    initTex(texIn, GL_R32I, disp_i.ptr<int>());
+    initTex(texIn, GL_R32I, disp_i.ptr<int>(), w, h);
 
-    std::vector<int> zeros(w * h, 0);
-    std::vector<int> maxv(w * h, std::numeric_limits<int>::max());
-    initTex(fgH, GL_R32I, zeros.data());
-    initTex(bgH, GL_R32I, maxv.data());
-    initTex(fgF, GL_R32I, zeros.data());
-    initTex(bgF, GL_R32I, maxv.data());
+    std::vector<int> zeros(width_ * height_, 0);
+    std::vector<int> maxv(width_ * height_, std::numeric_limits<int>::max());
+    initTex(fgH, GL_R32I, zeros.data(), width_, height_);
+    initTex(bgH, GL_R32I, maxv.data(), width_, height_);
+    initTex(fgF, GL_R32I, zeros.data(), width_, height_);
+    initTex(bgF, GL_R32I, maxv.data(), width_, height_);
   }
 
   void publishResults(const std_msgs::msg::Header &hdr,
@@ -327,6 +332,8 @@ private:
   GLFWwindow *window_;
   GLuint horizProg_, vertProg_;
   float fx_, fy_, cx_, cy_, baseline_;
+  int width_, height_;
+  int downsample_scale;
   float scale;
 };
 

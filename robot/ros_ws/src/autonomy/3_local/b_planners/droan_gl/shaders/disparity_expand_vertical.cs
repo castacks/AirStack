@@ -17,6 +17,7 @@ uniform float cy;
 uniform float expansion_radius;
 uniform float discontinuityThresh;
 uniform float scale;
+uniform int downsample_scale;
 
 const float PI = 3.14159265358979323846;
 
@@ -26,7 +27,7 @@ void main() {
   if (coord.x >= size.x || coord.y >= size.y) return;
   
   // TODO remove
-  imageStore(bgFinal, coord, imageLoad(bgHoriz, coord));
+  //imageStore(bgFinal, coord, imageLoad(bgHoriz, coord));
   //imageStore(fgFinal, coord, imageLoad(fgHoriz, coord));
   //return;
 
@@ -55,12 +56,10 @@ void main() {
 
   int ymin = int(floor(vc - rv*sqrt(1. - ((float(coord.x) - uc)*(float(coord.x) - uc))/(ru*ru))));
   int ymax = int(ceil(vc + rv*sqrt(1. - ((float(coord.x) - uc)*(float(coord.x) - uc))/(ru*ru))));
-  
-
-  //for (int dy = -radius; dy <= radius; ++dy) {
   for (int y = ymin; y <= ymax; ++y) {
-    //ivec2 p = coord + ivec2(0, dy);
     ivec2 p = ivec2(coord.x, y);
+  //for (int dy = -radius; dy <= radius; ++dy) {
+    //ivec2 p = coord + ivec2(0, dy);
     if (p.y < 0 || p.y >= size.y) continue;
 
     float b = (float(p.y) - cy)/fy;
@@ -71,13 +70,12 @@ void main() {
       continue;
     float Zp = (-B - sqrt(B*B - 4.*A*C))/(2.*A);
     int new_disp = int(scale*fx*baseline / Zp);
-    //new_disp = (new_disp >> 10) << 10;
 
-    //imageAtomicMax(fgFinal, p, (centerInt & 0x3FF)*int(scale));
-    //imageAtomicMin(fgFinal, p, int((float(angle == angle) + 1.)*scale));
+    
+    //float Zp_bg = (-B + sqrt(B*B - 4.*A*C))/(2.*A);
+    //int new_disp_bg = int(scale*fx*baseline / Zp_bg);
+    
     imageAtomicMax(fgFinal, p, new_disp);
-    //imageAtomicMax(fgFinal, p, int(Zc*scale));
-    //imageAtomicMax(fgFinal, p, centerInt);
-    //imageAtomicMin(bgFinal, p, centerInt);
+    //imageAtomicMin(bgFinal, p, new_disp_bg);
   }
 }
