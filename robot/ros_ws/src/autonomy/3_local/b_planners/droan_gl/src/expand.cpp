@@ -76,6 +76,9 @@ private:
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
 			 "Camera intrinsics loaded: fx=%.2f fy=%.2f baseline=%.3f",
 			 fx_, fy_, baseline_);
+
+    cv::Mat none;
+    setupTextures(none, msg->width, msg->height, texIn, fgHoriz, bgHoriz, fgFinal, bgFinal);
   }
 
   void onDisparity(const stereo_msgs::msg::DisparityImage::SharedPtr msg) {
@@ -94,8 +97,17 @@ private:
     cv::Mat disp_i;
     disp.convertTo(disp_i, CV_32S, scale);
 
-    GLuint texIn, fgHoriz, bgHoriz, fgFinal, bgFinal;
-    setupTextures(disp_i, width, height, texIn, fgHoriz, bgHoriz, fgFinal, bgFinal);
+    GLint zero_int = 0;
+    GLint max_int = std::numeric_limits<int>::max();
+    //glClearTexImage(texIn, 0, GL_RED_INTEGER, GL_INT, &zero_int);
+    glClearTexImage(fgHoriz, 0, GL_RED_INTEGER, GL_INT, &zero_int);
+    glClearTexImage(bgHoriz, 0, GL_RED_INTEGER, GL_INT, &max_int);
+    glClearTexImage(fgFinal, 0, GL_RED_INTEGER, GL_INT, &zero_int);
+    glClearTexImage(bgFinal, 0, GL_RED_INTEGER, GL_INT, &max_int);
+
+    glBindTexture(GL_TEXTURE_2D, texIn);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, disp_i.ptr<int>());
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     GLuint query;
     glGenQueries(1, &query);
@@ -259,14 +271,32 @@ private:
 		       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, data);
 		   };
 
-    initTex(texIn, GL_R32I, disp_i.ptr<int>(), w, h);
+    //initTex(texIn, GL_R32I, disp_i.ptr<int>(), w, h);
+    glGenTextures(1, &texIn);
+    glBindTexture(GL_TEXTURE_2D, texIn);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, w, h);
 
     std::vector<int> zeros(width_ * height_, 0);
     std::vector<int> maxv(width_ * height_, std::numeric_limits<int>::max());
-    initTex(fgH, GL_R32I, zeros.data(), width_, height_);
-    initTex(bgH, GL_R32I, maxv.data(), width_, height_);
-    initTex(fgF, GL_R32I, zeros.data(), width_, height_);
-    initTex(bgF, GL_R32I, maxv.data(), width_, height_);
+    //initTex(fgH, GL_R32I, zeros.data(), width_, height_);
+    glGenTextures(1, &fgH);
+    glBindTexture(GL_TEXTURE_2D, fgH);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
+    
+    //initTex(bgH, GL_R32I, maxv.data(), width_, height_);
+    glGenTextures(1, &bgH);
+    glBindTexture(GL_TEXTURE_2D, bgH);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
+    
+    //initTex(fgF, GL_R32I, zeros.data(), width_, height_);
+    glGenTextures(1, &fgF);
+    glBindTexture(GL_TEXTURE_2D, fgF);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
+    
+    //initTex(bgF, GL_R32I, maxv.data(), width_, height_);
+    glGenTextures(1, &bgF);
+    glBindTexture(GL_TEXTURE_2D, bgF);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
   }
 
   void publishResults(const std_msgs::msg::Header &hdr,
@@ -335,6 +365,8 @@ private:
   int width_, height_;
   int downsample_scale;
   float scale;
+  
+  GLuint texIn, fgHoriz, bgHoriz, fgFinal, bgFinal;
 };
 
 int main(int argc, char **argv) {
