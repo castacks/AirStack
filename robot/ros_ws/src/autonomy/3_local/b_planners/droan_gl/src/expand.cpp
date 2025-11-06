@@ -93,9 +93,9 @@ private:
     //disp = 0.f;
     //disp.at<float>(cy_, cx_) = 2.f;
 
-    // Convert float disparity → int (×10000)
-    cv::Mat disp_i;
-    disp.convertTo(disp_i, CV_32S, scale);
+    // Convert float disparity to int (×10000)
+    //cv::Mat disp_i;
+    //disp.convertTo(disp_i, CV_32S, scale);
 
     GLint zero_int = 0;
     GLint max_int = std::numeric_limits<int>::max();
@@ -106,7 +106,8 @@ private:
     glClearTexImage(bgFinal, 0, GL_RED_INTEGER, GL_INT, &max_int);
 
     glBindTexture(GL_TEXTURE_2D, texIn);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, disp_i.ptr<int>());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED, GL_FLOAT, disp.ptr<int>());
+    //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, disp_i.ptr<int>());
     glBindTexture(GL_TEXTURE_2D, 0);
 
     GLuint query;
@@ -274,7 +275,8 @@ private:
     //initTex(texIn, GL_R32I, disp_i.ptr<int>(), w, h);
     glGenTextures(1, &texIn);
     glBindTexture(GL_TEXTURE_2D, texIn);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, w, h);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32F, w, h);
+    //glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, w, h);
 
     std::vector<int> zeros(width_ * height_, 0);
     std::vector<int> maxv(width_ * height_, std::numeric_limits<int>::max());

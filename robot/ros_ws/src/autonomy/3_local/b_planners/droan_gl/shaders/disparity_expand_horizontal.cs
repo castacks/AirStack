@@ -1,7 +1,7 @@
 #version 450
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0, r32i) uniform readonly iimage2D disparityIn;
+layout(binding = 0, r32f) uniform readonly image2D disparityIn;
 
 layout(binding = 1, r32i) uniform iimage2D fgHoriz;
 layout(binding = 2, r32i) uniform iimage2D bgHoriz;
@@ -25,18 +25,18 @@ void main() {
   //if (coord.x >= size.x || coord.y >= size.y) return;
 
   ivec2 in_coord = downsample_scale*coord;
-  int centerInt = 0;
+  float center = 0.f;
   for(int i = 0; i < downsample_scale; i++)
     for(int j = 0; j < downsample_scale; j++)
-      centerInt = max(centerInt, imageLoad(disparityIn, in_coord + ivec2(i, j)).r);
-  centerInt /= downsample_scale;
+      center = max(center, imageLoad(disparityIn, in_coord + ivec2(i, j)).r);
+  center /= downsample_scale;
   
 
   //int centerInt = imageLoad(disparityIn, coord).r;
-  if (centerInt <= 0) return;
-  float center_depth = fx*baseline / (float(centerInt) / scale);
+  if (center <= 0.f) return;
+  float center_depth = fx*baseline / center;
   
-  int radius = int(expansion_radius * float(centerInt) / scale / baseline);
+  int radius = int(expansion_radius * center / baseline);
 
   float a_0 = (float(coord.x) - cx)/fx;
   float b = (float(coord.y) - cy)/fy;
