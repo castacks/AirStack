@@ -40,6 +40,14 @@
 #include <vector>
 #include <mutex>
 
+
+struct GraphNode {
+  int fg_index;
+  int bg_index;
+  tf2::Stamped<tf2::Transform> tf;
+};
+
+
 class DisparityExpanderNode : public rclcpp::Node {
 public:
   DisparityExpanderNode()
@@ -51,6 +59,8 @@ public:
     caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
 								     "/robot_1/sensors/front_stereo/right/camera_info", 10,
 								     std::bind(&DisparityExpanderNode::onCameraInfo, this, std::placeholders::_1));
+    tf_buffer = new tf2_ros::Buffer(get_clock());
+    tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
     fg_pub_ = create_publisher<sensor_msgs::msg::Image>("foreground_expanded", 10);
     bg_pub_ = create_publisher<sensor_msgs::msg::Image>("background_expanded", 10);
@@ -62,10 +72,18 @@ public:
 
     scale = 1000000.0;
     downsample_scale = 2.f;
+    current_layer = 0;
+    graph_nodes = 10;
+    target_frame = "map";
+
+    fx_ = -1.;
   }
 
 private:
   void onCameraInfo(const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
+    if(fx_ > 0.f)
+      return;
+    
     fx_ = static_cast<float>(msg->k[0])/downsample_scale;
     fy_ = static_cast<float>(msg->k[4])/downsample_scale;
     cx_ = static_cast<float>(msg->k[2])/downsample_scale;
@@ -83,6 +101,33 @@ private:
 
   void onDisparity(const stereo_msgs::msg::DisparityImage::SharedPtr msg) {
     if (fx_ <= 0.0f) return;
+    
+    // udpate graph
+    GraphNode node;
+    
+    try{
+      geometry_msgs::msg::TransformStamped t;
+      t = tf_buffer->lookupTransform(target_frame, msg->header.frame_id,
+				     rclcpp::Time(msg->header.stamp), rclcpp::Duration::from_seconds(0.1));
+      tf2::fromMsg(t, node.tf);
+    }
+    catch(tf2::TransformException& ex){
+      RCLCPP_ERROR_STREAM(get_logger(), "Transform exception in render_spheres: " << ex.what());
+      return;
+    }
+
+    if(graph.size() < graph_nodes){
+      node.fg_index = graph.size();
+      //node.fg_index = graph.size()*2;
+      //node.bg_index = graph.size()*2 + 1;
+      graph.push_front(node);
+    }
+    else{
+      node.fg_index = graph.back().fg_index;
+      //node.bg_index = graph.back().bg_index;
+      graph.pop_back();
+      graph.push_front(node);
+    }
 
     static std::vector<GLuint64> times;
     int times_limit = 10;
@@ -102,11 +147,19 @@ private:
     //glClearTexImage(texIn, 0, GL_RED_INTEGER, GL_INT, &zero_int);
     glClearTexImage(fgHoriz, 0, GL_RED_INTEGER, GL_INT, &zero_int);
     glClearTexImage(bgHoriz, 0, GL_RED_INTEGER, GL_INT, &max_int);
-    glClearTexImage(fgFinal, 0, GL_RED_INTEGER, GL_INT, &zero_int);
+    //glClearTexImage(fgFinal, 0, GL_RED_INTEGER, GL_INT, &zero_int);
+    glClearTexSubImage(fgFinal,               // texture name
+		       0,                     // mip level
+		       0, 0, current_layer,   // xoffset, yoffset, zoffset (layer index = array slice)
+		       width_, height_, 1,      // clear 1 layer only (depth = 1)
+		       GL_RED_INTEGER,        // pixel format (matches R32I / RGBA32I etc.)
+		       GL_INT,                // pixel type (signed int)
+		       &zero_int              // pointer to the data to clear with
+		       );
     glClearTexImage(bgFinal, 0, GL_RED_INTEGER, GL_INT, &max_int);
 
     glBindTexture(GL_TEXTURE_2D, texIn);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED, GL_FLOAT, disp.ptr<int>());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED, GL_FLOAT, disp.ptr<float>());
     //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, disp_i.ptr<int>());
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -149,7 +202,7 @@ private:
     glUseProgram(vertProg_);
     glBindImageTexture(0, fgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
     glBindImageTexture(1, bgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
-    glBindImageTexture(2, fgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+    glBindImageTexture(2, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
     glBindImageTexture(3, bgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glUniform1f(glGetUniformLocation(vertProg_, "baseline"), baseline_);
     glUniform1f(glGetUniformLocation(vertProg_, "fx"), fx_);
@@ -160,6 +213,7 @@ private:
     glUniform1f(glGetUniformLocation(vertProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(vertProg_, "scale"), scale);
     glUniform1i(glGetUniformLocation(vertProg_, "downsample_scale"), downsample_scale);
+    glUniform1i(glGetUniformLocation(vertProg_, "layer"), current_layer);
     glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
 
     glEndQuery(GL_TIME_ELAPSED);
@@ -182,12 +236,14 @@ private:
 
     publishResults(msg->image.header, fgFinal, bgFinal, width_, height_);
 
-    glDeleteTextures(1, &texIn);
-    glDeleteTextures(1, &fgHoriz);
-    glDeleteTextures(1, &bgHoriz);
-    glDeleteTextures(1, &fgFinal);
-    glDeleteTextures(1, &bgFinal);
+    //glDeleteTextures(1, &texIn);
+    //glDeleteTextures(1, &fgHoriz);
+    //glDeleteTextures(1, &bgHoriz);
+    //glDeleteTextures(1, &fgFinal);
+    //glDeleteTextures(1, &bgFinal);
     glDeleteQueries(1, &query);
+
+    current_layer = (current_layer + 1) % graph_nodes;
   }
 
   void initGL() {
@@ -292,8 +348,9 @@ private:
     
     //initTex(fgF, GL_R32I, zeros.data(), width_, height_);
     glGenTextures(1, &fgF);
-    glBindTexture(GL_TEXTURE_2D, fgF);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, fgF);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32I, width_, height_, graph_nodes);
+    //glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
     
     //initTex(bgF, GL_R32I, maxv.data(), width_, height_);
     glGenTextures(1, &bgF);
@@ -303,10 +360,19 @@ private:
 
   void publishResults(const std_msgs::msg::Header &hdr,
 		      GLuint fgTex, GLuint bgTex, int w, int h) {
+    /*
     cv::Mat fg_i(h, w, CV_32S);
     cv::Mat bg_i(h, w, CV_32S);
-    glBindTexture(GL_TEXTURE_2D, fgTex);
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RED_INTEGER, GL_INT, fg_i.data);
+    //glBindTexture(GL_TEXTURE_2D_ARRAY, fgTex);
+    //glGetTexImage(GL_TEXTURE_2D, 0, GL_RED_INTEGER, GL_INT, fg_i.data);
+    glGetTextureSubImage(fgTex,
+			 0,              // mip level
+			 0, 0, current_layer, // x,y,z offset (z = layer index)
+			 w, h, 1,
+			 GL_RED_INTEGER,
+			 GL_INT,
+			 w * h * sizeof(int),
+			 fg_i.data);
     glBindTexture(GL_TEXTURE_2D, bgTex);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RED_INTEGER, GL_INT, bg_i.data);
 
@@ -318,8 +384,36 @@ private:
     auto bg_msg = cv_bridge::CvImage(hdr, "32FC1", bg_f).toImageMsg();
     fg_pub_->publish(*fg_msg);
     bg_pub_->publish(*bg_msg);
-
+    */
+    
     pcl::PointCloud<pcl::PointXYZI> fg_bg_cloud;
+
+    std::vector<float> data(w*h*graph_nodes);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, fgTex);
+    glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED_INTEGER, GL_INT, data.data());
+
+    for(const GraphNode& node : graph){
+      cv::Mat image(h, w, CV_32S, data.data() + node.fg_index*w*h);
+      //cv::flip(image, image, 1);
+      pcl::PointXYZI p;
+      for(int y = 0; y < image.rows; y++){
+	for(int x = 0; x < image.cols; x++){
+	  float disp = ((float)image.at<int>(y, x))/scale;
+	  float depth = baseline_*fx_/disp;
+	  tf2::Vector3 v((x-cx_)*depth/fx_, (y-cy_)*depth/fy_, depth);
+	  tf2::Vector3 v_world = node.tf*v;
+	  p.x = v_world.x();
+	  p.y = v_world.y();
+	  p.z = v_world.z();
+	  p.intensity = node.fg_index;
+	  
+	  if(disp > 0.f && std::isfinite(disp))
+	    fg_bg_cloud.points.push_back(p);
+	}
+      }
+    }
+    
+    /*
     pcl::PointXYZI p;
     for(int y = 0; y < fg_f.rows; y++){
       for(int x = 0; x < fg_f.cols; x++){
@@ -349,15 +443,19 @@ private:
 	  fg_bg_cloud.points.push_back(p);
       }
     }
-    
+    */
     sensor_msgs::msg::PointCloud2 output;
     pcl::toROSMsg(fg_bg_cloud, output);
     output.header = hdr;
+    output.header.frame_id = target_frame;
     fg_bg_cloud_pub_->publish(output);
   }
 
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disp_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr caminfo_sub_;
+  tf2_ros::Buffer* tf_buffer;
+  tf2_ros::TransformListener* tf_listener;
+  
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub_, bg_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
 
@@ -367,8 +465,13 @@ private:
   int width_, height_;
   int downsample_scale;
   float scale;
+
+  int current_layer, graph_nodes;
   
   GLuint texIn, fgHoriz, bgHoriz, fgFinal, bgFinal;
+
+  std::deque<GraphNode> graph;
+  std::string target_frame;
 };
 
 int main(int argc, char **argv) {

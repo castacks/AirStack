@@ -6,7 +6,8 @@ layout(binding = 0, r32i) uniform readonly iimage2D fgHoriz;
 layout(binding = 1, r32i) uniform readonly iimage2D bgHoriz;
 
 // Final outputs
-layout(binding = 2, r32i) uniform iimage2D fgFinal;
+//layout(binding = 2, r32i) uniform iimage2D fgFinal;
+layout(binding = 2, r32i) uniform iimage2DArray fgFinal;
 layout(binding = 3, r32i) uniform iimage2D bgFinal;
 
 uniform float baseline;
@@ -18,6 +19,7 @@ uniform float expansion_radius;
 uniform float discontinuityThresh;
 uniform float scale;
 uniform int downsample_scale;
+uniform int layer;
 
 const float PI = 3.14159265358979323846;
 
@@ -57,7 +59,7 @@ void main() {
   int ymin = int(floor(vc - rv*sqrt(1. - ((float(coord.x) - uc)*(float(coord.x) - uc))/(ru*ru))));
   int ymax = int(ceil(vc + rv*sqrt(1. - ((float(coord.x) - uc)*(float(coord.x) - uc))/(ru*ru))));
   for (int y = ymin; y <= ymax; ++y) {
-    ivec2 p = ivec2(coord.x, y);
+    ivec3 p = ivec3(coord.x, y, layer);
   //for (int dy = -radius; dy <= radius; ++dy) {
     //ivec2 p = coord + ivec2(0, dy);
     if (p.y < 0 || p.y >= size.y) continue;
