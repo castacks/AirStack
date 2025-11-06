@@ -119,7 +119,7 @@ private:
     
     // Pass 1: Horizontal
     glUseProgram(horizProg_);
-    glBindImageTexture(0, texIn, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
+    glBindImageTexture(0, texIn, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32F);
     glBindImageTexture(1, fgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glBindImageTexture(2, bgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glUniform1f(glGetUniformLocation(horizProg_, "baseline"), baseline_);
