@@ -47,6 +47,91 @@ struct GraphNode {
   tf2::Stamped<tf2::Transform> tf;
 };
 
+struct alignas(16) Vec3 {
+  float x, y, z;
+};
+
+struct alignas(16) State {
+  Vec3 pos;
+  Vec3 vel;
+  Vec3 acc;
+  Vec3 jerk;
+  Vec3 collision;
+
+  State(){}
+  State(airstack_msgs::msg::Odometry odom){
+    pos.x = odom.pose.position.x;
+    pos.y = odom.pose.position.y;
+    pos.z = odom.pose.position.z;
+
+    vel.x = odom.twist.linear.x;
+    vel.y = odom.twist.linear.y;
+    vel.z = odom.twist.linear.z;
+
+    acc.x = odom.acceleration.x;
+    acc.y = odom.acceleration.y;
+    acc.z = odom.acceleration.z;
+
+    jerk.x = odom.jerk.x;
+    jerk.y = odom.jerk.y;
+    jerk.z = odom.jerk.z;
+  }
+};
+
+struct TrajectoryParams {
+  float vel_desired[3];
+  float vel_max;
+};
+
+struct alignas(16) CommonInit {
+  State initial_state;
+  int traj_count;
+  int traj_size;
+  float dt;
+};
+
+struct mat4 {
+  float data[16];
+
+  mat4(){
+    std::memset(&data[0], 0, sizeof(data));
+  }
+  
+  mat4(const tf2::Stamped<tf2::Transform>& stamped_tf){
+    //const tf2::Transform& tf = stamped_tf.getTransform();
+    const tf2::Vector3& t = stamped_tf.getOrigin();
+    tf2::Matrix3x3 R = stamped_tf.getBasis();
+
+    data[0]  = R[0][0];
+    data[1]  = R[1][0];
+    data[2]  = R[2][0];
+    data[3]  = 0.0f;
+
+    data[4]  = R[0][1];
+    data[5]  = R[1][1];
+    data[6]  = R[2][1];
+    data[7]  = 0.0f;
+
+    data[8]  = R[0][2];
+    data[9]  = R[1][2];
+    data[10] = R[2][2];
+    data[11] = 0.0f;
+
+    data[12] = t.x();
+    data[13] = t.y();
+    data[14] = t.z();
+    data[15] = 1.0f;
+  }
+};
+
+struct alignas(16) CollisionInfo {
+  mat4 state_tf;
+  float fx, fy, cx, cy;
+  float baseline;
+  int width, height;
+  int limit;
+};
+
 
 class DisparityExpanderNode : public rclcpp::Node {
 public:
@@ -54,27 +139,40 @@ public:
     : Node("disparity_expander_node"), fx_(0.0f) {
     disp_sub_ = create_subscription<stereo_msgs::msg::DisparityImage>(
 								      "/robot_1/sensors/front_stereo/disparity", 10,
-								      std::bind(&DisparityExpanderNode::onDisparity, this, std::placeholders::_1));
-
+								      std::bind(&DisparityExpanderNode::onDisparity,
+										this, std::placeholders::_1));
     caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
 								     "/robot_1/sensors/front_stereo/right/camera_info", 10,
-								     std::bind(&DisparityExpanderNode::onCameraInfo, this, std::placeholders::_1));
+								     std::bind(&DisparityExpanderNode::onCameraInfo,
+									       this, std::placeholders::_1));
+    look_ahead_sub = create_subscription<airstack_msgs::msg::Odometry>("/robot_1/trajectory_controller/look_ahead", 10,
+								       std::bind(&DisparityExpanderNode::look_ahead_callback,
+										 this, std::placeholders::_1));
     tf_buffer = new tf2_ros::Buffer(get_clock());
     tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
     fg_pub_ = create_publisher<sensor_msgs::msg::Image>("foreground_expanded", 10);
     bg_pub_ = create_publisher<sensor_msgs::msg::Image>("background_expanded", 10);
     fg_bg_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("fg_bg_cloud", 10);
+    traj_debug_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("traj_debug", 1);
 
     initGL();
     horizProg_ = createComputeShader(ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/disparity_expand_horizontal.cs");
     vertProg_  = createComputeShader(ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/disparity_expand_vertical.cs");
 
+    timer = rclcpp::create_timer(this, get_clock(), rclcpp::Duration::from_seconds(1./5.),
+    				 std::bind(&DisparityExpanderNode::timer_callback, this));
+
     scale = 1000000.0;
     downsample_scale = 2.f;
     current_layer = 0;
-    graph_nodes = 10;
-    target_frame = "map";
+    
+    target_frame = airstack::get_param(this, "target_frame", std::string("map"));
+    look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point"));
+    graph_nodes = airstack::get_param(this, "graph_nodes", 10);
+    expansion_radius = airstack::get_param(this, "expansion_radius", 2.0);
+    dt = airstack::get_param(this, "dt", 0.2);
+    ht = airstack::get_param(this, "ht", 50.0);
 
     fx_ = -1.;
   }
@@ -180,7 +278,7 @@ private:
     glUniform1f(glGetUniformLocation(horizProg_, "fy"), fy_);
     glUniform1f(glGetUniformLocation(horizProg_, "cx"), fx_);
     glUniform1f(glGetUniformLocation(horizProg_, "cy"), cy_);
-    glUniform1f(glGetUniformLocation(horizProg_, "expansion_radius"), 2.f);
+    glUniform1f(glGetUniformLocation(horizProg_, "expansion_radius"), expansion_radius);
     glUniform1f(glGetUniformLocation(horizProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(horizProg_, "scale"), scale);
     glUniform1i(glGetUniformLocation(horizProg_, "downsample_scale"), downsample_scale);
@@ -209,7 +307,7 @@ private:
     glUniform1f(glGetUniformLocation(vertProg_, "fy"), fy_);
     glUniform1f(glGetUniformLocation(vertProg_, "cx"), fx_);
     glUniform1f(glGetUniformLocation(vertProg_, "cy"), cy_);
-    glUniform1f(glGetUniformLocation(vertProg_, "expansion_radius"), 2.f);
+    glUniform1f(glGetUniformLocation(vertProg_, "expansion_radius"), expansion_radius);
     glUniform1f(glGetUniformLocation(vertProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(vertProg_, "scale"), scale);
     glUniform1i(glGetUniformLocation(vertProg_, "downsample_scale"), downsample_scale);
@@ -282,6 +380,22 @@ private:
 
     std::cout << "Max total invocations per group: "
 	      << maxInvocations << std::endl;
+
+    glGenQueries(1, &elapsed_query);
+
+    std::string traj_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/trajectory.cs";
+    GLuint traj_cs = createComputeShader(traj_comp_filename);
+    traj_shader = glCreateProgram();
+    glAttachShader(traj_shader, traj_cs);
+    glLinkProgram(traj_shader);
+    glDeleteShader(traj_cs);
+
+    std::string collision_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/collision.cs";
+    GLuint collision_cs = createComputeShader(collision_comp_filename);
+    collision_shader = glCreateProgram();
+    glAttachShader(collision_shader, collision_cs);
+    glLinkProgram(collision_shader);
+    glDeleteShader(collision_cs);
   }
 
   GLuint createComputeShader(const std::string &file) {
@@ -356,6 +470,41 @@ private:
     glGenTextures(1, &bgF);
     glBindTexture(GL_TEXTURE_2D, bgF);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
+
+    for(float p = -80.f; p < 80.f; p += 5.f){
+      for(float y = 0.f; y < 360.f; y += 5.f){
+	float yaw = y*M_PI/180.f;
+	float pitch = p*M_PI/180.f;
+
+	TrajectoryParams params;
+	params.vel_desired[0] = sin(yaw);
+	params.vel_desired[1] = cos(yaw);
+	params.vel_desired[2] = sin(pitch);//0.f;
+	params.vel_max = 2.f;
+
+	traj_params.push_back(params);
+      }
+    }
+    
+    glGenBuffers(1, &common_ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(CommonInit), nullptr, GL_DYNAMIC_DRAW);
+
+    glGenBuffers(1, &params_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, params_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, traj_params.size()*sizeof(TrajectoryParams), traj_params.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &traj_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, traj_params.size()*get_traj_size()*sizeof(State), nullptr, GL_DYNAMIC_COPY);
+    
+    glGenBuffers(1, &transform_ssbo);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, transform_ssbo);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, graph_nodes*sizeof(mat4), nullptr, GL_DYNAMIC_COPY);
+
+    glGenBuffers(1, &collision_info_ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, collision_info_ubo);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(CollisionInfo), nullptr, GL_DYNAMIC_DRAW);
   }
 
   void publishResults(const std_msgs::msg::Header &hdr,
@@ -451,13 +600,172 @@ private:
     fg_bg_cloud_pub_->publish(output);
   }
 
+  void timer_callback(){
+    if(!look_ahead_valid || fx_ <= 0.f)
+      return;
+
+    airstack_msgs::msg::Odometry look_ahead_odom;
+    if(!tflib::transform_odometry(tf_buffer, look_ahead, look_ahead_frame, look_ahead_frame, &look_ahead_odom))
+      return;
+    tf2::Stamped<tf2::Transform> look_ahead_tf;
+    try{
+      geometry_msgs::msg::TransformStamped t;
+      t = tf_buffer->lookupTransform(target_frame, look_ahead_frame,
+				     look_ahead_odom.header.stamp, rclcpp::Duration::from_seconds(0.1));
+      tf2::fromMsg(t, look_ahead_tf);
+    }
+    catch(tf2::TransformException& ex){
+      RCLCPP_ERROR_STREAM(get_logger(), "Transform exception in render_spheres: " << ex.what());
+      return;
+    }
+    mat4 look_ahead_mat4(look_ahead_tf);
+    
+    CommonInit ci;
+    ci.initial_state = State(look_ahead_odom);
+    ci.traj_count = traj_params.size();
+    ci.traj_size = get_traj_size();
+    ci.dt = dt;
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+    glUseProgram(traj_shader);
+    
+    //printUniformBlockLayout(traj_shader, "CommonInit");
+    //RCLCPP_INFO_STREAM(get_logger(), offsetof(CommonInit, initial_state) << "|" << sizeof(State) << " " << offsetof(CommonInit, traj_count) << " " << offsetof(CommonInit, traj_size) << " " << offsetof(CommonInit, dt));
+    
+    glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
+    CommonInit* ptr = (CommonInit*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+						    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    
+    *ptr = ci;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    
+    
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, common_ubo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, params_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, traj_ssbo);
+    
+
+    gl_tic();
+    glDispatchCompute((traj_params.size() + 255) / 256, 1, 1);
+    float traj_gen_elapsed = gl_toc();
+    RCLCPP_INFO_STREAM(get_logger(), "TRAJ GEN TIMING: " << traj_gen_elapsed);
+    //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+    // collision checking
+    glUseProgram(collision_shader);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, traj_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, transform_ssbo);
+    
+    // TODO do this only when one is updated, probably in the function where they get updated
+    // TODO see if mapping a smaller region, ie only the updated mat4, is better
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, transform_ssbo);
+    mat4* transform_ptr = (mat4*)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0,
+						  graph_nodes*sizeof(mat4),
+						  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++)
+      transform_ptr[i] = mat4(graph[i].tf);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+    // TODO maybe just pad the trajectory points buffer so that the shader doesn't need to check the limit
+    //glUniform1i(glGetUniformLocation(collision_shader, "limit"), traj_params.size() * get_traj_size());
+    //glUniformMatrix4fv(glGetUniformLocation(collision_shader, "state_tf"), 1, GL_FALSE, &look_ahead_mat4.data[0]);
+
+    // TODO really only have to set this once
+    CollisionInfo collision_info;
+    collision_info.state_tf = look_ahead_mat4;
+    collision_info.fx = fx_;
+    collision_info.fy = fy_;
+    collision_info.cx = cx_;
+    collision_info.cy = cy_;
+    collision_info.baseline = baseline_;
+    collision_info.width = width_;
+    collision_info.height = height_;
+    collision_info.limit = traj_params.size() * get_traj_size();
+    glBindBuffer(GL_UNIFORM_BUFFER, collision_info_ubo);
+    CollisionInfo* collision_info_ptr = (CollisionInfo*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+									 GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    
+    *collision_info_ptr = collision_info;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 3, collision_info_ubo);
+
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D_ARRAY, fgFinal);
+    glBindImageTexture(0, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
+
+    gl_tic();
+    glDispatchCompute((traj_params.size() * get_traj_size() + 255) / 256, 1, 1);
+    float traj_collision_check_elapsed = gl_toc();
+    RCLCPP_INFO_STREAM(get_logger(), "TRAJ COLLISION CHECK TIMING: " << traj_collision_check_elapsed);
+    //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+    // trajectory visualization
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
+    State* output_data = (State*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    std::vector<State> output_states(traj_params.size()*get_traj_size());
+    memcpy(output_states.data(), output_data, output_states.size() * sizeof(State));
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    
+    traj_markers.overwrite();
+    vis::Marker& free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+    free_markers.set_namespace("free");
+    free_markers.set_color(0., 1., 0.);
+    free_markers.set_scale(0.1, 0.1, 0.1);
+    vis::Marker& collision_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+    collision_markers.set_namespace("collision");
+    collision_markers.set_color(1., 0., 0.);
+    collision_markers.set_scale(0.1, 0.1, 0.1);
+    //RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
+    for(int i = 0; i < output_states.size(); i++){
+      State& state = output_states[i];
+      //RCLCPP_INFO_STREAM(get_logger(), "i " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
+
+      if(state.collision.x >= 0.5)
+	free_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
+      else
+	collision_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
+    }
+    //RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
+    
+    traj_debug_pub_->publish(traj_markers.get_marker_array());
+  }
+
+  int get_traj_size(){
+    return ht/dt;
+  }
+
+  void gl_tic(){
+    glBeginQuery(GL_TIME_ELAPSED, elapsed_query);
+  }
+  
+  float gl_toc(){
+    glEndQuery(GL_TIME_ELAPSED);
+    GLuint64 elapsed_ns = 0;
+    glGetQueryObjectui64v(elapsed_query, GL_QUERY_RESULT, &elapsed_ns);
+    float elapsed_ms = elapsed_ns / 1e6;
+    return elapsed_ms;
+  }
+
+  void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr msg) {
+    look_ahead = *msg;
+    look_ahead_valid = true;
+  }
+
+
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disp_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr caminfo_sub_;
+  rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
   tf2_ros::Buffer* tf_buffer;
   tf2_ros::TransformListener* tf_listener;
   
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub_, bg_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr traj_debug_pub_;
+
+  rclcpp::TimerBase::SharedPtr timer;
 
   GLFWwindow *window_;
   GLuint horizProg_, vertProg_;
@@ -465,6 +773,7 @@ private:
   int width_, height_;
   int downsample_scale;
   float scale;
+  float expansion_radius;
 
   int current_layer, graph_nodes;
   
@@ -472,6 +781,19 @@ private:
 
   std::deque<GraphNode> graph;
   std::string target_frame;
+
+  bool look_ahead_valid;
+  airstack_msgs::msg::Odometry look_ahead;
+  std::string look_ahead_frame;
+  std::vector<TrajectoryParams> traj_params;
+  float dt, ht;
+  GLuint traj_shader, collision_shader;
+  GLuint common_ubo, collision_info_ubo;
+  GLuint params_ssbo, traj_ssbo, transform_ssbo;
+  
+  GLuint elapsed_query;
+
+  vis::MarkerArray traj_markers;
 };
 
 int main(int argc, char **argv) {

@@ -9,7 +9,7 @@ struct State {
   vec3 collision;
 };
 
-layout(binding = 0) uniform sampler2DArray tex_array;
+layout(binding = 0, r32i) uniform iimage2DArray tex_array;
 
 layout(std430, binding = 1) buffer TrajectoryPoints {
   State points[];

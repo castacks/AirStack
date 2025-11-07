@@ -224,7 +224,7 @@ public:
     graph_nodes = airstack::get_param(this, "graph_nodes", 1);
     expansion_radius = airstack::get_param(this, "expansion_radius", 2.0);
     dt = airstack::get_param(this, "dt", 0.2);
-    ht = airstack::get_param(this, "ht", 5.0);
+    ht = airstack::get_param(this, "ht", 50.0);
     
     total_layers = graph_nodes*2;
     look_ahead_valid = false;
@@ -413,8 +413,24 @@ private:
     glGenQueries(1, &elapsed_query);
 
     // trajectory generation init
+    /*
     for(float p = -15.f; p < 16.f; p += 15.f){
       for(float y = 0.f; y < 360.f; y += 10.f){
+	float yaw = y*M_PI/180.f;
+	float pitch = p*M_PI/180.f;
+
+	TrajectoryParams params;
+	params.vel_desired[0] = sin(yaw);
+	params.vel_desired[1] = cos(yaw);
+	params.vel_desired[2] = sin(pitch);//0.f;
+	params.vel_max = 2.f;
+
+	traj_params.push_back(params);
+      }
+    }
+    */
+    for(float p = -80.f; p < 80.f; p += 5.f){
+      for(float y = 0.f; y < 360.f; y += 5.f){
 	float yaw = y*M_PI/180.f;
 	float pitch = p*M_PI/180.f;
 
@@ -658,7 +674,7 @@ private:
 
     float fg_elapsed = gl_toc();
     gl_tic();
-    /*
+    //*
     // background
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, color_tex_, 0, node.bg_index);
@@ -671,7 +687,7 @@ private:
     
     glBindVertexArray(sphere_mesh.VAO);
     glDrawElementsInstanced(GL_TRIANGLES, sphere_mesh.index_count, GL_UNSIGNED_INT, 0, offsets.size());
-    */
+    //*/
     float bg_elapsed = gl_toc();
 
     RCLCPP_INFO_STREAM(get_logger(), "DISP TIMING: " << offsets.size() << " " << fg_elapsed << " " << bg_elapsed << " " << (fg_elapsed + bg_elapsed));

@@ -14,6 +14,7 @@ in vec2 fragUV;
 out float FragColor;
 
 void main() {
+  /*
   FragColor = origin_disparity;
   float depth = baseline_fx / FragColor + circle_depth;
   FragColor = baseline_fx / depth;
@@ -22,8 +23,9 @@ void main() {
 
   if((depth_curr - depth) < 2.)
     FragColor = baseline_fx / (depth_curr + 2.);
+  */
   
-  /*
+  //*
   if(sign > 0)
     FragColor = disparity;
   else{
@@ -34,5 +36,5 @@ void main() {
     else
       FragColor = disparity;
   }
-  */
+  //*/
 }
