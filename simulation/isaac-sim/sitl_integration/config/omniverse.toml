@@ -1,4 +1,4 @@
 
 [bookmarks]
-"AirLab Nucleus Server" = "omniverse://airlab-storage.andrew.cmu.edu:8443"
-"AirStack" = "omniverse://airlab-storage.andrew.cmu.edu:8443/Projects/AirStack/"
+"AirLab Nucleus Server" = "omniverse://airlab-nucleus.andrew.cmu.edu"
+"AirStack" = "omniverse://airlab-nucleus.andrew.cmu.edu/Projects/AirStack/"

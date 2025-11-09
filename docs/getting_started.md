@@ -44,7 +44,7 @@ To use the AirLab Docker registry do the following
 
 ```bash
 cd AirStack/
-docker login airlab-storage.andrew.cmu.edu:442
+docker login airlab-docker.andrew.cmu.edu
 ## <Enter your andrew id (without @andrew.cmu.edu)>
 ## <Enter your andrew password>
 
