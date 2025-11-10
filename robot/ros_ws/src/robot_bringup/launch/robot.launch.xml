@@ -31,7 +31,7 @@
   <!-- Robot State Publisher (replaces static transforms) -->
   <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
     <arg name="robot_name" value="$(env ROBOT_NAME)" />
-    <arg name="urdf_file_path" value="$(find-pkg-share iris_with_sensors_description)/urdf/iris_with_sensors.pegasus.robot.urdf" />
+    <arg name="urdf_file_path" value="$(env ROBOT_URDF_FILE_PATH)" />
     <arg name="ignore_timestamp" value="true" />
     <arg name="use_sim_time" value="$(var sim)" />
   </include>

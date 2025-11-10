@@ -33,6 +33,8 @@ services:
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
+      # URDF Robot Description
+      - ROBOT_URDF_FILE_PATH=${ROBOT_DESCRIPTION_PACKAGE}/urdf/${ROBOT_URDF_FILE}
     deploy:
       # let it use the GPU
       resources:
