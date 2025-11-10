@@ -16,11 +16,13 @@ services:
       bash -c "
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
-        tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER 
+        if [ \"${ISAAC_SIM_USE_STANDALONE_SCRIPT}\" = 'true' ]; then
+          tmux send-keys -t isaac '/isaac-sim/python.sh /root/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
+        else
+          tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
+        fi
       fi;
       sleep infinity"
-    # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/barebones_pegasus_launch.py' ENTER;
-    # tmux send-keys -t isaac '/isaac-sim/python.sh /root/launch_scripts/launch_sim.py --scene \"${ISAAC_SIM_SCENE}\"' ENTER;
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
