@@ -73,22 +73,9 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        # Load default environment
+        # Load default environment. You can replace with url or file path of any desired environment.
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
         
-        import omni.graph.core as og
-
-        # Debugging printout of registered nodes
-        print("="*60)
-        print("Registered OmniGraph Nodes:")
-        print("="*60)
-
-        # Iterate all registered node types
-        for node_name in og.get_registered_nodes():
-            if "Pegasus" in node_name or "pegasus" in node_name or "Ascent" in node_name or "ascent" in node_name:
-                print(f" - {node_name}")
-
-
         # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
         # PX4 udp port = 14540 + (vehicle_id)
         # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 
@@ -119,12 +106,7 @@ class PegasusApp:
             lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
-
         
-
-        print("Spawned PX4 multirotor node")
-        print("!" * 60)
-
         # Reset so physics/articulations are ready
         self.world.reset()
 
