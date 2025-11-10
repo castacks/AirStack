@@ -75,28 +75,48 @@ class PegasusApp:
 
         # Load default environment
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
-        
-        import omni.graph.core as og
 
-        # Debugging printout of registered nodes
-        print("="*60)
-        print("Registered OmniGraph Nodes:")
-        print("="*60)
-
-        # Iterate all registered node types
-        for node_name in og.get_registered_nodes():
-            if "Pegasus" in node_name or "pegasus" in node_name or "Ascent" in node_name or "ascent" in node_name:
-                print(f" - {node_name}")
-
-
-        # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
-        # PX4 udp port = 14540 + (vehicle_id)
-        # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 
+        ####################################################################################################
+        # Spawn vehicle 1
+        ####################################################################################################
+        # Recommended to look at example_one_px4_pegasus_launch_script.py for a simpler example
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
-            drone_prim="/World/drone/base_link",
-            vehicle_id=1,
-            domain_id=1,
+            drone_prim="/World/drone1/base_link",
+            vehicle_id=1, # defines MAVLink port offset
+            domain_id=1, # defines ROS2 domain ID
+            usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+            init_pos=[2.0, 0.0, 0.07],
+            init_orient=[0.0, 0.0, 0.0, 1.0],
+        )
+
+        # Add a ZED stereo camera (with an associated subgraph) to the drone
+        add_zed_stereo_camera_subgraph(
+            parent_graph_handle=graph_handle,
+            drone_prim="/World/drone1/base_link",
+            camera_name="ZEDCamera",
+            camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
+            camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
+        )
+
+        # Add an Ouster lidar (with an associated subgraph) to the drone
+        add_ouster_lidar_subgraph(
+            parent_graph_handle=graph_handle,
+            drone_prim="/World/drone1/base_link",
+            lidar_name="OS1_REV6_128_10hz___512_resolution",
+            lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
+            lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
+        )
+
+
+        ####################################################################################################
+        # Spawn vehicle 2
+        ####################################################################################################
+        graph_handle = spawn_px4_multirotor_node(
+            pegasus_node_name="PX4Multirotor",
+            drone_prim="/World/drone2/base_link",
+            vehicle_id=2, # defines MAVLink port offset. Define as 2 for second vehicle
+            domain_id=2, # defines ROS2 domain ID. Define as 2 for second vehicle
             usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
@@ -105,21 +125,21 @@ class PegasusApp:
         # Add a ZED stereo camera (with an associated subgraph) to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/drone2/base_link",
             camera_name="ZEDCamera",
+            camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
+            camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
 
         # Add an Ouster lidar (with an associated subgraph) to the drone
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle,
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/drone2/base_link",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
+            lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
+            lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
-
         
-
-        print("Spawned PX4 multirotor node")
-        print("!" * 60)
 
         # Reset so physics/articulations are ready
         self.world.reset()
