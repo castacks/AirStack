@@ -130,6 +130,9 @@ struct alignas(16) CollisionInfo {
   float baseline;
   int width, height;
   int limit;
+  float scale;
+  float expansion_radius;
+  int graph_nodes;
 };
 
 
@@ -172,9 +175,10 @@ public:
     graph_nodes = airstack::get_param(this, "graph_nodes", 10);
     expansion_radius = airstack::get_param(this, "expansion_radius", 2.0);
     dt = airstack::get_param(this, "dt", 0.2);
-    ht = airstack::get_param(this, "ht", 50.0);
+    ht = airstack::get_param(this, "ht", 10.0);
 
     fx_ = -1.;
+    look_ahead_valid = false;
   }
 
 private:
@@ -384,18 +388,10 @@ private:
     glGenQueries(1, &elapsed_query);
 
     std::string traj_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/trajectory.cs";
-    GLuint traj_cs = createComputeShader(traj_comp_filename);
-    traj_shader = glCreateProgram();
-    glAttachShader(traj_shader, traj_cs);
-    glLinkProgram(traj_shader);
-    glDeleteShader(traj_cs);
+    traj_shader = createComputeShader(traj_comp_filename);
 
     std::string collision_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/collision.cs";
-    GLuint collision_cs = createComputeShader(collision_comp_filename);
-    collision_shader = glCreateProgram();
-    glAttachShader(collision_shader, collision_cs);
-    glLinkProgram(collision_shader);
-    glDeleteShader(collision_cs);
+    collision_shader = createComputeShader(collision_comp_filename);
   }
 
   GLuint createComputeShader(const std::string &file) {
@@ -471,8 +467,10 @@ private:
     glBindTexture(GL_TEXTURE_2D, bgF);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
 
-    for(float p = -80.f; p < 80.f; p += 5.f){
-      for(float y = 0.f; y < 360.f; y += 5.f){
+    //for(float p = -80.f; p < 80.f; p += 5.f){
+    //for(float y = 0.f; y < 360.f; y += 5.f){
+    for(float p = -15.f; p < 16.f; p += 15.f){
+      for(float y = 0.f; y < 360.f; y += 15.f){
 	float yaw = y*M_PI/180.f;
 	float pitch = p*M_PI/180.f;
 
@@ -626,7 +624,9 @@ private:
     ci.traj_size = get_traj_size();
     ci.dt = dt;
 
-    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+    //RCLCPP_INFO_STREAM(get_logger(), "initial state: " << ci.initial_state.pos.x << " " << ci.initial_state.pos.y << " " << ci.initial_state.pos.z << " odom " << look_ahead_odom.pose.position.x << " " << look_ahead_odom.pose.position.y << " " << look_ahead_odom.pose.position.z);
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);    
 
     glUseProgram(traj_shader);
     
@@ -665,7 +665,7 @@ private:
 						  graph_nodes*sizeof(mat4),
 						  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++)
-      transform_ptr[i] = mat4(graph[i].tf);
+      transform_ptr[graph[i].fg_index] = mat4(graph[i].tf);
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     // TODO maybe just pad the trajectory points buffer so that the shader doesn't need to check the limit
@@ -683,8 +683,11 @@ private:
     collision_info.width = width_;
     collision_info.height = height_;
     collision_info.limit = traj_params.size() * get_traj_size();
+    collision_info.scale = scale;
+    collision_info.expansion_radius = expansion_radius;
+    collision_info.graph_nodes = graph_nodes;
     glBindBuffer(GL_UNIFORM_BUFFER, collision_info_ubo);
-    CollisionInfo* collision_info_ptr = (CollisionInfo*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+    CollisionInfo* collision_info_ptr = (CollisionInfo*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CollisionInfo),
 									 GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     
     *collision_info_ptr = collision_info;
@@ -708,6 +711,8 @@ private:
     std::vector<State> output_states(traj_params.size()*get_traj_size());
     memcpy(output_states.data(), output_data, output_states.size() * sizeof(State));
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+    //RCLCPP_INFO_STREAM(get_logger(), "output states: " << output_states.size() << " params: " << traj_params.size());
     
     traj_markers.overwrite();
     vis::Marker& free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
@@ -718,10 +723,10 @@ private:
     collision_markers.set_namespace("collision");
     collision_markers.set_color(1., 0., 0.);
     collision_markers.set_scale(0.1, 0.1, 0.1);
-    //RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
+    RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
     for(int i = 0; i < output_states.size(); i++){
       State& state = output_states[i];
-      //RCLCPP_INFO_STREAM(get_logger(), "i " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
+      //RCLCPP_INFO_STREAM(get_logger(), "i " << i << " " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
 
       if(state.collision.x >= 0.5)
 	free_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
@@ -731,6 +736,12 @@ private:
     //RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
     
     traj_debug_pub_->publish(traj_markers.get_marker_array());
+  }
+
+  void check_gl_error(){
+    GLenum e = glGetError();
+    if(e != GL_NO_ERROR) RCLCPP_INFO(get_logger(), "GL error: 0x%x", e);
+    else RCLCPP_INFO(get_logger(), "GL error: ok");
   }
 
   int get_traj_size(){

@@ -26,6 +26,9 @@ layout(std140, binding = 3) uniform CollisionInfo {
   float baseline;
   int width, height;
   int limit;
+  float scale;
+  float expansion_radius;
+  int graph_nodes;
 };
 
 void main() {
@@ -34,21 +37,23 @@ void main() {
   if(index < limit){
     vec4 pos_map = state_tf*vec4(points[index].pos, 1);
     points[index].pos = pos_map.xyz;
-    //points[index].collision.x = index%2 > 0.5 ? 0. : 1.;
     
-    mat4 map_to_cam_tf = inverse(image_tfs[0]);
-    vec4 pos_cam = map_to_cam_tf*pos_map;
-
-    float u = pos_cam.x*fx/pos_cam.z + cx;
-    float v = pos_cam.y*fy/pos_cam.z + cy;
-    float disp = baseline*fx/pos_cam.z;
-
-    float fg_disp = texelFetch(tex_array, ivec3(width-1-u, v, 0), 0).x;
-    float bg_disp = texelFetch(tex_array, ivec3(width-1-u, v, 1), 0).x;
-
     points[index].collision.x = 1.;
+    for(int i = 0; i < graph_nodes; i++){
+      mat4 map_to_cam_tf = inverse(image_tfs[i]);
+      vec4 pos_cam = map_to_cam_tf*pos_map;
 
-    if(u >= 0 && v >=0 && u < width && v < height && disp < fg_disp && disp > bg_disp)
-      points[index].collision.x = 0.;
+      float u = pos_cam.x*fx/pos_cam.z + cx;
+      float v = pos_cam.y*fy/pos_cam.z + cy;
+      float disp = baseline*fx/pos_cam.z;
+    
+      float fg_depth = baseline*fx/(float(imageLoad(tex_array, ivec3(u, v, i)).x)/scale);
+      float diff = pos_cam.z - fg_depth;
+      
+      if(u >= 0 && v >= 0 && u < width && v < height && diff > 0 && diff < (2*expansion_radius)){
+	points[index].collision.x = 0.;
+	//break;
+      }
+    }
   }
 }
