@@ -39,7 +39,11 @@ void main() {
   float snap_lim = 100.f;
   
   State state = initial_state;
+  //vec3 prev_pos = state.pos;
+  //vec3 up = vec3(0, 0, 1);
+  //float scale = 1;
   
+  //for(int i = 0; i < traj_size/5; i++){
   for(int i = 0; i < traj_size; i++){
     vec3 snap = -k_v*(state.vel - p.vel_desired) - k_a*state.acc - k_j*state.jerk;
     snap = clamp(snap, -snap_lim, snap_lim);
@@ -48,9 +52,30 @@ void main() {
     state.vel += state.acc*dt;
     state.pos += state.vel*dt;
 
+    points[traj_index * traj_size + i] = state;
+    
+    /*
+    vec3 dir = normalize(state.pos - prev_pos);
+    vec3 pos_up = state.pos + scale*up;
+    vec3 pos_down = state.pos - scale*up;
+    vec3 x = scale*cross(dir, up);
+    vec3 pos_left = state.pos + x;
+    vec3 pos_right = state.pos - x;
+    
     // TODO remove
     state.collision = vec3(0, 0, 0);
     
-    points[traj_index * traj_size + i] = state;
+    prev_pos = state.pos;
+    points[traj_index * traj_size + i*5] = state;
+    state.pos = pos_up;
+    points[traj_index * traj_size + i*5+1] = state;
+    state.pos = pos_down;
+    points[traj_index * traj_size + i*5+2] = state;
+    state.pos = pos_left;
+    points[traj_index * traj_size + i*5+3] = state;
+    state.pos = pos_right;
+    points[traj_index * traj_size + i*5+4] = state;
+    state.pos = prev_pos;
+    */
   }
 }

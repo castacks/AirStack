@@ -165,10 +165,6 @@ public:
 
     timer = rclcpp::create_timer(this, get_clock(), rclcpp::Duration::from_seconds(1./5.),
     				 std::bind(&DisparityExpanderNode::timer_callback, this));
-
-    scale = 1000000.0;
-    downsample_scale = 2.f;
-    current_layer = 0;
     
     target_frame = airstack::get_param(this, "target_frame", std::string("map"));
     look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point"));
@@ -176,7 +172,11 @@ public:
     expansion_radius = airstack::get_param(this, "expansion_radius", 2.0);
     dt = airstack::get_param(this, "dt", 0.2);
     ht = airstack::get_param(this, "ht", 10.0);
-
+    downsample_scale = airstack::get_param(this, "downsample_scale", 2);
+    visualize = airstack::get_param(this, "visualize", false);
+    
+    scale = 1000000.0;
+    current_layer = 0;
     fx_ = -1.;
     look_ahead_valid = false;
   }
@@ -336,7 +336,8 @@ private:
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 
-    publishResults(msg->image.header, fgFinal, bgFinal, width_, height_);
+    if(visualize)
+      publishResults(msg->image.header, fgFinal, bgFinal, width_, height_);
 
     //glDeleteTextures(1, &texIn);
     //glDeleteTextures(1, &fgHoriz);
@@ -539,9 +540,18 @@ private:
     glBindTexture(GL_TEXTURE_2D_ARRAY, fgTex);
     glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED_INTEGER, GL_INT, data.data());
 
-    for(const GraphNode& node : graph){
+    //for(const GraphNode& node : graph){
+    for(int i = 0; i < graph.size(); i++){
+      const GraphNode& node = graph[i];
       cv::Mat image(h, w, CV_32S, data.data() + node.fg_index*w*h);
-      //cv::flip(image, image, 1);
+      
+      if(i == current_layer){
+	cv::Mat image_f;
+	image.convertTo(image_f, CV_32F, 1./scale);
+	auto fg_msg = cv_bridge::CvImage(hdr, "32FC1", image_f).toImageMsg();
+	fg_pub_->publish(*fg_msg);
+      }
+      
       pcl::PointXYZI p;
       for(int y = 0; y < image.rows; y++){
 	for(int x = 0; x < image.cols; x++){
@@ -706,36 +716,38 @@ private:
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
     // trajectory visualization
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
-    State* output_data = (State*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-    std::vector<State> output_states(traj_params.size()*get_traj_size());
-    memcpy(output_states.data(), output_data, output_states.size() * sizeof(State));
-    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    //if(visualize){
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
+      State* output_data = (State*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+      std::vector<State> output_states(traj_params.size()*get_traj_size());
+      memcpy(output_states.data(), output_data, output_states.size() * sizeof(State));
+      glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
-    //RCLCPP_INFO_STREAM(get_logger(), "output states: " << output_states.size() << " params: " << traj_params.size());
+      //RCLCPP_INFO_STREAM(get_logger(), "output states: " << output_states.size() << " params: " << traj_params.size());
     
-    traj_markers.overwrite();
-    vis::Marker& free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
-    free_markers.set_namespace("free");
-    free_markers.set_color(0., 1., 0.);
-    free_markers.set_scale(0.1, 0.1, 0.1);
-    vis::Marker& collision_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
-    collision_markers.set_namespace("collision");
-    collision_markers.set_color(1., 0., 0.);
-    collision_markers.set_scale(0.1, 0.1, 0.1);
-    RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
-    for(int i = 0; i < output_states.size(); i++){
-      State& state = output_states[i];
-      //RCLCPP_INFO_STREAM(get_logger(), "i " << i << " " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
+      traj_markers.overwrite();
+      vis::Marker& free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+      free_markers.set_namespace("free");
+      free_markers.set_color(0., 1., 0.);
+      free_markers.set_scale(0.1, 0.1, 0.1);
+      vis::Marker& collision_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+      collision_markers.set_namespace("collision");
+      collision_markers.set_color(1., 0., 0.);
+      collision_markers.set_scale(0.1, 0.1, 0.1);
+      RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
+      for(int i = 0; i < output_states.size(); i++){
+	State& state = output_states[i];
+	//RCLCPP_INFO_STREAM(get_logger(), "i " << i << " " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
 
-      if(state.collision.x >= 0.5)
-	free_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
-      else
-	collision_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
-    }
-    //RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
+	if(state.collision.x >= 0.5)
+	  free_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
+	else
+	  collision_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
+      }
+      //RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
     
-    traj_debug_pub_->publish(traj_markers.get_marker_array());
+      traj_debug_pub_->publish(traj_markers.get_marker_array());
+      //}
   }
 
   void check_gl_error(){
@@ -745,7 +757,7 @@ private:
   }
 
   int get_traj_size(){
-    return ht/dt;
+    return ht/dt;// * 5;
   }
 
   void gl_tic(){
@@ -805,6 +817,7 @@ private:
   GLuint elapsed_query;
 
   vis::MarkerArray traj_markers;
+  bool visualize;
 };
 
 int main(int argc, char **argv) {
