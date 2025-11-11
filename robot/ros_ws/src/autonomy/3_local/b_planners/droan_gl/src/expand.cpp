@@ -126,6 +126,31 @@ struct mat4 {
     data[14] = t.z();
     data[15] = 1.0f;
   }
+
+    mat4(const tf2::Transform& stamped_tf){
+    const tf2::Vector3& t = stamped_tf.getOrigin();
+    tf2::Matrix3x3 R = stamped_tf.getBasis();
+
+    data[0]  = R[0][0];
+    data[1]  = R[1][0];
+    data[2]  = R[2][0];
+    data[3]  = 0.0f;
+
+    data[4]  = R[0][1];
+    data[5]  = R[1][1];
+    data[6]  = R[2][1];
+    data[7]  = 0.0f;
+
+    data[8]  = R[0][2];
+    data[9]  = R[1][2];
+    data[10] = R[2][2];
+    data[11] = 0.0f;
+
+    data[12] = t.x();
+    data[13] = t.y();
+    data[14] = t.z();
+    data[15] = 1.0f;
+  }
 };
 
 struct alignas(16) CollisionInfo {
@@ -679,7 +704,7 @@ private:
 						  graph_nodes*sizeof(mat4),
 						  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++)
-      transform_ptr[graph[i].fg_index] = mat4(graph[i].tf);
+      transform_ptr[graph[i].fg_index] = mat4(graph[i].tf.inverse());
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     // TODO maybe just pad the trajectory points buffer so that the shader doesn't need to check the limit
