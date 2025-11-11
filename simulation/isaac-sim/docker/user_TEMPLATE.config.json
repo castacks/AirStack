@@ -2705,7 +2705,17 @@
                     "1": "pegasus.simulator",
                     "2": "isaacsim.asset.exporter.urdf",
                     "3": "isaacsim.asset.importer.urdf",
-                    "4": "isaacsim.ros2.urdf"
+                    "4": "isaacsim.ros2.urdf",
+                    "5": "omni.physx.forcefields",
+                    "6": "omni.graph.core",
+                    "7": "omni.graph.action",
+                    "8": "omni.graph.action_nodes",
+                    "9": "omni.graph.ui",
+                    "10": "omni.graph.visualization.nodes",
+                    "11": "omni.graph.scriptnode",
+                    "12": "omni.graph.window.action",
+                    "13": "omni.graph.window.generic",
+                    "14": "omni.graph.ui_nodes"
                 }
             },
             "window": {
