@@ -26,7 +26,7 @@ layout(std430, binding = 1) buffer ParamsBuffer {
 };
 
 layout(std430, binding = 2) buffer OutputBuffer {
-  State points[];
+  vec4 points[];
 };
 
 void main() {
@@ -51,8 +51,8 @@ void main() {
     state.acc += state.jerk*dt;
     state.vel += state.acc*dt;
     state.pos += state.vel*dt;
-
-    points[traj_index * traj_size + i] = state;
+    
+    points[traj_index * traj_size + i] = vec4(state.pos, 1);
     
     /*
     vec3 dir = normalize(state.pos - prev_pos);

@@ -51,6 +51,10 @@ struct alignas(16) Vec3 {
   float x, y, z;
 };
 
+struct alignas(16) Vec4 {
+  float x, y, z, w;
+};
+
 struct alignas(16) State {
   Vec3 pos;
   Vec3 vel;
@@ -495,7 +499,7 @@ private:
 
     glGenBuffers(1, &traj_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, traj_params.size()*get_traj_size()*sizeof(State), nullptr, GL_DYNAMIC_COPY);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, traj_params.size()*get_traj_size()*sizeof(Vec4), nullptr, GL_DYNAMIC_COPY);
     
     glGenBuffers(1, &transform_ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, transform_ssbo);
@@ -718,9 +722,9 @@ private:
     // trajectory visualization
     //if(visualize){
       glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
-      State* output_data = (State*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-      std::vector<State> output_states(traj_params.size()*get_traj_size());
-      memcpy(output_states.data(), output_data, output_states.size() * sizeof(State));
+      Vec4* output_data = (Vec4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+      std::vector<Vec4> output_states(traj_params.size()*get_traj_size());
+      memcpy(output_states.data(), output_data, output_states.size() * sizeof(Vec4));
       glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
       //RCLCPP_INFO_STREAM(get_logger(), "output states: " << output_states.size() << " params: " << traj_params.size());
@@ -736,13 +740,13 @@ private:
       collision_markers.set_scale(0.1, 0.1, 0.1);
       RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
       for(int i = 0; i < output_states.size(); i++){
-	State& state = output_states[i];
+	Vec4& state = output_states[i];
 	//RCLCPP_INFO_STREAM(get_logger(), "i " << i << " " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
 
-	if(state.collision.x >= 0.5)
-	  free_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
+	if(state.w >= 0.5)
+	  free_markers.add_point(state.x, state.y, state.z);
 	else
-	  collision_markers.add_point(state.pos.x, state.pos.y, state.pos.z);
+	  collision_markers.add_point(state.x, state.y, state.z);
       }
       //RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
     

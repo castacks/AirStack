@@ -12,7 +12,7 @@ struct State {
 layout(binding = 0, r32i) uniform iimage2DArray tex_array;
 
 layout(std430, binding = 1) buffer TrajectoryPoints {
-  State points[];
+  vec4 points[];
 };
 
 layout(std430, binding = 2) buffer ImageTransforms {
@@ -35,10 +35,10 @@ void main() {
   uint index = gl_GlobalInvocationID.x;
   
   if(index < limit){
-    vec4 pos_map = state_tf*vec4(points[index].pos, 1);
-    points[index].pos = pos_map.xyz;
+    vec4 pos_map = state_tf*points[index];
+    points[index].xyz = pos_map.xyz;
     
-    points[index].collision.x = 1.;
+    points[index].w = 1.;
     for(int i = 0; i < graph_nodes; i++){
       mat4 map_to_cam_tf = inverse(image_tfs[i]);
       vec4 pos_cam = map_to_cam_tf*pos_map;
@@ -51,7 +51,7 @@ void main() {
       float diff = pos_cam.z - fg_depth;
       
       if(u >= 0 && v >= 0 && u < width && v < height && diff > 0 && diff < (2*expansion_radius)){
-	points[index].collision.x = 0.;
+	points[index].w = 0.;
 	//break;
       }
     }
