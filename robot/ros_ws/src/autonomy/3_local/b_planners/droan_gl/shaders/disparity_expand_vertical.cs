@@ -8,7 +8,7 @@ layout(binding = 1, r32i) uniform readonly iimage2D bgHoriz;
 // Final outputs
 //layout(binding = 2, r32i) uniform iimage2D fgFinal;
 layout(binding = 2, r32i) uniform iimage2DArray fgFinal;
-layout(binding = 3, r32i) uniform iimage2D bgFinal;
+//layout(binding = 3, r32i) uniform iimage2D bgFinal;
 
 uniform float baseline;
 uniform float fx;
@@ -20,6 +20,7 @@ uniform float discontinuityThresh;
 uniform float scale;
 uniform int downsample_scale;
 uniform int layer;
+uniform bool is_fg;
 
 const float PI = 3.14159265358979323846;
 
@@ -30,14 +31,16 @@ void main() {
   
   // TODO remove
   //imageStore(bgFinal, coord, imageLoad(bgHoriz, coord));
-  //imageStore(fgFinal, coord, imageLoad(fgHoriz, coord));
+  //imageStore(fgFinal, ivec3(coord.xy, layer), imageLoad(fgHoriz, coord));
   //return;
 
   int centerInt = imageLoad(fgHoriz, coord).r;
-  if (centerInt <= 0) return;
+  if (centerInt <= 0) return; 
   float center_depth = fx*baseline / (float(centerInt) / scale);
-  
-  int radius = int(expansion_radius * float(centerInt) / scale / baseline);
+
+  int radius = int(expansion_radius * (float(centerInt) / scale) / baseline);
+  if(radius > 2000)
+    return;
 
   float a = (float(coord.x) - cx)/fx;
   //float a_0 = (float(coord.x) - cx)/fx;
@@ -47,6 +50,12 @@ void main() {
   float angle = float(centerInt & 0x3FF) / 1000. * PI - PI/2.;
   float Zc = center_depth + expansion_radius*cos(angle);
   float Xc = (float(coord.x) - cx)*center_depth/fx + expansion_radius*sin(angle);//(float(coord.x) - cx)*Zc/fx;
+  
+  if(!is_fg){
+    //angle = -angle;
+    Zc = center_depth - expansion_radius*cos(angle);
+    Xc = (float(coord.x) - cx)*center_depth/fx - expansion_radius*sin(angle);
+  }
   float a_0 = Xc/Zc;
   //float Xc = a_0*Zc;
   //float Yc = b_0*Zc;
@@ -61,7 +70,7 @@ void main() {
   for (int y = ymin; y <= ymax; ++y) {
     ivec3 p = ivec3(coord.x, y, layer);
   //for (int dy = -radius; dy <= radius; ++dy) {
-    //ivec2 p = coord + ivec2(0, dy);
+  //  ivec3 p = ivec3(coord.x, coord.y+dy, layer);//coord + ivec2(0, dy);
     if (p.y < 0 || p.y >= size.y) continue;
 
     float b = (float(p.y) - cy)/fy;
@@ -70,14 +79,26 @@ void main() {
     float C = Zc*Zc*(a_0*a_0 + b_0*b_0  + 1) - expansion_radius*expansion_radius;
     if((B*B - 4.*A*C) < 0.)
       continue;
+    //float Zp = (-B + (is_fg ? -1. : 1.)*sqrt(B*B - 4.*A*C))/(2.*A);
+    //int new_disp = int(scale*fx*baseline / Zp);
+
     float Zp = (-B - sqrt(B*B - 4.*A*C))/(2.*A);
     int new_disp = int(scale*fx*baseline / Zp);
-
+    
+    float Zp_bg = (-B + sqrt(B*B - 4.*A*C))/(2.*A);
+    int new_disp_bg = int(scale*fx*baseline / Zp_bg);
     
     //float Zp_bg = (-B + sqrt(B*B - 4.*A*C))/(2.*A);
     //int new_disp_bg = int(scale*fx*baseline / Zp_bg);
-    
-    imageAtomicMax(fgFinal, p, new_disp);
+
+    if(is_fg)
+      imageAtomicMax(fgFinal, p, new_disp);
+    else{
+      float depth_fg = baseline*fx/(float(imageLoad(fgFinal, ivec3(p.xy, layer-1)).r)/scale);
+      float diff = Zp_bg - depth_fg;
+      if(diff < 3*expansion_radius)
+	imageAtomicMin(fgFinal, p, new_disp_bg);
+    }
     //imageAtomicMin(bgFinal, p, new_disp_bg);
   }
 }

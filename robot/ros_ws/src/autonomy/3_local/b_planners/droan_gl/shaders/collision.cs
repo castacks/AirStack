@@ -48,11 +48,15 @@ void main() {
       float v = pos_cam.y*fy/pos_cam.z + cy;
       float disp = baseline*fx/pos_cam.z;
     
-      float fg_depth = baseline*fx/(float(imageLoad(tex_array, ivec3(u, v, i)).x)/scale);
-      float diff = pos_cam.z - fg_depth;
+      //float fg_disp = baseline*fx/(float(imageLoad(tex_array, ivec3(u, v, i)).x)/scale);
+      //float diff = pos_cam.z - fg_depth;
+
+      float fg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i)).x)/scale;
+      float bg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i+1)).x)/scale;
 
       // TODO handle unseen correctly, ie, has to be seen in at least one image.
-      if(u >= 0 && v >= 0 && u < width && v < height && diff > 0 && diff < (2*expansion_radius)){
+      //if(u >= 0 && v >= 0 && u < width && v < height && diff > 0 && diff < (2*expansion_radius)){
+      if(u >= 0 && v >= 0 && u < width && v < height && disp < fg_disp && disp > bg_disp){
 	//points[index].w = 0.;
 	//break;
 	collision = 0.;

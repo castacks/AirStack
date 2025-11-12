@@ -52,7 +52,7 @@ a = (u - cx) / fx
 b_0 = (c_v - cy) / fy
 b = (v - cy) / fy
 
-Zc = 10.
+Zc = fx*baseline/2.
 Xc = a_0*Zc
 Yc = b_0*Zc
 expansion_radius = 2.

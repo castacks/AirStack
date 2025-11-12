@@ -40,7 +40,6 @@
 #include <vector>
 #include <mutex>
 
-
 struct GraphNode {
   int fg_index;
   int bg_index;
@@ -203,9 +202,10 @@ public:
     ht = airstack::get_param(this, "ht", 10.0);
     downsample_scale = airstack::get_param(this, "downsample_scale", 2);
     visualize = airstack::get_param(this, "visualize", true);
-    
+
+    total_layers = 2*graph_nodes;
     scale = 1000000.0;
-    current_layer = 0;
+    current_node = 0;
     fx_ = -1.;
     look_ahead_valid = false;
   }
@@ -223,8 +223,8 @@ private:
     height_ = msg->height/downsample_scale;
     baseline_ = (msg->p[3] / -msg->p[0]); // assuming right camera
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000,
-			 "Camera intrinsics loaded: fx=%.2f fy=%.2f baseline=%.3f",
-			 fx_, fy_, baseline_);
+			 "Camera intrinsics loaded: fx=%.2f fy=%.2f cx=%.2f, cy=%.2f, baseline=%.3f",
+			 fx_, fy_, cx_, cy_, baseline_);
 
     cv::Mat none;
     setupTextures(none, msg->width, msg->height, texIn, fgHoriz, bgHoriz, fgFinal, bgFinal);
@@ -248,26 +248,27 @@ private:
     }
 
     if(graph.size() < graph_nodes){
-      node.fg_index = graph.size();
-      //node.fg_index = graph.size()*2;
-      //node.bg_index = graph.size()*2 + 1;
+      //node.fg_index = graph.size();
+      node.fg_index = graph.size()*2;
+      node.bg_index = graph.size()*2 + 1;
       graph.push_front(node);
     }
     else{
       node.fg_index = graph.back().fg_index;
-      //node.bg_index = graph.back().bg_index;
+      node.bg_index = graph.back().bg_index;
       graph.pop_back();
       graph.push_front(node);
     }
 
-    static std::vector<GLuint64> times;
+    static std::vector<float> times;
     int times_limit = 10;
 
     cv::Mat disp = cv_bridge::toCvCopy(msg->image, "32FC1")->image;
     int width = disp.cols;
     int height = disp.rows;
     //disp = 0.f;
-    //disp.at<float>(cy_, cx_) = 2.f;
+    //disp.at<float>((int)(height/4), (int)(3*width/4)) = 2.f;
+    //disp.at<float>((int)(height/2), (int)(width/2)) = 2.f;
 
     // Convert float disparity to int (×10000)
     //cv::Mat disp_i;
@@ -277,26 +278,28 @@ private:
     GLint max_int = std::numeric_limits<int>::max();
     //glClearTexImage(texIn, 0, GL_RED_INTEGER, GL_INT, &zero_int);
     glClearTexImage(fgHoriz, 0, GL_RED_INTEGER, GL_INT, &zero_int);
-    glClearTexImage(bgHoriz, 0, GL_RED_INTEGER, GL_INT, &max_int);
     //glClearTexImage(fgFinal, 0, GL_RED_INTEGER, GL_INT, &zero_int);
     glClearTexSubImage(fgFinal,               // texture name
 		       0,                     // mip level
-		       0, 0, current_layer,   // xoffset, yoffset, zoffset (layer index = array slice)
+		       0, 0, 2*current_node,   // xoffset, yoffset, zoffset (layer index = array slice)
 		       width_, height_, 1,      // clear 1 layer only (depth = 1)
 		       GL_RED_INTEGER,        // pixel format (matches R32I / RGBA32I etc.)
 		       GL_INT,                // pixel type (signed int)
 		       &zero_int              // pointer to the data to clear with
 		       );
-    glClearTexImage(bgFinal, 0, GL_RED_INTEGER, GL_INT, &max_int);
+    glClearTexSubImage(fgFinal,               // texture name
+		       0,                     // mip level
+		       0, 0, 2*current_node+1,   // xoffset, yoffset, zoffset (layer index = array slice)
+		       width_, height_, 1,      // clear 1 layer only (depth = 1)
+		       GL_RED_INTEGER,        // pixel format (matches R32I / RGBA32I etc.)
+		       GL_INT,                // pixel type (signed int)
+		       &max_int              // pointer to the data to clear with
+		       );
 
     glBindTexture(GL_TEXTURE_2D, texIn);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED, GL_FLOAT, disp.ptr<float>());
     //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_INT, disp_i.ptr<int>());
     glBindTexture(GL_TEXTURE_2D, 0);
-
-    GLuint query;
-    glGenQueries(1, &query);
-    glBeginQuery(GL_TIME_ELAPSED, query);
     
     int work_group_size_x = 16;
     int work_group_size_y = 16;
@@ -305,61 +308,112 @@ private:
     glUseProgram(horizProg_);
     glBindImageTexture(0, texIn, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32F);
     glBindImageTexture(1, fgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
-    glBindImageTexture(2, bgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+    glBindImageTexture(2, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
+    //glBindImageTexture(2, bgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glUniform1f(glGetUniformLocation(horizProg_, "baseline"), baseline_);
     glUniform1f(glGetUniformLocation(horizProg_, "fx"), fx_);
     glUniform1f(glGetUniformLocation(horizProg_, "fy"), fy_);
-    glUniform1f(glGetUniformLocation(horizProg_, "cx"), fx_);
+    glUniform1f(glGetUniformLocation(horizProg_, "cx"), cx_);
     glUniform1f(glGetUniformLocation(horizProg_, "cy"), cy_);
     glUniform1f(glGetUniformLocation(horizProg_, "expansion_radius"), expansion_radius);
     glUniform1f(glGetUniformLocation(horizProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(horizProg_, "scale"), scale);
     glUniform1i(glGetUniformLocation(horizProg_, "downsample_scale"), downsample_scale);
+    glUniform1i(glGetUniformLocation(horizProg_, "layer"), 2*current_node);
+    glUniform1i(glGetUniformLocation(horizProg_, "is_fg"), true);
+    gl_tic();
     glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
-    
-    glEndQuery(GL_TIME_ELAPSED);
-    GLuint64 horizontal_time = 0;
-    glGetQueryObjectui64v(query, GL_QUERY_RESULT, &horizontal_time);
+    float fg_horizontal_elapsed = gl_toc();
     
     //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
     work_group_size_x = 16;
     work_group_size_y = 16;
-
-    glBeginQuery(GL_TIME_ELAPSED, query);
     
     // Pass 2: Vertical
     glUseProgram(vertProg_);
     glBindImageTexture(0, fgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
     glBindImageTexture(1, bgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
     glBindImageTexture(2, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
-    glBindImageTexture(3, bgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+    //glBindImageTexture(3, bgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
     glUniform1f(glGetUniformLocation(vertProg_, "baseline"), baseline_);
     glUniform1f(glGetUniformLocation(vertProg_, "fx"), fx_);
     glUniform1f(glGetUniformLocation(vertProg_, "fy"), fy_);
-    glUniform1f(glGetUniformLocation(vertProg_, "cx"), fx_);
+    glUniform1f(glGetUniformLocation(vertProg_, "cx"), cx_);
     glUniform1f(glGetUniformLocation(vertProg_, "cy"), cy_);
     glUniform1f(glGetUniformLocation(vertProg_, "expansion_radius"), expansion_radius);
     glUniform1f(glGetUniformLocation(vertProg_, "discontinuityThresh"), 1.0f);
     glUniform1f(glGetUniformLocation(vertProg_, "scale"), scale);
     glUniform1i(glGetUniformLocation(vertProg_, "downsample_scale"), downsample_scale);
-    glUniform1i(glGetUniformLocation(vertProg_, "layer"), current_layer);
+    glUniform1i(glGetUniformLocation(vertProg_, "layer"), 2*current_node);
+    glUniform1i(glGetUniformLocation(vertProg_, "is_fg"), true);
+    gl_tic();
     glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
+    float fg_vertical_elapsed = gl_toc();
 
-    glEndQuery(GL_TIME_ELAPSED);
-    GLuint64 vertical_time = 0;
-    glGetQueryObjectui64v(query, GL_QUERY_RESULT, &vertical_time);
-    GLuint64 total_time = horizontal_time + vertical_time;
+    // background
+    glClearTexImage(fgHoriz, 0, GL_RED_INTEGER, GL_INT, &max_int);
+    // Pass 1: Horizontal
+    glUseProgram(horizProg_);
+    glBindImageTexture(0, texIn, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32F);
+    glBindImageTexture(1, fgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+    glBindImageTexture(2, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
+    //glBindImageTexture(2, bgHoriz, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+    glUniform1f(glGetUniformLocation(horizProg_, "baseline"), baseline_);
+    glUniform1f(glGetUniformLocation(horizProg_, "fx"), fx_);
+    glUniform1f(glGetUniformLocation(horizProg_, "fy"), fy_);
+    glUniform1f(glGetUniformLocation(horizProg_, "cx"), cx_);
+    glUniform1f(glGetUniformLocation(horizProg_, "cy"), cy_);
+    glUniform1f(glGetUniformLocation(horizProg_, "expansion_radius"), expansion_radius);
+    glUniform1f(glGetUniformLocation(horizProg_, "discontinuityThresh"), 1.0f);
+    glUniform1f(glGetUniformLocation(horizProg_, "scale"), scale);
+    glUniform1i(glGetUniformLocation(horizProg_, "downsample_scale"), downsample_scale);
+    glUniform1i(glGetUniformLocation(horizProg_, "layer"), 2*current_node+1);
+    glUniform1i(glGetUniformLocation(horizProg_, "is_fg"), false);
+    gl_tic();
+    glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
+    float bg_horizontal_elapsed = gl_toc();
+    
+    //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+    work_group_size_x = 16;
+    work_group_size_y = 16;
+    
+    // Pass 2: Vertical
+    glUseProgram(vertProg_);
+    glBindImageTexture(0, fgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
+    glBindImageTexture(1, bgHoriz, 0, GL_FALSE, 0, GL_READ_ONLY,  GL_R32I);
+    glBindImageTexture(2, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
+    //glBindImageTexture(3, bgFinal, 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32I);
+    glUniform1f(glGetUniformLocation(vertProg_, "baseline"), baseline_);
+    glUniform1f(glGetUniformLocation(vertProg_, "fx"), fx_);
+    glUniform1f(glGetUniformLocation(vertProg_, "fy"), fy_);
+    glUniform1f(glGetUniformLocation(vertProg_, "cx"), cx_);
+    glUniform1f(glGetUniformLocation(vertProg_, "cy"), cy_);
+    glUniform1f(glGetUniformLocation(vertProg_, "expansion_radius"), expansion_radius);
+    glUniform1f(glGetUniformLocation(vertProg_, "discontinuityThresh"), 1.0f);
+    glUniform1f(glGetUniformLocation(vertProg_, "scale"), scale);
+    glUniform1i(glGetUniformLocation(vertProg_, "downsample_scale"), downsample_scale);
+    glUniform1i(glGetUniformLocation(vertProg_, "layer"), 2*current_node+1);
+    glUniform1i(glGetUniformLocation(vertProg_, "is_fg"), false);
+    gl_tic();
+    glDispatchCompute((width_ + work_group_size_x-1) / work_group_size_x, (height_ + work_group_size_y-1) / work_group_size_y, 1);
+    float bg_vertical_elapsed = gl_toc();
+    
+    float total_time = fg_horizontal_elapsed + fg_vertical_elapsed + bg_horizontal_elapsed + bg_vertical_elapsed;
     times.push_back(total_time);
     if(times.size() > times_limit)
       times.erase(times.begin());
-    GLuint64 average_time = 0;
+    float average_time = 0;
     for(int i = 0; i < times.size(); i++)
       average_time += times[i];
     average_time /= times.size();
-    RCLCPP_INFO(get_logger(), "h v times: %.3f ms, %.3f ms, %.3f ms, %.3f ms",
-		horizontal_time / 1e6, vertical_time / 1e6, total_time / 1e6, average_time / 1e6);
+    static int iteration = 0;
+    iteration++;
+    RCLCPP_INFO(get_logger(), "iteration: %d h v times: %.3f ms, %.3f ms, %.3f ms, %.3f ms, %.3f ms, %.3f ms",
+		iteration, fg_horizontal_elapsed, fg_vertical_elapsed, bg_horizontal_elapsed, bg_vertical_elapsed, total_time, average_time);
     
     //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -373,9 +427,8 @@ private:
     //glDeleteTextures(1, &bgHoriz);
     //glDeleteTextures(1, &fgFinal);
     //glDeleteTextures(1, &bgFinal);
-    glDeleteQueries(1, &query);
 
-    current_layer = (current_layer + 1) % graph_nodes;
+    current_node = (current_node + 1) % graph_nodes;
   }
 
   void initGL() {
@@ -489,7 +542,7 @@ private:
     //initTex(fgF, GL_R32I, zeros.data(), width_, height_);
     glGenTextures(1, &fgF);
     glBindTexture(GL_TEXTURE_2D_ARRAY, fgF);
-    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32I, width_, height_, graph_nodes);
+    glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32I, width_, height_, total_layers);
     //glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, width_, height_);
     
     //initTex(bgF, GL_R32I, maxv.data(), width_, height_);
@@ -544,7 +597,7 @@ private:
     //glGetTexImage(GL_TEXTURE_2D, 0, GL_RED_INTEGER, GL_INT, fg_i.data);
     glGetTextureSubImage(fgTex,
 			 0,              // mip level
-			 0, 0, current_layer, // x,y,z offset (z = layer index)
+			 0, 0, current_node, // x,y,z offset (z = layer index)
 			 w, h, 1,
 			 GL_RED_INTEGER,
 			 GL_INT,
@@ -565,7 +618,7 @@ private:
     
     pcl::PointCloud<pcl::PointXYZI> fg_bg_cloud;
 
-    std::vector<float> data(w*h*graph_nodes);
+    std::vector<float> data(w*h*total_layers);
     glBindTexture(GL_TEXTURE_2D_ARRAY, fgTex);
     glGetTexImage(GL_TEXTURE_2D_ARRAY, 0, GL_RED_INTEGER, GL_INT, data.data());
 
@@ -574,7 +627,7 @@ private:
       const GraphNode& node = graph[i];
       cv::Mat image(h, w, CV_32S, data.data() + node.fg_index*w*h);
       
-      if(i == current_layer){
+      if(i == current_node){
 	cv::Mat image_f;
 	image.convertTo(image_f, CV_32F, 1./scale);
 	auto fg_msg = cv_bridge::CvImage(hdr, "32FC1", image_f).toImageMsg();
@@ -592,6 +645,31 @@ private:
 	  p.y = v_world.y();
 	  p.z = v_world.z();
 	  p.intensity = node.fg_index;
+	  
+	  if(disp > 0.f && std::isfinite(disp))
+	    fg_bg_cloud.points.push_back(p);
+	}
+      }
+
+      image = cv::Mat(h, w, CV_32S, data.data() + node.bg_index*w*h);
+      
+      if(i == current_node){
+	cv::Mat image_f;
+	image.convertTo(image_f, CV_32F, 1./scale);
+	auto bg_msg = cv_bridge::CvImage(hdr, "32FC1", image_f).toImageMsg();
+	bg_pub_->publish(*bg_msg);
+      }
+      
+      for(int y = 0; y < image.rows; y++){
+	for(int x = 0; x < image.cols; x++){
+	  float disp = ((float)image.at<int>(y, x))/scale;
+	  float depth = baseline_*fx_/disp;
+	  tf2::Vector3 v((x-cx_)*depth/fx_, (y-cy_)*depth/fy_, depth);
+	  tf2::Vector3 v_world = node.tf*v;
+	  p.x = v_world.x();
+	  p.y = v_world.y();
+	  p.z = v_world.z();
+	  p.intensity = 3*graph_nodes + node.bg_index;
 	  
 	  if(disp > 0.f && std::isfinite(disp))
 	    fg_bg_cloud.points.push_back(p);
@@ -688,7 +766,9 @@ private:
     gl_tic();
     glDispatchCompute((traj_params.size() + 255) / 256, 1, 1);
     float traj_gen_elapsed = gl_toc();
-    RCLCPP_INFO_STREAM(get_logger(), "TRAJ GEN TIMING: " << traj_gen_elapsed);
+    static int iteration = 0;
+    iteration++;
+    RCLCPP_INFO_STREAM(get_logger(), "iteration: " << iteration << " TRAJ GEN TIMING: " << traj_gen_elapsed);
     //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -703,8 +783,10 @@ private:
     mat4* transform_ptr = (mat4*)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0,
 						  graph_nodes*sizeof(mat4),
 						  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-    for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++)
-      transform_ptr[graph[i].fg_index] = mat4(graph[i].tf.inverse());
+    for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++){
+      RCLCPP_INFO_STREAM(get_logger(), "index info: " << i << " " << graph[i].fg_index << " " << graph_nodes << " " << graph.size());
+      transform_ptr[graph[i].fg_index/2] = mat4(graph[i].tf.inverse());
+    }
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     // TODO maybe just pad the trajectory points buffer so that the shader doesn't need to check the limit
@@ -827,7 +909,7 @@ private:
   float scale;
   float expansion_radius;
 
-  int current_layer, graph_nodes;
+  int current_node, graph_nodes, total_layers;
   
   GLuint texIn, fgHoriz, bgHoriz, fgFinal, bgFinal;
 

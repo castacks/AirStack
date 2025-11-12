@@ -235,7 +235,7 @@ cv::Mat DisparityExpansionNode::convert_depth_to_disparity(const cv::Mat& depth_
 void DisparityExpansionNode::process_disparity_image(
     const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg_disp) {
 
-    //auto begin = std::chrono::high_resolution_clock::now();
+    auto begin = std::chrono::high_resolution_clock::now();
   
     if (!this->LUT_ready) {
         auto& clock = *this->get_clock();
@@ -321,7 +321,7 @@ void DisparityExpansionNode::process_disparity_image(
     disparity_fg.setTo(-1.f, disparity_fg == -std::numeric_limits<float>::infinity());
     disparity_bg.setTo(-1.f, disparity_bg == std::numeric_limits<float>::infinity());
 
-    /*
+    //*
     auto end = std::chrono::high_resolution_clock::now();
     double elapsed = ((std::chrono::duration<double>)(end - begin)).count();
     static std::vector<double> elapsed_history;
@@ -333,7 +333,7 @@ void DisparityExpansionNode::process_disparity_image(
       average += e;
     average /= elapsed_history.size();
     RCLCPP_INFO_STREAM(this->get_logger(), "elapsed: " << elapsed << " s | average: " << average << " s");
-    */
+    //*/
     
     fg_msg->image = disparity_fg;
     bg_msg->image = disparity_bg;

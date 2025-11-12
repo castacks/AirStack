@@ -4,7 +4,8 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0, r32f) uniform readonly image2D disparityIn;
 
 layout(binding = 1, r32i) uniform iimage2D fgHoriz;
-layout(binding = 2, r32i) uniform iimage2D bgHoriz;
+//layout(binding = 2, r32i) uniform iimage2D bgHoriz;
+layout(binding = 2, r32i) uniform iimage2DArray fgFinal;
 
 uniform float baseline;
 uniform float fx;
@@ -15,6 +16,8 @@ uniform float expansion_radius;
 uniform float discontinuityThresh;
 uniform float scale;
 uniform int downsample_scale;
+uniform int layer;
+uniform bool is_fg;
 
 const float PI = 3.14159265358979323846;
 
@@ -25,15 +28,22 @@ void main() {
   //if (coord.x >= size.x || coord.y >= size.y) return;
 
   ivec2 in_coord = downsample_scale*coord;
-  float center = 0.f;
-  for(int i = 0; i < downsample_scale; i++)
-    for(int j = 0; j < downsample_scale; j++)
-      center = max(center, imageLoad(disparityIn, in_coord + ivec2(i, j)).r);
+  float center = is_fg ? 0.f : 100000.f;
+  for(int i = 0; i < downsample_scale; i++){
+    for(int j = 0; j < downsample_scale; j++){
+      float disp = imageLoad(disparityIn, in_coord + ivec2(i, j)).r;
+      if(is_fg)
+	center = max(center, disp);
+      else if(disp > 0)
+	center = min(center, disp);
+    }
+  }
+  
+  if (center <= 0.f || center > 1000.f) return;
   center /= downsample_scale;
   
 
   //int centerInt = imageLoad(disparityIn, coord).r;
-  if (center <= 0.f) return;
   float center_depth = fx*baseline / center;
   
   int radius = int(expansion_radius * center / baseline);
@@ -55,21 +65,28 @@ void main() {
     float C = Zc*Zc*(a_0*a_0 + b_0*b_0  + 1) - expansion_radius*expansion_radius;
     //if((B*B - 4.*A*C) < 0.)
     //  break;
-    float Zp = (-B - sqrt(B*B - 4.*A*C))/(2.*A);
+    float Zp = (-B + (is_fg ? -1. : 1.)*sqrt(B*B - 4.*A*C))/(2.*A);
     int new_disp = int(scale*fx*baseline / Zp);
     
     //float Zp_bg = (-B - sqrt(B*B - 4.*A*C))/(2.*A);
     //int new_disp_bg = int(scale*fx*baseline / Zp_bg);
-
+    
     float Xp = a*Zp;
     float raw_angle = atan(Xp - Xc, Zp - Zc);
     int angle = int((raw_angle + PI/2.) / PI * 1000.);
     
     new_disp = (new_disp & ~0x3FF) | (angle & 0x3FF);
     
-    float new_angle = float(new_disp & 0x3FF) / 1000. * PI - PI/2.;
-    
-    imageAtomicMax(fgHoriz, p, new_disp);
+    //float new_angle = float(new_disp & 0x3FF) / 1000. * PI - PI/2.;
+
+    if(is_fg)
+      imageAtomicMax(fgHoriz, p, new_disp);
+    else{
+      float depth_fg = baseline*fx/(float(imageLoad(fgFinal, ivec3(p.xy, layer-1)).r)/scale);
+      float diff = Zp - depth_fg;
+      if(diff < 3*expansion_radius)
+	imageAtomicMin(fgHoriz, p, new_disp);
+    }
     //imageAtomicMin(bgHoriz, p, new_disp_bg);
   }
 }
