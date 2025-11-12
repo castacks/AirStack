@@ -202,7 +202,7 @@ public:
     dt = airstack::get_param(this, "dt", 0.2);
     ht = airstack::get_param(this, "ht", 10.0);
     downsample_scale = airstack::get_param(this, "downsample_scale", 2);
-    visualize = airstack::get_param(this, "visualize", false);
+    visualize = airstack::get_param(this, "visualize", true);
     
     scale = 1000000.0;
     current_layer = 0;

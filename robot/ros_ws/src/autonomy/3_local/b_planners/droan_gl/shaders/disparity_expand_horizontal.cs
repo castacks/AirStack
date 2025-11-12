@@ -53,8 +53,8 @@ void main() {
     float A = a*a + b*b + 1;
     float B = -2.*Zc*(a*a_0 + b*b_0 + 1);
     float C = Zc*Zc*(a_0*a_0 + b_0*b_0  + 1) - expansion_radius*expansion_radius;
-    if((B*B - 4.*A*C) < 0.)
-      break;
+    //if((B*B - 4.*A*C) < 0.)
+    //  break;
     float Zp = (-B - sqrt(B*B - 4.*A*C))/(2.*A);
     int new_disp = int(scale*fx*baseline / Zp);
     
