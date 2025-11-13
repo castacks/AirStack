@@ -433,13 +433,43 @@ private:
 
   void initGL() {
     if(!glfwInit()) {
-      throw std::runtime_error("Failed to initialize GLFW");
+      static const EGLint configAttribs[] = {
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_BLUE_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_RED_SIZE, 8,
+        EGL_DEPTH_SIZE, 24,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+        EGL_NONE
+      };
+
+      static const EGLint pbufferAttribs[] = {
+        EGL_WIDTH, width_,
+        EGL_HEIGHT, height_,
+        EGL_NONE,
+      };
+      EGLDisplay eglDpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+      EGLint major, minor;
+      eglInitialize(eglDpy, &major, &minor);
+      EGLint numConfigs;
+      EGLConfig eglCfg;
+      eglChooseConfig(eglDpy, configAttribs, &eglCfg, 1, &numConfigs);
+      EGLSurface eglSurf = eglCreatePbufferSurface(eglDpy, eglCfg,
+                                                   pbufferAttribs);
+      eglBindAPI(EGL_OPENGL_API);
+      EGLContext eglCtx = eglCreateContext(eglDpy, eglCfg, EGL_NO_CONTEXT,
+                                           NULL);
+      eglMakeCurrent(eglDpy, eglSurf, eglSurf, eglCtx);
+      if(!gladLoadGLLoader((GLADloadproc)eglGetProcAddress))
+        std::cout << "Failed to initialize GLAD!" << std::endl;
+    }
+    else{
+      glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+      window_ = glfwCreateWindow(640, 480, "Offscreen", nullptr, nullptr);
+      glfwMakeContextCurrent(window_);
+      gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     }
 
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    window_ = glfwCreateWindow(640, 480, "Offscreen", nullptr, nullptr);
-    glfwMakeContextCurrent(window_);
-    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
     GLint maxWorkGroupCount[3];
     GLint maxWorkGroupSize[3];
@@ -552,7 +582,7 @@ private:
 
     //for(float p = -80.f; p < 80.f; p += 5.f){
     //for(float y = 0.f; y < 360.f; y += 5.f){
-    for(float p = -15.f; p < 16.f; p += 15.f){
+    for(float p = -30.f; p < 31.f; p += 15.f){
       for(float y = 0.f; y < 360.f; y += 15.f){
 	float yaw = y*M_PI/180.f;
 	float pitch = p*M_PI/180.f;
@@ -784,7 +814,7 @@ private:
 						  graph_nodes*sizeof(mat4),
 						  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++){
-      RCLCPP_INFO_STREAM(get_logger(), "index info: " << i << " " << graph[i].fg_index << " " << graph_nodes << " " << graph.size());
+      //RCLCPP_INFO_STREAM(get_logger(), "index info: " << i << " " << graph[i].fg_index << " " << graph_nodes << " " << graph.size());
       transform_ptr[graph[i].fg_index/2] = mat4(graph[i].tf.inverse());
     }
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
