@@ -505,6 +505,9 @@ private:
 
     std::string collision_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/collision.cs";
     collision_shader = createComputeShader(collision_comp_filename);
+    
+    std::string traj_collision_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/traj_collision.cs";
+    traj_collision_shader = createComputeShader(traj_collision_comp_filename);
   }
 
   GLuint createComputeShader(const std::string &file) {
@@ -891,6 +894,133 @@ private:
       //}
   }
 
+  void timer_combined_callback(){
+    if(!look_ahead_valid || fx_ <= 0.f)
+      return;
+
+    airstack_msgs::msg::Odometry look_ahead_odom;
+    if(!tflib::transform_odometry(tf_buffer, look_ahead, look_ahead_frame, look_ahead_frame, &look_ahead_odom))
+      return;
+    tf2::Stamped<tf2::Transform> look_ahead_tf;
+    try{
+      geometry_msgs::msg::TransformStamped t;
+      t = tf_buffer->lookupTransform(target_frame, look_ahead_frame,
+				     look_ahead_odom.header.stamp, rclcpp::Duration::from_seconds(0.1));
+      tf2::fromMsg(t, look_ahead_tf);
+    }
+    catch(tf2::TransformException& ex){
+      RCLCPP_ERROR_STREAM(get_logger(), "Transform exception in render_spheres: " << ex.what());
+      return;
+    }
+    mat4 look_ahead_mat4(look_ahead_tf);
+    
+    CommonInit ci;
+    ci.initial_state = State(look_ahead_odom);
+    ci.traj_count = traj_params.size();
+    ci.traj_size = get_traj_size();
+    ci.dt = dt;
+
+    //RCLCPP_INFO_STREAM(get_logger(), "initial state: " << ci.initial_state.pos.x << " " << ci.initial_state.pos.y << " " << ci.initial_state.pos.z << " odom " << look_ahead_odom.pose.position.x << " " << look_ahead_odom.pose.position.y << " " << look_ahead_odom.pose.position.z);
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);    
+
+    glUseProgram(traj_collision_shader);
+    
+    //printUniformBlockLayout(traj_shader, "CommonInit");
+    //RCLCPP_INFO_STREAM(get_logger(), offsetof(CommonInit, initial_state) << "|" << sizeof(State) << " " << offsetof(CommonInit, traj_count) << " " << offsetof(CommonInit, traj_size) << " " << offsetof(CommonInit, dt));
+    
+    glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
+    CommonInit* ptr = (CommonInit*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+						    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    
+    *ptr = ci;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    
+    glBindImageTexture(0, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, common_ubo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, params_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, traj_ssbo);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, transform_ssbo);
+    
+    // TODO do this only when one is updated, probably in the function where they get updated
+    // TODO see if mapping a smaller region, ie only the updated mat4, is better
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, transform_ssbo);
+    mat4* transform_ptr = (mat4*)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0,
+						  graph_nodes*sizeof(mat4),
+						  GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++){
+      //RCLCPP_INFO_STREAM(get_logger(), "index info: " << i << " " << graph[i].fg_index << " " << graph_nodes << " " << graph.size());
+      transform_ptr[graph[i].fg_index/2] = mat4(graph[i].tf.inverse());
+    }
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+    // TODO really only have to set this once
+    CollisionInfo collision_info;
+    collision_info.state_tf = look_ahead_mat4;
+    collision_info.fx = fx_;
+    collision_info.fy = fy_;
+    collision_info.cx = cx_;
+    collision_info.cy = cy_;
+    collision_info.baseline = baseline_;
+    collision_info.width = width_;
+    collision_info.height = height_;
+    collision_info.limit = traj_params.size() * get_traj_size();
+    collision_info.scale = scale;
+    collision_info.expansion_radius = expansion_radius;
+    collision_info.graph_nodes = graph_nodes;
+    glBindBuffer(GL_UNIFORM_BUFFER, collision_info_ubo);
+    CollisionInfo* collision_info_ptr = (CollisionInfo*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CollisionInfo),
+									 GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    
+    *collision_info_ptr = collision_info;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 5, collision_info_ubo);
+    
+
+    gl_tic();
+    glDispatchCompute((traj_params.size() + 255) / 256, 1, 1);
+    float traj_gen_elapsed = gl_toc();
+    static int iteration = 0;
+    iteration++;
+    RCLCPP_INFO_STREAM(get_logger(), "iteration: " << iteration << " TRAJ COMBINED TIMING: " << traj_gen_elapsed);
+    //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+    // trajectory visualization
+    //if(visualize){
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, traj_ssbo);
+      Vec4* output_data = (Vec4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+      std::vector<Vec4> output_states(traj_params.size()*get_traj_size());
+      memcpy(output_states.data(), output_data, output_states.size() * sizeof(Vec4));
+      glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+      //RCLCPP_INFO_STREAM(get_logger(), "output states: " << output_states.size() << " params: " << traj_params.size());
+    
+      traj_markers.overwrite();
+      vis::Marker& free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+      free_markers.set_namespace("free");
+      free_markers.set_color(0., 1., 0.);
+      free_markers.set_scale(0.1, 0.1, 0.1);
+      vis::Marker& collision_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+      collision_markers.set_namespace("collision");
+      collision_markers.set_color(1., 0., 0.);
+      collision_markers.set_scale(0.1, 0.1, 0.1);
+      RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
+      for(int i = 0; i < output_states.size(); i++){
+	Vec4& state = output_states[i];
+	//RCLCPP_INFO_STREAM(get_logger(), "i " << i << " " << state.pos.x << " " << state.pos.y << " " << state.pos.z);
+
+	if(state.w >= 0.5)
+	  free_markers.add_point(state.x, state.y, state.z);
+	else
+	  collision_markers.add_point(state.x, state.y, state.z);
+      }
+      //RCLCPP_INFO_STREAM(get_logger(), sizeof(Vec3) << " " << sizeof(State) << " " << sizeof(TrajectoryParams) << " " << sizeof(CommonInit));
+    
+      traj_debug_pub_->publish(traj_markers.get_marker_array());
+      //}
+  }
+
   void check_gl_error(){
     GLenum e = glGetError();
     if(e != GL_NO_ERROR) RCLCPP_INFO(get_logger(), "GL error: 0x%x", e);
@@ -951,7 +1081,7 @@ private:
   std::string look_ahead_frame;
   std::vector<TrajectoryParams> traj_params;
   float dt, ht;
-  GLuint traj_shader, collision_shader;
+  GLuint traj_shader, collision_shader, traj_collision_shader;
   GLuint common_ubo, collision_info_ubo;
   GLuint params_ssbo, traj_ssbo, transform_ssbo;
   
