@@ -30,7 +30,19 @@ layout(std140, binding = 3) uniform CollisionInfo {
   float expansion_radius;
   int graph_nodes;
 };
-
+/*
+uniform mat4 state_tf;
+uniform float fx;
+uniform float fy;
+uniform float cx;
+uniform float cy;
+uniform float baseline;
+uniform int width, height;
+uniform int limit;
+uniform float scale;
+uniform float expansion_radius;
+uniform int graph_nodes;
+*/
 void main() {
   uint index = gl_GlobalInvocationID.x;
   
@@ -46,13 +58,13 @@ void main() {
       
       float u = pos_cam.x*fx/pos_cam.z + cx;
       float v = pos_cam.y*fy/pos_cam.z + cy;
-      float disp = baseline*fx/pos_cam.z;
+      float disp = baseline*fx/pos_cam.z*scale;
     
-      //float fg_depth = baseline*fx/(float(imageLoad(tex_array, ivec3(u, v, 2*i)).x)/scale);
+      //float fg_depth = baseline*fx/(float(imageLoad(tex_array, ivec3(u, v, 2*i)).x));
       //float diff = pos_cam.z - fg_depth;
 
-      float fg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i)).x)/scale;
-      float bg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i+1)).x)/scale;
+      float fg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i)).x);
+      float bg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i+1)).x);
 
       // TODO handle unseen correctly, ie, has to be seen in at least one image.
       //if(u >= 0 && v >= 0 && u < width && v < height && diff > 0 /* && diff < (2*expansion_radius)*/){

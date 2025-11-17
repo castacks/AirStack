@@ -1,14 +1,8 @@
 #version 450
 layout(local_size_x = 16, local_size_y = 16) in;
 
-// Input from horizontal pass
 layout(binding = 0, r32i) uniform readonly iimage2D fgHoriz;
-layout(binding = 1, r32i) uniform readonly iimage2D bgHoriz;
-
-// Final outputs
-//layout(binding = 2, r32i) uniform iimage2D fgFinal;
-layout(binding = 2, r32i) uniform iimage2DArray fgFinal;
-//layout(binding = 3, r32i) uniform iimage2D bgFinal;
+layout(binding = 1, r32i) uniform iimage2DArray fgFinal;
 
 uniform float baseline;
 uniform float fx;

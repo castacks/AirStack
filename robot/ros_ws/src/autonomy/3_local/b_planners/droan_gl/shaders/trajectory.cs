@@ -28,7 +28,11 @@ layout(std430, binding = 1) buffer ParamsBuffer {
 layout(std430, binding = 2) buffer OutputBuffer {
   vec4 points[];
 };
-
+/*
+uniform int traj_count;
+uniform int traj_size;
+uniform float dt;
+*/
 void main() {
   uint traj_index = gl_GlobalInvocationID.x;
   TrajectoryParams p = params[traj_index];

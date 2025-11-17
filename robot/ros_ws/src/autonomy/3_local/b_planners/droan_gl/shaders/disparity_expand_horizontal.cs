@@ -1,11 +1,9 @@
 #version 450
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0, r32f) uniform readonly image2D disparityIn;
-
-layout(binding = 1, r32i) uniform iimage2D fgHoriz;
-//layout(binding = 2, r32i) uniform iimage2D bgHoriz;
-layout(binding = 2, r32i) uniform iimage2DArray fgFinal;
+layout(binding = 0, r32i) uniform iimage2D fgHoriz;
+layout(binding = 1, r32i) uniform iimage2DArray fgFinal;
+layout(binding = 2, r32f) uniform readonly image2D disparityIn;
 
 uniform float baseline;
 uniform float fx;
