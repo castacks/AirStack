@@ -1,0 +1,58 @@
+/**:
+  ros__parameters:
+    # VDB Map
+    robot_frame_id: "base_link"
+    lidar_frame_id: "ouster"
+    world_frame_id: "map"
+    map_frame_id: "map"
+
+    pcl_topic: "/robot_1/sensors/ouster/point_cloud"
+    data_set: "config"
+    occ_grid_topic: "/occ_grid"
+    dist_slice_topic: "/dist_slice"
+
+    l_free:  -0.13
+    l_occu:   1.01
+    l_min:   -2.0
+    l_max:    3.5
+    l_thresh: 0.0
+
+    vox_size: 0.2
+    start_range: 0.0
+    sensor_range: 15.0
+    hit_thickness: 1
+
+    vdbedt_version: 1
+    max_update_dist: 20.0
+    edt_update_duration: 0.5
+    frontier_update_duration: 2.0
+    vis_update_duration: 5.0
+    vis_slice_level: 2.5
+
+    vis_map_minx: -200.0
+    vis_map_miny: -200.0
+    vis_map_minz:   -1.0
+    vis_map_maxx:  200.0
+    vis_map_maxy:  200.0
+    vis_map_maxz:   10.0
+
+    # Planned Node
+    pub_global_plan_topic: "~/global_plan"
+    pub_trajectory_viz_topic: "~/traj_viz"
+    pub_grid_viz_topic: "~/vdb_viz"
+    pub_clustered_frontier_viz_topic: "~/clustered_frontier_viz"
+
+    sub_target_path_topic: "/perspective_goals"
+    srv_exploration_toggle_topic: "/robot_1/behavior/global_plan_toggle"
+    
+    # Planner Parameters
+    max_start_to_goal_dist_m: 10.0 # how max distance the goal can be from the current robot position
+    checking_point_cnt: 100 # how many points to collision check between the start and goal points
+    max_z_change_m: 2.0 # max height that the goal can deviate from the current height
+    collision_padding_m: 0.5 # how much space should the path have to any obstacles
+    path_end_threshold_m: 3.0 # how close to the goal will the path be considered complete
+    max_yaw_change_degrees: 180.0 # how much the goal can deviate from the current orientation
+
+    # Stall detection parameters
+    position_change_threshold: 0.1 # Minimum distance (meters) to consider as movement
+    stall_timeout_seconds: 5.0 # Time without movement before clearing plan

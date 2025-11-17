@@ -1,0 +1,13 @@
+<!-- ROBOT -->
+<launch>
+
+  <arg name="sim" default="true" />
+
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
+
+  <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_traj_controller_launch.xml" />
+
+
+</launch>

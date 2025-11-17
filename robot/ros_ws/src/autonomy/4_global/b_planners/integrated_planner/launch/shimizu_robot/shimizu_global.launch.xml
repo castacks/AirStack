@@ -1,0 +1,5 @@
+<!-- GLOBAL -->
+<launch>
+    <!-- Exploration Planning -->
+    <include file="$(find-pkg-share integrated_planner)/launch/integrated_launch.xml" />
+</launch>

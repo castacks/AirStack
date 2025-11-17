@@ -1,0 +1,25 @@
+<!-- AUTONOMY -->
+<!-- for perception: uses simulated mavros GPS state estimation and ground truth depth. MACVO only
+runs for visualization -->
+<launch>
+
+  <!-- Interface -->
+  <include file="$(find-pkg-share integrated_planner)/launch/robot_launch_gazebo/gz_interface_launch.xml" />
+
+  <!-- Sensors -->
+  <!-- <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/launch/$(env SENSORS_LAUNCH_FILE)" /> -->
+
+  <!-- Perception -->
+  <!-- <include file="$(find-pkg-share $(env PERCEPTION_LAUNCH_PACKAGE))/launch/$(env PERCEPTION_LAUNCH_FILE)" /> -->
+
+  <!-- Local -->
+  <include file="$(find-pkg-share integrated_planner)/launch/robot_launch_gazebo/gz_local_launch.xml" />
+
+  <!-- Global -->
+  <include file="$(find-pkg-share integrated_planner)/launch/robot_launch_gazebo/gz_global_launch.xml" />
+
+  <!-- Behavior -->
+  <!-- <include file="$(find-pkg-share exploration_planner)/launch/robot_launch_gazebo/gz_behavior_launch.xml" /> -->
+
+
+</launch>

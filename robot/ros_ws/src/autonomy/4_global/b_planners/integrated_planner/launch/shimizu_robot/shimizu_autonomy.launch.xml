@@ -1,0 +1,27 @@
+<!-- AUTONOMY -->
+<!-- for perception: uses simulated mavros GPS state estimation and ground truth depth. MACVO only
+runs for visualization -->
+<launch>
+
+  <!-- Interface -->
+  <include
+    file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)" />
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/launch/$(env SENSORS_LAUNCH_FILE)" />
+
+  <!-- Perception -->
+  <!-- <include file="$(find-pkg-share $(env PERCEPTION_LAUNCH_PACKAGE))/launch/$(env PERCEPTION_LAUNCH_FILE)" /> -->
+
+  <!-- Local -->
+  <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_local.launch.xml" />
+  <!-- <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_ego.launch.xml" /> -->
+
+  <!-- Global -->
+  <!-- <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_global.launch.xml" /> -->
+
+  <!-- Behavior -->
+  <include file="$(find-pkg-share $(env BEHAVIOR_LAUNCH_PACKAGE))/launch/$(env BEHAVIOR_LAUNCH_FILE)" />
+
+
+</launch>
