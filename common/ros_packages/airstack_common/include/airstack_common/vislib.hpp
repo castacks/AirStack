@@ -39,11 +39,12 @@ namespace vis {
   private:
     std::string ns;
     int id;
+    int reserve_size;
 
     std::vector<Marker> markers;
     
   public:
-    MarkerArray(std::string ns="default");
+    MarkerArray(std::string ns="default", int reserve_size=10);
     
     Marker& add_text(std::string frame_id, rclcpp::Time stamp, std::string text, double x, double y, double z);
     Marker& add_line_list(std::string frame_id, rclcpp::Time stamp, float r, float g, float b, float a, float width, int lines, ...);

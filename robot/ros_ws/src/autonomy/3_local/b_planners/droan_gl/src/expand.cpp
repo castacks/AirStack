@@ -88,9 +88,9 @@ struct TrajectoryParams {
 
 struct alignas(16) CommonInit {
   State initial_state;
-  int traj_count;
-  int traj_size;
-  float dt;
+  //int traj_count;
+  //int traj_size;
+  //float dt;
 };
 
 struct mat4 {
@@ -463,6 +463,7 @@ private:
     if(!gl_inited || !look_ahead_valid)
       return;
 
+    // transform look ahead
     airstack_msgs::msg::Odometry look_ahead_odom;
     if(!tflib::transform_odometry(tf_buffer, look_ahead, look_ahead_frame, look_ahead_frame, &look_ahead_odom))
       return;
@@ -477,25 +478,18 @@ private:
       RCLCPP_ERROR_STREAM(get_logger(), "Transform exception in render_spheres: " << ex.what());
       return;
     }
-    mat4 look_ahead_mat4(look_ahead_tf);
     
-    CommonInit ci;
-    ci.initial_state = State(look_ahead_odom);
-    ci.traj_count = traj_params.size();
-    ci.traj_size = get_traj_size();
-    ci.dt = dt;
-
     glMemoryBarrier(GL_ALL_BARRIER_BITS);    
 
+    // trajectory generation
     glUseProgram(traj_shader);
     
     glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);
-    CommonInit* ptr = (CommonInit*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CommonInit),
+    State* ptr = (State*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(State),
 						    GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     
-    *ptr = ci;
+    *ptr = State(look_ahead_odom);
     glUnmapBuffer(GL_UNIFORM_BUFFER);
-    
     
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, common_ubo);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, params_ssbo);
@@ -527,29 +521,9 @@ private:
 
     
     // TODO use graph size instead since initially, or when the map is cleared, it will be smaller than graph_nodes
-    //glUniform1i(glGetUniformLocation(collision_shader, "graph_nodes"), graph_nodes);
-    
-    // TODO really only have to set this once
-    CollisionInfo collision_info;
-    collision_info.state_tf = look_ahead_mat4;
-    collision_info.fx = fx;
-    collision_info.fy = fy;
-    collision_info.cx = cx;
-    collision_info.cy = cy;
-    collision_info.baseline = baseline;
-    collision_info.width = image_width;
-    collision_info.height = image_height;
-    collision_info.limit = traj_params.size() * get_traj_size();
-    collision_info.scale = scale;
-    collision_info.expansion_radius = expansion_radius;
-    collision_info.graph_nodes = graph_nodes;
-    glBindBuffer(GL_UNIFORM_BUFFER, collision_info_ubo);
-    CollisionInfo* collision_info_ptr = (CollisionInfo*)glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(CollisionInfo),
-									 GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-    
-    *collision_info_ptr = collision_info;
-    glUnmapBuffer(GL_UNIFORM_BUFFER);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 3, collision_info_ubo);
+    mat4 look_ahead_mat4(look_ahead_tf);
+    glUniformMatrix4fv(glGetUniformLocation(collision_shader, "state_tf"), 1, GL_FALSE, (float*)&look_ahead_mat4);
+    glUniform1i(glGetUniformLocation(collision_shader, "graph_nodes"), graph.size());
 
     glBindImageTexture(0, fgFinal, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
 
@@ -575,17 +549,38 @@ private:
     collision_markers.set_namespace("collision");
     collision_markers.set_color(1., 0., 0.);
     collision_markers.set_scale(0.1, 0.1, 0.1);
-    RCLCPP_INFO_STREAM(get_logger(), "traj " << ci.traj_count << " " << ci.traj_size);
+    vis::Marker& unseen_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
+    unseen_markers.set_namespace("unseen");
+    unseen_markers.set_color(0., 0., 1.);
+    unseen_markers.set_scale(0.1, 0.1, 0.1);
     for(int i = 0; i < output_states.size(); i++){
       Vec4& state = output_states[i];
 
-      if(state.w >= 0.5)
+      int seen, unseen, collision;
+      get_counts(state.w, &seen, &unseen, &collision);
+
+      if(collision > 0 && collision > seen)
+	collision_markers.add_point(state.x, state.y, state.z);
+      else if(seen > 3)
 	free_markers.add_point(state.x, state.y, state.z);
       else
-	collision_markers.add_point(state.x, state.y, state.z);
+       	unseen_markers.add_point(state.x, state.y, state.z);
     }
     
     traj_debug_pub_->publish(traj_markers.get_marker_array());
+  }
+
+  void get_counts(float w, int* seen, int* unseen, int* collision){
+    int i = w;
+    //RCLCPP_INFO_STREAM(get_logger(), "i: " << i);
+    *collision = i % 1000;
+    i -= *collision;
+    //RCLCPP_INFO_STREAM(get_logger(), "i: " << i << " collision: " << *collision);
+    *unseen = (i % 1000000)/1000;
+    //RCLCPP_INFO_STREAM(get_logger(), "i: " << i << " unseen: " << *unseen);
+    i -= *unseen * 1000;
+    *seen = i / 1000000;
+    //RCLCPP_INFO_STREAM(get_logger(), "i: " << i << " seen: " << *seen);
   }
 
   void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr msg) {
@@ -653,7 +648,23 @@ private:
       glfwMakeContextCurrent(window_);
       gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     }
+    
+    //for(float p = -80.f; p < 80.f; p += 5.f){
+    //for(float y = 0.f; y < 360.f; y += 5.f){
+    for(float p = -30.f; p < 31.f; p += 15.f){
+      for(float y = 0.f; y < 360.f; y += 15.f){
+	float yaw = y*M_PI/180.f;
+	float pitch = p*M_PI/180.f;
 
+	TrajectoryParams params;
+	params.vel_desired[0] = sin(yaw);
+	params.vel_desired[1] = cos(yaw);
+	params.vel_desired[2] = sin(pitch);//0.f;
+	params.vel_max = 2.f;
+
+	traj_params.push_back(params);
+      }
+    }
 
     GLint maxWorkGroupCount[3];
     GLint maxWorkGroupSize[3];
@@ -718,25 +729,25 @@ private:
     
     std::string traj_collision_comp_filename = ament_index_cpp::get_package_share_directory("droan_gl") + "/shaders/traj_collision.cs";
     traj_collision_shader = createComputeShader(traj_collision_comp_filename);
-
-    /*
+    
     glUseProgram(collision_shader);
     glUniform1f(glGetUniformLocation(collision_shader, "fx"), fx);
     glUniform1f(glGetUniformLocation(collision_shader, "fy"), fy);
     glUniform1f(glGetUniformLocation(collision_shader, "cx"), cx);
     glUniform1f(glGetUniformLocation(collision_shader, "cy"), cy);
     glUniform1f(glGetUniformLocation(collision_shader, "baseline"), baseline);
-    glUniform1i(glGetUniformLocation(collision_shader, "width"), width);
-    glUniform1i(glGetUniformLocation(collision_shader, "height"), height);
-    glUniform1i(glGetUniformLocation(collision_shader, "limit"), limit);
+    glUniform1i(glGetUniformLocation(collision_shader, "width"), image_width);
+    glUniform1i(glGetUniformLocation(collision_shader, "height"), image_height);
+    glUniform1i(glGetUniformLocation(collision_shader, "limit"), traj_params.size() * get_traj_size());
     glUniform1f(glGetUniformLocation(collision_shader, "scale"), scale);
     glUniform1f(glGetUniformLocation(collision_shader, "expansion_radius"), expansion_radius);
-
+    
+    RCLCPP_INFO_STREAM(get_logger(), "traj info: " << traj_params.size() << " " << get_traj_size() << " " << dt);
     glUseProgram(traj_shader);
-    glUniform1i(glGetUniformLocation(collision_shader, "traj_count"), traj_count);
-    glUniform1i(glGetUniformLocation(collision_shader, "traj_size"), traj_size);
-    glUniform1f(glGetUniformLocation(collision_shader, "dt"), dt);
-    */
+    glUniform1i(glGetUniformLocation(traj_shader, "traj_count"), traj_params.size());
+    glUniform1i(glGetUniformLocation(traj_shader, "traj_size"), get_traj_size());
+    glUniform1f(glGetUniformLocation(traj_shader, "dt"), dt);
+    glUseProgram(0);
 
     glGenTextures(1, &texIn);
     glBindTexture(GL_TEXTURE_2D, texIn);
@@ -759,23 +770,6 @@ private:
     glGenTextures(1, &bgFinal);
     glBindTexture(GL_TEXTURE_2D, bgFinal);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32I, image_width, image_height);
-
-    //for(float p = -80.f; p < 80.f; p += 5.f){
-    //for(float y = 0.f; y < 360.f; y += 5.f){
-    for(float p = -30.f; p < 31.f; p += 15.f){
-      for(float y = 0.f; y < 360.f; y += 15.f){
-	float yaw = y*M_PI/180.f;
-	float pitch = p*M_PI/180.f;
-
-	TrajectoryParams params;
-	params.vel_desired[0] = sin(yaw);
-	params.vel_desired[1] = cos(yaw);
-	params.vel_desired[2] = sin(pitch);//0.f;
-	params.vel_max = 2.f;
-
-	traj_params.push_back(params);
-      }
-    }
     
     glGenBuffers(1, &common_ubo);
     glBindBuffer(GL_UNIFORM_BUFFER, common_ubo);

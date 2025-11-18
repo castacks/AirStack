@@ -103,9 +103,10 @@ namespace vis{
     return marker;
   }
   
-  MarkerArray::MarkerArray(std::string ns){
+  MarkerArray::MarkerArray(std::string ns, int reserve_size){
     this->ns = ns;
     id = 0;
+    markers.reserve(reserve_size);
   }
   
   Marker& MarkerArray::add_text(std::string frame_id, rclcpp::Time stamp, std::string text, double x, double y, double z){
