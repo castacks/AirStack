@@ -1,21 +1,15 @@
 # Pegasus Simulator
 
-Pegasus Simulator is a high-fidelity multirotor simulation and control framework built on top of NVIDIA Isaac Sim’s physics engine.
-While Isaac Sim provides the underlying physics and rendering, Pegasus Simulator implements the drone flight dynamics, control algorithms, and PX4 integration that enable realistic autonomous flight simulation.
+Pegasus Simulator is a multirotor simulation and control framework built on top of NVIDIA Isaac Sim’s physics engine.
+Isaac Sim provides the underlying physics and rendering and Pegasus Simulator implements the drone flight dynamics, control algorithms, and PX4 integration.
 
-Pegasus Sim focuses on accurate modeling of multirotor dynamics and environment interaction, providing a physically grounded foundation for UAV testing and validation.
-Through its integration with PX4 MAVLink, Pegasus connects directly to the AirStack autonomy stack, allowing AirStack’s higher-level planning and perception components to control a realistically simulated drone as if it were a physical vehicle.
+Pegasus Sim accurately models multirotor dynamics and environment interaction, providing a physically grounded foundation for UAV simulation.
+Pegasus connects directly to the AirStack autonomy stack with its PX4 MAVLink integration, allowing AirStack’s higher-level planning and perception components to control a realistically simulated drone as if it were a physical vehicle.
 
 ## Custom Pegasus Node in AirStack
 
 AirStack extends the core Pegasus Simulator through a Custom Pegasus OmniGraph Node.
-This node serves as an Isaac Sim OmniGraph action graph wrapper, encapsulating both:
-
-- The Pegasus simulation code, and
-
-- The drone primitive within the USD scene.
-
-This design allows Pegasus-based simulations to be defined entirely in USD, enabling scenario reusability and modular composition.
+This node serves as an Isaac Sim OmniGraph action graph wrapper around the Pegasus Sim code which can then be saved in Universal Scene Description (USD) format which are easily readable in Isaac-Sim. This design allows Pegasus-based simulations to be defined entirely in USD, enabling scenario reusability and modular composition.
 Users can drop the same Pegasus node into different environments or swap robots while maintaining consistent physics and control behavior.
 
 Through this approach, AirStack leverages Pegasus to create a flexible, reusable, and realistic simulation framework for aerial robotics research and development.
@@ -28,7 +22,7 @@ At the top level of the AirStack simulation environment, a `.env` file controls 
 ```bash
 ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/iris_with_sensors.pegasus.robot.usd"
 # Set to "true" to launch Isaac Sim using a standalone Python script instead of a USD file
-ISAAC_SIM_USE_STANDALONE_SCRIPT="true"  # "true" or "false"
+ISAAC_SIM_USE_STANDALONE_SCRIPT="false"  # "true" or "false"
 # Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME="example_one_px4_pegasus_launch_script.py"
 PLAY_SIM_ON_START="false"  # Not supported in standalone script mode
@@ -38,11 +32,11 @@ There are *two modes* for launching Pegasus simulations:
 - Load an existing USD file (e.g. *.pegasus.robot.usd) — to simulate a prebuilt robot/environment setup.
 - Use a standalone Python script — to dynamically generate a USD and configure the world from scratch.
 
+This is toggled by the `ISAAC_SIM_USE_STANDALONE_SCRIPT` variable in the `.env` file. If set to `false`, the file specified by `ISAAC_SIM_GUI` is loaded directly. If set to `true`, the script named in `ISAAC_SIM_SCRIPT_NAME` is executed to generate the scene. It is generally recommended to use the scripted approach to generate new scenes (or at least the pegasus drone) since it handles a lot of the OmniGraph and sensor configurations automatically, then saving it, for future reuse and setting `ISAAC_SIM_USE_STANDALONE_SCRIPT` to `false` afterwards with `ISAAC_SIM_GUI` pointing to your saved file.
+
 ## Scripted Scene Generation
 
-In AirStack, users can either load a pre-existing USD file or use a launch script to generate a new simulation scene programmatically.
-
-Example scripts for spawning vehicles are provided in `AirStack/simulation/isaac-sim/launch_scripts/`
+Example scripts for generating a scene are provided in `AirStack/simulation/isaac-sim/launch_scripts/`
 You can also write your own scripts for your own custom scenarios.
 
 When using the scripted launch method:
@@ -62,7 +56,7 @@ This is necessary before editing the OmniGraph.
   - Right-click the graph and choose “Open Graph.”
   - Connect the ROS2Context node so that it feeds into all desired sensor subgraphs (e.g., cameras, LiDARs).  
   ![Connected Subgraphs](pegasus_setup_images/connected_sensor_subgraphs.png)
-  > This manual step is temporarily required due to a known bug. Automation is planned in a future update.
+  > This manual step is temporarily required due to a known bug. Automation of this is planned in a future update.
 
 4. Save the scene and drones once everything is connected.
   - You can save both the stage and the drone USDs for future reuse.  

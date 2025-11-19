@@ -2,7 +2,7 @@
 
 The AirStack extension for IsaacSim does two main things. It creates an Ascent Omnigraph Node which runs the Ascent SITL and updates the position of a drone model in IsaacSim based on the SITL. It also creates a panel for listing, attaching to, and killing tmux sessions.
 
-## Ascent OmniGraph Node
+## Ascent OmniGraph Node (Deprecated as of November 2025)
 
 The Ascent OmniGraph node takes as input a domain id, node namespace and drone prim. It runs the Ascent SITL, mavproxy, and mavros and takes care of keeping the SITL time synced with IsaacSim's time. Mavros is run using the inputted domain id and node namespace. The drone prim's position is set based off of the position of the drone in the SITL. The drone prim doesn't do collision and will pass through objects in the IsaacSim world.
 
