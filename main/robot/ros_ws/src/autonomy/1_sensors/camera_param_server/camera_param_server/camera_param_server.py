@@ -10,7 +10,7 @@ import os
 import numpy as np
 
 class StereoCameraInfo:
-    def __init__(self, node, camera_name, camera_info_topic, left_camera_frame_id, right_camera_frame_id):
+    def __init__(self, node, camera_name, left_camera_info_topic, right_camera_info_topic, left_camera_frame_id, right_camera_frame_id):
         self.left_camera_info = CameraInfo()
         self.right_camera_info = CameraInfo()
         self.camera_type = 'stereo'
@@ -20,10 +20,8 @@ class StereoCameraInfo:
         self.right_info_initialized = False
         self.info_initialized = False
 
-        left_info_topic_merged = camera_name + '/left/' + camera_info_topic
-        right_info_topic_merged = camera_name + '/right/' + camera_info_topic
-        self.left_camera_info_sub = node.create_subscription(CameraInfo, left_info_topic_merged, self.left_camera_info_callback, 10)
-        self.right_camera_info_sub = node.create_subscription(CameraInfo, right_info_topic_merged, self.right_camera_info_callback, 10)
+        self.left_camera_info_sub = node.create_subscription(CameraInfo, left_camera_info_topic, self.left_camera_info_callback, 10)
+        self.right_camera_info_sub = node.create_subscription(CameraInfo, right_camera_info_topic, self.right_camera_info_callback, 10)
         
         self.camera_name = camera_name
         self.left_camera_frame_id = left_camera_frame_id
@@ -99,7 +97,8 @@ class CameraParamServer(Node):
             camera_name = camera.get('camera_name')
             if camera.get('camera_type') == 'stereo':
                 self.camera_dict[camera_name] = StereoCameraInfo(self, camera_name, 
-                                                                       camera.get('camera_info_sub_topic'),
+                                                                       camera.get('left_camera_info_sub_topic'),
+                                                                       camera.get('right_camera_info_sub_topic'),
                                                                        camera.get('left_camera_frame_id'), 
                                                                        camera.get('right_camera_frame_id'))
             elif camera.get('camera_type') == 'mono':

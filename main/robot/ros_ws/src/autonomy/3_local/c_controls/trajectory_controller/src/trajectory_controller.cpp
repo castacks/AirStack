@@ -147,8 +147,13 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     traj_override_sub = this->create_subscription<airstack_msgs::msg::TrajectoryXYZVYaw>(
         "trajectory_override", 1,
         std::bind(&TrajectoryControlNode::traj_override_callback, this, std::placeholders::_1));
+    
+    // Use BEST_EFFORT QoS to match MAVROS odometry publisher
+    auto sensor_qos = rclcpp::QoS(1);
+    sensor_qos.reliability(rclcpp::ReliabilityPolicy::BestEffort);
+    
     odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-        "odometry", 1,
+        "odometry", sensor_qos,
         std::bind(&TrajectoryControlNode::odom_callback, this, std::placeholders::_1));
 
     tf_broadcaster = new tf2_ros::TransformBroadcaster(*this);

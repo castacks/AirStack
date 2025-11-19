@@ -3,7 +3,7 @@ import torch
 import pypose as pp
 
 from rclpy.node import Node
-from sensor_msgs.msg import Image, PointCloud
+from sensor_msgs.msg import Image, PointCloud, CameraInfo
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from message_filters import ApproximateTimeSynchronizer, Subscriber
@@ -51,8 +51,6 @@ class MacvoNode(Node):
         self.frame_id = 0  # Frame ID
 
         # Load the Camera model ------------------------------------
-        self.get_camera_params()
-        # End
 
         # Declare subscriptions and publishers ----------------
         # Subscriptions
@@ -66,6 +64,16 @@ class MacvoNode(Node):
             [self.imageL_sub, self.imageR_sub], queue_size=2, slop=0.1
         )
         self.sync_stereo.registerCallback(self.receive_stereo)
+
+        # camera info subscriber with callback
+        self.camera_info_sub = self.create_subscription(
+            CameraInfo,
+            "camera_info",
+            self.get_camera_params,
+            qos_profile=1,
+        )
+
+        self.camera_info = None
 
         # Publishers
         # self.pose_send = self.create_publisher(
@@ -109,11 +117,6 @@ class MacvoNode(Node):
         self.odometry.Frontend = self.disparity_publisher
         # End
 
-        # Load the Camera model ------------------------------------
-        self.camera_info = None
-        self.get_camera_params()
-        # End
-
         self.time, self.prev_time = None, None
         self.get_logger().info("macvo initialized")
 
@@ -129,34 +132,16 @@ class MacvoNode(Node):
             self.declared_parameters.add(parameter_name)
         return self.get_parameter(parameter_name).get_parameter_value().string_value
 
-    def get_camera_params(self, client_time_out: int = 1):
-        camera_param_server_topic = self.get_string_param(
-            "camera_param_server_client_topic"
-        )
-        camera_name = self.get_string_param("camera_name")
-        camera_param_client = self.create_client(
-            GetCameraParams, camera_param_server_topic
-        )
+    def get_camera_params(self, msg):
+        if self.camera_info is not None:
+            return  # Already received camera info 
+        
+        self.camera_info = msg
+        self.get_logger().info(f"Camera info received: {self.camera_info.width}x{self.camera_info.height}")
 
-        while True:
-            while not camera_param_client.wait_for_service(timeout_sec=client_time_out):
-                self.get_logger().error(
-                    f"Service {camera_param_server_topic} not available, waiting again...",
-                    throttle_duration_sec=5
-                )
-            req = GetCameraParams.Request()
-            req.camera_names.append(camera_name)
-            req.camera_types.append("stereo")
-            future = camera_param_client.call_async(req)
-            rclpy.spin_until_future_complete(self, future)
-            if future.result() is not None:
-                self.camera_info = future.result().camera_infos[0]
-                self.baseline = future.result().baselines[0]
-                self.get_logger().info(f"Received camera config from server!")
-                return
-            else:
-                self.get_logger().error(f"Failed to get camera params from server")
-                raise Exception("Failed to get camera params from server")
+        # calculate the baseline from the camera P matrix
+        self.baseline = abs(self.camera_info.p[3] / self.camera_info.p[0])  # in meters
+        self.get_logger().info(f"Camera baseline: {self.baseline} m")
 
     def publish_data(self, system: MACVO):
         # Latest pose
@@ -197,8 +182,10 @@ class MacvoNode(Node):
 
     def receive_stereo(self, msg_imageL: Image, msg_imageR: Image) -> None:
         if self.camera_info is None:
-            self.get_logger().error("Skipped a frame since camera info is not received yet")
+            # throttle the log messages with rospy throttle
+            self.get_logger().warn("Skipped a frame since camera info is not received yet", throttle_duration_sec=5)
             return
+
         self.get_logger().debug(f"Frame {self.frame_id}")
         imageL, timestamp = from_image(msg_imageL), msg_imageL.header.stamp
         imageR = from_image(msg_imageR)

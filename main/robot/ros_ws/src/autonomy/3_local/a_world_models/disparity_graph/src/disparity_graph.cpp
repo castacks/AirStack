@@ -23,4 +23,4 @@
 namespace disparity_graph
 {
 
-}  // namespace disparity_graph 
+} // namespace disparity_graph
