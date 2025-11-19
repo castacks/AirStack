@@ -1,0 +1,55 @@
+#usda 1.0
+def Xform "World"
+{
+    def OmniGraph "ActionGraph"
+    {
+        token evaluator:type = "execution"
+        token fabricCacheBacking = "Shared"
+        int2 fileFormatVersion = (1, 6)
+        token pipelineStage = "pipelineStageSimulation"
+
+        def ComputeGraphSettings "computegraphSettings" (
+            active = false
+        )
+        {
+            custom token evaluator:type = "execution"
+            custom int2 fileFormatVersion = (1, 2)
+            custom token flatCacheBacking = "Shared"
+            custom token pipelineStage = "pipelineStageSimulation"
+        }
+
+        def OmniGraphNode "script_node"
+        {
+            custom double inputs:data = 42
+            custom uint inputs:execIn
+            prepend uint inputs:execIn.connect = </World/ActionGraph/on_impulse_event.outputs:execOut>
+            custom double inputs:multiplier = 2
+            custom string inputs:script = '''"""
+Test Script
+"""
+# output is multiplied by dynamic attrib defined in the USD
+db.outputs.data = db.inputs.data * db.inputs.multiplier
+db.outputs.asInt = int(db.outputs.data)
+db.state.asFloat = float(db.outputs.asInt)
+'''
+            custom token inputs:scriptPath
+            custom bool inputs:usePath
+            token node:type = "airlab.pegasus.AscentNode"
+            int node:typeVersion = 1
+            custom int outputs:asInt = 0
+            custom double outputs:data
+            custom uint outputs:execOut
+            custom float state:asFloat = 0
+            custom bool state:omni_initialized
+        }
+
+        def OmniGraphNode "on_impulse_event"
+        {
+            custom bool inputs:onlyPlayback = 0
+            token node:type = "omni.graph.action.OnImpulseEvent"
+            int node:typeVersion = 2
+            custom uint outputs:execOut
+            custom bool state:enableImpulse
+        }
+    }
+}

@@ -1,0 +1,12 @@
+{
+    "launch_config": {
+        "renderer": "RaytracedLighting",
+        "headless": false
+    },
+    "resolution": [512, 512],
+    "writer_config": {
+        "output_dir": "_out_defaultwriter",
+        "rgb": true,
+        "instance_segmentation": true
+    }
+}

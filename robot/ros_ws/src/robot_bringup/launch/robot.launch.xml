@@ -10,16 +10,36 @@
 
   <!-- Sim -->
   <group if="$(var sim)">
-    <include file="$(find-pkg-share robot_bringup)/launch/sim.launch.xml" />
+    <!-- GUI -->
+    <node pkg="rviz2" exec="rviz2"
+      args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
+      output="screen" respawn="true" respawn_delay="1" />
+
+    <group>
+      <push-ros-namespace namespace="behavior" />
+      <node pkg="rqt_gui" exec="rqt_gui"
+        args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
+        <remap from="fixed_trajectory_command"
+          to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
+      </node>
+    </group>
+
   </group>
   <!-- Real -->
-  <group unless="$(var sim)">
-    <include file="$(find-pkg-share robot_bringup)/launch/real.launch.xml" />
-  </group>
 
 
-  <!-- Static TFs -->
-  <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml" />
+  <!-- Robot State Publisher (replaces static transforms) -->
+  <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
+    <arg name="robot_name" value="$(env ROBOT_NAME)" />
+    <arg name="urdf_file_path" value="$(env ROBOT_URDF_FILE_PATH)" />
+    <arg name="ignore_timestamp" value="true" />
+    <arg name="use_sim_time" value="$(var sim)" />
+  </include>
+
+  <!-- Static TFs for simulation connection -->
+  <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml">
+    <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
+  </include>
 
   <!-- Autonomy -->
   <include

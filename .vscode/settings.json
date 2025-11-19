@@ -1,0 +1,9 @@
+{
+    "search.exclude": {
+        "**/build/**": true,
+        "**/isaac_sim_data/**": true,
+        "**/ros_ws/install/**": true,
+        "**/ros_ws/log/**": true
+    },
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true
+}

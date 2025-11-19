@@ -17,5 +17,8 @@
         "ms-python.black-formatter"
       ]
     }
+  },
+  "containerEnv": {
+    "AUTOLAUNCH": "false"
   }
 }

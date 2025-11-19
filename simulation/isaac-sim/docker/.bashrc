@@ -109,7 +109,7 @@ tmux source ~/.tmux.conf
 # check if we previously created a symlink to ~/.bash_history
 if [ ! -h ~/.bash_history ]; then
     # File is not a symlink
-    rm ~/.bash_history
+    rm ~/.bash_history || echo "No existing .bash_history to remove"
     # initialize .bash_history file if doesn't exist yet
     if [ ! -d ~/.dev/.bash_history ]; then
         cp ~/.dev/.bash_history_init ~/.dev/.bash_history
@@ -117,6 +117,7 @@ if [ ! -h ~/.bash_history ]; then
     # symlink to ~/.dev/.bash_history
     ln -s ~/.dev/.bash_history ~/.bash_history
 fi
+
 
 # --- ROS2 setup ---
 
@@ -136,3 +137,88 @@ alias runheadless.webrtc=/isaac-sim/runheadless.webrtc.sh
 export ISAACSIM_PATH=/isaac-sim
 alias ISAACSIM_PYTHON="${ISAACSIM_PATH}/python.sh"
 
+# Forward mavlink
+spawn_mavlink_routers() {
+    # Check if NUM_ROBOTS is set
+    if [ -z "$NUM_ROBOTS" ]; then
+        echo "Error: NUM_ROBOTS environment variable is not set"
+        return 1
+    fi
+
+    # Check if PX4_BASE_PORT is set
+    if [ -z "$PX4_BASE_PORT" ]; then
+        echo "Error: PX4_BASE_PORT environment variable is not set"
+        return 1
+    fi
+
+    # Validate NUM_ROBOTS is a positive integer
+    if ! [[ "$NUM_ROBOTS" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Error: NUM_ROBOTS must be a positive integer"
+        return 1
+    fi
+
+    echo "Spawning $NUM_ROBOTS mavlink router instances..."
+
+    # Loop through robot IDs from 1 to NUM_ROBOTS
+    for robot_id in $(seq 1 "$NUM_ROBOTS"); do
+        # Calculate the port for this robot
+        port=$((PX4_BASE_PORT + robot_id))
+        
+        # Create tmux session name
+        session_name="mavlink_robot_$robot_id"
+        
+        echo "Starting mavlink router for robot $robot_id on port $port..."
+        
+        # Create new tmux session and run mavlink-routerd
+        tmux new-session -d -s "$session_name" \
+            "mavlink-routerd -e 172.31.0.255:$port 127.0.0.1:$port"
+        
+        if [ $? -eq 0 ]; then
+            echo "  ✓ Started tmux session '$session_name' for robot $robot_id"
+        else
+            echo "  ✗ Failed to start tmux session for robot $robot_id"
+        fi
+    done
+    
+    echo "Finished spawning mavlink router instances."
+    echo "Use 'tmux list-sessions' to see all sessions."
+    echo "Use 'tmux attach-session -t mavlink_robot_N' to attach to robot N."
+}
+
+kill_mavlink_routers() {
+    # Check if NUM_ROBOTS is set
+    if [ -z "$NUM_ROBOTS" ]; then
+        echo "Error: NUM_ROBOTS environment variable is not set"
+        return 1
+    fi
+
+    # Validate NUM_ROBOTS is a positive integer
+    if ! [[ "$NUM_ROBOTS" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Error: NUM_ROBOTS must be a positive integer"
+        return 1
+    fi
+
+    echo "Killing $NUM_ROBOTS mavlink router instances..."
+
+    # Loop through robot IDs from 1 to NUM_ROBOTS
+    for robot_id in $(seq 1 "$NUM_ROBOTS"); do
+        # Create tmux session name
+        session_name="mavlink_robot_$robot_id"
+        
+        # Check if session exists
+        if tmux has-session -t "$session_name" 2>/dev/null; then
+            echo "Killing tmux session '$session_name' for robot $robot_id..."
+            tmux kill-session -t "$session_name"
+            
+            if [ $? -eq 0 ]; then
+                echo "  ✓ Killed session '$session_name'"
+            else
+                echo "  ✗ Failed to kill session '$session_name'"
+            fi
+        else
+            echo "  ⚠ Session '$session_name' not found (robot $robot_id)"
+        fi
+    done
+    
+    echo "Finished killing mavlink router instances."
+}

@@ -1,5 +1,5 @@
 <launch>
     <node pkg="camera_param_server" exec="camera_param_server" name="camera_param_server" output="screen">
-        <param name="camera_config" value="$(find-pkg-share camera_param_server)/config/camera_config.yaml"/>
+        <param name="camera_config" value="$(env CAMERA_CONFIG_FILE /config/camera_config.yaml)"/>
     </node>
 </launch>

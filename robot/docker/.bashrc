@@ -78,16 +78,25 @@ if [ "$ROBOT_NAME" == "null" ] || echo "$ROBOT_NAME" | grep -q "refused"; then
     num=$((num)) #remove leading zeros
 
     if [[ "$num" == 0 ]]; then
-	export ROBOT_NAME="ERROR"
-	export ROS_DOMAIN_ID="ERROR"
+        export ROBOT_NAME="ERROR"
+        export ROS_DOMAIN_ID="ERROR"
     else
-	export ROBOT_NAME="robot_$num"
-	export ROS_DOMAIN_ID=$num
+        export ROBOT_NAME="robot_$num"
+        export ROS_DOMAIN_ID=$num
     fi
+    export FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
+else
+    # case: robot name found from docker, then we're in sim
+    export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
+    export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
+    # TODO: ardupilot case not handled yet
+    export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
+    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))  # target system for mavros
 fi
 
-# -----------------------------------------------------
-# If not running interactively, don't do anything
+
+# ===========================================================================
+# If not running interactively, don't do anything. Exit immediately
 [ -z "$PS1" ] && return
 
 # don't put duplicate lines in the history. See bash(1) for more options

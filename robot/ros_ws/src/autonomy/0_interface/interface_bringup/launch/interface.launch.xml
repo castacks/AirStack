@@ -1,15 +1,26 @@
 <launch>
     <!-- Args -->
 
-    <arg name="interface_odometry_in_topic" default="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
+    <arg name="interface_odometry_in_topic"
+        default="/$(env ROBOT_NAME)/interface/mavros/local_position/odom" />
 
     <!-- Nodes -->
 
-    <node pkg="robot_interface" exec="robot_interface_node"
-        namespace="interface"
-        output="screen">
+    <!-- Launch MAVROS (poll until connection is established) -->
+    <group>
+        <push-ros-namespace namespace="interface" />
+        <!-- <include file="$(find-pkg-share mavros_interface)/launch/mavros_connection_poll.launch.py"> -->
+        <include file="$(find-pkg-share mavros)/launch/px4.launch">
+            <!-- See robot .bashrc for how this gets set -->
+            <arg name="fcu_url" value="$(env FCU_URL)" />
+            <arg name="tgt_system" value="$(env TGT_SYSTEM)" />
+        </include>
+    </group>
+
+    <!-- Interface between AirStack and MAVROS -->
+    <node pkg="robot_interface" exec="robot_interface_node" namespace="interface" output="screen">
         <param name="interface" value="mavros_interface::MAVROSInterface" />
-        <param name="is_ardupilot" value="true" />
+        <param name="is_ardupilot" value="false" />
         <param name="post_takeoff_command_delay_time" value="10." />
         <param name="do_global_pose_command" value="false" />
 
@@ -18,8 +29,8 @@
         <remap from="reset_integrators" to="/$(env ROBOT_NAME)/control/reset_integrators" />
     </node>
 
-    <node pkg="mavros_interface" exec="position_setpoint_pub.py"
-        namespace="interface"
+    <!-- position setpoints -->
+    <node pkg="mavros_interface" exec="position_setpoint_pub.py" namespace="interface"
         output="screen">
       <param name="command_type" value="0" />
       <param name="max_velocity" value="3.0" />
@@ -44,8 +55,7 @@
 
     </node>
 
-    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
-        namespace="drone_safety_monitor"
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor" namespace="drone_safety_monitor"
         output="screen">
         <param name="state_estimate_timeout" value="1.0" />
 

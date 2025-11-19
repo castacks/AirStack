@@ -19,12 +19,13 @@ services:
         BASE_IMAGE: ubuntu:22.04
       tags:
         - *desktop_image
-    # we use tmux send-keys so that the session stays alive
+    # we use tmux sd-keys so that the session stays alive
+    environment:
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
     command: >
       bash -c "
       service ssh restart;
-      autolaunch=${AUTOLAUNCH};
-      if [ $$autolaunch == 'true' ]; then
+      if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s robot_bringup;
         tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
@@ -63,12 +64,7 @@ services:
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
-      bash -c "ssh service restart;
-      tmux new -d -s robot_bringup
-      && tmux send-keys -t robot_bringup 
-      'bws && sws && 
-      DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER
-      && sleep infinity"
+      bash -c "ssh service restart; tmux new -d -s robot_bringup && tmux send-keys -t robot_bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER && sleep infinity"
     runtime: nvidia
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host

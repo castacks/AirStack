@@ -1,0 +1,26 @@
+// .devcontainer/devcontainer.json
+{
+    "name": "Isaac Sim Container",
+    "service": "isaac-sim",
+    "runServices": [
+        "isaac-sim"
+    ],
+    "dockerComposeFile": [
+        "../../docker-compose.yaml"
+    ],
+    "workspaceFolder": "/",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python", // Install the Python extension
+                "ms-python.black-formatter"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/isaac-sim/python.sh" // Or your specific path
+            }
+        }
+    },
+    "containerEnv": {
+        "AUTOLAUNCH": "false"
+    }
+}
