@@ -1,25 +1,24 @@
 {
     "persistent": {
-        "isaac": {
-            "asset_root": {
-                "default": "https://airlab-nucleus.andrew.cmu.edu/omni/web3/NVIDIA/Assets/Isaac/4.5",
-                "nvidia": "omniverse://localhost/NVIDIA",
-                "isaac": "omniverse://localhost/NVIDIA/Assets/Isaac/4.5/Isaac",
-                "cloud": "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5",
-                "timeout": 5.0
-            }
-        },
-        "simulation": {
-            "minFrameRate": 60,
-            "defaultMetersPerUnit": 1.0
-        },
         "omni": {
             "replicator": {
                 "captureOnPlay": true
             }
         },
+        "isaac": {
+            "asset_root": {
+                "default": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5",
+                "timeout": 5.0
+            }
+        },
+        "UJITSO": {
+            "geometry": false
+        },
         "renderer": {
             "startupMessageDisplayed": false,
+            "rtpt": {
+                "enabled": false
+            },
             "raytracingOmm": {
                 "enabled": false
             }
@@ -32,6 +31,10 @@
             "sendHostMemoryWarning": true,
             "hostMemoryWarnMB": 1,
             "hostMemoryWarnFraction": 0.10000000149011612
+        },
+        "simulation": {
+            "defaultMetersPerUnit": 1.0,
+            "minFrameRate": 62
         },
         "audio": {
             "context": {
@@ -49,22 +52,7 @@
                 "uiVolume": 1.0
             }
         },
-        "ext": {
-            "omni.kit.usd.layers": {
-                "auto_reload_sublayers": false
-            },
-            "omni.kit.widget.stage": {
-                "show_prim_displayname": false,
-                "auto_reload_non_sublayers": false
-            },
-            "omni.usd": {
-                "keep_children_order": false
-            }
-        },
         "omnigraph": {
-            "updateToUsd": false,
-            "useSchemaPrims": true,
-            "disablePrimNodes": true,
             "updateMeshPointsToHydra": false,
             "generator": {
                 "pyOptimize": false
@@ -76,14 +64,198 @@
             "settingsVersion": 5,
             "showNameAsType": true
         },
+        "ext": {
+            "omni.kit.widget.stage": {
+                "show_prim_displayname": false,
+                "auto_reload_non_sublayers": false
+            },
+            "omni.usd": {
+                "keep_children_order": false
+            },
+            "omni.kit.usd.layers": {
+                "auto_reload_sublayers": false
+            }
+        },
+        "physics": {
+            "visualizationDisplayJoints": false,
+            "visualizationSimulationOutput": false,
+            "resetOnStop": true,
+            "useActiveCudaContext": false,
+            "visualizationQueryUsdrtForTraversal": false,
+            "visualizationDisplayAttachmentsHideActor0": false,
+            "visualizationDisplayParticlesShowFluidSurface": false,
+            "visualizationDisplayParticlesShowParticleSetParticles": true,
+            "visualizationDisplayParticlesClothMeshLines": false,
+            "visualizationDisplayParticlesShowDiffuseParticles": false,
+            "visualizationDisplayColliderNormals": false,
+            "visualizationDisplayParticlesShowDeformableMesh": false,
+            "visualizationSimulationDataVisualizer": false,
+            "massDistributionManipulator": false,
+            "pvdEnabled": false,
+            "pvdDebug": true,
+            "pvdMemory": true,
+            "pvdProfile": true,
+            "pvdStreamToFile": false,
+            "useLocalMeshCache": true,
+            "visualizationDisplayParticlesShowDeformableParticles": true,
+            "autocreatePhysicsScene": true,
+            "visualizationDisplayAttachmentsHideActor1": false,
+            "cooking": {
+                "ujitsoCookingMaxProcessCount": 16
+            },
+            "visualizationDisplayParticlesParticleRadius": 2,
+            "visualizationDisplayParticlesParticlePositions": 0,
+            "visualizationDisplayParticles": 0,
+            "visualizationDisplayAttachments": 0,
+            "visualizationDisplayDeformableBodyType": 0,
+            "visualizationDisplayMassProperties": 0,
+            "visualizationDisplayColliders": 0,
+            "backwardCompatibilityCheckMode": 2,
+            "localMeshCacheSizeMB": 1024,
+            "visualizationDisplayTendons": 0,
+            "numThreads": 8,
+            "visualizationDisplayDeformableBodies": 0,
+            "overrideGPUSettings": -1,
+            "visualizationSimplifyAtDistance": 2500.0,
+            "visualizationGap": 0.20000000298023224,
+            "omniPvdOvdRecordingDirectory": "",
+            "testRunnerFilter": "",
+            "pvdOutputDirectory": "",
+            "pvdIP": "127.0.0.1",
+            "testRunnerSelection": {},
+            "supportUiActionBarEnabled": false,
+            "supportUiLoggingEnabled": false,
+            "supportUiFloatingNotificationsEnabled": true,
+            "supportUiAutomaticCollisionCreationEnabled": false,
+            "supportUiAsyncCookingAtStageLoad": true,
+            "supportUiCustomManipulatorEnabled": true,
+            "supportUiManipModeAllowRigidBodyTraversal": 0,
+            "supportUiManipModeAllowRotWhileTranslating": 1,
+            "supportUiManipModeAllowTranOnOtherAxesWhileTranslating": 1,
+            "supportUiManipModeAllowTranWhileRotating": 1,
+            "supportUiManipModeAllowRotOnOtherAxesWhileRotating": 1,
+            "supportUiToolbarButtonsWithText": false,
+            "supportUiAvoidChangingExistingColliders": false,
+            "supportUiStaticColliderSimplificationType": 0,
+            "supportUiDynamicColliderSimplificationType": 0
+        },
+        "omnihydra": {
+            "useFastSceneDelegate": true,
+            "useSceneGraphInstancing": false,
+            "useCachedXformTimeSamples": false,
+            "useSkelAdapter": true,
+            "useSkelAdapterBlendShape": true,
+            "useSkelAdapterDeformGraph": false,
+            "skinDeformerExtLoaded": false
+        },
+        "rtx": {
+            "resourcemanager": {
+                "placeholderTextureColor": {
+                    "0": 0.0,
+                    "1": 1.0,
+                    "2": 1.0
+                }
+            },
+            "mdltranslator": {
+                "mdlDistilling": true
+            },
+            "hydra": {
+                "points": {
+                    "defaultWidth": 1.0
+                },
+                "readTransformsFromFabricInRenderDelegate": false
+            }
+        },
         "exts": {
             "omni.anim.navigation.core": {
                 "navMesh": {
-                    "viewNavMesh": false,
                     "config": {
-                        "autoRebakeOnChanges": false
-                    }
+                        "autoRebakeOnChanges": false,
+                        "autoRebakeDelaySeconds": 1,
+                        "excludeRigidBodies": true,
+                        "agentHeight": 180,
+                        "agentRadius": 20,
+                        "agentMaxStepHeight": 40,
+                        "agentMaxFloorSlope": 45,
+                        "vizGeomEnable": true,
+                        "vizSurfaceEnable": true,
+                        "vizOutlineEnable": true,
+                        "areas": {
+                            "0": {
+                                "areaName": "Walkable",
+                                "color": [
+                                    0.2,
+                                    0.8,
+                                    1.0
+                                ],
+                                "defaultCost": 1.0
+                            }
+                        }
+                    },
+                    "viewNavMesh": false
                 }
+            },
+            "omni.kit.window.script_editor": {
+                "clearAfterExecute": false,
+                "editorPalette": "Dark",
+                "executeOnReload": false,
+                "fontSize": 14,
+                "font": ""
+            },
+            "omni.kit.manipulator.selector": {
+                "orders": {
+                    "omni.physxsupportui": -10,
+                    "omni.kit.manipulator.prim.core": -1
+                }
+            },
+            "isaacsim.replicator.agent": {
+                "hide_visualization": true,
+                "skip_starting_frames": 5,
+                "frame_write_interval": 1,
+                "max_camera_height": 3,
+                "min_camera_height": 2,
+                "character_focus_height": 0.7,
+                "max_camera_look_down_angle": 60,
+                "min_camera_look_down_angle": 0,
+                "max_camera_distance": 14,
+                "min_camera_distance": 6.5,
+                "min_camera_focallength": 13,
+                "max_camera_focallength": 23,
+                "randomize_camera_info": true,
+                "aim_camera_to_character": true,
+                "run_replicator_async": false
+            },
+            "omni.anim.people": {
+                "asset_settings": {
+                    "character_assets_path": ""
+                },
+                "behavior_script_settings": {
+                    "behavior_script_path": ""
+                },
+                "character_prim_path": "/World/Characters"
+            },
+            "omni.anim.retarget.core": {
+                "enableFeetIK": false,
+                "feetIKActivation": 0.2,
+                "feetIKTags": [
+                    "Left_Thigh",
+                    "Left_Foot",
+                    "Right_Thigh",
+                    "Right_Foot"
+                ],
+                "disableTwist": false,
+                "disableTwistTags": [
+                    "Left_Thumb",
+                    "Left_Index",
+                    "Left_Middle",
+                    "Left_Ring",
+                    "Left_Pinky",
+                    "Right_Thumb",
+                    "Right_Index",
+                    "Right_Middle",
+                    "Right_Ring",
+                    "Right_Pinky"
+                ]
             },
             "omni.kit.manipulator.camera": {
                 "lookSpeed": {
@@ -98,23 +270,10 @@
                 },
                 "flyViewLock": false
             },
-            "omni.kit.window.script_editor": {
-                "clearAfterExecute": false,
-                "editorPalette": "Dark",
-                "executeOnReload": false,
-                "fontSize": 14,
-                "font": ""
-            },
             "omni.kit.thumbnails.usd": {
                 "thumbnail_on_save": true,
                 "wait_stage_load": false,
                 "wait_stage_load_timeout": 50
-            },
-            "omni.kit.manipulator.selector": {
-                "orders": {
-                    "omni.physxsupportui": -10,
-                    "omni.kit.manipulator.prim.core": -1
-                }
             },
             "omni.kit.manipulator.prim.core": {
                 "manipulator": {
@@ -151,32 +310,45 @@
                     "defaultCollapsed": true
                 }
             },
-            "omni.kit.window.extensions": {
-                "publishingEnabled": false,
-                "openInVSCode": false
-            },
             "omni.kit.property.usd": {
                 "large_selection": 100,
                 "raw_widget_multi_selection_limit": 1,
+                "update_on_press_enter": true,
                 "references_check_missing": true,
                 "references_hide_max": 5
-            },
-            "omni.kit.viewport.window": {
-                "cameraSpeedMessage": {
-                    "collapsed": false
-                }
             },
             "omni.kit.widget.stage": {
                 "showColumnVisibility": true,
                 "showColumnReload": true,
                 "showColumnType": true
             },
+            "omni.kit.viewport.window": {
+                "cameraSpeedMessage": {
+                    "collapsed": false
+                }
+            },
+            "omni.kit.window.extensions": {
+                "publishingEnabled": false,
+                "openInVSCode": true
+            },
             "omni.kit.material.library": {
                 "browserPath": ""
             },
-            "omni.kit.window.content_browser": {
-                "show_grid_view": true,
-                "grid_view_scale": 2
+            "omni.ui": {
+                "Image": {
+                    "generateMips": false
+                }
+            },
+            "omni.kit.viewport.menubar.core": {
+                "spacer": {
+                    "order": 0
+                }
+            },
+            "omni.syntheticdata": {
+                "menubar": {
+                    "visible": true,
+                    "order": -1
+                }
             },
             "omni.kit.window.filepicker": {
                 "window_split": 306,
@@ -198,20 +370,28 @@
                 "AUTH_URL": "https://oauth.onshape.com/oauth/authorize",
                 "TOKEN_URL": "https://oauth.onshape.com/oauth/token"
             },
-            "omni.kit.viewport.menubar.core": {
-                "spacer": {
-                    "order": 0
-                }
-            },
             "omni.kit.viewport.menubar.display": {
                 "visible": true,
                 "order": -80
             },
-            "omni.syntheticdata": {
-                "menubar": {
-                    "visible": true,
-                    "order": -1
-                }
+            "omni.kit.window.stage": {
+                "columns": "Visibility|Type"
+            },
+            "omni.kit.viewport.menubar.camera": {
+                "expand": false,
+                "visible": true,
+                "order": -10
+            },
+            "omni.kit.viewport.menubar.settings": {
+                "visible": true,
+                "order": -100
+            },
+            "omni.kit.viewport.menubar.render": {
+                "visible": true,
+                "order": -90
+            },
+            "omni.kit.widget.extended_searchfield": {
+                "engine": ""
             },
             "omni.kit.viewport.menubar.lighting": {
                 "autoLightRig": {
@@ -221,158 +401,19 @@
                 "visible": true,
                 "order": 100
             },
-            "omni.kit.window.stage": {
-                "columns": "Visibility|Type"
-            },
-            "omni.kit.widget.extended_searchfield": {
-                "engine": ""
-            },
-            "omni.kit.viewport.menubar.camera": {
-                "expand": false,
-                "visible": true,
-                "order": -10
-            },
-            "omni.kit.viewport.menubar.render": {
-                "visible": true,
-                "order": -90
-            },
-            "omni.kit.viewport.menubar.settings": {
-                "visible": true,
-                "order": -100
+            "omni.kit.window.content_browser": {
+                "show_grid_view": true,
+                "grid_view_scale": 2,
+                "current_directory": "omniverse://airlab-nucleus.andrew.cmu.edu/Projects"
             },
             "omni.kit.registry.nucleus": {
                 "userRegistries": {}
             }
         },
-        "physics": {
-            "visualizationDisplayJoints": false,
-            "visualizationSimulationOutput": false,
-            "useActiveCudaContext": false,
-            "visualizationQueryUsdrtForTraversal": false,
-            "visualizationDisplayAttachmentsHideActor1": false,
-            "visualizationDisplayAttachmentsHideActor0": false,
-            "visualizationDisplayParticlesShowDeformableMesh": false,
-            "visualizationDisplayParticlesShowFluidSurface": false,
-            "visualizationDisplayParticlesClothMeshLines": false,
-            "visualizationDisplayParticlesShowDiffuseParticles": false,
-            "visualizationDisplayColliderNormals": false,
-            "visualizationSimulationDataVisualizer": false,
-            "visualizationDisplayParticlesShowDeformableParticles": true,
-            "pvdStreamToFile": false,
-            "pvdEnabled": false,
-            "pvdDebug": true,
-            "pvdProfile": true,
-            "visualizationDisplayParticlesShowParticleSetParticles": true,
-            "pvdMemory": true,
-            "useLocalMeshCache": true,
-            "autocreatePhysicsScene": true,
-            "massDistributionManipulator": false,
-            "visualizationDisplayParticlesParticleRadius": 2,
-            "visualizationDisplayParticles": 0,
-            "visualizationDisplayAttachments": 0,
-            "visualizationDisplayDeformableBodyType": 0,
-            "visualizationDisplayTendons": 0,
-            "visualizationDisplayColliders": 0,
-            "backwardCompatibilityCheckMode": 2,
-            "localMeshCacheSizeMB": 1024,
-            "cooking": {
-                "ujitsoCookingMaxProcessCount": 16
-            },
-            "visualizationDisplayMassProperties": 0,
-            "visualizationDisplayParticlesParticlePositions": 0,
-            "numThreads": 8,
-            "visualizationDisplayDeformableBodies": 0,
-            "overrideGPUSettings": -1,
-            "visualizationSimplifyAtDistance": 2500.0,
-            "visualizationGap": 0.20000000298023224,
-            "omniPvdOvdRecordingDirectory": "",
-            "testRunnerFilter": "",
-            "pvdOutputDirectory": "",
-            "pvdIP": "127.0.0.1",
-            "testRunnerSelection": {},
-            "supportUiActionBarEnabled": false,
-            "supportUiLoggingEnabled": false,
-            "supportUiFloatingNotificationsEnabled": true,
-            "supportUiAutomaticCollisionCreationEnabled": false,
-            "supportUiAsyncCookingAtStageLoad": true,
-            "supportUiCustomManipulatorEnabled": true,
-            "supportUiManipModeAllowRigidBodyTraversal": 0,
-            "supportUiManipModeAllowRotWhileTranslating": 1,
-            "supportUiManipModeAllowTranOnOtherAxesWhileTranslating": 1,
-            "supportUiManipModeAllowTranWhileRotating": 1,
-            "supportUiManipModeAllowRotOnOtherAxesWhileRotating": 1,
-            "supportUiToolbarButtonsWithText": false,
-            "supportUiAvoidChangingExistingColliders": false,
-            "supportUiStaticColliderSimplificationType": 0,
-            "supportUiDynamicColliderSimplificationType": 0,
-            "resetOnStop": true
-        },
-        "omnihydra": {
-            "useFastSceneDelegate": true,
-            "useSceneGraphInstancing": false,
-            "useCachedXformTimeSamples": false,
-            "useSkelAdapter": true,
-            "useSkelAdapterBlendShape": true,
-            "useSkelAdapterDeformGraph": false,
-            "skinDeformerExtLoaded": false
-        },
-        "rtx": {
-            "resourcemanager": {
-                "placeholderTextureColor": {
-                    "0": 0.0,
-                    "1": 1.0,
-                    "2": 1.0
-                }
-            },
-            "mdltranslator": {
-                "mdlDistilling": true
-            },
-            "sceneDb": {
-                "allowDuplicateAhsInvocation": true
-            },
-            "hydra": {
-                "points": {
-                    "defaultWidth": 1.0
-                },
-                "readTransformsFromFabricInRenderDelegate": false
-            }
-        },
         "app": {
-            "file": {
-                "recentFiles": {}
-            },
-            "transform": {
-                "gizmoUseSRT": true
-            },
-            "camera": {
-                "controllerUseSRT": true
-            },
-            "renderer": {
-                "resolution": {
-                    "custom": {
-                        "list": {}
-                    }
-                }
-            },
-            "newStage": {
-                "defaultTemplate": "sunlight",
-                "templatePath": [
-                    "${app_documents}/scripts/new_stage"
-                ]
-            },
-            "rendering": {
-                "whiteModeExceptions": "GizmoTex, Gizmo, OmniGlass, SunsetSkyMat"
-            },
-            "usd": {
-                "muteUsdCodingError": false,
-                "usdLuxUnprefixedCompat": true
-            },
-            "layersinterface": {
-                "continousUpdate": true
-            },
             "primCreation": {
-                "DefaultXformOpType": "Scale, Orient, Translate",
                 "DefaultXformOpOrder": "xformOp:translate, xformOp:orient, xformOp:scale",
+                "DefaultXformOpType": "Scale, Orient, Translate",
                 "typedDefaults": {
                     "camera": {
                         "clippingRange": [
@@ -389,21 +430,50 @@
                         ]
                     }
                 },
-                "DefaultRotationOrder": "XYZ",
-                "DefaultCameraRotationOrder": "YXZ",
-                "highQuality": true,
+                "DefaultXformOpPrecision": "Double",
+                "DefaultRotationOrder": "ZYX",
                 "PrimCreationWithDefaultXformOps": true,
-                "DefaultXformOpPrecision": "Double"
+                "DefaultCameraRotationOrder": "YXZ",
+                "highQuality": true
+            },
+            "renderer": {
+                "resolution": {
+                    "custom": {
+                        "list": {}
+                    }
+                }
+            },
+            "newStage": {
+                "defaultTemplate": "sunlight",
+                "templatePath": [
+                    "${app_documents}/scripts/new_stage"
+                ]
+            },
+            "transform": {
+                "gizmoUseSRT": false
+            },
+            "camera": {
+                "controllerUseSRT": false
+            },
+            "rendering": {
+                "whiteModeExceptions": "GizmoTex, Gizmo, OmniGlass, SunsetSkyMat"
+            },
+            "usd": {
+                "usdLuxUnprefixedCompat": true,
+                "muteUsdCodingError": false
+            },
+            "layersinterface": {
+                "continousUpdate": true
             },
             "stage": {
-                "upAxis": "Z",
                 "timeCodeRange": [
                     0,
                     1000000
                 ],
-                "movePrimInPlace": false,
-                "instanceableOnCreatingReference": false,
+                "upAxis": "Z",
                 "materialStrength": "weakerThanDescendants",
+                "movePrimInPlace": true,
+                "instanceableOnCreatingReference": false,
                 "interpolationType": "Linear",
                 "timeCodesPerSecond": 60.0,
                 "defaultPrimName": "World",
@@ -431,9 +501,13 @@
                 "showMissingReference": false,
                 "showMergeOrFlattenWarning": true
             },
-            "captureFrame": {
-                "path": "/root/Documents/Kit/shared/screenshots/",
-                "viewport": true
+            "omniverse": {
+                "gamepadCameraControl": false,
+                "filepicker": {
+                    "options_menu": {
+                        "show_details": true
+                    }
+                }
             },
             "thumbnailsGenerator": {
                 "usd": {
@@ -447,18 +521,9 @@
                     "standin_usd_path": "/Stage/ShaderKnob"
                 }
             },
-            "omniverse": {
-                "content_browser": {
-                    "options_menu": {
-                        "show_details": true
-                    }
-                },
-                "filepicker": {
-                    "options_menu": {
-                        "show_details": true
-                    }
-                },
-                "gamepadCameraControl": false
+            "captureFrame": {
+                "path": "/root/Documents/Kit/shared/screenshots/",
+                "viewport": true
             },
             "hydra": {
                 "displayPurpose": {
@@ -467,26 +532,220 @@
                     "render": true
                 },
                 "material": {
-                    "renderContext": "mdl"
+                    "renderContexts": {
+                        "0": "mdl",
+                        "1": "mtlx",
+                        "2": ""
+                    }
+                }
+            },
+            "uiSettings": {
+                "DisplayOrientAsRotate": true
+            },
+            "exts": {
+                "enabled": {
+                    "0": "pegasus.simulator-4.5.0",
+                    "1": "airlab.pegasus-1.19.1"
+                }
+            },
+            "window": {
+                "maximized": false,
+                "width": 1440,
+                "height": 900
+            },
+            "file": {
+                "save": {
+                    "showSaveOptionsAutomatically": false,
+                    "showUnsavedLayersDialog": true
+                }
+            },
+            "extensions": {
+                "console": {
+                    "filterLevel": 0,
+                    "sources": {
+                        "omni.ext.plugin": true,
+                        "omni.datastore": true,
+                        "carb.windowing-glfw.gamepad": true,
+                        "omni.log": true,
+                        "omni.isaac.dynamic_control": true,
+                        "omni.replicator.core.scripts.extension": true,
+                        "omni.isaac.block_world": true,
+                        "omni.isaac.extension_templates": true,
+                        "isaacsim.sensors.rtx.ui.extension": true,
+                        "omni.isaac.scene_blox": true,
+                        "omni.isaac.synthetic_recorder": true,
+                        "omni.isaac.occupancy_map": true,
+                        "omni.isaac.throttling": true,
+                        "omni.isaac.throttling.throttling": true,
+                        "omni.isaac.occupancy_map.ui": true,
+                        "omni.isaac.physics_inspector": true,
+                        "omni.kit.pipapi.pipapi": true,
+                        "omni.kit.widget.cache_indicator.cache_state_menu": true,
+                        "omni.isaac.range_sensor.examples": true,
+                        "omni.isaac.range_sensor.examples.lidar_info": true,
+                        "omni.isaac.range_sensor.examples.generic_info": true,
+                        "omni.isaac.range_sensor.ui": true,
+                        "omni.isaac.range_sensor.ui.menu": true,
+                        "omni.graph.core._impl._registration.register_python_ogn": true,
+                        "pxr.Semantics": true,
+                        "omni.isaac.asset_browser": true,
+                        "omni.isaac.assets_check": true,
+                        "omni.isaac.cloner": true,
+                        "omni.isaac.core.physics_context.physics_context": true,
+                        "omni.isaac.core.simulation_context.simulation_context": true,
+                        "omni.isaac.core.world.world": true,
+                        "omni.isaac.core": true,
+                        "omni.isaac.core_nodes": true,
+                        "omni.isaac.cortex": true,
+                        "omni.isaac.cortex.sample_behaviors": true,
+                        "omni.isaac.franka": true,
+                        "omni.isaac.franka.franka": true,
+                        "omni.isaac.franka.kinematics_solver": true,
+                        "omni.isaac.kit": true,
+                        "omni.isaac.lula": true,
+                        "omni.isaac.lula_test_widget": true,
+                        "omni.isaac.manipulators": true,
+                        "omni.isaac.manipulators.controllers": true,
+                        "omni.isaac.manipulators.controllers.pick_place_controller": true,
+                        "omni.isaac.manipulators.controllers.stacking_controller": true,
+                        "omni.isaac.manipulators.grippers": true,
+                        "omni.isaac.manipulators.grippers.gripper": true,
+                        "omni.isaac.manipulators.grippers.parallel_gripper": true,
+                        "omni.isaac.manipulators.grippers.surface_gripper": true,
+                        "omni.isaac.manipulators.manipulators": true,
+                        "omni.isaac.manipulators.manipulators.single_manipulator": true,
+                        "omni.isaac.menu": true,
+                        "omni.isaac.motion_generation": true,
+                        "omni.isaac.motion_generation.articulation_kinematics_solver": true,
+                        "omni.isaac.motion_generation.articulation_motion_policy": true,
+                        "omni.isaac.motion_generation.articulation_trajectory": true,
+                        "omni.isaac.motion_generation.kinematics_interface": true,
+                        "omni.isaac.motion_generation.lula": true,
+                        "omni.isaac.motion_generation.lula.kinematics": true,
+                        "omni.isaac.motion_generation.lula.motion_policies": true,
+                        "omni.isaac.motion_generation.lula.path_planners": true,
+                        "omni.isaac.motion_generation.lula.trajectory_generator": true,
+                        "omni.isaac.motion_generation.motion_policy_controller": true,
+                        "omni.isaac.motion_generation.motion_policy_interface": true,
+                        "omni.isaac.motion_generation.path_planner_visualizer": true,
+                        "omni.isaac.motion_generation.path_planning_interface": true,
+                        "omni.isaac.motion_generation.trajectory": true,
+                        "omni.isaac.motion_generation.world_interface": true,
+                        "omni.isaac.nucleus": true,
+                        "omni.isaac.nucleus.nucleus": true,
+                        "omni.isaac.quadruped": true,
+                        "omni.isaac.sensor": true,
+                        "omni.isaac.sensor.camera": true,
+                        "omni.isaac.sensor.camera_view": true,
+                        "omni.isaac.sensor.commands": true,
+                        "omni.isaac.sensor.contact_sensor": true,
+                        "omni.isaac.sensor.imu_sensor": true,
+                        "omni.isaac.sensor.lidar_rtx": true,
+                        "omni.isaac.sensor.rotating_lidar_physX": true,
+                        "omni.isaac.sensor.scripts.samples.contact_sensor": true,
+                        "omni.isaac.sensor.scripts.samples.imu_sensor": true,
+                        "omni.isaac.sensor.scripts.samples.lightbeam_sensor": true,
+                        "omni.isaac.surface_gripper": true,
+                        "omni.isaac.universal_robots": true,
+                        "omni.isaac.universal_robots.kinematics_solver": true,
+                        "omni.isaac.universal_robots.ur10": true,
+                        "omni.isaac.version": true,
+                        "omni.isaac.wheeled_robots": true,
+                        "omni.isaac.wheeled_robots.controllers": true,
+                        "omni.isaac.wheeled_robots.controllers.ackermann_controller": true,
+                        "omni.isaac.wheeled_robots.controllers.differential_controller": true,
+                        "omni.isaac.wheeled_robots.controllers.holonomic_controller": true,
+                        "omni.isaac.wheeled_robots.controllers.quintic_path_planner": true,
+                        "omni.isaac.wheeled_robots.controllers.stanley_control": true,
+                        "omni.isaac.wheeled_robots.controllers.wheel_base_pose_controller": true,
+                        "omni.isaac.wheeled_robots.impl": true,
+                        "omni.isaac.wheeled_robots.robots": true,
+                        "omni.isaac.wheeled_robots.robots.holonomic_robot_usd_setup": true,
+                        "omni.isaac.wheeled_robots.robots.wheeled_robot": true,
+                        "omni.isaac.window.about": true,
+                        "omni.isaac.window.about.about": true,
+                        "omni.kit.property.isaac": true,
+                        "omni.kit.property.isaac.widgets": true,
+                        "omni.replicator.isaac": true,
+                        "omni.usd": true,
+                        "omni.kit.app.plugin": true,
+                        "rtx.scenedb.plugin": true,
+                        "omni.usd-abi.plugin": true,
+                        "omni.isaac.core.utils.stage": true,
+                        "omni.isaac.core.utils.prims": true,
+                        "omni.isaac.core.prims.base_sensor": true,
+                        "omni.isaac.core.prims.geometry_prim": true,
+                        "omni.isaac.core.prims.geometry_prim_view": true,
+                        "omni.isaac.core.prims.rigid_contact_view": true,
+                        "omni.isaac.core.prims.rigid_prim": true,
+                        "omni.isaac.core.prims.rigid_prim_view": true,
+                        "omni.isaac.core.prims.soft.cloth_prim": true,
+                        "omni.isaac.core.prims.soft.particle_system": true,
+                        "omni.isaac.core.prims.soft.particle_system_view": true,
+                        "omni.isaac.core.prims.xform_prim": true,
+                        "omni.isaac.core.prims.xform_prim_view": true,
+                        "omni.isaac.core.utils.extensions": true
+                    }
                 }
             },
             "viewport": {
+                "camMoveVelocity": 0.05,
+                "camShowSpeedOnStart": false,
+                "displayOptions": 31999,
+                "pickingMode": "type:ALL",
+                "pickingModeNoKinds": true,
+                "pickingModeIncludeRef": true,
                 "defaults": {
                     "tickRate": 120
                 },
-                "pickingMode": "kind:model.ALL",
-                "camMoveVelocity": 0.05,
-                "previewOnPeek": false,
-                "snapToSurface": false,
-                "displayOptions": 31951,
-                "pickingModeNoKinds": true,
-                "pickingModeIncludeRef": true,
+                "memory": {
+                    "lowFraction": 0.2
+                },
                 "autoFrame": {
                     "mode": "",
                     "singleCamera": true,
                     "implicitOnly": true
                 },
+                "stepMove": {
+                    "x": 50.0,
+                    "y": 50.0,
+                    "z": 50.0
+                },
+                "stepRotate": 1.0,
+                "stepScale": 1.0,
+                "camInertiaEnabled": false,
+                "camInertiaAmount": 0.55,
+                "manipulator": {
+                    "camera": {
+                        "flyAcceleration": 1000.0,
+                        "flyDampening": 10.0,
+                        "lookAcceleration": 2000.0,
+                        "lookDampening": 20.0
+                    }
+                },
+                "camVelocityMin": 0.01,
+                "camVelocityMax": 50,
+                "camVelocityScalerMin": 1,
+                "camVelocityScalerMax": 10,
+                "camVelocityScalerMultAmount": 1.1,
+                "camVelocityCOINormalization": 0.0,
+                "camStopOnMouseUp": true,
+                "camRotSmoothEnabled": true,
+                "camRotSmoothScale": 20.0,
+                "camRotSmoothAlways": false,
+                "camGestureEnabled": false,
+                "camGestureTime": 0.12,
+                "camGestureRadius": 20,
+                "ui": {
+                    "background": {
+                        "opacity": 1.0
+                    },
+                    "brightness": 0.84
+                },
+                "objectCentricNavigation": 0,
+                "coiDoubleClick": false,
                 "outline": {
+                    "mode": 1,
                     "width": 2,
                     "intersection": {
                         "color": {
@@ -2547,63 +2806,40 @@
                         "1021": 0.6000000238418579,
                         "1022": 0.0,
                         "1023": 0.0
-                    }
-                },
-                "memory": {
-                    "lowFraction": 0.2
-                },
-                "stepMove": {
-                    "x": 50.0,
-                    "y": 50.0,
-                    "z": 50.0
-                },
-                "stepRotate": 1.0,
-                "stepScale": 1.0,
-                "camInertiaEnabled": false,
-                "camInertiaAmount": 0.55,
-                "manipulator": {
-                    "camera": {
-                        "flyAcceleration": 1000.0,
-                        "flyDampening": 10.0,
-                        "lookAcceleration": 2000.0,
-                        "lookDampening": 20.0
-                    }
-                },
-                "camVelocityMin": 0.01,
-                "camVelocityMax": 50,
-                "camVelocityScalerMin": 1,
-                "camVelocityScalerMax": 10,
-                "camVelocityScalerMultAmount": 1.1,
-                "camShowSpeedOnStart": false,
-                "camVelocityCOINormalization": 0.0,
-                "camStopOnMouseUp": true,
-                "camRotSmoothEnabled": true,
-                "camRotSmoothScale": 20.0,
-                "camRotSmoothAlways": false,
-                "camGestureEnabled": false,
-                "camGestureTime": 0.12,
-                "camGestureRadius": 20,
-                "ui": {
-                    "background": {
-                        "opacity": 1.0
                     },
-                    "brightness": 0.84
+                    "interiorFlags": 0
                 },
-                "objectCentricNavigation": 0,
-                "coiDoubleClick": false,
+                "grid": {
+                    "scale": 1.0,
+                    "lineWidth": 1,
+                    "lineFadeOutStartDistance": 10.0,
+                    "lineColor": {
+                        "0": 0.3,
+                        "1": 0.3,
+                        "2": 0.3
+                    },
+                    "lineFadeOutEndDistance": 20.0,
+                    "offset": 0.009999999776482582
+                },
+                "boundingBoxes": {
+                    "lineColor": {
+                        "0": 0.886,
+                        "1": 0.447,
+                        "2": 0.447
+                    },
+                    "hideWhenManipulating": false
+                },
+                "gizmo": {
+                    "scale": 0.01,
+                    "lineWidth": 1.0,
+                    "constantScaleEnabled": true,
+                    "constantScale": 10.0,
+                    "minFadeOut": 1.0,
+                    "maxFadeOut": 50,
+                    "constantScaleCamera": false
+                },
                 "Viewport": {
                     "Viewport0": {
-                        "guide": {
-                            "axis": {
-                                "visible": true
-                            },
-                            "grid": {
-                                "visible": true
-                            },
-                            "selection": {
-                                "visible": true
-                            }
-                        },
                         "scene": {
                             "cameras": {
                                 "visible": false
@@ -2619,6 +2855,20 @@
                             },
                             "audio": {
                                 "visible": true
+                            }
+                        },
+                        "guide": {
+                            "axis": {
+                                "visible": true
+                            },
+                            "grid": {
+                                "visible": false
+                            },
+                            "selection": {
+                                "visible": false
+                            },
+                            "boundingBox": {
+                                "visible": false
                             }
                         },
                         "hud": {
@@ -2653,76 +2903,7 @@
                             "1": 720
                         }
                     }
-                },
-                "grid": {
-                    "scale": 1.0,
-                    "lineWidth": 1,
-                    "lineFadeOutStartDistance": 10.0,
-                    "lineColor": {
-                        "0": 0.3,
-                        "1": 0.3,
-                        "2": 0.3
-                    },
-                    "lineFadeOutEndDistance": 20.0,
-                    "offset": 0.009999999776482582
-                },
-                "boundingBoxes": {
-                    "lineColor": {
-                        "0": 0.886,
-                        "1": 0.447,
-                        "2": 0.447
-                    },
-                    "hideWhenManipulating": false
-                },
-                "gizmo": {
-                    "scale": 0.01,
-                    "lineWidth": 1.0,
-                    "constantScaleEnabled": true,
-                    "constantScale": 10.0,
-                    "minFadeOut": 1.0,
-                    "maxFadeOut": 50,
-                    "constantScaleCamera": false
                 }
-            },
-            "extensions": {
-                "console": {
-                    "filterLevel": 0,
-                    "sources": {
-                        "carb.crashreporter-breakpad.plugin": true,
-                        "carb.windowing-glfw.gamepad": true,
-                        "omni.replicator.core.scripts.annotators": true,
-                        "omni.kit.widget.cache_indicator.cache_state_menu": true,
-                        "omni.kit.profiler.window": true,
-                        "carb.audio.device": true,
-                        "carb.audio.output": true,
-                        "carb.audio.context": true
-                    }
-                }
-            },
-            "exts": {
-                "enabled": {
-                    "0": "airlab.airstack-1.19.1",
-                    "1": "pegasus.simulator",
-                    "2": "isaacsim.asset.exporter.urdf",
-                    "3": "isaacsim.asset.importer.urdf",
-                    "4": "isaacsim.ros2.urdf",
-                    "5": "omni.physx.forcefields",
-                    "6": "omni.graph.core",
-                    "7": "omni.graph.action",
-                    "8": "omni.graph.action_nodes",
-                    "9": "omni.graph.ui",
-                    "10": "omni.graph.visualization.nodes",
-                    "11": "omni.graph.scriptnode",
-                    "12": "omni.graph.window.action",
-                    "13": "omni.graph.window.generic",
-                    "14": "omni.graph.ui_nodes"
-                }
-            },
-            "window": {
-                "uiStyle": "NvidiaDark",
-                "maximized": false,
-                "width": 1440,
-                "height": 900
             }
         }
     }

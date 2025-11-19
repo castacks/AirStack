@@ -152,7 +152,7 @@ RUN apt remove -y libopenvdb*; \
   cd ..; rm -rf /opt/openvdb/build
 
 # Add ability to SSH
-RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y openssh-server
+RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y openssh-server libglfw3-dev libglm-dev
 RUN mkdir /var/run/sshd
 
 # Password is airstack
