@@ -1,0 +1,130 @@
+---
+trajectories:
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 0
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 22.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 45
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 67.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 90
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 112.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 135
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 157.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: 180
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -22.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -45
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -67.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -90
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -112.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -135
+    max_velocity: $(param max_velocity)
+    type: acceleration
+  - dt: $(param dt)
+    frame: look_ahead_point_stabilized
+    ht: $(param ht)
+    magnitude: $(param magnitude)
+    magnitude_pitch: 0
+    magnitude_yaw: -157.5
+    max_velocity: $(param max_velocity)
+    type: acceleration
