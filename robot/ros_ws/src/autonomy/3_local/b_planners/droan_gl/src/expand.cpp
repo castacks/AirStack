@@ -6,6 +6,7 @@
 #include <airstack_msgs/msg/odometry.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <airstack_common/vislib.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
@@ -166,6 +167,7 @@ struct alignas(16) CollisionInfo {
 
 class DisparityExpanderNode : public rclcpp::Node {
 private:
+  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr global_plan_sub;
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disp_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr caminfo_sub_;
   rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr look_ahead_sub;
@@ -214,17 +216,19 @@ public:
     : Node("disparity_expander_node"){
     gl_inited = false;
     
-    disp_sub_ = create_subscription<stereo_msgs::msg::DisparityImage>(
-								      "/robot_1/sensors/front_stereo/disparity", 10,
+    disp_sub_ = create_subscription<stereo_msgs::msg::DisparityImage>("/robot_1/sensors/front_stereo/disparity", 10,
 								      std::bind(&DisparityExpanderNode::onDisparity,
 										this, std::placeholders::_1));
-    caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-								     "/robot_1/sensors/front_stereo/right/camera_info", 10,
+    caminfo_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>("/robot_1/sensors/front_stereo/right/camera_info", 10,
 								     std::bind(&DisparityExpanderNode::onCameraInfo,
 									       this, std::placeholders::_1));
     look_ahead_sub = create_subscription<airstack_msgs::msg::Odometry>("/robot_1/trajectory_controller/look_ahead", 10,
 								       std::bind(&DisparityExpanderNode::look_ahead_callback,
 										 this, std::placeholders::_1));
+    global_plan_sub = this->create_subscription<nav_msgs::msg::Path>("global_plan", 10,
+								     std::bind(&DisparityExpanderNode::global_plan_callback,
+									       this, std::placeholders::_1));
+	    
     tf_buffer = new tf2_ros::Buffer(get_clock());
     tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
@@ -518,9 +522,7 @@ private:
     for(int i = 0; i < std::min(graph_nodes, (int)graph.size()); i++)
       transform_ptr[graph[i].fg_index/2] = mat4(graph[i].tf.inverse());
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
     
-    // TODO use graph size instead since initially, or when the map is cleared, it will be smaller than graph_nodes
     mat4 look_ahead_mat4(look_ahead_tf);
     glUniformMatrix4fv(glGetUniformLocation(collision_shader, "state_tf"), 1, GL_FALSE, (float*)&look_ahead_mat4);
     glUniform1i(glGetUniformLocation(collision_shader, "graph_nodes"), graph.size());
@@ -586,6 +588,12 @@ private:
   void look_ahead_callback(const airstack_msgs::msg::Odometry::SharedPtr msg) {
     look_ahead = *msg;
     look_ahead_valid = true;
+  }
+
+  void global_plan_callback(const nav_msgs::msg::Path::SharedPtr msg) {
+    //global_plan_msg = *msg;
+    //global_plan_id++;
+    //global_plan_trajectory_distance = 0;
   }
   
   int get_traj_size(){

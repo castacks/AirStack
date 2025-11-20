@@ -42,6 +42,11 @@ void main() {
   for(int i = 0; i < graph_nodes; i++){
     mat4 map_to_cam_tf = image_tfs[i];
     vec4 pos_cam = map_to_cam_tf*pos_map;
+
+    if(pos_cam.z < 0.){
+      collision += 1000.;
+      break;
+    }
     
     float u = pos_cam.x*fx/pos_cam.z + cx;
     float v = pos_cam.y*fy/pos_cam.z + cy;
@@ -50,14 +55,24 @@ void main() {
     //float fg_depth = baseline*fx/(float(imageLoad(tex_array, ivec3(u, v, 2*i)).x));
     //float diff = pos_cam.z - fg_depth;
     
+    bool in_image_bounds = u >= 0 && v >= 0 && u < width && v < height;
+    if(!in_image_bounds){
+      collision += 1000.;
+      break;
+    }
+    
     float fg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i)).x);
     float bg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i+1)).x);
     
     //if(u >= 0 && v >= 0 && u < width && v < height && diff > 0 /* && diff < (2*expansion_radius)*/){
-    if(u < 0 || v < 0 || u >= width || v >= height || disp < 0)
+    
+    // unseen
+    if(!in_image_bounds || pos_cam.z < 0. || (in_image_bounds && bg_disp < 2000000000. && disp < bg_disp))
       collision += 1000.;
-    else if(u >= 0 && v >= 0 && u < width && v < height && disp < fg_disp && disp > bg_disp)
+    // collision
+    else if(in_image_bounds && disp < fg_disp && disp > bg_disp)
       collision += 1.;
+    // seen
     else
       collision += 1000000.;
   }
