@@ -31,7 +31,7 @@ ament_target_dependencies(droan rclcpp sensor_msgs stereo_msgs nav_msgs visualiz
 target_link_libraries(droan glfw dl assimp EGL GL)
 
 
-add_executable(expand src/expand.cpp src/glad/src/glad.c)
+add_executable(expand src/expand.cpp src/gl_interface.cpp src/glad/src/glad.c)
 target_include_directories(expand PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
