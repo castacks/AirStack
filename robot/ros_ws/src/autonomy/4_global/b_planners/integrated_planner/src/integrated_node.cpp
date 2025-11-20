@@ -55,7 +55,7 @@ void PlannerNode::initialize()
     pub_global_plan =
         node_handle_->create_publisher<nav_msgs::msg::Path>(pub_global_plan_topic_, 10);
     pub_trajectory_ =
-        node_handle_->create_publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>("cmd_trajectory", 10);
+        node_handle_->create_publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>("/cmd_trajectory", 10);
     pub_trajectory_lines =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_viz_topic_, 10);
     pub_clustered_frontier_vis =
@@ -453,6 +453,7 @@ void PlannerNode::timerCallback()
 
     if (this->enable_exploration)
     {
+        RCLCPP_WARN(node_handle_->get_logger(), "Exploration triggered, generating plans...");
         // First plan: no generated path yet
         if (generated_path_raw_.empty())
         {

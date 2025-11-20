@@ -8,6 +8,6 @@
 
   <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
 
-  <include file="$(find-pkg-share exploration_planner)/launch/shimizu_robot/shimizu_global.launch.xml" />
+  <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_local.launch.xml" />
 
 </launch>

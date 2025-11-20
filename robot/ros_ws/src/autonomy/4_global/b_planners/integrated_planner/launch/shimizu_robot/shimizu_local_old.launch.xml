@@ -2,6 +2,65 @@
 <launch>
     <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
     <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/disparity" />
+    <!-- <arg name="local_disparity_in_topic" default="/fake_disparity" /> -->
+    <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
+
+    <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
+
+
+    <!-- Basic Planners -->
+    <node pkg="trajectory_library"
+        namespace="fixed_trajectory_generator" exec="fixed_trajectory_generator.py" output="screen">
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+    </node>
+
+    <!-- customize takeoff_landing_planner.launch.xml -->
+    <node pkg="takeoff_landing_planner"
+        namespace="takeoff_landing_planner"
+        exec="takeoff_landing_planner" output="screen">
+        <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
+            allow_substs="true" />
+
+        <!-- remap glue to AirStack -->
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="trajectory_completion_percentage"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
+        <remap from="tracking_point"
+            to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
+        <remap from="mavros/cmd/takeoff" to="/$(env ROBOT_NAME)/interface/mavros/cmd/takeoff" />
+    </node>
+
+    <group>
+        <push-ros-namespace namespace="droan" />
+        <!-- DROAN Local Planner -->
+        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
+            args="--log-level DEBUG">
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
+                allow_substs="true" />
+            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+            <remap from="tracking_point"
+                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
+            <remap from="trajectory_segment_to_add"
+                to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+        </node>
+        <!-- DROAN local model -->
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
+            output="screen">
+            <param
+                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
+            
+            <remap from="disparity" to="$(var local_disparity_in_topic)" />
+	    <!-- <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" /> -->
+	    <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
+            <!-- <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" /> -->
+        </node>
+    </group>
 
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
@@ -30,8 +89,7 @@
 
     </node>
 
-    <!-- Control -->
-    <node pkg="pid_path_tracker" exec="pid_path_tracker" namespace="control" output="screen">
+    <node pkg="pid_controller" exec="pid_controller" namespace="control" output="screen">
       <param name="target_frame" value="base_link_stabilized" />
 
       <param name="x_p"         value="1.0" />
@@ -90,7 +148,7 @@
       
       <!-- remap glue to AirStack -->
       <remap from="odometry" to="$(var local_odometry_in_topic)" />
-      <remap from="trajectory" to="/cmd_trajectory" />
+      <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
       <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
     </node>
 
