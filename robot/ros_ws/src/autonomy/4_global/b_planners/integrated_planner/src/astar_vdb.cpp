@@ -280,6 +280,55 @@ void Astar::backtrack(const AstarNode *end_node)
     std::reverse(path_nodes_.begin(), path_nodes_.end());
 }
 
+void Astar::pathShorten(std::vector<openvdb::Vec3d> &sparse_path_out)
+{
+    if (path_nodes_.size() < 2)
+    {
+        return;
+    }
+
+    std::vector<openvdb::Coord> sparse_coord_out;
+    const openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
+
+    std::vector<openvdb::Coord> astar_path = path_nodes_;
+
+    openvdb::Coord anchor = astar_path.front();
+    sparse_coord_out.push_back(anchor);
+
+    for (size_t i = 1; i < astar_path.size(); ++i)
+    {
+        openvdb::Coord hit_coord;
+        bool unblocked = map_manager_->ray_esdf_clear_index(anchor, astar_path[i], safe_index_dist_, hit_coord);
+
+        if (unblocked)
+        {
+            // Visible, connect only if it's the last point on path
+            if (i == astar_path.size() - 1)
+            {
+                sparse_coord_out.push_back(astar_path[i]);
+            }
+            continue;
+        }
+
+        // Anchor to path[i] blocked, insert last waypoint path[i-1] as new anchor
+        anchor = astar_path[i - 1];
+        sparse_coord_out.push_back(anchor);
+
+        // Add if path[i] is the last point on path
+        if (i == astar_path.size() - 1)
+        {
+            sparse_coord_out.push_back(astar_path[i]);
+        }
+        continue;
+    }
+
+    sparse_path_out.clear();
+    for (auto &path_coord : sparse_coord_out)
+    {
+        sparse_path_out.push_back(tf->indexToWorld(path_coord));
+    }
+}
+
 void Astar::pathSmooth(std::vector<openvdb::Vec3d> &sparse_path_out)
 {
     // straight line, no shortening
@@ -387,6 +436,8 @@ void Astar::pathSmooth(std::vector<openvdb::Vec3d> &sparse_path_out)
         }
     }
 
+    // std::cout << "Waypoint num of astar path is " << path_nodes_.size() << "\n";
+    // std::cout << "Waypoint num of smoothed path is " << sparse_coord_out.size() << "\n";
     sparse_path_out.clear();
     for (auto &path_coord : sparse_coord_out)
     {

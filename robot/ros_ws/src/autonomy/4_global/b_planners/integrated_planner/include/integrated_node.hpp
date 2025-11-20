@@ -36,6 +36,8 @@
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/srv/get_plan.hpp>
 #include <std_msgs/msg/byte_multi_array.hpp>
+#include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
+#include <trajectory_msgs/msg/multi_dof_joint_trajectory_point.hpp>
 #include <optional>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
@@ -46,13 +48,18 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-#include "utils/utils.hpp"
 #include "astar_vdb.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include <openvdb/io/Stream.h>
 #include <vdb_edt/vdbmap.h>
 
+struct TimedXYZYaw
+{
+    Eigen::Vector3d pos_;
+    double yaw_;
+    double time_from_start_;
+};
 
 class PlannerNode
 {
@@ -81,22 +88,29 @@ private:
     std::string sub_robot_tf_topic_;
     std::string srv_exploration_toggle_topic_;
 
-    // nav_msgs::msg::Path generated_path;
-    double momentum_time_;
     int num_paths_to_generate_;
-    std::vector<nav_msgs::msg::Path> generated_paths_;
+    std::vector<openvdb::Vec3d> generated_path_raw_;
+    std::vector<TimedXYZYaw> generated_path_dense_;    
+    std::vector<TimedXYZYaw> current_path_dense_;
+
+    double next_start_yaw_ = 0.0;
+    double next_goal_yaw_ = 0.0;
+
+    double interpolate_step_ = 0.1;
+    double max_speed_ = 2.0;
+
     bool publish_visualizations = false;
     bool received_first_map = false;
     bool received_first_robot_tf = false;
     bool enable_exploration = false;
     bool is_path_executing = false;
 
-    geometry_msgs::msg::Transform current_location;      // x, y, z, yaw
-    geometry_msgs::msg::Transform current_goal_location; // x, y, z, yaw
+    geometry_msgs::msg::Transform current_location_;      // x, y, z, yaw
     geometry_msgs::msg::Transform last_location;         // Last recorded position
     rclcpp::Time last_position_change;                   // Time of last position change
     double position_change_threshold = 0.1;              // Minimum distance (meters) to consider as movement
     double stall_timeout_seconds = 5.0;                  // Time without movement before clearing plan
+    double traj_horizon_ = 2.0;
 
     double cluster_cube_dim;
     int voxel_cluster_count_thresh;
@@ -113,7 +127,9 @@ private:
 
     virtual void generate_plan();
 
-    virtual void generate_replan();
+    void interpolate_plan(double t_offset);
+
+    void trim_covered_path();
 
     void publish_plan();
 
@@ -145,6 +161,7 @@ public:
     // ROS publishers
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_plan;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_goal_posestamped;
+    rclcpp::Publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr pub_trajectory_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_vdb;

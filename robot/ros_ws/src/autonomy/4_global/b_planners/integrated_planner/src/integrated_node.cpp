@@ -54,6 +54,8 @@ void PlannerNode::initialize()
 
     pub_global_plan =
         node_handle_->create_publisher<nav_msgs::msg::Path>(pub_global_plan_topic_, 10);
+    pub_trajectory_ =
+        node_handle_->create_publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>("cmd_trajectory", 10);
     pub_trajectory_lines =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_viz_topic_, 10);
     pub_clustered_frontier_vis =
@@ -163,26 +165,31 @@ void PlannerNode::generate_plan()
     RCLCPP_INFO(node_handle_->get_logger(), "Starting to generate plan...");
 
     Eigen::Vector3d start_point;
-    if (generated_paths_.size() == 0)
+    if (current_path_dense_.empty())
     {
-        start_point.x() = current_location.translation.x;
-        start_point.y() = current_location.translation.y;
-        start_point.z() = current_location.translation.z;
+        start_point.x() = current_location_.translation.x;
+        start_point.y() = current_location_.translation.y;
+        start_point.z() = current_location_.translation.z;
+
+        tf2::Quaternion q;
+        tf2::fromMsg(current_location_.rotation, q);
+        q.normalize();
+
+        double roll, pitch, yaw;
+        tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+        next_start_yaw_ = yaw;
     }
     else
     {
-        start_point.x() = generated_paths_.back().poses.back().pose.position.x;
-        start_point.y() = generated_paths_.back().poses.back().pose.position.y;
-        start_point.z() = generated_paths_.back().poses.back().pose.position.z;
+        start_point = current_path_dense_.back().pos_;
+        next_start_yaw_ = current_path_dense_.back().yaw_;
     }
 
     openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
 
     openvdb::Vec3d start_world(start_point.x(), start_point.y(), start_point.z());
     openvdb::Coord start_coord(openvdb::Coord::round(tf->worldToIndex(start_world)));
-
-    Eigen::Vector3d end_point;
-    double end_yaw;
 
     std::vector<ScoredViewpoint> goal_candidates;
     map_manager_->frontier_manager_.collect_ranked_best_viewpoints(start_point, goal_candidates);
@@ -193,7 +200,8 @@ void PlannerNode::generate_plan()
         return;
     }
 
-    std::vector<openvdb::Vec3d> path_smooth_world;
+    generated_path_raw_.clear();
+
     for (auto &vp : goal_candidates)
     {
         openvdb::Vec3d goal_world(vp.pos_.x(), vp.pos_.y(), vp.pos_.z());
@@ -205,12 +213,14 @@ void PlannerNode::generate_plan()
 
         if (plan_result == Astar::REACH_END)
         {
-            astar_planner_.pathSmooth(path_smooth_world);
+            // astar_planner_.pathSmooth(generated_path_raw_);
+            astar_planner_.pathShorten(generated_path_raw_);
+            next_goal_yaw_ = vp.yaw_;
             break;
         }
     }
 
-    if (path_smooth_world.empty())
+    if (generated_path_raw_.empty())
     {
         RCLCPP_WARN(node_handle_->get_logger(), "No path generated from all viewpoints");
         return;
@@ -218,189 +228,202 @@ void PlannerNode::generate_plan()
 
     // visualize
     std::vector<openvdb::Vec3d> path_astar = astar_planner_.getPathAstar();
-    visualization_msgs::msg::MarkerArray astar_result_vis = path_to_marker_array(path_astar, 1.0);
+    visualization_msgs::msg::MarkerArray astar_result_vis = path_to_marker_array(path_astar, 0.7);
     for (auto &m : astar_result_vis.markers)
     {
-        m.header.frame_id = "map";
+        m.header.frame_id = world_frame_id_;
     }
     planning_astar_vis->publish(astar_result_vis);
 
-    visualization_msgs::msg::MarkerArray smoothed_result_vis = path_to_marker_array(path_smooth_world, 1.0);
-    for (auto &m : astar_result_vis.markers)
+    visualization_msgs::msg::MarkerArray smoothed_result_vis = path_to_marker_array(generated_path_raw_, 1.0);
+    for (auto &m : smoothed_result_vis.markers)
     {
-        m.header.frame_id = "map";
+        m.header.frame_id = world_frame_id_;
     }
     planning_smoothed_vis->publish(smoothed_result_vis);
 }
 
-void PlannerNode::generate_replan()
+void PlannerNode::interpolate_plan(double t_offset)
 {
-    // ViewPoint start_point;
+    generated_path_dense_.clear();
 
-    // start_point.x = this->current_location.translation.x;
-    // start_point.y = this->current_location.translation.y;
-    // start_point.z = this->current_location.translation.z;
+    if (generated_path_raw_.empty())
+    {
+        return;
+    }
 
-    // tf2::Quaternion q;
-    // tf2::fromMsg(this->current_location.rotation, q);
-    // q.normalize();
+    // Edge case: only one point t=0
+    if (generated_path_raw_.size() == 1)
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "Trying to interpolate a path with only one point, check generate_plan()");
+        return;
+    }
 
-    // double roll, pitch, yaw;
-    // tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    if (interpolate_step_ <= 0.0 || max_speed_ <= 0.0)
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "interpolate_step_ or max_speed_ cannot be <= 0.");
+        return;
+    }
 
-    // start_point.orientation = this->current_location.rotation;
-    // start_point.orientation_set = true;
-    // start_point.orientation_yaw = yaw;
+    double t = t_offset;
 
-    // float timeout_duration = 5.0;
-    // std::optional<Path> gen_path_opt = this->exploration_planner->plan_to_given_waypoint(start_point, curr_goal);
-    // if (gen_path_opt.has_value() && gen_path_opt.value().size() > 0)
-    // {
-    //     RCLCPP_INFO(node_handle_->get_logger(), "Generated path with %ld points",
-    //                 gen_path_opt.value().size());
+    // First point
+    openvdb::Vec3d vdb_last = generated_path_raw_.front();
+    Eigen::Vector3d last_pos(vdb_last.x(), vdb_last.y(), vdb_last.z());
 
-    //     // set the current goal location
-    //     this->current_goal_location = geometry_msgs::msg::Transform();
-    //     this->current_goal_location.translation.x = std::get<0>(gen_path_opt.value().back());
-    //     this->current_goal_location.translation.y = std::get<1>(gen_path_opt.value().back());
-    //     this->current_goal_location.translation.z = std::get<2>(gen_path_opt.value().back());
-    //     float z_rot = std::get<3>(gen_path_opt.value().back());
-    //     tf2::Quaternion q;
-    //     q.setRPY(0, 0, z_rot); // Roll = 0, Pitch = 0, Yaw = yaw
-    //     q.normalize();
-    //     this->current_goal_location.rotation.x = q.x();
-    //     this->current_goal_location.rotation.y = q.y();
-    //     this->current_goal_location.rotation.z = q.z();
-    //     this->current_goal_location.rotation.w = q.w();
+    TimedXYZYaw first_pt;
+    first_pt.pos_ = last_pos;
+    first_pt.yaw_ = 0.0;
+    first_pt.time_from_start_ = t;
+    generated_path_dense_.push_back(first_pt);
 
-    //     // publish the path
-    //     nav_msgs::msg::Path generated_single_path;
-    //     generated_single_path = nav_msgs::msg::Path();
-    //     generated_single_path.header.stamp = node_handle_->now();
-    //     generated_single_path.header.frame_id = world_frame_id_;
-    //     for (auto point : gen_path_opt.value())
-    //     {
-    //         geometry_msgs::msg::PoseStamped point_msg;
-    //         point_msg.pose.position.x = std::get<0>(point);
-    //         point_msg.pose.position.y = std::get<1>(point);
-    //         point_msg.pose.position.z = std::get<2>(point);
-    //         // convert yaw rotation to quaternion
-    //         tf2::Quaternion q;
-    //         q.setRPY(0, 0, std::get<3>(point)); // Roll = 0, Pitch = 0, Yaw = yaw
-    //         q.normalize();
-    //         point_msg.pose.orientation.x = q.x();
-    //         point_msg.pose.orientation.y = q.y();
-    //         point_msg.pose.orientation.z = q.z();
-    //         point_msg.pose.orientation.w = q.w();
-    //         point_msg.header.stamp = node_handle_->now();
-    //         generated_single_path.poses.push_back(point_msg);
-    //     }
-    //     geometry_msgs::msg::PoseStamped last_goal_loc = generated_single_path.poses.back();
-    //     this->current_goal_location.translation.x = last_goal_loc.pose.position.x;
-    //     this->current_goal_location.translation.y = last_goal_loc.pose.position.y;
-    //     this->current_goal_location.translation.z = last_goal_loc.pose.position.z;
-    //     this->current_goal_location.rotation.z = last_goal_loc.pose.orientation.z;
-    //     this->generated_paths_.push_back(generated_single_path);
+    // Iterate each [P_i, P_i+1]
+    for (std::size_t i = 0; i + 1 < generated_path_raw_.size(); ++i)
+    {
+        const openvdb::Vec3d &p0_vdb = generated_path_raw_[i];
+        const openvdb::Vec3d &p1_vdb = generated_path_raw_[i + 1];
 
-    //     // debug vis of RRT
-    //     PointSet coarse_path = this->exploration_planner->rrt_planner_.getCoarsePath();
-    //     visualization_msgs::msg::MarkerArray rrt_vis_array;
+        Eigen::Vector3d p0(p0_vdb.x(), p0_vdb.y(), p0_vdb.z());
+        Eigen::Vector3d p1(p1_vdb.x(), p1_vdb.y(), p1_vdb.z());
 
-    //     if (coarse_path.empty())
-    //     {
-    //         planning_debug_vis->publish(rrt_vis_array);
-    //     }
-    //     else
-    //     {
-    //         const std::string frame_id = "map";
-    //         const rclcpp::Time stamp = node_handle_->now();
+        Eigen::Vector3d seg = p1 - p0;
+        double seg_len = seg.norm();
 
-    //         // ----- LINE_STRIP for the polyline -----
-    //         visualization_msgs::msg::Marker line;
-    //         line.header.frame_id = frame_id;
-    //         line.header.stamp = stamp;
-    //         line.ns = "rrt_coarse_path";
-    //         line.id = 0;
-    //         line.type = visualization_msgs::msg::Marker::LINE_STRIP;
-    //         line.action = visualization_msgs::msg::Marker::ADD;
-    //         line.pose.orientation.w = 1.0; // identity
-    //         line.scale.x = 0.03;           // line width (m)
-    //         line.color.r = 0.1f;
-    //         line.color.g = 0.5f;
-    //         line.color.b = 1.0f;
-    //         line.color.a = 0.9f;
-    //         line.lifetime = rclcpp::Duration(0, 0); // forever
+        // Not likely but if almost the same
+        if (seg_len < 1e-6)
+        {
+            continue;
+        }
 
-    //         line.points.reserve(coarse_path.size());
-    //         for (const auto &v : coarse_path)
-    //         {
-    //             geometry_msgs::msg::Point p;
-    //             p.x = v.x;
-    //             p.y = v.y;
-    //             p.z = v.z;
-    //             line.points.push_back(p);
-    //         }
-    //         rrt_vis_array.markers.push_back(line);
+        Eigen::Vector3d dir = seg / seg_len;
 
-    //         // ----- SPHERE_LIST for vertices -----
-    //         visualization_msgs::msg::Marker verts;
-    //         verts.header.frame_id = frame_id;
-    //         verts.header.stamp = stamp;
-    //         verts.ns = "rrt_coarse_path";
-    //         verts.id = 1;
-    //         verts.type = visualization_msgs::msg::Marker::SPHERE_LIST;
-    //         verts.action = visualization_msgs::msg::Marker::ADD;
-    //         verts.pose.orientation.w = 1.0;
-    //         verts.scale.x = 0.10;
-    //         verts.scale.y = 0.10;
-    //         verts.scale.z = 0.10; // sphere diameter (m)
-    //         verts.color.r = 1.0f;
-    //         verts.color.g = 0.2f;
-    //         verts.color.b = 0.2f;
-    //         verts.color.a = 0.9f;
-    //         verts.lifetime = rclcpp::Duration(0, 0);
+        double dt = interpolate_step_ / max_speed_;
+        // Interpolate (not include section end)
+        for (double dist = interpolate_step_; dist < seg_len; dist += interpolate_step_)
+        {
+            Eigen::Vector3d pos = p0 + dir * dist;
+            t += dt;
 
-    //         verts.points.reserve(coarse_path.size());
-    //         for (const auto &v : coarse_path)
-    //         {
-    //             geometry_msgs::msg::Point p;
-    //             p.x = v.x;
-    //             p.y = v.y;
-    //             p.z = v.z;
-    //             verts.points.push_back(p);
-    //         }
-    //         rrt_vis_array.markers.push_back(verts);
+            TimedXYZYaw pt;
+            pt.pos_ = pos;
+            pt.yaw_ = 0.0; // 先不管 yaw
+            pt.time_from_start_ = t;
+            generated_path_dense_.push_back(pt);
 
-    //         // publish
-    //         planning_debug_vis->publish(rrt_vis_array);
-    //     }
-    // }
-    // else
-    // {
-    //     RCLCPP_ERROR(node_handle_->get_logger(), "Failed to generate path, size was 0");
-    //     this->last_replan_failed = true;
-    // }
+            last_pos = pos;
+        }
+
+        // Section end point p1
+        double ds = (p1 - last_pos).norm();
+        double dt_1 = ds / max_speed_;
+        t += dt_1;
+
+        TimedXYZYaw pt;
+        pt.pos_ = p1;
+        pt.yaw_ = 0.0;
+        pt.time_from_start_ = t;
+        generated_path_dense_.push_back(pt);
+
+        last_pos = p1;
+    }
+
+    // Interpolate Yaw:
+    const double t_start = generated_path_dense_.front().time_from_start_;
+    const double t_end = generated_path_dense_.back().time_from_start_;
+    const double duration = t_end - t_start;
+
+    auto wrapAngle = [](double a)
+    {
+        while (a > M_PI)
+            a -= 2.0 * M_PI;
+        while (a < -M_PI)
+            a += 2.0 * M_PI;
+        return a;
+    };
+
+    if (duration <= 1e-6)
+    {
+        const double yaw = wrapAngle(next_goal_yaw_);
+        for (auto &pt : generated_path_dense_)
+        {
+            pt.yaw_ = yaw;
+        }
+        return;
+    }
+
+    const double yaw_start = wrapAngle(next_start_yaw_);
+    const double yaw_diff = wrapAngle(next_goal_yaw_ - yaw_start);
+
+    auto blend = [](double s)
+    {
+        // S-curve: 3s^2 - 2s^3
+        return 3.0 * s * s - 2.0 * s * s * s;
+    };
+
+    for (auto &pt : generated_path_dense_)
+    {
+        double s = (pt.time_from_start_ - t_start) / duration; // [0,1]
+        if (s < 0.0)
+        {
+            s = 0.0;
+        }
+        else if (s > 1.0)
+        {
+            s = 1.0;
+        }
+
+        double sb = blend(s);
+        double yaw = yaw_start + sb * yaw_diff;
+        pt.yaw_ = wrapAngle(yaw);
+    }
 }
 
 void PlannerNode::publish_plan()
 {
-    // nav_msgs::msg::Path full_path;
-    // for (auto path : this->generated_paths_)
-    // {
-    //     for (auto point : path.poses)
-    //     {
-    //         full_path.poses.push_back(point);
-    //     }
-    // }
-    // full_path.header.stamp = node_handle_->now();
-    // full_path.header.frame_id = this->world_frame_id_;
-    // this->pub_global_plan->publish(full_path);
-    // RCLCPP_INFO(node_handle_->get_logger(), "Published full path");
+    if (current_path_dense_.empty())
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "Current path is empty after trim, no traj to publish.");
+        return;
+    }
 
-    // if (!full_path.poses.empty())
-    // {
-    //     this->pub_goal_posestamped->publish(full_path.poses.back());
-    // }
+    trajectory_msgs::msg::MultiDOFJointTrajectory traj_msg;
+    traj_msg.header.stamp = node_handle_->now();
+    traj_msg.header.frame_id = world_frame_id_;
+
+    traj_msg.joint_names.clear();
+    traj_msg.joint_names.push_back(robot_frame_id_);
+
+    traj_msg.points.clear();
+    traj_msg.points.reserve(current_path_dense_.size());
+
+    for (size_t i = 0; i < current_path_dense_.size(); ++i)
+    {
+        const TimedXYZYaw &p = current_path_dense_[i];
+
+        // Within horizon, but at least one point
+        if (p.time_from_start_ > traj_horizon_ && !traj_msg.points.empty())
+        {
+            break;
+        }
+
+        trajectory_msgs::msg::MultiDOFJointTrajectoryPoint pt_msg;
+        
+        geometry_msgs::msg::Transform tf_msg;
+        tf_msg.translation.x = p.pos_(0);
+        tf_msg.translation.y = p.pos_(1);
+        tf_msg.translation.z = p.pos_(2);
+
+        tf2::Quaternion q;
+        q.setRPY(0.0, 0.0, p.yaw_);
+        tf_msg.rotation = tf2::toMsg(q);
+
+        pt_msg.transforms.push_back(tf_msg);
+        pt_msg.time_from_start = rclcpp::Duration::from_seconds(p.time_from_start_);
+
+        traj_msg.points.push_back(std::move(pt_msg));
+    }
+
+    pub_trajectory_->publish(traj_msg);
 }
 
 void PlannerNode::timerCallback()
@@ -412,11 +435,11 @@ void PlannerNode::timerCallback()
         geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(world_frame_id_,
                                                                                              robot_frame_id_,
                                                                                              rclcpp::Time(0));
-        current_location = transform_stamped.transform;
+        current_location_ = transform_stamped.transform;
         if (!received_first_robot_tf)
         {
             received_first_robot_tf = true;
-            last_location = current_location;
+            last_location = current_location_;
             last_position_change = node_handle_->now();
             RCLCPP_WARN(node_handle_->get_logger(), "Received first robot_tf");
         }
@@ -426,140 +449,111 @@ void PlannerNode::timerCallback()
         RCLCPP_ERROR(node_handle_->get_logger(), "Robot tf not received: %s", ex.what());
     }
 
-    generate_plan();
+    //
+
+    if (this->enable_exploration)
+    {
+        // First plan: no generated path yet
+        if (generated_path_raw_.empty())
+        {
+            double t_start = 0;
+            generate_plan();
+            interpolate_plan(t_start);
+            current_path_dense_.insert(current_path_dense_.end(),
+                                       generated_path_dense_.begin(),
+                                       generated_path_dense_.end());
+        }
+
+        if (current_path_dense_.size() < 2)
+        {
+            RCLCPP_WARN(node_handle_->get_logger(), "No path to execute.");
+            return;
+        }
+
+        // Check current position, removed executed path, reset time: current_path_dense_[0] has 0 time from start
+        trim_covered_path();
+
+        // Output trajectory
+        publish_plan();
+    }
 
     RCLCPP_WARN(node_handle_->get_logger(), "Timer callback end");
+}
 
-    // if (this->enable_exploration)
-    // {
-    //     if (!this->is_path_executing)
-    //     {
-    //         if (this->received_first_robot_tf)
-    //         {
-    //             this->last_replan_failed = false;
-    //             this->generate_plan();
-    //             current_goal_vp = this->exploration_planner->rrt_planner_.getExecutingPath().back();
-    //             this->publish_plan();
-    //             this->is_path_executing = true;
-    //             this->last_position_change = this->now(); // Reset stall timer when starting new plan
-    //         }
-    //         else
-    //         {
-    //             RCLCPP_INFO(this->get_logger(), "viewpoint list size is %zu", this->exploration_planner->viewp_sample_->viewpoint_list_->size());
-    //             RCLCPP_INFO(this->get_logger(), "tf received is %d", this->received_first_robot_tf);
-    //         }
-    //     }
-    //     else
-    //     {
-    //         // check if the robot has reached the goal point
-    //         std::tuple<float, float, float> current_point = std::make_tuple(
-    //             this->current_location.translation.x, this->current_location.translation.y,
-    //             this->current_location.translation.z);
-    //         std::tuple<float, float, float> goal_point = std::make_tuple(
-    //             this->current_goal_location.translation.x, this->current_goal_location.translation.y,
-    //             this->current_goal_location.translation.z);
-    //         if (get_point_distance(current_point, goal_point) < this->exploration_planner->path_end_threshold_m)
-    //         {
-    //             // this->is_path_executing = false;
-    //             // this->generated_paths_.clear();
-    //             RCLCPP_INFO(this->get_logger(), "Reached goal point, planning for the next section");
-    //             this->last_replan_failed = false;
-    //             this->generate_plan();
-    //             this->publish_plan();
-    //         }
-    //         else if (this->exploration_planner->check_curr_path_collision()) // executing path will collide
-    //         {
-    //             ViewPoint coll_point = this->exploration_planner->get_curr_path_collision();
-    //             visualization_msgs::msg::Marker m_coll;
-    //             m_coll.header.frame_id = "map";
-    //             m_coll.header.stamp = this->now();
+void PlannerNode::trim_covered_path()
+{
+    // Check current progress
+    Eigen::Vector3d curr_p(current_location_.translation.x,
+                           current_location_.translation.y,
+                           current_location_.translation.z);
 
-    //             m_coll.ns = "coll_pt"; // namespace for RViz
-    //             m_coll.id = 0;         // unique per namespace
-    //             m_coll.type = visualization_msgs::msg::Marker::CUBE;
-    //             m_coll.action = visualization_msgs::msg::Marker::ADD;
+    double seg_s = 0.0;
+    Eigen::Vector3d proj_p = curr_p;
 
-    //             // Pose: CENTER of the cube at your object's xyz
-    //             m_coll.pose.position.x = coll_point.x;
-    //             m_coll.pose.position.y = coll_point.y;
-    //             m_coll.pose.position.z = coll_point.z;
-    //             m_coll.pose.orientation.x = 0.0;
-    //             m_coll.pose.orientation.y = 0.0;
-    //             m_coll.pose.orientation.z = 0.0;
-    //             m_coll.pose.orientation.w = 1.0; // identity (no rotation)
+    int num_points_to_pop = 0;
 
-    //             // Scale: full side lengths (must be > 0)
-    //             m_coll.scale.x = 1.5;
-    //             m_coll.scale.y = 1.5;
-    //             m_coll.scale.z = 1.5;
+    for (size_t i = 0; i + 1 < current_path_dense_.size(); ++i)
+    {
+        const Eigen::Vector3d &Pi = current_path_dense_[i].pos_;
+        const Eigen::Vector3d &Pj = current_path_dense_[i + 1].pos_;
 
-    //             // Color: remember alpha must be > 0 to see it in RViz
-    //             m_coll.color.r = 1.0f;
-    //             m_coll.color.g = 0.0f;
-    //             m_coll.color.b = 1.0f;
-    //             m_coll.color.a = 0.8f;
+        Eigen::Vector3d v = Pj - Pi;
+        Eigen::Vector3d w = curr_p - Pi;
 
-    //             m_coll.frame_locked = false;
-    //             pub_coll_point_vis->publish(m_coll);
+        double v_dot_v = v.dot(v);
+        if (v_dot_v < 1e-6)
+        {
+            continue;
+        }
 
-    //             RCLCPP_INFO(this->get_logger(), "Current path will collide with updated map, replan.");
-    //             if (this->last_replan_failed)
-    //             {
-    //                 RCLCPP_INFO(this->get_logger(), "5 replans fails for the current goal, replan with new sampled viewpoints");
-    //                 this->generated_paths_.clear();
-    //                 this->last_replan_failed = false;
-    //                 this->generate_plan();
-    //                 this->publish_plan();
-    //                 this->is_path_executing = true;
-    //                 this->last_position_change = this->now();
-    //             }
-    //             else if (this->exploration_planner->rrt_planner_.getExecutingPath().empty())
-    //             {
-    //                 RCLCPP_INFO(this->get_logger(), "Current RRT path empty, replan with new sampled viewpoints");
-    //                 this->generated_paths_.clear();
-    //                 this->last_replan_failed = false;
-    //                 this->generate_plan();
-    //                 this->publish_plan();
-    //                 this->is_path_executing = true;
-    //                 this->last_position_change = this->now();
-    //             }
-    //             else
-    //             {
-    //                 this->generated_paths_.clear();
-    //                 RCLCPP_INFO_STREAM(this->get_logger(), "Replan with current goal" << current_goal_vp.x << ", " << current_goal_vp.y << ", " << current_goal_vp.z);
-    //                 this->generate_replan(current_goal_vp);
-    //                 this->publish_plan();
-    //                 this->is_path_executing = true;
-    //                 this->last_position_change = this->now();
-    //             }
-    //         }
-    //         else
-    //         {
-    //             // Check if position has changed significantly
-    //             std::tuple<float, float, float> last_point = std::make_tuple(this->last_location.translation.x,
-    //                                                                          this->last_location.translation.y,
-    //                                                                          this->last_location.translation.z);
+        double s = w.dot(v) / v_dot_v;
 
-    //             if (get_point_distance(current_point, last_point) > this->position_change_threshold)
-    //             {
-    //                 this->last_location = this->current_location;
-    //                 this->last_position_change = this->now();
-    //                 RCLCPP_INFO(this->get_logger(), "Path exec normally.");
-    //             }
-    //             else
-    //             {
-    //                 // Check if we've been stationary for too long
-    //                 rclcpp::Duration stall_duration = this->now() - this->last_position_change;
-    //                 if (stall_duration.seconds() > this->stall_timeout_seconds)
-    //                 {
-    //                     RCLCPP_INFO(this->get_logger(), "Robot stationary for %f seconds, clearing plan",
-    //                                 stall_duration.seconds());
-    //                     this->is_path_executing = false;
-    //                     this->generated_paths_.clear();
-    //                     this->last_position_change = this->now(); // Reset timer to avoid spam
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+        if (s < 0.0)
+        {
+            // Current pose is in the front of the segment[0],
+            // indicating that the current pose hasn't reached the beginning of the entire current_path_ yet
+            // Cannot remove anything, quit.
+            seg_s = 0.0;
+            proj_p = Pi;
+            break;
+        }
+        else if (s <= 1.0)
+        {
+            // current pose lies in this section, remove all points before.
+            seg_s = s;
+            proj_p = Pi + s * v;
+
+            // 0..i-1 all complete, can remove
+            num_points_to_pop = static_cast<int>(i) + 1;
+            break;
+        }
+        else // s > 1.0
+        {
+            // Current pose already move past segment i.
+            // current_path_dense_[i] and current_path_dense_[j] can both be removed.
+            seg_s = 1.0;
+            proj_p = Pj;
+            num_points_to_pop = static_cast<int>(i) + 2;
+        }
+    }
+
+    if (num_points_to_pop > 0)
+    {
+        // delete num_points_to_pop points, it's removing 0 to i (totally i+1),
+        // so new current_path_dense_[0] is the first un-executed waypoint
+        current_path_dense_.erase(current_path_dense_.begin(),
+                                  current_path_dense_.begin() + num_points_to_pop);
+    }
+
+    if (current_path_dense_.empty())
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "Trimmed all dense path points, check trim_covered_path()");
+        return;
+    }
+
+    double time_offset = current_path_dense_.front().time_from_start_;
+    for (auto &pt : current_path_dense_)
+    {
+        pt.time_from_start_ -= time_offset;
+    }
 }

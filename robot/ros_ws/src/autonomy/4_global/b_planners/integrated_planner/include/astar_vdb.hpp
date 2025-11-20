@@ -83,6 +83,8 @@ public:
     double max_search_time_;
 
     void pathSmooth(std::vector<openvdb::Vec3d> &sparse_path_out);
+    void pathShorten(std::vector<openvdb::Vec3d> &sparse_path_out);
+
 
 private:
     void backtrack(const AstarNode *end_node);
