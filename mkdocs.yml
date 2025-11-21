@@ -8,6 +8,7 @@ exclude_docs: |
   **/ros_ws/build
   **/ros_ws/install
   **/kit-app-template/**
+  **/isaac_sim_data/**
 extra:
   version:
     provider: mike
@@ -123,6 +124,7 @@ nav:
           - docs/simulation/isaac_sim/index.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
           - docs/simulation/isaac_sim/scene_setup.md
+          - docs/simulation/isaac_sim/pegasus_scene_setup.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
   - Real World:
       - docs/real_world/index.md
