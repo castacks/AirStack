@@ -15,8 +15,4 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ../../mkdocs.log:/docs/mkdocs.log:rw
-      - ../../mkdocs.yml:/docs/mkdocs.yml:ro
-      - ../../docs:/docs/docs:rw
-      - ../../overrides:/docs/overrides:rw
-      - ../stylesheets:/docs/stylesheets
+      - ../../:/docs:rw
