@@ -742,13 +742,13 @@ Trajectory Trajectory::shorten(double new_length){
 }*/
 
 /**
- * @brief Trim a subtrajectory between a start distance and end distance
+ * @brief Get a trimmed subtrajectory between a start distance and end distance
  *
  * @param start
  * @param end
  * @return Trajectory
  */
-Trajectory Trajectory::trim_trajectory_between_distances(double start_dist, double end_dist) {
+Trajectory Trajectory::get_trimmed_trajectory_between_distances(double start_dist, double end_dist) {
     Trajectory traj;
     traj.stamp = this->stamp;
     traj.frame_id = this->frame_id;
@@ -854,6 +854,33 @@ float Trajectory::get_skip_ahead_time(float start_time, float max_velocity, floa
     }
 
     return skip_time;
+}
+
+void Trajectory::trim(tf2::Vector3 point) {
+  if(this->waypoints.size() <= 1)
+    return;
+  
+  double trajectory_distance;
+  bool valid = get_trajectory_distance_at_closest_point(point, &trajectory_distance);
+  if(!valid)
+    return;
+
+  double distance = 0.;
+  for (size_t i = 1; i < this->waypoints.size(); i++) {
+    Waypoint prev_wp = this->waypoints[i - 1];
+    Waypoint curr_wp = this->waypoints[i];
+    double segment_length = prev_wp.position().distance(curr_wp.position());
+
+    if (trajectory_distance >= distance && trajectory_distance <= distance + segment_length) {
+      Waypoint interp_start_wp =
+	prev_wp.interpolate(curr_wp, (trajectory_distance - distance) / segment_length);
+      this->waypoints[i-1] = interp_start_wp;
+      this->waypoints.erase(this->waypoints.begin(), this->waypoints.begin()+i-1);
+      break;
+    }
+
+    distance += segment_length;
+  }
 }
 
 void Trajectory::set_fixed_height(double height) {

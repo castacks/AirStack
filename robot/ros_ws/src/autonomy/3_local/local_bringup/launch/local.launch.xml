@@ -4,8 +4,9 @@
     <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
     <!-- <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/perception/macvo/disparity" /> -->
     <!-- <arg name="local_depth_in_topic" default="none" /> -->
-    <arg name="local_disparity_in_topic" default="none" />
-    <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth" />
+    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/disparity" />
+    <!-- <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth" /> -->
+    <arg name="local_depth_in_topic" default="none" />
     <arg name="local_camera_info_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
 
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
@@ -39,24 +40,19 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
-            args="--log-level DEBUG">
-            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
-                allow_substs="true" />
-            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
-            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
-            <remap from="tracking_point"
-                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the right camera's projection matrix. -->
-            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
-            <remap from="trajectory_segment_to_add"
-                to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
-        </node>
+	<node pkg="droan_gl" exec="expand" output="screen">
+	  <remap from="disparity" to="$(var local_disparity_in_topic)" />
+	  <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+          <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+          <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+          <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
+          <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+	</node>
         <!-- DROAN local model -->
         <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
-            output="screen">
-            <param
-                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
+              output="screen">
+          <param
+              from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
             
             <remap from="disparity" to="$(var local_disparity_in_topic)" />
             <!-- create disparity from ground truth depth instead of using estimated disparity -->
@@ -161,5 +157,22 @@
     args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"
     output="screen" respawn="true" respawn_delay="1" />
   ?>
+
+  	<?ignore
+        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
+            args="--log-level DEBUG">
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
+                allow_substs="true" />
+            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+            <remap from="tracking_point"
+                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the right camera's projection matrix. -->
+            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
+            <remap from="trajectory_segment_to_add"
+                to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+          </node>
+	  ?>
+
 
 </launch>
