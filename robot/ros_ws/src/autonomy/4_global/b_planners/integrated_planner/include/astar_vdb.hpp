@@ -111,6 +111,8 @@ private:
     int allocate_num_;
     double tie_breaker_;
 
+    double safe_robot_r_;
+
     double safe_sq_index_dist_;
     double safe_index_dist_;
 

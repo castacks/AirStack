@@ -53,7 +53,7 @@ void PlannerNode::initialize()
     setup_parameters();
 
     pub_global_plan =
-        node_handle_->create_publisher<nav_msgs::msg::Path>(pub_global_plan_topic_, 10);
+        node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_global_plan_topic_, 10);
     pub_trajectory_ =
         node_handle_->create_publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>("/cmd_trajectory", 10);
     pub_trajectory_lines =
@@ -128,11 +128,17 @@ void PlannerNode::setup_parameters()
 
     param_set("sub_target_path_topic", "/perspective_goals", sub_goal_viewpoints_);
 
-    param_set("pub_global_plan_topic", "/global_plan", pub_global_plan_topic_);
+    param_set("pub_global_plan_topic", "/global_plan_viz", pub_global_plan_topic_);
     param_set("pub_trajectory_viz_topic", "/traj_viz", pub_trajectory_viz_topic_);
     param_set("pub_clustered_frontier_viz_topic", "/clustered_frontier_viz", pub_clustered_frontier_viz_topic_);
 
     param_set("srv_exploration_toggle_topic", "/robot_1/behavior/global_plan_toggle", srv_exploration_toggle_topic_);
+
+    param_set("safe_robot_r", 0.5, safe_robot_r_);
+    param_set("vox_size", 0.2, voxel_size_);
+
+    safe_index_dist_ = safe_robot_r_ / voxel_size_;
+    safe_sq_idx_dist_ = safe_index_dist_ * safe_index_dist_;
 }
 
 rclcpp::Node::SharedPtr PlannerNode::get_node_handle() const
@@ -241,6 +247,53 @@ void PlannerNode::generate_plan()
         m.header.frame_id = world_frame_id_;
     }
     planning_smoothed_vis->publish(smoothed_result_vis);
+}
+
+bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point)
+{
+    RCLCPP_INFO(node_handle_->get_logger(), "Generating  replan...");
+    openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
+
+    openvdb::Vec3d start_world(start_point.pos_.x(), start_point.pos_.y(), start_point.pos_.z());
+    openvdb::Coord start_coord(openvdb::Coord::round(tf->worldToIndex(start_world)));
+
+    generated_path_raw_.clear();
+
+    openvdb::Vec3d goal_world(end_point.pos_.x(), end_point.pos_.y(), end_point.pos_.z());
+    openvdb::Coord goal_coord(openvdb::Coord::round(tf->worldToIndex(goal_world)));
+
+    astar_planner_.reset();
+    int plan_result;
+    plan_result = astar_planner_.search(start_coord, goal_coord);
+
+    if (plan_result == Astar::REACH_END)
+    {
+        // astar_planner_.pathSmooth(generated_path_raw_);
+        astar_planner_.pathShorten(generated_path_raw_);
+    }
+    else
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "No path generated for replan.");
+        return false;
+    }
+
+    // visualize
+    std::vector<openvdb::Vec3d> path_astar = astar_planner_.getPathAstar();
+    visualization_msgs::msg::MarkerArray astar_result_vis = path_to_marker_array(path_astar, 0.7);
+    for (auto &m : astar_result_vis.markers)
+    {
+        m.header.frame_id = world_frame_id_;
+    }
+    planning_astar_vis->publish(astar_result_vis);
+
+    visualization_msgs::msg::MarkerArray smoothed_result_vis = path_to_marker_array(generated_path_raw_, 1.0);
+    for (auto &m : smoothed_result_vis.markers)
+    {
+        m.header.frame_id = world_frame_id_;
+    }
+    planning_smoothed_vis->publish(smoothed_result_vis);
+
+    return true;
 }
 
 void PlannerNode::interpolate_plan(double t_offset)
@@ -407,7 +460,7 @@ void PlannerNode::publish_plan()
         }
 
         trajectory_msgs::msg::MultiDOFJointTrajectoryPoint pt_msg;
-        
+
         geometry_msgs::msg::Transform tf_msg;
         tf_msg.translation.x = p.pos_(0);
         tf_msg.translation.y = p.pos_(1);
@@ -424,61 +477,103 @@ void PlannerNode::publish_plan()
     }
 
     pub_trajectory_->publish(traj_msg);
+    visualize_local_traj();
+    visualize_full_path();
 }
 
-void PlannerNode::timerCallback()
+void PlannerNode::visualize_local_traj()
 {
-    RCLCPP_WARN(node_handle_->get_logger(), "Timer callback start");
-    // get current TF to world
-    try
-    {
-        geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(world_frame_id_,
-                                                                                             robot_frame_id_,
-                                                                                             rclcpp::Time(0));
-        current_location_ = transform_stamped.transform;
-        if (!received_first_robot_tf)
-        {
-            received_first_robot_tf = true;
-            last_location = current_location_;
-            last_position_change = node_handle_->now();
-            RCLCPP_WARN(node_handle_->get_logger(), "Received first robot_tf");
-        }
-    }
-    catch (tf2::TransformException &ex)
-    {
-        RCLCPP_ERROR(node_handle_->get_logger(), "Robot tf not received: %s", ex.what());
-    }
+    visualization_msgs::msg::Marker line;
+    line.header.stamp = node_handle_->now();
+    line.header.frame_id = world_frame_id_;
 
-    //
+    line.ns = "local_path";
+    line.id = 0;
+    line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    line.action = visualization_msgs::msg::Marker::ADD;
 
-    if (this->enable_exploration)
+    line.pose.orientation.w = 1.0;
+
+    line.scale.x = 0.08;
+
+    line.color.r = 0.0f;
+    line.color.g = 1.0f;
+    line.color.b = 0.0f;
+    line.color.a = 1.0f;
+
+    line.points.clear();
+
+    const double horizon = traj_horizon_;
+
+    for (size_t i = 0; i < current_path_dense_.size(); ++i)
     {
-        RCLCPP_WARN(node_handle_->get_logger(), "Exploration triggered, generating plans...");
-        // First plan: no generated path yet
-        if (generated_path_raw_.empty())
+        const TimedXYZYaw &p = current_path_dense_[i];
+
+        if (p.time_from_start_ > horizon && !line.points.empty())
         {
-            double t_start = 0;
-            generate_plan();
-            interpolate_plan(t_start);
-            current_path_dense_.insert(current_path_dense_.end(),
-                                       generated_path_dense_.begin(),
-                                       generated_path_dense_.end());
+            break;
         }
 
-        if (current_path_dense_.size() < 2)
-        {
-            RCLCPP_WARN(node_handle_->get_logger(), "No path to execute.");
-            return;
-        }
+        geometry_msgs::msg::Point pt;
+        pt.x = p.pos_(0);
+        pt.y = p.pos_(1);
+        pt.z = p.pos_(2);
 
-        // Check current position, removed executed path, reset time: current_path_dense_[0] has 0 time from start
-        trim_covered_path();
-
-        // Output trajectory
-        publish_plan();
+        line.points.push_back(pt);
     }
 
-    RCLCPP_WARN(node_handle_->get_logger(), "Timer callback end");
+    if (line.points.empty())
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "No points within horizon, skip local path visualization.");
+        return;
+    }
+
+    pub_trajectory_lines->publish(line);
+}
+
+void PlannerNode::visualize_full_path()
+{
+    visualization_msgs::msg::Marker line;
+    line.header.stamp = node_handle_->now();
+    line.header.frame_id = world_frame_id_;
+
+    line.ns = "global_path";
+    line.id = 0;
+    line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+    line.action = visualization_msgs::msg::Marker::ADD;
+
+    line.pose.orientation.w = 1.0;
+
+    line.scale.x = 0.05;
+
+    line.color.r = 1.0f;
+    line.color.g = 0.0f;
+    line.color.b = 0.0f;
+    line.color.a = 1.0f;
+
+    line.points.clear();
+
+    const double horizon = traj_horizon_;
+
+    for (size_t i = 0; i < current_path_dense_.size(); ++i)
+    {
+        const TimedXYZYaw &p = current_path_dense_[i];
+
+        geometry_msgs::msg::Point pt;
+        pt.x = p.pos_(0);
+        pt.y = p.pos_(1);
+        pt.z = p.pos_(2);
+
+        line.points.push_back(pt);
+    }
+
+    if (line.points.empty())
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "No points at all, skip global path visualization.");
+        return;
+    }
+
+    pub_global_plan->publish(line);
 }
 
 void PlannerNode::trim_covered_path()
@@ -557,4 +652,113 @@ void PlannerNode::trim_covered_path()
     {
         pt.time_from_start_ -= time_offset;
     }
+}
+
+bool PlannerNode::check_local_path_free()
+{
+    double check_horizon = traj_horizon_ * 1.5;
+    for (auto &pt : current_path_dense_)
+    {
+        if (pt.time_from_start_ > check_horizon)
+        {
+            break;
+        }
+
+        double sq_dist;
+        bool q = map_manager_->query_sqdist_at_world(pt.pos_, sq_dist);
+
+        // unknown -> free, may change later, but must align with A* close set judge
+        if (q && sq_dist <= safe_sq_idx_dist_)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void PlannerNode::timerCallback()
+{
+    RCLCPP_WARN(node_handle_->get_logger(), "Timer callback start");
+    // get current TF to world
+    try
+    {
+        geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_->lookupTransform(world_frame_id_,
+                                                                                             robot_frame_id_,
+                                                                                             rclcpp::Time(0));
+        current_location_ = transform_stamped.transform;
+        if (!received_first_robot_tf)
+        {
+            received_first_robot_tf = true;
+            last_location = current_location_;
+            last_position_change = node_handle_->now();
+            RCLCPP_WARN(node_handle_->get_logger(), "Received first robot_tf");
+        }
+    }
+    catch (tf2::TransformException &ex)
+    {
+        RCLCPP_ERROR(node_handle_->get_logger(), "Robot tf not received: %s", ex.what());
+    }
+
+    if (this->enable_exploration)
+    {
+        // RCLCPP_WARN(node_handle_->get_logger(), "Exploration triggered, generating plans...");
+        // First plan: no generated path yet
+        if (current_path_dense_.empty())
+        {
+            double t_start = 0;
+            generate_plan();
+            interpolate_plan(t_start);
+            current_path_dense_.insert(current_path_dense_.end(),
+                                       generated_path_dense_.begin(),
+                                       generated_path_dense_.end());
+        }
+        // Replan: adding the next path section
+        else if (current_path_dense_.back().time_from_start_ < replan_remain_time_)
+        {
+            RCLCPP_WARN(node_handle_->get_logger(), "Approaching current goal, adding a replan.");
+            double t_start = current_path_dense_.back().time_from_start_;
+            generate_plan();
+            interpolate_plan(t_start);
+            current_path_dense_.insert(current_path_dense_.end(),
+                                       generated_path_dense_.begin(),
+                                       generated_path_dense_.end());
+        }
+
+        if (current_path_dense_.size() < 2)
+        {
+            RCLCPP_WARN(node_handle_->get_logger(), "No path to execute.");
+            return;
+        }
+
+        // Check current position, removed executed path, reset time: current_path_dense_[0] has 0 time from start
+        trim_covered_path();
+
+        // Check Collision
+        if (!check_local_path_free())
+        {
+            double t_start = 0;
+            // First try replan based on current target, if fail, plan based on all viewpoints
+            if (!generate_replan(current_path_dense_[1], current_path_dense_.back()))
+            {
+                // make the current_path_dense_ end at [1], for generate_plan() starting point.
+                current_path_dense_.resize(2);
+                generate_plan();
+            }
+            interpolate_plan(t_start);
+            current_path_dense_.clear();
+            current_path_dense_.insert(current_path_dense_.end(),
+                                       generated_path_dense_.begin(),
+                                       generated_path_dense_.end());
+            if (current_path_dense_.size() < 2)
+            {
+                RCLCPP_WARN(node_handle_->get_logger(), "After replan, no path to execute.");
+                return;
+            }
+        }
+
+        // Output trajectory
+        publish_plan();
+    }
+
+    RCLCPP_WARN(node_handle_->get_logger(), "Timer callback end");
 }

@@ -23,8 +23,12 @@ void Astar::initialize(std::shared_ptr<VDBMap> &map_manager)
     max_search_time_ = 0.05;
     margin_ = 0.0;
 
-    safe_sq_index_dist_ = 16;
-    safe_index_dist_ = 4;
+    safe_robot_r_ = 0.5;
+
+    double voxel_size = map_manager_->get_grid_transform()->voxelSize().x();
+
+    safe_index_dist_ = safe_robot_r_ / voxel_size;
+    safe_sq_index_dist_ = safe_index_dist_ * safe_index_dist_;
 
     num_inflate_check_normal_ = 4;
     normal_step_delta_ = 0.2;
@@ -206,6 +210,19 @@ int Astar::search(const openvdb::Coord &start_ijk,
                         continue;
                     }
 
+                    ////////////////////////////////////////////////////////////
+
+                    // Distance Field no data (unknown) -> free to explore
+                    // if (map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
+                    // {
+                    //     if (sqdist <= safe_sq_index_dist_)
+                    //     {
+                    //         close_set_.insert(nbr_ijk);
+                    //         continue;
+                    //     }
+                    // }
+
+                    // Distance Field no data (unknown) -> not free to explore
                     double sqdist = 0.0;
                     if (!map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
                     {
@@ -218,6 +235,8 @@ int Astar::search(const openvdb::Coord &start_ijk,
                         close_set_.insert(nbr_ijk);
                         continue;
                     }
+
+                    ///////////////////////////////////////////////////////////// 
 
                     double step_cost = std::sqrt(double(dx * dx + dy * dy + dz * dz));
                     double tentative_g = cur->g_score + step_cost;

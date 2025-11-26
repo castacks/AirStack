@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(mav_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(pid_controller_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
@@ -32,8 +33,21 @@ ament_target_dependencies(pid_path_tracker
   tf2
   tf2_ros)
 
+add_executable(pid_path_tracker_cmd_vel src/pid_path_tracker_cmd_vel.cpp)
+ament_target_dependencies(pid_path_tracker_cmd_vel
+  rclcpp
+  std_msgs
+  mav_msgs
+  nav_msgs
+  pid_controller_msgs
+  tf2_geometry_msgs
+  trajectory_msgs
+  tf2
+  tf2_ros)
+
 install(TARGETS
   pid_path_tracker
+  pid_path_tracker_cmd_vel
   DESTINATION lib/${PROJECT_NAME})
 
 

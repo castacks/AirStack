@@ -30,6 +30,10 @@ find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(message_filters REQUIRED)
 
+# Airstack msg, for fake takeoff landing only
+find_package(airstack_msgs REQUIRED)
+find_package(mavros_msgs REQUIRED)
+
 ###################################
 ## ament specific configuration  ##
 ###################################
@@ -77,47 +81,26 @@ ament_target_dependencies(integrated_planner
   vdb_edt
 )
 
-# add_executable(waypoint_routing_planner 
-#   src/waypoint_routing_node.cpp
-#   src/integrated_node.cpp
-#   src/exploration_logic.cpp
-#   src/viewpoint_sampling.cpp
-#   src/collision_checker.cpp
-#   src/rrt_planner.cpp
-#   src/utils.cpp)
+add_executable(takeoff_hack_node 
+  src/takeoff_hack_node.cpp)
 
-# target_include_directories(waypoint_routing_planner
-#   PRIVATE
-#   ${PCL_INCLUDE_DIRS}
-#   ${EIGEN3_INCLUDE_DIR}
-#   ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(takeoff_hack_node
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# target_link_libraries(waypoint_routing_planner
-#   OpenVDB::openvdb
-#   vdb_edt
-#   ${EIGEN3_LIBRARIES}
-#   ${PCL_LIBRARIES})
-
-# ament_target_dependencies(waypoint_routing_planner
-#   rclcpp
-#   rclcpp_action
-#   std_msgs
-#   std_srvs
-#   geometry_msgs
-#   nav_msgs
-#   visualization_msgs
-#   tf2
-#   tf2_ros
-#   pcl_conversions
-#   tf2_eigen
-#   tf2_geometry_msgs
-#   vdb_edt
-# )
+ament_target_dependencies(takeoff_hack_node
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  airstack_msgs # Airstack takeoff only
+  mavros_msgs # Airstack takeoff only
+)
 
 # Install executable
 install(TARGETS
   integrated_planner
-  # waypoint_routing_planner
+  takeoff_hack_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

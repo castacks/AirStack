@@ -35,7 +35,7 @@
 #include <geometry_msgs/msg/transform.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/srv/get_plan.hpp>
-#include <std_msgs/msg/byte_multi_array.hpp>
+#include "std_msgs/msg/string.hpp"
 #include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
 #include <trajectory_msgs/msg/multi_dof_joint_trajectory_point.hpp>
 #include <optional>
@@ -90,8 +90,15 @@ private:
 
     int num_paths_to_generate_;
     std::vector<openvdb::Vec3d> generated_path_raw_;
-    std::vector<TimedXYZYaw> generated_path_dense_;    
+    std::vector<TimedXYZYaw> generated_path_dense_;
     std::vector<TimedXYZYaw> current_path_dense_;
+
+    double voxel_size_;
+
+    double safe_robot_r_ = 0.5;
+
+    double safe_sq_idx_dist_ = 25.0;
+    double safe_index_dist_ = 5.0;
 
     double next_start_yaw_ = 0.0;
     double next_goal_yaw_ = 0.0;
@@ -105,12 +112,15 @@ private:
     bool enable_exploration = false;
     bool is_path_executing = false;
 
-    geometry_msgs::msg::Transform current_location_;      // x, y, z, yaw
-    geometry_msgs::msg::Transform last_location;         // Last recorded position
-    rclcpp::Time last_position_change;                   // Time of last position change
-    double position_change_threshold = 0.1;              // Minimum distance (meters) to consider as movement
-    double stall_timeout_seconds = 5.0;                  // Time without movement before clearing plan
+    geometry_msgs::msg::Transform current_location_; // x, y, z, yaw
+    geometry_msgs::msg::Transform last_location;     // Last recorded position
+    rclcpp::Time last_position_change;               // Time of last position change
+    double position_change_threshold = 0.1;          // Minimum distance (meters) to consider as movement
+    double stall_timeout_seconds = 5.0;              // Time without movement before clearing plan
     double traj_horizon_ = 2.0;
+
+    double replan_remain_time_ = 3.0; // When remain path shorten than this, start replan and add the replanned to the end
+    TimedXYZYaw last_traj_endpoint_;
 
     double cluster_cube_dim;
     int voxel_cluster_count_thresh;
@@ -127,11 +137,18 @@ private:
 
     virtual void generate_plan();
 
+    bool generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point);
+
+    bool check_local_path_free();
+
     void interpolate_plan(double t_offset);
 
     void trim_covered_path();
 
     void publish_plan();
+
+    void visualize_local_traj();
+    void visualize_full_path();
 
     int replan_fail_count = 0;
     bool last_replan_failed = false;
@@ -155,11 +172,10 @@ public:
     // ROS subscribers
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_lidar;
     rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    rclcpp::Subscription<std_msgs::msg::ByteMultiArray>::SharedPtr sub_vdb;
     // rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
-    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_plan;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_global_plan;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_goal_posestamped;
     rclcpp::Publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr pub_trajectory_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;

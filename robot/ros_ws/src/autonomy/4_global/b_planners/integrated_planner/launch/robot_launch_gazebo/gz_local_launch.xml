@@ -1,89 +1,46 @@
 <!-- LOCAL -->
 <launch>
     <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
-    <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="local_odometry_in_topic" default="/odom" />
     <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/depth/disparity" />
     <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
 
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
 
+    <node pkg="pid_path_tracker" exec="pid_path_tracker_cmd_vel" output="screen">
+      <param name="target_frame" value="base_link" />
 
-    <!-- Basic Planners -->
-    <node pkg="trajectory_library"
-        namespace="fixed_trajectory_generator" exec="fixed_trajectory_generator.py" output="screen">
-        <remap from="trajectory_override"
-            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+      <param name="x_p"         value="5.0" />
+      <param name="x_i"         value="0.0" />
+      <param name="x_d"         value="1.0" />
+      <param name="x_ff"        value="0.0" />
+      <param name="x_d_alpha"   value="0.0" />
+      <param name="x_min"       value="-2.0" />
+      <param name="x_max"       value="2.0" />
+      <param name="x_constant"  value="0.0" />
+      
+      <param name="y_p"         value="5.0" />
+      <param name="y_i"         value="0.0" />
+      <param name="y_d"         value="1.0" />
+      <param name="y_ff"        value="0.0" />
+      <param name="y_d_alpha"   value="0.0" />
+      <param name="y_min"       value="-2.0" />
+      <param name="y_max"       value="2.0" />
+      <param name="y_constant"  value="0.0" />
+      
+      <param name="z_p"         value="3.0" />
+      <param name="z_i"         value="0.0" />
+      <param name="z_d"         value="1.0" />
+      <param name="z_ff"        value="0.0" />
+      <param name="z_d_alpha"   value="0.0" />
+      <param name="z_min"       value="-2.0" />
+      <param name="z_max"       value="2.0" />
+      <param name="z_constant"  value="0.0" />
+      
+      <!-- remap glue to AirStack -->
+      <remap from="odometry" to="$(var local_odometry_in_topic)" />
+      <remap from="trajectory" to="/cmd_trajectory" />
+      <remap from="command" to="/cmd_vel" />
     </node>
 
-    <!-- customize takeoff_landing_planner.launch.xml -->
-    <node pkg="takeoff_landing_planner"
-        namespace="takeoff_landing_planner"
-        exec="takeoff_landing_planner" output="screen">
-        <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
-            allow_substs="true" />
-
-        <remap from="trajectory_override"
-            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
-        <remap from="trajectory_completion_percentage"
-            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
-        <remap from="tracking_point"
-            to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-        <remap from="odometry" to="$(var local_odometry_in_topic)" />
-        <remap from="mavros/cmd/takeoff" to="/$(env ROBOT_NAME)/interface/mavros/cmd/takeoff" />
-    </node>
-
-    <group>
-        <push-ros-namespace namespace="droan" />
-        <!-- DROAN Local Planner -->
-        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
-            args="--log-level DEBUG">
-            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
-                allow_substs="true" />
-            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
-            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
-            <remap from="tracking_point"
-                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
-            <remap from="trajectory_segment_to_add"
-                to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
-        </node>
-        <!-- DROAN local model -->
-        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
-            output="screen">
-            <param
-                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
-            <!-- use estimated disparity -->
-            <remap from="disparity" to="$(var local_disparity_in_topic)" />
-            <!-- create disparity from ground truth depth instead of using estimated disparity -->
-            <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth" />
-            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
-        </node>
-    </group>
-
-    <!-- Control -->
-    <!-- customize trajectory_controller.launch.xml -->
-    <node pkg="trajectory_controller" exec="trajectory_controller"
-        namespace="trajectory_controller"
-        output="screen">
-        <param name="tf_prefix" value="" />
-        <param name="target_frame" value="map" />
-        <param name="tracking_point_distance_limit" value="1000.5" />
-        <param name="velocity_look_ahead_time" value="0.5" />
-        <!-- look ahead time controls the speed, greater is faster -->
-        <param name="look_ahead_time" value="0.5" />
-        <param name="virtual_tracking_ahead_time" value="0.5" />
-        <param name="min_virtual_tracking_velocity" value="0.1" />
-        <param name="sphere_radius" value="0.5" />
-        <param name="ff_min_velocity" value="0." />
-        <param name="search_ahead_factor" value="1.5" />
-        <param name="transition_velocity_scale" value="1.0" />
-        <param name="traj_vis_thickness" value="0.03" />
-        <param name="rewind_skip_max_velocity" value="0.1" />
-        <param name="rewind_skip_max_distance" value="0.1" />
-        <param name="velocity_sphere_radius_multiplier" value="0.25" />
-
-        <!-- remap glue to AirStack -->
-        <remap from="odometry" to="$(var local_odometry_in_topic)" />
-
-    </node>
 </launch>

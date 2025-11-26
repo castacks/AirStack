@@ -1,20 +1,22 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include <deque>
+#include <algorithm>
 
-#include <airstack_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <mav_msgs/msg/roll_pitch_yawrate_thrust.hpp>
-#include <airstack_common/ros2_helper.hpp>
-#include <airstack_common/tflib.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <pid_controller_msgs/msg/pid_info.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
+
+constexpr double PI = 3.14159265358979323846;
 
 class PID
 {
@@ -31,23 +33,48 @@ public:
     void set_target(double target);
     double get_control(double measured, double ff_value = 0.);
     void reset_integrator();
+
+private:
+    template <typename T>
+    void declare_and_get(const std::string &param_name,
+                         const T &default_value,
+                         T &out);
 };
 
 PID::PID(rclcpp::Node *node, std::string name)
-    : node(node), time_prev(0)
+    : node(node),
+      time_prev(0)
 {
-    airstack::dynamic_param(node, name + "_p", 1., &info.p);
-    airstack::dynamic_param(node, name + "_i", 0., &info.i);
-    airstack::dynamic_param(node, name + "_d", 0., &info.d);
-    airstack::dynamic_param(node, name + "_ff", 0., &info.ff);
+    declare_and_get(name + "_p", 1.0, info.p);
+    declare_and_get(name + "_i", 0.0, info.i);
+    declare_and_get(name + "_d", 0.0, info.d);
+    declare_and_get(name + "_ff", 0.0, info.ff);
+    declare_and_get(name + "_d_alpha", 0.0, info.d_alpha);
+    declare_and_get(name + "_min", -1000.0, info.min);
+    declare_and_get(name + "_max", 1000.0, info.max);
+    declare_and_get(name + "_constant", 0.0, info.constant);
 
-    airstack::dynamic_param(node, name + "_d_alpha", 0., &info.d_alpha);
-
-    airstack::dynamic_param(node, name + "_min", -100000., &info.min);
-    airstack::dynamic_param(node, name + "_max", 100000., &info.max);
-    airstack::dynamic_param(node, name + "_constant", 0., &info.constant);
+    // initialize
+    info.error = 0;
+    info.integral = 0;
+    info.derivative = 0;
+    info.control = 0;
+    info.p_component = 0;
+    info.i_component = 0;
+    info.d_component = 0;
+    info.ff_component = 0;
+    info.dt = 0;
 
     info_pub = node->create_publisher<pid_controller_msgs::msg::PIDInfo>(name + "_pid_info", 1);
+}
+
+template <typename T>
+void PID::declare_and_get(const std::string &param_name,
+                          const T &default_value,
+                          T &out)
+{
+    node->declare_parameter<T>(param_name, default_value);
+    node->get_parameter(param_name, out);
 }
 
 void PID::set_target(double target)
@@ -81,18 +108,24 @@ double PID::get_control(double measured, double ff_value)
     info.p_component = info.p * info.error;
 
     info.integral += info.error * info.dt;
-    if (info.i == 0)
+    if (info.i == 0.0)
+    {
+        // reset integral when k_i = 0
         info.integral = 0;
-    info.i_component = info.i * info.integral;
-    if (info.i_component > info.max)
-    {
-        info.integral = info.max / info.i;
-        info.i_component = info.i * info.integral;
     }
-    else if (info.i_component < info.min)
+    info.i_component = info.i * info.integral;
+    if (info.i != 0.0)
     {
-        info.integral = info.min / info.i;
-        info.i_component = info.i * info.integral;
+        if (info.i_component > info.max)
+        {
+            info.integral = info.max / info.i;
+            info.i_component = info.i * info.integral;
+        }
+        else if (info.i_component < info.min)
+        {
+            info.integral = info.min / info.i;
+            info.i_component = info.i * info.integral;
+        }
     }
 
     info.derivative = info.d_alpha * info.derivative + (1. - info.d_alpha) * (info.error - error_prev) / info.dt;
@@ -101,7 +134,7 @@ double PID::get_control(double measured, double ff_value)
     info.ff_component = info.ff * info.ff_value;
 
     info.control = info.p_component + info.i_component + info.d_component + info.ff_component + info.constant;
-    info.control = std::max(info.min, std::min(info.max, info.control));
+    info.control = std::clamp(info.control, info.min, info.max);
 
     info_pub->publish(info);
     return info.control;
@@ -117,13 +150,18 @@ class PIDPathTrackerNode : public rclcpp::Node
 private:
     // params
     std::string target_frame;
-    double max_roll_pitch; // rad
 
-    PID x_pid, y_pid, z_pid, vx_pid, vy_pid, vz_pid;
+    PID x_pid, y_pid, z_pid;
+
+    double yaw_p_;
+    double yaw_rate_max_;
 
     // state
     bool got_odometry;
     nav_msgs::msg::Odometry odometry;
+
+    bool have_ref_;
+    nav_msgs::msg::Odometry current_ref_;
 
     // trajectory-related
     rclcpp::Subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr traj_sub_;
@@ -140,7 +178,8 @@ private:
     tf2_ros::TransformListener *tf_listener;
 
     // publishers
-    rclcpp::Publisher<mav_msgs::msg::RollPitchYawrateThrust>::SharedPtr command_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr tracking_point_pub;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_pub;
 
 public:
     PIDPathTrackerNode()
@@ -148,13 +187,11 @@ public:
           x_pid(this, "x"),
           y_pid(this, "y"),
           z_pid(this, "z"),
-          vx_pid(this, "vx"),
-          vy_pid(this, "vy"),
-          vz_pid(this, "vz"),
-          got_odometry(false)
+          got_odometry(false),
+          have_ref_(false)
     {
-        target_frame = airstack::get_param(this, "target_frame", std::string("base_link"));
-        max_roll_pitch = airstack::get_param(this, "max_roll_pitch", 10.) * M_PI / 180.;
+        this->declare_parameter("target_frame", "base_link");
+        this->get_parameter("target_frame", target_frame);
 
         // odom sub
         odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>(
@@ -170,7 +207,14 @@ public:
         tf_buffer = new tf2_ros::Buffer(this->get_clock());
         tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
-        command_pub = this->create_publisher<mav_msgs::msg::RollPitchYawrateThrust>("command", 1);
+        command_pub = this->create_publisher<geometry_msgs::msg::Twist>("command", 1);
+        tracking_point_pub = this->create_publisher<nav_msgs::msg::Odometry>("/tracking_point_vis", 1);
+
+        this->declare_parameter("yaw_p", 1.0);
+        this->declare_parameter("yaw_rate_max", 1.0);
+
+        this->get_parameter("yaw_p", yaw_p_);
+        this->get_parameter("yaw_rate_max", yaw_rate_max_);
     }
 
     void trajectory_callback(const trajectory_msgs::msg::MultiDOFJointTrajectory::SharedPtr msg)
@@ -214,10 +258,10 @@ public:
             auto first_pt = traj_points_.front();
             traj_points_.pop_front();
 
-            airstack_msgs::msg::Odometry tp_msg;
+            nav_msgs::msg::Odometry tp_msg;
             if (convertTrajPointToTrackingPoint(first_pt, traj_header_, tp_msg))
             {
-                processTrackingPoint(tp_msg);
+                setTrackingPoint(tp_msg);
             }
             else
             {
@@ -236,17 +280,19 @@ public:
             return;
         }
 
-        rclcpp::Duration wait = traj_waiting_times_.front();
+        rclcpp::Duration wait_time = traj_waiting_times_.front();
         traj_waiting_times_.pop_front();
 
-        if (wait <= rclcpp::Duration(0, 0))
+        if (wait_time <= rclcpp::Duration(0, 0))
         {
-            wait = rclcpp::Duration(0, 1); // 1ns
+            wait_time = rclcpp::Duration(0, 1); // 1ns
         }
 
-        auto period = wait.to_chrono<std::chrono::nanoseconds>();
-
-        traj_timer_ = this->create_wall_timer(period, std::bind(&PIDPathTrackerNode::traj_timer_callback, this));
+        traj_timer_ = rclcpp::create_timer(this->get_node_base_interface(),
+                                           this->get_node_timers_interface(),
+                                           this->get_clock(),
+                                           wait_time,
+                                           std::bind(&PIDPathTrackerNode::traj_timer_callback, this));
     }
 
     void traj_timer_callback()
@@ -265,10 +311,10 @@ public:
         auto pt = traj_points_.front();
         traj_points_.pop_front();
 
-        airstack_msgs::msg::Odometry tp_msg;
+        nav_msgs::msg::Odometry tp_msg;
         if (convertTrajPointToTrackingPoint(pt, traj_header_, tp_msg))
         {
-            processTrackingPoint(tp_msg);
+            setTrackingPoint(tp_msg);
         }
         else
         {
@@ -280,7 +326,7 @@ public:
 
     bool convertTrajPointToTrackingPoint(const trajectory_msgs::msg::MultiDOFJointTrajectoryPoint &pt,
                                          const std_msgs::msg::Header &traj_header,
-                                         airstack_msgs::msg::Odometry &tp_out)
+                                         nav_msgs::msg::Odometry &tp_out)
     {
         if (pt.transforms.empty())
         {
@@ -294,99 +340,119 @@ public:
 
         tp_out.child_frame_id = traj_header.frame_id;
 
-        tp_out.pose.position.x = tf.translation.x;
-        tp_out.pose.position.y = tf.translation.y;
-        tp_out.pose.position.z = tf.translation.z;
-        tp_out.pose.orientation = tf.rotation;
+        tp_out.pose.pose.position.x = tf.translation.x;
+        tp_out.pose.pose.position.y = tf.translation.y;
+        tp_out.pose.pose.position.z = tf.translation.z;
+        tp_out.pose.pose.orientation = tf.rotation;
 
         if (!pt.velocities.empty())
         {
             const auto &vel = pt.velocities[0];
-            tp_out.twist.linear = vel.linear;
-            tp_out.twist.angular = vel.angular;
+            tp_out.twist.twist.linear = vel.linear;
+            tp_out.twist.twist.angular = vel.angular;
         }
         else
         {
-            tp_out.twist.linear.x = tp_out.twist.linear.y = tp_out.twist.linear.z = 0.0;
-            tp_out.twist.angular.x = tp_out.twist.angular.y = tp_out.twist.angular.z = 0.0;
+            tp_out.twist.twist.linear.x = tp_out.twist.twist.linear.y = tp_out.twist.twist.linear.z = 0.0;
+            tp_out.twist.twist.angular.x = tp_out.twist.twist.angular.y = tp_out.twist.twist.angular.z = 0.0;
         }
-
-        tp_out.acceleration.x = tp_out.acceleration.y = tp_out.acceleration.z = 0.0;
-        tp_out.jerk.x = tp_out.jerk.y = tp_out.jerk.z = 0.0;
 
         return true;
     }
 
-    void processTrackingPoint(const airstack_msgs::msg::Odometry &msg)
+    void setTrackingPoint(const nav_msgs::msg::Odometry &msg)
     {
-        if (!got_odometry)
-            return;
+        current_ref_ = msg;
 
-        airstack_msgs::msg::Odometry tp;
-        nav_msgs::msg::Odometry odom;
+        have_ref_ = true;
 
-        airstack_msgs::msg::Odometry temp = msg;
-        bool s1 = tflib::transform_odometry(tf_buffer, temp, target_frame, target_frame, &tp,
-                                            rclcpp::Duration::from_seconds(0.1));
+        tracking_point_pub->publish(msg);
 
-        if (!s1)
+        x_pid.set_target(msg.pose.pose.position.x);
+        y_pid.set_target(msg.pose.pose.position.y);
+        z_pid.set_target(msg.pose.pose.position.z);
+    }
+
+    double getYawFromQuat(const geometry_msgs::msg::Quaternion &q)
+    {
+        tf2::Quaternion tf_q(q.x, q.y, q.z, q.w);
+        double roll, pitch, yaw;
+        tf2::Matrix3x3(tf_q).getRPY(roll, pitch, yaw);
+        return yaw;
+    }
+
+    double angleDiff(double target, double current)
+    {
+        double e = target - current;
+        while (e > PI)
         {
-            RCLCPP_ERROR(get_logger(), "Transform tracking point failed.");
-            return;
+            e -= 2.0 * PI;
         }
-
-        bool s2 = tflib::transform_odometry(tf_buffer, odometry, target_frame, target_frame, &odom,
-                                            rclcpp::Duration::from_seconds(0.1));
-
-        if (!s2)
+        while (e < -PI)
         {
-            RCLCPP_ERROR(get_logger(), "Transform odometry failed.");
-            return;
+            e += 2.0 * PI;
         }
-
-        tf2::Vector3 tp_pos = tflib::to_tf(tp.pose.position);
-        tf2::Vector3 tp_vel = tflib::to_tf(tp.twist.linear);
-        tf2::Vector3 odom_pos = tflib::to_tf(odom.pose.pose.position);
-        tf2::Vector3 odom_vel = tflib::to_tf(odom.twist.twist.linear);
-
-        // ----- outer loop: pos -> vel -----
-        x_pid.set_target(tp_pos.x());
-        y_pid.set_target(tp_pos.y());
-        z_pid.set_target(tp_pos.z());
-
-        double vx = x_pid.get_control(odom_pos.x());
-        double vy = y_pid.get_control(odom_pos.y());
-        double vz = z_pid.get_control(odom_pos.z());
-
-        // ----- inner loop: vel -> attitude/thrust -----
-        vx_pid.set_target(vx);
-        vy_pid.set_target(vy);
-        vz_pid.set_target(vz);
-
-        double roll = -vy_pid.get_control(odom_vel.y());
-        double pitch = vx_pid.get_control(odom_vel.x());
-        double thrust = vz_pid.get_control(odom_vel.z());
-
-        mav_msgs::msg::RollPitchYawrateThrust command;
-        command.header.frame_id = target_frame;
-        command.header.stamp = tp.header.stamp;
-
-        command.roll = roll;
-        command.pitch = pitch;
-
-        double _, yaw;
-        tf2::Matrix3x3(tflib::to_tf(msg.pose.orientation)).getRPY(_, _, yaw);
-        command.yaw_rate = yaw;
-
-        command.thrust.z = thrust;
-
-        command_pub->publish(command);
+        return e;
     }
 
     void odometry_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         got_odometry = true;
         odometry = *msg;
+
+        if (!have_ref_)
+        {
+            return;
+        }
+
+        const double tp_x = current_ref_.pose.pose.position.x;
+        const double tp_y = current_ref_.pose.pose.position.y;
+        const double tp_z = current_ref_.pose.pose.position.z;
+
+        const double odom_x = odometry.pose.pose.position.x;
+        const double odom_y = odometry.pose.pose.position.y;
+        const double odom_z = odometry.pose.pose.position.z;
+
+        x_pid.set_target(tp_x);
+        y_pid.set_target(tp_y);
+        z_pid.set_target(tp_z);
+
+        const double vx_des_W = x_pid.get_control(odom_x);
+        const double vy_des_W = y_pid.get_control(odom_y);
+        const double vz_des_W = z_pid.get_control(odom_z);
+
+        // command vel in body frame
+
+        tf2::Quaternion q(odometry.pose.pose.orientation.x,
+                          odometry.pose.pose.orientation.y,
+                          odometry.pose.pose.orientation.z,
+                          odometry.pose.pose.orientation.w);
+        tf2::Matrix3x3 R_WB(q);
+
+        tf2::Vector3 v_des_W(vx_des_W, vy_des_W, vz_des_W);
+        tf2::Vector3 v_des_B = R_WB.transpose() * v_des_W;
+
+        // yaw command same in world/body frame
+        const double yaw_ref = getYawFromQuat(current_ref_.pose.pose.orientation);
+        const double yaw_cur = getYawFromQuat(odometry.pose.pose.orientation);
+        const double yaw_err = angleDiff(yaw_ref, yaw_cur);
+        double yaw_rate = yaw_p_ * yaw_err;
+
+        double yaw_rate_cmd = std::clamp(yaw_rate, -yaw_rate_max_, yaw_rate_max_);
+
+        geometry_msgs::msg::Twist cmd;
+
+        cmd.linear.x = v_des_B.x();
+        cmd.linear.y = v_des_B.y();
+        cmd.linear.z = v_des_B.z();
+
+        cmd.angular.x = 0.0;
+        cmd.angular.y = 0.0;
+        cmd.angular.z = yaw_rate_cmd;
+
+        // cmd now in world frame
+
+        command_pub->publish(cmd);
     }
 
     void reset_integrators_callback(const std_msgs::msg::Empty::SharedPtr)
@@ -396,9 +462,6 @@ public:
         x_pid.reset_integrator();
         y_pid.reset_integrator();
         z_pid.reset_integrator();
-        vx_pid.reset_integrator();
-        vy_pid.reset_integrator();
-        vz_pid.reset_integrator();
     }
 };
 

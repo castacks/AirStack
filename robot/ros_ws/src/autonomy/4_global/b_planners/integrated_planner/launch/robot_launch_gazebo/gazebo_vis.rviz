@@ -10,7 +10,7 @@ Panels:
         - /Local1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
         - /Global1
-        - /Prediction Path1
+        - /Marker1
       Splitter Ratio: 0.590062141418457
     Tree Height: 677
   - Class: rviz_common/Selection
@@ -30,7 +30,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Lidar
+    SyncSource: Frontier Clusters
 Visualization Manager:
   Class: ""
   Displays:
@@ -59,13 +59,9 @@ Visualization Manager:
         All Enabled: false
         base_link:
           Value: true
-        base_link_stabilized:
-          Value: false
-        look_ahead_point:
-          Value: true
-        look_ahead_point_stabilized:
-          Value: false
         map:
+          Value: true
+        mavros_enu:
           Value: true
         ouster:
           Value: false
@@ -127,10 +123,6 @@ Visualization Manager:
           Value: false
         rmf_owl/rotor_3/rotor_3_visual:
           Value: false
-        tracking_point:
-          Value: true
-        tracking_point_stabilized:
-          Value: false
         world:
           Value: false
       Marker Scale: 2
@@ -140,17 +132,6 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
-          map:
-            base_link_stabilized:
-              {}
-            look_ahead_point:
-              {}
-            look_ahead_point_stabilized:
-              {}
-            tracking_point:
-              {}
-            tracking_point_stabilized:
-              {}
           rmf_owl:
             rmf_owl/base_link:
               base_link:
@@ -533,7 +514,7 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                traj_controller: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -560,10 +541,10 @@ Visualization Manager:
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Marker
-          Enabled: true
-          Name: VDB Mapping Marker
+          Enabled: false
+          Name: Frontier
           Namespaces:
-            vdb_grid: true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -571,6 +552,40 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /frontier_vis
+          Value: false
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: -0.20000000298023224
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud2
+          Color: 255; 255; 255
+          Color Transformer: AxisColor
+          Decay Time: 0
+          Enabled: true
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 3.5
+          Min Color: 0; 0; 0
+          Min Intensity: 0.019999980926513672
+          Name: OCC Grid
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.20000000298023224
+          Style: Boxes
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /occ_grid
+          Use Fixed Frame: true
+          Use rainbow: true
           Value: true
         - Alpha: 1
           Buffer Length: 1
@@ -603,8 +618,8 @@ Visualization Manager:
       Enabled: true
       Name: Global
     - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Prediction Path
+      Enabled: false
+      Name: SDF slice
       Namespaces:
         {}
       Topic:
@@ -613,7 +628,41 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /planned_tour_linestrip
+        Value: /dist_slice
+      Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 47
+      Min Color: 0; 0; 0
+      Min Intensity: 1
+      Name: Frontier Clusters
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.20000000298023224
+      Style: Flat Squares
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /frontier_clusters
+      Use Fixed Frame: true
+      Use rainbow: true
       Value: true
     - Alpha: 1
       Arrow Length: 0.30000001192092896
@@ -622,11 +671,11 @@ Visualization Manager:
       Class: rviz_default_plugins/PoseArray
       Color: 255; 25; 0
       Enabled: true
-      Head Length: 0.10000000149011612
-      Head Radius: 0.10000000149011612
-      Name: Prediction Waypoints
-      Shaft Length: 0.23000000417232513
-      Shaft Radius: 0.05000000074505806
+      Head Length: 0.20000000298023224
+      Head Radius: 0.15000000596046448
+      Name: PoseArray
+      Shaft Length: 0.25
+      Shaft Radius: 0.07999999821186066
       Shape: Arrow (3D)
       Topic:
         Depth: 5
@@ -634,72 +683,89 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /perspective_goals
+        Value: /frontier_viewpoints
       Value: true
-    - Class: rviz_default_plugins/Marker
+    - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: Marker
+      Name: Global Plan
       Namespaces:
-        {}
+        astar_path: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
-        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /drone_0_plan_vis/optimal_list
+        Value: /smoothed_plan_vis
       Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 5.099999904632568
-        Min Value: -0.30000001192092896
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
         Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz_default_plugins/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: AxisColor
-      Decay Time: 0
       Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 3.5
-      Min Color: 0; 0; 0
-      Min Intensity: 0.019999980926513672
-      Name: PointCloud2
-      Position Transformer: XYZ
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.20000000298023224
-      Style: Boxes
+      Keep: 1
+      Name: Tracking Point Vis
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Axes
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /occ_grid
-      Use Fixed Frame: true
-      Use rainbow: true
+        Value: /tracking_point_vis
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Trajectory Output
+      Namespaces:
+        local_path: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_1/integrated_planner/traj_viz
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
       Name: Marker
       Namespaces:
-        "": true
+        global_path: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /dist_slice
+        Value: /robot_1/integrated_planner/global_plan_viz
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -742,25 +808,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 25.595651626586914
+      Distance: 6.625650882720947
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.7192324995994568
-        Y: -1.58774995803833
-        Z: -0.6139262318611145
+        X: 0.3027314245700836
+        Y: 1.0002601146697998
+        Z: 2.1351609230041504
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7997965216636658
+      Pitch: 0.354796826839447
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.520409345626831
+      Yaw: 5.300417900085449
     Saved: ~
 Window Geometry:
   Displays:

@@ -3,8 +3,8 @@
     # VDB Map
     robot_frame_id: "base_link"
     lidar_frame_id: "ouster"
-    world_frame_id: "map"
-    map_frame_id: "map"
+    world_frame_id: "world"
+    map_frame_id: "world"
 
     pcl_topic: "/robot_1/sensors/ouster/point_cloud"
     data_set: "config"
@@ -37,7 +37,7 @@
     vis_map_maxz:   10.0
 
     # Planned Node
-    pub_global_plan_topic: "~/global_plan"
+    pub_global_plan_topic: "~/global_plan_viz"
     pub_trajectory_viz_topic: "~/traj_viz"
     pub_grid_viz_topic: "~/vdb_viz"
     pub_clustered_frontier_viz_topic: "~/clustered_frontier_viz"

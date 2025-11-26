@@ -4,8 +4,7 @@ runs for visualization -->
 <launch>
 
   <!-- Interface -->
-  <include
-    file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)" />
+  <include file="$(find-pkg-share $(env INTERFACE_LAUNCH_PACKAGE))/launch/$(env INTERFACE_LAUNCH_FILE)" />
 
   <!-- Sensors -->
   <include file="$(find-pkg-share $(env SENSORS_LAUNCH_PACKAGE))/launch/$(env SENSORS_LAUNCH_FILE)" />
@@ -14,7 +13,7 @@ runs for visualization -->
   <!-- <include file="$(find-pkg-share $(env PERCEPTION_LAUNCH_PACKAGE))/launch/$(env PERCEPTION_LAUNCH_FILE)" /> -->
 
   <!-- Local -->
-  <!-- <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_local.launch.xml" /> -->
+  <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_local.launch.xml" />
   <!-- <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_ego.launch.xml" /> -->
 
   <!-- Global -->
