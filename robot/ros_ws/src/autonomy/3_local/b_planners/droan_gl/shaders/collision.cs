@@ -54,7 +54,7 @@ void main() {
     if(pos_cam.z < 0. && !is_seen){
       //collision += 1000.;
       collision.y += 1.;
-      break;
+      continue;
     }
     
     float u = pos_cam.x*fx/pos_cam.z + cx;
@@ -68,7 +68,7 @@ void main() {
     if(!in_image_bounds && !is_seen){
       //collision += 1000.;
       collision.y += 1.;
-      break;
+      continue;
     }
     
     float fg_disp = float(imageLoad(tex_array, ivec3(u, v, 2*i)).x);

@@ -12,6 +12,8 @@ GLInterface::GLInterface(rclcpp::Node* node, tf2_ros::Buffer* tf_buffer)
   dt = airstack::get_param(node, "dt", 0.2);
   ht = airstack::get_param(node, "ht", 10.0);
   downsample_scale = airstack::get_param(node, "downsample_scale", 2);
+  graph_distance_threshold = airstack::get_param(node, "graph_distance_threshold", 1.);
+  graph_angle_threshold = airstack::get_param(node, "graph_angle_threshold", 30.) * M_PI/180.;
   
   total_layers = 2*graph_nodes;
   scale = 1000000.0;
@@ -45,9 +47,7 @@ void GLInterface::handle_disparity(const stereo_msgs::msg::DisparityImage::Share
     return;
   static std::vector<float> times;
   int times_limit = 10;
-    
-  current_node = (current_node + 1) % graph_nodes;
-    
+  
   // udpate graph
   GraphNode graph_node;
   try{
@@ -60,19 +60,32 @@ void GLInterface::handle_disparity(const stereo_msgs::msg::DisparityImage::Share
     RCLCPP_ERROR_STREAM(node->get_logger(), "Transform exception in render_spheres: " << ex.what());
     return;
   }
-  if(graph.size() < graph_nodes){
-    //graph_node.fg_index = graph.size();
-    graph_node.fg_index = graph.size()*2;
-    graph_node.bg_index = graph.size()*2 + 1;
-    graph.push_front(graph_node);
+  
+  if((graph.size() < 2)
+     ||
+     ((graph_node.tf.getOrigin().distance(graph[1].tf.getOrigin()) > graph_distance_threshold)
+      || (tf2::angleShortestPath(graph_node.tf.getRotation(), graph[1].tf.getRotation()) > graph_angle_threshold))){
+    current_node = (current_node + 1) % graph_nodes;
+  
+    if(graph.size() < graph_nodes){
+      graph_node.fg_index = graph.size()*2;
+      graph_node.bg_index = graph.size()*2 + 1;
+      graph.push_front(graph_node);
+      RCLCPP_INFO_STREAM(node->get_logger(), "new: " << current_node << " " << graph_node.fg_index);
+    }
+    else{
+      graph_node.fg_index = graph.back().fg_index;
+      graph_node.bg_index = graph.back().bg_index;
+      graph.pop_back();
+      graph.push_front(graph_node);
+      RCLCPP_INFO_STREAM(node->get_logger(), "old: " << current_node << " " << graph_node.fg_index);
+    }
   }
   else{
-    graph_node.fg_index = graph.back().fg_index;
-    graph_node.bg_index = graph.back().bg_index;
-    graph.pop_back();
-    graph.push_front(graph_node);
+    graph_node.fg_index = graph.front().fg_index;
+    graph_node.bg_index = graph.front().bg_index;
+    graph.front().tf = graph_node.tf;
   }
-
   // upload disparity
   cv::Mat disp;
   if(msg->image.encoding == "32FC1")
@@ -158,7 +171,8 @@ void GLInterface::handle_disparity(const stereo_msgs::msg::DisparityImage::Share
 void GLInterface::publish_viz(const std_msgs::msg::Header &hdr,
 			      rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub,
 			      rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr bg_pub,
-			      rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub){
+			      rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub,
+			      rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub){
   if(!gl_inited)
     return;
   pcl::PointCloud<pcl::PointXYZI> fg_bg_cloud;
@@ -220,6 +234,25 @@ void GLInterface::publish_viz(const std_msgs::msg::Header &hdr,
       }
     }
   }
+
+  graph_markers.overwrite();
+  for(int i = 0; i < graph.size(); i++){
+    GraphNode& graph_node = graph[i];
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = graph_node.tf.getOrigin().x();
+    pose.position.y = graph_node.tf.getOrigin().y();
+    pose.position.z = graph_node.tf.getOrigin().z();
+    tf2::Quaternion rot;
+    rot.setRPY(0, -M_PI_2, 0);
+    tf2::Quaternion q = graph_node.tf.getRotation()*rot;
+    pose.orientation.x = q.x();
+    pose.orientation.y = q.y();
+    pose.orientation.z = q.z();
+    pose.orientation.w = q.w();
+    vis::Marker& arrow = graph_markers.add_arrow(target_frame, hdr.stamp, pose);
+    arrow.set_color(0., 1., 0.);
+  }
+  marker_pub->publish(graph_markers.get_marker_array());
     
   sensor_msgs::msg::PointCloud2 output;
   pcl::toROSMsg(fg_bg_cloud, output);
@@ -371,8 +404,8 @@ void GLInterface::initGL(int original_width, int original_height, int downsample
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
   }
     
-  //for(float p = -80.f; p < 80.f; p += 5.f){
-  //for(float y = 0.f; y < 360.f; y += 5.f){
+  //for(float p = -90.f; p < 90.f + 1.f; p += 5.f){
+    //for(float y = 0.f; y < 360.f; y += 5.f){
   for(float p = -30.f; p < 31.f; p += 15.f){
     for(float y = 0.f; y < 360.f; y += 15.f){
       float yaw = y*M_PI/180.f;

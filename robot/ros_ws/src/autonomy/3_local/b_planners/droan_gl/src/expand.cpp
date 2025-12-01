@@ -56,6 +56,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub_, bg_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr traj_debug_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr graph_vis_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr global_plan_vis_pub;
   rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_pub;
   
@@ -94,6 +95,7 @@ public:
     bg_pub_ = create_publisher<sensor_msgs::msg::Image>("background_expanded", 1);
     fg_bg_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("fg_bg_cloud", 1);
     traj_debug_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("traj_debug", 1);
+    graph_vis_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("graph_vis", 1);
     global_plan_vis_pub = create_publisher<visualization_msgs::msg::MarkerArray>("local_planner_global_plan_vis", 1);
     traj_pub = create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_segment_to_add", 1);
     
@@ -106,6 +108,7 @@ public:
     gl_interface = new GLInterface(this, tf_buffer);
     global_plan = new GlobalPlan(this, tf_buffer);
 
+    // TODO make this time a parameter
     timer = rclcpp::create_timer(this, get_clock(), rclcpp::Duration::from_seconds(2.*1./5.),
     				 std::bind(&DisparityExpanderNode::timer_callback, this));
   }
@@ -118,7 +121,7 @@ private:
   void onDisparity(const stereo_msgs::msg::DisparityImage::SharedPtr msg){
     gl_interface->handle_disparity(msg);
     if(visualize)
-      gl_interface->publish_viz(msg->header, fg_pub_, bg_pub_, fg_bg_cloud_pub_);
+      gl_interface->publish_viz(msg->header, fg_pub_, bg_pub_, fg_bg_cloud_pub_, graph_vis_pub_);
   }
   
   void timer_callback(){
@@ -164,7 +167,7 @@ private:
 	is_traj_safe = false;
 	collision_markers.add_point(state.x(), state.y(), state.z());
       }
-      else if(seen > 3)
+      else if(seen > 1)
 	free_markers.add_point(state.x(), state.y(), state.z());
       else{
 	is_traj_safe = false;

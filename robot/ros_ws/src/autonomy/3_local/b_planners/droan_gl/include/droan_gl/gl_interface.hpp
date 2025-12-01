@@ -197,6 +197,7 @@ private:
   float scale;
   float expansion_radius;
   float seen_radius;
+  float graph_distance_threshold, graph_angle_threshold;
 
   int current_node, graph_nodes, total_layers;
   
@@ -215,6 +216,8 @@ private:
   GLuint params_ssbo, traj_ssbo, transform_ssbo;
   
   GLuint elapsed_query;
+
+  vis::MarkerArray graph_markers;
   
 public:
   GLInterface(rclcpp::Node* node, tf2_ros::Buffer* tf_buffer);
@@ -223,7 +226,8 @@ public:
   void publish_viz(const std_msgs::msg::Header &hdr,
 		   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub,
 		   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr bg_pub,
-		   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub);
+		   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub,
+		   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
   void evaluate_trajectories(const airstack_msgs::msg::Odometry& look_ahead, std::vector<TrajectoryPoint>& trajectory_points, tf2::Transform& look_ahead_to_target_tf);
 
   int get_traj_size();
