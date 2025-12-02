@@ -1,3 +1,5 @@
+#pragma once
+
 #include <rclcpp/rclcpp.hpp>
 #include <airstack_common/ros2_helper.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -34,29 +36,32 @@
 #include <glm/gtx/quaternion.hpp>
 #include <EGL/egl.h>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include <vector>
 #include <mutex>
 
-#include <droan_gl/gl_interface.hpp>
-#include <trajectory_library/trajectory_library.hpp>
-
-class GlobalPlan {
+class RewindMonitor {
 private:
   rclcpp::Node* node;
-  tf2_ros::Buffer* tf_buffer;
+  
+  float all_in_collision_duration_threshold;
+  float all_in_collision_rewind_duration;
+  
+  float stationary_duration_threshold, stationary_distance_threshold;
+  float stationary_rewind_distance, stationary_rewind_duration;
 
-  std::string target_frame;
-  int current_global_plan_id, next_global_plan_id;
-  nav_msgs::msg::Path path;
-  Trajectory global_plan;
-
-  bool update_global_plan();
+  std::list<std::pair<tf2::Vector3, rclcpp::Time> > positions;
   
 public:
-  GlobalPlan(rclcpp::Node* node, tf2_ros::Buffer* tf_buffer);
-  void set_global_plan(const nav_msgs::msg::Path::SharedPtr msg);
-  void trim(const airstack_msgs::msg::Odometry& msg);
-  std::tuple<float, float> get_distance(float x, float y, float z);
-  void publish_vis(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub);
-  void apply_smooth_yaw(airstack_msgs::msg::TrajectoryXYZVYaw &best_traj_msg, const airstack_msgs::msg::Odometry look_ahead);
+  RewindMonitor(rclcpp::Node* node);
+
+  void update_odom(const airstack_msgs::msg::Odometry::SharedPtr odom);
+  void do_stationary_check(bool b);
+  void found_trajectory(bool b);
+  void trigger_rewind(float seconds, float distance=-1.f);
+
+  bool should_rewind();
 };
