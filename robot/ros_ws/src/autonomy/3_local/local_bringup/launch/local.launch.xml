@@ -47,6 +47,25 @@
           <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
           <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
           <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+
+	  <param name="target_frame" value="map" />
+	  <param name="look_ahead_frame" value="look_ahead_point_stabilized" />
+	  <param name="rewind_info_frame" value="base_link_stabilized" />
+	  <param name="visualize" value="true" />
+	  <param name="graph_nodes" value="10" />
+	  <param name="expansion_radius" value="2." />
+	  <param name="seen_radius" value=".1" />
+	  <param name="dt" value="0.2" />
+	  <param name="ht" value="5." />
+	  <param name="downsample_scale" value="2" />
+	  <param name="graph_distance_threshold" value="1." />
+	  <param name="graph_angle_threshold" value="30." />
+	  <param name="all_in_collision_duration_threshold" value="2." />
+	  <param name="all_in_collision_rewind_duration" value="6." />
+	  <param name="stationary_distance_threshold" value="0.5" />
+	  <param name="stationary_history_duration" value="10." />
+	  <param name="stationary_rewind_distance" value="10." />
+	  <param name="stationary_rewind_duration" value="20." />
 	</node>
         <!-- DROAN local model -->
         <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"

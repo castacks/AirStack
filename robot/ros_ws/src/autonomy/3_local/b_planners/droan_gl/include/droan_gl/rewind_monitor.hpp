@@ -43,17 +43,39 @@
 #include <vector>
 #include <mutex>
 
+struct Rewind {
+  bool valid;
+  float start_time;
+  tf2::Vector3 start_position;
+  
+  float duration;
+  float distance;
+
+  Rewind(){
+    valid = false;
+  }
+};
+
 class RewindMonitor {
 private:
   rclcpp::Node* node;
   
   float all_in_collision_duration_threshold;
   float all_in_collision_rewind_duration;
+  float all_in_collision_start_time;
   
-  float stationary_duration_threshold, stationary_distance_threshold;
+  float stationary_distance_threshold;
+  float stationary_history_duration;
   float stationary_rewind_distance, stationary_rewind_duration;
+  bool should_do_stationary_check;
+  float min_dt;
 
-  std::list<std::pair<tf2::Vector3, rclcpp::Time> > positions;
+  Rewind rewind;
+
+  std::deque<std::pair<tf2::Vector3, float> > positions;
+
+  
+  visualization_msgs::msg::Marker clear, rewind_info_marker;
   
 public:
   RewindMonitor(rclcpp::Node* node);
@@ -61,7 +83,8 @@ public:
   void update_odom(const airstack_msgs::msg::Odometry::SharedPtr odom);
   void do_stationary_check(bool b);
   void found_trajectory(bool b);
-  void trigger_rewind(float seconds, float distance=-1.f);
-
+  void trigger_rewind(float duration, float distance=-1.f);
   bool should_rewind();
+  void clear_history();
+  void publish_vis(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub, std::string frame_id);
 };

@@ -71,14 +71,12 @@ void GLInterface::handle_disparity(const stereo_msgs::msg::DisparityImage::Share
       graph_node.fg_index = graph.size()*2;
       graph_node.bg_index = graph.size()*2 + 1;
       graph.push_front(graph_node);
-      RCLCPP_INFO_STREAM(node->get_logger(), "new: " << current_node << " " << graph_node.fg_index);
     }
     else{
       graph_node.fg_index = graph.back().fg_index;
       graph_node.bg_index = graph.back().bg_index;
       graph.pop_back();
       graph.push_front(graph_node);
-      RCLCPP_INFO_STREAM(node->get_logger(), "old: " << current_node << " " << graph_node.fg_index);
     }
   }
   else{
@@ -163,8 +161,8 @@ void GLInterface::handle_disparity(const stereo_msgs::msg::DisparityImage::Share
   average_time /= times.size();
   static int iteration = 0;
   iteration++;
-  RCLCPP_INFO(node->get_logger(), "iteration: %d h v times: %.3f ms, %.3f ms, %.3f ms, %.3f ms, %.3f ms, %.3f ms",
-	      iteration, fg_horizontal_elapsed, fg_vertical_elapsed, bg_horizontal_elapsed, bg_vertical_elapsed, total_time, average_time);
+  //RCLCPP_INFO(node->get_logger(), "iteration: %d h v times: %.3f ms, %.3f ms, %.3f ms, %.3f ms, %.3f ms, %.3f ms",
+  //      iteration, fg_horizontal_elapsed, fg_vertical_elapsed, bg_horizontal_elapsed, bg_vertical_elapsed, total_time, average_time);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 }
 
@@ -304,7 +302,7 @@ void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry& look
   float traj_gen_elapsed = gl_toc();
   static int iteration = 0;
   iteration++;
-  RCLCPP_INFO_STREAM(node->get_logger(), "iteration: " << iteration << " TRAJ GEN TIMING: " << traj_gen_elapsed);
+  //RCLCPP_INFO_STREAM(node->get_logger(), "iteration: " << iteration << " TRAJ GEN TIMING: " << traj_gen_elapsed);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
   // collision checking
@@ -331,7 +329,7 @@ void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry& look
   gl_tic();
   glDispatchCompute((traj_params.size() * get_traj_size() + 255) / 256, 1, 1);
   float traj_collision_check_elapsed = gl_toc();
-  RCLCPP_INFO_STREAM(node->get_logger(), "TRAJ COLLISION CHECK TIMING: " << traj_collision_check_elapsed);
+  //RCLCPP_INFO_STREAM(node->get_logger(), "TRAJ COLLISION CHECK TIMING: " << traj_collision_check_elapsed);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
   // trajectory visualization
