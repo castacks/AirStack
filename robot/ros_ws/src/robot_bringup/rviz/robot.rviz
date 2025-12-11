@@ -11,6 +11,7 @@ Panels:
         - /Local1
         - /Local1/DROAN1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
+        - /Local1/DROAN1/Droan GPU1/Traj Debug1/Namespaces1
         - /Global1
       Splitter Ratio: 0.590062141418457
     Tree Height: 552
@@ -35,7 +36,7 @@ Panels:
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
-    zoom_factor: 0.2487962394952774
+    zoom_factor: 0.19198513237810166
 Visualization Manager:
   Class: ""
   Displays:
@@ -70,20 +71,16 @@ Visualization Manager:
           Value: false
         base_link_body_body_link:
           Value: false
+        base_link_frd:
+          Value: true
         base_link_stabilized:
           Value: false
         camera_left:
           Value: true
         camera_right:
           Value: true
-        front_stereo_left_camera_optical_frame:
-          Value: true
-        front_stereo_right_camera_optical_frame:
-          Value: true
         imu:
           Value: false
-        left_camera_link:
-          Value: true
         lidar:
           Value: false
         look_ahead_point:
@@ -94,7 +91,11 @@ Visualization Manager:
           Value: false
         map:
           Value: true
-        right_camera_link:
+        map_ned:
+          Value: true
+        odom:
+          Value: true
+        odom_ned:
           Value: true
         tracking_point:
           Value: false
@@ -123,17 +124,15 @@ Visualization Manager:
                     {}
                   imu:
                     {}
-              left_camera_link:
-                front_stereo_left_camera_optical_frame:
-                  {}
-              right_camera_link:
-                front_stereo_right_camera_optical_frame:
-                  {}
+              base_link_frd:
+                {}
             base_link_stabilized:
               {}
             look_ahead_point:
               {}
             look_ahead_point_stabilized:
+              {}
+            map_ned:
               {}
             tracking_point:
               {}
@@ -436,48 +435,12 @@ Visualization Manager:
       Displays:
         - Class: rviz_common/Group
           Displays:
-            - Class: rviz_default_plugins/Marker
-              Enabled: false
-              Name: Disparity Frustum
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                Filter size: 10
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/frustum
-              Value: false
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
-              Name: Disparity Map Collision Checking
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/disparity_map_debug
-              Value: false
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Disparity Graph Poses
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/disparity_graph
-              Value: true
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
               Name: Trimmed Global Plan for DROAN
               Namespaces:
-                {}
+                global_plan: true
+                global_plan_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -485,64 +448,172 @@ Visualization Manager:
                 Reliability Policy: Reliable
                 Value: droan/local_planner_global_plan_vis
               Value: true
-            - Class: rviz_default_plugins/MarkerArray
+            - Class: rviz_common/Group
+              Displays:
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: false
+                  Name: ExpansionPoly
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: droan/expansion_poly
+                  Value: false
+                - Class: rviz_default_plugins/Marker
+                  Enabled: false
+                  Name: Disparity Frustum
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    Filter size: 10
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/frustum
+                  Value: false
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: false
+                  Name: Disparity Map Collision Checking
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/disparity_map_debug
+                  Value: false
+                - Alpha: 1
+                  Autocompute Intensity Bounds: true
+                  Autocompute Value Bounds:
+                    Max Value: 10
+                    Min Value: -10
+                    Value: true
+                  Axis: Z
+                  Channel Name: intensity
+                  Class: rviz_default_plugins/PointCloud2
+                  Color: 255; 255; 255
+                  Color Transformer: Intensity
+                  Decay Time: 0
+                  Enabled: false
+                  Invert Rainbow: false
+                  Max Color: 255; 255; 255
+                  Max Intensity: 220
+                  Min Color: 0; 0; 0
+                  Min Intensity: 120
+                  Name: Expansion Cloud
+                  Position Transformer: XYZ
+                  Selectable: true
+                  Size (Pixels): 3
+                  Size (m): 0.009999999776482582
+                  Style: Flat Squares
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    Filter size: 10
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: droan/expansion_cloud
+                  Use Fixed Frame: true
+                  Use rainbow: true
+                  Value: false
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: false
+                  Name: Traj Library
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: droan/trajectory_library_vis
+                  Value: false
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: true
+                  Name: Disparity Graph Poses
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/disparity_graph
+                  Value: true
               Enabled: false
-              Name: ExpansionPoly
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/expansion_poly
-              Value: false
-            - Alpha: 1
-              Autocompute Intensity Bounds: true
-              Autocompute Value Bounds:
-                Max Value: 10
-                Min Value: -10
-                Value: true
-              Axis: Z
-              Channel Name: intensity
-              Class: rviz_default_plugins/PointCloud2
-              Color: 255; 255; 255
-              Color Transformer: Intensity
-              Decay Time: 0
-              Enabled: false
-              Invert Rainbow: false
-              Max Color: 255; 255; 255
-              Max Intensity: 220
-              Min Color: 0; 0; 0
-              Min Intensity: 120
-              Name: Expansion Cloud
-              Position Transformer: XYZ
-              Selectable: true
-              Size (Pixels): 3
-              Size (m): 0.009999999776482582
-              Style: Flat Squares
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                Filter size: 10
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/expansion_cloud
-              Use Fixed Frame: true
-              Use rainbow: true
-              Value: false
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
-              Name: Traj Library
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/trajectory_library_vis
-              Value: false
+              Name: Droan CPU
+            - Class: rviz_common/Group
+              Displays:
+                - Alpha: 1
+                  Autocompute Intensity Bounds: true
+                  Autocompute Value Bounds:
+                    Max Value: 10
+                    Min Value: -10
+                    Value: true
+                  Axis: Z
+                  Channel Name: intensity
+                  Class: rviz_default_plugins/PointCloud2
+                  Color: 255; 255; 255
+                  Color Transformer: Intensity
+                  Decay Time: 0
+                  Enabled: true
+                  Invert Rainbow: false
+                  Max Color: 255; 255; 255
+                  Max Intensity: 49
+                  Min Color: 0; 0; 0
+                  Min Intensity: 0
+                  Name: Foreground Background Cloud
+                  Position Transformer: XYZ
+                  Selectable: true
+                  Size (Pixels): 3
+                  Size (m): 0.009999999776482582
+                  Style: Points
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    Filter size: 10
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/fg_bg_cloud
+                  Use Fixed Frame: true
+                  Use rainbow: false
+                  Value: true
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: true
+                  Name: Traj Debug
+                  Namespaces:
+                    collision_points: false
+                    collision_trajectories: true
+                    free_points: false
+                    free_trajectories: true
+                    unseen_points: false
+                    unseen_trajectories: true
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/traj_debug
+                  Value: true
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: true
+                  Name: Graph Vis
+                  Namespaces:
+                    default: true
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/graph_vis
+                  Value: true
+              Enabled: true
+              Name: Droan GPU
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
               Name: Virtual Obstacles
@@ -555,65 +626,30 @@ Visualization Manager:
                 Reliability Policy: Reliable
                 Value: droan/virtual_obstacles
               Value: true
-            - Alpha: 1
-              Autocompute Intensity Bounds: true
-              Autocompute Value Bounds:
-                Max Value: 10
-                Min Value: -10
-                Value: true
-              Axis: Z
-              Channel Name: intensity
-              Class: rviz_default_plugins/PointCloud2
-              Color: 255; 255; 255
-              Color Transformer: Intensity
-              Decay Time: 0
-              Enabled: true
-              Invert Rainbow: false
-              Max Color: 255; 255; 255
-              Max Intensity: 49
-              Min Color: 0; 0; 0
-              Min Intensity: 0
-              Name: Foreground Background Cloud
-              Position Transformer: XYZ
-              Selectable: true
-              Size (Pixels): 3
-              Size (m): 0.009999999776482582
-              Style: Points
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                Filter size: 10
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/fg_bg_cloud
-              Use Fixed Frame: true
-              Use rainbow: false
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Traj Debug
-              Namespaces:
-                collision: true
-                free: true
-                unseen: true
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/traj_debug
-              Value: true
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
               Name: Global Plan Vis
               Namespaces:
-                {}
+                global_plan: true
+                global_plan_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
                 Value: /robot_1/droan/local_planner_global_plan_vis
+              Value: true
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Rewind Info
+              Namespaces:
+                rewind_info: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /robot_1/droan/rewind_info
               Value: true
           Enabled: true
           Name: DROAN
@@ -624,6 +660,7 @@ Visualization Manager:
               Name: Traj Vis
               Namespaces:
                 traj_controller: true
+                traj_controller_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -738,7 +775,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 27.297147750854492
+      Distance: 12.721861839294434
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -753,10 +790,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.685397744178772
+      Pitch: 0.7453970909118652
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 1.8953967094421387
+      Yaw: 1.6603955030441284
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
@@ -782,5 +819,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1980
-  X: 100
-  Y: 154
+  X: 261
+  Y: 112

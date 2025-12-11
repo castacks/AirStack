@@ -92,6 +92,7 @@ static tf2_ros::TransformListener* listener = NULL;
 
 class Trajectory {
    private:
+    rclcpp::Node* node;
     std::string frame_id;
     rclcpp::Time stamp;
     std::vector<Waypoint> waypoints;

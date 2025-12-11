@@ -164,25 +164,45 @@ private:
     
     traj_markers.overwrite();
     vis::Marker& free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
-    free_markers.set_namespace("free");
+    free_markers.set_namespace("free_points");
     free_markers.set_color(0., 1., 0.);
     free_markers.set_scale(0.1, 0.1, 0.1);
+    vis::Marker& free_traj_markers = traj_markers.add_line_list(target_frame, look_ahead.header.stamp,
+								0., 1., 0., 0.8,
+								0.1, 0);
+    free_traj_markers.set_namespace("free_trajectories");
+								
     vis::Marker& collision_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
-    collision_markers.set_namespace("collision");
+    collision_markers.set_namespace("collision_points");
     collision_markers.set_color(1., 0., 0.);
     collision_markers.set_scale(0.1, 0.1, 0.1);
+    vis::Marker& collision_traj_markers = traj_markers.add_line_list(target_frame, look_ahead.header.stamp,
+								1., 0., 0., 0.8,
+								0.1, 0);
+    collision_traj_markers.set_namespace("collision_trajectories");
+								
     vis::Marker& unseen_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
-    unseen_markers.set_namespace("unseen");
-    unseen_markers.set_color(0., 0., 1.);
+    unseen_markers.set_namespace("unseen_points");
+    unseen_markers.set_color(0.7, 0.7, 0.7, 0.3);
     unseen_markers.set_scale(0.1, 0.1, 0.1);
+    vis::Marker& unseen_traj_markers = traj_markers.add_line_list(target_frame, look_ahead.header.stamp,
+								0.7, 0.7, 0.7, 0.3,
+								0.1, 0);
+    unseen_traj_markers.set_namespace("unseen_trajectories");
 
     int best_traj_index = -1;
     float best_traj_cost = std::numeric_limits<float>::infinity();
     bool is_traj_safe = true;
+    int SEEN = 0;
+    int UNSEEN = 1;
+    int COLLISION = 2;
+    int traj_status = SEEN;
+    std::vector<tf2::Vector3> traj_points(gl_interface->get_traj_size());
     
     for(int i = 0; i < trajectory_points.size(); i++){
       TrajectoryPoint& state = trajectory_points[i];
       int traj_index = i/gl_interface->get_traj_size();
+      int point_index = i % gl_interface->get_traj_size();
 
       //int seen, unseen, collision;
       //get_counts(state.w(), &seen, &unseen, &collision);
@@ -190,25 +210,48 @@ private:
       int unseen = state.get_unseen();
       int collision = state.get_collision();
 
+      traj_points[point_index] = tf2::Vector3(state.x(), state.y(), state.z());
+
       if(collision > 0 && collision > seen){
 	is_traj_safe = false;
 	collision_markers.add_point(state.x(), state.y(), state.z());
+	traj_status = COLLISION;
       }
       else if(seen > 1)
 	free_markers.add_point(state.x(), state.y(), state.z());
       else{
 	is_traj_safe = false;
        	unseen_markers.add_point(state.x(), state.y(), state.z());
+	if(traj_status == SEEN)
+	  traj_status = UNSEEN;
       }
       
       // if last waypoint in trajectory
-      if((i % gl_interface->get_traj_size()) == (gl_interface->get_traj_size() - 1)){
+      if(point_index == (gl_interface->get_traj_size() - 1)){
+	vis::Marker* tm = &free_traj_markers;
+	if(traj_status == UNSEEN)
+	  tm = &unseen_traj_markers;
+	else if(traj_status == COLLISION)
+	  tm = &collision_traj_markers;
+	
+	for(int j = 1; j < traj_points.size(); j++){
+	  tf2::Vector3& curr = traj_points[j];
+	  tf2::Vector3& prev = traj_points[j-1];
+	  tm->add_point(prev.x(), prev.y(), prev.z());
+	  tm->add_point(curr.x(), curr.y(), curr.z());
+	}
+
+	int traj_status_log = traj_status;
+	
+	traj_status = SEEN;
 	if(!is_traj_safe){
 	  is_traj_safe = true;
 	  continue;
 	}
+	
 	auto [deviation, path_distance] = global_plan->get_distance(state.x(), state.y(), state.z());
-	if(deviation > 0 && path_distance > 0){
+	//RCLCPP_INFO_STREAM(get_logger(), i << " " << traj_status_log << " " << deviation << " " <<  path_distance);
+	if(deviation >= 0 && path_distance >= 0){
 	  // TODO add weights as ros parameters
 	  float cost = deviation - path_distance;
 	  if(cost < best_traj_cost){

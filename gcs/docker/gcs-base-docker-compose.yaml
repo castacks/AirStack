@@ -23,11 +23,13 @@ services:
             - capabilities: [gpu]
               count: 1
               driver: nvidia
+    runtime: nvidia
     entrypoint: ''
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-false}
       - DISPLAY
       - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
     # Needed to display graphical applications
     # ipc: host
@@ -45,6 +47,7 @@ services:
       - ../../common/inputrc:/etc/inputrc:rw
       - ../../.devcontainer/gcs/launch.json:/home/gcs/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/gcs/tasks.json:/home/gcs/AirStack/.vscode/tasks.json:rw
+      - ./Foxglove:/home/gcs/.config/Foxglove:rw
       # autonomy stack stuff
       - ../..:/home/gcs/AirStack
       - ../../common/ros_packages:/home/gcs/AirStack/gcs/ros_ws/src/common:rw # common ROS packages

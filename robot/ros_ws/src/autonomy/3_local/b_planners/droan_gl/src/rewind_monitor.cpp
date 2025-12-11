@@ -18,6 +18,7 @@ RewindMonitor::RewindMonitor(rclcpp::Node* node)
   rewind_info_marker.id = 0;
   rewind_info_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
   rewind_info_marker.action = visualization_msgs::msg::Marker::ADD;
+  rewind_info_marker.pose.position.z = 3.0;
   rewind_info_marker.pose.orientation.w = 1.0;
   rewind_info_marker.scale.z = 0.3;
   rewind_info_marker.color.r = 1.0;
@@ -143,9 +144,12 @@ void RewindMonitor::publish_vis(rclcpp::Publisher<visualization_msgs::msg::Marke
       rewind_info_marker.text += "\ndistance: " + std::to_string(rewind.start_position.distance(positions.back().first)) +
 	" / " + std::to_string(rewind.distance);
   }
+  else{
+    rewind_info_marker.text += std::to_string(all_in_collision_start_time) + "\n" + std::to_string(now.seconds() - all_in_collision_start_time);
+  }
   
-  RCLCPP_INFO_STREAM(node->get_logger(), "vis: " << rewind.valid << " time: " << (rewind.duration > 0.f) << " dist: " << (rewind.distance > 0.f)
-		     << " " << (!positions.empty()) << " text: " << rewind_info_marker.text);
+  //RCLCPP_INFO_STREAM(node->get_logger(), "vis: " << rewind.valid << " time: " << (rewind.duration > 0.f) << " dist: " << (rewind.distance > 0.f)
+  //		     << " " << (!positions.empty()) << " text: " << rewind_info_marker.text);
   marker_array.markers.push_back(rewind_info_marker);
   
   pub->publish(marker_array);

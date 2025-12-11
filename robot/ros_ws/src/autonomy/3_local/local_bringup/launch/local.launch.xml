@@ -54,9 +54,9 @@
 	  <param name="visualize" value="true" />
 	  <param name="graph_nodes" value="10" />
 	  <param name="expansion_radius" value="2." />
-	  <param name="seen_radius" value=".1" />
+	  <param name="seen_radius" value="1." />
 	  <param name="dt" value="0.2" />
-	  <param name="ht" value="5." />
+	  <param name="ht" value="7." />
 	  <param name="downsample_scale" value="2" />
 	  <param name="graph_distance_threshold" value="1." />
 	  <param name="graph_angle_threshold" value="30." />

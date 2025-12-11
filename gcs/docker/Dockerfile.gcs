@@ -57,6 +57,10 @@ RUN USER=gcs && \
   mkdir -p /etc/fixuid && \
   printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
 
+RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
+RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt -o APT::Get::AllowUnauthenticated=true install -y ./foxglove-studio-latest-linux-amd64.deb
+RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-humble-foxglove-bridge
+
 # Cleanup. Prevent people accidentally doing git commits from within Docker
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
 

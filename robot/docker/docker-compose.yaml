@@ -7,7 +7,6 @@ services:
     profiles:
       - ""
       - sitl
-      - simple
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
@@ -42,6 +41,15 @@ services:
     deploy:
       replicas: ${NUM_ROBOTS:-1}
     runtime: nvidia
+
+  simple-robot:
+    profiles:
+      - simple
+    extends:
+      file: ./docker-compose.yaml
+      service: robot
+    environment:
+      - SIM_TYPE=simple
 
   # ===================================================================================================================
   # for running on an NVIIDA jetson (linux for tegra) device
