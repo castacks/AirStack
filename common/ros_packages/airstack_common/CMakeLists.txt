@@ -24,6 +24,9 @@ ament_target_dependencies(
   ros2_helper
   rclcpp
   )
+install(TARGETS ros2_helper
+  DESTINATION lib/${PROJECT_NAME}
+  )
 install(
   TARGETS ros2_helper
   EXPORT ros2_helper

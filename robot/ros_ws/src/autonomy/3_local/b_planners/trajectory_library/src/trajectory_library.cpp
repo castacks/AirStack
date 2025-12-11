@@ -110,7 +110,8 @@ std::ostream& operator<<(std::ostream& os, const Waypoint& wp) {
 
 Trajectory::Trajectory() { generated_waypoint_times = false; }
 
-Trajectory::Trajectory(rclcpp::Node* node_ptr, std::string frame_id) : Trajectory() {
+Trajectory::Trajectory(rclcpp::Node* node_ptr, std::string frame_id) : Trajectory(){
+    node = node_ptr;
     if (buffer == NULL) {
         buffer = new tf2_ros::Buffer(node_ptr->get_clock());
         listener = new tf2_ros::TransformListener(*buffer);
@@ -299,6 +300,9 @@ std::tuple<bool, Waypoint, size_t, double> Trajectory::get_closest_point(tf2::Ve
 
             // find the distance between the point and the closest point on the current segment
             double distance = closest_waypoint.position().distance(point);
+	    if(std::isnan(t)){
+	      RCLCPP_INFO_STREAM(node->get_logger(), "NAN: " << distance);
+	    }
             if (distance < closest_distance) {
                 closest_distance = distance;
                 closest = closest_waypoint;  // closest_point;
@@ -316,6 +320,13 @@ std::tuple<bool, Waypoint, size_t, double> Trajectory::get_closest_point(tf2::Ve
                 path_distance += best_t * segment_vec.length();
             else
                 path_distance += segment_vec.length();
+	    /*
+	    if(std::isnan(path_distance))
+	      RCLCPP_INFO_STREAM(node->get_logger(), "NAN path distance: " << best_t << " " << segment_vec.length()
+				 << segment_start.x() << " " << segment_start.y() << " " << segment_start.z() << " | "
+				 << segment_end.x() << " " << segment_end.y() << " " << segment_end.z() << " | "
+				 << segment_vec.x() << " " << segment_vec.y() << " " << segment_vec.z() << " | ");
+	    */
         }
     }
 
@@ -742,13 +753,13 @@ Trajectory Trajectory::shorten(double new_length){
 }*/
 
 /**
- * @brief Trim a subtrajectory between a start distance and end distance
+ * @brief Get a trimmed subtrajectory between a start distance and end distance
  *
  * @param start
  * @param end
  * @return Trajectory
  */
-Trajectory Trajectory::trim_trajectory_between_distances(double start_dist, double end_dist) {
+Trajectory Trajectory::get_trimmed_trajectory_between_distances(double start_dist, double end_dist) {
     Trajectory traj;
     traj.stamp = this->stamp;
     traj.frame_id = this->frame_id;
@@ -764,6 +775,8 @@ Trajectory Trajectory::trim_trajectory_between_distances(double start_dist, doub
             Waypoint curr_wp = this->waypoints[i];
             double segment_length = prev_wp.position().distance(curr_wp.position());
 
+	    // TODO handle the case when segment length is 0 since it would cause a nan
+	    
             if (start_dist >= distance && start_dist <= distance + segment_length) {
                 Waypoint interp_start_wp =
                     prev_wp.interpolate(curr_wp, (start_dist - distance) / segment_length);
@@ -854,6 +867,34 @@ float Trajectory::get_skip_ahead_time(float start_time, float max_velocity, floa
     }
 
     return skip_time;
+}
+
+void Trajectory::trim(tf2::Vector3 point) {
+  if(this->waypoints.size() <= 1)
+    return;
+  
+  double trajectory_distance;
+  bool valid = get_trajectory_distance_at_closest_point(point, &trajectory_distance);
+  if(!valid)
+    return;
+
+  double distance = 0.;
+  for (size_t i = 1; i < this->waypoints.size(); i++) {
+    Waypoint prev_wp = this->waypoints[i - 1];
+    Waypoint curr_wp = this->waypoints[i];
+    double segment_length = prev_wp.position().distance(curr_wp.position());
+
+    if (trajectory_distance >= distance && trajectory_distance <= distance + segment_length) {
+      Waypoint interp_start_wp = curr_wp;
+      if(segment_length != 0.)
+	interp_start_wp = prev_wp.interpolate(curr_wp, (trajectory_distance - distance) / segment_length);
+      this->waypoints[i-1] = interp_start_wp;
+      this->waypoints.erase(this->waypoints.begin(), this->waypoints.begin()+i-1);
+      break;
+    }
+
+    distance += segment_length;
+  }
 }
 
 void Trajectory::set_fixed_height(double height) {

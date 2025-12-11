@@ -39,11 +39,12 @@ namespace vis {
   private:
     std::string ns;
     int id;
+    int reserve_size;
 
     std::vector<Marker> markers;
     
   public:
-    MarkerArray(std::string ns="default");
+    MarkerArray(std::string ns="default", int reserve_size=10);
     
     Marker& add_text(std::string frame_id, rclcpp::Time stamp, std::string text, double x, double y, double z);
     Marker& add_line_list(std::string frame_id, rclcpp::Time stamp, float r, float g, float b, float a, float width, int lines, ...);
@@ -51,6 +52,7 @@ namespace vis {
     Marker& add_arrow(std::string frame_id, rclcpp::Time stamp, geometry_msgs::msg::Pose pose,
 		      float length=0.5f, float width=0.05f, float height=0.05f);
     Marker& add_sphere(std::string frame_id, rclcpp::Time stamp, float x, float y, float z, float radius=0.1f);
+    Marker& add_points(std::string frame_id, rclcpp::Time stamp);
     
     void overwrite();
     visualization_msgs::msg::MarkerArray get_marker_array();
