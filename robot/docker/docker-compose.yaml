@@ -7,7 +7,6 @@ services:
     profiles:
       - ""
       - sitl
-      - simple
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
@@ -22,6 +21,7 @@ services:
     # we use tmux sd-keys so that the session stays alive
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - NVIDIA_DRIVER_CAPABILITIES=all
     command: >
       bash -c "
       service ssh restart;
@@ -40,6 +40,16 @@ services:
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
+    runtime: nvidia
+
+  simple-robot:
+    profiles:
+      - simple
+    extends:
+      file: ./docker-compose.yaml
+      service: robot
+    environment:
+      - SIM_TYPE=simple
 
   # ===================================================================================================================
   # for running on an NVIIDA jetson (linux for tegra) device

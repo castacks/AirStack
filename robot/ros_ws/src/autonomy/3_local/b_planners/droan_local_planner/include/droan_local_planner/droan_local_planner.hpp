@@ -323,7 +323,7 @@ public:
         if (is_valid)
         {
             trajectory_distance = std::max(trajectory_distance, this->global_plan_trajectory_distance);
-            global_plan = global_plan.trim_trajectory_between_distances(trajectory_distance, trajectory_distance + std::numeric_limits<double>::infinity());
+            global_plan = global_plan.get_trimmed_trajectory_between_distances(trajectory_distance, trajectory_distance + std::numeric_limits<double>::infinity());
             // RCLCPP_INFO_STREAM(this->get_logger(), "using global plan from distance " << trajectory_distance);
             this->global_plan_trajectory_distance = trajectory_distance;
         }

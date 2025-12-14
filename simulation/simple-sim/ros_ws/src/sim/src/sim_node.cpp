@@ -101,7 +101,7 @@ private:
 		       std::shared_ptr<mavros_msgs::srv::SetMode::Response> res) {
     res->mode_sent = true;
 
-    if(req->custom_mode == "GUIDED"){
+    if(req->custom_mode == "GUIDED" || req->custom_mode == "OFFBOARD"){
       sim->drone.offboard = true;
     }
     else

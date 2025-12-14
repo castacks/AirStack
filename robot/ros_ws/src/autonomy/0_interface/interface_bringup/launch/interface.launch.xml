@@ -7,14 +7,14 @@
     <!-- Nodes -->
 
     <!-- Launch MAVROS (poll until connection is established) -->
-    <group>
+    <group unless="$(eval '\'$(env SIM_TYPE not_simple)\' == \'simple\'')">
         <push-ros-namespace namespace="interface" />
         <!-- <include file="$(find-pkg-share mavros_interface)/launch/mavros_connection_poll.launch.py"> -->
         <include file="$(find-pkg-share interface_bringup)/launch/px4.launch.xml">
             <!-- See robot .bashrc for how this gets set -->
             <arg name="fcu_url" value="$(env FCU_URL)" />
             <arg name="tgt_system" value="$(env TGT_SYSTEM)" />
-        </include>
+          </include>
     </group>
 
     <!-- Interface between AirStack and MAVROS -->

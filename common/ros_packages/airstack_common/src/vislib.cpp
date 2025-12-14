@@ -103,9 +103,10 @@ namespace vis{
     return marker;
   }
   
-  MarkerArray::MarkerArray(std::string ns){
+  MarkerArray::MarkerArray(std::string ns, int reserve_size){
     this->ns = ns;
     id = 0;
+    markers.reserve(reserve_size);
   }
   
   Marker& MarkerArray::add_text(std::string frame_id, rclcpp::Time stamp, std::string text, double x, double y, double z){
@@ -197,6 +198,17 @@ namespace vis{
     else
       markers[marker.get_id()] = marker;
 
+    return markers[marker.get_id()];
+  }
+  
+  Marker& MarkerArray::add_points(std::string frame_id, rclcpp::Time stamp){
+    Marker marker(frame_id, stamp, ns, id++, visualization_msgs::msg::Marker::POINTS);
+    
+    if(marker.get_id() >= markers.size())
+      markers.push_back(marker);
+    else
+      markers[marker.get_id()] = marker;
+    
     return markers[marker.get_id()];
   }
   
