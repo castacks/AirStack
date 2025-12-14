@@ -80,3 +80,9 @@
 				(Stuck)
 				[Rewind]
 			[Follow Global Plan]
+
+	->
+		(Image Based Visual Servoing)
+		?
+			(Landing Complete)
+			[IBVS]

@@ -3,6 +3,7 @@ int32 ROBOT_POSE=1
 int32 TRACK=2
 int32 ADD_SEGMENT=3
 int32 REWIND=4
+int32 TRACK_VELOCITY=5
 
 int32 mode
 ---

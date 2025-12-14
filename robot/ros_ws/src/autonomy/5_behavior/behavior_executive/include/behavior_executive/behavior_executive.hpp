@@ -27,6 +27,62 @@
 #include <nav_msgs/msg/path.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <std_msgs/msg/empty.hpp>
+// #include <mavros_msgs/msg/position_target.hpp>
+// #include <geometry_msgs/msg/pose_stamped.hpp>
+// #include <mavros_msgs/msg/position_target.hpp>
+
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+
+#include <airstack_common/ros2_helper.hpp>
+#include <filesystem>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <mavros_msgs/msg/attitude_target.hpp>
+#include <mavros_msgs/msg/position_target.hpp>
+#include <mavros_msgs/msg/state.hpp>
+#include <mavros_msgs/msg/home_position.hpp>
+#include <geographic_msgs/msg/geo_pose_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
+#include <mavros_msgs/srv/command_bool.hpp>
+#include <mavros_msgs/srv/command_tol.hpp>
+#include <mavros_msgs/srv/set_mode.hpp>
+#include <std_srvs/srv/trigger.hpp>
+#include <std_msgs/msg/empty.hpp>
+#include <robot_interface/robot_interface.hpp>
+
+#include "GeographicLib/Geoid.hpp"
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/synchronizer.h>
+
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <std_msgs/msg/float32.hpp>
+
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2/LinearMath/Matrix3x3.h"
+
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
+#include "sensor_msgs/msg/image.hpp"
+#include "cv_bridge/cv_bridge.h"
+#include <opencv2/opencv.hpp>
+#include <string>
+
+#include <opencv2/highgui/highgui.hpp>
+#include "det/YOLO11.hpp"
+
+#include <mutex>
+#include <algorithm>
+
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
+#include <fstream>
+#include <iomanip> // for std::setprecision
+#include <cmath>
+
 #include <vector>
 
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -35,6 +91,17 @@ class BehaviorExecutive : public rclcpp::Node {
    private:
     // parameters
     bool ascent_takeoff;
+    rclcpp::Time last_execute_time;
+    nav_msgs::msg::Odometry odom;
+    int image_count_;
+
+    std::string modelPath;
+    std::string labelsPath;
+    bool isGPU;
+    YOLO11Detector detector;
+
+    cv::Mat latest_depth_;
+    std::mutex depth_mutex_;
 
     // variables
     std::string takeoff_state, landing_state;
@@ -59,6 +126,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Condition* state_estimate_timed_out_condition;
     bt::Condition* stuck_condition;
     bt::Condition* autonomously_explore_condition;
+    bt::Condition* image_based_visual_servo_condition;
     std::vector<bt::Condition*> conditions;
 
     // Action variables
@@ -71,6 +139,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Action* global_plan_action;
     bt::Action* request_control_action;
     bt::Action* disarm_action;
+    bt::Action* ibvs_action;
     std::vector<bt::Action*> actions;
 
     // subscribers
@@ -83,10 +152,16 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr state_estimate_timed_out_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr stuck_sub;
 
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
+
     // publishers
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr recording_pub;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr reset_stuck_pub;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr clear_map_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr robot_odom_pub;
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_pub_;
 
     // services
     rclcpp::CallbackGroup::SharedPtr service_callback_group;
@@ -99,6 +174,24 @@ class BehaviorExecutive : public rclcpp::Node {
     // timers
     rclcpp::TimerBase::SharedPtr timer;
 
+    double fx_;
+    double fy_;
+    double cx_;
+    double cy_;
+
+    double tx_;
+    double ty_;
+    double tz_;
+
+    // last detection
+    double det_x_ = 0.0;
+    double det_y_ = 0.0;
+    double det_z_ = 1.0;
+
+    // timer
+    rclcpp::TimerBase::SharedPtr ibvs_timer_;
+    bool ibvs_running_ = false;
+
     // callbacks
     void timer_callback();
     void bt_commands_callback(behavior_tree_msgs::msg::BehaviorTreeCommands msg);
@@ -108,6 +201,12 @@ class BehaviorExecutive : public rclcpp::Node {
     void landing_state_callback(const std_msgs::msg::String::SharedPtr msg);
     void state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void stuck_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+    void depthCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+    void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+    void publish_velocity_ibvs(double vx, double vy, double vz);
+    Eigen::Vector3d camera_to_body(double cx, double cy, double cz);
+    void ibvs_control(double x, double y, double z);
 
    public:
     BehaviorExecutive();

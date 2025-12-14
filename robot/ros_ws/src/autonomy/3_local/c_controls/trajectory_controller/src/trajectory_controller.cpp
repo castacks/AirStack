@@ -216,6 +216,9 @@ float TrajectoryControlNode::get_sphere_radius(float vel){
 }
 
 void TrajectoryControlNode::timer_callback() {
+    if (trajectory_mode == airstack_msgs::srv::TrajectoryMode::Request::TRACK_VELOCITY){ 
+        return; // Halts Trajectory Control Node, so we can publish velocities. The name could have been more general than TRACK_VELOCITY.
+    } 
     static rclcpp::Time prev_execute_time = this->get_clock()->now();
     static rclcpp::Time curr_execute_time = this->get_clock()->now();
     curr_execute_time = this->get_clock()->now();

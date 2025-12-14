@@ -16,3 +16,5 @@ groups:
         condition_name: Land Commanded
     - Autonomously Explore:
         condition_name: Autonomously Explore Commanded
+    - IBVS:
+        condition_name: Image Based Visual Servoing
