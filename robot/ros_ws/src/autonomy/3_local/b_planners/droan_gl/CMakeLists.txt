@@ -42,7 +42,7 @@ target_link_libraries(expand glfw dl assimp EGL GL)
 
 #install(TARGETS droan DESTINATION lib/${PROJECT_NAME})
 install(TARGETS expand DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+#install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY shaders DESTINATION share/${PROJECT_NAME})
 
