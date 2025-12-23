@@ -39,7 +39,7 @@
 
   <!-- Domain Bridge -->
   <node pkg="domain_bridge" exec="domain_bridge"
-    args="/home/robot/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    args="/root/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
     output="screen" respawn="true" respawn_delay="1" />
 
 </launch>

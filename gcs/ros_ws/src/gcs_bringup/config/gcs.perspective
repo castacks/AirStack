@@ -110,11 +110,11 @@
             "plugin": {
               "keys": {
                 "command_config_filename": {
-                  "repr": "'/home/gcs/AirStack/gcs/ros_ws/install/rqt_gcs/share/rqt_gcs/config/gui_config.yaml'",
+                  "repr": "'/root/AirStack/gcs/ros_ws/install/rqt_gcs/share/rqt_gcs/config/gui_config.yaml'",
                   "type": "repr"
                 },
                 "trajectory_config_filename": {
-                  "repr": "'/home/gcs/AirStack/gcs/ros_ws/install/rqt_gcs/share/rqt_gcs/config/fixed_trajectories.yaml'",
+                  "repr": "'/root/AirStack/gcs/ros_ws/install/rqt_gcs/share/rqt_gcs/config/fixed_trajectories.yaml'",
                   "type": "repr"
                 }
               },
