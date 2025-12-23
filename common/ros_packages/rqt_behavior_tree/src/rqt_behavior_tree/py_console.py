@@ -201,7 +201,7 @@ class PyConsole(Plugin):
         if msg.data not in self.behavior_tree_graphviz_subs.keys():
             def callback(m):
                 self.robot_graphviz_callback(msg.data, m)
-            self.behavior_tree_graphviz_subs[msg.data] = self.node.create_subscription(String,
+            self.behavior_tree_graphviz_subs[msg.data] = self.node.create_subscription(GraphVizXdot,
                                                                                        '/' + msg.data + \
                                                                                        '/behavior/behavior_tree_graphviz',
                                                                                        callback,
