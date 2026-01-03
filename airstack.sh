@@ -143,6 +143,11 @@ function print_command_help {
             echo "  --no-follow    Don't follow log output"
             echo "  --tail=N       Show only the last N lines (default: all)"
             ;;
+        version)
+            echo "Usage: airstack version"
+            echo ""
+            echo "Display the current AirStack version from DOCKER_IMAGE_TAG in .env file."
+            ;;
         test)
             echo "Usage: airstack test [options]"
             echo ""
@@ -699,6 +704,25 @@ function cmd_logs {
     fi
 }
 
+function cmd_version {
+    local env_file="$PROJECT_ROOT/.env"
+    
+    if [ ! -f "$env_file" ]; then
+        log_error ".env file not found at $env_file"
+        return 1
+    fi
+    
+    # Extract DOCKER_IMAGE_TAG from .env file
+    local version=$(grep -E "^DOCKER_IMAGE_TAG=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    
+    if [ -z "$version" ]; then
+        log_error "DOCKER_IMAGE_TAG not found in .env file"
+        return 1
+    fi
+    
+    echo -e "${BOLDCYAN}AirStack Version:${NC} $version"
+}
+
 # Function to load external command modules
 function load_command_modules {
     # Skip if modules directory doesn't exist
@@ -736,6 +760,7 @@ function register_builtin_commands {
     COMMANDS["connect"]="cmd_connect"
     COMMANDS["status"]="cmd_status"
     COMMANDS["logs"]="cmd_logs"
+    COMMANDS["version"]="cmd_version"
     COMMANDS["help"]="cmd_help"
     
     # Register help text for built-in commands
@@ -746,6 +771,7 @@ function register_builtin_commands {
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
     COMMAND_HELP["status"]="Show status of all containers"
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"
+    COMMAND_HELP["version"]="Display the current AirStack version"
     COMMAND_HELP["help"]="Show help information"
 }
 
