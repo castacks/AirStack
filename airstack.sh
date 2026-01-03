@@ -234,15 +234,15 @@ function find_container {
         return 0
     else
         log_warn "Multiple containers match '$search_term'. Please be more specific or select from the list below:"
-        # Format the output as a table with numbers
-        echo -e "${BLUE}NUM\tCONTAINER NAME\tIMAGE\tSTATUS${NC}"
-        echo "$matches" | awk '{print NR "\t" $0}'
-        echo ""
-        echo "Options:"
-        echo "  1. Enter a number to select a container"
-        echo "  2. Type 'q' to quit"
-        echo "  3. Press Ctrl+C to cancel and try again with a more specific name"
-        echo ""
+        # Format the output as a table with numbers (redirect to stderr so it's not captured)
+        echo -e "${BLUE}NUM\tCONTAINER NAME\tIMAGE\tSTATUS${NC}" >&2
+        echo "$matches" | awk '{print NR "\t" $0}' >&2
+        echo "" >&2
+        echo "Options:" >&2
+        echo "  1. Enter a number to select a container" >&2
+        echo "  2. Type 'q' to quit" >&2
+        echo "  3. Press Ctrl+C to cancel and try again with a more specific name" >&2
+        echo "" >&2
         read -p "Your selection: " selection
         
         if [ "$selection" = "q" ]; then
@@ -260,7 +260,7 @@ function find_container {
             log_error "Invalid selection. Please enter a number between 1 and $match_count, or 'q' to quit."
             
             # Give the user another chance to select
-            echo ""
+            echo "" >&2
             read -p "Try again (or 'q' to quit): " selection
             
             if [ "$selection" = "q" ]; then
