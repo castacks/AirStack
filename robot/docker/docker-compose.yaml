@@ -43,7 +43,7 @@ services:
     runtime: nvidia
 
   simple-robot:
-    profiles:
+    profiles: !override
       - simple
     extends:
       file: ./docker-compose.yaml
