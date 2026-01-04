@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<robot name="voxl_extrinsics">
+
+  <!-- odom will input as tf, same as imu_apps, but as parent -->
+  <!-- Root link -->
+  <link name="body"/>
+  <link name="imu_apps_odom"/>
+
+  <joint name="imu_apps_est_to_body" type="fixed">
+    <parent link="imu_apps_odom"/>
+    <child link="body"/>
+    <origin xyz="-0.0303 0.0057 0.0116" rpy="0 0 0"/>
+  </joint>
+
+  <!-- IMUs -->
+  <link name="imu_apps"/>
+  <joint name="body_to_imu_apps" type="fixed">
+    <parent link="body"/>
+    <child link="imu_apps"/>
+    <origin xyz="0.0303 -0.0057 -0.0116" rpy="0 0 0"/>
+  </joint>
+
+  <link name="imu_px4"/>
+  <joint name="body_to_imu_px4" type="fixed">
+    <parent link="body"/>
+    <child link="imu_px4"/>
+    <origin xyz="0.0051 0.0080 -0.0116" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ToF -->
+  <link name="tof"/>
+  <joint name="body_to_tof" type="fixed">
+    <parent link="body"/>
+    <child link="tof"/>
+
+    <!-- This rpy from default model ai drone config is up-down inverted, needs a 180 euler about front angle rotation -->
+    <!-- <origin xyz="0.0695 0.0096 -0.008" rpy="0 1.57079632679 3.14159265359"/> -->
+    
+    <!-- This rpy is equivalent to the above rpy + another 180 rotation about drone front (body/imu +x, tof +z) axis -->
+    <origin xyz="0.0695 0.0096 -0.008" rpy="3.14159265359 -1.57079632679 0"/>
+  </joint>
+
+  <!-- Ground reference -->
+  <link name="ground"/>
+  <joint name="body_to_ground" type="fixed">
+    <parent link="body"/>
+    <child link="ground"/>
+    <origin xyz="0 0 0.0776" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Tracking cameras (relative to imu_apps) -->
+  <link name="tracking_front"/>
+  <joint name="imu_apps_to_tracking_front" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="tracking_front"/>
+    <origin xyz="0.039 0.0 0.0006" rpy="0 1.57079632679 1.57079632679"/>
+  </joint>
+
+  <link name="tracking_down"/>
+  <joint name="imu_apps_to_tracking_down" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="tracking_down"/>
+    <origin xyz="-0.0888 -0.007 0.0331" rpy="0 0 3.14159265359"/>
+  </joint>
+
+  <link name="tracking_rear"/>
+  <joint name="imu_apps_to_tracking_rear" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="tracking_rear"/>
+    <origin xyz="-0.092 0.016 0.0036" rpy="0 -1.57079632679 -1.57079632679"/>
+  </joint>
+
+  <!-- Hires cameras (relative to imu_apps) -->
+  <link name="hires_front"/>
+  <joint name="imu_apps_to_hires_front" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="hires_front"/>
+    <origin xyz="0.0408 0.006 0.0186" rpy="0 1.57079632679 1.57079632679"/>
+  </joint>
+
+  <link name="hires_down"/>
+  <joint name="imu_apps_to_hires_down" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="hires_down"/>
+    <origin xyz="-0.08875 0.011 0.0348" rpy="0 0 1.57079632679"/>
+  </joint>
+
+  <!-- Thermal camera (relative to imu_apps) -->
+  <link name="lepton0_raw"/>
+  <joint name="imu_apps_to_lepton0_raw" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="lepton0_raw"/>
+    <origin xyz="-0.0591 0.063 0.0297" rpy="0 0 1.57079632679"/>
+  </joint>
+
+</robot>

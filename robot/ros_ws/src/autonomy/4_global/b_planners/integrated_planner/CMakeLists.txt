@@ -81,6 +81,40 @@ ament_target_dependencies(integrated_planner
   vdb_edt
 )
 
+add_executable(fov_planner 
+  src/integrated_node_run.cpp 
+  src/integrated_node.cpp 
+  src/astar_vdb.cpp)
+
+target_include_directories(fov_planner
+  PRIVATE
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_link_libraries(fov_planner
+  OpenVDB::openvdb
+  ${EIGEN3_LIBRARIES}
+  ${PCL_LIBRARIES})
+
+# Link libraries
+ament_target_dependencies(fov_planner
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  trajectory_msgs
+  tf2
+  tf2_ros
+  pcl_conversions
+  tf2_eigen
+  tf2_geometry_msgs
+  vdb_edt
+)
+
 add_executable(takeoff_hack_node 
   src/takeoff_hack_node.cpp)
 
@@ -97,10 +131,32 @@ ament_target_dependencies(takeoff_hack_node
   mavros_msgs # Airstack takeoff only
 )
 
+add_executable(odom_tf_node 
+  src/model_ai_tfpub.cpp)
+
+target_include_directories(odom_tf_node
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+ament_target_dependencies(odom_tf_node
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  geometry_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_eigen
+  tf2_geometry_msgs
+)
+
 # Install executable
 install(TARGETS
   integrated_planner
+  fov_planner
   takeoff_hack_node
+  odom_tf_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

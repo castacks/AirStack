@@ -47,7 +47,6 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <nav_msgs/msg/odometry.hpp>
 
 #include "astar_vdb.hpp"
 
@@ -64,7 +63,7 @@ struct TimedXYZYaw
     Eigen::Vector3d desired_vel_ = Eigen::Vector3d::Zero();
 };
 
-class PlannerNode
+class FovPlannerNode
 {
 private:
     // ROS2 node
@@ -107,16 +106,13 @@ private:
     double next_goal_yaw_ = 0.0;
 
     double interpolate_step_ = 0.1;
-    double cruise_speed_ = 0.5;
+    double cruise_speed_ = 1.5;
 
     bool publish_visualizations = false;
     bool received_first_map = false;
     bool received_first_robot_tf = false;
     bool enable_exploration = false;
     bool is_path_executing = false;
-
-    bool has_tracking_point_;
-    nav_msgs::msg::Odometry current_tracking_point_;
 
     geometry_msgs::msg::Transform current_location_; // x, y, z, yaw
     geometry_msgs::msg::Transform last_location;     // Last recorded position
@@ -143,8 +139,6 @@ private:
 
     virtual void generate_plan();
 
-    void tracking_point_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-
     bool generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point);
 
     bool check_local_path_free();
@@ -162,9 +156,9 @@ private:
     bool last_replan_failed = false;
 
 public:
-    // explicit PlannerNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-    PlannerNode();
-    ~PlannerNode() = default;
+    // explicit FovPlannerNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+    FovPlannerNode();
+    ~FovPlannerNode() = default;
 
     rclcpp::Node::SharedPtr get_node_handle() const;
 
@@ -180,7 +174,6 @@ public:
     // ROS subscribers
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_lidar;
     rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_tracking_point;
     // rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers

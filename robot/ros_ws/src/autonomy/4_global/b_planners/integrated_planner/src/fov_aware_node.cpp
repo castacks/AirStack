@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "../include/integrated_node.hpp"
+#include "../include/fov_aware_node.hpp"
 #include "../include/vis_tools.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
@@ -28,14 +28,14 @@
 
 #include <vdb_edt/frontier_cluster.h>
 
-PlannerNode::PlannerNode()
+FovPlannerNode::FovPlannerNode()
 {
     node_handle_ = std::make_shared<rclcpp::Node>("integrated_plan_node");
 
     initialize();
 }
 
-void PlannerNode::initialize()
+void FovPlannerNode::initialize()
 {
     // TF buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_handle_->get_clock());
@@ -51,9 +51,6 @@ void PlannerNode::initialize()
     astar_planner_.initialize(map_manager_);
 
     setup_parameters();
-
-    sub_tracking_point = node_handle_->create_subscription<nav_msgs::msg::Odometry>("/tracking_point", 1,
-                                                                                    std::bind(&PlannerNode::tracking_point_callback, this, std::placeholders::_1));
 
     pub_global_plan =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_global_plan_topic_, 10);
@@ -76,17 +73,15 @@ void PlannerNode::initialize()
 
     // Set up the timer
     plan_timer_ = node_handle_->create_wall_timer(std::chrono::seconds(1),
-                                                  std::bind(&PlannerNode::timerCallback, this));
+                                                  std::bind(&FovPlannerNode::timerCallback, this));
     // Set up the service
     srv_exploration_toggle = node_handle_->create_service<std_srvs::srv::Trigger>(
-        srv_exploration_toggle_topic_, std::bind(&PlannerNode::ExplorationToggleCallback, this,
+        srv_exploration_toggle_topic_, std::bind(&FovPlannerNode::ExplorationToggleCallback, this,
                                                  std::placeholders::_1, std::placeholders::_2));
     RCLCPP_INFO(node_handle_->get_logger(), "Exploration node initialized");
-
-    has_tracking_point_ = false;
 }
 
-void PlannerNode::setup_parameters()
+void FovPlannerNode::setup_parameters()
 {
     auto log = node_handle_->get_logger();
 
@@ -146,12 +141,12 @@ void PlannerNode::setup_parameters()
     safe_sq_idx_dist_ = safe_index_dist_ * safe_index_dist_;
 }
 
-rclcpp::Node::SharedPtr PlannerNode::get_node_handle() const
+rclcpp::Node::SharedPtr FovPlannerNode::get_node_handle() const
 {
     return node_handle_;
 }
 
-void PlannerNode::ExplorationToggleCallback(
+void FovPlannerNode::ExplorationToggleCallback(
     const std_srvs::srv::Trigger::Request::SharedPtr request,
     std_srvs::srv::Trigger::Response::SharedPtr response)
 {
@@ -171,13 +166,7 @@ void PlannerNode::ExplorationToggleCallback(
     }
 }
 
-void PlannerNode::tracking_point_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
-{
-    has_tracking_point_ = true;
-    current_tracking_point_ = *msg;
-}
-
-void PlannerNode::generate_plan()
+void FovPlannerNode::generate_plan()
 {
     RCLCPP_INFO(node_handle_->get_logger(), "Starting to generate plan...");
 
@@ -222,12 +211,12 @@ void PlannerNode::generate_plan()
     for (auto &vp : goal_candidates)
     {
         // hacky: isaac-sim has lidar point underground, cannot go down.
-        // if (vp.pos_.z() < 1.5 || vp.pos_.z() > 8.5 ||
-        //     vp.pos_.x() < -20.0 || vp.pos_.x() > 20.0 ||
-        //     vp.pos_.y() < -20.0 || vp.pos_.y() > 20.0)
-        // {
-        //     continue;
-        // }
+        if (vp.pos_.z() < 1.5 || vp.pos_.z() > 8.5 ||
+            vp.pos_.x() < -20.0 || vp.pos_.x() > 20.0 ||
+            vp.pos_.y() < -20.0 || vp.pos_.y() > 20.0)
+        {
+            continue;
+        }
         openvdb::Vec3d goal_world(vp.pos_.x(), vp.pos_.y(), vp.pos_.z());
         openvdb::Coord goal_coord(openvdb::Coord::round(tf->worldToIndex(goal_world)));
 
@@ -267,7 +256,7 @@ void PlannerNode::generate_plan()
     planning_smoothed_vis->publish(smoothed_result_vis);
 }
 
-bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point)
+bool FovPlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point)
 {
     RCLCPP_INFO(node_handle_->get_logger(), "Generating  replan...");
     openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
@@ -314,7 +303,7 @@ bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point
     return true;
 }
 
-void PlannerNode::interpolate_plan(double t_offset)
+void FovPlannerNode::interpolate_plan(double t_offset)
 {
     generated_path_dense_.clear();
 
@@ -480,7 +469,7 @@ void PlannerNode::interpolate_plan(double t_offset)
     }
 }
 
-void PlannerNode::publish_plan()
+void FovPlannerNode::publish_plan()
 {
     if (current_path_dense_.empty())
     {
@@ -536,7 +525,7 @@ void PlannerNode::publish_plan()
     visualize_full_path();
 }
 
-void PlannerNode::visualize_local_traj()
+void FovPlannerNode::visualize_local_traj()
 {
     visualization_msgs::msg::Marker line;
     line.header.stamp = node_handle_->now();
@@ -586,7 +575,7 @@ void PlannerNode::visualize_local_traj()
     pub_trajectory_lines->publish(line);
 }
 
-void PlannerNode::visualize_full_path()
+void FovPlannerNode::visualize_full_path()
 {
     visualization_msgs::msg::Marker line;
     line.header.stamp = node_handle_->now();
@@ -610,7 +599,7 @@ void PlannerNode::visualize_full_path()
 
     const double horizon = traj_horizon_;
 
-    for (size_t i = 1; i < current_path_dense_.size(); ++i)
+    for (size_t i = 0; i < current_path_dense_.size(); ++i)
     {
         const TimedXYZYaw &p = current_path_dense_[i];
 
@@ -631,44 +620,8 @@ void PlannerNode::visualize_full_path()
     pub_global_plan->publish(line);
 }
 
-void PlannerNode::trim_covered_path()
+void FovPlannerNode::trim_covered_path()
 {
-    RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Trimming");
-    if (has_tracking_point_)
-    {
-        Eigen::Vector3d p_track(current_tracking_point_.pose.pose.position.x,
-                                current_tracking_point_.pose.pose.position.y,
-                                current_tracking_point_.pose.pose.position.z);
-        RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Latest ref point is \n"
-                                                           << p_track);
-        double best_d2 = std::numeric_limits<double>::infinity();
-        size_t best_i = 0;
-        for (size_t i = 0; i < current_path_dense_.size(); ++i)
-        {
-            const Eigen::Vector3d &pi = current_path_dense_[i].pos_;
-            Eigen::Vector3d diff = p_track - pi;
-            double d2 = diff.squaredNorm();
-            if (d2 < best_d2)
-            {
-                best_d2 = d2;
-                best_i = i;
-
-                if (d2 < 1e-6)
-                {
-                    break;
-                }
-            }
-        }
-        current_path_dense_.erase(current_path_dense_.begin(),
-                                  current_path_dense_.begin() + best_i);
-
-        double time_offset = current_path_dense_.front().time_from_start_;
-        for (auto &pt : current_path_dense_)
-        {
-            pt.time_from_start_ -= time_offset;
-        }
-        return;
-    }
     // Check current progress
     Eigen::Vector3d curr_p(current_location_.translation.x,
                            current_location_.translation.y,
@@ -746,7 +699,7 @@ void PlannerNode::trim_covered_path()
     }
 }
 
-bool PlannerNode::check_local_path_free()
+bool FovPlannerNode::check_local_path_free()
 {
     double check_horizon = traj_horizon_;
     for (auto &pt : current_path_dense_)
@@ -768,7 +721,7 @@ bool PlannerNode::check_local_path_free()
     return true;
 }
 
-void PlannerNode::timerCallback()
+void FovPlannerNode::timerCallback()
 {
     RCLCPP_WARN(node_handle_->get_logger(), "Timer callback start");
     // get current TF to world
@@ -822,19 +775,8 @@ void PlannerNode::timerCallback()
             return;
         }
 
-        RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Before trim, point num is "
-                                                           << current_path_dense_.size());
         // Check current position, removed executed path, reset time: current_path_dense_[0] has 0 time from start
-        RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Before trim, front point is \n"
-                                                           << current_path_dense_[0].pos_);
         trim_covered_path();
-        if (!current_path_dense_.empty())
-        {
-            RCLCPP_WARN_STREAM(node_handle_->get_logger(), "After trim, front point is \n"
-                                                               << current_path_dense_[0].pos_);
-        }
-        RCLCPP_WARN_STREAM(node_handle_->get_logger(), "After trim, point num is "
-                                                           << current_path_dense_.size());
 
         // Check Collision
         if (!check_local_path_free())

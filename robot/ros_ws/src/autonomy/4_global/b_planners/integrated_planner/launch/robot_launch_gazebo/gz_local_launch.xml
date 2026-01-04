@@ -2,36 +2,33 @@
 <launch>
     <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
     <arg name="local_odometry_in_topic" default="/odom" />
-    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/depth/disparity" />
-    <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/left/depth" />
-
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
 
     <node pkg="pid_path_tracker" exec="pid_path_tracker_cmd_vel" output="screen">
       <param name="target_frame" value="base_link" />
 
-      <param name="x_p"         value="5.0" />
+      <param name="x_p"         value="2.0" />
       <param name="x_i"         value="0.0" />
       <param name="x_d"         value="1.0" />
-      <param name="x_ff"        value="0.0" />
+      <param name="x_ff"        value="1.0" />
       <param name="x_d_alpha"   value="0.0" />
       <param name="x_min"       value="-2.0" />
       <param name="x_max"       value="2.0" />
       <param name="x_constant"  value="0.0" />
       
-      <param name="y_p"         value="5.0" />
+      <param name="y_p"         value="2.0" />
       <param name="y_i"         value="0.0" />
       <param name="y_d"         value="1.0" />
-      <param name="y_ff"        value="0.0" />
+      <param name="y_ff"        value="1.0" />
       <param name="y_d_alpha"   value="0.0" />
       <param name="y_min"       value="-2.0" />
       <param name="y_max"       value="2.0" />
       <param name="y_constant"  value="0.0" />
       
-      <param name="z_p"         value="3.0" />
+      <param name="z_p"         value="2.0" />
       <param name="z_i"         value="0.0" />
       <param name="z_d"         value="1.0" />
-      <param name="z_ff"        value="0.0" />
+      <param name="z_ff"        value="1.0" />
       <param name="z_d_alpha"   value="0.0" />
       <param name="z_min"       value="-2.0" />
       <param name="z_max"       value="2.0" />

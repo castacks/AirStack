@@ -7,6 +7,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(mav_msgs REQUIRED)
@@ -45,9 +46,22 @@ ament_target_dependencies(pid_path_tracker_cmd_vel
   tf2
   tf2_ros)
 
+add_executable(pid_path_tracker_cmd_vel_stamped src/pid_path_tracker_cmd_vel_stamped.cpp)
+ament_target_dependencies(pid_path_tracker_cmd_vel_stamped
+  rclcpp
+  std_msgs
+  mav_msgs
+  nav_msgs
+  pid_controller_msgs
+  tf2_geometry_msgs
+  trajectory_msgs
+  tf2
+  tf2_ros)
+
 install(TARGETS
   pid_path_tracker
   pid_path_tracker_cmd_vel
+  pid_path_tracker_cmd_vel_stamped
   DESTINATION lib/${PROJECT_NAME})
 
 

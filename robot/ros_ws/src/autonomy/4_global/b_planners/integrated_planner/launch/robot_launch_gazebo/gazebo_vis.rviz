@@ -61,8 +61,6 @@ Visualization Manager:
           Value: true
         map:
           Value: true
-        mavros_enu:
-          Value: true
         ouster:
           Value: false
         rmf_owl:
@@ -132,6 +130,8 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
+          map:
+            {}
           rmf_owl:
             rmf_owl/base_link:
               base_link:
@@ -556,8 +556,8 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -0.20000000298023224
+            Max Value: 9.100000381469727
+            Min Value: 0.10000000149011612
             Value: true
           Axis: Z
           Channel Name: intensity
@@ -645,7 +645,7 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 47
+      Max Intensity: 76
       Min Color: 0; 0; 0
       Min Intensity: 1
       Name: Frontier Clusters
@@ -689,7 +689,7 @@ Visualization Manager:
       Enabled: true
       Name: Global Plan
       Namespaces:
-        astar_path: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -734,13 +734,13 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /tracking_point_vis
+        Value: /tracking_point
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
       Name: Trajectory Output
       Namespaces:
-        local_path: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -753,7 +753,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        global_path: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -808,25 +808,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 6.625650882720947
+      Distance: 16.34140968322754
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.3027314245700836
-        Y: 1.0002601146697998
-        Z: 2.1351609230041504
+        X: -0.6788978576660156
+        Y: -0.22823181748390198
+        Z: 1.3350476026535034
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.354796826839447
+      Pitch: 0.6997967958450317
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 5.300417900085449
+      Yaw: 2.585402011871338
     Saved: ~
 Window Geometry:
   Displays:

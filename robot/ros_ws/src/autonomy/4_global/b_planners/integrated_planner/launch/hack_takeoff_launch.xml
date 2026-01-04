@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="integrated_planner" exec="takeoff_hack_node" name="takeoff_hack_node" output="screen" emulate_tty="true" />
+</launch>

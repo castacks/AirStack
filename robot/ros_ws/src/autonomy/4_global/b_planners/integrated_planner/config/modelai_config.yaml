@@ -1,12 +1,12 @@
 /**:
   ros__parameters:
     # VDB Map
-    robot_frame_id: "base_link"
-    lidar_frame_id: "ouster"
+    robot_frame_id: "body"
+    lidar_frame_id: "tof"
     world_frame_id: "map"
     map_frame_id: "map"
 
-    pcl_topic: "/robot_1/sensors/ouster/point_cloud"
+    pcl_topic: "/tof_pc"
     data_set: "config"
     occ_grid_topic: "/occ_grid"
     dist_slice_topic: "/dist_slice"

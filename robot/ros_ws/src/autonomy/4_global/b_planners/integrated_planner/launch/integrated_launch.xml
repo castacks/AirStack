@@ -7,5 +7,5 @@
         <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
     </node>
 
-    <node pkg="integrated_planner" exec="takeoff_hack_node" name="takeoff_hack_node" output="screen" emulate_tty="true" />
+    <!-- <node pkg="integrated_planner" exec="takeoff_hack_node" name="takeoff_hack_node" output="screen" emulate_tty="true" /> -->
 </launch>

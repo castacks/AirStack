@@ -187,7 +187,7 @@ private:
 
     // publishers
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr tracking_point_pub;
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_pub;
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr command_pub;
 
 public:
     PIDPathTrackerNode()
@@ -217,7 +217,7 @@ public:
         tf_buffer = new tf2_ros::Buffer(this->get_clock());
         tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
-        command_pub = this->create_publisher<geometry_msgs::msg::Twist>("command", 1);
+        command_pub = this->create_publisher<geometry_msgs::msg::TwistStamped>("command", 1);
         tracking_point_pub = this->create_publisher<nav_msgs::msg::Odometry>("/tracking_point", 1);
 
         this->declare_parameter("yaw_p", 1.0);
@@ -250,8 +250,6 @@ public:
 
         const auto &pts = msg->points;
         const std::size_t n = pts.size();
-
-        RCLCPP_WARN_STREAM(get_logger(), "Got trajectory with " << n << " points.");
 
         // Save points and dt
         traj_points_.push_back(pts.front());
@@ -492,9 +490,8 @@ public:
             Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
                                current_ref_.pose.pose.position.y,
                                current_ref_.pose.pose.position.z);
-
-            RCLCPP_WARN_STREAM(get_logger(), "Holding ref point at \n"
-                                                 << p1);
+            
+            RCLCPP_WARN_STREAM(get_logger(), "Holding ref point at \n" << p1);
 
             Eigen::Vector3d d = p1 - p0;
             double d2 = d.squaredNorm();
@@ -561,15 +558,18 @@ public:
 
         double yaw_rate_cmd = std::clamp(yaw_rate, -yaw_rate_max_, yaw_rate_max_);
 
-        geometry_msgs::msg::Twist cmd;
+        geometry_msgs::msg::TwistStamped cmd;
 
-        cmd.linear.x = v_des_B.x();
-        cmd.linear.y = v_des_B.y();
-        cmd.linear.z = v_des_B.z();
+        cmd.header.frame_id = target_frame;
+        cmd.header.stamp = this->get_clock()->now();
 
-        cmd.angular.x = 0.0;
-        cmd.angular.y = 0.0;
-        cmd.angular.z = yaw_rate_cmd;
+        cmd.twist.linear.x = v_des_B.x();
+        cmd.twist.linear.y = v_des_B.y();
+        cmd.twist.linear.z = v_des_B.z();
+
+        cmd.twist.angular.x = 0.0;
+        cmd.twist.angular.y = 0.0;
+        cmd.twist.angular.z = yaw_rate_cmd;
 
         // cmd now in world frame
 

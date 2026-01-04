@@ -27,7 +27,7 @@ void Astar::initialize(std::shared_ptr<VDBMap> &map_manager)
 
     double voxel_size = map_manager_->get_grid_transform()->voxelSize().x();
 
-    safe_index_dist_ = safe_robot_r_ / voxel_size;
+    safe_index_dist_ = safe_robot_r_ / voxel_size + 1;
     safe_sq_index_dist_ = safe_index_dist_ * safe_index_dist_;
 
     num_inflate_check_normal_ = 4;

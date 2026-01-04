@@ -27,71 +27,44 @@
 
         <!-- remap glue to AirStack -->
         <remap from="odometry" to="$(var local_odometry_in_topic)" />
-
     </node>
 
-    <!-- Control -->
-    <node pkg="pid_path_tracker" exec="pid_path_tracker" namespace="control" output="screen">
-      <param name="target_frame" value="base_link_stabilized" />
+    <node pkg="integrated_planner" exec="takeoff_hack_node" name="takeoff_hack_node" output="screen" emulate_tty="true" />
+
+    <node pkg="pid_path_tracker" exec="pid_path_tracker_cmd_vel_stamped" output="screen">
+      <param name="target_frame" value="base_link" />
 
       <param name="x_p"         value="1.0" />
       <param name="x_i"         value="0.0" />
-      <param name="x_d"         value="0.0" />
-      <param name="x_ff"        value="0.0" />
+      <param name="x_d"         value="1.0" />
+      <param name="x_ff"        value="0.8" />
       <param name="x_d_alpha"   value="0.0" />
-      <param name="x_min"       value="-3.0" />
-      <param name="x_max"       value="3.0" />
+      <param name="x_min"       value="-1.5" />
+      <param name="x_max"       value="1.5" />
       <param name="x_constant"  value="0.0" />
       
       <param name="y_p"         value="1.0" />
       <param name="y_i"         value="0.0" />
-      <param name="y_d"         value="0.0" />
-      <param name="y_ff"        value="0.0" />
+      <param name="y_d"         value="1.0" />
+      <param name="y_ff"        value="0.8" />
       <param name="y_d_alpha"   value="0.0" />
-      <param name="y_min"       value="-3.0" />
-      <param name="y_max"       value="3.0" />
+      <param name="y_min"       value="-1.5" />
+      <param name="y_max"       value="1.5" />
       <param name="y_constant"  value="0.0" />
       
       <param name="z_p"         value="1.0" />
       <param name="z_i"         value="0.0" />
-      <param name="z_d"         value="0.0" />
-      <param name="z_ff"        value="0.0" />
+      <param name="z_d"         value="1.0" />
+      <param name="z_ff"        value="0.8" />
       <param name="z_d_alpha"   value="0.0" />
-      <param name="z_min"       value="-1.0" />
-      <param name="z_max"       value="1.0" />
+      <param name="z_min"       value="-1.5" />
+      <param name="z_max"       value="1.5" />
       <param name="z_constant"  value="0.0" />
-      
-      <param name="vx_p"         value="0.2" />
-      <param name="vx_i"         value="0.025" />
-      <param name="vx_d"         value="0.0" />
-      <param name="vx_ff"        value="0.0" />
-      <param name="vx_d_alpha"   value="0.9" />
-      <param name="vx_min"       value="-0.34" />
-      <param name="vx_max"       value="0.34" />
-      <param name="vx_constant"  value="0.0" />
-      
-      <param name="vy_p"         value="0.2" />
-      <param name="vy_i"         value="0.025" />
-      <param name="vy_d"         value="0.0" />
-      <param name="vy_ff"        value="0.0" />
-      <param name="vy_d_alpha"   value="0.9" />
-      <param name="vy_min"       value="-0.34" />
-      <param name="vy_max"       value="0.34" />
-      <param name="vy_constant"  value="0.0" />
-      
-      <param name="vz_p"         value="0.2" />
-      <param name="vz_i"         value="0.1" />
-      <param name="vz_d"         value="0.0" />
-      <param name="vz_ff"        value="0.0" />
-      <param name="vz_d_alpha"   value="0.0" />
-      <param name="vz_min"       value="-0.5" />
-      <param name="vz_max"       value="1.0" />
-      <param name="vz_constant"  value="0.5" />
       
       <!-- remap glue to AirStack -->
       <remap from="odometry" to="$(var local_odometry_in_topic)" />
       <remap from="trajectory" to="/cmd_trajectory" />
-      <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
+      <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_velocity" />
     </node>
 
 </launch>
