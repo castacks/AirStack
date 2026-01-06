@@ -2,12 +2,12 @@ services:
   simple-sim:
     profiles:
       - simple
-    #image: &simple_sim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_simple_sim
+    image: &simple_sim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_simple_sim
     build:
       context: ./
       dockerfile: Dockerfile.sim
-      #tags:
-      #  - *simple_sim_image
+      tags:
+        - *simple_sim_image
     entrypoint: ""
     command: >
       bash -c "ssh service restart;
