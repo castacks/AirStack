@@ -38,17 +38,17 @@ services:
     tty: true
     volumes:
       # display stuff
-      - $HOME/.Xauthority:/home/gcs/.Xauthority
+      - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
-      - ../../common/.bash_profile:/home/gcs/.bash_profile:rw
-      - .bashrc:/home/gcs/.bashrc:rw
-      - ../../common/.tmux.conf:/home/gcs/.tmux.conf:rw
+      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - .bashrc:/root/.bashrc:rw
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw
       - ../../common/inputrc:/etc/inputrc:rw
-      - ../../.devcontainer/gcs/launch.json:/home/gcs/AirStack/.vscode/launch.json:rw
-      - ../../.devcontainer/gcs/tasks.json:/home/gcs/AirStack/.vscode/tasks.json:rw
-      - ./Foxglove:/home/gcs/.config/Foxglove:rw
+      - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - ./Foxglove:/root/.config/Foxglove:rw
       # autonomy stack stuff
-      - ../..:/home/gcs/AirStack
-      - ../../common/ros_packages:/home/gcs/AirStack/gcs/ros_ws/src/common:rw # common ROS packages
-      - ../../common/ros_packages/fastdds.xml:/home/gcs/AirStack/gcs/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../..:/root/AirStack
+      - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/AirStack/gcs/ros_ws/fastdds.xml:rw # fastdds.xml
