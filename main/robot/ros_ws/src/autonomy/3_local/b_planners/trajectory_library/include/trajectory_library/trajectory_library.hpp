@@ -92,6 +92,7 @@ static tf2_ros::TransformListener* listener = NULL;
 
 class Trajectory {
    private:
+    rclcpp::Node* node;
     std::string frame_id;
     rclcpp::Time stamp;
     std::vector<Waypoint> waypoints;
@@ -138,9 +139,11 @@ class Trajectory {
     Trajectory to_frame(std::string target_frame, rclcpp::Time time);
     // Trajectory respace(double spacing);
     // Trajectory shorten(double new_length); // replace shorten with get_subtraj_dist
-    Trajectory trim_trajectory_between_distances(double start_dist, double end_dist);
+    Trajectory get_trimmed_trajectory_between_distances(double start_dist, double end_dist);
     Trajectory get_reversed_trajectory();
     float get_skip_ahead_time(float start_time, float max_velocity, float max_distance);
+
+    void trim(tf2::Vector3 point);
 
     void set_fixed_height(double height);
 

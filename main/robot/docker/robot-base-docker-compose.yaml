@@ -48,15 +48,15 @@ services:
       - $HOME/.Xauthority:/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
-      - .dev:/home/robot/.dev:rw # developer config
-      - ../../common/.bash_profile:/home/robot/.bash_profile:rw
-      - .bashrc:/home/robot/.bashrc:rw # bash config
+      - .dev:/root/.dev:rw # developer config
+      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - .bashrc:/root/.bashrc:rw # bash config
       - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
-      - ../../common/.tmux.conf:/home/robot/.tmux.conf:rw # tmux config
-      - ../../.devcontainer/robot/launch.json:/home/robot/AirStack/.vscode/launch.json:rw
-      - ../../.devcontainer/robot/tasks.json:/home/robot/AirStack/.vscode/tasks.json:rw
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw # tmux config
+      - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       # autonomy stack stuff
-      - ../..:/home/robot/AirStack
-      - ../../common/ros_packages:/home/robot/AirStack/robot/ros_ws/src/common:rw # common ROS packages
-      - ../../common/ros_packages/fastdds.xml:/home/robot/AirStack/robot/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../..:/root/AirStack
+      - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/AirStack/robot/ros_ws/fastdds.xml:rw # fastdds.xml
 

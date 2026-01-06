@@ -34,31 +34,13 @@ RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
 EXPOSE 22
 
 # TMux config
-RUN git clone https://github.com/tmux-plugins/tpm /home/gcs/.tmux/plugins/tpm
+RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
-
-WORKDIR /home/gcs/AirStack/gcs/ros_ws
-# Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
-# need to give access to docker to access container name
-# creates user "gcs" with UID 1000, home directory /home/gcs, and shell /bin/sh
-# creates group "gcs" with GID 1000
-RUN addgroup --gid 1000 gcs && \
-  adduser --uid 1000 --ingroup gcs --home /home/gcs --shell /bin/bash --disabled-password --gecos "" gcs && \
-  chown -R gcs:gcs /home/gcs && \
-  usermod -aG sudo gcs && \
-  echo "gcs ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/gcs && \
-  echo "gcs:gcs" | chpasswd
-
-RUN USER=gcs && \
-  GROUP=gcs && \
-  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
-  chown root:root /usr/local/bin/fixuid && \
-  chmod 4755 /usr/local/bin/fixuid && \
-  mkdir -p /etc/fixuid && \
-  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
+RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
+RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt -o APT::Get::AllowUnauthenticated=true install -y ./foxglove-studio-latest-linux-amd64.deb
+RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-humble-foxglove-bridge
 
 # Cleanup. Prevent people accidentally doing git commits from within Docker
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
 
-USER gcs:gcs
-ENTRYPOINT ["fixuid"]
+WORKDIR /root/AirStack/gcs/ros_ws

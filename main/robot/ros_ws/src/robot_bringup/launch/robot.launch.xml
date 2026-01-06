@@ -10,23 +10,12 @@
 
   <!-- Sim -->
   <group if="$(var sim)">
-    <!-- GUI -->
-    <node pkg="rviz2" exec="rviz2"
-      args="-d $(find-pkg-share robot_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
-      output="screen" respawn="true" respawn_delay="1" />
-
-    <group>
-      <push-ros-namespace namespace="behavior" />
-      <node pkg="rqt_gui" exec="rqt_gui"
-        args="--perspective-file $(find-pkg-share robot_bringup)/config/core.perspective">
-        <remap from="fixed_trajectory_command"
-          to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
-      </node>
-    </group>
-
+    <include file="$(find-pkg-share robot_bringup)/launch/sim.launch.xml" />
   </group>
   <!-- Real -->
-
+  <group unless="$(var sim)">
+    <include file="$(find-pkg-share robot_bringup)/launch/real.launch.xml" />
+  </group>
 
   <!-- Robot State Publisher (replaces static transforms) -->
   <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
@@ -50,7 +39,7 @@
 
   <!-- Domain Bridge -->
   <node pkg="domain_bridge" exec="domain_bridge"
-    args="/home/robot/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    args="/root/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
     output="screen" respawn="true" respawn_delay="1" />
 
 </launch>

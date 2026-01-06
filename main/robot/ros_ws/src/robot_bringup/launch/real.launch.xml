@@ -5,12 +5,12 @@
       exec="static_transform_publisher"
       name="zed_link_static_transform_publisher"
       args="0 0 0 0 0.261799 0 base_link front_stereo_camera_link" />
-  
+
+  <!--
   <push-ros-namespace namespace="interface" />
   <include file="$(find-pkg-share mavros)/launch/apm.launch">
     <arg name="fcu_url" value="/dev/ttyTHS4:115200" />
   </include>
-
-  <!-- <executable cmd="ros2 bag record -a -o /bags/autonomy_$(env DATE) -x '/robot_2/sensors/*'"
-       /> -->
+  -->
+  
 </launch>

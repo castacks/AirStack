@@ -203,55 +203,12 @@ RUN if [ "$SKIP_MACVO" != "true" ]; then pip uninstall matplotlib -y; fi
 
 
 # TMux config
-RUN git clone https://github.com/tmux-plugins/tpm /home/robot/.tmux/plugins/tpm
+RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
-WORKDIR /home/robot/AirStack/robot/ros_ws
-
-# Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
-# need to give access to docker to access container name
-# creates user "robot" with UID 1000, home directory /home/robot, and shell /bin/bash
-# creates group "robot" with GID 1000
-RUN addgroup --gid 1000 robot && \
-  adduser --uid 1000 --ingroup robot --home /home/robot --shell /bin/bash --disabled-password --gecos "" robot && \
-  chown -R robot:robot /home/robot && \
-  usermod -aG sudo robot && \
-  echo "robot ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/robot && \
-  echo "robot:robot" | chpasswd
-
-
-ARG REAL_ROBOT=false
-RUN if [ "$REAL_ROBOT"  = "true" ]; then \
-  # Put commands here that should run for the real robot but not the sim
-  echo "REAL_ROBOT is true"; \
-  apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y libimath-dev; \
-  groupadd -g 20 dialout; \
-  usermod -aG dialout robot; \
-  USER=robot && \
-  GROUP=robot && \
-  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-arm64.tar.gz | tar -C /usr/local/bin -xzf - && \
-  chown root:root /usr/local/bin/fixuid && \
-  chmod 4755 /usr/local/bin/fixuid && \
-  mkdir -p /etc/fixuid && \
-  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml; \
-else \
-  # Put commands here that should be run for the sim but not the real robot
-  echo "REAL_ROBOT is false"; \
-  USER=robot && \
-  GROUP=robot && \
-  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
-  chown root:root /usr/local/bin/fixuid && \
-  chmod 4755 /usr/local/bin/fixuid && \
-  mkdir -p /etc/fixuid && \
-  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml; \
-  fi
-
-
+WORKDIR /root/AirStack/robot/ros_ws
 
 # Cleanup
 RUN apt autoremove -y \
   && apt clean -y \
   && rm -rf /var/lib/apt/lists/*
-
-USER robot:robot
-ENTRYPOINT ["fixuid"]
 
