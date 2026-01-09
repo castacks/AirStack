@@ -1,0 +1,11 @@
+mission_manager_node:
+  ros__parameters:
+    grid_cell_size: 5.0
+    visualize_search_allocation: true
+    max_number_agents: 3
+    active_agent_check_n_seconds: 5.0
+    min_agent_altitude_to_be_active: 3.0
+    time_till_agent_not_valid: 10.0
+    max_planning_time: 5.0
+    budget: 100.0
+    desired_speed: 5.0 
