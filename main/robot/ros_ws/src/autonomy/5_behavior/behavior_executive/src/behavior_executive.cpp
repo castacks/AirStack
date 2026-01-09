@@ -352,6 +352,11 @@ void BehaviorExecutive::timer_callback() {
 
 // callbacks
 
+/**
+ * @brief Parses behavior tree commands and updates conditions accordingly
+ * 
+ * @param msg 
+ */
 void BehaviorExecutive::bt_commands_callback(behavior_tree_msgs::msg::BehaviorTreeCommands msg) {
     for (int i = 0; i < msg.commands.size(); i++) {
         std::string condition_name = msg.commands[i].condition_name;

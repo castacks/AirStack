@@ -2217,6 +2217,8 @@
     
       
         
+          
+        
       
     
     
@@ -2234,8 +2236,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2_4_3_5" >
         
           
-          <label class="md-nav__link" for="__nav_4_2_4_3_5" id="__nav_4_2_4_3_5_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../robot/ros_ws/src/autonomy/3_local/b_planners/droan_gl/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2249,8 +2252,9 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_4_2_4_3_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_2_4_3_5">
@@ -2263,32 +2267,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/autonomy/3_local/b_planners/droan_gl/README.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
           </ul>
@@ -4206,7 +4184,7 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-16-60"><a id="__codelineno-16-60" name="__codelineno-16-60" href="#__codelineno-16-60"></a><span class="nv">BEHAVIOR_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;behavior_bringup&quot;</span>
 </span><span id="__span-16-61"><a id="__codelineno-16-61" name="__codelineno-16-61" href="#__codelineno-16-61"></a><span class="nv">BEHAVIOR_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;behavior.launch.xml&quot;</span>
 </span><span id="__span-16-62"><a id="__codelineno-16-62" name="__codelineno-16-62" href="#__codelineno-16-62"></a>
-</span><span id="__span-16-63"><a id="__codelineno-16-63" name="__codelineno-16-63" href="#__codelineno-16-63"></a><span class="c1"># offboard API streaming out</span>
+</span><span id="__span-16-63"><a id="__codelineno-16-63" name="__codelineno-16-63" href="#__codelineno-16-63"></a><span class="c1"># offboard API streaming out. this is so that ports don&#39;t conflict for multi-agent FCU communication</span>
 </span><span id="__span-16-64"><a id="__codelineno-16-64" name="__codelineno-16-64" href="#__codelineno-16-64"></a><span class="nv">OFFBOARD_BASE_PORT</span><span class="o">=</span><span class="m">14540</span>
 </span><span id="__span-16-65"><a id="__codelineno-16-65" name="__codelineno-16-65" href="#__codelineno-16-65"></a><span class="nv">ONBOARD_BASE_PORT</span><span class="o">=</span><span class="m">14580</span>
 </span><span id="__span-16-66"><a id="__codelineno-16-66" name="__codelineno-16-66" href="#__codelineno-16-66"></a><span class="c1"># ===============================================</span>
