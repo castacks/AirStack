@@ -31,7 +31,7 @@ cd AirStack
 ## Install and Setup
 
 ```bash
-./airstack.sh install  # installs docker and docker-compose
+./airstack.sh install  # installs docker, docker-compose, and the NVIDIA Container Toolkit
 ./airstack.sh setup  # this lets you use the `airstack` command and sets up your keys
 ```
 

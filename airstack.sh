@@ -384,6 +384,52 @@ function cmd_install {
             log_info "Docker installation complete"
         fi
         
+        # Install NVIDIA Container Toolkit for GPU support
+        if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+            log_info "Installing NVIDIA Container Toolkit..."
+            
+            # Install prerequisites
+            log_info "Installing prerequisites for NVIDIA Container Toolkit..."
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+                curl \
+                gnupg2
+            
+            # Configure the production repository
+            log_info "Configuring NVIDIA Container Toolkit repository..."
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+                && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+                sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+                sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+            
+            # Update the packages list from the repository
+            log_info "Updating package list..."
+            sudo apt-get update
+            
+            # Install the NVIDIA Container Toolkit packages
+            log_info "Installing NVIDIA Container Toolkit packages..."
+            export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.18.1-1
+            sudo apt-get install -y \
+                nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+                nvidia-container-toolkit-base=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+                libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+                libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION}
+            
+            # Configure Docker to use NVIDIA runtime
+            log_info "Configuring Docker to use NVIDIA runtime..."
+            sudo nvidia-ctk runtime configure --runtime=docker
+            
+            # Restart Docker service to apply changes
+            if systemctl is-active --quiet docker; then
+                log_info "Restarting Docker service to apply NVIDIA runtime configuration..."
+                sudo systemctl restart docker
+            fi
+            
+            log_info "NVIDIA Container Toolkit installation complete"
+        else
+            log_warn "NVIDIA Container Toolkit installation is only supported on Ubuntu/Debian systems"
+            log_info "For other systems, please install manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+        fi
+        
         # Install Docker Compose if needed
         if ! command -v docker compose &> /dev/null && [ "$force" = false ]; then
             log_info "Installing Docker Compose..."
