@@ -17,10 +17,12 @@
     l_max:    3.5
     l_thresh: 0.0
 
-    vox_size: 0.2
+    vox_size: 0.1
     start_range: 0.0
     sensor_range: 10.0
     hit_thickness: 1
+
+    safe_robot_r: 0.5
 
     vdbedt_version: 1
     max_update_dist: 20.0

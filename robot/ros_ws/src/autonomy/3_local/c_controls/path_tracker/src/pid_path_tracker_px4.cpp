@@ -21,6 +21,9 @@
 #include <std_msgs/msg/empty.hpp>
 #include <trajectory_msgs/msg/multi_dof_joint_trajectory.hpp>
 
+#include <px4_msgs/msg/offboard_control_mode.hpp>
+#include <px4_msgs/msg/trajectory_setpoint.hpp>
+
 constexpr double PI = 3.14159265358979323846;
 
 class PID
@@ -175,7 +178,7 @@ private:
     bool hold_next_ref_;
 
     // Save command
-    geometry_msgs::msg::Twist curr_cmd_;
+    geometry_msgs::msg::Twist last_cmd_;
 
     // trajectory-related
     rclcpp::Subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr traj_sub_;
@@ -195,9 +198,11 @@ private:
     // publishers
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_point_pub;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr tracking_point_odom_pub;
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_pub;
+    // rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr command_pub;
 
     rclcpp::TimerBase::SharedPtr cmd_timer_;
+    rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_mode_pub_;
+    rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr traj_setpoint_pub_;
 
     rclcpp::Time last_odom_time_{0};
     double odom_timeout_s_ = 0.5;
@@ -230,7 +235,7 @@ public:
         tf_buffer = new tf2_ros::Buffer(this->get_clock());
         tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
-        command_pub = this->create_publisher<geometry_msgs::msg::Twist>("command", 1);
+        // command_pub = this->create_publisher<geometry_msgs::msg::Twist>("command", 1);
         tracking_point_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/tracking_point", 1);
 
         tracking_point_odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("/tracking_point_odom", 1);
@@ -240,6 +245,10 @@ public:
 
         this->get_parameter("yaw_p", yaw_p_);
         this->get_parameter("yaw_rate_max", yaw_rate_max_);
+
+        offboard_mode_pub_ = this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
+
+        traj_setpoint_pub_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint", 10);
 
         // 20Hz timer
         cmd_timer_ = this->create_wall_timer(std::chrono::milliseconds(50),
@@ -297,15 +306,6 @@ public:
                 if (!same_ref_point_already(tp_msg))
                 {
                     setTrackingPoint(tp_msg);
-                }
-                else
-                {
-                    Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
-                                       current_ref_.pose.pose.position.y,
-                                       current_ref_.pose.pose.position.z);
-
-                    RCLCPP_WARN_STREAM(get_logger(), "Same ref point at \n"
-                                                         << p1);
                 }
             }
             else
@@ -397,8 +397,6 @@ public:
             }
         }
 
-        advance_trackingpoint = true; // hacky: open loop for now
-
         if (advance_trackingpoint)
         {
             hold_next_ref_ = false;
@@ -468,24 +466,12 @@ public:
 
         have_ref_ = true;
 
+        // tracking_point_pub->publish(msg);
         current_ref_pose_stamped_ = odomToPoseStamped(msg);
 
         x_pid.set_target(msg.pose.pose.position.x);
         y_pid.set_target(msg.pose.pose.position.y);
         z_pid.set_target(msg.pose.pose.position.z);
-
-        Eigen::Vector3d p0(last_ref_.pose.pose.position.x,
-                           last_ref_.pose.pose.position.y,
-                           last_ref_.pose.pose.position.z);
-
-        Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
-                           current_ref_.pose.pose.position.y,
-                           current_ref_.pose.pose.position.z);
-
-        RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
-                                             << p0);
-        RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
-                                             << p1);
     }
 
     double getYawFromQuat(const geometry_msgs::msg::Quaternion &q)
@@ -539,14 +525,14 @@ public:
                                current_ref_.pose.pose.position.y,
                                current_ref_.pose.pose.position.z);
 
-            // RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
-            //                                      << p0);
-            // RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
-            //                                      << p1);
-            // RCLCPP_WARN_STREAM(get_logger(), "Odom is at \n"
-            //                                      << p);
-            // RCLCPP_WARN_STREAM(get_logger(), "Holding ref point at \n"
-            //                                      << p1);
+            RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
+                                                 << p0);
+            RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
+                                                 << p1);
+            RCLCPP_WARN_STREAM(get_logger(), "Odom is at \n"
+                                                 << p);
+            RCLCPP_WARN_STREAM(get_logger(), "Holding ref point at \n"
+                                                 << p1);
 
             Eigen::Vector3d d = p1 - p0;
             double d2 = d.squaredNorm();
@@ -554,8 +540,8 @@ public:
             if (d2 > 1e-8)
             {
                 double s = (p - p0).dot(d) / d2;
-                // RCLCPP_WARN_STREAM(get_logger(), "Tracking progress is \n"
-                //                                      << s);
+                RCLCPP_WARN_STREAM(get_logger(), "Tracking progress is \n"
+                                                     << s);
                 if (s > 0.25)
                 {
                     advance_trackingpoint = true;
@@ -596,17 +582,6 @@ public:
         const double vy_des_W = y_pid.get_control(odom_y, des_vy);
         const double vz_des_W = z_pid.get_control(odom_z, des_vz);
 
-        // command vel in body frame
-
-        tf2::Quaternion q(odometry.pose.pose.orientation.x,
-                          odometry.pose.pose.orientation.y,
-                          odometry.pose.pose.orientation.z,
-                          odometry.pose.pose.orientation.w);
-        tf2::Matrix3x3 R_WB(q);
-
-        tf2::Vector3 v_des_W(vx_des_W, vy_des_W, vz_des_W);
-        tf2::Vector3 v_des_B = R_WB.transpose() * v_des_W;
-
         // yaw command same in world/body frame
         const double yaw_ref = getYawFromQuat(current_ref_.pose.pose.orientation);
         const double yaw_cur = getYawFromQuat(odometry.pose.pose.orientation);
@@ -617,31 +592,83 @@ public:
 
         geometry_msgs::msg::Twist cmd;
 
-        cmd.linear.x = v_des_B.x();
-        cmd.linear.y = v_des_B.y();
-        cmd.linear.z = v_des_B.z();
+        cmd.linear.x = vx_des_W;
+        cmd.linear.y = vy_des_W;
+        cmd.linear.z = vz_des_W;
 
         cmd.angular.x = 0.0;
         cmd.angular.y = 0.0;
         cmd.angular.z = yaw_rate_cmd;
 
         // cmd now in world frame
-        curr_cmd_ = cmd;
+
+        // command_pub->publish(cmd);
+        // RCLCPP_WARN(get_logger(), "getting new cmd");
+        last_cmd_ = cmd;
     }
 
     void cmd_timer_callback()
     {
         const rclcpp::Time now = this->now();
-        if (got_odometry && have_ref_)
+
+        // --- 1) OffboardControlMode: vel only ---
+        px4_msgs::msg::OffboardControlMode mode{};
+        mode.timestamp = static_cast<uint64_t>(now.nanoseconds() / 1000ULL); // us
+        mode.position = false;
+        mode.velocity = true;
+        mode.acceleration = false;
+        mode.attitude = false;
+        mode.body_rate = false;
+
+        offboard_mode_pub_->publish(mode);
+
+        // --- 2) Odom timeout check ---
+        const bool odom_ok = (last_odom_time_.nanoseconds() != 0) &&
+                             ((now - last_odom_time_).seconds() <= odom_timeout_s_);
+
+        px4_msgs::msg::TrajectorySetpoint sp{};
+        sp.timestamp = mode.timestamp;
+
+        sp.position[0] = NAN;
+        sp.position[1] = NAN;
+        sp.position[2] = NAN;
+
+        sp.acceleration[0] = NAN;
+        sp.acceleration[1] = NAN;
+        sp.acceleration[2] = NAN;
+
+        sp.jerk[0] = NAN;
+        sp.jerk[1] = NAN;
+        sp.jerk[2] = NAN;
+
+        sp.yaw = NAN;
+
+        if (!odom_ok || !have_ref_ || !got_odometry)
         {
-            command_pub->publish(curr_cmd_);
+            // failsafe: output zero
+            sp.velocity[0] = 0.0f;
+            sp.velocity[1] = 0.0f;
+            sp.velocity[2] = 0.0f;
+
+            sp.yawspeed = 0.0f;
         }
+        else
+        {
+            // normal: use cached last_cmd_
+            sp.velocity[0] = static_cast<float>(last_cmd_.linear.x);
+            sp.velocity[1] = static_cast<float>(last_cmd_.linear.y);
+            sp.velocity[2] = static_cast<float>(last_cmd_.linear.z);
+
+            sp.yawspeed = static_cast<float>(last_cmd_.angular.z);
+        }
+
+        traj_setpoint_pub_->publish(sp);
 
         current_ref_pose_stamped_.header.stamp = now;
         current_ref_.header.stamp = now;
         if (have_ref_)
         {
-            // tracking_point_odom_pub->publish(current_ref_);
+            tracking_point_odom_pub->publish(current_ref_);
             tracking_point_pub->publish(current_ref_pose_stamped_);
         }
     }
@@ -659,7 +686,10 @@ public:
     {
         geometry_msgs::msg::PoseStamped pose;
 
+        // header：时间戳 + frame
         pose.header = odom.header;
+
+        // pose
         pose.pose = odom.pose.pose;
 
         return pose;

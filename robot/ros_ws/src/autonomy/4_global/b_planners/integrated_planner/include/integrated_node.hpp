@@ -48,6 +48,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 
 #include "astar_vdb.hpp"
 
@@ -98,7 +99,7 @@ private:
 
     double voxel_size_;
 
-    double safe_robot_r_ = 0.5;
+    double safe_robot_r_ = 0.6;
 
     double safe_sq_idx_dist_ = 25.0;
     double safe_index_dist_ = 5.0;
@@ -106,8 +107,8 @@ private:
     double next_start_yaw_ = 0.0;
     double next_goal_yaw_ = 0.0;
 
-    double interpolate_step_ = 0.1;
-    double cruise_speed_ = 0.5;
+    double interpolate_step_ = 0.05;
+    double cruise_speed_ = 0.15;
 
     bool publish_visualizations = false;
     bool received_first_map = false;
@@ -116,16 +117,17 @@ private:
     bool is_path_executing = false;
 
     bool has_tracking_point_;
-    nav_msgs::msg::Odometry current_tracking_point_;
+    geometry_msgs::msg::PoseStamped current_tracking_point_;
 
     geometry_msgs::msg::Transform current_location_; // x, y, z, yaw
-    geometry_msgs::msg::Transform last_location;     // Last recorded position
-    rclcpp::Time last_position_change;               // Time of last position change
+    geometry_msgs::msg::Transform last_location_;     // Last recorded position
+    geometry_msgs::msg::Transform possible_stuck_location_; 
+    rclcpp::Time last_position_change_;               // Time of last position change
     double position_change_threshold = 0.1;          // Minimum distance (meters) to consider as movement
     double stall_timeout_seconds = 5.0;              // Time without movement before clearing plan
     double traj_horizon_ = 2.0;
 
-    double replan_remain_time_ = 3.0; // When remain path shorten than this, start replan and add the replanned to the end
+    double replan_remain_time_ = 1.0; // When remain path shorten than this, start replan and add the replanned to the end
     TimedXYZYaw last_traj_endpoint_;
 
     double cluster_cube_dim;
@@ -143,7 +145,7 @@ private:
 
     virtual void generate_plan();
 
-    void tracking_point_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
     bool generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point);
 
@@ -180,7 +182,7 @@ public:
     // ROS subscribers
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_lidar;
     rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_tracking_point;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_tracking_point;
     // rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
 
     // ROS publishers
@@ -195,6 +197,8 @@ public:
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_astar_vis;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_smoothed_vis;
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pub_sampled_viewpoints;
+
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pub_valid_viewpoints;
 
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_coll_point_vis;
 

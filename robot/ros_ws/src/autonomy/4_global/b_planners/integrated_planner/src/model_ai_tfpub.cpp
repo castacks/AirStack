@@ -19,7 +19,7 @@ public:
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-        sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/qvio/odom",
+        sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/ov/odom",
                                                                   rclcpp::QoS(rclcpp::KeepLast(50)).best_effort(),
                                                                   std::bind(&OdomToTfNode::odomCallback, this, std::placeholders::_1));
 

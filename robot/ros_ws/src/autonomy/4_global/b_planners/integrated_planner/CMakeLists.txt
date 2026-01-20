@@ -81,24 +81,23 @@ ament_target_dependencies(integrated_planner
   vdb_edt
 )
 
-add_executable(fov_planner 
-  src/integrated_node_run.cpp 
-  src/integrated_node.cpp 
+add_executable(cpa_node 
+  src/cpa_node.cpp 
   src/astar_vdb.cpp)
 
-target_include_directories(fov_planner
+target_include_directories(cpa_node
   PRIVATE
   ${PCL_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(fov_planner
+target_link_libraries(cpa_node
   OpenVDB::openvdb
   ${EIGEN3_LIBRARIES}
   ${PCL_LIBRARIES})
 
 # Link libraries
-ament_target_dependencies(fov_planner
+ament_target_dependencies(cpa_node
   rclcpp
   rclcpp_action
   std_msgs
@@ -151,12 +150,56 @@ ament_target_dependencies(odom_tf_node
   tf2_geometry_msgs
 )
 
+add_executable(frame_fix_node 
+  src/model_ai_framefix.cpp)
+
+target_include_directories(frame_fix_node
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+ament_target_dependencies(frame_fix_node
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_eigen
+  tf2_geometry_msgs
+)
+
+add_executable(model_ai_px4_test 
+  src/model_ai_px4_test.cpp)
+
+target_include_directories(model_ai_px4_test
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+ament_target_dependencies(model_ai_px4_test
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  sensor_msgs
+  geometry_msgs
+  trajectory_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_eigen
+  tf2_geometry_msgs
+)
+
 # Install executable
 install(TARGETS
   integrated_planner
-  fov_planner
+  cpa_node
   takeoff_hack_node
-  odom_tf_node
+  frame_fix_node
+  model_ai_px4_test
   DESTINATION lib/${PROJECT_NAME}
 )
 

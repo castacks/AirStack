@@ -21,7 +21,7 @@
   <include file="$(find-pkg-share integrated_planner)/launch/robot_launch_gazebo/gz_local_launch.xml" />
 
   <!-- Global -->
-  <node pkg="integrated_planner" exec="fov_planner" name="integrated_planner" output="screen" emulate_tty="true">
+  <node pkg="integrated_planner" exec="cpa_node" name="cpa_node" output="screen" emulate_tty="true">
     <param from="$(find-pkg-share integrated_planner)/config/fov_gazebo_config.yaml" />
   </node>
 

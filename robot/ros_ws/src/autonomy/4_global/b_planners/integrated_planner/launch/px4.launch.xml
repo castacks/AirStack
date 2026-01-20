@@ -1,14 +1,4 @@
 <launch>
-  <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher" output="screen">
-    <param name="robot_description" value="$(command 'cat $(find-pkg-share integrated_planner)/config/model_ai_extrinsics.urdf')"/>
-  </node>
-
-  <node pkg="integrated_planner" exec="odom_tf_node" name="odom_tf_node" output="screen"/>
-  <node pkg="integrated_planner" exec="frame_fix_node" name="frame_fix_node" output="screen" emulate_tty="true"/>
-  <node pkg="integrated_planner" exec="integrated_planner" name="integrated_planner" output="screen" emulate_tty="true">
-    <param from="$(find-pkg-share integrated_planner)/config/modelai_config.yaml" />
-  </node>
-
   <node pkg="pid_path_tracker" exec="pid_path_tracker_px4" output="screen">
     <param name="target_frame" value="base_link" />
 
@@ -42,7 +32,4 @@
     <remap from="odometry" to="/ov/odom" />
     <remap from="trajectory" to="/cmd_trajectory" />
   </node>
-
-  <node pkg="rviz2" exec="rviz2" 
-    args="-d $(find-pkg-share integrated_planner)/config/modelai.rviz --ros-args --log-level INFO" output="screen" respawn="true" respawn_delay="1" />
 </launch>

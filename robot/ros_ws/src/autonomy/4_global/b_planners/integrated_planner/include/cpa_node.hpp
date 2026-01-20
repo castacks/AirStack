@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Carnegie Mellon University
+// Copyright (c) 2026 Carnegie Mellon University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -44,9 +44,12 @@
 #include <tf2_msgs/msg/tf_message.hpp>
 #include <tuple>
 #include <vector>
+#include <shared_mutex>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 
 #include "astar_vdb.hpp"
 
@@ -63,11 +66,14 @@ struct TimedXYZYaw
     Eigen::Vector3d desired_vel_ = Eigen::Vector3d::Zero();
 };
 
-class FovPlannerNode
+class CpaNode
 {
 private:
     // ROS2 node
     rclcpp::Node::SharedPtr node_handle_;
+
+    enum class PlannerStatus : uint8_t {WAIT_GOAL, NEW_GOAL, PATH_EXEC};
+    PlannerStatus status_;
 
     // Voxel map manager
     std::shared_ptr<VDBMap> map_manager_;
@@ -81,56 +87,50 @@ private:
     std::string map_frame_id_;
 
     std::string sub_goal_viewpoints_;
-    std::string pub_raw_plan_topic_;
     std::string pub_global_plan_topic_;
     std::string pub_goal_point_viz_topic_;
     std::string pub_trajectory_viz_topic_;
-    std::string pub_grid_viz_topic_;
-    std::string pub_clustered_frontier_viz_topic_;
-    std::string sub_robot_tf_topic_;
     std::string srv_exploration_toggle_topic_;
 
-    int num_paths_to_generate_;
     std::vector<openvdb::Vec3d> generated_path_raw_;
     std::vector<TimedXYZYaw> generated_path_dense_;
     std::vector<TimedXYZYaw> current_path_dense_;
 
     double voxel_size_;
 
-    double safe_robot_r_ = 0.5;
+    double safe_robot_r_;
 
-    double safe_sq_idx_dist_ = 25.0;
-    double safe_index_dist_ = 5.0;
+    double safe_sq_idx_dist_;
+    double safe_index_dist_;
 
-    double next_start_yaw_ = 0.0;
-    double next_goal_yaw_ = 0.0;
+    double new_start_yaw_ = 0.0;
+    Eigen::Vector3d curr_goal_xyz_;
+    double curr_goal_yaw_ = 0.0;
 
     double interpolate_step_ = 0.1;
-    double cruise_speed_ = 1.5;
+    double cruise_speed_ = 1.0;
 
-    bool publish_visualizations = false;
-    bool received_first_map = false;
-    bool received_first_robot_tf = false;
-    bool enable_exploration = false;
-    bool is_path_executing = false;
+    bool received_first_robot_tf_ = false;
+    bool enable_exploration_ = false;
+
+    std::shared_mutex tp_mtx_;
+    bool has_tracking_point_;
+    geometry_msgs::msg::PoseStamped current_tracking_point_;
 
     geometry_msgs::msg::Transform current_location_; // x, y, z, yaw
-    geometry_msgs::msg::Transform last_location;     // Last recorded position
-    rclcpp::Time last_position_change;               // Time of last position change
-    double position_change_threshold = 0.1;          // Minimum distance (meters) to consider as movement
-    double stall_timeout_seconds = 5.0;              // Time without movement before clearing plan
+    geometry_msgs::msg::Transform possible_stuck_location_; 
+    rclcpp::Time last_position_change_;               // Time of last position change
+    double position_change_threshold_ = 0.1;          // Minimum distance (meters) to consider as movement
+    double stall_timeout_seconds_ = 5.0;              // Time without movement before clearing plan
     double traj_horizon_ = 2.0;
 
-    double replan_remain_time_ = 3.0; // When remain path shorten than this, start replan and add the replanned to the end
+    double replan_remain_time_ = 1.0; // When remain path shorten than this, start replan and add the replanned to the end
     TimedXYZYaw last_traj_endpoint_;
-
-    double cluster_cube_dim;
-    int voxel_cluster_count_thresh;
-
-    double map_voxel_resolution; // map voxel grid size
 
     // Callbacks
     // void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+    rclcpp::CallbackGroup::SharedPtr cbg_planner_;
 
     void ExplorationToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
                                    std_srvs::srv::Trigger::Response::SharedPtr response);
@@ -138,6 +138,10 @@ private:
     virtual void timerCallback();
 
     virtual void generate_plan();
+
+    void tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+
+    void goal_pose_callback(const geometry_msgs::msg::Pose::SharedPtr msg);
 
     bool generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point);
 
@@ -150,15 +154,13 @@ private:
     void publish_plan();
 
     void visualize_local_traj();
+    
     void visualize_full_path();
 
-    int replan_fail_count = 0;
-    bool last_replan_failed = false;
-
 public:
-    // explicit FovPlannerNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-    FovPlannerNode();
-    ~FovPlannerNode() = default;
+    // explicit CpaNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+    CpaNode();
+    ~CpaNode() = default;
 
     rclcpp::Node::SharedPtr get_node_handle() const;
 
@@ -172,24 +174,18 @@ public:
     std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>> lidar_filter_sub_;
 
     // ROS subscribers
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_lidar;
-    rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    // rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_tracking_point_;
+    rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr sub_goal_pose_;
 
     // ROS publishers
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_global_plan;
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_goal_posestamped;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_global_plan_;
     rclcpp::Publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr pub_trajectory_;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_vdb;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_frontier_vis;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_clustered_frontier_vis;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_astar_vis;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_smoothed_vis;
-    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pub_sampled_viewpoints;
-
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_coll_point_vis;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_astar_vis_;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr planning_smoothed_vis_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr pub_valid_viewpoints_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_coll_point_vis_;
 
     // ROS services
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_exploration_toggle;

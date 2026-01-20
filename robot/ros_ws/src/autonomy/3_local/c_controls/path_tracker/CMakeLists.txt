@@ -14,6 +14,7 @@ find_package(mav_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
+find_package(px4_msgs REQUIRED)
 find_package(pid_controller_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
@@ -58,10 +59,24 @@ ament_target_dependencies(pid_path_tracker_cmd_vel_stamped
   tf2
   tf2_ros)
 
+add_executable(pid_path_tracker_px4 src/pid_path_tracker_px4.cpp)
+ament_target_dependencies(pid_path_tracker_px4
+  rclcpp
+  std_msgs
+  mav_msgs
+  nav_msgs
+  pid_controller_msgs
+  tf2_geometry_msgs
+  trajectory_msgs
+  px4_msgs
+  tf2
+  tf2_ros)
+
 install(TARGETS
   pid_path_tracker
   pid_path_tracker_cmd_vel
   pid_path_tracker_cmd_vel_stamped
+  pid_path_tracker_px4
   DESTINATION lib/${PROJECT_NAME})
 
 

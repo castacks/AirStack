@@ -4,7 +4,7 @@
     <arg name="local_odometry_in_topic" default="/odom" />
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
 
-    <node pkg="pid_path_tracker" exec="pid_path_tracker_cmd_vel" output="screen">
+    <node pkg="pid_path_tracker" exec="pid_path_tracker_cmd_vel" name="pid_path_tracker" output="screen">
       <param name="target_frame" value="base_link" />
 
       <param name="x_p"         value="2.0" />

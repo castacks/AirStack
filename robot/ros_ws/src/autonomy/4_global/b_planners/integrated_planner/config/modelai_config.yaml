@@ -6,7 +6,9 @@
     world_frame_id: "map"
     map_frame_id: "map"
 
-    pcl_topic: "/tof_pc"
+    use_cloud_header_frame: false
+
+    pcl_topic: "/tof_pc_fixed"
     data_set: "config"
     occ_grid_topic: "/occ_grid"
     dist_slice_topic: "/dist_slice"
@@ -25,13 +27,13 @@
     vdbedt_version: 1
     max_update_dist: 20.0
     edt_update_duration: 0.5
-    frontier_update_duration: 2.0
+    frontier_update_duration: 1.0
     vis_update_duration: 5.0
-    vis_slice_level: 2.5
+    vis_slice_level: -1.2
 
     vis_map_minx: -200.0
     vis_map_miny: -200.0
-    vis_map_minz:   -1.0
+    vis_map_minz:   -5.0
     vis_map_maxx:  200.0
     vis_map_maxy:  200.0
     vis_map_maxz:   10.0
@@ -54,5 +56,5 @@
     max_yaw_change_degrees: 180.0 # how much the goal can deviate from the current orientation
 
     # Stall detection parameters
-    position_change_threshold: 0.1 # Minimum distance (meters) to consider as movement
-    stall_timeout_seconds: 5.0 # Time without movement before clearing plan
+    position_change_threshold: 0.2 # Minimum distance (meters) to consider as movement
+    stall_timeout_seconds: 10.0 # Time without movement before clearing plan
