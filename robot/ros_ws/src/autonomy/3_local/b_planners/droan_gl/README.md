@@ -30,13 +30,12 @@ Trajectories are generated using snaps in different directions. Collision checki
 
 `dt` - The increment in seconds for generating points along the trajectory.
 
-`downsample_scale` - The factor by which the input disparity image will be downsampled. 
+`downsample_scale` - The factor by which the input disparity image will be downsampled.
 
 `graph_nodes` - The number of expanded foreground and background disparity image pairs to do collision checking on.
 
 `graph_distance_threshold` - The distance in meters after which a new node will be added to the list.
 `graph_angle_threshold` - The angle in degrees that the drone has to yaw before a new node will be added to the list.
-
 
 Rewinds are triggered by two events. When all trajectories are in collision from length of time the drone will rewind for a set duraiton. When the drone is considered to be staionary for too long, the drone will rewind for some distance or duration, whichever is satisfied first.
 

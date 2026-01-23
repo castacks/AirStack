@@ -40,10 +40,11 @@
 #include <droan_gl/gl_interface.hpp>
 #include <trajectory_library/trajectory_library.hpp>
 
-class GlobalPlan {
+class GlobalPlan
+{
 private:
-  rclcpp::Node* node;
-  tf2_ros::Buffer* tf_buffer;
+  rclcpp::Node *node;
+  tf2_ros::Buffer *tf_buffer;
 
   std::string target_frame;
   int current_global_plan_id, next_global_plan_id;
@@ -51,11 +52,11 @@ private:
   Trajectory global_plan;
 
   bool update_global_plan();
-  
+
 public:
-  GlobalPlan(rclcpp::Node* node, tf2_ros::Buffer* tf_buffer);
+  GlobalPlan(rclcpp::Node *node, tf2_ros::Buffer *tf_buffer);
   void set_global_plan(const nav_msgs::msg::Path::SharedPtr msg);
-  void trim(const airstack_msgs::msg::Odometry& msg);
+  void trim(const airstack_msgs::msg::Odometry &msg);
   std::tuple<float, float> get_distance(float x, float y, float z);
   void publish_vis(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub);
   void apply_smooth_yaw(airstack_msgs::msg::TrajectoryXYZVYaw &best_traj_msg, const airstack_msgs::msg::Odometry look_ahead);
