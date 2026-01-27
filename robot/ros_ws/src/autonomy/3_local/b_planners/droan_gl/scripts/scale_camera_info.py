@@ -4,18 +4,25 @@ from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo
 import copy
 
+
 class CameraInfoScaler(Node):
     def __init__(self):
-        super().__init__('camera_info_scaler')
+        super().__init__("camera_info_scaler")
 
         # Parameters
-        self.declare_parameter('input_topic', '/camera_info')
-        self.declare_parameter('output_topic', '/camera_info_scaled')
-        self.declare_parameter('scale_factor', 1.0)
+        self.declare_parameter("input_topic", "/camera_info")
+        self.declare_parameter("output_topic", "/camera_info_scaled")
+        self.declare_parameter("scale_factor", 1.0)
 
-        input_topic = self.get_parameter('input_topic').get_parameter_value().string_value
-        output_topic = self.get_parameter('output_topic').get_parameter_value().string_value
-        self.scale_factor = self.get_parameter('scale_factor').get_parameter_value().double_value
+        input_topic = (
+            self.get_parameter("input_topic").get_parameter_value().string_value
+        )
+        output_topic = (
+            self.get_parameter("output_topic").get_parameter_value().string_value
+        )
+        self.scale_factor = (
+            self.get_parameter("scale_factor").get_parameter_value().double_value
+        )
 
         # Publisher and Subscriber
         self.pub_ = self.create_publisher(CameraInfo, output_topic, 10)
@@ -26,12 +33,12 @@ class CameraInfoScaler(Node):
         )
 
     def callback(self, msg: CameraInfo):
-        scaled = copy.deepcopy(msg)#CameraInfo()
-        #scaled.header = msg.header
-        #scaled.height = msg.height
-        #scaled.width = msg.width
-        #scaled.distortion_model = msg.distortion_model
-        #scaled.d = list(msg.d)
+        scaled = copy.deepcopy(msg)  # CameraInfo()
+        # scaled.header = msg.header
+        # scaled.height = msg.height
+        # scaled.width = msg.width
+        # scaled.distortion_model = msg.distortion_model
+        # scaled.d = list(msg.d)
 
         # Copy and modify intrinsic matrices
         scaled.k = list(msg.k)
@@ -54,5 +61,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

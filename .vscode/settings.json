@@ -5,5 +5,6 @@
         "**/ros_ws/install/**": true,
         "**/ros_ws/log/**": true
     },
-    "github.copilot.chat.codeGeneration.useInstructionFiles": true
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "ROS2.distro": "humble"
 }
