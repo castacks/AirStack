@@ -610,6 +610,9 @@ function cmd_up {
     # Add -d flag
     cmd="$cmd -d"
 
+    # Add xhost + to allow GUI applications
+    cmd="xhost + && $cmd"
+
     log_info "Executing: $cmd"
     eval "USER_ID=$(id -u) GROUP_ID=$(id -g) $cmd"
     log_info "Services brought up successfully"
