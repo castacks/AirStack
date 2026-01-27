@@ -20,7 +20,7 @@ services:
     tty: true
     ipc: host
     privileged: true
-    runtime: nvidia
+    # runtime: nvidia  <-- Removed deprecated runtime key
     networks:
       airstack_network:
         ipv4_address: 172.31.0.200

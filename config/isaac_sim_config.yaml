@@ -6,7 +6,6 @@ isaac_sim:
   enabled_extensions:
     - "airlab.airstack"
     - "pegasus.simulator"
-    - "omni.physx.forcefields"
   
   # Whether to start simulation playback automatically
   play_on_start: true

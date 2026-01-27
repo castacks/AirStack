@@ -23,7 +23,6 @@ services:
             - capabilities: [gpu]
               count: 1
               driver: nvidia
-    runtime: nvidia
     entrypoint: ''
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-false}

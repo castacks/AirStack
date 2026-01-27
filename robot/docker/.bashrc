@@ -23,8 +23,12 @@ function bws(){
     COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
 }
 function sws(){
-    echo "Sourcing "$ROS2_WS_DIR"/install/local_setup.bash"
-    source "$ROS2_WS_DIR"/install/local_setup.bash || echo "Please make sure to build first with 'bws'"
+    if [ -f "$ROS2_WS_DIR/install/local_setup.bash" ]; then
+        echo "Sourcing $ROS2_WS_DIR/install/local_setup.bash"
+        source "$ROS2_WS_DIR/install/local_setup.bash"
+    else
+        echo "Workspace not built yet. Please make sure to build first with 'bws'"
+    fi
 }
 
 # Function to prompt user for confirmation
