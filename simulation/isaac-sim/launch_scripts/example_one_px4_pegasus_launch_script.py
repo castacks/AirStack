@@ -13,6 +13,9 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+import rclpy
+print(f"[Launcher] SUCCESS: rclpy imported from {rclpy.__file__}")
+
 import omni.kit.app
 import omni.timeline
 from omni.isaac.core.world import World
@@ -40,9 +43,9 @@ import atexit
 
 # Explicitly enable required extensions
 ext_manager = omni.kit.app.get_app().get_extension_manager()
+
 for ext in [
-    # "airlab.airstack",
-    "omni.physx.forcefields",
+    "airlab.airstack",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
@@ -52,11 +55,15 @@ for ext in [
     "omni.graph.window.action",         # Action Graph editor window
     "omni.graph.window.generic",        # Generic graph UI tools
     "omni.graph.ui_nodes",              # UI node building helpers
-    "airlab.pegasus",                   # Airlab extension Pegasus core extension
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):
-        ext_manager.set_extension_enabled(ext, True)
+        print(f"[Launcher] Enabling extension: {ext}")
+        # Try both methods for robustness in different Kit versions
+        ext_manager.set_extension_enabled_immediate(ext, True)
+        print(f"[Launcher] Successfully enabled extension: {ext} via immediate method")        
+    else:
+        print(f"[Launcher] Extension already enabled: {ext}")
 
 
 class PegasusApp:
@@ -75,7 +82,12 @@ class PegasusApp:
 
         # Load default environment. You can replace with url or file path of any desired environment.
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
-        
+
+        # Reset so physics/articulations are ready
+        self.world.reset()
+
+        self.stop_sim = False
+
         # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
         # PX4 udp port = 14540 + (vehicle_id)
         # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 

@@ -65,7 +65,7 @@ services:
       - $HOME/Documents/isaac_sim_data/data:/root/.local/share/ov/data:rw
       - $HOME/documents/isaac_sim_data/documents:/root/Documents:rw
       # IMPORTANT: set the version number without the trailing .0
-      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/4.5/user.config.json:rw
+      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
       - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
       # developer stuff
       - .dev:/root/.dev:rw # developer config

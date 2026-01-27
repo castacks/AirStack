@@ -39,7 +39,12 @@ services:
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
-    runtime: nvidia
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   simple-robot:
     profiles: !override
@@ -74,7 +79,13 @@ services:
     ipc: host
     command: >
       bash -c "ssh service restart; tmux new -d -s robot_bringup && tmux send-keys -t robot_bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER && sleep infinity"
-    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
@@ -98,8 +109,14 @@ services:
       && tmux send-keys -t zed_driver
       'bws && sws && ros2 launch zed_wrapper zed_dual_camera.launch.py pose_cam_serial:='41591402' wire_cam_serial:='44405253' camera_name:=\"robot_1/sensors\" node_name:=\"front_stereo\" ' ENTER
       && sleep infinity"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     network_mode: host
-    runtime: nvidia
     privileged: true
     ipc: host
     pid: host
