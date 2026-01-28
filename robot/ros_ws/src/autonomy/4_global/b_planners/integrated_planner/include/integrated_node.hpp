@@ -107,8 +107,8 @@ private:
     double next_start_yaw_ = 0.0;
     double next_goal_yaw_ = 0.0;
 
-    double interpolate_step_ = 0.05;
-    double cruise_speed_ = 0.15;
+    double interpolate_step_ = 0.1;
+    double cruise_speed_ = 1.0;
 
     bool publish_visualizations = false;
     bool received_first_map = false;
@@ -125,7 +125,7 @@ private:
     rclcpp::Time last_position_change_;               // Time of last position change
     double position_change_threshold = 0.1;          // Minimum distance (meters) to consider as movement
     double stall_timeout_seconds = 5.0;              // Time without movement before clearing plan
-    double traj_horizon_ = 2.0;
+    double traj_horizon_ = 3.0;
 
     double replan_remain_time_ = 1.0; // When remain path shorten than this, start replan and add the replanned to the end
     TimedXYZYaw last_traj_endpoint_;
@@ -137,6 +137,10 @@ private:
 
     // Callbacks
     // void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+    rclcpp::CallbackGroup::SharedPtr cbg_planner_;
+    std::shared_mutex tp_mtx_;
+    std::mutex planning_mtx_;
 
     void ExplorationToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
                                    std_srvs::srv::Trigger::Response::SharedPtr response);

@@ -12,7 +12,7 @@ Astar::~Astar()
     }
 }
 
-void Astar::initialize(std::shared_ptr<VDBMap> &map_manager)
+void Astar::initialize(std::shared_ptr<VDBMap> &map_manager, double safe_robot_r_)
 {
     // map for safety query
     map_manager_ = map_manager;
@@ -23,7 +23,7 @@ void Astar::initialize(std::shared_ptr<VDBMap> &map_manager)
     max_search_time_ = 0.05;
     margin_ = 0.0;
 
-    safe_robot_r_ = 0.5;
+    // safe_robot_r_ = 0.5;
 
     double voxel_size = map_manager_->get_grid_transform()->voxelSize().x();
 

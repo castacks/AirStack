@@ -46,17 +46,17 @@ void CpaNode::initialize()
     map_manager_ = std::make_shared<VDBMap>(node_handle_, tf_buffer_, tf_listener_);
     RCLCPP_INFO(node_handle_->get_logger(), "Initialized VDB grids");
 
-    // Initialize astar planner.
-    astar_planner_.initialize(map_manager_);
-
     setup_parameters();
+
+    // Initialize astar planner.
+    astar_planner_.initialize(map_manager_, safe_robot_r_);
 
     cbg_planner_ = node_handle_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions opt;
     opt.callback_group = cbg_planner_;
     sub_tracking_point_ = node_handle_->create_subscription<geometry_msgs::msg::PoseStamped>("/tracking_point", rclcpp::QoS(10),
                                                                                              std::bind(&CpaNode::tracking_point_callback, this, std::placeholders::_1), opt);
-    sub_goal_pose_ = node_handle_->create_subscription<geometry_msgs::msg::Pose>("/goal_pose", 1,
+    sub_goal_pose_ = node_handle_->create_subscription<geometry_msgs::msg::Pose>("/goal_pose", 10,
                                                                                  std::bind(&CpaNode::goal_pose_callback, this, std::placeholders::_1));
 
     pub_global_plan_ =
@@ -76,8 +76,13 @@ void CpaNode::initialize()
         node_handle_->create_publisher<geometry_msgs::msg::PoseArray>("/valid_viewpoints", 10);
 
     // Set up the timer
-    plan_timer_ = node_handle_->create_wall_timer(std::chrono::seconds(1),
-                                                  std::bind(&CpaNode::timerCallback, this), cbg_planner_);
+    // plan_timer_ = node_handle_->create_wall_timer(std::chrono::seconds(1),
+    //                                               std::bind(&CpaNode::timerCallback, this), cbg_planner_);
+    plan_timer_ = rclcpp::create_timer(node_handle_,
+                                       node_handle_->get_clock(),
+                                       rclcpp::Duration(std::chrono::seconds(1)),
+                                       std::bind(&CpaNode::timerCallback, this),
+                                       cbg_planner_);
 
     has_tracking_point_ = false;
 
@@ -151,8 +156,8 @@ rclcpp::Node::SharedPtr CpaNode::get_node_handle() const
 void CpaNode::tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
     {
-        has_tracking_point_ = true;
         std::unique_lock<std::shared_mutex> lk(tp_mtx_);
+        has_tracking_point_ = true;
         current_tracking_point_ = *msg;
     }
 
@@ -165,7 +170,7 @@ void CpaNode::tracking_point_callback(const geometry_msgs::msg::PoseStamped::Sha
 
 void CpaNode::goal_pose_callback(const geometry_msgs::msg::Pose::SharedPtr msg)
 {
-    RCLCPP_INFO(node_handle_->get_logger(), "Receiving a goal");
+    RCLCPP_WARN(node_handle_->get_logger(), "Receiving a goal");
 
     curr_goal_xyz_.x() = msg->position.x;
     curr_goal_xyz_.y() = msg->position.y;

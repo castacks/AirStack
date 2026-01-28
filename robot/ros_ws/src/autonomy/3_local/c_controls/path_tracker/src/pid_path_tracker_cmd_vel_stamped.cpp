@@ -6,9 +6,11 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <Eigen/Eigen>
 
+#include <cmath>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
@@ -168,7 +170,12 @@ private:
     nav_msgs::msg::Odometry current_ref_;
     nav_msgs::msg::Odometry last_ref_;
 
+    geometry_msgs::msg::PoseStamped current_ref_pose_stamped_;
+
     bool hold_next_ref_;
+
+    // Save command
+    geometry_msgs::msg::TwistStamped curr_cmd_;
 
     // trajectory-related
     rclcpp::Subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr traj_sub_;
@@ -186,8 +193,14 @@ private:
     tf2_ros::TransformListener *tf_listener;
 
     // publishers
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr tracking_point_pub;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_point_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr tracking_point_odom_pub;
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr command_pub;
+
+    rclcpp::TimerBase::SharedPtr cmd_timer_;
+
+    rclcpp::Time last_odom_time_{0};
+    double odom_timeout_s_ = 0.5;
 
 public:
     PIDPathTrackerNode()
@@ -205,7 +218,7 @@ public:
 
         // odom sub
         odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-            "odometry", 1, std::bind(&PIDPathTrackerNode::odometry_callback, this, std::placeholders::_1));
+            "odometry", rclcpp::SensorDataQoS(), std::bind(&PIDPathTrackerNode::odometry_callback, this, std::placeholders::_1));
 
         // trajectory subscriber
         traj_sub_ = this->create_subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>(
@@ -218,13 +231,24 @@ public:
         tf_listener = new tf2_ros::TransformListener(*tf_buffer);
 
         command_pub = this->create_publisher<geometry_msgs::msg::TwistStamped>("command", 1);
-        tracking_point_pub = this->create_publisher<nav_msgs::msg::Odometry>("/tracking_point", 1);
+        tracking_point_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/tracking_point", 1);
+
+        tracking_point_odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("/tracking_point_odom", 1);
 
         this->declare_parameter("yaw_p", 1.0);
-        this->declare_parameter("yaw_rate_max", 1.0);
+        this->declare_parameter("yaw_rate_max", 0.35);
 
         this->get_parameter("yaw_p", yaw_p_);
         this->get_parameter("yaw_rate_max", yaw_rate_max_);
+
+        // 20Hz timer
+        // cmd_timer_ = this->create_wall_timer(std::chrono::milliseconds(50),
+        //                                      std::bind(&PIDPathTrackerNode::cmd_timer_callback, this));
+        cmd_timer_ = rclcpp::create_timer(this->get_node_base_interface(),
+                                          this->get_node_timers_interface(),
+                                          this->get_clock(),
+                                          std::chrono::milliseconds(50),
+                                          std::bind(&PIDPathTrackerNode::cmd_timer_callback, this));
     }
 
     void trajectory_callback(const trajectory_msgs::msg::MultiDOFJointTrajectory::SharedPtr msg)
@@ -251,6 +275,8 @@ public:
         const auto &pts = msg->points;
         const std::size_t n = pts.size();
 
+        RCLCPP_WARN_STREAM(get_logger(), "Got trajectory with " << n << " points.");
+
         // Save points and dt
         traj_points_.push_back(pts.front());
         for (std::size_t i = 1; i < n; ++i)
@@ -273,7 +299,19 @@ public:
             nav_msgs::msg::Odometry tp_msg;
             if (convertTrajPointToTrackingPoint(first_pt, traj_header_, tp_msg))
             {
-                setTrackingPoint(tp_msg);
+                if (!same_ref_point_already(tp_msg))
+                {
+                    setTrackingPoint(tp_msg);
+                }
+                else
+                {
+                    Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
+                                       current_ref_.pose.pose.position.y,
+                                       current_ref_.pose.pose.position.z);
+
+                    RCLCPP_WARN_STREAM(get_logger(), "Same ref point at \n"
+                                                         << p1);
+                }
             }
             else
             {
@@ -282,6 +320,7 @@ public:
         }
 
         schedule_next_timer();
+        RCLCPP_WARN(get_logger(), "next timer scheduled.");
     }
 
     void schedule_next_timer()
@@ -309,6 +348,7 @@ public:
 
     void traj_timer_callback()
     {
+        RCLCPP_WARN(get_logger(), "Traj timer callback.");
         if (traj_timer_)
         {
             traj_timer_->cancel();
@@ -322,10 +362,9 @@ public:
 
         bool advance_trackingpoint = false;
         // Check Tracking progress
-        // If it's tracking the first point of a traj, just send out the next one
-        if (got_new_traj_)
+        // If it's tracking the first point of the first traj, just send out the next one
+        if (!have_ref_)
         {
-            got_new_traj_ = false;
             advance_trackingpoint = true;
             last_ref_ = current_ref_;
         }
@@ -364,6 +403,8 @@ public:
                 advance_trackingpoint = true;
             }
         }
+
+        // advance_trackingpoint = true; // hacky: open loop for now
 
         if (advance_trackingpoint)
         {
@@ -434,11 +475,24 @@ public:
 
         have_ref_ = true;
 
-        tracking_point_pub->publish(msg);
+        current_ref_pose_stamped_ = odomToPoseStamped(msg);
 
         x_pid.set_target(msg.pose.pose.position.x);
         y_pid.set_target(msg.pose.pose.position.y);
         z_pid.set_target(msg.pose.pose.position.z);
+
+        Eigen::Vector3d p0(last_ref_.pose.pose.position.x,
+                           last_ref_.pose.pose.position.y,
+                           last_ref_.pose.pose.position.z);
+
+        Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
+                           current_ref_.pose.pose.position.y,
+                           current_ref_.pose.pose.position.z);
+
+        RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
+                                             << p0);
+        RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
+                                             << p1);
     }
 
     double getYawFromQuat(const geometry_msgs::msg::Quaternion &q)
@@ -467,6 +521,7 @@ public:
     {
         got_odometry = true;
         odometry = *msg;
+        last_odom_time_ = this->now();
 
         if (!have_ref_)
         {
@@ -490,8 +545,15 @@ public:
             Eigen::Vector3d p1(current_ref_.pose.pose.position.x,
                                current_ref_.pose.pose.position.y,
                                current_ref_.pose.pose.position.z);
-            
-            RCLCPP_WARN_STREAM(get_logger(), "Holding ref point at \n" << p1);
+
+            // RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
+            //                                      << p0);
+            // RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
+            //                                      << p1);
+            // RCLCPP_WARN_STREAM(get_logger(), "Odom is at \n"
+            //                                      << p);
+            // RCLCPP_WARN_STREAM(get_logger(), "Holding ref point at \n"
+            //                                      << p1);
 
             Eigen::Vector3d d = p1 - p0;
             double d2 = d.squaredNorm();
@@ -499,7 +561,9 @@ public:
             if (d2 > 1e-8)
             {
                 double s = (p - p0).dot(d) / d2;
-                if (s > 0.5)
+                // RCLCPP_WARN_STREAM(get_logger(), "Tracking progress is \n"
+                //                                      << s);
+                if (s > 0.25)
                 {
                     advance_trackingpoint = true;
                 }
@@ -558,22 +622,41 @@ public:
 
         double yaw_rate_cmd = std::clamp(yaw_rate, -yaw_rate_max_, yaw_rate_max_);
 
-        geometry_msgs::msg::TwistStamped cmd;
+        geometry_msgs::msg::Twist cmd;
 
-        cmd.header.frame_id = target_frame;
-        cmd.header.stamp = this->get_clock()->now();
+        cmd.linear.x = v_des_B.x();
+        cmd.linear.y = v_des_B.y();
+        cmd.linear.z = v_des_B.z();
 
-        cmd.twist.linear.x = v_des_B.x();
-        cmd.twist.linear.y = v_des_B.y();
-        cmd.twist.linear.z = v_des_B.z();
-
-        cmd.twist.angular.x = 0.0;
-        cmd.twist.angular.y = 0.0;
-        cmd.twist.angular.z = yaw_rate_cmd;
+        cmd.angular.x = 0.0;
+        cmd.angular.y = 0.0;
+        cmd.angular.z = yaw_rate_cmd;
 
         // cmd now in world frame
+        curr_cmd_.twist = cmd;
+    }
 
-        command_pub->publish(cmd);
+    void cmd_timer_callback()
+    {
+        const rclcpp::Time now = this->now();
+        curr_cmd_.header.stamp = now;
+        if (got_odometry && have_ref_)
+        {
+            command_pub->publish(curr_cmd_);
+        }
+
+        current_ref_pose_stamped_.header.stamp = now;
+        current_ref_.header.stamp = now;
+        if (have_ref_)
+        {
+            // tracking_point_odom_pub->publish(current_ref_);
+            tracking_point_pub->publish(current_ref_pose_stamped_);
+            RCLCPP_INFO_STREAM(this->get_logger(),
+                               "[CTRL_PUB] TS=" << std::fixed << now.seconds()
+                                                << " | Ref_XYZ=(" << current_ref_.pose.pose.position.x << ", "
+                                                << current_ref_.pose.pose.position.y << ", "
+                                                << current_ref_.pose.pose.position.z << ")");
+        }
     }
 
     void reset_integrators_callback(const std_msgs::msg::Empty::SharedPtr)
@@ -583,6 +666,56 @@ public:
         x_pid.reset_integrator();
         y_pid.reset_integrator();
         z_pid.reset_integrator();
+    }
+
+    geometry_msgs::msg::PoseStamped odomToPoseStamped(const nav_msgs::msg::Odometry &odom)
+    {
+        geometry_msgs::msg::PoseStamped pose;
+
+        pose.header = odom.header;
+        pose.pose = odom.pose.pose;
+
+        return pose;
+    }
+
+    bool same_ref_point_already(const nav_msgs::msg::Odometry &new_tp_msg)
+    {
+        if (!have_ref_)
+        {
+            return false;
+        }
+
+        // current reference
+        const Eigen::Vector3d p_curr(
+            current_ref_.pose.pose.position.x,
+            current_ref_.pose.pose.position.y,
+            current_ref_.pose.pose.position.z);
+
+        const Eigen::Vector3d v_curr(
+            current_ref_.twist.twist.linear.x,
+            current_ref_.twist.twist.linear.y,
+            current_ref_.twist.twist.linear.z);
+
+        // new reference
+        const Eigen::Vector3d p_new(
+            new_tp_msg.pose.pose.position.x,
+            new_tp_msg.pose.pose.position.y,
+            new_tp_msg.pose.pose.position.z);
+
+        const Eigen::Vector3d v_new(
+            new_tp_msg.twist.twist.linear.x,
+            new_tp_msg.twist.twist.linear.y,
+            new_tp_msg.twist.twist.linear.z);
+
+        // diffs
+        const double pos_diff = (p_new - p_curr).norm();
+        const double vel_diff = (v_new - v_curr).norm();
+
+        // thresholds (tune these)
+        constexpr double POS_EPS = 0.0001;
+        constexpr double VEL_EPS = 0.0001;
+
+        return (pos_diff < POS_EPS) && (vel_diff < VEL_EPS);
     }
 };
 

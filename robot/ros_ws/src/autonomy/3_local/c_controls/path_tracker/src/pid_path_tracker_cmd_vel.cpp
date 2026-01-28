@@ -242,8 +242,13 @@ public:
         this->get_parameter("yaw_rate_max", yaw_rate_max_);
 
         // 20Hz timer
-        cmd_timer_ = this->create_wall_timer(std::chrono::milliseconds(50),
-                                             std::bind(&PIDPathTrackerNode::cmd_timer_callback, this));
+        // cmd_timer_ = this->create_wall_timer(std::chrono::milliseconds(50),
+        //                                      std::bind(&PIDPathTrackerNode::cmd_timer_callback, this));
+        cmd_timer_ = rclcpp::create_timer(this->get_node_base_interface(),
+                                          this->get_node_timers_interface(),
+                                          this->get_clock(),
+                                          std::chrono::milliseconds(50),
+                                          std::bind(&PIDPathTrackerNode::cmd_timer_callback, this));
     }
 
     void trajectory_callback(const trajectory_msgs::msg::MultiDOFJointTrajectory::SharedPtr msg)

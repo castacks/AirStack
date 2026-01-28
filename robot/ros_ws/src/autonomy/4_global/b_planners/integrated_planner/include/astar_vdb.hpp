@@ -69,7 +69,7 @@ public:
         NO_PATH = 2
     };
 
-    void initialize(std::shared_ptr<VDBMap> &map_manager);
+    void initialize(std::shared_ptr<VDBMap> &map_manager, double safe_robot_r_=0.5);
     void reset();
 
     int search(const openvdb::Coord &start_pt, const openvdb::Coord &end_pt);

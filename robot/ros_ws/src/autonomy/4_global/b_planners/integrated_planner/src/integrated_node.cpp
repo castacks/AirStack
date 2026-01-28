@@ -48,12 +48,15 @@ void PlannerNode::initialize()
     RCLCPP_INFO(node_handle_->get_logger(), "Initialized VDB grids");
 
     // Initialize astar planner.
-    astar_planner_.initialize(map_manager_);
-
     setup_parameters();
 
-    sub_tracking_point = node_handle_->create_subscription<geometry_msgs::msg::PoseStamped>("/tracking_point", 1,
-                                                                                            std::bind(&PlannerNode::tracking_point_callback, this, std::placeholders::_1));
+    astar_planner_.initialize(map_manager_, safe_robot_r_);
+
+    cbg_planner_ = node_handle_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+    rclcpp::SubscriptionOptions opt;
+    opt.callback_group = cbg_planner_;
+    sub_tracking_point = node_handle_->create_subscription<geometry_msgs::msg::PoseStamped>("/tracking_point", rclcpp::QoS(10),
+                                                                                            std::bind(&PlannerNode::tracking_point_callback, this, std::placeholders::_1), opt);
 
     pub_global_plan =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_global_plan_topic_, 10);
@@ -79,7 +82,8 @@ void PlannerNode::initialize()
 
     // Set up the timer
     plan_timer_ = node_handle_->create_wall_timer(std::chrono::seconds(1),
-                                                  std::bind(&PlannerNode::timerCallback, this));
+                                                  std::bind(&PlannerNode::timerCallback, this),
+                                                  cbg_planner_);
     // Set up the service
     srv_exploration_toggle = node_handle_->create_service<std_srvs::srv::Trigger>(
         srv_exploration_toggle_topic_, std::bind(&PlannerNode::ExplorationToggleCallback, this,
@@ -176,8 +180,20 @@ void PlannerNode::ExplorationToggleCallback(
 
 void PlannerNode::tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-    has_tracking_point_ = true;
-    current_tracking_point_ = *msg;
+    rclcpp::Time now = node_handle_->now();
+    double latency = (now - msg->header.stamp).seconds();
+    {
+        std::unique_lock<std::shared_mutex> lk(tp_mtx_);
+        has_tracking_point_ = true;
+        current_tracking_point_ = *msg;
+    }
+    RCLCPP_INFO_STREAM(node_handle_->get_logger(),
+                       "[PLAN_SUB] TS_Recv=" << std::fixed << now.seconds()
+                                             << " | TS_Msg=" << msg->header.stamp.sec << "." << msg->header.stamp.nanosec
+                                             << " | Latency=" << latency
+                                             << " | TP_XYZ=(" << msg->pose.position.x << ", "
+                                             << msg->pose.position.y << ", "
+                                             << msg->pose.position.z << ")");
 }
 
 void PlannerNode::generate_plan()
@@ -206,6 +222,8 @@ void PlannerNode::generate_plan()
         next_start_yaw_ = current_path_dense_.back().yaw_;
     }
 
+    RCLCPP_INFO_STREAM(node_handle_->get_logger(), "New plan start from " << start_point.transpose());
+
     openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
 
     openvdb::Vec3d start_world(start_point.x(), start_point.y(), start_point.z());
@@ -226,10 +244,15 @@ void PlannerNode::generate_plan()
     valid_vp_pose_array.header.frame_id = "map";
     for (auto &vp : goal_candidates)
     {
-        // hacky: isaac-sim has lidar point underground, cannot go down.
-        if (vp.pos_.z() < -1.7 || vp.pos_.z() > -0.5 ||
-            vp.pos_.x() < -3.0 || vp.pos_.x() > 4.0 ||
-            vp.pos_.y() < -2.0 || vp.pos_.y() > 2.0)
+        // exploration bound for e57 usd
+        // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 6.0 ||
+        //     vp.pos_.x() < -10.0 || vp.pos_.x() > 35.0 ||
+        //     vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
+
+        // exploration bound for site B usd
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 19.5 ||
+            vp.pos_.x() < -14.5 || vp.pos_.x() > 45.5 ||
+            vp.pos_.y() < -31.5 || vp.pos_.y() > 8.5)
         {
             continue;
         }
@@ -252,12 +275,19 @@ void PlannerNode::generate_plan()
     valid_vp_pose_array.header.stamp = node_handle_->get_clock()->now();
     pub_valid_viewpoints->publish(valid_vp_pose_array);
 
+    RCLCPP_INFO(node_handle_->get_logger(), "Filtered VP in bound");
+
     for (auto &vp : goal_candidates)
     {
-        // hacky: isaac-sim has lidar point underground, cannot go down.
-        if (vp.pos_.z() < -1.7 || vp.pos_.z() > -0.5 ||
-            vp.pos_.x() < -3.0 || vp.pos_.x() > 4.0 ||
-            vp.pos_.y() < -2.0 || vp.pos_.y() > 2.0)
+        // exploration bound for e57 usd
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 6.0 ||
+            vp.pos_.x() < -10.0 || vp.pos_.x() > 35.0 ||
+            vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
+
+        // exploration bound for site B usd
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 19.5 ||
+            vp.pos_.x() < -14.5 || vp.pos_.x() > 45.5 ||
+            vp.pos_.y() < -31.5 || vp.pos_.y() > 8.5)
         {
             continue;
         }
@@ -270,12 +300,15 @@ void PlannerNode::generate_plan()
 
         if (plan_result == Astar::REACH_END)
         {
+            RCLCPP_INFO(node_handle_->get_logger(), "Astar success, shortening");
             // astar_planner_.pathSmooth(generated_path_raw_);
             astar_planner_.pathShorten(generated_path_raw_);
             next_goal_yaw_ = vp.yaw_;
             break;
         }
     }
+
+    RCLCPP_INFO(node_handle_->get_logger(), "Finish Astar planning");
 
     if (generated_path_raw_.empty())
     {
@@ -298,6 +331,8 @@ void PlannerNode::generate_plan()
         m.header.frame_id = world_frame_id_;
     }
     planning_smoothed_vis->publish(smoothed_result_vis);
+
+    RCLCPP_INFO(node_handle_->get_logger(), "Plan generated");
 }
 
 bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point)
@@ -347,11 +382,14 @@ bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point
     }
     planning_smoothed_vis->publish(smoothed_result_vis);
 
+    RCLCPP_INFO(node_handle_->get_logger(), "Replan generated");
+
     return true;
 }
 
 void PlannerNode::interpolate_plan(double t_offset)
 {
+    RCLCPP_WARN(node_handle_->get_logger(), "Plan interpolate start.");
     generated_path_dense_.clear();
 
     if (generated_path_raw_.empty())
@@ -514,6 +552,7 @@ void PlannerNode::interpolate_plan(double t_offset)
         double yaw = yaw_start + sb * yaw_diff;
         pt.yaw_ = wrapAngle(yaw);
     }
+    RCLCPP_WARN(node_handle_->get_logger(), "Plan interpolated.");
 }
 
 void PlannerNode::publish_plan()
@@ -568,8 +607,8 @@ void PlannerNode::publish_plan()
     }
 
     pub_trajectory_->publish(traj_msg);
-    visualize_local_traj();
-    visualize_full_path();
+    // visualize_local_traj();
+    // visualize_full_path();
 }
 
 void PlannerNode::visualize_local_traj()
@@ -670,11 +709,22 @@ void PlannerNode::visualize_full_path()
 void PlannerNode::trim_covered_path()
 {
     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Trimming");
-    if (has_tracking_point_)
+    bool has_tp = false;
+    geometry_msgs::msg::PoseStamped ctp;
     {
-        Eigen::Vector3d p_track(current_tracking_point_.pose.position.x,
-                                current_tracking_point_.pose.position.y,
-                                current_tracking_point_.pose.position.z);
+        std::shared_lock<std::shared_mutex> lk(tp_mtx_);
+        has_tp = has_tracking_point_;
+        if (has_tp)
+        {
+            ctp = current_tracking_point_;
+        }
+    }
+    if (has_tp)
+    {
+
+        Eigen::Vector3d p_track(ctp.pose.position.x,
+                                ctp.pose.position.y,
+                                ctp.pose.position.z);
         RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Latest ref point is \n"
                                                            << p_track);
         double best_d2 = std::numeric_limits<double>::infinity();
@@ -705,6 +755,11 @@ void PlannerNode::trim_covered_path()
         }
         return;
     }
+    else
+    {
+        RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No tracking point from controller.");
+    }
+
     // Check current progress
     Eigen::Vector3d curr_p(current_location_.translation.x,
                            current_location_.translation.y,
@@ -799,7 +854,8 @@ bool PlannerNode::check_local_path_free()
         // if (q && sq_dist <= safe_sq_idx_dist_)
         if (sq_dist <= safe_sq_idx_dist_)
         {
-            RCLCPP_WARN_STREAM(node_handle_->get_logger(), "having collision point at \n" << pt.pos_);
+            RCLCPP_WARN_STREAM(node_handle_->get_logger(), "having collision point at \n"
+                                                               << pt.pos_);
             RCLCPP_WARN_STREAM(node_handle_->get_logger(), "sq_dist is " << sq_dist << " safe sq_dist is " << safe_sq_idx_dist_);
 
             return false;
@@ -810,6 +866,13 @@ bool PlannerNode::check_local_path_free()
 
 void PlannerNode::timerCallback()
 {
+    if (!planning_mtx_.try_lock())
+    {
+        RCLCPP_WARN(node_handle_->get_logger(), "Planner is busy (A* taking too long), skipping this loop.");
+        return; 
+    }
+    std::lock_guard<std::mutex> lg(planning_mtx_, std::adopt_lock);
+
     RCLCPP_WARN(node_handle_->get_logger(), "Timer callback start");
     // get current TF to world
     try
@@ -863,19 +926,7 @@ void PlannerNode::timerCallback()
             return;
         }
 
-        // RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Before trim, point num is "
-        //                                                    << current_path_dense_.size());
-        // Check current position, removed executed path, reset time: current_path_dense_[0] has 0 time from start
-        // RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Before trim, front point is \n"
-        //                                                    << current_path_dense_[0].pos_);
         trim_covered_path();
-        // if (!current_path_dense_.empty())
-        // {
-        //     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "After trim, front point is \n"
-        //                                                        << current_path_dense_[0].pos_);
-        // }
-        // RCLCPP_WARN_STREAM(node_handle_->get_logger(), "After trim, point num is "
-        //                                                    << current_path_dense_.size());
 
         // Check Collision
         if (!check_local_path_free())
@@ -883,6 +934,9 @@ void PlannerNode::timerCallback()
             double t_start = 0;
             // First try replan based on current target, if fail, plan based on all viewpoints
             RCLCPP_WARN(node_handle_->get_logger(), "Collision ahead detected, replan.");
+            // To avoid voxel plan drag the start point back to cell center
+            TimedXYZYaw precise_start = current_path_dense_[1];
+
             if (!generate_replan(current_path_dense_[1], current_path_dense_.back()))
             {
                 // make the current_path_dense_ end at [1], for generate_plan() starting point.
@@ -895,6 +949,8 @@ void PlannerNode::timerCallback()
             current_path_dense_.insert(current_path_dense_.end(),
                                        generated_path_dense_.begin(),
                                        generated_path_dense_.end());
+            current_path_dense_.front().pos_ = precise_start.pos_;
+            current_path_dense_.front().yaw_ = precise_start.yaw_;
             if (current_path_dense_.size() < 2)
             {
                 RCLCPP_WARN(node_handle_->get_logger(), "After replan, no path to execute.");
