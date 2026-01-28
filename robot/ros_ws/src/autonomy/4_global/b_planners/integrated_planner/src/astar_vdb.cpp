@@ -215,19 +215,19 @@ int Astar::search(const openvdb::Coord &start_ijk,
                     ////////////////////////////////////////////////////////////
 
                     // Distance Field no data (unknown) -> free to explore
-                    double sqdist = 0.0;
-                    if (map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
-                    {
-                        if (sqdist <= safe_sq_index_dist_)
-                        {
-                            close_set_.insert(nbr_ijk);
-                            continue;
-                        }
-                    }
+                    // double sqdist = 0.0;
+                    // if (map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
+                    // {
+                    //     if (sqdist <= safe_sq_index_dist_)
+                    //     {
+                    //         close_set_.insert(nbr_ijk);
+                    //         continue;
+                    //     }
+                    // }
 
                     ///////////////////////////////////////////////////
                     // Search Boundary for demo Jan 9
-                    
+
                     // openvdb::Vec3d nbr_xyz = tf->indexToWorld(nbr_ijk);
                     // if (nbr_xyz.x() > 3.5 || nbr_xyz.x() < -3.0 ||
                     //     nbr_xyz.y() > 2.0 || nbr_xyz.y() < -2.0 ||
@@ -239,7 +239,7 @@ int Astar::search(const openvdb::Coord &start_ijk,
 
                     /////////////////////////////////////////////
                     // Distance Field no data (unknown) -> not free to explore
-                    
+
                     // double sqdist = 0.0;
                     // if (!map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
                     // {
@@ -252,6 +252,41 @@ int Astar::search(const openvdb::Coord &start_ijk,
                     //     close_set_.insert(nbr_ijk);
                     //     continue;
                     // }
+
+                    /////////////////////////////////////////////////////////////
+                    // Mix: Within a range, be strict:
+                    // Distance Field no data (unknown) -> not free to explore
+                    // Beyond the range, be optimistic:
+                    // Distance Field no data (unknown) -> free to explore
+                    double opt_thres = 10.0;
+
+                    if (cur->g_score < opt_thres)
+                    {
+                        double sqdist = 0.0;
+                        if (!map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
+                        {
+                            close_set_.insert(nbr_ijk);
+                            continue;
+                        }
+
+                        if (sqdist <= safe_sq_index_dist_)
+                        {
+                            close_set_.insert(nbr_ijk);
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        double sqdist = 0.0;
+                        if (map_manager_->query_sqdist_at_index(nbr_ijk, sqdist))
+                        {
+                            if (sqdist <= safe_sq_index_dist_)
+                            {
+                                close_set_.insert(nbr_ijk);
+                                continue;
+                            }
+                        }
+                    }
 
                     /////////////////////////////////////////////////////////////
 

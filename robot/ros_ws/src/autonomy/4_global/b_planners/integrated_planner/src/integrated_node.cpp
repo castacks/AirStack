@@ -250,9 +250,9 @@ void PlannerNode::generate_plan()
         //     vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
 
         // exploration bound for site B usd
-        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 19.5 ||
-            vp.pos_.x() < -14.5 || vp.pos_.x() > 45.5 ||
-            vp.pos_.y() < -31.5 || vp.pos_.y() > 8.5)
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
+            vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
+            vp.pos_.x() > 31.5 || vp.pos_.x() < -2.5)
         {
             continue;
         }
@@ -280,14 +280,14 @@ void PlannerNode::generate_plan()
     for (auto &vp : goal_candidates)
     {
         // exploration bound for e57 usd
-        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 6.0 ||
-            vp.pos_.x() < -10.0 || vp.pos_.x() > 35.0 ||
-            vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
+        // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 6.0 ||
+        //     vp.pos_.x() < -10.0 || vp.pos_.x() > 35.0 ||
+        //     vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
 
         // exploration bound for site B usd
-        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 19.5 ||
-            vp.pos_.x() < -14.5 || vp.pos_.x() > 45.5 ||
-            vp.pos_.y() < -31.5 || vp.pos_.y() > 8.5)
+        if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
+            vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
+            vp.pos_.x() > 31.5 || vp.pos_.x() < -2.5)
         {
             continue;
         }
@@ -851,8 +851,8 @@ bool PlannerNode::check_local_path_free()
         bool q = map_manager_->query_sqdist_at_world(pt.pos_, sq_dist);
 
         // unknown -> free, may change later, but must align with A* close set judge
-        // if (q && sq_dist <= safe_sq_idx_dist_)
-        if (sq_dist <= safe_sq_idx_dist_)
+        if (q && sq_dist <= safe_sq_idx_dist_)
+        // if (sq_dist <= safe_sq_idx_dist_)
         {
             RCLCPP_WARN_STREAM(node_handle_->get_logger(), "having collision point at \n"
                                                                << pt.pos_);

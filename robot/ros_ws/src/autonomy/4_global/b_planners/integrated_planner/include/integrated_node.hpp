@@ -127,7 +127,7 @@ private:
     double stall_timeout_seconds = 5.0;              // Time without movement before clearing plan
     double traj_horizon_ = 3.0;
 
-    double replan_remain_time_ = 1.0; // When remain path shorten than this, start replan and add the replanned to the end
+    double replan_remain_time_ = 3.0; // When remain path shorten than this, start replan and add the replanned to the end
     TimedXYZYaw last_traj_endpoint_;
 
     double cluster_cube_dim;
