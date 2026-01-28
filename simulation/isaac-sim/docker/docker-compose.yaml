@@ -17,7 +17,7 @@ services:
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
         if [ \"${ISAAC_SIM_USE_STANDALONE_SCRIPT}\" = 'true' ]; then
-          tmux send-keys -t isaac '/isaac-sim/python.sh /root/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
+          tmux send-keys -t isaac 'run_isaac_python /root/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
         else
           tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
         fi
