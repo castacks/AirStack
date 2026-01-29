@@ -1,4 +1,5 @@
 
 [bookmarks]
 "AirLab Nucleus Server" = "omniverse://airlab-nucleus.andrew.cmu.edu"
+"AirStack Isaac Assets" = "file:///root/AirStack/simulation/isaac-sim/assets/"
 Franka = "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/4.5/Isaac/Robots/Franka/"
