@@ -1,0 +1,45 @@
+<!-- ROBOT -->
+<launch>
+
+  <arg name="sim" default="true" />
+  <arg name="record_bag" default="false" />
+
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
+
+  <!-- Sim -->
+  <group if="$(var sim)">
+    <include file="$(find-pkg-share robot_bringup)/launch/sim.launch.xml" />
+  </group>
+  <!-- Real -->
+  <group unless="$(var sim)">
+    <include file="$(find-pkg-share robot_bringup)/launch/real.launch.xml" />
+  </group>
+
+  <!-- Robot State Publisher (replaces static transforms) -->
+  <include file="$(find-pkg-share robot_bringup)/launch/robot_state_publisher.launch.py">
+    <arg name="robot_name" value="$(env ROBOT_NAME)" />
+    <arg name="urdf_file_path" value="$(env ROBOT_URDF_FILE_PATH)" />
+    <arg name="ignore_timestamp" value="true" />
+    <arg name="use_sim_time" value="$(var sim)" />
+  </include>
+
+  <!-- Static TFs for simulation connection -->
+  <include file="$(find-pkg-share robot_bringup)/launch/static_transforms.launch.xml">
+    <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
+  </include>
+
+  <!-- Autonomy -->
+  <include
+    file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
+
+  <!-- Logging -->
+  <!-- <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" /> -->
+
+  <!-- Domain Bridge -->
+  <node pkg="domain_bridge" exec="domain_bridge"
+    args="/root/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    output="screen" respawn="true" respawn_delay="1" />
+
+</launch>

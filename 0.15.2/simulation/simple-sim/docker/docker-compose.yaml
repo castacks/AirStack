@@ -1,0 +1,50 @@
+services:
+  simple-sim:
+    profiles:
+      - simple
+    image: &simple_sim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_simple_sim
+    build:
+      context: ./
+      dockerfile: Dockerfile.sim
+      tags:
+        - *simple_sim_image
+    entrypoint: ""
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s sim
+      && tmux send-keys -t sim
+      'cd /models && ./download.sh && cd ~/ros_ws/ && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=1 ros2 launch sim sim.launch.xml' ENTER
+      && sleep infinity"
+    # Interactive shell
+    stdin_open: true
+    tty: true
+    ipc: host
+    privileged: true
+    runtime: nvidia
+    networks:
+      airstack_network:
+        ipv4_address: 172.31.0.200
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - ./bashrc:/root/.bashrc:rw # bash config
+      - /var/run/docker.sock:/var/run/docker.sock # access docker API for container name
+      - ../models:/models/:rw
+      # autonomy stack stuff
+      - ../ros_ws:/root/ros_ws:rw # sim-specific ROS packages
+      - ../../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history

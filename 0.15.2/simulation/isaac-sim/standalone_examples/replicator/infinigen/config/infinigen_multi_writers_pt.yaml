@@ -1,0 +1,111 @@
+environments:
+  # List of background environments (list of folders or files)
+  folders:
+    - /Isaac/Samples/Replicator/Infinigen/dining_rooms/
+  files: []
+
+capture:
+  # Number of captures (frames = total_captures * num_cameras)
+  total_captures: 12
+  # Number of captures per environment before running the simulation (objects in the air)
+  num_floating_captures_per_env: 2
+  # Number of captures per environment after running the simulation (objects dropped)
+  num_dropped_captures_per_env: 3
+  # Number of cameras to capture from (each camera will have a render product attached)
+  num_cameras: 2
+  # Resolution of the captured frames
+  resolution: [640, 480]
+  # Disable render products throughout the pipeline, enable them only when capturing the frames
+  disable_render_products: true
+  # Number of subframes to render (RayTracedLighting) to avoid temporal rendering artifacts (e.g. ghosting)
+  rt_subframes: 8
+  # Use PathTracing renderer instead of RayTracedLighting when capturing the frames
+  path_tracing: true
+  # Offset to avoid the images always being in the image center
+  camera_look_at_target_offset: 0.1
+  # Distance between the camera and the target object
+  camera_distance_to_target_range: [1.05, 1.25]
+  # Number of scene lights to create in the working area
+  num_scene_lights: 4
+
+writers:
+  # Type of the writer to use (e.g. PoseWriter, BasicWriter, etc.) and the kwargs to pass to the writer init
+  - type: BasicWriter
+    kwargs:
+      output_dir: "_out_infinigen_basicwriter_pt"
+      rgb: true
+      semantic_segmentation: true
+      colorize_semantic_segmentation: true
+      use_common_output_dir: false
+  - type: DataVisualizationWriter
+    kwargs:
+      output_dir: "_out_infinigen_dataviswriter_pt"
+      bounding_box_2d_tight: true
+      bounding_box_2d_tight_params:
+        background: rgb
+      bounding_box_3d: true
+      bounding_box_3d_params:
+        background: normals
+
+labeled_assets:
+  # Labeled assets with auto-labeling (e.g. 002_banana -> banana) using regex pattern replacement on the asset name
+  auto_label:
+    # Number of labeled assets to create from the given files/folders list
+    num: 5
+    # Chance to disable gravity for the labeled assets (0.0 - all the assets will fall, 1.0 - all the assets will float)
+    gravity_disabled_chance: 0.25
+    # List of folders and files to search for the labeled assets
+    folders:
+      - /Isaac/Props/YCB/Axis_Aligned/
+    files:
+      - /Isaac/Props/YCB/Axis_Aligned/036_wood_block.usd
+    # Regex pattern to replace in the asset name (e.g. "002_banana" -> "banana")
+    regex_replace_pattern: "^\\d+_"
+    regex_replace_repl: ""
+
+  # Manually labeled assets with specific labels and properties
+  manual_label:
+    - url: /Isaac/Props/YCB/Axis_Aligned/008_pudding_box.usd
+      label: pudding_box
+      num: 2
+      gravity_disabled_chance: 0.25
+    - url: /Isaac/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd
+      label: mustard_bottle
+      num: 2
+      gravity_disabled_chance: 0.25
+
+distractors:
+  # Shape distractors (unlabeled background assets) to drop in the scene (e.g. capsules, cones, cylinders)
+  shape_distractors:
+    # Amount of shape distractors to create
+    num: 30
+    # Chance to disable gravity for the shape distractors
+    gravity_disabled_chance: 0.25
+    # List of shape types to randomly choose from
+    types: ["capsule", "cone", "cylinder", "sphere", "cube"]
+
+  # Mesh distractors (unlabeled background assets) to drop in the scene
+  mesh_distractors:
+    # Amount of mesh distractors to create
+    num: 10
+    # Chance to disable gravity for the mesh distractors
+    gravity_disabled_chance: 0.25
+    # List of folders and files to search to randomly choose from
+    folders:
+      - /NVIDIA/Assets/DigitalTwin/Assets/Warehouse/Safety/Floor_Signs/
+      - /NVIDIA/Assets/DigitalTwin/Assets/Warehouse/Safety/Cones/
+    files:
+      - /Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxD_04_1847.usd
+      - /Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01_414.usd
+      - /Isaac/Environments/Simple_Warehouse/Props/S_TrafficCone.usd
+      - /Isaac/Environments/Simple_Warehouse/Props/S_WetFloorSign.usd
+      - /Isaac/Environments/Office/Props/SM_Book_03.usd
+      - /Isaac/Environments/Office/Props/SM_Book_34.usd
+      - /Isaac/Environments/Office/Props/SM_BookOpen_01.usd
+      - /Isaac/Environments/Office/Props/SM_Briefcase.usd
+      - /Isaac/Environments/Office/Props/SM_Extinguisher.usd
+      - /Isaac/Environments/Hospital/Props/SM_MedicalBag_01a.usd
+      - /Isaac/Environments/Hospital/Props/SM_MedicalBox_01g.usd
+
+# Hide ceiling, move viewport camera to top-down view above the working area
+debug_mode: true

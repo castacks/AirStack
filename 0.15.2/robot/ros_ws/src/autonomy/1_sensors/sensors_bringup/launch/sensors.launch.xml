@@ -1,0 +1,11 @@
+<!-- SENSORS -->
+<launch>
+    <group>
+        <push-ros-namespace namespace="sensors"/>
+        <!-- nothing right now -->
+    </group>
+    <!-- should we put this under the sensors namespace above? -->
+    <node
+        pkg="gimbal_stabilizer" exec="gimbal_stabilizer_node" name="gimbal_stabilizer" output="screen">
+    </node>    
+</launch>
