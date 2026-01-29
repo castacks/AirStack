@@ -5,14 +5,11 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1
         - /Local1
-        - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
-        - /Local1/DROAN1/Traj Library1/Namespaces1
-        - /Local1/Trajectory Controller1/Traj Vis1/Namespaces1
         - /Global1
-        - /Marker1
-      Splitter Ratio: 0.5341615080833435
-    Tree Height: 605
+      Splitter Ratio: 0.5525727272033691
+    Tree Height: 576
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -30,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: OCC Grid
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
@@ -61,34 +58,10 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        CameraLeft:
-          Value: false
-        CameraRight:
-          Value: false
-        ZED_X:
-          Value: false
-        base_link:
-          Value: true
-        base_link_frd:
-          Value: false
-        base_link_ground_truth:
-          Value: false
-        base_link_stabilized:
-          Value: true
         map:
           Value: true
-        map_ned:
-          Value: false
         mavros_enu:
           Value: false
-        odom:
-          Value: true
-        odom_ned:
-          Value: false
-        ouster:
-          Value: false
-        world:
-          Value: true
       Marker Scale: 2
       Name: TF
       Show Arrows: true
@@ -96,25 +69,8 @@ Visualization Manager:
       Show Names: true
       Tree:
         mavros_enu:
-          base_link_ground_truth:
-            {}
           map:
-            base_link:
-              ZED_X:
-                CameraLeft:
-                  {}
-                CameraRight:
-                  {}
-              base_link_frd:
-                {}
-              ouster:
-                {}
-            base_link_stabilized:
-              {}
-            map_ned:
-              {}
-        world:
-          {}
+            {}
       Update Interval: 0
       Value: true
     - Class: rviz_common/Group
@@ -145,7 +101,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: System Default
-            Value: /robot_1/sensors/front_stereo/depth/depth_registered
+            Value: /robot_1/sensors/front_stereo/left/depth
           Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -168,16 +124,16 @@ Visualization Manager:
           Name: Lidar
           Position Transformer: XYZ
           Selectable: true
-          Size (Pixels): 1
-          Size (m): 0.25
-          Style: Boxes
+          Size (Pixels): 10
+          Size (m): 0.019999999552965164
+          Style: Flat Squares
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /drone_0_grid/grid_map/occupancy_inflate
+            Value: /robot_1/sensors/ouster/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: false
@@ -349,196 +305,9 @@ Visualization Manager:
       Name: Perception
     - Class: rviz_common/Group
       Displays:
-        - Class: rviz_common/Group
-          Displays:
-            - Class: rviz_default_plugins/Marker
-              Enabled: false
-              Name: Disparity Frustum
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                Filter size: 10
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/frustum
-              Value: false
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
-              Name: Disparity Map Collision Checking
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/disparity_map_debug
-              Value: false
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Disparity Graph Poses
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/disparity_graph
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Trimmed Global Plan for DROAN
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/local_planner_global_plan_vis
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
-              Name: ExpansionPoly
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/expansion_poly
-              Value: false
-            - Alpha: 1
-              Autocompute Intensity Bounds: true
-              Autocompute Value Bounds:
-                Max Value: 10
-                Min Value: -10
-                Value: true
-              Axis: Z
-              Channel Name: intensity
-              Class: rviz_default_plugins/PointCloud2
-              Color: 255; 255; 255
-              Color Transformer: Intensity
-              Decay Time: 0
-              Enabled: true
-              Invert Rainbow: false
-              Max Color: 255; 255; 255
-              Max Intensity: 220
-              Min Color: 0; 0; 0
-              Min Intensity: 120
-              Name: Expansion Cloud
-              Position Transformer: XYZ
-              Selectable: true
-              Size (Pixels): 3
-              Size (m): 0.009999999776482582
-              Style: Points
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                Filter size: 10
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/expansion_cloud
-              Use Fixed Frame: true
-              Use rainbow: true
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Traj Library
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/trajectory_library_vis
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Virtual Obstacles
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: droan/virtual_obstacles
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Rewind Info
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/rewind_info
-              Value: true
-            - Alpha: 1
-              Axes Length: 0.5
-              Axes Radius: 0.5
-              Class: rviz_default_plugins/Pose
-              Color: 255; 25; 0
-              Enabled: true
-              Head Length: 0.30000001192092896
-              Head Radius: 0.10000000149011612
-              Name: Map Clearing Point
-              Shaft Length: 1
-              Shaft Radius: 0.05000000074505806
-              Shape: Axes
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                Filter size: 10
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: /robot_1/droan/map_clearing_point
-              Value: true
-          Enabled: false
-          Name: DROAN
-        - Class: rviz_common/Group
-          Displays:
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: true
-              Name: Traj Vis
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: trajectory_controller/trajectory_vis
-              Value: true
-            - Class: rviz_default_plugins/MarkerArray
-              Enabled: false
-              Name: Traj Debug
-              Namespaces:
-                {}
-              Topic:
-                Depth: 5
-                Durability Policy: Volatile
-                History Policy: Keep Last
-                Reliability Policy: Reliable
-                Value: trajectory_controller/trajectory_controller_debug_markers
-              Value: false
-          Enabled: true
-          Name: Trajectory Controller
-      Enabled: true
-      Name: Local
-    - Class: rviz_common/Group
-      Displays:
         - Class: rviz_default_plugins/Marker
           Enabled: true
-          Name: VDB Mapping Marker
+          Name: Local Trajectory
           Namespaces:
             {}
           Topic:
@@ -547,13 +316,37 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/exploration_planner/vdb_viz
+            Value: /robot_1/integrated_planner/traj_viz
           Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz_default_plugins/Pose
+          Color: 255; 25; 0
+          Enabled: true
+          Head Length: 0.30000001192092896
+          Head Radius: 0.10000000149011612
+          Name: Tracking Point
+          Shaft Length: 1
+          Shaft Radius: 0.05000000074505806
+          Shape: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /tracking_point
+          Value: true
+      Enabled: true
+      Name: Local
+    - Class: rviz_common/Group
+      Displays:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 9.699999809265137
-            Min Value: -3.5
+            Max Value: -9999
+            Min Value: 9999
             Value: true
           Axis: Z
           Channel Name: intensity
@@ -566,8 +359,8 @@ Visualization Manager:
           Max Color: 255; 255; 255
           Max Intensity: 3.5
           Min Color: 0; 0; 0
-          Min Intensity: 0.010000109672546387
-          Name: PointCloud2
+          Min Intensity: 0
+          Name: OCC Grid
           Position Transformer: XYZ
           Selectable: true
           Size (Pixels): 3
@@ -583,82 +376,126 @@ Visualization Manager:
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
-        - Alpha: 1
-          Buffer Length: 1
-          Class: rviz_default_plugins/Path
-          Color: 0; 255; 255
-          Enabled: true
-          Head Diameter: 0.30000001192092896
-          Head Length: 0.20000000298023224
-          Length: 0.30000001192092896
-          Line Style: Billboards
-          Line Width: 0.10000000149011612
-          Name: Global Plan
-          Offset:
-            X: 0
-            Y: 0
-            Z: 0
-          Pose Color: 255; 85; 255
-          Pose Style: None
-          Radius: 0.029999999329447746
-          Shaft Diameter: 0.10000000149011612
-          Shaft Length: 0.10000000149011612
+        - Class: rviz_default_plugins/Marker
+          Enabled: false
+          Name: Dist Slice
+          Namespaces:
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/global_plan
+            Value: /dist_slice
+          Value: false
+        - Class: rviz_default_plugins/Marker
+          Enabled: false
+          Name: Frontier Grid
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /frontier_vis
+          Value: false
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: -10
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud2
+          Color: 255; 255; 255
+          Color Transformer: Intensity
+          Decay Time: 0
+          Enabled: false
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 1444
+          Min Color: 0; 0; 0
+          Min Intensity: 1
+          Name: Clustered Frontiers
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 10
+          Size (m): 0.20000000298023224
+          Style: Flat Squares
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /frontier_clusters
+          Use Fixed Frame: true
+          Use rainbow: true
+          Value: false
+        - Alpha: 1
+          Arrow Length: 0.30000001192092896
+          Axes Length: 0.30000001192092896
+          Axes Radius: 0.009999999776482582
+          Class: rviz_default_plugins/PoseArray
+          Color: 255; 25; 0
+          Enabled: true
+          Head Length: 0.20000000298023224
+          Head Radius: 0.20000000298023224
+          Name: Valid Viewpoints
+          Shaft Length: 0.5
+          Shaft Radius: 0.10000000149011612
+          Shape: Arrow (3D)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /valid_viewpoints
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: false
+          Name: Raw Astar Plan
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /astar_plan_vis
+          Value: false
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Shortened Astar Plan
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /smoothed_plan_vis
+          Value: true
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: Global Plan
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/integrated_planner/global_plan_viz
           Value: true
       Enabled: true
       Name: Global
-    - Alpha: 1
-      Arrow Length: 0.30000001192092896
-      Axes Length: 0.30000001192092896
-      Axes Radius: 0.009999999776482582
-      Class: rviz_default_plugins/PoseArray
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0.20000000298023224
-      Head Radius: 0.20000000298023224
-      Name: Sampled Viewpoints
-      Shaft Length: 0.5
-      Shaft Radius: 0.10000000149011612
-      Shape: Arrow (3D)
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /sampled_viewpoints
-      Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: MarkerArray
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /exploration_debug_vis
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        "": true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /dist_slice
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -705,25 +542,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 35.086585998535156
+      Distance: 27.44026756286621
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.3482944965362549
-        Y: -1.1986117362976074
-        Z: -2.683820962905884
+        X: -2.355004072189331
+        Y: -4.164763450622559
+        Z: -0.31518638134002686
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0797966718673706
+      Pitch: 1.354796051979065
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.955876588821411
+      Yaw: 3.1027438640594482
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
@@ -739,7 +576,7 @@ Window Geometry:
   Hide Right Dock: false
   MACVO Disparity:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001c1000003a2fc020000000dfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000298000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca0000000000000000fb0000002000460072006f006e00740020004c006500660074002000440065007000740068000000029d0000007a0000002800fffffffb0000001c00460072006f006e00740020004c006500660074002000520047004201000002d9000001040000002800fffffffb0000001e004d004100430056004f00200044006900730070006100720069007400790000000338000000a50000002800ffffff00000001000001f6000003a2fc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042000000003b0000011a0000000000000000fb0000002000460072006f006e00740020004c006500660074002000440065007000740068000000003b000001c70000000000000000fb0000001e004d004100430056004f0020004400690073007000610072006900740079000000003b000003a20000000000000000fb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073800000171fc0100000003fb0000000800540069006d00650000000000000007380000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c0000000320000004180000023300fffffffb0000000800540069006d0065010000000000000450000000000000000000000571000003a200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001c1000003a2fc020000000dfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000027b000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca0000000000000000fb0000002000460072006f006e00740020004c0065006600740020004400650070007400680000000237000000bc0000002800fffffffb0000001c00460072006f006e00740020004c006500660074002000520047004201000002bc000001210000002800fffffffb0000001e004d004100430056004f00200044006900730070006100720069007400790000000338000000a50000002800ffffff00000001000001f6000003a2fc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042000000003b0000011a0000000000000000fb0000002000460072006f006e00740020004c006500660074002000440065007000740068000000003b000001c70000000000000000fb0000001e004d004100430056004f0020004400690073007000610072006900740079000000003b000003a20000000000000000fb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073800000171fc0100000003fb0000000800540069006d00650000000000000007380000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c0000000320000004180000023300fffffffb0000000800540069006d0065010000000000000450000000000000000000000571000003a200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
