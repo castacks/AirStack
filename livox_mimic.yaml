@@ -1,0 +1,60 @@
+{
+    "comment1" : "parameters obtained from https://data.ouster.io/downloads/datasheets/datasheet-rev7-v3p0-os0.pdf",
+    "comment2" : "parameters without comments are assumed correct, but will ultimately need checking",
+    "class": "sensor",
+    "type": "lidar",
+    "name": "OS0 REV7 128 10hz @ 512 resolution", "comment3" : "ouster OS0 REV7 128 channels @ 10Hz 512 horizontal resolution",
+    "driveWorksId": "GENERIC",
+    "profile":
+    {
+        "scanType": "rotary",
+        "intensityProcessing": "normalization",
+        "rotationDirection": "CW",
+        "rayType": "IDEALIZED",
+        "nearRangeM": 0.5, "comment4" : "OPTICAL PERFORMANCE-Minimum Range 0.5 m default for point cloud data",
+        "farRangeM": 75.0, "comment5" : "OPTICAL PERFORMANCE- 75 m @ 100 klx sunlight, >90% detection probability",
+
+        "startAzimuthDeg": 0.0, "comment6" : "x+ is 0°  y+ is 90° (and z is up, right handed)",
+        "endAzimuthDeg": 360.0, "comment7" : "OPTICAL PERFORMANCE- Field of View Horizontal: 360°",
+
+        "upElevationDeg": 52.0, "comment8" : "OPTICAL PERFORMANCE- Field of View Vertical: 90° (+45° to -45°)",
+        "downElevationDeg": -7.0,
+
+        "rangeResolutionM": 0.001, "comment9" : "OPTICAL PERFORMANCE- Range Resolution 0.1 cm, Note: For Low Data Rate Profile the Range Resolution = 0.8 cm",
+
+        "rangeAccuracyM": 0.0, "comment10" : "OPTICAL PERFORMANCE- from Range Accuracy Chart: ±2.5 cm for lambertian targets, ±5 cm for retroreflectors",
+
+        "avgPowerW": 0.002,
+        "minReflectance": 0.1, "comment11" : "OPTICAL PERFORMANCE - Range (10% Lambertian reflectivity, 1024 @ 10 Hz mode)",
+        "minReflectanceRange": 35.0, "comment12" : "OPTICAL PERFORMANCE - 35 m @ 100 klx sunlight, >90% detection probability",
+        "wavelengthNm": 865.0, "comment13" : "LASER-  Laser Wavelength 865 nm",
+        "pulseTimeNs": 6,
+
+        "comment14" : "These add noise to the emitter direction to each point randomly if Std is not 0.0",
+        "azimuthErrorMean": 0.0,
+        "azimuthErrorStd": 0.0, "comment15" : "OPTICAL PERFORMANCE-Angular Sampling Accuracy Horizontal: ±0.01°",
+        "elevationErrorMean": 0.0,
+        "elevationErrorStd": 0.0, "comment16" : "OPTICAL PERFORMANCE-Angular Sampling Accuracy Vertical: ±0.01°",
+
+        "maxReturns": 2,
+
+        "scanRateBaseHz": 10.0,
+
+        "reportRateBaseHz": 5120,
+
+        "numberOfEmitters": 40,
+
+        "emitterStateCount": 1,
+        "emitterStates": [
+        {
+            "comment19" : "beam_azimuth_angles from get_beam_intrinsics",
+            "azimuthDeg": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            "comment20" : "beam_altitude_angles from get_beam_intrinsics",
+            "elevationDeg": [-7.0, -5.4872, -3.9744, -2.4615, -0.9487, 0.5641, 2.0769, 3.5897, 5.1026, 6.6154, 8.1282, 9.6410, 11.1538, 12.6667, 14.1795, 15.6923, 17.2051, 18.7179, 20.2308, 21.7436, 23.2564, 24.7692, 26.2821, 27.7949, 29.3077, 30.8205, 32.3333, 33.8462, 35.3590, 36.8718, 38.3846, 39.8974, 41.4103, 42.9231, 44.4359, 45.9487, 47.4615, 48.9744, 50.4872, 52.0],
+            "fireTimeNs": [762, 2287, 3812, 5337, 6862, 8387, 9912, 11437, 12962, 14487, 16012, 17537, 19062, 20587, 22112, 23637, 25162, 26687, 28212, 29737, 31262, 32787, 34312, 35837, 37362, 38887, 40412, 41937, 43462, 44987, 46512, 48037, 49562, 51087, 52612, 54137, 55662, 57187, 58712, 60237]
+        }
+        ],
+
+        "intensityMappingType": "LINEAR"
+    }
+}
