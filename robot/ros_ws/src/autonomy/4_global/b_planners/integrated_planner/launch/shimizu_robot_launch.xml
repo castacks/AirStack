@@ -10,7 +10,7 @@
 
   <!-- Sim -->
   <group if="$(var sim)">
-    <include file="$(find-pkg-share robot_bringup)/launch/sim.launch.xml" />
+    <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_sim.launch.xml" />
   </group>
 
   <!-- Static TFs -->

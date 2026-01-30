@@ -21,7 +21,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(message_filters REQUIRED)
-find_package(vdb_mapping REQUIRED)
+# find_package(vdb_mapping REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
@@ -48,7 +48,7 @@ target_include_directories(inspection_planner
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(inspection_planner
-  vdb_mapping::vdb_mapping
+  # vdb_mapping::vdb_mapping
   ${EIGEN3_LIBRARIES}
   ${PCL_LIBRARIES})
 

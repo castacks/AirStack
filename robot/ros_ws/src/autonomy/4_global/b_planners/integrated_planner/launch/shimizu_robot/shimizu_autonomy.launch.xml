@@ -13,7 +13,7 @@ runs for visualization -->
   <!-- <include file="$(find-pkg-share $(env PERCEPTION_LAUNCH_PACKAGE))/launch/$(env PERCEPTION_LAUNCH_FILE)" /> -->
 
   <!-- Local -->
-  <!-- <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_local.launch.xml" /> -->
+  <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_local.launch.xml" />
 
   <!-- Global -->
   <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_global.launch.xml" />
