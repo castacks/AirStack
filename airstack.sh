@@ -193,6 +193,24 @@ function check_docker {
         log_error "Docker daemon is not running."
         exit 1
     fi
+
+    # Check Docker Compose version
+    if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+        local compose_version=$(docker compose version --short 2>/dev/null)
+        if [ -z "$compose_version" ]; then
+             # Fallback for parsing
+             compose_version=$(docker compose version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+        fi
+        
+        if [ -n "$compose_version" ]; then
+            local major_ver=$(echo "$compose_version" | cut -d. -f1)
+            # Check if major version is a number before comparing
+            if [[ "$major_ver" =~ ^[0-9]+$ ]] && [ "$major_ver" -lt 5 ]; then
+                log_error "Docker Compose version $compose_version is less than v5.0.0. This script requires v5.0.0 or greater."
+                exit 1
+            fi
+        fi
+    fi
 }
 
 # Find container by partial name using regex
