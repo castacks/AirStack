@@ -40,7 +40,7 @@
     <axis xyz="0. 0. 1."/>
   </joint>
   <joint name="joint_OS1_REV6_128_10hz___512_resolution-lidar" type="fixed">
-    <origin xyz="0. 0. 0.03622" rpy="0 1.57 1.57"/>
+    <origin xyz="0. 0. 0.03622" rpy="0 0 1.57"/>
     <parent link="OS1_REV6_128_10hz___512_resolution"/>
     <child link="lidar"/>
   </joint>
