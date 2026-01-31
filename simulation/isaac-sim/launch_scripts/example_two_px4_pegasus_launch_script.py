@@ -40,9 +40,9 @@ import atexit
 
 # Explicitly enable required extensions
 ext_manager = omni.kit.app.get_app().get_extension_manager()
+
 for ext in [
-    # "airlab.airstack",
-    "omni.physx.forcefields",
+    "airlab.airstack",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
@@ -52,11 +52,15 @@ for ext in [
     "omni.graph.window.action",         # Action Graph editor window
     "omni.graph.window.generic",        # Generic graph UI tools
     "omni.graph.ui_nodes",              # UI node building helpers
-    "airlab.pegasus",                   # Airlab extension Pegasus core extension
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):
-        ext_manager.set_extension_enabled(ext, True)
+        print(f"[Launcher] Enabling extension: {ext}")
+        # Try both methods for robustness in different Kit versions
+        ext_manager.set_extension_enabled_immediate(ext, True)
+        print(f"[Launcher] Successfully enabled extension: {ext} via immediate method")        
+    else:
+        print(f"[Launcher] Extension already enabled: {ext}")
 
 
 class PegasusApp:
