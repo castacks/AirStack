@@ -39,6 +39,7 @@ import subprocess
 import threading
 import signal
 import atexit
+import time
 
 
 # Explicitly enable required extensions
@@ -49,6 +50,7 @@ for ext in [
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
+    "isaacsim.core.nodes",              # Core helper nodes for OmniGraph
     "omni.graph.ui",                    # UI scaffolding for graph tools
     "omni.graph.visualization.nodes",   # Visualization helper nodes
     "omni.graph.scriptnode",            # Python script node support
@@ -101,7 +103,7 @@ class PegasusApp:
             parent_graph_handle=graph_handle,
             drone_prim="/World/drone/base_link",
             camera_name="ZEDCamera",
-            camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
+            camera_offset = [0.2, 0.0, -0.05], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
 
@@ -110,7 +112,7 @@ class PegasusApp:
             parent_graph_handle=graph_handle,
             drone_prim="/World/drone/base_link",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
+            lidar_offset = [0.0, 0.0, 0.15], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
         
@@ -121,12 +123,20 @@ class PegasusApp:
 
 
     def run(self):
-        # Start sim timeline
-        self.timeline.play()
+        # Start sim timeline if configured to do so
+        if os.getenv("PLAY_SIM_ON_START", "true").lower() == "true":
+            self.timeline.play()
 
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
-            self.world.step(render=True)
+            # If the simulation is playing, step the world effectively (physics + render)
+            
+            if self.timeline.is_playing():
+                self.world.step(render=True)
+                    
+            else:
+                # If paused/stopped, just update the app/rendering without forcing physics steps
+                simulation_app.update()
 
         # Cleanup
         carb.log_warn("PegasusApp Simulation App is closing.")
