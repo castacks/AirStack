@@ -119,23 +119,23 @@ class PegasusApp:
         # Reset so physics/articulations are ready
         self.world.reset()
 
+        self.play_sim_on_start = os.getenv("PLAY_SIM_ON_START", "false").lower() == "true"
+        
         self.stop_sim = False
 
 
     def run(self):
-        # Start sim timeline if configured to do so
-        if os.getenv("PLAY_SIM_ON_START", "true").lower() == "true":
+        if self.play_sim_on_start:
             self.timeline.play()
+        else:
+            self.timeline.stop()
 
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
-            # If the simulation is playing, step the world effectively (physics + render)
-            
             if self.timeline.is_playing():
                 self.world.step(render=True)
-                    
             else:
-                # If paused/stopped, just update the app/rendering without forcing physics steps
+                # If paused, just update the app (render UI, handle inputs) 
                 simulation_app.update()
 
         # Cleanup
