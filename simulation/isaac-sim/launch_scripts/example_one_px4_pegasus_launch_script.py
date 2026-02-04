@@ -18,7 +18,10 @@ print(f"[Launcher] SUCCESS: rclpy imported from {rclpy.__file__}")
 
 import omni.kit.app
 import omni.timeline
+import omni.ui
 from omni.isaac.core.world import World
+from datetime import datetime
+from pxr import UsdLux
 
 # Pegasus imports
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
@@ -84,6 +87,12 @@ class PegasusApp:
 
         # Load default environment. You can replace with url or file path of any desired environment.
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        
+        # Add a distant light to the scene
+        self.add_distant_light()
+        
+        # Create clock display window
+        self.setup_clock_display()
 
         # # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
         # # PX4 udp port = 14540 + (vehicle_id)
@@ -123,6 +132,24 @@ class PegasusApp:
         
         self.stop_sim = False
 
+    def add_distant_light(self):
+        """Add a distant light to the scene for better lighting"""
+        distant_light = UsdLux.DistantLight.Define(self.world.scene.stage, "/World/DistantLight")
+        distant_light.CreateIntensityAttr(1000)
+
+    def setup_clock_display(self):
+        """Create a floating window with clock display"""
+        self.clock_window = omni.ui.Window("Clock Display", width=250, height=80)
+        with self.clock_window.frame:
+            with omni.ui.VStack(spacing=5):
+                omni.ui.Label("Simulation Time:", height=20, style={"font_size": 16})
+                self.clock_label = omni.ui.Label("", height=30, style={"font_size": 24, "color": 0xFF00FF00})
+
+    def update_clock_display(self):
+        """Update the clock display with simulation time"""
+        sim_time = self.timeline.get_current_time()
+        self.clock_label.text = f"{sim_time:.3f}s"
+
 
     def run(self):
         if self.play_sim_on_start:
@@ -132,6 +159,9 @@ class PegasusApp:
 
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
+            # Update clock display
+            self.update_clock_display()
+            
             if self.timeline.is_playing():
                 self.world.step(render=True)
             else:
