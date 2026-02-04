@@ -22,7 +22,7 @@ At the top level of the AirStack simulation environment, a `.env` file controls 
 ```bash
 ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/iris_with_sensors.pegasus.robot.usd"
 # Set to "true" to launch Isaac Sim using a standalone Python script instead of a USD file
-ISAAC_SIM_USE_STANDALONE_SCRIPT="false"  # "true" or "false"
+ISAAC_SIM_USE_STANDALONE="false"  # "true" or "false"
 # Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME="example_one_px4_pegasus_launch_script.py"
 PLAY_SIM_ON_START="false"  # Not supported in standalone script mode
@@ -32,7 +32,7 @@ There are *two modes* for launching Pegasus simulations:
 - Load an existing USD file (e.g. *.pegasus.robot.usd) — to simulate a prebuilt robot/environment setup.
 - Use a standalone Python script — to dynamically generate a USD and configure the world from scratch.
 
-This is toggled by the `ISAAC_SIM_USE_STANDALONE_SCRIPT` variable in the `.env` file. If set to `false`, the file specified by `ISAAC_SIM_GUI` is loaded directly. If set to `true`, the script named in `ISAAC_SIM_SCRIPT_NAME` is executed to generate the scene. It is generally recommended to use the scripted approach to generate new scenes (or at least the pegasus drone) since it handles a lot of the OmniGraph and sensor configurations automatically, then saving it, for future reuse and setting `ISAAC_SIM_USE_STANDALONE_SCRIPT` to `false` afterwards with `ISAAC_SIM_GUI` pointing to your saved file.
+This is toggled by the `ISAAC_SIM_USE_STANDALONE` variable in the `.env` file. If set to `false`, the file specified by `ISAAC_SIM_GUI` is loaded directly. If set to `true`, the script named in `ISAAC_SIM_SCRIPT_NAME` is executed to generate the scene. It is generally recommended to use the scripted approach to generate new scenes (or at least the pegasus drone) since it handles a lot of the OmniGraph and sensor configurations automatically, then saving it, for future reuse and setting `ISAAC_SIM_USE_STANDALONE` to `false` afterwards with `ISAAC_SIM_GUI` pointing to your saved file.
 
 ## Scripted Scene Generation
 
@@ -64,7 +64,7 @@ This is necessary before editing the OmniGraph.
 
 5. Update your environment variables:
   - Set the ISAAC_SIM_GUI variable to point to your newly saved .usd file (make sure to put the path within the docker container or in the omniverse server)
-  - Set ISAAC_SIM_USE_STANDALONE_SCRIPT to "false" to load this saved environment directly next time.
+  - Set ISAAC_SIM_USE_STANDALONE to "false" to load this saved environment directly next time.
 
 ## Known bugs and workarounds for Scripted Scene Generation
 
