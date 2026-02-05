@@ -249,6 +249,27 @@ function run_docker_compose {
     local version=$(get_docker_image_tag)
     local image_name="airstack-cli:v$version"
     
+    # Read .env file and pass all variables from current environment
+    # This allows command-line overrides like: ISAAC_SIM_USE_STANDALONE=true airstack up
+    local env_args=()
+    local env_file="$PROJECT_ROOT/.env"
+    
+    if [ -f "$env_file" ]; then
+        # Extract variable names from .env file (lines that start with a letter/underscore)
+        while IFS='=' read -r var_name _; do
+            # Skip comments and empty lines
+            if [[ "$var_name" =~ ^[[:space:]]*# ]] || [[ -z "$var_name" ]]; then
+                continue
+            fi
+            # Remove leading/trailing whitespace
+            var_name=$(echo "$var_name" | xargs)
+            # Add -e flag for this variable (Docker will take value from current environment)
+            if [[ -n "$var_name" ]]; then
+                env_args+=("-e" "$var_name")
+            fi
+        done < "$env_file"
+    fi
+    
     # Build the docker run command
     # Mount: docker socket, project directory, X11 socket, and preserve environment
     docker run --rm -i \
@@ -260,6 +281,7 @@ function run_docker_compose {
         -e GROUP_ID="$(id -g)" \
         -e HOME="$HOME" \
         -e DISPLAY="$DISPLAY" \
+        "${env_args[@]}" \
         --network host \
         "$image_name" \
         docker compose "$@"
