@@ -35,7 +35,7 @@ services:
       - ./omni_pass.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
-      - DISPLAY
+      - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
@@ -63,7 +63,7 @@ services:
       - $HOME/Documents/isaac_sim_data/cache/computecache:/root/.nv/ComputeCache:rw
       - $HOME/Documents/isaac_sim_data/logs:/root/.nvidia-omniverse/logs:rw
       - $HOME/Documents/isaac_sim_data/data:/root/.local/share/ov/data:rw
-      - $HOME/documents/isaac_sim_data/documents:/root/Documents:rw
+      - $HOME/Documents/isaac_sim_data/documents:/root/Documents:rw
       # IMPORTANT: set the version number without the trailing .0
       - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
       - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw

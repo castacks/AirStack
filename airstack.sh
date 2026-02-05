@@ -250,14 +250,16 @@ function run_docker_compose {
     local image_name="airstack-cli:v$version"
     
     # Build the docker run command
-    # Mount: docker socket, project directory, and preserve environment
+    # Mount: docker socket, project directory, X11 socket, and preserve environment
     docker run --rm -i \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v "$PROJECT_ROOT:$PROJECT_ROOT" \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
         -w "$PROJECT_ROOT" \
         -e USER_ID="$(id -u)" \
         -e GROUP_ID="$(id -g)" \
         -e HOME="$HOME" \
+        -e DISPLAY="$DISPLAY" \
         --network host \
         "$image_name" \
         docker compose "$@"
