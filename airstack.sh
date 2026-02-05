@@ -193,24 +193,50 @@ function check_docker {
         log_error "Docker daemon is not running."
         exit 1
     fi
+    
+    # Ensure the CLI container image is built
+    ensure_cli_container
+}
 
-    # Check Docker Compose version
-    if command -v docker &> /dev/null && docker compose version &> /dev/null; then
-        local compose_version=$(docker compose version --short 2>/dev/null)
-        if [ -z "$compose_version" ]; then
-             # Fallback for parsing
-             compose_version=$(docker compose version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
-        fi
-        
-        if [ -n "$compose_version" ]; then
-            local major_ver=$(echo "$compose_version" | cut -d. -f1)
-            # Check if major version is a number before comparing
-            if [[ "$major_ver" =~ ^[0-9]+$ ]] && [ "$major_ver" -lt 5 ]; then
-                log_error "Docker Compose version $compose_version is less than v5.0.0. This script requires v5.0.0 or greater."
-                exit 1
-            fi
-        fi
+# Build or check for the CLI container image
+function ensure_cli_container {
+    local image_name="airstack-cli:latest"
+    local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
+    
+    # Check if Dockerfile exists
+    if [ ! -f "$dockerfile_path" ]; then
+        log_error "Dockerfile.airstack-cli not found at $dockerfile_path"
+        log_error "Please ensure Dockerfile.airstack-cli is in the project root."
+        exit 1
     fi
+    
+    # Check if image exists
+    if ! docker image inspect "$image_name" &> /dev/null; then
+        log_info "Building airstack-cli container (first time only)..."
+        if ! docker build -f "$dockerfile_path" -t "$image_name" "$PROJECT_ROOT"; then
+            log_error "Failed to build airstack-cli container"
+            exit 1
+        fi
+        log_info "airstack-cli container built successfully"
+    fi
+}
+
+# Wrapper function to run docker compose through the containerized CLI
+function run_docker_compose {
+    local image_name="airstack-cli:latest"
+    
+    # Build the docker run command
+    # Mount: docker socket, project directory, and preserve environment
+    docker run --rm -i \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v "$PROJECT_ROOT:$PROJECT_ROOT" \
+        -w "$PROJECT_ROOT" \
+        -e USER_ID="$(id -u)" \
+        -e GROUP_ID="$(id -g)" \
+        -e HOME="$HOME" \
+        --network host \
+        "$image_name" \
+        docker compose "$@"
 }
 
 # Find container by partial name using regex
@@ -448,22 +474,9 @@ function cmd_install {
             log_info "For other systems, please install manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
         fi
         
-        # Install Docker Compose if needed
-        if ! command -v docker compose &> /dev/null && [ "$force" = false ]; then
-            log_info "Installing Docker Compose..."
-            
-            # Docker Compose is now included with Docker Engine as a plugin
-            # For older Docker versions, we'll install the standalone version
-            if docker --help | grep -q "compose"; then
-                log_info "Docker Compose plugin is already installed"
-            else
-                log_info "Installing Docker Compose standalone version..."
-                COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)
-                sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                sudo chmod +x /usr/local/bin/docker-compose
-                log_info "Docker Compose installation complete"
-            fi
-        fi
+        # Docker Compose is containerized - no host installation needed
+        log_info "Docker Compose will run in a containerized environment (no host installation required)"
+        log_info "The airstack-cli container will be built automatically on first use"
     fi
     
     # Install WINTAK if requested
@@ -609,30 +622,30 @@ function cmd_up {
         i=$((i+1))
     done
 
-    # Build docker-compose command with env files before the 'up' command
-    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml"
+    # Build compose arguments array
+    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
     
     # Add all env files
     for env_file in "${env_files[@]}"; do
-        cmd="$cmd $env_file"
+        compose_args+=("$env_file")
     done
     
-    # Add the 'up' command and other arguments
-    cmd="$cmd up"
+    # Add the 'up' command
+    compose_args+=("up")
     
     # Add other arguments if any
     if [ ${#other_args[@]} -gt 0 ]; then
-        cmd="$cmd ${other_args[*]}"
+        compose_args+=("${other_args[@]}")
     fi
     
     # Add -d flag
-    cmd="$cmd -d"
+    compose_args+=("-d")
 
     # Add xhost + to allow GUI applications
-    cmd="xhost + && $cmd"
+    xhost + &> /dev/null || true
 
-    log_info "Executing: $cmd"
-    eval "USER_ID=$(id -u) GROUP_ID=$(id -g) $cmd"
+    log_info "Starting services with containerized docker-compose..."
+    run_docker_compose "${compose_args[@]}"
     log_info "Services brought up successfully"
 }
 
@@ -641,16 +654,18 @@ function cmd_down {
     
     local services=("$@")
     
-    # Build docker-compose command
-    local cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml --profile '*' down"
+    # Build compose arguments
+    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
     
     # Add services if specified
     if [ ${#services[@]} -gt 0 ]; then
-        cmd="docker compose -f $PROJECT_ROOT/docker-compose.yaml down ${services[*]}"
+        compose_args+=("down" "${services[@]}")
+    else
+        compose_args+=("--profile" "*" "down")
     fi
     
     log_info "Shutting down services: ${services[*]:-all}"
-    eval "USER_ID=$(id -u) GROUP_ID=$(id -g) $cmd"
+    run_docker_compose "${compose_args[@]}"
     log_info "Services shutdown successfully"
 }
 
@@ -790,6 +805,37 @@ function cmd_version {
     echo -e "${BOLDCYAN}AirStack Version:${NC} $version"
 }
 
+function cmd_rebuild_cli {
+    log_info "Rebuilding airstack-cli container..."
+    
+    local image_name="airstack-cli:latest"
+    local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
+    
+    if [ ! -f "$dockerfile_path" ]; then
+        log_error "Dockerfile.airstack-cli not found at $dockerfile_path"
+        exit 1
+    fi
+    
+    # Remove existing image if it exists
+    if docker image inspect "$image_name" &> /dev/null; then
+        log_info "Removing existing airstack-cli image..."
+        docker rmi "$image_name" || true
+    fi
+    
+    # Build new image
+    log_info "Building new airstack-cli image..."
+    if docker build -f "$dockerfile_path" -t "$image_name" "$PROJECT_ROOT"; then
+        log_info "airstack-cli container rebuilt successfully"
+        
+        # Show the new compose version
+        log_info "Installed docker-compose version:"
+        docker run --rm "$image_name" docker compose version
+    else
+        log_error "Failed to rebuild airstack-cli container"
+        exit 1
+    fi
+}
+
 # Function to load external command modules
 function load_command_modules {
     # Skip if modules directory doesn't exist
@@ -828,10 +874,11 @@ function register_builtin_commands {
     COMMANDS["status"]="cmd_status"
     COMMANDS["logs"]="cmd_logs"
     COMMANDS["version"]="cmd_version"
+    COMMANDS["rebuild-cli"]="cmd_rebuild_cli"
     COMMANDS["help"]="cmd_help"
     
     # Register help text for built-in commands
-    COMMAND_HELP["install"]="Install dependencies (Docker Engine, Docker Compose, etc.)"
+    COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
     COMMAND_HELP["up"]="Start services using Docker Compose"
     COMMAND_HELP["down"]="down services"
@@ -839,6 +886,7 @@ function register_builtin_commands {
     COMMAND_HELP["status"]="Show status of all containers"
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"
     COMMAND_HELP["version"]="Display the current AirStack version"
+    COMMAND_HELP["rebuild-cli"]="Rebuild the containerized docker-compose CLI tool"
     COMMAND_HELP["help"]="Show help information"
 }
 

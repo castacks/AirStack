@@ -2,6 +2,20 @@
 
 The `airstack` command-line tool provides a unified interface for common development tasks in the AirStack project, including setup, installation, and container management.
 
+## Architecture Overview
+
+The AirStack CLI uses a **containerized docker-compose** approach to ensure all developers use the same version (v5.0.0+) regardless of their host machine's Docker installation. This solves version compatibility issues across different developer environments.
+
+### How It Works
+
+The solution uses **Docker socket mounting** (not Docker-in-Docker):
+- The `airstack-cli` container includes a pinned version of docker-compose
+- It mounts the host's Docker socket (`/var/run/docker.sock`)
+- Commands run in the container but control the host's Docker daemon
+- Containers spawned by docker-compose run as siblings on the host, not nested
+
+This ensures consistency across all development environments while maintaining simplicity and compatibility.
+
 ## Installation
 
 The `airstack` tool is included in the AirStack repository. To set it up:
@@ -18,6 +32,8 @@ The `airstack` tool is included in the AirStack repository. To set it up:
    ```
 
 This will add the `airstack` command to your PATH by modifying your shell profile (`.bashrc` or `.zshrc`).
+
+**On first use**, the CLI container will automatically build itself. This may take a few minutes but only happens once.
 
 ## Basic Usage
 
@@ -37,7 +53,7 @@ airstack help <command>
 
 ## Core Commands
 
-- `install`: Install dependencies (Docker Engine, Docker Compose, etc.)
+- `install`: Install dependencies (Docker Engine, NVIDIA Container Toolkit)
 - `setup`: Configure AirStack settings and add to shell profile
 - `up [service]`: Start services using Docker Compose
 - `stop [service]`: Stop services
@@ -74,7 +90,47 @@ Your selection: 1
 ## Development Commands
 
 - `test`: Run tests
-- `docs`: Build documentation
+- `docs`: Build documen
+- `rebuild-cli`: Rebuild the CLI container (useful after updating docker-compose version)
+
+## Developer Requirements
+
+**Minimal requirements:**
+- Docker installed (any recent version with socket at `/var/run/docker.sock`)
+- The Docker daemon must be running
+
+**NOT required:**
+- Specific docker-compose version on host
+- docker-compose CLI on host (container provides it)
+
+## Customization
+
+### Changing Docker Compose Version
+
+To update the docker-compose version used by the CLI, edit `Dockerfile.airstack-cli`:
+
+```dockerfile
+ARG COMPOSE_VERSION=5.1.0  # Change this version
+```
+
+Then rebuild the CLI container:
+```bash
+airstack rebuild-cli
+```
+
+### Adding Tools to the CLI
+
+You can add additional packages to the CLI environment by modifying `Dockerfile.airstack-cli`:
+
+```dockerfile
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    your-tool-here
+```
+
+After making changes, run `airstack rebuild-cli` to apply them.tation
 - `lint`: Lint code
 - `format`: Format code
 
@@ -82,50 +138,136 @@ Your selection: 1
 
 The `airstack` tool is designed to be easily extensible. You can add new commands by creating module files in the `.airstack/modules/` directory.
 
-### Creating a New Module
+###Migration from Direct Docker Compose
 
-1. Create a new `.sh` file in the `.airstack/modules/` directory:
-   ```bash
-   touch .airstack/modules/mymodule.sh
-   ```
+If you have existing containers running from a previous version
+## Customization
 
-2. Add your command functions and register them:
-   ```bash
-   #!/usr/bin/env bash
+### Changing Docker Compose Version
 
-   # Function to implement your command
-   function cmd_mymodule_mycommand {
-       log_info "Running my command..."
-       # Your command implementation here
-   }
+Edit `Dockerfile.airstack-cli`:
 
-   # Register commands from this module
-   function register_mymodule_commands {
-       COMMANDS["mycommand"]="cmd_mymodule_mycommand"
-       COMMAND_HELP["mycommand"]="Description of my command"
-   }
-   ```
+```dockerfile
+ARG COMPOSE_VERSION=5.1.0  # Change this version
+```
 
-3. Make the module executable:
-   ```bash
-   chmod +x .airstack/modules/mymodule.sh
-   ```
+Then rebuild:
+```bash
+./airstack.sh rebuild-cli
+```
 
-Your new command will be automatically loaded and available as `airstack mycommand`.
+### Adding Tools to the CLI
 
-### Available Helper Functions
+Add packages to the Dockerfile:
 
-When creating modules, you can use these helper functions:
+```dockerfile
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    your-tool-here
+```
 
-- `log_info "message"`: Print an info message
-- `log_warn "message"`: Print a warning message
-- `log_error "message"`: Print an error message
-- `check_docker`: Check if Docker is installed and running
+## Developer Requirements
 
-## Configuration
+**Minimal requirements:**
+- Docker installed (any recent version with socket at `/var/run/docker.sock`)
+- The Docker daemon must be running
 
-The `airstack` tool stores its configuration in `~/.airstack.conf`. This file is created when you run `airstack setup`.
+**NOT required:**
+- Specific docker-compose version on host
+- docker-compose CLI on host (container provides it)
+
+## Migration from Direct Docker Compose
+
+If you have existing containers:
+
+1. **No action needed** - containers will continue running
+2. New `up` commands use containerized compose
+3. Existing `docker compose` commands on host still work
+4. The `.env` file works identically
+
+## Troubleshooting
+
+### CLI container won't build
+```bash
+# Ensure Dockerfile.airstack-cli exists
+ls -la Dockerfile.airstack-cli
+
+# Try building manually
+docker build -f Dockerfile.airstack-cli -t airstack-cli:latest .
+```
+
+### Docker socket permission denied
+```bash
+# Check Docker group membership
+groups | grep docker
+
+# If not in docker group:
+sudo usermod -aG docker $USER
+# Then log out and back in
+```
+
+### Environment variables not propagating
+- The `.env` file must be in the project root
+- The entire project directory is mounted into the container
+- `USER_ID` and `GROUP_ID` are automatically set from host
+
+## Advanced: How the Wrapper Works
+
+The `run_docker_compose()` function:
+
+```bash
+docker run --rm -i \
+    -v /var/run/docker.sock:/var/run/docker.sock \  # Host Docker control
+    -v "$PROJECT_ROOT:$PROJECT_ROOT" \               # Mount project
+    -w "$PROJECT_ROOT" \                              # Set working dir
+    -e USER_ID="$(id -u)" \                          # Pass user ID
+    -e GROUP_ID="$(id -g)" \                         # Pass group ID
+    --network host \                                  # Host networking
+    airstack-cli:latest \
+    docker compose "$@"                               # Run compose command
+```
+
+This ensures:
+- Compose commands execute with host's Docker daemon
+- Project files are accessible at same paths
+- User/group IDs match for file permissions
+- Network configuration matches host
+
+## Benefits
+
+1. **Consistency**: All developers use identical docker-compose version
+2. **Isolation**: No host environment interference
+3. **Simplicity**: No version checking or installation logic needed
+4. **Maintainability**: Single Dockerfile defines tooling
+5. **Compatibility**: Works on any Docker-capable host
+6. **Flexibility**: Easy to update compose version or add tools
 
 ## License
 
-This tool is part of the AirStack project and is subject to the same license terms.
+This tool is part of the AirStack project and is subject to the same license terms.Configuration
+
+The `airstack` tool stores its configuration in `~/.airstack.conf`. This file is created when you run `airstack setup`.
+
+## Advanced: Technical Detail# Implementation Files
+
+The containerized CLI implementation consists of:
+
+1. **Dockerfile.airstack-cli**
+   - Defines the containerized CLI environment
+   - Pins docker-compose to v5.0.0
+   - Includes bash, curl, git for full functionality
+
+2. **airstack.sh** (modified)
+   - Added `ensure_cli_container()` - builds CLI image if needed
+   - Added `run_docker_compose()` - wrapper for containerized compose
+   - Modified `cmd_up()` and `cmd_down()` to use the wrapper
+   - Added `cmd_rebuild_cli()` - rebuild CLI container with new version
+   - Removed docker-compose version check (now guaranteed by container)
+
+3. **.env** (unchanged)
+   - Still used for docker-compose variable interpolation
+   - Automatically mounted into the CLI container with project directory
+
+### Benefits of This Approach
