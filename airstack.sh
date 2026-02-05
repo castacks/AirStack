@@ -182,6 +182,28 @@ function log_error {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+# Get DOCKER_IMAGE_TAG from .env file
+function get_docker_image_tag {
+    local env_file="$PROJECT_ROOT/.env"
+    
+    if [ ! -f "$env_file" ]; then
+        log_warn ".env file not found, using 'latest' tag"
+        echo "latest"
+        return
+    fi
+    
+    # Extract DOCKER_IMAGE_TAG from .env file
+    local version=$(grep -E "^DOCKER_IMAGE_TAG=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    
+    if [ -z "$version" ]; then
+        log_warn "DOCKER_IMAGE_TAG not found in .env, using 'latest' tag"
+        echo "latest"
+        return
+    fi
+    
+    echo "$version"
+}
+
 # Check if Docker is installed and running
 function check_docker {
     if ! command -v docker &> /dev/null; then
@@ -200,7 +222,8 @@ function check_docker {
 
 # Build or check for the CLI container image
 function ensure_cli_container {
-    local image_name="airstack-cli:latest"
+    local version=$(get_docker_image_tag)
+    local image_name="airstack-cli:v$version"
     local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
     
     # Check if Dockerfile exists
@@ -212,7 +235,7 @@ function ensure_cli_container {
     
     # Check if image exists
     if ! docker image inspect "$image_name" &> /dev/null; then
-        log_info "Building airstack-cli container (first time only)..."
+        log_info "Building airstack-cli container (version $version)..."
         if ! docker build -f "$dockerfile_path" -t "$image_name" "$PROJECT_ROOT"; then
             log_error "Failed to build airstack-cli container"
             exit 1
@@ -223,7 +246,8 @@ function ensure_cli_container {
 
 # Wrapper function to run docker compose through the containerized CLI
 function run_docker_compose {
-    local image_name="airstack-cli:latest"
+    local version=$(get_docker_image_tag)
+    local image_name="airstack-cli:v$version"
     
     # Build the docker run command
     # Mount: docker socket, project directory, and preserve environment
@@ -808,7 +832,8 @@ function cmd_version {
 function cmd_rebuild_cli {
     log_info "Rebuilding airstack-cli container..."
     
-    local image_name="airstack-cli:latest"
+    local version=$(get_docker_image_tag)
+    local image_name="airstack-cli:v$version"
     local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
     
     if [ ! -f "$dockerfile_path" ]; then
@@ -818,12 +843,12 @@ function cmd_rebuild_cli {
     
     # Remove existing image if it exists
     if docker image inspect "$image_name" &> /dev/null; then
-        log_info "Removing existing airstack-cli image..."
+        log_info "Removing existing airstack-cli image (version $version)..."
         docker rmi "$image_name" || true
     fi
     
     # Build new image
-    log_info "Building new airstack-cli image..."
+    log_info "Building new airstack-cli image (version $version)..."
     if docker build -f "$dockerfile_path" -t "$image_name" "$PROJECT_ROOT"; then
         log_info "airstack-cli container rebuilt successfully"
         
