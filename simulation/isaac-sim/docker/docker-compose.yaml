@@ -43,6 +43,7 @@ services:
       # Isaac Sim stuff
       - ISAACSIM_PATH=/isaac-sim
       - ISAACSIM_PYTHON=/isaac-sim/python.sh
+      - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
     deploy:
       # let it use the GPU
       resources:
