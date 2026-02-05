@@ -90,8 +90,8 @@ Options:
   3. Press Ctrl+C to cancel and try again with a more specific name
 
 Your selection: 1
-[INFO] Connecting to container: airstack_web_1
-[INFO] Tip: Next time, you can directly use 'airstack connect airstack_web_1' for this container
+[INFO] Connecting to container: airstack-robot-1
+[INFO] Tip: Next time, you can directly use 'airstack connect airstack-robot-1' for this container
 ```
 
 ### Environment Variable Overrides
@@ -118,7 +118,8 @@ The wrapper automatically:
 
 - `test`: Run tests
 - `docs`: Build documentation
-- `    log_info "Running my command..."
+- ```
+    log_info "Running my command..."
        # Your command implementation here
    }
 
