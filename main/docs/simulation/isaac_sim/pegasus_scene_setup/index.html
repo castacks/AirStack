@@ -3935,7 +3935,7 @@ Users can drop the same Pegasus node into different environments or swap robots 
 <p>At the top level of the AirStack simulation environment, a <code>.env</code> file controls how Pegasus and Isaac Sim are launched:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="s2">&quot;omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/iris_with_sensors.pegasus.robot.usd&quot;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Set to &quot;true&quot; to launch Isaac Sim using a standalone Python script instead of a USD file</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">ISAAC_SIM_USE_STANDALONE_SCRIPT</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w">  </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w">  </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span><span class="s2">&quot;example_one_px4_pegasus_launch_script.py&quot;</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w">  </span><span class="c1"># Not supported in standalone script mode</span>
@@ -3943,7 +3943,7 @@ Users can drop the same Pegasus node into different environments or swap robots 
 <p>There are <em>two modes</em> for launching Pegasus simulations:
 - Load an existing USD file (e.g. *.pegasus.robot.usd) — to simulate a prebuilt robot/environment setup.
 - Use a standalone Python script — to dynamically generate a USD and configure the world from scratch.</p>
-<p>This is toggled by the <code>ISAAC_SIM_USE_STANDALONE_SCRIPT</code> variable in the <code>.env</code> file. If set to <code>false</code>, the file specified by <code>ISAAC_SIM_GUI</code> is loaded directly. If set to <code>true</code>, the script named in <code>ISAAC_SIM_SCRIPT_NAME</code> is executed to generate the scene. It is generally recommended to use the scripted approach to generate new scenes (or at least the pegasus drone) since it handles a lot of the OmniGraph and sensor configurations automatically, then saving it, for future reuse and setting <code>ISAAC_SIM_USE_STANDALONE_SCRIPT</code> to <code>false</code> afterwards with <code>ISAAC_SIM_GUI</code> pointing to your saved file.</p>
+<p>This is toggled by the <code>ISAAC_SIM_USE_STANDALONE</code> variable in the <code>.env</code> file. If set to <code>false</code>, the file specified by <code>ISAAC_SIM_GUI</code> is loaded directly. If set to <code>true</code>, the script named in <code>ISAAC_SIM_SCRIPT_NAME</code> is executed to generate the scene. It is generally recommended to use the scripted approach to generate new scenes (or at least the pegasus drone) since it handles a lot of the OmniGraph and sensor configurations automatically, then saving it, for future reuse and setting <code>ISAAC_SIM_USE_STANDALONE</code> to <code>false</code> afterwards with <code>ISAAC_SIM_GUI</code> pointing to your saved file.</p>
 <h2 id="scripted-scene-generation">Scripted Scene Generation<a class="headerlink" href="#scripted-scene-generation" title="Permanent link">&para;</a></h2>
 <p>Example scripts for generating a scene are provided in <code>AirStack/simulation/isaac-sim/launch_scripts/</code>
 You can also write your own scripts for your own custom scenarios.</p>
@@ -3982,7 +3982,7 @@ This is necessary before editing the OmniGraph.</p>
 <p>Update your environment variables:</p>
 </li>
 <li>Set the ISAAC_SIM_GUI variable to point to your newly saved .usd file (make sure to put the path within the docker container or in the omniverse server)</li>
-<li>Set ISAAC_SIM_USE_STANDALONE_SCRIPT to "false" to load this saved environment directly next time.</li>
+<li>Set ISAAC_SIM_USE_STANDALONE to "false" to load this saved environment directly next time.</li>
 </ol>
 <h2 id="known-bugs-and-workarounds-for-scripted-scene-generation">Known bugs and workarounds for Scripted Scene Generation<a class="headerlink" href="#known-bugs-and-workarounds-for-scripted-scene-generation" title="Permanent link">&para;</a></h2>
 <ul>

@@ -43,30 +43,34 @@
 #include <vector>
 #include <mutex>
 
-
-struct GraphNode {
+struct GraphNode
+{
   int fg_index;
   int bg_index;
   tf2::Stamped<tf2::Transform> tf;
 };
 
-struct alignas(16) Vec3 {
+struct alignas(16) Vec3
+{
   float x, y, z;
 };
 
-struct alignas(16) Vec4 {
+struct alignas(16) Vec4
+{
   float x, y, z, w;
 };
 
-struct alignas(16) State {
+struct alignas(16) State
+{
   Vec3 pos;
   Vec3 vel;
   Vec3 acc;
   Vec3 jerk;
   Vec3 collision;
 
-  State(){}
-  State(airstack_msgs::msg::Odometry odom){
+  State() {}
+  State(airstack_msgs::msg::Odometry odom)
+  {
     pos.x = odom.pose.position.x;
     pos.y = odom.pose.position.y;
     pos.z = odom.pose.position.z;
@@ -85,42 +89,47 @@ struct alignas(16) State {
   }
 };
 
-struct TrajectoryParams {
+struct TrajectoryParams
+{
   float vel_desired[3];
   float vel_max;
 };
 
-struct alignas(16) CommonInit {
+struct alignas(16) CommonInit
+{
   State initial_state;
-  //int traj_count;
-  //int traj_size;
-  //float dt;
+  // int traj_count;
+  // int traj_size;
+  // float dt;
 };
 
-struct mat4 {
+struct mat4
+{
   float data[16];
 
-  mat4(){
+  mat4()
+  {
     std::memset(&data[0], 0, sizeof(data));
   }
-  
-  mat4(const tf2::Stamped<tf2::Transform>& stamped_tf){
-    //const tf2::Transform& tf = stamped_tf.getTransform();
-    const tf2::Vector3& t = stamped_tf.getOrigin();
+
+  mat4(const tf2::Stamped<tf2::Transform> &stamped_tf)
+  {
+    // const tf2::Transform& tf = stamped_tf.getTransform();
+    const tf2::Vector3 &t = stamped_tf.getOrigin();
     tf2::Matrix3x3 R = stamped_tf.getBasis();
 
-    data[0]  = R[0][0];
-    data[1]  = R[1][0];
-    data[2]  = R[2][0];
-    data[3]  = 0.0f;
+    data[0] = R[0][0];
+    data[1] = R[1][0];
+    data[2] = R[2][0];
+    data[3] = 0.0f;
 
-    data[4]  = R[0][1];
-    data[5]  = R[1][1];
-    data[6]  = R[2][1];
-    data[7]  = 0.0f;
+    data[4] = R[0][1];
+    data[5] = R[1][1];
+    data[6] = R[2][1];
+    data[7] = 0.0f;
 
-    data[8]  = R[0][2];
-    data[9]  = R[1][2];
+    data[8] = R[0][2];
+    data[9] = R[1][2];
     data[10] = R[2][2];
     data[11] = 0.0f;
 
@@ -130,22 +139,23 @@ struct mat4 {
     data[15] = 1.0f;
   }
 
-    mat4(const tf2::Transform& stamped_tf){
-    const tf2::Vector3& t = stamped_tf.getOrigin();
+  mat4(const tf2::Transform &stamped_tf)
+  {
+    const tf2::Vector3 &t = stamped_tf.getOrigin();
     tf2::Matrix3x3 R = stamped_tf.getBasis();
 
-    data[0]  = R[0][0];
-    data[1]  = R[1][0];
-    data[2]  = R[2][0];
-    data[3]  = 0.0f;
+    data[0] = R[0][0];
+    data[1] = R[1][0];
+    data[2] = R[2][0];
+    data[3] = 0.0f;
 
-    data[4]  = R[0][1];
-    data[5]  = R[1][1];
-    data[6]  = R[2][1];
-    data[7]  = 0.0f;
+    data[4] = R[0][1];
+    data[5] = R[1][1];
+    data[6] = R[2][1];
+    data[7] = 0.0f;
 
-    data[8]  = R[0][2];
-    data[9]  = R[1][2];
+    data[8] = R[0][2];
+    data[9] = R[1][2];
     data[10] = R[2][2];
     data[11] = 0.0f;
 
@@ -156,7 +166,8 @@ struct mat4 {
   }
 };
 
-struct alignas(16) CollisionInfo {
+struct alignas(16) CollisionInfo
+{
   mat4 state_tf;
   float fx, fy, cx, cy;
   float baseline;
@@ -167,25 +178,27 @@ struct alignas(16) CollisionInfo {
   int graph_nodes;
 };
 
-struct alignas(16) TrajectoryPoint {
+struct alignas(16) TrajectoryPoint
+{
   Vec4 v1, v2;
-  
-  float x(){return v1.x;}
-  float y(){return v1.y;}
-  float z(){return v1.z;}
-  float w(){return v1.w;}
 
-  float get_vel(){return v2.w;}
+  float x() { return v1.x; }
+  float y() { return v1.y; }
+  float z() { return v1.z; }
+  float w() { return v1.w; }
 
-  int get_collision(){return v2.x;}
-  int get_unseen(){return v2.y;}
-  int get_seen(){return v2.z;}
+  float get_vel() { return v2.w; }
+
+  int get_collision() { return v2.x; }
+  int get_unseen() { return v2.y; }
+  int get_seen() { return v2.z; }
 };
 
-class GLInterface {
+class GLInterface
+{
 private:
-  rclcpp::Node* node;
-  tf2_ros::Buffer* tf_buffer;
+  rclcpp::Node *node;
+  tf2_ros::Buffer *tf_buffer;
 
   bool gl_inited;
 
@@ -200,7 +213,7 @@ private:
   float graph_distance_threshold, graph_angle_threshold;
 
   int current_node, graph_nodes, total_layers;
-  
+
   GLuint texIn, fgHoriz, bgHoriz, fgFinal, bgFinal;
 
   std::deque<GraphNode> graph;
@@ -214,28 +227,27 @@ private:
   GLuint traj_shader, collision_shader, traj_collision_shader;
   GLuint common_ubo, collision_info_ubo;
   GLuint params_ssbo, traj_ssbo, transform_ssbo;
-  
+
   GLuint elapsed_query;
 
   vis::MarkerArray graph_markers;
-  
+
 public:
-  GLInterface(rclcpp::Node* node, tf2_ros::Buffer* tf_buffer);
+  GLInterface(rclcpp::Node *node, tf2_ros::Buffer *tf_buffer);
   void handle_camera_info(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
   void handle_disparity(const stereo_msgs::msg::DisparityImage::SharedPtr msg);
   void publish_viz(const std_msgs::msg::Header &hdr,
-		   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub,
-		   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr bg_pub,
-		   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub,
-		   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
-  void evaluate_trajectories(const airstack_msgs::msg::Odometry& look_ahead, std::vector<TrajectoryPoint>& trajectory_points, tf2::Transform& look_ahead_to_target_tf);
+                   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr fg_pub,
+                   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr bg_pub,
+                   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub,
+                   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
+  void evaluate_trajectories(const airstack_msgs::msg::Odometry &look_ahead, std::vector<TrajectoryPoint> &trajectory_points, tf2::Transform &look_ahead_to_target_tf);
 
   int get_traj_size();
   void check_gl_error();
   void gl_tic();
   float gl_toc();
-  
+
   void initGL(int original_width, int original_height, int downsampled_width, int downsampled_height);
   GLuint createComputeShader(const std::string &file);
-
 };

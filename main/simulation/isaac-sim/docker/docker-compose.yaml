@@ -16,8 +16,8 @@ services:
       bash -c "
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
-        if [ \"${ISAAC_SIM_USE_STANDALONE_SCRIPT}\" = 'true' ]; then
-          tmux send-keys -t isaac '/isaac-sim/python.sh /root/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
+        if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then
+          tmux send-keys -t isaac 'run_isaac_python /root/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
         else
           tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
         fi
@@ -35,7 +35,7 @@ services:
       - ./omni_pass.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
-      - DISPLAY
+      - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       # ROS2 stuff
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
@@ -43,6 +43,7 @@ services:
       # Isaac Sim stuff
       - ISAACSIM_PATH=/isaac-sim
       - ISAACSIM_PYTHON=/isaac-sim/python.sh
+      - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
     deploy:
       # let it use the GPU
       resources:
@@ -63,9 +64,9 @@ services:
       - $HOME/Documents/isaac_sim_data/cache/computecache:/root/.nv/ComputeCache:rw
       - $HOME/Documents/isaac_sim_data/logs:/root/.nvidia-omniverse/logs:rw
       - $HOME/Documents/isaac_sim_data/data:/root/.local/share/ov/data:rw
-      - $HOME/documents/isaac_sim_data/documents:/root/Documents:rw
+      - $HOME/Documents/isaac_sim_data/documents:/root/Documents:rw
       # IMPORTANT: set the version number without the trailing .0
-      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/4.5/user.config.json:rw
+      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
       - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
       # developer stuff
       - .dev:/root/.dev:rw # developer config

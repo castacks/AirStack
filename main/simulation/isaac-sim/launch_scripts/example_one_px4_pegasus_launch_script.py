@@ -13,9 +13,15 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+import rclpy
+print(f"[Launcher] SUCCESS: rclpy imported from {rclpy.__file__}")
+
 import omni.kit.app
 import omni.timeline
+import omni.ui
 from omni.isaac.core.world import World
+from datetime import datetime
+from pxr import UsdLux
 
 # Pegasus imports
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
@@ -36,27 +42,33 @@ import subprocess
 import threading
 import signal
 import atexit
+import time
 
 
 # Explicitly enable required extensions
 ext_manager = omni.kit.app.get_app().get_extension_manager()
+
 for ext in [
-    # "airlab.airstack",
-    "omni.physx.forcefields",
+    "airlab.airstack",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
+    "isaacsim.core.nodes",              # Core helper nodes for OmniGraph
     "omni.graph.ui",                    # UI scaffolding for graph tools
     "omni.graph.visualization.nodes",   # Visualization helper nodes
     "omni.graph.scriptnode",            # Python script node support
     "omni.graph.window.action",         # Action Graph editor window
     "omni.graph.window.generic",        # Generic graph UI tools
     "omni.graph.ui_nodes",              # UI node building helpers
-    "airlab.pegasus",                   # Airlab extension Pegasus core extension
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):
-        ext_manager.set_extension_enabled(ext, True)
+        print(f"[Launcher] Enabling extension: {ext}")
+        # Try both methods for robustness in different Kit versions
+        ext_manager.set_extension_enabled_immediate(ext, True)
+        print(f"[Launcher] Successfully enabled extension: {ext} via immediate method")        
+    else:
+        print(f"[Launcher] Extension already enabled: {ext}")
 
 
 class PegasusApp:
@@ -76,12 +88,18 @@ class PegasusApp:
         # Load default environment. You can replace with url or file path of any desired environment.
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
         
-        # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
-        # PX4 udp port = 14540 + (vehicle_id)
-        # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 
+        # Add a distant light to the scene
+        self.add_distant_light()
+        
+        # Create clock display window
+        self.setup_clock_display()
+
+        # # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
+        # # PX4 udp port = 14540 + (vehicle_id)
+        # # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/base_link",
             vehicle_id=1,
             domain_id=1,
             usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
@@ -92,34 +110,63 @@ class PegasusApp:
         # Add a ZED stereo camera (with an associated subgraph) to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/base_link",
             camera_name="ZEDCamera",
-            camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
+            camera_offset = [0.2, 0.0, -0.05], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
 
         # Add an Ouster lidar (with an associated subgraph) to the drone
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle,
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/base_link",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
+            lidar_offset = [0.0, 0.0, 0.15], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
         
         # Reset so physics/articulations are ready
         self.world.reset()
 
+        self.play_sim_on_start = os.getenv("PLAY_SIM_ON_START", "false").lower() == "true"
+        
         self.stop_sim = False
+
+    def add_distant_light(self):
+        """Add a distant light to the scene for better lighting"""
+        distant_light = UsdLux.DistantLight.Define(self.world.scene.stage, "/World/DistantLight")
+        distant_light.CreateIntensityAttr(1000)
+
+    def setup_clock_display(self):
+        """Create a floating window with clock display"""
+        self.clock_window = omni.ui.Window("Clock Display", width=250, height=80)
+        with self.clock_window.frame:
+            with omni.ui.VStack(spacing=5):
+                omni.ui.Label("Simulation Time:", height=20, style={"font_size": 16})
+                self.clock_label = omni.ui.Label("", height=30, style={"font_size": 24, "color": 0xFF00FF00})
+
+    def update_clock_display(self):
+        """Update the clock display with simulation time"""
+        sim_time = self.timeline.get_current_time()
+        self.clock_label.text = f"{sim_time:.3f}s"
 
 
     def run(self):
-        # Start sim timeline
-        self.timeline.play()
+        if self.play_sim_on_start:
+            self.timeline.play()
+        else:
+            self.timeline.stop()
 
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
-            self.world.step(render=True)
+            # Update clock display
+            self.update_clock_display()
+            
+            if self.timeline.is_playing():
+                self.world.step(render=True)
+            else:
+                # If paused, just update the app (render UI, handle inputs) 
+                simulation_app.update()
 
         # Cleanup
         carb.log_warn("PegasusApp Simulation App is closing.")
