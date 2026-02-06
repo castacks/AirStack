@@ -1,0 +1,53 @@
+---
+# docker compose file
+services:
+  gcs-base:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.gcs
+      tags:
+        - ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
+    command: >
+      bash -c "ssh service restart;
+      if [ $$AUTOLAUNCH = 'true' ]; then
+        tmux new -d -s gcs_bringup;
+        tmux send-keys -t gcs_bringup 'bws && sws; ros2 launch ${GCS_LAUNCH_PACKAGE} ${GCS_LAUNCH_FILE}' ENTER;
+      fi;
+      sleep infinity"
+    # Interactive shell
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: 1
+              driver: nvidia
+    entrypoint: ''
+    environment:
+      - AUTOLAUNCH=${AUTOLAUNCH:-false}
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
+    # Needed to display graphical applications
+    # ipc: host
+    privileged: true
+    stdin_open: true
+    tty: true
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - .bashrc:/root/.bashrc:rw
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw
+      - ../../common/inputrc:/etc/inputrc:rw
+      - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - ./Foxglove:/root/.config/Foxglove:rw
+      # autonomy stack stuff
+      - ../..:/root/AirStack
+      - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/AirStack/gcs/ros_ws/fastdds.xml:rw # fastdds.xml

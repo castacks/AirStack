@@ -1,0 +1,11 @@
+<launch>
+  <node 
+    pkg="random_walk_planner" 
+    exec="random_walk_planner" 
+    name="random_walk_planner">
+    <param 
+      from="$(find random_walk_planner)/config/random_walk_config.yaml" />
+    <param
+      from="$(find global_planner_bringup)/config/global_planner_config.yaml" />
+  </node>
+</launch>

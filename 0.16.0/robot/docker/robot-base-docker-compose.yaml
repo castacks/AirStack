@@ -1,0 +1,62 @@
+# docker compose file
+services:
+  robot_base:
+    # Interactive shell
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+    # Needed to display graphical applications
+    privileged: true
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      # docker compose interpolation to env variables
+      - AUTONOMY_LAUNCH_PACKAGE=${AUTONOMY_LAUNCH_PACKAGE}
+      - AUTONOMY_LAUNCH_FILE=${AUTONOMY_LAUNCH_FILE}
+      # --
+      - INTERFACE_LAUNCH_PACKAGE=${INTERFACE_LAUNCH_PACKAGE}
+      - INTERFACE_LAUNCH_FILE=${INTERFACE_LAUNCH_FILE}
+      # --
+      - SENSORS_LAUNCH_PACKAGE=${SENSORS_LAUNCH_PACKAGE}
+      - SENSORS_LAUNCH_FILE=${SENSORS_LAUNCH_FILE}
+      # --
+      - PERCEPTION_LAUNCH_PACKAGE=${PERCEPTION_LAUNCH_PACKAGE}
+      - PERCEPTION_LAUNCH_FILE=${PERCEPTION_LAUNCH_FILE}
+      # --
+      - LOCAL_LAUNCH_PACKAGE=${LOCAL_LAUNCH_PACKAGE}
+      - LOCAL_LAUNCH_FILE=${LOCAL_LAUNCH_FILE}
+      # --
+      - GLOBAL_LAUNCH_PACKAGE=${GLOBAL_LAUNCH_PACKAGE}
+      - GLOBAL_LAUNCH_FILE=${GLOBAL_LAUNCH_FILE}
+      # --
+      - BEHAVIOR_LAUNCH_PACKAGE=${BEHAVIOR_LAUNCH_PACKAGE}
+      - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
+      # MAVROS
+      - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
+      - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
+      # URDF Robot Description
+      - ROBOT_URDF_FILE_PATH=${ROBOT_DESCRIPTION_PACKAGE}/urdf/${ROBOT_URDF_FILE}
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia # https://stackoverflow.com/a/70761193
+              count: 1
+              capabilities: [ gpu ]
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - .dev:/root/.dev:rw # developer config
+      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - .bashrc:/root/.bashrc:rw # bash config
+      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw # tmux config
+      - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      # autonomy stack stuff
+      - ../..:/root/AirStack
+      - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw # common ROS packages
+      - ../../common/ros_packages/fastdds.xml:/root/AirStack/robot/ros_ws/fastdds.xml:rw # fastdds.xml
+

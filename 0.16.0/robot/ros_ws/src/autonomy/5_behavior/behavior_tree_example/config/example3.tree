@@ -1,0 +1,12 @@
+|| 2
+	?
+		(At Home)
+		[Spin]
+	?
+		->
+			(Visited Destination)
+			(At Home)
+			?
+				(On Ground)
+				[Land]
+		include $(find behavior_tree_example)/config/example3_subtree.tree
