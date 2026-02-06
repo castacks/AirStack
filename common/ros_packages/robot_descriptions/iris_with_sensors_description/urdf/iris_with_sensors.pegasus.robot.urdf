@@ -6,41 +6,41 @@
     <child link="base_link_body_body_link"/>
   </joint>
   <joint name="OS1_REV6_128_10hz___512_resolution_FixedJoint" type="fixed">
-    <origin xyz="0. 0. 0.0425594" rpy="0. 0. -1.5707872"/>
+    <origin xyz="0. 0. 0.15" rpy="0. 0. -1.5707872"/>
     <parent link="base_link_body_body_link"/>
     <child link="OS1_REV6_128_10hz___512_resolution"/>
   </joint>
   <joint name="base_link_ZED_X_FixedJoint" type="fixed">
-    <origin xyz="0.0000013 -0.1451943 -0.0066019" rpy="0.1745329 0. 0.0000091"/>
+    <origin xyz="0.0 -0.2 -0.05" rpy="0. 0. 0."/>
     <parent link="base_link_body_body_link"/>
     <child link="base_link_ZED_X"/>
   </joint>
-  <joint name="joint0" type="continuous">
+  <joint name="joint0" type="fixed">
     <origin xyz="-0.2067341 -0.1375972 0.023 " rpy="0. 0. 0."/>
     <parent link="base_link_body_body_link"/>
     <child link="rotor0"/>
     <axis xyz="0. 0. 1."/>
   </joint>
-  <joint name="joint1" type="continuous">
+  <joint name="joint1" type="fixed">
     <origin xyz="0.2186935 0.125002 0.023 " rpy="0. 0. 0."/>
     <parent link="base_link_body_body_link"/>
     <child link="rotor1"/>
     <axis xyz="0. 0. 1."/>
   </joint>
-  <joint name="joint2" type="continuous">
+  <joint name="joint2" type="fixed">
     <origin xyz="0.2032209 -0.138307 0.023 " rpy="0. 0. 0."/>
     <parent link="base_link_body_body_link"/>
     <child link="rotor2"/>
     <axis xyz="0. 0. 1."/>
   </joint>
-  <joint name="joint3" type="continuous">
+  <joint name="joint3" type="fixed">
     <origin xyz="-0.222 0.1245 0.023 " rpy="0. 0. 0."/>
     <parent link="base_link_body_body_link"/>
     <child link="rotor3"/>
     <axis xyz="0. 0. 1."/>
   </joint>
   <joint name="joint_OS1_REV6_128_10hz___512_resolution-lidar" type="fixed">
-    <origin xyz="0. 0. 0.03622" rpy="0 1.57 1.57"/>
+    <origin xyz="0. 0. 0.03622" rpy="0 0 1.57"/>
     <parent link="OS1_REV6_128_10hz___512_resolution"/>
     <child link="lidar"/>
   </joint>

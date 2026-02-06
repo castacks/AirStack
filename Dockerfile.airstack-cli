@@ -1,0 +1,30 @@
+# Dockerfile for containerized AirStack CLI with docker-compose
+# This ensures consistent docker-compose version across all developer machines
+
+FROM docker:27.4-cli
+
+# Install docker-compose v5.x (latest stable)
+# Using the official docker/compose-bin image layers
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    grep \
+    coreutils
+
+# Install docker compose v5.x
+# We pin to a specific version to ensure consistency across all dev machines
+ARG COMPOSE_VERSION=5.0.2
+RUN mkdir -p /usr/local/lib/docker/cli-plugins && \
+    curl -SL "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# Verify installation
+RUN docker compose version
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]

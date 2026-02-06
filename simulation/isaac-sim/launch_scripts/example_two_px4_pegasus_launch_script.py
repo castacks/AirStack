@@ -40,9 +40,9 @@ import atexit
 
 # Explicitly enable required extensions
 ext_manager = omni.kit.app.get_app().get_extension_manager()
+
 for ext in [
-    # "airlab.airstack",
-    "omni.physx.forcefields",
+    "airlab.airstack",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
@@ -52,11 +52,15 @@ for ext in [
     "omni.graph.window.action",         # Action Graph editor window
     "omni.graph.window.generic",        # Generic graph UI tools
     "omni.graph.ui_nodes",              # UI node building helpers
-    "airlab.pegasus",                   # Airlab extension Pegasus core extension
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):
-        ext_manager.set_extension_enabled(ext, True)
+        print(f"[Launcher] Enabling extension: {ext}")
+        # Try both methods for robustness in different Kit versions
+        ext_manager.set_extension_enabled_immediate(ext, True)
+        print(f"[Launcher] Successfully enabled extension: {ext} via immediate method")        
+    else:
+        print(f"[Launcher] Extension already enabled: {ext}")
 
 
 class PegasusApp:
@@ -83,6 +87,7 @@ class PegasusApp:
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
             drone_prim="/World/drone1/base_link",
+            robot_name="robot_1",
             vehicle_id=1, # defines MAVLink port offset
             domain_id=1, # defines ROS2 domain ID
             usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
@@ -94,6 +99,7 @@ class PegasusApp:
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/drone1/base_link",
+            robot_name="robot_1",
             camera_name="ZEDCamera",
             camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
@@ -103,6 +109,7 @@ class PegasusApp:
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/drone1/base_link",
+            robot_name="robot_1",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
@@ -126,6 +133,7 @@ class PegasusApp:
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/drone2/base_link",
+            robot_name="robot_2",
             camera_name="ZEDCamera",
             camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
@@ -135,6 +143,7 @@ class PegasusApp:
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/drone2/base_link",
+            robot_name="robot_2",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
@@ -144,16 +153,24 @@ class PegasusApp:
         # Reset so physics/articulations are ready
         self.world.reset()
 
+        self.play_sim_on_start = os.getenv("PLAY_SIM_ON_START", "false").lower() == "true"
+        
         self.stop_sim = False
 
 
     def run(self):
-        # Start sim timeline
-        self.timeline.play()
-
+        if self.play_sim_on_start:
+            self.timeline.play()
+        else:
+            self.timeline.stop()
+        
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
-            self.world.step(render=True)
+            if self.timeline.is_playing():
+                self.world.step(render=True)
+            else:
+                # If paused, just update the app (render UI, handle inputs) 
+                simulation_app.update()
 
         # Cleanup
         carb.log_warn("PegasusApp Simulation App is closing.")

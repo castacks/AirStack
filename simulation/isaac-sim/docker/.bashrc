@@ -121,13 +121,25 @@ fi
 
 # --- ROS2 setup ---
 
-source /opt/ros/humble/setup.bash
-source /humble_ws/install/setup.bash  # isaacsim ros2 package
+source /opt/ros/jazzy/setup.bash
+source /jazzy_ws/install/setup.bash  # isaacsim ros2 package
+
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
 export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/fastdds.xml"
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # for local development, prevent conflict with other desktops
-export ROS_LOCALHOST_ONLY=1
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+
+# --- Environment Separation ---
+# Define the PYTHONPATH specifically for Isaac Sim (Python 3.10)
+# This strips out the System ROS (Python 3.12) paths to prevent conflicts
+export ISAAC_SIM_PYTHONPATH=$(echo $PYTHONPATH | tr ':' '\n' | grep -v "lib/python3.12/site-packages" | paste -sd ':' -):/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
+
+# Helper function to run Isaac Sim python scripts with the correct environment
+run_isaac_python() {
+    PYTHONPATH="$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh "$@"
+}
+export -f run_isaac_python
 
 # --- Isaac Setup ---
 alias runapp="/isaac-sim/runapp.sh --path omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.prop.usd"

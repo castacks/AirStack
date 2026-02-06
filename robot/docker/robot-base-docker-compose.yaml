@@ -7,7 +7,7 @@ services:
     # Needed to display graphical applications
     privileged: true
     environment:
-      - DISPLAY
+      - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       # docker compose interpolation to env variables
       - AUTONOMY_LAUNCH_PACKAGE=${AUTONOMY_LAUNCH_PACKAGE}
