@@ -99,7 +99,7 @@ class PegasusApp:
         # # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/base_link",
             vehicle_id=1,
             domain_id=1,
             usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
@@ -110,7 +110,7 @@ class PegasusApp:
         # Add a ZED stereo camera (with an associated subgraph) to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/base_link",
             camera_name="ZEDCamera",
             camera_offset = [0.2, 0.0, -0.05], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
@@ -119,7 +119,7 @@ class PegasusApp:
         # Add an Ouster lidar (with an associated subgraph) to the drone
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle,
-            drone_prim="/World/drone/base_link",
+            drone_prim="/World/base_link",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset = [0.0, 0.0, 0.15], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
