@@ -28,6 +28,7 @@ services:
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
+      - NUM_ROBOTS=${NUM_ROBOTS}
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
     # Needed to display graphical applications
     # ipc: host

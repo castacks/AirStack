@@ -12,6 +12,13 @@
   
   <node pkg="domain_bridge" exec="domain_bridge" args="$(find-pkg-share gcs_bringup)/config/domain_bridge.yaml">
   </node>
+  <!-- (Yunwoo)-->
+  <node pkg="gcs_bringup" exec="gcs_bringup_node" output="screen">
+	  <param name="num_robot" value="$(env NUM_ROBOTS)" />
+	  <param name="mask_size_x" value="0.4"/>
+	  <param name="mask_size_y" value="0.4"/>
+	  <param name="mask_size_z" value="1.0"/>
+  </node>	
 
   <!--
   <include file="$(find-pkg-share domain_bridge)/launch/domain_bridge.launch.xml">

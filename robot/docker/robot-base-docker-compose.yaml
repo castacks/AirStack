@@ -30,6 +30,8 @@ services:
       # --
       - BEHAVIOR_LAUNCH_PACKAGE=${BEHAVIOR_LAUNCH_PACKAGE}
       - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
+      # --
+      - NUM_ROBOTS=${NUM_ROBOTS} #(Yunwoo)
     deploy:
       # let it use the GPU
       resources:

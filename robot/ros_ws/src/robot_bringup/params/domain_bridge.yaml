@@ -19,6 +19,31 @@ topics:
     to_domain: 0
     type: nav_msgs/msg/Odometry
 
+  /robot_1/information_map: # (Yunwoo)
+    from_domain: 1
+    to_domain: 2
+    type: nav_msgs/msg/OccupancyGrid
+
+  /robot_1/information_map: # (Yunwoo)
+    from_domain: 1
+    to_domain: 3
+    type: nav_msgs/msg/OccupancyGrid
+
+  /robot_1/global_pose: #(Yunwoo)
+    from_domain: 1
+    to_domain: 2
+    type: geometry_msgs/msg/TransformStamped
+
+  /robot_1/global_pose: #(Yunwoo)
+    from_domain: 1
+    to_domain: 3
+    type: geometry_msgs/msg/TransformStamped
+
+  /robot_1/global_pose: #(Yunwoo)
+    from_domain: 1
+    to_domain: 0
+    type: geometry_msgs/msg/TransformStamped
+
   /robot_2/vdb_mapping/vdb_map_visualization:
     from_domain: 2
     to_domain: 0
@@ -28,6 +53,31 @@ topics:
     from_domain: 2
     to_domain: 0
     type: nav_msgs/msg/Odometry
+ 
+  /robot_2/information_map: # (Yunwoo)
+    from_domain: 2
+    to_domain: 1
+    type: nav_msgs/msg/OccupancyGrid
+
+  /robot_2/information_map: # (Yunwoo)
+    from_domain: 2
+    to_domain: 3
+    type: nav_msgs/msg/OccupancyGrid
+
+  /robot_2/global_pose: #(Yunwoo)
+    from_domain: 2
+    to_domain: 1
+    type: geometry_msgs/msg/TransformStamped
+
+  /robot_2/global_pose: #(Yunwoo)
+    from_domain: 2
+    to_domain: 3
+    type: geometry_msgs/msg/TransformStamped
+
+  /robot_2/global_pose: #(Yunwoo)
+    from_domain: 2
+    to_domain: 0
+    type: geometry_msgs/msg/TransformStamped
 
   /robot_3/vdb_mapping/vdb_map_visualization:
     from_domain: 3
@@ -38,6 +88,31 @@ topics:
     from_domain: 3
     to_domain: 0
     type: nav_msgs/msg/Odometry
+
+  /robot_3/information_map: # (Yunwoo)
+    from_domain: 3
+    to_domain: 1
+    type: nav_msgs/msg/OccupancyGrid
+
+  /robot_3/information_map: # (Yunwoo)
+    from_domain: 3
+    to_domain: 2
+    type: nav_msgs/msg/OccupancyGrid
+
+  /robot_3/global_pose: #(Yunwoo)
+    from_domain: 3
+    to_domain: 1
+    type: geometry_msgs/msg/TransformStamped
+
+  /robot_3/global_pose: #(Yunwoo)
+    from_domain: 3
+    to_domain: 2
+    type: geometry_msgs/msg/TransformStamped
+
+  /robot_3/global_pose: #(Yunwoo)
+    from_domain: 3
+    to_domain: 0
+    type: geometry_msgs/msg/TransformStamped
 
   robot_2/interface/mavros/state:
     type: mavros_msgs/msg/State

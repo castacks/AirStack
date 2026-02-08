@@ -41,9 +41,18 @@
         <param name="convert_odometry_to_transform" value="true" />
         <param name="convert_odometry_to_stabilized_transform" value="true" />
         <param name="restamp_now_post" value="false" />
-
     </node>
-
+    <!--(Yunwoo)-->
+    <include file="$(find-pkg-share multi_agent_bridge)/launch/multi_agent_bridge.py"> 
+    	<arg name="robot_name" value="$(env ROBOT_NAME)"/>
+	<arg name="num_robot" value="$(env NUM_ROBOTS)"/>
+    </include>
+    <!--(Yunwoo)-->
+    <include file="$(find-pkg-share single_agent_bridge)/launch/single_agent_bridge.py">
+        <arg name="robot_name" value="$(env ROBOT_NAME)"/>
+        <arg name="num_robot" value="$(env NUM_ROBOTS)"/>
+    </include>
+    
     <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
         namespace="drone_safety_monitor"
         output="screen">

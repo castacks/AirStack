@@ -1,0 +1,42 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/root/ros_ws/build/macvo",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/macvo/lib/python3.10/site-packages",
+        "/root/ros_ws/build/camera_param_server",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/camera_param_server/lib/python3.10/site-packages",
+        "/root/ros_ws/build/rqt_fixed_trajectory_generator/src",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/rqt_fixed_trajectory_generator/lib/python3.10/site-packages",
+        "/root/ros_ws/build/rqt_behavior_tree_command/src",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/rqt_behavior_tree_command/lib/python3.10/site-packages",
+        "/root/ros_ws/build/rqt_behavior_tree/src",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/rqt_behavior_tree/lib/python3.10/site-packages",
+        "/root/ros_ws/build/macvo2",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/macvo2/lib/python3.10/site-packages",
+        "/root/ros_ws/build/gimbal_stabilizer",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/gimbal_stabilizer/lib/python3.10/site-packages",
+        "/root/ros_ws/build/bag_record_pid",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/bag_record_pid/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/root/ros_ws/build/macvo",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/macvo/lib/python3.10/site-packages",
+        "/root/ros_ws/build/camera_param_server",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/camera_param_server/lib/python3.10/site-packages",
+        "/root/ros_ws/build/rqt_fixed_trajectory_generator/src",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/rqt_fixed_trajectory_generator/lib/python3.10/site-packages",
+        "/root/ros_ws/build/rqt_behavior_tree_command/src",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/rqt_behavior_tree_command/lib/python3.10/site-packages",
+        "/root/ros_ws/build/rqt_behavior_tree/src",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/rqt_behavior_tree/lib/python3.10/site-packages",
+        "/root/ros_ws/build/macvo2",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/macvo2/lib/python3.10/site-packages",
+        "/root/ros_ws/build/gimbal_stabilizer",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/gimbal_stabilizer/lib/python3.10/site-packages",
+        "/root/ros_ws/build/bag_record_pid",
+        "/home/yunwoo-airlab/AirStack/robot/ros_ws/install/bag_record_pid/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
+}
