@@ -60,8 +60,6 @@ frames_*.pdf
 
 nucleus_token.txt
 
-docker/sitl_integration/px
-
 
 # mkdocs
 mkdocs.log

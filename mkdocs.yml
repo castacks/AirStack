@@ -127,7 +127,6 @@ nav:
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
           - docs/simulation/isaac_sim/scene_setup.md
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
-          - docs/simulation/isaac_sim/ascent_sitl_extension.md
   - Real World:
       - docs/real_world/index.md
       - docs/real_world/data_offloading/index.md
