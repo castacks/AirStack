@@ -42,7 +42,6 @@ import atexit
 ext_manager = omni.kit.app.get_app().get_extension_manager()
 
 for ext in [
-    "airlab.airstack",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
