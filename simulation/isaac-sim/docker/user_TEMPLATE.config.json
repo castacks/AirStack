@@ -544,8 +544,7 @@
             },
             "exts": {
                 "enabled": {
-                    "0": "pegasus.simulator-4.5.0",
-                    "1": "airlab.pegasus-1.19.1"
+                    "0": "pegasus.simulator-5.1.0"
                 }
             },
             "window": {
