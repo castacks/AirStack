@@ -35,7 +35,7 @@
     file="$(find-pkg-share $(env AUTONOMY_LAUNCH_PACKAGE))/launch/$(env AUTONOMY_LAUNCH_FILE)" />
 
   <!-- Logging -->
-  <!-- <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" /> -->
+  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
   <!-- Domain Bridge -->
   <node pkg="domain_bridge" exec="domain_bridge"
