@@ -65,8 +65,9 @@ services:
       - $HOME/Documents/isaac_sim_data/logs:/root/.nvidia-omniverse/logs:rw
       - $HOME/Documents/isaac_sim_data/data:/root/.local/share/ov/data:rw
       - $HOME/Documents/isaac_sim_data/documents:/root/Documents:rw
-      # IMPORTANT: set the version number without the trailing .0
-      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
+      # omniverse
+      - ./omniverse.toml:/root/.nvidia-omniverse/config/omniverse.toml:rw
+      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # IMPORTANT: set the version number without the trailing .0
       - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
       # developer stuff
       - .dev:/root/.dev:rw # developer config
@@ -80,14 +81,6 @@ services:
       - ../extensions/PegasusSimulator:/isaac_extensions/PegasusSimulator
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/root/Documents/Kit/shared/exts/pegasus.simulator/
       - ../config/sim_to_robot_bridge.yaml:/sim_to_robot_bridge.yaml:ro
-      # code
-      - ../sitl_integration/kit-app-template/source/extensions/airlab.airstack:/root/Documents/Kit/shared/exts/airlab.airstack
-      - ../sitl_integration/kit-app-template/source/extensions/airlab.pegasus:/root/Documents/Kit/shared/exts/airlab.pegasus
-      - ../sitl_integration/kit-app-template/source/extensions/airlab.gimbal:/root/Documents/Kit/shared/exts/airlab.gimbal
-      - ../sitl_integration/kit-app-template/source/extensions/airlab.tmux_manager:/root/Documents/Kit/shared/exts/airlab.tmux_manager
-      - ../sitl_integration:/sitl_integration:rw
-      - ../sitl_integration/inputrc:/etc/inputrc
-      - ../sitl_integration/config:/root/.nvidia-omniverse/config:rw
 
   # ===================================================================================================================
   isaac-sim-gui:
