@@ -51,3 +51,5 @@ services:
       - ../..:/root/AirStack
       - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw # common ROS packages
       - ../../common/ros_packages/fastdds.xml:/root/AirStack/gcs/ros_ws/fastdds.xml:rw # fastdds.xml
+      # bags
+      - ../bags:/bags:rw

@@ -1,0 +1,11 @@
+# list of all ros2 bag files to ignore
+*.mcap
+*.mcap.index
+*.mcap.meta
+*.mcap.bag
+*.mcap.bag.index
+*.mcap.bag.meta
+*.db3
+*.db3.index
+*.db3.meta
+*.yaml
