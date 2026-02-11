@@ -37,11 +37,10 @@ class BagRecorderNode(Node):
         self.active = False
         self.cfg = yaml.safe_load(open(self.cfg_path))
 
-        # Exit if it does not exist.
+        # Create output directory if it doesn't exist
         if not os.path.exists(self.output_dir):
-            self.get_logger().error(f"Output directory {self.output_dir} does not exist.")
-            rclpy.shutdown()
-            return
+            self.get_logger().info(f"Output directory {self.output_dir} does not exist. Creating it.")
+            os.makedirs(self.output_dir, exist_ok=True)
         os.chdir(self.output_dir)
 
         self.command_prefix = ["ros2", "bag", "record", "-s", "mcap"]
