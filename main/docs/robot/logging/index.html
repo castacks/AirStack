@@ -14,7 +14,7 @@
         <link rel="prev" href="../static_transforms/">
       
       
-        <link rel="next" href="../../simulation/">
+        <link rel="next" href="../../../common/ros_packages/bag_recorder_pid/">
       
       
         
@@ -2780,6 +2780,8 @@
           
         
       
+        
+      
     
     
     
@@ -2817,6 +2819,11 @@
 
             </a>
             
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
           </div>
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="true">
@@ -2830,6 +2837,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../common/ros_packages/bag_recorder_pid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bag_record_pid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
           </ul>
@@ -3806,6 +3841,13 @@
 
 
 <h1 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h1>
+<h2 id="bag-recording">Bag Recording<a class="headerlink" href="#bag-recording" title="Permanent link">&para;</a></h2>
+<p>AirStack provides automated bag recording capabilities for capturing ROS2 topic data during flights. The main node for bag recording is located at <a href="../../common/ros_packages/bag_recorder_pid">common/ros_packages/bag_recorder_pid</a>. For detailed configuration options and implementation details, please consult the README in that directory.</p>
+<h3 id="enabling-bag-recording">Enabling Bag Recording<a class="headerlink" href="#enabling-bag-recording" title="Permanent link">&para;</a></h3>
+<p>To enable bag recording, prepend <code>RECORD_BAGS=true</code> to the airstack up command:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">RECORD_BAGS</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>robot
+</span></code></pre></div>
+<p>The BehaviorTree will automatically trigger topic recording once the drone takes off. Recorded bags will appear in the <code>./robot/bags</code> directory. </p>
 
 
 
@@ -3858,13 +3900,13 @@
         
         
           
-          <a href="../../simulation/" class="md-footer__link md-footer__link--next" aria-label="Next: Simulation">
+          <a href="../../../common/ros_packages/bag_recorder_pid/" class="md-footer__link md-footer__link--next" aria-label="Next: bag_record_pid">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Simulation
+                bag_record_pid
               </div>
             </div>
             <div class="md-footer__button md-icon">

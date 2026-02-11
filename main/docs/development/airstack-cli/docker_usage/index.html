@@ -2943,6 +2943,8 @@
           
         
       
+        
+      
     
     
     
@@ -2977,6 +2979,11 @@
 
             </a>
             
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
           </div>
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
@@ -2990,6 +2997,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../common/ros_packages/bag_recorder_pid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bag_record_pid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
           </ul>
@@ -4116,60 +4151,57 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="nv">ROBOT_DEFINTIONS</span><span class="o">=</span><span class="s2">&quot;/config/robot_definitions.yaml&quot;</span><span class="w">  </span><span class="c1"># Path to the robot definitions file, which is mounted at /config in containers.</span>
 </span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a>
 </span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="c1"># ============== SIMULATION =====================</span>
-</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="c1"># ISAAC_SIM_GUI=&quot;/root/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd&quot;</span>
-</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="c1"># ISAAC_SIM_GUI=&quot;/root/AirStack/simulation/isaac-sim/assets/robots/debug_wobble_flat.scene.usd&quot;</span>
-</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="c1"># ISAAC_SIM_GUI=&quot;/root/AirStack/simulation/isaac-sim/assets/robots/scripted_prim_old_omnigraph.usd&quot;</span>
-</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="c1"># ISAAC_SIM_GUI=&quot;/root/AirStack/simulation/isaac-sim/assets/robots/old_prim_scripted_omnigraph.usd&quot;</span>
-</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="c1"># ISAAC_SIM_GUI=&quot;/root/AirStack/simulation/isaac-sim/assets/robots/scripted_iris_prim.usd&quot;</span>
-</span><span id="__span-16-30"><a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="s2">&quot;/root/AirStack/simulation/isaac-sim/assets/robots/scripted_iris_prim_with_sensors.usd&quot;</span>
-</span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="c1"># Set to &quot;true&quot; to launch Isaac Sim using a standalone Python script instead of USD file</span>
-</span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w"> </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
-</span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="c1"># Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)</span>
-</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span><span class="s2">&quot;example_one_px4_pegasus_launch_script.py&quot;</span>
-</span><span id="__span-16-35"><a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="s2">&quot;false&quot;</span>
-</span><span id="__span-16-36"><a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="c1"># ===============================================</span>
-</span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a>
-</span><span id="__span-16-38"><a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a><span class="c1"># ================= ROBOT =====================</span>
-</span><span id="__span-16-39"><a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a><span class="c1"># See robot/docker/docker-compose.yaml for how these variables get propagated in </span>
-</span><span id="__span-16-40"><a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a><span class="c1"># the container&#39;s entry command. See robot&#39;s .bashrc for additional variables</span>
-</span><span id="__span-16-41"><a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a><span class="nv">ROBOT_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;robot_bringup&quot;</span>
-</span><span id="__span-16-42"><a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a><span class="nv">ROBOT_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;robot.launch.xml&quot;</span>
-</span><span id="__span-16-43"><a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a><span class="nv">ROBOT_DESCRIPTION_PACKAGE</span><span class="o">=</span><span class="s2">&quot;iris_with_sensors_description&quot;</span>
-</span><span id="__span-16-44"><a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a><span class="nv">ROBOT_URDF_FILE</span><span class="o">=</span><span class="s2">&quot;iris_with_sensors.pegasus.robot.urdf&quot;</span>
-</span><span id="__span-16-45"><a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a>
-</span><span id="__span-16-46"><a id="__codelineno-16-46" name="__codelineno-16-46" href="#__codelineno-16-46"></a><span class="c1"># See robot-base-docker-compose.yaml for how these variables get propagated. </span>
-</span><span id="__span-16-47"><a id="__codelineno-16-47" name="__codelineno-16-47" href="#__codelineno-16-47"></a><span class="nv">AUTONOMY_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;autonomy_bringup&quot;</span>
-</span><span id="__span-16-48"><a id="__codelineno-16-48" name="__codelineno-16-48" href="#__codelineno-16-48"></a><span class="nv">AUTONOMY_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;autonomy.launch.xml&quot;</span>
-</span><span id="__span-16-49"><a id="__codelineno-16-49" name="__codelineno-16-49" href="#__codelineno-16-49"></a><span class="c1"># --</span>
-</span><span id="__span-16-50"><a id="__codelineno-16-50" name="__codelineno-16-50" href="#__codelineno-16-50"></a><span class="nv">INTERFACE_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;interface_bringup&quot;</span>
-</span><span id="__span-16-51"><a id="__codelineno-16-51" name="__codelineno-16-51" href="#__codelineno-16-51"></a><span class="nv">INTERFACE_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;interface.launch.xml&quot;</span>
-</span><span id="__span-16-52"><a id="__codelineno-16-52" name="__codelineno-16-52" href="#__codelineno-16-52"></a><span class="c1"># --</span>
-</span><span id="__span-16-53"><a id="__codelineno-16-53" name="__codelineno-16-53" href="#__codelineno-16-53"></a><span class="nv">SENSORS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;sensors_bringup&quot;</span>
-</span><span id="__span-16-54"><a id="__codelineno-16-54" name="__codelineno-16-54" href="#__codelineno-16-54"></a><span class="nv">SENSORS_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;sensors.launch.xml&quot;</span>
-</span><span id="__span-16-55"><a id="__codelineno-16-55" name="__codelineno-16-55" href="#__codelineno-16-55"></a><span class="c1"># --</span>
-</span><span id="__span-16-56"><a id="__codelineno-16-56" name="__codelineno-16-56" href="#__codelineno-16-56"></a><span class="nv">PERCEPTION_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;perception_bringup&quot;</span>
-</span><span id="__span-16-57"><a id="__codelineno-16-57" name="__codelineno-16-57" href="#__codelineno-16-57"></a><span class="nv">PERCEPTION_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;perception.launch.xml&quot;</span>
-</span><span id="__span-16-58"><a id="__codelineno-16-58" name="__codelineno-16-58" href="#__codelineno-16-58"></a><span class="c1"># --</span>
-</span><span id="__span-16-59"><a id="__codelineno-16-59" name="__codelineno-16-59" href="#__codelineno-16-59"></a><span class="nv">LOCAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;local_bringup&quot;</span>
-</span><span id="__span-16-60"><a id="__codelineno-16-60" name="__codelineno-16-60" href="#__codelineno-16-60"></a><span class="nv">LOCAL_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;local.launch.xml&quot;</span>
-</span><span id="__span-16-61"><a id="__codelineno-16-61" name="__codelineno-16-61" href="#__codelineno-16-61"></a><span class="c1"># --</span>
-</span><span id="__span-16-62"><a id="__codelineno-16-62" name="__codelineno-16-62" href="#__codelineno-16-62"></a><span class="nv">GLOBAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;global_bringup&quot;</span>
-</span><span id="__span-16-63"><a id="__codelineno-16-63" name="__codelineno-16-63" href="#__codelineno-16-63"></a><span class="nv">GLOBAL_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;global.launch.xml&quot;</span>
-</span><span id="__span-16-64"><a id="__codelineno-16-64" name="__codelineno-16-64" href="#__codelineno-16-64"></a><span class="c1"># --</span>
-</span><span id="__span-16-65"><a id="__codelineno-16-65" name="__codelineno-16-65" href="#__codelineno-16-65"></a><span class="nv">BEHAVIOR_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;behavior_bringup&quot;</span>
-</span><span id="__span-16-66"><a id="__codelineno-16-66" name="__codelineno-16-66" href="#__codelineno-16-66"></a><span class="nv">BEHAVIOR_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;behavior.launch.xml&quot;</span>
-</span><span id="__span-16-67"><a id="__codelineno-16-67" name="__codelineno-16-67" href="#__codelineno-16-67"></a>
-</span><span id="__span-16-68"><a id="__codelineno-16-68" name="__codelineno-16-68" href="#__codelineno-16-68"></a><span class="c1"># offboard API streaming out. this is so that ports don&#39;t conflict for multi-agent FCU communication</span>
-</span><span id="__span-16-69"><a id="__codelineno-16-69" name="__codelineno-16-69" href="#__codelineno-16-69"></a><span class="nv">OFFBOARD_BASE_PORT</span><span class="o">=</span><span class="m">14540</span>
-</span><span id="__span-16-70"><a id="__codelineno-16-70" name="__codelineno-16-70" href="#__codelineno-16-70"></a><span class="nv">ONBOARD_BASE_PORT</span><span class="o">=</span><span class="m">14580</span>
-</span><span id="__span-16-71"><a id="__codelineno-16-71" name="__codelineno-16-71" href="#__codelineno-16-71"></a><span class="c1"># ===============================================</span>
-</span><span id="__span-16-72"><a id="__codelineno-16-72" name="__codelineno-16-72" href="#__codelineno-16-72"></a>
-</span><span id="__span-16-73"><a id="__codelineno-16-73" name="__codelineno-16-73" href="#__codelineno-16-73"></a><span class="c1"># =========== GROUND CONTROL STATION ============</span>
-</span><span id="__span-16-74"><a id="__codelineno-16-74" name="__codelineno-16-74" href="#__codelineno-16-74"></a><span class="c1"># See gcs/docker/docker-compose.yaml for how these variables </span>
-</span><span id="__span-16-75"><a id="__codelineno-16-75" name="__codelineno-16-75" href="#__codelineno-16-75"></a><span class="c1"># get propagated in the container&#39;s entry command.</span>
-</span><span id="__span-16-76"><a id="__codelineno-16-76" name="__codelineno-16-76" href="#__codelineno-16-76"></a><span class="nv">GCS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;gcs_bringup&quot;</span>
-</span><span id="__span-16-77"><a id="__codelineno-16-77" name="__codelineno-16-77" href="#__codelineno-16-77"></a><span class="nv">GCS_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;gcs.launch.xml&quot;</span>
-</span><span id="__span-16-78"><a id="__codelineno-16-78" name="__codelineno-16-78" href="#__codelineno-16-78"></a><span class="c1"># ===============================================</span>
+</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="s2">&quot;/root/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd&quot;</span>
+</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="c1"># Set to &quot;true&quot; to launch Isaac Sim using a standalone Python script instead of USD file</span>
+</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w"> </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
+</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="c1"># Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)</span>
+</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span><span class="s2">&quot;example_one_px4_pegasus_launch_script.py&quot;</span>
+</span><span id="__span-16-30"><a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="s2">&quot;false&quot;</span>
+</span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="c1"># ===============================================</span>
+</span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>
+</span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="c1"># ================= ROBOT =====================</span>
+</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a><span class="c1"># See robot/docker/docker-compose.yaml for how these variables get propagated in </span>
+</span><span id="__span-16-35"><a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a><span class="c1"># the container&#39;s entry command. See robot&#39;s .bashrc for additional variables</span>
+</span><span id="__span-16-36"><a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="nv">ROBOT_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;robot_bringup&quot;</span>
+</span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a><span class="nv">ROBOT_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;robot.launch.xml&quot;</span>
+</span><span id="__span-16-38"><a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a><span class="nv">ROBOT_DESCRIPTION_PACKAGE</span><span class="o">=</span><span class="s2">&quot;iris_with_sensors_description&quot;</span>
+</span><span id="__span-16-39"><a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a><span class="nv">ROBOT_URDF_FILE</span><span class="o">=</span><span class="s2">&quot;iris_with_sensors.pegasus.robot.urdf&quot;</span>
+</span><span id="__span-16-40"><a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a>
+</span><span id="__span-16-41"><a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a><span class="c1"># See robot-base-docker-compose.yaml for how these variables get propagated. </span>
+</span><span id="__span-16-42"><a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a><span class="nv">AUTONOMY_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;autonomy_bringup&quot;</span>
+</span><span id="__span-16-43"><a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a><span class="nv">AUTONOMY_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;autonomy.launch.xml&quot;</span>
+</span><span id="__span-16-44"><a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a><span class="c1"># --</span>
+</span><span id="__span-16-45"><a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a><span class="nv">INTERFACE_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;interface_bringup&quot;</span>
+</span><span id="__span-16-46"><a id="__codelineno-16-46" name="__codelineno-16-46" href="#__codelineno-16-46"></a><span class="nv">INTERFACE_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;interface.launch.xml&quot;</span>
+</span><span id="__span-16-47"><a id="__codelineno-16-47" name="__codelineno-16-47" href="#__codelineno-16-47"></a><span class="c1"># --</span>
+</span><span id="__span-16-48"><a id="__codelineno-16-48" name="__codelineno-16-48" href="#__codelineno-16-48"></a><span class="nv">SENSORS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;sensors_bringup&quot;</span>
+</span><span id="__span-16-49"><a id="__codelineno-16-49" name="__codelineno-16-49" href="#__codelineno-16-49"></a><span class="nv">SENSORS_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;sensors.launch.xml&quot;</span>
+</span><span id="__span-16-50"><a id="__codelineno-16-50" name="__codelineno-16-50" href="#__codelineno-16-50"></a><span class="c1"># --</span>
+</span><span id="__span-16-51"><a id="__codelineno-16-51" name="__codelineno-16-51" href="#__codelineno-16-51"></a><span class="nv">PERCEPTION_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;perception_bringup&quot;</span>
+</span><span id="__span-16-52"><a id="__codelineno-16-52" name="__codelineno-16-52" href="#__codelineno-16-52"></a><span class="nv">PERCEPTION_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;perception.launch.xml&quot;</span>
+</span><span id="__span-16-53"><a id="__codelineno-16-53" name="__codelineno-16-53" href="#__codelineno-16-53"></a><span class="c1"># --</span>
+</span><span id="__span-16-54"><a id="__codelineno-16-54" name="__codelineno-16-54" href="#__codelineno-16-54"></a><span class="nv">LOCAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;local_bringup&quot;</span>
+</span><span id="__span-16-55"><a id="__codelineno-16-55" name="__codelineno-16-55" href="#__codelineno-16-55"></a><span class="nv">LOCAL_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;local.launch.xml&quot;</span>
+</span><span id="__span-16-56"><a id="__codelineno-16-56" name="__codelineno-16-56" href="#__codelineno-16-56"></a><span class="c1"># --</span>
+</span><span id="__span-16-57"><a id="__codelineno-16-57" name="__codelineno-16-57" href="#__codelineno-16-57"></a><span class="nv">GLOBAL_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;global_bringup&quot;</span>
+</span><span id="__span-16-58"><a id="__codelineno-16-58" name="__codelineno-16-58" href="#__codelineno-16-58"></a><span class="nv">GLOBAL_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;global.launch.xml&quot;</span>
+</span><span id="__span-16-59"><a id="__codelineno-16-59" name="__codelineno-16-59" href="#__codelineno-16-59"></a><span class="c1"># --</span>
+</span><span id="__span-16-60"><a id="__codelineno-16-60" name="__codelineno-16-60" href="#__codelineno-16-60"></a><span class="nv">BEHAVIOR_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;behavior_bringup&quot;</span>
+</span><span id="__span-16-61"><a id="__codelineno-16-61" name="__codelineno-16-61" href="#__codelineno-16-61"></a><span class="nv">BEHAVIOR_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;behavior.launch.xml&quot;</span>
+</span><span id="__span-16-62"><a id="__codelineno-16-62" name="__codelineno-16-62" href="#__codelineno-16-62"></a>
+</span><span id="__span-16-63"><a id="__codelineno-16-63" name="__codelineno-16-63" href="#__codelineno-16-63"></a><span class="c1"># offboard API streaming out. this is so that ports don&#39;t conflict for multi-agent FCU communication</span>
+</span><span id="__span-16-64"><a id="__codelineno-16-64" name="__codelineno-16-64" href="#__codelineno-16-64"></a><span class="nv">OFFBOARD_BASE_PORT</span><span class="o">=</span><span class="m">14540</span>
+</span><span id="__span-16-65"><a id="__codelineno-16-65" name="__codelineno-16-65" href="#__codelineno-16-65"></a><span class="nv">ONBOARD_BASE_PORT</span><span class="o">=</span><span class="m">14580</span>
+</span><span id="__span-16-66"><a id="__codelineno-16-66" name="__codelineno-16-66" href="#__codelineno-16-66"></a>
+</span><span id="__span-16-67"><a id="__codelineno-16-67" name="__codelineno-16-67" href="#__codelineno-16-67"></a><span class="nv">RECORD_BAGS</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w">  </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
+</span><span id="__span-16-68"><a id="__codelineno-16-68" name="__codelineno-16-68" href="#__codelineno-16-68"></a><span class="c1"># ===============================================</span>
+</span><span id="__span-16-69"><a id="__codelineno-16-69" name="__codelineno-16-69" href="#__codelineno-16-69"></a>
+</span><span id="__span-16-70"><a id="__codelineno-16-70" name="__codelineno-16-70" href="#__codelineno-16-70"></a><span class="c1"># =========== GROUND CONTROL STATION ============</span>
+</span><span id="__span-16-71"><a id="__codelineno-16-71" name="__codelineno-16-71" href="#__codelineno-16-71"></a><span class="c1"># See gcs/docker/docker-compose.yaml for how these variables </span>
+</span><span id="__span-16-72"><a id="__codelineno-16-72" name="__codelineno-16-72" href="#__codelineno-16-72"></a><span class="c1"># get propagated in the container&#39;s entry command.</span>
+</span><span id="__span-16-73"><a id="__codelineno-16-73" name="__codelineno-16-73" href="#__codelineno-16-73"></a><span class="nv">GCS_LAUNCH_PACKAGE</span><span class="o">=</span><span class="s2">&quot;gcs_bringup&quot;</span>
+</span><span id="__span-16-74"><a id="__codelineno-16-74" name="__codelineno-16-74" href="#__codelineno-16-74"></a><span class="nv">GCS_LAUNCH_FILE</span><span class="o">=</span><span class="s2">&quot;gcs.launch.xml&quot;</span>
+</span><span id="__span-16-75"><a id="__codelineno-16-75" name="__codelineno-16-75" href="#__codelineno-16-75"></a><span class="c1"># ===============================================</span>
 </span></code></pre></div>
 <p>To override the default <code>.env</code> file, you can pass the <code>--env-file</code> argument with the syntax <code>airstack --env-file [env_file] up</code> (or <code>docker compose --env-file [env_file] up -d</code>).</p>
 <p>Multiple <code>--env-file</code> arguments can be passed to compose overriding sets of <code>variables.env</code> files.
