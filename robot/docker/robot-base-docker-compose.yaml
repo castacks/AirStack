@@ -35,6 +35,8 @@ services:
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
       # URDF Robot Description
       - ROBOT_URDF_FILE_PATH=${ROBOT_DESCRIPTION_PACKAGE}/urdf/${ROBOT_URDF_FILE}
+      # Record bags
+      - RECORD_BAGS=${RECORD_BAGS}
     deploy:
       # let it use the GPU
       resources:
@@ -59,4 +61,6 @@ services:
       - ../..:/root/AirStack
       - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw # common ROS packages
       - ../../common/ros_packages/fastdds.xml:/root/AirStack/robot/ros_ws/fastdds.xml:rw # fastdds.xml
+      # bags
+      - ../bags:/bags:rw
 

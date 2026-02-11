@@ -23,6 +23,6 @@ services:
       service: gcs-base
     network_mode: host
     volumes:
-      - $HOME/bags/:/bags
+      - $HOME/bags:/bags
       - ../../robot/ros_ws/src/robot_bringup/rviz/:/bags/rviz
       - ../../plot:/plot

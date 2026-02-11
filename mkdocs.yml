@@ -112,6 +112,7 @@ nav:
           - docs/robot/static_transforms/index.md
       - Logging:
           - docs/robot/logging/index.md
+          - common/ros_packages/bag_recorder_pid/README.md
   - Ground Control Station:
       - docs/ground_control_station/index.md
       - Usage:
