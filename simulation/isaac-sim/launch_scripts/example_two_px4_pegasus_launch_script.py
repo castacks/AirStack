@@ -13,9 +13,16 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+import rclpy
+print(f"[Launcher] SUCCESS: rclpy imported from {rclpy.__file__}")
+
 import omni.kit.app
 import omni.timeline
+import omni.ui
 from omni.isaac.core.world import World
+from datetime import datetime
+from pxr import UsdLux
+
 
 # Pegasus imports
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
@@ -36,6 +43,7 @@ import subprocess
 import threading
 import signal
 import atexit
+import time
 
 
 # Explicitly enable required extensions
@@ -45,6 +53,7 @@ for ext in [
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
+    "isaacsim.core.nodes",              # Core helper nodes for OmniGraph
     "omni.graph.ui",                    # UI scaffolding for graph tools
     "omni.graph.visualization.nodes",   # Visualization helper nodes
     "omni.graph.scriptnode",            # Python script node support
@@ -68,16 +77,21 @@ class PegasusApp:
     """
 
     def __init__(self):
-        # Timeline for controlling play/stop
-        self.timeline = omni.timeline.get_timeline_interface()
 
         # Start Pegasus interface + world
         self.pg = PegasusInterface()
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        # Load default environment
+        # Load default environment. You can replace with url or file path of any desired environment.
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        
+        # Timeline for controlling play/stop
+        self.timeline = omni.timeline.get_timeline_interface()
+        self.timeline.stop()
+
+        # Add a distant light to the scene
+        self.add_distant_light()
 
         ####################################################################################################
         # Spawn vehicle 1
@@ -100,7 +114,7 @@ class PegasusApp:
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
             camera_name="ZEDCamera",
-            camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
+            camera_offset = [0.2, 0.0, -0.05], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
 
@@ -112,6 +126,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
+            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
         )
 
 
@@ -121,6 +136,7 @@ class PegasusApp:
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
             drone_prim="/World/drone2/base_link",
+            robot_name="robot_2",
             vehicle_id=2, # defines MAVLink port offset. Define as 2 for second vehicle
             domain_id=2, # defines ROS2 domain ID. Define as 2 for second vehicle
             usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
@@ -134,7 +150,7 @@ class PegasusApp:
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             camera_name="ZEDCamera",
-            camera_offset = [0.1, 0.0, 0.0], # X, Y, Z offset from drone base_link
+            camera_offset = [0.2, 0.0, -0.05], # X, Y, Z offset from drone base_link
             camera_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
         )
 
@@ -146,26 +162,34 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
+            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
         )
         
 
-        # Reset so physics/articulations are ready
-        self.world.reset()
-
         self.play_sim_on_start = os.getenv("PLAY_SIM_ON_START", "false").lower() == "true"
+        self.sim_started = False
+        if self.play_sim_on_start:
+            # Reset so physics/articulations are ready
+            self.world.reset()
+            self.timeline.play()
+            self.sim_started = True
         
         self.stop_sim = False
 
+    def add_distant_light(self):
+        """Add a distant light to the scene for better lighting"""
+        distant_light = UsdLux.DistantLight.Define(self.world.scene.stage, "/World/DistantLight")
+        distant_light.CreateIntensityAttr(1000)
 
     def run(self):
-        if self.play_sim_on_start:
-            self.timeline.play()
-        else:
-            self.timeline.stop()
-        
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
+            
             if self.timeline.is_playing():
+                if not self.sim_started:
+                    self.world.reset() # Reset so physics/articulations are ready
+                    self.sim_started = True
+
                 self.world.step(render=True)
             else:
                 # If paused, just update the app (render UI, handle inputs) 
