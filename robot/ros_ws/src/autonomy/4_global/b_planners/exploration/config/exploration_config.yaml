@@ -14,7 +14,7 @@
     sub_vdb_topic: "vdb_grid"
     sub_robot_tf_topic: "/tf"
     sub_target_path_topic: "/perspective_goals"
-    srv_exploration_toggle_topic: "/robot_1/behavior/global_plan_toggle"
+    srv_exploration_toggle_topic: "~/global_plan_toggle"
 
     publish_visualizations: false # should trajectory visualizations be published
     num_paths_to_generate: 5 # how many paths to string together
