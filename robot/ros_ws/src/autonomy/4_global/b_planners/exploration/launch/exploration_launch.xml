@@ -6,6 +6,7 @@
         <remap from="vdb_grid" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_grid" />
         <remap from="sensor_pointcloud" to="/$(env ROBOT_NAME)/sensors/ouster/point_cloud" />
         <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+        <remap from="~/global_plan_toggle" to="/$(env ROBOT_NAME)/behavior/global_plan_toggle" />
     </node>
 </launch>
 
@@ -17,5 +18,6 @@
         <remap from="vdb_grid" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_grid" />
         <remap from="sensor_pointcloud" to="/$(env ROBOT_NAME)/sensors/ouster/point_cloud" />
         <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+        <remap from="~/global_plan_toggle" to="/$(env ROBOT_NAME)/behavior/global_plan_toggle" />
     </node>
 </launch> -->

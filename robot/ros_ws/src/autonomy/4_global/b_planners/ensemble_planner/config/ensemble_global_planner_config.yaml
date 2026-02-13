@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    srv_random_walk_toggle_topic: "/robot_1/behavior/global_plan_toggle"
+    srv_global_plan_toggle_topic: "~/global_plan_toggle"
     way_point_planners: 
       - name: "random_walk"
         config: 
