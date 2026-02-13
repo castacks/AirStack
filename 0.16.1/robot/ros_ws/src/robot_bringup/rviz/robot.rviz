@@ -1,0 +1,876 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 78
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /TF1/Frames1
+        - /RobotModel1
+        - /Sensors1
+        - /Sensors1/Lidar1
+        - /Perception1
+        - /Local1
+        - /Local1/DROAN1
+        - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
+        - /Local1/DROAN1/Droan GPU1/Traj Debug1/Namespaces1
+        - /Global1
+      Splitter Ratio: 0.590062141418457
+    Tree Height: 551
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /2D Goal Pose1
+      - /Publish Point1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz_common/Time
+    Experimental: false
+    Name: Time
+    SyncMode: 0
+    SyncSource: Lidar
+  - Class: rviz_behavior_tree_panel::BehaviorTreePanel
+    Name: BehaviorTreePanel
+    topic: /robot_1/behavior/behavior_tree_graphviz
+    zoom_factor: 0.1919851303100586
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 100
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        OS1_REV6_128_10hz___512_resolution:
+          Value: false
+        base_link:
+          Value: true
+        base_link_ZED_X:
+          Value: false
+        base_link_body_body_link:
+          Value: false
+        base_link_frd:
+          Value: true
+        base_link_stabilized:
+          Value: false
+        camera_left:
+          Value: true
+        camera_right:
+          Value: true
+        imu:
+          Value: false
+        lidar:
+          Value: false
+        look_ahead_point:
+          Value: false
+        look_ahead_point_stabilized:
+          Value: false
+        macvo_ned:
+          Value: false
+        map:
+          Value: true
+        map_ned:
+          Value: false
+        odom:
+          Value: true
+        odom_ned:
+          Value: true
+        rotor0:
+          Value: true
+        rotor1:
+          Value: true
+        rotor2:
+          Value: true
+        rotor3:
+          Value: true
+        tracking_point:
+          Value: false
+        tracking_point_stabilized:
+          Value: false
+        world:
+          Value: false
+      Marker Scale: 0.30000001192092896
+      Name: TF
+      Show Arrows: false
+      Show Axes: true
+      Show Names: true
+      Tree:
+        map:
+          base_link:
+            base_link_body_body_link:
+              OS1_REV6_128_10hz___512_resolution:
+                lidar:
+                  {}
+              base_link_ZED_X:
+                camera_left:
+                  macvo_ned:
+                    {}
+                camera_right:
+                  {}
+                imu:
+                  {}
+              rotor0:
+                {}
+              rotor1:
+                {}
+              rotor2:
+                {}
+              rotor3:
+                {}
+            base_link_frd:
+              {}
+          base_link_stabilized:
+            {}
+          look_ahead_point:
+            {}
+          look_ahead_point_stabilized:
+            {}
+          map_ned:
+            {}
+          tracking_point:
+            {}
+          tracking_point_stabilized:
+            {}
+        world:
+          {}
+      Update Interval: 0
+      Value: true
+    - Alpha: 0.5
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: robot_description
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        OS1_REV6_128_10hz___512_resolution:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        base_link_ZED_X:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_link_body_body_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera_left:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera_right:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        imu:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        lidar:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        rotor0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rotor1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rotor2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rotor3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Mass Properties:
+        Inertia: false
+        Mass: false
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/Image
+          Enabled: false
+          Max Value: 1
+          Median window: 5
+          Min Value: 0
+          Name: Front Right RGB
+          Normalize Range: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/sensors/front_stereo/right/image_rect
+          Value: false
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Max Value: 100
+          Median window: 5
+          Min Value: 0
+          Name: Front Right Depth
+          Normalize Range: false
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: sensors/front_stereo/right/depth_ground_truth
+          Value: true
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 0.017708778381347656
+            Min Value: -0.07378101348876953
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud2
+          Color: 170; 170; 255
+          Color Transformer: AxisColor
+          Decay Time: 1
+          Enabled: true
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: Lidar
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 5
+          Size (m): 0.009999999776482582
+          Style: Points
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: sensors/lidar/point_cloud
+          Use Fixed Frame: true
+          Use rainbow: true
+          Value: true
+        - Angle Tolerance: 0
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.5
+              Color: 255; 255; 127
+              Color Style: Unique
+              Frame: Local
+              Offset: 1
+              Scale: 1
+              Value: true
+            Position:
+              Alpha: 0.30000001192092896
+              Color: 204; 51; 204
+              Scale: 1
+              Value: true
+            Value: true
+          Enabled: false
+          Keep: 1
+          Name: Odometry
+          Position Tolerance: 0
+          Shape:
+            Alpha: 1
+            Axes Length: 1
+            Axes Radius: 0.10000000149011612
+            Color: 255; 25; 0
+            Head Length: 0.30000001192092896
+            Head Radius: 0.10000000149011612
+            Shaft Length: 1
+            Shaft Radius: 0.05000000074505806
+            Value: Axes
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: odometry_conversion/odometry
+          Value: false
+        - Class: rviz_default_plugins/Image
+          Enabled: true
+          Max Value: 100
+          Median window: 5
+          Min Value: 0
+          Name: Front Right Depth
+          Normalize Range: false
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/sensors/front_stereo/right/depth_ground_truth
+          Value: true
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 18.48733139038086
+            Min Value: -5.648834705352783
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud2
+          Color: 170; 170; 255
+          Color Transformer: RGB8
+          Decay Time: 1
+          Enabled: true
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: Disparity
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.10000000149011612
+          Style: Points
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/sensors/front_stereo/pointcloud
+          Use Fixed Frame: true
+          Use rainbow: true
+          Value: true
+      Enabled: true
+      Name: Sensors
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/Image
+          Enabled: false
+          Max Value: 1
+          Median window: 5
+          Min Value: 0
+          Name: MACVO Disparity
+          Normalize Range: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/perception/macvo/disparity
+          Value: false
+        - Alpha: 1
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: -10
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/PointCloud
+          Color: 255; 255; 255
+          Color Transformer: RGBF32
+          Decay Time: 5
+          Enabled: false
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: MACVO PointCloud
+          Position Transformer: XYZ
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.009999999776482582
+          Style: Flat Squares
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/perception/macvo/point_cloud
+          Use Fixed Frame: true
+          Use rainbow: true
+          Value: false
+        - Angle Tolerance: 0.10000000149011612
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.5
+              Color: 255; 255; 127
+              Color Style: Unique
+              Frame: Local
+              Offset: 1
+              Scale: 1
+              Value: true
+            Position:
+              Alpha: 0.30000001192092896
+              Color: 204; 51; 204
+              Scale: 1
+              Value: true
+            Value: true
+          Enabled: true
+          Keep: 100
+          Name: MACVO Odometry
+          Position Tolerance: 0.10000000149011612
+          Shape:
+            Alpha: 1
+            Axes Length: 1
+            Axes Radius: 0.10000000149011612
+            Color: 255; 25; 0
+            Head Length: 0.30000001192092896
+            Head Radius: 0.10000000149011612
+            Shaft Length: 1
+            Shaft Radius: 0.05000000074505806
+            Value: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/macvo/odometry
+          Value: true
+      Enabled: true
+      Name: Perception
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_common/Group
+          Displays:
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Trimmed Global Plan for DROAN
+              Namespaces:
+                global_plan: true
+                global_plan_extra_text: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: droan/local_planner_global_plan_vis
+              Value: true
+            - Class: rviz_common/Group
+              Displays:
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: false
+                  Name: ExpansionPoly
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: droan/expansion_poly
+                  Value: false
+                - Class: rviz_default_plugins/Marker
+                  Enabled: false
+                  Name: Disparity Frustum
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    Filter size: 10
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/frustum
+                  Value: false
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: false
+                  Name: Disparity Map Collision Checking
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/disparity_map_debug
+                  Value: false
+                - Alpha: 1
+                  Autocompute Intensity Bounds: true
+                  Autocompute Value Bounds:
+                    Max Value: 10
+                    Min Value: -10
+                    Value: true
+                  Axis: Z
+                  Channel Name: intensity
+                  Class: rviz_default_plugins/PointCloud2
+                  Color: 255; 255; 255
+                  Color Transformer: Intensity
+                  Decay Time: 0
+                  Enabled: false
+                  Invert Rainbow: false
+                  Max Color: 255; 255; 255
+                  Max Intensity: 220
+                  Min Color: 0; 0; 0
+                  Min Intensity: 120
+                  Name: Expansion Cloud
+                  Position Transformer: XYZ
+                  Selectable: true
+                  Size (Pixels): 3
+                  Size (m): 0.009999999776482582
+                  Style: Flat Squares
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    Filter size: 10
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: droan/expansion_cloud
+                  Use Fixed Frame: true
+                  Use rainbow: true
+                  Value: false
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: false
+                  Name: Traj Library
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: droan/trajectory_library_vis
+                  Value: false
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: true
+                  Name: Disparity Graph Poses
+                  Namespaces:
+                    {}
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/disparity_graph
+                  Value: true
+              Enabled: false
+              Name: Droan CPU
+            - Class: rviz_common/Group
+              Displays:
+                - Alpha: 1
+                  Autocompute Intensity Bounds: true
+                  Autocompute Value Bounds:
+                    Max Value: 10
+                    Min Value: -10
+                    Value: true
+                  Axis: Z
+                  Channel Name: intensity
+                  Class: rviz_default_plugins/PointCloud2
+                  Color: 255; 255; 255
+                  Color Transformer: Intensity
+                  Decay Time: 0
+                  Enabled: true
+                  Invert Rainbow: false
+                  Max Color: 255; 255; 255
+                  Max Intensity: 49
+                  Min Color: 0; 0; 0
+                  Min Intensity: 0
+                  Name: Foreground Background Cloud
+                  Position Transformer: XYZ
+                  Selectable: true
+                  Size (Pixels): 3
+                  Size (m): 0.009999999776482582
+                  Style: Points
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    Filter size: 10
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/fg_bg_cloud
+                  Use Fixed Frame: true
+                  Use rainbow: false
+                  Value: true
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: true
+                  Name: Traj Debug
+                  Namespaces:
+                    collision_points: true
+                    collision_trajectories: true
+                    free_points: true
+                    free_trajectories: true
+                    unseen_points: true
+                    unseen_trajectories: true
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/traj_debug
+                  Value: true
+                - Class: rviz_default_plugins/MarkerArray
+                  Enabled: true
+                  Name: Graph Vis
+                  Namespaces:
+                    default: true
+                  Topic:
+                    Depth: 5
+                    Durability Policy: Volatile
+                    History Policy: Keep Last
+                    Reliability Policy: Reliable
+                    Value: /robot_1/droan/graph_vis
+                  Value: true
+              Enabled: true
+              Name: Droan GPU
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Virtual Obstacles
+              Namespaces:
+                {}
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: droan/virtual_obstacles
+              Value: true
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Global Plan Vis
+              Namespaces:
+                global_plan: true
+                global_plan_extra_text: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /robot_1/droan/local_planner_global_plan_vis
+              Value: true
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Rewind Info
+              Namespaces:
+                rewind_info: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /robot_1/droan/rewind_info
+              Value: true
+          Enabled: true
+          Name: DROAN
+        - Class: rviz_common/Group
+          Displays:
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: true
+              Name: Traj Vis
+              Namespaces:
+                traj_controller: true
+                traj_controller_extra_text: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: trajectory_controller/trajectory_vis
+              Value: true
+            - Class: rviz_default_plugins/MarkerArray
+              Enabled: false
+              Name: Traj Debug
+              Namespaces:
+                {}
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: trajectory_controller/trajectory_controller_debug_markers
+              Value: false
+          Enabled: true
+          Name: Trajectory Controller
+      Enabled: true
+      Name: Local
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: VDB Mapping Marker
+          Namespaces:
+            "": true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: vdb_mapping/vdb_map_visualization
+          Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 0; 255; 255
+          Enabled: true
+          Head Diameter: 0.30000001192092896
+          Head Length: 0.20000000298023224
+          Length: 0.30000001192092896
+          Line Style: Billboards
+          Line Width: 0.10000000149011612
+          Name: Global Plan
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.029999999329447746
+          Shaft Diameter: 0.10000000149011612
+          Shaft Length: 0.10000000149011612
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/global_plan
+          Value: true
+      Enabled: true
+      Name: Global
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+    - Class: rviz_default_plugins/SetInitialPose
+      Covariance x: 0.25
+      Covariance y: 0.25
+      Covariance yaw: 0.06853891909122467
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
+      Single click: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /clicked_point
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 16.645448684692383
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: false
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.7353981733322144
+      Target Frame: base_link
+      Value: Orbit (rviz)
+      Yaw: 0.13039594888687134
+    Saved: ~
+Window Geometry:
+  BehaviorTreePanel:
+    collapsed: false
+  Displays:
+    collapsed: true
+  Front Right Depth:
+    collapsed: false
+  Front Right RGB:
+    collapsed: true
+  Height: 1376
+  Hide Left Dock: true
+  Hide Right Dock: true
+  MACVO Disparity:
+    collapsed: true
+  QMainWindow State: 000000ff00000000fd0000000400000000000001ce00000356fc020000000cfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000000a005600690065007700730000000078000000a0000000a000fffffffb000000100044006900730070006c006100790073000000011e000002b0000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca0000000000000000fb0000002200460072006f006e00740020005200690067006800740020004400650070007400680000000336000001d20000002800ffffff00000001000001f600000356fc0200000008fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001e00460072006f006e007400200052006900670068007400200052004700420000000078000001d50000002800fffffffc000000f7000001700000000000fffffffa000000010100000002fb0000002200460072006f006e00740020005200690067006800740020004400650070007400680000000000ffffffff0000009e00fffffffb0000002200460072006f006e007400200052006900670068007400200044006500700074006801000007c4000001f60000000000000000fb0000002200460072006f006e0074002000520069006700680074002000440065007000740068010000014a000001cc0000000000000000fb0000001e004d004100430056004f002000440069007300700061007200690074007900000002530000017b0000002800fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000004dd00000037fc0100000002fb0000000800540069006d00650100000000000004dd0000025300fffffffb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004dd00000171fc0100000002fb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c0100000000000004dd000001fa00fffffffb0000000800540069006d00650100000000000004500000000000000000000004dd0000035600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Selection:
+    collapsed: false
+  Time:
+    collapsed: false
+  Tool Properties:
+    collapsed: false
+  Views:
+    collapsed: true
+  Width: 1245
+  X: 3235
+  Y: 27

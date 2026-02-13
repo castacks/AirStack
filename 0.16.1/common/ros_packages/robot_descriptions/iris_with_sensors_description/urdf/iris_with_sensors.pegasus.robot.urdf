@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="iris_with_sensors.pegasus.robot">
+  <joint name="DistanceJoint" type="fixed">
+    <origin xyz="0. 0. 0." rpy="0. 0. 1.5707872"/>
+    <parent link="base_link"/>
+    <child link="base_link_body_body_link"/>
+  </joint>
+  <joint name="OS1_REV6_128_10hz___512_resolution_FixedJoint" type="fixed">
+    <origin xyz="0. 0. 0.025" rpy="0. 0. -1.5707872"/>
+    <parent link="base_link_body_body_link"/>
+    <child link="OS1_REV6_128_10hz___512_resolution"/>
+  </joint>
+  <joint name="base_link_ZED_X_FixedJoint" type="fixed">
+    <origin xyz="0.0 -0.2 -0.05" rpy="0. 0. 0."/>
+    <parent link="base_link_body_body_link"/>
+    <child link="base_link_ZED_X"/>
+  </joint>
+  <joint name="joint0" type="fixed">
+    <origin xyz="-0.2067341 -0.1375972 0.023 " rpy="0. 0. 0."/>
+    <parent link="base_link_body_body_link"/>
+    <child link="rotor0"/>
+    <axis xyz="0. 0. 1."/>
+  </joint>
+  <joint name="joint1" type="fixed">
+    <origin xyz="0.2186935 0.125002 0.023 " rpy="0. 0. 0."/>
+    <parent link="base_link_body_body_link"/>
+    <child link="rotor1"/>
+    <axis xyz="0. 0. 1."/>
+  </joint>
+  <joint name="joint2" type="fixed">
+    <origin xyz="0.2032209 -0.138307 0.023 " rpy="0. 0. 0."/>
+    <parent link="base_link_body_body_link"/>
+    <child link="rotor2"/>
+    <axis xyz="0. 0. 1."/>
+  </joint>
+  <joint name="joint3" type="fixed">
+    <origin xyz="-0.222 0.1245 0.023 " rpy="0. 0. 0."/>
+    <parent link="base_link_body_body_link"/>
+    <child link="rotor3"/>
+    <axis xyz="0. 0. 1."/>
+  </joint>
+  <joint name="joint_OS1_REV6_128_10hz___512_resolution-lidar" type="fixed">
+    <origin xyz="0. 0. 0.03622" rpy="0 0 1.57"/>
+    <parent link="OS1_REV6_128_10hz___512_resolution"/>
+    <child link="lidar"/>
+  </joint>
+  <joint name="joint_base_link_ZED_X-camera_left" type="fixed">
+    <origin xyz="0.05994 -0.00909 0.0134 " rpy="-1.5707964 0. -3.1415927"/>
+    <parent link="base_link_ZED_X"/>
+    <child link="camera_left"/>
+  </joint>
+  <joint name="joint_base_link_ZED_X-camera_right" type="fixed">
+    <origin xyz="-0.05994 -0.00909 0.0134 " rpy="-1.5707964 0. -3.1415927"/>
+    <parent link="base_link_ZED_X"/>
+    <child link="camera_right"/>
+  </joint>
+  <joint name="joint_base_link_ZED_X-imu" type="fixed">
+    <origin xyz="0.06 0.014058 0.0134 " rpy="0. 0. 0."/>
+    <parent link="base_link_ZED_X"/>
+    <child link="imu"/>
+  </joint>
+  <link name="OS1_REV6_128_10hz___512_resolution">
+    <visual>
+      <origin xyz="0. 0. -0." rpy="1.5707964 0. 1.5707963"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/os1_mesh.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. -0." rpy="1.5707964 0. 1.5707963"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/os1_mesh.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="base_link"/>
+  <link name="base_link_ZED_X">
+    <visual>
+      <origin xyz="0. 0.0157875 0.0134617" rpy="1.5707964 0. 0. "/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/base_link_ZED_X_base_link_ZED_X_ZED_X.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0.0157875 0.0134617" rpy="1.5707964 0. 0. "/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/base_link_ZED_X_base_link_ZED_X_ZED_X.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="base_link_body_body_link">
+    <visual>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/base_link_body_body.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/base_link_body_body.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="camera_left"/>
+  <link name="camera_right"/>
+  <link name="imu"/>
+  <link name="lidar"/>
+  <link name="rotor0">
+    <visual>
+      <origin xyz="0.0005641 -0.0042183 0. " rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor0_iris_prop_ccw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0005641 -0.0042183 0. " rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor0_iris_prop_ccw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="rotor1">
+    <visual>
+      <origin xyz="0.0002835 -0.0040079 0. " rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor1_iris_prop_ccw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0.0002835 -0.0040079 0. " rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor1_iris_prop_ccw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="rotor2">
+    <visual>
+      <origin xyz="-0.0006439 -0.0006316 0. " rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor2_iris_prop_cw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0006439 -0.0006316 0. " rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor2_iris_prop_cw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="rotor3">
+    <visual>
+      <origin xyz="-0.0020179 -0.0013155 -0.0001005" rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor3_iris_prop_cw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="-0.0020179 -0.0013155 -0.0001005" rpy="0. 0. 0.0000089"/>
+      <geometry>
+        <mesh filename="package://iris_with_sensors_description/meshes/rotor3_iris_prop_cw.obj" scale="1. 1. 1."/>
+      </geometry>
+    </collision>
+  </link>
+</robot>

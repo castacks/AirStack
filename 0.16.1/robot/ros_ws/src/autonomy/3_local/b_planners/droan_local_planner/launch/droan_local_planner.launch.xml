@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="droan_local_planner" exec="droan_local_planner" args="--log-level DEBUG">
+        <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml" />
+    </node>
+</launch>

@@ -1,0 +1,2 @@
+# ignore openvdb because on ubuntu 22, it builds openvdb8.2.1 which is incompatible with tbb2021.5. we custom build instead
+openvdb: {ubuntu: []}

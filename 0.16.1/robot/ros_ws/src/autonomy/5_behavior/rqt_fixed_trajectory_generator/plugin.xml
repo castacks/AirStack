@@ -1,0 +1,17 @@
+<library path="src">
+  <class name="FixedTrajectoryGenerator" type="rqt_fixed_trajectory_generator.template.FixedTrajectoryGenerator" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A Python GUI plugin providing an interactive Python console.
+    </description>
+    <qtgui>
+      <group>
+        <label>Miscellaneous Tools</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to miscellaneous tools.</statustip>
+      </group>
+      <label>Fixed Trajectory Generator</label>
+      <icon type="theme">applications-python</icon>
+      <statustip>A Python RQT GUI template.</statustip>
+    </qtgui>
+  </class>
+</library>
