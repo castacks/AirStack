@@ -688,7 +688,6 @@ Visualization Manager:
               Name: Traj Vis
               Namespaces:
                 traj_controller: true
-                traj_controller_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
