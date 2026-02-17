@@ -35,7 +35,7 @@ ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twi
 STAGE_SCALE = 2.0
 
 
-DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+DRONE_USD = "/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
 ADD_DOME_LIGHT = True
@@ -202,7 +202,7 @@ class PegasusApp:
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],  # X, Y, Z offset from drone base_link
+            camera_offset=[0.1, 0.0, 0.0],  # X, Y, Z offset from drone base_link
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
@@ -214,7 +214,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
+            lidar_min_range = 1.0, # Minimum detection range (m) to avoid propeller hits
         )
 
         ####################################################################################################
@@ -237,7 +237,7 @@ class PegasusApp:
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],  # X, Y, Z offset from drone base_link
+            camera_offset=[0.1, 0.0, 0.0],  # X, Y, Z offset from drone base_link
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
@@ -249,7 +249,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 0.75 
+            lidar_min_range = 1.0 
         )
 
         # Reset so physics/articulations are ready

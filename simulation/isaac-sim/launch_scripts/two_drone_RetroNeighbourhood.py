@@ -28,14 +28,14 @@ from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgra
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd" 
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
-STAGE_SCALE = 2.0
+STAGE_SCALE = 0.01
 
 
-DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+DRONE_USD = "/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
 ADD_DOME_LIGHT = True
@@ -46,8 +46,8 @@ DOME_LIGHT_EXPOSURE = -3.0
 #Drone offset
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.15
 
-DRONE1_XY_M = (20.0, -7)
-DRONE2_XY_M = (17, 1.5)
+DRONE1_XY_M = (35.0, -19)
+DRONE2_XY_M = (30, -19)
 # ---------------------------------------------------------
 
 
@@ -202,7 +202,7 @@ class PegasusApp:
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],  # X, Y, Z offset from drone base_link
+            camera_offset=[0.1, 0.0, 0.0],  # X, Y, Z offset from drone base_link
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
@@ -237,7 +237,7 @@ class PegasusApp:
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],  # X, Y, Z offset from drone base_link
+            camera_offset=[0.1, 0.0, 0.0],  # X, Y, Z offset from drone base_link
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
