@@ -28,11 +28,11 @@ from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgra
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd" 
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
-STAGE_SCALE = 2.0
+STAGE_SCALE = 0.01
 
 
 DRONE_USD = "/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
@@ -46,8 +46,8 @@ DOME_LIGHT_EXPOSURE = -3.0
 #Drone offset
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.15
 
-DRONE1_XY_M = (20.0, -7)
-DRONE2_XY_M = (17, 1.5)
+DRONE1_XY_M = (35.0, -19)
+DRONE2_XY_M = (30, -19)
 # ---------------------------------------------------------
 
 

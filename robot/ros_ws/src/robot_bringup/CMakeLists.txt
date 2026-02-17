@@ -29,5 +29,10 @@ install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
+install(PROGRAMS
+  robot_2_relative_position.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
           
