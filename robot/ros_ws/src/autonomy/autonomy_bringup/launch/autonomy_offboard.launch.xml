@@ -1,0 +1,26 @@
+
+<!-- AUTONOMY -->
+<!-- for perception: uses simulated mavros GPS state estimation and ground truth depth. MACVO only
+runs for visualization -->
+<launch>
+
+  <!-- Interface -->
+   <!-- runs onboard -->
+
+  <!-- Sensors -->
+   <!-- runs onboard -->
+
+  <!-- Perception -->
+   <!-- runs onboard -->
+
+  <!-- Local -->
+   <!-- runs onboard -->
+
+  <!-- Global -->
+  <include file="$(find-pkg-share $(env GLOBAL_LAUNCH_PACKAGE))/launch/$(env GLOBAL_LAUNCH_FILE)" />
+
+  <!-- Behavior -->
+   <!-- runs onboard -->
+
+
+</launch>
