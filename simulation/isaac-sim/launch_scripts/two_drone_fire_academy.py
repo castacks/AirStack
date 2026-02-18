@@ -193,7 +193,7 @@ class PegasusApp:
             domain_id=1,  # defines ROS2 domain ID
             usd_file=DRONE_USD,
             init_pos=drone1_pos,
-            init_orient=[0.0, 0.0, 0.0, 1.0],
+            init_orient=[0.0, 0.0, 1.0, 0.0],
         )
 
         # Add a ZED stereo camera (with an associated subgraph) to the drone
@@ -214,7 +214,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 1.0, # Minimum detection range (m) to avoid propeller hits
+            lidar_min_range = 1.5, # Minimum detection range (m) to avoid propeller hits
         )
 
         ####################################################################################################
@@ -228,7 +228,7 @@ class PegasusApp:
             domain_id=2,  # defines ROS2 domain ID. Define as 2 for second vehicle
             usd_file=DRONE_USD,
             init_pos=drone2_pos,
-            init_orient=[0.0, 0.0, 0.0, 1.0],
+            init_orient=[0.0, 0.0, 1.0, 0.0],
         )
 
         # Add a ZED stereo camera (with an associated subgraph) to the drone
@@ -249,7 +249,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 1.0 
+            lidar_min_range = 0.75 
         )
 
         # Reset so physics/articulations are ready

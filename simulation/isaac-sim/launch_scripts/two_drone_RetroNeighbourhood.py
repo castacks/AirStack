@@ -214,7 +214,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
+            lidar_min_range = 1.5, # Minimum detection range (m) to avoid propeller hits
         )
 
         ####################################################################################################

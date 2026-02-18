@@ -793,7 +793,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_2/sensors/front_stereo/left/image_rect
+        Value: /robot_1/sensors/front_stereo/left/image_rect
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -825,7 +825,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /frontier_viewpoints
+        Value: /robot_1/frontier_viewpoints
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -887,7 +887,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /rayfronts/voxel_rgb
+        Value: /robot_1/rayfronts/voxel_rgb
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -921,7 +921,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /rayfronts/frontiers
+        Value: /robot_1/rayfronts/frontiers
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -935,7 +935,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /rayfronts/semantic_ray_frontiers
+        Value: /robot_1/rayfronts/semantic_ray_frontiers
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -947,7 +947,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /filtered_rays
+        Value: /robot_1/filtered_rays
       Value: true
   Enabled: true
   Global Options:

@@ -51,7 +51,7 @@ class RelativePositionNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    robot_1_init = [35.0, -19, 0.0015]
+    robot_1_init = [20.0, -7, 0.0015]
     node = RelativePositionNode(robot_1_init)
     rclpy.spin(node)
     node.destroy_node()

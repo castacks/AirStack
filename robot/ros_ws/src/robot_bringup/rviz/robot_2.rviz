@@ -45,7 +45,7 @@ Panels:
     SyncSource: ""
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
-    topic: /robot_1/behavior/behavior_tree_graphviz
+    topic: /robot_2/behavior/behavior_tree_graphviz
     zoom_factor: 0.1919851303100586
 Visualization Manager:
   Class: ""
@@ -261,7 +261,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/sensors/front_stereo/right/image_rect
+            Value: /robot_2/sensors/front_stereo/right/image_rect
           Value: true
         - Class: rviz_default_plugins/Image
           Enabled: false
@@ -362,7 +362,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/sensors/front_stereo/right/depth_ground_truth
+            Value: /robot_2/sensors/front_stereo/right/depth_ground_truth
           Value: false
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -394,7 +394,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/sensors/front_stereo/pointcloud
+            Value: /robot_2/sensors/front_stereo/pointcloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: false
@@ -414,7 +414,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/perception/macvo/disparity
+            Value: /robot_2/perception/macvo/disparity
           Value: true
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -446,7 +446,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/perception/macvo/point_cloud
+            Value: /robot_2/perception/macvo/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: false
@@ -487,7 +487,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/macvo/odometry
+            Value: /robot_2/macvo/odometry
           Value: true
       Enabled: false
       Name: Perception
@@ -532,7 +532,7 @@ Visualization Manager:
                     Filter size: 10
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/frustum
+                    Value: /robot_2/droan/frustum
                   Value: false
                 - Class: rviz_default_plugins/MarkerArray
                   Enabled: false
@@ -544,7 +544,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/disparity_map_debug
+                    Value: /robot_2/droan/disparity_map_debug
                   Value: false
                 - Alpha: 1
                   Autocompute Intensity Bounds: true
@@ -602,7 +602,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/disparity_graph
+                    Value: /robot_2/droan/disparity_graph
                   Value: true
               Enabled: false
               Name: Droan CPU
@@ -638,7 +638,7 @@ Visualization Manager:
                     Filter size: 10
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/fg_bg_cloud
+                    Value: /robot_2/droan/fg_bg_cloud
                   Use Fixed Frame: true
                   Use rainbow: false
                   Value: true
@@ -652,7 +652,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/traj_debug
+                    Value: /robot_2/droan/traj_debug
                   Value: true
                 - Class: rviz_default_plugins/MarkerArray
                   Enabled: true
@@ -664,7 +664,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/graph_vis
+                    Value: /robot_2/droan/graph_vis
                   Value: true
               Enabled: false
               Name: Droan GPU
@@ -690,7 +690,7 @@ Visualization Manager:
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
-                Value: /robot_1/droan/local_planner_global_plan_vis
+                Value: /robot_2/droan/local_planner_global_plan_vis
               Value: true
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
@@ -702,7 +702,7 @@ Visualization Manager:
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
-                Value: /robot_1/droan/rewind_info
+                Value: /robot_2/droan/rewind_info
               Value: true
           Enabled: true
           Name: DROAN
@@ -777,7 +777,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/global_plan
+            Value: /robot_2/global_plan
           Value: true
       Enabled: true
       Name: Global
@@ -825,7 +825,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /frontier_viewpoints
+        Value: /robot_2/frontier_viewpoints
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -841,7 +841,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_1/sensors/front_stereo/left/image_rect
+        Value: /robot_2/sensors/front_stereo/left/image_rect
       Value: false
     - Class: rviz_default_plugins/Image
       Enabled: false
@@ -855,7 +855,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_1/sensors/front_stereo/left/image_rect
+        Value: /robot_2/sensors/front_stereo/left/image_rect
       Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -887,7 +887,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /rayfronts/voxel_rgb
+        Value: /robot_2/rayfronts/voxel_rgb
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -921,7 +921,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /rayfronts/frontiers
+        Value: /robot_2/rayfronts/frontiers
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -935,7 +935,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /rayfronts/semantic_ray_frontiers
+        Value: /robot_2/rayfronts/semantic_ray_frontiers
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
@@ -947,7 +947,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /filtered_rays
+        Value: /robot_2/filtered_rays
       Value: true
   Enabled: true
   Global Options:
