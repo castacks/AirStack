@@ -10,6 +10,9 @@ ARG BASE_IMAGE
 ARG REAL_ROBOT
 ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
+ARG SKIP_OPENVDB=false
+ARG SKIP_MACVO=false
+ARG SKIP_TENSORRT=false
 
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
@@ -94,8 +97,8 @@ RUN apt update -y && apt install -y \
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
-# Install TensorRT (NVIDIA/L4T images only)
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then \
+# Install TensorRT (NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
+RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt update -y && \
@@ -140,8 +143,8 @@ RUN pip3 install \
   kornia \
   typeguard==2.13.3
 
-# Install NVIDIA-only Python dependencies (NVIDIA/L4T images only)
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then \
+# Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
+RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   pip3 install \
     torch \
     torchvision \
@@ -150,19 +153,21 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then \
   fi
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
-RUN apt remove -y libopenvdb*; \
+RUN if [ "${SKIP_OPENVDB}" != "true" ]; then \
+  apt remove -y libopenvdb* && \
   git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
   mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
   cmake .. && \
   make -j8 && make install && \
-  cd ..; rm -rf /opt/openvdb/build
+  cd .. && rm -rf /opt/openvdb/build; \
+  fi
 
 # Install colcon, seems to be getting removed
 RUN pip install -U colcon-common-extensions
 
-# Downloading model weights for MACVO (NVIDIA/L4T images only)
+# Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
 WORKDIR /model_weights
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then \
+RUN if [ "${SKIP_MACVO}" != "true" ]; then \
     wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \
     wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
     pwd && ls -R && \
@@ -171,9 +176,9 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then \
     rm -rf /model_weights/github.com; \
   fi
 
-# Fixes for MACVO Integration (NVIDIA/L4T images only)
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then pip install huggingface_hub; fi
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then pip uninstall matplotlib -y; fi
+# Fixes for MACVO Integration (skipped if SKIP_MACVO=true)
+RUN if [ "${SKIP_MACVO}" != "true" ]; then pip install huggingface_hub; fi
+RUN if [ "${SKIP_MACVO}" != "true" ]; then pip uninstall matplotlib -y; fi
 
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
@@ -194,6 +199,9 @@ ARG BASE_IMAGE
 ARG REAL_ROBOT
 ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
+ARG SKIP_OPENVDB=false
+ARG SKIP_MACVO=false
+ARG SKIP_TENSORRT=false
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -278,8 +286,8 @@ RUN apt update -y && apt install -y \
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
-# Install NVIDIA runtime apt packages (no -dev counterparts; NVIDIA/L4T images only)
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)"; then \
+# Install NVIDIA runtime apt packages (no -dev counterparts; NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
+RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
   dpkg -i cuda-keyring_1.1-1_all.deb && \
   apt update -y && \

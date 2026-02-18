@@ -69,9 +69,13 @@ services:
       args:
         BASE_IMAGE: ubuntu:22.04
         REAL_ROBOT: true
+        SKIP_OPENVDB: true
+        SKIP_MACVO: true
+        SKIP_TENSORRT: true
       tags:
         - *voxl_image
     network_mode: host
+    networks: !reset {}
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
