@@ -14,7 +14,7 @@ services:
     build:
       dockerfile: ./Dockerfile.robot
       args:
-        BASE_IMAGE: ubuntu:22.04
+        BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu22.04
       tags:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
@@ -46,6 +46,8 @@ services:
               count: 1
               capabilities: [gpu]
 
+  # ===================================================================================================================
+  # simple 
   simple-robot:
     profiles: !override
       - simple
@@ -54,9 +56,25 @@ services:
       service: robot
     environment:
       - SIM_TYPE=simple
+  # ===================================================================================================================
+  robot-voxl:
+    profiles: !override
+      - voxl
+    extends:
+      file: ./docker-compose.yaml
+      service: robot
+    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: ubuntu:22.04
+        REAL_ROBOT: true
+      tags:
+        - *voxl_image
+    network_mode: host
 
   # ===================================================================================================================
-  # for running on an NVIIDA jetson (linux for tegra) device
+  # for running on an NVIDIA jetson (linux for tegra) device
   robot-l4t:
     profiles:
       - hitl
@@ -90,6 +108,8 @@ services:
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
+  # ===================================================================================================================
+  # for running the zed camera driver on an NVIDIA jetson (linux for tegra) device. this is separate from robot-l4t because it has a lot of nvidia-specific configuration and dependencies, and we want to be able to run the robot without the zed driver if desired
   zed-l4t:
     profiles:
       - hitl
