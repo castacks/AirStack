@@ -21,6 +21,8 @@ install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
 install(PROGRAMS
   robot_2_relative_position.py
+  robot_1_semantic_ray_transposer.py
+  robot_2_filtered_ray_transposer.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
