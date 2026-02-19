@@ -39,12 +39,22 @@ topics:
   /robot_1/filtered_rays:
     from_domain: 1
     to_domain: 2
-    type: visualization_msgs/msg/Marker
+    type: visualization_msgs/msg/MarkerArray
   
   /robot_2/filtered_rays:
     from_domain: 2
     to_domain: 1
-    type: visualization_msgs/msg/Marker
+    type: visualization_msgs/msg/MarkerArray
+  
+  /robot_2/rayfronts/semantic_ray_frontiers:
+    from_domain: 2
+    to_domain: 1
+    type: visualization_msgs/msg/MarkerArray
+  
+  /robot_1/rayfronts/semantic_ray_frontiers:
+    from_domain: 1
+    to_domain: 2
+    type: visualization_msgs/msg/MarkerArray
 
   /robot_2/vdb_mapping/vdb_map_visualization:
     from_domain: 2
