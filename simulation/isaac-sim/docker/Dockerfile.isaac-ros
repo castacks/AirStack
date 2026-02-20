@@ -13,75 +13,74 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV ROS_DISTRO=jazzy
 
-# setup timezone
+# Setup timezone, install all base + ROS2 packages, and configure ROS2 apt source in a single layer
+# to avoid baking apt cache and metadata into intermediate layers.
+# Also removes conflicting third-party apt sources that cause libbrotli conflicts,
+# pins libbrotli1 to prevent upgrades from breaking Isaac Sim, and installs all ROS2 packages.
 RUN echo 'Etc/UTC' > /etc/timezone && \
     ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
     apt-get update && \
     apt-get install -q -y --no-install-recommends tzdata && \
-    rm -rf /var/lib/apt/lists/*
-
-# install base packages
-RUN apt-get update && apt-get install -q -y --no-install-recommends \
-    dirmngr \
-    gnupg2 \
-    unzip \
-    tmux \
-    iputils-ping \
-    net-tools \
-    curl \
-    emacs \
-    vim \
-    nano \
-    gdb \
-    xterm \
-    tree \
-    less \
-    htop \
-    jq \
-    git \
-    build-essential \
-    cmake \
-    python3-pip \
-    python3-setuptools \
-    python3-wheel \
-    meson \
-    ninja-build \
-    wget \
-    libcgal-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-# setup ros2 key
-RUN set -eux; \
+    # Install base packages
+    apt-get install -q -y --no-install-recommends \
+        dirmngr \
+        gnupg2 \
+        unzip \
+        tmux \
+        iputils-ping \
+        net-tools \
+        curl \
+        vim \
+        nano \
+        gdb \
+        xterm \
+        tree \
+        less \
+        htop \
+        jq \
+        git \
+        build-essential \
+        cmake \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel \
+        meson \
+        ninja-build \
+        wget \
+        libcgal-dev && \
+    # Setup ROS2 apt key
+    set -eux; \
     key='C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654'; \
     export GNUPGHOME="$(mktemp -d)"; \
     gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
     mkdir -p /usr/share/keyrings; \
     gpg --batch --export "$key" > /usr/share/keyrings/ros2-latest-archive-keyring.gpg; \
     gpgconf --kill all; \
-    rm -rf "$GNUPGHOME"
-
-# setup ros2 apt source
-RUN echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu noble main" > /etc/apt/sources.list.d/ros2-latest.list
-
-# Remove conflicting third-party apt sources that cause libbrotli conflicts
-RUN rm -f /etc/apt/sources.list.d/*deb.sury.org*.list || true && apt-get update
-
-RUN apt-get install -y --no-install-recommends libbrotli1
-RUN apt-mark hold libbrotli1
-RUN apt-get install -y --no-install-recommends libfreetype6-dev
-RUN apt-get install -y --no-install-recommends libfontconfig1-dev
-RUN apt-get install -y --no-install-recommends ros-jazzy-desktop
-RUN apt-get install -y --no-install-recommends ros-dev-tools
-RUN apt-get install -y --no-install-recommends python3-rosdep
-RUN apt-get install -y --no-install-recommends ros-jazzy-tf2*
-RUN apt-get install -y --no-install-recommends ros-jazzy-mavros
-RUN apt-get install -y --no-install-recommends ros-jazzy-ackermann-msgs
-RUN apt-get install -y --no-install-recommends ros-jazzy-topic-tools
-RUN apt-get install -y --no-install-recommends ros-jazzy-grid-map
-RUN apt-get install -y --no-install-recommends ros-jazzy-domain-bridge
-RUN apt-get install -y --no-install-recommends ros-jazzy-moveit
-RUN apt-get install -y --no-install-recommends python3-colcon-common-extensions
-RUN rm -rf /var/lib/apt/lists/*
+    rm -rf "$GNUPGHOME"; \
+    # Setup ROS2 apt source
+    echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu noble main" > /etc/apt/sources.list.d/ros2-latest.list && \
+    # Remove conflicting third-party apt sources that cause libbrotli conflicts
+    rm -f /etc/apt/sources.list.d/*deb.sury.org*.list && \
+    apt-get update && \
+    # Pin libbrotli1 before ROS installs can upgrade it (breaks Isaac Sim)
+    apt-get install -y --no-install-recommends libbrotli1 && \
+    apt-mark hold libbrotli1 && \
+    # Install ROS2 and related packages
+    apt-get install -y --no-install-recommends \
+        libfreetype6-dev \
+        libfontconfig1-dev \
+        ros-jazzy-desktop \
+        ros-dev-tools \
+        python3-rosdep \
+        "ros-jazzy-tf2*" \
+        ros-jazzy-mavros \
+        ros-jazzy-ackermann-msgs \
+        ros-jazzy-topic-tools \
+        ros-jazzy-grid-map \
+        ros-jazzy-domain-bridge \
+        ros-jazzy-moveit \
+        python3-colcon-common-extensions && \
+    rm -rf /var/lib/apt/lists/*
 
 
 # setup mavros dependencies
@@ -97,9 +96,9 @@ ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 # Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
 # need to give access to docker to access container name
-RUN userdel -r ubuntu
-RUN userdel isaac-sim
-RUN addgroup --gid 1000 isaac-sim && \
+RUN userdel -r ubuntu && \
+    userdel isaac-sim && \
+    addgroup --gid 1000 isaac-sim && \
     adduser --uid 1000 --ingroup isaac-sim --no-create-home --shell /bin/bash --disabled-password --gecos "" isaac-sim
 
 RUN rm -rf /isaac-sim
@@ -115,13 +114,10 @@ RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
 
 
 # install python packages
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
-    /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
-    /isaac-sim/python.sh -m pip install PyYAML mavproxy tmuxp scipy \
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir --upgrade pip && \
+    /isaac-sim/python.sh -m pip install --no-cache-dir git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
+    /isaac-sim/python.sh -m pip install --no-cache-dir PyYAML mavproxy tmuxp scipy \
     kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
-# RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
-#     pip install PyYAML mavproxy tmuxp scipy \
-#     kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
@@ -132,7 +128,7 @@ RUN cd /tmp/ && \
     cd /isaac-sim/jazzy_ws && \
     . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install && \
-    rm -rf /tmp/IsaacSim-${ISAAC_VERSION}.zip /tmp/${isaac_dir_name}
+    rm -rf /isaac-sim/jazzy_ws/log /tmp/IsaacSim-${ISAAC_VERSION}.zip /tmp/${isaac_dir_name}
 
 # TODO: Hacky way to make sure the Isaac Sim app is installed.
 # PegasusSimulator extension requires this file to exist
@@ -143,9 +139,10 @@ RUN mkdir -p /isaac-sim/apps && \
 # "Install" PegasusSimulator extension. This installs in editable mode; when we run the container we mount the PegasusSimulator repo
 # over the same directory so that we can edit the code and have it reflected in the container.
 
-RUN git clone https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
+RUN git clone --depth 1 https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
     mkdir -p /isaac-sim/.local/share/ov/data/Kit/shared/exts && \
-    mv /tmp/PegasusSimulator/extensions/pegasus.simulator /isaac-sim/.local/share/ov/data/Kit/shared/exts
+    mv /tmp/PegasusSimulator/extensions/pegasus.simulator /isaac-sim/.local/share/ov/data/Kit/shared/exts && \
+    rm -rf /tmp/PegasusSimulator
 
 # Add extension search path configuration for Kit
 # This ensures that /isaac-sim/.local/share/ov/data/Kit/shared/exts is always searched for extensions
@@ -155,43 +152,45 @@ ENV OMNI_APP_ARGS="${KIT_ARGS}"
 ENV ISAACSIM_PATH=/isaac-sim
 ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
-RUN /isaac-sim/python.sh -m pip install -e /isaac-sim/.local/share/ov/data/Kit/shared/exts/pegasus.simulator
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/Kit/shared/exts/pegasus.simulator
 
 # build PX4
 USER root
 ARG PX4_VERSION="v1.16.1"
 WORKDIR /isaac-sim
-RUN git clone https://github.com/PX4/PX4-Autopilot.git --branch ${PX4_VERSION} --recursive && \
+# Use shallow clone with shallow submodules to avoid fetching full git history.
+# Remove .git directories and intermediate object/archive files after build to reduce image size.
+RUN git clone --depth 1 --branch ${PX4_VERSION} --recurse-submodules --shallow-submodules \
+        https://github.com/PX4/PX4-Autopilot.git && \
     cd PX4-Autopilot && \
-    git submodule update --init --recursive && \
-    ./Tools/setup/ubuntu.sh 
-
-WORKDIR /isaac-sim/PX4-Autopilot
-RUN make px4_sitl
+    ./Tools/setup/ubuntu.sh && \
+    make px4_sitl && \
+    find build/px4_sitl_default -name '*.o' -delete && \
+    find build/px4_sitl_default -name '*.a' -delete && \
+    rm -rf .git
 
 USER isaac-sim:isaac-sim
-RUN /isaac-sim/python.sh -m pip install lark-parser
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
 # TMux config
-RUN git clone https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm && \
+    rm -rf /isaac-sim/.tmux/plugins/tpm/.git
 
 # copy FastDDS config
 COPY --chown=isaac-sim:isaac-sim docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
 
 USER root
-# Cleanup. Prevent people accidentally doing git commits as root in Docker
-RUN apt purge -y git && apt autoremove -y \
-    && apt clean -y \
-    && rm -rf /var/lib/apt/lists/*
-
-
-RUN USER=isaac-sim && \
-  GROUP=isaac-sim && \
-  curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
+# Install fixuid, then purge git and build tools not needed at runtime to keep the final layer clean.
+RUN curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
   chown root:root /usr/local/bin/fixuid && \
   chmod 4755 /usr/local/bin/fixuid && \
   mkdir -p /etc/fixuid && \
-  printf "user: $USER\ngroup: $GROUP\n" > /etc/fixuid/config.yml
+  printf "user: isaac-sim\ngroup: isaac-sim\n" > /etc/fixuid/config.yml && \
+  # Prevent accidental git commits from inside the container
+  apt-get purge -y git && \
+  apt-get autoremove -y && \
+  apt-get clean -y && \
+  rm -rf /var/lib/apt/lists/*
 
 
 USER isaac-sim:isaac-sim
