@@ -2,12 +2,6 @@
 ARG ISAAC_VERSION="5.1.0"
 ARG PX4_VERSION="v1.16.1"
 
-# ---- Stage 1: isaac_base ----
-# Used only to copy /isaac-sim with correct ownership into the final image without a
-# chown -R layer (which would double the size of /isaac-sim in the overlay filesystem).
-FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION} AS isaac_base
-
-# ---- Stage 2: final image ----
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
 ARG ISAAC_VERSION
 ARG PX4_VERSION
@@ -101,20 +95,8 @@ ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # ============================================================================
 # now do user stuff
 
-# Make it so that files created within the container reflect the user's UID/GID so they don't have to change file permissions from root. See https://github.com/boxboat/fixuid
-# need to give access to docker to access container name
-RUN userdel -r ubuntu && \
-    userdel isaac-sim && \
-    addgroup --gid 1000 isaac-sim && \
-    adduser --uid 1000 --ingroup isaac-sim --no-create-home --shell /bin/bash --disabled-password --gecos "" isaac-sim
-
-RUN rm -rf /isaac-sim
-COPY --chown=isaac-sim:isaac-sim --chmod=777 --from=isaac_base /isaac-sim /isaac-sim
-# set home directory to allow running as non-root user
-RUN usermod -d /isaac-sim isaac-sim
 WORKDIR /isaac-sim
 
-USER isaac-sim:isaac-sim
 # isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
 RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
     ln -s /isaac-sim /isaac-sim/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
@@ -131,7 +113,8 @@ ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 RUN cd /tmp/ && \
     curl -L -O https://github.com/isaac-sim/IsaacSim-ros_workspaces/archive/refs/tags/IsaacSim-${ISAAC_VERSION}.zip && \
     unzip IsaacSim-${ISAAC_VERSION}.zip && \
-    mv ${isaac_dir_name}/jazzy_ws /isaac-sim/jazzy_ws && \
+    mkdir -p /isaac-sim/jazzy_ws/src && \
+    mv ${isaac_dir_name}/jazzy_ws/src/isaacsim /isaac-sim/jazzy_ws/src/isaacsim && \
     cd /isaac-sim/jazzy_ws && \
     . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install && \
@@ -167,7 +150,6 @@ RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Aut
 USER root
 RUN cd PX4-Autopilot && \
     DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
-USER isaac-sim:isaac-sim
 # build px4 as user
 RUN cd PX4-Autopilot && \
     make px4_sitl
@@ -175,34 +157,17 @@ RUN cd PX4-Autopilot && \
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
 # TMux config
-RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm && \
-    rm -rf /isaac-sim/.tmux/plugins/tpm/.git
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
 
 # copy FastDDS config
-COPY --chown=isaac-sim:isaac-sim docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
+COPY docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
+ENV OMNI_KIT_ALLOW_ROOT=1
+ENV PRIVACY_CONSENT=Y
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+ENV FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/.ros/fastdds.xml
+ENV ISAACSIM_PATH=/isaac-sim
+ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 
-USER root
-# Install fixuid, then purge git and build tools not needed at runtime to keep the final layer clean.
-RUN curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
-    chown root:root /usr/local/bin/fixuid && \
-    chmod 4755 /usr/local/bin/fixuid && \
-    mkdir -p /etc/fixuid && \
-    printf "user: isaac-sim\ngroup: isaac-sim\n" > /etc/fixuid/config.yml && \
-    # Prevent accidental git commits from inside the container
-    apt-get purge -y git && \
-    apt-get autoremove -y && \
-    apt-get clean -y && \
-    rm -rf /var/lib/apt/lists/*
+RUN sed -i 's|^root:x:0:0:root:/root:|root:x:0:0:root:/isaac-sim:|' /etc/passwd
 
-
-RUN echo "root:root" | chpasswd
-
-USER isaac-sim:isaac-sim
-RUN mkdir -p -m 777 /isaac-sim/.nv /isaac-sim/.cache \
-    /isaac-sim/.nv/ComputeCache /isaac-sim/.nvidia-omniverse/logs \
-    /isaac-sim/.nvidia-omniverse/config /isaac-sim/.local/share/ov/data \
-    /isaac-sim/.local/share/ov/pkg \
-    /isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1
-
-ENTRYPOINT ["fixuid"]
 WORKDIR /isaac-sim

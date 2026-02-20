@@ -10,9 +10,7 @@ services:
       tags:
         - *image_tag
     container_name: isaac-sim
-    entrypoint: "" # override the default entrypoint with nothing
-    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
-    # for some reason the tmux session manager only works when isaac is running in tmux
+    entrypoint: ""
     command: >
       bash -c "
       tmux new -d -s isaac;
@@ -38,14 +36,8 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
-      # ROS2 stuff
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-      - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/.ros/fastdds.xml
       # Isaac Sim stuff
-      - ISAACSIM_PATH=/isaac-sim
-      - ISAACSIM_PYTHON=/isaac-sim/python.sh
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
-      - PRIVACY_CONSENT=Y
     deploy:
       # let it use the GPU
       resources:
@@ -59,14 +51,14 @@ services:
       - $HOME/.Xauthority:/isaac-sim/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff
-      - $HOME/.cache:/isaac-sim/.cache:rw
-      - $HOME/.nv/ComputeCache:/isaac-sim/.nv/ComputeCache:rw
-      - $HOME/.nvidia-omniverse/logs:/isaac-sim/.nvidia-omniverse/logs:rw
-      - $HOME/.nvidia-omniverse/config:/isaac-sim/.nvidia-omniverse/config:rw
-      - $HOME/.local/share/ov/data:/isaac-sim/.local/share/ov/data:rw
-      - $HOME/.local/share/ov/pkg:/isaac-sim/.local/share/ov/pkg:rw
+      - $HOME/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw \
+      - $HOME/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw \
+      - $HOME/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw \
+      - $HOME/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw \
+      - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw \
+      - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
       # pegasus integration
-      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
+      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
