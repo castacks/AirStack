@@ -7,27 +7,7 @@ ARG PX4_VERSION="v1.16.1"
 # chown -R layer (which would double the size of /isaac-sim in the overlay filesystem).
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION} AS isaac_base
 
-# ---- Stage 2: px4_builder ----
-# Build PX4 SITL in a clean Ubuntu environment. All packages installed by ubuntu.sh
-# (ARM cross-compilers, genromfs, astyle, etc.) are discarded with this stage and
-# never reach the final image.
-FROM ubuntu:noble AS px4_builder
-ARG PX4_VERSION
-# Minimal bootstrap; ubuntu.sh installs the rest
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl python3 python3-pip lsb-release wget sudo && \
-    rm -rf /var/lib/apt/lists/*
-WORKDIR /
-RUN git clone --branch ${PX4_VERSION} --recursive \
-    https://github.com/PX4/PX4-Autopilot.git && \
-    cd PX4-Autopilot && \
-    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh && \
-    make px4_sitl && \
-    find build/px4_sitl_default -name '*.o' -delete && \
-    find build/px4_sitl_default -name '*.a' -delete && \
-    rm -rf .git
-
-# ---- Stage 3: final image ----
+# ---- Stage 2: final image ----
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
 ARG ISAAC_VERSION
 ARG PX4_VERSION
@@ -132,6 +112,7 @@ RUN rm -rf /isaac-sim
 COPY --chown=isaac-sim:isaac-sim --chmod=777 --from=isaac_base /isaac-sim /isaac-sim
 # set home directory to allow running as non-root user
 RUN usermod -d /isaac-sim isaac-sim
+WORKDIR /isaac-sim
 
 USER isaac-sim:isaac-sim
 # isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
@@ -180,13 +161,17 @@ ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
-# Copy PX4 built artifacts from the isolated build stage.
-# Build-time packages installed by ubuntu.sh are discarded with the px4_builder stage.
+# Install PX4 things
+RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
+# install px4 dependencies as root for global installs
 USER root
-COPY --from=px4_builder --chown=isaac-sim:isaac-sim /PX4-Autopilot /isaac-sim/PX4-Autopilot
-WORKDIR /isaac-sim
-
+RUN cd PX4-Autopilot && \
+    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
 USER isaac-sim:isaac-sim
+# build px4 as user
+RUN cd PX4-Autopilot && \
+    make px4_sitl
+
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
 # TMux config
@@ -217,7 +202,7 @@ RUN mkdir -p -m 777 /isaac-sim/.nv /isaac-sim/.cache \
     /isaac-sim/.nv/ComputeCache /isaac-sim/.nvidia-omniverse/logs \
     /isaac-sim/.nvidia-omniverse/config /isaac-sim/.local/share/ov/data \
     /isaac-sim/.local/share/ov/pkg \
-    /isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1 \
+    /isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1
 
 ENTRYPOINT ["fixuid"]
 WORKDIR /isaac-sim

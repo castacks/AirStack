@@ -18,7 +18,7 @@ services:
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
         if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then
-          tmux send-keys -t isaac 'run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
+          tmux send-keys -t isaac 'run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
         else
           tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
         fi
@@ -65,12 +65,11 @@ services:
       - $HOME/.nvidia-omniverse/config:/isaac-sim/.nvidia-omniverse/config:rw
       - $HOME/.local/share/ov/data:/isaac-sim/.local/share/ov/data:rw
       - $HOME/.local/share/ov/pkg:/isaac-sim/.local/share/ov/pkg:rw
-      - $HOME/.local/share/ov/data/Kit/shared:/isaac-sim/.local/share/ov/data/Kit/shared:rw
       # pegasus integration
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
-      - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # IMPORTANT: set the version number without the trailing .0
+      - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
       # developer stuff
       - .dev:/isaac-sim/.dev:rw # developer config
       - .bashrc:/isaac-sim/.bashrc:rw # bash config
