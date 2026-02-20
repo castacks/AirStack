@@ -1,0 +1,24 @@
+/**:
+  ros__parameters:
+    robot_frame_id: "base_link"
+    pub_global_plan_topic: "~/global_plan"
+    pub_goal_point_viz_topic: "~/goal_point_viz"
+    pub_trajectory_viz_topic: "~/traj_viz"
+    sub_map_topic: "vdb_map_visualization"
+    sub_robot_tf_topic: "/tf"
+    srv_random_walk_toggle_topic: "/robot_1/behavior/global_plan_toggle"
+
+    publish_visualizations: false # should trajectory visualizations be published
+    num_paths_to_generate: 5 # how many random walk paths to string together
+
+    # Random Walk Planner Parameters
+    max_start_to_goal_dist_m: 10.0 # how max distance the goal can be from the current robot position
+    checking_point_cnt: 100 # how many points to collision check between the start and goal points
+    max_z_change_m: 2.0 # max height that the goal can deviate from the current height
+    collision_padding_m: 1.0 # how much space should the path have to any obstacles
+    path_end_threshold_m: 3.0 # how close to the goal will the path be considered complete
+    max_yaw_change_degrees: 180.0 # how much the goal can deviate from the current orientation
+
+    # Stall detection parameters
+    position_change_threshold: 0.1  # Minimum distance (meters) to consider as movement
+    stall_timeout_seconds: 3.0     # Time without movement before clearing plan

@@ -1,0 +1,36 @@
+FROM osrf/ros:humble-desktop-full
+
+# Set working directory
+WORKDIR /root/ros_ws
+
+# Install system dependencies
+RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt-get -o APT::Get::AllowUnauthenticated=true install -y \
+    libglfw3-dev libglm-dev libassimp-dev assimp-utils mesa-utils \
+    vim nano emacs wget curl tree sshpass \
+    iperf3 iftop iputils-ping net-tools htop \
+    cmake build-essential less htop jq python3-pip tmux gdb \
+    ros-dev-tools ros-humble-mavros ros-humble-tf2* ros-humble-stereo-image-proc \
+    ros-humble-image-view ros-humble-topic-tools ros-humble-grid-map \
+    ros-humble-domain-bridge ros-humble-ros2cli python3-colcon-common-extensions \openssh-server \
+    xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11 \
+    ros-humble-rosbag2-storage-mcap ros-humble-plotjuggler ros-humble-plotjuggler-ros unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+    
+# Install Python dependencies
+#RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
+#    wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt sphinx utm
+
+# Configure SSH
+RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+# open port 22 for ssh
+EXPOSE 22
+
+# Cleanup
+RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install gdown requests

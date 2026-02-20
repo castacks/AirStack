@@ -1,0 +1,13 @@
+# Isaac Sim Configuration
+# This file contains Isaac Sim-specific settings including extensions and scene configuration
+
+isaac_sim:
+  # Extensions to load on Isaac Sim startup
+  enabled_extensions:
+    - "airlab.airstack"
+    - "pegasus.simulator"
+  
+  # Whether to start simulation playback automatically
+  play_on_start: true
+
+# Note: Robot configurations will be moved to a separate robot config file

@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: ros2tak_tools
+Version: 0.0.0
+Summary: TODO: Package description
+Maintainer: mission-operator
+Maintainer-email: mission-operator@todo.todo
+License: TODO: License declaration
+Requires-Dist: setuptools

@@ -1,0 +1,197 @@
+<!-- LOCAL -->
+<launch>
+    <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
+    <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <!-- <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/perception/macvo/disparity" /> -->
+    <!-- <arg name="local_depth_in_topic" default="none" /> -->
+    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/disparity" />
+    <!-- <arg name="local_depth_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth" /> -->
+    <arg name="local_depth_in_topic" default="none" />
+    <arg name="local_camera_info_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
+
+    <log message="local_odometry_in_topic has $(var local_odometry_in_topic)"/>
+
+
+    <!-- Basic Planners -->
+    <node pkg="trajectory_library"
+        namespace="fixed_trajectory_generator" exec="fixed_trajectory_generator.py" output="screen">
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+    </node>
+
+    <!-- customize takeoff_landing_planner.launch.xml -->
+    <node pkg="takeoff_landing_planner"
+        namespace="takeoff_landing_planner"
+        exec="takeoff_landing_planner" output="screen">
+        <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
+            allow_substs="true" />
+
+        <!-- remap glue to AirStack -->
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="trajectory_completion_percentage"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
+        <remap from="tracking_point"
+            to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
+        <remap from="mavros/cmd/takeoff" to="/$(env ROBOT_NAME)/interface/mavros/cmd/takeoff" />
+    </node>
+
+    <group>
+        <push-ros-namespace namespace="droan" />
+        <!-- DROAN Local Planner -->
+	<node pkg="droan_gl" exec="expand" output="screen">
+	  <remap from="disparity" to="$(var local_disparity_in_topic)" />
+	  <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+          <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+          <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+          <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
+          <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+
+	  <param name="target_frame" value="map" />
+	  <param name="look_ahead_frame" value="look_ahead_point_stabilized" />
+	  <param name="rewind_info_frame" value="base_link_stabilized" />
+	  <param name="visualize" value="true" />
+	  <param name="graph_nodes" value="10" />
+	  <param name="expansion_radius" value="2." />
+	  <param name="seen_radius" value="1." />
+	  <param name="dt" value="0.2" />
+	  <param name="ht" value="7." />
+	  <param name="downsample_scale" value="2" />
+	  <param name="graph_distance_threshold" value="1." />
+	  <param name="graph_angle_threshold" value="30." />
+	  <param name="all_in_collision_duration_threshold" value="2." />
+	  <param name="all_in_collision_rewind_duration" value="6." />
+	  <param name="stationary_distance_threshold" value="0.5" />
+	  <param name="stationary_history_duration" value="10." />
+	  <param name="stationary_rewind_distance" value="10." />
+	  <param name="stationary_rewind_duration" value="20." />
+	</node>
+        <!-- DROAN local model -->
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
+              output="screen">
+          <param
+              from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
+            
+            <remap from="disparity" to="$(var local_disparity_in_topic)" />
+            <!-- create disparity from ground truth depth instead of using estimated disparity -->
+            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the right camera's projection matrix. -->
+            <remap from="depth" to="$(var local_depth_in_topic)" />
+            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
+        </node>
+    </group>
+
+    <!-- Control -->
+    <!-- customize trajectory_controller.launch.xml -->
+    <node pkg="trajectory_controller" exec="trajectory_controller"
+        namespace="trajectory_controller"
+        output="screen">
+        <param name="tf_prefix" value="" />
+        <param name="target_frame" value="map" />
+        <param name="tracking_point_distance_limit" value="1000.5" />
+        <param name="velocity_look_ahead_time" value="0.9" />
+        <!-- look ahead time controls the speed, greater is faster -->
+        <param name="look_ahead_time" value="1.0" />
+        <param name="virtual_tracking_ahead_time" value="0.5" />
+        <param name="min_virtual_tracking_velocity" value="0.5" />
+        <param name="sphere_radius" value="1.0" />
+        <param name="ff_min_velocity" value="0." />
+        <param name="search_ahead_factor" value="1.5" />
+        <param name="transition_velocity_scale" value="1.0" />
+        <param name="traj_vis_thickness" value="0.03" />
+        <param name="rewind_skip_max_velocity" value="0.1" />
+        <param name="rewind_skip_max_distance" value="0.1" />
+        <param name="velocity_sphere_radius_multiplier" value="1.0" />
+
+        <!-- remap glue to AirStack -->
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
+
+    </node>
+
+    <node pkg="pid_controller" exec="pid_controller" namespace="control" output="screen">
+      <param name="target_frame" value="base_link_stabilized" />
+
+      <param name="x_p"         value="1.0" />
+      <param name="x_i"         value="0.0" />
+      <param name="x_d"         value="0.0" />
+      <param name="x_ff"        value="0.0" />
+      <param name="x_d_alpha"   value="0.0" />
+      <param name="x_min"       value="-3.0" />
+      <param name="x_max"       value="3.0" />
+      <param name="x_constant"  value="0.0" />
+      
+      <param name="y_p"         value="1.0" />
+      <param name="y_i"         value="0.0" />
+      <param name="y_d"         value="0.0" />
+      <param name="y_ff"        value="0.0" />
+      <param name="y_d_alpha"   value="0.0" />
+      <param name="y_min"       value="-3.0" />
+      <param name="y_max"       value="3.0" />
+      <param name="y_constant"  value="0.0" />
+      
+      <param name="z_p"         value="1.0" />
+      <param name="z_i"         value="0.0" />
+      <param name="z_d"         value="0.0" />
+      <param name="z_ff"        value="0.0" />
+      <param name="z_d_alpha"   value="0.0" />
+      <param name="z_min"       value="-1.0" />
+      <param name="z_max"       value="1.0" />
+      <param name="z_constant"  value="0.0" />
+      
+      <param name="vx_p"         value="0.2" />
+      <param name="vx_i"         value="0.025" />
+      <param name="vx_d"         value="0.0" />
+      <param name="vx_ff"        value="0.0" />
+      <param name="vx_d_alpha"   value="0.9" />
+      <param name="vx_min"       value="-0.34" />
+      <param name="vx_max"       value="0.34" />
+      <param name="vx_constant"  value="0.0" />
+      
+      <param name="vy_p"         value="0.2" />
+      <param name="vy_i"         value="0.025" />
+      <param name="vy_d"         value="0.0" />
+      <param name="vy_ff"        value="0.0" />
+      <param name="vy_d_alpha"   value="0.9" />
+      <param name="vy_min"       value="-0.34" />
+      <param name="vy_max"       value="0.34" />
+      <param name="vy_constant"  value="0.0" />
+      
+      <param name="vz_p"         value="0.2" />
+      <param name="vz_i"         value="0.1" />
+      <param name="vz_d"         value="0.0" />
+      <param name="vz_ff"        value="0.0" />
+      <param name="vz_d_alpha"   value="0.0" />
+      <param name="vz_min"       value="-0.5" />
+      <param name="vz_max"       value="1.0" />
+      <param name="vz_constant"  value="0.5" />
+      
+      <!-- remap glue to AirStack -->
+      <remap from="odometry" to="$(var local_odometry_in_topic)" />
+      <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+      <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
+    </node>
+
+  <?ignore
+  <node pkg="rviz2" exec="rviz2"
+    args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"
+    output="screen" respawn="true" respawn_delay="1" />
+  ?>
+
+  	<?ignore
+        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
+            args="--log-level DEBUG">
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
+                allow_substs="true" />
+            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+            <remap from="tracking_point"
+                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the right camera's projection matrix. -->
+            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
+            <remap from="trajectory_segment_to_add"
+                to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+          </node>
+	  ?>
+
+
+</launch>
