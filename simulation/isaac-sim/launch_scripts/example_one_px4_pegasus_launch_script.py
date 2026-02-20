@@ -83,7 +83,9 @@ class PegasusApp:
         self.world = self.pg.world
 
         # Load default environment. You can replace with url or file path of any desired environment.
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        # self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
+        # self.pg.load_environment("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/DSTA/Theme2/dontfoolmetwice/full_warehouse.usd")
         
         # Timeline for controlling play/stop
         self.timeline = omni.timeline.get_timeline_interface()
@@ -100,7 +102,7 @@ class PegasusApp:
             drone_prim="/World/base_link",
             vehicle_id=1,
             domain_id=1,
-            usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+            usd_file="~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )

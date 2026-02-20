@@ -522,7 +522,7 @@
                 }
             },
             "captureFrame": {
-                "path": "/root/Documents/Kit/shared/screenshots/",
+                "path": "~/.local/share/ov/data/Kit/shared/screenshots/",
                 "viewport": true
             },
             "hydra": {

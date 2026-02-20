@@ -263,7 +263,8 @@ function ensure_cli_container {
     # Check if image exists
     if ! docker image inspect "$image_name" &> /dev/null; then
         log_info "Building airstack-cli container (version $version)..."
-        if ! docker build -f "$dockerfile_path" -t "$image_name" "$PROJECT_ROOT"; then
+        if ! docker build -f "$dockerfile_path" \
+            -t "$image_name" "$PROJECT_ROOT"; then
             log_error "Failed to build airstack-cli container"
             exit 1
         fi
@@ -660,7 +661,7 @@ function cmd_setup {
         fi
     fi
 
-    echo "Making sure git submodules are initialized and updated..."
+    log_info "Making sure git submodules are initialized and updated..."
     git submodule update --init --recursive || log_warn "Failed to update git submodules. Some packages may not launch, please check your git credentials."
     
     log_info "Setup complete!"
@@ -722,6 +723,17 @@ function cmd_up {
 
     # Add xhost + to allow GUI applications
     xhost + &> /dev/null || true
+
+    # Pre-create bind mount directories as the host user before docker compose runs.
+    # If these don't exist, the Docker daemon (running as root) will create them as root.
+    mkdir -p "$HOME/.cache" \
+        "$HOME/.nv/ComputeCache" \
+        "$HOME/.nvidia-omniverse/logs" \
+        "$HOME/.nvidia-omniverse/config" \
+        "$HOME/.local/share/ov/data" \
+        "$HOME/.local/share/ov/pkg" \
+        "$HOME/.local/share/ov/data/documents/Kit/shared/exts"
+
 
     log_info "Starting services with containerized docker-compose..."
     run_docker_compose "${compose_args[@]}"
@@ -920,6 +932,7 @@ function cmd_rebuild_cli {
     local version=$(get_docker_image_tag)
     local image_name="airstack-cli:v$version"
     local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
+    local host_docker_group_id=$(getent group docker | cut -d: -f3)
     
     if [ ! -f "$dockerfile_path" ]; then
         log_error "Dockerfile.airstack-cli not found at $dockerfile_path"
@@ -934,7 +947,7 @@ function cmd_rebuild_cli {
     
     # Build new image
     log_info "Building new airstack-cli image (version $version)..."
-    if docker build -f "$dockerfile_path" -t "$image_name" "$PROJECT_ROOT"; then
+    if docker build -f "$dockerfile_path" --build-arg HOST_DOCKER_GROUP_ID="$host_docker_group_id" -t "$image_name" "$PROJECT_ROOT"; then
         log_info "airstack-cli container rebuilt successfully"
         
         # Show the new compose version

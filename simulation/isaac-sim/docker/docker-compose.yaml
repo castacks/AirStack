@@ -59,16 +59,18 @@ services:
       - $HOME/.Xauthority:/isaac-sim/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff
-      - $HOME/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw
-      - $HOME/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw
-      - $HOME/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw
-      - $HOME/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw
-      - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw
-      - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw
+      - $HOME/.cache:/isaac-sim/.cache:rw
+      - $HOME/.nv/ComputeCache:/isaac-sim/.nv/ComputeCache:rw
+      - $HOME/.nvidia-omniverse/logs:/isaac-sim/.nvidia-omniverse/logs:rw
+      - $HOME/.nvidia-omniverse/config:/isaac-sim/.nvidia-omniverse/config:rw
+      - $HOME/.local/share/ov/data:/isaac-sim/.local/share/ov/data:rw
+      - $HOME/.local/share/ov/pkg:/isaac-sim/.local/share/ov/pkg:rw
+      - $HOME/.local/share/ov/data/Kit/shared:/isaac-sim/.local/share/ov/data/Kit/shared:rw
+      # pegasus integration
+      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # IMPORTANT: set the version number without the trailing .0
-      # - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
       # developer stuff
       - .dev:/isaac-sim/.dev:rw # developer config
       - .bashrc:/isaac-sim/.bashrc:rw # bash config
@@ -78,10 +80,6 @@ services:
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
-      # pegasus integration
-      - ../extensions/PegasusSimulator:/isaac_extensions/PegasusSimulator
-      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/Kit/shared/exts/pegasus.simulator/
-      - ../config/sim_to_robot_bridge.yaml:/sim_to_robot_bridge.yaml:ro
 
   # ===================================================================================================================
   isaac-sim-gui:

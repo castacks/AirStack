@@ -1,4 +1,4 @@
 [bookmarks]
 "AirLab Nucleus Server" = "omniverse://airlab-nucleus.andrew.cmu.edu"
-"Local AirStack Isaac Assets" = "file:///root/AirStack/simulation/isaac-sim/assets/"
+"Local AirStack Isaac Assets" = "file:///isaac-sim/AirStack/simulation/isaac-sim/assets/"
 "Nucleus Pegasus" = "omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/"

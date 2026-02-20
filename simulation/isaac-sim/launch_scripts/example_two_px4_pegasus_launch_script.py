@@ -103,7 +103,7 @@ class PegasusApp:
             robot_name="robot_1",
             vehicle_id=1, # defines MAVLink port offset
             domain_id=1, # defines ROS2 domain ID
-            usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+            usd_file="~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
             init_pos=[2.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
@@ -139,7 +139,7 @@ class PegasusApp:
             robot_name="robot_2",
             vehicle_id=2, # defines MAVLink port offset. Define as 2 for second vehicle
             domain_id=2, # defines ROS2 domain ID. Define as 2 for second vehicle
-            usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+            usd_file="~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )

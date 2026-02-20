@@ -1,9 +1,36 @@
-ARG ISAAC_VERSION="5.1.0"
 # expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
+ARG ISAAC_VERSION="5.1.0"
+ARG PX4_VERSION="v1.16.1"
+
+# ---- Stage 1: isaac_base ----
+# Used only to copy /isaac-sim with correct ownership into the final image without a
+# chown -R layer (which would double the size of /isaac-sim in the overlay filesystem).
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION} AS isaac_base
-ARG ISAAC_VERSION
+
+# ---- Stage 2: px4_builder ----
+# Build PX4 SITL in a clean Ubuntu environment. All packages installed by ubuntu.sh
+# (ARM cross-compilers, genromfs, astyle, etc.) are discarded with this stage and
+# never reach the final image.
+FROM ubuntu:noble AS px4_builder
+ARG PX4_VERSION
+# Minimal bootstrap; ubuntu.sh installs the rest
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl python3 python3-pip lsb-release wget sudo && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /
+RUN git clone --branch ${PX4_VERSION} --recursive \
+    https://github.com/PX4/PX4-Autopilot.git && \
+    cd PX4-Autopilot && \
+    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh && \
+    make px4_sitl && \
+    find build/px4_sitl_default -name '*.o' -delete && \
+    find build/px4_sitl_default -name '*.a' -delete && \
+    rm -rf .git
+
+# ---- Stage 3: final image ----
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
 ARG ISAAC_VERSION
+ARG PX4_VERSION
 
 # for install stuff
 USER root
@@ -23,31 +50,31 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
     apt-get install -q -y --no-install-recommends tzdata && \
     # Install base packages
     apt-get install -q -y --no-install-recommends \
-        dirmngr \
-        gnupg2 \
-        unzip \
-        tmux \
-        iputils-ping \
-        net-tools \
-        curl \
-        vim \
-        nano \
-        gdb \
-        xterm \
-        tree \
-        less \
-        htop \
-        jq \
-        git \
-        build-essential \
-        cmake \
-        python3-pip \
-        python3-setuptools \
-        python3-wheel \
-        meson \
-        ninja-build \
-        wget \
-        libcgal-dev && \
+    dirmngr \
+    gnupg2 \
+    unzip \
+    tmux \
+    iputils-ping \
+    net-tools \
+    curl \
+    vim \
+    nano \
+    gdb \
+    xterm \
+    tree \
+    less \
+    htop \
+    jq \
+    git \
+    build-essential \
+    cmake \
+    python3-pip \
+    python3-setuptools \
+    python3-wheel \
+    meson \
+    ninja-build \
+    wget \
+    libcgal-dev && \
     # Setup ROS2 apt key
     set -eux; \
     key='C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654'; \
@@ -67,19 +94,19 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
     apt-mark hold libbrotli1 && \
     # Install ROS2 and related packages
     apt-get install -y --no-install-recommends \
-        libfreetype6-dev \
-        libfontconfig1-dev \
-        ros-jazzy-desktop \
-        ros-dev-tools \
-        python3-rosdep \
-        "ros-jazzy-tf2*" \
-        ros-jazzy-mavros \
-        ros-jazzy-ackermann-msgs \
-        ros-jazzy-topic-tools \
-        ros-jazzy-grid-map \
-        ros-jazzy-domain-bridge \
-        ros-jazzy-moveit \
-        python3-colcon-common-extensions && \
+    libfreetype6-dev \
+    libfontconfig1-dev \
+    ros-jazzy-desktop \
+    ros-dev-tools \
+    python3-rosdep \
+    "ros-jazzy-tf2*" \
+    ros-jazzy-mavros \
+    ros-jazzy-ackermann-msgs \
+    ros-jazzy-topic-tools \
+    ros-jazzy-grid-map \
+    ros-jazzy-domain-bridge \
+    ros-jazzy-moveit \
+    python3-colcon-common-extensions && \
     rm -rf /var/lib/apt/lists/*
 
 
@@ -107,7 +134,6 @@ COPY --chown=isaac-sim:isaac-sim --chmod=777 --from=isaac_base /isaac-sim /isaac
 RUN usermod -d /isaac-sim isaac-sim
 
 USER isaac-sim:isaac-sim
-
 # isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
 RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
     ln -s /isaac-sim /isaac-sim/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
@@ -140,34 +166,25 @@ RUN mkdir -p /isaac-sim/apps && \
 # over the same directory so that we can edit the code and have it reflected in the container.
 
 RUN git clone --depth 1 https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
-    mkdir -p /isaac-sim/.local/share/ov/data/Kit/shared/exts && \
-    mv /tmp/PegasusSimulator/extensions/pegasus.simulator /isaac-sim/.local/share/ov/data/Kit/shared/exts && \
+    mkdir -p -m 777 /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts && \
+    mv /tmp/PegasusSimulator/extensions/pegasus.simulator /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts && \
     rm -rf /tmp/PegasusSimulator
 
 # Add extension search path configuration for Kit
-# This ensures that /isaac-sim/.local/share/ov/data/Kit/shared/exts is always searched for extensions
-ARG KIT_ARGS="--ext-folder /isaac-sim/.local/share/ov/data/Kit/shared/exts"
+# This ensures that /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts is always searched for extensions
+ARG KIT_ARGS="--ext-folder /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts"
 ENV OMNI_APP_ARGS="${KIT_ARGS}"
 
 ENV ISAACSIM_PATH=/isaac-sim
 ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
-RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/Kit/shared/exts/pegasus.simulator
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
-# build PX4
+# Copy PX4 built artifacts from the isolated build stage.
+# Build-time packages installed by ubuntu.sh are discarded with the px4_builder stage.
 USER root
-ARG PX4_VERSION="v1.16.1"
+COPY --from=px4_builder --chown=isaac-sim:isaac-sim /PX4-Autopilot /isaac-sim/PX4-Autopilot
 WORKDIR /isaac-sim
-# Use shallow clone with shallow submodules to avoid fetching full git history.
-# Remove .git directories and intermediate object/archive files after build to reduce image size.
-RUN git clone --depth 1 --branch ${PX4_VERSION} --recurse-submodules --shallow-submodules \
-        https://github.com/PX4/PX4-Autopilot.git && \
-    cd PX4-Autopilot && \
-    ./Tools/setup/ubuntu.sh && \
-    make px4_sitl && \
-    find build/px4_sitl_default -name '*.o' -delete && \
-    find build/px4_sitl_default -name '*.a' -delete && \
-    rm -rf .git
 
 USER isaac-sim:isaac-sim
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
@@ -182,17 +199,25 @@ COPY --chown=isaac-sim:isaac-sim docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
 USER root
 # Install fixuid, then purge git and build tools not needed at runtime to keep the final layer clean.
 RUN curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.6.0/fixuid-0.6.0-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
-  chown root:root /usr/local/bin/fixuid && \
-  chmod 4755 /usr/local/bin/fixuid && \
-  mkdir -p /etc/fixuid && \
-  printf "user: isaac-sim\ngroup: isaac-sim\n" > /etc/fixuid/config.yml && \
-  # Prevent accidental git commits from inside the container
-  apt-get purge -y git && \
-  apt-get autoremove -y && \
-  apt-get clean -y && \
-  rm -rf /var/lib/apt/lists/*
+    chown root:root /usr/local/bin/fixuid && \
+    chmod 4755 /usr/local/bin/fixuid && \
+    mkdir -p /etc/fixuid && \
+    printf "user: isaac-sim\ngroup: isaac-sim\n" > /etc/fixuid/config.yml && \
+    # Prevent accidental git commits from inside the container
+    apt-get purge -y git && \
+    apt-get autoremove -y && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/*
 
+
+RUN echo "root:root" | chpasswd
 
 USER isaac-sim:isaac-sim
+RUN mkdir -p -m 777 /isaac-sim/.nv /isaac-sim/.cache \
+    /isaac-sim/.nv/ComputeCache /isaac-sim/.nvidia-omniverse/logs \
+    /isaac-sim/.nvidia-omniverse/config /isaac-sim/.local/share/ov/data \
+    /isaac-sim/.local/share/ov/pkg \
+    /isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1 \
+
 ENTRYPOINT ["fixuid"]
 WORKDIR /isaac-sim
