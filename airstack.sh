@@ -118,6 +118,21 @@ function print_command_help {
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
             ;;
+        build)
+            echo "Usage: airstack build [service_name...] [options]"
+            echo ""
+            echo "Build or rebuild Docker Compose services. Passes ENV variables from .env"
+            echo "and any prepended environment variables (e.g. DOCKER_IMAGE_TAG=x airstack build robot)."
+            echo ""
+            echo "Options:"
+            echo "  --no-cache         Do not use cache when building the image"
+            echo "  --pull             Always attempt to pull a newer version of the image"
+            echo "  --push             Push service images"
+            echo "  --progress=VALUE   Set type of progress output (auto, tty, plain, json, quiet)"
+            echo "  --env-file         Specify an alternate environment file"
+            echo ""
+            echo "Any additional flags are passed directly to 'docker compose build'."
+            ;;
         connect)
             echo "Usage: airstack connect [container_name] [options]"
             echo ""
@@ -253,6 +268,10 @@ function run_docker_compose {
     # This allows command-line overrides like: ISAAC_SIM_USE_STANDALONE=true airstack up
     local env_args=()
     local env_file="$PROJECT_ROOT/.env"
+
+    # add the UID and GID to env_args so they are passed to the container and can be used for file permissions
+    env_args+=("-e" "USER_ID=$(id -u)")
+    env_args+=("-e" "GROUP_ID=$(id -g)")
     
     if [ -f "$env_file" ]; then
         # Extract variable names from .env file (lines that start with a letter/underscore)
