@@ -163,6 +163,18 @@ function print_command_help {
             echo ""
             echo "Display the current AirStack version from DOCKER_IMAGE_TAG in .env file."
             ;;
+        rmi)
+            echo "Usage: airstack rmi [flags] <search_term>"
+            echo ""
+            echo "Remove Docker images whose tag matches the given search term."
+            echo ""
+            echo "Options:"
+            echo "  -f    Force removal of the image"
+            echo ""
+            echo "Examples:"
+            echo "  airstack rmi myimage"
+            echo "  airstack rmi -f myimage"
+            ;;
         test)
             echo "Usage: airstack test [options]"
             echo ""
@@ -872,6 +884,36 @@ function cmd_version {
     echo -e "${BOLDCYAN}AirStack Version:${NC} $version"
 }
 
+function cmd_rmi {
+    check_docker
+    
+    if [ $# -eq 0 ]; then
+        log_error "Search term required"
+        print_command_help "rmi"
+        exit 1
+    fi
+    
+    local search_term=""
+    local rmi_flags=()
+    
+    for arg in "$@"; do
+        if [[ "$arg" == -* ]]; then
+            rmi_flags+=("$arg")
+        else
+            search_term="$arg"
+        fi
+    done
+    
+    if [ -z "$search_term" ]; then
+        log_error "Search term required"
+        print_command_help "rmi"
+        exit 1
+    fi
+    
+    log_info "Removing images matching: $search_term"
+    docker images -a | grep "$search_term" | awk '{print $2}' | xargs docker rmi "${rmi_flags[@]}"
+}
+
 function cmd_rebuild_cli {
     log_info "Rebuilding airstack-cli container..."
     
@@ -943,6 +985,7 @@ function register_builtin_commands {
     COMMANDS["logs"]="cmd_logs"
     COMMANDS["version"]="cmd_version"
     COMMANDS["rebuild-cli"]="cmd_rebuild_cli"
+    COMMANDS["rmi"]="cmd_rmi"
     COMMANDS["help"]="cmd_help"
     
     # Register help text for built-in commands
@@ -955,6 +998,7 @@ function register_builtin_commands {
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"
     COMMAND_HELP["version"]="Display the current AirStack version"
     COMMAND_HELP["rebuild-cli"]="Rebuild the containerized docker-compose CLI tool"
+    COMMAND_HELP["rmi"]="Remove Docker images by search term"
     COMMAND_HELP["help"]="Show help information"
 }
 
