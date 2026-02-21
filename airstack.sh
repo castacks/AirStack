@@ -673,59 +673,70 @@ function cmd_setup {
     log_info "Setup complete!"
 }
 
-function cmd_up {
-    check_docker
-    
-    local env_files=()
-    local other_args=()
-    
-    # Convert arguments to array for easier processing
+# Classify arguments for a docker compose invocation.
+# Global docker compose flags (must appear before the subcommand) are separated
+# from subcommand-specific arguments.
+#
+# Usage: classify_compose_args <global_array_name> <subcmd_array_name> "$@"
+#
+# Example:
+#   local global_args=() subcmd_args=()
+#   classify_compose_args global_args subcmd_args "$@"
+function classify_compose_args {
+    local -n _global=$1
+    local -n _subcmd=$2
+    shift 2
+
+    # Global flags that consume the next argument as their value
+    local -A _takes_value=(
+        [--ansi]=1 [--env-file]=1 [-f]=1 [--file]=1
+        [--parallel]=1 [--profile]=1 [--progress]=1
+        [--project-directory]=1 [--workdir]=1
+        [-p]=1 [--project-name]=1 [-H]=1 [--host]=1
+    )
+    # Global flags that are boolean (standalone, no value)
+    local -A _is_bool=(
+        [--compatibility]=1 [--dry-run]=1 [--verbose]=1 [--version]=1
+    )
+
     local args=("$@")
     local i=0
-    
     while [ $i -lt ${#args[@]} ]; do
         local arg="${args[$i]}"
-        
-        if [[ "$arg" == "--env-file" ]]; then
-            # Get the next argument as the env file path
+        if [[ -n "${_takes_value[$arg]+x}" ]]; then
+            # Flag + value pair -> global
+            _global+=("$arg")
             i=$((i+1))
             if [ $i -lt ${#args[@]} ]; then
-                env_files+=("--env-file" "${args[$i]}")
+                _global+=("${args[$i]}")
             else
-                log_error "Missing value for --env-file argument"
+                echo "[ERROR] Missing value for compose global flag: $arg" >&2
                 return 1
             fi
-        elif [[ "$arg" == "--env-file="* ]]; then
-            # Handle --env-file=path format
-            env_files+=("$arg")
-        else
-            # Skip the command name 'up' itself
-            if [[ "$arg" != "up" ]]; then
-                other_args+=("$arg")
+        elif [[ -n "${_is_bool[$arg]+x}" ]]; then
+            # Boolean flag -> global
+            _global+=("$arg")
+        elif [[ "$arg" == -* && "$arg" == *=* ]]; then
+            # --flag=value form: check the flag name portion
+            local flag_name="${arg%%=*}"
+            if [[ -n "${_takes_value[$flag_name]+x}" || -n "${_is_bool[$flag_name]+x}" ]]; then
+                _global+=("$arg")
+            else
+                _subcmd+=("$arg")
             fi
+        else
+            _subcmd+=("$arg")
         fi
-        
         i=$((i+1))
     done
+}
 
-    # Build compose arguments array
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-    
-    # Add all env files
-    for env_file in "${env_files[@]}"; do
-        compose_args+=("$env_file")
-    done
-    
-    # Add the 'up' command
-    compose_args+=("up")
-    
-    # Add other arguments if any
-    if [ ${#other_args[@]} -gt 0 ]; then
-        compose_args+=("${other_args[@]}")
-    fi
-    
-    # Add -d flag
-    compose_args+=("-d")
+function cmd_up {
+    check_docker
+
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
     # Add xhost + to allow GUI applications
     xhost + &> /dev/null || true
@@ -740,154 +751,44 @@ function cmd_up {
         "$HOME/.local/share/ov/pkg" \
         "$HOME/.local/share/ov/data/documents/Kit/shared/exts"
 
-
     log_info "Starting services with containerized docker-compose..."
-    run_docker_compose "${compose_args[@]}"
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
     log_info "Services brought up successfully"
 }
 
 function cmd_image_build {
     check_docker
 
-    local env_files=()
-    local other_args=()
-
-    # Convert arguments to array for easier processing
-    local args=("$@")
-    local i=0
-
-    while [ $i -lt ${#args[@]} ]; do
-        local arg="${args[$i]}"
-
-        if [[ "$arg" == "--env-file" ]]; then
-            # Get the next argument as the env file path
-            i=$((i+1))
-            if [ $i -lt ${#args[@]} ]; then
-                env_files+=("--env-file" "${args[$i]}")
-            else
-                log_error "Missing value for --env-file argument"
-                return 1
-            fi
-        elif [[ "$arg" == "--env-file="* ]]; then
-            # Handle --env-file=path format
-            env_files+=("$arg")
-        else
-            other_args+=("$arg")
-        fi
-
-        i=$((i+1))
-    done
-
-    # Build compose arguments array
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-
-    # Add all env files
-    for env_file in "${env_files[@]}"; do
-        compose_args+=("$env_file")
-    done
-
-    # Add the 'build' command
-    compose_args+=("build")
-
-    # Add service names and other arguments
-    if [ ${#other_args[@]} -gt 0 ]; then
-        compose_args+=("${other_args[@]}")
-    fi
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
     log_info "Building services with containerized docker-compose..."
-    run_docker_compose "${compose_args[@]}"
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
     log_info "Build completed successfully"
 }
 
 function cmd_image_push {
     check_docker
 
-    local env_files=()
-    local other_args=()
-
-    local args=("$@")
-    local i=0
-
-    while [ $i -lt ${#args[@]} ]; do
-        local arg="${args[$i]}"
-
-        if [[ "$arg" == "--env-file" ]]; then
-            i=$((i+1))
-            if [ $i -lt ${#args[@]} ]; then
-                env_files+=("--env-file" "${args[$i]}")
-            else
-                log_error "Missing value for --env-file argument"
-                return 1
-            fi
-        elif [[ "$arg" == "--env-file="* ]]; then
-            env_files+=("$arg")
-        else
-            other_args+=("$arg")
-        fi
-
-        i=$((i+1))
-    done
-
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-
-    for env_file in "${env_files[@]}"; do
-        compose_args+=("$env_file")
-    done
-
-    compose_args+=("push")
-
-    if [ ${#other_args[@]} -gt 0 ]; then
-        compose_args+=("${other_args[@]}")
-    fi
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
     log_info "Pushing service images with containerized docker-compose..."
-    run_docker_compose "${compose_args[@]}"
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push "${subcmd_args[@]}"
     log_info "Push completed successfully"
 }
 
 function cmd_image_pull {
     check_docker
 
-    local env_files=()
-    local other_args=()
-
-    local args=("$@")
-    local i=0
-
-    while [ $i -lt ${#args[@]} ]; do
-        local arg="${args[$i]}"
-
-        if [[ "$arg" == "--env-file" ]]; then
-            i=$((i+1))
-            if [ $i -lt ${#args[@]} ]; then
-                env_files+=("--env-file" "${args[$i]}")
-            else
-                log_error "Missing value for --env-file argument"
-                return 1
-            fi
-        elif [[ "$arg" == "--env-file="* ]]; then
-            env_files+=("$arg")
-        else
-            other_args+=("$arg")
-        fi
-
-        i=$((i+1))
-    done
-
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-
-    for env_file in "${env_files[@]}"; do
-        compose_args+=("$env_file")
-    done
-
-    compose_args+=("pull")
-
-    if [ ${#other_args[@]} -gt 0 ]; then
-        compose_args+=("${other_args[@]}")
-    fi
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
     log_info "Pulling service images with containerized docker-compose..."
-    run_docker_compose "${compose_args[@]}"
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull "${subcmd_args[@]}"
     log_info "Pull completed successfully"
 }
 
