@@ -309,16 +309,23 @@ function run_docker_compose {
     fi
     
     # Build the docker run command
-    # Mount: docker socket, project directory, X11 socket, and preserve environment
+    # Mount: docker socket, project directory, X11 socket, docker credentials, and preserve environment
+    local docker_config_args=()
+    if [ -d "$HOME/.docker" ]; then
+        docker_config_args+=("-v" "$HOME/.docker:$HOME/.docker:ro")
+    fi
+
     docker run --rm -i \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v "$PROJECT_ROOT:$PROJECT_ROOT" \
         -v /tmp/.X11-unix:/tmp/.X11-unix \
+        "${docker_config_args[@]}" \
         -w "$PROJECT_ROOT" \
         -e USER_ID="$(id -u)" \
         -e GROUP_ID="$(id -g)" \
         -e HOME="$HOME" \
         -e DISPLAY="$DISPLAY" \
+        -e DOCKER_CONFIG="$HOME/.docker" \
         "${env_args[@]}" \
         --network host \
         "$image_name" \
