@@ -118,6 +118,12 @@ function print_command_help {
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
             ;;
+        images)
+            echo "Usage: airstack images"
+            echo ""
+            echo "List Docker images whose repository/tag contains the PROJECT_NAME value from .env."
+            echo "Shows all images if PROJECT_NAME is not set."
+            ;;
         image-build)
             echo "Usage: airstack image-build [service_name...] [options]"
             echo ""
@@ -885,6 +891,26 @@ function cmd_image_pull {
     log_info "Pull completed successfully"
 }
 
+function cmd_images {
+    check_docker
+
+    local env_file="$PROJECT_ROOT/.env"
+    local project_name=""
+
+    if [ -f "$env_file" ]; then
+        project_name=$(grep -E "^PROJECT_NAME=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    fi
+
+    if [ -z "$project_name" ]; then
+        log_warn "PROJECT_NAME not found in .env, showing all images"
+        docker images
+    else
+        log_info "Showing images matching project: $project_name"
+        docker images | head -1
+        docker images | grep -i "$project_name" || true
+    fi
+}
+
 function cmd_down {
     check_docker
     
@@ -1139,6 +1165,7 @@ function register_builtin_commands {
     COMMANDS["image-build"]="cmd_image_build"
     COMMANDS["image-push"]="cmd_image_push"
     COMMANDS["image-pull"]="cmd_image_pull"
+    COMMANDS["images"]="cmd_images"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["connect"]="cmd_connect"
@@ -1155,6 +1182,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-build"]="Build or rebuild Docker Compose service images"
     COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
+    COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["up"]="Start services using Docker Compose"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
