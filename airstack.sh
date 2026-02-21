@@ -312,7 +312,7 @@ function run_docker_compose {
     # Mount: docker socket, project directory, X11 socket, docker credentials, and preserve environment
     local docker_config_args=()
     if [ -d "$HOME/.docker" ]; then
-        docker_config_args+=("-v" "$HOME/.docker:$HOME/.docker:ro")
+        docker_config_args+=("-v" "$HOME/.docker:$HOME/.docker")
     fi
 
     docker run --rm -i \
