@@ -5,8 +5,7 @@ services:
   # note, this service name is currently used as the name of the robot
   robot:
     profiles:
-      - ""
-      - sitl
+      - desktop
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
@@ -75,15 +74,14 @@ services:
       tags:
         - *voxl_image
     network_mode: host
-    networks: !reset {}
+    networks: !reset {}  # running onboard with host networking, so no need for the airstack_network
     deploy: !reset {}  # remove nvidia driver for voxl
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
   robot-l4t:
     profiles:
-      - hitl
-      - deploy
+      - l4t
     group_add:
       - "20"
     extends:
@@ -113,12 +111,11 @@ services:
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
 
-  # ===================================================================================================================
-  # for running the zed camera driver on an NVIDIA jetson (linux for tegra) device. this is separate from robot-l4t because it has a lot of nvidia-specific configuration and dependencies, and we want to be able to run the robot without the zed driver if desired
+  # -----------------------
+  # for running the zed camera driver on an NVIDIA jetson (linux for tegra) device. This ONLY runs the zed driver
   zed-l4t:
     profiles:
-      - hitl
-      - deploy
+      - l4t
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
     build: 
       context: ./
@@ -167,7 +164,7 @@ services:
 # for running tests on the robot
   robot-test:
     profiles: !override
-      - "test"
+      - test
     extends:
       service: robot
     command: >

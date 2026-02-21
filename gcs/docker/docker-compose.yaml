@@ -1,9 +1,8 @@
 services:
   gcs:
     profiles:
-      - ""
-      - sitl
-      - simple
+      - "desktop"
+      - "offboard"
     extends:
       file: ./gcs-base-docker-compose.yaml
       service: gcs-base
