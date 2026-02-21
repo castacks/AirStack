@@ -10,7 +10,7 @@ services:
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
-    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64
+    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -63,7 +63,7 @@ services:
     extends:
       file: ./docker-compose.yaml
       service: robot
-    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl
+    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -89,7 +89,7 @@ services:
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
-    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-l4t
+    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -119,7 +119,7 @@ services:
     profiles:
       - hitl
       - deploy
-    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
     build: 
       context: ./
       dockerfile: zed/Dockerfile.zed-l4t
