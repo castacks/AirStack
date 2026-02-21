@@ -71,7 +71,7 @@ services:
         SKIP_OPENVDB: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
-      tags:
+      tags: !override
         - *voxl_image
     network_mode: host
     networks: !reset {}  # running onboard with host networking, so no need for the airstack_network
@@ -93,7 +93,7 @@ services:
       args:
         BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
         REAL_ROBOT: true
-      tags:
+      tags: !override
         - *l4t_image
     # we use tmux send-keys so that the session stays alive
     ipc: host
