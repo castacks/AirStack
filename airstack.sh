@@ -118,8 +118,8 @@ function print_command_help {
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
             ;;
-        build)
-            echo "Usage: airstack build [service_name...] [options]"
+        image-build)
+            echo "Usage: airstack image-build [service_name...] [options]"
             echo ""
             echo "Build or rebuild Docker Compose services. Passes ENV variables from .env"
             echo "and any prepended environment variables (e.g. DOCKER_IMAGE_TAG=x airstack build robot)."
@@ -740,7 +740,7 @@ function cmd_up {
     log_info "Services brought up successfully"
 }
 
-function cmd_build {
+function cmd_image_build {
     check_docker
 
     local env_files=()
@@ -791,6 +791,98 @@ function cmd_build {
     log_info "Building services with containerized docker-compose..."
     run_docker_compose "${compose_args[@]}"
     log_info "Build completed successfully"
+}
+
+function cmd_image_push {
+    check_docker
+
+    local env_files=()
+    local other_args=()
+
+    local args=("$@")
+    local i=0
+
+    while [ $i -lt ${#args[@]} ]; do
+        local arg="${args[$i]}"
+
+        if [[ "$arg" == "--env-file" ]]; then
+            i=$((i+1))
+            if [ $i -lt ${#args[@]} ]; then
+                env_files+=("--env-file" "${args[$i]}")
+            else
+                log_error "Missing value for --env-file argument"
+                return 1
+            fi
+        elif [[ "$arg" == "--env-file="* ]]; then
+            env_files+=("$arg")
+        else
+            other_args+=("$arg")
+        fi
+
+        i=$((i+1))
+    done
+
+    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
+
+    for env_file in "${env_files[@]}"; do
+        compose_args+=("$env_file")
+    done
+
+    compose_args+=("push")
+
+    if [ ${#other_args[@]} -gt 0 ]; then
+        compose_args+=("${other_args[@]}")
+    fi
+
+    log_info "Pushing service images with containerized docker-compose..."
+    run_docker_compose "${compose_args[@]}"
+    log_info "Push completed successfully"
+}
+
+function cmd_image_pull {
+    check_docker
+
+    local env_files=()
+    local other_args=()
+
+    local args=("$@")
+    local i=0
+
+    while [ $i -lt ${#args[@]} ]; do
+        local arg="${args[$i]}"
+
+        if [[ "$arg" == "--env-file" ]]; then
+            i=$((i+1))
+            if [ $i -lt ${#args[@]} ]; then
+                env_files+=("--env-file" "${args[$i]}")
+            else
+                log_error "Missing value for --env-file argument"
+                return 1
+            fi
+        elif [[ "$arg" == "--env-file="* ]]; then
+            env_files+=("$arg")
+        else
+            other_args+=("$arg")
+        fi
+
+        i=$((i+1))
+    done
+
+    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
+
+    for env_file in "${env_files[@]}"; do
+        compose_args+=("$env_file")
+    done
+
+    compose_args+=("pull")
+
+    if [ ${#other_args[@]} -gt 0 ]; then
+        compose_args+=("${other_args[@]}")
+    fi
+
+    log_info "Pulling service images with containerized docker-compose..."
+    run_docker_compose "${compose_args[@]}"
+    log_info "Pull completed successfully"
 }
 
 function cmd_down {
@@ -1044,7 +1136,9 @@ declare -A COMMAND_HELP
 function register_builtin_commands {
     COMMANDS["install"]="cmd_install"
     COMMANDS["setup"]="cmd_setup"
-    COMMANDS["build"]="cmd_build"
+    COMMANDS["image-build"]="cmd_image_build"
+    COMMANDS["image-push"]="cmd_image_push"
+    COMMANDS["image-pull"]="cmd_image_pull"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["connect"]="cmd_connect"
@@ -1058,7 +1152,9 @@ function register_builtin_commands {
     # Register help text for built-in commands
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
-    COMMAND_HELP["build"]="Build or rebuild Docker Compose service images"
+    COMMAND_HELP["image-build"]="Build or rebuild Docker Compose service images"
+    COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
+    COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["up"]="Start services using Docker Compose"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
