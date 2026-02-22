@@ -45,26 +45,23 @@ markdown_extensions:
       permalink: true
 nav:
   - Home: docs/index.md
-  - Getting Started: docs/getting_started.md
-  - Development:
-      - docs/development/index.md
-      - AirStack CLI Tool:
-          - docs/development/airstack-cli/index.md
-          - docs/development/airstack-cli/docker_usage.md
-          - docs/development/airstack-cli/extending.md
-          - docs/development/airstack-cli/architecture.md
-      - docs/development/vscode/index.md
-      - Testing:
-          - docs/development/testing/index.md
-          - docs/development/testing/testing_frameworks.md
-          - docs/development/testing/integration_testing.md
-          - docs/development/testing/unit_testing.md
-          - docs/development/testing/system_testing.md
-          - docs/development/testing/ci_cd.md
-      - docs/development/contributing.md
-      - docs/development/frame_conventions.md
+  - Tutorials:
+      - docs/tutorials/index.md
+      - Getting Started: docs/getting_started.md
+      - Multi-Robot Simulation: docs/tutorials/multi_robot_simulation.md
+      - Deploying to Hardware: docs/tutorials/deploying_to_hardware.md
+  - Simulation:
+      - docs/simulation/index.md
+      - Isaac Sim:
+          - docs/simulation/isaac_sim/index.md
+          - docs/simulation/isaac_sim/export_stages_from_unreal.md
+          - docs/simulation/isaac_sim/scene_setup.md
+          - docs/simulation/isaac_sim/pegasus_scene_setup.md
   - Robot:
       - docs/robot/index.md
+      - Docker:
+          - docs/robot/docker/index.md
+          - docs/robot/docker/robot_identity.md
       - Autonomy Modules:
           - Robot Interface:
               - docs/robot/autonomy/0_interface/index.md
@@ -121,13 +118,23 @@ nav:
           - docs/ground_control_station/command_center/command_center.md
       - Casualty Assessment:
           - docs/ground_control_station/casualty_assessment/casualty_assessment.md
-  - Simulation:
-      - docs/simulation/index.md
-      - Isaac Sim:
-          - docs/simulation/isaac_sim/index.md
-          - docs/simulation/isaac_sim/export_stages_from_unreal.md
-          - docs/simulation/isaac_sim/scene_setup.md
-          - docs/simulation/isaac_sim/pegasus_scene_setup.md
+  - Development:
+      - docs/development/index.md
+      - AirStack CLI Tool:
+          - docs/development/airstack-cli/index.md
+          - docs/development/airstack-cli/docker_usage.md
+          - docs/development/airstack-cli/extending.md
+          - docs/development/airstack-cli/architecture.md
+      - docs/development/vscode/index.md
+      - Testing:
+          - docs/development/testing/index.md
+          - docs/development/testing/testing_frameworks.md
+          - docs/development/testing/integration_testing.md
+          - docs/development/testing/unit_testing.md
+          - docs/development/testing/system_testing.md
+          - docs/development/testing/ci_cd.md
+      - docs/development/contributing.md
+      - docs/development/frame_conventions.md
   - Real World:
       - docs/real_world/index.md
       - docs/real_world/data_offloading/index.md
