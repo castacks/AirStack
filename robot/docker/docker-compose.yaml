@@ -3,7 +3,7 @@ services:
   # ===================================================================================================================
   # for developing locally on a single machine
   # note, this service name is currently used as the name of the robot
-  robot:
+  robot-desktop:
     profiles:
       - desktop
     extends:
@@ -53,7 +53,7 @@ services:
       - simple
     extends:
       file: ./docker-compose.yaml
-      service: robot
+      service: robot-desktop
     environment:
       - SIM_TYPE=simple
   # ===================================================================================================================
@@ -179,7 +179,7 @@ services:
     profiles: !override
       - test
     extends:
-      service: robot
+      service: robot-desktop
     command: >
       bash -il -c "
       echo 'Building and sourcing workspace...';
