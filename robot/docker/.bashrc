@@ -70,7 +70,7 @@ source /opt/ros/humble/setup.bash
 sws # source the ROS2 workspace by default
 
 # Only extract robot name and ROS domain ID iff they are not already set in the environment (e.g. by docker compose)
-if [ -z "$ROBOT_NAME" ] || [ -z "$ROS_DOMAIN_ID" ]; then
+if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
     # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
     # WARNING: this technique ONLY works with docker version 29 and up.
     # check that the docker version is greater than 29
@@ -78,14 +78,21 @@ if [ -z "$ROBOT_NAME" ] || [ -z "$ROS_DOMAIN_ID" ]; then
     # remove the prefix and convert dashes to underscores
     export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
     export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
-fi
 
-# case: will be null on real world robot
-if [ "$ROBOT_NAME" == "null" ] || echo "$ROBOT_NAME" | grep -q "refused"; then
+    # case: robot name found from docker, then we're in sim
+    export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
+    export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
+    # TODO: ardupilot case not handled yet
+    export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
+    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))  # target system for mavros
+
+elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
     num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
     num=$((num)) #remove leading zeros
 
     if [[ "$num" == 0 ]]; then
+        echo "Warning: Could not extract robot number from hostname. Defaulting to ROBOT_NAME='ERROR' and ROS_DOMAIN_ID='ERROR'. \
+            This will likely cause issues with ROS2 communication. Please ensure that the hostname is in the format 'robot-<num>' where <num> is a number."
         export ROBOT_NAME="ERROR"
         export ROS_DOMAIN_ID="ERROR"
     else
@@ -93,13 +100,11 @@ if [ "$ROBOT_NAME" == "null" ] || echo "$ROBOT_NAME" | grep -q "refused"; then
         export ROS_DOMAIN_ID=$num
     fi
     export FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
+
 else
-    # case: robot name found from docker, then we're in sim
-    export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    # TODO: ardupilot case not handled yet
-    export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
-    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))  # target system for mavros
+    echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot' with ROS_DOMAIN_ID=0. This may cause conflicts if multiple containers are running simultaneously."
+    export ROBOT_NAME="unknown_robot"
+    export ROS_DOMAIN_ID=0
 fi
 
 

@@ -9,10 +9,6 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
-      # Pass through the robot name and ROS domain ID from the host environment if they exist, 
-      # otherwise they'll be extracted from the container name in the .bashrc
-      - ROBOT_NAME=${ROBOT_NAME}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       # docker compose interpolation to env variables
       - AUTONOMY_LAUNCH_PACKAGE=${AUTONOMY_LAUNCH_PACKAGE}
       - AUTONOMY_LAUNCH_FILE=${AUTONOMY_LAUNCH_FILE}

@@ -18,6 +18,7 @@ services:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
     environment:
+      - ROBOT_NAME_SOURCE=container_name # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
     command: >
@@ -60,8 +61,8 @@ services:
     profiles: !override
       - voxl
     extends:
-      file: ./docker-compose.yaml
-      service: robot
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
     image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
@@ -71,10 +72,19 @@ services:
         SKIP_OPENVDB: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
-      tags: !override
+      tags: 
         - *voxl_image
+    environment: 
+      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+    command: >
+      bash -c "
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux new -d -s robot_bringup;
+        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      fi;
+      sleep infinity"
     network_mode: host
-    networks: !reset {}  # running onboard with host networking, so no need for the airstack_network
     deploy: !reset {}  # remove nvidia driver for voxl
 
   # ===================================================================================================================
@@ -93,7 +103,7 @@ services:
       args:
         BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
         REAL_ROBOT: true
-      tags: !override
+      tags: 
         - *l4t_image
     # we use tmux send-keys so that the session stays alive
     ipc: host
@@ -106,6 +116,9 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    environment: !override
+      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
