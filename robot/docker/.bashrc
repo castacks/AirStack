@@ -69,12 +69,22 @@ function cws(){
 source /opt/ros/humble/setup.bash
 sws # source the ROS2 workspace by default
 
-# https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
-container_name=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
-
-# remove the prefix and convert dashes to underscores
-export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
-export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
+# Only extract robot name and ROS domain ID iff they are not already set in the environment (e.g. by docker compose)
+if [ -z "$ROBOT_NAME" ] || [ -z "$ROS_DOMAIN_ID" ]; then
+    # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+    # WARNING: this technique ONLY works with docker version 29 and up.
+    # check that the docker version is greater than 29
+    if ! docker version --format '{{.Server.Version}}' | awk -F. '{if ($1 < 29) exit 0; else exit 1}'; then
+        echo "Error: Docker version is less than 29, cannot extract container name. Setting ROBOT_NAME and ROS_DOMAIN_ID to 'unknown'."
+        export ROBOT_NAME="unknown"
+        export ROS_DOMAIN_ID="unknown"
+    else
+        container_name=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+        # remove the prefix and convert dashes to underscores
+        export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
+        export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
+    fi
+fi
 
 # case: will be null on real world robot
 if [ "$ROBOT_NAME" == "null" ] || echo "$ROBOT_NAME" | grep -q "refused"; then
