@@ -13,15 +13,20 @@
 
   <!-- ====== AUTONOMY ====== -->
 
-  <!-- Robot State Publisher (replaces static transforms) -->
-  <include file="$(find-pkg-share desktop_bringup)/launch/robot_state_publisher.launch.py">
-    <arg name="robot_name" value="$(env ROBOT_NAME)" />
-    <arg name="urdf_file_path" value="$(env ROBOT_URDF_FILE_PATH)" />
-    <arg name="ignore_timestamp" value="true" />
-    <arg name="use_sim_time" value="$(var sim)" />
-  </include>
+  <!-- 1. Define the path to your URDF file -->
+  <let name="urdf_path" value="$(find-pkg-share robot_descriptions)/$(env ROBOT_URDF_FILE)"/>
 
-  <!-- Static TFs for simulation connection -->
+  <!-- 2. Launch the robot_state_publisher with all parameters -->
+  <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher" output="screen">
+    <param name="robot_description" value="$(command 'cat $(var urdf_path)')"/>
+    <param name="publish_frequency" value="30.0"/>
+    <param name="use_tf_static" value="true"/>
+    <param name="ignore_timestamp" value="false"/>
+    <param name="use_sim_time" value="$(var sim)"/>
+
+  </node>
+
+  <!-- Static TFs -->
   <include file="$(find-pkg-share desktop_bringup)/launch/static_transforms.launch.xml">
     <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
   </include>

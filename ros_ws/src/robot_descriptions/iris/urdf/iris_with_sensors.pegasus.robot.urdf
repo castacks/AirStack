@@ -63,13 +63,13 @@
     <visual>
       <origin xyz="0. 0. -0." rpy="1.5707964 0. 1.5707963"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/os1_mesh.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/os1_mesh.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0. 0. -0." rpy="1.5707964 0. 1.5707963"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/os1_mesh.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/os1_mesh.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
@@ -78,13 +78,13 @@
     <visual>
       <origin xyz="0. 0.0157875 0.0134617" rpy="1.5707964 0. 0. "/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/base_link_ZED_X_base_link_ZED_X_ZED_X.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/base_link_ZED_X_base_link_ZED_X_ZED_X.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0. 0.0157875 0.0134617" rpy="1.5707964 0. 0. "/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/base_link_ZED_X_base_link_ZED_X_ZED_X.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/base_link_ZED_X_base_link_ZED_X_ZED_X.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
@@ -92,13 +92,13 @@
     <visual>
       <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/base_link_body_body.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/base_link_body_body.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0. 0. 0." rpy="0. 0. 0."/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/base_link_body_body.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/base_link_body_body.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
@@ -110,13 +110,13 @@
     <visual>
       <origin xyz="0.0005641 -0.0042183 0. " rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor0_iris_prop_ccw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor0_iris_prop_ccw.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0.0005641 -0.0042183 0. " rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor0_iris_prop_ccw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor0_iris_prop_ccw.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
@@ -124,13 +124,13 @@
     <visual>
       <origin xyz="0.0002835 -0.0040079 0. " rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor1_iris_prop_ccw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor1_iris_prop_ccw.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0.0002835 -0.0040079 0. " rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor1_iris_prop_ccw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor1_iris_prop_ccw.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
@@ -138,13 +138,13 @@
     <visual>
       <origin xyz="-0.0006439 -0.0006316 0. " rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor2_iris_prop_cw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor2_iris_prop_cw.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="-0.0006439 -0.0006316 0. " rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor2_iris_prop_cw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor2_iris_prop_cw.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
@@ -152,13 +152,13 @@
     <visual>
       <origin xyz="-0.0020179 -0.0013155 -0.0001005" rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor3_iris_prop_cw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor3_iris_prop_cw.obj" scale="1. 1. 1."/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="-0.0020179 -0.0013155 -0.0001005" rpy="0. 0. 0.0000089"/>
       <geometry>
-        <mesh filename="package://iris_with_sensors_description/meshes/rotor3_iris_prop_cw.obj" scale="1. 1. 1."/>
+        <mesh filename="package://robot_descriptions/iris/meshes/rotor3_iris_prop_cw.obj" scale="1. 1. 1."/>
       </geometry>
     </collision>
   </link>
