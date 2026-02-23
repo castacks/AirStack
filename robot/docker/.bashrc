@@ -76,7 +76,7 @@ if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
     # check that the docker version is greater than 29
     container_name=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
     # remove the prefix and convert dashes to underscores
-    export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
+    export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#g')
     export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
 
     # case: robot name found from docker, then we're in sim
