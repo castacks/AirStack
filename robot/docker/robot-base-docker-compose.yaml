@@ -33,10 +33,10 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - .dev:/root/.dev:rw # developer config
-      # - ../../common/.bash_profile:/root/.bash_profile:rw  # commented out - common/ no longer exists
+      - ../../common/.bash_profile:/root/.bash_profile:rw  # commented out - common/ no longer exists
       - .bashrc:/root/.bashrc:rw # bash config
-      # - ../../common/inputrc:/etc/inputrc:rw  # commented out - common/ no longer exists
-      # - ../../common/.tmux.conf:/root/.tmux.conf:rw  # commented out - common/ no longer exists
+      - ../../common/inputrc:/etc/inputrc:rw  # commented out - common/ no longer exists
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw  # commented out - common/ no longer exists
       - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       # autonomy stack stuff

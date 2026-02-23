@@ -14,10 +14,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY onboard_all DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY onboard_local_offboard_global DESTINATION share/${PROJECT_NAME})

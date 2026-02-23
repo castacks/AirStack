@@ -27,12 +27,12 @@
   </include>
 
   <!-- Case: All autonomy is run onboard -->
-  <group if="$(eval var autonomy_split_type == 'onboard_all')">
+  <group if="$(eval '&quot;$(var autonomy_split_type)&quot; == &quot;onboard_all&quot;')">
     <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
   </group>
 
   <!-- Case: Only sensing and local autonomy is run onboard. The offboard autonomy is in gcs.launch.xml -->
-  <group if="$(eval var autonomy_split_type == 'onboard_local_offboard_global')">
+  <group if="$(eval '&quot;$(var autonomy_split_type)&quot; == &quot;onboard_local_offboard_global&quot;')">
     <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
   </group>
 
