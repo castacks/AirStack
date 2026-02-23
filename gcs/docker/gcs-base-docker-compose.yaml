@@ -40,14 +40,14 @@ services:
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
-      - ../.bash_profile:/root/.bash_profile:rw
+      # - ../../common/.bash_profile:/root/.bash_profile:rw  # commented out - common/ no longer exists
       - .bashrc:/root/.bashrc:rw
-      - ../.tmux.conf:/root/.tmux.conf:rw
-      - ../inputrc:/etc/inputrc:rw
+      # - ../../common/.tmux.conf:/root/.tmux.conf:rw  # commented out - common/ no longer exists
+      # - ../../common/inputrc:/etc/inputrc:rw  # commented out - common/ no longer exists
       - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./Foxglove:/root/.config/Foxglove:rw
       # autonomy stack stuff
       - ../..:/root/AirStack
       # bags
-      - ../../gcs/bags:/bags:rw
+      - ../bags:/bags:rw

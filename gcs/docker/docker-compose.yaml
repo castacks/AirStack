@@ -24,4 +24,4 @@ services:
     volumes:
       - $HOME/bags:/bags
       # TODO: Update rviz config location if needed
-      - ../../plot:/plot
+      - ../plot:/plot
