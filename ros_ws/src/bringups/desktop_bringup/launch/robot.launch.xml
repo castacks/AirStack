@@ -15,7 +15,6 @@
 
   <!-- 1. Define the path to your URDF file -->
   <let name="urdf_path" value="$(find-pkg-share robot_descriptions)/$(env ROBOT_URDF_FILE)"/>
-
   <!-- 2. Launch the robot_state_publisher with all parameters -->
   <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher" output="screen">
     <param name="robot_description" value="$(command 'cat $(var urdf_path)')"/>
@@ -42,5 +41,9 @@
   </group>
 
   <!-- ===================== -->
+   <!-- launch rviz with specific file-->
+  <node pkg="rviz2" exec="rviz2"
+	args="-d $(find-pkg-share desktop_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
+	output="screen" respawn="true" respawn_delay="1" />
 
 </launch>

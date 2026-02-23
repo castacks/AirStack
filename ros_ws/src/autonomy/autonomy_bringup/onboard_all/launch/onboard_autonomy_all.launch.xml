@@ -21,43 +21,44 @@
 
   <!-- Autonomy Stack - Module Bringups -->
   <!-- Interface -->
-  <group if="$(var interface_package)">
+   <!-- check args are not empty string. if empty string, don't launch -->
+  <group if="$(eval '&quot;$(var interface_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var interface_package))/launch/$(var interface_launch_file)" />
   </group>
 
   <!-- Sensors -->
-  <group if="$(var sensors_package)">
+  <group if="$(eval '&quot;$(var sensors_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var sensors_package))/launch/$(var sensors_launch_file)" />
   </group>
 
   <!-- Perception -->
-  <group if="$(var perception_package)">
+  <group if="$(eval '&quot;$(var perception_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var perception_package))/launch/$(var perception_launch_file)" />
   </group>
 
   <!-- Local -->
-  <group if="$(var local_package)">
+  <group if="$(eval '&quot;$(var local_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var local_package))/launch/$(var local_launch_file)" />
   </group>
 
   <!-- Global -->
-  <group if="$(var global_package)">
+  <group if="$(eval '&quot;$(var global_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var global_package))/launch/$(var global_launch_file)" />
   </group>
 
   <!-- Behavior -->
-  <group if="$(var behavior_package)">
+  <group if="$(eval '&quot;$(var behavior_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var behavior_package))/launch/$(var behavior_launch_file)" />
   </group>
 
   <!-- Logging -->
-  <group if="$(var logging_package)">
+  <group if="$(eval '&quot;$(var logging_package)&quot; != &quot;&quot;')">
     <include file="$(find-pkg-share $(var logging_package))/launch/$(var logging_launch_file)" />
   </group>
 
   <!-- Domain Bridge -->
-  <node pkg="domain_bridge" exec="domain_bridge"
+  <!-- <node pkg="domain_bridge" exec="domain_bridge"
     args="$(find-pkg-share autonomy_bringup)/onboard_all/config/domain_bridge.yaml"
-    output="screen" respawn="true" respawn_delay="1" />
+    output="screen" respawn="true" respawn_delay="1" /> -->
 
 </launch>
