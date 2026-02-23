@@ -46,5 +46,5 @@ services:
       - ../models:/models/:rw
       # autonomy stack stuff
       - ../ros_ws:/root/ros_ws:rw # sim-specific ROS packages
-      - ../../../common/ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
-      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../ros_packages/fastdds.xml:/root/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../../inputrc:/etc/inputrc:rw # for using page up/down to search through command history

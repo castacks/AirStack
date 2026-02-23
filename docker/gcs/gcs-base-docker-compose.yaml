@@ -40,10 +40,10 @@ services:
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
-      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - ../.bash_profile:/root/.bash_profile:rw
       - .bashrc:/root/.bashrc:rw
-      - ../../common/.tmux.conf:/root/.tmux.conf:rw
-      - ../../common/inputrc:/etc/inputrc:rw
+      - ../.tmux.conf:/root/.tmux.conf:rw
+      - ../inputrc:/etc/inputrc:rw
       - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./Foxglove:/root/.config/Foxglove:rw

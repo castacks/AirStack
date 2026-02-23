@@ -63,3 +63,5 @@ nucleus_token.txt
 
 # mkdocs
 mkdocs.log
+
+prompts/

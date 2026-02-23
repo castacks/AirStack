@@ -13,14 +13,4 @@
   <node pkg="domain_bridge" exec="domain_bridge" args="$(find-pkg-share gcs_bringup)/config/domain_bridge.yaml">
   </node>
 
-  <!--
-  <include file="$(find-pkg-share domain_bridge)/launch/domain_bridge.launch.xml">
-    <arg name="config" value="$(find-pkg-share domain_bridge)/examples/example_bridge_config.yaml" />
-  </include>
--->
-
-    <!-- Include the TAK launch file -->
-  <!-- <include file="$(find-pkg-share gcs_bringup)/launch/tak.launch.xml">
-  </include> -->
-  
 </launch>
