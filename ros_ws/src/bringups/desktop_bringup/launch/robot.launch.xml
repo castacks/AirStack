@@ -1,21 +1,17 @@
-<!-- ROBOT -->
+<!-- ROBOT ONBOARD -->
 <launch>
+  <!-- ====== ARGS ====== -->
 
   <arg name="sim" default="true" />
   <arg name="record_bag" default="$(env RECORD_BAGS)" />
+  <!-- set "onboard_all" or "onboard_local_offboard_global" -->
+  <arg name="autonomy_split_type" default="onboard_all"  />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
   <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
 
-  <!-- Sim -->
-  <group if="$(var sim)">
-    <include file="$(find-pkg-share desktop_bringup)/launch/sim.launch.xml" />
-  </group>
-  <!-- Real -->
-  <group unless="$(var sim)">
-    <include file="$(find-pkg-share desktop_bringup)/launch/real.launch.xml" />
-  </group>
+  <!-- ====== AUTONOMY ====== -->
 
   <!-- Robot State Publisher (replaces static transforms) -->
   <include file="$(find-pkg-share desktop_bringup)/launch/robot_state_publisher.launch.py">
@@ -30,31 +26,16 @@
     <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
   </include>
 
-  <!-- Autonomy Stack - Module Bringups -->
-  <!-- Interface -->
-  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.xml" />
+  <!-- Case: All autonomy is run onboard -->
+  <group if="$(eval var autonomy_split_type == 'onboard_all')">
+    <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
+  </group>
 
-  <!-- Sensors -->
-  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+  <!-- Case: Only sensing and local autonomy is run onboard. The offboard autonomy is in gcs.launch.xml -->
+  <group if="$(eval var autonomy_split_type == 'onboard_local_offboard_global')">
+    <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
+  </group>
 
-  <!-- Perception -->
-  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
-
-  <!-- Local -->
-  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
-
-  <!-- Global -->
-  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
-
-  <!-- Behavior -->
-  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
-
-  <!-- Logging -->
-  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
-
-  <!-- Domain Bridge -->
-  <node pkg="domain_bridge" exec="domain_bridge"
-    args="$(find-pkg-share desktop_bringup)/params/domain_bridge.yaml"
-    output="screen" respawn="true" respawn_delay="1" />
+  <!-- ===================== -->
 
 </launch>

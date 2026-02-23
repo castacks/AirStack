@@ -25,8 +25,8 @@ services:
       bash -c "
       service ssh restart;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux new -d -s robot_bringup;
-        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+        tmux new -d -s bringup;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch ${LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
@@ -80,8 +80,8 @@ services:
     command: >
       bash -c "
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux new -d -s robot_bringup;
-        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+        tmux new -d -s bringup;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch ${LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
       fi;
       sleep infinity"
     network_mode: host
@@ -108,7 +108,7 @@ services:
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
-      bash -c "ssh service restart; tmux new -d -s robot_bringup && tmux send-keys -t robot_bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER && sleep infinity"
+      bash -c "ssh service restart; tmux new -d -s bringup && tmux send-keys -t bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch ${LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE} sim:="false" ' ENTER && sleep infinity"
     deploy:
       resources:
         reservations:
