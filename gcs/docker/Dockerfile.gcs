@@ -43,4 +43,4 @@ RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-humble-foxglove-br
 # Cleanup. Prevent people accidentally doing git commits from within Docker
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /root/AirStack/gcs/ros_ws
+WORKDIR /root/AirStack/ros_ws
