@@ -1,0 +1,10 @@
+<launch>
+
+  <arg name="rtsp_address" default="rtsp://127.0.0.1:8554/stream" />
+  <arg name="image_topic" default="image" />
+  
+  <executable cmd="gst-launch-1.0 --gst-plugin-path=/root/ros_ws/install/gst_bridge/lib/gst_bridge/ rtspsrc location=$(var rtsp_address) latency=100 ! queue ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! rosimagesink ros-topic=$(var image_topic)"/>
+
+  <!-- "gst-launch-1.0 - -gst-plugin-path=/root/ros_ws/install/gst_bridge/lib/gst_bridge/ rtspsrc location=$(var rtsp_address) latency=100 ! queue ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! videoscale ! video/x-raw,width=640,height=480 ! rosimagesink ros-topic=$(var image_topic)" -->
+  
+</launch>

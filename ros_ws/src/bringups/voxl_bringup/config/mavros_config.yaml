@@ -1,0 +1,29 @@
+# MAVROS Configuration for AirStack
+# Ensures proper time synchronization and connection settings for simulation
+
+/**:
+  ros__parameters:
+    # Use simulation time for proper synchronization
+    use_sim_time: true
+    
+    # Connection settings optimized for simulation
+    conn:
+      timeout: 10.0        # Increased timeout for slower simulation
+      heartbeat_rate: 2.0  # Reduced heartbeat rate to prevent overwhelming slow simulation
+      
+    # System plugin settings  
+    sys:
+      min_voltage: 10.0    # Lower voltage threshold for simulation
+      disable_diag: false  # Keep diagnostics enabled
+      
+    # Time sync settings for simulation
+    time:
+      time_ref_source: "fcu"  # Use FCU time reference
+      timesync_rate: 10.0     # Reduced rate for simulation
+      timesync_avg_alpha: 0.6 # Time sync averaging
+      
+    # Setpoint rate limiting for simulation stability
+    setpoint_rate:
+      attitude: 20.0       # Reduced from default 50Hz
+      position: 10.0       # Reduced from default 20Hz
+      velocity: 10.0       # Reduced from default 20Hz
