@@ -2,22 +2,10 @@
 <launch>
 
   <!-- Autonomy Stack - Module Bringups -->
-  <!-- Interface -->
-  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.xml" />
-
-  <!-- Sensors -->
-  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
-
-  <!-- Perception -->
-  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
-
-  <!-- Local -->
-  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
-
-  <!-- Global -->
-   <!-- NO GLOBAL AUTONOMY, GLOBAL IS RUN OFFBOARD -->
-
-  <!-- Behavior -->
-  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+  <!-- Global and logging are not run onboard in this configuration -->
+  <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml">
+    <arg name="global_package" value="" />
+    <arg name="logging_package" value="" />
+  </include>
 
 </launch>

@@ -3,10 +3,16 @@
   <arg name="launch_global_to_gcs_domain_bridge" default="true" />
 
   <!-- Autonomy Stack - Module Bringups -->
-  <!-- Global -->
-  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+  <!-- Only global runs offboard; all other packages are disabled -->
+  <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml">
+    <arg name="interface_package" value="" />
+    <arg name="sensors_package" value="" />
+    <arg name="perception_package" value="" />
+    <arg name="local_package" value="" />
+    <arg name="behavior_package" value="" />
+    <arg name="logging_package" value="" />
+  </include>
 
-  
   <group if="$(var launch_global_to_gcs_domain_bridge)">
     <!-- Domain Bridge -->
     <node pkg="domain_bridge" exec="domain_bridge"
