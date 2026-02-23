@@ -16,6 +16,16 @@
             to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
     </node>
 
+    <!-- (Yunwoo) Keyboard Controller for manual teleoperation -->
+    <node pkg="keyboard_controller"
+        namespace="keyboard_controller" exec="keyboard_controller_node" output="screen">
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
+        <remap from="keyboard_input" to="/$(env ROBOT_NAME)/keyboard_input" />
+        <remap from="keyboard_control_enable" to="/$(env ROBOT_NAME)/keyboard_control_enable" />
+    </node>
+
     <!-- customize takeoff_landing_planner.launch.xml -->
     <node pkg="takeoff_landing_planner"
         namespace="takeoff_landing_planner"

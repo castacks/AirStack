@@ -80,3 +80,8 @@
 				(Stuck)
 				[Rewind]
 			[Follow Global Plan]
+	->
+		(Keyboard Control Commanded)
+		?
+			[Keyboard Control]
+# (Yunwoo) Keyboard Control branch above

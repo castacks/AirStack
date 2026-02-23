@@ -41,6 +41,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     state_estimate_timed_out_condition = new bt::Condition("State Estimate Timed Out", this);
     stuck_condition = new bt::Condition("Stuck", this);
     autonomously_explore_condition = new bt::Condition("Autonomously Explore Commanded", this);
+    keyboard_control_commanded_condition = new bt::Condition("Keyboard Control Commanded", this);  // (Yunwoo)
     conditions.push_back(auto_takeoff_commanded_condition);
     conditions.push_back(takeoff_commanded_condition);
     conditions.push_back(armed_condition);
@@ -60,6 +61,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(state_estimate_timed_out_condition);
     conditions.push_back(stuck_condition);
     conditions.push_back(autonomously_explore_condition);
+    conditions.push_back(keyboard_control_commanded_condition);  // (Yunwoo)
 
     // actions
     arm_action = new bt::Action("Arm", this);
@@ -71,6 +73,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     global_plan_action = new bt::Action("Follow Global Plan", this);
     request_control_action = new bt::Action("Request Control", this);
     disarm_action = new bt::Action("Disarm", this);
+    keyboard_control_action = new bt::Action("Keyboard Control", this);  // (Yunwoo)
     actions.push_back(arm_action);
     actions.push_back(takeoff_action);
     actions.push_back(land_action);
@@ -80,6 +83,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     actions.push_back(global_plan_action);
     actions.push_back(request_control_action);
     actions.push_back(disarm_action);
+    actions.push_back(keyboard_control_action);  // (Yunwoo)
 
     // subscribers
     behavior_tree_commands_sub =
@@ -112,6 +116,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     recording_pub = this->create_publisher<std_msgs::msg::Bool>("set_recording_status", 1);
     reset_stuck_pub = this->create_publisher<std_msgs::msg::Empty>("reset_stuck", 1);
     clear_map_pub = this->create_publisher<std_msgs::msg::Empty>("clear_map", 1);
+    keyboard_control_enable_pub = this->create_publisher<std_msgs::msg::Bool>("keyboard_control_enable", 1);  // (Yunwoo)
 
     // services
     service_callback_group =
@@ -344,6 +349,37 @@ void BehaviorExecutive::timer_callback() {
                     global_plan_action->set_failure();
 	    }
         };
+    }
+
+    // (Yunwoo) keyboard control action
+    static bool was_keyboard_active = false;
+    if (keyboard_control_action->is_active()) {
+        keyboard_control_action->set_running();
+        was_keyboard_active = true;
+
+        if (keyboard_control_action->active_has_changed()) {
+            // put trajectory controller in TRACK mode for keyboard control
+            airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+                std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+            mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
+            auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+            std::cout << "keyboard control mode 1" << std::endl;
+            mode_result.wait();
+            std::cout << "keyboard control mode 2" << std::endl;
+            
+            // Enable keyboard controller
+            std_msgs::msg::Bool enable_msg;
+            enable_msg.data = true;
+            keyboard_control_enable_pub->publish(enable_msg);
+            std::cout << "keyboard control enabled" << std::endl;
+        }
+    } else if (was_keyboard_active) {
+        // Disable keyboard controller when deactivated
+        std_msgs::msg::Bool enable_msg;
+        enable_msg.data = false;
+        keyboard_control_enable_pub->publish(enable_msg);
+        std::cout << "keyboard control disabled" << std::endl;
+        was_keyboard_active = false;
     }
 
     for (bt::Condition* condition : conditions) condition->publish();

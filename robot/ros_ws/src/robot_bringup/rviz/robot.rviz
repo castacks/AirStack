@@ -31,7 +31,7 @@ Panels:
     SyncSource: Expansion Cloud
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
-    topic: behavior/behavior_tree_graphviz
+    topic: /robot_1/behavior/behavior_tree_graphviz
     zoom_factor: 0.33752909302711487
 Visualization Manager:
   Class: ""
@@ -565,6 +565,26 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: neighbor_array_odom
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.15000000596046448
+      Class: rviz_default_plugins/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: KeyboardGoal
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_1/keyboard_controller/tracking_point_vis
       Value: true
   Enabled: true
   Global Options:

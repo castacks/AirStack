@@ -59,6 +59,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Condition* state_estimate_timed_out_condition;
     bt::Condition* stuck_condition;
     bt::Condition* autonomously_explore_condition;
+    bt::Condition* keyboard_control_commanded_condition;  // (Yunwoo)
     std::vector<bt::Condition*> conditions;
 
     // Action variables
@@ -71,6 +72,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Action* global_plan_action;
     bt::Action* request_control_action;
     bt::Action* disarm_action;
+    bt::Action* keyboard_control_action;  // (Yunwoo)
     std::vector<bt::Action*> actions;
 
     // subscribers
@@ -87,6 +89,7 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr recording_pub;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr reset_stuck_pub;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr clear_map_pub;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr keyboard_control_enable_pub;  // (Yunwoo)
 
     // services
     rclcpp::CallbackGroup::SharedPtr service_callback_group;

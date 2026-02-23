@@ -1,9 +1,9 @@
 /**:
   ros__parameters:
-    takeoff_height: 8.0
-    high_takeoff_height: 8.0
+    takeoff_height: 2.0
+    high_takeoff_height: 2.0
     takeoff_velocity: 1.0
-    landing_velocity: 0.3
+    landing_velocity: 0.5
     takeoff_acceptance_distance: 0.3
     takeoff_acceptance_time: 1.0
     landing_stationary_distance: 0.02

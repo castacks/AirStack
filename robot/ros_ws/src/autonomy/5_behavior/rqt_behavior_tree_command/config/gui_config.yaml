@@ -16,3 +16,5 @@ groups:
         condition_name: Land Commanded
     - Autonomously Explore:
         condition_name: Autonomously Explore Commanded
+    - Keyboard Control:  # (Yunwoo)
+        condition_name: Keyboard Control Commanded

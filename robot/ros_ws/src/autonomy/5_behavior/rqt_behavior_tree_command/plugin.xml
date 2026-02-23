@@ -14,4 +14,20 @@
       <statustip>A Python RQT GUI template.</statustip>
     </qtgui>
   </class>
+  <!-- (Yunwoo) Keyboard Capture Widget for drone teleoperation -->
+  <class name="KeyboardCaptureWidget" type="rqt_behavior_tree_command.keyboard_capture_widget.KeyboardCaptureWidget" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Captures keyboard input and publishes to ROS topic for drone control.
+    </description>
+    <qtgui>
+      <group>
+        <label>Miscellaneous Tools</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to miscellaneous tools.</statustip>
+      </group>
+      <label>Keyboard Capture</label>
+      <icon type="theme">input-keyboard</icon>
+      <statustip>Keyboard input capture for drone teleoperation.</statustip>
+    </qtgui>
+  </class>
 </library>

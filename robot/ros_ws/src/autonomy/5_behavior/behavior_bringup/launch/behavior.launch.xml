@@ -28,6 +28,8 @@
             <remap from="reset_stuck" to="/$(env ROBOT_NAME)/droan/reset_stuck" />
             <remap from="clear_map" to="/$(env ROBOT_NAME)/droan/clear_map" />
             <remap from="stuck" to="/$(env ROBOT_NAME)/droan/stuck" />
+            <!-- (Yunwoo) Keyboard control topics -->
+            <remap from="keyboard_control_enable" to="/$(env ROBOT_NAME)/keyboard_control_enable" />
 
         </node>
 

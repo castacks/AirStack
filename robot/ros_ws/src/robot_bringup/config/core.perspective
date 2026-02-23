@@ -29,7 +29,7 @@
     "pluginmanager": {
       "keys": {
         "running-plugins": {
-          "repr": "{'rqt_behavior_tree/PyConsole': [1], 'rqt_behavior_tree_command/BehaviorTreeCommandPlugin': [1], 'rqt_fixed_trajectory_generator/FixedTrajectoryGenerator': [1]}",
+          "repr": "{'rqt_behavior_tree/PyConsole': [1], 'rqt_behavior_tree_command/BehaviorTreeCommandPlugin': [1], 'rqt_fixed_trajectory_generator/FixedTrajectoryGenerator': [1], 'rqt_behavior_tree_command/KeyboardCaptureWidget': [1]}",
           "type": "repr"
         }
       },
@@ -115,6 +115,28 @@
                 },
                 "config_filename": {
                   "repr": "'/home/robot/AirStack/robot/ros_ws/install/rqt_fixed_trajectory_generator/share/rqt_fixed_trajectory_generator/config/fixed_trajectories.yaml'",
+                  "type": "repr"
+                }
+              },
+              "groups": {}
+            }
+          }
+        },
+        "plugin__rqt_behavior_tree_command__KeyboardCaptureWidget__1": {
+          "keys": {},
+          "groups": {
+            "dock_widget__": {
+              "keys": {
+                "dock_widget_title": {
+                  "repr": "''",
+                  "type": "repr"
+                },
+                "dockable": {
+                  "repr": "True",
+                  "type": "repr"
+                },
+                "parent": {
+                  "repr": "None",
                   "type": "repr"
                 }
               },
