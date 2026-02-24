@@ -28,11 +28,11 @@ from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgra
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_fixed_textures.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd" 
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
-STAGE_SCALE = 2.0
+STAGE_SCALE = 0.01
 
 
 DRONE_USD = "/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
@@ -46,8 +46,12 @@ DOME_LIGHT_EXPOSURE = -3.0
 #Drone offset
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.15
 
-DRONE1_XY_M = (20.0, -7)
-DRONE2_XY_M = (17, 1.5)
+# spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd
+# DRONE1_XY_M = (20.0, -7.0)
+# DRONE2_XY_M = (17, 1.5)
+
+DRONE1_XY_M = (25.0, 7.6)
+DRONE2_XY_M = (23.4, 9.8)
 # ---------------------------------------------------------
 
 
@@ -148,13 +152,28 @@ class PegasusApp:
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
             xformable = UsdGeom.Xformable(stage_prim)
-            xformable.ClearXformOpOrder()
-            
-            translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
-            translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
-            
-            scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble)
-            scale_op.Set(Gf.Vec3d(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
+
+            translate_attr = stage_prim.GetAttribute("xformOp:translate")
+            if translate_attr.IsValid():
+                if str(translate_attr.GetTypeName()) == "float3":
+                    translate_attr.Set(Gf.Vec3f(0.0, 0.0, 0.0))
+                else:
+                    translate_attr.Set(Gf.Vec3d(0.0, 0.0, 0.0))
+            else:
+                # If missing, create a new translate op.
+                translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
+                translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
+
+            scale_attr = stage_prim.GetAttribute("xformOp:scale")
+            if scale_attr.IsValid():
+                if str(scale_attr.GetTypeName()) == "double3":
+                    scale_attr.Set(Gf.Vec3d(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
+                else:
+                    scale_attr.Set(Gf.Vec3f(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
+            else:
+                # If missing, create a new scale op.
+                scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionFloat)
+                scale_op.Set(Gf.Vec3f(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
             
             add_collision_to_prim(stage_prim)
             print("Finished adding collisions.")
@@ -193,7 +212,7 @@ class PegasusApp:
             domain_id=1,  # defines ROS2 domain ID
             usd_file=DRONE_USD,
             init_pos=drone1_pos,
-            init_orient=[0.0, 0.0, 1.0, 0.0],
+            init_orient=[0.0, 0.0, -0.937, 0.35], #[0,0,1,0]
         )
 
         # Add a ZED stereo camera (with an associated subgraph) to the drone
@@ -228,7 +247,7 @@ class PegasusApp:
             domain_id=2,  # defines ROS2 domain ID. Define as 2 for second vehicle
             usd_file=DRONE_USD,
             init_pos=drone2_pos,
-            init_orient=[0.0, 0.0, 1.0, 0.0],
+            init_orient=[0.0, 0.0, -0.937, 0.35], #[0,0,1,0]
         )
 
         # Add a ZED stereo camera (with an associated subgraph) to the drone
@@ -249,7 +268,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 0.75 
+            lidar_min_range = 1.5 
         )
 
         # Reset so physics/articulations are ready

@@ -11,8 +11,15 @@ class Robot2FilteredRayTransposer(Node):
         super().__init__('robot_2_filtered_ray_transposer')
 
         # Taken from simulation/isaac-sim/launch_scripts/two_drone_fire_academy.py
-        robot_1_init = (20.0, -7.0, 0.15)
-        robot_2_init = (17.0, 1.5, 0.15)
+        #old fire academy init:
+        # robot_1_init = (20.0, -7.0, 0.15)
+        # robot_2_init = (17.0, 1.5, 0.15)
+        #RetroNeighborhood init:
+        # robot_1_init = (35.0, -19.0, 0.15)
+        # robot_2_init = (30.0, -19.0, 0.15)
+
+        robot_1_init = (25.0, 7.6, 0.15)
+        robot_2_init = (23.4, 9.8, 0.15)
 
         dx = robot_2_init[0] - robot_1_init[0]
         dy = robot_2_init[1] - robot_1_init[1]
@@ -57,18 +64,18 @@ class Robot2FilteredRayTransposer(Node):
         for marker in out.markers:
             # Opposite direction from robot_1_semantic_ray_transposer.py:
             # apply +translation instead of -translation.
-            marker.pose.position.x += self.translation_x/2
-            marker.pose.position.y += self.translation_y/2
-            marker.pose.position.z += self.translation_z/2
+            marker.pose.position.x += self.translation_x
+            marker.pose.position.y += self.translation_y
+            marker.pose.position.z += self.translation_z
             marker.color.r = self.color_r
             marker.color.g = self.color_g
             marker.color.b = self.color_b
             marker.color.a = self.color_a
 
             for point in marker.points:
-                point.x += self.translation_x/2
-                point.y += self.translation_y/2
-                point.z += self.translation_z/2
+                point.x += self.translation_x
+                point.y += self.translation_y
+                point.z += self.translation_z
 
             for color in marker.colors:
                 color.r = self.color_r

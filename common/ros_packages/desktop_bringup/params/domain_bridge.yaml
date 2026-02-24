@@ -21,6 +21,17 @@ topics:
   
 
   #rayfronts topics to bridge
+
+  /robot_1/current_target:
+    from_domain: 1
+    to_domain: 2
+    type: std_msgs/msg/String
+  
+  /robot_2/current_target:
+    from_domain: 2
+    to_domain: 1
+    type: std_msgs/msg/String
+
   /robot_1/odometry_conversion/odometry:
     from_domain: 1
     to_domain: 2
