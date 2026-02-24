@@ -44,14 +44,14 @@ DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -3.0
 
 #Drone offset
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.15
+SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.07
 
 # spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd
 # DRONE1_XY_M = (20.0, -7.0)
 # DRONE2_XY_M = (17, 1.5)
 
-DRONE1_XY_M = (25.0, 7.6)
-DRONE2_XY_M = (23.4, 9.8)
+DRONE1_XY_M = (27.0, 7.6)
+DRONE2_XY_M = (23, 9.8)
 # ---------------------------------------------------------
 
 
@@ -233,7 +233,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 1.5, # Minimum detection range (m) to avoid propeller hits
+            lidar_min_range = 4.0, # Minimum detection range (m) to avoid propeller hits
         )
 
         ####################################################################################################
@@ -268,7 +268,7 @@ class PegasusApp:
             lidar_name="OS1_REV6_128_10hz___512_resolution",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 1.5 
+            lidar_min_range = 3.5 
         )
 
         # Reset so physics/articulations are ready
