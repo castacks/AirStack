@@ -46,7 +46,7 @@ services:
               count: 1
               capabilities: [ gpu ]
     volumes:
-      # display
+       # display
       - $HOME/.Xauthority:/isaac-sim/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff
@@ -57,15 +57,15 @@ services:
       - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw \
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
       # pegasus integration
-      - ../../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
+      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
       # developer stuff
       - .dev:/isaac-sim/.dev:rw # developer config
       - .bashrc:/isaac-sim/.bashrc:rw # bash config
-      # - ../../../common/inputrc:/etc/inputrc:rw  # commented out - common/ no longer exists
-      # - ../../../common/.tmux.conf:/isaac-sim/.tmux.conf:rw  # commented out - common/ no longer exists
+      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../../common/.tmux.conf:/isaac-sim/.tmux.conf:rw
       # airstack code
       - ../../..:/isaac-sim/AirStack:rw
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
