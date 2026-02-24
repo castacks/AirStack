@@ -841,9 +841,68 @@ function cmd_connect {
 
 function cmd_status {
     check_docker
-    
+
     log_info "AirStack container status:"
-    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+    # Get list of running containers: name, status, ports
+    local containers
+    containers=$(docker ps --format "{{.Names}}\t{{.Status}}\t{{.Ports}}")
+
+    if [ -z "$containers" ]; then
+        echo "No running containers."
+        return 0
+    fi
+
+    # Collect rows: container_name, robot_name, ros_domain_id, status, ports
+    local -a rows=()
+    while IFS=$'\t' read -r name status ports; do
+        local robot_name ros_domain_id vars
+        # Single exec: unique prefix lets us grep out .bashrc echo noise
+        vars=$(docker exec "$name" bash --login -c \
+            'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROS_DOMAIN_ID"' 2>/dev/null \
+            | grep "^AIRSTACK_VARS:" | tail -1)
+        if [ -n "$vars" ]; then
+            robot_name="${vars#AIRSTACK_VARS:}"  # strip leading prefix
+            ros_domain_id="${robot_name##*:}"    # everything after last colon
+            robot_name="${robot_name%%:*}"        # everything before first colon
+        fi
+        [ -z "$robot_name" ]    && robot_name="N/A"
+        [ -z "$ros_domain_id" ] && ros_domain_id="N/A"
+        rows+=("${name}|${robot_name}|${ros_domain_id}|${status}|${ports}")
+    done <<< "$containers"
+
+    # Determine column widths (minimum = header length)
+    local w_container=14 w_robot=10 w_domain=13 w_status=6 w_ports=5
+    for row in "${rows[@]}"; do
+        IFS='|' read -r c_name c_robot c_domain c_status c_ports <<< "$row"
+        [ ${#c_name}   -gt $w_container ] && w_container=${#c_name}
+        [ ${#c_robot}  -gt $w_robot ]     && w_robot=${#c_robot}
+        [ ${#c_domain} -gt $w_domain ]    && w_domain=${#c_domain}
+        [ ${#c_status} -gt $w_status ]    && w_status=${#c_status}
+    done
+    # Add padding
+    w_container=$((w_container + 2))
+    w_robot=$((w_robot + 2))
+    w_domain=$((w_domain + 2))
+    w_status=$((w_status + 2))
+
+    # Print header
+    printf "${BOLDCYAN}%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s${NC}\n" \
+        "CONTAINER NAME" "ROBOT_NAME" "ROS_DOMAIN_ID" "STATUS" "PORTS"
+    # Separator
+    printf "%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s\n" \
+        "$(printf '%*s' "$w_container" '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_robot"     '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_domain"    '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_status"    '' | tr ' ' '-')" \
+        "-----"
+
+    # Print rows
+    for row in "${rows[@]}"; do
+        IFS='|' read -r c_name c_robot c_domain c_status c_ports <<< "$row"
+        printf "%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s\n" \
+            "$c_name" "$c_robot" "$c_domain" "$c_status" "$c_ports"
+    done
 }
 
 function cmd_logs {
