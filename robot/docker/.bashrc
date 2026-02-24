@@ -73,38 +73,31 @@ sws # source the ROS2 workspace by default
 if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
     # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
     # WARNING: this technique ONLY works with docker version 29 and up.
-    # check that the docker version is greater than 29
-    container_name=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
-    # remove the prefix and convert dashes to underscores
-    export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#g')
-    export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
+    name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
 
     # case: robot name found from docker, then we're in sim
+    # TODO: move this to launch files
     export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
     export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    # TODO: ardupilot case not handled yet
     export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
-    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))  # target system for mavros
+    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))
 
 elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
-    num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
-    num=$((num)) #remove leading zeros
-
-    if [[ "$num" == 0 ]]; then
-        echo "Warning: Could not extract robot number from hostname. Defaulting to ROBOT_NAME='ERROR' and ROS_DOMAIN_ID='ERROR'. \
-            This will likely cause issues with ROS2 communication. Please ensure that the hostname is in the format 'robot-<num>' where <num> is a number."
-        export ROBOT_NAME="ERROR"
-        export ROS_DOMAIN_ID="ERROR"
-    else
-        export ROBOT_NAME="robot_$num"
-        export ROS_DOMAIN_ID=$num
-    fi
-    export FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
-
+    name_to_map=$(hostname)
+    export FCU_URL="/dev/ttyTHS4:115200"
 else
-    echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot' with ROS_DOMAIN_ID=0. This may cause conflicts if multiple containers are running simultaneously."
+    echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
+    name_to_map=""
     export ROBOT_NAME="unknown_robot"
     export ROS_DOMAIN_ID=0
+fi
+# set ROBOT_NAME and ROS_DOMAIN_ID from the mapping script if NAME_TO_MAP is not empty
+if [ -n "$name_to_map" ]; then
+    script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
+    script_dir=$(dirname "$script_path")
+    eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
+    export ROBOT_NAME
+    export ROS_DOMAIN_ID
 fi
 
 

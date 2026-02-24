@@ -1,0 +1,14 @@
+# Maps the name of the input (e.g. docker container or hostname) to a robot name that gets used in the ROS namespace and as the prefix for all ROS topics. 
+# This allows you to have multiple containers running on the same machine, each with a different robot name, 
+# and have the ROS topics automatically namespaced correctly based on the input name.
+
+# Rules evaluate top-down. Whatever is matched first is the one that gets applied.
+# More specific rules should be higher up. The last rule is a catch-all for anything that doesn't match above.
+mappings:
+  - pattern: '.*robot-.*(\d+)'
+    robot: 'robot_{1}'
+    domain_id: '{1}'
+
+  - pattern: '.*'
+    robot: 'unknown-robot'
+    domain_id: '0'

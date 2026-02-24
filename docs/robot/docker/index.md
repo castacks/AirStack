@@ -102,5 +102,6 @@ Key variables are set in the project's `.env` file and forwarded into the contai
 | `AUTOLAUNCH` | Whether to auto-start the ROS 2 stack on container start (default `true`) |
 | `ROBOT_LAUNCH_PACKAGE` / `ROBOT_LAUNCH_FILE` | Top-level ROS 2 launch target |
 | `OFFBOARD_BASE_PORT` / `ONBOARD_BASE_PORT` | MAVLink UDP port base values (desktop/sim only) |
+| `ROBOT_NAME_MAP_CONFIG_FILE` | YAML mapping config used to resolve a name to `ROBOT_NAME` and `ROS_DOMAIN_ID` (default: `default_robot_name_map.yaml`) |
 
 See [Robot Identity](robot_identity.md) for how `ROBOT_NAME` and `ROS_DOMAIN_ID` are derived automatically inside the container from these profiles.

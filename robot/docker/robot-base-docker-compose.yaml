@@ -18,14 +18,7 @@ services:
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
-    deploy:
-      # let it use the GPU
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia # https://stackoverflow.com/a/70761193
-              count: 1
-              capabilities: [ gpu ]
+      - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
     volumes:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority

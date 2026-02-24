@@ -57,7 +57,7 @@ services:
     environment:
       - SIM_TYPE=simple
   # ===================================================================================================================
-  robot-voxl:
+  robot-voxl-onboard:
     profiles: !override
       - voxl
     extends:
@@ -86,6 +86,35 @@ services:
       sleep infinity"
     network_mode: host
     deploy: !reset {}  # remove nvidia driver for voxl
+  # ----------------------------------------------------------------
+  robot-voxl-offboard:
+    profiles: !override
+      - voxl
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: ubuntu:22.04
+        REAL_ROBOT: true
+        SKIP_OPENVDB: true
+        SKIP_MACVO: true
+        SKIP_TENSORRT: true
+      tags: 
+        - *voxl_image
+    environment: 
+      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+    command: >
+      bash -c "
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux new -d -s bringup;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch ${LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      fi;
+      sleep infinity"
+    network_mode: host
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
