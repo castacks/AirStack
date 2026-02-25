@@ -1,9 +1,8 @@
 services:
   gcs:
     profiles:
-      - "desktop"
-      - "offboard"
-      - voxl
+      - desktop       # standard sim/dev: GCS alongside robot-desktop (full role)
+      - desktop_split # split sim/dev: GCS alongside robot-desktop-onboard + robot-offboard
     extends:
       file: ./gcs-base-docker-compose.yaml
       service: gcs-base
@@ -18,6 +17,7 @@ services:
     profiles:
       - hitl
       - deploy
+      - offboard  # field deployment: gcs-real + robot-offboard start together on the ground station
     extends:
       file: ./gcs-base-docker-compose.yaml
       service: gcs-base

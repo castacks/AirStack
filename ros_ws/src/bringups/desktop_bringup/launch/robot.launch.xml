@@ -1,13 +1,13 @@
 <!-- Desktop / sim wrapper: delegates to autonomy_bringup and adds RViz. -->
 <launch>
   <arg name="sim"       default="true" />
-  <arg name="mode"      default="$(env AUTONOMY_MODE onboard_all)" />
+  <arg name="role"      default="$(env AUTONOMY_ROLE full)" />
   <arg name="urdf_file" default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
 
   <!-- Core robot launch (state publisher, static TFs, autonomy modules) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml">
     <arg name="sim"      value="$(var sim)" />
-    <arg name="mode"     value="$(var mode)" />
+    <arg name="role"     value="$(var role)" />
     <arg name="urdf_file" value="$(var urdf_file)" />
   </include>
 

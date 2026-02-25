@@ -13,7 +13,7 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
       - LAUNCH_PACKAGE=${LAUNCH_PACKAGE}
-      - AUTONOMY_MODE=${AUTONOMY_MODE:-onboard_all}
+      - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - ROBOT_LAUNCH_FILE=${ROBOT_LAUNCH_FILE}
       - ROBOT_URDF_FILE=${ROBOT_URDF_FILE}  
       # MAVROS

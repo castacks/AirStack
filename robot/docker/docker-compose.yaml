@@ -22,12 +22,13 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
+      - AUTONOMY_ROLE=full
     command: >
       bash -c "
       service ssh restart;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE' ENTER;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
@@ -48,6 +49,20 @@ services:
               capabilities: [gpu]
 
   # ===================================================================================================================
+  # desktop_split: simulates onboard computer on desktop for debugging the split configuration.
+  # Same image as robot-desktop; role=onboard means only lite autonomy modules launch.
+  # robot-offboard (below) runs concurrently on the same machine with role=offboard.
+  robot-desktop-onboard:
+    profiles: !override
+      - desktop_split
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    environment:
+      - AUTONOMY_ROLE=onboard
+      - LAUNCH_PACKAGE=autonomy_bringup  # no RViz; treated as simulated onboard computer
+
+  # ===================================================================================================================
   # simple 
   simple-robot:
     profiles: !override
@@ -64,15 +79,16 @@ services:
   # with replicas so one container is spawned per robot (same scaling pattern as simulation).
   robot-offboard:
     profiles:
-      - offboard
+      - desktop_split  # on desktop: simulates the GCS offboard containers alongside robot-desktop-onboard
+      - offboard       # in the field: runs on the GCS machine paired with onboard robots
     extends:
       file: ./docker-compose.yaml
       service: robot-desktop
     environment:
       - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
-      - ROS_DOMAIN_ID=0                   # offboard stack is in domain 0 to prevent network overload; onboard robots are in separate domains and bridged via domain_bridge
+      - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; domain_bridge connects to per-robot onboard domains
       - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
-      - AUTONOMY_MODE=offboard_global     # runs global planner only; onboard robots run onboard_local
+      - AUTONOMY_ROLE=offboard            # runs global planner only
     # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
     # inherit bridge network from robot-desktop
 
@@ -99,11 +115,12 @@ services:
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
+      - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
     command: >
       bash -c "
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE sim:=false' ENTER;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
       fi;
       sleep infinity"
     network_mode: host
@@ -134,7 +151,7 @@ services:
       service ssh restart;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE sim:=false' ENTER;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
       fi;
       sleep infinity"
     deploy:
@@ -148,11 +165,23 @@ services:
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
-      - AUTONOMY_MODE=${AUTONOMY_MODE:-onboard_all}
+      - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
       - /media/airlab/Storage/airstack_collection:/bags:rw
+
+  # -----------------------
+  # Jetson in lite mode: only local/perception/interface modules run onboard.
+  # Use when global planning is offloaded to the GCS (offboard profile on ground station).
+  robot-l4t-onboard:
+    profiles: !override
+      - l4t_lite
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-l4t
+    environment:
+      - AUTONOMY_ROLE=onboard
 
   # -----------------------
   # for running the zed camera driver on an NVIDIA jetson (linux for tegra) device. This ONLY runs the zed driver

@@ -1,13 +1,13 @@
-<!-- Single entry point for all robot deployments (onboard and offboard).
-     mode choices:
-       onboard_all    - all autonomy modules run on this machine (default, sim/dev)
-       onboard_local  - local planning only; global runs offboard
-       offboard_global- global planning only; counterpart to onboard_local
+<!-- Single entry point for all robot deployments.
+     role choices:
+       full     - all autonomy modules run on this machine (default: sim/dev desktop, autonomous Jetson)
+       onboard  - lite modules only: interface, sensors, perception, local planning, behavior (VOXL, Jetson lite, desktop_split sim)
+       offboard - global planning only: runs on GCS paired with onboard robots (robot-offboard service)
 -->
 <launch>
-  <arg name="sim"        default="true" />
-  <arg name="mode"       default="$(env AUTONOMY_MODE onboard_all)" />
-  <arg name="urdf_file"  default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
+  <arg name="sim"       default="true" />
+  <arg name="role"      default="$(env AUTONOMY_ROLE full)" />
+  <arg name="urdf_file" default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
@@ -26,20 +26,20 @@
         name="world_to_map_broadcaster"
         args="0 0 0 0 0 0 world map" />
 
-  <!-- ── Mode dispatch ───────────────────────────────────────────────── -->
+  <!-- ── Role dispatch ───────────────────────────────────────────────── -->
 
-  <!-- onboard_all: every autonomy module runs here -->
-  <group if="$(eval '&quot;$(var mode)&quot; == &quot;onboard_all&quot;')">
+  <!-- full: every autonomy module runs here -->
+  <group if="$(eval '&quot;$(var role)&quot; == &quot;full&quot;')">
     <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
   </group>
 
-  <!-- onboard_local: local planning only; global is handled offboard -->
-  <group if="$(eval '&quot;$(var mode)&quot; == &quot;onboard_local&quot;')">
+  <!-- onboard: lite modules only (local planning, perception, etc.); global is handled offboard -->
+  <group if="$(eval '&quot;$(var role)&quot; == &quot;onboard&quot;')">
     <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
   </group>
 
-  <!-- offboard_global: global planning only; runs on GCS alongside onboard_local robots -->
-  <group if="$(eval '&quot;$(var mode)&quot; == &quot;offboard_global&quot;')">
+  <!-- offboard: global planning only; runs on GCS paired with onboard robots -->
+  <group if="$(eval '&quot;$(var role)&quot; == &quot;offboard&quot;')">
     <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/offboard_autonomy_global.launch.xml" />
   </group>
 

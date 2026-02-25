@@ -1,154 +1,144 @@
 # Autonomy Modes
 
-AirStack supports three **autonomy modes** that control which planning modules are launched inside a robot container.
-The same Docker images and launch files are used in all cases — the mode is just an environment variable.
+AirStack uses a **role** system to control which planning modules launch inside each container.
+The role is hardcoded per compose service — no environment variables need to be set by hand.
 
-| Mode | `AUTONOMY_MODE` | Launched on | What runs |
-|---|---|---|---|
-| **All Onboard** | `onboard_all` | Robot or desktop | Every autonomy module: interface, sensors, perception, local planning, global planning, behavior |
-| **Onboard Local** | `onboard_local` | Robot (physical) | Interface, sensors, perception, local planning, behavior — **no** global planner |
-| **Offboard Global** | `offboard_global` | Ground station (`robot-offboard` service) | Global planner only, one container per robot |
+| Role | Value | What runs |
+|---|---|---|
+| **Full** | `full` | Every autonomy module: interface, sensors, perception, local planning, global planning, behavior |
+| **Onboard** | `onboard` | Lite modules only: interface, sensors, perception, local planning, behavior — no global planner |
+| **Offboard** | `offboard` | Global planner only — runs on the GCS paired with onboard robots |
 
 ---
 
-## Mode 1 — All Onboard (default)
+## Compose profiles
 
-All planning runs on the robot (or desktop in simulation). This is the default for development and for fully autonomous real-robot deployments.
+Each profile is a complete, self-contained deployment recipe. Pick one profile per machine.
+
+| Profile | Machine | Services started | Role(s) |
+|---|---|---|---|
+| `desktop` | Dev desktop | `robot-desktop` + sim + `gcs` | `full` |
+| `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + sim + `gcs` | `onboard` + `offboard` |
+| `l4t` | Jetson | `robot-l4t` + `zed-l4t` | `full` |
+| `l4t_lite` | Jetson | `robot-l4t-onboard` + `zed-l4t` | `onboard` |
+| `voxl` | VOXL2 | `robot-voxl-onboard` | `onboard` (always) |
+| `offboard` | Ground station | `robot-offboard` ×N + `gcs-real` | `offboard` |
+
+---
+
+## Profile: `desktop` (default)
+
+Standard simulation and development. All autonomy runs in one container per simulated robot.
+Use this for most day-to-day development.
 
 ```
-┌─────────────────────────┐
-│  Robot / Desktop        │
-│  AUTONOMY_MODE=         │
-│    onboard_all          │
-│  ─────────────────────  │
-│  interface              │
-│  sensors                │
-│  perception             │
-│  local planning         │
-│  global planning        │
-│  behavior               │
-└─────────────────────────┘
+Dev desktop
+├── isaac-sim / simple-sim
+├── robot-desktop × N   [role: full]
+└── gcs
 ```
-
-### Simulation (desktop)
 
 ```bash
-# .env (defaults are already correct)
-COMPOSE_PROFILES=desktop
-AUTONOMY_MODE=onboard_all
-NUM_ROBOTS=1
-```
-
-```bash
+# .env defaults are correct; just run:
 airstack up
-```
 
-### Multiple simulated robots
-
-```bash
+# Multiple simulated robots:
 NUM_ROBOTS=3 airstack up
 ```
 
 Each replica gets a unique `ROBOT_NAME` (`robot_1`, `robot_2`, `robot_3`) and `ROS_DOMAIN_ID` (1, 2, 3)
 automatically from the [`robot_name_map`](../robot/docker/robot_identity.md).
 
-### Real robot — fully autonomous (Jetson)
+---
 
-```bash
-# On the Jetson, in your .env or shell:
-AUTONOMY_MODE=onboard_all airstack --profile l4t up
+## Profile: `desktop_split`
+
+Simulates the onboard/offboard split on a single developer machine.
+`robot-desktop-onboard` acts as the simulated onboard computer (lite modules only).
+`robot-offboard` acts as the GCS containers (global planning only).
+Use this to debug the split configuration and domain bridge without needing physical hardware.
+
+```
+Dev desktop
+├── isaac-sim / simple-sim
+├── robot-desktop-onboard × N   [role: onboard, ROS_DOMAIN_ID = 1..N]
+├── robot-offboard × N          [role: offboard, ROS_DOMAIN_ID = 0]
+└── gcs                         [domain 0]
 ```
 
-### Real robot — fully autonomous (VOXL)
+```bash
+COMPOSE_PROFILES=desktop_split airstack up
+
+# Or:
+airstack --profile desktop_split up
+```
+
+!!! note "Domain isolation"
+    Onboard containers run on `ROS_DOMAIN_ID` 1, 2, 3… (one per robot).
+    All offboard containers and the GCS share `ROS_DOMAIN_ID=0`.
+    A `domain_bridge` node inside each `robot-offboard` container bridges only the
+    necessary topics across the domain boundary to avoid flooding the radio link.
+
+---
+
+## Profile: `l4t` (Jetson, fully autonomous)
+
+All autonomy runs on the Jetson. Use when the Jetson has sufficient compute to run
+global planning onboard, or when no GCS is available.
 
 ```bash
-AUTONOMY_MODE=onboard_all airstack --profile voxl up
+# On the Jetson:
+airstack --profile l4t up
 ```
 
 ---
 
-## Mode 2 — Onboard Local + Offboard Global
+## Profile: `l4t_lite` + `offboard` (Jetson with GCS offboard)
 
-Local planning (perception, obstacle avoidance, trajectory control) runs on the robot.
-Global planning runs on the ground station alongside the GCS, one container per robot.
-Use this when the robot has limited compute but you still want reactive local behaviour.
-
-```
-┌──────────────────────┐        ┌──────────────────────────────┐
-│  Robot (Jetson/VOXL) │        │  Ground Station              │
-│  AUTONOMY_MODE=      │        │                              │
-│    onboard_local     │◄──────►│  robot-offboard × N replicas │
-│  ────────────────────│  LAN / │  AUTONOMY_MODE=              │
-│  interface           │  radio │    offboard_global           │
-│  sensors             │        │  ──────────────────────────  │
-│  perception          │        │  global planning (robot_1)   │
-│  local planning      │        │  global planning (robot_2)   │
-│  behavior            │        │  ...                         │
-└──────────────────────┘        │                              │
-                                │  gcs (1×)                    │
-                                │  ──────────────────────────  │
-                                │  Foxglove / rqt / operator   │
-                                └──────────────────────────────┘
-```
-
-### On each physical robot
-
-**Jetson:**
-```bash
-AUTONOMY_MODE=onboard_local airstack --profile l4t up
-```
-
-**VOXL:**
-```bash
-AUTONOMY_MODE=onboard_local airstack --profile voxl up
-```
-
-### On the ground station
-
-Set `NUM_ROBOTS` to match the number of robots in the field, then bring up the offboard and GCS services:
+Lite modules run on the Jetson; global planning runs on the ground station.
 
 ```bash
-# .env on the ground station
-COMPOSE_PROFILES=offboard
-NUM_ROBOTS=3          # one robot-offboard replica per robot
-AUTONOMY_MODE=onboard_all  # ignored for robot-offboard (it hardcodes offboard_global)
-```
+# On the Jetson:
+airstack --profile l4t_lite up
 
-```bash
-airstack --profile offboard up   # starts robot-offboard x3 + gcs
-```
-
-!!! note "Networking"
-    The ground station and robots must share a network (LAN or radio bridge) and use the same
-    `ROS_DOMAIN_ID` per robot pair. The `robot_name_map` assigns domain ID from the replica index,
-    so `robot-offboard-1` uses domain ID 1, matching onboard `robot_1`.
-
----
-
-## Changing mode at runtime
-
-`AUTONOMY_MODE` can be overridden without editing `.env`:
-
-```bash
-AUTONOMY_MODE=onboard_local airstack up          # shell override
-airstack --env-file my_override.env up           # env-file override
-```
-
-It can also be passed directly as a ROS 2 launch argument if you are launching manually:
-
-```bash
-ros2 launch autonomy_bringup robot.launch.xml mode:=onboard_local sim:=false
+# On the ground station (set NUM_ROBOTS to match fleet size):
+NUM_ROBOTS=3 airstack --profile offboard up
 ```
 
 ---
 
-## Summary of compose profiles
+## Profile: `voxl` + `offboard`
 
-| Profile | Services started | Typical use |
-|---|---|---|
-| `desktop` | `robot-desktop`, `isaac-sim` / `simple-sim`, `gcs` | Dev / simulation |
-| `simple` | `simple-robot`, `simple-sim`, `gcs` | Lightweight sim without Isaac |
-| `l4t` | `robot-l4t`, `zed-l4t` | Jetson onboard |
-| `voxl` | `robot-voxl-onboard` | VOXL onboard |
-| `offboard` | `robot-offboard` (×N replicas), `gcs` | Ground station — real-world missions |
-| `hitl` / `deploy` | `gcs-real` | GCS on a laptop connected directly to robot LAN |
+VOXL2 always runs in onboard-only (lite) mode — it does not have sufficient compute
+for global planning. Global planning must always run on the GCS.
+
+```bash
+# On the VOXL2:
+airstack --profile voxl up
+
+# On the ground station:
+NUM_ROBOTS=3 airstack --profile offboard up
+```
+
+---
+
+## Launching manually (without AUTOLAUNCH)
+
+If `AUTOLAUNCH=false`, containers start idle. Launch manually inside the container:
+
+```bash
+# Full role (desktop or l4t):
+ros2 launch autonomy_bringup robot.launch.xml role:=full sim:=false
+
+# Onboard role (VOXL, l4t_lite, desktop_split onboard):
+ros2 launch autonomy_bringup robot.launch.xml role:=onboard sim:=false
+
+# Offboard role (GCS):
+ros2 launch autonomy_bringup robot.launch.xml role:=offboard sim:=false
+```
+
+`desktop_bringup` wraps the above and adds RViz (only when `sim:=true`):
+
+```bash
+ros2 launch desktop_bringup robot.launch.xml role:=full sim:=true
+```
