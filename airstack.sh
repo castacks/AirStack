@@ -807,9 +807,11 @@ function cmd_connect {
     
     # Default command is bash, but can be overridden
     local command="bash"
+    local command_specified=false
     for arg in "$@"; do
         if [[ "$arg" == --command=* ]]; then
             command="${arg#--command=}"
+            command_specified=true
         fi
     done
     
@@ -826,8 +828,15 @@ function cmd_connect {
             command="sh"
         fi
         
-        # Connect to the container
-        docker exec -it "$container" "$command"
+        # Connect to the container.
+        # When using the default shell (no --command override), automatically attach to an
+        # existing tmux session on entry. When the developer detaches or exits tmux, they
+        # are dropped into a normal interactive shell instead of being disconnected.
+        if [ "$command_specified" = false ] && docker exec "$container" which tmux &> /dev/null; then
+            docker exec -it "$container" "$command" -c "tmux a; exec $command"
+        else
+            docker exec -it "$container" "$command"
+        fi
         
         # Check exit status
         local exit_status=$?
