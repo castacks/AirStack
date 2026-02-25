@@ -871,6 +871,11 @@ function cmd_status {
         rows+=("${name}|${robot_name}|${ros_domain_id}|${status}|${ports}")
     done <<< "$containers"
 
+    # Sort rows alphabetically by container name
+    local sorted
+    sorted=$(printf '%s\n' "${rows[@]}" | sort -t'|' -k1,1)
+    mapfile -t rows <<< "$sorted"
+
     # Determine column widths (minimum = header length)
     local w_container=14 w_robot=10 w_domain=13 w_status=6 w_ports=5
     for row in "${rows[@]}"; do
