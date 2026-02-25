@@ -57,6 +57,24 @@ services:
       service: robot-desktop
     environment:
       - SIM_TYPE=simple
+
+  # ===================================================================================================================
+  # for running the offboard autonomy stack on a ground station (GCS) for N real robots.
+  # Extends robot-desktop: same x86 image and GPU resources, but no RViz (autonomy_bringup only),
+  # with replicas so one container is spawned per robot (same scaling pattern as simulation).
+  robot-offboard:
+    profiles:
+      - offboard
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    environment:
+      - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
+      - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
+      - AUTONOMY_MODE=offboard_global     # runs global planner only; onboard robots run onboard_local
+    # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
+    # inherit bridge network from robot-desktop
+
   # ===================================================================================================================
   robot-voxl-onboard:
     profiles: !override
@@ -184,23 +202,6 @@ services:
       - ./zed/bashrc:/root/.bashrc
       - /media/airlab/Storage/zed_svo/:/zed_svo/
       
-  # ===================================================================================================================
-  # for running the offboard autonomy stack on a ground station (GCS) for N real robots.
-  # Extends robot-desktop: same x86 image and GPU resources, but no RViz (autonomy_bringup only),
-  # with replicas so one container is spawned per robot (same scaling pattern as simulation).
-  robot-offboard:
-    profiles:
-      - offboard
-    extends:
-      file: ./docker-compose.yaml
-      service: robot-desktop
-    environment:
-      - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
-      - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
-      - AUTONOMY_MODE=offboard_global     # runs global planner only; onboard robots run onboard_local
-    # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
-    # inherit bridge network from robot-desktop
-
 # ===================================================================================================================
 # for running tests on the robot
   robot-test:
