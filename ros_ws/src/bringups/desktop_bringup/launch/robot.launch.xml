@@ -1,39 +1,21 @@
-<!-- ROBOT ONBOARD -->
+<!-- Desktop / sim wrapper: delegates to autonomy_bringup and adds RViz. -->
 <launch>
-  <!-- ====== ARGS ====== -->
-
-  <arg name="sim" default="true" />
-
+  <arg name="sim"       default="true" />
+  <arg name="mode"      default="$(env AUTONOMY_MODE onboard_all)" />
   <arg name="urdf_file" default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
 
-
-
-  <arg name="record_bag" default="$(env RECORD_BAGS)" />
-
-  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
-
-  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
-
-  <!-- ====== AUTONOMY ====== -->
-
-  <!-- Launch the robot_state_publisher with URDF file -->
-  <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher" output="screen">
-    <param name="robot_description" value="$(find-pkg-share robot_descriptions)/$(var urdf_file)"/>
-    <param name="use_sim_time" value="$(var sim)"/>
-  </node>
-
-  <!-- Static TFs -->
-  <include file="$(find-pkg-share desktop_bringup)/launch/static_transforms.launch.xml">
-    <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
+  <!-- Core robot launch (state publisher, static TFs, autonomy modules) -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml">
+    <arg name="sim"      value="$(var sim)" />
+    <arg name="mode"     value="$(var mode)" />
+    <arg name="urdf_file" value="$(var urdf_file)" />
   </include>
 
-  <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
-
-
-  <!-- ===================== -->
-   <!-- launch rviz with specific file-->
-  <node pkg="rviz2" exec="rviz2"
-	args="-d $(find-pkg-share desktop_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
-	output="screen" respawn="true" respawn_delay="1" />
+  <!-- Visualization: only in sim/desktop environments -->
+  <group if="$(var sim)">
+    <node pkg="rviz2" exec="rviz2"
+      args="-d $(find-pkg-share desktop_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
+      output="screen" respawn="true" respawn_delay="1" />
+  </group>
 
 </launch>

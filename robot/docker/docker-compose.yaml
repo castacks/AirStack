@@ -21,12 +21,13 @@ services:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
+      - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
     command: >
       bash -c "
       service ssh restart;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch desktop_bringup robot.launch.xml' ENTER;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
@@ -78,32 +79,16 @@ services:
     environment: 
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - LAUNCH_PACKAGE=autonomy_bringup
     command: >
       bash -c "
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch desktop_bringup robot.launch.xml' ENTER;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE sim:=false' ENTER;
       fi;
       sleep infinity"
     network_mode: host
     deploy: !reset {}  # remove nvidia driver for voxl
-  # ----------------------------------------------------------------
-  robot-voxl-offboard:
-    profiles: !override
-      - voxl
-      - voxl_offboard
-    extends:  # NOTE THIS EXTENDS ROBOT-DESKTOP, NOT THE BASE
-      file: ./docker-compose.yaml
-      service: robot-desktop
-    command: >
-      bash -c "
-      if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch voxl_bringup robot.launch.xml' ENTER;
-      fi;
-      sleep infinity"
-    network_mode: ${NETWORK_MODE:-"airstack_network"}
-    networks: ${NETWORKS:-""}
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
@@ -126,7 +111,13 @@ services:
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
-      bash -c "ssh service restart; tmux new -d -s bringup && tmux send-keys -t bringup  'bws && sws &&  DATE=$(date | sed \"s/ /_/g\" | sed \"s/:/_/g\") ros2 launch desktop_bringup robot.launch.xml sim:="false" ' ENTER && sleep infinity"
+      bash -c "
+      service ssh restart;
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux new -d -s bringup;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE sim:=false' ENTER;
+      fi;
+      sleep infinity"
     deploy:
       resources:
         reservations:
@@ -137,6 +128,8 @@ services:
     environment: !override
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - LAUNCH_PACKAGE=autonomy_bringup
+      - AUTONOMY_MODE=${AUTONOMY_MODE:-onboard_all}
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
@@ -191,6 +184,23 @@ services:
       - ./zed/bashrc:/root/.bashrc
       - /media/airlab/Storage/zed_svo/:/zed_svo/
       
+  # ===================================================================================================================
+  # for running the offboard autonomy stack on a ground station (GCS) for N real robots.
+  # Extends robot-desktop: same x86 image and GPU resources, but no RViz (autonomy_bringup only),
+  # with replicas so one container is spawned per robot (same scaling pattern as simulation).
+  robot-offboard:
+    profiles:
+      - offboard
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    environment:
+      - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
+      - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
+      - AUTONOMY_MODE=offboard_global     # runs global planner only; onboard robots run onboard_local
+    # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
+    # inherit bridge network from robot-desktop
+
 # ===================================================================================================================
 # for running tests on the robot
   robot-test:

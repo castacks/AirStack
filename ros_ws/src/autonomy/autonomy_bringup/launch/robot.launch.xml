@@ -1,0 +1,46 @@
+<!-- Single entry point for all robot deployments (onboard and offboard).
+     mode choices:
+       onboard_all    - all autonomy modules run on this machine (default, sim/dev)
+       onboard_local  - local planning only; global runs offboard
+       offboard_global- global planning only; counterpart to onboard_local
+-->
+<launch>
+  <arg name="sim"        default="true" />
+  <arg name="mode"       default="$(env AUTONOMY_MODE onboard_all)" />
+  <arg name="urdf_file"  default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
+
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
+
+  <!-- Robot state publisher -->
+  <node pkg="robot_state_publisher" exec="robot_state_publisher"
+        name="robot_state_publisher" output="screen">
+    <param name="robot_description"
+           value="$(find-pkg-share robot_descriptions)/$(var urdf_file)"/>
+    <param name="use_sim_time" value="$(var sim)"/>
+  </node>
+
+  <!-- Static TFs (world → map) -->
+  <node pkg="tf2_ros" exec="static_transform_publisher"
+        name="world_to_map_broadcaster"
+        args="0 0 0 0 0 0 world map" />
+
+  <!-- ── Mode dispatch ───────────────────────────────────────────────── -->
+
+  <!-- onboard_all: every autonomy module runs here -->
+  <group if="$(eval '&quot;$(var mode)&quot; == &quot;onboard_all&quot;')">
+    <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
+  </group>
+
+  <!-- onboard_local: local planning only; global is handled offboard -->
+  <group if="$(eval '&quot;$(var mode)&quot; == &quot;onboard_local&quot;')">
+    <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
+  </group>
+
+  <!-- offboard_global: global planning only; runs on GCS alongside onboard_local robots -->
+  <group if="$(eval '&quot;$(var mode)&quot; == &quot;offboard_global&quot;')">
+    <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/offboard_autonomy_global.launch.xml" />
+  </group>
+
+</launch>

@@ -15,7 +15,7 @@ if(BUILD_TESTING)
 endif()
 
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY onboard_all DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY onboard_local_offboard_global DESTINATION share/${PROJECT_NAME})
 
