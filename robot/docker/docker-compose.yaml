@@ -27,7 +27,7 @@ services:
       service ssh restart;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml mode:=$$AUTONOMY_MODE' ENTER;
+        tmux send-keys -t bringup 'bws && sws && ros2 launch ${LAUNCH_PACKAGE} robot.launch.xml mode:=${AUTONOMY_MODE}' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
@@ -70,6 +70,7 @@ services:
       service: robot-desktop
     environment:
       - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
+      - ROS_DOMAIN_ID=0                   # offboard stack is in domain 0 to prevent network overload; onboard robots are in separate domains and bridged via domain_bridge
       - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
       - AUTONOMY_MODE=offboard_global     # runs global planner only; onboard robots run onboard_local
     # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
