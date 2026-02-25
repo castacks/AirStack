@@ -3,9 +3,12 @@
   <!-- ====== ARGS ====== -->
 
   <arg name="sim" default="true" />
+
+  <arg name="urdf_file" default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
+
+
+
   <arg name="record_bag" default="$(env RECORD_BAGS)" />
-  <!-- set "onboard_all" or "onboard_local_offboard_global" -->
-  <arg name="autonomy_split_type" default="onboard_all"  />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
@@ -13,16 +16,10 @@
 
   <!-- ====== AUTONOMY ====== -->
 
-  <!-- 1. Define the path to your URDF file -->
-  <let name="urdf_path" value="$(find-pkg-share robot_descriptions)/$(env ROBOT_URDF_FILE)"/>
-  <!-- 2. Launch the robot_state_publisher with all parameters -->
+  <!-- Launch the robot_state_publisher with URDF file -->
   <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher" output="screen">
-    <param name="robot_description" value="$(command 'cat $(var urdf_path)')"/>
-    <param name="publish_frequency" value="30.0"/>
-    <param name="use_tf_static" value="true"/>
-    <param name="ignore_timestamp" value="false"/>
+    <param name="robot_description" value="$(find-pkg-share robot_descriptions)/$(var urdf_file)"/>
     <param name="use_sim_time" value="$(var sim)"/>
-
   </node>
 
   <!-- Static TFs -->
@@ -30,15 +27,8 @@
     <arg name="robot_namespace" value="$(env ROBOT_NAME)" />
   </include>
 
-  <!-- Case: All autonomy is run onboard -->
-  <group if="$(eval '&quot;$(var autonomy_split_type)&quot; == &quot;onboard_all&quot;')">
-    <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
-  </group>
+  <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
 
-  <!-- Case: Only sensing and local autonomy is run onboard. The offboard autonomy is in gcs.launch.xml -->
-  <group if="$(eval '&quot;$(var autonomy_split_type)&quot; == &quot;onboard_local_offboard_global&quot;')">
-    <include file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
-  </group>
 
   <!-- ===================== -->
    <!-- launch rviz with specific file-->

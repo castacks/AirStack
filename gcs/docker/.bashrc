@@ -65,6 +65,8 @@ function cws(){
 source /opt/ros/humble/setup.bash
 sws # source the ROS2 workspace by default
 
+export ROS_DOMAIN_ID=0
+
 # ===========================================================================
 # If not running interactively, don't do anything. Exit immediately
 [ -z "$PS1" ] && return
@@ -167,4 +169,3 @@ fi
 
 export RCUTILS_COLORIZED_OUTPUT=1
 
-export ROS_DOMAIN_ID=0
