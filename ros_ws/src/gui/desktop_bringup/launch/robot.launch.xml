@@ -19,7 +19,7 @@
 
     <push-ros-namespace namespace="behavior" />
     <node pkg="rqt_gui" exec="rqt_gui"
-      args="--perspective-file $(find-pkg-share autonomy_bringup)/config/core.perspective">
+      args="--perspective-file $(find-pkg-share desktop_bringup)/config/core.perspective">
       <remap from="fixed_trajectory_command"
         to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
     </node>
