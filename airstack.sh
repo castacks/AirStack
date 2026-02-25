@@ -276,7 +276,7 @@ function find_container {
     
     if [ "$match_count" -eq 0 ]; then
         # Try a more flexible search if exact match fails
-        log_warn "No exact matches for '$search_term', trying fuzzy search..."
+        log_warn "No exact matches for '$search_term', trying fuzzy search..." >&2
         matches=$(echo "$containers" | grep -i ".*$search_term.*" || true)
         match_count=$(echo "$matches" | grep -v "^$" | wc -l)
         
@@ -286,8 +286,8 @@ function find_container {
             # Show available containers as a suggestion
             available=$(docker ps --format "{{.Names}}")
             if [ -n "$available" ]; then
-                log_info "Available containers:"
-                echo "$available"
+                log_info "Available containers:" >&2
+                echo "$available" >&2
             fi
             
             return 1
@@ -300,7 +300,7 @@ function find_container {
         echo "$container_name"
         return 0
     else
-        log_warn "Multiple containers match '$search_term'. Please be more specific or select from the list below:"
+        log_warn "Multiple containers match '$search_term'. Please be more specific or select from the list below:" >&2
         # Format the output as a table with numbers (redirect to stderr so it's not captured)
         echo -e "${BLUE}NUM\tCONTAINER NAME\tIMAGE\tSTATUS${NC}" >&2
         echo "$matches" | awk '{print NR "\t" $0}' >&2
@@ -310,10 +310,10 @@ function find_container {
         echo "  2. Type 'q' to quit" >&2
         echo "  3. Press Ctrl+C to cancel and try again with a more specific name" >&2
         echo "" >&2
-        read -p "Your selection: " selection
+        read -p "Your selection: " selection <&2
         
         if [ "$selection" = "q" ]; then
-            log_info "Operation cancelled"
+            log_info "Operation cancelled" >&2
             return 1
         elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -gt 0 ] && [ "$selection" -le "$match_count" ]; then
             # Extract just the container name from the selected line
@@ -321,17 +321,17 @@ function find_container {
             echo "$container_name"
             
             # Provide a tip for future use
-            log_info "Tip: Next time, you can directly use 'airstack connect $container_name' for this container"
+            log_info "Tip: Next time, you can directly use 'airstack connect $container_name' for this container" >&2
             return 0
         else
             log_error "Invalid selection. Please enter a number between 1 and $match_count, or 'q' to quit."
             
             # Give the user another chance to select
             echo "" >&2
-            read -p "Try again (or 'q' to quit): " selection
+            read -p "Try again (or 'q' to quit): " selection <&2
             
             if [ "$selection" = "q" ]; then
-                log_info "Operation cancelled"
+                log_info "Operation cancelled" >&2
                 return 1
             elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -gt 0 ] && [ "$selection" -le "$match_count" ]; then
                 container_name=$(echo "$matches" | sed -n "${selection}p" | awk '{print $1}')
