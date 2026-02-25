@@ -23,6 +23,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
+    # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
       bash -c "
       service ssh restart;
