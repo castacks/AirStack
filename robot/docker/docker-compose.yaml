@@ -78,7 +78,7 @@ services:
   # Extends robot-desktop: same x86 image and GPU resources, but no RViz (autonomy_bringup only),
   # with replicas so one container is spawned per robot (same scaling pattern as simulation).
   robot-offboard:
-    profiles:
+    profiles: !override
       - desktop_split  # on desktop: simulates the GCS offboard containers alongside robot-desktop-onboard
       - offboard       # in the field: runs on the GCS machine paired with onboard robots
     extends:
