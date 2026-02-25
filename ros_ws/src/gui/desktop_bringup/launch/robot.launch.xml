@@ -1,13 +1,13 @@
 <!-- Desktop / sim wrapper: delegates to autonomy_bringup and adds RViz. -->
 <launch>
-  <arg name="sim"       default="true" />
-  <arg name="role"      default="$(env AUTONOMY_ROLE full)" />
+  <arg name="sim" default="true" />
+  <arg name="role" default="$(env AUTONOMY_ROLE full)" />
   <arg name="urdf_file" default="$(env URDF_FILE)" />
 
   <!-- Core robot launch (state publisher, static TFs, autonomy modules) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml">
-    <arg name="sim"      value="$(var sim)" />
-    <arg name="role"     value="$(var role)" />
+    <arg name="sim" value="$(var sim)" />
+    <arg name="role" value="$(var role)" />
     <arg name="urdf_file" value="$(var urdf_file)" />
   </include>
 
@@ -16,6 +16,14 @@
     <node pkg="rviz2" exec="rviz2"
       args="-d $(find-pkg-share desktop_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
       output="screen" respawn="true" respawn_delay="1" />
+
+    <push-ros-namespace namespace="behavior" />
+    <node pkg="rqt_gui" exec="rqt_gui"
+      args="--perspective-file $(find-pkg-share autonomy_bringup)/config/core.perspective">
+      <remap from="fixed_trajectory_command"
+        to="/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command" />
+    </node>
   </group>
+
 
 </launch>
