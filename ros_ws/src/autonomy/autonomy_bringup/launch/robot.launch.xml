@@ -7,7 +7,7 @@
 <launch>
   <arg name="sim"       default="true" />
   <arg name="role"      default="$(env AUTONOMY_ROLE full)" />
-  <arg name="urdf_file" default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
+  <arg name="urdf_file" default="$(env URDF_FILE)" />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 

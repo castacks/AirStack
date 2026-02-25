@@ -2,7 +2,7 @@
 <launch>
   <arg name="sim"       default="true" />
   <arg name="role"      default="$(env AUTONOMY_ROLE full)" />
-  <arg name="urdf_file" default="iris/urdf/iris_with_sensors.pegasus.robot.urdf" />
+  <arg name="urdf_file" default="$(env URDF_FILE)" />
 
   <!-- Core robot launch (state publisher, static TFs, autonomy modules) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml">

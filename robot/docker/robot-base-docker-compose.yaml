@@ -12,10 +12,8 @@ services:
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
-      - LAUNCH_PACKAGE=${LAUNCH_PACKAGE}
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
-      - ROBOT_LAUNCH_FILE=${ROBOT_LAUNCH_FILE}
-      - ROBOT_URDF_FILE=${ROBOT_URDF_FILE}  
+      - URDF_FILE=${URDF_FILE}  
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
