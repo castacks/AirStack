@@ -142,8 +142,11 @@ function print_command_help {
         connect)
             echo "Usage: airstack connect [container_name] [options]"
             echo ""
+            echo "By default, attaches to an existing tmux session inside the container."
+            echo "Exiting tmux fully disconnects from the container."
+            echo ""
             echo "Options:"
-            echo "  --command=CMD  Run specific command instead of shell (default: bash)"
+            echo "  --command=CMD  Run a specific command instead of attaching to tmux (e.g., --command=bash)"
             ;;
         down)
             echo "Usage: airstack down [service_name]"
@@ -805,8 +808,8 @@ function cmd_connect {
     local container_pattern="$1"
     shift
     
-    # Default command is bash, but can be overridden
-    local command="bash"
+    # By default, attach to a tmux session. If --command is specified, run that command directly.
+    local command=""
     local command_specified=false
     for arg in "$@"; do
         if [[ "$arg" == --command=* ]]; then
@@ -822,20 +825,25 @@ function cmd_connect {
     if [ $? -eq 0 ]; then
         log_info "Connecting to container: $container"
         
-        # Check if the command exists in the container
-        if ! docker exec "$container" which "$command" &> /dev/null; then
-            log_warn "Command '$command' not found in container. Falling back to /bin/sh"
-            command="sh"
-        fi
-        
-        # Connect to the container.
-        # When using the default shell (no --command override), automatically attach to an
-        # existing tmux session on entry. When the developer detaches or exits tmux, they
-        # are dropped into a normal interactive shell instead of being disconnected.
-        if [ "$command_specified" = false ] && docker exec "$container" which tmux &> /dev/null; then
-            docker exec -it "$container" "$command" -c "tmux a; exec $command"
-        else
+        if [ "$command_specified" = true ]; then
+            # Run the specified command directly, no tmux involvement
+            if ! docker exec "$container" which "$command" &> /dev/null; then
+                log_warn "Command '$command' not found in container. Falling back to /bin/sh"
+                command="sh"
+            fi
             docker exec -it "$container" "$command"
+        else
+            # Default: attach to an existing tmux session. Exiting tmux fully disconnects from the container.
+            if docker exec "$container" which tmux &> /dev/null; then
+                docker exec -it "$container" tmux a
+            else
+                log_warn "tmux not found in container. Falling back to bash."
+                local fallback="bash"
+                if ! docker exec "$container" which bash &> /dev/null; then
+                    fallback="sh"
+                fi
+                docker exec -it "$container" "$fallback"
+            fi
         fi
         
         # Check exit status
