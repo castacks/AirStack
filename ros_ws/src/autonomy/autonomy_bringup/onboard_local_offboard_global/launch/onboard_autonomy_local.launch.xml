@@ -1,6 +1,5 @@
 <!-- ROBOT -->
 <launch>
-  <arg name="launch_onboard_to_offboard_domain_bridge" default="true" />
 
   <!-- Autonomy Stack - Module Bringups -->
   <!-- Global and logging are not run onboard in this configuration -->
@@ -9,14 +8,5 @@
     <arg name="global_package" value="" />
     <arg name="logging_package" value="" />
   </include>
-
-  <group if="$(var launch_onboard_to_offboard_domain_bridge)">
-    <!-- Domain Bridge -->
-    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_domain_bridge.launch.py" >
-      <arg name="config_file" value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/onboard_to_offboard.domain_bridge.yaml" />
-      <arg name="args" value="gcs_domain:=0" />
-    </include>
-  </group>
-
 
 </launch>

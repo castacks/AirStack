@@ -18,6 +18,11 @@ topics:
     to_domain: $(env ROS_DOMAIN_ID)
 
   # ============= Incoming ================
+  global_plan:
+    type: nav_msgs/msg/Path
+    from_domain: $(var gcs_domain)
+    to_domain: $(env ROS_DOMAIN_ID)
+
   fixed_trajectory_generator/fixed_trajectory_command:
     type: airstack_msgs/msg/FixedTrajectory
     from_domain: $(var gcs_domain)

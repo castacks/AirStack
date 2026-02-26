@@ -56,9 +56,5 @@
     <include file="$(find-pkg-share $(var logging_package))/launch/$(var logging_launch_file)" />
   </group>
 
-  <!-- Domain Bridge -->
-  <!-- <node pkg="domain_bridge" exec="domain_bridge"
-    args="$(find-pkg-share autonomy_bringup)/onboard_all/config/domain_bridge.yaml"
-    output="screen" respawn="true" respawn_delay="1" /> -->
 
 </launch>
