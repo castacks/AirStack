@@ -11,10 +11,11 @@
   </include>
 
   <group if="$(var launch_onboard_to_offboard_domain_bridge)">
-    <!-- Domain Bridge. This is important to have on the  -->
-    <node pkg="domain_bridge" exec="domain_bridge"
-      args="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/onboard_to_offboarddomain_bridge.yaml"
-      output="screen" respawn="true" respawn_delay="1" />
+    <!-- Domain Bridge -->
+    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_domain_bridge.launch.py" >
+      <arg name="config_file" value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/onboard_to_offboard.domain_bridge.yaml" />
+      <arg name="args" value="gcs_domain:=0" />
+    </include>
   </group>
 
 
