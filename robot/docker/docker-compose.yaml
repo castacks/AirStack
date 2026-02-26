@@ -23,6 +23,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
+      # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
       bash -c "
@@ -167,6 +168,9 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
+      # mavros mavlink settings
+      - FCU_URL="/dev/ttyTHS4:115200"
+      - TGT_SYSTEM=1
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:

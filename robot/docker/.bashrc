@@ -74,17 +74,8 @@ if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
     # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
     # WARNING: this technique ONLY works with docker version 29 and up.
     name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
-
-    # case: robot name found from docker, then we're in sim
-    # TODO: move this to launch files
-    export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
-    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))
-
 elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
     name_to_map=$(hostname)
-    export FCU_URL="/dev/ttyTHS4:115200"
 else
     echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
     name_to_map=""

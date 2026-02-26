@@ -5,10 +5,12 @@
 # Rules evaluate top-down. Whatever is matched first is the one that gets applied.
 # More specific rules should be higher up. The last rule is a catch-all for anything that doesn't match above.
 mappings:
+  # extract the number from any input that contains "robot-" followed by a number, and use that number in the robot name and domain ID
   - pattern: '.*robot-.*(\d+)'
     robot: 'robot_{1}'
     domain_id: '{1}'
 
+  # catch all fall-back
   - pattern: '.*'
     robot: 'unknown-robot'
     domain_id: '0'

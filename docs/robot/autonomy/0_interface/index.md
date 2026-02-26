@@ -10,9 +10,26 @@ The code is located under `AirStack/ros_ws/src/robot/autonomy/0_interface/`.
 
 ## Launch
 
-Launch files are under `src/robot/autonomy/0_interface/interface_bringup/launch`.
+Launch files are under `src/autonomy/interface/interface_bringup/launch`.
 
-The main launch command is `ros2 launch interface_bringup interface.launch.xml`.
+The main launch command is `ros2 launch interface_bringup interface.launch.py`.
+
+### FCU URL and Target System
+
+The launch file dynamically computes the MAVROS connection parameters at launch time.
+If `FCU_URL` or `TGT_SYSTEM` environment variables are already set, those values are used directly.
+Otherwise they are derived from `ROS_DOMAIN_ID`:
+
+| Variable | Calculation |
+|---|---|
+| `OFFBOARD_PORT` | `OFFBOARD_BASE_PORT` + `ROS_DOMAIN_ID` |
+| `ONBOARD_PORT` | `ONBOARD_BASE_PORT` + `ROS_DOMAIN_ID` |
+| `FCU_URL` | `udp://:<OFFBOARD_PORT>@172.31.0.200:<ONBOARD_PORT>` |
+| `TGT_SYSTEM` | `1 + ROS_DOMAIN_ID` |
+
+Default base port values (from `.env`): `OFFBOARD_BASE_PORT=14540`, `ONBOARD_BASE_PORT=14580`.
+
+MAVROS is skipped entirely when `SIM_TYPE=simple`.
 
 ## RobotInterface
 

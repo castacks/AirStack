@@ -11,7 +11,7 @@
   <arg name="logging_package" default="logging_bringup" />
 
   <!-- Launch file args -->
-  <arg name="interface_launch_file" default="interface.launch.xml" />
+  <arg name="interface_launch_file" default="interface.launch.py" />
   <arg name="sensors_launch_file" default="sensors.launch.xml" />
   <arg name="perception_launch_file" default="perception.launch.xml" />
   <arg name="local_launch_file" default="local.launch.xml" />
