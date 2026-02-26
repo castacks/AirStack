@@ -65,13 +65,13 @@ nav:
           - docs/robot/docker/robot_identity.md
       - Autonomy Modules:
           - Robot Interface:
-              - docs/robot/autonomy/0_interface/index.md
+              - docs/robot/autonomy/interface/index.md
           - Sensors:
-              - docs/robot/autonomy/1_sensors/index.md
-              - docs/robot/autonomy/1_sensors/gimbal.md
+              - docs/robot/autonomy/sensors/index.md
+              - docs/robot/autonomy/sensors/gimbal.md
           - Perception:
-              - docs/robot/autonomy/2_perception/index.md
-              - docs/robot/autonomy/2_perception/state_estimation.md
+              - docs/robot/autonomy/perception/index.md
+              - docs/robot/autonomy/perception/state_estimation.md
           - Local:
               - docs/robot/autonomy/local/index.md
               - World Model:
@@ -103,9 +103,9 @@ nav:
                   - ros_ws/src/autonomy/global/planners/random_walk/README.md
                   - ros_ws/src/autonomy/global/planners/exploration/README.md
           - Behavior:
-              - docs/robot/autonomy/5_behavior/index.md
-              - docs/robot/autonomy/5_behavior/behavior_tree.md
-              - docs/robot/autonomy/5_behavior/behavior_executive.md
+              - docs/robot/autonomy/behavior/index.md
+              - docs/robot/autonomy/behavior/behavior_tree.md
+              - docs/robot/autonomy/behavior/behavior_executive.md
       - Static Transforms:
           - docs/robot/static_transforms/index.md
       - Logging:

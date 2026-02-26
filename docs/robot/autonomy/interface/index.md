@@ -6,7 +6,7 @@ For example, for drones it converts the control commands from the autonomy stack
 ==TODO: This is not our diagram, must replace.==
 ![Interface Diagram](https://404warehouse.net/wp-content/uploads/2016/08/softwareoverview.png?w=800)
 
-The code is located under `AirStack/ros_ws/src/robot/autonomy/0_interface/`.
+The code is located under `AirStack/ros_ws/src/robot/autonomy/interface/`.
 
 ## Launch
 
@@ -42,7 +42,7 @@ Specific implementations should extend `class RobotInterface` in `robot_interfac
 ### State
 
 The `RobotInterface` class broadcasts the robot's pose as a TF2 transform.
-It also publishes the robot's odometry as a `nav_msgs/Odometry` message to `$(env ROBOT_NAME)/0_interface/robot_0_interface/odometry`.
+It also publishes the robot's odometry as a `nav_msgs/Odometry` message to `$(env ROBOT_NAME)/interface/robot_interface/odometry`.
 
 ### Commands
 
