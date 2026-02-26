@@ -74,6 +74,7 @@ if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
     # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
     # WARNING: this technique ONLY works with docker version 29 and up.
     name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+    CONTAINER_NAME=":$name_to_map"
 elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
     name_to_map=$(hostname)
 else
@@ -151,9 +152,9 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='[$ROBOT_NAME]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    PS1='[$ROBOT_NAME$CONTAINER_NAME]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 else
-    PS1='[$ROBOT_NAME]${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1='[$ROBOT_NAME$CONTAINER_NAME]${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
 unset color_prompt force_color_prompt
 
