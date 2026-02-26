@@ -1,11 +1,21 @@
 <!-- ROBOT -->
 <launch>
+  <arg name="launch_onboard_to_offboard_domain_bridge" default="true" />
 
   <!-- Autonomy Stack - Module Bringups -->
   <!-- Global and logging are not run onboard in this configuration -->
   <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml">
+    <!-- set global and logging package to nothing  -->
     <arg name="global_package" value="" />
     <arg name="logging_package" value="" />
   </include>
+
+  <group if="$(var launch_onboard_to_offboard_domain_bridge)">
+    <!-- Domain Bridge. This is important to have on the  -->
+    <node pkg="domain_bridge" exec="domain_bridge"
+      args="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/onboard_to_offboarddomain_bridge.yaml"
+      output="screen" respawn="true" respawn_delay="1" />
+  </group>
+
 
 </launch>

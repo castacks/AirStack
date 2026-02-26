@@ -1,5 +1,9 @@
 name: my_bridge
 topics:
+  /$(var ROBOT_NAME)/global/*:
+    type: airstack_msgs/msg/GlobalCommand
+    from_domain: 0
+    to_domain: 1
   /robot_1/behavior/behavior_tree_commands:
     type: behavior_tree_msgs/msg/BehaviorTreeCommands
     from_domain: 0

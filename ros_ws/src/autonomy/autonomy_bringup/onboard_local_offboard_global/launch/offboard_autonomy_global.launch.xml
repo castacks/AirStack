@@ -1,6 +1,5 @@
 <!-- ROBOT -->
 <launch>
-  <arg name="launch_global_to_gcs_domain_bridge" default="true" />
 
   <!-- Autonomy Stack - Module Bringups -->
   <!-- Only global runs offboard; all other packages are disabled -->
@@ -12,12 +11,5 @@
     <arg name="behavior_package" value="" />
     <arg name="logging_package" value="" />
   </include>
-
-  <group if="$(var launch_global_to_gcs_domain_bridge)">
-    <!-- Domain Bridge -->
-    <node pkg="domain_bridge" exec="domain_bridge"
-      args="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/global_to_gcs.domain_bridge.yaml"
-      output="screen" respawn="true" respawn_delay="1" />
-  </group>
 
 </launch>
