@@ -11,8 +11,8 @@ services:
       bash -c "
       ssh service restart;
       if [ $$AUTOLAUNCH = 'true' ]; then
-      tmux new -d -s gcs_bringup;
-      tmux send-keys -t gcs_bringup '
+      tmux new -d -s bringup;
+      tmux send-keys -t bringup:0.0 '
         bws
         --packages-up-to
         desktop_bringup

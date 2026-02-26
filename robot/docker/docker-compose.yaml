@@ -30,7 +30,7 @@ services:
       service ssh restart;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux new -d -s bringup;
-        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
+        tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
