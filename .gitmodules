@@ -1,10 +1,10 @@
-[submodule "ros_ws/src/autonomy/global/world_models/vdb_mapping"]
+[submodule "robot/ros_ws/src/global/world_models/vdb_mapping"]
 	path = robot/ros_ws/src/global/world_models/vdb_mapping
 	url = https://github.com/castacks/vdb_mapping.git
-[submodule "ros_ws/src/autonomy/global/world_models/vdb_mapping_ros2"]
+[submodule "robot/ros_ws/src/global/world_models/vdb_mapping_ros2"]
 	path = robot/ros_ws/src/global/world_models/vdb_mapping_ros2
 	url = https://github.com/castacks/vdb_mapping_ros2.git
-[submodule "ros_ws/src/autonomy/perception/macvo_ros2/macvo_ros2/macvo"]
+[submodule "robot/ros_ws/src/perception/macvo_ros2/macvo_ros2/macvo"]
 	path = robot/ros_ws/src/perception/macvo_ros2/macvo_ros2/macvo
 	url = https://github.com/MAC-VO/MAC-VO.git
 [submodule "ros_ws/src/rviz_behavior_tree_panel/xdot_cpp"]
