@@ -77,31 +77,31 @@ nav:
               - World Model:
                   - docs/robot/autonomy/local/world_model/index.md
                   - DROAN (Obstacle Avoidance World Model):
-                      - ros_ws/src/autonomy/local/world_models/disparity_expansion/README.md
-                      - ros_ws/src/autonomy/local/world_models/disparity_graph/README.md
-                      - ros_ws/src/autonomy/local/world_models/disparity_graph_cost_map/README.md
+                      - robot/ros_ws/src/local/world_models/disparity_expansion/README.md
+                      - robot/ros_ws/src/local/world_models/disparity_graph/README.md
+                      - robot/ros_ws/src/local/world_models/disparity_graph_cost_map/README.md
               - Planning:
                   - docs/robot/autonomy/local/planning/index.md
-                  - ros_ws/src/autonomy/local/planners/trajectory_library/README.md
+                  - robot/ros_ws/src/local/planners/trajectory_library/README.md
                   - Takeoff Landing Planner:
-                      - ros_ws/src/autonomy/local/planners/takeoff_landing_planner/README.md
-                      - ros_ws/src/autonomy/local/planners/takeoff_landing_planner/test/README.md
+                      - robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
+                      - robot/ros_ws/src/local/planners/takeoff_landing_planner/test/README.md
                   - DROAN (Obstacle Avoidance Planner):
-                      - ros_ws/src/autonomy/local/planners/droan_local_planner/README.md
+                      - robot/ros_ws/src/local/planners/droan_local_planner/README.md
                   - DROAN GL:
-                      - ros_ws/src/autonomy/local/planners/droan_gl/README.md
+                      - robot/ros_ws/src/local/planners/droan_gl/README.md
               - Controls:
                   - docs/robot/autonomy/local/controls/index.md
-                  - ros_ws/src/autonomy/local/c_controls/trajectory_controller/README.md
+                  - robot/ros_ws/src/local/c_controls/trajectory_controller/README.md
           - Global:
               - docs/robot/autonomy/global/index.md
               - World Model:
                   - docs/robot/autonomy/global/world_model/index.md
-                  - ros_ws/src/autonomy/global/world_models/vdb_mapping_ros2/README.md
+                  - robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md
               - Planning:
                   - docs/robot/autonomy/global/planning/index.md
-                  - ros_ws/src/autonomy/global/planners/random_walk/README.md
-                  - ros_ws/src/autonomy/global/planners/exploration/README.md
+                  - robot/ros_ws/src/global/planners/random_walk/README.md
+                  - robot/ros_ws/src/global/planners/exploration/README.md
           - Behavior:
               - docs/robot/autonomy/behavior/index.md
               - docs/robot/autonomy/behavior/behavior_tree.md

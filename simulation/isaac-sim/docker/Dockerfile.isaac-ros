@@ -1,4 +1,4 @@
-# expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
+# expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/common/
 ARG ISAAC_VERSION="5.1.0"
 ARG PX4_VERSION="v1.16.1"
 

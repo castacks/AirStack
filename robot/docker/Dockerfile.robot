@@ -320,5 +320,5 @@ RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so
 
 EXPOSE 22
 
-WORKDIR /root/AirStack/ros_ws
+WORKDIR /root/AirStack/robot/ros_ws
 

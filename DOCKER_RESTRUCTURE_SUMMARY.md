@@ -152,7 +152,7 @@ If these files are needed in the future, they should be:
 
 3. **Build test**: Test workspace builds correctly
    ```bash
-   docker exec airstack-robot-1 bash -c "cd /root/AirStack/ros_ws && bws"
+   docker exec airstack-robot-1 bash -c "cd /root/AirStack/robot/ros_ws && bws"
    ```
 
 4. **Launch test**: Test launch files work with new structure

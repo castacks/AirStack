@@ -42,7 +42,7 @@ AirStack/
 ├── robot/                          # Robot autonomy stack (ROS 2 workspace)
 │   ├── docker/                     # Robot containerization
 │   ├── installation/               # Robot setup scripts
-│   └── ros_ws/src/autonomy/        # Layered autonomy modules:
+│   └── robot/ros_ws/src/        # Layered autonomy modules:
 │       ├── interface/            # Robot interface layer
 │       ├── sensors/              # Sensor integration
 │       ├── perception/           # State estimation & environment understanding

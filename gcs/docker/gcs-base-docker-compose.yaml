@@ -12,7 +12,7 @@ services:
       ssh service restart;
       if [ $$AUTOLAUNCH = 'true' ]; then
       tmux new -d -s bringup;
-      tmux send-keys -t bringup:0.0 'bws  --packages-up-to  desktop_bringup  airstack_msgs  rqt_gcs  behavior_tree_msgs  rqt_fixed_trajectory_generator  rqt_py_template  rqt_behavior_tree_command  rqt_airstack_control_panel  rqt_behavior_tree  &&  sws;  ros2 launch desktop_bringup gcs.launch.xml' ENTER;
+      tmux send-keys -t bringup:0.0 'bws &&  sws; ros2 launch desktop_bringup gcs.launch.xml' ENTER;
       fi;
       sleep infinity"
     # Interactive shell
@@ -51,6 +51,8 @@ services:
       - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./Foxglove:/root/.config/Foxglove:rw
       # autonomy stack stuff
-      - ../..:/root/AirStack
+      - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw
+      - ../../common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml
+      - ../ros_ws:/root/AirStack/gcs/ros_ws:rw
       # bags
       - ../bags:/bags:rw

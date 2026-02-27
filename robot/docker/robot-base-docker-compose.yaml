@@ -26,12 +26,15 @@ services:
       - .dev:/root/.dev:rw # developer config
       - ../../common/.bash_profile:/root/.bash_profile:rw  # commented out - common/ no longer exists
       - .bashrc:/root/.bashrc:rw # bash config
-      - ../../common/inputrc:/etc/inputrc:rw  # commented out - common/ no longer exists
-      - ../../common/.tmux.conf:/root/.tmux.conf:rw  # commented out - common/ no longer exists
+      - ../../common/inputrc:/etc/inputrc:rw  
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw  
       - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - ./robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw
       # autonomy stack stuff
-      - ../..:/root/AirStack
+      - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw
+      - ../../common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml
+      - ../ros_ws:/root/AirStack/robot/ros_ws:rw
       # bags
       - ../bags:/bags:rw
 
