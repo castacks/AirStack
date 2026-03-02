@@ -1,34 +1,12 @@
 name: onboard_offboard_bridge
+extends: "$(find-pkg-share autonomy_bringup)/onboard_all/config/domain_bridge.yaml"
 topics:
-  # ============= Outgoing ================
-  odometry_conversion/odometry:
-    type: nav_msgs/msg/Odometry
-    from_domain: $(env ROS_DOMAIN_ID)
-    to_domain: $(var gcs_domain)
+  # ============= Additional Outgoing from Robot ================
 
+  # ============= Additional Incoming to Robot ================
 
-  behavior/behavior_tree_commands:
-    type: behavior_tree_msgs/msg/BehaviorTreeCommands
-    from_domain: $(env ROS_DOMAIN_ID)
-    to_domain: $(var gcs_domain)
-
-  bag_record/bag_recording_status:
-    type: std_msgs/msg/Bool
-    from_domain: $(var gcs_domain)
-    to_domain: $(env ROS_DOMAIN_ID)
-
-  # ============= Incoming ================
+  # to offboard modules
   global_plan:
     type: nav_msgs/msg/Path
-    from_domain: $(var gcs_domain)
-    to_domain: $(env ROS_DOMAIN_ID)
-
-  fixed_trajectory_generator/fixed_trajectory_command:
-    type: airstack_msgs/msg/FixedTrajectory
-    from_domain: $(var gcs_domain)
-    to_domain: $(env ROS_DOMAIN_ID)
-
-  bag_record/set_recording_status:
-    type: std_msgs/msg/Bool
     from_domain: $(var gcs_domain)
     to_domain: $(env ROS_DOMAIN_ID)

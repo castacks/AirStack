@@ -1,28 +1,43 @@
 name: onboard_offboard_bridge
 topics:
-  # ============= Outgoing ================
+  # ============= Outgoing from Robot ================
+  # state information
   odometry_conversion/odometry:
     type: nav_msgs/msg/Odometry
     from_domain: $(env ROS_DOMAIN_ID)
     to_domain: $(var gcs_domain)
 
+  interface/mavros/global_position/raw/fix:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
 
+  # behavior tree
   behavior/behavior_tree_commands:
     type: behavior_tree_msgs/msg/BehaviorTreeCommands
     from_domain: $(env ROS_DOMAIN_ID)
     to_domain: $(var gcs_domain)
 
+  behavior/behavior_tree_graphviz:
+    type: behavior_tree_msgs/msg/GraphVizXdot
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
+  # bag recording status
   bag_record/bag_recording_status:
     type: std_msgs/msg/Bool
     from_domain: $(var gcs_domain)
     to_domain: $(env ROS_DOMAIN_ID)
 
-  # ============= Incoming ================
+
+  # ============= Incoming to Robot ================
+  # control commands
   fixed_trajectory_generator/fixed_trajectory_command:
     type: airstack_msgs/msg/FixedTrajectory
     from_domain: $(var gcs_domain)
     to_domain: $(env ROS_DOMAIN_ID)
 
+  # bag recording status
   bag_record/set_recording_status:
     type: std_msgs/msg/Bool
     from_domain: $(var gcs_domain)
