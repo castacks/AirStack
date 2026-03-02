@@ -71,17 +71,18 @@ ENV DEBIAN_FRONTEND=
 # ========================
 
 # Install dev tools (includes build-time tools: cmake, build-essential)
-RUN apt update && apt install -y \
-  vim nano emacs wget curl tree \
+RUN apt update && apt install -y --no-install-recommends \
+  vim nano tree \
   cmake build-essential \
   less htop jq \
   python3-pip \
   python3-rosdep \
   tmux \
-  gdb
+  gdb \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install any additional ROS2 packages
-RUN apt update -y && apt install -y \
+RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-humble-mavros \
   ros-humble-tf2* \
@@ -92,8 +93,10 @@ RUN apt update -y && apt install -y \
   ros-humble-domain-bridge \
   ros-humble-rosbag2-storage-mcap \
   ros-humble-xacro \
+  ros-humble-foxglove-bridge \
   libcgal-dev \
-  python3-colcon-common-extensions
+  python3-colcon-common-extensions \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
 
@@ -260,17 +263,16 @@ ENV DEBIAN_FRONTEND=
 # ========================
 
 # Install runtime dev tools (no cmake or build-essential)
-RUN apt update && apt install -y \
-  vim nano emacs wget curl tree \
+RUN apt update && apt install -y --no-install-recommends \
+  vim nano tree \
   less htop jq \
   python3-pip \
   python3-rosdep \
   tmux \
-  gdb \
   && rm -rf /var/lib/apt/lists/*
 
 # Install runtime ROS2 packages (no libcgal-dev)
-RUN apt update -y && apt install -y \
+RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-humble-mavros \
   ros-humble-tf2* \
@@ -281,6 +283,7 @@ RUN apt update -y && apt install -y \
   ros-humble-domain-bridge \
   ros-humble-rosbag2-storage-mcap \
   ros-humble-xacro \
+  ros-humble-foxglove-bridge \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
@@ -297,17 +300,24 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "
   && rm -rf /var/lib/apt/lists/*; \
   fi
 
+# Install Foxglove Studio desktop app
+RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
+  && apt-get ${UPDATE_FLAGS} update \
+  && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends /tmp/foxglove-studio.deb \
+  && rm /tmp/foxglove-studio.deb \
+  && rm -rf /var/lib/apt/lists/*
+
 # Add ability to SSH (libglfw3-dev and libglm-dev kept per spec)
-RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y \
+RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
   openssh-server libglfw3-dev libglm-dev \
   && rm -rf /var/lib/apt/lists/*
 RUN mkdir /var/run/sshd
 
 # Copy build artifacts from the builder stage
-COPY --from=builder /opt/ros/humble          /opt/ros/humble
-COPY --from=builder /usr/local/lib/python3.10 /usr/local/lib/python3.10
+# /opt/ros/humble is NOT copied — runtime installs the same packages via apt (including foxglove-bridge)
+# /usr/local/lib/python3.10 is NOT copied separately — it is covered by /usr/local/lib below
+# /usr/local/include is NOT copied — compile-time headers are not needed at runtime
 COPY --from=builder /usr/local/bin            /usr/local/bin
-COPY --from=builder /usr/local/include        /usr/local/include
 COPY --from=builder /usr/local/lib            /usr/local/lib
 COPY --from=builder /model_weights            /model_weights
 COPY --from=builder /root/.tmux               /root/.tmux

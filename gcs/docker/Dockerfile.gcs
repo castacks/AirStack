@@ -36,6 +36,7 @@ EXPOSE 22
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
+# install FoxGloveStudio and ros-humble-foxglove-bridge
 RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
 RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt -o APT::Get::AllowUnauthenticated=true install -y ./foxglove-studio-latest-linux-amd64.deb
 RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-humble-foxglove-bridge
