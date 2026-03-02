@@ -186,6 +186,20 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then pip uninstall matplotlib -y; fi
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
+# Install eProsima DDS Router
+# System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
+RUN apt update && apt install -y --no-install-recommends \
+  libasio-dev libtinyxml2-dev libssl-dev libyaml-cpp-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# Clone sources and build + install globally into /usr/local
+RUN mkdir -p /tmp/DDS-Router/src \
+  && cd /tmp/DDS-Router \
+  && wget https://raw.githubusercontent.com/eProsima/DDS-Router/main/ddsrouter.repos \
+  && vcs import src < ddsrouter.repos \
+  && colcon build --merge-install --install-base /usr/local \
+  && rm -rf /tmp/DDS-Router
+
 # Cleanup
 RUN apt autoremove -y \
   && apt clean -y \
@@ -288,6 +302,11 @@ RUN apt update -y && apt install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+
+# Install DDS Router runtime library dependencies
+RUN apt update && apt install -y --no-install-recommends \
+  libtinyxml2-dev libssl-dev libyaml-cpp-dev \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install NVIDIA runtime apt packages (no -dev counterparts; NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
 RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \

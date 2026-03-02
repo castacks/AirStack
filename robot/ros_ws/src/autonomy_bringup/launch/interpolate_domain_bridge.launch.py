@@ -52,7 +52,7 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -166,6 +166,7 @@ def launch_domain_bridge(context, *args, **kwargs):
     tmp.close()
 
     return [
+        LogInfo(msg=f"[domain_bridge] Final interpolated config:\n{content}"),
         Node(
             package='domain_bridge',
             executable='domain_bridge',

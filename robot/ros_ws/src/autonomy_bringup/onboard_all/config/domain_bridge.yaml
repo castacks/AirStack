@@ -1,4 +1,4 @@
-name: onboard_offboard_bridge
+name: onboard_all_bridge
 topics:
   # ============= Outgoing from Robot ================
   # state information

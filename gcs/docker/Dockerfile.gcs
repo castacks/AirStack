@@ -41,6 +41,21 @@ RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-am
 RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt -o APT::Get::AllowUnauthenticated=true install -y ./foxglove-studio-latest-linux-amd64.deb
 RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-humble-foxglove-bridge
 
+# Install eProsima DDS Router
+# System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
+RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends \
+    libasio-dev libtinyxml2-dev libssl-dev libyaml-cpp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone sources and build + install globally into /usr/local
+RUN mkdir -p /tmp/DDS-Router/src \
+    && cd /tmp/DDS-Router \
+    && wget https://raw.githubusercontent.com/eProsima/DDS-Router/main/ddsrouter.repos \
+    && vcs import src < ddsrouter.repos \
+    && colcon build --merge-install --install-base /usr/local \
+    && rm -rf /tmp/DDS-Router
+
 # Cleanup. Prevent people accidentally doing git commits from within Docker
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
 

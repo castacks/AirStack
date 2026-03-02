@@ -62,7 +62,7 @@ services:
       service: robot-desktop
     environment:
       - AUTONOMY_ROLE=onboard
-      - LAUNCH_PACKAGE=autonomy_bringup  # no RViz; treated as simulated onboard computer
+      - LAUNCH_PACKAGE=desktop_bringup  # for no RViz, change to autonomy_bringup to treat as simulated onboard computer
 
   # ===================================================================================================================
   # simple 
