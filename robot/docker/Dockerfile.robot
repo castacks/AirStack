@@ -335,9 +335,10 @@ RUN mkdir /var/run/sshd
 # Copy build artifacts from the builder stage
 # /opt/ros/humble is NOT copied — runtime installs the same packages via apt (including foxglove-bridge)
 # /usr/local/lib/python3.10 is NOT copied separately — it is covered by /usr/local/lib below
-# /usr/local/include is NOT copied — compile-time headers are not needed at runtime
+# /usr/local/include is copied to provide OpenVDB (and DDS Router) headers for in-container colcon builds
 COPY --from=builder /usr/local/bin            /usr/local/bin
 COPY --from=builder /usr/local/lib            /usr/local/lib
+COPY --from=builder /usr/local/include        /usr/local/include
 COPY --from=builder /model_weights            /model_weights
 COPY --from=builder /root/.tmux               /root/.tmux
 
