@@ -28,7 +28,7 @@ services:
     command: >
       bash -c "
       service ssh restart;
-      tmux new -d -s bringup &&
+      tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
       fi;
@@ -120,7 +120,7 @@ services:
       - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
     command: >
       bash -c "
-      tmux new -d -s bringup &&
+      tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
       fi;
@@ -151,7 +151,7 @@ services:
     command: >
       bash -c "
       service ssh restart;
-      tmux new -d -s bringup &&
+      tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
         tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
       fi;

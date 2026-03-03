@@ -211,8 +211,8 @@ if [ ! -h $HISTFILE ]; then
     if [ ! -d /.dev/.bash_history ]; then
         cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history
     fi
-    # symlink to /.dev/.bash_history
-    ln -s $HOME/.dev/.bash_history $HISTFILE
+    # symlink to /.dev/.bash_history, silently on error
+    ln -s $HOME/.dev/.bash_history $HISTFILE > /dev/null 2>&1
 fi
 
 
