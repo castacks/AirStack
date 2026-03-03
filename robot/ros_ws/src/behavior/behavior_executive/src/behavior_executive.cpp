@@ -20,7 +20,8 @@
 
 #include <behavior_executive/behavior_executive.hpp>
 
-BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
+BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive")
+{
     // conditions
     auto_takeoff_commanded_condition = new bt::Condition("Auto Takeoff Commanded", this);
     takeoff_commanded_condition = new bt::Condition("Takeoff Commanded", this);
@@ -93,20 +94,19 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
         "has_control", 1,
         std::bind(&BehaviorExecutive::has_control_callback, this, std::placeholders::_1));
     takeoff_state_sub = this->create_subscription<std_msgs::msg::String>("takeoff_state", 1,
-									 std::bind(&BehaviorExecutive::takeoff_state_callback,
-										   this, std::placeholders::_1));
+                                                                         std::bind(&BehaviorExecutive::takeoff_state_callback,
+                                                                                   this, std::placeholders::_1));
     landing_state_sub = this->create_subscription<std_msgs::msg::String>("landing_state", 1,
-									 std::bind(&BehaviorExecutive::landing_state_callback,
-										   this, std::placeholders::_1));
+                                                                         std::bind(&BehaviorExecutive::landing_state_callback,
+                                                                                   this, std::placeholders::_1));
     state_estimate_timed_out_sub =
-      this->create_subscription<std_msgs::msg::Bool>("state_estimate_timed_out", 1,
-						     std::bind(&BehaviorExecutive::state_estimate_timed_out_callback,
-							       this, std::placeholders::_1));
+        this->create_subscription<std_msgs::msg::Bool>("state_estimate_timed_out", 1,
+                                                       std::bind(&BehaviorExecutive::state_estimate_timed_out_callback,
+                                                                 this, std::placeholders::_1));
     stuck_sub =
-      this->create_subscription<std_msgs::msg::Bool>("stuck", 1,
-						     std::bind(&BehaviorExecutive::stuck_callback,
-							       this, std::placeholders::_1));
-									 
+        this->create_subscription<std_msgs::msg::Bool>("stuck", 1,
+                                                       std::bind(&BehaviorExecutive::stuck_callback,
+                                                                 this, std::placeholders::_1));
 
     // publishers
     recording_pub = this->create_publisher<std_msgs::msg::Bool>("set_recording_status", 1);
@@ -130,9 +130,12 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
                                  std::bind(&BehaviorExecutive::timer_callback, this));
 }
 
-void BehaviorExecutive::timer_callback() {
-    if (request_control_action->is_active()) {
-        if (request_control_action->active_has_changed()) {
+void BehaviorExecutive::timer_callback()
+{
+    if (request_control_action->is_active())
+    {
+        if (request_control_action->active_has_changed())
+        {
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
                 std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
             request->command = airstack_msgs::srv::RobotCommand::Request::REQUEST_CONTROL;
@@ -148,12 +151,14 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
-    if (arm_action->is_active()) {
-        if (arm_action->active_has_changed()) {
-	    std_msgs::msg::Bool start_msg;
-	    start_msg.data = true;
-	    recording_pub->publish(start_msg);
-	
+    if (arm_action->is_active())
+    {
+        if (arm_action->active_has_changed())
+        {
+            std_msgs::msg::Bool start_msg;
+            start_msg.data = true;
+            recording_pub->publish(start_msg);
+
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
                 std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
             request->command = airstack_msgs::srv::RobotCommand::Request::ARM;
@@ -169,13 +174,15 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
-    if (disarm_action->is_active()) {
-        if (disarm_action->active_has_changed()) {
-	    std_msgs::msg::Bool stop_msg;
-	    stop_msg.data = false;
-	    recording_pub->publish(stop_msg);
-	
-	    in_air_condition->set(false);
+    if (disarm_action->is_active())
+    {
+        if (disarm_action->active_has_changed())
+        {
+            std_msgs::msg::Bool stop_msg;
+            stop_msg.data = false;
+            recording_pub->publish(stop_msg);
+
+            in_air_condition->set(false);
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
                 std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
             request->command = airstack_msgs::srv::RobotCommand::Request::DISARM;
@@ -191,26 +198,29 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
-    if (takeoff_action->is_active()) {
+    if (takeoff_action->is_active())
+    {
         // std::cout << "takeoff" << std::endl;
         takeoff_action->set_running();
-	in_air_condition->set(true);
-	reset_stuck_pub->publish(std_msgs::msg::Empty());
-	
-        if (takeoff_action->active_has_changed()) {
-	    // clear the local planner's map
-	    clear_map_pub->publish(std_msgs::msg::Empty());
-	
+        in_air_condition->set(true);
+        reset_stuck_pub->publish(std_msgs::msg::Empty());
+
+        if (takeoff_action->active_has_changed())
+        {
+            // clear the local planner's map
+            clear_map_pub->publish(std_msgs::msg::Empty());
+
             // put trajectory controller in track mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
             auto mode_result = trajectory_mode_client->async_send_request(mode_request);
-            std::cout << "mode 1" << std::endl;
+            std::cout << "trajectory mode request sent" << std::endl;
             mode_result.wait();
-            std::cout << "mode 2" << std::endl;
+            std::cout << "trajectory mode request confirmed received" << std::endl;
 
-            if (mode_result.get()->success) {
+            if (mode_result.get()->success)
+            {
                 // send a takeoff command to ardupilot
                 // TODO clean up variable names
                 airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
@@ -223,44 +233,51 @@ void BehaviorExecutive::timer_callback() {
                 std::cout << "done robot command takeoff" << std::endl;
 
                 // send the takeoff trajectory
-                if (result.get()->success) {
+                if (result.get()->success)
+                {
                     airstack_msgs::srv::TakeoffLandingCommand::Request::SharedPtr takeoff_request =
                         std::make_shared<airstack_msgs::srv::TakeoffLandingCommand::Request>();
                     takeoff_request->command =
                         airstack_msgs::srv::TakeoffLandingCommand::Request::TAKEOFF;
                     auto takeoff_result =
                         takeoff_landing_command_client->async_send_request(takeoff_request);
-                    std::cout << "takeoff 1" << std::endl;
+                    std::cout << "takeoff request sent" << std::endl;
                     takeoff_result.wait();
-                    std::cout << "takeoff 2" << std::endl;
+                    std::cout << "takeoff request confirmed received" << std::endl;
                     if (!takeoff_result.get()->accepted)
                         takeoff_action->set_failure();
-                } else
+                }
+                else
                     takeoff_action->set_failure();
-            } else
+            }
+            else
                 takeoff_action->set_failure();
         }
 
-	if(takeoff_state == "COMPLETE"){
-	  takeoff_complete_condition->set(true);
-	  takeoff_action->set_success();
-	}
+        if (takeoff_state == "COMPLETE")
+        {
+            takeoff_complete_condition->set(true);
+            takeoff_action->set_success();
+        }
     }
 
-    if (land_action->is_active()) {
+    if (land_action->is_active())
+    {
         // std::cout << "land" << std::endl;
         land_action->set_running();
-        if (land_action->active_has_changed()) {
+        if (land_action->active_has_changed())
+        {
             // put trajectory controller in track mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
             auto mode_result = trajectory_mode_client->async_send_request(mode_request);
-            std::cout << "mode 1" << std::endl;
+            std::cout << "trajectory mode request sent" << std::endl;
             mode_result.wait();
-            std::cout << "mode 2" << std::endl;
+            std::cout << "trajectory mode request confirmed received" << std::endl;
 
-            if (mode_result.get()->success) {
+            if (mode_result.get()->success)
+            {
                 airstack_msgs::srv::TakeoffLandingCommand::Request::SharedPtr land_request =
                     std::make_shared<airstack_msgs::srv::TakeoffLandingCommand::Request>();
                 land_request->command = airstack_msgs::srv::TakeoffLandingCommand::Request::LAND;
@@ -272,20 +289,23 @@ void BehaviorExecutive::timer_callback() {
                     land_action->set_success();
                 else
                     land_action->set_failure();
-            } else
+            }
+            else
                 land_action->set_failure();
         }
-	
 
-	if(landing_state == "COMPLETE"){
-	  landing_complete_condition->set(true);
-	  land_action->set_success();
-	}
+        if (landing_state == "COMPLETE")
+        {
+            landing_complete_condition->set(true);
+            land_action->set_success();
+        }
     }
 
-    if (pause_action->is_active()) {
+    if (pause_action->is_active())
+    {
         pause_action->set_running();
-        if (pause_action->active_has_changed()) {
+        if (pause_action->active_has_changed())
+        {
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::PAUSE;
@@ -294,9 +314,11 @@ void BehaviorExecutive::timer_callback() {
         }
     }
 
-    if (rewind_action->is_active()) {
+    if (rewind_action->is_active())
+    {
         rewind_action->set_running();
-        if (rewind_action->active_has_changed()) {
+        if (rewind_action->active_has_changed())
+        {
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::REWIND;
@@ -306,65 +328,89 @@ void BehaviorExecutive::timer_callback() {
     }
 
     // follow fixed trajectory action
-    if (follow_fixed_trajectory_action->is_active()) {
+    if (follow_fixed_trajectory_action->is_active())
+    {
         follow_fixed_trajectory_action->set_running();
 
-        if (follow_fixed_trajectory_action->active_has_changed()) {
+        if (follow_fixed_trajectory_action->active_has_changed())
+        {
             // put trajectory controller in track mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
             auto mode_result = trajectory_mode_client->async_send_request(mode_request);
-            std::cout << "mode 1" << std::endl;
+            std::cout << "trajectory mode request sent" << std::endl;
             mode_result.wait();
-            std::cout << "mode 2" << std::endl;
+            std::cout << "trajectory mode request confirmed received" << std::endl;
         }
     }
 
-    if (global_plan_action->is_active()) {
+    if (global_plan_action->is_active())
+    {
         global_plan_action->set_running();
-        if (global_plan_action->active_has_changed()) {
+        if (global_plan_action->active_has_changed())
+        {
             // put trajectory controller in ADD_SEGMENT mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
             mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT;
             auto mode_result = trajectory_mode_client->async_send_request(mode_request);
-            std::cout << "mode 1" << std::endl;
+            std::cout << "trajectory mode request sent" << std::endl;
             mode_result.wait();
-            std::cout << "mode 2" << std::endl;
+            std::cout << "trajectory mode request confirmed received" << std::endl;
 
-	    if(global_planner_toggle_client->service_is_ready()){
-	        std_srvs::srv::Trigger::Request::SharedPtr request =
+            if (global_planner_toggle_client->service_is_ready())
+            {
+                std_srvs::srv::Trigger::Request::SharedPtr request =
                     std::make_shared<std_srvs::srv::Trigger::Request>();
-	        auto result = global_planner_toggle_client->async_send_request(request);
-	        result.wait();
-	        if (result.get()->success)
+                auto result = global_planner_toggle_client->async_send_request(request);
+                std::cout << "global planner toggle request sent" << std::endl;
+                result.wait();
+                std::cout << "global planner toggle request confirmed received" << std::endl;
+                if (result.get()->success)
+                {
+                    std::cout << "global planner toggle succeeded" << std::endl;
                     global_plan_action->set_success();
-	        else
+                }
+                else
+                {
+                    std::cout << "global planner toggle failed" << std::endl;
                     global_plan_action->set_failure();
-	    }
+                }
+            }
+            else
+            {
+                std::cout << "global planner toggle service not available" << std::endl;
+                global_plan_action->set_failure();
+            }
         };
     }
 
-    for (bt::Condition* condition : conditions) condition->publish();
-    for (bt::Action* action : actions) action->publish();
+    for (bt::Condition *condition : conditions)
+        condition->publish();
+    for (bt::Action *action : actions)
+        action->publish();
 }
 
 // callbacks
 
 /**
  * @brief Parses behavior tree commands and updates conditions accordingly
- * 
- * @param msg 
+ *
+ * @param msg
  */
-void BehaviorExecutive::bt_commands_callback(behavior_tree_msgs::msg::BehaviorTreeCommands msg) {
-    for (int i = 0; i < msg.commands.size(); i++) {
+void BehaviorExecutive::bt_commands_callback(behavior_tree_msgs::msg::BehaviorTreeCommands msg)
+{
+    for (int i = 0; i < msg.commands.size(); i++)
+    {
         std::string condition_name = msg.commands[i].condition_name;
         int status = msg.commands[i].status;
 
-        for (int j = 0; j < conditions.size(); j++) {
-            bt::Condition* condition = conditions[j];
-            if (condition_name == condition->get_label()) {
+        for (int j = 0; j < conditions.size(); j++)
+        {
+            bt::Condition *condition = conditions[j];
+            if (condition_name == condition->get_label())
+            {
                 if (status == behavior_tree_msgs::msg::Status::SUCCESS)
                     condition->set(true);
                 else if (status == behavior_tree_msgs::msg::Status::FAILURE)
@@ -374,33 +420,38 @@ void BehaviorExecutive::bt_commands_callback(behavior_tree_msgs::msg::BehaviorTr
     }
 }
 
-void BehaviorExecutive::is_armed_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+void BehaviorExecutive::is_armed_callback(const std_msgs::msg::Bool::SharedPtr msg)
+{
     armed_condition->set(msg->data);
 }
 
-void BehaviorExecutive::has_control_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+void BehaviorExecutive::has_control_callback(const std_msgs::msg::Bool::SharedPtr msg)
+{
     offboard_mode_condition->set(msg->data);
 }
 
-
-void BehaviorExecutive::takeoff_state_callback(const std_msgs::msg::String::SharedPtr msg){
-  takeoff_state = msg->data;
+void BehaviorExecutive::takeoff_state_callback(const std_msgs::msg::String::SharedPtr msg)
+{
+    takeoff_state = msg->data;
 }
 
-void BehaviorExecutive::landing_state_callback(const std_msgs::msg::String::SharedPtr msg){
-  landing_state = msg->data;
+void BehaviorExecutive::landing_state_callback(const std_msgs::msg::String::SharedPtr msg)
+{
+    landing_state = msg->data;
 }
 
-void BehaviorExecutive::state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg){
-  state_estimate_timed_out_condition->set(msg->data);
+void BehaviorExecutive::state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+    state_estimate_timed_out_condition->set(msg->data);
 }
 
-
-void BehaviorExecutive::stuck_callback(const std_msgs::msg::Bool::SharedPtr msg){
-  stuck_condition->set(msg->data);
+void BehaviorExecutive::stuck_callback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+    stuck_condition->set(msg->data);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     rclcpp::init(argc, argv);
     std::shared_ptr<rclcpp::Node> node = std::make_shared<BehaviorExecutive>();
 
@@ -410,4 +461,4 @@ int main(int argc, char** argv) {
     rclcpp::shutdown();
 
     return 0;
-} 
+}
