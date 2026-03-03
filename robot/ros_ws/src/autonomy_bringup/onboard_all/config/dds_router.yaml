@@ -29,18 +29,24 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_graphviz"
 
-  # behavior tree services
-  - name: "rq/$(env ROBOT_NAME)/robot_command"
-  - name: "rr/$(env ROBOT_NAME)/robot_command"
+  # allow all services
+  - name: "rq/*"
+    type: "*"
+  - name: "rr/*"
+    type: "*"
 
-  - name: "rq/$(env ROBOT_NAME)/set_trajectory_mode"
-  - name: "rr/$(env ROBOT_NAME)/set_trajectory_mode"
+  # # behavior tree services
+  # - name: "rq/$(env ROBOT_NAME)/interface/robot_command"
+  # - name: "rr/$(env ROBOT_NAME)/interface/robot_command"
 
-  - name: "rq/$(env ROBOT_NAME)/set_takeoff_landing_command"
-  - name: "rr/$(env ROBOT_NAME)/set_takeoff_landing_command"
+  # - name: "rq/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+  # - name: "rr/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
 
-  - name: "rq/$(env ROBOT_NAME)/global_plan_toggle"
-  - name: "rr/$(env ROBOT_NAME)/global_plan_toggle"
+  # - name: "rq/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command"
+  # - name: "rr/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command"
+
+  # - name: "rq/$(env ROBOT_NAME)/behavior/global_plan_toggle"
+  # - name: "rr/$(env ROBOT_NAME)/behavior/global_plan_toggle"
 
   # bag recording status
   - name: "rt/$(env ROBOT_NAME)/bag_record/bag_recording_status"
