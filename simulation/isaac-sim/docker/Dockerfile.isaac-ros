@@ -89,7 +89,6 @@ RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
 # Update LD_LIBRARY_PATH to include ROS2 libraries (Fixes internal rclpy import)
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros/jazzy/lib:/jazzy/lib
-ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 
 # ============================================================================
@@ -146,11 +145,10 @@ RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/shar
 
 # Install PX4 things
 RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
-# install px4 dependencies as root for global installs
-USER root
+# install px4 dependencies and build
 RUN cd PX4-Autopilot && \
     DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
-# build px4 as user
+# build px4
 RUN cd PX4-Autopilot && \
     make px4_sitl
 
@@ -168,6 +166,7 @@ ENV FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/.ros/fastdds.xml
 ENV ISAACSIM_PATH=/isaac-sim
 ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 
+# set home folder to /isaac-sim 
 RUN sed -i 's|^root:x:0:0:root:/root:|root:x:0:0:root:/isaac-sim:|' /etc/passwd
 
 WORKDIR /isaac-sim

@@ -7,7 +7,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     apt-get -o APT::Get::AllowUnauthenticated=true install -y \
     vim nano emacs wget curl tree sshpass \
     iperf3 iftop iputils-ping net-tools htop \
-    cmake build-essential less htop jq python3-pip tmux gdb \
+    cmake build-essential less jq python3-pip tmux gdb \
     ros-dev-tools ros-jazzy-mavros ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
     ros-jazzy-image-view ros-jazzy-topic-tools ros-jazzy-grid-map \
     ros-jazzy-domain-bridge ros-jazzy-ros2cli python3-colcon-common-extensions \
@@ -18,7 +18,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
     gstreamer1.0-x gstreamer1.0-alsa openssh-server \
     xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11 \
-    ros-jazzy-rosbag2-storage-mcap ros-jazzy-plotjuggler ros-jazzy-plotjuggler \
+    ros-jazzy-rosbag2-storage-mcap ros-jazzy-plotjuggler \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -38,9 +38,11 @@ RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/
     (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
 # install FoxGloveStudio and ros-jazzy-foxglove-bridge
-RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
-RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt -o APT::Get::AllowUnauthenticated=true install -y ./foxglove-studio-latest-linux-amd64.deb
-RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-jazzy-foxglove-bridge
+RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
+    && apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update \
+    && apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends /tmp/foxglove-studio.deb ros-jazzy-foxglove-bridge \
+    && rm /tmp/foxglove-studio.deb \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)

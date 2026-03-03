@@ -10,7 +10,6 @@ ARG BASE_IMAGE
 ARG REAL_ROBOT
 ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
-ARG SKIP_OPENVDB=false
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
 
@@ -108,13 +107,9 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "
   dpkg -i cuda-keyring_1.1-1_all.deb || true; \
   fi && \
   apt update -y && \
-  (apt install -y \
-  libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
-  python3-libnvinfer python3-libnvinfer-dev || \
-  apt install -y \
+  apt install -y --no-install-recommends \
   libnvinfer10 libnvinfer-dev libnvinfer-plugin10 \
-  python3-libnvinfer python3-libnvinfer-dev || \
-  echo "TensorRT packages not available, skipping..."); \
+  python3-libnvinfer python3-libnvinfer-dev; \
   fi
 
 # Install Python dependencies (unconditional)
@@ -164,19 +159,6 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   tensorrt; \
   fi
 
-# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 24.04  https://bugs.launchpad.net/bugs/1970108
-RUN if [ "${SKIP_OPENVDB}" != "true" ]; then \
-  apt remove -y libopenvdb* && \
-  git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
-  mkdir /opt/openvdb/build && cd /opt/openvdb/build && \
-  cmake .. && \
-  make -j8 && make install && \
-  cd .. && rm -rf /opt/openvdb/build; \
-  fi
-
-# Install colcon, seems to be getting removed
-RUN pip install --break-system-packages -U colcon-common-extensions
-
 # Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
 WORKDIR /model_weights
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
@@ -189,8 +171,10 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   fi
 
 # Fixes for MACVO Integration (skipped if SKIP_MACVO=true)
-RUN if [ "${SKIP_MACVO}" != "true" ]; then pip install --break-system-packages huggingface_hub; fi
-RUN if [ "${SKIP_MACVO}" != "true" ]; then pip uninstall --break-system-packages matplotlib -y; fi
+RUN if [ "${SKIP_MACVO}" != "true" ]; then \
+  pip install --break-system-packages huggingface_hub && \
+  pip uninstall --break-system-packages matplotlib -y; \
+  fi
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
@@ -226,7 +210,6 @@ ARG BASE_IMAGE
 ARG REAL_ROBOT
 ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
-ARG SKIP_OPENVDB=false
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
 
@@ -313,9 +296,10 @@ RUN apt update -y && apt install -y --no-install-recommends \
 
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
-# Install DDS Router runtime library dependencies
+# Install DDS Router runtime library dependencies + OpenVDB
 RUN apt update && apt install -y --no-install-recommends \
   libtinyxml2-dev libssl-dev libyaml-cpp-dev \
+  libopenvdb-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Install NVIDIA runtime apt packages (no -dev counterparts; NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
@@ -356,10 +340,10 @@ COPY --from=builder /model_weights            /model_weights
 COPY --from=builder /root/.tmux               /root/.tmux
 
 # Password is airstack
-RUN echo 'root:airstack' | chpasswd
-RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+RUN echo 'root:airstack' | chpasswd \
+  && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+  && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config \
+  && sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
 
 EXPOSE 22
 
