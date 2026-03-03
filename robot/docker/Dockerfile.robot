@@ -120,6 +120,7 @@ RUN pip3 install --break-system-packages --ignore-installed \
   future \
   lxml \
   matplotlib==3.8.4 \
+  # numpy must be <2.0 for MACVO
   numpy~=1.26.4 \
   pkgconfig \
   psutil \
@@ -128,7 +129,8 @@ RUN pip3 install --break-system-packages --ignore-installed \
   pymavlink \
   pyyaml \
   requests \
-  setuptools \
+  # setup tools must be <80 for Jazzy https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
+  setuptools==79.0.1 \
   six \
   toml \
   scipy \
@@ -177,8 +179,7 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   fi
 
 # TMux config
-RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
-  (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)

@@ -22,8 +22,28 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip3 install --break-system-packages empy future lxml matplotlib numpy pkgconfig psutil pygments \
-    wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt sphinx utm
+RUN pip3 install --break-system-packages \
+    empy \
+    future \
+    lxml \
+    matplotlib \
+    numpy \
+    pkgconfig \
+    psutil \
+    pygments \
+    wheel \
+    pymavlink \
+    pyyaml \
+    requests \
+    # setup tools must be <80 for Jazzy https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
+    setuptools==79.0.1 \
+    six \
+    toml \
+    scipy \
+    pytak \
+    paho-mqtt \
+    sphinx \
+    utm
 
 # Configure SSH
 RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
