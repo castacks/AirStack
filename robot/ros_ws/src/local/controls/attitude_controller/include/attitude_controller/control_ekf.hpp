@@ -15,7 +15,7 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <ros/console.h>
 #include "tf2/transform_datatypes.h"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "std_msgs/Bool.h"
 #include <sensor_msgs/Imu.h>
 #include <Eigen/Dense>

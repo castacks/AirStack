@@ -11,10 +11,10 @@
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/CameraInfo.h"
 #include "std_msgs/Header.h"
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include "opencv2/core/core.hpp"
 #include <opencv2/imgproc/imgproc.hpp>
-#include <image_geometry/pinhole_camera_model.h>
+#include <image_geometry/pinhole_camera_model.hpp>
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 #include <pcl_ros/point_cloud.h>
@@ -27,8 +27,8 @@
 #include <message_filters/time_synchronizer.h>
 */
 
-#include <cv_bridge/cv_bridge.h>
-#include <image_geometry/pinhole_camera_model.h>
+#include <cv_bridge/cv_bridge.hpp>
+#include <image_geometry/pinhole_camera_model.hpp>
 #include <geometry_msgs/msg/polygon_stamped.hpp>
 #include <image_transport/image_transport.hpp>
 //#include <stereo_msgs/msg/disparity_image.hpp>
