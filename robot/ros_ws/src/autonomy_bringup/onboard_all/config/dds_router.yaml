@@ -1,8 +1,8 @@
 # note that all ROS2 topics must be prefixed:
 #   rt/ (ROS Topic): Prefixed to all standard ROS 2 topics.
-#   rq/ (ROS Service Request): Prefixed to the request topic of a ROS 2 service.
-#   rr/ (ROS Service Response): Prefixed to the response topic of a ROS 2 service.
-#   rs/ (ROS Service): Reserved for systems where services are handled as a single entity rather than separate request/response topics. 
+#   rq/<service_name>Request (ROS Service Request): Prefixed to the request topic of a ROS 2 service.
+#   rr/<service_name>Reply (ROS Service Reply): Prefixed to the reply topic of a ROS 2 service.
+#   rs/ (ROS Service): Reserved for systems where services are handled as a single entity rather than separate request/reply topics. 
 #   [action_topic]/_action/status: A topic for goal status updates.
 #   [action_topic]/_action/feedback: A topic for feedback during execution.
 #   [action_topic]/_action/send_goal: A service to initiate the action.
@@ -29,24 +29,24 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_graphviz"
 
-  # allow all services
-  - name: "rq/*"
-    type: "*"
-  - name: "rr/*"
-    type: "*"
+  # # allow all services
+  # - name: "rq/*"
+  #   type: "*"
+  # - name: "rr/*"
+  #   type: "*"
 
-  # # behavior tree services
-  # - name: "rq/$(env ROBOT_NAME)/interface/robot_command"
-  # - name: "rr/$(env ROBOT_NAME)/interface/robot_command"
+  # behavior tree services
+  - name: "rq/$(env ROBOT_NAME)/interface/robot_commandRequest"
+  - name: "rr/$(env ROBOT_NAME)/interface/robot_commandReply"
 
-  # - name: "rq/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
-  # - name: "rr/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+  - name: "rq/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_modeRequest"
+  - name: "rr/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_modeReply"
 
-  # - name: "rq/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command"
-  # - name: "rr/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_command"
+  - name: "rq/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_commandRequest"
+  - name: "rr/$(env ROBOT_NAME)/takeoff_landing_planner/set_takeoff_landing_commandReply"
 
-  # - name: "rq/$(env ROBOT_NAME)/behavior/global_plan_toggle"
-  # - name: "rr/$(env ROBOT_NAME)/behavior/global_plan_toggle"
+  - name: "rq/$(env ROBOT_NAME)/behavior/global_plan_toggleRequest"
+  - name: "rr/$(env ROBOT_NAME)/behavior/global_plan_toggleReply"
 
   # bag recording status
   - name: "rt/$(env ROBOT_NAME)/bag_record/bag_recording_status"
