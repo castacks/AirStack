@@ -9,8 +9,6 @@
 ROS2_WS_DIR="$HOME/AirStack/gcs/ros_ws"
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
 export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/src/fastdds.xml"
-# for local development, prevent conflict with other desktops
-export ROS_LOCALHOST_ONLY=1
 
 # fix ROS2 jazzy setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-jazzy/24349#24349
 PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"
