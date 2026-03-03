@@ -73,7 +73,7 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
     cp -r geographic-info/geographic_msgs/ . && \
     rm -rf geographic-info
 
-RUN git clone --branch jazzy-v4.2.x https://github.com/stereolabs/zed-ros2-wrapper.git && \
+RUN git clone --branch v5.2.0 https://github.com/stereolabs/zed-ros2-wrapper.git && \
     mv zed-ros2-wrapper/zed* . && \
     rm -rf zed-ros2-wrapper
 
