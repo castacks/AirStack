@@ -1,0 +1,11 @@
+# onboard_all DDS Router
+extends: "$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml"
+
+allowlist:
+  # ============= Outgoing from Robot ================
+
+  # ============= Incoming to Robot ================
+  # control commands
+  
+  - name : "rt/$(env ROBOT_NAME)/global_plan"
+    type: "nav_msgs/msg/Path"

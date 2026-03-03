@@ -36,9 +36,9 @@ lite, desktop_split sim)
       file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
 
     <!-- Domain Bridge -->
-    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_domain_bridge.launch.py">
+    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
       <arg name="config_file"
-        value="$(find-pkg-share autonomy_bringup)/onboard_all/config/domain_bridge.yaml" />
+        value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
       <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
     </include>
   </group>
@@ -49,9 +49,9 @@ lite, desktop_split sim)
       file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
 
     <!-- Domain Bridge -->
-    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_domain_bridge.launch.py">
+    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
       <arg name="config_file"
-        value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/domain_bridge.yaml" />
+        value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/dds_router.yaml" />
       <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
     </include>
 
