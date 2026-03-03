@@ -1,4 +1,4 @@
-FROM osrf/ros:humble-desktop-full
+FROM osrf/ros:jazzy-desktop-full
 
 SHELL ["/bin/bash", "-c"]
 
@@ -8,9 +8,9 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     vim nano emacs wget curl tree sshpass \
     iperf3 iftop iputils-ping net-tools htop \
     cmake build-essential less htop jq python3-pip tmux gdb \
-    ros-dev-tools ros-humble-mavros ros-humble-tf2* ros-humble-stereo-image-proc \
-    ros-humble-image-view ros-humble-topic-tools ros-humble-grid-map \
-    ros-humble-domain-bridge ros-humble-ros2cli python3-colcon-common-extensions \
+    ros-dev-tools ros-jazzy-mavros ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
+    ros-jazzy-image-view ros-jazzy-topic-tools ros-jazzy-grid-map \
+    ros-jazzy-domain-bridge ros-jazzy-ros2cli python3-colcon-common-extensions \
     libglib2.0-dev libcgal-dev mosquitto mosquitto-clients \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \
@@ -18,7 +18,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
     gstreamer1.0-x gstreamer1.0-alsa openssh-server \
     xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11 \
-    ros-humble-rosbag2-storage-mcap ros-humble-plotjuggler ros-humble-plotjuggler \
+    ros-jazzy-rosbag2-storage-mcap ros-jazzy-plotjuggler ros-jazzy-plotjuggler \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -36,10 +36,10 @@ EXPOSE 22
 # TMux config
 RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
-# install FoxGloveStudio and ros-humble-foxglove-bridge
+# install FoxGloveStudio and ros-jazzy-foxglove-bridge
 RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
 RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt -o APT::Get::AllowUnauthenticated=true install -y ./foxglove-studio-latest-linux-amd64.deb
-RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-humble-foxglove-bridge
+RUN apt -o APT::Get::AllowUnauthenticated=true install -y ros-jazzy-foxglove-bridge
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)

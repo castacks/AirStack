@@ -13,7 +13,7 @@ services:
     build:
       dockerfile: ./Dockerfile.robot
       args:
-        BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu22.04
+        BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
       tags:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
@@ -106,7 +106,7 @@ services:
     build:
       dockerfile: ./Dockerfile.robot
       args:
-        BASE_IMAGE: ubuntu:22.04
+        BASE_IMAGE: ubuntu:24.04
         REAL_ROBOT: true
         SKIP_OPENVDB: true
         SKIP_MACVO: true

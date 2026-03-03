@@ -2,7 +2,7 @@ ARG L4T_MAJOR=${L4T_MAJOR}
 ARG L4T_MINOR=${L4T_MINOR}
 ARG L4T_PATCH=${L4T_PATCH}
 ARG L4T_VERSION=l4t-r${L4T_MAJOR}.${L4T_MINOR}.${L4T_PATCH}
-ARG IMAGE_NAME=dustynv/ros:humble-desktop-${L4T_VERSION}
+ARG IMAGE_NAME=dustynv/ros:jazzy-desktop-${L4T_VERSION}
 
 FROM ${IMAGE_NAME}
 
@@ -10,7 +10,7 @@ ARG L4T_MAJOR=${L4T_MAJOR}
 ARG L4T_MINOR=${L4T_MINOR}
 ARG L4T_PATCH=${L4T_PATCH}
 
-ARG ROS2_DIST=humble
+ARG ROS2_DIST=jazzy
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -73,7 +73,7 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
     cp -r geographic-info/geographic_msgs/ . && \
     rm -rf geographic-info
 
-RUN git clone --branch humble-v4.2.x https://github.com/stereolabs/zed-ros2-wrapper.git && \
+RUN git clone --branch jazzy-v4.2.x https://github.com/stereolabs/zed-ros2-wrapper.git && \
     mv zed-ros2-wrapper/zed* . && \
     rm -rf zed-ros2-wrapper
 

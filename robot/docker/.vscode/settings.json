@@ -8,7 +8,7 @@
     "editor.defaultFormatter": "ms-python.black-formatter"
   },
   // ROS
-  "ros.distro": "humble",
+  "ros.distro": "jazzy",
   "search.exclude": {
     "**/build": true,
     "**/install": true,
@@ -730,7 +730,7 @@
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/extscore/omni.kit.registry.nucleus",
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/kernel/py",
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/plugins/bindings-python",
-    "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/python/lib/python3.10/site-packages",
+    "~/.local/share/ov/pkg/isaac-sim-4.0.0/kit/python/lib/python3.12/site-packages",
     "~/.local/share/ov/pkg/isaac-sim-4.0.0/python_packages"
   ],
   "files.associations": {
@@ -827,21 +827,21 @@
   "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 100 }",
   "editor.formatOnSave": true,
   "python.autoComplete.extraPaths": [
-    "/home/robot/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.10/dist-packages",
+    "/home/robot/ros_ws/install/vdb_mapping_interfaces/local/lib/python3.12/dist-packages",
     "/home/robot/ros_ws/build/rqt_py_template/src",
-    "/home/robot/ros_ws/install/rqt_py_template/lib/python3.10/site-packages",
+    "/home/robot/ros_ws/install/rqt_py_template/lib/python3.12/site-packages",
     "/home/robot/ros_ws/build/rqt_fixed_trajectory_generator/src",
-    "/home/robot/ros_ws/install/rqt_fixed_trajectory_generator/lib/python3.10/site-packages",
+    "/home/robot/ros_ws/install/rqt_fixed_trajectory_generator/lib/python3.12/site-packages",
     "/home/robot/ros_ws/build/rqt_behavior_tree_command/src",
-    "/home/robot/ros_ws/install/rqt_behavior_tree_command/lib/python3.10/site-packages",
+    "/home/robot/ros_ws/install/rqt_behavior_tree_command/lib/python3.12/site-packages",
     "/home/robot/ros_ws/build/rqt_behavior_tree/src",
-    "/home/robot/ros_ws/install/rqt_behavior_tree/lib/python3.10/site-packages",
-    "/home/robot/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages",
-    "/home/robot/ros_ws/install/mav_planning_msgs/local/lib/python3.10/dist-packages",
-    "/home/robot/ros_ws/install/mav_msgs/local/lib/python3.10/dist-packages",
-    "/home/robot/ros_ws/install/behavior_tree_msgs/local/lib/python3.10/dist-packages",
-    "/home/robot/ros_ws/install/airstack_msgs/local/lib/python3.10/dist-packages",
-    "/opt/ros/humble/lib/python3.10/site-packages",
-    "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    "/home/robot/ros_ws/install/rqt_behavior_tree/lib/python3.12/site-packages",
+    "/home/robot/ros_ws/install/px4_msgs/local/lib/python3.12/dist-packages",
+    "/home/robot/ros_ws/install/mav_planning_msgs/local/lib/python3.12/dist-packages",
+    "/home/robot/ros_ws/install/mav_msgs/local/lib/python3.12/dist-packages",
+    "/home/robot/ros_ws/install/behavior_tree_msgs/local/lib/python3.12/dist-packages",
+    "/home/robot/ros_ws/install/airstack_msgs/local/lib/python3.12/dist-packages",
+    "/opt/ros/jazzy/lib/python3.12/site-packages",
+    "/opt/ros/jazzy/local/lib/python3.12/dist-packages"
   ]
 }

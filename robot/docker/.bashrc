@@ -12,7 +12,7 @@ export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/src/fastdds.xml"
 # for local development, prevent conflict with other desktops
 export ROS_LOCALHOST_ONLY=1
 
-# fix ROS2 humble setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
+# fix ROS2 jazzy setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
 PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"
 export PYTHONWARNINGS
 
@@ -56,7 +56,7 @@ function cws(){
         fi
 
         # Set environment variables
-        export AMENT_PREFIX_PATH="/opt/ros/humble"
+        export AMENT_PREFIX_PATH="/opt/ros/jazzy"
         export CMAKE_PREFIX_PATH=""
 
         { set +x; } 2>/dev/null  # set +x w/out it being printed
@@ -66,7 +66,7 @@ function cws(){
     fi
 }
 
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
 # Only extract robot name and ROS domain ID iff they are not already set in the environment (e.g. by docker compose)

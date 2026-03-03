@@ -1,9 +1,9 @@
-# either ubuntu:22.04 or l4t. ubuntu:22.04 is default
+# either ubuntu:24.04 or l4t. ubuntu:24.04 is default
 ARG BASE_IMAGE
 # ============================================================
 # Stage 1 — builder: compile/download everything
 # ============================================================
-FROM ${BASE_IMAGE:-ubuntu:22.04} AS builder
+FROM ${BASE_IMAGE:-ubuntu:24.04} AS builder
 
 # Re-declare ARGs (Docker ARGs do not persist across FROM)
 ARG BASE_IMAGE
@@ -14,7 +14,7 @@ ARG SKIP_OPENVDB=false
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
 
-# from https://github.com/athackst/dockerfiles/blob/main/ros2/humble.Dockerfile
+# from https://github.com/athackst/dockerfiles/blob/main/ros2/jazzy.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "-c"]
@@ -54,16 +54,16 @@ RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-    ros-humble-desktop \
+    ros-jazzy-desktop \
     python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
-ENV ROS_DISTRO=humble
-ENV AMENT_PREFIX_PATH=/opt/ros/humble
-ENV COLCON_PREFIX_PATH=/opt/ros/humble
-ENV LD_LIBRARY_PATH=/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib
-ENV PATH=/opt/ros/humble/bin:$PATH
-ENV PYTHONPATH=/opt/ros/humble/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages
+ENV ROS_DISTRO=jazzy
+ENV AMENT_PREFIX_PATH=/opt/ros/jazzy
+ENV COLCON_PREFIX_PATH=/opt/ros/jazzy
+ENV LD_LIBRARY_PATH=/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/lib
+ENV PATH=/opt/ros/jazzy/bin:$PATH
+ENV PYTHONPATH=/opt/ros/jazzy/local/lib/python3.12/dist-packages:/opt/ros/jazzy/lib/python3.12/site-packages
 ENV ROS_PYTHON_VERSION=3
 ENV ROS_VERSION=2
 ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
@@ -84,21 +84,21 @@ RUN apt update && apt install -y --no-install-recommends \
 # Install any additional ROS2 packages
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
-  ros-humble-mavros \
-  ros-humble-tf2* \
-  ros-humble-stereo-image-proc \
-  ros-humble-image-view \
-  ros-humble-topic-tools \
-  ros-humble-grid-map \
-  ros-humble-domain-bridge \
-  ros-humble-rosbag2-storage-mcap \
-  ros-humble-xacro \
-  ros-humble-foxglove-bridge \
+  ros-jazzy-mavros \
+  ros-jazzy-tf2* \
+  ros-jazzy-stereo-image-proc \
+  ros-jazzy-image-view \
+  ros-jazzy-topic-tools \
+  ros-jazzy-grid-map \
+  ros-jazzy-domain-bridge \
+  ros-jazzy-rosbag2-storage-mcap \
+  ros-jazzy-xacro \
+  ros-jazzy-foxglove-bridge \
   libcgal-dev \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
 # Install TensorRT (NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
 RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
@@ -155,7 +155,7 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
     tensorrt; \
   fi
 
-# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 22.04  https://bugs.launchpad.net/bugs/1970108
+# Override install newer openvdb 9.1.0 for compatibility with Ubuntu 24.04  https://bugs.launchpad.net/bugs/1970108
 RUN if [ "${SKIP_OPENVDB}" != "true" ]; then \
   apt remove -y libopenvdb* && \
   git clone --recurse --branch v9.1.0 https://github.com/wyca-robotics/openvdb.git /opt/openvdb && \
@@ -209,7 +209,7 @@ RUN apt autoremove -y \
 # ============================================================
 # Stage 2 — runtime: lean final image
 # ============================================================
-FROM ${BASE_IMAGE:-ubuntu:22.04} AS runtime
+FROM ${BASE_IMAGE:-ubuntu:24.04} AS runtime
 
 # Re-declare ARGs (Docker ARGs do not persist across FROM)
 ARG BASE_IMAGE
@@ -259,17 +259,17 @@ RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-    ros-humble-desktop \
+    ros-jazzy-desktop \
     python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
 # Carry over all ROS2 ENV vars from the builder stage
-ENV ROS_DISTRO=humble
-ENV AMENT_PREFIX_PATH=/opt/ros/humble
-ENV COLCON_PREFIX_PATH=/opt/ros/humble
-ENV LD_LIBRARY_PATH=/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib
-ENV PATH=/opt/ros/humble/bin:$PATH
-ENV PYTHONPATH=/opt/ros/humble/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages
+ENV ROS_DISTRO=jazzy
+ENV AMENT_PREFIX_PATH=/opt/ros/jazzy
+ENV COLCON_PREFIX_PATH=/opt/ros/jazzy
+ENV LD_LIBRARY_PATH=/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/lib
+ENV PATH=/opt/ros/jazzy/bin:$PATH
+ENV PYTHONPATH=/opt/ros/jazzy/local/lib/python3.12/dist-packages:/opt/ros/jazzy/lib/python3.12/site-packages
 ENV ROS_PYTHON_VERSION=3
 ENV ROS_VERSION=2
 ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
@@ -288,20 +288,20 @@ RUN apt update && apt install -y --no-install-recommends \
 # Install runtime ROS2 packages (no libcgal-dev)
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
-  ros-humble-mavros \
-  ros-humble-tf2* \
-  ros-humble-stereo-image-proc \
-  ros-humble-image-view \
-  ros-humble-topic-tools \
-  ros-humble-grid-map \
-  ros-humble-domain-bridge \
-  ros-humble-rosbag2-storage-mcap \
-  ros-humble-xacro \
-  ros-humble-foxglove-bridge \
+  ros-jazzy-mavros \
+  ros-jazzy-tf2* \
+  ros-jazzy-stereo-image-proc \
+  ros-jazzy-image-view \
+  ros-jazzy-topic-tools \
+  ros-jazzy-grid-map \
+  ros-jazzy-domain-bridge \
+  ros-jazzy-rosbag2-storage-mcap \
+  ros-jazzy-xacro \
+  ros-jazzy-foxglove-bridge \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
-RUN /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh
+RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
 # Install DDS Router runtime library dependencies
 RUN apt update && apt install -y --no-install-recommends \
@@ -333,8 +333,8 @@ RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-i
 RUN mkdir /var/run/sshd
 
 # Copy build artifacts from the builder stage
-# /opt/ros/humble is NOT copied — runtime installs the same packages via apt (including foxglove-bridge)
-# /usr/local/lib/python3.10 is NOT copied separately — it is covered by /usr/local/lib below
+# /opt/ros/jazzy is NOT copied — runtime installs the same packages via apt (including foxglove-bridge)
+# /usr/local/lib/python3.12 is NOT copied separately — it is covered by /usr/local/lib below
 # /usr/local/include is copied to provide OpenVDB (and DDS Router) headers for in-container colcon builds
 COPY --from=builder /usr/local/bin            /usr/local/bin
 COPY --from=builder /usr/local/lib            /usr/local/lib
