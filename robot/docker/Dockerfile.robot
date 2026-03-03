@@ -37,25 +37,25 @@ RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime \
 
 # Install common programs
 RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-    emacs \
-    curl \
-    gnupg2 \
-    lsb-release \
-    sudo \
-    software-properties-common \
-    wget \
-    iputils-ping \
-    net-tools \
-    bind9-host \
-    && rm -rf /var/lib/apt/lists/*
+  emacs \
+  curl \
+  gnupg2 \
+  lsb-release \
+  sudo \
+  software-properties-common \
+  wget \
+  iputils-ping \
+  net-tools \
+  bind9-host \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
 RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-    ros-jazzy-desktop \
-    python3-argcomplete \
+  ros-jazzy-desktop \
+  python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
 ENV ROS_DISTRO=jazzy
@@ -104,17 +104,17 @@ RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 # Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
 RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
   if [ ! -f /etc/apt/sources.list.d/cuda*.list ]; then \
-    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
-    dpkg -i cuda-keyring_1.1-1_all.deb || true; \
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
+  dpkg -i cuda-keyring_1.1-1_all.deb || true; \
   fi && \
   apt update -y && \
   (apt install -y \
-    libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
-    python3-libnvinfer python3-libnvinfer-dev || \
-   apt install -y \
-    libnvinfer10 libnvinfer-dev libnvinfer-plugin10 \
-    python3-libnvinfer python3-libnvinfer-dev || \
-   echo "TensorRT packages not available, skipping..."); \
+  libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
+  python3-libnvinfer python3-libnvinfer-dev || \
+  apt install -y \
+  libnvinfer10 libnvinfer-dev libnvinfer-plugin10 \
+  python3-libnvinfer python3-libnvinfer-dev || \
+  echo "TensorRT packages not available, skipping..."); \
   fi
 
 # Install Python dependencies (unconditional)
@@ -125,7 +125,7 @@ RUN pip3 install --break-system-packages --ignore-installed \
   future \
   lxml \
   matplotlib==3.8.4 \
-  numpy>=1.26.0 \
+  numpy~=1.26.4 \
   pkgconfig \
   psutil \
   pygments \
@@ -158,10 +158,10 @@ RUN pip3 install --break-system-packages --ignore-installed \
 # Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   pip3 install --break-system-packages \
-    torch \
-    torchvision \
-    onnx \
-    tensorrt; \
+  torch \
+  torchvision \
+  onnx \
+  tensorrt; \
   fi
 
 # Override install newer openvdb 9.1.0 for compatibility with Ubuntu 24.04  https://bugs.launchpad.net/bugs/1970108
@@ -180,12 +180,12 @@ RUN pip install --break-system-packages -U colcon-common-extensions
 # Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
 WORKDIR /model_weights
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \
-    wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
-    pwd && ls -R && \
-    mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
-    mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
-    rm -rf /model_weights/github.com; \
+  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \
+  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
+  pwd && ls -R && \
+  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
+  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
+  rm -rf /model_weights/github.com; \
   fi
 
 # Fixes for MACVO Integration (skipped if SKIP_MACVO=true)
@@ -194,7 +194,7 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then pip uninstall --break-system-packages
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
-    (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
+  (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
@@ -252,25 +252,25 @@ RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime \
 
 # Install common programs
 RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-    emacs \
-    curl \
-    gnupg2 \
-    lsb-release \
-    sudo \
-    software-properties-common \
-    wget \
-    iputils-ping \
-    net-tools \
-    bind9-host \
-    && rm -rf /var/lib/apt/lists/*
+  emacs \
+  curl \
+  gnupg2 \
+  lsb-release \
+  sudo \
+  software-properties-common \
+  wget \
+  iputils-ping \
+  net-tools \
+  bind9-host \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2
 RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-    ros-jazzy-desktop \
-    python3-argcomplete \
+  ros-jazzy-desktop \
+  python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
 # Carry over all ROS2 ENV vars from the builder stage
@@ -322,16 +322,13 @@ RUN apt update && apt install -y --no-install-recommends \
 # Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
 RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
   if [ ! -f /etc/apt/sources.list.d/cuda*.list ]; then \
-    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
-    dpkg -i cuda-keyring_1.1-1_all.deb || true; \
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
+  dpkg -i cuda-keyring_1.1-1_all.deb || true; \
   fi && \
   apt update -y && \
-  (apt install -y \
-    libnvinfer8 libnvinfer-plugin8 \
-    python3-libnvinfer || \
-   apt install -y \
-    libnvinfer10 libnvinfer-plugin10 \
-    python3-libnvinfer) \
+  apt install -y \
+  libnvinfer10 libnvinfer-plugin10 \
+  python3-libnvinfer \
   && rm -rf /var/lib/apt/lists/*; \
   fi
 
