@@ -26,6 +26,16 @@ Config inheritance via 'extends:':
         kind: "local"
         domain: 5
 
+Merge-control YAML tags:
+  !override  – applied to a list or dict value in the extending file; the tagged
+               value completely replaces the corresponding base value instead of
+               being appended/merged.  Example:
+                 allowlist: !override
+                   - name: "rt/my_robot/only_this_topic"
+  !reset     – applied to any value; removes the key from the merged result
+               entirely.  Example:
+                 allowlist: !reset
+
 Launch arguments:
   config_file  (required)
       Absolute path to the DDS Router YAML config file.
@@ -55,6 +65,63 @@ from launch.actions import DeclareLaunchArgument, ExecuteProcess, LogInfo, Opaqu
 from launch.substitutions import LaunchConfiguration
 
 
+# ── Merge-control sentinel types ─────────────────────────────────────────────
+
+class _OverrideValue:
+    """Wraps a value tagged with !override; replaces the base value outright."""
+    __slots__ = ('value',)
+
+    def __init__(self, value):
+        self.value = value
+
+
+class _ResetValue:
+    """Sentinel for !reset; causes the key to be removed from the merged result."""
+    __slots__ = ()
+
+
+def _make_loader():
+    """Return a yaml.SafeLoader subclass that recognises !override and !reset tags."""
+    class _Loader(yaml.SafeLoader):
+        pass
+
+    def _override_ctor(loader, node):
+        if isinstance(node, yaml.SequenceNode):
+            value = loader.construct_sequence(node, deep=True)
+        elif isinstance(node, yaml.MappingNode):
+            value = loader.construct_mapping(node, deep=True)
+        else:
+            value = loader.construct_scalar(node)
+        return _OverrideValue(value)
+
+    def _reset_ctor(loader, node):
+        return _ResetValue()
+
+    _Loader.add_constructor('!override', _override_ctor)
+    _Loader.add_constructor('!reset', _reset_ctor)
+    return _Loader
+
+
+def _normalize(data):
+    """Unwrap/strip any leftover _OverrideValue/_ResetValue markers from the tree."""
+    if isinstance(data, _OverrideValue):
+        return _normalize(data.value)
+    if isinstance(data, _ResetValue):
+        return None
+    if isinstance(data, dict):
+        return {
+            k: _normalize(v)
+            for k, v in data.items()
+            if not isinstance(v, _ResetValue)
+        }
+    if isinstance(data, list):
+        return [_normalize(item) for item in data if not isinstance(item, _ResetValue)]
+    return data
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def _resolve_find_pkg_share(content):
     """Replace all $(find-pkg-share PKG) tokens with the package's share directory path."""
     def replace_find_pkg(match):
@@ -72,14 +139,20 @@ def _deep_merge(base, override):
     """Return a new dict that is *override* deep-merged on top of *base*.
 
     Merge rules:
-    - Both values are dicts  → merge recursively (override wins on collisions).
-    - Both values are lists  → concatenate (base entries first, then override
-                               entries that are not already present in base).
-    - All other cases        → override value wins outright.
+    - Value is _ResetValue    → remove the key from the result entirely.
+    - Value is _OverrideValue → replace the base value outright (no merge).
+    - Both values are dicts   → merge recursively (override wins on collisions).
+    - Both values are lists   → concatenate (base entries first, then override
+                                entries that are not already present in base).
+    - All other cases         → override value wins outright.
     """
     result = base.copy()
     for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+        if isinstance(value, _ResetValue):
+            result.pop(key, None)
+        elif isinstance(value, _OverrideValue):
+            result[key] = value.value
+        elif key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
         elif key in result and isinstance(result[key], list) and isinstance(value, list):
             # Append override entries that don't already exist in the base list
@@ -113,7 +186,7 @@ def _load_and_merge_config(config_file):
     # Resolve $(find-pkg-share) so paths in 'extends:' can be followed
     content = _resolve_find_pkg_share(content)
 
-    data = yaml.safe_load(content)
+    data = yaml.load(content, Loader=_make_loader())
     if data is None:
         data = {}
 
@@ -122,7 +195,7 @@ def _load_and_merge_config(config_file):
         base_data = _load_and_merge_config(base_file)
         data = _deep_merge(base_data, data)
 
-    return data
+    return _normalize(data)
 
 
 def launch_dds_router(context, *args, **kwargs):
