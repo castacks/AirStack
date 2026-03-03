@@ -71,13 +71,23 @@ def _resolve_find_pkg_share(content):
 def _deep_merge(base, override):
     """Return a new dict that is *override* deep-merged on top of *base*.
 
-    For keys present in both dicts whose values are both dicts, the merge is
-    applied recursively.  In all other cases the value from *override* wins.
+    Merge rules:
+    - Both values are dicts  → merge recursively (override wins on collisions).
+    - Both values are lists  → concatenate (base entries first, then override
+                               entries that are not already present in base).
+    - All other cases        → override value wins outright.
     """
     result = base.copy()
     for key, value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
+        elif key in result and isinstance(result[key], list) and isinstance(value, list):
+            # Append override entries that don't already exist in the base list
+            merged = list(result[key])
+            for item in value:
+                if item not in merged:
+                    merged.append(item)
+            result[key] = merged
         else:
             result[key] = value
     return result
