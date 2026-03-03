@@ -33,4 +33,4 @@ EXPOSE 22
 # Cleanup
 RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install gdown requests
+RUN pip3 install --break-system-packages gdown requests

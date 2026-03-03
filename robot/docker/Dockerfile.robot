@@ -101,22 +101,31 @@ RUN apt update -y && apt install -y --no-install-recommends \
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
 # Install TensorRT (NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
+# Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
 RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb && \
+  if [ ! -f /etc/apt/sources.list.d/cuda*.list ]; then \
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb || true; \
+  fi && \
   apt update -y && \
-  apt install -y \
+  (apt install -y \
     libnvinfer8 libnvinfer-dev libnvinfer-plugin8 \
-    python3-libnvinfer python3-libnvinfer-dev; \
+    python3-libnvinfer python3-libnvinfer-dev || \
+   apt install -y \
+    libnvinfer10 libnvinfer-dev libnvinfer-plugin10 \
+    python3-libnvinfer python3-libnvinfer-dev || \
+   echo "TensorRT packages not available, skipping..."); \
   fi
 
 # Install Python dependencies (unconditional)
-RUN pip3 install \
+# Note: numpy>=1.26 required for Python 3.12 compatibility
+# Using --ignore-installed to avoid conflicts with system packages
+RUN pip3 install --break-system-packages --ignore-installed \
   empy \
   future \
   lxml \
   matplotlib==3.8.4 \
-  numpy==1.24.0 \
+  numpy>=1.26.0 \
   pkgconfig \
   psutil \
   pygments \
@@ -148,7 +157,7 @@ RUN pip3 install \
 
 # Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-  pip3 install \
+  pip3 install --break-system-packages \
     torch \
     torchvision \
     onnx \
@@ -166,7 +175,7 @@ RUN if [ "${SKIP_OPENVDB}" != "true" ]; then \
   fi
 
 # Install colcon, seems to be getting removed
-RUN pip install -U colcon-common-extensions
+RUN pip install --break-system-packages -U colcon-common-extensions
 
 # Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
 WORKDIR /model_weights
@@ -180,11 +189,12 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   fi
 
 # Fixes for MACVO Integration (skipped if SKIP_MACVO=true)
-RUN if [ "${SKIP_MACVO}" != "true" ]; then pip install huggingface_hub; fi
-RUN if [ "${SKIP_MACVO}" != "true" ]; then pip uninstall matplotlib -y; fi
+RUN if [ "${SKIP_MACVO}" != "true" ]; then pip install --break-system-packages huggingface_hub; fi
+RUN if [ "${SKIP_MACVO}" != "true" ]; then pip uninstall --break-system-packages matplotlib -y; fi
 
 # TMux config
-RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
+    (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
@@ -309,13 +319,19 @@ RUN apt update && apt install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Install NVIDIA runtime apt packages (no -dev counterparts; NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
+# Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
 RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb && \
+  if [ ! -f /etc/apt/sources.list.d/cuda*.list ]; then \
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb || true; \
+  fi && \
   apt update -y && \
-  apt install -y \
+  (apt install -y \
     libnvinfer8 libnvinfer-plugin8 \
-    python3-libnvinfer \
+    python3-libnvinfer || \
+   apt install -y \
+    libnvinfer10 libnvinfer-plugin10 \
+    python3-libnvinfer) \
   && rm -rf /var/lib/apt/lists/*; \
   fi
 

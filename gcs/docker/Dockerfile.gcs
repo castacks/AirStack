@@ -22,7 +22,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
+RUN pip3 install --break-system-packages empy future lxml matplotlib numpy pkgconfig psutil pygments \
     wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt sphinx utm
 
 # Configure SSH
@@ -34,7 +34,8 @@ RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
 EXPOSE 22
 
 # TMux config
-RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
+    (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
 # install FoxGloveStudio and ros-jazzy-foxglove-bridge
 RUN wget https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
