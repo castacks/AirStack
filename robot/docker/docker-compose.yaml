@@ -87,6 +87,7 @@ services:
     extends:
       file: ./docker-compose.yaml
       service: robot-desktop
+    ports: !reset {}  # offboard containers don't need ssh ports
     environment:
       - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
       - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; domain_bridge connects to per-robot onboard domains
