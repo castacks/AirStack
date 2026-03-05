@@ -84,6 +84,19 @@ topics:
     from_domain: 3
     to_domain: 0
 
+  # Battery (MAVROS) for GCS display
+  /robot_1/interface/mavros/battery:
+    type: sensor_msgs/msg/BatteryState
+    from_domain: 1
+    to_domain: 0
+  /robot_2/interface/mavros/battery:
+    type: sensor_msgs/msg/BatteryState
+    from_domain: 2
+    to_domain: 0
+  /robot_3/interface/mavros/battery:
+    type: sensor_msgs/msg/BatteryState
+    from_domain: 3
+    to_domain: 0
 
   # Bridge "/clock" topic from doman ID 2 to domain ID 3,
   # Override durability to be 'volatile' and override depth to be 1
