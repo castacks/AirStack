@@ -76,8 +76,6 @@ class PegasusApp:
     """
 
     def __init__(self):
-        # Timeline for controlling play/stop
-        self.timeline = omni.timeline.get_timeline_interface()
 
         # Start Pegasus interface + world
         self.pg = PegasusInterface()
@@ -85,14 +83,17 @@ class PegasusApp:
         self.world = self.pg.world
 
         # Load default environment. You can replace with url or file path of any desired environment.
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        # self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
+        # self.pg.load_environment("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/DSTA/Theme2/dontfoolmetwice/full_warehouse.usd")
         
+        # Timeline for controlling play/stop
+        self.timeline = omni.timeline.get_timeline_interface()
+        self.timeline.stop()
+
         # Add a distant light to the scene
         self.add_distant_light()
         
-        # Create clock display window
-        self.setup_clock_display()
-
         # # Spawn a PX4 multirotor drone with a specified vehicle ID and domain ID
         # # PX4 udp port = 14540 + (vehicle_id)
         # # Domain ID is for ROS2 domain communication. As of now, it should match the vehicle id by convention. 
@@ -101,7 +102,7 @@ class PegasusApp:
             drone_prim="/World/base_link",
             vehicle_id=1,
             domain_id=1,
-            usd_file="/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
+            usd_file="~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd",
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
@@ -120,14 +121,18 @@ class PegasusApp:
             parent_graph_handle=graph_handle,
             drone_prim="/World/base_link",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset = [0.0, 0.0, 0.15], # X, Y, Z offset from drone base_link
+            lidar_offset = [0.0, 0.0, 0.025], # X, Y, Z offset from drone base_link
             lidar_rotation_offset = [0.0, 0.0, 0.0], # Rotation in degrees (roll, pitch, yaw)
+            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
         )
-        
-        # Reset so physics/articulations are ready
-        self.world.reset()
 
         self.play_sim_on_start = os.getenv("PLAY_SIM_ON_START", "false").lower() == "true"
+        self.sim_started = False
+        if self.play_sim_on_start:
+            # Reset so physics/articulations are ready
+            self.world.reset()
+            self.timeline.play()
+            self.sim_started = True
         
         self.stop_sim = False
 
@@ -136,32 +141,15 @@ class PegasusApp:
         distant_light = UsdLux.DistantLight.Define(self.world.scene.stage, "/World/DistantLight")
         distant_light.CreateIntensityAttr(1000)
 
-    def setup_clock_display(self):
-        """Create a floating window with clock display"""
-        self.clock_window = omni.ui.Window("Clock Display", width=250, height=80)
-        with self.clock_window.frame:
-            with omni.ui.VStack(spacing=5):
-                omni.ui.Label("Simulation Time:", height=20, style={"font_size": 16})
-                self.clock_label = omni.ui.Label("", height=30, style={"font_size": 24, "color": 0xFF00FF00})
-
-    def update_clock_display(self):
-        """Update the clock display with simulation time"""
-        sim_time = self.timeline.get_current_time()
-        self.clock_label.text = f"{sim_time:.3f}s"
-
-
     def run(self):
-        if self.play_sim_on_start:
-            self.timeline.play()
-        else:
-            self.timeline.stop()
-
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:
-            # Update clock display
-            self.update_clock_display()
             
             if self.timeline.is_playing():
+                if not self.sim_started:
+                    self.world.reset() # Reset so physics/articulations are ready
+                    self.sim_started = True
+
                 self.world.step(render=True)
             else:
                 # If paused, just update the app (render UI, handle inputs) 

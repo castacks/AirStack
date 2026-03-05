@@ -10,16 +10,15 @@ services:
       tags:
         - *image_tag
     container_name: isaac-sim
-    entrypoint: "" # override the default entrypoint with nothing
-    # for some reason the tmux session manager only works when isaac is running in tmux
+    entrypoint: ""
     command: >
       bash -c "
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
         if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then
-          tmux send-keys -t isaac 'run_isaac_python /root/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
+          tmux send-keys -t isaac 'run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
         else
-          tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
+          tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
         fi
       fi;
       sleep infinity"
@@ -37,12 +36,7 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
-      # ROS2 stuff
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-      - FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/fastdds.xml
       # Isaac Sim stuff
-      - ISAACSIM_PATH=/isaac-sim
-      - ISAACSIM_PYTHON=/isaac-sim/python.sh
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
     deploy:
       # let it use the GPU
@@ -54,33 +48,29 @@ services:
               capabilities: [ gpu ]
     volumes:
       # display
-      - $HOME/.Xauthority:/root/.Xauthority
+      - $HOME/.Xauthority:/isaac-sim/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff
-      - $HOME/Documents/isaac_sim_data/cache/kit:/isaac-sim/kit/cache:rw
-      - $HOME/Documents/isaac_sim_data/cache/ov:/root/.cache/ov:rw
-      - $HOME/Documents/isaac_sim_data/cache/pip:/root/.cache/pip:rw
-      - $HOME/Documents/isaac_sim_data/cache/glcache:/root/.cache/nvidia/GLCache:rw
-      - $HOME/Documents/isaac_sim_data/cache/computecache:/root/.nv/ComputeCache:rw
-      - $HOME/Documents/isaac_sim_data/logs:/root/.nvidia-omniverse/logs:rw
-      - $HOME/Documents/isaac_sim_data/data:/root/.local/share/ov/data:rw
-      - $HOME/Documents/isaac_sim_data/documents:/root/Documents:rw
-      # omniverse
-      - ./omniverse.toml:/root/.nvidia-omniverse/config/omniverse.toml:rw
-      - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # IMPORTANT: set the version number without the trailing .0
-      - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
-      # developer stuff
-      - .dev:/root/.dev:rw # developer config
-      - .bashrc:/root/.bashrc:rw # bash config
-      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
-      - ../../../common/.tmux.conf:/root/.tmux.conf:rw
-      - ../../..:/root/AirStack:rw
-      - ../../../.devcontainer/isaac-sim/launch.json:/root/AirStack/.vscode/launch.json:rw
-      - ../../../.devcontainer/isaac-sim/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - $HOME/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw \
+      - $HOME/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw \
+      - $HOME/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw \
+      - $HOME/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw \
+      - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw \
+      - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
       # pegasus integration
-      - ../extensions/PegasusSimulator:/isaac_extensions/PegasusSimulator
-      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/root/Documents/Kit/shared/exts/pegasus.simulator/
-      - ../config/sim_to_robot_bridge.yaml:/sim_to_robot_bridge.yaml:ro
+      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
+      # omniverse
+      - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
+      - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
+      # developer stuff
+      - .dev:/isaac-sim/.dev:rw # developer config
+      - .bashrc:/isaac-sim/.bashrc:rw # bash config
+      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../../common/.tmux.conf:/isaac-sim/.tmux.conf:rw
+      # airstack code
+      - ../../..:/isaac-sim/AirStack:rw
+      - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
+      - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
 
   # ===================================================================================================================
   isaac-sim-gui:

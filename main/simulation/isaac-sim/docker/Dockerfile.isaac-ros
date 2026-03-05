@@ -1,32 +1,29 @@
-ARG ISAAC_VERSION="5.1.0"
 # expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/ros_ws/
+ARG ISAAC_VERSION="5.1.0"
+ARG PX4_VERSION="v1.16.1"
+
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
 ARG ISAAC_VERSION
-WORKDIR /isaac-sim
+ARG PX4_VERSION
 
+# for install stuff
 USER root
-
-# isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
-RUN mkdir -p /root/.local/share/ov/pkg/ && \
-    ln -s /isaac-sim /root/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
-
-# allows us to run isaac-sim as root
-ENV OMNI_KIT_ALLOW_ROOT=1
 
 # setup environment
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV ROS_DISTRO=jazzy
 
-# setup timezone
+# Setup timezone, install all base + ROS2 packages, and configure ROS2 apt source in a single layer
+# to avoid baking apt cache and metadata into intermediate layers.
+# Also removes conflicting third-party apt sources that cause libbrotli conflicts,
+# pins libbrotli1 to prevent upgrades from breaking Isaac Sim, and installs all ROS2 packages.
 RUN echo 'Etc/UTC' > /etc/timezone && \
     ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
     apt-get update && \
     apt-get install -q -y --no-install-recommends tzdata && \
-    rm -rf /var/lib/apt/lists/*
-
-# install base packages
-RUN apt-get update && apt-get install -q -y --no-install-recommends \
+    # Install base packages
+    apt-get install -q -y --no-install-recommends \
     dirmngr \
     gnupg2 \
     unzip \
@@ -34,7 +31,6 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     iputils-ping \
     net-tools \
     curl \
-    emacs \
     vim \
     nano \
     gdb \
@@ -53,40 +49,39 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     ninja-build \
     wget \
     libcgal-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-# setup ros2 key
-RUN set -eux; \
+    # Setup ROS2 apt key
+    set -eux; \
     key='C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654'; \
     export GNUPGHOME="$(mktemp -d)"; \
     gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
     mkdir -p /usr/share/keyrings; \
     gpg --batch --export "$key" > /usr/share/keyrings/ros2-latest-archive-keyring.gpg; \
     gpgconf --kill all; \
-    rm -rf "$GNUPGHOME"
-
-# setup ros2 apt source
-RUN echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu noble main" > /etc/apt/sources.list.d/ros2-latest.list
-
-# Remove conflicting third-party apt sources that cause libbrotli conflicts
-RUN rm -f /etc/apt/sources.list.d/*deb.sury.org*.list || true && apt-get update
-
-RUN apt-get install -y --no-install-recommends libbrotli1
-RUN apt-mark hold libbrotli1
-RUN apt-get install -y --no-install-recommends libfreetype6-dev
-RUN apt-get install -y --no-install-recommends libfontconfig1-dev
-RUN apt-get install -y --no-install-recommends ros-jazzy-desktop
-RUN apt-get install -y --no-install-recommends ros-dev-tools
-RUN apt-get install -y --no-install-recommends python3-rosdep
-RUN apt-get install -y --no-install-recommends ros-jazzy-tf2*
-RUN apt-get install -y --no-install-recommends ros-jazzy-mavros
-RUN apt-get install -y --no-install-recommends ros-jazzy-ackermann-msgs
-RUN apt-get install -y --no-install-recommends ros-jazzy-topic-tools
-RUN apt-get install -y --no-install-recommends ros-jazzy-grid-map
-RUN apt-get install -y --no-install-recommends ros-jazzy-domain-bridge
-RUN apt-get install -y --no-install-recommends ros-jazzy-moveit
-RUN apt-get install -y --no-install-recommends python3-colcon-common-extensions
-RUN rm -rf /var/lib/apt/lists/*
+    rm -rf "$GNUPGHOME"; \
+    # Setup ROS2 apt source
+    echo "deb [ signed-by=/usr/share/keyrings/ros2-latest-archive-keyring.gpg ] http://packages.ros.org/ros2/ubuntu noble main" > /etc/apt/sources.list.d/ros2-latest.list && \
+    # Remove conflicting third-party apt sources that cause libbrotli conflicts
+    rm -f /etc/apt/sources.list.d/*deb.sury.org*.list && \
+    apt-get update && \
+    # Pin libbrotli1 before ROS installs can upgrade it (breaks Isaac Sim)
+    apt-get install -y --no-install-recommends libbrotli1 && \
+    apt-mark hold libbrotli1 && \
+    # Install ROS2 and related packages
+    apt-get install -y --no-install-recommends \
+    libfreetype6-dev \
+    libfontconfig1-dev \
+    ros-jazzy-desktop \
+    ros-dev-tools \
+    python3-rosdep \
+    "ros-jazzy-tf2*" \
+    ros-jazzy-mavros \
+    ros-jazzy-ackermann-msgs \
+    ros-jazzy-topic-tools \
+    ros-jazzy-grid-map \
+    ros-jazzy-domain-bridge \
+    ros-jazzy-moveit \
+    python3-colcon-common-extensions && \
+    rm -rf /var/lib/apt/lists/*
 
 
 # setup mavros dependencies
@@ -96,32 +91,34 @@ RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros/jazzy/lib:/jazzy/lib
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
+
+# ============================================================================
+# now do user stuff
+
+WORKDIR /isaac-sim
+
+# isaac's ros2 launch run_isaacsim.launch.py hardcodes to search in this path, so we have to put the executables here
+RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
+    ln -s /isaac-sim /isaac-sim/.local/share/ov/pkg/isaac-sim-${ISAAC_VERSION}
+
+
 # install python packages
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
-    /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
-    /isaac-sim/python.sh -m pip install PyYAML mavproxy tmuxp scipy \
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir --upgrade pip && \
+    /isaac-sim/python.sh -m pip install --no-cache-dir git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
+    /isaac-sim/python.sh -m pip install --no-cache-dir PyYAML mavproxy tmuxp scipy \
     kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
-# RUN /isaac-sim/python.sh -m pip install git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
-#     pip install PyYAML mavproxy tmuxp scipy \
-#     kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
 RUN cd /tmp/ && \
     curl -L -O https://github.com/isaac-sim/IsaacSim-ros_workspaces/archive/refs/tags/IsaacSim-${ISAAC_VERSION}.zip && \
     unzip IsaacSim-${ISAAC_VERSION}.zip && \
-    mv ${isaac_dir_name}/jazzy_ws /jazzy_ws && \
-    cd /jazzy_ws && \
+    mkdir -p /isaac-sim/jazzy_ws/src && \
+    mv ${isaac_dir_name}/jazzy_ws/src/isaacsim /isaac-sim/jazzy_ws/src/isaacsim && \
+    cd /isaac-sim/jazzy_ws && \
     . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install && \
-    rm -rf /tmp/IsaacSim-${ISAAC_VERSION}.zip /tmp/${isaac_dir_name}
-
-# Install mavlink-router
-RUN git clone https://github.com/mavlink-router/mavlink-router.git --recurse /mavlink-router && \
-    cd /mavlink-router && \
-    meson setup build . && \
-    ninja -C build install && \
-    rm -rf /mavlink-router
+    rm -rf /isaac-sim/jazzy_ws/log /tmp/IsaacSim-${ISAAC_VERSION}.zip /tmp/${isaac_dir_name}
 
 # TODO: Hacky way to make sure the Isaac Sim app is installed.
 # PegasusSimulator extension requires this file to exist
@@ -131,47 +128,46 @@ RUN mkdir -p /isaac-sim/apps && \
 
 # "Install" PegasusSimulator extension. This installs in editable mode; when we run the container we mount the PegasusSimulator repo
 # over the same directory so that we can edit the code and have it reflected in the container.
-WORKDIR /root/Documents/Kit/shared/exts/
-# RUN git clone https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
-#     mv /tmp/PegasusSimulator/extensions/pegasus.simulator . 
 
-RUN git clone https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
-    mv /tmp/PegasusSimulator/extensions/pegasus.simulator . 
+RUN git clone --depth 1 https://github.com/castacks/PegasusSimulator-AirStack-Integration.git /tmp/PegasusSimulator && \
+    mkdir -p -m 777 /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts && \
+    mv /tmp/PegasusSimulator/extensions/pegasus.simulator /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts && \
+    rm -rf /tmp/PegasusSimulator
 
 # Add extension search path configuration for Kit
-# This ensures that /root/Documents/Kit/shared/exts is always searched for extensions
-ARG KIT_ARGS="--ext-folder /root/Documents/Kit/shared/exts"
+# This ensures that /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts is always searched for extensions
+ARG KIT_ARGS="--ext-folder /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts"
 ENV OMNI_APP_ARGS="${KIT_ARGS}"
 
-# rm -rf /tmp/PegasusSimulator
 ENV ISAACSIM_PATH=/isaac-sim
 ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
-RUN /isaac-sim/python.sh -m pip install -e ./pegasus.simulator
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
-# build PX4
-ARG PX4_VERSION="v1.14.3"
-WORKDIR /root
-RUN git clone https://github.com/PX4/PX4-Autopilot.git --recursive
-RUN ./PX4-Autopilot/Tools/setup/ubuntu.sh
+# Install PX4 things
+RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
+# install px4 dependencies as root for global installs
+USER root
+RUN cd PX4-Autopilot && \
+    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
+# build px4 as user
+RUN cd PX4-Autopilot && \
+    make px4_sitl
 
-WORKDIR /root/PX4-Autopilot
-RUN make px4_sitl
-
-RUN /isaac-sim/python.sh -m pip install lark-parser
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
 # TMux config
-RUN git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
 
 # copy FastDDS config
-COPY docker/fastdds.xml /isaac-sim/fastdds.xml
+COPY docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
+ENV OMNI_KIT_ALLOW_ROOT=1
+ENV PRIVACY_CONSENT=Y
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+ENV FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/.ros/fastdds.xml
+ENV ISAACSIM_PATH=/isaac-sim
+ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 
-# ROS2 launch script seeks this
-RUN ln -s /isaac-sim /root/isaacsim
-
-# Cleanup. Prevent people accidentally doing git commits as root in Docker
-RUN apt purge -y git && apt autoremove -y \
-    && apt clean -y \
-    && rm -rf /var/lib/apt/lists/*
+RUN sed -i 's|^root:x:0:0:root:/root:|root:x:0:0:root:/isaac-sim:|' /etc/passwd
 
 WORKDIR /isaac-sim

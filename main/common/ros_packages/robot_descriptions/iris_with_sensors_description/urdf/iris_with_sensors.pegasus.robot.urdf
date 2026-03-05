@@ -6,7 +6,7 @@
     <child link="base_link_body_body_link"/>
   </joint>
   <joint name="OS1_REV6_128_10hz___512_resolution_FixedJoint" type="fixed">
-    <origin xyz="0. 0. 0.15" rpy="0. 0. -1.5707872"/>
+    <origin xyz="0. 0. 0.025" rpy="0. 0. -1.5707872"/>
     <parent link="base_link_body_body_link"/>
     <child link="OS1_REV6_128_10hz___512_resolution"/>
   </joint>

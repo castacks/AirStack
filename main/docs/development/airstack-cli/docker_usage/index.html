@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/StackedWhite.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -4140,7 +4140,7 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="c1"># If you&#39;ve run ./airstack.sh setup, then this will auto-generate from the git commit hash every time a change is made </span>
 </span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="c1"># to a Dockerfile or docker-compose.yaml file. Otherwise this can also be set explicitly to make a release version.</span>
 </span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="c1"># auto-generated from git commit hash</span>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="nv">DOCKER_IMAGE_TAG</span><span class="o">=</span><span class="s2">&quot;0.16.1-rc&quot;</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="nv">DOCKER_IMAGE_TAG</span><span class="o">=</span><span class="s2">&quot;0.16.2&quot;</span>
 </span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="c1"># Can replace with your docker hub username</span>
 </span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="nv">PROJECT_DOCKER_REGISTRY</span><span class="o">=</span><span class="s2">&quot;airlab-docker.andrew.cmu.edu/airstack&quot;</span>
 </span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="c1"># ============================================</span>
@@ -4151,7 +4151,7 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="nv">ROBOT_DEFINTIONS</span><span class="o">=</span><span class="s2">&quot;/config/robot_definitions.yaml&quot;</span><span class="w">  </span><span class="c1"># Path to the robot definitions file, which is mounted at /config in containers.</span>
 </span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a>
 </span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="c1"># ============== SIMULATION =====================</span>
-</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="s2">&quot;/root/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd&quot;</span>
+</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="s2">&quot;/isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd&quot;</span>
 </span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="c1"># Set to &quot;true&quot; to launch Isaac Sim using a standalone Python script instead of USD file</span>
 </span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w"> </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
 </span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="c1"># Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)</span>

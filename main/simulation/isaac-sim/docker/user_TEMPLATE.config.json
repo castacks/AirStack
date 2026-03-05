@@ -361,7 +361,7 @@
                 "chord_tolerance": 0.001,
                 "angle_tolerance": 15,
                 "max_chord": 0.2,
-                "default_import_folder": "/root/Documents",
+                "default_import_folder": "/isaac-sim",
                 "import_in_place": true,
                 "USE_API_KEY": false,
                 "API_KEY": "",
@@ -522,7 +522,7 @@
                 }
             },
             "captureFrame": {
-                "path": "/root/Documents/Kit/shared/screenshots/",
+                "path": "~/.local/share/ov/data/Kit/shared/screenshots/",
                 "viewport": true
             },
             "hydra": {
