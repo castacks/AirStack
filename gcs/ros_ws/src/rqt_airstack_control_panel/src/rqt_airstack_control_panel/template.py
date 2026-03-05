@@ -46,6 +46,7 @@ import time
 import copy
 
 from std_msgs.msg import Bool
+from sensor_msgs.msg import BatteryState
 
 from .drag_and_drop import DragWidget, DragItem
 
@@ -184,7 +185,8 @@ class InfoWidget(qt.QWidget):
         self.node = node
         self.recording_sub = None
         self.recording_pub = None
-        
+        self.battery_sub = None
+
         self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         self.setObjectName('info_widget')
         self.stylesheet = 'border: 2px solid lightgrey;  border-radius: 10px;'
@@ -213,6 +215,9 @@ class InfoWidget(qt.QWidget):
         
         self.recording_label = qt.QLabel('Recording:')
         self.info_layout.addWidget(self.recording_label)
+
+        self.battery_label = qt.QLabel('Battery: --')
+        self.info_layout.addWidget(self.battery_label)
 
         line = qt.QFrame()
         line.setFrameShape(qt.QFrame.HLine)
@@ -300,11 +305,39 @@ class InfoWidget(qt.QWidget):
         #self.ping_thread = CommandThread('ping ' + self.settings['hostname'])
         self.ping_thread = CommandThread('HOST="' + self.settings['hostname'] + '"; while true; do OUTPUT=$(ping -c 1 -w 3 $HOST 2>&1); if echo "$OUTPUT" | grep -q "time="; then PING_TIME=$(echo "$OUTPUT" | grep -oP "time=\K[\d.]+"); echo "$PING_TIME ms"; else echo "failed"; fi; sleep 1; done', self.handle_ping)
 
-        if self.recording_sub != None:
+        if self.recording_sub is not None:
             self.node.destroy_subscription(self.recording_sub)
-        self.recording_sub = self.node.create_subscription(Bool, self.settings['namespace'] + '/bag_record/bag_recording_status',
-                                                           self.recording_callback, 1)
-        self.recording_pub = self.node.create_publisher(Bool, self.settings['namespace'] + '/bag_record/set_recording_status', 1)
+        self.recording_sub = self.node.create_subscription(
+            Bool,
+            self.settings['namespace'] + '/bag_record/bag_recording_status',
+            self.recording_callback,
+            1,
+        )
+        self.recording_pub = self.node.create_publisher(
+            Bool,
+            self.settings['namespace'] + '/bag_record/set_recording_status',
+            1,
+        )
+
+        if self.battery_sub is not None:
+            self.node.destroy_subscription(self.battery_sub)
+        self.battery_sub = self.node.create_subscription(
+            BatteryState,
+            self.settings['namespace'] + '/interface/mavros/battery',
+            self.battery_callback,
+            1,
+        )
+
+    def battery_callback(self, msg):
+        pct = msg.percentage
+        if pct < 0 or pct > 1:
+            pct = -1.0
+        if pct >= 0:
+            self.battery_label.setText(
+                'Battery: {:.1f} V ({:.0f}%)'.format(msg.voltage, pct * 100.0)
+            )
+        else:
+            self.battery_label.setText('Battery: {:.1f} V'.format(msg.voltage))
 
     def recording_callback(self, msg):
         if msg.data:

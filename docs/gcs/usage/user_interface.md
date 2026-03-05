@@ -1,3 +1,5 @@
+The GCS control panel shows per-robot status: **Ping**, **Recording**, and **Battery** (voltage and percentage when the robot's MAVROS battery topic is bridged to the GCS).
+
 ## The TAK Architecture looks like follows:
 
 ![TAK Architecture](../asset/TAK_ROS_Arch.png)
