@@ -21,11 +21,16 @@
     accumulation_period: 0.2
 
     apply_raw_sensor_data: true
-    sources: [lidar]
-    lidar:
-      topic: sensors/lidar/point_cloud
-      sensor_origin_frame: lidar
-      # sensor_origin_frame: OS1_REV6_128_10hz___512_resolution_FixedJoint
+
+    # sources: [lidar]
+    # lidar:
+    #   topic: sensors/lidar/point_cloud
+    #   sensor_origin_frame: lidar
+
+    sources: [stereo_image_proc_point_cloud]
+    stereo_image_proc_point_cloud:
+      topic: perception/stereo_image_proc/point_cloud
+      sensor_origin_frame: camera_left
 
     # Remote mapping
     publish_updates: true
