@@ -5,7 +5,7 @@
     <!-- <arg name="local_disparity_in_topic" default="/$(env
     ROBOT_NAME)/perception/macvo/disparity" /> -->
     <!-- <arg name="local_depth_in_topic" default="none" /> -->
-    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/sensors/front_stereo/disparity" />
+    <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity" />
     <!-- <arg name="local_depth_in_topic" default="/$(env
     ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth" /> -->
     <arg name="local_depth_in_topic" default="none" />
