@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Carnegie Mellon University
+// Copyright (c) 2026 Carnegie Mellon University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,24 +18,23 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "../include/integrated_node.hpp"
+#include "../include/goal_planner_node.hpp"
 #include "../include/vis_tools.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/filter.h>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_ros/create_timer_ros.h>
-
 #include <vdb_edt/frontier_cluster.h>
 
-PlannerNode::PlannerNode()
+GoalPlannerNode::GoalPlannerNode()
 {
     node_handle_ = std::make_shared<rclcpp::Node>("integrated_plan_node");
 
     initialize();
 }
 
-void PlannerNode::initialize()
+void GoalPlannerNode::initialize()
 {
     // TF buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_handle_->get_clock());
@@ -47,53 +46,55 @@ void PlannerNode::initialize()
     map_manager_ = std::make_shared<VDBMap>(node_handle_, tf_buffer_, tf_listener_);
     RCLCPP_INFO(node_handle_->get_logger(), "Initialized VDB grids");
 
-    // Initialize astar planner.
     setup_parameters();
 
+    // Initialize astar planner.
     astar_planner_.initialize(map_manager_, safe_robot_r_);
 
     cbg_planner_ = node_handle_->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions opt;
     opt.callback_group = cbg_planner_;
-    sub_tracking_point = node_handle_->create_subscription<geometry_msgs::msg::PoseStamped>("/tracking_point", rclcpp::QoS(10),
-                                                                                            std::bind(&PlannerNode::tracking_point_callback, this, std::placeholders::_1), opt);
-
-    pub_global_plan =
+    sub_tracking_point_ = node_handle_->create_subscription<geometry_msgs::msg::PoseStamped>("/tracking_point", rclcpp::QoS(10),
+                                                                                             std::bind(&GoalPlannerNode::tracking_point_callback, this, std::placeholders::_1), opt);
+    rclcpp::QoS goal_qos(10);
+    goal_qos.reliable();
+    goal_qos.transient_local();
+    sub_goal_pose_ = node_handle_->create_subscription<geometry_msgs::msg::Pose>("/goal_point", goal_qos,
+                                                                                 std::bind(&GoalPlannerNode::goal_pose_callback, this, std::placeholders::_1), opt);
+    sub_goal_array_ = node_handle_->create_subscription<geometry_msgs::msg::PoseArray>("/goal_point_list", 10,
+                                                                                       std::bind(&GoalPlannerNode::goal_pose_array_callback, this, std::placeholders::_1), opt);
+    attach_goal_ = false;
+    pub_global_plan_ =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_global_plan_topic_, 10);
     pub_trajectory_ =
         node_handle_->create_publisher<trajectory_msgs::msg::MultiDOFJointTrajectory>("/cmd_trajectory", 10);
-    pub_trajectory_lines =
+    pub_trajectory_lines_ =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_viz_topic_, 10);
-    pub_clustered_frontier_vis =
-        node_handle_->create_publisher<visualization_msgs::msg::Marker>(pub_clustered_frontier_viz_topic_, 10);
-    planning_astar_vis =
+    planning_astar_vis_ =
         node_handle_->create_publisher<visualization_msgs::msg::MarkerArray>("/astar_plan_vis", 10);
-    planning_smoothed_vis =
+    planning_smoothed_vis_ =
         node_handle_->create_publisher<visualization_msgs::msg::MarkerArray>("/smoothed_plan_vis", 10);
-    pub_goal_posestamped =
-        node_handle_->create_publisher<geometry_msgs::msg::PoseStamped>("/move_base_simple/goal", 10);
-    pub_sampled_viewpoints =
-        node_handle_->create_publisher<geometry_msgs::msg::PoseArray>("/sampled_viewpoints", 10);
-    pub_coll_point_vis =
+    pub_coll_point_vis_ =
         node_handle_->create_publisher<visualization_msgs::msg::Marker>("/collision_point", 10);
 
-    pub_valid_viewpoints =
+    pub_valid_viewpoints_ =
         node_handle_->create_publisher<geometry_msgs::msg::PoseArray>("/valid_viewpoints", 10);
 
     // Set up the timer
-    plan_timer_ = node_handle_->create_wall_timer(std::chrono::seconds(1),
-                                                  std::bind(&PlannerNode::timerCallback, this),
-                                                  cbg_planner_);
-    // Set up the service
-    srv_exploration_toggle = node_handle_->create_service<std_srvs::srv::Trigger>(
-        srv_exploration_toggle_topic_, std::bind(&PlannerNode::ExplorationToggleCallback, this,
-                                                 std::placeholders::_1, std::placeholders::_2));
-    RCLCPP_INFO(node_handle_->get_logger(), "Exploration node initialized");
+    // plan_timer_ = node_handle_->create_wall_timer(std::chrono::seconds(1),
+    //                                               std::bind(&GoalPlannerNode::timerCallback, this), cbg_planner_);
+    plan_timer_ = rclcpp::create_timer(node_handle_,
+                                       node_handle_->get_clock(),
+                                       rclcpp::Duration(std::chrono::seconds(1)),
+                                       std::bind(&GoalPlannerNode::timerCallback, this),
+                                       cbg_planner_);
 
     has_tracking_point_ = false;
+
+    status_ = PlannerStatus::WAIT_GOAL;
 }
 
-void PlannerNode::setup_parameters()
+void GoalPlannerNode::setup_parameters()
 {
     auto log = node_handle_->get_logger();
 
@@ -142,66 +143,115 @@ void PlannerNode::setup_parameters()
 
     param_set("pub_global_plan_topic", "/global_plan_viz", pub_global_plan_topic_);
     param_set("pub_trajectory_viz_topic", "/traj_viz", pub_trajectory_viz_topic_);
-    param_set("pub_clustered_frontier_viz_topic", "/clustered_frontier_viz", pub_clustered_frontier_viz_topic_);
 
     param_set("srv_exploration_toggle_topic", "/robot_1/behavior/global_plan_toggle", srv_exploration_toggle_topic_);
 
-    param_set("safe_robot_r", 0.8, safe_robot_r_);
+    param_set("safe_robot_r", 0.5, safe_robot_r_);
     param_set("vox_size", 0.2, voxel_size_);
 
     safe_index_dist_ = safe_robot_r_ / voxel_size_;
     safe_sq_idx_dist_ = safe_index_dist_ * safe_index_dist_;
 }
 
-rclcpp::Node::SharedPtr PlannerNode::get_node_handle() const
+rclcpp::Node::SharedPtr GoalPlannerNode::get_node_handle() const
 {
     return node_handle_;
 }
 
-void PlannerNode::ExplorationToggleCallback(
-    const std_srvs::srv::Trigger::Request::SharedPtr request,
-    std_srvs::srv::Trigger::Response::SharedPtr response)
+void GoalPlannerNode::tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-    if (enable_exploration == false)
-    {
-        enable_exploration = true;
-        response->success = true;
-        response->message = "Exploration enabled";
-        RCLCPP_INFO(node_handle_->get_logger(), "Exploration enabled");
-    }
-    else
-    {
-        enable_exploration = false;
-        response->success = true;
-        response->message = "Exploration disabled";
-        RCLCPP_INFO(node_handle_->get_logger(), "Exploration disabled");
-    }
-}
-
-void PlannerNode::tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-{
-    rclcpp::Time now = node_handle_->now();
-    double latency = (now - msg->header.stamp).seconds();
     {
         std::unique_lock<std::shared_mutex> lk(tp_mtx_);
         has_tracking_point_ = true;
         current_tracking_point_ = *msg;
     }
-    // RCLCPP_INFO_STREAM(node_handle_->get_logger(),
-    //                    "[PLAN_SUB] TS_Recv=" << std::fixed << now.seconds()
-    //                                          << " | TS_Msg=" << msg->header.stamp.sec << "." << msg->header.stamp.nanosec
-    //                                          << " | Latency=" << latency
-    //                                          << " | TP_XYZ=(" << msg->pose.position.x << ", "
-    //                                          << msg->pose.position.y << ", "
-    //                                          << msg->pose.position.z << ")");
+
+    // Eigen::Vector3d p_track(current_tracking_point_.pose.position.x,
+    //                         current_tracking_point_.pose.position.y,
+    //                         current_tracking_point_.pose.position.z);
+    // RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Got new tracking point \n"
+    //                                                    << p_track);
 }
 
-void PlannerNode::generate_plan()
+void GoalPlannerNode::goal_pose_callback(const geometry_msgs::msg::Pose::SharedPtr msg)
+{
+    RCLCPP_WARN(node_handle_->get_logger(), "Receiving a goal");
+
+    std::queue<geometry_msgs::msg::Pose> empty_queue;
+    std::swap(pending_goals_, empty_queue);
+
+    curr_goal_xyz_.x() = msg->position.x;
+    curr_goal_xyz_.y() = msg->position.y;
+    curr_goal_xyz_.z() = msg->position.z;
+
+    tf2::Quaternion q;
+    tf2::fromMsg(msg->orientation, q);
+    q.normalize();
+
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+    curr_goal_yaw_ = yaw;
+
+    status_ = PlannerStatus::NEW_GOAL;
+}
+
+void GoalPlannerNode::goal_pose_array_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg)
+{
+    RCLCPP_WARN(node_handle_->get_logger(), "Receiving a goal array with %zu points", msg->poses.size());
+
+    // clear current queue
+    std::queue<geometry_msgs::msg::Pose> empty_queue;
+    std::swap(pending_goals_, empty_queue);
+
+    for (const auto &pose : msg->poses)
+    {
+        pending_goals_.push(pose);
+    }
+
+    if (status_ == PlannerStatus::WAIT_GOAL && !pending_goals_.empty())
+    {
+        // this will set attach_goal to true, but it's the first one
+        load_next_goal();
+        attach_goal_ = false;
+    }
+}
+
+bool GoalPlannerNode::load_next_goal()
+{
+    if (pending_goals_.empty())
+    {
+        return false;
+    }
+
+    geometry_msgs::msg::Pose next_goal = pending_goals_.front();
+    pending_goals_.pop();
+
+    RCLCPP_INFO(node_handle_->get_logger(), "Loading next goal. Remaining in queue: %zu", pending_goals_.size());
+
+    curr_goal_xyz_.x() = next_goal.position.x;
+    curr_goal_xyz_.y() = next_goal.position.y;
+    curr_goal_xyz_.z() = next_goal.position.z;
+
+    tf2::Quaternion q;
+    tf2::fromMsg(next_goal.orientation, q);
+    q.normalize();
+
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    curr_goal_yaw_ = yaw;
+
+    status_ = PlannerStatus::NEW_GOAL;
+    attach_goal_ = true;
+    return true;
+}
+
+void GoalPlannerNode::generate_plan(bool attach_end)
 {
     RCLCPP_INFO(node_handle_->get_logger(), "Starting to generate plan...");
 
     Eigen::Vector3d start_point;
-    if (current_path_dense_.empty())
+    if (current_path_dense_.empty() || !attach_end)
     {
         start_point.x() = current_location_.translation.x;
         start_point.y() = current_location_.translation.y;
@@ -214,115 +264,36 @@ void PlannerNode::generate_plan()
         double roll, pitch, yaw;
         tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
-        next_start_yaw_ = yaw;
+        new_start_yaw_ = yaw;
     }
     else
     {
         start_point = current_path_dense_.back().pos_;
-        next_start_yaw_ = current_path_dense_.back().yaw_;
+        new_start_yaw_ = current_path_dense_.back().yaw_;
     }
-
-    RCLCPP_INFO_STREAM(node_handle_->get_logger(), "New plan start from " << start_point.transpose());
 
     openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
 
     openvdb::Vec3d start_world(start_point.x(), start_point.y(), start_point.z());
     openvdb::Coord start_coord(openvdb::Coord::round(tf->worldToIndex(start_world)));
 
-    std::vector<ScoredViewpoint> goal_candidates;
-    map_manager_->frontier_manager_.collect_ranked_best_viewpoints(start_point, goal_candidates);
-
-    if (goal_candidates.empty())
-    {
-        RCLCPP_WARN(node_handle_->get_logger(), "No viewpoint available from the list");
-        return;
-    }
-
     generated_path_raw_.clear();
 
-    geometry_msgs::msg::PoseArray valid_vp_pose_array;
-    valid_vp_pose_array.header.frame_id = "map";
-    for (auto &vp : goal_candidates)
+    openvdb::Vec3d goal_world(curr_goal_xyz_.x(), curr_goal_xyz_.y(), curr_goal_xyz_.z());
+    openvdb::Coord goal_coord(openvdb::Coord::round(tf->worldToIndex(goal_world)));
+
+    astar_planner_.reset();
+    int plan_result;
+    plan_result = astar_planner_.search(start_coord, goal_coord);
+
+    if (plan_result == Astar::REACH_END)
     {
-        // exploration bound for e57 usd
-        // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 6.0 ||
-        //     vp.pos_.x() < -10.0 || vp.pos_.x() > 35.0 ||
-        //     vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
-
-        // modal ai demo bound
-        // if (vp.pos_.x() > 0.0 || vp.pos_.x() < -3.0 ||
-        //     vp.pos_.y() > 2.0 || vp.pos_.y() < -2.0 ||
-        //     vp.pos_.z() > -0.5 || vp.pos_.z() < -1.7)
-
-        // exploration bound for site B usd
-        // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
-        //     vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
-        //     vp.pos_.x() > 31.5 || vp.pos_.x() < -2.5)
-        // {
-        //     continue;
-        // }
-
-        geometry_msgs::msg::Pose pose;
-
-        // position
-        pose.position.x = vp.pos_.x();
-        pose.position.y = vp.pos_.y();
-        pose.position.z = vp.pos_.z();
-
-        // yaw -> quaternion
-        tf2::Quaternion q;
-        q.setRPY(0.0, 0.0, vp.yaw_);
-        q.normalize();
-        pose.orientation = tf2::toMsg(q);
-
-        valid_vp_pose_array.poses.push_back(pose);
+        // astar_planner_.pathSmooth(generated_path_raw_);
+        astar_planner_.pathShorten(generated_path_raw_);
     }
-    valid_vp_pose_array.header.stamp = node_handle_->get_clock()->now();
-    pub_valid_viewpoints->publish(valid_vp_pose_array);
-
-    RCLCPP_INFO(node_handle_->get_logger(), "Filtered VP in bound");
-
-    for (auto &vp : goal_candidates)
+    else
     {
-        // exploration bound for e57 usd
-        // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 6.0 ||
-        //     vp.pos_.x() < -10.0 || vp.pos_.x() > 35.0 ||
-        //     vp.pos_.y() < -7.0 || vp.pos_.y() > 27.0)
-
-        // modal ai demo bound
-        // if (vp.pos_.x() > 0.0 || vp.pos_.x() < -3.0 ||
-        //     vp.pos_.y() > 2.0 || vp.pos_.y() < -2.0 ||
-        //     vp.pos_.z() > -0.5 || vp.pos_.z() < -1.7)
-
-        // exploration bound for site B usd
-        // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
-        //     vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
-        //     vp.pos_.x() > 31.5 || vp.pos_.x() < -2.5)
-        // {
-        //     continue;
-        // }
-        openvdb::Vec3d goal_world(vp.pos_.x(), vp.pos_.y(), vp.pos_.z());
-        openvdb::Coord goal_coord(openvdb::Coord::round(tf->worldToIndex(goal_world)));
-
-        astar_planner_.reset();
-        int plan_result;
-        plan_result = astar_planner_.search(start_coord, goal_coord);
-
-        if (plan_result == Astar::REACH_END)
-        {
-            RCLCPP_INFO(node_handle_->get_logger(), "Astar success, shortening");
-            // astar_planner_.pathSmooth(generated_path_raw_);
-            astar_planner_.pathShorten(generated_path_raw_);
-            next_goal_yaw_ = vp.yaw_;
-            break;
-        }
-    }
-
-    RCLCPP_INFO(node_handle_->get_logger(), "Finish Astar planning");
-
-    if (generated_path_raw_.empty())
-    {
-        RCLCPP_WARN(node_handle_->get_logger(), "No path generated from all viewpoints");
+        RCLCPP_WARN(node_handle_->get_logger(), "No path found to the goal");
         return;
     }
 
@@ -333,19 +304,17 @@ void PlannerNode::generate_plan()
     {
         m.header.frame_id = world_frame_id_;
     }
-    planning_astar_vis->publish(astar_result_vis);
+    planning_astar_vis_->publish(astar_result_vis);
 
     visualization_msgs::msg::MarkerArray smoothed_result_vis = path_to_marker_array(generated_path_raw_, 1.0);
     for (auto &m : smoothed_result_vis.markers)
     {
         m.header.frame_id = world_frame_id_;
     }
-    planning_smoothed_vis->publish(smoothed_result_vis);
-
-    RCLCPP_INFO(node_handle_->get_logger(), "Plan generated");
+    planning_smoothed_vis_->publish(smoothed_result_vis);
 }
 
-bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point)
+bool GoalPlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point)
 {
     RCLCPP_INFO(node_handle_->get_logger(), "Generating  replan...");
     openvdb::math::Transform::ConstPtr tf = map_manager_->get_grid_transform();
@@ -373,8 +342,7 @@ bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point
         return false;
     }
 
-    next_start_yaw_ = start_point.yaw_;
-    next_goal_yaw_ = end_point.yaw_;
+    new_start_yaw_ = start_point.yaw_;
 
     // visualize
     std::vector<openvdb::Vec3d> path_astar = astar_planner_.getPathAstar();
@@ -383,23 +351,20 @@ bool PlannerNode::generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point
     {
         m.header.frame_id = world_frame_id_;
     }
-    planning_astar_vis->publish(astar_result_vis);
+    planning_astar_vis_->publish(astar_result_vis);
 
     visualization_msgs::msg::MarkerArray smoothed_result_vis = path_to_marker_array(generated_path_raw_, 1.0);
     for (auto &m : smoothed_result_vis.markers)
     {
         m.header.frame_id = world_frame_id_;
     }
-    planning_smoothed_vis->publish(smoothed_result_vis);
-
-    RCLCPP_INFO(node_handle_->get_logger(), "Replan generated");
+    planning_smoothed_vis_->publish(smoothed_result_vis);
 
     return true;
 }
 
-void PlannerNode::interpolate_plan(double t_offset)
+void GoalPlannerNode::interpolate_plan(double t_offset)
 {
-    RCLCPP_WARN(node_handle_->get_logger(), "Plan interpolate start.");
     generated_path_dense_.clear();
 
     if (generated_path_raw_.empty())
@@ -529,7 +494,7 @@ void PlannerNode::interpolate_plan(double t_offset)
 
     if (duration <= 1e-6)
     {
-        const double yaw = wrapAngle(next_goal_yaw_);
+        const double yaw = wrapAngle(curr_goal_yaw_);
         for (auto &pt : generated_path_dense_)
         {
             pt.yaw_ = yaw;
@@ -537,8 +502,8 @@ void PlannerNode::interpolate_plan(double t_offset)
         return;
     }
 
-    const double yaw_start = wrapAngle(next_start_yaw_);
-    const double yaw_diff = wrapAngle(next_goal_yaw_ - yaw_start);
+    const double yaw_start = wrapAngle(new_start_yaw_);
+    const double yaw_diff = wrapAngle(curr_goal_yaw_ - yaw_start);
 
     auto blend = [](double s)
     {
@@ -562,10 +527,9 @@ void PlannerNode::interpolate_plan(double t_offset)
         double yaw = yaw_start + sb * yaw_diff;
         pt.yaw_ = wrapAngle(yaw);
     }
-    RCLCPP_WARN(node_handle_->get_logger(), "Plan interpolated.");
 }
 
-void PlannerNode::publish_plan()
+void GoalPlannerNode::publish_plan()
 {
     if (current_path_dense_.empty())
     {
@@ -617,11 +581,11 @@ void PlannerNode::publish_plan()
     }
 
     pub_trajectory_->publish(traj_msg);
-    // visualize_local_traj();
-    // visualize_full_path();
+    visualize_local_traj();
+    visualize_full_path();
 }
 
-void PlannerNode::visualize_local_traj()
+void GoalPlannerNode::visualize_local_traj()
 {
     visualization_msgs::msg::Marker line;
     line.header.stamp = node_handle_->now();
@@ -668,10 +632,10 @@ void PlannerNode::visualize_local_traj()
         return;
     }
 
-    pub_trajectory_lines->publish(line);
+    pub_trajectory_lines_->publish(line);
 }
 
-void PlannerNode::visualize_full_path()
+void GoalPlannerNode::visualize_full_path()
 {
     visualization_msgs::msg::Marker line;
     line.header.stamp = node_handle_->now();
@@ -713,10 +677,10 @@ void PlannerNode::visualize_full_path()
         return;
     }
 
-    pub_global_plan->publish(line);
+    pub_global_plan_->publish(line);
 }
 
-void PlannerNode::trim_covered_path()
+void GoalPlannerNode::trim_covered_path()
 {
     RCLCPP_WARN_STREAM(node_handle_->get_logger(), "Trimming");
     bool has_tp = false;
@@ -769,85 +733,9 @@ void PlannerNode::trim_covered_path()
     {
         RCLCPP_WARN_STREAM(node_handle_->get_logger(), "No tracking point from controller.");
     }
-
-    // Check current progress
-    Eigen::Vector3d curr_p(current_location_.translation.x,
-                           current_location_.translation.y,
-                           current_location_.translation.z);
-
-    double seg_s = 0.0;
-    Eigen::Vector3d proj_p = curr_p;
-
-    int num_points_to_pop = 0;
-
-    for (size_t i = 0; i + 1 < current_path_dense_.size(); ++i)
-    {
-        const Eigen::Vector3d &Pi = current_path_dense_[i].pos_;
-        const Eigen::Vector3d &Pj = current_path_dense_[i + 1].pos_;
-
-        Eigen::Vector3d v = Pj - Pi;
-        Eigen::Vector3d w = curr_p - Pi;
-
-        double v_dot_v = v.dot(v);
-        if (v_dot_v < 1e-6)
-        {
-            continue;
-        }
-
-        double s = w.dot(v) / v_dot_v;
-
-        if (s < 0.0)
-        {
-            // Current pose is in the front of the segment[0],
-            // indicating that the current pose hasn't reached the beginning of the entire current_path_ yet
-            // Cannot remove anything, quit.
-            seg_s = 0.0;
-            proj_p = Pi;
-            // num_points_to_pop = 1;
-            break;
-        }
-        else if (s <= 1.0)
-        {
-            // current pose lies in this section, remove all points before.
-            seg_s = s;
-            proj_p = Pi + s * v;
-
-            // 0..i-1 all complete, can remove
-            num_points_to_pop = static_cast<int>(i) + 1;
-            break;
-        }
-        else // s > 1.0
-        {
-            // Current pose already move past segment i.
-            // current_path_dense_[i] and current_path_dense_[j] can both be removed.
-            seg_s = 1.0;
-            proj_p = Pj;
-            num_points_to_pop = static_cast<int>(i) + 2;
-        }
-    }
-
-    if (num_points_to_pop > 0)
-    {
-        // delete num_points_to_pop points, it's removing 0 to i (totally i+1),
-        // so new current_path_dense_[0] is the first un-executed waypoint
-        current_path_dense_.erase(current_path_dense_.begin(),
-                                  current_path_dense_.begin() + num_points_to_pop);
-    }
-
-    if (current_path_dense_.empty())
-    {
-        RCLCPP_WARN(node_handle_->get_logger(), "Trimmed all dense path points, check trim_covered_path()");
-        return;
-    }
-
-    double time_offset = current_path_dense_.front().time_from_start_;
-    for (auto &pt : current_path_dense_)
-    {
-        pt.time_from_start_ -= time_offset;
-    }
 }
 
-bool PlannerNode::check_local_path_free()
+bool GoalPlannerNode::check_local_path_free()
 {
     double check_horizon = traj_horizon_;
     for (auto &pt : current_path_dense_)
@@ -861,8 +749,8 @@ bool PlannerNode::check_local_path_free()
         bool q = map_manager_->query_sqdist_at_world(pt.pos_, sq_dist);
 
         // unknown -> free, may change later, but must align with A* close set judge
-        if (q && sq_dist <= safe_sq_idx_dist_)
-        // if (sq_dist <= safe_sq_idx_dist_)
+        // if (q && sq_dist <= safe_sq_idx_dist_)
+        if (sq_dist <= safe_sq_idx_dist_)
         {
             RCLCPP_WARN_STREAM(node_handle_->get_logger(), "having collision point at \n"
                                                                << pt.pos_);
@@ -874,7 +762,7 @@ bool PlannerNode::check_local_path_free()
     return true;
 }
 
-void PlannerNode::timerCallback()
+void GoalPlannerNode::timerCallback()
 {
     if (!planning_mtx_.try_lock())
     {
@@ -882,8 +770,6 @@ void PlannerNode::timerCallback()
         return;
     }
     std::lock_guard<std::mutex> lg(planning_mtx_, std::adopt_lock);
-
-    RCLCPP_WARN(node_handle_->get_logger(), "Timer callback start");
     // get current TF to world
     try
     {
@@ -891,10 +777,9 @@ void PlannerNode::timerCallback()
                                                                                              robot_frame_id_,
                                                                                              rclcpp::Time(0));
         current_location_ = transform_stamped.transform;
-        if (!received_first_robot_tf)
+        if (!received_first_robot_tf_)
         {
-            received_first_robot_tf = true;
-            last_location_ = current_location_;
+            received_first_robot_tf_ = true;
             possible_stuck_location_ = current_location_;
             last_position_change_ = node_handle_->now();
             RCLCPP_WARN(node_handle_->get_logger(), "Received first robot_tf");
@@ -905,123 +790,121 @@ void PlannerNode::timerCallback()
         RCLCPP_ERROR(node_handle_->get_logger(), "Robot tf not received: %s", ex.what());
     }
 
-    if (this->enable_exploration)
+    switch (status_)
+    {
+    case PlannerStatus::NEW_GOAL:
     {
         // RCLCPP_WARN(node_handle_->get_logger(), "Exploration triggered, generating plans...");
         // First plan: no generated path yet
-        if (current_path_dense_.empty())
+        
+        double t_start = 0;
+        // attach the next path to the end of current path
+        if (attach_goal_)
         {
-            double t_start = 0;
-            generate_plan();
+            generate_plan(true);
+            if (!current_path_dense_.empty())
+            {
+                t_start = current_path_dense_.back().time_from_start_;
+            }
             interpolate_plan(t_start);
             current_path_dense_.insert(current_path_dense_.end(),
                                        generated_path_dense_.begin(),
                                        generated_path_dense_.end());
+            trim_covered_path();
         }
-        // Replan: adding the next path section
-        else if (current_path_dense_.back().time_from_start_ < replan_remain_time_)
+        else
+        // fresh plan from current position
         {
-            RCLCPP_WARN(node_handle_->get_logger(), "Approaching current goal, adding a replan.");
-            double t_start = current_path_dense_.back().time_from_start_;
-            generate_plan();
+            generate_plan(false);
             interpolate_plan(t_start);
-            current_path_dense_.insert(current_path_dense_.end(),
-                                       generated_path_dense_.begin(),
-                                       generated_path_dense_.end());
+            current_path_dense_.clear();
+            current_path_dense_ = generated_path_dense_;
         }
 
         if (current_path_dense_.size() < 2)
         {
-            RCLCPP_WARN(node_handle_->get_logger(), "No path to execute.");
+            RCLCPP_WARN(node_handle_->get_logger(), "Goal not reachable.");
+            status_ = PlannerStatus::WAIT_GOAL;
+            // std::queue<geometry_msgs::msg::Pose> empty_queue;
+            // std::swap(pending_goals_, empty_queue);
             return;
         }
 
+        status_ = PlannerStatus::PATH_EXEC;
+        publish_plan();
+        break;
+    }
+    case PlannerStatus::WAIT_GOAL:
+    {
+        if (!pending_goals_.empty())
+        {
+            // This set status to NEW_GOAL
+            load_next_goal();
+        }
+        else
+        {
+            RCLCPP_WARN(node_handle_->get_logger(), "Waiting for goal.");
+        }
+        break;
+    }
+    case PlannerStatus::PATH_EXEC:
+    {
         trim_covered_path();
+
+        if (!pending_goals_.empty() &&
+            current_path_dense_.back().time_from_start_ < replan_remain_time_)
+        {
+            // This set status to NEW_GOAL
+            load_next_goal();
+            break;
+        }
+        // No pending goals, the current path is to the goal
+        else if (current_path_dense_.size() <= 2)
+        {
+            RCLCPP_INFO(node_handle_->get_logger(), "Reached goal.");
+            status_ = PlannerStatus::WAIT_GOAL;
+            break;
+        }
 
         // Check Collision
         if (!check_local_path_free())
         {
-            double t_start = 0;
             // First try replan based on current target, if fail, plan based on all viewpoints
             RCLCPP_WARN(node_handle_->get_logger(), "Collision ahead detected, replan.");
-            // To avoid voxel plan drag the start point back to cell center
-            TimedXYZYaw precise_start = current_path_dense_[1];
-
             if (!generate_replan(current_path_dense_[1], current_path_dense_.back()))
             {
-                // make the current_path_dense_ end at [1], for generate_plan() starting point.
-                RCLCPP_WARN(node_handle_->get_logger(), "Replan failed, generate new plan.");
+                std::queue<geometry_msgs::msg::Pose> empty_queue;
+                std::swap(pending_goals_, empty_queue);
+                RCLCPP_WARN(node_handle_->get_logger(), "Replan failed, stay at the last track point.");
                 current_path_dense_.resize(1);
-                generate_plan();
-            }
-            interpolate_plan(t_start);
-            current_path_dense_.clear();
-            current_path_dense_.insert(current_path_dense_.end(),
-                                       generated_path_dense_.begin(),
-                                       generated_path_dense_.end());
-            current_path_dense_.front().pos_ = precise_start.pos_;
-            current_path_dense_.front().yaw_ = precise_start.yaw_;
-            if (current_path_dense_.size() < 2)
-            {
-                RCLCPP_WARN(node_handle_->get_logger(), "After replan, no path to execute.");
-                return;
-            }
-        }
-        else
-        // Stuck: stay in a position for too long
-        {
-            Eigen::Vector3d possible_stuck_point(possible_stuck_location_.translation.x,
-                                                 possible_stuck_location_.translation.y,
-                                                 possible_stuck_location_.translation.z);
-            Eigen::Vector3d current_point(current_location_.translation.x,
-                                          current_location_.translation.y,
-                                          current_location_.translation.z);
-            if ((possible_stuck_point - current_point).norm() > position_change_threshold)
-            {
-                possible_stuck_location_ = current_location_;
-                last_position_change_ = node_handle_->now();
-                RCLCPP_INFO(node_handle_->get_logger(), "Path exec normally.");
+                current_path_dense_[0].desired_vel_ = Eigen::Vector3d::Zero();
+                status_ = PlannerStatus::WAIT_GOAL;
             }
             else
             {
-                // Check if we've been stationary for too long
-                rclcpp::Duration stall_duration = node_handle_->now() - last_position_change_;
-                if (stall_duration.seconds() > stall_timeout_seconds)
-                {
-                    RCLCPP_INFO(node_handle_->get_logger(), "Robot stationary for %f seconds, clearing plan and replan",
-                                stall_duration.seconds());
-                    double t_start = 0;
-                    TimedXYZYaw current_goal = current_path_dense_.back();
-                    TimedXYZYaw new_start;
-                    new_start.pos_ = Eigen::Vector3d(current_location_.translation.x,
-                                                     current_location_.translation.y,
-                                                     current_location_.translation.z);
-                    new_start.yaw_ = current_path_dense_.front().yaw_;
-                    current_path_dense_.clear();
-                    // First try replan based on current target, if fail, plan based on all viewpoints
-                    if (!generate_replan(new_start, current_goal))
-                    {
-                        // make the current_path_dense_ end at [1], for generate_plan() starting point.
-                        RCLCPP_WARN(node_handle_->get_logger(), "Replan failed, generate new plan.");
-                        generate_plan();
-                    }
-                    interpolate_plan(t_start);
-                    current_path_dense_.insert(current_path_dense_.end(),
-                                               generated_path_dense_.begin(),
-                                               generated_path_dense_.end());
-                    if (current_path_dense_.size() < 2)
-                    {
-                        RCLCPP_WARN(node_handle_->get_logger(), "After replan, no path to execute.");
-                        return;
-                    }
-                    last_position_change_ = node_handle_->now(); // Reset timer to avoid spam
-                }
+                double t_start = 0;
+                interpolate_plan(t_start);
+                current_path_dense_.clear();
+                current_path_dense_ = generated_path_dense_;
             }
         }
 
-        // Output trajectory
         publish_plan();
+        break;
     }
+    }
+}
 
-    RCLCPP_WARN(node_handle_->get_logger(), "Timer callback end");
+#include <rclcpp/executors/multi_threaded_executor.hpp>
+
+int main(int argc, char *argv[])
+{
+    rclcpp::init(argc, argv);
+    auto planner = std::make_shared<GoalPlannerNode>();
+    auto node = planner->get_node_handle();
+    rclcpp::executors::MultiThreadedExecutor exec;
+    exec.add_node(node);
+    exec.spin();
+    rclcpp::shutdown();
+    return 0;
 }

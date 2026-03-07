@@ -153,6 +153,7 @@ void PID::reset_integrator()
 class PIDPathTrackerNode : public rclcpp::Node
 {
 private:
+    std::mutex traj_mutex_;
     // params
     std::string target_frame;
 
@@ -253,6 +254,7 @@ public:
 
     void trajectory_callback(const trajectory_msgs::msg::MultiDOFJointTrajectory::SharedPtr msg)
     {
+        std::lock_guard<std::mutex> lock(traj_mutex_);
         if (msg->points.empty())
         {
             RCLCPP_WARN(get_logger(), "Got trajectory with 0 points.");
@@ -347,6 +349,7 @@ public:
 
     void traj_timer_callback()
     {
+        std::lock_guard<std::mutex> lock(traj_mutex_);
         if (traj_timer_)
         {
             traj_timer_->cancel();
@@ -381,13 +384,18 @@ public:
                                current_ref_.pose.pose.position.y,
                                current_ref_.pose.pose.position.z);
 
+            Eigen::Vector3d vdes(current_ref_.twist.twist.linear.x,
+                                 current_ref_.twist.twist.linear.y,
+                                 current_ref_.twist.twist.linear.z);
+
             Eigen::Vector3d d = p1 - p0;
             double d2 = d.squaredNorm();
 
             if (d2 > 1e-8)
             {
                 double s = (p - p0).dot(d) / d2;
-                if (s > 0.5)
+                double dir_match = (p1 - p).dot(vdes);
+                if (s > 0.25 || dir_match < 0)
                 {
                     advance_trackingpoint = true;
                 }
@@ -487,10 +495,10 @@ public:
                            current_ref_.pose.pose.position.y,
                            current_ref_.pose.pose.position.z);
 
-        RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
-                                             << p0);
-        RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
-                                             << p1);
+        // RCLCPP_WARN_STREAM(get_logger(), "Previous ref point at \n"
+        //                                      << p0);
+        // RCLCPP_WARN_STREAM(get_logger(), "Current ref point at \n"
+        //                                      << p1);
     }
 
     double getYawFromQuat(const geometry_msgs::msg::Quaternion &q)
@@ -530,6 +538,7 @@ public:
         // If the progress is enough, go to next tracking point
         if (hold_next_ref_)
         {
+            std::lock_guard<std::mutex> lock(traj_mutex_);
             bool advance_trackingpoint = false;
 
             Eigen::Vector3d p(odometry.pose.pose.position.x,

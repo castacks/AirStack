@@ -5,7 +5,7 @@
 
   <node pkg="integrated_planner" exec="odom_tf_node" name="odom_tf_node" output="screen"/>
   <node pkg="integrated_planner" exec="frame_fix_node" name="frame_fix_node" output="screen" emulate_tty="true"/>
-  <node pkg="integrated_planner" exec="integrated_planner" name="integrated_planner" output="screen" emulate_tty="true">
+  <node pkg="integrated_planner" exec="goal_planner_node" name="goal_planner_node" output="screen" emulate_tty="true">
     <param from="$(find-pkg-share integrated_planner)/config/modelai_config.yaml" />
   </node>
 
@@ -17,8 +17,8 @@
     <param name="x_d"         value="0.0" />
     <param name="x_ff"        value="1.0" />
     <param name="x_d_alpha"   value="0.0" />  
-    <param name="x_min"       value="-0.2" />
-    <param name="x_max"       value="0.2" />
+    <param name="x_min"       value="-0.3" />
+    <param name="x_max"       value="0.3" />
     <param name="x_constant"  value="0.0" />
     
     <param name="y_p"         value="0.5" />
@@ -26,8 +26,8 @@
     <param name="y_d"         value="0.0" />
     <param name="y_ff"        value="1.0" />
     <param name="y_d_alpha"   value="0.0" />
-    <param name="y_min"       value="-0.2" />
-    <param name="y_max"       value="0.2" />
+    <param name="y_min"       value="-0.3" />
+    <param name="y_max"       value="0.3" />
     <param name="y_constant"  value="0.0" />
     
     <param name="z_p"         value="2.0" />
@@ -39,7 +39,6 @@
     <param name="z_max"       value="0.25" />
     <param name="z_constant"  value="0.0" />
     
-    <!-- <remap from="odometry" to="/ov/odom" /> -->
     <remap from="odometry" to="/mocap_odom_processed" />
     <remap from="trajectory" to="/cmd_trajectory" />
   </node>

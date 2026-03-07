@@ -22,6 +22,8 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
+find_package(px4_msgs REQUIRED)
+
 # set(OpenVDB_INCLUDE_DIR "/usr/local/include/openvdb" CACHE STRING "Path to OpenVDB installation")
 find_package(OpenVDB REQUIRED)
 find_package(vdb_edt REQUIRED)
@@ -83,7 +85,7 @@ ament_target_dependencies(integrated_planner
 
 add_executable(cpa_node 
   src/cpa_node.cpp 
-  src/astar_vdb.cpp)
+  src/pa_kino_astar.cpp)
 
 target_include_directories(cpa_node
   PRIVATE
@@ -98,6 +100,39 @@ target_link_libraries(cpa_node
 
 # Link libraries
 ament_target_dependencies(cpa_node
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  trajectory_msgs
+  tf2
+  tf2_ros
+  pcl_conversions
+  tf2_eigen
+  tf2_geometry_msgs
+  vdb_edt
+)
+
+add_executable(goal_planner_node 
+  src/goal_planner_node.cpp 
+  src/astar_vdb.cpp)
+
+target_include_directories(goal_planner_node
+  PRIVATE
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_link_libraries(goal_planner_node
+  OpenVDB::openvdb
+  ${EIGEN3_LIBRARIES}
+  ${PCL_LIBRARIES})
+
+# Link libraries
+ament_target_dependencies(goal_planner_node
   rclcpp
   rclcpp_action
   std_msgs
@@ -135,8 +170,12 @@ add_executable(odom_tf_node
 
 target_include_directories(odom_tf_node
   PRIVATE
+  ${EIGEN3_INCLUDE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+target_link_libraries(odom_tf_node
+  ${EIGEN3_LIBRARIES})
+  
 ament_target_dependencies(odom_tf_node
   rclcpp
   rclcpp_action
@@ -144,6 +183,7 @@ ament_target_dependencies(odom_tf_node
   std_srvs
   geometry_msgs
   nav_msgs
+  px4_msgs
   tf2
   tf2_ros
   tf2_eigen
@@ -197,6 +237,7 @@ ament_target_dependencies(model_ai_px4_test
 install(TARGETS
   integrated_planner
   cpa_node
+  goal_planner_node
   takeoff_hack_node
   frame_fix_node
   model_ai_px4_test

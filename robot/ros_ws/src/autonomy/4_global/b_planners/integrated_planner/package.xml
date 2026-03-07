@@ -42,6 +42,7 @@
   <depend>tf2_ros</depend>
   <depend>message_filters</depend>
   <depend>vdb_edt</depend>
+  <depend>px4_msgs</depend>
   
   <export>
     <build_type>ament_cmake</build_type>

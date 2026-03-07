@@ -49,7 +49,7 @@ void TakeoffHackNode::ardupilot_takeoff(const std::shared_ptr<std_srvs::srv::Tri
                                         std::shared_ptr<std_srvs::srv::Trigger::Response> response)
 {
     mavros_msgs::srv::CommandTOL::Request::SharedPtr takeoff_request = std::make_shared<mavros_msgs::srv::CommandTOL::Request>();
-    takeoff_request->altitude = 9.0;
+    takeoff_request->altitude = 5.0;
 
     std::cout << "hack ardupilot takeoff 1" << std::endl;
     RCLCPP_WARN(get_logger(), "[DEBUG] hack: takeoff_client service = %s", takeoff_client_->get_service_name());

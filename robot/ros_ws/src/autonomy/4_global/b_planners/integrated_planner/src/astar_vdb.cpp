@@ -226,10 +226,15 @@ int Astar::search(const openvdb::Coord &start_ijk,
                     // }
 
                     ///////////////////////////////////////////////////
-                    // Search Boundary for demo Jan 9
+                    openvdb::Vec3d nbr_xyz = tf->indexToWorld(nbr_ijk);
+                    
+                    // mocap bound
+                    // if (nbr_xyz.x() > 0.5 || nbr_xyz.x() < -3.0 ||
+                    //     nbr_xyz.y() > 2.0 || nbr_xyz.y() < -2.0 ||
+                    //     nbr_xyz.z() > -0.5 || nbr_xyz.z() < -1.7)
 
-                    // openvdb::Vec3d nbr_xyz = tf->indexToWorld(nbr_ijk);
-                    // if (nbr_xyz.x() > 3.5 || nbr_xyz.x() < -3.0 ||
+                    // modal ai demo bound
+                    // if (nbr_xyz.x() > 3.0 || nbr_xyz.x() < -3.0 ||
                     //     nbr_xyz.y() > 2.0 || nbr_xyz.y() < -2.0 ||
                     //     nbr_xyz.z() > -0.5 || nbr_xyz.z() < -1.7)
                     // {
@@ -258,7 +263,7 @@ int Astar::search(const openvdb::Coord &start_ijk,
                     // Distance Field no data (unknown) -> not free to explore
                     // Beyond the range, be optimistic:
                     // Distance Field no data (unknown) -> free to explore
-                    double opt_thres = 10.0;
+                    double opt_thres = 50.0;
 
                     if (cur->g_score < opt_thres)
                     {

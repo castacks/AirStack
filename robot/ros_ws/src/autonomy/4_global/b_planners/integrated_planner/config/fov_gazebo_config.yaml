@@ -18,17 +18,17 @@
     l_thresh: 0.0
 
     vox_size: 0.1
-    start_range: 0.0
+    start_range: 0.3
     sensor_range: 10.0
     hit_thickness: 1
 
-    safe_robot_r: 0.5
+    safe_robot_r: 0.4
 
     vdbedt_version: 1
     max_update_dist: 20.0
     edt_update_duration: 0.5
     frontier_update_duration: 2.0
-    vis_update_duration: 5.0
+    vis_update_duration: 0.5
     vis_slice_level: 2.5
 
     vis_map_minx: -200.0

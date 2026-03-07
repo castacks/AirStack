@@ -51,11 +51,13 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
 
-#include "pa_kino_astar.hpp"
+#include "astar_vdb.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include <openvdb/io/Stream.h>
 #include <vdb_edt/vdbmap.h>
+
+#include <queue>
 
 struct TimedXYZYaw
 {
@@ -66,30 +68,19 @@ struct TimedXYZYaw
     Eigen::Vector3d desired_vel_ = Eigen::Vector3d::Zero();
 };
 
-struct FullPathNode
-{
-    Eigen::Matrix<double, 9, 1> state; // [px, py, pz, vx, vy, vz, ax, ay, az]
-    double yaw;
-};
-
-class CpaNode
+class GoalPlannerNode
 {
 private:
     // ROS2 node
     rclcpp::Node::SharedPtr node_handle_;
 
-    enum class PlannerStatus : uint8_t
-    {
-        WAIT_GOAL,
-        NEW_GOAL,
-        PATH_EXEC
-    };
+    enum class PlannerStatus : uint8_t {WAIT_GOAL, NEW_GOAL, PATH_EXEC};
     PlannerStatus status_;
 
     // Voxel map manager
     std::shared_ptr<VDBMap> map_manager_;
 
-    KinodynamicAstar kino_astar_planner_;
+    Astar astar_planner_;
 
     // String constants
     std::string world_frame_id_;
@@ -103,9 +94,9 @@ private:
     std::string pub_trajectory_viz_topic_;
     std::string srv_exploration_toggle_topic_;
 
-    std::vector<Eigen::Matrix<double, 9, 1>> generated_path_;
-    std::vector<FullPathNode> generated_path_with_yaw_;
-    std::vector<FullPathNode> current_path_with_yaw_;
+    std::vector<openvdb::Vec3d> generated_path_raw_;
+    std::vector<TimedXYZYaw> generated_path_dense_;
+    std::vector<TimedXYZYaw> current_path_dense_;
 
     double voxel_size_;
 
@@ -118,24 +109,30 @@ private:
     Eigen::Vector3d curr_goal_xyz_;
     double curr_goal_yaw_ = 0.0;
 
-    double delta_t_ = 0.1;
+    std::queue<geometry_msgs::msg::Pose> pending_goals_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr sub_goal_array_;
+    bool attach_goal_;
+
+    double interpolate_step_ = 0.1;
+    double cruise_speed_ = 0.5;
 
     bool received_first_robot_tf_ = false;
     bool enable_exploration_ = false;
 
     std::shared_mutex tp_mtx_;
     std::mutex planning_mtx_;
+
     bool has_tracking_point_;
     geometry_msgs::msg::PoseStamped current_tracking_point_;
 
     geometry_msgs::msg::Transform current_location_; // x, y, z, yaw
-    geometry_msgs::msg::Transform possible_stuck_location_;
-    rclcpp::Time last_position_change_;      // Time of last position change
-    double position_change_threshold_ = 0.1; // Minimum distance (meters) to consider as movement
-    double stall_timeout_seconds_ = 5.0;     // Time without movement before clearing plan
-    double traj_horizon_ = 3.0;
+    geometry_msgs::msg::Transform possible_stuck_location_; 
+    rclcpp::Time last_position_change_;               // Time of last position change
+    double position_change_threshold_ = 0.1;          // Minimum distance (meters) to consider as movement
+    double stall_timeout_seconds_ = 5.0;              // Time without movement before clearing plan
+    double traj_horizon_ = 2.0;
 
-    double replan_remain_time_ = 1.0; // When remain path shorten than this, start replan and add the replanned to the end
+    double replan_remain_time_ = 3.0; // When remain path shorten than this, start replan and add the replanned to the end
     TimedXYZYaw last_traj_endpoint_;
 
     // Callbacks
@@ -148,28 +145,34 @@ private:
 
     virtual void timerCallback();
 
-    virtual void generate_plan();
-
-    void planYaw(double dt);
-
-    double unwrappingYaw(double last_yaw, double curr_yaw);
+    virtual void generate_plan(bool attach_end);
 
     void tracking_point_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
     void goal_pose_callback(const geometry_msgs::msg::Pose::SharedPtr msg);
+    
+    void goal_pose_array_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg);
 
-    bool generate_replan(const FullPathNode& start_node);
+    bool load_next_goal();
+    
+    bool generate_replan(TimedXYZYaw start_point, TimedXYZYaw end_point);
 
     bool check_local_path_free();
+
+    void interpolate_plan(double t_offset);
 
     void trim_covered_path();
 
     void publish_plan();
 
+    void visualize_local_traj();
+    
+    void visualize_full_path();
+
 public:
-    // explicit CpaNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-    CpaNode();
-    ~CpaNode() = default;
+    // explicit GoalPlannerNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+    GoalPlannerNode();
+    ~GoalPlannerNode() = default;
 
     rclcpp::Node::SharedPtr get_node_handle() const;
 
