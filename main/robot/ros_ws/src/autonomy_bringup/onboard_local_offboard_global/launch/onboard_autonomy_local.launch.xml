@@ -1,0 +1,12 @@
+<!-- ROBOT -->
+<launch>
+
+  <!-- Autonomy Stack - Module Bringups -->
+  <!-- Global and logging are not run onboard in this configuration -->
+  <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml">
+    <!-- set global and logging package to nothing  -->
+    <arg name="global_package" value="" />
+    <arg name="logging_package" value="" />
+  </include>
+
+</launch>

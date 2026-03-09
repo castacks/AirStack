@@ -1,0 +1,74 @@
+<launch>
+    <!-- ===================================================================
+         px4_interface bringup
+         ===================================================================
+         This launch file starts the px4_interface RobotInterface plugin,
+         which talks directly to PX4 via uXRCE-DDS without MAVROS.
+
+         /fmu namespace:
+           px4_interface uses relative topic names (e.g. in/trajectory_setpoint)
+           so that the /fmu prefix can be pushed from a parent launch file:
+
+             <group>
+               <push-ros-namespace namespace="fmu" />
+               <include file="$(find-pkg-share px4_interface)/launch/px4_interface.launch.xml" />
+             </group>
+
+           Alternatively, if you include this file without pushing /fmu, remap
+           the fmu_namespace arg below to point to the correct prefix.
+         =================================================================== -->
+
+    <arg name="interface_odometry_out_topic"
+         default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+
+    <!-- ── Main interface node ─────────────────────────────────────────── -->
+    <!-- Push the /fmu namespace so that relative topics like
+         in/trajectory_setpoint resolve to /fmu/in/trajectory_setpoint.
+         AirStack command topics (cmd_velocity, cmd_pose, …) come from the
+         broader robot namespace and are remapped below.                     -->
+    <group>
+        <push-ros-namespace namespace="fmu" />
+
+        <node pkg="robot_interface" exec="robot_interface_node"
+              name="px4_interface" output="screen">
+            <param name="interface" value="px4_interface::PX4Interface" />
+
+            <!-- Expose the odometry output so other nodes can remap it -->
+            <remap from="odometry"
+                   to="/$(env ROBOT_NAME)/interface/odometry" />
+
+            <!-- Visual odometry input: optional, remap to your VIO source -->
+            <!-- <remap from="visual_odometry_in"
+                        to="/$(env ROBOT_NAME)/vio/odometry" /> -->
+        </node>
+    </group>
+
+    <!-- ── Odometry conversion ─────────────────────────────────────────── -->
+    <!-- Converts the raw odometry (ENU nav_msgs/Odometry) into a TF and
+         the canonical AirStack odometry topic.                              -->
+    <node pkg="robot_interface" namespace="odometry_conversion"
+          exec="odometry_conversion" output="screen">
+        <remap from="odometry_in"
+               to="/$(env ROBOT_NAME)/interface/odometry" />
+        <remap from="odometry_out"
+               to="odometry" />
+
+        <param name="odom_input_qos_is_best_effort" value="true" />
+        <param name="new_frame_id"                  value="map" />
+        <param name="new_child_frame_id"            value="base_link" />
+        <param name="odometry_output_type"          value="2" />
+
+        <param name="convert_odometry_to_transform"            value="true" />
+        <param name="convert_odometry_to_stabilized_transform" value="true" />
+        <param name="restamp_now_post"                         value="false" />
+    </node>
+
+    <!-- ── Safety monitor ──────────────────────────────────────────────── -->
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+          namespace="drone_safety_monitor" output="screen">
+        <param name="state_estimate_timeout" value="1.0" />
+        <remap from="state_estimate"
+               to="$(var interface_odometry_out_topic)" />
+    </node>
+
+</launch>
