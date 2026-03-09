@@ -1,4 +1,4 @@
-# Autonomy Modes
+# Onboard/Offboard Distributed Computing 
 
 AirStack uses a **role** system to control which planning modules launch inside each container.
 The role is hardcoded per compose service — no environment variables need to be set by hand.

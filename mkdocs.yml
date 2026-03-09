@@ -6,6 +6,8 @@ site_dir: ../site
 site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
   **/ros_ws/build
+  **/docker
+  **/macvo
   **/ros_ws/install
   **/kit-app-template/**
   **/isaac_sim_data/**
@@ -49,7 +51,6 @@ nav:
       - docs/tutorials/index.md
       - Getting Started: docs/getting_started.md
       - Multi-Robot Simulation: docs/tutorials/multi_robot_simulation.md
-      - Autonomy Modes: docs/tutorials/autonomy_modes.md
       - Deploying to Hardware: docs/tutorials/deploying_to_hardware.md
   - Simulation:
       - docs/simulation/index.md
@@ -106,6 +107,8 @@ nav:
               - docs/robot/autonomy/behavior/index.md
               - docs/robot/autonomy/behavior/behavior_tree.md
               - docs/robot/autonomy/behavior/behavior_executive.md
+      - docs/tutorials/autonomy_modes.md
+      - docs/robot/autonomy/dds_router.md
       - Static Transforms:
           - docs/robot/static_transforms/index.md
       - Logging:
