@@ -22,19 +22,17 @@
 
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 
 #include <array>
 #include <cmath>
 #include <geometry_msgs/msg/point.hpp>
-#include <geometry_msgs/msg/transform.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/srv/get_plan.hpp>
 #include <optional>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
-#include <tf2_msgs/msg/tf_message.hpp>
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
@@ -55,7 +53,7 @@ class RandomWalkNode : public rclcpp::Node {
     std::string pub_goal_point_viz_topic_;
     std::string pub_trajectory_viz_topic_;
     std::string sub_map_topic_;
-    std::string sub_robot_tf_topic_;
+    std::string sub_odometry_topic_;
     std::string srv_random_walk_toggle_topic_;
 
     // Variables
@@ -69,9 +67,9 @@ class RandomWalkNode : public rclcpp::Node {
     bool enable_random_walk = false;
     bool is_path_executing = false;
 
-    geometry_msgs::msg::Transform current_location;       // x, y, z, yaw
-    geometry_msgs::msg::Transform current_goal_location;  // x, y, z, yaw
-    geometry_msgs::msg::Transform last_location;         // Last recorded position
+    geometry_msgs::msg::Pose current_location;       // x, y, z, yaw
+    geometry_msgs::msg::Pose current_goal_location;  // x, y, z, yaw
+    geometry_msgs::msg::Pose last_location;         // Last recorded position
     rclcpp::Time last_position_change;                  // Time of last position change
     double position_change_threshold = 0.1;       // Minimum distance (meters) to consider as movement
     double stall_timeout_seconds = 5.0;          // Time without movement before clearing plan
@@ -79,7 +77,7 @@ class RandomWalkNode : public rclcpp::Node {
     // Callbacks
     void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
 
-    void tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg);
+    void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void randomWalkToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
                                   std_srvs::srv::Trigger::Response::SharedPtr response);
@@ -98,13 +96,9 @@ class RandomWalkNode : public rclcpp::Node {
     RandomWalkNode();
     ~RandomWalkNode() = default;
 
-    // TF buffer
-    std::shared_ptr<tf2_ros::Buffer> tf_buffer;
-    std::shared_ptr<tf2_ros::TransformListener> tf_listener;
-
     // ROS subscribers
     rclcpp::Subscription<visualization_msgs::msg::Marker>::SharedPtr sub_map;
-    // rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_robot_tf;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odometry;
 
     // ROS publishers
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_plan;

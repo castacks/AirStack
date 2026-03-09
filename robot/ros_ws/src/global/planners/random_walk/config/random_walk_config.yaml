@@ -5,7 +5,7 @@
     pub_goal_point_viz_topic: "~/goal_point_viz"
     pub_trajectory_viz_topic: "~/traj_viz"
     sub_map_topic: "vdb_map_visualization"
-    sub_robot_tf_topic: "/tf"
+    sub_odometry_topic: "odometry"
     srv_random_walk_toggle_topic: "~/global_plan_toggle"
 
     publish_visualizations: false # should trajectory visualizations be published
