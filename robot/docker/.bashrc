@@ -8,11 +8,9 @@
 # Define the ROS2 workspace directory
 ROS2_WS_DIR="$HOME/AirStack/robot/ros_ws"
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/fastdds.xml"
-# for local development, prevent conflict with other desktops
-export ROS_LOCALHOST_ONLY=1
+export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/src/fastdds.xml"
 
-# fix ROS2 humble setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
+# fix ROS2 jazzy setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-humble/24349#24349
 PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"
 export PYTHONWARNINGS
 
@@ -56,7 +54,7 @@ function cws(){
         fi
 
         # Set environment variables
-        export AMENT_PREFIX_PATH="/opt/ros/humble"
+        export AMENT_PREFIX_PATH="/opt/ros/jazzy"
         export CMAKE_PREFIX_PATH=""
 
         { set +x; } 2>/dev/null  # set +x w/out it being printed
@@ -66,36 +64,39 @@ function cws(){
     fi
 }
 
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
-# https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
-container_name=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
-
-# remove the prefix and convert dashes to underscores
-export ROBOT_NAME=$(echo "$container_name" | sed 's/.*\(robot-[0-9]*\)$/\1/' | sed 's#-#_#')
-export ROS_DOMAIN_ID=$(echo "$ROBOT_NAME" | awk -F'_' '{print $NF}')
-
-# case: will be null on real world robot
-if [ "$ROBOT_NAME" == "null" ] || echo "$ROBOT_NAME" | grep -q "refused"; then
-    num=$(hostname | awk -F'-' '{print $2}') # get number from hostname
-    num=$((num)) #remove leading zeros
-
-    if [[ "$num" == 0 ]]; then
-        export ROBOT_NAME="ERROR"
-        export ROS_DOMAIN_ID="ERROR"
-    else
-        export ROBOT_NAME="robot_$num"
-        export ROS_DOMAIN_ID=$num
-    fi
-    export FCU_URL="/dev/ttyTHS4:115200"  # for real robot, this is the default
+# Only extract robot name and ROS domain ID iff they are not already set in the environment (e.g. by docker compose)
+if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
+    # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+    # WARNING: this technique ONLY works with docker version 29 and up.
+    name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+    CONTAINER_NAME=":$name_to_map"
+elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
+    name_to_map=$(hostname)
 else
-    # case: robot name found from docker, then we're in sim
-    export OFFBOARD_PORT=$((OFFBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    export ONBOARD_PORT=$((ONBOARD_BASE_PORT + ROS_DOMAIN_ID))
-    # TODO: ardupilot case not handled yet
-    export FCU_URL="udp://:$OFFBOARD_PORT@172.31.0.200:$ONBOARD_PORT"
-    export TGT_SYSTEM=$((1 + ROS_DOMAIN_ID))  # target system for mavros
+    echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
+    name_to_map=""
+    export ROBOT_NAME="unknown_robot"
+    export ROS_DOMAIN_ID=0
+fi
+# set ROBOT_NAME and ROS_DOMAIN_ID from the mapping script if NAME_TO_MAP is not empty
+if [ -n "$name_to_map" ]; then
+    script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
+    script_dir=$(dirname "$script_path")
+
+    existing_robot_domain_id=${ROS_DOMAIN_ID:-}
+
+    eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
+    export ROBOT_NAME
+
+    # if ROS_DOMAIN_ID was already set in the environment, use that instead of the mapped value
+    if [ -z "$existing_robot_domain_id" ]; then
+        export ROS_DOMAIN_ID
+    else
+        export ROS_DOMAIN_ID=$existing_robot_domain_id
+    fi
 fi
 
 
@@ -149,9 +150,9 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='[$ROBOT_NAME]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    PS1='[$ROBOT_NAME$CONTAINER_NAME]${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 else
-    PS1='[$ROBOT_NAME]${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1='[$ROBOT_NAME$CONTAINER_NAME]${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -210,8 +211,8 @@ if [ ! -h $HISTFILE ]; then
     if [ ! -d /.dev/.bash_history ]; then
         cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history
     fi
-    # symlink to /.dev/.bash_history
-    ln -s $HOME/.dev/.bash_history $HISTFILE
+    # symlink to /.dev/.bash_history, silently on error
+    ln -s $HOME/.dev/.bash_history $HISTFILE > /dev/null 2>&1
 fi
 
 

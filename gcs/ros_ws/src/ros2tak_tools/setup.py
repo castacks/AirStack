@@ -14,6 +14,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # Include all files in config directory
         ('share/' + package_name + '/config', glob('config/*.*')),
+        # Include all files in the launch directory
+        ('share/' + package_name + '/launch', glob('launch/*.*')),
         # Include all files in scripts directory
         ('share/' + package_name + '/scripts', glob('scripts/*.*')),
         # Create lib directory for executables

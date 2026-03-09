@@ -42,13 +42,13 @@ AirStack/
 ├── robot/                          # Robot autonomy stack (ROS 2 workspace)
 │   ├── docker/                     # Robot containerization
 │   ├── installation/               # Robot setup scripts
-│   └── ros_ws/src/autonomy/        # Layered autonomy modules:
-│       ├── 0_interface/            # Robot interface layer
-│       ├── 1_sensors/              # Sensor integration
-│       ├── 2_perception/           # State estimation & environment understanding
-│       ├── 3_local/                # Local planning, world model, and control
-│       ├── 4_global/               # Global planning and mapping
-│       └── 5_behavior/             # High-level decision making
+│   └── robot/ros_ws/src/        # Layered autonomy modules:
+│       ├── interface/            # Robot interface layer
+│       ├── sensors/              # Sensor integration
+│       ├── perception/           # State estimation & environment understanding
+│       ├── local/                # Local planning, world model, and control
+│       ├── global/               # Global planning and mapping
+│       └── behavior/             # High-level decision making
 ├── ground_control_station/         # Monitoring and control interface
 │   ├── docker/                     # GCS containerization
 │   └── ros_ws/                     # GCS ROS 2 workspace

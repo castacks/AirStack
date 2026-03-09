@@ -9,58 +9,32 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      # Record bags
+      - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
-      - AUTONOMY_LAUNCH_PACKAGE=${AUTONOMY_LAUNCH_PACKAGE}
-      - AUTONOMY_LAUNCH_FILE=${AUTONOMY_LAUNCH_FILE}
-      # --
-      - INTERFACE_LAUNCH_PACKAGE=${INTERFACE_LAUNCH_PACKAGE}
-      - INTERFACE_LAUNCH_FILE=${INTERFACE_LAUNCH_FILE}
-      # --
-      - SENSORS_LAUNCH_PACKAGE=${SENSORS_LAUNCH_PACKAGE}
-      - SENSORS_LAUNCH_FILE=${SENSORS_LAUNCH_FILE}
-      # --
-      - PERCEPTION_LAUNCH_PACKAGE=${PERCEPTION_LAUNCH_PACKAGE}
-      - PERCEPTION_LAUNCH_FILE=${PERCEPTION_LAUNCH_FILE}
-      # --
-      - LOCAL_LAUNCH_PACKAGE=${LOCAL_LAUNCH_PACKAGE}
-      - LOCAL_LAUNCH_FILE=${LOCAL_LAUNCH_FILE}
-      # --
-      - GLOBAL_LAUNCH_PACKAGE=${GLOBAL_LAUNCH_PACKAGE}
-      - GLOBAL_LAUNCH_FILE=${GLOBAL_LAUNCH_FILE}
-      # --
-      - BEHAVIOR_LAUNCH_PACKAGE=${BEHAVIOR_LAUNCH_PACKAGE}
-      - BEHAVIOR_LAUNCH_FILE=${BEHAVIOR_LAUNCH_FILE}
+      - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
+      - URDF_FILE=${URDF_FILE}  
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
-      # URDF Robot Description
-      - ROBOT_URDF_FILE_PATH=${ROBOT_DESCRIPTION_PACKAGE}/urdf/${ROBOT_URDF_FILE}
-      # Record bags
-      - RECORD_BAGS=${RECORD_BAGS}
-    deploy:
-      # let it use the GPU
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia # https://stackoverflow.com/a/70761193
-              count: 1
-              capabilities: [ gpu ]
+      - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
     volumes:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - .dev:/root/.dev:rw # developer config
-      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - ../../common/.bash_profile:/root/.bash_profile:rw  # commented out - common/ no longer exists
       - .bashrc:/root/.bashrc:rw # bash config
-      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
-      - ../../common/.tmux.conf:/root/.tmux.conf:rw # tmux config
+      - ../../common/inputrc:/etc/inputrc:rw  
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw  
       - ../../.devcontainer/robot/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/robot/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - ./robot_name_map:/root/AirStack/robot/docker/robot_name_map:rw
       # autonomy stack stuff
-      - ../..:/root/AirStack
-      - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw # common ROS packages
-      - ../../common/ros_packages/fastdds.xml:/root/AirStack/robot/ros_ws/fastdds.xml:rw # fastdds.xml
+      - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw
+      - ../../common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml
+      - ../ros_ws:/root/AirStack/robot/ros_ws:rw
       # bags
       - ../bags:/bags:rw
 

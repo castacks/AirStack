@@ -1,1 +1,0 @@
-In the future we could support Gazebo.

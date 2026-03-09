@@ -53,20 +53,20 @@ The repository includes VSCode tasks:
 
 The autonomy stack follows a layered architecture with numbered modules:
 
-- **0_interface/**: Robot hardware interface and safety monitors
+- **interface/**: Robot hardware interface and safety monitors
   - `mavros_interface`: Communication with flight controller
   - `drone_safety_monitor`: Safety monitoring and emergency handling
   - `robot_interface`: High-level robot abstraction
 
-- **1_sensors/**: Sensor integration and processing
+- **sensors/**: Sensor integration and processing
   - `camera_param_server`: Camera calibration management
   - `gimbal_stabilizer`: Gimbal control and stabilization
   - `sensor_interfaces`: Common sensor message definitions
 
-- **2_perception/**: State estimation and environment perception
+- **perception/**: State estimation and environment perception
   - `macvo_ros2`: Visual-inertial odometry system
 
-- **3_local/**: Local planning and control
+- **local/**: Local planning and control
   - `a_world_models/`: Local world representation
     - `disparity_expansion`: Obstacle detection from stereo
     - `disparity_graph`: Graph-based obstacle representation
@@ -80,14 +80,14 @@ The autonomy stack follows a layered architecture with numbered modules:
     - `attitude_controller`: Attitude control
     - `pid_controller`: PID control utilities
 
-- **4_global/**: Global planning and mapping
+- **global/**: Global planning and mapping
   - `a_world_models/`: Global world representation
     - `vdb_mapping_ros2`: VDB-based 3D mapping
   - `b_planners/`: Global path planning
     - `random_walk`: Random exploration planner
     - `ensemble_planner`: Multi-planner coordination
 
-- **5_behavior/**: High-level mission execution
+- **behavior/**: High-level mission execution
   - `behavior_tree`: Behavior tree framework
   - `behavior_executive`: Mission execution engine
   - `rqt_behavior_tree_command`: GUI for behavior tree control

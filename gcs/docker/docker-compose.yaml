@@ -1,9 +1,8 @@
 services:
   gcs:
     profiles:
-      - ""
-      - sitl
-      - simple
+      - desktop       # standard sim/dev: GCS alongside robot-desktop (full role)
+      - desktop_split # split sim/dev: GCS alongside robot-desktop-onboard + robot-offboard
     extends:
       file: ./gcs-base-docker-compose.yaml
       service: gcs-base
@@ -11,6 +10,7 @@ services:
       - airstack_network
     ports:
       - 2222:22 # for ssh
+      - 8766:8765 # for Foxglove remote display
 
   # ===================================================================================================================
   # for running on a real world laptop on the local network, set network mode to host
@@ -18,11 +18,12 @@ services:
     profiles:
       - hitl
       - deploy
+      - offboard  # field deployment: gcs-real + robot-offboard start together on the ground station
     extends:
       file: ./gcs-base-docker-compose.yaml
       service: gcs-base
     network_mode: host
     volumes:
       - $HOME/bags:/bags
-      - ../../robot/ros_ws/src/robot_bringup/rviz/:/bags/rviz
-      - ../../plot:/plot
+      # TODO: Update rviz config location if needed
+      - ../plot:/plot

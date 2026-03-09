@@ -1,0 +1,15 @@
+<!-- ROBOT -->
+<launch>
+
+  <!-- Autonomy Stack - Module Bringups -->
+  <!-- Only global runs offboard; all other packages are disabled -->
+  <include file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml">
+    <arg name="interface_package" value="" />
+    <arg name="sensors_package" value="" />
+    <arg name="perception_package" value="" />
+    <arg name="local_package" value="" />
+    <arg name="behavior_package" value="" />
+    <arg name="logging_package" value="" />
+  </include>
+
+</launch>

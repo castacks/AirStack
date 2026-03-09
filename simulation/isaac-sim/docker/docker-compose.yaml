@@ -1,8 +1,8 @@
 services:
   isaac-sim:
     profiles:
-      - ""
-      - sitl
+      - desktop
+      - desktop_split
     image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_isaac-sim
     build:
       context: ../
@@ -47,7 +47,7 @@ services:
               count: 1
               capabilities: [ gpu ]
     volumes:
-      # display
+       # display
       - $HOME/.Xauthority:/isaac-sim/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff

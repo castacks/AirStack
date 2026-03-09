@@ -125,7 +125,7 @@ source /opt/ros/jazzy/setup.bash
 source /isaac-sim/jazzy_ws/install/setup.bash  # isaacsim ros2 package
 
 # needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/fastdds.xml"
+export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/.ros/fastdds.xml"
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # for local development, prevent conflict with other desktops
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET

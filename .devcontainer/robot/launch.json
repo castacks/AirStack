@@ -11,7 +11,7 @@
             "name": "ROS2: Launch macvo_ros2",
             "type": "ros2",
             "request": "launch",
-            "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/2_perception/macvo_ros2/launch/macvo_ros2.launch.xml"
+            "target": "${workspaceFolder}/robot/ros_ws/src/autonomy/perception/macvo_ros2/launch/macvo_ros2.launch.xml"
         },
         {
             "name": "ROS2: Attach",

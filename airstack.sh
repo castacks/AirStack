@@ -118,8 +118,14 @@ function print_command_help {
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
             ;;
-        build)
-            echo "Usage: airstack build [service_name...] [options]"
+        images)
+            echo "Usage: airstack images"
+            echo ""
+            echo "List Docker images whose repository/tag contains the PROJECT_NAME value from .env."
+            echo "Shows all images if PROJECT_NAME is not set."
+            ;;
+        image-build)
+            echo "Usage: airstack image-build [service_name...] [options]"
             echo ""
             echo "Build or rebuild Docker Compose services. Passes ENV variables from .env"
             echo "and any prepended environment variables (e.g. DOCKER_IMAGE_TAG=x airstack build robot)."
@@ -136,8 +142,11 @@ function print_command_help {
         connect)
             echo "Usage: airstack connect [container_name] [options]"
             echo ""
+            echo "By default, attaches to an existing tmux session inside the container."
+            echo "Exiting tmux fully disconnects from the container."
+            echo ""
             echo "Options:"
-            echo "  --command=CMD  Run specific command instead of shell (default: bash)"
+            echo "  --command=CMD  Run a specific command instead of attaching to tmux (e.g., --command=bash)"
             ;;
         down)
             echo "Usage: airstack down [service_name]"
@@ -242,81 +251,18 @@ function check_docker {
         log_error "Docker daemon is not running."
         exit 1
     fi
-    
-    # Ensure the CLI container image is built
-    ensure_cli_container
 }
 
-# Build or check for the CLI container image
-function ensure_cli_container {
-    local version=$(get_docker_image_tag)
-    local image_name="airstack-cli:v$version"
-    local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
-    
-    # Check if Dockerfile exists
-    if [ ! -f "$dockerfile_path" ]; then
-        log_error "Dockerfile.airstack-cli not found at $dockerfile_path"
-        log_error "Please ensure Dockerfile.airstack-cli is in the project root."
-        exit 1
-    fi
-    
-    # Check if image exists
-    if ! docker image inspect "$image_name" &> /dev/null; then
-        log_info "Building airstack-cli container (version $version)..."
-        if ! docker build -f "$dockerfile_path" \
-            -t "$image_name" "$PROJECT_ROOT"; then
-            log_error "Failed to build airstack-cli container"
-            exit 1
-        fi
-        log_info "airstack-cli container built successfully"
-    fi
-}
-
-# Wrapper function to run docker compose through the containerized CLI
+# Wrapper function to run docker compose natively on the host
 function run_docker_compose {
-    local version=$(get_docker_image_tag)
-    local image_name="airstack-cli:v$version"
-    
-    # Read .env file and pass all variables from current environment
-    # This allows command-line overrides like: ISAAC_SIM_USE_STANDALONE=true airstack up
     local env_args=()
     local env_file="$PROJECT_ROOT/.env"
 
-    # add the UID and GID to env_args so they are passed to the container and can be used for file permissions
-    env_args+=("-e" "USER_ID=$(id -u)")
-    env_args+=("-e" "GROUP_ID=$(id -g)")
-    
     if [ -f "$env_file" ]; then
-        # Extract variable names from .env file (lines that start with a letter/underscore)
-        while IFS='=' read -r var_name _; do
-            # Skip comments and empty lines
-            if [[ "$var_name" =~ ^[[:space:]]*# ]] || [[ -z "$var_name" ]]; then
-                continue
-            fi
-            # Remove leading/trailing whitespace
-            var_name=$(echo "$var_name" | xargs)
-            # Add -e flag for this variable (Docker will take value from current environment)
-            if [[ -n "$var_name" ]]; then
-                env_args+=("-e" "$var_name")
-            fi
-        done < "$env_file"
+        env_args+=("--env-file" "$env_file")
     fi
-    
-    # Build the docker run command
-    # Mount: docker socket, project directory, X11 socket, and preserve environment
-    docker run --rm -i \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v "$PROJECT_ROOT:$PROJECT_ROOT" \
-        -v /tmp/.X11-unix:/tmp/.X11-unix \
-        -w "$PROJECT_ROOT" \
-        -e USER_ID="$(id -u)" \
-        -e GROUP_ID="$(id -g)" \
-        -e HOME="$HOME" \
-        -e DISPLAY="$DISPLAY" \
-        "${env_args[@]}" \
-        --network host \
-        "$image_name" \
-        docker compose "$@"
+
+    docker compose "${env_args[@]}" "$@"
 }
 
 # Find container by partial name using regex
@@ -333,7 +279,7 @@ function find_container {
     
     if [ "$match_count" -eq 0 ]; then
         # Try a more flexible search if exact match fails
-        log_warn "No exact matches for '$search_term', trying fuzzy search..."
+        log_warn "No exact matches for '$search_term', trying fuzzy search..." >&2
         matches=$(echo "$containers" | grep -i ".*$search_term.*" || true)
         match_count=$(echo "$matches" | grep -v "^$" | wc -l)
         
@@ -343,8 +289,8 @@ function find_container {
             # Show available containers as a suggestion
             available=$(docker ps --format "{{.Names}}")
             if [ -n "$available" ]; then
-                log_info "Available containers:"
-                echo "$available"
+                log_info "Available containers:" >&2
+                echo "$available" >&2
             fi
             
             return 1
@@ -357,7 +303,7 @@ function find_container {
         echo "$container_name"
         return 0
     else
-        log_warn "Multiple containers match '$search_term'. Please be more specific or select from the list below:"
+        log_warn "Multiple containers match '$search_term'. Please be more specific or select from the list below:" >&2
         # Format the output as a table with numbers (redirect to stderr so it's not captured)
         echo -e "${BLUE}NUM\tCONTAINER NAME\tIMAGE\tSTATUS${NC}" >&2
         echo "$matches" | awk '{print NR "\t" $0}' >&2
@@ -367,10 +313,10 @@ function find_container {
         echo "  2. Type 'q' to quit" >&2
         echo "  3. Press Ctrl+C to cancel and try again with a more specific name" >&2
         echo "" >&2
-        read -p "Your selection: " selection
+        read -p "Your selection: " selection <&2
         
         if [ "$selection" = "q" ]; then
-            log_info "Operation cancelled"
+            log_info "Operation cancelled" >&2
             return 1
         elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -gt 0 ] && [ "$selection" -le "$match_count" ]; then
             # Extract just the container name from the selected line
@@ -378,17 +324,17 @@ function find_container {
             echo "$container_name"
             
             # Provide a tip for future use
-            log_info "Tip: Next time, you can directly use 'airstack connect $container_name' for this container"
+            log_info "Tip: Next time, you can directly use 'airstack connect $container_name' for this container" >&2
             return 0
         else
             log_error "Invalid selection. Please enter a number between 1 and $match_count, or 'q' to quit."
             
             # Give the user another chance to select
             echo "" >&2
-            read -p "Try again (or 'q' to quit): " selection
+            read -p "Try again (or 'q' to quit): " selection <&2
             
             if [ "$selection" = "q" ]; then
-                log_info "Operation cancelled"
+                log_info "Operation cancelled" >&2
                 return 1
             elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -gt 0 ] && [ "$selection" -le "$match_count" ]; then
                 container_name=$(echo "$matches" | sed -n "${selection}p" | awk '{print $1}')
@@ -554,9 +500,35 @@ function cmd_install {
             log_info "For other systems, please install manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
         fi
         
-        # Docker Compose is containerized - no host installation needed
-        log_info "Docker Compose will run in a containerized environment (no host installation required)"
-        log_info "The airstack-cli container will be built automatically on first use"
+        # Check Docker Compose version
+        local compose_min_version="5.0.0"
+        local compose_targt_version="5.0.2"
+        log_info "Checking Docker Compose version..."
+        local compose_current
+        if compose_current=$(docker compose version --short 2>/dev/null); then
+            if ! printf '%s\n%s\n' "$compose_min_version" "$compose_current" | sort -V -C; then
+                log_warn "Docker Compose version $compose_current is older than the minimum required version $compose_min_version"
+                read -p "Would you like to upgrade Docker Compose to the latest version (v$compose_targt_version)? [y/N] " upgrade_choice
+                if [[ "$upgrade_choice" =~ ^[Yy]$ ]]; then
+                    log_info "Upgrading Docker Compose..."
+                    local _dc_config=${DOCKER_CONFIG:-$HOME/.docker}
+                    local arch
+                    arch=$(uname -m)
+                    mkdir -p "$_dc_config/cli-plugins"
+                    curl -SL "https://github.com/docker/compose/releases/download/v$compose_targt_version/docker-compose-linux-$arch" \
+                        -o "$_dc_config/cli-plugins/docker-compose"
+                    chmod +x "$_dc_config/cli-plugins/docker-compose"
+                    log_info "Docker Compose upgraded successfully"
+                    log_info "New version: $(docker compose version --short)"
+                else
+                    log_warn "Skipping Docker Compose upgrade. Some features may not work correctly."
+                fi
+            else
+                log_info "Docker Compose version $compose_current meets the minimum requirement ($compose_min_version)"
+            fi
+        else
+            log_warn "Could not determine Docker Compose version. Please ensure Docker Compose v$compose_min_version or newer is installed."
+        fi
     fi
     
     # Install WINTAK if requested
@@ -667,130 +639,133 @@ function cmd_setup {
     log_info "Setup complete!"
 }
 
-function cmd_up {
-    check_docker
-    
-    local env_files=()
-    local other_args=()
-    
-    # Convert arguments to array for easier processing
+# Classify arguments for a docker compose invocation.
+# Global docker compose flags (must appear before the subcommand) are separated
+# from subcommand-specific arguments.
+#
+# Usage: classify_compose_args <global_array_name> <subcmd_array_name> "$@"
+#
+# Example:
+#   local global_args=() subcmd_args=()
+#   classify_compose_args global_args subcmd_args "$@"
+function classify_compose_args {
+    local -n _global=$1
+    local -n _subcmd=$2
+    shift 2
+
+    # Global flags that consume the next argument as their value
+    local -A _takes_value=(
+        [--ansi]=1 [--env-file]=1 [-f]=1 [--file]=1
+        [--parallel]=1 [--profile]=1 [--progress]=1
+        [--project-directory]=1 [--workdir]=1
+        [-p]=1 [--project-name]=1 [-H]=1 [--host]=1
+    )
+    # Global flags that are boolean (standalone, no value)
+    local -A _is_bool=(
+        [--compatibility]=1 [--dry-run]=1 [--verbose]=1 [--version]=1
+    )
+
     local args=("$@")
     local i=0
-    
     while [ $i -lt ${#args[@]} ]; do
         local arg="${args[$i]}"
-        
-        if [[ "$arg" == "--env-file" ]]; then
-            # Get the next argument as the env file path
+        if [[ -n "${_takes_value[$arg]+x}" ]]; then
+            # Flag + value pair -> global
+            _global+=("$arg")
             i=$((i+1))
             if [ $i -lt ${#args[@]} ]; then
-                env_files+=("--env-file" "${args[$i]}")
+                _global+=("${args[$i]}")
             else
-                log_error "Missing value for --env-file argument"
+                echo "[ERROR] Missing value for compose global flag: $arg" >&2
                 return 1
             fi
-        elif [[ "$arg" == "--env-file="* ]]; then
-            # Handle --env-file=path format
-            env_files+=("$arg")
-        else
-            # Skip the command name 'up' itself
-            if [[ "$arg" != "up" ]]; then
-                other_args+=("$arg")
+        elif [[ -n "${_is_bool[$arg]+x}" ]]; then
+            # Boolean flag -> global
+            _global+=("$arg")
+        elif [[ "$arg" == -* && "$arg" == *=* ]]; then
+            # --flag=value form: check the flag name portion
+            local flag_name="${arg%%=*}"
+            if [[ -n "${_takes_value[$flag_name]+x}" || -n "${_is_bool[$flag_name]+x}" ]]; then
+                _global+=("$arg")
+            else
+                _subcmd+=("$arg")
             fi
+        else
+            _subcmd+=("$arg")
         fi
-        
         i=$((i+1))
     done
+}
 
-    # Build compose arguments array
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-    
-    # Add all env files
-    for env_file in "${env_files[@]}"; do
-        compose_args+=("$env_file")
-    done
-    
-    # Add the 'up' command
-    compose_args+=("up")
-    
-    # Add other arguments if any
-    if [ ${#other_args[@]} -gt 0 ]; then
-        compose_args+=("${other_args[@]}")
-    fi
-    
-    # Add -d flag
-    compose_args+=("-d")
+function cmd_up {
+    check_docker
+
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
     # Add xhost + to allow GUI applications
     xhost + &> /dev/null || true
 
-    # Pre-create bind mount directories as the host user before docker compose runs.
-    # If these don't exist, the Docker daemon (running as root) will create them as root.
-    mkdir -p "$HOME/.cache" \
-        "$HOME/.nv/ComputeCache" \
-        "$HOME/.nvidia-omniverse/logs" \
-        "$HOME/.nvidia-omniverse/config" \
-        "$HOME/.local/share/ov/data" \
-        "$HOME/.local/share/ov/pkg" \
-        "$HOME/.local/share/ov/data/documents/Kit/shared/exts"
-
-
-    log_info "Starting services with containerized docker-compose..."
-    run_docker_compose "${compose_args[@]}"
+    log_info "Starting services..."
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
     log_info "Services brought up successfully"
 }
 
-function cmd_build {
+function cmd_image_build {
     check_docker
 
-    local env_files=()
-    local other_args=()
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
-    # Convert arguments to array for easier processing
-    local args=("$@")
-    local i=0
+    log_info "Building services..."
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
+    log_info "Build completed successfully"
+}
 
-    while [ $i -lt ${#args[@]} ]; do
-        local arg="${args[$i]}"
+function cmd_image_push {
+    check_docker
 
-        if [[ "$arg" == "--env-file" ]]; then
-            # Get the next argument as the env file path
-            i=$((i+1))
-            if [ $i -lt ${#args[@]} ]; then
-                env_files+=("--env-file" "${args[$i]}")
-            else
-                log_error "Missing value for --env-file argument"
-                return 1
-            fi
-        elif [[ "$arg" == "--env-file="* ]]; then
-            # Handle --env-file=path format
-            env_files+=("$arg")
-        else
-            other_args+=("$arg")
-        fi
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
-        i=$((i+1))
-    done
+    log_info "Pushing service images..."
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push "${subcmd_args[@]}"
+    log_info "Push completed successfully"
+}
 
-    # Build compose arguments array
-    local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
+function cmd_image_pull {
+    check_docker
 
-    # Add all env files
-    for env_file in "${env_files[@]}"; do
-        compose_args+=("$env_file")
-    done
+    local global_args=()
+    local subcmd_args=()
+    classify_compose_args global_args subcmd_args "$@"
 
-    # Add the 'build' command
-    compose_args+=("build")
+    log_info "Pulling service images..."
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull "${subcmd_args[@]}"
+    log_info "Pull completed successfully"
+}
 
-    # Add service names and other arguments
-    if [ ${#other_args[@]} -gt 0 ]; then
-        compose_args+=("${other_args[@]}")
+function cmd_images {
+    check_docker
+
+    local env_file="$PROJECT_ROOT/.env"
+    local project_name=""
+
+    if [ -f "$env_file" ]; then
+        project_name=$(grep -E "^PROJECT_NAME=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
     fi
 
-    log_info "Building services with containerized docker-compose..."
-    run_docker_compose "${compose_args[@]}"
-    log_info "Build completed successfully"
+    if [ -z "$project_name" ]; then
+        log_warn "PROJECT_NAME not found in .env, showing all images"
+        docker images
+    else
+        log_info "Showing images matching project: $project_name"
+        docker images | head -1
+        docker images | grep -i "$project_name" || true
+    fi
 }
 
 function cmd_down {
@@ -833,11 +808,13 @@ function cmd_connect {
     local container_pattern="$1"
     shift
     
-    # Default command is bash, but can be overridden
-    local command="bash"
+    # By default, attach to a tmux session. If --command is specified, run that command directly.
+    local command=""
+    local command_specified=false
     for arg in "$@"; do
         if [[ "$arg" == --command=* ]]; then
             command="${arg#--command=}"
+            command_specified=true
         fi
     done
     
@@ -848,14 +825,26 @@ function cmd_connect {
     if [ $? -eq 0 ]; then
         log_info "Connecting to container: $container"
         
-        # Check if the command exists in the container
-        if ! docker exec "$container" which "$command" &> /dev/null; then
-            log_warn "Command '$command' not found in container. Falling back to /bin/sh"
-            command="sh"
+        if [ "$command_specified" = true ]; then
+            # Run the specified command directly, no tmux involvement
+            if ! docker exec "$container" which "$command" &> /dev/null; then
+                log_warn "Command '$command' not found in container. Falling back to /bin/sh"
+                command="sh"
+            fi
+            docker exec -it "$container" "$command"
+        else
+            # Default: attach to an existing tmux session. Exiting tmux fully disconnects from the container.
+            if docker exec "$container" which tmux &> /dev/null; then
+                docker exec -it "$container" tmux a
+            else
+                log_warn "tmux not found in container. Falling back to bash."
+                local fallback="bash"
+                if ! docker exec "$container" which bash &> /dev/null; then
+                    fallback="sh"
+                fi
+                docker exec -it "$container" "$fallback"
+            fi
         fi
-        
-        # Connect to the container
-        docker exec -it "$container" "$command"
         
         # Check exit status
         local exit_status=$?
@@ -869,9 +858,73 @@ function cmd_connect {
 
 function cmd_status {
     check_docker
-    
+
     log_info "AirStack container status:"
-    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+    # Get list of running containers: name, status, ports
+    local containers
+    containers=$(docker ps --format "{{.Names}}\t{{.Status}}\t{{.Ports}}")
+
+    if [ -z "$containers" ]; then
+        echo "No running containers."
+        return 0
+    fi
+
+    # Collect rows: container_name, robot_name, ros_domain_id, status, ports
+    local -a rows=()
+    while IFS=$'\t' read -r name status ports; do
+        local robot_name ros_domain_id vars
+        # Single exec: unique prefix lets us grep out .bashrc echo noise
+        vars=$(docker exec "$name" bash --login -c \
+            'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROS_DOMAIN_ID"' 2>/dev/null \
+            | grep "^AIRSTACK_VARS:" | tail -1)
+        if [ -n "$vars" ]; then
+            robot_name="${vars#AIRSTACK_VARS:}"  # strip leading prefix
+            ros_domain_id="${robot_name##*:}"    # everything after last colon
+            robot_name="${robot_name%%:*}"        # everything before first colon
+        fi
+        [ -z "$robot_name" ]    && robot_name="N/A"
+        [ -z "$ros_domain_id" ] && ros_domain_id="N/A"
+        rows+=("${name}|${robot_name}|${ros_domain_id}|${status}|${ports}")
+    done <<< "$containers"
+
+    # Sort rows alphabetically by container name
+    local sorted
+    sorted=$(printf '%s\n' "${rows[@]}" | sort -t'|' -k1,1)
+    mapfile -t rows <<< "$sorted"
+
+    # Determine column widths (minimum = header length)
+    local w_container=14 w_robot=10 w_domain=13 w_status=6 w_ports=5
+    for row in "${rows[@]}"; do
+        IFS='|' read -r c_name c_robot c_domain c_status c_ports <<< "$row"
+        [ ${#c_name}   -gt $w_container ] && w_container=${#c_name}
+        [ ${#c_robot}  -gt $w_robot ]     && w_robot=${#c_robot}
+        [ ${#c_domain} -gt $w_domain ]    && w_domain=${#c_domain}
+        [ ${#c_status} -gt $w_status ]    && w_status=${#c_status}
+    done
+    # Add padding
+    w_container=$((w_container + 2))
+    w_robot=$((w_robot + 2))
+    w_domain=$((w_domain + 2))
+    w_status=$((w_status + 2))
+
+    # Print header
+    printf "${BOLDCYAN}%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s${NC}\n" \
+        "CONTAINER NAME" "ROBOT_NAME" "ROS_DOMAIN_ID" "STATUS" "PORTS"
+    # Separator
+    printf "%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s\n" \
+        "$(printf '%*s' "$w_container" '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_robot"     '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_domain"    '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_status"    '' | tr ' ' '-')" \
+        "-----"
+
+    # Print rows
+    for row in "${rows[@]}"; do
+        IFS='|' read -r c_name c_robot c_domain c_status c_ports <<< "$row"
+        printf "%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s\n" \
+            "$c_name" "$c_robot" "$c_domain" "$c_status" "$c_ports"
+    done
 }
 
 function cmd_logs {
@@ -979,39 +1032,6 @@ function cmd_rmi {
     docker images -a | grep "$search_term" | awk '{print $2}' | xargs docker rmi "${rmi_flags[@]}"
 }
 
-function cmd_rebuild_cli {
-    log_info "Rebuilding airstack-cli container..."
-    
-    local version=$(get_docker_image_tag)
-    local image_name="airstack-cli:v$version"
-    local dockerfile_path="$PROJECT_ROOT/Dockerfile.airstack-cli"
-    local host_docker_group_id=$(getent group docker | cut -d: -f3)
-    
-    if [ ! -f "$dockerfile_path" ]; then
-        log_error "Dockerfile.airstack-cli not found at $dockerfile_path"
-        exit 1
-    fi
-    
-    # Remove existing image if it exists
-    if docker image inspect "$image_name" &> /dev/null; then
-        log_info "Removing existing airstack-cli image (version $version)..."
-        docker rmi "$image_name" || true
-    fi
-    
-    # Build new image
-    log_info "Building new airstack-cli image (version $version)..."
-    if docker build -f "$dockerfile_path" --build-arg HOST_DOCKER_GROUP_ID="$host_docker_group_id" -t "$image_name" "$PROJECT_ROOT"; then
-        log_info "airstack-cli container rebuilt successfully"
-        
-        # Show the new compose version
-        log_info "Installed docker-compose version:"
-        docker run --rm "$image_name" docker compose version
-    else
-        log_error "Failed to rebuild airstack-cli container"
-        exit 1
-    fi
-}
-
 # Function to load external command modules
 function load_command_modules {
     # Skip if modules directory doesn't exist
@@ -1044,28 +1064,32 @@ declare -A COMMAND_HELP
 function register_builtin_commands {
     COMMANDS["install"]="cmd_install"
     COMMANDS["setup"]="cmd_setup"
-    COMMANDS["build"]="cmd_build"
+    COMMANDS["image-build"]="cmd_image_build"
+    COMMANDS["image-push"]="cmd_image_push"
+    COMMANDS["image-pull"]="cmd_image_pull"
+    COMMANDS["images"]="cmd_images"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["connect"]="cmd_connect"
     COMMANDS["status"]="cmd_status"
     COMMANDS["logs"]="cmd_logs"
     COMMANDS["version"]="cmd_version"
-    COMMANDS["rebuild-cli"]="cmd_rebuild_cli"
     COMMANDS["rmi"]="cmd_rmi"
     COMMANDS["help"]="cmd_help"
     
     # Register help text for built-in commands
     COMMAND_HELP["install"]="Install dependencies (Docker Engine, NVIDIA Container Toolkit)"
     COMMAND_HELP["setup"]="Configure AirStack settings and add to shell profile"
-    COMMAND_HELP["build"]="Build or rebuild Docker Compose service images"
+    COMMAND_HELP["image-build"]="Build or rebuild Docker Compose service images"
+    COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
+    COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
+    COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["up"]="Start services using Docker Compose"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
     COMMAND_HELP["status"]="Show status of all containers"
     COMMAND_HELP["logs"]="View logs for a container (supports partial name matching)"
     COMMAND_HELP["version"]="Display the current AirStack version"
-    COMMAND_HELP["rebuild-cli"]="Rebuild the containerized docker-compose CLI tool"
     COMMAND_HELP["rmi"]="Remove Docker images by search term"
     COMMAND_HELP["help"]="Show help information"
 }
