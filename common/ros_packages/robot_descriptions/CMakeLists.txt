@@ -22,7 +22,6 @@ endif()
 
 # Install files.
 install(DIRECTORY iris DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY spirit DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 ament_package()

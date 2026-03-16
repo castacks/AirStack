@@ -10,6 +10,8 @@ lite, desktop_split sim)
   <arg name="role" default="$(env AUTONOMY_ROLE full)" />
   <arg name="urdf_file" default="$(env URDF_FILE)" />
   <arg name="gcs_domain" default="0" />
+  <arg name="gossip_domain" default="99" />
+  <arg name="gossip_publish_rate" default="1.0" />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
@@ -35,11 +37,17 @@ lite, desktop_split sim)
     <include
       file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
 
-    <!-- Domain Bridge -->
+    <!-- Domain Bridge (GCS) -->
     <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
       <arg name="config_file"
         value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
       <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
+    </include>
+
+    <!-- Gossip coordination layer -->
+    <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+      <arg name="gossip_domain"  value="$(var gossip_domain)" />
+      <arg name="publish_rate"   value="$(var gossip_publish_rate)" />
     </include>
   </group>
 
@@ -48,11 +56,17 @@ lite, desktop_split sim)
     <include
       file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
 
-    <!-- Domain Bridge -->
+    <!-- Domain Bridge (GCS) -->
     <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
       <arg name="config_file"
         value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/dds_router.yaml" />
       <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
+    </include>
+
+    <!-- Gossip coordination layer -->
+    <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+      <arg name="gossip_domain"  value="$(var gossip_domain)" />
+      <arg name="publish_rate"   value="$(var gossip_publish_rate)" />
     </include>
 
   </group>

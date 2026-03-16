@@ -29,11 +29,7 @@ NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
 ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd" 
-#f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
 STAGE_SCALE = 0.01
-
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -43,11 +39,12 @@ DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -3.0
 
-#Drone offset
+# Drone offset
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.15
 
-DRONE1_XY_M = (-3.0, 3.5)
-DRONE2_XY_M = (3.0, 3.0)
+DRONE1_XY_M = (-3.0,  3.5)
+DRONE2_XY_M = ( 3.0,  3.0)
+DRONE3_XY_M = ( 0.0, -3.0)
 # ---------------------------------------------------------
 
 
@@ -67,7 +64,6 @@ for ext in [
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):
-        # Try immediate enable if available (more robust across Kit versions), fall back otherwise
         try:
             ext_manager.set_extension_enabled_immediate(ext, True)
         except Exception:
@@ -102,7 +98,7 @@ def add_collision_to_prim(prim):
         if not prim.HasAPI(UsdPhysics.CollisionAPI):
             UsdPhysics.CollisionAPI.Apply(prim)
             print(f"Added collision to: {prim.GetPath()}")
-    
+
     # Recursively process children
     for child in prim.GetChildren():
         add_collision_to_prim(child)
@@ -149,23 +145,20 @@ class PegasusApp:
         if stage_prim.IsValid():
             xformable = UsdGeom.Xformable(stage_prim)
             xformable.ClearXformOpOrder()
-            
+
             translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
             translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
-            
+
             scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble)
             scale_op.Set(Gf.Vec3d(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
-            
+
             add_collision_to_prim(stage_prim)
             print("Finished adding collisions.")
-            
+
             # Let the app process the changes
             for _ in range(10):
                 omni.kit.app.get_app().update()
-            
-            # Optionally save the stage
-            # stage.GetRootLayer().Export("/path/to/save/scene.usd")
-            
+
         else:
             print("Warning: /World/stage not found, environment not scaled")
 
@@ -176,11 +169,9 @@ class PegasusApp:
         # Units
         mpu, s = get_stage_scale(stage)
 
-        drone1_z_m = SPAWN_HEIGHT_ABOVE_FLOOR_M
-        drone2_z_m = SPAWN_HEIGHT_ABOVE_FLOOR_M
-        
-        drone1_pos = [DRONE1_XY_M[0] * s, DRONE1_XY_M[1] * s, drone1_z_m * s]
-        drone2_pos = [DRONE2_XY_M[0] * s, DRONE2_XY_M[1] * s, drone2_z_m * s]
+        drone1_pos = [DRONE1_XY_M[0] * s, DRONE1_XY_M[1] * s, SPAWN_HEIGHT_ABOVE_FLOOR_M * s]
+        drone2_pos = [DRONE2_XY_M[0] * s, DRONE2_XY_M[1] * s, SPAWN_HEIGHT_ABOVE_FLOOR_M * s]
+        drone3_pos = [DRONE3_XY_M[0] * s, DRONE3_XY_M[1] * s, SPAWN_HEIGHT_ABOVE_FLOOR_M * s]
 
         ####################################################################################################
         # Spawn vehicle 1
@@ -189,32 +180,30 @@ class PegasusApp:
             pegasus_node_name="PX4Multirotor_1",
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
-            vehicle_id=1,  # defines MAVLink port offset
-            domain_id=1,  # defines ROS2 domain ID
+            vehicle_id=1,
+            domain_id=1,
             usd_file=DRONE_USD,
             init_pos=drone1_pos,
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
 
-        # Add a ZED stereo camera (with an associated subgraph) to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle1,
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],  # X, Y, Z offset from drone base_link
-            camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
+            camera_offset=[0.2, 0.0, -0.05],
+            camera_rotation_offset=[0.0, 0.0, 0.0],
         )
 
-        # Add an Ouster lidar (with an associated subgraph) to the drone
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle1,
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
+            lidar_offset=[0.0, 0.0, 0.025],
+            lidar_rotation_offset=[0.0, 0.0, 0.0],
+            lidar_min_range=0.75,
         )
 
         ####################################################################################################
@@ -224,32 +213,63 @@ class PegasusApp:
             pegasus_node_name="PX4Multirotor_2",
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
-            vehicle_id=2,  # defines MAVLink port offset. Define as 2 for second vehicle
-            domain_id=2,  # defines ROS2 domain ID. Define as 2 for second vehicle
+            vehicle_id=2,
+            domain_id=2,
             usd_file=DRONE_USD,
             init_pos=drone2_pos,
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
 
-        # Add a ZED stereo camera (with an associated subgraph) to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle2,
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],  # X, Y, Z offset from drone base_link
-            camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
+            camera_offset=[0.2, 0.0, -0.05],
+            camera_rotation_offset=[0.0, 0.0, 0.0],
         )
 
-        # Add an Ouster lidar (with an associated subgraph) to the drone
         add_ouster_lidar_subgraph(
             parent_graph_handle=graph_handle2,
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
+            lidar_offset=[0.0, 0.0, 0.025],
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 0.75 
+            lidar_min_range=0.75,
+        )
+
+        ####################################################################################################
+        # Spawn vehicle 3
+        ####################################################################################################
+        graph_handle3 = spawn_px4_multirotor_node(
+            pegasus_node_name="PX4Multirotor_3",
+            drone_prim="/World/drone3/base_link",
+            robot_name="robot_3",
+            vehicle_id=3,
+            domain_id=3,
+            usd_file=DRONE_USD,
+            init_pos=drone3_pos,
+            init_orient=[0.0, 0.0, 0.0, 1.0],
+        )
+
+        add_zed_stereo_camera_subgraph(
+            parent_graph_handle=graph_handle3,
+            drone_prim="/World/drone3/base_link",
+            robot_name="robot_3",
+            camera_name="ZEDCamera",
+            camera_offset=[0.2, 0.0, -0.05],
+            camera_rotation_offset=[0.0, 0.0, 0.0],
+        )
+
+        add_ouster_lidar_subgraph(
+            parent_graph_handle=graph_handle3,
+            drone_prim="/World/drone3/base_link",
+            robot_name="robot_3",
+            lidar_name="OS1_REV6_128_10hz___512_resolution",
+            lidar_offset=[0.0, 0.0, 0.025],
+            lidar_rotation_offset=[0.0, 0.0, 0.0],
+            lidar_min_range=0.75,
         )
 
         # Reset so physics/articulations are ready
