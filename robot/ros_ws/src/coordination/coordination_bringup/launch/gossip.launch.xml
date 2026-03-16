@@ -1,0 +1,21 @@
+<!-- Gossip coordination layer bringup.
+     Starts the gossip DDS Router bridge and the gossip_node.
+     Included by robot.launch.xml for both 'full' and 'onboard' roles.
+-->
+<launch>
+  <arg name="gossip_domain"  default="99" />
+  <arg name="publish_rate"   default="1.0" />
+
+  <!-- Bridge robot domain ↔ gossip domain for /gossip/peers -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+    <arg name="config_file"
+      value="$(find-pkg-share coordination_bringup)/config/gossip_dds_router.yaml" />
+    <arg name="args" value="gossip_domain:=$(var gossip_domain)" />
+  </include>
+
+  <!-- Gossip node -->
+  <node pkg="coordination_bringup" exec="gossip_node" name="gossip_node" output="screen">
+    <param name="robot_name"   value="$(env ROBOT_NAME)" />
+    <param name="publish_rate" value="$(var publish_rate)" />
+  </node>
+</launch>
