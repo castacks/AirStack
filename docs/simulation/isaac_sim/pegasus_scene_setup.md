@@ -1,6 +1,6 @@
-# Pegasus Simulator
+# Aerial Robot Simulation via the Pegasus Extension
 
-Pegasus Simulator is a multirotor simulation and control framework built on top of NVIDIA Isaac Sim’s physics engine.
+[Pegasus Simulator](https://pegasussimulator.github.io/PegasusSimulator/) is a multirotor simulation and control framework built on top of NVIDIA Isaac Sim’s physics engine.
 Isaac Sim provides the underlying physics and rendering and Pegasus Simulator implements the drone flight dynamics, control algorithms, and PX4 integration.
 
 Pegasus Sim accurately models multirotor dynamics and environment interaction, providing a physically grounded foundation for UAV simulation.
@@ -8,7 +8,11 @@ Pegasus connects directly to the AirStack autonomy stack with its PX4 MAVLink in
 
 ## Custom Pegasus Node in AirStack
 
-AirStack extends the core Pegasus Simulator through a Custom Pegasus OmniGraph Node.
+By default, Pegasus Simulator only supports Isaac's [standalone python workflow](https://docs.isaacsim.omniverse.nvidia.com/latest/introduction/workflows.html). 
+This means your scene cannot be edited and saved through the GUI.
+
+To make things more GUI-friendly for the user,
+AirStack maintains a [fork of Pegasus Simulator](https://github.com/castacks/PegasusSimulator-AirStack-Integration) that enables Pegasus's features from an [Omnigraph node](https://docs.omniverse.nvidia.com/extensions/latest/ext_omnigraph/tutorials/gentle_intro.html).
 This node serves as an Isaac Sim OmniGraph action graph wrapper around the Pegasus Sim code which can then be saved in Universal Scene Description (USD) format which are easily readable in Isaac-Sim. This design allows Pegasus-based simulations to be defined entirely in USD, enabling scenario reusability and modular composition.
 Users can drop the same Pegasus node into different environments or swap robots while maintaining consistent physics and control behavior.
 

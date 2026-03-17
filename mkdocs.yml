@@ -53,10 +53,29 @@ nav:
   - Getting Started:
     - docs/getting_started/index.md
     - docs/getting_started/tutorials_reference.md
+  - Development:
+      - docs/development/index.md
+      - Creating New Projects: docs/development/create_new_project.md
+      - Development Environment: docs/development/development_environment.md
+      - Documentation Guide: docs/development/documentation.md
+      - AI Agent Guide: docs/development/ai_agent_guide.md
+      - AirStack CLI Tool:
+          - docs/development/airstack-cli/index.md
+          - Docker Usage: docs/development/airstack-cli/docker_usage.md
+          - Extending: docs/development/airstack-cli/extending.md
+          - Architecture: docs/development/airstack-cli/architecture.md
+      - VSCode Setup: docs/development/vscode/index.md
+      - Testing:
+          - docs/development/testing/index.md
+          - Testing Frameworks: docs/development/testing/testing_frameworks.md
+          - Unit Testing: docs/development/testing/unit_testing.md
+          - Integration Testing: docs/development/testing/integration_testing.md
+          - System Testing: docs/development/testing/system_testing.md
+          - CI/CD: docs/development/testing/ci_cd.md
+      - Frame Conventions: docs/development/frame_conventions.md
+      - Contributing: docs/development/contributing.md
   - Simulation:
       - docs/simulation/index.md
-      - Multi-Robot Simulation: docs/simulation/multi_robot_simulation.md
-      - Docker Networking: docs/simulation/docker_network.md
       - Isaac Sim:
           - docs/simulation/isaac_sim/index.md
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
@@ -129,27 +148,6 @@ nav:
           - docs/gcs/command_center/command_center.md
       - Casualty Assessment:
           - docs/gcs/casualty_assessment/casualty_assessment.md
-  - Development:
-      - docs/development/index.md
-      - Creating New Projects: docs/development/create_new_project.md
-      - Development Environment: docs/development/development_environment.md
-      - Documentation Guide: docs/development/documentation.md
-      - AI Agent Guide: docs/development/ai_agent_guide.md
-      - AirStack CLI Tool:
-          - docs/development/airstack-cli/index.md
-          - Docker Usage: docs/development/airstack-cli/docker_usage.md
-          - Extending: docs/development/airstack-cli/extending.md
-          - Architecture: docs/development/airstack-cli/architecture.md
-      - VSCode Setup: docs/development/vscode/index.md
-      - Testing:
-          - docs/development/testing/index.md
-          - Testing Frameworks: docs/development/testing/testing_frameworks.md
-          - Unit Testing: docs/development/testing/unit_testing.md
-          - Integration Testing: docs/development/testing/integration_testing.md
-          - System Testing: docs/development/testing/system_testing.md
-          - CI/CD: docs/development/testing/ci_cd.md
-      - Frame Conventions: docs/development/frame_conventions.md
-      - Contributing: docs/development/contributing.md
   - Real World:
       - docs/real_world/index.md
       - Deploying to Hardware: docs/real_world/deploying_to_hardware.md
