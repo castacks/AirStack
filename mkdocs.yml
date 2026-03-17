@@ -59,10 +59,8 @@ nav:
       - Docker Networking: docs/simulation/docker_network.md
       - Isaac Sim:
           - docs/simulation/isaac_sim/index.md
-          - Ascent SITL Extension: docs/simulation/isaac_sim/ascent_sitl_extension.md
-          - Scene Setup: docs/simulation/isaac_sim/scene_setup.md
-          - Pegasus Scene Setup: docs/simulation/isaac_sim/pegasus_scene_setup.md
-          - Export from Unreal: docs/simulation/isaac_sim/export_stages_from_unreal.md
+          - docs/simulation/isaac_sim/pegasus_scene_setup.md
+          - docs/simulation/isaac_sim/export_stages_from_unreal.md
   - Robot:
       - docs/robot/index.md
       - Configuration:

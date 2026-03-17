@@ -1,4 +1,4 @@
-# Export Unreal Engine to Isaac Sim
+# Export Unreal Engine Scene to Isaac Sim
 
 A robot needs a scene to interact in. A scene can be created in any 3D modeling program, though we have found it easiest to export stages from Unreal Engine. This document explains how to export an Unreal Engine environment to an Isaac Sim stage, then how to convert the stage to a physics-enabled scene. 
 
