@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <!-- TODO: Replace with your package name -->
+  <name>your_package_name</name>
+  
+  <!-- TODO: Update version as needed -->
+  <version>0.0.1</version>
+  
+  <!-- TODO: Add brief description -->
+  <description>Brief description of your module</description>
+  
+  <!-- TODO: Update maintainer info -->
+  <maintainer email="your.email@example.com">Your Name</maintainer>
+  
+  <!-- TODO: Specify license (typically Apache-2.0 for AirStack) -->
+  <license>Apache-2.0</license>
+
+  <!-- Build tool (use ament_cmake for C++, ament_python for Python-only) -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- ============================================ -->
+  <!-- Common AirStack Dependencies -->
+  <!-- ============================================ -->
+  
+  <!-- ROS 2 Client Library (choose one) -->
+  <depend>rclcpp</depend>  <!-- For C++ -->
+  <!-- <depend>rclpy</depend> --> <!-- For Python -->
+  
+  <!-- AirStack Common Packages -->
+  <depend>airstack_msgs</depend>
+  <depend>airstack_common</depend>
+  
+  <!-- ============================================ -->
+  <!-- Standard ROS 2 Message Packages -->
+  <!-- ============================================ -->
+  
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  
+  <!-- Uncomment as needed -->
+  <!-- <depend>visualization_msgs</depend> -->
+  <!-- <depend>tf2_msgs</depend> -->
+  
+  <!-- ============================================ -->
+  <!-- Transform Libraries -->
+  <!-- ============================================ -->
+  
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <!-- <depend>tf2_geometry_msgs</depend> -->
+  
+  <!-- ============================================ -->
+  <!-- Other Common Dependencies -->
+  <!-- ============================================ -->
+  
+  <!-- Plugin libraries (if your module is a plugin) -->
+  <!-- <depend>pluginlib</depend> -->
+  
+  <!-- Controllers (if needed) -->
+  <!-- <depend>trajectory_controller</depend> -->
+  
+  <!-- Trajectory generation (for planners) -->
+  <!-- <depend>trajectory_library</depend> -->
+  
+  <!-- Cost maps (for local planners) -->
+  <!-- <depend>cost_map_interface</depend> -->
+  
+  <!-- ============================================ -->
+  <!-- TODO: Add Your Module-Specific Dependencies -->
+  <!-- ============================================ -->
+  
+  <!-- Example: OpenCV -->
+  <!-- <depend>cv_bridge</depend> -->
+  <!-- <depend>image_transport</depend> -->
+  
+  <!-- Example: PCL -->
+  <!-- <depend>pcl_conversions</depend> -->
+  <!-- <depend>pcl_ros</depend> -->
+  
+  <!-- ============================================ -->
+  <!-- Testing Dependencies -->
+  <!-- ============================================ -->
+  
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  
+  <!-- Additional test dependencies -->
+  <!-- <test_depend>ament_cmake_gtest</test_depend> -->
+  <!-- <test_depend>ament_cmake_pytest</test_depend> -->
+
+  <!-- ============================================ -->
+  <!-- Export -->
+  <!-- ============================================ -->
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+    
+    <!-- If this package provides plugins, uncomment and update -->
+    <!-- <pluginlib plugin="${prefix}/plugin.xml"/> -->
+  </export>
+</package>

@@ -107,6 +107,10 @@ nav:
               - docs/robot/autonomy/behavior/index.md
               - docs/robot/autonomy/behavior/behavior_tree.md
               - docs/robot/autonomy/behavior/behavior_executive.md
+          - System Architecture:
+              - docs/robot/autonomy/system_architecture.md
+          - Integration Guide:
+              - docs/robot/autonomy/integration_checklist.md
       - docs/tutorials/autonomy_modes.md
       - docs/robot/autonomy/dds_router.md
       - Static Transforms:
@@ -124,6 +128,8 @@ nav:
           - docs/ground_control_station/casualty_assessment/casualty_assessment.md
   - Development:
       - docs/development/index.md
+      - AI Agent Guide:
+          - docs/development/ai_agent_guide.md
       - AirStack CLI Tool:
           - docs/development/airstack-cli/index.md
           - docs/development/airstack-cli/docker_usage.md
