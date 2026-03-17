@@ -65,7 +65,6 @@ nav:
           - Export from Unreal: docs/simulation/isaac_sim/export_stages_from_unreal.md
   - Robot:
       - docs/robot/index.md
-      - Autonomy Modes: docs/robot/autonomy_modes.md
       - Configuration:
           - docs/robot/configuration/index.md
       - Docker:
@@ -115,7 +114,7 @@ nav:
               - docs/robot/autonomy/behavior/index.md
               - Behavior Tree: docs/robot/autonomy/behavior/behavior_tree.md
               - Behavior Executive: docs/robot/autonomy/behavior/behavior_executive.md
-      - Autonomy Modes: docs/tutorials/autonomy_modes.md
+      - Autonomy Modes: docs/robot/autonomy_modes.md
       - DDS Router: docs/robot/autonomy/dds_router.md
       - Static Transforms:
           - docs/robot/static_transforms/index.md
@@ -189,7 +188,7 @@ theme:
     - toc.integrate
     - toc.follow
     - content.code.copy
-  logo: docs/assets/logo_horizontal_white.png
+  logo: docs/assets/airstack_white.png
   name: material
   palette:
     - accent: pink

@@ -49,6 +49,7 @@ These topics are used across multiple modules and should be used when applicable
 - **Inputs:** Commands from control layer
 - **Outputs:** Robot state, sensor raw data
 - **Topics:**
+
   - `/[robot]/interface/mavros/state`
   - `/[robot]/interface/mavros/local_position/pose`
   - `/[robot]/interface/battery_state`
@@ -57,6 +58,7 @@ These topics are used across multiple modules and should be used when applicable
 - **Inputs:** Raw sensor data from interface
 - **Outputs:** Processed sensor data
 - **Topics:**
+
   - `/[robot]/sensors/[sensor_name]/[data_type]`
   - Example: `/[robot]/sensors/front_stereo/left/image`
   - Example: `/[robot]/sensors/front_stereo/disparity`
@@ -65,6 +67,7 @@ These topics are used across multiple modules and should be used when applicable
 - **Inputs:** Sensor data
 - **Outputs:** Odometry, environment understanding
 - **Topics:**
+
   - `/[robot]/perception/[module]/odometry`
   - `/[robot]/perception/[module]/depth`
   - `/[robot]/odometry` (aggregated/primary odometry)
@@ -191,6 +194,7 @@ docker exec airstack-robot-1 bash -c "ros2 node info /robot/namespace/your_node"
 ```
 
 **Expected:**
+
 - [ ] Node appears in node list
 - [ ] All expected subscriptions present
 - [ ] All expected publications present
@@ -206,6 +210,7 @@ docker exec airstack-robot-1 bash -c "ros2 topic hz /robot/your/output/topic"
 ```
 
 **Expected:**
+
 - [ ] Input topics have publishers
 - [ ] Output topics have subscribers (if other modules depend on them)
 - [ ] Publishing rates match expectations
@@ -221,6 +226,7 @@ docker exec airstack-robot-1 bash -c "ros2 topic echo /robot/output/topic --once
 ```
 
 **Expected:**
+
 - [ ] Input data has reasonable values
 - [ ] Output data has reasonable values
 - [ ] Data types are correct
@@ -236,6 +242,7 @@ docker exec airstack-robot-1 bash -c "ros2 param get /robot/namespace/your_node 
 ```
 
 **Expected:**
+
 - [ ] All parameters loaded correctly
 - [ ] Parameter values match config file
 
@@ -250,6 +257,7 @@ docker logs airstack-robot-1 2>&1 | grep -i "your_module"
 ```
 
 **Expected:**
+
 - [ ] No errors or warnings (unless expected)
 - [ ] Initialization messages present
 - [ ] Module is processing data
@@ -262,6 +270,7 @@ docker stats airstack-robot-1
 ```
 
 **Expected:**
+
 - [ ] CPU usage reasonable (<X%, depends on module)
 - [ ] Memory usage reasonable (<Y MB, depends on module)
 - [ ] No memory leaks over time

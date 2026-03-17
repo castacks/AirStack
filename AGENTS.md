@@ -335,7 +335,7 @@ This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
 - [ROS 2 Launch](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Launch-Main.html)
 
 ### AirStack Documentation
-- [Getting Started](docs/getting_started.md)
+- [Getting Started](docs/getting_started/index.md)
 - [Autonomy Stack Overview](docs/robot/autonomy/index.md)
 - [Isaac Sim Setup](docs/simulation/isaac_sim/index.md)
 - [Testing Guide](docs/development/testing/index.md)
