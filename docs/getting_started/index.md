@@ -107,4 +107,4 @@ To shutdown and remove docker containers:
 airstack down # This will stop and remove the docker containers
 ```
 
-Congratulations! You did it. Keep reading the Developer Guide to learn how to work with AirStack.
+Congratulations! You did it. 

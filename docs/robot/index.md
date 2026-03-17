@@ -2,6 +2,7 @@
 
 ## Directory Structure
 Underneath `AirStack/robot`, there are these directories:
+
 - `docker/`: Contains files related to building and launching the robot Docker container.
 - `installation/`: Contains files related to installing the robot software on a physical robot (TODO).
 - `ros_ws/`: Contains the ROS 2 workspace for the robot.
