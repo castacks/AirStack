@@ -3,6 +3,10 @@
         "ms-vscode-remote.remote-containers",
         "ms-vscode.cpptools",
         "ms-python.python",
-        "ms-python.black-formatter"
+        "ms-python.black-formatter",
+        "ranch-hand-robotics.rde-pack",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.cmake-tools"
     ]
 }

@@ -10,6 +10,7 @@ To enable the **Gimbal Extension**, follow these steps:
 
 1. Open the **Extensions** window by navigating to:  
    **Window** → **Extensions**
+
 2. Under the **THIRD PARTIES** section, go to the **User** tab.
 3. Locate the **Gimbal Extension** and turn it on.
 4. Once enabled, a new **Gimbal Extension** window should appear.

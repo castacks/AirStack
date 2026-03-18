@@ -67,6 +67,7 @@ airstack install [options]
 ```
 
 Options:
+
 - `--force`: Force reinstallation of components
 - `--no-docker`: Skip Docker installation
 - `--with-wintak`: Install WinTAK VirtualBox environment
@@ -80,6 +81,7 @@ airstack setup [options]
 ```
 
 Options:
+
 - `--no-shell`: Skip adding to shell profile
 - `--no-config`: Skip configuration tasks
 
@@ -90,7 +92,7 @@ The AirStack CLI provides several commands for managing Docker containers:
 ```bash
 # Start services
 airstack up [service...]
-airstack up robot  # start only the robot service
+airstack up robot-desktop  # start only the robot service
 airstack up isaac-sim  # start only the Isaac Sim service
 airstack up gcs  # start only the Ground Control Station service
 airstack up docs # start only the documentation service

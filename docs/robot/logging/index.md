@@ -9,7 +9,7 @@ AirStack provides automated bag recording capabilities for capturing ROS2 topic 
 To enable bag recording, prepend `RECORD_BAGS=true` to the airstack up command:
 
 ```bash
-RECORD_BAGS=true airstack up robot
+RECORD_BAGS=true airstack up robot-desktop
 ```
 
 The BehaviorTree will automatically trigger topic recording once the drone takes off. Recorded bags will appear in the `./robot/bags` directory. 

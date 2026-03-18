@@ -59,6 +59,7 @@ ros2 run ros2tak_tools ros2casevac_agent --config path/to/your/config.yaml
 
 ## Message Types
 The agent expects the following ROS message types:
+
 - `airstack_msgs/CasualtyMeta`: Contains casualty metadata including:
   - GPS coordinates
   - Trauma assessments (head, torso, extremities)
@@ -75,6 +76,7 @@ The agent expects the following ROS message types:
 
 ## Customization
 The code supports several enum types for different injury categories:
+
 - `TraumaType`: Different body regions (head, torso, extremities)
 - `TraumaSeverity`: Levels of trauma (normal, wound, amputation)
 - `OcularAlertness`: Eye response states
