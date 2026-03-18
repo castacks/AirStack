@@ -84,8 +84,13 @@ nav:
       - docs/simulation/index.md
       - Isaac Sim:
           - docs/simulation/isaac_sim/index.md
+          - Docker: docs/simulation/isaac_sim/docker.md
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
+          - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
+      - Simple Sim:
+          - docs/simulation/simple_sim/index.md
+          - Docker: docs/simulation/simple_sim/docker.md
   - Robot:
       - docs/robot/index.md
       - Configuration:
@@ -148,12 +153,16 @@ nav:
           - Bag Recorder: common/ros_packages/bag_recorder_pid/README.md
   - Ground Control Station:
       - docs/gcs/index.md
+      - Docker:
+          - docs/gcs/docker/index.md
       - Usage:
           - User Interface: docs/gcs/usage/user_interface.md
       - Command Center:
           - docs/gcs/command_center/command_center.md
       - Casualty Assessment:
           - docs/gcs/casualty_assessment/casualty_assessment.md
+      - WinTAK Installation:
+          - docs/gcs/wintak/installation.md
   - Real World:
       - docs/real_world/index.md
       - Deploying to Hardware: docs/real_world/deploying_to_hardware.md

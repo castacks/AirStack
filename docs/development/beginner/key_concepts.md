@@ -1,6 +1,6 @@
 # Key Concepts
 
-Understanding a few core concepts will help you work effectively with AirStack. This guide provides the essential mental models - think of it as your orientation to the AirStack way of doing things.
+Understanding a few core concepts will help you work effectively with AirStack. This document provides the essential mental models to the AirStack way of doing things.
 
 ## The AirStack Philosophy
 

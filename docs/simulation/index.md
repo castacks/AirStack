@@ -2,6 +2,53 @@
 
 AirStack provides high-fidelity simulation environments for developing and testing autonomous systems before deploying to hardware. Simulation enables rapid iteration, safe testing of edge cases, and multi-robot scenarios.
 
+## Directory Structure
+
+The simulation components are organized under `simulation/`:
+
+```
+simulation/
+├── isaac-sim/
+│   ├── docker/                    # Isaac Sim containerization
+│   │   ├── docker-compose.yaml    # Main launch configuration
+│   │   └── Dockerfile.isaac-ros   # Image definition
+│   ├── assets/                    # 3D models and props
+│   ├── config/                    # Simulation configurations
+│   ├── extensions/                # Custom Isaac Sim extensions
+│   ├── launch_scripts/            # Python launch scripts
+│   └── standalone_examples/       # Example scenes and scripts
+└── simple-sim/
+    ├── docker/                    # Simple simulator container
+    │   └── docker-compose.yaml    # Launch configuration
+    ├── models/                    # Lightweight simulation models
+    └── ros_ws/                    # Simple sim ROS workspace
+```
+
+## Launch Structure
+
+Simulation components are launched via Docker Compose. Each simulator has its own configuration:
+
+- **Isaac Sim:** `simulation/isaac-sim/docker/docker-compose.yaml`
+- **Simple Sim:** `simulation/simple-sim/docker/docker-compose.yaml`
+
+**Key launch points:**
+
+- **Launch command:** `airstack up isaac-sim` or `airstack up simple-sim`
+- **Main process:** The `command:` in docker-compose.yaml starts the simulator
+- **Scene selection:** Set via `ISAAC_SIM_SCENE` environment variable (Isaac Sim)
+- **Auto-launch:** Controlled by `PLAY_SIM_ON_START` variable
+
+**Example:**
+```bash
+# Launch Isaac Sim with custom scene
+ISAAC_SIM_SCENE=scenes/custom_scene.usd airstack up isaac-sim
+
+# Launch simple simulator
+airstack up simple-sim
+```
+
+**Learn more:** [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md)
+
 ## Simulation Platforms
 
 ### NVIDIA Isaac Sim (Primary)
@@ -15,52 +62,54 @@ Isaac Sim is our primary simulation platform, offering:
 - **Sensor simulation** (cameras, depth, IMU, GPS, LiDAR)
 - **Custom scene creation** with USD format
 
-**Getting Started**:
+**Getting Started:**
 
 - [Isaac Sim Overview](isaac_sim/index.md)
-- [Scene Setup Guide](isaac_sim/scene_setup.md)
 - [Pegasus Scene Setup](isaac_sim/pegasus_scene_setup.md)
 - [Ascent SITL Extension](isaac_sim/ascent_sitl_extension.md)
+- [Export from Unreal Engine](isaac_sim/export_stages_from_unreal.md)
 
-### Gazebo (Future)
+### Simple Sim (Lightweight)
 
-We plan to support Gazebo for lighter-weight simulation needs.
+A lightweight 2D/3D simulator for basic testing and development when full Isaac Sim fidelity isn't needed.
 
-## Docker Networking
+**Use cases:**
+- Quick algorithm prototyping
+- CI/CD testing
+- Lower hardware requirements
+- Faster iteration cycles
 
-All simulation components run in Docker containers on a shared network, enabling seamless communication between:
+**Launch:** `airstack up simple-sim`
 
-- Isaac Sim container
-- Robot autonomy stack containers (multiple robots supported)
-- Ground Control Station container
-
-**Learn More**: [Docker Networking Guide](docker_network.md)
+**Location:** `simulation/simple-sim/`
 
 ## Common Workflows
 
 ### Single Robot Simulation
 
-1. Launch AirStack with default configuration:
+1. **Launch the full stack:**
    ```bash
    airstack up
    ```
-2. Isaac Sim starts automatically with the configured scene
-3. Robot autonomy stack connects and begins operation
-4. Control via RQT GUI or Ground Control Station
 
-See: [Getting Started Tutorial](../getting_started.md)
+2. Isaac Sim starts with the configured scene
+3. Robot autonomy stack connects and begins operation
+4. Monitor via Ground Control Station
+
+**See:** [Getting Started](../getting_started/index.md)
 
 ### Multi-Robot Simulation
 
-1. Configure multiple robots in docker-compose
-2. Launch with multi-robot support:
+1. **Launch multiple robots:**
    ```bash
-   airstack up
+   NUM_ROBOTS=3 airstack up
    ```
-3. Each robot gets independent ROS 2 namespace
+
+2. Each robot gets independent ROS 2 namespace
+3. All robots visible in same Isaac Sim scene
 4. Coordinate via ground control station
 
-See: [Multi-Robot Simulation Tutorial](../tutorials/multi_robot_simulation.md)
+**Learn more:** [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md#robot)
 
 ### Custom Scenes
 
@@ -71,50 +120,57 @@ Create custom Isaac Sim scenes with:
 - Specific sensor configurations
 - Dynamic obstacles
 
-See: [Scene Setup Guide](isaac_sim/scene_setup.md) | [Pegasus Setup](isaac_sim/pegasus_scene_setup.md)
+**See:** [Pegasus Scene Setup](isaac_sim/pegasus_scene_setup.md)
 
 ## Configuration
 
-### Environment Variables
+Key environment variables for simulation (set in `.env` or at runtime):
 
-Simulation behavior is controlled via `.env` file:
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ISAAC_SIM_SCENE` | Path to USD scene file | `simulation/isaac-sim/scenes/...` |
+| `PLAY_SIM_ON_START` | Auto-start simulation | `true` |
+| `NUM_ROBOTS` | Number of robots to spawn | `1` |
 
-- `ISAAC_SIM_SCENE` - Path to USD scene file
-- `AUTOLAUNCH` - Auto-start simulation on container launch
-- `ROS_DOMAIN_ID` - ROS 2 domain for each robot
+**Example:**
+```bash
+# Custom scene
+ISAAC_SIM_SCENE=scenes/custom.usd airstack up isaac-sim
 
-### Scene Files
+# Don't auto-play
+PLAY_SIM_ON_START=false airstack up isaac-sim
+```
 
-Pre-built scenes are located in `scenes/` directory:
+**Pre-built scenes:** Located in `scenes/` directory
 - `two_drone_fire_new.usd` - Fire academy scenario
 - `two_drone_RetroNeighborhood.usd` - Urban neighborhood
 
-## Exporting Scenes
-
-Import environments from Unreal Engine or other tools:
-
-- [Export Stages from Unreal](isaac_sim/export_stages_from_unreal.md)
+**Learn more:** [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md#docker-compose-variable-overrides)
 
 ## Troubleshooting
 
-**Isaac Sim won't start**:
+**Isaac Sim won't start:**
+
 - Check GPU requirements (RTX 3070+ recommended)
 - Verify NVIDIA Container Toolkit installation
 - Check disk space (25GB+ free required)
 
-**ROS 2 communication issues**:
-- Verify all containers on same Docker network
-- Check ROS_DOMAIN_ID settings
-- Review [Docker Networking](docker_network.md)
+**ROS 2 communication issues:**
 
-**Performance issues**:
+- Verify all containers on same Docker network (`docker network ls`)
+- Check `ROS_DOMAIN_ID` settings in containers
+- See [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md)
+
+**Performance issues:**
+
 - Reduce scene complexity
 - Lower rendering quality in Isaac Sim settings
 - Close unnecessary applications
+- Use simple-sim for lighter workloads
 
 ## Next Steps
 
-- **New Users**: Complete [Getting Started](../getting_started.md)
-- **Multi-Robot**: Try [Multi-Robot Tutorial](../tutorials/multi_robot_simulation.md)
-- **Custom Scenes**: Follow [Scene Setup](isaac_sim/scene_setup.md)
-- **Development**: See [Developer Guide](../development/index.md)
+- **[Getting Started](../getting_started/index.md)** - Complete setup and first simulation
+- **[Isaac Sim Overview](isaac_sim/index.md)** - Learn Isaac Sim capabilities
+- **[Pegasus Scene Setup](isaac_sim/pegasus_scene_setup.md)** - Create custom scenes
+- **[Development Guide](../development/index.md)** - Develop autonomy algorithms
