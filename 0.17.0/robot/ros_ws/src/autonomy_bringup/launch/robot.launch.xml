@@ -1,0 +1,66 @@
+<!-- Single entry point for all robot deployments.
+     role choices:
+       full     - all autonomy modules run on this machine (default: sim/dev desktop, autonomous Jetson)
+       onboard  - lite modules only: interface, sensors, perception, local planning, behavior (VOXL, Jetson
+lite, desktop_split sim)
+       offboard - global planning only: runs on GCS paired with onboard robots (robot-offboard service)
+-->
+<launch>
+  <arg name="sim" default="true" />
+  <arg name="role" default="$(env AUTONOMY_ROLE full)" />
+  <arg name="urdf_file" default="$(env URDF_FILE)" />
+  <arg name="gcs_domain" default="0" />
+
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
+
+  <!-- Robot State Publisher -->
+  <include file="$(find-pkg-share robot_descriptions)/launch/robot_state_publisher.launch.py">
+    <arg name="robot_name" value="$(env ROBOT_NAME)" />
+    <arg name="urdf_file_path" value="$(var urdf_file)" />
+    <arg name="ignore_timestamp" value="true" />
+    <arg name="use_sim_time" value="$(var sim)" />
+  </include>
+
+  <!-- Static TFs (world → map) -->
+  <node pkg="tf2_ros" exec="static_transform_publisher"
+    name="world_to_map_broadcaster"
+    args="0 0 0 0 0 0 world map" />
+
+  <!-- ── Role dispatch ───────────────────────────────────────────────── -->
+
+  <!-- full: every autonomy module runs here -->
+  <group if="$(eval '&quot;$(var role)&quot; == &quot;full&quot;')">
+    <include
+      file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
+
+    <!-- Domain Bridge -->
+    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+      <arg name="config_file"
+        value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+      <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
+    </include>
+  </group>
+
+  <!-- onboard: lite modules only (local planning, perception, etc.); global is handled offboard -->
+  <group if="$(eval '&quot;$(var role)&quot; == &quot;onboard&quot;')">
+    <include
+      file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
+
+    <!-- Domain Bridge -->
+    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+      <arg name="config_file"
+        value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/dds_router.yaml" />
+      <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
+    </include>
+
+  </group>
+
+  <!-- offboard: global planning only; runs on GCS paired with onboard robots -->
+  <group if="$(eval '&quot;$(var role)&quot; == &quot;offboard&quot;')">
+    <include
+      file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/offboard_autonomy_global.launch.xml" />
+  </group>
+
+</launch>

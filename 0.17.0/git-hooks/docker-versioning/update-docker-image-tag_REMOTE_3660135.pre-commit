@@ -1,0 +1,81 @@
+#!/bin/bash
+# Pre-commit hook to update DOCKER_IMAGE_TAG in .env file with git commit hash
+# when Dockerfile is modified or docker-compose.yaml has changes under build: key
+
+# Check if any Dockerfile files are staged for commit
+DOCKERFILE_CHANGED=$(git diff --cached --name-only | grep -E 'Dockerfile$')
+
+# Check if docker-compose.yaml has changes under build: key
+COMPOSE_BUILD_CHANGED=false
+COMPOSE_FILES=$(git diff --cached --name-only | grep -E 'docker-compose\.yaml$')
+
+if [ -n "$COMPOSE_FILES" ]; then
+    for file in $COMPOSE_FILES; do
+        # Get the diff for the docker-compose.yaml file
+        DIFF_OUTPUT=$(git diff --cached "$file")
+
+        # Check if any lines with changes (+ or -) contain build: or are indented under a build: section
+        # This regex looks for lines that:
+        # 1. Start with + or - (indicating changes)
+        # 2. Either contain "build:" directly, or
+        # 3. Are indented lines that could be under a build: section
+        if echo "$DIFF_OUTPUT" | grep -E '^[+-].*build:' > /dev/null; then
+            COMPOSE_BUILD_CHANGED=true
+            break
+        fi
+
+        # More sophisticated check: look for changes in build context
+        # Extract the full diff and check for build-related changes
+        BUILD_SECTION_CHANGED=$(echo "$DIFF_OUTPUT" | awk '
+            /^[+-].*build:/ { in_build=1; print; next }
+            /^[+-]/ && in_build && /^[+-][[:space:]]+/ { print; next }
+            /^[+-]/ && !/^[+-][[:space:]]/ { in_build=0 }
+            /^[+-].*build:/ { print }
+        ')
+
+        if [ -n "$BUILD_SECTION_CHANGED" ]; then
+            COMPOSE_BUILD_CHANGED=true
+            break
+        fi
+    done
+fi
+
+on_gh_pages=$([ "$(git rev-parse --abbrev-ref HEAD)" = "gh-pages" ] && echo true || echo false)
+
+# Trigger update if we're not on gh-pages and either Dockerfile changed or build section in docker-compose.yaml changed
+if [ "$on_gh_pages" = false ] && ([ -n "$DOCKERFILE_CHANGED" ] || [ "$COMPOSE_BUILD_CHANGED" = true ]); then
+    if [ -n "$DOCKERFILE_CHANGED" ]; then
+        echo "Dockerfile changed. Updating DOCKER_IMAGE_TAG in .env file..."
+    fi
+    if [ "$COMPOSE_BUILD_CHANGED" = true ]; then
+        echo "docker-compose.yaml build configuration changed. Updating DOCKER_IMAGE_TAG in .env file..."
+    fi
+
+    # Get the current commit hash (short version)
+    COMMIT_HASH=$(git rev-parse --short HEAD)
+
+    # Update the DOCKER_IMAGE_TAG in .env file
+    if [ -f ".env" ]; then
+        # Check if DOCKER_IMAGE_TAG line exists
+        if grep -q "^DOCKER_IMAGE_TAG=" .env; then
+            # Replace the existing DOCKER_IMAGE_TAG line and ensure comment is above it
+            # First, remove any existing auto-generated comment
+            sed -i '/^# auto-generated from git commit hash$/d' .env
+            # Add the comment above the DOCKER_IMAGE_TAG line
+            sed -i '/^DOCKER_IMAGE_TAG=/i\# auto-generated from git commit hash' .env
+            # Update the DOCKER_IMAGE_TAG value
+            sed -i "s/^DOCKER_IMAGE_TAG=.*$/DOCKER_IMAGE_TAG=\"$COMMIT_HASH\"/" .env
+            echo "Updated DOCKER_IMAGE_TAG to $COMMIT_HASH in .env file"
+
+            # Stage the modified .env file for commit
+            git add .env
+        else
+            echo "Error: DOCKER_IMAGE_TAG line not found in .env file"
+            exit 1
+        fi
+    else
+        echo "Error: .env file not found"
+        exit 1
+    fi
+fi
+exit 0

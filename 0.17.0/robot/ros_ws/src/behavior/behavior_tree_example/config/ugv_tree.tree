@@ -1,0 +1,37 @@
+?
+	->
+		(User Pressed Estop)
+		?
+			(Not Stopped)
+			[Stop]
+	->
+		(User Pressed Return Home Button)
+		?
+			(At Home)
+			[Go To Home]
+	->
+		(User Pressed Start Button)
+		?
+			(Not Stopped)
+			[Initiate]
+		?
+			(Not Stuck)
+			[Recovery 1]
+			[Recovery 2]
+			[Recovery 3]
+		?
+			(Low Battery)
+			->
+				?
+					(Good Comms)
+					[Explore]
+				?
+					(In Comms)
+					[Drop Comms]
+				[Return to Comms]
+		?
+			(At Home)
+			[Go To Home]
+		?
+			(Not Stopped)
+			[Stop]

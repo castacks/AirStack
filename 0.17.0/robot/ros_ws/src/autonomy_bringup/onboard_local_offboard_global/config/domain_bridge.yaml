@@ -1,0 +1,12 @@
+name: onboard_offboard_bridge
+extends: "$(find-pkg-share autonomy_bringup)/onboard_all/config/domain_bridge.yaml"
+topics:
+  # ============= Additional Outgoing from Robot ================
+
+  # ============= Additional Incoming to Robot ================
+
+  # to offboard modules
+  global_plan:
+    type: nav_msgs/msg/Path
+    from_domain: $(var gcs_domain)
+    to_domain: $(env ROS_DOMAIN_ID)

@@ -1,0 +1,6 @@
+writer_type: PoseWriter
+writer_kwargs:
+  output_dir: _out_obj_based_sdg_pose_writer_centerpose
+  format: centerpose
+  write_debug_images: true
+  skip_empty_frames: false

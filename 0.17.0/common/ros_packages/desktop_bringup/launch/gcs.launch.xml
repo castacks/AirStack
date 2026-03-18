@@ -1,0 +1,36 @@
+<!-- GCS OFFBOARD -->
+<launch>
+  <!-- ====== ARGS ====== -->
+  <arg name="sim" default="true" />
+  <arg name="record_bag" default="$(env RECORD_BAGS)" />
+
+  <!-- set "onboard_all" or "onboard_local_offboard_global" -->
+  <arg name="autonomy_split_type" default="onboard_all" />
+
+  <!-- ======== GUI ======== -->
+
+  <?ignore
+  <node pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share desktop_bringup)/rviz/gcs.rviz --ros-args --log-level INFO" output="screen" respawn="true" respawn_delay="1" />
+    ?>
+  
+
+  <node pkg="rqt_gui" exec="rqt_gui"
+    args="--perspective-file $(find-pkg-share rqt_gcs)/config/gcs.perspective --ros-args --log-level INFO"
+    output="screen" respawn="true" respawn_delay="1" />
+
+  <!-- launch foxglove-studio -no-standbox -->
+
+  <executable cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox'" output="screen"/>
+
+  <node pkg="foxglove_bridge" exec="foxglove_bridge" output="screen" respawn="true" respawn_delay="1">
+    <param name="port" value="8765" />
+    <!-- <param name="address" value="0.0.0.0" /> -->
+    <param name="use_sim_time" value="$(var sim)" />
+  </node>
+
+
+   
+
+  <!-- ===================== -->
+
+</launch>

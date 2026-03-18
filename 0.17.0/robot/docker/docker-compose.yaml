@@ -1,0 +1,256 @@
+# desktop build
+services:
+  # ===================================================================================================================
+  # for developing locally on a single machine
+  # note, this service name is currently used as the name of the robot
+  robot-desktop:
+    profiles:
+      - desktop
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
+      tags:
+        - *desktop_image
+    # we use tmux sd-keys so that the session stays alive
+    environment:
+      - ROBOT_NAME_SOURCE=container_name # see .bashrc
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
+      - AUTONOMY_ROLE=full
+      # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
+    # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
+    command: >
+      bash -c "
+      service ssh restart;
+      tmux new -d -s bringup;
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
+      fi;
+      sleep infinity"
+    # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
+    networks:
+      - airstack_network
+    # allow scaling multiple robots on the same machine
+    ports:
+      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
+      - "2223-2243:22"
+      - 8765:8765 # for Foxglove remote display 
+    # for multiple robots
+    deploy:
+      replicas: ${NUM_ROBOTS:-1}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ===================================================================================================================
+  # desktop_split: simulates onboard computer on desktop for debugging the split configuration.
+  # Same image as robot-desktop; role=onboard means only lite autonomy modules launch.
+  # robot-offboard (below) runs concurrently on the same machine with role=offboard.
+  robot-desktop-onboard:
+    profiles: !override
+      - desktop_split
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    environment:
+      - AUTONOMY_ROLE=onboard
+      - LAUNCH_PACKAGE=desktop_bringup  # for no RViz, change to autonomy_bringup to treat as simulated onboard computer
+
+  # ===================================================================================================================
+  # simple 
+  simple-robot:
+    profiles: !override
+      - simple
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    environment:
+      - SIM_TYPE=simple
+
+  # ===================================================================================================================
+  # for running the offboard autonomy stack on a ground station (GCS) for N real robots.
+  # Extends robot-desktop: same x86 image and GPU resources, but no RViz (autonomy_bringup only),
+  # with replicas so one container is spawned per robot (same scaling pattern as simulation).
+  robot-offboard:
+    profiles: !override
+      - desktop_split  # on desktop: simulates the GCS offboard containers alongside robot-desktop-onboard
+      - offboard       # in the field: runs on the GCS machine paired with onboard robots
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    ports: !reset {}  # offboard containers don't need ssh ports
+    environment:
+      - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
+      - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; domain_bridge connects to per-robot onboard domains
+      - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
+      - AUTONOMY_ROLE=offboard            # runs global planner only
+    # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
+    # inherit bridge network from robot-desktop
+
+  # ===================================================================================================================
+  robot-voxl-onboard:
+    profiles: !override
+      - voxl
+      - voxl_onboard
+    extends:  # NOTE THIS EXTENDS THE BASE, NOT ROBOT-DESKTOP
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: ubuntu:24.04
+        REAL_ROBOT: true
+        SKIP_MACVO: true
+        SKIP_TENSORRT: true
+      tags: 
+        - *voxl_image
+    environment: 
+      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - LAUNCH_PACKAGE=autonomy_bringup
+      - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
+    command: >
+      bash -c "
+      tmux new -d -s bringup;
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
+      fi;
+      sleep infinity"
+    network_mode: host
+    deploy: !reset {}  # remove nvidia driver for voxl
+
+  # ===================================================================================================================
+  # for running on an NVIDIA jetson (linux for tegra) device
+  robot-l4t:
+    profiles:
+      - l4t
+    group_add:
+      - "20"
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.robot
+      args:
+        BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
+        REAL_ROBOT: true
+      tags: 
+        - *l4t_image
+    # we use tmux send-keys so that the session stays alive
+    ipc: host
+    command: >
+      bash -c "
+      service ssh restart;
+      tmux new -d -s bringup;
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux send-keys -t bringup 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE sim:=false' ENTER;
+      fi;
+      sleep infinity"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment: !override
+      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - LAUNCH_PACKAGE=autonomy_bringup
+      - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
+      # mavros mavlink settings
+      - FCU_URL="/dev/ttyTHS4:115200"
+      - TGT_SYSTEM=1
+    # assumes network isolation via a physical router, so uses network_mode=host
+    network_mode: host
+    volumes:
+      - /media/airlab/Storage/airstack_collection:/bags:rw
+
+  # -----------------------
+  # Jetson in lite mode: only local/perception/interface modules run onboard.
+  # Use when global planning is offloaded to the GCS (offboard profile on ground station).
+  robot-l4t-onboard:
+    profiles: !override
+      - l4t_lite
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-l4t
+    environment:
+      - AUTONOMY_ROLE=onboard
+
+  # -----------------------
+  # for running the zed camera driver on an NVIDIA jetson (linux for tegra) device. This ONLY runs the zed driver
+  zed-l4t:
+    profiles:
+      - l4t
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
+    build: 
+      context: ./
+      dockerfile: zed/Dockerfile.zed-l4t
+      args:
+        L4T_MAJOR: 36
+        L4T_MINOR: 4
+        L4T_PATCH: 0
+    command: >
+      bash -c "ssh service restart;
+      tmux new -d -s zed_driver && 
+      tmux send-keys -t zed_driver
+      'bws && sws && ros2 launch zed_wrapper zed_dual_camera.launch.py pose_cam_serial:='41591402' wire_cam_serial:='44405253' camera_name:=\"robot_1/sensors\" node_name:=\"front_stereo\" ' ENTER
+      && sleep infinity"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    network_mode: host
+    privileged: true
+    ipc: host
+    pid: host
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=1
+    stdin_open: true  # Equivalent to -it for interactive terminal
+    tty: true  # Ensures that a pseudo-terminal is allocated
+    volumes:
+      - /dev:/dev 
+      - /tmp:/tmp 
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /var/nvidia/nvcam/settings/:/var/nvidia/nvcam/settings/
+      - /etc/systemd/system/zed_x_daemon.service:/etc/systemd/system/zed_x_daemon.service
+      - /usr/local/zed/resources/:/usr/local/zed/resources/
+      - /usr/local/zed/settings/:/usr/local/zed/settings/
+      - ./zed/ws/:/root/ros2_ws/
+      - ./zed/bashrc:/root/.bashrc
+      - /media/airlab/Storage/zed_svo/:/zed_svo/
+      
+# ===================================================================================================================
+# for running tests on the robot
+  robot-test:
+    profiles: !override
+      - test
+    extends:
+      service: robot-desktop
+    command: >
+      bash -il -c "
+      echo 'Building and sourcing workspace...';
+      bws &> /dev/null && sws &> /dev/null &&
+      echo 'Starting tests for packages: takeoff_landing_planner';
+      colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+;
+      TEST_EXIT_CODE=$$?;
+      echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
+      exit $$TEST_EXIT_CODE"

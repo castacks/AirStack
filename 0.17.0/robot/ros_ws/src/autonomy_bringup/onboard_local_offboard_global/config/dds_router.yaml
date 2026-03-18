@@ -1,0 +1,15 @@
+# onboard_all DDS Router
+extends: "$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml"
+
+allowlist:
+  # ============= Outgoing Robot --> GCS ================
+
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/image_rect"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info"
+
+  # ============= Incoming GCS --> Robot ================
+  # control commands
+  
+  - name: "rt/$(env ROBOT_NAME)/global_plan"

@@ -1,0 +1,9 @@
+<launch>
+  
+  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml">
+    <arg name="odometry_in_topic" value="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="disparity_in_topic" value="/$(env ROBOT_NAME)/macvo/disparity" />
+    <arg name="depth_in_topic" value="NONE" />
+  </include>
+  
+</launch>
