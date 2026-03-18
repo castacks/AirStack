@@ -1,6 +1,6 @@
 # DDS Router — Cross-Domain Topic Bridging
 
-AirStack's onboard/offboard split (described in [Autonomy Modes](../autonomy_modes.md)) requires ROS 2 nodes running on different DDS domain IDs to exchange a controlled set of topics. AirStack uses **eProsima DDS Router** to bridge those topics without merging entire domains. We choose this over the native ROS 2 Domain Bridge due to the convenience of bridging services and actions.
+AirStack's onboard/offboard split (described in [Autonomy Modes](../autonomy_modes.md)) requires ROS 2 nodes running on different DDS domain IDs to exchange a controlled set of topics. AirStack uses [eProsima DDS Router](https://github.com/eProsima/DDS-Router) to bridge those topics without merging entire domains. We choose this over the native ROS 2 Domain Bridge due to the convenience of bridging services and actions.
 
 ---
 
