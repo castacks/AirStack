@@ -67,7 +67,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 
 ### Software
 - ROS 2 Jazzy
-- Ubuntu 22.04
+- Ubuntu 22.04/24.04
 - Docker with NVIDIA Container Toolkit
 
 ## License

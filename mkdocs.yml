@@ -128,7 +128,7 @@ nav:
                   - DROAN GL: robot/ros_ws/src/local/planners/droan_gl/README.md
               - Controls:
                   - docs/robot/autonomy/local/controls/index.md
-                  - Trajectory Controller: robot/ros_ws/src/local/c_controls/trajectory_controller/README.md
+                  - Trajectory Controller: robot/ros_ws/src/local/controls/trajectory_controller/README.md
           - Global:
               - docs/robot/autonomy/global/index.md
               - World Model:
