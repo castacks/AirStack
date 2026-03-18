@@ -1,47 +1,28 @@
-# AirStack CLI Tool
+# AirStack CLI Command Reference
 
-The AirStack CLI tool (`airstack.sh`) provides a unified interface for common development tasks in the AirStack project, including setup, installation, and container management. It simplifies the development workflow and ensures consistency across different environments.
+This is your reference guide for all `airstack` CLI commands. If you haven't already, see [Key Concepts](../key_concepts.md) for the philosophy behind the CLI.
 
-## Overview
+!!! tip "Quick Help"
+    - `airstack commands` - List all available commands
+    - `airstack help <command>` - Get help for a specific command
 
-The AirStack CLI tool is designed to be:
+## Setup
 
-- **Modular**: Commands are organized into modules that can be easily extended
-- **Consistent**: Provides a unified interface for all AirStack-related tasks
-- **Helpful**: Includes detailed help text and error messages
-- **Extensible**: New commands can be added without modifying the core script
+Before using the CLI, run setup to add it to your PATH:
 
-At its core, `airstack.sh` is simply a light wrapper around [docker compose](https://docs.docker.com/compose/), providing additional functionality and convenience for AirStack development.
+```bash
+./airstack.sh setup
+```
+
+This adds the `airstack` command to your shell profile so you can use it from any directory.
 
 ## Basic Usage
 
 ```bash
-./airstack.sh <command> [options]
+airstack <command> [options]
+airstack commands              # List all commands
+airstack help <command>        # Get help for a command
 ```
-
-To see all available commands:
-
-```bash
-./airstack.sh commands
-```
-
-To get help for a specific command:
-
-```bash
-./airstack.sh help <command>
-```
-
-## Adding to Shell Profile
-
-For convenience, you can add the AirStack CLI to your shell profile to make it available from any directory:
-
-```bash
-./airstack.sh setup
-# now you can use `airstack` instead of `./airstack.sh`
-airstack commands
-```
-
-This will add the necessary aliases to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) so you can use the `airstack` command from any directory.
 
 ## Core Commands
 

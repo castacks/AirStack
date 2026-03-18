@@ -37,7 +37,7 @@ First, confirm your module's node is actually running:
 
 ```bash
 # List all running nodes
-docker exec airstack-robot-1 bash -c "ros2 node list"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list"
 
 # Expected output should include:
 # /robot_name/namespace/your_node_name
@@ -46,13 +46,13 @@ docker exec airstack-robot-1 bash -c "ros2 node list"
 airstack status
 
 # Check docker logs for startup errors
-docker logs airstack-robot-1 2>&1 | tail -50
+docker logs airstack-robot-desktop-1 2>&1 | tail -50
 
 # Look for your node's initialization message
-docker logs airstack-robot-1 2>&1 | grep -i "your_node\|your_package"
+docker logs airstack-robot-desktop-1 2>&1 | grep -i "your_node\|your_package"
 
 # Check for crash/error messages
-docker logs airstack-robot-1 2>&1 | grep -i "error\|fail\|crash\|segmentation"
+docker logs airstack-robot-desktop-1 2>&1 | grep -i "error\|fail\|crash\|segmentation"
 ```
 
 **Common issues at this level:**
@@ -62,10 +62,10 @@ docker logs airstack-robot-1 2>&1 | grep -i "error\|fail\|crash\|segmentation"
 - Node crashing immediately on startup
 
 **Fix strategies:**
-- Rebuild package: `docker exec airstack-robot-1 bash -c "bws --packages-select your_package"`
+- Rebuild package: `docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package"`
 - Check build output for errors
 - Verify dependencies in package.xml
-- Test node standalone: `docker exec airstack-robot-1 bash -c "sws && ros2 run your_package your_node"`
+- Test node standalone: `docker exec airstack-robot-desktop-1 bash -c "sws && ros2 run your_package your_node"`
 
 ### Level 2: Check Topic Connections
 
@@ -73,7 +73,7 @@ Verify that topics are properly connected:
 
 ```bash
 # Get detailed info about your node
-docker exec airstack-robot-1 bash -c "ros2 node info /robot_name/namespace/your_node_name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot_name/namespace/your_node_name"
 
 # This shows:
 # - Subscribers (input topics)
@@ -82,14 +82,14 @@ docker exec airstack-robot-1 bash -c "ros2 node info /robot_name/namespace/your_
 # - Actions
 
 # Check specific topic publishers/subscribers
-docker exec airstack-robot-1 bash -c "ros2 topic info /your/topic/name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic info /your/topic/name"
 
 # Expected output:
 # Publisher count: X
 # Subscription count: Y
 
 # List all topics (to find misnamed topics)
-docker exec airstack-robot-1 bash -c "ros2 topic list | grep -i relevant_keyword"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic list | grep -i relevant_keyword"
 ```
 
 **Common issues at this level:**
@@ -110,7 +110,7 @@ Verify data is actually flowing through topics:
 
 ```bash
 # Check publishing rate
-docker exec airstack-robot-1 bash -c "ros2 topic hz /your/topic/name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /your/topic/name"
 
 # Expected output:
 # average rate: X.XXX
@@ -119,13 +119,13 @@ docker exec airstack-robot-1 bash -c "ros2 topic hz /your/topic/name"
 # If rate is 0, no data is flowing
 
 # Echo topic to see actual data
-docker exec airstack-robot-1 bash -c "ros2 topic echo /your/topic/name --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /your/topic/name --once"
 
 # Check input topics are publishing
-docker exec airstack-robot-1 bash -c "ros2 topic hz /input/topic/name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /input/topic/name"
 
 # Monitor multiple topics simultaneously
-docker exec airstack-robot-1 bash -c "ros2 topic hz /topic1 /topic2 /topic3"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /topic1 /topic2 /topic3"
 ```
 
 **Common issues at this level:**
@@ -146,18 +146,18 @@ Examine the actual data being published/received:
 
 ```bash
 # Echo and save topic data for analysis
-docker exec airstack-robot-1 bash -c "ros2 topic echo /your/topic/name --once" > topic_data.txt
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /your/topic/name --once" > topic_data.txt
 
 # For continuous monitoring (save to file in container)
-docker exec airstack-robot-1 bash -c "ros2 topic echo /your/topic/name" > /tmp/topic_log.txt
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /your/topic/name" > /tmp/topic_log.txt
 # Then Ctrl+C after collecting data
-# docker cp airstack-robot-1:/tmp/topic_log.txt ./topic_log.txt
+# docker cp airstack-robot-desktop-1:/tmp/topic_log.txt ./topic_log.txt
 
 # Check message structure
-docker exec airstack-robot-1 bash -c "ros2 interface show sensor_msgs/msg/Image"
+docker exec airstack-robot-desktop-1 bash -c "ros2 interface show sensor_msgs/msg/Image"
 
 # Look for specific values in topic data
-docker exec airstack-robot-1 bash -c "ros2 topic echo /your/topic --once" | grep -i "field_name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /your/topic --once" | grep -i "field_name"
 ```
 
 **Analyze data for:**
@@ -179,13 +179,13 @@ Check if parameters are loaded correctly:
 
 ```bash
 # List all parameters for your node
-docker exec airstack-robot-1 bash -c "ros2 param list /robot_name/namespace/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 param list /robot_name/namespace/your_node"
 
 # Get specific parameter value
-docker exec airstack-robot-1 bash -c "ros2 param get /robot_name/namespace/your_node param_name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 param get /robot_name/namespace/your_node param_name"
 
 # Dump all parameters to YAML
-docker exec airstack-robot-1 bash -c "ros2 param dump /robot_name/namespace/your_node" > params.yaml
+docker exec airstack-robot-desktop-1 bash -c "ros2 param dump /robot_name/namespace/your_node" > params.yaml
 ```
 
 **Common issues at this level:**
@@ -206,15 +206,15 @@ For modules using coordinate frames:
 
 ```bash
 # Check transform between frames
-docker exec airstack-robot-1 bash -c "ros2 run tf2_ros tf2_echo source_frame target_frame"
+docker exec airstack-robot-desktop-1 bash -c "ros2 run tf2_ros tf2_echo source_frame target_frame"
 
 # Generate TF tree
-docker exec airstack-robot-1 bash -c "ros2 run tf2_tools view_frames"
+docker exec airstack-robot-desktop-1 bash -c "ros2 run tf2_tools view_frames"
 # This creates frames.pdf - copy out:
-# docker cp airstack-robot-1:/frames.pdf ./frames.pdf
+# docker cp airstack-robot-desktop-1:/frames.pdf ./frames.pdf
 
 # List available frames
-docker exec airstack-robot-1 bash -c "ros2 run tf2_ros tf2_monitor"
+docker exec airstack-robot-desktop-1 bash -c "ros2 run tf2_ros tf2_monitor"
 ```
 
 **Common issues at this level:**
@@ -261,8 +261,8 @@ self.debug_pub.publish(msg)
 
 Rebuild and test:
 ```bash
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package"
-docker logs airstack-robot-1 -f | grep -i debug
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package"
+docker logs airstack-robot-desktop-1 -f | grep -i debug
 ```
 
 ### Level 8: Use GDB for C++ Crashes
@@ -271,10 +271,10 @@ If node crashes or segfaults:
 
 ```bash
 # Rebuild with debug symbols
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
 
 # Run with GDB
-docker exec -it airstack-robot-1 bash
+docker exec -it airstack-robot-desktop-1 bash
 gdb --args ros2 run your_package your_node
 
 # In GDB:
@@ -305,16 +305,16 @@ ls -la robot/ros_ws/src/local/planners/droan_local_planner/
 ls -la robot/ros_ws/src/local/planners/your_planner/
 
 # 2. Topic structure
-docker exec airstack-robot-1 bash -c "ros2 node info /robot/droan/droan_planner"
-docker exec airstack-robot-1 bash -c "ros2 node info /robot/your_planner/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/droan/droan_planner"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/your_planner/your_node"
 
 # 3. Message timing
-docker exec airstack-robot-1 bash -c "ros2 topic hz /robot/droan/output"
-docker exec airstack-robot-1 bash -c "ros2 topic hz /robot/your_planner/output"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot/droan/output"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot/your_planner/output"
 
 # 4. Data ranges
-docker exec airstack-robot-1 bash -c "ros2 topic echo /robot/droan/output --once"
-docker exec airstack-robot-1 bash -c "ros2 topic echo /robot/your_planner/output --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/droan/output --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/your_planner/output --once"
 ```
 
 ### Level 10: Create Minimal Reproduction Test
@@ -349,9 +349,9 @@ TEST(YourNodeTest, BasicFunctionality) {
 
 Build and run test:
 ```bash
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package"
-docker exec airstack-robot-1 bash -c "sws && colcon test --packages-select your_package"
-docker exec airstack-robot-1 bash -c "colcon test-result --test-result-base build/your_package"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package"
+docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select your_package"
+docker exec airstack-robot-desktop-1 bash -c "colcon test-result --test-result-base build/your_package"
 ```
 
 ## Systematic Debugging Workflow
@@ -360,28 +360,28 @@ docker exec airstack-robot-1 bash -c "colcon test-result --test-result-base buil
 
 1. **Check node status**
    ```bash
-   docker exec airstack-robot-1 bash -c "ros2 node list | grep your_node"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep your_node"
    ```
 
 2. **If node not running, check logs**
    ```bash
-   docker logs airstack-robot-1 2>&1 | grep -A 10 -B 10 "your_package\|your_node"
+   docker logs airstack-robot-desktop-1 2>&1 | grep -A 10 -B 10 "your_package\|your_node"
    ```
 
 3. **If node running, check topics**
    ```bash
-   docker exec airstack-robot-1 bash -c "ros2 node info /robot/namespace/your_node"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/namespace/your_node"
    ```
 
 4. **Check data flow**
    ```bash
-   docker exec airstack-robot-1 bash -c "ros2 topic hz /output/topic"
-   docker exec airstack-robot-1 bash -c "ros2 topic hz /input/topic"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /output/topic"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /input/topic"
    ```
 
 5. **Inspect data**
    ```bash
-   docker exec airstack-robot-1 bash -c "ros2 topic echo /output/topic --once"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /output/topic --once"
    ```
 
 6. **Form hypothesis** based on evidence collected
@@ -409,7 +409,7 @@ docker exec airstack-robot-1 bash -c "colcon test-result --test-result-base buil
 
 ```bash
 # Install profiling tools (if not in container)
-docker exec -it airstack-robot-1 bash
+docker exec -it airstack-robot-desktop-1 bash
 apt-get update && apt-get install -y linux-tools-generic
 
 # Profile node
@@ -421,7 +421,7 @@ perf report
 
 ```bash
 # Use valgrind for memory leaks
-docker exec -it airstack-robot-1 bash
+docker exec -it airstack-robot-desktop-1 bash
 apt-get install -y valgrind
 
 valgrind --leak-check=full ros2 run your_package your_node
@@ -433,13 +433,13 @@ When module works standalone but fails in full stack:
 
 1. **Check topic conflicts**
    ```bash
-   docker exec airstack-robot-1 bash -c "ros2 topic info /conflicting/topic"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 topic info /conflicting/topic"
    # Should show exactly 1 publisher
    ```
 
 2. **Check namespace isolation**
    ```bash
-   docker exec airstack-robot-1 bash -c "ros2 node list"
+   docker exec airstack-robot-desktop-1 bash -c "ros2 node list"
    # All nodes should have proper namespaces
    ```
 
@@ -449,7 +449,7 @@ When module works standalone but fails in full stack:
 
 4. **Check resource usage**
    ```bash
-   docker stats airstack-robot-1
+   docker stats airstack-robot-desktop-1
    # Monitor CPU, memory usage
    ```
 

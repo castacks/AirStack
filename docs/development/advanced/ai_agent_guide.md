@@ -42,26 +42,26 @@ graph LR
 AUTOLAUNCH=false airstack up robot
 
 # Build specific package
-docker exec airstack-robot-1 bash -c "bws --packages-select <package>"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <package>"
 
 # Source workspace
-docker exec airstack-robot-1 bash -c "sws"
+docker exec airstack-robot-desktop-1 bash -c "sws"
 
 # Run launch file
-docker exec airstack-robot-1 bash -c "sws && ros2 launch <package> <launch_file>"
+docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch <package> <launch_file>"
 ```
 
 ### Debugging
 ```bash
 # Check if node is running
-docker exec airstack-robot-1 bash -c "ros2 node list | grep <node>"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep <node>"
 
 # Check topic connections
-docker exec airstack-robot-1 bash -c "ros2 topic hz <topic>"
-docker exec airstack-robot-1 bash -c "ros2 topic echo <topic> --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz <topic>"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic> --once"
 
 # View logs
-docker logs airstack-robot-1 2>&1 | grep -i <module>
+docker logs airstack-robot-desktop-1 2>&1 | grep -i <module>
 ```
 
 ### Testing
@@ -70,7 +70,7 @@ docker logs airstack-robot-1 2>&1 | grep -i <module>
 airstack up isaac-sim robot
 
 # Record test data
-docker exec airstack-robot-1 bash -c "ros2 bag record -a -o /tmp/test"
+docker exec airstack-robot-desktop-1 bash -c "ros2 bag record -a -o /tmp/test"
 ```
 
 ## Key Concepts
@@ -137,7 +137,7 @@ When a module doesn't work:
 3. **Check data flow:** `ros2 topic hz <topic>`
 4. **Inspect data quality:** `ros2 topic echo <topic> --once`
 5. **Check parameters:** `ros2 param list <node>`
-6. **Review logs:** `docker logs airstack-robot-1`
+6. **Review logs:** `docker logs airstack-robot-desktop-1`
 7. **Compare with reference:** Study working similar module
 8. **Add instrumentation:** Debug publishers/logging
 9. **Create minimal test:** Isolate the problem

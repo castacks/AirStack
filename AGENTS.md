@@ -38,8 +38,8 @@ AirStack/
 ├── gcs/                     # Ground Control Station
 ├── common/                  # Shared packages & utilities
 ├── docs/                    # MkDocs documentation
-├── .agents/skills/                  # Detailed workflow guides for agents
-└── templates/               # Package templates for new modules
+├── mkdocs.yml               # MkDocs config file
+└── .agents/skills/          # Detailed workflow guides for agents
 ```
 
 ### Layered Autonomy Pattern
@@ -148,22 +148,22 @@ airstack docs           # Build and serve documentation
 AUTOLAUNCH=false airstack up robot
 
 # Build ROS 2 workspace (inside container)
-docker exec airstack-robot-1 bash -c "bws --packages-select <package_name>"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <package_name>"
 
 # Build with debug symbols
-docker exec airstack-robot-1 bash -c "bws --packages-select <package_name> --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <package_name> --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
 
 # Source workspace (inside container)
-docker exec airstack-robot-1 bash -c "sws"
+docker exec airstack-robot-desktop-1 bash -c "sws"
 
 # Run a launch file
-docker exec airstack-robot-1 bash -c "sws && ros2 launch <package> <launch_file>"
+docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch <package> <launch_file>"
 
 # List ROS 2 nodes
-docker exec airstack-robot-1 bash -c "ros2 node list"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list"
 
 # Echo a topic
-docker exec airstack-robot-1 bash -c "ros2 topic echo <topic_name> --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --once"
 ```
 
 **Important:** Do NOT run commands in interactive mode as you can get stuck on prompts. Always use `docker exec <container> bash -c "<command>"`.
@@ -192,7 +192,7 @@ When a module doesn't work:
 1. Verify module is running (`ros2 node list`)
 2. Check topic connections (`ros2 topic info`, `ros2 topic hz`)
 3. Inspect data quality (`ros2 topic echo`)
-4. Review logs (`docker logs airstack-robot-1`)
+4. Review logs (`docker logs airstack-robot-desktop-1`)
 5. Compare with reference implementation
 6. Add instrumentation (debug publishers, logging)
 7. Create minimal reproduction test

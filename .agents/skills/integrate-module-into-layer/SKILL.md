@@ -232,10 +232,10 @@ After modifying the launch file:
 
 ```bash
 # Rebuild bringup package (picks up new launch file)
-docker exec airstack-robot-1 bash -c "bws --packages-select local_bringup"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select local_bringup"
 
 # Rebuild your module too (if needed)
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package_name"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package_name"
 ```
 
 ### 8. Test Full Autonomy Launch
@@ -259,17 +259,17 @@ Check that your module is running and connected:
 
 ```bash
 # List all running nodes (should see your node)
-docker exec airstack-robot-1 bash -c "ros2 node list | grep your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep your_node"
 
 # Check your module's topics
-docker exec airstack-robot-1 bash -c "ros2 node info /robot_name/namespace/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot_name/namespace/your_node"
 
 # Verify topic connections
-docker exec airstack-robot-1 bash -c "ros2 topic info /robot_name/your/output/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic info /robot_name/your/output/topic"
 
 # Check data flow
-docker exec airstack-robot-1 bash -c "ros2 topic hz /robot_name/your/output/topic"
-docker exec airstack-robot-1 bash -c "ros2 topic echo /robot_name/your/output/topic --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot_name/your/output/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot_name/your/output/topic --once"
 ```
 
 ### 10. Test with Other Modules
@@ -279,8 +279,8 @@ Verify your module integrates correctly with the rest of the system:
 ```bash
 # Check end-to-end data flow
 # For a planner: verify it receives odometry and publishes trajectories
-docker exec airstack-robot-1 bash -c "ros2 topic hz /robot_name/odometry"
-docker exec airstack-robot-1 bash -c "ros2 topic hz /robot_name/trajectory_controller/trajectory_segment_to_add"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot_name/odometry"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot_name/trajectory_controller/trajectory_segment_to_add"
 
 # Visualize in RViz (if GCS is running)
 # Topics should appear in RViz topic list
@@ -393,7 +393,7 @@ Module only launches under certain conditions:
   - ✅ Check for topic conflicts with `ros2 topic info`
   - ✅ Use namespaces to separate nodes
 - ❌ **Module crashes on launch**
-  - ✅ Check docker logs: `docker logs airstack-robot-1`
+  - ✅ Check docker logs: `docker logs airstack-robot-desktop-1`
   - ✅ Verify dependencies are built
 
 ## Debugging Integration
@@ -402,25 +402,25 @@ If integration fails, use systematic debugging:
 
 ```bash
 # 1. Verify your node is in the node list
-docker exec airstack-robot-1 bash -c "ros2 node list"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list"
 
 # 2. Check node info (topics, services, actions)
-docker exec airstack-robot-1 bash -c "ros2 node info /robot_name/namespace/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot_name/namespace/your_node"
 
 # 3. Verify expected input topics exist and are publishing
-docker exec airstack-robot-1 bash -c "ros2 topic hz /expected/input/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /expected/input/topic"
 
 # 4. Check output topics are being published
-docker exec airstack-robot-1 bash -c "ros2 topic hz /your/output/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /your/output/topic"
 
 # 5. Inspect actual topic data
-docker exec airstack-robot-1 bash -c "ros2 topic echo /your/output/topic --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /your/output/topic --once"
 
 # 6. Check for errors in logs
-docker logs airstack-robot-1 2>&1 | grep -i error
+docker logs airstack-robot-desktop-1 2>&1 | grep -i error
 
 # 7. View full launch output
-docker logs airstack-robot-1
+docker logs airstack-robot-desktop-1
 ```
 
 See [debug-module](../debug-module) for comprehensive debugging strategies.

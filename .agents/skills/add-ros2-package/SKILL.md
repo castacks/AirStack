@@ -435,13 +435,13 @@ Build and test your package:
 AUTOLAUNCH=false airstack up robot
 
 # Build the specific package
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package_name"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package_name"
 
 # Source the workspace
-docker exec airstack-robot-1 bash -c "sws"
+docker exec airstack-robot-desktop-1 bash -c "sws"
 
 # Test launch
-docker exec airstack-robot-1 bash -c "sws && ros2 launch your_package_name your_package_name.launch.xml"
+docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch your_package_name your_package_name.launch.xml"
 ```
 
 ### 11. Verify Package Works
@@ -450,16 +450,16 @@ Check that the node is running and topics are connected:
 
 ```bash
 # List nodes
-docker exec airstack-robot-1 bash -c "ros2 node list | grep your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep your_node"
 
 # List topics
-docker exec airstack-robot-1 bash -c "ros2 topic list | grep your_topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic list | grep your_topic"
 
 # Check topic publishing rate
-docker exec airstack-robot-1 bash -c "ros2 topic hz /your/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /your/topic"
 
 # Echo topic data
-docker exec airstack-robot-1 bash -c "ros2 topic echo /your/topic --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /your/topic --once"
 ```
 
 ## Next Steps
@@ -488,7 +488,7 @@ After creating the package:
   - ✅ Check config file path with `$(find-pkg-share ...)`
   - ✅ Ensure `allow_substs="true"` is set in param tag
 - ❌ Node crashes on start
-  - ✅ Check logs: `docker logs airstack-robot-1`
+  - ✅ Check logs: `docker logs airstack-robot-desktop-1`
   - ✅ Verify all dependencies are built and sourced
 
 ### Launch File Issues

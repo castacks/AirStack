@@ -596,8 +596,8 @@ int main(int argc, char** argv)
 
 Build and run:
 ```bash
-docker exec airstack-robot-1 bash -c "bws --packages-select your_behavior_nodes"
-docker exec airstack-robot-1 bash -c "sws && ros2 run your_behavior_nodes test_your_node"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_behavior_nodes"
+docker exec airstack-robot-desktop-1 bash -c "sws && ros2 run your_behavior_nodes test_your_node"
 ```
 
 ### 11. Integrate with Behavior Executive

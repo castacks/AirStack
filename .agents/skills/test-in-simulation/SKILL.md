@@ -52,13 +52,13 @@ Check that your module is running in the autonomy stack:
 
 ```bash
 # List running nodes
-docker exec airstack-robot-1 bash -c "ros2 node list | grep your_module"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep your_module"
 
 # Expected output:
 # /drone1/namespace/your_node
 
 # Get node info
-docker exec airstack-robot-1 bash -c "ros2 node info /drone1/namespace/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /drone1/namespace/your_node"
 ```
 
 ### 3. Monitor Key Topics
@@ -67,14 +67,14 @@ Set up topic monitoring to verify data flow:
 
 ```bash
 # Monitor input topics (verify module receives data)
-docker exec airstack-robot-1 bash -c "ros2 topic hz /drone1/odometry"
-docker exec airstack-robot-1 bash -c "ros2 topic hz /drone1/global_plan"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /drone1/odometry"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /drone1/global_plan"
 
 # Monitor output topics (verify module publishes)
-docker exec airstack-robot-1 bash -c "ros2 topic hz /drone1/trajectory_controller/trajectory_segment_to_add"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /drone1/trajectory_controller/trajectory_segment_to_add"
 
 # Monitor multiple topics simultaneously
-docker exec airstack-robot-1 bash -c "ros2 topic hz /drone1/odometry /drone1/trajectory_controller/trajectory_segment_to_add"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /drone1/odometry /drone1/trajectory_controller/trajectory_segment_to_add"
 ```
 
 ### 4. Visualize in Ground Control Station
@@ -162,7 +162,7 @@ Plan specific tests for your module:
 
 ```bash
 # Publish test waypoint
-docker exec airstack-robot-1 bash -c "ros2 topic pub --once /drone1/global_plan nav_msgs/Path '
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic pub --once /drone1/global_plan nav_msgs/Path '
 header:
   frame_id: \"map\"
 poses:
@@ -175,7 +175,7 @@ poses:
 '"
 
 # Trigger module service (if applicable)
-docker exec airstack-robot-1 bash -c "ros2 service call /drone1/your_module/trigger std_srvs/Trigger"
+docker exec airstack-robot-desktop-1 bash -c "ros2 service call /drone1/your_module/trigger std_srvs/Trigger"
 ```
 
 #### Method 3: Scripted Test Sequence
@@ -240,7 +240,7 @@ if __name__ == '__main__':
 
 Run test:
 ```bash
-docker exec airstack-robot-1 bash -c "sws && python3 scripts/test_your_module.py"
+docker exec airstack-robot-desktop-1 bash -c "sws && python3 scripts/test_your_module.py"
 ```
 
 ### 8. Record Test Data
@@ -249,10 +249,10 @@ Record ROS bag for later analysis:
 
 ```bash
 # Record all topics
-docker exec airstack-robot-1 bash -c "ros2 bag record -a -o /tmp/test_run_1"
+docker exec airstack-robot-desktop-1 bash -c "ros2 bag record -a -o /tmp/test_run_1"
 
 # Or record specific topics
-docker exec airstack-robot-1 bash -c "ros2 bag record \
+docker exec airstack-robot-desktop-1 bash -c "ros2 bag record \
     /drone1/odometry \
     /drone1/global_plan \
     /drone1/trajectory_controller/trajectory_segment_to_add \
@@ -262,7 +262,7 @@ docker exec airstack-robot-1 bash -c "ros2 bag record \
 # Stop recording with Ctrl+C
 
 # Copy bag out of container
-docker cp airstack-robot-1:/tmp/test_run_1 ./test_data/
+docker cp airstack-robot-desktop-1:/tmp/test_run_1 ./test_data/
 ```
 
 ### 9. Analyze Test Results
@@ -399,7 +399,7 @@ If module supports multi-robot:
 NUM_ROBOTS=2 airstack up isaac-sim robot
 
 # Verify each robot runs independently
-docker exec airstack-robot-1 bash -c "ros2 node list | grep drone"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep drone"
 
 # Expected:
 # /drone0/...
@@ -414,13 +414,13 @@ Monitor system resources:
 
 ```bash
 # Monitor CPU/memory usage
-docker stats airstack-robot-1
+docker stats airstack-robot-desktop-1
 
 # Find resource-intensive nodes
-docker exec airstack-robot-1 bash -c "top -b -n 1 | grep ros"
+docker exec airstack-robot-desktop-1 bash -c "top -b -n 1 | grep ros"
 
 # Profile specific node (if needed)
-docker exec airstack-robot-1 bash -c "perf record -g ros2 run your_package your_node"
+docker exec airstack-robot-desktop-1 bash -c "perf record -g ros2 run your_package your_node"
 ```
 
 ### 14. Document Test Results
@@ -496,8 +496,8 @@ docker-compose up -d isaac-sim robot
 sleep 30
 
 # Run test scenarios
-docker exec airstack-robot-1 bash -c "sws && python3 scripts/test_scenario_1.py"
-docker exec airstack-robot-1 bash -c "sws && python3 scripts/test_scenario_2.py"
+docker exec airstack-robot-desktop-1 bash -c "sws && python3 scripts/test_scenario_1.py"
+docker exec airstack-robot-desktop-1 bash -c "sws && python3 scripts/test_scenario_2.py"
 
 # Check results
 if [ -f "/tmp/test_results_pass" ]; then

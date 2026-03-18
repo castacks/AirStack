@@ -187,10 +187,10 @@ After integration, verify the module works correctly:
 
 ```bash
 # Verify node is running
-docker exec airstack-robot-1 bash -c "ros2 node list | grep your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep your_node"
 
 # Check node info
-docker exec airstack-robot-1 bash -c "ros2 node info /robot/namespace/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node info /robot/namespace/your_node"
 ```
 
 **Expected:**
@@ -203,10 +203,10 @@ docker exec airstack-robot-1 bash -c "ros2 node info /robot/namespace/your_node"
 
 ```bash
 # Check topic publishers/subscribers
-docker exec airstack-robot-1 bash -c "ros2 topic info /robot/your/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic info /robot/your/topic"
 
 # Check topic publishing rate
-docker exec airstack-robot-1 bash -c "ros2 topic hz /robot/your/output/topic"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic hz /robot/your/output/topic"
 ```
 
 **Expected:**
@@ -219,10 +219,10 @@ docker exec airstack-robot-1 bash -c "ros2 topic hz /robot/your/output/topic"
 
 ```bash
 # Echo input topic
-docker exec airstack-robot-1 bash -c "ros2 topic echo /robot/input/topic --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/input/topic --once"
 
 # Echo output topic
-docker exec airstack-robot-1 bash -c "ros2 topic echo /robot/output/topic --once"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot/output/topic --once"
 ```
 
 **Expected:**
@@ -235,10 +235,10 @@ docker exec airstack-robot-1 bash -c "ros2 topic echo /robot/output/topic --once
 
 ```bash
 # List parameters
-docker exec airstack-robot-1 bash -c "ros2 param list /robot/namespace/your_node"
+docker exec airstack-robot-desktop-1 bash -c "ros2 param list /robot/namespace/your_node"
 
 # Check parameter values
-docker exec airstack-robot-1 bash -c "ros2 param get /robot/namespace/your_node param_name"
+docker exec airstack-robot-desktop-1 bash -c "ros2 param get /robot/namespace/your_node param_name"
 ```
 
 **Expected:**
@@ -250,10 +250,10 @@ docker exec airstack-robot-1 bash -c "ros2 param get /robot/namespace/your_node 
 
 ```bash
 # Check logs for errors
-docker logs airstack-robot-1 2>&1 | grep -i "error\|fail"
+docker logs airstack-robot-desktop-1 2>&1 | grep -i "error\|fail"
 
 # Check module-specific logs
-docker logs airstack-robot-1 2>&1 | grep -i "your_module"
+docker logs airstack-robot-desktop-1 2>&1 | grep -i "your_module"
 ```
 
 **Expected:**
@@ -266,7 +266,7 @@ docker logs airstack-robot-1 2>&1 | grep -i "your_module"
 
 ```bash
 # Monitor resource usage
-docker stats airstack-robot-1
+docker stats airstack-robot-desktop-1
 ```
 
 **Expected:**

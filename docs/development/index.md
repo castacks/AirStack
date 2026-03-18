@@ -1,73 +1,84 @@
 # Developer Guide
 
-Welcome developers! This guide documents how to extend the autonomy stack for your own needs.
-The stack has been designed with modularity in mind, and aims to make it straightforward to swap out any component.
+Welcome to AirStack development! This guide will help you extend and customize the autonomy stack for your needs. AirStack is designed with modularity in mind, making it straightforward to swap components and add new capabilities.
 
-We assume you're developing first on a local machine with simulation.
+!!! tip "New to AirStack?"
+    Start with the **Beginner Tutorials** to understand core concepts, then progress through intermediate and advanced topics as needed.
 
-## Quick Start
+## Learning Path
 
-1. **Complete [Getting Started](../getting_started.md)** - Set up your environment
-2. **Learn the [System Architecture](../robot/autonomy/system_architecture.md)** - Understand how components interact
-3. **Use the [Integration Checklist](../robot/autonomy/integration_checklist.md)** - Add new modules correctly
+### 🎯 Beginner Tutorials
 
-## Development Workflow
+**Start here** if you're new to AirStack development:
 
-### Setting Up Your Project
+1. **[Key Concepts](beginner/key_concepts.md)** - Understand the AirStack workflow and architecture
+2. **[Development Environment](beginner/development_environment.md)** - Set up your IDE and tools
+3. **[Fork Your Own Project](beginner/fork_your_own_project.md)** - Create your own AirStack-based project
+4. **[VSCode Debugging](beginner/vscode/vscode_debug.md)** - Debug ROS 2 nodes in containers
 
-- [**Creating New Projects**](create_new_project.md) - Fork or template AirStack for your own use
-- [**Development Environment**](development_environment.md) - Configure your development tools
-- [**VSCode Setup**](vscode/index.md) - IDE configuration for AirStack development
+**Reference Documentation:**
+- [AirStack CLI Introduction](beginner/airstack-cli/index.md) - Essential CLI commands
+- [Docker Workflow](beginner/airstack-cli/docker_usage.md) - Container management details
 
-### Tools and Utilities
+### 📈 Intermediate Tutorials
 
-- [**AirStack CLI Tool**](airstack-cli/index.md) - Command-line interface for common tasks
-  - [Docker Usage](airstack-cli/docker_usage.md) - Container management
-  - [Extending](airstack-cli/extending.md) - Add custom commands
-  - [Architecture](airstack-cli/architecture.md) - How the CLI works
+**Build on the basics** with testing and best practices:
 
-### AI-Assisted Development
+- **[Testing Guide](intermediate/testing/index.md)** - Test your modules effectively
+  - [Unit Testing](intermediate/testing/unit_testing.md)
+  - [Integration Testing](intermediate/testing/integration_testing.md)
+  - [System Testing](intermediate/testing/system_testing.md)
+  - [CI/CD](intermediate/testing/ci_cd.md)
+- **[Frame Conventions](intermediate/frame_conventions.md)** - Coordinate frame standards
+- **[Contributing](intermediate/contributing.md)** - Contribute to AirStack
+- **[Documentation Guide](intermediate/documentation.md)** - Write great documentation
 
-- [**AI Agent Guide**](ai_agent_guide.md) - Leverage AI agents (OpenHands, Claude) for development
-  - Automated module creation
-  - Integration and testing
-  - Documentation generation
+### 🚀 Advanced Tutorials
 
-### Testing
+**Deep dives** into advanced topics:
 
-- [**Testing Overview**](testing/index.md) - Testing philosophy and approaches
-- [**Testing Frameworks**](testing/testing_frameworks.md) - Available testing tools
-- [**Unit Testing**](testing/unit_testing.md) - Test individual components
-- [**Integration Testing**](testing/integration_testing.md) - Test module interactions
-- [**System Testing**](testing/system_testing.md) - End-to-end testing in simulation
-- [**CI/CD**](testing/ci_cd.md) - Continuous integration and deployment
+- **[AI Agent Guide](advanced/ai_agent_guide.md)** - Automate development with AI
+- **[Extending the CLI](advanced/airstack-cli/extending.md)** - Add custom CLI commands
+- **[CLI Architecture](advanced/airstack-cli/architecture.md)** - Understand CLI internals
 
-### Best Practices
+## Quick Reference
 
-- [**Documentation Guide**](documentation.md) - Writing good documentation
-- [**Frame Conventions**](frame_conventions.md) - Coordinate frame standards
-- [**Contributing**](contributing.md) - How to contribute to AirStack
-
-## Common Tasks
+### Common Tasks
 
 | Task | Guide |
 |------|-------|
-| Add a new planner | [Integration Checklist](../robot/autonomy/integration_checklist.md) → Local Planning |
-| Add a new world model | [Integration Checklist](../robot/autonomy/integration_checklist.md) → World Models |
-| Create custom simulation scene | [Isaac Sim Scene Setup](../simulation/isaac_sim/scene_setup.md) |
-| Deploy to hardware | [Deploying to Hardware](../tutorials/deploying_to_hardware.md) |
-| Debug ROS 2 modules | [AI Agent Guide](ai_agent_guide.md) → Debug Module Skill |
+| Add a new planner | [Integration Checklist](../robot/autonomy/integration_checklist.md) |
+| Add a world model | [Integration Checklist](../robot/autonomy/integration_checklist.md) |
+| Create simulation scene | [Isaac Sim Setup](../simulation/isaac_sim/pegasus_scene_setup.md) |
+| Debug a module | [VSCode Debugging](beginner/vscode/vscode_debug.md) |
+| Write tests | [Testing Guide](intermediate/testing/index.md) |
+
+### Essential Commands
+
+```bash
+# Start development environment
+airstack up robot
+
+# Build and test your code
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select my_package"
+
+# Connect to container
+airstack connect robot
+```
+
+See [CLI Introduction](beginner/airstack-cli/index.md) for complete command reference.
 
 ## Architecture Resources
 
-- [**System Architecture**](../robot/autonomy/system_architecture.md) - Detailed architecture diagrams
-- [**Autonomy Modules Overview**](../robot/autonomy/index.md) - Layer-by-layer breakdown
-- [**Integration Checklist**](../robot/autonomy/integration_checklist.md) - Module integration guide
+Before diving into development, understand the system:
+
+- **[System Architecture](../robot/autonomy/system_architecture.md)** - How components interact
+- **[Autonomy Modules](../robot/autonomy/index.md)** - Layer-by-layer breakdown
+- **[Integration Checklist](../robot/autonomy/integration_checklist.md)** - Module integration guide
 
 ## Getting Help
 
-- **AirStack Slack**: Join `#airstack` channel for questions and discussions
+- **Documentation**: Search this site for guides and references
 - **GitHub Issues**: Report bugs and request features
-- **Documentation**: Search this documentation site
-- **AI Agents**: Use the [AI Agent Guide](ai_agent_guide.md) for automated assistance
+- **AirStack Slack**: Join `#airstack` for discussions (AirLab members)
 

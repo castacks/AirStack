@@ -1,21 +1,24 @@
-# Launch Workflow with Docker and Docker Compose
+# Docker Workflow Guide
 
-At its core, the `airstack` CLI is simply a wrapper around Docker Compose. `airstack up` is equivalent to `docker compose up -d`, and `airstack down` is equivalent to `docker compose down`.
+This guide covers practical Docker operations for AirStack development. For concepts, see [Key Concepts](../key_concepts.md).
 
-Docker Compose is useful to mimic interacting with multiple robots in a simulated environment, such as Isaac Sim, while isolating each robot's environment and the ground control station.
+## Quick Reference
 
-The details of the docker compose setup is in the project root's `docker-compose.yaml`.
+```bash
+# Start/stop
+airstack up              # Start all services
+airstack up robot        # Start only robot
+airstack down            # Stop all services
 
-In essence, the compose file launches:
+# Manage
+airstack status          # Show running containers
+airstack connect robot   # Connect to container
+airstack logs robot      # View logs
 
-- Isaac Sim
-- ground control station
-- robots
-
-all get created on the same default Docker bridge network.
-This lets them communicate with ROS2 on the same network.
-
-Each robot has its own ROS_DOMAIN_ID, which is extracted from the container name, e.g. `airstack-robot-1` has `ROS_DOMAIN_ID=1`. See the robot `.bashrc` for details.
+# Pull/build images
+docker compose pull      # Pull from registry
+docker compose build     # Build from scratch
+```
 
 ## Pull Images
 
@@ -33,38 +36,14 @@ docker compose pull
 
 The available image tags are listed [here](https://airlab-docker.andrew.cmu.edu/harbor/projects/2/repositories/airstack/artifacts-tab).
 
-## Build Images From Scratch
+## Build Images
 
 ```bash
+# Build all images from scratch
 docker compose build
-```
 
-## Start, Stop, and Remove
-
-Start
-
-```bash
-airstack up  # or equivalently: docker compose up -d
-
-# see running containers
-airstack status  # or equivalently: docker ps -a
-```
-
-Remove
-
-```bash
-airstack down  # or equivalently: docker compose down
-```
-
-Launch only specific services:
-
-```bash
-# only robot
-airstack up robot  # or equivalently: docker compose up robot -d
-# only isaac
-airstack up isaac-sim  # or equivalently: docker compose up isaac-sim -d
-# only ground control station
-airstack up gcs  # or equivalently: docker compose up gcs -d
+# Build specific service
+docker compose build robot
 ```
 
 ### Isaac Sim
@@ -88,7 +67,7 @@ The container also has the isaacsim ROS2 package within that can be launched wit
 Start a bash shell in a robot container, e.g. for robot_1:
 
 ```bash
-airstack connect robot  # or equivalently: docker exec -it airstack-robot-1 bash
+airstack connect robot  # or equivalently: docker exec -it airstack-robot-desktop-1 bash
 ```
 
 To launch more than one robot, prepend with the `NUM_ROBOTS=[NUM]` environment variable, e.g. to launch 2 robots (along with the ground control station and Isaac Sim):
@@ -149,22 +128,6 @@ ssh root@172.18.0.6
 ```
 
 The ssh password is `airstack`.
-
-## Container Details
-
-```mermaid
-graph TD
-    A(Isaac Sim) <-- Sensors and Actuation --> B
-    A <-- Sensors and Actuation --> C
-    B(Robot 1) <-- Global Info --> D(Ground Control Station)
-    C(Robot 2) <-- Global Info --> D
-
-    style A fill:#76B900,stroke:#333,stroke-width:2px
-    style B fill:#fbb,stroke:#333,stroke-width:2px
-    style C fill:#fbb,stroke:#333,stroke-width:2px
-    style D fill:#fbf,stroke:#333,stroke-width:2px
-
-```
 
 ## Automated Testing
 

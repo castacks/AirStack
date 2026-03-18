@@ -55,25 +55,31 @@ nav:
     - docs/getting_started/tutorials_reference.md
   - Development:
       - docs/development/index.md
-      - Creating New Projects: docs/development/create_new_project.md
-      - Development Environment: docs/development/development_environment.md
-      - Documentation Guide: docs/development/documentation.md
-      - AI Agent Guide: docs/development/ai_agent_guide.md
-      - AirStack CLI Tool:
-          - docs/development/airstack-cli/index.md
-          - Docker Usage: docs/development/airstack-cli/docker_usage.md
-          - Extending: docs/development/airstack-cli/extending.md
-          - Architecture: docs/development/airstack-cli/architecture.md
-      - VSCode Setup: docs/development/vscode/index.md
-      - Testing:
-          - docs/development/testing/index.md
-          - Testing Frameworks: docs/development/testing/testing_frameworks.md
-          - Unit Testing: docs/development/testing/unit_testing.md
-          - Integration Testing: docs/development/testing/integration_testing.md
-          - System Testing: docs/development/testing/system_testing.md
-          - CI/CD: docs/development/testing/ci_cd.md
-      - Frame Conventions: docs/development/frame_conventions.md
-      - Contributing: docs/development/contributing.md
+      - Beginner Tutorials:
+          - Key Concepts:
+              - Overview: docs/development/beginner/key_concepts.md
+              - CLI Introduction: docs/development/beginner/airstack-cli/info.md
+              - Docker Workflow: docs/development/beginner/airstack-cli/docker_usage.md
+          - docs/development/beginner/development_environment.md
+          - docs/development/beginner/vscode/vscode_debug.md
+          - docs/development/beginner/fork_your_own_project.md
+      - Intermediate Tutorials:
+          - Testing:
+              - docs/development/intermediate/testing/index.md
+              - docs/development/intermediate/testing/testing_frameworks.md
+              - docs/development/intermediate/testing/unit_testing.md
+              - docs/development/intermediate/testing/integration_testing.md
+              - docs/development/intermediate/testing/system_testing.md
+              - docs/development/intermediate/testing/ci_cd.md
+          - Frame Conventions: docs/development/intermediate/frame_conventions.md
+          - Contributing: 
+              - docs/development/intermediate/contributing.md
+              - docs/development/intermediate/documentation.md
+      - Advanced Tutorials:
+          - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
+          - AirStack CLI Tool:
+              - Extending: docs/development/advanced/airstack-cli/extending.md
+              - Architecture: docs/development/advanced/airstack-cli/architecture.md
   - Simulation:
       - docs/simulation/index.md
       - Isaac Sim:

@@ -300,7 +300,7 @@ ros2 launch my_package my_launch.xml robot_name:=robot1
 Break long commands:
 
 ```bash
-docker exec airstack-robot-1 bash -c \
+docker exec airstack-robot-desktop-1 bash -c \
     "bws --packages-select my_package --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
 ```
 

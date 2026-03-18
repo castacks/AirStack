@@ -72,7 +72,7 @@ The CLI container includes a pinned version of docker-compose and all necessary 
 
 The `connect` and `logs` commands support partial name matching for container names. This means you can:
 
-1. Use just a portion of the container name (e.g., `airstack connect robot` will match `airstack-robot-1`)
+1. Use just a portion of the container name (e.g., `airstack connect robot` will match `airstack-robot-desktop-1`)
 2. If multiple containers match, you'll be shown a list and prompted to select one
 3. The matching is case-insensitive and supports fuzzy matching
 
@@ -81,7 +81,7 @@ Example:
 $ airstack connect robot
 [WARN] Multiple containers match 'robot'. Please be more specific or select from the list below:
 NUM     CONTAINER NAME    STATUS
-1       airstack-robot-1  Up 2 hours
+1       airstack-robot-desktop-1  Up 2 hours
 2       airstack-robot-2  Up 2 hours
 
 Options:
@@ -90,8 +90,8 @@ Options:
   3. Press Ctrl+C to cancel and try again with a more specific name
 
 Your selection: 1
-[INFO] Connecting to container: airstack-robot-1
-[INFO] Tip: Next time, you can directly use 'airstack connect airstack-robot-1' for this container
+[INFO] Connecting to container: airstack-robot-desktop-1
+[INFO] Tip: Next time, you can directly use 'airstack connect airstack-robot-desktop-1' for this container
 ```
 
 ### Environment Variable Overrides

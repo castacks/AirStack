@@ -209,14 +209,14 @@ The module is integrated in: `<layer>_bringup/launch/<layer>.launch.xml`
 
 ```bash
 # Build the module
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package"
 
 # Build with debug symbols
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"
 
 # Clean build
-docker exec airstack-robot-1 bash -c "rm -rf build/your_package install/your_package"
-docker exec airstack-robot-1 bash -c "bws --packages-select your_package"
+docker exec airstack-robot-desktop-1 bash -c "rm -rf build/your_package install/your_package"
+docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package"
 ```
 
 ## Testing
@@ -225,10 +225,10 @@ docker exec airstack-robot-1 bash -c "bws --packages-select your_package"
 
 ```bash
 # Run unit tests
-docker exec airstack-robot-1 bash -c "colcon test --packages-select your_package"
+docker exec airstack-robot-desktop-1 bash -c "colcon test --packages-select your_package"
 
 # View test results
-docker exec airstack-robot-1 bash -c "colcon test-result --test-result-base build/your_package"
+docker exec airstack-robot-desktop-1 bash -c "colcon test-result --test-result-base build/your_package"
 ```
 
 ### Integration Tests
@@ -675,7 +675,7 @@ Always test code snippets before documenting:
 
 ```bash
 # Commands should work as-is (copy-paste ready)
-docker exec airstack-robot-1 bash -c "ros2 topic list"
+docker exec airstack-robot-desktop-1 bash -c "ros2 topic list"
 ```
 
 Include expected output when helpful:

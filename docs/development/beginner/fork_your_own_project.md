@@ -1,5 +1,5 @@
-# Create a New Project
-
+# Fork AirStack Into Your Own Repository
+Now that you've explored the AirStack codebase and architecture, you may want to create your own project based on AirStack. This allows you to customize the system for your specific use case, while still being able to pull in updates from the AirStack repository in the future.
 
 ## Option 1: Generate from Template (no further updates from upstream)
 The AirStack repository is setup as a [Template](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template) on GitHub.

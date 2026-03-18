@@ -63,7 +63,7 @@ To customize the mapping for your deployment, create a new YAML file in `robot/d
 
 Used by the **`desktop`** and **`simple`** profiles.
 
-In simulation, Docker Compose names containers after the service, appending a replica number (e.g. `airstack-robot-1`, `airstack-robot-2`). The `.bashrc` resolves the container's hostname back to its Docker name:
+In simulation, Docker Compose names containers after the service, appending a replica number (e.g. `airstack-robot-desktop-1`, `airstack-robot-2`). The `.bashrc` resolves the container's hostname back to its Docker name:
 
 ```bash
 name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
@@ -75,7 +75,7 @@ Because simulation robots get their identity from the container name (which is c
 
 ```bash
 NUM_ROBOTS=3 docker compose --profile desktop up
-# → containers: airstack-robot-1, airstack-robot-2, airstack-robot-3
+# → containers: airstack-robot-desktop-1, airstack-robot-2, airstack-robot-3
 # → ROBOT_NAME:   robot_1,         robot_2,          robot_3
 # → ROS_DOMAIN_ID: 1,              2,                3
 ```
