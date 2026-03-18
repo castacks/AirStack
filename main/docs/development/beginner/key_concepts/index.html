@@ -5268,7 +5268,7 @@
 </ul>
 <p><strong>Learn more:</strong> <a href="../airstack-cli/docker_usage/">Docker Workflow Details</a></p>
 <h2 id="how-airstack-is-composed">How AirStack is Composed<a class="headerlink" href="#how-airstack-is-composed" title="Permanent link">&para;</a></h2>
-<p>Think of AirStack as a set of <strong>Lego blocks</strong> that snap together through Docker Compose:</p>
+<p>AirStack simulates multiple separate machines (e.g. robots, GCS) that communicate with each other through Docker Compose:</p>
 <pre class="mermaid"><code>graph TD
     A["Root docker-compose.yaml&lt;br/&gt;(The Connector)"] --&gt; B[Robot Autonomy Stack]
     A --&gt; C[Isaac Sim Simulation]
