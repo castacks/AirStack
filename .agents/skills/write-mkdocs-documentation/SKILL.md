@@ -422,7 +422,7 @@ Always specify language for syntax highlighting:
 ```markdown
 ```bash
 # Bash commands
-airstack up robot
+airstack up robot-desktop
 ```
 
 ```python
@@ -855,7 +855,7 @@ Edit `robot/ros_ws/src/local/planner/config.yaml`
 **Commands:**
 ```bash
 # Always include comments for clarity
-airstack up robot  # Start robot container
+airstack up robot-desktop  # Start robot container
 ```
 
 **Launch arguments:**

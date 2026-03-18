@@ -247,10 +247,10 @@ Launch the complete autonomy stack to test integration:
 airstack stop
 
 # Launch with full autonomy
-AUTOLAUNCH=true airstack up robot
+AUTOLAUNCH=true airstack up robot-desktop
 
 # Or launch specific components
-AUTOLAUNCH=true airstack up robot isaac-sim
+AUTOLAUNCH=true airstack up robot-desktop isaac-sim
 ```
 
 ### 9. Verify Integration

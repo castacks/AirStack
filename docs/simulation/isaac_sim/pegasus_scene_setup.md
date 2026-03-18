@@ -33,6 +33,7 @@ PLAY_SIM_ON_START="false"  # Not supported in standalone script mode
 ```
 
 There are *two modes* for launching Pegasus simulations:
+
 - Load an existing USD file (e.g. *.pegasus.robot.usd) — to simulate a prebuilt robot/environment setup.
 - Use a standalone Python script — to dynamically generate a USD and configure the world from scratch.
 

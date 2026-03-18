@@ -145,7 +145,7 @@ airstack docs           # Build and serve documentation
 
 ```bash
 # Start robot container without autolaunch (for development)
-AUTOLAUNCH=false airstack up robot
+AUTOLAUNCH=false airstack up robot-desktop
 
 # Build ROS 2 workspace (inside container)
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <package_name>"

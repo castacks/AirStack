@@ -7,7 +7,7 @@ This guide covers practical Docker operations for AirStack development. For conc
 ```bash
 # Start/stop
 airstack up              # Start all services
-airstack up robot        # Start only robot
+airstack up robot-desktop        # Start only robot
 airstack down            # Stop all services
 
 # Manage

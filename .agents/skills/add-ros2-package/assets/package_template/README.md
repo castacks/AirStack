@@ -198,10 +198,10 @@ The module is automatically launched when the autonomy stack starts:
 
 ```bash
 # Full autonomy stack
-airstack up robot
+airstack up robot-desktop
 
 # Or with autolaunch
-AUTOLAUNCH=true airstack up robot
+AUTOLAUNCH=true airstack up robot-desktop
 ```
 
 The module is integrated in: `<layer>_bringup/launch/<layer>.launch.xml`

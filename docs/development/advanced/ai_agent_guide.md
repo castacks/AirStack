@@ -39,7 +39,7 @@ graph LR
 ### Container Management
 ```bash
 # Start robot container (no autolaunch)
-AUTOLAUNCH=false airstack up robot
+AUTOLAUNCH=false airstack up robot-desktop
 
 # Build specific package
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select <package>"

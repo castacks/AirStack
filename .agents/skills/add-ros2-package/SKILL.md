@@ -432,7 +432,7 @@ Build and test your package:
 
 ```bash
 # From outside the container
-AUTOLAUNCH=false airstack up robot
+AUTOLAUNCH=false airstack up robot-desktop
 
 # Build the specific package
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select your_package_name"

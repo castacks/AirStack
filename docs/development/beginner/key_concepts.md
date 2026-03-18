@@ -84,7 +84,7 @@ When you run `airstack up`, here's what happens:
    - **GCS**: Launches monitoring interface
 
 This modular design means you can:
-- Launch only what you need: `airstack up robot` (skip simulation)
+- Launch only what you need: `airstack up robot-desktop` (skip simulation)
 - Swap components easily (different planners, different simulators)
 - Scale to multiple robots: `NUM_ROBOTS=3 airstack up`
 
@@ -116,24 +116,29 @@ Here's what a typical development session looks like:
 
 ```bash
 # 1. Start containers (without auto-launching the stack)
-AUTOLAUNCH=false airstack up robot
+AUTOLAUNCH=false airstack up robot-desktop
 
-# 2. Build your changes
-docker exec airstack-robot-desktop-1 bash -c "bws --packages-select my_package"
+# 2. Connect to the robot container
+airstack connect robot
+
+# 3. Build your changes
+bws --packages-select my_package  # within container
 
 # 3. Launch and test
-docker exec airstack-robot-desktop-1 bash -c "sws && ros2 launch my_package my_launch.xml"
+sws && ros2 launch my_package my_launch.xml   # within container
 
 # 4. Iterate...
 
-# 5. When done
+# 5. When done, detach and shut down
+Ctrl-b, d  # Detach from tmux session
 airstack down
 ```
 
-**Shortcuts:**
+**Bash aliases within the robot container:**
+
 - `bws` = build workspace (alias for `colcon build`)
 - `sws` = source workspace (alias for `source install/setup.bash`)
-- `airstack connect robot` = jump into interactive shell
+- `cws` = clean workspace and reset variables 
 
 **Learn more:** [Development Environment Setup](development_environment.md)
 

@@ -57,7 +57,7 @@ Welcome to AirStack development! This guide will help you extend and customize t
 
 ```bash
 # Start development environment
-airstack up robot
+airstack up robot-desktop
 
 # Build and test your code
 docker exec airstack-robot-desktop-1 bash -c "bws --packages-select my_package"
