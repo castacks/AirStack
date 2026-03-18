@@ -43,6 +43,7 @@ airstack up isaac-sim
 ```
 
 **What happens:**
+
 - Launches Isaac Sim with ROS 2 bridge
 - Loads configured scene (via `ISAAC_SIM_SCENE`)
 - Publishes sensor topics to ROS 2
@@ -57,6 +58,7 @@ ISAAC_SIM_USE_STANDALONE=true ISAAC_SIM_SCRIPT_NAME=my_script.py airstack up isa
 ```
 
 **Use cases:**
+
 - Custom simulation logic
 - Advanced scene setup
 - Programmatic control
@@ -70,6 +72,7 @@ airstack up --profile isaac-sim-gui isaac-sim-gui
 ```
 
 **Use cases:**
+
 - Scene authoring
 - Testing without robot stack
 - Visual debugging
@@ -93,6 +96,7 @@ command: >
 ```
 
 **Launch sequence:**
+
 1. Creates tmux session named `isaac`
 2. If `AUTOLAUNCH=true`, launches Isaac Sim
 3. Chooses standalone or ROS 2 mode based on `ISAAC_SIM_USE_STANDALONE`
@@ -148,6 +152,7 @@ deploy:
 ```
 
 **Requirements:**
+
 - NVIDIA GPU (RTX 3070+ recommended)
 - NVIDIA Container Toolkit installed
 - Host GPU drivers compatible with container
@@ -184,6 +189,7 @@ Enables GUI display on host.
 ```
 
 **Purpose:**
+
 - Persist Isaac Sim settings and cache
 - Improves startup performance
 - Stores downloaded assets
@@ -263,6 +269,7 @@ tmux a -t isaac
 ```
 
 **Useful tmux commands:**
+
 - `Ctrl-b d` - Detach from session
 - `Ctrl-b [` - Scroll mode (arrow keys to scroll logs)
 - `Ctrl-c` - Stop Isaac Sim

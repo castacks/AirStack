@@ -39,6 +39,7 @@ command: >
 ```
 
 **Launch sequence:**
+
 1. Restarts SSH service (for remote access)
 2. Creates tmux session named `sim`
 3. Downloads required models
@@ -59,6 +60,7 @@ airstack up --profile simple simple-robot
 ```
 
 **Profile configuration:**
+
 - Activates Simple Sim service
 - Configures robot for simple sim mode (if launched together)
 
@@ -86,6 +88,7 @@ deploy:
 ```
 
 **GPU usage:**
+
 - **Optional** - Works with integrated graphics
 - **Improves** visualization performance if available
 - **Not required** for algorithm testing

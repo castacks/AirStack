@@ -3,6 +3,7 @@
 This is your reference guide for all `airstack` CLI commands. If you haven't already, see [Key Concepts](../key_concepts.md) for the philosophy behind the CLI.
 
 !!! tip "Quick Help"
+
     - `airstack commands` - List all available commands
     - `airstack help <command>` - Get help for a specific command
 
@@ -48,6 +49,7 @@ airstack install [options]
 ```
 
 Options:
+
 - `--force`: Force reinstallation of components
 - `--no-docker`: Skip Docker installation
 - `--with-wintak`: Install WinTAK VirtualBox environment
@@ -61,6 +63,7 @@ airstack setup [options]
 ```
 
 Options:
+
 - `--no-shell`: Skip adding to shell profile
 - `--no-config`: Skip configuration tasks
 

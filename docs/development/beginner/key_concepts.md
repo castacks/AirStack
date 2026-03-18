@@ -84,6 +84,7 @@ When you run `airstack up`, here's what happens:
    - **GCS**: Launches monitoring interface
 
 This modular design means you can:
+
 - Launch only what you need: `airstack up robot-desktop` (skip simulation)
 - Swap components easily (different planners, different simulators)
 - Scale to multiple robots: `NUM_ROBOTS=3 airstack up`

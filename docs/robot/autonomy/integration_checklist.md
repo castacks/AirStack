@@ -23,6 +23,7 @@ Topics follow this pattern:
 ```
 
 Examples:
+
 - `/drone1/perception/macvo/odometry`
 - `/drone1/local_planner/droan/trajectory`
 - `/drone1/trajectory_controller/tracking_point`
@@ -280,16 +281,19 @@ docker stats airstack-robot-desktop-1
 ### Issue: Node Not Starting
 
 **Symptoms:**
+
 - Node not in `ros2 node list`
 - Container logs show errors on startup
 
 **Possible Causes:**
+
 - Missing dependencies
 - Build errors
 - Import errors (Python)
 - Segfault on initialization
 
 **Debug Steps:**
+
 1. Check docker logs for errors
 2. Try running node standalone
 3. Verify all dependencies are installed
@@ -298,15 +302,18 @@ docker stats airstack-robot-desktop-1
 ### Issue: Topics Not Connected
 
 **Symptoms:**
+
 - `ros2 topic info` shows no publishers or subscribers
 - Data not flowing
 
 **Possible Causes:**
+
 - Incorrect topic remapping
 - Wrong topic names in launch file
 - Namespace issues
 
 **Debug Steps:**
+
 1. List all topics: `ros2 topic list`
 2. Check node info for actual topic names
 3. Verify remapping in launch file
@@ -315,16 +322,19 @@ docker stats airstack-robot-desktop-1
 ### Issue: Parameters Not Loading
 
 **Symptoms:**
+
 - Parameters have default values instead of config values
 - Warnings about undeclared parameters
 
 **Possible Causes:**
+
 - Config file path incorrect
 - Missing `allow_substs="true"`
 - Parameter names mismatch
 - YAML syntax errors
 
 **Debug Steps:**
+
 1. Verify config file path in launch file
 2. Check parameter declaration in code
 3. Validate YAML syntax
@@ -333,17 +343,20 @@ docker stats airstack-robot-desktop-1
 ### Issue: Poor Performance
 
 **Symptoms:**
+
 - High CPU usage
 - High latency
 - Slow update rates
 
 **Possible Causes:**
+
 - Inefficient algorithm
 - Too high update rate
 - Heavy computation in callbacks
 - Not using multithreading when needed
 
 **Debug Steps:**
+
 1. Profile the code
 2. Check update rate configuration
 3. Move heavy computation to separate threads
@@ -354,22 +367,26 @@ docker stats airstack-robot-desktop-1
 ### Topic Remapping
 
 ✅ **DO:**
+
 - Use generic topic names in code (`odometry`, `output`, etc.)
 - Remap in launch files
 - Use launch arguments for flexibility
 
 ❌ **DON'T:**
+
 - Hardcode full topic paths in code
 - Assume specific namespaces
 
 ### Parameters
 
 ✅ **DO:**
+
 - Declare all parameters with defaults
 - Validate parameter values
 - Document parameters in README
 
 ❌ **DON'T:**
+
 - Use magic numbers in code
 - Skip parameter validation
 - Use undocumented parameters
@@ -377,11 +394,13 @@ docker stats airstack-robot-desktop-1
 ### Error Handling
 
 ✅ **DO:**
+
 - Check for null pointers/None values
 - Handle exceptions gracefully
 - Log errors with context
 
 ❌ **DON'T:**
+
 - Crash on invalid input
 - Silently fail
 - Log errors without context
@@ -389,11 +408,13 @@ docker stats airstack-robot-desktop-1
 ### Documentation
 
 ✅ **DO:**
+
 - Use the README template
 - Include diagrams
 - Document edge cases and limitations
 
 ❌ **DON'T:**
+
 - Skip documentation
 - Assume behavior is obvious
 - Leave TODOs unfilled

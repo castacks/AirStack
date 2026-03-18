@@ -91,11 +91,13 @@ graph TB
 ```
 
 **Key Modules:**
+
 - `mavros_interface`: MAVLink communication with flight controller
 - `drone_safety_monitor`: Safety checks and emergency handling
 - `robot_interface`: High-level robot state abstraction
 
 **Topics:**
+
 - **Published:**
   - `/[robot]/interface/mavros/state`
   - `/[robot]/interface/mavros/local_position/pose`
@@ -119,11 +121,13 @@ graph LR
 ```
 
 **Key Modules:**
+
 - `camera_param_server`: Camera calibration management
 - `gimbal_stabilizer`: Gimbal control and stabilization
 - Sensor drivers and processors
 
 **Topics:**
+
 - **Published:**
   - `/[robot]/sensors/[sensor_name]/image`
   - `/[robot]/sensors/[sensor_name]/camera_info`
@@ -161,9 +165,11 @@ graph TB
 ```
 
 **Key Modules:**
+
 - `macvo_ros2`: Visual-inertial odometry system
 
 **Topics:**
+
 - **Published:**
   - `/[robot]/odometry` - Primary state estimate
   - `/[robot]/perception/macvo/depth`
@@ -214,6 +220,7 @@ graph TB
 ```
 
 **Key Modules:**
+
 - **World Models:**
   - `disparity_expansion`: Obstacle detection from stereo
   - `disparity_graph`: Graph-based obstacle representation
@@ -227,6 +234,7 @@ graph TB
   - `attitude_controller`: Attitude control
 
 **Topics:**
+
 - **Subscribed:**
   - `/[robot]/odometry`
   - `/[robot]/global_plan`
@@ -268,6 +276,7 @@ graph TB
 ```
 
 **Key Modules:**
+
 - **World Models:**
   - `vdb_mapping_ros2`: VDB-based 3D mapping
 - **Planners:**
@@ -275,6 +284,7 @@ graph TB
   - `ensemble_planner`: Multi-planner coordination
 
 **Topics:**
+
 - **Subscribed:**
   - `/[robot]/odometry`
   - `/[robot]/sensors/*/pointcloud`
@@ -311,11 +321,13 @@ graph TB
 ```
 
 **Key Modules:**
+
 - `behavior_tree`: Behavior tree framework
 - `behavior_executive`: Mission execution engine
 - `rqt_behavior_tree_command`: GUI for behavior tree control
 
 **Topics:**
+
 - **Subscribed:**
   - `/[robot]/odometry`
   - `/[robot]/interface/mavros/state`
@@ -395,6 +407,7 @@ Modules use generic topic names internally, which are remapped in launch files:
 ```
 
 This enables:
+
 - **Flexibility:** Easy to swap modules
 - **Multi-robot:** Each robot has its own namespace
 - **Testing:** Mock different topic sources
@@ -415,6 +428,7 @@ graph TB
 ```
 
 **Standard Frames:**
+
 - `world`: Fixed world frame
 - `map`: Global map frame (may drift from world)
 - `odom`: Odometry frame (continuous, may drift)
@@ -455,6 +469,7 @@ When adding a new module, follow these integration patterns:
 ### 1. Determine Layer Placement
 
 Place module in appropriate layer based on its function:
+
 - Real-time obstacle avoidance? → Local planning
 - State estimation? → Perception
 - Path planning? → Global planning
@@ -463,6 +478,7 @@ Place module in appropriate layer based on its function:
 ### 2. Define Interfaces
 
 Specify input and output topics:
+
 - Use standard topics when available
 - Create custom topics with appropriate namespaces
 - Document expected message rates and latencies
@@ -470,6 +486,7 @@ Specify input and output topics:
 ### 3. Configure Launch Integration
 
 Add module to layer bringup with:
+
 - Topic remapping
 - Namespace configuration
 - Parameter loading
@@ -478,6 +495,7 @@ Add module to layer bringup with:
 ### 4. Test Integration
 
 Verify:
+
 - Topics connect correctly
 - Data flows as expected
 - Performance meets requirements
@@ -508,6 +526,7 @@ Each robot operates in its own namespace:
 ### Inter-Robot Communication
 
 Robots can share information through:
+
 - Shared topics (e.g., `/team/formation`)
 - ROS 2 Domain Bridge
 - DDS Router for cross-domain communication

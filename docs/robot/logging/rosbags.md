@@ -168,22 +168,26 @@ ros2 bag filter input_bag -o output_bag --topics /robot1/odometry /robot1/camera
 ## Troubleshooting
 
 **Bag recording fails to start**:
+
 - Check disk space availability
 - Verify write permissions to bag directory
 - Check if bag_recorder_pid is running
 
 **Bags too large**:
+
 - Use topic filtering to record only necessary data
 - Enable compression for image topics
 - Use `--max-bag-size` to split files
 - Consider reducing sensor publishing rates
 
 **Playback issues**:
+
 - Ensure ROS 2 version matches recording system
 - Check topic names and types match expectations
 - Verify clock synchronization settings
 
 **Missing data in bags**:
+
 - Verify topics were being published during recording
 - Check bag info to confirm topics recorded
 - Ensure recording started before mission began

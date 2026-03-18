@@ -74,6 +74,7 @@ Isaac Sim is our primary simulation platform, offering:
 A lightweight 2D/3D simulator for basic testing and development when full Isaac Sim fidelity isn't needed.
 
 **Use cases:**
+
 - Quick algorithm prototyping
 - CI/CD testing
 - Lower hardware requirements
@@ -142,6 +143,7 @@ PLAY_SIM_ON_START=false airstack up isaac-sim
 ```
 
 **Pre-built scenes:** Located in `scenes/` directory
+
 - `two_drone_fire_new.usd` - Fire academy scenario
 - `two_drone_RetroNeighborhood.usd` - Urban neighborhood
 

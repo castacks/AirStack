@@ -75,19 +75,23 @@ This is necessary before editing the OmniGraph.
 
 - **Stage Offset Bug**  
 In some cases, the saved USD file may contain an offset in the stage transform.
+
   - After launching the stage, manually set all position offsets to zero in the Property panel of Isaac Sim.
 
 - **Pegasus Physics Update Prompt**  
 When reloading a saved stage, Isaac Sim may display a popup asking to update to new Pegasus Physics.
+
   - Accept the update to ensure compatibility with the new Pegasus physics scene.  
   ![Update Physics](pegasus_setup_images/update_pegasus_physics.png)
 
 - **Stereo Camera Initialization**  
 Occasionally, the right camera in a stereo camera pair may fail to initialize.
+
   - When starting the sim, press Start → Stop → Start again in the Isaac Sim toolbar.
   - This will refresh the right camera node and restore proper stereo output.
 
 - **Pegasus Node Not Recognized (Drone Not Arming/Taking Off)**
 The drone not arming/taking off can be a symptom of the PX4Multirotor Node not being recognized in omnigraph. This may be due the `pegasus.simulator` extension not being loaded.
+
   - To fix, launch the simulator with `airstack up isaac-sim`, in the toolbar, click Window -> Extensions -> Third Party, serach for "pegasus", select the "PEGASUS SIMULATOR" and enable "AUTOLOAD"
   - Restart your docker container by running `airstack down isaac-sim && airstack up isaac-sim` and the extension should load every time now.

@@ -74,6 +74,7 @@ Real-world deployment involves:
 
 ### Robot Identity
 Each robot needs unique configuration:
+
 - Robot name/hostname
 - ROS_DOMAIN_ID (for multi-robot operations)
 - Network configuration
@@ -133,21 +134,25 @@ See: [Data Offloading](data_offloading/index.md)
 ## Troubleshooting
 
 **No GPS fix**:
+
 - Verify GPS antenna connection
 - Check for interference
 - Wait for satellite acquisition (can take several minutes)
 
 **High latency on telemetry**:
+
 - Check network signal strength
 - Reduce publishing rates for non-critical topics
 - Use compression for image data
 
 **Poor localization**:
+
 - Verify sensor calibration
 - Check for sensor failures
 - Ensure adequate visual features (for vision-based localization)
 
 **Battery issues**:
+
 - Monitor voltage and current draw
 - Plan missions within battery capacity
 - Consider cold weather effects on battery

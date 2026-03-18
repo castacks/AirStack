@@ -56,6 +56,7 @@ Each robot requires unique configuration for multi-robot scenarios.
 See: [Robot Identity Guide](../docker/robot_identity.md)
 
 **Key Settings**:
+
 - **ROBOT_NAME**: Namespace for all topics (`/robot1/...`)
 - **ROS_DOMAIN_ID**: Isolate ROS 2 communication (0-101)
 - **Hostname**: Unique network identifier
@@ -328,17 +329,20 @@ ros2 param dump /my_node > current_params.yaml
 ## Troubleshooting
 
 **Parameter changes not taking effect**:
+
 - Verify parameter file path in launch file
 - Check for typos in parameter names
 - Rebuild package if C++ parameters changed
 - Restart nodes after parameter changes
 
 **Invalid parameter values**:
+
 - Check parameter validation in node code
 - Review error messages for allowed ranges
 - Verify YAML syntax (indentation, types)
 
 **Configuration conflicts**:
+
 - Check for multiple parameter files being loaded
 - Verify launch file parameter precedence
 - Use `ros2 param dump` to see actual loaded values

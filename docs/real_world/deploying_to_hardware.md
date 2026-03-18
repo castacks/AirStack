@@ -16,6 +16,7 @@ This tutorial will cover how to configure and deploy the AirStack autonomy stack
 ## Steps
 
 <!-- TODO: Add step-by-step instructions for:
+
      1. Setting the device hostname to `robot-<N>` convention
      2. Installing Docker on the target device
      3. Selecting the correct profile (l4t vs voxl) and building/pulling the image

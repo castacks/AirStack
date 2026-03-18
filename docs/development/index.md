@@ -17,6 +17,7 @@ Welcome to AirStack development! This guide will help you extend and customize t
 4. **[VSCode Debugging](beginner/vscode/vscode_debug.md)** - Debug ROS 2 nodes in containers
 
 **Reference Documentation:**
+
 - [AirStack CLI Introduction](beginner/airstack-cli/index.md) - Essential CLI commands
 - [Docker Workflow](beginner/airstack-cli/docker_usage.md) - Container management details
 

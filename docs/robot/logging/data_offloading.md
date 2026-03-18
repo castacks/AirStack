@@ -23,6 +23,7 @@ graph LR
 ```
 
 Data flows from robot to either:
+
 1. **Ground Control Station** during or after mission
 2. **Storage Server** for long-term archival
 3. **Cloud Storage** for team-wide access
@@ -268,23 +269,27 @@ mv ${SOURCE}/*.tar.gz ${ARCHIVE}/
 ## Troubleshooting
 
 **Transfer fails with SSH error**:
+
 - Verify SSH keys are set up correctly
 - Test manual SSH connection: `ssh user@groundstation`
 - Check network connectivity
 
 **Transfer is too slow**:
+
 - Use compression: `tar -czf` before transfer
 - Check network bandwidth and latency
 - Use `--bwlimit` to avoid saturating connection
 - Transfer during off-peak hours
 
 **Disk full on robot**:
+
 - Manually offload immediately
 - Delete old/unnecessary bags
 - Reduce recording topic list
 - Increase offload frequency
 
 **Data corruption during transfer**:
+
 - Use rsync's built-in checksums
 - Verify file sizes after transfer
 - Use `--checksum` flag for rsync

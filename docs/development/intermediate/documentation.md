@@ -23,6 +23,7 @@ Every ROS 2 package must have a `README.md` in its root directory.
 **Template**: See `.agents/skills/add-ros2-package/assets/package_template/README.md`
 
 **Required Sections**:
+
 - **Overview**: What the module does and why
 - **Algorithm/Approach**: High-level description of implementation
 - **Architecture**: Mermaid diagram showing data flow
@@ -102,6 +103,7 @@ colcon test --packages-select my_planner
 High-level documentation under `docs/` directory.
 
 **Categories**:
+
 - **Tutorials**: Step-by-step workflows (`docs/tutorials/`)
 - **Guides**: In-depth topic coverage (`docs/robot/autonomy/`)
 - **Reference**: Technical specifications (`docs/robot/autonomy/integration_checklist.md`)
@@ -430,20 +432,24 @@ See: [.agents/skills/update-documentation](.agents/skills/update-documentation)
 ## Common Issues
 
 **Links broken after renaming file**:
+
 - Search for references: `grep -r "old_name.md" docs/`
 - Update all references to new name
 
 **Images not displaying**:
+
 - Check relative path is correct
 - Verify image file exists
 - Try absolute path from `docs/` root
 
 **Mermaid diagram not rendering**:
+
 - Check syntax at [Mermaid Live Editor](https://mermaid.live)
 - Ensure mkdocs.yml has pymdownx.superfences configured
 - Verify using three backticks with `mermaid` language
 
 **Navigation not showing new page**:
+
 - Check mkdocs.yml indentation (YAML is sensitive)
 - Restart `mkdocs serve` after changes to mkdocs.yml
 - Verify file path is correct relative to repository root

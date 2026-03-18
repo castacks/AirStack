@@ -67,6 +67,7 @@ airstack install [options]
 ```
 
 Options:
+
 - `--force`: Force reinstallation of components
 - `--no-docker`: Skip Docker installation
 - `--with-wintak`: Install WinTAK VirtualBox environment
@@ -80,6 +81,7 @@ airstack setup [options]
 ```
 
 Options:
+
 - `--no-shell`: Skip adding to shell profile
 - `--no-config`: Skip configuration tasks
 

@@ -151,6 +151,7 @@ Use the template when creating new packages:
 **Location:** `../../.agents/skills/add-ros2-package/assets/package_template/`
 
 **Includes:**
+
 - `package.xml` - Dependency template
 - `CMakeLists.txt` - C++ build template
 - `setup.py` - Python build template
