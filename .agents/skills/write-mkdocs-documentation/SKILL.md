@@ -568,6 +568,7 @@ Each major section should have an `index.md` that:
 - **Present tense:** "The module subscribes to..." not "The module will subscribe to..."
 - **Second person:** "You can configure..." not "One can configure..."
 - **Imperative for instructions:** "Install the package" not "You should install the package"
+- **No unnecessary analogies:** Avoid analogies that don't add technical clarity. Explain things directly as they are rather than comparing them to unrelated concepts.
 
 ### Be Specific
 

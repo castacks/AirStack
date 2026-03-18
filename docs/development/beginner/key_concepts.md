@@ -48,7 +48,7 @@ graph LR
 
 ## How AirStack is Composed
 
-Think of AirStack as a set of **Lego blocks** that snap together through Docker Compose:
+AirStack simulates multiple separate machines (e.g. robots, GCS) that communicate with each other through Docker Compose:
 
 ```mermaid
 graph TD
