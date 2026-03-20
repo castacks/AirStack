@@ -65,3 +65,4 @@ nucleus_token.txt
 mkdocs.log
 
 prompts/
+simulation/isaac-sim/launch_scripts/prepare_scene.py

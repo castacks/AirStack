@@ -118,6 +118,19 @@ import threading
 import signal
 import atexit
 import time
+
+# Scene preparation utilities (scaling, collision, lighting, export)
+# NOTE: importlib is used instead of a normal import because Isaac Sim's
+# script runner does not reliably set __file__, making sys.path manipulation
+# fragile. Loading the module by absolute file path is the robust approach.
+import importlib.util as _ilu, os as _os
+_scene_prep_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "utils", "scene_prep.py")
+_spec = _ilu.spec_from_file_location("scene_prep", _os.path.normpath(_scene_prep_path))
+_scene_prep = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_scene_prep)
+scale_stage_prim            = _scene_prep.scale_stage_prim
+add_colliders               = _scene_prep.add_colliders
+add_dome_light              = _scene_prep.add_dome_light
+save_scene_as_contained_usd = _scene_prep.save_scene_as_contained_usd
 ```
 
 ### 4. Enable Required Extensions
@@ -176,7 +189,11 @@ class YourSceneApp:
         
         # Load environment
         self.load_environment()
-        
+
+        # Prepare environment (scale, colliders, lighting)
+        stage = omni.usd.get_context().get_stage()
+        self._prepare_environment(stage)
+
         # Spawn vehicles
         self.spawn_vehicles()
         
@@ -200,25 +217,22 @@ class YourSceneApp:
         # Option 3: Load custom USD environment
         # stage = self.pg.load_environment("/path/to/your/environment.usd")
         
-        # Add lighting (if not in loaded environment)
-        self._setup_lighting()
-        
         # Add obstacles or other static objects
         self._add_environment_objects()
-    
-    def _setup_lighting(self):
-        """Configure scene lighting."""
-        stage = omni.usd.get_context().get_stage()
-        
-        # Create distant light (sun)
-        distant_light = UsdLux.DistantLight.Define(stage, "/World/DistantLight")
-        distant_light.CreateIntensityAttr(1000.0)
-        distant_light.CreateAngleAttr(0.5)
-        distant_light.AddOrientOp().Set(Gf.Quatf(0.7071, 0.7071, 0, 0))  # Point down
-        
-        # Create ambient light
-        dome_light = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
-        dome_light.CreateIntensityAttr(500.0)
+
+    def _prepare_environment(self, stage):
+        """Scale, add collisions, and light the environment."""
+        stage_prim = stage.GetPrimAtPath("/World/stage")
+        if stage_prim.IsValid():
+            # STAGE_SCALE: use 0.01 for Nucleus assets authored in cm, 1.0 if already in meters
+            scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
+            add_colliders(stage_prim)
+            # Allow physics to settle after adding colliders
+            for _ in range(10):
+                omni.kit.app.get_app().update()
+        # add_dome_light defaults: intensity=3500, exposure=-3
+        # Override via kwargs, e.g. add_dome_light(stage, intensity=5000, exposure=-2)
+        add_dome_light(stage)
     
     def _add_environment_objects(self):
         """Add obstacles or other objects to the environment."""
@@ -498,6 +512,27 @@ Any limitations or known problems.
 
 ## Advanced Topics
 
+### Scene Preparation Utilities
+
+**File:** `simulation/isaac-sim/utils/scene_prep.py`
+
+Four reusable helpers that cover the most common environment setup tasks. Import them as shown in Step 3.
+
+| Function | When to use |
+|----------|-------------|
+| `scale_stage_prim(stage, prim_path, scale)` | Nucleus assets authored in centimetres need `STAGE_SCALE=0.01`; assets already in metres use `1.0`. |
+| `add_colliders(stage_prim)` | **Must** be called for physics to interact with environment meshes. Without it drones fall through the floor. Call after scaling. |
+| `add_dome_light(stage, **kwargs)` | Adds uniform hemisphere lighting. Defaults: `intensity=3500`, `exposure=-3`. Pass kwargs to override, e.g. `add_dome_light(stage, intensity=5000)`. |
+| `save_scene_as_contained_usd(src_url, output_dir)` | Copies a Nucleus-hosted stage (and all its textures/MDLs) to a local directory using `omni.kit.usd.collect.Collector`. Useful for archiving or offline replay. |
+
+**Two-step save pattern** used internally by `save_scene_as_contained_usd`:
+1. `export_as_stage_async` — writes a flat `.usd` of the live stage
+2. `Collector` — resolves and copies all referenced Nucleus assets locally
+
+Set `SAVE_SCENE_TO = None` in your script to skip saving entirely.
+
+---
+
 ### Multi-Robot Scenarios
 
 For multiple robots, spawn additional vehicles with unique IDs and ports:
@@ -578,6 +613,10 @@ def _add_dynamic_obstacle(self):
   - ✅ Position sensors outside vehicle collision geometry
   - ✅ Typical camera position: forward of vehicle center
 
+### Missing Colliders on Environment Meshes
+- ❌ Loading a Nucleus environment without calling `add_colliders()`
+  - ✅ Call `add_colliders(stage_prim)` after scaling — drones will fall through the floor otherwise
+
 ### World Reset
 - ❌ **Not calling world.reset()**
   - ✅ Call world.reset() after adding all objects before stepping
@@ -625,6 +664,9 @@ docker exec airstack-isaac-sim-1 bash -c "ros2 topic hz /drone1/sensors/camera/i
 - **AirStack Examples:**
   - Single drone: `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`
   - Two drones: `simulation/isaac-sim/launch_scripts/example_two_px4_pegasus_launch_script.py`
+
+- **Scene Preparation Utilities:**
+  - `simulation/isaac-sim/utils/scene_prep.py`
 
 - **Related Skills:**
   - [test-in-simulation](../test-in-simulation) - Testing modules in Isaac Sim
