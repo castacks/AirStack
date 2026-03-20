@@ -4,9 +4,12 @@
 # Identity
 string robot_name
 
-# Current pose (position + orientation) extracted from odometry_conversion/odometry
-# pose.header.stamp carries the odometry timestamp
-geometry_msgs/PoseStamped pose
+# Current GPS position from interface/mavros/global_position/raw/fix
+# gps_fix.header.stamp carries the NavSatFix timestamp
+sensor_msgs/NavSatFix gps_fix
+
+# Heading in degrees clockwise from North (0-360), from compass_hdg
+float64 heading
 
 # Current navigation goal – last pose in the global planner's published path.
 # All-zero header stamp signals that no plan is available yet (null waypoint).
