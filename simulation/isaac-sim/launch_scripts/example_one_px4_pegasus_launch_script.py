@@ -34,16 +34,9 @@ from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
 from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
 
-# Load scene-prep utilities via explicit file path (robust to Isaac Sim's script runner)
-import importlib.util as _ilu
-_scene_prep_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils", "scene_prep.py")
-_spec = _ilu.spec_from_file_location("scene_prep", os.path.normpath(_scene_prep_path))
-_scene_prep = _ilu.module_from_spec(_spec)
-_spec.loader.exec_module(_scene_prep)
-scale_stage_prim          = _scene_prep.scale_stage_prim
-add_colliders             = _scene_prep.add_colliders
-add_dome_light            = _scene_prep.add_dome_light
-save_scene_as_contained_usd = _scene_prep.save_scene_as_contained_usd
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
+import scene_prep
+from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
 
 # --------------------- CONFIGURATION ---------------------
