@@ -44,10 +44,19 @@ GREEN = "\033[32m"
 DIM = "\033[2m"
 
 
-def _fmt_pose(pose_stamped) -> str:
-    p = pose_stamped.pose.position
-    o = pose_stamped.pose.orientation
-    return f"pos=({p.x:7.2f}, {p.y:7.2f}, {p.z:7.2f})  orient=({o.x:.3f}, {o.y:.3f}, {o.z:.3f}, {o.w:.3f})"
+def _fmt_gps(gps_fix, heading: float) -> str:
+    from sensor_msgs.msg import NavSatStatus
+    status = gps_fix.status.status
+    status_str = {
+        NavSatStatus.STATUS_NO_FIX: "NO_FIX",
+        NavSatStatus.STATUS_FIX: "FIX",
+        NavSatStatus.STATUS_SBAS_FIX: "SBAS",
+        NavSatStatus.STATUS_GBAS_FIX: "GBAS",
+    }.get(status, f"?{status}")
+    return (
+        f"lat={gps_fix.latitude:11.7f}  lon={gps_fix.longitude:11.7f}  "
+        f"alt={gps_fix.altitude:7.2f}m  hdg={heading:6.1f}°  [{status_str}]"
+    )
 
 
 def _fmt_waypoint(pose_stamped) -> str:
@@ -59,8 +68,8 @@ def _fmt_waypoint(pose_stamped) -> str:
     return f"pos=({p.x:7.2f}, {p.y:7.2f}, {p.z:7.2f})  orient=({o.x:.3f}, {o.y:.3f}, {o.z:.3f}, {o.w:.3f})"
 
 
-def _fmt_stamp(pose_stamped) -> str:
-    s = pose_stamped.header.stamp
+def _fmt_stamp(gps_fix) -> str:
+    s = gps_fix.header.stamp
     if s.sec == 0 and s.nanosec == 0:
         return "n/a"
     t = s.sec + s.nanosec * 1e-9
@@ -89,8 +98,8 @@ class RegistryMonitor(Node):
     def _on_msg(self, msg: PeerProfileMsg) -> None:
         existing = self._registry.get(msg.robot_name)
         if existing is not None:
-            new_t = msg.pose.header.stamp.sec + msg.pose.header.stamp.nanosec * 1e-9
-            old_t = existing.pose.header.stamp.sec + existing.pose.header.stamp.nanosec * 1e-9
+            new_t = msg.gps_fix.header.stamp.sec + msg.gps_fix.header.stamp.nanosec * 1e-9
+            old_t = existing.gps_fix.header.stamp.sec + existing.gps_fix.header.stamp.nanosec * 1e-9
             if new_t <= old_t:
                 return
         self._registry[msg.robot_name] = msg
@@ -117,9 +126,9 @@ class RegistryMonitor(Node):
                     if msg.payloads
                     else "no payloads"
                 )
-                stamp_str = _fmt_stamp(msg.pose)
+                stamp_str = _fmt_stamp(msg.gps_fix)
                 print(f"  {CYAN}{BOLD}{msg.robot_name}{RESET}  {DIM}[{src}  stamp={stamp_str}]{RESET}")
-                print(f"    {GREEN}pose    {RESET} {_fmt_pose(msg.pose)}")
+                print(f"    {GREEN}gps     {RESET} {_fmt_gps(msg.gps_fix, msg.heading)}")
                 print(f"    {YELLOW}waypoint{RESET} {_fmt_waypoint(msg.waypoint)}")
                 print(f"    {DIM}payloads{RESET} {payload_summary}")
                 print()

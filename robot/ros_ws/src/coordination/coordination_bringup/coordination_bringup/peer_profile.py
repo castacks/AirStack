@@ -8,7 +8,8 @@ Usage
 -----
 # Basic – just use the base class
 profile = PeerProfile("robot_1")
-profile.set_pose_from_odom(odom_msg)
+profile.set_gps_from_navsat(navsat_msg)
+profile.set_heading(compass_hdg_msg.data)
 profile.set_waypoint_from_path(path_msg)
 ros_msg = profile.to_ros_msg()
 
@@ -36,7 +37,8 @@ from rclpy.serialization import deserialize_message, serialize_message
 import rosidl_runtime_py.utilities as rosidl_utils
 
 from geometry_msgs.msg import PoseStamped
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import Path
+from sensor_msgs.msg import NavSatFix
 
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import PeerProfilePayload as PeerProfilePayloadMsg
@@ -58,7 +60,8 @@ class PeerProfile:
     """
 
     robot_name: str
-    pose: PoseStamped = field(default_factory=PoseStamped)
+    gps_fix: NavSatFix = field(default_factory=NavSatFix)
+    heading: float = 0.0  # degrees clockwise from North (0-360)
     waypoint: PoseStamped = field(default_factory=PoseStamped)
     source: Source = Source.DIRECT
     relay_hops: int = 0
@@ -67,15 +70,16 @@ class PeerProfile:
     _payloads: List[Dict[str, Any]] = field(default_factory=list, repr=False)
 
     # ------------------------------------------------------------------ #
-    # Pose / waypoint helpers                                              #
+    # GPS / waypoint helpers                                               #
     # ------------------------------------------------------------------ #
 
-    def set_pose_from_odom(self, odom: Odometry) -> None:
-        """Extract pose (position + orientation) from an Odometry message."""
-        stamped = PoseStamped()
-        stamped.header = odom.header
-        stamped.pose = odom.pose.pose
-        self.pose = stamped
+    def set_gps_from_navsat(self, msg: NavSatFix) -> None:
+        """Store GPS fix from a sensor_msgs/NavSatFix message."""
+        self.gps_fix = msg
+
+    def set_heading(self, degrees: float) -> None:
+        """Set heading in degrees clockwise from North (0-360)."""
+        self.heading = float(degrees)
 
     def set_waypoint_from_path(self, path: Optional[Path]) -> None:
         """
@@ -140,7 +144,8 @@ class PeerProfile:
     def to_ros_msg(self) -> PeerProfileMsg:
         msg = PeerProfileMsg()
         msg.robot_name = self.robot_name
-        msg.pose = self.pose
+        msg.gps_fix = self.gps_fix
+        msg.heading = self.heading
         msg.waypoint = self.waypoint
         msg.source = int(self.source)
         msg.relay_hops = self.relay_hops
@@ -153,7 +158,8 @@ class PeerProfile:
     @classmethod
     def from_ros_msg(cls, msg: PeerProfileMsg) -> "PeerProfile":
         profile = cls(robot_name=msg.robot_name)
-        profile.pose = msg.pose
+        profile.gps_fix = msg.gps_fix
+        profile.heading = msg.heading
         profile.waypoint = msg.waypoint
         profile.source = Source(msg.source)
         profile.relay_hops = msg.relay_hops

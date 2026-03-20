@@ -4,7 +4,7 @@ gossip_node.py
 ROS 2 node that implements the gossip-protocol coordination layer.
 
 Each robot:
-  - Subscribes to its own odometry and global plan
+  - Subscribes to its own GPS fix (NavSatFix) and compass heading, and global plan
   - Publishes its own PeerProfile to /gossip/peers (shared gossip domain via DDS Router)
   - Subscribes to /gossip/peers to receive all peer profiles
   - Maintains a registry of known peers (latest-wins, no expiry)
@@ -28,7 +28,9 @@ from rclpy.qos import (
     QoSReliabilityPolicy,
 )
 
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import Path
+from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import Float64
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 
 from coordination_bringup.peer_profile import PeerProfile
@@ -70,10 +72,16 @@ class GossipNode(Node):
         self._registry: dict[str, PeerProfileMsg] = {}
 
         # ── Subscriptions ────────────────────────────────────────────────
-        self._odom_sub = self.create_subscription(
-            Odometry,
-            f"/{self._robot_name}/odometry_conversion/odometry",
-            self._on_odom,
+        self._navsat_sub = self.create_subscription(
+            NavSatFix,
+            f"/{self._robot_name}/interface/mavros/global_position/raw/fix",
+            self._on_navsat,
+            GOSSIP_QOS,
+        )
+        self._compass_sub = self.create_subscription(
+            Float64,
+            f"/{self._robot_name}/interface/mavros/global_position/compass_hdg",
+            self._on_compass,
             GOSSIP_QOS,
         )
         self._path_sub = self.create_subscription(
@@ -121,8 +129,11 @@ class GossipNode(Node):
     # Subscription callbacks                                               #
     # ------------------------------------------------------------------ #
 
-    def _on_odom(self, msg: Odometry) -> None:
-        self._profile.set_pose_from_odom(msg)
+    def _on_navsat(self, msg: NavSatFix) -> None:
+        self._profile.set_gps_from_navsat(msg)
+
+    def _on_compass(self, msg: Float64) -> None:
+        self._profile.set_heading(msg.data)
 
     def _on_global_plan(self, msg: Path) -> None:
         self._profile.set_waypoint_from_path(msg)
@@ -152,8 +163,8 @@ class GossipNode(Node):
         existing = self._registry.get(msg.robot_name)
         if existing is not None:
             # Only update if the incoming message is newer
-            new_stamp = msg.pose.header.stamp.sec + msg.pose.header.stamp.nanosec * 1e-9
-            old_stamp = existing.pose.header.stamp.sec + existing.pose.header.stamp.nanosec * 1e-9
+            new_stamp = msg.gps_fix.header.stamp.sec + msg.gps_fix.header.stamp.nanosec * 1e-9
+            old_stamp = existing.gps_fix.header.stamp.sec + existing.gps_fix.header.stamp.nanosec * 1e-9
             if new_stamp <= old_stamp:
                 return
 
