@@ -1,63 +1,146 @@
-# Ground Control Station
+# Ground Control Station (GCS)
 
-The Ground Control Station (GCS) is for operators to monitor and control the robots.
+The Ground Control Station provides monitoring, control, and mission planning capabilities for AirStack robots. Operators use the GCS to:
 
-Requirements:
+- Monitor robot status and sensor feeds
+- Send mission commands and waypoints
+- Visualize robot poses and planned paths
+- Coordinate multi-robot operations
+- Record and analyze mission data
 
-- 60GB Hard Disk Space
-- min 8GB RAM
-- min 4 CPU Cores
-- Ubuntu 22.04
+## Directory Structure
 
-## Setup
+The GCS is organized under `gcs/`:
 
-WinTAK is setup as auto start on boot and connects to Airlabs TAK-Server. It runs on a Windows 11 VirtualBox Virtual Machine.
-
-![Setup](asset/setup.png)
-
-### Installation using AirStack CLI
-
-The recommended way to install WinTAK is using the AirStack CLI tool:
-
-```bash
-# From the AirStack root directory
-./airstack.sh install --with-wintak
+```
+gcs/
+├── docker/                           # GCS containerization
+│   ├── docker-compose.yaml           # Main launch configuration
+│   ├── gcs-base-docker-compose.yaml  # Shared base service
+│   ├── Dockerfile.gcs                # Image definition
+│   ├── Foxglove/                     # Foxglove Studio configuration
+│   │   ├── layouts/                  # Pre-configured dashboard layouts
+│   │   └── extensions/               # Custom Foxglove extensions
+│   └── resources/                    # GCS assets and resources
+├── ros_ws/                           # ROS 2 workspace
+│   └── src/                          # Source packages
+│       ├── rqt_gcs/                  # Main GCS GUI panel
+│       ├── rqt_airstack_control_panel/ # Robot control panel
+│       └── ros2tak_tools/            # TAK server integration (optional)
+└── bags/                             # Recorded mission data
 ```
 
-This will:
+## Launch Structure
 
-1. Download the necessary files from airlab-storage
-2. Install VirtualBox
-3. Import the WinTAK virtual machine
-4. Configure the necessary credentials and settings
+The GCS is launched via Docker Compose. The configuration is in `gcs/docker/docker-compose.yaml`.
 
-### Alternative Manual Installation
+**Key components:**
 
-Alternatively, you can run the setup script directly:
+- **RQT GCS Panel:** Main monitoring and control interface
+- **Foxglove Studio:** Advanced visualization and debugging  
+- **TAK Integration:** Situational awareness via TAK protocol (optional)
 
-```bash
-# Move to the directory:
-cd gcs/installation
-# Execute the script
-./setup_gcs.sh
-```
-
-### Starting and Stopping WinTAK
-
-Once installed, you can start and stop WinTAK using the AirStack CLI:
+**Launch command:**
 
 ```bash
-# Start WinTAK
-./airstack.sh wintak:start
+# Start GCS container
+airstack up gcs
 
-# Stop WinTAK
-./airstack.sh wintak:stop
+# Access GCS interface
+# - RQT panel opens automatically in container
+# - Or connect to container: airstack connect gcs
 ```
 
-**NOTE:** If it asks to reset the password on first boot, please choose your own memorable password.
+The Docker `command:` launches the GCS ROS 2 nodes and opens the RQT interface.
 
-![WinTAK](asset/WinTAK_on_windows_virtualbox_vm.png)
+**Learn more:** [Docker Configuration](docker/index.md)
 
-## Know more about TAK using the youtube link below:
+## GCS Interfaces
 
-[![Video Title](https://img.youtube.com/vi/fiBt0wEiKh8/0.jpg)](https://www.youtube.com/watch?v=fiBt0wEiKh8&t=1s)
+### RQT GCS Panel
+
+The main control interface built with RQT (ROS Qt GUI).
+
+**Features:**
+
+- Real-time robot status monitoring
+- Mission planning and waypoint management
+- Sensor feed visualization  
+- Multi-robot coordination dashboard
+- Emergency controls and safety monitoring
+
+**See:** [User Interface Guide](usage/user_interface.md)
+
+### Foxglove Studio
+
+Advanced visualization and debugging interface for robotics data.
+
+**Features:**
+
+- **3D scene visualization:** View robot poses, paths, and point clouds
+- **Custom layouts:** Pre-configured dashboards for different mission phases
+- **Data recording:** Record and playback mission data
+- **Remote monitoring:** Access via web browser from anywhere
+- **Custom panels:** Extensible with custom visualization plugins
+
+**Configuration:** Pre-configured layouts available in `gcs/docker/Foxglove/layouts/`
+
+**Access:** Foxglove runs on port 8765 (configurable via docker-compose)
+
+### TAK Integration (Optional)
+
+Integration with TAK (Team Awareness Kit) servers for military and first responder workflows.
+
+**Use cases:**
+
+- Coordinate with TAK-enabled ground teams
+- Share situational awareness data
+- Integrate with existing TAK infrastructure
+
+**See:** [WinTAK Installation](wintak/installation.md) | [Command Center](command_center/command_center.md)
+
+## System Requirements
+
+**Hardware:**
+
+- **Hard Disk:** 60GB free space
+- **RAM:** 8GB minimum, 16GB recommended
+- **CPU:** 4 cores minimum, 8+ recommended
+- **Network:** Access to robot containers (via airstack_network or direct connection)
+
+**Software:**
+
+- **OS:** Ubuntu 22.04/24.04 LTS
+- **Docker:** Installed via `airstack install`
+- **Display:** X11 display server (for RQT GUI)
+
+## Quick Start
+
+1. **Launch GCS container:**
+   ```bash
+   airstack up gcs
+   ```
+
+2. **Launch robots** (if not already running):
+   ```bash
+   airstack up robot-desktop
+   # Or with multiple robots
+   NUM_ROBOTS=3 airstack up robot-desktop
+   ```
+
+3. **Access GCS interface:**
+   - RQT panel opens automatically in container
+   - Or connect manually: `airstack connect gcs`
+   - Foxglove: Open browser to `http://localhost:8765`
+
+4. **Monitor and control** robots via the interface
+
+**Full tutorial:** [Getting Started](../getting_started/index.md)
+
+## Next Steps
+
+- **[User Interface Guide](usage/user_interface.md)** - Learn the RQT GCS interface
+- **[Command Center](command_center/command_center.md)** - Mission planning and execution
+- **[Casualty Assessment](casualty_assessment/casualty_assessment.md)** - Emergency response features
+- **[Docker Configuration](docker/index.md)** - Advanced GCS setup and deployment
+- **[WinTAK Installation](wintak/installation.md)** - Optional TAK integration

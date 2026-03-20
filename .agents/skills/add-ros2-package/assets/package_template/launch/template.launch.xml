@@ -1,0 +1,68 @@
+<launch>
+  <!-- ============================================ -->
+  <!-- Launch Arguments -->
+  <!-- ============================================ -->
+  
+  <!-- TODO: Add launch arguments for configurability -->
+  
+  <!-- Input topics (for remapping) -->
+  <arg name="odometry_topic" default="/$(env ROBOT_NAME)/odometry" 
+       description="Odometry input topic"/>
+  <arg name="sensor_topic" default="/$(env ROBOT_NAME)/sensors/data" 
+       description="Sensor data input topic"/>
+  
+  <!-- Output topics (for remapping) -->
+  <arg name="output_topic" default="/$(env ROBOT_NAME)/your_module/output" 
+       description="Module output topic"/>
+  
+  <!-- Configuration -->
+  <arg name="config_file" 
+       default="$(find-pkg-share your_package_name)/config/template.yaml"
+       description="Path to configuration file"/>
+  
+  <!-- Namespace -->
+  <arg name="namespace" default="your_module" 
+       description="Namespace for the node"/>
+  
+  <!-- Other options -->
+  <arg name="enable_debug" default="false" 
+       description="Enable debug mode"/>
+  
+  <!-- ============================================ -->
+  <!-- Node Launch -->
+  <!-- ============================================ -->
+  
+  <group>
+    <!-- Apply namespace -->
+    <push-ros-namespace namespace="$(var namespace)" />
+    
+    <!-- TODO: Replace with your package/node name -->
+    <node pkg="your_package_name" 
+          exec="your_node_name" 
+          name="your_node_name"
+          output="screen">
+      
+      <!-- Load parameters from config file -->
+      <!-- allow_substs="true" enables environment variable substitution -->
+      <param from="$(var config_file)" allow_substs="true" />
+      
+      <!-- Override specific parameters from launch args -->
+      <param name="enable_debug" value="$(var enable_debug)" />
+      
+      <!-- ======================================== -->
+      <!-- Topic Remapping -->
+      <!-- ======================================== -->
+      
+      <!-- Remap input topics -->
+      <remap from="odometry" to="$(var odometry_topic)" />
+      <remap from="sensor_data" to="$(var sensor_topic)" />
+      
+      <!-- Remap output topics -->
+      <remap from="output" to="$(var output_topic)" />
+      
+      <!-- TODO: Add additional topic remappings as needed -->
+      
+    </node>
+  </group>
+  
+</launch>

@@ -6,7 +6,7 @@ site_dir: ../site
 site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
   **/ros_ws/build
-  **/docker
+  **/docker/Foxglove
   **/macvo
   **/ros_ws/install
   **/kit-app-template/**
@@ -26,6 +26,9 @@ markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -47,105 +50,128 @@ markdown_extensions:
       permalink: true
 nav:
   - Home: docs/index.md
-  - Tutorials:
-      - docs/tutorials/index.md
-      - Getting Started: docs/getting_started.md
-      - Multi-Robot Simulation: docs/tutorials/multi_robot_simulation.md
-      - Deploying to Hardware: docs/tutorials/deploying_to_hardware.md
+  - Getting Started:
+    - docs/getting_started/index.md
+    - docs/getting_started/tutorials_reference.md
+  - Development:
+      - docs/development/index.md
+      - Beginner Tutorials:
+          - Key Concepts:
+              - Overview: docs/development/beginner/key_concepts.md
+              - CLI Introduction: docs/development/beginner/airstack-cli/info.md
+              - Docker Workflow: docs/development/beginner/airstack-cli/docker_usage.md
+          - docs/development/beginner/development_environment.md
+          - docs/development/beginner/vscode/vscode_debug.md
+          - docs/development/beginner/fork_your_own_project.md
+      - Intermediate Tutorials:
+          - Testing:
+              - docs/development/intermediate/testing/index.md
+              - docs/development/intermediate/testing/testing_frameworks.md
+              - docs/development/intermediate/testing/unit_testing.md
+              - docs/development/intermediate/testing/integration_testing.md
+              - docs/development/intermediate/testing/system_testing.md
+              - docs/development/intermediate/testing/ci_cd.md
+          - Frame Conventions: docs/development/intermediate/frame_conventions.md
+          - Contributing: 
+              - docs/development/intermediate/contributing.md
+              - docs/development/intermediate/documentation.md
+      - Advanced Tutorials:
+          - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
+          - AirStack CLI Tool:
+              - Extending: docs/development/advanced/airstack-cli/extending.md
+              - Architecture: docs/development/advanced/airstack-cli/architecture.md
   - Simulation:
       - docs/simulation/index.md
       - Isaac Sim:
           - docs/simulation/isaac_sim/index.md
-          - docs/simulation/isaac_sim/export_stages_from_unreal.md
-          - docs/simulation/isaac_sim/scene_setup.md
+          - Docker: docs/simulation/isaac_sim/docker.md
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
+          - docs/simulation/isaac_sim/ascent_sitl_extension.md
+          - docs/simulation/isaac_sim/export_stages_from_unreal.md
+      - Simple Sim:
+          - docs/simulation/simple_sim/index.md
+          - Docker: docs/simulation/simple_sim/docker.md
   - Robot:
       - docs/robot/index.md
+      - Configuration:
+          - docs/robot/configuration/index.md
       - Docker:
           - docs/robot/docker/index.md
-          - docs/robot/docker/robot_identity.md
+          - Robot Identity: docs/robot/docker/robot_identity.md
       - Autonomy Modules:
-          - Robot Interface:
+          - Overview: docs/robot/autonomy/index.md
+          - System Architecture: docs/robot/autonomy/system_architecture.md
+          - Integration Guide: docs/robot/autonomy/integration_checklist.md
+          - Interface:
               - docs/robot/autonomy/interface/index.md
           - Sensors:
               - docs/robot/autonomy/sensors/index.md
-              - docs/robot/autonomy/sensors/gimbal.md
+              - Gimbal: docs/robot/autonomy/sensors/gimbal.md
           - Perception:
               - docs/robot/autonomy/perception/index.md
-              - docs/robot/autonomy/perception/state_estimation.md
+              - State Estimation: docs/robot/autonomy/perception/state_estimation.md
           - Local:
               - docs/robot/autonomy/local/index.md
               - World Model:
                   - docs/robot/autonomy/local/world_model/index.md
-                  - DROAN (Obstacle Avoidance World Model):
-                      - robot/ros_ws/src/local/world_models/disparity_expansion/README.md
-                      - robot/ros_ws/src/local/world_models/disparity_graph/README.md
-                      - robot/ros_ws/src/local/world_models/disparity_graph_cost_map/README.md
+                  - DROAN Obstacle Avoidance:
+                      - Disparity Expansion: robot/ros_ws/src/local/world_models/disparity_expansion/README.md
+                      - Disparity Graph: robot/ros_ws/src/local/world_models/disparity_graph/README.md
+                      - Disparity Graph Cost Map: robot/ros_ws/src/local/world_models/disparity_graph_cost_map/README.md
               - Planning:
                   - docs/robot/autonomy/local/planning/index.md
-                  - robot/ros_ws/src/local/planners/trajectory_library/README.md
+                  - Trajectory Library: robot/ros_ws/src/local/planners/trajectory_library/README.md
                   - Takeoff Landing Planner:
-                      - robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
-                      - robot/ros_ws/src/local/planners/takeoff_landing_planner/test/README.md
-                  - DROAN (Obstacle Avoidance Planner):
-                      - robot/ros_ws/src/local/planners/droan_local_planner/README.md
-                  - DROAN GL:
-                      - robot/ros_ws/src/local/planners/droan_gl/README.md
+                      - Overview: robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
+                      - Testing: robot/ros_ws/src/local/planners/takeoff_landing_planner/test/README.md
+                  - DROAN Local Planner: robot/ros_ws/src/local/planners/droan_local_planner/README.md
+                  - DROAN GL: robot/ros_ws/src/local/planners/droan_gl/README.md
               - Controls:
                   - docs/robot/autonomy/local/controls/index.md
-                  - robot/ros_ws/src/local/c_controls/trajectory_controller/README.md
+                  - Trajectory Controller: robot/ros_ws/src/local/controls/trajectory_controller/README.md
           - Global:
               - docs/robot/autonomy/global/index.md
               - World Model:
                   - docs/robot/autonomy/global/world_model/index.md
-                  - robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md
+                  - VDB Mapping: robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md
               - Planning:
                   - docs/robot/autonomy/global/planning/index.md
-                  - robot/ros_ws/src/global/planners/random_walk/README.md
-                  - robot/ros_ws/src/global/planners/exploration/README.md
+                  - Random Walk: robot/ros_ws/src/global/planners/random_walk/README.md
+                  - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
           - Behavior:
               - docs/robot/autonomy/behavior/index.md
-              - docs/robot/autonomy/behavior/behavior_tree.md
-              - docs/robot/autonomy/behavior/behavior_executive.md
-      - docs/tutorials/autonomy_modes.md
-      - docs/robot/autonomy/dds_router.md
+              - Behavior Tree: docs/robot/autonomy/behavior/behavior_tree.md
+              - Behavior Executive: docs/robot/autonomy/behavior/behavior_executive.md
+      - Autonomy Modes: docs/robot/autonomy_modes.md
+      - DDS Router: docs/robot/autonomy/dds_router.md
       - Static Transforms:
           - docs/robot/static_transforms/index.md
       - Logging:
           - docs/robot/logging/index.md
-          - common/ros_packages/bag_recorder_pid/README.md
+          - ROS Bags: docs/robot/logging/rosbags.md
+          - Data Offloading: docs/robot/logging/data_offloading.md
+          - Bag Recorder: common/ros_packages/bag_recorder_pid/README.md
   - Ground Control Station:
-      - docs/ground_control_station/index.md
+      - docs/gcs/index.md
+      - Docker:
+          - docs/gcs/docker/index.md
       - Usage:
-          - docs/ground_control_station/usage/user_interface.md
+          - User Interface: docs/gcs/usage/user_interface.md
       - Command Center:
-          - docs/ground_control_station/command_center/command_center.md
+          - docs/gcs/command_center/command_center.md
       - Casualty Assessment:
-          - docs/ground_control_station/casualty_assessment/casualty_assessment.md
-  - Development:
-      - docs/development/index.md
-      - AirStack CLI Tool:
-          - docs/development/airstack-cli/index.md
-          - docs/development/airstack-cli/docker_usage.md
-          - docs/development/airstack-cli/extending.md
-          - docs/development/airstack-cli/architecture.md
-      - docs/development/vscode/index.md
-      - Testing:
-          - docs/development/testing/index.md
-          - docs/development/testing/testing_frameworks.md
-          - docs/development/testing/integration_testing.md
-          - docs/development/testing/unit_testing.md
-          - docs/development/testing/system_testing.md
-          - docs/development/testing/ci_cd.md
-      - docs/development/contributing.md
-      - docs/development/frame_conventions.md
+          - docs/gcs/casualty_assessment/casualty_assessment.md
+      - WinTAK Installation:
+          - docs/gcs/wintak/installation.md
   - Real World:
       - docs/real_world/index.md
-      - docs/real_world/data_offloading/index.md
+      - Deploying to Hardware: docs/real_world/deploying_to_hardware.md
       - Installation on Hardware:
           - docs/real_world/installation/index.md
-      - HITL Test:
-          - docs/real_world/HITL/index.md    
+      - HITL Testing:
+          - docs/real_world/HITL/index.md
+      - Data Offloading:
+          - docs/real_world/data_offloading/index.md    
   - About: docs/about.md
 plugins:
   - search
@@ -173,7 +199,7 @@ theme:
     - toc.integrate
     - toc.follow
     - content.code.copy
-  logo: docs/assets/logo_horizontal_white.png
+  logo: docs/assets/airstack_white.png
   name: material
   palette:
     - accent: pink

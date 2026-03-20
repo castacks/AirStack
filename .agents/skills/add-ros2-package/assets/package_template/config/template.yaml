@@ -1,0 +1,77 @@
+# Configuration file for your_package_name
+# This file contains ROS 2 parameters for the module
+
+/**:
+  ros__parameters:
+    # ============================================
+    # Core Parameters
+    # ============================================
+    
+    # Update rate (Hz)
+    update_rate: 10.0
+    
+    # Enable/disable module
+    enabled: true
+    
+    # ============================================
+    # Algorithm Parameters
+    # ============================================
+    
+    # TODO: Add your algorithm-specific parameters
+    
+    # Example: Threshold values
+    detection_threshold: 0.5
+    confidence_threshold: 0.8
+    
+    # Example: Processing parameters
+    window_size: 100
+    smoothing_factor: 0.9
+    
+    # ============================================
+    # Timing Parameters
+    # ============================================
+    
+    # Timeout for operations (seconds)
+    timeout: 5.0
+    
+    # Maximum latency allowed (seconds)
+    max_latency: 0.1
+    
+    # ============================================
+    # Frame IDs
+    # ============================================
+    
+    # Reference frame for inputs
+    input_frame: "base_link"
+    
+    # Reference frame for outputs
+    output_frame: "map"
+    
+    # ============================================
+    # Debug Options
+    # ============================================
+    
+    # Enable debug mode (verbose logging, debug topics)
+    enable_debug: false
+    
+    # Enable verbose output
+    verbose: false
+    
+    # Enable visualization markers
+    enable_visualization: true
+    
+    # ============================================
+    # Performance Tuning
+    # ============================================
+    
+    # Number of threads to use
+    num_threads: 4
+    
+    # Enable GPU acceleration (if available)
+    use_gpu: false
+    
+    # ============================================
+    # TODO: Add Module-Specific Parameters
+    # ============================================
+    
+    # Add your custom parameters here

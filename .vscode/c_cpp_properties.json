@@ -1,0 +1,44 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/opt/ros/humble/include/**",
+        "/home/andrew/Development/AirStack/common/ros_packages/airstack_common/include/**",
+        "/home/andrew/Development/AirStack/common/ros_packages/gui/rviz_behavior_tree_panel/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/behavior/behavior_executive/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/behavior/behavior_tree/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/global/planners/ensemble_planner/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/global/planners/exploration/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/global/planners/random_walk/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/global/world_models/vdb_mapping/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/global/world_models/vdb_mapping_ros2/vdb_mapping_ros2/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/interface/drone_safety_monitor/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/interface/mavros_interface/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/interface/px4_interface/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/interface/robot_interface/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/controls/mav_comm/mav_msgs/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/controls/mav_comm/mav_planning_msgs/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/planners/droan_gl/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/planners/droan_local_planner/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/planners/takeoff_landing_planner/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/planners/trajectory_library/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/world_models/cost_map_interface/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/world_models/disparity_expansion/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/world_models/disparity_graph/include/**",
+        "/home/andrew/Development/AirStack/robot/ros_ws/src/local/world_models/disparity_graph_cost_map/include/**",
+        "/home/andrew/Development/AirStack/simulation/simple-sim/ros_ws/src/sim/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ros2",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
