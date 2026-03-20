@@ -41,35 +41,75 @@ This is toggled by the `ISAAC_SIM_USE_STANDALONE` variable in the `.env` file. I
 
 ## Scripted Scene Generation
 
-Example scripts for generating a scene are provided in `AirStack/simulation/isaac-sim/launch_scripts/`
-You can also write your own scripts for your own custom scenarios.
+Python scripts give full programmatic control over every aspect of scene construction at startup, making them especially useful for:
 
-When using the scripted launch method:
+- **Reproducible scenarios** — the entire scene is defined in code, not a saved USD file.
+- **Nucleus asset integration** — loading `omniverse://` assets that need unit conversion or collision baking before use.
+- **Multi-robot setups** — dynamically spawning N drones with distinct IDs and positions.
+- **CI / headless testing** — running without a GUI.
 
-1. Define your desired script in the `.env` file and run
-```bash
-airstack up isaac-sim
+Example scripts are provided in `simulation/isaac-sim/launch_scripts/`.
+
+### Scene Preparation Utilities
+
+**Location:** `simulation/isaac-sim/utils/scene_prep.py`
+
+`scene_prep.py` provides helpers that are shared across all example launch scripts:
+
+| Function | Purpose |
+|----------|---------|
+| `scale_stage_prim(stage, prim_path, scale_factor)` | Applies a uniform XYZ scale transform to the prim at `prim_path`, clearing any existing xform ops first. Use `0.01` for Nucleus assets authored in centimetres; use `1.0` for assets already in metres. |
+| `add_colliders(stage_prim)` | Recursively walks every child of `stage_prim` and applies `UsdPhysics.CollisionAPI` to each `UsdGeom.Mesh`. **Must be called or drones fall through the floor.** Skips prims that already have the API. |
+| `add_dome_light(stage, intensity=3500, exposure=-3)` | Adds a hemisphere light at `/World/DomeLight` (or updates it if it already exists). Pass `intensity` / `exposure` keyword arguments to override the defaults. |
+| `save_scene_as_contained_usd(source_usd_url, output_dir)` | Copies the stage and all its dependencies (textures, MDL materials) from a Nucleus `omniverse://` URL into a local directory via `omni.kit.usd.collect.Collector`. Set `SAVE_SCENE_TO = None` in your script to skip this step. |
+| `get_stage_meters_per_unit(stage)` | Returns `(meters_per_unit, scene_scale_factor)`. Multiply metric coordinates by `scene_scale_factor` to convert them into stage-space units. Useful for computing drone spawn heights when `STAGE_SCALE != 1.0`. |
+
+#### Loading `scene_prep`
+
+`scene_prep.py` lives in `utils/`, which is not on `sys.path` by default. The example scripts add it at runtime before importing:
+
+```python
+import sys
+import os
+
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
+import scene_prep
+from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 ```
-This will start Isaac Sim and generate the drone(s) within the scene.
 
-2. Stop the simulation by pressing the square “Stop” button on the left side of the Isaac Sim interface.
-This is necessary before editing the OmniGraph.
 
-![Stop Sim Button](pegasus_setup_images/stop_button.png)
 
-3. Open and connect the OmniGraph:
-  - Right-click the graph and choose “Open Graph.”
-  - Connect the ROS2Context node so that it feeds into all desired sensor subgraphs (e.g., cameras, LiDARs).  
-  ![Connected Subgraphs](pegasus_setup_images/connected_sensor_subgraphs.png)
-  > This manual step is temporarily required due to a known bug. Automation of this is planned in a future update.
+### Running a Standalone Script
 
-4. Save the scene and drones once everything is connected.
-  - You can save both the stage and the drone USDs for future reuse.  
-  ![Saving Scene](pegasus_setup_images/saving_scene.png)
+Set the following variables in the top-level `.env` file and then launch as normal:
 
-5. Update your environment variables:
-  - Set the ISAAC_SIM_GUI variable to point to your newly saved .usd file (make sure to put the path within the docker container or in the omniverse server)
-  - Set ISAAC_SIM_USE_STANDALONE to "false" to load this saved environment directly next time.
+```bash
+# .env
+ISAAC_SIM_USE_STANDALONE=true
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
+```
+
+```bash
+# Start Isaac Sim with the selected script
+airstack up isaac-sim
+
+```
+
+Scripts must live in `simulation/isaac-sim/launch_scripts/`. Set `ISAAC_SIM_SCRIPT_NAME` to the filename only (no path).
+
+---
+
+### Common Pitfalls
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Drone falls through the floor immediately | `add_colliders` was not called | Call `add_colliders(stage_prim)` after loading the environment |
+| Colliders applied to wrong-scale geometry | `add_colliders` called before `scale_stage_prim` | Always call `scale_stage_prim` first, then `add_colliders` |
+| Physics behaves erratically after colliders added | Update frames not pumped after `add_colliders` | Pump at least 10 `omni.kit.app.get_app().update()` calls after `add_colliders` |
+| `ImportError: No module named 'omni'` at script top | `omni` imported before `SimulationApp()` | Move all `omni.*` imports to after the `SimulationApp(...)` line |
+| `scene_prep` not found / `ModuleNotFoundError` | `utils/` not on `sys.path` in Isaac Sim's Python | Use `sys.path.insert` to add the `utils/` directory before importing `scene_prep` |
+| Drone spawns at wrong height in cm-scale scene | Spawn coordinates not converted to stage space | Multiply metric `init_pos` values by `scene_scale` from `get_stage_meters_per_unit` |
+
 
 ## Known bugs and workarounds for Scripted Scene Generation
 
@@ -95,3 +135,5 @@ The drone not arming/taking off can be a symptom of the PX4Multirotor Node not b
 
   - To fix, launch the simulator with `airstack up isaac-sim`, in the toolbar, click Window -> Extensions -> Third Party, serach for "pegasus", select the "PEGASUS SIMULATOR" and enable "AUTOLOAD"
   - Restart your docker container by running `airstack down isaac-sim && airstack up isaac-sim` and the extension should load every time now.
+
+---
