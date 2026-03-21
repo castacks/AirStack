@@ -19,8 +19,8 @@ import math
 import os
 
 # GPS coordinates that correspond to world origin (0, 0, 0) in the simulation.
-# Zurich default matches the existing px4_config.yaml hardcoded values.
-DEFAULT_WORLD_ORIGIN = (47.3667, 8.5500, 408.0)  # (lat_deg, lon_deg, alt_m WGS-84)
+# Lisbon default matches the Pegasus configs.yaml default.
+DEFAULT_WORLD_ORIGIN = (38.736832, -9.137977, 90.0)  # (lat_deg, lon_deg, alt_m WGS-84) — Lisbon, matches Pegasus configs.yaml
 
 
 def compute_gps_origin(x_m, y_m, z_m, world_origin=DEFAULT_WORLD_ORIGIN):
