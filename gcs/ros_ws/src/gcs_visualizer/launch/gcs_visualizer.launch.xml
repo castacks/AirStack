@@ -1,0 +1,7 @@
+<launch>
+  <arg name="robot_name_prefix" default="robot" />
+
+  <node pkg="gcs_visualizer" exec="robot_marker_node" name="robot_marker_node" output="screen">
+    <param name="robot_name_prefix" value="$(var robot_name_prefix)" />
+  </node>
+</launch>

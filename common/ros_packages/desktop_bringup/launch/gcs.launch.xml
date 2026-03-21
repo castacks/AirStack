@@ -31,6 +31,9 @@
 
    
 
+  <!-- GCS Visualizer: drone mesh markers in global ENU frame -->
+  <include file="$(find-pkg-share gcs_visualizer)/launch/gcs_visualizer.launch.xml" />
+
   <!-- ===================== -->
 
 </launch>
