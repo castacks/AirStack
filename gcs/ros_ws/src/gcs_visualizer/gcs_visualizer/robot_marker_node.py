@@ -8,8 +8,8 @@ from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
-from geometry_msgs.msg import TransformStamped
-from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
+from geometry_msgs.msg import TransformStamped, Point
+from tf2_ros import StaticTransformBroadcaster
 
 # Lisbon — matches Pegasus configs.yaml and gps_utils.py DEFAULT_WORLD_ORIGIN
 ORIGIN_LAT = 38.736832
@@ -56,6 +56,22 @@ def multiply_quaternions(q1, q2):
     )
 
 
+def rotate_vector(v, q):
+    """Rotate vector v=(vx,vy,vz) by quaternion q=(x,y,z,w). Returns (x,y,z)."""
+    vx, vy, vz = v
+    qx, qy, qz, qw = q
+    # v' = q * pure_quat(v) * q_conj
+    # Using optimised formula: v' = v + 2*qw*(q×v) + 2*(q×(q×v))
+    cx = qy * vz - qz * vy
+    cy = qz * vx - qx * vz
+    cz = qx * vy - qy * vx
+    return (
+        vx + 2.0 * (qw * cx + qy * cz - qz * cy),
+        vy + 2.0 * (qw * cy + qz * cx - qx * cz),
+        vz + 2.0 * (qw * cz + qx * cy - qy * cx),
+    )
+
+
 class RobotMarkerNode(Node):
     def __init__(self):
         super().__init__('robot_marker_node')
@@ -79,7 +95,6 @@ class RobotMarkerNode(Node):
 
         # Broadcast map as root TF frame so Foxglove 3D panel has a display frame
         self._static_tf = StaticTransformBroadcaster(self)
-        self._dynamic_tf = TransformBroadcaster(self)
         map_tf = TransformStamped()
         map_tf.header.stamp = self.get_clock().now().to_msg()
         map_tf.header.frame_id = 'map'
@@ -162,10 +177,10 @@ class RobotMarkerNode(Node):
             mesh.pose.orientation.z = qz
             mesh.pose.orientation.w = qw
             mesh.scale.x = mesh.scale.y = mesh.scale.z = 1.0
-            mesh.color.r = color[0]
-            mesh.color.g = color[1]
-            mesh.color.b = color[2]
-            mesh.color.a = 0.9
+            mesh.color.r = 0.0
+            mesh.color.g = 0.0
+            mesh.color.b = 0.0
+            mesh.color.a = 1.0
             mesh.lifetime = lifetime
             array.markers.append(mesh)
 
@@ -181,28 +196,43 @@ class RobotMarkerNode(Node):
             label.pose.position.y = y
             label.pose.position.z = z + 1.0
             label.pose.orientation.w = 1.0
-            label.scale.z = 0.5
+            label.scale.z = 0.2
             label.color.r = label.color.g = label.color.b = label.color.a = 1.0
             label.text = robot_name
             label.lifetime = lifetime
             array.markers.append(label)
 
-            # --- TF: map -> robot_N/robot_pose ---
-            tf = TransformStamped()
-            tf.header.stamp = now
-            tf.header.frame_id = 'map'
-            tf.child_frame_id = f'{robot_name}/robot_pose'
-            tf.transform.translation.x = x
-            tf.transform.translation.y = y
-            tf.transform.translation.z = z
-            if orientation:
-                tf.transform.rotation.x = orientation[0]
-                tf.transform.rotation.y = orientation[1]
-                tf.transform.rotation.z = orientation[2]
-                tf.transform.rotation.w = orientation[3]
-            else:
-                tf.transform.rotation.w = 1.0
-            self._dynamic_tf.sendTransform(tf)
+            # --- Axes markers (X=red, Y=green, Z=blue) ---
+            axes = [
+                ((1.0, 0.0, 0.0), (1.0, 0.0, 0.0)),  # X axis, red
+                ((0.0, 1.0, 0.0), (0.0, 1.0, 0.0)),  # Y axis, green
+                ((0.0, 0.0, 1.0), (0.0, 0.0, 1.0)),  # Z axis, blue
+            ]
+            q = orientation if orientation else (0.0, 0.0, 0.0, 1.0)
+            axis_len = 0.6
+            for j, (unit_vec, axis_color) in enumerate(axes):
+                tip = rotate_vector(unit_vec, q)
+                arrow = Marker()
+                arrow.header.frame_id = 'map'
+                arrow.header.stamp = now
+                arrow.ns = f'{robot_name}_axes'
+                arrow.id = i * 3 + 2 + j  # unique id per axis per robot (offset past mesh+label)
+                arrow.type = Marker.ARROW
+                arrow.action = Marker.ADD
+                start = Point(x=x, y=y, z=z)
+                end = Point(x=x + tip[0] * axis_len,
+                            y=y + tip[1] * axis_len,
+                            z=z + tip[2] * axis_len)
+                arrow.points = [start, end]
+                arrow.scale.x = 0.04  # shaft diameter
+                arrow.scale.y = 0.08  # head diameter
+                arrow.scale.z = 0.0   # head length (0 = auto)
+                arrow.color.r = axis_color[0]
+                arrow.color.g = axis_color[1]
+                arrow.color.b = axis_color[2]
+                arrow.color.a = 1.0
+                arrow.lifetime = lifetime
+                array.markers.append(arrow)
 
         self._pub.publish(array)
 
