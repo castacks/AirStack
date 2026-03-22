@@ -1,0 +1,9 @@
+{
+  "name": "robot-commands",
+  "displayName": "Robot Command Button",
+  "description": "Configurable button that publishes a behavior_tree_msgs/BehaviorTreeCommands condition to a robot.",
+  "publisher": "AirLab CMU",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js"
+}
