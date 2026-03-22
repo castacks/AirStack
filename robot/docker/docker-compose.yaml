@@ -24,6 +24,7 @@ services:
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
       - SIM_IP=${SIM_IP:-172.31.0.200}
+      - VDB_SOURCE=${VDB_SOURCE:-lidar}  # "lidar" or "stereo", set in .env
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >

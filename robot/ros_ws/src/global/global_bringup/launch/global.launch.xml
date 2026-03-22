@@ -16,5 +16,5 @@
         <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
         <remap from="~/global_plan_toggle" to="/$(env ROBOT_NAME)/behavior/global_plan_toggle" />
     </node>
-    
+
 </launch>

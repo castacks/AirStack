@@ -218,12 +218,12 @@ class PegasusApp:
 
             add_ouster_lidar_subgraph(
                 parent_graph_handle=graph_handle,
-                drone_prim=f"/World/drone{i}/base_link",
+                drone_prim=f"/World/drone{i}/abase_link",
                 robot_name=f"robot_{i}",
                 lidar_name="OS1_REV6_128_10hz___512_resolution",
                 lidar_offset=[0.0, 0.0, 0.025],
                 lidar_rotation_offset=[0.0, 0.0, 0.0],
-                lidar_min_range=2.0,
+                lidar_min_range=3.0,
             )
 
         # Reset so physics/articulations are ready

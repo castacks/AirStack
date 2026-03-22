@@ -83,6 +83,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [add-task-executor](.agents/skills/add-task-executor) | Implementing a task executor as a ROS 2 action server |
 | [integrate-module-into-layer](.agents/skills/integrate-module-into-layer) | Adding module to layer bringup |
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
+| [visualize-in-foxglove](.agents/skills/visualize-in-foxglove) | Adding topic visualization to Foxglove/GCS |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
 | [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing |
