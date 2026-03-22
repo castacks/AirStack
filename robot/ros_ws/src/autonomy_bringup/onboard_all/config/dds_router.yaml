@@ -21,10 +21,6 @@ participants:
     domain: $(var gcs_domain)
 
 allowlist:
-  # TF (needed for Foxglove to transform point clouds between frames)
-  - name: "rt/tf"
-  - name: "rt/tf_static"
-
   # lidar and world model
   - name: "rt/$(env ROBOT_NAME)/sensors/ouster/point_cloud"
   - name: "rt/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization"
