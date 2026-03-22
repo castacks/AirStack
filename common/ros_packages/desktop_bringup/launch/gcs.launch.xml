@@ -26,6 +26,7 @@
     <param name="port" value="8765" />
     <!-- <param name="address" value="0.0.0.0" /> -->
     <param name="use_sim_time" value="$(var sim)" />
+    <param name="send_buffer_limit" value="10000000" />
   </node>
 
 
