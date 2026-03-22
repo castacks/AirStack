@@ -73,9 +73,9 @@ def rotate_vector(v, q):
     )
 
 
-class RobotMarkerNode(Node):
+class FoxgloveVisualizerNode(Node):
     def __init__(self):
-        super().__init__('robot_marker_node')
+        super().__init__('foxglove_visualizer_node')
 
         self.declare_parameter('robot_name_prefix', 'robot')
         self._prefix = self.get_parameter('robot_name_prefix').value
@@ -212,9 +212,9 @@ class RobotMarkerNode(Node):
             mesh.pose.orientation.z = qz
             mesh.pose.orientation.w = qw
             mesh.scale.x = mesh.scale.y = mesh.scale.z = 1.0
-            mesh.color.r = 0.0
-            mesh.color.g = 0.0
-            mesh.color.b = 0.0
+            mesh.color.r = 0.6
+            mesh.color.g = 0.6
+            mesh.color.b = 0.6
             mesh.color.a = 1.0
             mesh.lifetime = lifetime
             array.markers.append(mesh)
@@ -285,6 +285,10 @@ class RobotMarkerNode(Node):
                         pt.x += bx
                         pt.y += by
                         pt.z += bz
+                    if m.color.a > 0:
+                        m.color.r = 0.8
+                        m.color.g = 0.5
+                        m.color.b = 0.0
                     array.markers.append(m)
 
             # --- Global plan (offset from odom origin to ENU, same as trajectory) ---
@@ -316,7 +320,7 @@ class RobotMarkerNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RobotMarkerNode()
+    node = FoxgloveVisualizerNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

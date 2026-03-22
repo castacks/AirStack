@@ -22,7 +22,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robot_marker_node = gcs_visualizer.robot_marker_node:main',
+            'foxglove_visualizer_node = gcs_visualizer.foxglove_visualizer_node:main',
         ],
     },
 )
