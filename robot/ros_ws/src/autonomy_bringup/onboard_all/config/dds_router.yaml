@@ -24,6 +24,8 @@ allowlist:
   # state information
   - name: "rt/$(env ROBOT_NAME)/odometry_conversion/odometry"
   - name: "rt/$(env ROBOT_NAME)/interface/mavros/global_position/global"
+  - name: "rt/$(env ROBOT_NAME)/trajectory_controller/trajectory_vis"
+  - name: "rt/$(env ROBOT_NAME)/global_plan"
 
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
