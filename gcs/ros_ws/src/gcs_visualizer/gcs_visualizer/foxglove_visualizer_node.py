@@ -28,6 +28,7 @@ GPS_SUFFIX  = '/interface/mavros/global_position/global'
 ODOM_SUFFIX = '/odometry_conversion/odometry'
 TRAJ_SUFFIX = '/trajectory_controller/trajectory_vis'
 PLAN_SUFFIX = '/global_plan'
+VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
 
 ROBOT_COLORS = [
     (1.0, 0.2, 0.2),  # red
@@ -83,16 +84,19 @@ class FoxgloveVisualizerNode(Node):
         self._odom_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(ODOM_SUFFIX)}$')
         self._traj_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(TRAJ_SUFFIX)}$')
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
+        self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
 
         self._gps_positions    = {}   # robot_name -> (x, y, z) ENU metres current position
         self._gps_boot         = {}   # robot_name -> (x, y, z) ENU metres at first fix (odom origin)
         self._orientations     = {}   # robot_name -> (x, y, z, w) from odometry
         self._trajectories     = {}   # robot_name -> latest MarkerArray
         self._global_plans     = {}   # robot_name -> latest nav_msgs/Path
+        self._vdb_markers      = {}   # robot_name -> latest VDB Marker
         self._subscribed_gps   = set()
         self._subscribed_odom  = set()
         self._subscribed_traj  = set()
         self._subscribed_plan  = set()
+        self._subscribed_vdb   = set()
         self._alt_ground       = None
 
         self._pub = self.create_publisher(MarkerArray, '/gcs/robot_markers', 10)
@@ -159,6 +163,18 @@ class FoxgloveVisualizerNode(Node):
                     self._subscribed_plan.add(topic)
                     self.get_logger().info(f'Subscribed to global_plan: {topic}')
 
+            if topic not in self._subscribed_vdb:
+                m = self._vdb_pattern.match(topic)
+                if m and 'visualization_msgs/msg/Marker' in type_list:
+                    name = m.group(1)
+                    self.create_subscription(
+                        Marker, topic,
+                        lambda msg, n=name: self._vdb_callback(msg, n),
+                        SENSOR_QOS,
+                    )
+                    self._subscribed_vdb.add(topic)
+                    self.get_logger().info(f'Subscribed to vdb_map_visualization: {topic}')
+
     def _gps_callback(self, msg: NavSatFix, robot_name: str):
         if msg.status.status < 0:
             return
@@ -178,6 +194,9 @@ class FoxgloveVisualizerNode(Node):
 
     def _plan_callback(self, msg: Path, robot_name: str):
         self._global_plans[robot_name] = msg
+
+    def _vdb_callback(self, msg: Marker, robot_name: str):
+        self._vdb_markers[robot_name] = msg
 
     def _publish_markers(self):
         if not self._gps_positions:
@@ -314,6 +333,22 @@ class FoxgloveVisualizerNode(Node):
                     p = pose_stamped.pose.position
                     line.points.append(Point(x=p.x + bx, y=p.y + by, z=p.z + bz))
                 array.markers.append(line)
+
+            # --- VDB map (offset from odom origin to ENU) ---
+            vdb = self._vdb_markers.get(robot_name)
+            if vdb is not None and boot is not None:
+                bx, by, bz = boot
+                m = copy.deepcopy(vdb)
+                m.header.frame_id = 'map'
+                m.header.stamp = now
+                m.ns = f'{robot_name}_vdb'
+                m.id = i * 10000 + 9998
+                m.lifetime = Duration(sec=2, nanosec=0)
+                for pt in m.points:
+                    pt.x += bx
+                    pt.y += by
+                    pt.z += bz
+                array.markers.append(m)
 
         self._pub.publish(array)
 
