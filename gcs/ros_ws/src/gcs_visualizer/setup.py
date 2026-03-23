@@ -23,6 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'foxglove_visualizer_node = gcs_visualizer.foxglove_visualizer_node:main',
+            'payload_visualizer_node = gcs_visualizer.payload_visualizer_node:main',
         ],
     },
 )

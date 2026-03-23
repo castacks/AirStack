@@ -92,9 +92,20 @@ function activate(extensionContext) {
           advertisedTopic = topic;
         }
 
-        panelContext.publish(topic, {
-          commands: [{ condition_name: conditionName, status: 2 }],
-        });
+        // Send 2 (SUCCESS) for the selected command, 0 (IDLE) for all others.
+        // Matches rqt behaviour exactly.
+        const commands = [];
+        for (const preset of PRESET_COMMANDS) {
+          if (preset.value === "__custom__") continue;
+          commands.push({
+            condition_name: preset.value,
+            status: preset.value === conditionName ? 2 : 0,
+          });
+        }
+        if (state.command === "__custom__" && conditionName) {
+          commands.push({ condition_name: conditionName, status: 2 });
+        }
+        panelContext.publish(topic, { commands });
       }
 
       function updateSettings() {

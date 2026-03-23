@@ -15,7 +15,8 @@
 
   <!-- Gossip node -->
   <node pkg="coordination_bringup" exec="gossip_node" name="gossip_node" output="screen">
-    <param name="robot_name"   value="$(env ROBOT_NAME)" />
-    <param name="publish_rate" value="$(var publish_rate)" />
+    <param name="robot_name"            value="$(env ROBOT_NAME)" />
+    <param name="publish_rate"          value="$(var publish_rate)" />
+    <param name="payload_topics_config" value="$(find-pkg-share coordination_bringup)/config/gossip_payloads.yaml" />
   </node>
 </launch>
