@@ -101,12 +101,19 @@ class PeerProfile:
     # Payload management                                                   #
     # ------------------------------------------------------------------ #
 
-    def add_payload(self, msg: Any) -> None:
-        """Serialize and attach any ROS message as an additional payload."""
+    def add_payload(self, msg: Any, stamp=None) -> None:
+        """Serialize and attach any ROS message as an additional payload.
+
+        ``stamp`` is a builtin_interfaces/Time (or None to use zero time).
+        Pass the header stamp of the source message so receivers can judge
+        how fresh the data is independently of the gossip message timestamp.
+        """
+        from builtin_interfaces.msg import Time
         type_str = _ros_type_string(msg)
         self._payloads.append({
             "type": type_str,
             "data": serialize_message(msg),
+            "stamp": stamp if stamp is not None else Time(),
         })
 
     def clear_payloads(self) -> None:
@@ -124,6 +131,18 @@ class PeerProfile:
                 msg_class = rosidl_utils.get_message(payload_type)
                 return deserialize_message(p["data"], msg_class)
         return None
+
+    def get_payload_with_stamp(self, payload_type: str):
+        """
+        Like get_payload() but returns (msg, stamp) tuple so the caller can
+        check when the source data was last produced.
+        Returns (None, None) if not found.
+        """
+        for p in self._payloads:
+            if p["type"] == payload_type:
+                msg_class = rosidl_utils.get_message(payload_type)
+                return deserialize_message(p["data"], msg_class), p.get("stamp")
+        return None, None
 
     def get_all_payloads(self) -> List[Any]:
         """Deserialize and return all payloads in order."""
@@ -150,7 +169,11 @@ class PeerProfile:
         msg.source = int(self.source)
         msg.relay_hops = self.relay_hops
         msg.payloads = [
-            PeerProfilePayloadMsg(payload_type=p["type"], payload_data=list(p["data"]))
+            PeerProfilePayloadMsg(
+                stamp=p.get("stamp") or PeerProfilePayloadMsg().stamp,
+                payload_type=p["type"],
+                payload_data=list(p["data"]),
+            )
             for p in self._payloads
         ]
         return msg
@@ -164,7 +187,7 @@ class PeerProfile:
         profile.source = Source(msg.source)
         profile.relay_hops = msg.relay_hops
         profile._payloads = [
-            {"type": p.payload_type, "data": bytes(p.payload_data)}
+            {"type": p.payload_type, "data": bytes(p.payload_data), "stamp": p.stamp}
             for p in msg.payloads
         ]
         return profile

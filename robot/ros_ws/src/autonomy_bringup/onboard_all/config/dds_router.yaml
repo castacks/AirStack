@@ -65,3 +65,6 @@ allowlist:
 
   # control commands
   - name: "rt/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command"
+
+  # gossip peer profiles (carries all robot payloads — no need to bridge individual topics)
+  - name: "rt/gossip/peers"

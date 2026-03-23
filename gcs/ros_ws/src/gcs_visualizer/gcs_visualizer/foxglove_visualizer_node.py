@@ -1,5 +1,23 @@
+"""
+foxglove_visualizer_node.py
+===========================
+Standard GCS visualization node. Handles data common to every project:
+  - Robot mesh markers (with orientation)
+  - Robot name labels
+  - Body-frame axes (X/Y/Z arrows)
+  - Local trajectory (trajectory_controller/trajectory_vis)
+  - Global plan (global_plan)
+  - VDB occupancy map (vdb_mapping/vdb_map_visualization)
+
+All markers are published to /gcs/robot_markers as a MarkerArray in the
+global ENU 'map' frame.
+
+Project-specific data (e.g. Rayfronts) should go in a separate node that
+also publishes to its own MarkerArray or PointCloud2 topic. See
+payload_visualizer_node.py as an example.
+"""
+
 import copy
-import math
 import re
 
 import rclpy
@@ -12,10 +30,9 @@ from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import TransformStamped, Point
 from tf2_ros import StaticTransformBroadcaster
 
-# Lisbon — matches Pegasus configs.yaml and gps_utils.py DEFAULT_WORLD_ORIGIN
-ORIGIN_LAT = 38.736832
-ORIGIN_LON = -9.137977
-ORIGIN_ALT = 90.0
+from gcs_visualizer.gcs_utils import (
+    gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
+)
 
 SENSOR_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -40,40 +57,6 @@ ROBOT_COLORS = [
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)  # x, y, z, w
 
 
-def gps_to_enu(lat, lon, alt, alt_ground):
-    """Convert GPS lat/lon/alt to ENU metres relative to Lisbon origin. z is relative to first fix."""
-    x = (lon - ORIGIN_LON) * 111320.0 * math.cos(math.radians(ORIGIN_LAT))
-    y = (lat - ORIGIN_LAT) * 111320.0
-    z = alt - alt_ground
-    return x, y, z
-
-
-def multiply_quaternions(q1, q2):
-    """Hamilton product q1 * q2 (apply q2 first, then q1). Both are (x,y,z,w) tuples."""
-    x1, y1, z1, w1 = q1
-    x2, y2, z2, w2 = q2
-    return (
-        w1*x2 + x1*w2 + y1*z2 - z1*y2,
-        w1*y2 - x1*z2 + y1*w2 + z1*x2,
-        w1*z2 + x1*y2 - y1*x2 + z1*w2,
-        w1*w2 - x1*x2 - y1*y2 - z1*z2,
-    )
-
-
-def rotate_vector(v, q):
-    """Rotate vector v=(vx,vy,vz) by quaternion q=(x,y,z,w). Returns (x,y,z)."""
-    vx, vy, vz = v
-    qx, qy, qz, qw = q
-    cx = qy * vz - qz * vy
-    cy = qz * vx - qx * vz
-    cz = qx * vy - qy * vx
-    return (
-        vx + 2.0 * (qw * cx + qy * cz - qz * cy),
-        vy + 2.0 * (qw * cy + qz * cx - qx * cz),
-        vz + 2.0 * (qw * cz + qx * cy - qy * cx),
-    )
-
-
 class FoxgloveVisualizerNode(Node):
     def __init__(self):
         super().__init__('foxglove_visualizer_node')
@@ -86,18 +69,18 @@ class FoxgloveVisualizerNode(Node):
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
         self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
 
-        self._gps_positions    = {}   # robot_name -> (x, y, z) ENU metres current position
-        self._gps_boot         = {}   # robot_name -> (x, y, z) ENU metres at first fix (odom origin)
-        self._orientations     = {}   # robot_name -> (x, y, z, w) from odometry
-        self._trajectories     = {}   # robot_name -> latest MarkerArray
-        self._global_plans     = {}   # robot_name -> latest nav_msgs/Path
-        self._vdb_markers      = {}   # robot_name -> latest VDB Marker
-        self._subscribed_gps   = set()
-        self._subscribed_odom  = set()
-        self._subscribed_traj  = set()
-        self._subscribed_plan  = set()
-        self._subscribed_vdb   = set()
-        self._alt_ground       = None
+        self._gps_positions  = {}   # robot_name -> (x, y, z) ENU metres current position
+        self._gps_boot       = {}   # robot_name -> (x, y, z) ENU metres at first fix (odom origin)
+        self._orientations   = {}   # robot_name -> (x, y, z, w) from odometry
+        self._trajectories   = {}   # robot_name -> latest MarkerArray
+        self._global_plans   = {}   # robot_name -> latest nav_msgs/Path
+        self._vdb_markers    = {}   # robot_name -> latest VDB Marker
+        self._subscribed_gps  = set()
+        self._subscribed_odom = set()
+        self._subscribed_traj = set()
+        self._subscribed_plan = set()
+        self._subscribed_vdb  = set()
+        self._alt_ground      = None
 
         self._pub = self.create_publisher(MarkerArray, '/gcs/robot_markers', 10)
 
@@ -288,29 +271,29 @@ class FoxgloveVisualizerNode(Node):
                 arrow.lifetime = lifetime
                 array.markers.append(arrow)
 
-            # --- Trajectory markers (offset by boot GPS position = odom origin, skip if not ready) ---
-            traj = self._trajectories.get(robot_name)
             boot = self._gps_boot.get(robot_name)
+
+            # --- Trajectory markers (offset by boot GPS position = odom origin) ---
+            traj = self._trajectories.get(robot_name)
             if traj is not None and boot is not None:
                 bx, by, bz = boot
-                for k, orig in enumerate(traj.markers):
-                    m = copy.deepcopy(orig)
-                    m.header.frame_id = 'map'
-                    m.header.stamp = now
-                    m.ns = f'{robot_name}_traj'
-                    m.id = i * 10000 + k
-                    m.lifetime = lifetime
-                    for pt in m.points:
-                        pt.x += bx
-                        pt.y += by
-                        pt.z += bz
+                for m in transform_marker_array(
+                        traj, bx, by, bz,
+                        ns=f'{robot_name}_traj',
+                        id_base=i * 10000,
+                        stamp=now, lifetime=lifetime):
                     if m.color.a > 0:
                         m.color.r = 0.8
                         m.color.g = 0.5
                         m.color.b = 0.0
+                    # skip markers that require points but have none
+                    needs_points = m.type in (Marker.LINE_STRIP, Marker.LINE_LIST,
+                                              Marker.POINTS, Marker.ARROW)
+                    if needs_points and len(m.points) == 0:
+                        continue
                     array.markers.append(m)
 
-            # --- Global plan (offset from odom origin to ENU, same as trajectory) ---
+            # --- Global plan (offset from odom origin to ENU) ---
             plan = self._global_plans.get(robot_name)
             if plan is not None and boot is not None:
                 bx, by, bz = boot
@@ -332,7 +315,8 @@ class FoxgloveVisualizerNode(Node):
                 for pose_stamped in plan.poses:
                     p = pose_stamped.pose.position
                     line.points.append(Point(x=p.x + bx, y=p.y + by, z=p.z + bz))
-                array.markers.append(line)
+                if len(line.points) >= 2:
+                    array.markers.append(line)
 
             # --- VDB map (offset from odom origin to ENU) ---
             vdb = self._vdb_markers.get(robot_name)

@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/gossip.launch.xml']),
-        ('share/' + package_name + '/config', ['config/gossip_dds_router.yaml']),
+        ('share/' + package_name + '/config', ['config/gossip_dds_router.yaml', 'config/gossip_payloads.yaml']),
         ('lib/' + package_name, ['scripts/gossip_node', 'scripts/peer_registry_monitor.py']),
     ],
     install_requires=['setuptools'],
