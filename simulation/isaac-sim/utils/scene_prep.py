@@ -56,11 +56,27 @@ def scale_stage_prim(stage, prim_path: str, scale_factor: float):
     xformable = UsdGeom.Xformable(prim)
     xformable.ClearXformOpOrder()
 
-    translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
-    translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
+    # Match the precision of any existing xform attrs to avoid type-mismatch exceptions.
+    # ClearXformOpOrder removes attrs from the op order but leaves the attributes on the prim,
+    # so AddXformOp will fail if the requested precision doesn't match the baked-in type.
+    def _precision(attr_name, default=UsdGeom.XformOp.PrecisionDouble):
+        attr = prim.GetAttribute(attr_name)
+        if attr.IsValid() and str(attr.GetTypeName()) == "float3":
+            return UsdGeom.XformOp.PrecisionFloat
+        return default
 
-    scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble)
-    scale_op.Set(Gf.Vec3d(scale_factor, scale_factor, scale_factor))
+    translate_prec = _precision("xformOp:translate")
+    scale_prec = _precision("xformOp:scale")
+
+    if translate_prec == UsdGeom.XformOp.PrecisionFloat:
+        xformable.AddTranslateOp(translate_prec).Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    else:
+        xformable.AddTranslateOp(translate_prec).Set(Gf.Vec3d(0.0, 0.0, 0.0))
+
+    if scale_prec == UsdGeom.XformOp.PrecisionFloat:
+        xformable.AddScaleOp(scale_prec).Set(Gf.Vec3f(scale_factor, scale_factor, scale_factor))
+    else:
+        xformable.AddScaleOp(scale_prec).Set(Gf.Vec3d(scale_factor, scale_factor, scale_factor))
 
     print(f"[scene_prep] Scaled '{prim_path}' by {scale_factor}")
     return prim

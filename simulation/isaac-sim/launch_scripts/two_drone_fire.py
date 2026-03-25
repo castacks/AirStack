@@ -6,22 +6,32 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+import os
+import sys
+import time
+
 import omni.kit.app
 import omni.timeline
 import omni.usd
 import omni.client
-import asyncio
-import time
 
 from omni.isaac.core.world import World
-from omni.isaac.core.objects import GroundPlane
-from pxr import Gf, UsdGeom, UsdLux, Sdf, UsdPhysics
 
 # Pegasus imports
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
 from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+
+# gps_utils lives in the same directory as this script
+_LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _LAUNCH_SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
+from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
+
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
+import scene_prep
+from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -30,12 +40,11 @@ NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 #env/stage path and scale
 ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/ACFA/FireAcademyFaro/fire_academy_fixed_textures.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd" 
+#f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
 STAGE_SCALE = 0.01
 
-
-DRONE_USD = "/root/Documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
 ADD_DOME_LIGHT = True
@@ -43,15 +52,23 @@ DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -3.0
 
-#Drone offset
+# GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
+# Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
+WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
+
+# Drone spawn configs.
+# x_m = East offset from world origin (meters)
+# y_m = North offset from world origin (meters)
+# z_m = Up offset / height above floor (meters)
+# orient = initial quaternion [x, y, z, w]
+# spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd:
+# {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
+# {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.07
-
-# spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd
-# DRONE1_XY_M = (20.0, -7.0)
-# DRONE2_XY_M = (17, 1.5)
-
-DRONE1_XY_M = (27.0, 7.6)
-DRONE2_XY_M = (23, 9.8)
+DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 3.5},
+]
 # ---------------------------------------------------------
 
 
@@ -83,38 +100,26 @@ def nucleus_stat(url: str) -> bool:
     return result == omni.client.Result.OK
 
 
-def add_dome_light(stage):
-    if stage.GetPrimAtPath(DOME_LIGHT_PATH).IsValid():
-        dome = UsdLux.DomeLight.Get(stage, DOME_LIGHT_PATH)
-    else:
-        dome = UsdLux.DomeLight.Define(stage, Sdf.Path(DOME_LIGHT_PATH))
-
-    dome.CreateIntensityAttr(DOME_LIGHT_INTENSITY)
-    dome.CreateExposureAttr(DOME_LIGHT_EXPOSURE)
-
-
-def get_stage_scale(stage):
-    mpu = UsdGeom.GetStageMetersPerUnit(stage)
-    if mpu is None or mpu <= 0:
-        mpu = 1.0
-    s = 1.0 / mpu
-    return mpu, s
-
-
-def add_collision_to_prim(prim):
-    if prim.IsA(UsdGeom.Mesh):
-        if not prim.HasAPI(UsdPhysics.CollisionAPI):
-            UsdPhysics.CollisionAPI.Apply(prim)
-            print(f"Added collision to: {prim.GetPath()}")
-    
-    # Recursively process children
-    for child in prim.GetChildren():
-        add_collision_to_prim(child)
+def wait_for_stage(stage, timeout_s: float = 10.0):
+    """Pump the Kit app loop until /World has content (scene fully loaded)."""
+    for _ in range(int(timeout_s / 0.1)):
+        omni.kit.app.get_app().update()
+        world_prim = stage.GetPrimAtPath("/World")
+        if world_prim.IsValid():
+            non_physics = [c for c in world_prim.GetChildren() if c.GetName() != "PhysicsScene"]
+            if non_physics:
+                return True
+        time.sleep(0.1)
+    return False
 
 
 class PegasusApp:
 
     def __init__(self):
+        # Write GPS origins immediately so robot containers can read them
+        # before this container finishes its heavy USD loading.
+        set_gps_origins(DRONE_CONFIGS, world_origin=WORLD_GPS_ORIGIN)
+
         omni.client.initialize()
         nucleus_stat(f"omniverse://{NUCLEUS_SERVER}")
         nucleus_stat(ENV_URL)
@@ -134,142 +139,64 @@ class PegasusApp:
         if stage is None:
             raise RuntimeError("Stage failed to load")
 
-        # Wait for the stage to fully load
-        for _ in range(100):  # Wait up to ~10 seconds
-            omni.kit.app.get_app().update()
-            world_prim = stage.GetPrimAtPath("/World")
-            if world_prim.IsValid():
-                children = list(world_prim.GetChildren())
-                # Check if we have more than just PhysicsScene
-                non_physics_children = [c for c in children if c.GetName() != "PhysicsScene"]
-                if len(non_physics_children) > 0:
-                    break
-            time.sleep(0.1)
+        if not wait_for_stage(stage):
+            carb.log_warn("Stage load timed out — continuing anyway.")
 
-        world_prim = stage.GetPrimAtPath("/World")
-
-        # Scale the /World/stage prim
+        # ----- Scene preparation -----
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
-            xformable = UsdGeom.Xformable(stage_prim)
-
-            translate_attr = stage_prim.GetAttribute("xformOp:translate")
-            if translate_attr.IsValid():
-                if str(translate_attr.GetTypeName()) == "float3":
-                    translate_attr.Set(Gf.Vec3f(0.0, 0.0, 0.0))
-                else:
-                    translate_attr.Set(Gf.Vec3d(0.0, 0.0, 0.0))
-            else:
-                # If missing, create a new translate op.
-                translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
-                translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
-
-            scale_attr = stage_prim.GetAttribute("xformOp:scale")
-            if scale_attr.IsValid():
-                if str(scale_attr.GetTypeName()) == "double3":
-                    scale_attr.Set(Gf.Vec3d(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
-                else:
-                    scale_attr.Set(Gf.Vec3f(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
-            else:
-                # If missing, create a new scale op.
-                scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionFloat)
-                scale_op.Set(Gf.Vec3f(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
-            
-            add_collision_to_prim(stage_prim)
-            print("Finished adding collisions.")
-            
-            # Let the app process the changes
+            scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
+            add_colliders(stage_prim)
             for _ in range(10):
                 omni.kit.app.get_app().update()
-            
-            # Optionally save the stage
-            # stage.GetRootLayer().Export("/path/to/save/scene.usd")
-            
         else:
-            print("Warning: /World/stage not found, environment not scaled")
+            carb.log_warn("/World/stage not found — skipping scale and collision.")
 
-        # Lighting
         if ADD_DOME_LIGHT:
-            add_dome_light(stage)
+            add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE)
 
         # Units
-        mpu, s = get_stage_scale(stage)
+        mpu, s = get_stage_meters_per_unit(stage)
 
-        drone1_z_m = SPAWN_HEIGHT_ABOVE_FLOOR_M
-        drone2_z_m = SPAWN_HEIGHT_ABOVE_FLOOR_M
-        
-        drone1_pos = [DRONE1_XY_M[0] * s, DRONE1_XY_M[1] * s, drone1_z_m * s]
-        drone2_pos = [DRONE2_XY_M[0] * s, DRONE2_XY_M[1] * s, drone2_z_m * s]
+        # Spawn all drones
+        for cfg in DRONE_CONFIGS:
+            i = cfg["domain_id"]
+            pos = [cfg["x_m"] * s, cfg["y_m"] * s, cfg["z_m"] * s]
 
-        ####################################################################################################
-        # Spawn vehicle 1
-        ####################################################################################################
-        graph_handle1 = spawn_px4_multirotor_node(
-            pegasus_node_name="PX4Multirotor_1",
-            drone_prim="/World/drone1/base_link",
-            robot_name="robot_1",
-            vehicle_id=1,  # defines MAVLink port offset
-            domain_id=1,  # defines ROS2 domain ID
-            usd_file=DRONE_USD,
-            init_pos=drone1_pos,
-            init_orient=[0.0, 0.0, -0.937, 0.35], #[0,0,1,0]
-        )
+            graph_handle = spawn_px4_multirotor_node(
+                pegasus_node_name=f"PX4Multirotor_{i}",
+                drone_prim=f"/World/drone{i}/base_link",
+                robot_name=f"robot_{i}",
+                vehicle_id=i,
+                domain_id=i,
+                usd_file=DRONE_USD,
+                init_pos=pos,
+                init_orient=cfg["orient"],
+            )
 
-        # Add a ZED stereo camera (with an associated subgraph) to the drone
-        add_zed_stereo_camera_subgraph(
-            parent_graph_handle=graph_handle1,
-            drone_prim="/World/drone1/base_link",
-            robot_name="robot_1",
-            camera_name="ZEDCamera",
-            camera_offset=[0.1, 0.0, 0.0],  # X, Y, Z offset from drone base_link
-            camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-        )
+            add_zed_stereo_camera_subgraph(
+                parent_graph_handle=graph_handle,
+                drone_prim=f"/World/drone{i}/base_link",
+                robot_name=f"robot_{i}",
+                camera_name="ZEDCamera",
+                camera_offset=[0.1, 0.0, 0.0],
+                camera_rotation_offset=[0.0, 0.0, 0.0],
+            )
 
-        # Add an Ouster lidar (with an associated subgraph) to the drone
-        add_ouster_lidar_subgraph(
-            parent_graph_handle=graph_handle1,
-            drone_prim="/World/drone1/base_link",
-            robot_name="robot_1",
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 4.0, # Minimum detection range (m) to avoid propeller hits
-        )
+            add_ouster_lidar_subgraph(
+                parent_graph_handle=graph_handle,
+                drone_prim=f"/World/drone{i}/base_link",
+                robot_name=f"robot_{i}",
+                lidar_name="OS1_REV6_128_10hz___512_resolution",
+                lidar_offset=[0.0, 0.0, 0.025],
+                lidar_rotation_offset=[0.0, 0.0, 0.0],
+                lidar_min_range=cfg["lidar_min_range"],
+            )
 
-        ####################################################################################################
-        # Spawn vehicle 2
-        ####################################################################################################
-        graph_handle2 = spawn_px4_multirotor_node(
-            pegasus_node_name="PX4Multirotor_2",
-            drone_prim="/World/drone2/base_link",
-            robot_name="robot_2",
-            vehicle_id=2,  # defines MAVLink port offset. Define as 2 for second vehicle
-            domain_id=2,  # defines ROS2 domain ID. Define as 2 for second vehicle
-            usd_file=DRONE_USD,
-            init_pos=drone2_pos,
-            init_orient=[0.0, 0.0, -0.937, 0.35], #[0,0,1,0]
-        )
-
-        # Add a ZED stereo camera (with an associated subgraph) to the drone
-        add_zed_stereo_camera_subgraph(
-            parent_graph_handle=graph_handle2,
-            drone_prim="/World/drone2/base_link",
-            robot_name="robot_2",
-            camera_name="ZEDCamera",
-            camera_offset=[0.1, 0.0, 0.0],  # X, Y, Z offset from drone base_link
-            camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-        )
-
-        # Add an Ouster lidar (with an associated subgraph) to the drone
-        add_ouster_lidar_subgraph(
-            parent_graph_handle=graph_handle2,
-            drone_prim="/World/drone2/base_link",
-            robot_name="robot_2",
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 3.5 
-        )
+        # Give physics time to register the spawned drone prims before reset.
+        # Complex scenes (e.g. fire academy) need more ticks than simpler ones.
+        for _ in range(30):
+            omni.kit.app.get_app().update()
 
         # Reset so physics/articulations are ready
         self.world.reset()

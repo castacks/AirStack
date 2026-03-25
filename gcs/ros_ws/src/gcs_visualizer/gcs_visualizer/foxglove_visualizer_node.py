@@ -277,11 +277,12 @@ class FoxgloveVisualizerNode(Node):
             traj = self._trajectories.get(robot_name)
             if traj is not None and boot is not None:
                 bx, by, bz = boot
-                for m in transform_marker_array(
-                        traj, bx, by, bz,
-                        ns=f'{robot_name}_traj',
-                        id_base=i * 10000,
-                        stamp=now, lifetime=lifetime):
+                transformed = transform_marker_array(traj, bx, by, bz)
+                for k, m in enumerate(transformed.markers):
+                    m.ns = f'{robot_name}_traj'
+                    m.id = i * 10000 + k
+                    m.header.stamp = now
+                    m.lifetime = lifetime
                     if m.color.a > 0:
                         m.color.r = 0.8
                         m.color.g = 0.5

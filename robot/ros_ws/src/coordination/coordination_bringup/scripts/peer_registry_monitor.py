@@ -22,6 +22,7 @@ Options
 import argparse
 import os
 import sys
+import threading
 import time
 
 import rclpy
@@ -31,7 +32,7 @@ from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 
 GOSSIP_QOS = QoSProfile(
-    reliability=QoSReliabilityPolicy.BEST_EFFORT,
+    reliability=QoSReliabilityPolicy.RELIABLE,
     history=QoSHistoryPolicy.KEEP_LAST,
     depth=10,
 )
@@ -86,7 +87,14 @@ class RegistryMonitor(Node):
     def __init__(self, filter_name: str = ""):
         super().__init__("peer_registry_monitor")
         self._registry: dict[str, PeerProfileMsg] = {}
+        self._recv_times: dict[str, float] = {}  # robot_name -> wall time of last received msg
+        self._registry_lock = threading.Lock()
         self._filter = filter_name.lower()
+
+        # Per-robot inbox: buffer incoming messages so all robots are processed
+        # together on each drain, regardless of DDS arrival burst order.
+        self._inbox: dict[str, PeerProfileMsg] = {}
+        self._inbox_lock = threading.Lock()
 
         self._sub = self.create_subscription(
             PeerProfileMsg,
@@ -96,28 +104,56 @@ class RegistryMonitor(Node):
         )
 
     def _on_msg(self, msg: PeerProfileMsg) -> None:
-        existing = self._registry.get(msg.robot_name)
-        if existing is not None:
-            new_t = msg.gps_fix.header.stamp.sec + msg.gps_fix.header.stamp.nanosec * 1e-9
-            old_t = existing.gps_fix.header.stamp.sec + existing.gps_fix.header.stamp.nanosec * 1e-9
-            if new_t <= old_t:
-                return
-        self._registry[msg.robot_name] = msg
+        """Buffer incoming message; always track receipt time for liveness display."""
+        new_t = (msg.gps_fix.header.stamp.sec
+                 + msg.gps_fix.header.stamp.nanosec * 1e-9)
+        with self._inbox_lock:
+            existing = self._inbox.get(msg.robot_name)
+            if existing is not None:
+                old_t = (existing.gps_fix.header.stamp.sec
+                         + existing.gps_fix.header.stamp.nanosec * 1e-9)
+                if new_t < old_t:
+                    # Already buffered a newer message — only update recv time
+                    self._recv_times[msg.robot_name] = time.time()
+                    return
+            self._inbox[msg.robot_name] = msg
+            self._recv_times[msg.robot_name] = time.time()
+
+    def _drain_inbox(self) -> None:
+        """Apply registry ordering check for all buffered robots at once."""
+        with self._inbox_lock:
+            inbox = dict(self._inbox)
+            self._inbox.clear()
+        for robot_name, msg in inbox.items():
+            new_t = (msg.gps_fix.header.stamp.sec
+                     + msg.gps_fix.header.stamp.nanosec * 1e-9)
+            with self._registry_lock:
+                existing = self._registry.get(robot_name)
+                if existing is not None:
+                    old_t = (existing.gps_fix.header.stamp.sec
+                             + existing.gps_fix.header.stamp.nanosec * 1e-9)
+                    if new_t < old_t:
+                        continue  # out-of-order — keep existing
+                self._registry[robot_name] = msg
 
     def print_registry(self) -> None:
+        self._drain_inbox()
         _clear()
         domain = os.environ.get("ROS_DOMAIN_ID", "?")
-        now = time.strftime("%H:%M:%S")
-        print(f"{BOLD}Peer Registry  {DIM}[domain={domain}  {now}]{RESET}")
+        now_str = time.strftime("%H:%M:%S")
+        print(f"{BOLD}Peer Registry  {DIM}[domain={domain}  {now_str}]{RESET}")
         print("─" * 80)
 
-        entries = sorted(self._registry.values(), key=lambda m: m.robot_name)
+        with self._registry_lock:
+            entries = sorted(self._registry.values(), key=lambda m: m.robot_name)
+            recv_times = dict(self._recv_times)
         if self._filter:
             entries = [e for e in entries if self._filter in e.robot_name.lower()]
 
         if not entries:
             print(f"  {DIM}(no peers seen yet){RESET}")
         else:
+            now = time.time()
             for msg in entries:
                 src = "direct" if msg.source == 0 else f"relayed({msg.relay_hops}h)"
                 payload_summary = (
@@ -126,8 +162,11 @@ class RegistryMonitor(Node):
                     if msg.payloads
                     else "no payloads"
                 )
-                stamp_str = _fmt_stamp(msg.gps_fix)
-                print(f"  {CYAN}{BOLD}{msg.robot_name}{RESET}  {DIM}[{src}  stamp={stamp_str}]{RESET}")
+                recv_t = recv_times.get(msg.robot_name)
+                age = f"{now - recv_t:.1f}s ago" if recv_t is not None else "?"
+                recv_wall = time.strftime("%H:%M:%S", time.localtime(recv_t)) if recv_t else "?"
+                stamp_str = f"{recv_wall}  ({age})"
+                print(f"  {CYAN}{BOLD}{msg.robot_name}{RESET}  {DIM}[{src}  last_recv={stamp_str}]{RESET}")
                 print(f"    {GREEN}gps     {RESET} {_fmt_gps(msg.gps_fix, msg.heading)}")
                 print(f"    {YELLOW}waypoint{RESET} {_fmt_waypoint(msg.waypoint)}")
                 print(f"    {DIM}payloads{RESET} {payload_summary}")
