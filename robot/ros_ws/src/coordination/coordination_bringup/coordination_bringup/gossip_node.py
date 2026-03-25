@@ -17,6 +17,7 @@ Publish rate:
 """
 
 import os
+import threading
 import yaml
 
 import rclpy
@@ -36,6 +37,12 @@ from std_msgs.msg import Float64
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 
 from coordination_bringup.peer_profile import PeerProfile
+from coordination_bringup.frame_utils import (
+    gps_to_enu, heading_to_quat, transform_marker_array, transform_point_cloud2,
+)
+
+from visualization_msgs.msg import MarkerArray
+from sensor_msgs.msg import PointCloud2
 
 
 # QoS for gossip topic: best-effort, keep last 1 (low-overhead, high-freq)
@@ -79,10 +86,23 @@ class GossipNode(Node):
         # ── State ────────────────────────────────────────────────────────
         self._profile = PeerProfile(robot_name=self._robot_name)
 
-        # Registry: robot_name → latest PeerProfile ROS msg
-        self._registry: dict[str, PeerProfileMsg] = {}
+        # Boot pose: set on first valid GPS fix + first heading reading.
+        # Used to transform payload data from local odom frame → global ENU
+        # before attaching to PeerProfile, so every receiver gets world-frame data.
+        self._boot_pos: tuple | None = None   # (bx, by, bz) ENU metres
+        self._boot_quat: tuple | None = None  # (qx, qy, qz, qw) rotation
 
-        # Payload cache: topic → latest message (None until first message arrives)
+        # Registry: robot_name → latest accepted PeerProfile (monotonic by stamp)
+        self._registry: dict[str, PeerProfileMsg] = {}
+        self._registry_lock = threading.Lock()
+
+        # Per-robot inbox: buffers incoming peer messages so every robot gets
+        # processed fairly on each drain tick, regardless of DDS arrival order.
+        # Stores only the latest message per robot (by gossip stamp).
+        self._peer_inbox: dict[str, PeerProfileMsg] = {}
+        self._peer_inbox_lock = threading.Lock()
+
+        # Payload cache: topic → (msg, stamp) or None until first message arrives
         self._payload_cache: dict[str, object] = {}
         self._payload_subs: list = []
 
@@ -105,7 +125,7 @@ class GossipNode(Node):
         )
         self._path_sub = self.create_subscription(
             Path,
-            f"/{self._robot_name}/random_walk/global_plan",
+            f"/{self._robot_name}/global_plan",
             self._on_global_plan,
             SENSOR_QOS,
         )
@@ -136,6 +156,15 @@ class GossipNode(Node):
         self._publish_timer = self.create_timer(
             period,
             self._publish_tick,
+            clock=ROSClock(),
+        )
+
+        # ── Peer inbox drain timer (5 Hz wall clock) ──────────────────────
+        # Drains the per-robot inbox at a fixed rate so all robots are
+        # processed fairly — robot N never blocks robot M from being updated.
+        self._drain_timer = self.create_timer(
+            0.2,
+            self._drain_peer_inbox,
             clock=ROSClock(),
         )
 
@@ -199,10 +228,25 @@ class GossipNode(Node):
     # ------------------------------------------------------------------ #
 
     def _on_navsat(self, msg: NavSatFix) -> None:
+        # Only store valid fixes — ignore NO_FIX so GPS never zeros out.
+        if msg.status.status < 0:
+            return
         self._profile.set_gps_from_navsat(msg)
+        # Record boot position on first valid GPS fix
+        if self._boot_pos is None:
+            self._boot_pos = gps_to_enu(msg.latitude, msg.longitude, msg.altitude)
+            # Only set boot_quat now if heading has already been received
+            # (profile.heading != 0.0 means a compass reading arrived first).
+            # If heading hasn't arrived yet, _on_compass will set boot_quat
+            # once the first reading comes in.
+            if self._boot_quat is None and self._profile.heading != 0.0:
+                self._boot_quat = heading_to_quat(self._profile.heading)
 
     def _on_compass(self, msg: Float64) -> None:
         self._profile.set_heading(msg.data)
+        # Set boot quat on first heading reading once we have GPS
+        if self._boot_pos is not None and self._boot_quat is None:
+            self._boot_quat = heading_to_quat(msg.data)
 
     def _on_global_plan(self, msg: Path) -> None:
         self._profile.set_waypoint_from_path(msg)
@@ -210,7 +254,26 @@ class GossipNode(Node):
     def _on_peer_msg(self, msg: PeerProfileMsg) -> None:
         if msg.robot_name == self._robot_name:
             return  # discard own messages echoed back from the gossip domain
-        self._update_registry(msg)
+        # Stage in per-robot inbox: keep only the newest message per robot so
+        # all robots are drained together on the next tick (fair processing).
+        new_t = (msg.gps_fix.header.stamp.sec
+                 + msg.gps_fix.header.stamp.nanosec * 1e-9)
+        with self._peer_inbox_lock:
+            existing = self._peer_inbox.get(msg.robot_name)
+            if existing is not None:
+                old_t = (existing.gps_fix.header.stamp.sec
+                         + existing.gps_fix.header.stamp.nanosec * 1e-9)
+                if new_t < old_t:
+                    return  # already buffered a newer message this tick
+            self._peer_inbox[msg.robot_name] = msg
+
+    def _drain_peer_inbox(self) -> None:
+        """Process all buffered peer messages at 5 Hz, one per robot per tick."""
+        with self._peer_inbox_lock:
+            inbox = dict(self._peer_inbox)
+            self._peer_inbox.clear()
+        for msg in inbox.values():
+            self._update_registry(msg)
 
     # ------------------------------------------------------------------ #
     # Publish logic                                                        #
@@ -221,31 +284,60 @@ class GossipNode(Node):
         self._publish_own()
 
     def _publish_own(self) -> None:
-        # Rebuild payloads from cache on every tick. The cache retains the last
-        # received message per topic indefinitely, so peers always get the most
-        # recent known data even if the source publishes slower than gossip rate.
+        # Rebuild payloads from cache on every tick.
+        # If the boot pose is known, transform each payload into global ENU so
+        # every receiver (peers and GCS) gets world-frame data directly.
+        # If boot pose is not yet known, skip payloads this tick — we cannot
+        # produce a meaningful global-frame transform without GPS.
         self._profile.clear_payloads()
-        for topic, entry in self._payload_cache.items():
-            if entry is not None:
-                msg, stamp = entry
-                self._profile.add_payload(msg, stamp=stamp)
+        if self._boot_pos is not None and self._boot_quat is not None:
+            bx, by, bz = self._boot_pos
+            q = self._boot_quat
+            for topic, entry in self._payload_cache.items():
+                if entry is not None:
+                    msg, stamp = entry
+                    transformed = self._transform_to_global(msg, bx, by, bz, q)
+                    self._profile.add_payload(transformed, stamp=stamp)
+
+        # Stamp the outgoing profile with the current ROS clock time.
+        # Receivers use this stamp — not the MAVROS GPS stamp — to enforce
+        # monotonic ordering and discard out-of-order messages.
+        self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
+
         self._gossip_pub.publish(self._profile.to_ros_msg())
+
+    def _transform_to_global(self, msg, bx, by, bz, q):
+        """Transform a payload message from local odom frame to global ENU."""
+        if isinstance(msg, MarkerArray):
+            return transform_marker_array(msg, bx, by, bz, q)
+        if isinstance(msg, PointCloud2):
+            return transform_point_cloud2(msg, bx, by, bz, q)
+        return msg  # unknown type — pass through untransformed
 
     # ------------------------------------------------------------------ #
     # Registry management                                                  #
     # ------------------------------------------------------------------ #
 
     def _update_registry(self, msg: PeerProfileMsg) -> None:
-        """Update registry with latest-wins semantics, then republish snapshot."""
-        existing = self._registry.get(msg.robot_name)
-        if existing is not None:
-            # Only update if the incoming message is newer
-            new_stamp = msg.gps_fix.header.stamp.sec + msg.gps_fix.header.stamp.nanosec * 1e-9
-            old_stamp = existing.gps_fix.header.stamp.sec + existing.gps_fix.header.stamp.nanosec * 1e-9
-            if new_stamp <= old_stamp:
-                return
+        """Update registry, then republish snapshot.
 
-        self._registry[msg.robot_name] = msg
+        Accept only if the incoming message is newer (or equal) to what we
+        already have.  gossip_node stamps gps_fix.header with the ROS clock
+        at publish time, so this gives strict monotonic ordering — stale or
+        out-of-order messages are silently dropped.
+        """
+        new_t = (msg.gps_fix.header.stamp.sec
+                 + msg.gps_fix.header.stamp.nanosec * 1e-9)
+
+        with self._registry_lock:
+            existing = self._registry.get(msg.robot_name)
+            if existing is not None:
+                old_t = (existing.gps_fix.header.stamp.sec
+                         + existing.gps_fix.header.stamp.nanosec * 1e-9)
+                if new_t < old_t:
+                    return  # out-of-order — discard
+            self._registry[msg.robot_name] = msg
+
         self._registry_pub.publish(msg)
 
 

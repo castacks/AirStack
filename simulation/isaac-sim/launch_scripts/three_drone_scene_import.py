@@ -9,16 +9,14 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+import time
+
 import omni.kit.app
 import omni.timeline
 import omni.usd
 import omni.client
-import asyncio
-import time
 
 from omni.isaac.core.world import World
-from omni.isaac.core.objects import GroundPlane
-from pxr import Gf, UsdGeom, UsdLux, Sdf, UsdPhysics
 
 # Pegasus imports
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
@@ -31,6 +29,10 @@ _LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _LAUNCH_SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
 from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
+
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
+import scene_prep
+from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -93,33 +95,17 @@ def nucleus_stat(url: str) -> bool:
     return result == omni.client.Result.OK
 
 
-def add_dome_light(stage):
-    if stage.GetPrimAtPath(DOME_LIGHT_PATH).IsValid():
-        dome = UsdLux.DomeLight.Get(stage, DOME_LIGHT_PATH)
-    else:
-        dome = UsdLux.DomeLight.Define(stage, Sdf.Path(DOME_LIGHT_PATH))
-
-    dome.CreateIntensityAttr(DOME_LIGHT_INTENSITY)
-    dome.CreateExposureAttr(DOME_LIGHT_EXPOSURE)
-
-
-def get_stage_scale(stage):
-    mpu = UsdGeom.GetStageMetersPerUnit(stage)
-    if mpu is None or mpu <= 0:
-        mpu = 1.0
-    s = 1.0 / mpu
-    return mpu, s
-
-
-def add_collision_to_prim(prim):
-    if prim.IsA(UsdGeom.Mesh):
-        if not prim.HasAPI(UsdPhysics.CollisionAPI):
-            UsdPhysics.CollisionAPI.Apply(prim)
-            print(f"Added collision to: {prim.GetPath()}")
-
-    # Recursively process children
-    for child in prim.GetChildren():
-        add_collision_to_prim(child)
+def wait_for_stage(stage, timeout_s: float = 10.0):
+    """Pump the Kit app loop until /World has content (scene fully loaded)."""
+    for _ in range(int(timeout_s / 0.1)):
+        omni.kit.app.get_app().update()
+        world_prim = stage.GetPrimAtPath("/World")
+        if world_prim.IsValid():
+            non_physics = [c for c in world_prim.GetChildren() if c.GetName() != "PhysicsScene"]
+            if non_physics:
+                return True
+        time.sleep(0.1)
+    return False
 
 
 class PegasusApp:
@@ -148,48 +134,24 @@ class PegasusApp:
         if stage is None:
             raise RuntimeError("Stage failed to load")
 
-        # Wait for the stage to fully load
-        for _ in range(100):  # Wait up to ~10 seconds
-            omni.kit.app.get_app().update()
-            world_prim = stage.GetPrimAtPath("/World")
-            if world_prim.IsValid():
-                children = list(world_prim.GetChildren())
-                # Check if we have more than just PhysicsScene
-                non_physics_children = [c for c in children if c.GetName() != "PhysicsScene"]
-                if len(non_physics_children) > 0:
-                    break
-            time.sleep(0.1)
+        if not wait_for_stage(stage):
+            carb.log_warn("Stage load timed out — continuing anyway.")
 
-        world_prim = stage.GetPrimAtPath("/World")
-
-        # Scale the /World/stage prim
+        # ----- Scene preparation -----
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
-            xformable = UsdGeom.Xformable(stage_prim)
-            xformable.ClearXformOpOrder()
-
-            translate_op = xformable.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
-            translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.0))
-
-            scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble)
-            scale_op.Set(Gf.Vec3d(STAGE_SCALE, STAGE_SCALE, STAGE_SCALE))
-
-            add_collision_to_prim(stage_prim)
-            print("Finished adding collisions.")
-
-            # Let the app process the changes
+            scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
+            add_colliders(stage_prim)
             for _ in range(10):
                 omni.kit.app.get_app().update()
-
         else:
-            print("Warning: /World/stage not found, environment not scaled")
+            carb.log_warn("/World/stage not found — skipping scale and collision.")
 
-        # Lighting
         if ADD_DOME_LIGHT:
-            add_dome_light(stage)
+            add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE)
 
         # Units
-        mpu, s = get_stage_scale(stage)
+        mpu, s = get_stage_meters_per_unit(stage)
 
         # Spawn all drones
         for cfg in DRONE_CONFIGS:

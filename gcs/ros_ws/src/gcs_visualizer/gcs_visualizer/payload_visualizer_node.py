@@ -2,14 +2,20 @@
 payload_visualizer_node.py
 ==========================
 Project-specific GCS visualization node. Reads PeerProfile payloads from
-/gossip/peers, applies coordinate frame translation, and publishes each payload
-to its own topic: /gcs/payload/{robot_name}/{payload_name}
+/gossip/peers and publishes each payload to its own topic:
+/gcs/payload/{robot_name}/{payload_name}
 
 Publishing per-topic (rather than a single MarkerArray) lets Foxglove expose
 its full visualization controls (point size, color mapping, etc.) for each payload.
 
 Payloads are defined in gossip_payloads.yaml on the robot side — no DDS router
 changes are needed when adding new payload types.
+
+Coordinate frame note
+---------------------
+Payloads arrive already transformed into the global ENU 'map' frame by
+gossip_node on each robot.  No coordinate transform is needed here — handlers
+just set frame_id='map' and republish.
 
 How to add a new payload for visualization
 ------------------------------------------
@@ -20,21 +26,11 @@ How to add a new payload for visualization
    _on_peer_profile after the PAYLOAD_HANDLERS loop (order matches yaml order).
 
 Handler signature:
-    def _handle_<name>(self, robot_name, msg, boot, i, now):
-        # msg  — deserialized ROS message
-        # boot — (bx, by, bz) ENU offset: add to all positions to go odom→map frame
+    def _handle_<name>(self, robot_name, msg, i, now):
+        # msg  — deserialized ROS message (already in global ENU / 'map' frame)
         # i    — stable robot index (for marker IDs: i * 100000 + unique_offset)
         # now  — current ROS timestamp
         # Publish to self._pub_for('/gcs/payload/{robot_name}/{name}', MsgType)
-
-Coordinate frame note
----------------------
-Payload data is in each robot's local odometry frame. Apply the boot offset to
-translate into the global 'map' frame before publishing.
-
-Use transform_marker_array() for MarkerArray payloads.
-Use transform_point_cloud2() for PointCloud2 payloads (preserves all fields + rgb).
-Both are in gcs_utils.py.
 """
 
 import rclpy
@@ -48,8 +44,12 @@ from builtin_interfaces.msg import Duration
 
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_bringup.peer_profile import PeerProfile
+from gcs_visualizer.gcs_utils import transform_marker_array, transform_point_cloud2
 
-from gcs_visualizer.gcs_utils import gps_to_enu, transform_marker_array, transform_point_cloud2
+# ENU origin altitude used by gossip_node when transforming payloads at source.
+# Must match frame_utils.DEFAULT_ORIGIN_ALT.
+_GOSSIP_ORIGIN_ALT = 90.0
+
 
 GOSSIP_QOS = QoSProfile(
     reliability=ReliabilityPolicy.RELIABLE,
@@ -62,8 +62,9 @@ class PayloadVisualizerNode(Node):
     def __init__(self):
         super().__init__('payload_visualizer_node')
 
-        self._gps_boot      = {}   # robot_name -> (bx, by, bz) ENU at first GPS fix
-        self._alt_ground    = None
+        self._gps_boot      = {}   # robot_name -> True once a valid GPS fix has been seen
+        self._last_stamp    = {}   # robot_name -> float: ROS stamp of last accepted message
+        self._alt_ground    = None # altitude (m) of first GPS fix — display z datum
         self._payload_cache = {}   # (robot_name, cache_key) -> last deserialized payload msg
         self._pubs          = {}   # topic -> Publisher (created lazily)
 
@@ -81,28 +82,50 @@ class PayloadVisualizerNode(Node):
             self._pubs[topic] = self.create_publisher(msg_type, topic, 10)
         return self._pubs[topic]
 
-    # ── Boot offset tracking ───────────────────────────────────────────────
+    # ── GPS boot tracking (for robot index, not transforms) ───────────────
 
-    def _update_boot_from_gps(self, robot_name: str, gps_fix) -> None:
-        """Track the first GPS fix seen per robot as the boot (odom origin) offset."""
+    def _update_boot(self, robot_name: str, gps_fix) -> None:
+        """Record that a valid GPS fix has been seen for this robot.
+
+        Also tracks alt_ground (first GPS altitude seen across all robots) so
+        payload z values can be shifted to match the foxglove_visualizer datum.
+        """
         if gps_fix.status.status < 0:
             return
         if self._alt_ground is None:
             self._alt_ground = gps_fix.altitude
         if robot_name not in self._gps_boot:
-            pos = gps_to_enu(
-                gps_fix.latitude, gps_fix.longitude,
-                gps_fix.altitude, self._alt_ground)
-            self._gps_boot[robot_name] = pos
+            self._gps_boot[robot_name] = True
+
+    def _display_z_offset(self) -> float:
+        """Z shift to apply to payload positions before display.
+
+        gossip_node transforms payloads with a fixed ENU origin_alt of 90 m.
+        foxglove_visualizer uses alt_ground (first GPS fix altitude) as its datum.
+        If those two differ, payloads appear above or below the drone.
+        This correction aligns them without touching the peer-profile data.
+        """
+        if self._alt_ground is None:
+            return 0.0
+        return _GOSSIP_ORIGIN_ALT - self._alt_ground
 
     # ── Peer profile callback ─────────────────────────────────────────────
 
     def _on_peer_profile(self, msg: PeerProfileMsg) -> None:
         robot_name = msg.robot_name
-        self._update_boot_from_gps(robot_name, msg.gps_fix)
 
-        boot = self._gps_boot.get(robot_name)
-        if boot is None:
+        # Per-robot ordering: accept only if this message is newer than the last
+        # accepted one for THIS robot.  robot_1 and robot_2 are tracked independently
+        # so neither can block the other.
+        new_t = (msg.gps_fix.header.stamp.sec
+                 + msg.gps_fix.header.stamp.nanosec * 1e-9)
+        if new_t < self._last_stamp.get(robot_name, 0.0):
+            return
+        self._last_stamp[robot_name] = new_t
+
+        self._update_boot(robot_name, msg.gps_fix)
+
+        if robot_name not in self._gps_boot:
             return  # no GPS fix yet, skip
 
         profile = PeerProfile.from_ros_msg(msg)
@@ -115,7 +138,7 @@ class PayloadVisualizerNode(Node):
                 self._payload_cache[(robot_name, type_str)] = payload
             cached = self._payload_cache.get((robot_name, type_str))
             if cached is not None:
-                handler(self, robot_name, cached, boot, robot_index, now)
+                handler(self, robot_name, cached, robot_index, now)
 
         # voxel_rgb is the 2nd PointCloud2 payload (frontier_viewpoints is 1st)
         pc2_list = [p for p in profile._payloads if p["type"] == "sensor_msgs/msg/PointCloud2"]
@@ -124,7 +147,7 @@ class PayloadVisualizerNode(Node):
             self._payload_cache[(robot_name, 'rgb_voxels')] = voxel_rgb
         cached_voxels = self._payload_cache.get((robot_name, 'rgb_voxels'))
         if cached_voxels is not None:
-            self._handle_rgb_voxels(robot_name, cached_voxels, boot, robot_index, now)
+            self._handle_rgb_voxels(robot_name, cached_voxels, robot_index, now)
 
     def _robot_index(self, robot_name: str) -> int:
         """Stable integer index for a robot name (alphabetical order)."""
@@ -134,37 +157,33 @@ class PayloadVisualizerNode(Node):
     # ── Payload handlers ──────────────────────────────────────────────────
     # Each handler receives:
     #   robot_name – e.g. "robot_1"
-    #   msg        – deserialized ROS message
-    #   boot       – (bx, by, bz) ENU translation for this robot's odom frame
+    #   msg        – deserialized ROS message (already in global ENU / 'map' frame)
     #   i          – stable robot index (for marker IDs)
     #   now        – current ROS timestamp
     # Publish to self._pub_for('/gcs/payload/{robot_name}/{name}', MsgType)
 
-    def _handle_filtered_rays(self, robot_name, msg, boot, i, now):
-        """Publish filtered_rays MarkerArray translated into the map frame."""
-        bx, by, bz = boot
-        out = MarkerArray()
-        out.markers.extend(transform_marker_array(
-            msg, bx, by, bz,
-            ns=f'{robot_name}_filtered_rays',
-            id_base=i * 100000,
-            stamp=now,
-            lifetime=Duration(sec=2, nanosec=0)))
-        self._pub_for(f'/gcs/payload/{robot_name}/filtered_rays', MarkerArray).publish(out)
+    def _handle_filtered_rays(self, robot_name, msg, i, now):
+        """Republish filtered_rays MarkerArray shifted to the GCS display datum."""
+        bz = self._display_z_offset()
+        out_ma = transform_marker_array(msg, 0.0, 0.0, bz)
+        for k, m in enumerate(out_ma.markers):
+            m.header.stamp = now
+            m.ns = f'{robot_name}_filtered_rays'
+            m.id = i * 100000 + k
+            m.lifetime = Duration(sec=2, nanosec=0)
+        self._pub_for(f'/gcs/payload/{robot_name}/filtered_rays', MarkerArray).publish(out_ma)
 
-    def _handle_frontier_viewpoints(self, robot_name, msg, boot, i, now):
-        """Publish frontier_viewpoints PointCloud2 translated into the map frame."""
-        bx, by, bz = boot
-        transformed = transform_point_cloud2(msg, bx, by, bz)
-        transformed.header.stamp = now
-        self._pub_for(f'/gcs/payload/{robot_name}/frontier_viewpoints', PointCloud2).publish(transformed)
+    def _handle_frontier_viewpoints(self, robot_name, msg, i, now):
+        """Republish frontier_viewpoints PointCloud2 shifted to the GCS display datum."""
+        out = transform_point_cloud2(msg, 0.0, 0.0, self._display_z_offset())
+        out.header.stamp = now
+        self._pub_for(f'/gcs/payload/{robot_name}/frontier_viewpoints', PointCloud2).publish(out)
 
-    def _handle_rgb_voxels(self, robot_name, msg, boot, i, now):
-        """Publish voxel_rgb PointCloud2 translated into the map frame."""
-        bx, by, bz = boot
-        transformed = transform_point_cloud2(msg, bx, by, bz)
-        transformed.header.stamp = now
-        self._pub_for(f'/gcs/payload/{robot_name}/rgb_voxels', PointCloud2).publish(transformed)
+    def _handle_rgb_voxels(self, robot_name, msg, i, now):
+        """Republish voxel_rgb PointCloud2 shifted to the GCS display datum."""
+        out = transform_point_cloud2(msg, 0.0, 0.0, self._display_z_offset())
+        out.header.stamp = now
+        self._pub_for(f'/gcs/payload/{robot_name}/rgb_voxels', PointCloud2).publish(out)
 
     # ── Handler registry ──────────────────────────────────────────────────
     # Maps ROS type string -> handler method.
