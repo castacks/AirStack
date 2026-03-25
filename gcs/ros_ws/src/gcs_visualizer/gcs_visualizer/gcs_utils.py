@@ -97,6 +97,67 @@ def transform_marker_array(marker_array, bx, by, bz, ns, id_base, stamp, lifetim
     return result
 
 
+def point_cloud2_to_cube_marker(cloud, bx, by, bz, ns, marker_id, stamp, lifetime,
+                                fallback_color=None, scale=0.2):
+    """Convert a PointCloud2 to a CUBE_LIST Marker translated into the map frame.
+
+    Extracts x, y, z fields and applies the boot offset (bx, by, bz).
+    If the cloud has an ``rgb`` field (PCL-packed uint32: 0x00RRGGBB stored as
+    float32 bytes), per-point colors are written to ``colors[]``.
+    Otherwise ``fallback_color`` (r, g, b, a) is used as a uniform color.
+
+    pose.orientation.w is set to 1.0 — required for CUBE_LIST so the per-point
+    positions are not distorted by an invalid default quaternion.
+
+    Returns a Marker, or None if the cloud has no x/y/z fields.
+    """
+    from visualization_msgs.msg import Marker
+    from geometry_msgs.msg import Point as GPoint
+    from std_msgs.msg import ColorRGBA
+
+    field_map = {f.name: f.offset for f in cloud.fields}
+    if not all(k in field_map for k in ('x', 'y', 'z')):
+        return None
+
+    ox, oy, oz = field_map['x'], field_map['y'], field_map['z']
+    o_rgb = field_map.get('rgb')
+    ps = cloud.point_step
+    n_points = cloud.width * cloud.height
+    data = bytes(cloud.data)
+
+    m = Marker()
+    m.header.frame_id = 'map'
+    m.header.stamp = stamp
+    m.ns = ns
+    m.id = marker_id
+    m.pose.orientation.w = 1.0   # identity — must be set or CUBE_LIST distorts positions
+    m.type = Marker.CUBE_LIST
+    m.action = Marker.ADD
+    m.scale.x = scale
+    m.scale.y = scale
+    m.scale.z = scale
+    m.lifetime = lifetime
+
+    for idx in range(n_points):
+        base = idx * ps
+        x, = struct.unpack_from('<f', data, base + ox)
+        y, = struct.unpack_from('<f', data, base + oy)
+        z, = struct.unpack_from('<f', data, base + oz)
+        m.points.append(GPoint(x=x + bx, y=y + by, z=z + bz))
+        if o_rgb is not None:
+            packed, = struct.unpack_from('<I', data, base + o_rgb)
+            r = ((packed >> 16) & 0xFF) / 255.0
+            g = ((packed >> 8)  & 0xFF) / 255.0
+            b = (packed         & 0xFF) / 255.0
+            m.colors.append(ColorRGBA(r=r, g=g, b=b, a=1.0))
+
+    if not m.colors:
+        fc = fallback_color or (1.0, 1.0, 1.0, 1.0)
+        m.color = ColorRGBA(r=fc[0], g=fc[1], b=fc[2], a=fc[3])
+
+    return m
+
+
 def transform_point_cloud2(cloud, bx, by, bz):
     """Return a copy of a PointCloud2 with all x,y,z values offset by (bx, by, bz).
 

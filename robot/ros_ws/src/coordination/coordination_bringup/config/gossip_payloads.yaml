@@ -36,6 +36,9 @@ payload_topics:
   # Peers can use these to select non-overlapping goals.
   - topic: "/{robot_name}/frontier_viewpoints"
     type: "sensor_msgs/msg/PointCloud2"
+  
+  - topic : "/{robot_name}/rayfronts/voxel_rgb"
+    type: "sensor_msgs/msg/PointCloud2"
 
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"

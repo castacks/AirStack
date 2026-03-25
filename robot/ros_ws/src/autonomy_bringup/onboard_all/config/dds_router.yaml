@@ -19,7 +19,6 @@ participants:
   - name: "gcs"
     kind: "local"
     domain: $(var gcs_domain)
-
 allowlist:
   # lidar and world model
   - name: "rt/$(env ROBOT_NAME)/sensors/ouster/point_cloud"
