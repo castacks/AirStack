@@ -80,12 +80,99 @@ def on_peer_msg(self, msg):
         print(type(payload))
 ```
 
-## Current payloads (Rayfronts example)
+## Step 4 — Add GCS visualization
 
-| Topic | Type | Purpose |
-|-------|------|---------|
-| `/{robot_name}/filtered_rays` | `visualization_msgs/msg/MarkerArray` | Semantic filtered rays — peers avoid re-exploring these areas |
-| `/{robot_name}/frontier_viewpoints` | `sensor_msgs/msg/PointCloud2` | Candidate exploration targets |
+After adding a payload to `gossip_payloads.yaml`, add a handler so it appears in
+Foxglove. Each payload is published to its own topic:
+`/gcs/payload/{robot_name}/{payload_name}`
+
+This means Foxglove exposes full visualization controls (point size, color mapping,
+marker type, etc.) for each payload independently.
+
+**File:** `gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/payload_visualizer_node.py`
+
+### 4a — Read the payload type from `gossip_payloads.yaml`
+
+Open `robot/ros_ws/src/coordination/coordination_bringup/config/gossip_payloads.yaml`
+and note the `type:` field for your new entry. This determines how to deserialize it.
+
+If your type is **unique** (not already in `PAYLOAD_HANDLERS`), go to step 4b.
+If your type **already exists** (e.g. a second `sensor_msgs/msg/PointCloud2`), go to step 4c.
+
+### 4b — Unique type: add to `PAYLOAD_HANDLERS`
+
+Add a handler and register it:
+
+```python
+PAYLOAD_HANDLERS = {
+    'visualization_msgs/msg/MarkerArray': _handle_filtered_rays,
+    'sensor_msgs/msg/PointCloud2':        _handle_frontier_viewpoints,
+    'your_msgs/msg/YourType':             _handle_your_payload,   # ← add
+}
+```
+
+Handler signature — all handlers must match exactly:
+```python
+def _handle_your_payload(self, robot_name, msg, boot, i, now):
+    # msg  — deserialized ROS message
+    # boot — (bx, by, bz) ENU offset; add to all positions to go odom→map frame
+    # i    — stable robot index (use for marker IDs: i * 100000 + unique_offset)
+    # now  — current ROS timestamp (builtin_interfaces/Time)
+    bx, by, bz = boot
+    # transform and publish to the payload's dedicated topic:
+    self._pub_for(f'/gcs/payload/{robot_name}/your_name', YourMsgType).publish(out)
+```
+
+### 4c — Duplicate type: dispatch by index in `_on_peer_profile`
+
+`PAYLOAD_HANDLERS` is a dict and cannot hold duplicate keys. After the
+`PAYLOAD_HANDLERS` loop in `_on_peer_profile`, access payloads by their position
+among same-type entries — order matches `gossip_payloads.yaml`:
+
+```python
+# Example: 2nd sensor_msgs/msg/PointCloud2 (index 1)
+pc2_list = [p for p in profile._payloads if p["type"] == "sensor_msgs/msg/PointCloud2"]
+if len(pc2_list) >= 2:
+    msg = deserialize_message(bytes(pc2_list[1]["data"]), PointCloud2)
+    self._payload_cache[(robot_name, 'my_cache_key')] = msg
+cached = self._payload_cache.get((robot_name, 'my_cache_key'))
+if cached is not None:
+    self._handle_my_payload(robot_name, cached, boot, robot_index, now)
+```
+
+### 4d — Available transform helpers (`gcs_utils.py`)
+
+Check `gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/gcs_utils.py` before writing
+transform logic. Add a new helper there if none fits.
+
+| Helper | Use for |
+|--------|---------|
+| `transform_marker_array(ma, bx, by, bz, ns, id_base, stamp, lifetime)` | `MarkerArray` → translated `MarkerArray` |
+| `transform_point_cloud2(cloud, bx, by, bz)` | `PointCloud2` → translated `PointCloud2` (preserves all fields including `rgb`) |
+
+Publish raw `PointCloud2` when you want Foxglove's viz controls (point size, color
+mapping, etc.). Publish `MarkerArray` when the shape/color is fixed by the publisher.
+
+### 4e — Rebuild GCS
+
+```bash
+docker exec airstack-gcs-1 bash -c "bws --packages-select gcs_visualizer && sws"
+```
+
+Verify topics exist:
+```bash
+docker exec airstack-gcs-1 bash -c "ros2 topic list | grep /gcs/payload"
+```
+
+---
+
+## Current payloads
+
+| Topic in `gossip_payloads.yaml` | Type | GCS topic | Foxglove controls |
+|--------------------------------|------|-----------|-------------------|
+| `/{robot_name}/filtered_rays` | `visualization_msgs/msg/MarkerArray` | `/gcs/payload/{robot}/filtered_rays` | Fixed (MarkerArray) |
+| `/{robot_name}/frontier_viewpoints` | `sensor_msgs/msg/PointCloud2` | `/gcs/payload/{robot}/frontier_viewpoints` | Full (raw PointCloud2) |
+| `/{robot_name}/rayfronts/voxel_rgb` | `sensor_msgs/msg/PointCloud2` | `/gcs/payload/{robot}/rgb_voxels` | Full (raw PointCloud2 with RGB) |
 
 ## Architecture notes
 
