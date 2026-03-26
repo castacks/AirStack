@@ -19,6 +19,7 @@ Publish rate:
 import os
 import threading
 import yaml
+from collections import OrderedDict
 
 import rclpy
 from rclpy.node import Node
@@ -45,9 +46,16 @@ from visualization_msgs.msg import MarkerArray
 from sensor_msgs.msg import PointCloud2
 
 
-# QoS for gossip topic: best-effort, keep last 1 (low-overhead, high-freq)
+# Seen-set size: deduplicates the last N unique (robot_name, stamp) pairs.
+# At 1 Hz per robot, 50 entries covers ~25 s for 2 robots or ~5 s for 10 robots —
+# well beyond the millisecond window in which DDS Router duplicates arrive.
+_GOSSIP_SEEN_SIZE = 50
+
+# QoS for gossip topic: BEST_EFFORT — at 1 Hz a dropped message recovers on the
+# next tick, so reliability overhead (heartbeats, ACKs across domain bridges) is
+# unnecessary and was the main source of DDS-layer amplification.
 GOSSIP_QOS = QoSProfile(
-    reliability=QoSReliabilityPolicy.RELIABLE,
+    reliability=QoSReliabilityPolicy.BEST_EFFORT,
     history=QoSHistoryPolicy.KEEP_LAST,
     depth=10,
 )
@@ -101,6 +109,10 @@ class GossipNode(Node):
         # Stores only the latest message per robot (by gossip stamp).
         self._peer_inbox: dict[str, PeerProfileMsg] = {}
         self._peer_inbox_lock = threading.Lock()
+
+        # Seen-set: deduplicates incoming peer messages by (robot_name, sec, nanosec).
+        # Including robot_name in the key ensures robot_1 and robot_2 never share IDs.
+        self._seen: OrderedDict = OrderedDict()
 
         # Payload cache: topic → (msg, stamp) or None until first message arrives
         self._payload_cache: dict[str, object] = {}
@@ -254,6 +266,19 @@ class GossipNode(Node):
     def _on_peer_msg(self, msg: PeerProfileMsg) -> None:
         if msg.robot_name == self._robot_name:
             return  # discard own messages echoed back from the gossip domain
+
+        # Seen-set deduplication: discard if this exact (robot, stamp) was already
+        # processed.  Key includes robot_name so robot_1 and robot_2 can never share
+        # an ID even when their sequence counters coincide.
+        msg_id = (msg.robot_name,
+                  msg.gps_fix.header.stamp.sec,
+                  msg.gps_fix.header.stamp.nanosec)
+        if msg_id in self._seen:
+            return
+        self._seen[msg_id] = None
+        if len(self._seen) > _GOSSIP_SEEN_SIZE:
+            self._seen.popitem(last=False)  # evict oldest entry
+
         # Stage in per-robot inbox: keep only the newest message per robot so
         # all robots are drained together on the next tick (fair processing).
         new_t = (msg.gps_fix.header.stamp.sec
@@ -290,9 +315,12 @@ class GossipNode(Node):
         # If boot pose is not yet known, skip payloads this tick — we cannot
         # produce a meaningful global-frame transform without GPS.
         self._profile.clear_payloads()
-        if self._boot_pos is not None and self._boot_quat is not None:
+        if self._boot_pos is not None:
             bx, by, bz = self._boot_pos
-            q = self._boot_quat
+            # PX4/MAVROS odom frame is ENU-aligned — x=East, y=North, z=Up
+            # regardless of drone heading.  Only translation is needed; applying
+            # heading rotation would incorrectly rotate the payload data.
+            q = (0.0, 0.0, 0.0, 1.0)
             for topic, entry in self._payload_cache.items():
                 if entry is not None:
                     msg, stamp = entry

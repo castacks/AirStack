@@ -65,5 +65,5 @@ allowlist:
   # control commands
   - name: "rt/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command"
 
-  # gossip peer profiles (carries all robot payloads — no need to bridge individual topics)
-  - name: "rt/gossip/peers"
+  # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
+  # NOT here — having it in both routers causes message flooding/amplification.
