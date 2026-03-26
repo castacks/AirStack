@@ -31,6 +31,9 @@
 
    
 
+  <!-- Gossip bridge: connects GCS domain (0) to gossip bus (domain 99) -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gcs_gossip_bridge.launch.py" />
+
   <!-- GCS Visualizer: drone mesh markers in global ENU frame -->
   <include file="$(find-pkg-share gcs_visualizer)/launch/gcs_visualizer.launch.xml" />
 

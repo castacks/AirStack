@@ -32,7 +32,7 @@ from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 
 GOSSIP_QOS = QoSProfile(
-    reliability=QoSReliabilityPolicy.RELIABLE,
+    reliability=QoSReliabilityPolicy.BEST_EFFORT,
     history=QoSHistoryPolicy.KEEP_LAST,
     depth=10,
 )

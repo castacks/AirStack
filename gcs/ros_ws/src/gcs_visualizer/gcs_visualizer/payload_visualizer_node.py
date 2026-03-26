@@ -33,6 +33,8 @@ Handler signature:
         # Publish to self._pub_for('/gcs/payload/{robot_name}/{name}', MsgType)
 """
 
+from collections import OrderedDict
+
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
@@ -51,8 +53,12 @@ from gcs_visualizer.gcs_utils import transform_marker_array, transform_point_clo
 _GOSSIP_ORIGIN_ALT = 90.0
 
 
+# Seen-set size: same reasoning as gossip_node — covers well beyond the window
+# in which DDS Router duplicates arrive.
+_GOSSIP_SEEN_SIZE = 50
+
 GOSSIP_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.RELIABLE,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
     durability=DurabilityPolicy.VOLATILE,
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
@@ -67,6 +73,7 @@ class PayloadVisualizerNode(Node):
         self._alt_ground    = None # altitude (m) of first GPS fix — display z datum
         self._payload_cache = {}   # (robot_name, cache_key) -> last deserialized payload msg
         self._pubs          = {}   # topic -> Publisher (created lazily)
+        self._seen: OrderedDict = OrderedDict()  # seen-set for duplicate suppression
 
         # Subscribe to /gossip/peers — PeerProfiles arrive here from all robots
         self.create_subscription(
@@ -113,6 +120,17 @@ class PayloadVisualizerNode(Node):
 
     def _on_peer_profile(self, msg: PeerProfileMsg) -> None:
         robot_name = msg.robot_name
+
+        # Seen-set deduplication: drop exact duplicates before any other work.
+        # Key is (robot_name, sec, nanosec) — robot_name prevents cross-robot collisions.
+        msg_id = (robot_name,
+                  msg.gps_fix.header.stamp.sec,
+                  msg.gps_fix.header.stamp.nanosec)
+        if msg_id in self._seen:
+            return
+        self._seen[msg_id] = None
+        if len(self._seen) > _GOSSIP_SEEN_SIZE:
+            self._seen.popitem(last=False)
 
         # Per-robot ordering: accept only if this message is newer than the last
         # accepted one for THIS robot.  robot_1 and robot_2 are tracked independently
