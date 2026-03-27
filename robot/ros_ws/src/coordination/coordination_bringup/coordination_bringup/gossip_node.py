@@ -35,12 +35,8 @@ from visualization_msgs.msg import MarkerArray
 from sensor_msgs.msg import PointCloud2
 
 
-# Deduplication seen-set size. At 1 Hz, 50 entries covers ~5 s for 10 robots —
-# well beyond the window in which DDS Router duplicates arrive.
 _GOSSIP_SEEN_SIZE = 50
 
-# BEST_EFFORT: at 1 Hz a dropped message recovers on the next tick; reliability
-# overhead across domain bridges was the main source of DDS-layer amplification.
 GOSSIP_QOS = QoSProfile(
     reliability=QoSReliabilityPolicy.BEST_EFFORT,
     history=QoSHistoryPolicy.KEEP_LAST,
@@ -85,13 +81,12 @@ class GossipNode(Node):
         self._registry: dict[str, PeerProfileMsg] = {}
         self._registry_lock = threading.Lock()
 
-        # Per-robot inbox: holds only the latest message per robot so all robots
-        # are drained together on each tick regardless of DDS arrival order.
         self._peer_inbox: dict[str, PeerProfileMsg] = {}
         self._peer_inbox_lock = threading.Lock()
 
         self._seen: OrderedDict = OrderedDict()
         self._payload_cache: dict[str, object] = {}
+        self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
         self._payload_subs: list = []
 
         if payload_config_path:
@@ -158,6 +153,8 @@ class GossipNode(Node):
                 continue
 
             topic = topic_template.replace("{robot_name}", self._robot_name)
+            # Use the last path segment as a short human-readable name (e.g. 'filtered_rays')
+            self._payload_names[topic] = topic_template.rstrip("/").split("/")[-1]
 
             try:
                 msg_class = rosidl_utils.get_message(type_str)
@@ -241,7 +238,7 @@ class GossipNode(Node):
                 if entry is not None:
                     msg, stamp = entry
                     transformed = self._transform_to_global(msg, bx, by, bz, q)
-                    self._profile.add_payload(transformed, stamp=stamp)
+                    self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
 
         # Stamp with current ROS clock (not MAVROS GPS stamp) so receivers can
         # enforce monotonic ordering across ticks.

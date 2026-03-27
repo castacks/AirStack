@@ -5,5 +5,6 @@
 # stamp is the time the source topic was last received — receivers can use
 # this to detect stale payloads independently of the gossip message timestamp.
 builtin_interfaces/Time stamp
+string  payload_name
 string  payload_type
 uint8[] payload_data

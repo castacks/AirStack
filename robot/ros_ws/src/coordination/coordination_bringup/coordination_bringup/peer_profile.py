@@ -50,15 +50,12 @@ class PeerProfile:
         s = self.waypoint.header.stamp
         return s.sec != 0 or s.nanosec != 0
 
-    def add_payload(self, msg: Any, stamp=None) -> None:
-        """Serialize and attach a ROS message as a payload.
-
-        Pass the source message's header stamp so receivers can judge data freshness
-        independently of the gossip message timestamp.
-        """
+    def add_payload(self, msg: Any, stamp=None, name: str = "") -> None:
+        """Serialize and attach a ROS message as a payload."""
         from builtin_interfaces.msg import Time
         type_str = _ros_type_string(msg)
         self._payloads.append({
+            "name": name,
             "type": type_str,
             "data": serialize_message(msg),
             "stamp": stamp if stamp is not None else Time(),
@@ -72,6 +69,14 @@ class PeerProfile:
         for p in self._payloads:
             if p["type"] == payload_type:
                 msg_class = rosidl_utils.get_message(payload_type)
+                return deserialize_message(p["data"], msg_class)
+        return None
+
+    def get_payload_by_name(self, name: str) -> Optional[Any]:
+        """Return the payload with the given name, or None."""
+        for p in self._payloads:
+            if p.get("name") == name:
+                msg_class = rosidl_utils.get_message(p["type"])
                 return deserialize_message(p["data"], msg_class)
         return None
 
@@ -104,6 +109,7 @@ class PeerProfile:
         msg.payloads = [
             PeerProfilePayloadMsg(
                 stamp=p.get("stamp") or PeerProfilePayloadMsg().stamp,
+                payload_name=p.get("name", ""),
                 payload_type=p["type"],
                 payload_data=list(p["data"]),
             )
@@ -120,19 +126,16 @@ class PeerProfile:
         profile.source = Source(msg.source)
         profile.relay_hops = msg.relay_hops
         profile._payloads = [
-            {"type": p.payload_type, "data": bytes(p.payload_data), "stamp": p.stamp}
+            {"name": p.payload_name, "type": p.payload_type, "data": bytes(p.payload_data), "stamp": p.stamp}
             for p in msg.payloads
         ]
         return profile
 
 
 def _ros_type_string(msg: Any) -> str:
-    """Return the fully-qualified ROS type string for a message instance.
-    E.g. nav_msgs.msg.OccupancyGrid → 'nav_msgs/msg/OccupancyGrid'
-    """
+    """Return the fully-qualified ROS type string, e.g. 'nav_msgs/msg/OccupancyGrid'."""
     module = type(msg).__module__
     name = type(msg).__name__
-    # Convert "nav_msgs.msg._occupancy_grid" → "nav_msgs/msg"
     parts = module.split(".")
     if len(parts) >= 2:
         return f"{parts[0]}/{parts[1]}/{name}"
