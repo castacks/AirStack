@@ -17,6 +17,7 @@ find_package(behavior_tree_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(mavros_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
 
 add_executable(behavior_executive src/behavior_executive.cpp)
 target_include_directories(behavior_executive PUBLIC
@@ -34,6 +35,7 @@ ament_target_dependencies(behavior_executive
   airstack_msgs
   airstack_common
   mavros_msgs
+  vision_msgs
 )
 
 install(TARGETS behavior_executive

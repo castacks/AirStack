@@ -1,0 +1,43 @@
+# (Yunwoo) ROS2 style parameter file for bpmp_tracker visualization
+/**:
+  ros__parameters:
+    frame_id: "map"
+    # Raw primitives
+    raw_primitives:
+      publish: true
+      num_time_sample: 10
+      proportion: 0.1
+      line_scale: 0.01
+      color_a: 0.1
+      color_r: 0.0
+      color_g: 0.0
+      color_b: 0.0
+    
+    # Feasible primitives
+    feasible_primitives:
+      publish: true
+      num_time_sample: 10
+      proportion: 0.2
+      line_scale: 0.02
+      color_a: 0.3
+      color_r: 0.0
+      color_g: 1.0
+      color_b: 1.0
+    
+    # Best primitive
+    best_primitive:
+      publish: true
+      num_time_sample: 10
+      line_scale: 0.05
+      color_a: 1.0
+      color_r: 0.0
+      color_g: 0.0
+      color_b: 1.0
+    
+    # Corridor
+    corridor:
+      publish: true
+      color_a: 0.5
+      color_r: 1.0
+      color_g: 0.0
+      color_b: 1.0

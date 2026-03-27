@@ -59,6 +59,7 @@ RUN apt update && apt install -y --no-install-recommends curl emacs vim nano tmu
     ros-humble-topic-tools \
     ros-humble-grid-map \
     ros-humble-domain-bridge \
+    ros-humble-vision-msgs \
     libcgal-dev \
     python3-colcon-common-extensions
 

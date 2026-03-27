@@ -30,7 +30,8 @@
             <remap from="stuck" to="/$(env ROBOT_NAME)/droan/stuck" />
             <!-- (Yunwoo) Keyboard control topics -->
             <remap from="keyboard_control_enable" to="/$(env ROBOT_NAME)/keyboard_control_enable" />
-
+            <!-- (Yunwoo) Target tracking topics -->
+            <remap from="target_tracking_toggle" to="/$(env ROBOT_NAME)/target_tracking/toggle" />
         </node>
 
     </group>

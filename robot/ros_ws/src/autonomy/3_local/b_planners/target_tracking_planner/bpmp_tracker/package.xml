@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>bpmp_tracker</name>
+  <version>0.0.1</version>
+  <description>BPMP Tracker for target tracking</description>
+
+  <maintainer email="yunwoo@todo.todo">Yunwoo</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- Build tools -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Build dependencies -->
+  <build_depend>rclcpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>std_srvs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <build_depend>vision_msgs</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
+  <build_depend>tf2_eigen</build_depend>
+  <build_depend>airstack_msgs</build_depend>
+  <build_depend>airstack_common</build_depend>
+  <build_depend>decomp_util</build_depend>  <!-- (Yunwoo) DecompUtil dependency -->
+
+  <!-- Exec (runtime) dependencies -->
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>tf2_eigen</exec_depend>
+  <exec_depend>airstack_msgs</exec_depend>
+  <exec_depend>airstack_common</exec_depend>
+  <exec_depend>decomp_util</exec_depend>
+
+  <build_depend>eigen3_cmake_module</build_depend>
+  <exec_depend>eigen3_cmake_module</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -13,7 +13,7 @@ if [ -z "$ANDREWID" ]; then
 fi
 
 # Set ANDREWID as environment variable
-rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume1/airstack/ascent_sitl/AscentAeroSystemsSITLPackage.zip /tmp/
+rsync --progress -avz ${ANDREWID}@airlab-storage.andrew.cmu.edu:/volume1/airstack/ascent_sitl/AscentAeroSystemsSITLPackage.zip /tmp/ #(Yunwoo)
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 

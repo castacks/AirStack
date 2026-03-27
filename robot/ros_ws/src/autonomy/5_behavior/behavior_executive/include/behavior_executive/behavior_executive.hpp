@@ -60,6 +60,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Condition* stuck_condition;
     bt::Condition* autonomously_explore_condition;
     bt::Condition* keyboard_control_commanded_condition;  // (Yunwoo)
+    bt::Condition* target_tracking_commanded_condition; // (Yunwoo)
     std::vector<bt::Condition*> conditions;
 
     // Action variables
@@ -73,6 +74,7 @@ class BehaviorExecutive : public rclcpp::Node {
     bt::Action* request_control_action;
     bt::Action* disarm_action;
     bt::Action* keyboard_control_action;  // (Yunwoo)
+    bt::Action* target_tracking_action; // (Yunwoo)
     std::vector<bt::Action*> actions;
 
     // subscribers
@@ -98,6 +100,7 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Client<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr
         takeoff_landing_command_client;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr global_planner_toggle_client;
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr target_tracking_toggle_client;  // (Yunwoo)
 
     // timers
     rclcpp::TimerBase::SharedPtr timer;

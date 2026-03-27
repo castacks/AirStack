@@ -6,9 +6,13 @@ Panels:
       Expanded:
         - /Global Options1
         - /TF1/Frames1
+        - /Sensors1
+        - /Local1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
         - /Local1/DROAN1/Traj Library1/Namespaces1
         - /Local1/Trajectory Controller1/Traj Vis1/Namespaces1
+        - /Global1
+        - /Tracking1
       Splitter Ratio: 0.590062141418457
     Tree Height: 778
   - Class: rviz_common/Selection
@@ -28,7 +32,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Expansion Cloud
+    SyncSource: Disparity Cloud
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
@@ -206,7 +210,7 @@ Visualization Manager:
             Value: odometry_conversion/odometry
           Value: true
         - Class: rviz_default_plugins/Image
-          Enabled: true
+          Enabled: false
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -218,7 +222,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: gimbal/rgb
-          Value: true
+          Value: false
       Enabled: true
       Name: Sensors
     - Class: rviz_common/Group
@@ -345,7 +349,7 @@ Visualization Manager:
               Enabled: true
               Name: Disparity Graph Poses
               Namespaces:
-                pose: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -439,7 +443,7 @@ Visualization Manager:
               Enabled: true
               Name: Rewind Info
               Namespaces:
-                rewind_info: true
+                {}
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -467,7 +471,7 @@ Visualization Manager:
                 Reliability Policy: Reliable
                 Value: droan/map_clearing_point
               Value: true
-          Enabled: true
+          Enabled: false
           Name: DROAN
         - Class: rviz_common/Group
           Displays:
@@ -503,10 +507,10 @@ Visualization Manager:
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/Marker
-          Enabled: true
+          Enabled: false
           Name: VDB Mapping Marker
           Namespaces:
-            "": true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -514,7 +518,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: vdb_mapping/vdb_map_visualization
-          Value: true
+          Value: false
         - Alpha: 1
           Buffer Length: 1
           Class: rviz_default_plugins/Path
@@ -586,6 +590,108 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /robot_1/keyboard_controller/tracking_point_vis
       Value: true
+    - Class: rviz_common/Group
+      Displays:
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.20000000298023224
+          Class: rviz_default_plugins/Pose
+          Color: 255; 25; 0
+          Enabled: true
+          Head Length: 0.30000001192092896
+          Head Radius: 0.10000000149011612
+          Name: Target
+          Shaft Length: 1
+          Shaft Radius: 0.05000000074505806
+          Shape: Axes
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/target_info
+          Value: true
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: TargetFilteredVDB
+          Namespaces:
+            filtered_vdb_map: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/bpmp/filtered_vdb_map
+          Value: true
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: Corridor
+          Namespaces:
+            SAFE_CORRIDOR: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/bpmp/corridor
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: FeasiblePrimitives
+          Namespaces:
+            TRACKER_FEASIBLE_PRIMITIVES: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/bpmp/feasible_primitives
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: RawPrimitives
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/bpmp/raw_primitives
+          Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 255; 255; 0
+          Enabled: true
+          Head Diameter: 0.30000001192092896
+          Head Length: 0.20000000298023224
+          Length: 0.30000001192092896
+          Line Style: Billboards
+          Line Width: 0.10000000149011612
+          Name: TrackingPath
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.029999999329447746
+          Shaft Diameter: 0.10000000149011612
+          Shaft Length: 0.10000000149011612
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /robot_1/bpmp/best_primitive
+          Value: true
+      Enabled: true
+      Name: Tracking
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -632,25 +738,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 21.96161651611328
+      Distance: 14.579097747802734
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.7587476968765259
-        Y: 1.8086673021316528
-        Z: -0.5577518343925476
+        X: 1.1151398420333862
+        Y: 2.315162181854248
+        Z: 0.23781059682369232
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4703981578350067
+      Pitch: 0.97539883852005
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.9804108142852783
+      Yaw: 3.6904170513153076
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
@@ -668,7 +774,7 @@ Window Geometry:
   Hide Right Dock: false
   MACVO Disparity:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001e500000393fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000393000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f600000393fc0200000009fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b000001370000002800fffffffb0000002000460072006f006e00740020004c0065006600740020004400650070007400680100000178000001360000002800fffffffb0000001800470069006d00620061006c005f0049006d00610067006501000002b40000011a0000002800fffffffb0000001e004d004100430056004f002000440069007300700061007200690074007900000002910000013d0000002800fffffffb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000d2a00000171fc0100000003fb0000000800540069006d00650100000000000004920000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c010000049800000892000001fa00fffffffb0000000800540069006d00650100000000000004500000000000000000000009430000039300000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001e500000393fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000393000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000000000000000fb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000002f800000393fc0200000009fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001c00460072006f006e00740020004c0065006600740020005200470042010000003b000001c70000002800fffffffb0000002000460072006f006e00740020004c0065006600740020004400650070007400680100000208000001c60000002800fffffffb0000001800470069006d00620061006c005f0049006d00610067006500000002b40000011a0000002800fffffffb0000001e004d004100430056004f002000440069007300700061007200690074007900000002910000013d0000002800fffffffb0000000a0056006900650077007300000002d3000000cf000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000d2a00000171fc0100000003fb0000000800540069006d00650100000000000004920000025300fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c010000049800000892000001fa00fffffffb0000000800540069006d00650100000000000004500000000000000000000008410000039300000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

@@ -42,6 +42,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     stuck_condition = new bt::Condition("Stuck", this);
     autonomously_explore_condition = new bt::Condition("Autonomously Explore Commanded", this);
     keyboard_control_commanded_condition = new bt::Condition("Keyboard Control Commanded", this);  // (Yunwoo)
+    target_tracking_commanded_condition = new bt::Condition("Target Tracking Commanded", this); // (Yunwoo)
     conditions.push_back(auto_takeoff_commanded_condition);
     conditions.push_back(takeoff_commanded_condition);
     conditions.push_back(armed_condition);
@@ -62,7 +63,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(stuck_condition);
     conditions.push_back(autonomously_explore_condition);
     conditions.push_back(keyboard_control_commanded_condition);  // (Yunwoo)
-
+    conditions.push_back(target_tracking_commanded_condition); // (Yunwoo)
     // actions
     arm_action = new bt::Action("Arm", this);
     takeoff_action = new bt::Action("Takeoff", this);
@@ -74,6 +75,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     request_control_action = new bt::Action("Request Control", this);
     disarm_action = new bt::Action("Disarm", this);
     keyboard_control_action = new bt::Action("Keyboard Control", this);  // (Yunwoo)
+    target_tracking_action = new bt::Action("Target Tracking", this); // (Yunwoo)
     actions.push_back(arm_action);
     actions.push_back(takeoff_action);
     actions.push_back(land_action);
@@ -84,7 +86,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     actions.push_back(request_control_action);
     actions.push_back(disarm_action);
     actions.push_back(keyboard_control_action);  // (Yunwoo)
-
+    actions.push_back(target_tracking_action); // (Yunwoo)
     // subscribers
     behavior_tree_commands_sub =
         this->create_subscription<behavior_tree_msgs::msg::BehaviorTreeCommands>(
@@ -129,6 +131,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
         "set_takeoff_landing_command", rmw_qos_profile_services_default, service_callback_group);
     global_planner_toggle_client = this->create_client<std_srvs::srv::Trigger>(
         "global_plan_toggle", rmw_qos_profile_services_default, service_callback_group);
+    target_tracking_toggle_client = this->create_client<std_srvs::srv::Trigger>(
+        "target_tracking_toggle", rmw_qos_profile_services_default, service_callback_group);
 
     // timers
     timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
@@ -350,6 +354,33 @@ void BehaviorExecutive::timer_callback() {
 	    }
         };
     }
+    
+    // (Yunwoo) target tracking action
+    if (target_tracking_action->is_active()) {
+        target_tracking_action->set_running();
+        if (target_tracking_action->active_has_changed()) {
+            // Set trajectory mode to ADD_SEGMENT
+            airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
+                std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+            mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT;
+            auto mode_result = trajectory_mode_client->async_send_request(mode_request);
+            std::cout << "target tracking mode 1" << std::endl;
+            mode_result.wait();
+            std::cout << "target tracking mode 2" << std::endl;
+
+            // Call Trigger service to start target tracking
+            if (target_tracking_toggle_client->service_is_ready()) {
+                std_srvs::srv::Trigger::Request::SharedPtr request =
+                    std::make_shared<std_srvs::srv::Trigger::Request>();
+                auto result = target_tracking_toggle_client->async_send_request(request);
+                result.wait();
+                if (result.get()->success)
+                    target_tracking_action->set_success();
+                else
+                    target_tracking_action->set_failure();
+            }
+        }
+    }    
 
     // (Yunwoo) keyboard control action
     static bool was_keyboard_active = false;

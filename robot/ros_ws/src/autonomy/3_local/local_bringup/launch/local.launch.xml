@@ -72,6 +72,24 @@
         </node>
     </group>
 
+    <!-- BPMP Target Tracking Planner (Yunwoo) -->
+    <group>
+        <push-ros-namespace namespace="bpmp" />
+        <!-- BPMP Predictor Node -->
+        <node pkg="bpmp_tracker" exec="bpmp_predictor_node" name="bpmp_predictor" output="screen">
+            <param from="$(find-pkg-share bpmp_tracker)/config/Predictor.yaml" />
+            <remap from="target_info" to="/$(env ROBOT_NAME)/target_info" />
+        </node>
+        <!-- BPMP Tracker Node -->
+        <node pkg="bpmp_tracker" exec="bpmp_tracker_node" name="bpmp_tracker" output="screen">
+            <param from="$(find-pkg-share bpmp_tracker)/config/VisualizationParam.yaml" />
+            <param from="$(find-pkg-share bpmp_tracker)/config/PlanningParam.yaml" />
+            <remap from="ego_odometry" to="$(var local_odometry_in_topic)" />
+            <remap from="target_info" to="/$(env ROBOT_NAME)/target_info" />
+            <remap from="target_tracking_toggle" to="/$(env ROBOT_NAME)/target_tracking/toggle" />
+        </node>
+    </group>
+
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
     <node pkg="trajectory_controller" exec="trajectory_controller"

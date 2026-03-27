@@ -18,3 +18,5 @@ groups:
         condition_name: Autonomously Explore Commanded
     - Keyboard Control:  # (Yunwoo)
         condition_name: Keyboard Control Commanded
+    - Target Tracking: # (Yunwoo)
+        condition_name: Target Tracking Commanded

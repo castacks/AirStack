@@ -85,3 +85,8 @@
 		?
 			[Keyboard Control]
 # (Yunwoo) Keyboard Control branch above
+	->
+		(Target Tracking Commanded)
+		?
+			[Target Tracking]
+# (Yunwoo) Target Tracking branch above
