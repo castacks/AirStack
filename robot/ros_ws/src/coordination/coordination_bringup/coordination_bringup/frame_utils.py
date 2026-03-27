@@ -1,17 +1,4 @@
-"""
-frame_utils.py
-==============
-Coordinate frame utilities shared between gossip_node (robot) and
-gcs_visualizer (GCS).
-
-Robots transform their payloads into global ENU before attaching them to
-PeerProfile, so every consumer receives world-frame data directly.
-
-ENU world origin (what GPS (0,0,0) maps to in metres):
-  Must match gcs_utils.py ORIGIN_* and the simulation's GPS home position.
-  Override via the 'enu_origin_lat/lon/alt' ROS parameters in gossip_node,
-  or leave at the Lisbon default used everywhere else in AirStack.
-"""
+"""Coordinate frame utilities shared between gossip_node (robot) and gcs_visualizer (GCS)."""
 
 import copy
 import math
@@ -37,9 +24,7 @@ def gps_to_enu(lat, lon, alt,
 def heading_to_quat(heading_deg):
     """Compass heading (degrees CW from North) → ENU yaw quaternion (x,y,z,w).
 
-    ENU: yaw=0 → East (+x), yaw=90° → North (+y).
-    heading=0 (North) → yaw=90° → q=(0,0,sin45,cos45)
-    heading=90 (East)  → yaw=0°  → q=(0,0,0,1)
+    ENU: yaw=0 → East (+x). heading=0 (North) → yaw=90° → q=(0,0,sin45,cos45).
     """
     yaw_enu = math.radians(90.0 - heading_deg)
     return (0.0, 0.0, math.sin(yaw_enu / 2.0), math.cos(yaw_enu / 2.0))
@@ -62,18 +47,12 @@ def rotate_vector(v, q):
 def transform_marker_array(marker_array, bx, by, bz, q=(0.0, 0.0, 0.0, 1.0)):
     """Deep-copy a MarkerArray and transform all points: p_map = R(q)*p + (bx,by,bz).
 
-    Transforms every point in points[] (LINE_LIST, LINE_STRIP, CUBE_LIST,
-    SPHERE_LIST, POINTS, ARROW-with-2-points, TRIANGLE_LIST).
+    Transforms points[] only — not pose.position. These markers use an identity pose
+    so points[] are already in the parent frame; translating pose.position would
+    double-apply the offset. For single-geometry markers (SPHERE, CUBE, MESH) whose
+    position lives in pose.position, translate at the call site instead.
 
-    Note: pose.position is intentionally NOT translated here.  In the ROS
-    marker convention, points[] are expressed in the marker's local frame
-    (defined by pose).  These markers typically use an identity pose so that
-    points[] are already in the parent frame; translating pose.position as
-    well would double-apply the offset.  If you have single-geometry markers
-    (SPHERE, CUBE, TEXT, MESH_RESOURCE) whose position lives in pose.position
-    rather than points[], translate pose.position at the call site instead.
-
-    Sets frame_id='map'.  Returns a new MarkerArray (does not modify in-place).
+    Sets frame_id='map'. Returns a new MarkerArray.
     """
     from visualization_msgs.msg import MarkerArray as MA
     out = MA()
@@ -92,8 +71,7 @@ def transform_marker_array(marker_array, bx, by, bz, q=(0.0, 0.0, 0.0, 1.0)):
 def transform_point_cloud2(cloud, bx, by, bz, q=(0.0, 0.0, 0.0, 1.0)):
     """Return a copy of PointCloud2 with all xyz transformed: p_map = R(q)*p + (bx,by,bz).
 
-    Sets frame_id='map'.  Reads field offsets from the message header so
-    non-standard field orderings work.
+    Sets frame_id='map'. Reads field offsets from the message header.
     """
     field_offsets = {f.name: f.offset for f in cloud.fields if f.name in ('x', 'y', 'z')}
     if not all(k in field_offsets for k in ('x', 'y', 'z')):

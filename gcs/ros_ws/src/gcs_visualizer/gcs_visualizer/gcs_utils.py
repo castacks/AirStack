@@ -1,27 +1,9 @@
-"""
-gcs_utils.py
-============
-Shared utilities for GCS visualizer nodes.
-
-Coordinate system
------------------
-All visualizers transform data from each robot's local odometry frame into
-a common ENU (East-North-Up) frame anchored at the first GPS fix seen on the
-ground (``alt_ground``). This ENU frame is published as the ``map`` frame in
-Foxglove.
-
-The key concept is the **boot offset**: the ENU coordinates of a robot's first
-GPS fix, which equals that robot's odometry frame origin. Any data expressed in
-the robot's local odometry frame must be translated by this boot offset to
-display correctly alongside other robots in the global map frame.
-"""
+"""Shared utilities for GCS visualizer nodes."""
 
 import math
 import copy
 import struct
 
-# Shared frame utilities live in coordination_bringup so both robot and GCS
-# packages can import them.  Re-export the ones callers expect from here.
 from coordination_bringup.frame_utils import (
     gps_to_enu as _gps_to_enu_abs,
     heading_to_quat,
@@ -30,19 +12,13 @@ from coordination_bringup.frame_utils import (
     transform_point_cloud2 as _transform_pc2,
 )
 
-# ── Origin ────────────────────────────────────────────────────────────────────
 ORIGIN_LAT = 38.736832
 ORIGIN_LON = -9.137977
 ORIGIN_ALT = 90.0
 
 
-# ── GPS / coordinate helpers ──────────────────────────────────────────────────
-
 def gps_to_enu(lat, lon, alt, alt_ground):
-    """Convert GPS lat/lon/alt to ENU metres relative to the world origin.
-
-    z is relative to ``alt_ground`` (the altitude of the first GPS fix seen).
-    """
+    """Convert GPS lat/lon/alt to ENU metres. z is relative to alt_ground."""
     x = (lon - ORIGIN_LON) * 111320.0 * math.cos(math.radians(ORIGIN_LAT))
     y = (lat - ORIGIN_LAT) * 111320.0
     z = alt - alt_ground
@@ -65,13 +41,9 @@ def point_cloud2_to_cube_marker(cloud, bx, by, bz, ns, marker_id, stamp, lifetim
                                 fallback_color=None, scale=0.2):
     """Convert a PointCloud2 to a CUBE_LIST Marker translated into the map frame.
 
-    Extracts x, y, z fields and applies the boot offset (bx, by, bz).
-    If the cloud has an ``rgb`` field (PCL-packed uint32: 0x00RRGGBB stored as
-    float32 bytes), per-point colors are written to ``colors[]``.
-    Otherwise ``fallback_color`` (r, g, b, a) is used as a uniform color.
-
-    pose.orientation.w is set to 1.0 — required for CUBE_LIST so the per-point
-    positions are not distorted by an invalid default quaternion.
+    Extracts xyz and applies boot offset (bx, by, bz). If the cloud has an 'rgb'
+    field (PCL-packed uint32 0x00RRGGBB stored as float32 bytes), per-point colors
+    are written to colors[]; otherwise fallback_color (r,g,b,a) is used.
 
     Returns a Marker, or None if the cloud has no x/y/z fields.
     """
@@ -94,7 +66,7 @@ def point_cloud2_to_cube_marker(cloud, bx, by, bz, ns, marker_id, stamp, lifetim
     m.header.stamp = stamp
     m.ns = ns
     m.id = marker_id
-    m.pose.orientation.w = 1.0   # identity — must be set or CUBE_LIST distorts positions
+    m.pose.orientation.w = 1.0  # must be set or CUBE_LIST distorts positions
     m.type = Marker.CUBE_LIST
     m.action = Marker.ADD
     m.scale.x = scale
@@ -122,5 +94,4 @@ def point_cloud2_to_cube_marker(cloud, bx, by, bz, ns, marker_id, stamp, lifetim
     return m
 
 
-# transform_point_cloud2 is re-exported from coordination_bringup.frame_utils
 transform_point_cloud2 = _transform_pc2

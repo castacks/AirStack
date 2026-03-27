@@ -186,6 +186,40 @@ docker exec airstack-gcs-1 bash -c "ros2 topic list | grep /gcs/payload"
 - Payload size matters for gossip bandwidth — avoid attaching large point clouds
   at high rates; 1 Hz (the default gossip rate) is usually fine
 
+## Message deduplication
+
+Every `PeerProfile` message is identified by the triple:
+
+```
+(robot_name, gps_fix.header.stamp.sec, gps_fix.header.stamp.nanosec)
+```
+
+The stamp is set **at publish time** by the originating robot. Each receiver
+maintains a seen-set (size 50, FIFO eviction) and drops any message whose ID
+has already been processed.
+
+**Expected behaviour:** every drone will forward/receive a message at least
+once — this is intentional. The seen-set prevents infinite re-processing but
+does not prevent the initial fan-out that comes from all robots being on the
+same shared DDS domain.
+
+**Relay fields (reserved for future use):**
+- `uint8 source` — `SOURCE_DIRECT (0)` or `SOURCE_RELAYED (1)`
+- `uint8 relay_hops` — number of hops the message has traversed
+
+These fields exist in the wire format and Python API but relay logic is not
+yet implemented. The seen-set deduplication is already wired to handle it
+correctly when relay is activated.
+
+## Registry behaviour
+
+- Each robot keeps a **per-robot inbox** (latest message per peer, drained at
+  5 Hz) and a **global registry** (latest-wins, monotonic per robot timestamp)
+- Registry entries are **never evicted** — a crashed robot stays visible
+  indefinitely until the node is restarted
+- The registry is published to `/{robot_name}/coordination/peer_registry` with
+  RELIABLE + TRANSIENT_LOCAL QoS so late-joining nodes get the full snapshot
+
 ## QoS note
 
 Payload subscriptions use `GOSSIP_QOS` (BEST_EFFORT, KEEP_LAST 1). If your

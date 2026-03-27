@@ -1,20 +1,9 @@
 """
-foxglove_visualizer_node.py
-===========================
-Standard GCS visualization node. Handles data common to every project:
-  - Robot mesh markers (with orientation)
-  - Robot name labels
-  - Body-frame axes (X/Y/Z arrows)
-  - Local trajectory (trajectory_controller/trajectory_vis)
-  - Global plan (global_plan)
-  - VDB occupancy map (vdb_mapping/vdb_map_visualization)
+foxglove_visualizer_node.py — Standard GCS visualization node.
 
-All markers are published to /gcs/robot_markers as a MarkerArray in the
-global ENU 'map' frame.
-
-Project-specific data (e.g. Rayfronts) should go in a separate node that
-also publishes to its own MarkerArray or PointCloud2 topic. See
-payload_visualizer_node.py as an example.
+Handles data common to every project: robot mesh markers, name labels,
+body-frame axes, local trajectory, global plan, and VDB occupancy map.
+All markers are published to /gcs/robot_markers in the global ENU 'map' frame.
 """
 
 import copy
@@ -53,8 +42,8 @@ ROBOT_COLORS = [
     (0.2, 0.2, 1.0),  # blue
 ]
 
-# OBJ -> ROS axis correction quaternion (belly -Z, nose +X)
-AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)  # x, y, z, w
+# OBJ mesh axis correction quaternion (belly -Z, nose +X)
+AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
 
 
 class FoxgloveVisualizerNode(Node):
@@ -69,12 +58,12 @@ class FoxgloveVisualizerNode(Node):
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
         self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
 
-        self._gps_positions  = {}   # robot_name -> (x, y, z) ENU metres current position
-        self._gps_boot       = {}   # robot_name -> (x, y, z) ENU metres at first fix (odom origin)
-        self._orientations   = {}   # robot_name -> (x, y, z, w) from odometry
-        self._trajectories   = {}   # robot_name -> latest MarkerArray
-        self._global_plans   = {}   # robot_name -> latest nav_msgs/Path
-        self._vdb_markers    = {}   # robot_name -> latest VDB Marker
+        self._gps_positions  = {}
+        self._gps_boot       = {}
+        self._orientations   = {}
+        self._trajectories   = {}
+        self._global_plans   = {}
+        self._vdb_markers    = {}
         self._subscribed_gps  = set()
         self._subscribed_odom = set()
         self._subscribed_traj = set()
@@ -191,7 +180,7 @@ class FoxgloveVisualizerNode(Node):
 
         for i, robot_name in enumerate(sorted(self._gps_positions.keys())):
             x, y, z = self._gps_positions[robot_name]
-            orientation = self._orientations.get(robot_name)  # (x,y,z,w) or None
+            orientation = self._orientations.get(robot_name)
 
             # --- Mesh marker ---
             mesh = Marker()
@@ -273,7 +262,7 @@ class FoxgloveVisualizerNode(Node):
 
             boot = self._gps_boot.get(robot_name)
 
-            # --- Trajectory markers (offset by boot GPS position = odom origin) ---
+            # --- Trajectory (offset by boot GPS = odom origin) ---
             traj = self._trajectories.get(robot_name)
             if traj is not None and boot is not None:
                 bx, by, bz = boot
@@ -287,14 +276,13 @@ class FoxgloveVisualizerNode(Node):
                         m.color.r = 0.8
                         m.color.g = 0.5
                         m.color.b = 0.0
-                    # skip markers that require points but have none
                     needs_points = m.type in (Marker.LINE_STRIP, Marker.LINE_LIST,
                                               Marker.POINTS, Marker.ARROW)
                     if needs_points and len(m.points) == 0:
                         continue
                     array.markers.append(m)
 
-            # --- Global plan (offset from odom origin to ENU) ---
+            # --- Global plan ---
             plan = self._global_plans.get(robot_name)
             if plan is not None and boot is not None:
                 bx, by, bz = boot
@@ -319,7 +307,7 @@ class FoxgloveVisualizerNode(Node):
                 if len(line.points) >= 2:
                     array.markers.append(line)
 
-            # --- VDB map (offset from odom origin to ENU) ---
+            # --- VDB map ---
             vdb = self._vdb_markers.get(robot_name)
             if vdb is not None and boot is not None:
                 bx, by, bz = boot
