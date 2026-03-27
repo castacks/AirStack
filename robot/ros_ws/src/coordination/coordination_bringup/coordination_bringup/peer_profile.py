@@ -1,32 +1,3 @@
-"""
-peer_profile.py
-===============
-Base class for gossip-protocol peer state.  Subclass this to attach
-task-specific data as typed ROS payloads.
-
-Usage
------
-# Basic – just use the base class
-profile = PeerProfile("robot_1")
-profile.set_gps_from_navsat(navsat_msg)
-profile.set_heading(compass_hdg_msg.data)
-profile.set_waypoint_from_path(path_msg)
-ros_msg = profile.to_ros_msg()
-
-# Extended – subclass and add payloads
-class SearchProfile(PeerProfile):
-    def attach_frontier(self, frontier_msg):
-        self.add_payload(frontier_msg)
-
-profile = SearchProfile("robot_1")
-profile.attach_frontier(my_frontier)
-ros_msg = profile.to_ros_msg()
-
-# Receiving side
-profile = PeerProfile.from_ros_msg(ros_msg)
-grid = profile.get_payload("nav_msgs/msg/OccupancyGrid")
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -51,13 +22,7 @@ class Source(IntEnum):
 
 @dataclass
 class PeerProfile:
-    """
-    Base peer state broadcast over the gossip bus.
-
-    Subclass and override ``extra_payloads_to_attach()`` to automatically
-    include task-specific ROS messages every time ``to_ros_msg()`` is called,
-    or call ``add_payload()`` / ``clear_payloads()`` manually.
-    """
+    """Base peer state broadcast over the gossip bus."""
 
     robot_name: str
     gps_fix: NavSatFix = field(default_factory=NavSatFix)
@@ -66,47 +31,30 @@ class PeerProfile:
     source: Source = Source.DIRECT
     relay_hops: int = 0
 
-    # Internal payload store: list of dicts with keys "type" and "data"
     _payloads: List[Dict[str, Any]] = field(default_factory=list, repr=False)
 
-    # ------------------------------------------------------------------ #
-    # GPS / waypoint helpers                                               #
-    # ------------------------------------------------------------------ #
-
     def set_gps_from_navsat(self, msg: NavSatFix) -> None:
-        """Store GPS fix from a sensor_msgs/NavSatFix message."""
         self.gps_fix = msg
 
     def set_heading(self, degrees: float) -> None:
-        """Set heading in degrees clockwise from North (0-360)."""
         self.heading = float(degrees)
 
     def set_waypoint_from_path(self, path: Optional[Path]) -> None:
-        """
-        Extract the goal (last pose) from a nav_msgs/Path.
-        Passing None or an empty path leaves waypoint as all-zeros,
-        which signals 'no plan available' to receivers.
-        """
+        """Extract goal (last pose) from a Path. None or empty path sets waypoint to all-zeros (no plan)."""
         if path is not None and len(path.poses) > 0:
             self.waypoint = path.poses[-1]
         else:
             self.waypoint = PoseStamped()
 
     def has_waypoint(self) -> bool:
-        """Return True if a valid waypoint has been set (non-zero stamp)."""
         s = self.waypoint.header.stamp
         return s.sec != 0 or s.nanosec != 0
 
-    # ------------------------------------------------------------------ #
-    # Payload management                                                   #
-    # ------------------------------------------------------------------ #
-
     def add_payload(self, msg: Any, stamp=None) -> None:
-        """Serialize and attach any ROS message as an additional payload.
+        """Serialize and attach a ROS message as a payload.
 
-        ``stamp`` is a builtin_interfaces/Time (or None to use zero time).
-        Pass the header stamp of the source message so receivers can judge
-        how fresh the data is independently of the gossip message timestamp.
+        Pass the source message's header stamp so receivers can judge data freshness
+        independently of the gossip message timestamp.
         """
         from builtin_interfaces.msg import Time
         type_str = _ros_type_string(msg)
@@ -120,12 +68,7 @@ class PeerProfile:
         self._payloads.clear()
 
     def get_payload(self, payload_type: str) -> Optional[Any]:
-        """
-        Deserialize and return the first payload matching *payload_type*.
-        *payload_type* is the fully-qualified ROS type string,
-        e.g. ``"nav_msgs/msg/OccupancyGrid"``.
-        Returns None if not found.
-        """
+        """Return the first payload matching payload_type (e.g. 'nav_msgs/msg/OccupancyGrid'), or None."""
         for p in self._payloads:
             if p["type"] == payload_type:
                 msg_class = rosidl_utils.get_message(payload_type)
@@ -133,11 +76,7 @@ class PeerProfile:
         return None
 
     def get_payload_with_stamp(self, payload_type: str):
-        """
-        Like get_payload() but returns (msg, stamp) tuple so the caller can
-        check when the source data was last produced.
-        Returns (None, None) if not found.
-        """
+        """Like get_payload() but returns (msg, stamp). Returns (None, None) if not found."""
         for p in self._payloads:
             if p["type"] == payload_type:
                 msg_class = rosidl_utils.get_message(payload_type)
@@ -145,7 +84,6 @@ class PeerProfile:
         return None, None
 
     def get_all_payloads(self) -> List[Any]:
-        """Deserialize and return all payloads in order."""
         result = []
         for p in self._payloads:
             msg_class = rosidl_utils.get_message(p["type"])
@@ -153,12 +91,7 @@ class PeerProfile:
         return result
 
     def payload_types(self) -> List[str]:
-        """Return the type strings of all attached payloads."""
         return [p["type"] for p in self._payloads]
-
-    # ------------------------------------------------------------------ #
-    # Serialisation                                                        #
-    # ------------------------------------------------------------------ #
 
     def to_ros_msg(self) -> PeerProfileMsg:
         msg = PeerProfileMsg()
@@ -193,21 +126,14 @@ class PeerProfile:
         return profile
 
 
-# ------------------------------------------------------------------ #
-# Internal helpers                                                     #
-# ------------------------------------------------------------------ #
-
 def _ros_type_string(msg: Any) -> str:
     """Return the fully-qualified ROS type string for a message instance.
-
-    E.g. nav_msgs.msg.OccupancyGrid → "nav_msgs/msg/OccupancyGrid"
+    E.g. nav_msgs.msg.OccupancyGrid → 'nav_msgs/msg/OccupancyGrid'
     """
-    module = type(msg).__module__    # e.g. "nav_msgs.msg._occupancy_grid"
-    name = type(msg).__name__        # e.g. "OccupancyGrid"
+    module = type(msg).__module__
+    name = type(msg).__name__
     # Convert "nav_msgs.msg._occupancy_grid" → "nav_msgs/msg"
     parts = module.split(".")
     if len(parts) >= 2:
-        pkg = parts[0]
-        sub = parts[1]
-        return f"{pkg}/{sub}/{name}"
+        return f"{parts[0]}/{parts[1]}/{name}"
     return f"{module}/{name}"

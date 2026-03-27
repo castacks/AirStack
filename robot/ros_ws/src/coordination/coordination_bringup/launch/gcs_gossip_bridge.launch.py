@@ -1,12 +1,4 @@
-"""
-gcs_gossip_bridge.launch.py
-============================
-Launches the GCS-side DDS Router that bridges /gossip/peers between the GCS
-domain (0) and the shared gossip bus domain (99).
-
-Include this from gcs.launch.xml so the GCS can receive PeerProfile messages
-from all robots without going through each robot's onboard DDS router.
-"""
+"""Launches the GCS-side DDS Router bridging /gossip/peers between GCS domain (0) and gossip domain (99)."""
 
 import os
 

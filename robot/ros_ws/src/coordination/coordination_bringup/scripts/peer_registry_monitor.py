@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """
-peer_registry_monitor.py
-========================
-CLI diagnostic tool – subscribe to /gossip/peers on the gossip domain
-and pretty-print the live peer registry.
+peer_registry_monitor.py — CLI diagnostic tool for the gossip peer registry.
 
 Run on any robot or from a machine joined to domain 99:
-
     ROS_DOMAIN_ID=99 python3 peer_registry_monitor.py
 
-Or on a specific robot's domain to see what *that* robot receives:
-
+Or on a specific robot's domain to see what that robot receives:
     ROS_DOMAIN_ID=1 python3 peer_registry_monitor.py
 
-Options
--------
+Options:
   --robot   Only show entries for this robot name (partial match)
   --rate    Refresh rate in Hz (default: 2)
 """
@@ -87,24 +81,17 @@ class RegistryMonitor(Node):
     def __init__(self, filter_name: str = ""):
         super().__init__("peer_registry_monitor")
         self._registry: dict[str, PeerProfileMsg] = {}
-        self._recv_times: dict[str, float] = {}  # robot_name -> wall time of last received msg
+        self._recv_times: dict[str, float] = {}
         self._registry_lock = threading.Lock()
         self._filter = filter_name.lower()
-
-        # Per-robot inbox: buffer incoming messages so all robots are processed
-        # together on each drain, regardless of DDS arrival burst order.
         self._inbox: dict[str, PeerProfileMsg] = {}
         self._inbox_lock = threading.Lock()
 
         self._sub = self.create_subscription(
-            PeerProfileMsg,
-            "/gossip/peers",
-            self._on_msg,
-            GOSSIP_QOS,
+            PeerProfileMsg, "/gossip/peers", self._on_msg, GOSSIP_QOS,
         )
 
     def _on_msg(self, msg: PeerProfileMsg) -> None:
-        """Buffer incoming message; always track receipt time for liveness display."""
         new_t = (msg.gps_fix.header.stamp.sec
                  + msg.gps_fix.header.stamp.nanosec * 1e-9)
         with self._inbox_lock:
@@ -113,14 +100,12 @@ class RegistryMonitor(Node):
                 old_t = (existing.gps_fix.header.stamp.sec
                          + existing.gps_fix.header.stamp.nanosec * 1e-9)
                 if new_t < old_t:
-                    # Already buffered a newer message — only update recv time
                     self._recv_times[msg.robot_name] = time.time()
                     return
             self._inbox[msg.robot_name] = msg
             self._recv_times[msg.robot_name] = time.time()
 
     def _drain_inbox(self) -> None:
-        """Apply registry ordering check for all buffered robots at once."""
         with self._inbox_lock:
             inbox = dict(self._inbox)
             self._inbox.clear()
@@ -133,7 +118,7 @@ class RegistryMonitor(Node):
                     old_t = (existing.gps_fix.header.stamp.sec
                              + existing.gps_fix.header.stamp.nanosec * 1e-9)
                     if new_t < old_t:
-                        continue  # out-of-order — keep existing
+                        continue
                 self._registry[robot_name] = msg
 
     def print_registry(self) -> None:
