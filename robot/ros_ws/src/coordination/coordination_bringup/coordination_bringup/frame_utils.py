@@ -45,14 +45,11 @@ def rotate_vector(v, q):
 
 
 def transform_marker_array(marker_array, bx, by, bz, q=(0.0, 0.0, 0.0, 1.0)):
-    """Deep-copy a MarkerArray and transform all points: p_map = R(q)*p + (bx,by,bz).
+    """Deep-copy a MarkerArray and transform all points[]: p_map = R(q)*p + (bx,by,bz).
 
-    Transforms points[] only — not pose.position. These markers use an identity pose
-    so points[] are already in the parent frame; translating pose.position would
-    double-apply the offset. For single-geometry markers (SPHERE, CUBE, MESH) whose
-    position lives in pose.position, translate at the call site instead.
-
-    Sets frame_id='map'. Returns a new MarkerArray.
+    Transforms points[] only, not pose.position — LINE_STRIP/POINTS markers store
+    geometry in points[] with an identity pose, so translating pose.position would
+    double-apply the offset. Sets frame_id='map'. Returns a new MarkerArray.
     """
     from visualization_msgs.msg import MarkerArray as MA
     out = MA()

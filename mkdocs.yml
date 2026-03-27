@@ -142,6 +142,9 @@ nav:
               - docs/robot/autonomy/behavior/index.md
               - Behavior Tree: docs/robot/autonomy/behavior/behavior_tree.md
               - Behavior Executive: docs/robot/autonomy/behavior/behavior_executive.md
+          - Coordination:
+              - Overview: docs/robot/autonomy/coordination/index.md
+              - Payloads & Foxglove: docs/robot/autonomy/coordination/payloads.md
       - Autonomy Modes: docs/robot/autonomy_modes.md
       - DDS Router: docs/robot/autonomy/dds_router.md
       - Static Transforms:

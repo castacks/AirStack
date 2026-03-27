@@ -182,7 +182,6 @@ class FoxgloveVisualizerNode(Node):
             x, y, z = self._gps_positions[robot_name]
             orientation = self._orientations.get(robot_name)
 
-            # --- Mesh marker ---
             mesh = Marker()
             mesh.header.frame_id = 'map'
             mesh.header.stamp = now
@@ -210,7 +209,6 @@ class FoxgloveVisualizerNode(Node):
             mesh.lifetime = lifetime
             array.markers.append(mesh)
 
-            # --- Label marker ---
             label = Marker()
             label.header.frame_id = 'map'
             label.header.stamp = now
@@ -228,7 +226,6 @@ class FoxgloveVisualizerNode(Node):
             label.lifetime = lifetime
             array.markers.append(label)
 
-            # --- Axes markers (X=red, Y=green, Z=blue) ---
             axes = [
                 ((1.0, 0.0, 0.0), (1.0, 0.0, 0.0)),
                 ((0.0, 1.0, 0.0), (0.0, 1.0, 0.0)),
@@ -262,7 +259,6 @@ class FoxgloveVisualizerNode(Node):
 
             boot = self._gps_boot.get(robot_name)
 
-            # --- Trajectory (offset by boot GPS = odom origin) ---
             traj = self._trajectories.get(robot_name)
             if traj is not None and boot is not None:
                 bx, by, bz = boot
@@ -282,7 +278,6 @@ class FoxgloveVisualizerNode(Node):
                         continue
                     array.markers.append(m)
 
-            # --- Global plan ---
             plan = self._global_plans.get(robot_name)
             if plan is not None and boot is not None:
                 bx, by, bz = boot
@@ -307,7 +302,6 @@ class FoxgloveVisualizerNode(Node):
                 if len(line.points) >= 2:
                     array.markers.append(line)
 
-            # --- VDB map ---
             vdb = self._vdb_markers.get(robot_name)
             if vdb is not None and boot is not None:
                 bx, by, bz = boot
