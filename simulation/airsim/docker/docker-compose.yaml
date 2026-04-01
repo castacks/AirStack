@@ -13,7 +13,7 @@ services:
       bash -c "tmux new -d -s airsim
       && tmux send-keys -t airsim 'sudo -u airsim $$AIRSIM_BINARY_PATH' ENTER
       && tmux new-window -t airsim
-      && tmux send-keys -t airsim:1 'cd /root/ros_ws && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=$$ROS_DOMAIN_ID ros2 launch airsim_depth_bridge bridge.launch.xml' ENTER
+      && tmux send-keys -t airsim:1 'cd /root/ros_ws && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=$$ROS_DOMAIN_ID ros2 launch airsim_ros_bridge bridge.launch.xml' ENTER
       && sleep infinity"
     stdin_open: true
     tty: true

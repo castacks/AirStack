@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'airsim_depth_bridge'
+package_name = 'airsim_ros_bridge'
 
 setup(
     name=package_name,
@@ -15,7 +15,7 @@ setup(
     install_requires=['setuptools'],
     entry_points={
         'console_scripts': [
-            'bridge_node = airsim_depth_bridge.bridge_node:main',
+            'bridge_node = airsim_ros_bridge.bridge_node:main',
         ],
     },
 )
