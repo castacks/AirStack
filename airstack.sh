@@ -796,6 +796,9 @@ function cmd_clean {
         "$PROJECT_ROOT/gcs/ros_ws/build"
         "$PROJECT_ROOT/gcs/ros_ws/install"
         "$PROJECT_ROOT/gcs/ros_ws/log"
+        "$PROJECT_ROOT/simulation/airsim/ros_ws/build"
+        "$PROJECT_ROOT/simulation/airsim/ros_ws/install"
+        "$PROJECT_ROOT/simulation/airsim/ros_ws/log"
     )
 
     log_info "Cleaning all ROS 2 build artifacts..."

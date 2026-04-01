@@ -1,0 +1,45 @@
+services:
+  airsim:
+    profiles:
+      - airsim
+    image: &airsim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_airsim
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      tags:
+        - *airsim_image
+    entrypoint: ""
+    command: >
+      bash -c "tmux new -d -s airsim
+      && tmux send-keys -t airsim 'sudo -u airsim $$AIRSIM_BINARY_PATH' ENTER
+      && tmux new-window -t airsim
+      && tmux send-keys -t airsim:1 'cd /root/ros_ws && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=$$ROS_DOMAIN_ID ros2 launch airsim_depth_bridge bridge.launch.xml' ENTER
+      && sleep infinity"
+    stdin_open: true
+    tty: true
+    ipc: host
+    privileged: true
+    networks:
+      airstack_network:
+        ipv4_address: 172.31.0.201
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - XDG_RUNTIME_DIR=/tmp
+      - ROS_DOMAIN_ID=1
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - AIRSIM_BINARY_PATH=${AIRSIM_BINARY_PATH:-/airsim_env/LinuxNoEditor/Blocks.sh}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ../config:/home/airsim/Documents/AirSim:rw
+      - ../ros_ws:/root/ros_ws:rw
+      - ${AIRSIM_ENV_DIR:-../environments}:/airsim_env:rw
+      - /usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro

@@ -6,6 +6,7 @@
 include:
   - simulation/isaac-sim/docker/docker-compose.yaml
   - simulation/simple-sim/docker/docker-compose.yaml
+  - simulation/airsim/docker/docker-compose.yaml
   - robot/docker/docker-compose.yaml
   - gcs/docker/docker-compose.yaml
   - docs/docker/docker-compose.yaml

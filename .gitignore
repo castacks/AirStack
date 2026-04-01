@@ -50,6 +50,11 @@ qtcreator-*
 # Emacs
 .#*
 
+# ROS 2 build artifacts (any workspace)
+**/ros_ws/build/
+**/ros_ws/install/
+**/ros_ws/log/
+
 # ROS2 custom files
 COLCON_IGNORE
 frames_*.gv

@@ -1,0 +1,7 @@
+airsim_depth_bridge:
+  ros__parameters:
+    airsim_ip: "127.0.0.1"
+    camera_name: "front_camera"
+    vehicle_name: "drone1"
+    publish_rate: 15.0
+    robot_name: "robot_1"

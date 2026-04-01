@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="airsim_depth_bridge" exec="bridge_node" name="airsim_depth_bridge" output="screen">
+    <param from="$(find-pkg-share airsim_depth_bridge)/config/bridge.yaml" allow_substs="true" />
+  </node>
+</launch>
