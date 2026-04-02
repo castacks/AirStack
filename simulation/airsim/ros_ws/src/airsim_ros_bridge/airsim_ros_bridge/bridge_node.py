@@ -5,11 +5,13 @@ robot autonomy stack works without modification.
 
 Control is handled by PX4 SITL + MAVROS. This node only bridges sensor data.
 Lazy: only polls AirSim for images that have active ROS subscribers.
+Clock is published at high rate from a dedicated thread/client.
 """
 
 import math
 import threading
 import queue
+import time
 
 import airsim
 import numpy as np
@@ -29,15 +31,16 @@ class AirSimRosBridge(Node):
         self.declare_parameter('publish_rate', 15.0)
         self.declare_parameter('robot_name', 'robot_1')
         self.declare_parameter('baseline', 0.12)
+        self.declare_parameter('clock_rate', 50.0)
 
         ip = self.get_parameter('airsim_ip').value
         self.vehicle_name = self.get_parameter('vehicle_name').value
         rate = self.get_parameter('publish_rate').value
         robot_name = self.get_parameter('robot_name').value
         self.baseline = self.get_parameter('baseline').value
+        clock_rate = self.get_parameter('clock_rate').value
 
         # Connect to AirSim (retry until UE4 binary is ready)
-        import time
         self.client = airsim.MultirotorClient(ip=ip)
         while True:
             try:
@@ -73,22 +76,47 @@ class AirSimRosBridge(Node):
         self.right_depth_pub = self.create_publisher(Image, f'{prefix}/right/depth_ground_truth', 1)
         self.clock_pub = self.create_publisher(Clock, '/clock', 10)
 
-        # Background image fetcher (workaround for slow simGetImages)
-        self._queue = queue.Queue(maxsize=2)
         self._shutdown = threading.Event()
+
+        # Dedicated clock thread with its own AirSim client
+        self._clock_client = airsim.MultirotorClient(ip=ip)
+        self._clock_client.confirmConnection()
+        self._clock_interval = 1.0 / clock_rate
+        self._clock_thread = threading.Thread(target=self._clock_loop, daemon=True)
+        self._clock_thread.start()
+
+        # Background image fetcher
+        self._queue = queue.Queue(maxsize=2)
         self._requested = threading.Event()
         self._request_lock = threading.Lock()
         self._requests = []
         self._request_keys = []
-        self._thread = threading.Thread(target=self._fetcher, daemon=True)
-        self._thread.start()
+        self._image_thread = threading.Thread(target=self._fetcher, daemon=True)
+        self._image_thread.start()
 
         self.create_timer(1.0 / rate, self._publish)
         self.get_logger().info(
             f'Bridge running: stereo RGB + depth (lazy) @ {rate}Hz, '
+            f'clock @ {clock_rate}Hz, '
             f'fx={self.fx:.1f}, baseline={self.baseline}m, '
             f'image={self.width}x{self.height}'
         )
+
+    def _clock_loop(self):
+        """Dedicated thread: publishes /clock at high rate using its own AirSim client."""
+        while not self._shutdown.is_set():
+            try:
+                state = self._clock_client.getMultirotorState(
+                    vehicle_name=self.vehicle_name
+                )
+                sim_ts = state.timestamp
+                clock_msg = Clock()
+                clock_msg.clock.sec = int(sim_ts // 1_000_000_000)
+                clock_msg.clock.nanosec = int(sim_ts % 1_000_000_000)
+                self.clock_pub.publish(clock_msg)
+            except Exception:
+                pass
+            time.sleep(self._clock_interval)
 
     def _has_subscribers(self, *publishers):
         return any(p.get_subscription_count() > 0 for p in publishers)
@@ -101,7 +129,6 @@ class AirSimRosBridge(Node):
         need_right_rgb = self._has_subscribers(self.right_image_pub)
         need_left_depth = self._has_subscribers(self.left_depth_pub)
         need_right_depth = self._has_subscribers(self.right_depth_pub)
-        # Publish camera_info whenever the corresponding image or depth has subscribers
         need_left_info = self._has_subscribers(self.left_info_pub) or need_left_rgb or need_left_depth
         need_right_info = self._has_subscribers(self.right_info_pub) or need_right_rgb or need_right_depth
 
@@ -155,7 +182,7 @@ class AirSimRosBridge(Node):
                 )
 
     def _publish(self):
-        """Timer callback: update requests, publish clock and available images."""
+        """Timer callback: update requests, publish available images."""
         self._build_requests()
 
         try:
@@ -164,16 +191,10 @@ class AirSimRosBridge(Node):
             return
 
         data = dict(zip(keys, responses))
-
-        # Publish /clock from the first response timestamp
-        first_resp = responses[0]
-        sim_ts = first_resp.time_stamp
-        clock_msg = Clock()
-        clock_msg.clock.sec = int(sim_ts // 1_000_000_000)
-        clock_msg.clock.nanosec = int(sim_ts % 1_000_000_000)
-        self.clock_pub.publish(clock_msg)
-
-        now = clock_msg.clock
+        sim_ts = responses[0].time_stamp
+        now = Clock().clock
+        now.sec = int(sim_ts // 1_000_000_000)
+        now.nanosec = int(sim_ts % 1_000_000_000)
 
         if 'left_rgb' in data:
             left_rgb = self._decode_compressed(data['left_rgb'])
@@ -261,7 +282,8 @@ class AirSimRosBridge(Node):
 
     def destroy_node(self):
         self._shutdown.set()
-        self._thread.join(timeout=2.0)
+        self._clock_thread.join(timeout=2.0)
+        self._image_thread.join(timeout=2.0)
         super().destroy_node()
 
 
