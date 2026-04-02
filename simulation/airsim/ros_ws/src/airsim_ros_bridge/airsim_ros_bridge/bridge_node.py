@@ -16,6 +16,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import TransformStamped
+from rosgraph_msgs.msg import Clock
 from tf2_ros import StaticTransformBroadcaster
 
 
@@ -70,6 +71,7 @@ class AirSimRosBridge(Node):
         self.left_info_pub = self.create_publisher(CameraInfo, f'{prefix}/left/camera_info', 1)
         self.right_info_pub = self.create_publisher(CameraInfo, f'{prefix}/right/camera_info', 1)
         self.depth_pub = self.create_publisher(Image, f'{prefix}/left/depth_ground_truth', 1)
+        self.clock_pub = self.create_publisher(Clock, '/clock', 10)
 
         # Static TFs: base_link -> camera optical frames
         self.tf_broadcaster = StaticTransformBroadcaster(self)
@@ -127,13 +129,20 @@ class AirSimRosBridge(Node):
                 )
 
     def _publish(self):
-        """Timer callback: publish stereo images + depth + camera_info."""
+        """Timer callback: publish clock, stereo images, depth, and camera_info."""
         try:
             responses = self._queue.get_nowait()
         except queue.Empty:
             return
 
-        now = self.get_clock().now().to_msg()
+        # Publish /clock from the image response timestamp (avoids extra API call)
+        sim_ts = responses[0].time_stamp
+        clock_msg = Clock()
+        clock_msg.clock.sec = int(sim_ts // 1_000_000_000)
+        clock_msg.clock.nanosec = int(sim_ts % 1_000_000_000)
+        self.clock_pub.publish(clock_msg)
+
+        now = clock_msg.clock
         left_resp, depth_resp, right_resp = responses
 
         # Left RGB
