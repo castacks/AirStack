@@ -4,6 +4,7 @@ Matches the topic contract used by simple-sim and Isaac Sim so the
 robot autonomy stack works without modification.
 
 Control is handled by PX4 SITL + MAVROS. This node only bridges sensor data.
+Lazy: only polls AirSim for images that have active ROS subscribers.
 """
 
 import math
@@ -68,90 +69,140 @@ class AirSimRosBridge(Node):
         self.right_image_pub = self.create_publisher(Image, f'{prefix}/right/image_rect', 1)
         self.left_info_pub = self.create_publisher(CameraInfo, f'{prefix}/left/camera_info', 1)
         self.right_info_pub = self.create_publisher(CameraInfo, f'{prefix}/right/camera_info', 1)
-        self.depth_pub = self.create_publisher(Image, f'{prefix}/left/depth_ground_truth', 1)
+        self.left_depth_pub = self.create_publisher(Image, f'{prefix}/left/depth_ground_truth', 1)
+        self.right_depth_pub = self.create_publisher(Image, f'{prefix}/right/depth_ground_truth', 1)
         self.clock_pub = self.create_publisher(Clock, '/clock', 10)
 
         # Background image fetcher (workaround for slow simGetImages)
         self._queue = queue.Queue(maxsize=2)
         self._shutdown = threading.Event()
+        self._requested = threading.Event()
+        self._request_lock = threading.Lock()
+        self._requests = []
+        self._request_keys = []
         self._thread = threading.Thread(target=self._fetcher, daemon=True)
         self._thread.start()
 
         self.create_timer(1.0 / rate, self._publish)
         self.get_logger().info(
-            f'Bridge running: stereo RGB + depth @ {rate}Hz, '
+            f'Bridge running: stereo RGB + depth (lazy) @ {rate}Hz, '
             f'fx={self.fx:.1f}, baseline={self.baseline}m, '
             f'image={self.width}x{self.height}'
         )
 
+    def _has_subscribers(self, *publishers):
+        return any(p.get_subscription_count() > 0 for p in publishers)
+
+    def _build_requests(self):
+        requests = []
+        keys = []
+
+        need_left_rgb = self._has_subscribers(self.left_image_pub)
+        need_right_rgb = self._has_subscribers(self.right_image_pub)
+        need_left_depth = self._has_subscribers(self.left_depth_pub)
+        need_right_depth = self._has_subscribers(self.right_depth_pub)
+        # Publish camera_info whenever the corresponding image or depth has subscribers
+        need_left_info = self._has_subscribers(self.left_info_pub) or need_left_rgb or need_left_depth
+        need_right_info = self._has_subscribers(self.right_info_pub) or need_right_rgb or need_right_depth
+
+        if need_left_rgb:
+            requests.append(airsim.ImageRequest('front_left', airsim.ImageType.Scene, False, True))
+            keys.append('left_rgb')
+        if need_left_depth:
+            requests.append(airsim.ImageRequest('front_left', airsim.ImageType.DepthPlanar, True, False))
+            keys.append('left_depth')
+        if need_right_rgb:
+            requests.append(airsim.ImageRequest('front_right', airsim.ImageType.Scene, False, True))
+            keys.append('right_rgb')
+        if need_right_depth:
+            requests.append(airsim.ImageRequest('front_right', airsim.ImageType.DepthPlanar, True, False))
+            keys.append('right_depth')
+
+        with self._request_lock:
+            self._requests = requests
+            self._request_keys = keys
+            self._need_left_info = need_left_info
+            self._need_right_info = need_right_info
+        if requests:
+            self._requested.set()
+        else:
+            self._requested.clear()
+
     def _fetcher(self):
-        """Background thread: polls AirSim for stereo RGB + depth."""
-        requests = [
-            airsim.ImageRequest('front_left', airsim.ImageType.Scene, False, True),
-            airsim.ImageRequest('front_left', airsim.ImageType.DepthPlanar, True, False),
-            airsim.ImageRequest('front_right', airsim.ImageType.Scene, False, True),
-        ]
+        """Background thread: polls AirSim only for requested images."""
         while not self._shutdown.is_set():
+            self._requested.wait(timeout=0.1)
+            if self._shutdown.is_set():
+                break
+
+            with self._request_lock:
+                requests = list(self._requests)
+                keys = list(self._request_keys)
+
+            if not requests:
+                continue
+
             try:
                 responses = self.client.simGetImages(
                     requests, vehicle_name=self.vehicle_name
                 )
-                if len(responses) == 3 and responses[0].height > 0:
+                if len(responses) == len(keys) and responses[0].height > 0:
                     if not self._queue.full():
-                        self._queue.put(responses)
+                        self._queue.put((keys, responses))
             except Exception as e:
                 self.get_logger().warn(
                     f'Image fetch failed: {e}', throttle_duration_sec=5.0
                 )
 
     def _publish(self):
-        """Timer callback: publish clock, stereo images, depth, and camera_info."""
+        """Timer callback: update requests, publish clock and available images."""
+        self._build_requests()
+
         try:
-            responses = self._queue.get_nowait()
+            keys, responses = self._queue.get_nowait()
         except queue.Empty:
             return
 
-        # Publish /clock from the image response timestamp (avoids extra API call)
-        sim_ts = responses[0].time_stamp
+        data = dict(zip(keys, responses))
+
+        # Publish /clock from the first response timestamp
+        first_resp = responses[0]
+        sim_ts = first_resp.time_stamp
         clock_msg = Clock()
         clock_msg.clock.sec = int(sim_ts // 1_000_000_000)
         clock_msg.clock.nanosec = int(sim_ts % 1_000_000_000)
         self.clock_pub.publish(clock_msg)
 
         now = clock_msg.clock
-        left_resp, depth_resp, right_resp = responses
 
-        # Left RGB
-        left_rgb = self._decode_compressed(left_resp)
-        self.left_image_pub.publish(
-            self._make_image_msg(left_rgb, now, 'camera_left', 'rgb8')
-        )
+        if 'left_rgb' in data:
+            left_rgb = self._decode_compressed(data['left_rgb'])
+            self.left_image_pub.publish(
+                self._make_image_msg(left_rgb, now, 'camera_left', 'rgb8')
+            )
 
-        # Right RGB
-        right_rgb = self._decode_compressed(right_resp)
-        self.right_image_pub.publish(
-            self._make_image_msg(right_rgb, now, 'camera_right', 'rgb8')
-        )
+        if 'right_rgb' in data:
+            right_rgb = self._decode_compressed(data['right_rgb'])
+            self.right_image_pub.publish(
+                self._make_image_msg(right_rgb, now, 'camera_right', 'rgb8')
+            )
 
-        # Depth (float32)
-        depth = np.array(depth_resp.image_data_float, dtype=np.float32)
-        depth = depth.reshape(depth_resp.height, depth_resp.width)
-        depth_msg = Image()
-        depth_msg.header.stamp = now
-        depth_msg.header.frame_id = 'camera_left'
-        depth_msg.height = depth_resp.height
-        depth_msg.width = depth_resp.width
-        depth_msg.encoding = '32FC1'
-        depth_msg.is_bigendian = False
-        depth_msg.step = depth_resp.width * 4
-        depth_msg.data = depth.tobytes()
-        self.depth_pub.publish(depth_msg)
+        if 'left_depth' in data:
+            self.left_depth_pub.publish(
+                self._make_depth_msg(data['left_depth'], now, 'camera_left')
+            )
 
-        # Camera info
-        self.left_info_pub.publish(self._make_cam_info(now, 'left', 0.0))
-        self.right_info_pub.publish(
-            self._make_cam_info(now, 'right', -self.fx * self.baseline)
-        )
+        if 'right_depth' in data:
+            self.right_depth_pub.publish(
+                self._make_depth_msg(data['right_depth'], now, 'camera_right')
+            )
+
+        if self._need_left_info:
+            self.left_info_pub.publish(self._make_cam_info(now, 'left', 0.0))
+        if self._need_right_info:
+            self.right_info_pub.publish(
+                self._make_cam_info(now, 'right', -self.fx * self.baseline)
+            )
 
     def _decode_compressed(self, response):
         """Decode a compressed PNG response to RGB numpy array."""
@@ -171,6 +222,20 @@ class AirSimRosBridge(Node):
         msg.is_bigendian = False
         msg.step = msg.width * img_array.shape[2]
         msg.data = img_array.tobytes()
+        return msg
+
+    def _make_depth_msg(self, response, stamp, frame_id):
+        depth = np.array(response.image_data_float, dtype=np.float32)
+        depth = depth.reshape(response.height, response.width)
+        msg = Image()
+        msg.header.stamp = stamp
+        msg.header.frame_id = frame_id
+        msg.height = response.height
+        msg.width = response.width
+        msg.encoding = '32FC1'
+        msg.is_bigendian = False
+        msg.step = response.width * 4
+        msg.data = depth.tobytes()
         return msg
 
     def _make_cam_info(self, stamp, side, tx):

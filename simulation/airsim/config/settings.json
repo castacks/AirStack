@@ -48,6 +48,13 @@
               "Width": 480,
               "Height": 300,
               "FOV_Degrees": 90
+            },
+            {
+              "ImageType": 2,
+              "Width": 480,
+              "Height": 300,
+              "FOV_Degrees": 90,
+              "PixelsAsFloat": true
             }
           ],
           "X": 0.4,
