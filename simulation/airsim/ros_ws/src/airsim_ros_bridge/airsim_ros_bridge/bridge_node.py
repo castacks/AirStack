@@ -15,9 +15,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import TransformStamped
 from rosgraph_msgs.msg import Clock
-from tf2_ros import StaticTransformBroadcaster
 
 
 class AirSimRosBridge(Node):
@@ -73,10 +71,6 @@ class AirSimRosBridge(Node):
         self.depth_pub = self.create_publisher(Image, f'{prefix}/left/depth_ground_truth', 1)
         self.clock_pub = self.create_publisher(Clock, '/clock', 10)
 
-        # Static TFs: base_link -> camera optical frames
-        self.tf_broadcaster = StaticTransformBroadcaster(self)
-        self._publish_static_tfs()
-
         # Background image fetcher (workaround for slow simGetImages)
         self._queue = queue.Queue(maxsize=2)
         self._shutdown = threading.Event()
@@ -89,24 +83,6 @@ class AirSimRosBridge(Node):
             f'fx={self.fx:.1f}, baseline={self.baseline}m, '
             f'image={self.width}x{self.height}'
         )
-
-    def _publish_static_tfs(self):
-        transforms = []
-        for side, y_offset in [('left', -0.06), ('right', 0.06)]:
-            t = TransformStamped()
-            t.header.stamp = self.get_clock().now().to_msg()
-            t.header.frame_id = 'base_link'
-            t.child_frame_id = f'front_stereo_{side}_camera_optical_frame'
-            t.transform.translation.x = 0.2
-            t.transform.translation.y = y_offset
-            t.transform.translation.z = -0.1
-            # Body (FLU) to optical (RDF)
-            t.transform.rotation.x = 0.5
-            t.transform.rotation.y = -0.5
-            t.transform.rotation.z = 0.5
-            t.transform.rotation.w = 0.5
-            transforms.append(t)
-        self.tf_broadcaster.sendTransform(transforms)
 
     def _fetcher(self):
         """Background thread: polls AirSim for stereo RGB + depth."""
@@ -148,13 +124,13 @@ class AirSimRosBridge(Node):
         # Left RGB
         left_rgb = self._decode_compressed(left_resp)
         self.left_image_pub.publish(
-            self._make_image_msg(left_rgb, now, 'front_stereo_left_camera_optical_frame', 'rgb8')
+            self._make_image_msg(left_rgb, now, 'camera_left', 'rgb8')
         )
 
         # Right RGB
         right_rgb = self._decode_compressed(right_resp)
         self.right_image_pub.publish(
-            self._make_image_msg(right_rgb, now, 'front_stereo_right_camera_optical_frame', 'rgb8')
+            self._make_image_msg(right_rgb, now, 'camera_right', 'rgb8')
         )
 
         # Depth (float32)
@@ -162,7 +138,7 @@ class AirSimRosBridge(Node):
         depth = depth.reshape(depth_resp.height, depth_resp.width)
         depth_msg = Image()
         depth_msg.header.stamp = now
-        depth_msg.header.frame_id = 'front_stereo_left_camera_optical_frame'
+        depth_msg.header.frame_id = 'camera_left'
         depth_msg.height = depth_resp.height
         depth_msg.width = depth_resp.width
         depth_msg.encoding = '32FC1'
@@ -200,7 +176,7 @@ class AirSimRosBridge(Node):
     def _make_cam_info(self, stamp, side, tx):
         info = CameraInfo()
         info.header.stamp = stamp
-        info.header.frame_id = f'front_stereo_{side}_camera_optical_frame'
+        info.header.frame_id = f'camera_{side}'
         info.height = self.height
         info.width = self.width
         info.distortion_model = 'plumb_bob'
