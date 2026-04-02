@@ -8,14 +8,14 @@
       "UseSerial": false,
       "LockStep": true,
       "UseTcp": true,
-      "TcpPort": 4560,
-      "ControlPortLocal": 14540,
-      "ControlPortRemote": 14580,
+      "TcpPort": 4561,
+      "ControlPortLocal": 24541,
+      "ControlPortRemote": 24581,
       "Parameters": {
         "NAV_RCL_ACT": 0,
         "NAV_DLL_ACT": 0,
-        "COM_OBL_ACT": 1,
-        "COM_OBL_RC_ACT": 5
+        "COM_OBL_RC_ACT": 5,
+        "MAV_1_BROADCAST": 1
       },
       "Cameras": {
         "front_left": {

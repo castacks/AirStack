@@ -9,11 +9,16 @@ services:
       tags:
         - *airsim_image
     entrypoint: ""
+    # TODO: make dynamic — px4_instance, ROS_DOMAIN_ID, and settings.json ports
+    # should all derive from a single vehicle/instance ID to support multi-drone.
+    # Also: support simple_flight mode (no PX4) via config toggle.
     command: >
       bash -c "tmux new -d -s airsim
-      && tmux send-keys -t airsim 'sudo -u airsim $$AIRSIM_BINARY_PATH' ENTER
+      && tmux send-keys -t airsim:0 'cd /root/PX4-Autopilot && PX4_SIM_MODEL=none_iris ./build/px4_sitl_default/bin/px4 ./ROMFS/px4fmu_common -s ROMFS/px4fmu_common/init.d-posix/rcS -i 1' ENTER
       && tmux new-window -t airsim
-      && tmux send-keys -t airsim:1 'cd /root/ros_ws && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=$$ROS_DOMAIN_ID ros2 launch airsim_ros_bridge bridge.launch.xml' ENTER
+      && tmux send-keys -t airsim:1 'sudo -u airsim $$AIRSIM_BINARY_PATH' ENTER
+      && tmux new-window -t airsim
+      && tmux send-keys -t airsim:2 'cd /root/ros_ws && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=$$ROS_DOMAIN_ID ros2 launch airsim_ros_bridge bridge.launch.xml' ENTER
       && sleep infinity"
     stdin_open: true
     tty: true

@@ -9,6 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libvulkan1 \
     && rm -rf /var/lib/apt/lists/*
 
+# PX4 SITL
+ARG PX4_VERSION="v1.16.1"
+RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
+RUN cd PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools
+RUN cd PX4-Autopilot && make px4_sitl_default
+
 # AirSim Python client with msgpack fix
 # See [AirSim #3333](https://github.com/microsoft/AirSim/issues/3333#issuecomment-827894198) for details.
 RUN pip3 install --break-system-packages msgpack backports.ssl-match-hostname && \
