@@ -10,6 +10,8 @@ Functions:
 """
 
 import asyncio
+import os
+import re
 import omni.kit.app
 import omni.usd
 from pxr import Gf, UsdGeom, UsdPhysics, UsdLux, Sdf
@@ -123,6 +125,51 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
 
 
 # ---------------------------------------------------------------------------
+# Consolidate root prims under /World
+# ---------------------------------------------------------------------------
+
+def move_root_prims_to_world(usd_path: str) -> list:
+    """Move any non-/World root prims (e.g. /Environment) under /World.
+
+    After export_as_stage_async, sibling root prims like /Environment are
+    excluded when pg.load_environment references the file via defaultPrim=/World.
+    This function opens the flat exported USD layer directly and relocates
+    those prims under /World so they are included in the reference.
+
+    Args:
+        usd_path: Path to the flat exported USD file to patch in-place.
+
+    Returns:
+        List of prim names that were moved.
+    """
+    layer = Sdf.Layer.Find(usd_path) or Sdf.Layer.FindOrOpen(usd_path)
+    if layer is None:
+        print(f"[scene_prep] move_root_prims_to_world: could not open {usd_path}", flush=True)
+        return []
+
+    all_root = [spec.name for spec in layer.rootPrims]
+    print(f"[scene_prep] move_root_prims_to_world: root prims in exported USD: {all_root}", flush=True)
+    print(f"[scene_prep] move_root_prims_to_world: sublayers: {layer.subLayerPaths}", flush=True)
+
+    to_move = [name for name in all_root if name != 'World']
+    if not to_move:
+        print(f"[scene_prep] move_root_prims_to_world: nothing to move", flush=True)
+        return []
+
+    edit = Sdf.BatchNamespaceEdit()
+    for name in to_move:
+        edit.Add(Sdf.Path(f"/{name}"), Sdf.Path(f"/World/{name}"))
+
+    if not layer.Apply(edit):
+        print(f"[scene_prep] move_root_prims_to_world: namespace edit failed for {to_move}", flush=True)
+        return []
+
+    layer.Save()
+    print(f"[scene_prep] Moved root prims under /World: {to_move}", flush=True)
+    return to_move
+
+
+# ---------------------------------------------------------------------------
 # Save as self-contained USD collection
 # ---------------------------------------------------------------------------
 
@@ -153,7 +200,7 @@ def save_scene_as_contained_usd(source_usd_url: str, output_dir: str) -> bool:
         usd_path=source_usd_url,
         collect_dir=output_dir,
         usd_only=False,        # include textures, MDLs, etc.
-        flat_collection=False, # preserve source folder hierarchy
+        flat_collection=True, # preserve source folder hierarchy
         skip_existing=False,
     )
 
@@ -180,3 +227,99 @@ def save_scene_as_contained_usd(source_usd_url: str, output_dir: str) -> bool:
 
     collector.destroy()
     return result[0]
+
+
+# ---------------------------------------------------------------------------
+# Fix missing MDL textures
+# ---------------------------------------------------------------------------
+
+def _resolve_nucleus_url(base_url: str, relative: str) -> str:
+    """Resolve a relative path against a Nucleus base directory URL."""
+    parts = base_url.rstrip('/').split('/')
+    for segment in relative.replace('\\', '/').split('/'):
+        if segment == '..':
+            parts.pop()
+        elif segment and segment != '.':
+            parts.append(segment)
+    return '/'.join(parts)
+
+
+def fix_missing_mdl_textures(output_dir: str, nucleus_env_url: str) -> int:
+    """Download textures referenced in MDL files that the Collector missed.
+
+    The Collector rewrites texture paths inside MDL files to relative local
+    paths but does not always copy the actual texture files. This function
+    downloads the original Nucleus MDL to find the real texture URLs, then
+    downloads any missing textures to the expected local paths.
+
+    Args:
+        output_dir:       Local directory written by the Collector.
+        nucleus_env_url:  Original omniverse:// URL of the source scene.
+
+    Returns:
+        Number of textures downloaded.
+    """
+    import omni.client
+    import tempfile
+
+    nucleus_base = nucleus_env_url.rsplit('/', 1)[0]
+    nucleus_materials_dir = f"{nucleus_base}/Materials"
+
+    texture_pattern = re.compile(
+        r'["\']([^"\']*\.(?:png|jpg|jpeg|exr|hdr|dds|tga|bmp))["\']',
+        re.IGNORECASE,
+    )
+    downloaded = 0
+
+    for root, dirs, files in os.walk(output_dir):
+        for fname in files:
+            if not fname.endswith('.mdl'):
+                continue
+
+            local_mdl = os.path.join(root, fname)
+
+            # Download the original Nucleus MDL to a temp file
+            nucleus_mdl_url = f"{nucleus_materials_dir}/{fname}"
+            tmp_mdl = os.path.join(tempfile.gettempdir(), f"orig_{fname}")
+            copy_result = omni.client.copy(
+                nucleus_mdl_url, tmp_mdl, omni.client.CopyBehavior.OVERWRITE
+            )
+            if copy_result != omni.client.Result.OK:
+                print(f"[scene_prep] Could not fetch original MDL from Nucleus: {nucleus_mdl_url}")
+                continue
+
+            with open(tmp_mdl, 'r', errors='replace') as f:
+                orig_content = f.read()
+            os.remove(tmp_mdl)
+
+            with open(local_mdl, 'r', errors='replace') as f:
+                local_content = f.read()
+
+            orig_refs = [m.group(1) for m in texture_pattern.finditer(orig_content)]
+            local_refs = [m.group(1) for m in texture_pattern.finditer(local_content)]
+
+            for orig_ref, local_ref in zip(orig_refs, local_refs):
+                # Resolve local expected path
+                local_abs = os.path.normpath(os.path.join(os.path.dirname(local_mdl), local_ref))
+
+                if os.path.exists(local_abs):
+                    continue
+
+                # Resolve absolute Nucleus URL for the texture
+                if orig_ref.startswith('omniverse:'):
+                    nucleus_tex_url = orig_ref
+                else:
+                    nucleus_tex_url = _resolve_nucleus_url(nucleus_materials_dir, orig_ref)
+
+                os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+                result = omni.client.copy(
+                    nucleus_tex_url, local_abs, omni.client.CopyBehavior.OVERWRITE
+                )
+                if result == omni.client.Result.OK:
+                    downloaded += 1
+                    print(f"[scene_prep] Downloaded: {os.path.basename(local_abs)}")
+                else:
+                    print(f"[scene_prep] Failed ({result}): {nucleus_tex_url}")
+
+    print(f"[scene_prep] fix_missing_mdl_textures: {downloaded} texture(s) downloaded.")
+    return downloaded
