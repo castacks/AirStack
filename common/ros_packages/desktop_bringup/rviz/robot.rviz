@@ -36,7 +36,7 @@ Panels:
     SyncSource: StereoImageProc Disparity
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
-    topic: /robot_2/behavior/behavior_tree_graphviz
+    topic: behavior/behavior_tree_graphviz
     zoom_factor: 0.1919851303100586
 Visualization Manager:
   Class: ""
@@ -254,7 +254,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/sensors/front_stereo/right/image_rect
+            Value: sensors/front_stereo/right/image_rect
           Value: true
         - Class: rviz_default_plugins/Image
           Enabled: true
@@ -464,7 +464,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/macvo/odometry
+            Value: macvo/odometry
           Value: true
       Enabled: true
       Name: Perception
@@ -509,7 +509,7 @@ Visualization Manager:
                     Filter size: 10
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/frustum
+                    Value: droan/frustum
                   Value: false
                 - Class: rviz_default_plugins/MarkerArray
                   Enabled: false
@@ -521,7 +521,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/disparity_map_debug
+                    Value: droan/disparity_map_debug
                   Value: false
                 - Alpha: 1
                   Autocompute Intensity Bounds: true
@@ -578,7 +578,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/disparity_graph
+                    Value: droan/disparity_graph
                   Value: true
               Enabled: false
               Name: Droan CPU
@@ -613,7 +613,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/fg_bg_cloud
+                    Value: droan/fg_bg_cloud
                   Use Fixed Frame: true
                   Use rainbow: false
                   Value: true
@@ -627,7 +627,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/traj_debug
+                    Value: droan/traj_debug
                   Value: true
                 - Class: rviz_default_plugins/MarkerArray
                   Enabled: true
@@ -639,7 +639,7 @@ Visualization Manager:
                     Durability Policy: Volatile
                     History Policy: Keep Last
                     Reliability Policy: Reliable
-                    Value: /robot_1/droan/graph_vis
+                    Value: droan/graph_vis
                   Value: true
               Enabled: true
               Name: Droan GPU
@@ -665,7 +665,7 @@ Visualization Manager:
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
-                Value: /robot_1/droan/local_planner_global_plan_vis
+                Value: droan/local_planner_global_plan_vis
               Value: true
             - Class: rviz_default_plugins/MarkerArray
               Enabled: true
@@ -677,7 +677,7 @@ Visualization Manager:
                 Durability Policy: Volatile
                 History Policy: Keep Last
                 Reliability Policy: Reliable
-                Value: /robot_1/droan/rewind_info
+                Value: droan/rewind_info
               Value: true
           Enabled: true
           Name: DROAN
@@ -752,7 +752,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /robot_1/global_plan
+            Value: global_plan
           Value: true
       Enabled: true
       Name: Global
@@ -768,7 +768,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_2/sensors/front_stereo/left/image_rect
+        Value: sensors/front_stereo/left/image_rect
       Value: true
   Enabled: true
   Global Options:
