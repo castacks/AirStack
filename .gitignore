@@ -66,3 +66,10 @@ mkdocs.log
 
 prompts/
 simulation/isaac-sim/launch_scripts/prepare_scene.py
+
+# scenes and raven-specific launch scripts
+scenes/
+simulation/isaac-sim/launch_scripts/AbandonedFactory_Launch.py
+simulation/isaac-sim/launch_scripts/ConstructionSite_Launch.py
+simulation/isaac-sim/launch_scripts/FireAcademy_Launch.py
+simulation/isaac-sim/launch_scripts/RetroNeighborhood_Launch.py
