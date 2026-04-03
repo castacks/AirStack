@@ -9,22 +9,7 @@ services:
       tags:
         - *airsim_image
     entrypoint: ""
-    command: >
-      bash -c "
-      python3 /home/airsim/Documents/AirSim/generate_settings.py &&
-      tmux new -d -s airsim &&
-      for i in $$(seq 1 $$NUM_ROBOTS); do
-        tmux new-window -t airsim &&
-        tmux send-keys -t airsim \"cd /root/PX4-Autopilot && PX4_SIM_MODEL=none_iris ./build/px4_sitl_default/bin/px4 ./ROMFS/px4fmu_common -s ROMFS/px4fmu_common/init.d-posix/rcS -i $$i\" ENTER;
-      done &&
-      tmux new-window -t airsim &&
-      tmux send-keys -t airsim 'sudo -u airsim $$AIRSIM_BINARY_PATH' ENTER &&
-      cd /root/ros_ws && colcon build --symlink-install &&
-      for i in $$(seq 1 $$NUM_ROBOTS); do
-        tmux new-window -t airsim &&
-        tmux send-keys -t airsim \"source /root/ros_ws/install/setup.bash && ROS_DOMAIN_ID=$$i ros2 run airsim_ros_bridge bridge_node --ros-args -p robot_name:=robot_$$i\" ENTER;
-      done &&
-      sleep infinity"
+    command: /root/entrypoint.sh
     stdin_open: true
     tty: true
     ipc: host

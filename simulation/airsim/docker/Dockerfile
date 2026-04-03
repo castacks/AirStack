@@ -37,4 +37,7 @@ RUN useradd -m -s /bin/bash -G sudo airsim && \
 
 RUN echo "source /opt/ros/jazzy/setup.bash" >> /root/.bashrc
 
+COPY entrypoint.sh /root/entrypoint.sh
+RUN chmod +x /root/entrypoint.sh
+
 WORKDIR /root
