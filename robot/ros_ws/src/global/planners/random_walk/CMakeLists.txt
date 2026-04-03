@@ -17,22 +17,12 @@ find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(task_msgs REQUIRED)
 
-###################################
-## ament specific configuration  ##
-###################################
-
-ament_package()
-
 ###########
 ## Build ##
 ###########
 
-# Specify additional locations of header files
-
-# Declare a C++ executable
 add_executable(random_walk_planner src/random_walk_node.cpp src/random_walk_logic.cpp)
 
-# Link libraries
 ament_target_dependencies(random_walk_planner
   rclcpp
   rclcpp_action
@@ -67,8 +57,9 @@ install(DIRECTORY
 ## Testing ##
 #############
 
-# Add gtest based cpp test target and link libraries
 # ament_add_gtest(${PROJECT_NAME}-test test/test_random_walk_planner.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_node)
 # endif()
+
+ament_package()
