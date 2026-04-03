@@ -16,7 +16,6 @@ from isaacsim import SimulationApp
 # Must be created before any omni imports
 simulation_app = SimulationApp({"headless": False})
 
-import asyncio
 import os
 import sys
 import time
@@ -35,7 +34,6 @@ from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_sub
 from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
-import scene_prep
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
 
@@ -97,6 +95,10 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
+        # Keep the timeline stopped throughout setup so that OmniGraph's
+        # OnPlaybackTick never fires.
+        self.timeline.stop()
+
         # Load environment
         self.pg.load_environment(ENV_URL)
 
@@ -144,7 +146,9 @@ class PegasusApp:
             else:
                 carb.log_error(f"Scene export failed: {error}")
 
-        # ----- Spawn drones -----
+        # ----- Spawn drone OmniGraphs -----
+        # This only creates the graph topology. The actual drones + PX4
+        # backends are created by compute_base on the first Play tick.
 
         ####################################################################################################
         # Spawn vehicle 1
@@ -216,19 +220,28 @@ class PegasusApp:
             lidar_min_range=0.75,
         )
 
-        # Reset physics/articulations before playing
-        self.world.reset()
-        self.stop_sim = False
+
+        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 
     def run(self):
-        self.timeline.play()
 
-        while simulation_app.is_running() and not self.stop_sim:
-            try:
-                self.world.step(render=True)
-            except Exception as e:
-                carb.log_error(f"Simulation step error: {e}")
-                break
+        if self.play_on_start:
+            self.timeline.play()
+        else:
+            self.timeline.stop()
+
+        app = omni.kit.app.get_app()
+        while simulation_app.is_running():
+            # File → Save re-opens the stage, which invalidates the World.
+            # Fall back to app.update() until the extension re-creates it.
+            world = World.instance()
+            if world is not None and hasattr(world, '_scene'):
+                world.step(render=True)
+                if world is not self.world:
+                    self.world = world
+                    self.pg._world = world
+            else:
+                app.update()
 
         carb.log_warn("Closing simulation.")
         self.timeline.stop()
