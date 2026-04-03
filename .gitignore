@@ -71,3 +71,6 @@ mkdocs.log
 
 prompts/
 simulation/isaac-sim/launch_scripts/prepare_scene.py
+
+# Generated AirSim config
+simulation/airsim/config/settings.json

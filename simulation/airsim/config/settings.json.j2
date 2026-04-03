@@ -3,41 +3,42 @@
   "SimMode": "Multirotor",
   "ClockType": "SteppableClock",
   "Vehicles": {
-    "drone1": {
+    {% for i in range(1, num_robots + 1) %}
+    "robot_{{ i }}": {
       "VehicleType": "PX4Multirotor",
       "UseSerial": false,
       "LockStep": true,
       "UseTcp": true,
-      "TcpPort": 4561,
-      "ControlPortLocal": 24541,
-      "ControlPortRemote": 24581,
+      "TcpPort": {{ 4560 + i }},
+      "ControlPortLocal": {{ 24540 + i }},
+      "ControlPortRemote": {{ 24580 + i }},
       "Parameters": {
         "NAV_RCL_ACT": 0,
         "NAV_DLL_ACT": 0,
         "COM_OBL_RC_ACT": 5,
-        "MAV_1_BROADCAST": 1
+        "MAV_{{ i }}_BROADCAST": 1
       },
       "Cameras": {
         "front_left": {
           "CaptureSettings": [
             {
               "ImageType": 0,
-              "Width": 480,
-              "Height": 300,
-              "FOV_Degrees": 90
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }}
             },
             {
               "ImageType": 2,
-              "Width": 480,
-              "Height": 300,
-              "FOV_Degrees": 90,
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }},
               "PixelsAsFloat": true
             }
           ],
-          "X": 0.4,
-          "Y": -0.06,
-          "Z": 0,
-          "Pitch": 0,
+          "X": {{ cam_x }},
+          "Y": {{ -cam_y }},
+          "Z": {{ cam_z }},
+          "Pitch": {{ cam_pitch }},
           "Roll": 0,
           "Yaw": 0
         },
@@ -45,22 +46,22 @@
           "CaptureSettings": [
             {
               "ImageType": 0,
-              "Width": 480,
-              "Height": 300,
-              "FOV_Degrees": 90
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }}
             },
             {
               "ImageType": 2,
-              "Width": 480,
-              "Height": 300,
-              "FOV_Degrees": 90,
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }},
               "PixelsAsFloat": true
             }
           ],
-          "X": 0.4,
-          "Y": 0.06,
-          "Z": 0,
-          "Pitch": 0,
+          "X": {{ cam_x }},
+          "Y": {{ cam_y }},
+          "Z": {{ cam_z }},
+          "Pitch": {{ cam_pitch }},
           "Roll": 0,
           "Yaw": 0
         }
@@ -80,8 +81,9 @@
         }
       },
       "X": 0,
-      "Y": 0,
+      "Y": {{ (i - 1) * spawn_spacing }},
       "Z": 0
-    }
+    }{{ "," if not loop.last }}
+    {% endfor %}
   }
 }
