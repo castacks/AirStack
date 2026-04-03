@@ -122,9 +122,6 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive")
         "set_trajectory_mode", rmw_qos_profile_services_default, service_callback_group);
     takeoff_landing_command_client = this->create_client<airstack_msgs::srv::TakeoffLandingCommand>(
         "set_takeoff_landing_command", rmw_qos_profile_services_default, service_callback_group);
-    global_planner_toggle_client = this->create_client<std_srvs::srv::Trigger>(
-        "global_plan_toggle", rmw_qos_profile_services_default, service_callback_group);
-
     // timers
     timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
                                  std::bind(&BehaviorExecutive::timer_callback, this));
@@ -347,43 +344,9 @@ void BehaviorExecutive::timer_callback()
 
     if (global_plan_action->is_active())
     {
-        global_plan_action->set_running();
-        if (global_plan_action->active_has_changed())
-        {
-            // put trajectory controller in ADD_SEGMENT mode
-            airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
-                std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
-            mode_request->mode = airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT;
-            auto mode_result = trajectory_mode_client->async_send_request(mode_request);
-            std::cout << "trajectory mode request sent" << std::endl;
-            mode_result.wait();
-            std::cout << "trajectory mode request confirmed received" << std::endl;
-
-            if (global_planner_toggle_client->service_is_ready())
-            {
-                std_srvs::srv::Trigger::Request::SharedPtr request =
-                    std::make_shared<std_srvs::srv::Trigger::Request>();
-                auto result = global_planner_toggle_client->async_send_request(request);
-                std::cout << "global planner toggle request sent" << std::endl;
-                result.wait();
-                std::cout << "global planner toggle request confirmed received" << std::endl;
-                if (result.get()->success)
-                {
-                    std::cout << "global planner toggle succeeded" << std::endl;
-                    global_plan_action->set_success();
-                }
-                else
-                {
-                    std::cout << "global planner toggle failed" << std::endl;
-                    global_plan_action->set_failure();
-                }
-            }
-            else
-            {
-                std::cout << "global planner toggle service not available" << std::endl;
-                global_plan_action->set_failure();
-            }
-        };
+        // Trajectory mode and global planner activation are owned by the
+        // NavigateTask executor (DROAN). Just signal success to the BT.
+        global_plan_action->set_success();
     }
 
     for (bt::Condition *condition : conditions)

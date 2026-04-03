@@ -40,11 +40,13 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "task_msgs/action/exploration_task.hpp"
+#include "task_msgs/action/navigate_task.hpp"
 
 class RandomWalkNode : public rclcpp::Node {
    public:
     using ExplorationTask = task_msgs::action::ExplorationTask;
     using GoalHandle = rclcpp_action::ServerGoalHandle<ExplorationTask>;
+    using NavigateTask = task_msgs::action::NavigateTask;
 
     RandomWalkNode();
     ~RandomWalkNode() = default;
@@ -58,8 +60,14 @@ class RandomWalkNode : public rclcpp::Node {
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 
-    // ROS action server
+    // ROS action server (ExplorationTask)
     rclcpp_action::Server<ExplorationTask>::SharedPtr action_server_;
+
+    // ROS action client (NavigateTask → local planner)
+    rclcpp_action::Client<NavigateTask>::SharedPtr navigate_client_;
+    rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr navigate_goal_handle_;
+    std::atomic<bool> navigate_goal_done_{true};
+    std::atomic<bool> navigate_goal_succeeded_{false};
 
    private:
     // Planner
@@ -86,11 +94,6 @@ class RandomWalkNode : public rclcpp::Node {
     bool is_path_executing = false;
 
     geometry_msgs::msg::Pose current_location;
-    geometry_msgs::msg::Pose current_goal_location;
-    geometry_msgs::msg::Pose last_location;
-    rclcpp::Time last_position_change;
-    double position_change_threshold = 0.1;
-    double stall_timeout_seconds = 5.0;
 
     // Active task state
     std::atomic<bool> task_active_{false};
@@ -111,7 +114,7 @@ class RandomWalkNode : public rclcpp::Node {
 
     // Planning helpers
     void generate_plan();
-    void publish_plan();
+    void send_navigate_goal();
 
     std::optional<init_params> readParameters();
 };

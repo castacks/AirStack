@@ -9,16 +9,18 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/CoverageTask.action"
   "action/ExplorationTask.action"
   "action/FixedTrajectoryTask.action"
+  "action/NavigateTask.action"
   "action/ObjectCountingTask.action"
   "action/ObjectSearchTask.action"
   "action/SemanticSearchTask.action"
-  DEPENDENCIES action_msgs geometry_msgs airstack_msgs
+  DEPENDENCIES action_msgs geometry_msgs nav_msgs airstack_msgs
 )
 
 if(BUILD_TESTING)

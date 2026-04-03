@@ -44,6 +44,8 @@
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
         <node pkg="droan_gl" exec="expand" output="screen">
+            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="disparity" to="$(var local_disparity_in_topic)" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
@@ -187,6 +189,8 @@
             args="--log-level DEBUG">
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
                 allow_substs="true" />
+            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
             <remap from="tracking_point"

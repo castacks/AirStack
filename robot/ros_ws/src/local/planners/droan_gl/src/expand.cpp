@@ -1,5 +1,8 @@
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 #include <airstack_common/ros2_helper.hpp>
+#include <airstack_msgs/srv/trajectory_mode.hpp>
+#include <task_msgs/action/navigate_task.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <stereo_msgs/msg/disparity_image.hpp>
@@ -71,6 +74,16 @@ private:
 
   rclcpp::TimerBase::SharedPtr timer;
 
+  // Action server (NavigateTask)
+  using NavigateTask = task_msgs::action::NavigateTask;
+  using NavigateGoalHandle = rclcpp_action::ServerGoalHandle<NavigateTask>;
+  rclcpp_action::Server<NavigateTask>::SharedPtr navigate_action_server_;
+  rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr trajectory_mode_client_;
+  std::atomic<bool> task_active_{false};
+  std::atomic<bool> cancel_requested_{false};
+  airstack_msgs::msg::Odometry tracking_point_odom_;
+  bool tracking_point_valid_ = false;
+
   std::string target_frame, look_ahead_frame, rewind_info_frame;
   bool look_ahead_valid;
   airstack_msgs::msg::Odometry look_ahead;
@@ -135,6 +148,17 @@ public:
     // TODO make this time a parameter
     timer = rclcpp::create_timer(this, get_clock(), rclcpp::Duration::from_seconds(2. * 1. / 5.),
                                  std::bind(&DisparityExpanderNode::timer_callback, this));
+
+    trajectory_mode_client_ = create_client<airstack_msgs::srv::TrajectoryMode>("set_trajectory_mode");
+
+    navigate_action_server_ = rclcpp_action::create_server<NavigateTask>(
+        this, "~/navigate_task",
+        std::bind(&DisparityExpanderNode::handle_navigate_goal, this,
+                  std::placeholders::_1, std::placeholders::_2),
+        std::bind(&DisparityExpanderNode::handle_navigate_cancel, this, std::placeholders::_1),
+        std::bind(&DisparityExpanderNode::handle_navigate_accepted, this, std::placeholders::_1));
+
+    RCLCPP_INFO(get_logger(), "DisparityExpanderNode initialized, waiting for NavigateTask goals");
   }
 
 private:
@@ -380,6 +404,8 @@ private:
   void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg)
   {
     rewind_monitor->update_odom(msg);
+    tracking_point_odom_ = *msg;
+    tracking_point_valid_ = true;
   }
 
   /**
@@ -392,6 +418,113 @@ private:
   void global_plan_callback(const nav_msgs::msg::Path::SharedPtr msg)
   {
     global_plan->set_global_plan(msg);
+  }
+
+  // ---------------------------------------------------------------------------
+  // NavigateTask action server
+  // ---------------------------------------------------------------------------
+
+  rclcpp_action::GoalResponse handle_navigate_goal(
+      const rclcpp_action::GoalUUID&,
+      std::shared_ptr<const NavigateTask::Goal> /*goal*/)
+  {
+    if (task_active_) {
+      RCLCPP_WARN(get_logger(), "Rejecting NavigateTask goal: task already active");
+      return rclcpp_action::GoalResponse::REJECT;
+    }
+    task_active_ = true;
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  }
+
+  rclcpp_action::CancelResponse handle_navigate_cancel(
+      std::shared_ptr<NavigateGoalHandle> /*goal_handle*/)
+  {
+    cancel_requested_ = true;
+    return rclcpp_action::CancelResponse::ACCEPT;
+  }
+
+  void handle_navigate_accepted(std::shared_ptr<NavigateGoalHandle> goal_handle)
+  {
+    std::thread{std::bind(&DisparityExpanderNode::execute_navigate, this,
+                          std::placeholders::_1), goal_handle}.detach();
+  }
+
+  void execute_navigate(std::shared_ptr<NavigateGoalHandle> goal_handle)
+  {
+    const auto goal = goal_handle->get_goal();
+    cancel_requested_ = false;
+
+    // Feed the goal path into the planner
+    global_plan->set_global_plan(
+        std::make_shared<nav_msgs::msg::Path>(goal->global_plan));
+
+    // Set trajectory controller to ADD_SEGMENT mode
+    auto mode_req = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+    mode_req->mode = airstack_msgs::srv::TrajectoryMode::Request::ADD_SEGMENT;
+    if (trajectory_mode_client_->wait_for_service(std::chrono::seconds(2)))
+      trajectory_mode_client_->async_send_request(mode_req);
+    else
+      RCLCPP_WARN(get_logger(), "set_trajectory_mode service not available");
+
+    // Goal position is the last pose in the path
+    geometry_msgs::msg::Point goal_pos;
+    if (!goal->global_plan.poses.empty())
+      goal_pos = goal->global_plan.poses.back().pose.position;
+
+    rclcpp::Rate rate(1.0);
+
+    while (rclcpp::ok()) {
+      if (cancel_requested_) {
+        restore_track_mode();
+        auto result = std::make_shared<NavigateTask::Result>();
+        result->success = false;
+        result->message = "Cancelled";
+        task_active_ = false;
+        goal_handle->canceled(result);
+        return;
+      }
+
+      if (tracking_point_valid_) {
+        double dx = tracking_point_odom_.pose.position.x - goal_pos.x;
+        double dy = tracking_point_odom_.pose.position.y - goal_pos.y;
+        double dz = tracking_point_odom_.pose.position.z - goal_pos.z;
+        float dist = static_cast<float>(std::sqrt(dx*dx + dy*dy + dz*dz));
+
+        auto feedback = std::make_shared<NavigateTask::Feedback>();
+        feedback->status = "navigating";
+        feedback->distance_to_goal = dist;
+        feedback->current_position.x = tracking_point_odom_.pose.position.x;
+        feedback->current_position.y = tracking_point_odom_.pose.position.y;
+        feedback->current_position.z = tracking_point_odom_.pose.position.z;
+        goal_handle->publish_feedback(feedback);
+
+        if (dist < goal->goal_tolerance_m) {
+          restore_track_mode();
+          auto result = std::make_shared<NavigateTask::Result>();
+          result->success = true;
+          result->message = "Goal reached";
+          task_active_ = false;
+          goal_handle->succeed(result);
+          return;
+        }
+      }
+
+      rate.sleep();
+    }
+
+    restore_track_mode();
+    auto result = std::make_shared<NavigateTask::Result>();
+    result->success = false;
+    result->message = "Node shutting down";
+    task_active_ = false;
+    goal_handle->abort(result);
+  }
+
+  void restore_track_mode()
+  {
+    auto mode_req = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+    mode_req->mode = airstack_msgs::srv::TrajectoryMode::Request::TRACK;
+    trajectory_mode_client_->async_send_request(mode_req);
   }
 
   /**
@@ -424,7 +557,9 @@ int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<DisparityExpanderNode>();
-  rclcpp::spin(node);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
   return 0;
 }

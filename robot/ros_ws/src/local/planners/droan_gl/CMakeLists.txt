@@ -22,13 +22,15 @@ find_package(pcl_conversions REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(trajectory_library REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(task_msgs REQUIRED)
 
 add_executable(expand src/expand.cpp src/gl_interface.cpp src/global_plan.cpp src/rewind_monitor.cpp src/glad/src/glad.c)
 target_include_directories(expand PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(expand PUBLIC c_std_99 cxx_std_17) # Require C99 and C++17
-ament_target_dependencies(expand rclcpp sensor_msgs stereo_msgs nav_msgs visualization_msgs tf2 tf2_ros tf2_geometry_msgs cv_bridge ament_index_cpp pcl_conversions airstack_common airstack_msgs trajectory_library)
+ament_target_dependencies(expand rclcpp rclcpp_action sensor_msgs stereo_msgs nav_msgs visualization_msgs tf2 tf2_ros tf2_geometry_msgs cv_bridge ament_index_cpp pcl_conversions airstack_common airstack_msgs trajectory_library task_msgs)
 target_link_libraries(expand glfw dl assimp EGL GL)
 
 # install(TARGETS droan DESTINATION lib/${PROJECT_NAME})

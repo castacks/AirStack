@@ -94,16 +94,6 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_yaw_change_degrees");
         return std::optional<init_params>{};
     }
-    this->declare_parameter<float>("position_change_threshold");
-    if (!this->get_parameter("position_change_threshold", this->position_change_threshold)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: position_change_threshold");
-        return std::optional<init_params>{};
-    }
-    this->declare_parameter<float>("stall_timeout_seconds");
-    if (!this->get_parameter("stall_timeout_seconds", this->stall_timeout_seconds)) {
-        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: stall_timeout_seconds");
-        return std::optional<init_params>{};
-    }
     return params;
 }
 
@@ -127,6 +117,8 @@ RandomWalkNode::RandomWalkNode() : Node("random_walk_node") {
         this->create_publisher<visualization_msgs::msg::Marker>(pub_goal_point_viz_topic_, 10);
     this->pub_trajectory_lines =
         this->create_publisher<visualization_msgs::msg::Marker>(pub_trajectory_viz_topic_, 10);
+
+    this->navigate_client_ = rclcpp_action::create_client<NavigateTask>(this, "navigate_task");
 
     this->action_server_ = rclcpp_action::create_server<ExplorationTask>(
         this, "~/exploration_task",
@@ -162,8 +154,6 @@ void RandomWalkNode::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr m
     this->current_location = msg->pose.pose;
     if (!this->received_first_robot_tf) {
         this->received_first_robot_tf = true;
-        this->last_location = this->current_location;
-        this->last_position_change = this->now();
         RCLCPP_INFO(this->get_logger(), "Received first odometry");
     }
 }
@@ -229,6 +219,9 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     while (rclcpp::ok()) {
         // --- Check for cancellation ---
         if (cancel_requested_) {
+            // Cancel any active NavigateTask goal
+            if (navigate_goal_handle_ && !navigate_goal_done_)
+                navigate_client_->async_cancel_goal(navigate_goal_handle_);
             auto result = std::make_shared<ExplorationTask::Result>();
             result->success = false;
             result->message = "Task cancelled";
@@ -242,6 +235,8 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         if (task_time_limit_sec_ > 0.0f) {
             double elapsed = (this->now() - task_start_time_).seconds();
             if (elapsed >= static_cast<double>(task_time_limit_sec_)) {
+                if (navigate_goal_handle_ && !navigate_goal_done_)
+                    navigate_client_->async_cancel_goal(navigate_goal_handle_);
                 auto result = std::make_shared<ExplorationTask::Result>();
                 result->success = true;
                 result->message = "Time limit reached";
@@ -263,56 +258,30 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         } else {
             feedback->progress = 0.0f;
         }
-        feedback->status = is_path_executing ? "executing" : "planning";
+        feedback->status = is_path_executing ? "navigating" : "planning";
         goal_handle->publish_feedback(feedback);
 
-        // --- Planning loop ---
+        // --- Planning / navigation loop ---
         if (!is_path_executing) {
             if (received_first_map && received_first_robot_tf) {
+                generated_paths.clear();
                 for (int i = 0; i < num_paths_to_generate_; i++) {
                     generate_plan();
                 }
-                publish_plan();
+                send_navigate_goal();
                 is_path_executing = true;
-                last_position_change = this->now();
             } else {
                 RCLCPP_INFO_ONCE(this->get_logger(),
                                  "Waiting for map and odometry before planning...");
             }
-        } else {
-            // Check if the robot reached the current goal waypoint
-            std::tuple<float, float, float> current_point = std::make_tuple(
-                current_location.position.x, current_location.position.y,
-                current_location.position.z);
-            std::tuple<float, float, float> goal_point = std::make_tuple(
-                current_goal_location.position.x, current_goal_location.position.y,
-                current_goal_location.position.z);
-
-            if (get_point_distance(current_point, goal_point) <
-                random_walk_planner->path_end_threshold_m) {
-                is_path_executing = false;
-                generated_paths.clear();
-                RCLCPP_INFO(this->get_logger(), "Reached waypoint, generating next plan");
+        } else if (navigate_goal_done_) {
+            // NavigateTask completed (success or failure) — generate next segment
+            is_path_executing = false;
+            if (!navigate_goal_succeeded_) {
+                RCLCPP_WARN(this->get_logger(),
+                            "NavigateTask did not succeed, replanning");
             } else {
-                // Stall detection
-                std::tuple<float, float, float> last_point = std::make_tuple(
-                    last_location.position.x, last_location.position.y,
-                    last_location.position.z);
-
-                if (get_point_distance(current_point, last_point) > position_change_threshold) {
-                    last_location = current_location;
-                    last_position_change = this->now();
-                } else {
-                    rclcpp::Duration stall_duration = this->now() - last_position_change;
-                    if (stall_duration.seconds() > stall_timeout_seconds) {
-                        RCLCPP_INFO(this->get_logger(),
-                                    "Stall detected (%.1fs), clearing plan and replanning",
-                                    stall_duration.seconds());
-                        is_path_executing = false;
-                        generated_paths.clear();
-                        last_position_change = this->now();
-                    }
-                }
+                RCLCPP_INFO(this->get_logger(), "Waypoint reached, planning next segment");
             }
         }
 
@@ -320,6 +289,8 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     }
 
     // Node is shutting down
+    if (navigate_goal_handle_ && !navigate_goal_done_)
+        navigate_client_->async_cancel_goal(navigate_goal_handle_);
     auto result = std::make_shared<ExplorationTask::Result>();
     result->success = false;
     result->message = "Node shutting down";
@@ -383,28 +354,56 @@ void RandomWalkNode::generate_plan() {
             generated_single_path.poses.push_back(point_msg);
         }
 
-        geometry_msgs::msg::PoseStamped last_goal = generated_single_path.poses.back();
-        this->current_goal_location.position.x = last_goal.pose.position.x;
-        this->current_goal_location.position.y = last_goal.pose.position.y;
-        this->current_goal_location.position.z = last_goal.pose.position.z;
-        this->current_goal_location.orientation = last_goal.pose.orientation;
         this->generated_paths.push_back(generated_single_path);
     } else {
         RCLCPP_ERROR(this->get_logger(), "Failed to generate path");
     }
 }
 
-void RandomWalkNode::publish_plan() {
-    nav_msgs::msg::Path full_path;
-    for (auto& path : this->generated_paths) {
-        for (auto& point : path.poses) {
-            full_path.poses.push_back(point);
-        }
+void RandomWalkNode::send_navigate_goal() {
+    if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
+        RCLCPP_WARN(this->get_logger(), "NavigateTask action server not available");
+        is_path_executing = false;
+        return;
     }
+
+    // Concatenate generated path segments
+    nav_msgs::msg::Path full_path;
     full_path.header.stamp = this->now();
     full_path.header.frame_id = this->world_frame_id_;
-    this->pub_global_plan->publish(full_path);
-    RCLCPP_INFO(this->get_logger(), "Published global plan (%zu waypoints)", full_path.poses.size());
+    for (auto& path : this->generated_paths) {
+        for (auto& pose : path.poses) {
+            full_path.poses.push_back(pose);
+        }
+    }
+
+    auto nav_goal = NavigateTask::Goal();
+    nav_goal.global_plan = full_path;
+    nav_goal.goal_tolerance_m = static_cast<float>(random_walk_planner->path_end_threshold_m);
+
+    navigate_goal_done_ = false;
+    navigate_goal_succeeded_ = false;
+
+    auto goal_options = rclcpp_action::Client<NavigateTask>::SendGoalOptions();
+    goal_options.goal_response_callback =
+        [this](const rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr& gh) {
+            navigate_goal_handle_ = gh;
+            if (!gh) {
+                RCLCPP_WARN(this->get_logger(), "NavigateTask goal rejected by server");
+                navigate_goal_done_ = true;
+            }
+        };
+    goal_options.result_callback =
+        [this](const rclcpp_action::ClientGoalHandle<NavigateTask>::WrappedResult& result) {
+            navigate_goal_succeeded_ =
+                (result.code == rclcpp_action::ResultCode::SUCCEEDED) && result.result->success;
+            navigate_goal_done_ = true;
+        };
+
+    navigate_client_->async_send_goal(nav_goal, goal_options);
+
+    RCLCPP_INFO(this->get_logger(), "Sent NavigateTask goal (%zu waypoints)",
+                full_path.poses.size());
 }
 
 int main(int argc, char* argv[]) {

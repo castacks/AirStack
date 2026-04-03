@@ -25,7 +25,6 @@
 #include <behavior_tree/behavior_tree.hpp>
 #include <behavior_tree_msgs/msg/behavior_tree_commands.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <std_srvs/srv/trigger.hpp>
 #include <std_msgs/msg/empty.hpp>
 #include <vector>
 
@@ -94,7 +93,6 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr trajectory_mode_client;
     rclcpp::Client<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr
         takeoff_landing_command_client;
-    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr global_planner_toggle_client;
 
     // timers
     rclcpp::TimerBase::SharedPtr timer;
