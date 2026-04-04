@@ -242,20 +242,21 @@ action_server_ = rclcpp_action::create_server<YourTask>(
     std::bind(&YourNode::handle_accepted,this, std::placeholders::_1));
 ```
 
-#### 2e. Use MultiThreadedExecutor in main
+#### 2e. Executor in main
+
+Because `execute()` runs in a **detached thread**, the main executor is never blocked by it — subscriber callbacks (map, odometry) keep running regardless of which executor you use. `rclcpp::spin()` (single-threaded) is the safe default:
+
 ```cpp
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<YourNode>();
-    rclcpp::executors::MultiThreadedExecutor executor;
-    executor.add_node(node);
-    executor.spin();
+    rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
 }
 ```
 
-`MultiThreadedExecutor` ensures subscriber callbacks (map, odometry) continue processing while the execute thread is running.
+Only switch to `MultiThreadedExecutor` if you have independent callbacks that genuinely need concurrent execution **and** all shared resources are thread-safe. Nodes that use OpenGL, CUDA, or other thread-affine resources **must** use `rclcpp::spin()` to keep callbacks serialized.
 
 ### 3. Add remap to bringup launch
 
@@ -331,6 +332,6 @@ Study this package for a complete working example of all four callbacks, the exe
 
 - ❌ **Blocking in `handle_accepted`** — always spawn a thread; blocking the executor prevents subscriber callbacks from running
 - ❌ **Forgetting `task_active_ = false`** at every exit point in `execute()` — the node will reject all future goals
-- ❌ **Not using `MultiThreadedExecutor`** — `rclcpp::spin()` may starve subscriber callbacks while the execute thread holds resources
+- ❌ **Using `MultiThreadedExecutor` with non-thread-safe resources** (OpenGL, CUDA, etc.) — the detach pattern means `rclcpp::spin()` never starves subscriber callbacks; use `MultiThreadedExecutor` only when callbacks truly need concurrency and all shared state is thread-safe
 - ❌ **Missing action server remap in bringup** — action won't be discoverable at the expected topic
 - ❌ **Calling `goal_handle->succeed()` after `goal_handle->canceled()`** — check the cancel flag before the completion condition

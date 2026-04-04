@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "task_msgs/action/exploration_task.hpp"
 
 class BehaviorExecutive : public rclcpp::Node {
    private:
@@ -93,6 +94,13 @@ class BehaviorExecutive : public rclcpp::Node {
     rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr trajectory_mode_client;
     rclcpp::Client<airstack_msgs::srv::TakeoffLandingCommand>::SharedPtr
         takeoff_landing_command_client;
+
+    // action clients
+    using ExplorationTask = task_msgs::action::ExplorationTask;
+    rclcpp_action::Client<ExplorationTask>::SharedPtr exploration_client_;
+    rclcpp_action::ClientGoalHandle<ExplorationTask>::SharedPtr exploration_goal_handle_;
+    bool exploration_goal_done_ = true;
+    bool exploration_goal_succeeded_ = false;
 
     // timers
     rclcpp::TimerBase::SharedPtr timer;

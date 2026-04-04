@@ -122,6 +122,10 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive")
         "set_trajectory_mode", rmw_qos_profile_services_default, service_callback_group);
     takeoff_landing_command_client = this->create_client<airstack_msgs::srv::TakeoffLandingCommand>(
         "set_takeoff_landing_command", rmw_qos_profile_services_default, service_callback_group);
+
+    // action clients
+    exploration_client_ = rclcpp_action::create_client<ExplorationTask>(this, "exploration_task");
+
     // timers
     timer = rclcpp::create_timer(this, this->get_clock(), rclcpp::Duration::from_seconds(1. / 20.),
                                  std::bind(&BehaviorExecutive::timer_callback, this));
@@ -344,9 +348,45 @@ void BehaviorExecutive::timer_callback()
 
     if (global_plan_action->is_active())
     {
-        // Trajectory mode and global planner activation are owned by the
-        // NavigateTask executor (DROAN). Just signal success to the BT.
-        global_plan_action->set_success();
+        global_plan_action->set_running();
+        if (global_plan_action->active_has_changed())
+        {
+            auto goal = ExplorationTask::Goal();
+            goal.min_altitude_agl = 2.0f;
+            goal.max_altitude_agl = 20.0f;
+            goal.min_flight_speed = 1.0f;
+            goal.max_flight_speed = 5.0f;
+            goal.time_limit_sec = 0.0f;  // no limit
+
+            exploration_goal_done_ = false;
+            exploration_goal_succeeded_ = false;
+
+            auto options = rclcpp_action::Client<ExplorationTask>::SendGoalOptions();
+            options.goal_response_callback =
+                [this](const rclcpp_action::ClientGoalHandle<ExplorationTask>::SharedPtr& gh) {
+                    exploration_goal_handle_ = gh;
+                    if (!gh) {
+                        RCLCPP_WARN(this->get_logger(), "ExplorationTask goal rejected");
+                        exploration_goal_done_ = true;
+                    }
+                };
+            options.result_callback =
+                [this](const rclcpp_action::ClientGoalHandle<ExplorationTask>::WrappedResult& result) {
+                    exploration_goal_succeeded_ =
+                        (result.code == rclcpp_action::ResultCode::SUCCEEDED) && result.result->success;
+                    exploration_goal_done_ = true;
+                };
+            exploration_client_->async_send_goal(goal, options);
+            RCLCPP_INFO(this->get_logger(), "Sent ExplorationTask goal");
+        }
+
+        if (exploration_goal_done_)
+        {
+            if (exploration_goal_succeeded_)
+                global_plan_action->set_success();
+            else
+                global_plan_action->set_failure();
+        }
     }
 
     for (bt::Condition *condition : conditions)

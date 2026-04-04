@@ -36,7 +36,7 @@ Panels:
     SyncSource: StereoImageProc Disparity
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
-    topic: behavior/behavior_tree_graphviz
+    topic: /robot_1/behavior/behavior_tree_graphviz
     zoom_factor: 0.1919851303100586
 Visualization Manager:
   Class: ""
@@ -687,7 +687,8 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                {}
+                traj_controller: true
+                traj_controller_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -709,7 +710,7 @@ Visualization Manager:
               Value: false
           Enabled: true
           Name: Trajectory Controller
-      Enabled: false
+      Enabled: true
       Name: Local
     - Class: rviz_common/Group
       Displays:
@@ -816,25 +817,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 13.325113296508789
+      Distance: 26.301408767700195
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 7.423017978668213
-        Y: -7.2339982986450195
-        Z: -4.456746578216553
+        X: 6.924289703369141
+        Y: -7.847400188446045
+        Z: -4.3323540687561035
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.48039692640304565
+      Pitch: 0.5103968977928162
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.354877471923828
+      Yaw: 2.279876232147217
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
