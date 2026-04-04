@@ -1,20 +1,17 @@
 #!/bin/bash
 # Downloads scene folders from Google Drive into scenes/
 
-FOLDER_ID="1Sap3R2yZUPvcMn88CQ27pmp0TkxJNUi1"
+FILE_ID="1dGlbfeRRWkyVTZVlJdZMl_hcMKjzxEoZ"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ZIP_PATH="$SCRIPT_DIR/scenes.zip"
 
-# Check for gdown
-if ! command -v gdown &> /dev/null; then
-    echo "Installing gdown..."
-    if command -v pipx &> /dev/null; then
-        pipx install gdown
-    else
-        pip install -q gdown --break-system-packages
-    fi
-fi
+echo "Downloading scenes.zip from Google Drive..."
+curl -L "https://drive.usercontent.google.com/download?id=${FILE_ID}&export=download&confirm=t" -o "$ZIP_PATH"
 
-echo "Downloading scenes from Google Drive..."
-gdown --folder "https://drive.google.com/drive/folders/${FOLDER_ID}" -O "$SCRIPT_DIR" --remaining-ok
+echo "Extracting..."
+unzip -o "$ZIP_PATH" -d "$SCRIPT_DIR"
 
-echo "Done. Scenes downloaded to $SCRIPT_DIR"
+echo "Cleaning up..."
+rm "$ZIP_PATH"
+
+echo "Done. Scenes extracted to $SCRIPT_DIR"
