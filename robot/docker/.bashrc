@@ -17,8 +17,10 @@ export PYTHONWARNINGS
 # Convenience functions for ROS2 workspace
 
 function bws(){
+    # Since multiple robot containers may mount a shared volume, we need to use flock to prevent race conditions.
     echo "Running \`colcon build $@\` in $ROS2_WS_DIR"
-    COLCON_LOG_PATH="$ROS2_WS_DIR"/log colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
+    COLCON_LOG_PATH="$ROS2_WS_DIR"/log flock "$ROS2_WS_DIR/.build.lock" \
+        colcon build --symlink-install --base-paths "$ROS2_WS_DIR"/ --build-base "$ROS2_WS_DIR"/build/ --install-base "$ROS2_WS_DIR"/install/ "$@"
 }
 function sws(){
     if [ -f "$ROS2_WS_DIR/install/local_setup.bash" ]; then
