@@ -704,6 +704,19 @@ function cmd_up {
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "$@"
 
+    # Ensure only one simulator profile is active
+    local p="${COMPOSE_PROFILES:-$(sed -n 's/^COMPOSE_PROFILES=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
+    for arg in "${global_args[@]}"; do p+=",${arg}"; done
+    local n=0; for s in isaac-sim airsim simple; do [[ ",$p," == *",$s,"* ]] && n=$((n+1)); done
+    (( n > 1 )) && log_error "Only one simulator profile can be active at a time (isaac-sim, airsim, simple)." && exit 1
+
+    # Warn if URDF_FILE doesn't match the active simulator
+    local urdf=$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')
+    if [[ -n "$urdf" ]]; then
+        [[ ",$p," == *",airsim,"* && "$urdf" != *.airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match airsim profile. Expected *.airsim.* URDF."
+        [[ ",$p," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF."
+    fi
+
     # Add xhost + to allow GUI applications
     xhost + &> /dev/null || true
 

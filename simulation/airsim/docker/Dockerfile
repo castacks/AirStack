@@ -17,7 +17,7 @@ RUN cd PX4-Autopilot && make px4_sitl_default
 
 # AirSim Python client with msgpack fix
 # See [AirSim #3333](https://github.com/microsoft/AirSim/issues/3333#issuecomment-827894198) for details.
-RUN pip3 install --break-system-packages msgpack backports.ssl-match-hostname && \
+RUN pip3 install --break-system-packages jinja2 msgpack backports.ssl-match-hostname && \
     pip3 install --break-system-packages \
       git+https://github.com/tbelhalfaoui/msgpack-rpc-python.git@fix-msgpack-dep && \
     pip3 install --break-system-packages airsim --ignore-installed numpy

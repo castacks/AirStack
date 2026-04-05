@@ -13,34 +13,49 @@ The role is hardcoded per compose service — no environment variables need to b
 
 ## Compose profiles
 
-Each profile is a complete, self-contained deployment recipe. Pick one profile per machine.
+Profiles are split into **deployment** and **simulator** categories.
+
+**Deployment profiles:**
 
 | Profile | Machine | Services started | Role(s) |
 |---|---|---|---|
-| `desktop` | Dev desktop | `robot-desktop` + sim + `gcs` | `full` |
-| `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + sim + `gcs` | `onboard` + `offboard` |
+| `desktop` | Dev desktop | `robot-desktop` + `gcs` | `full` |
+| `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + `gcs` | `onboard` + `offboard` |
 | `l4t` | Jetson | `robot-l4t` + `zed-l4t` | `full` |
 | `l4t_lite` | Jetson | `robot-l4t-onboard` + `zed-l4t` | `onboard` |
 | `voxl` | VOXL2 | `robot-voxl-onboard` | `onboard` (always) |
 | `offboard` | Ground station | `robot-offboard` ×N + `gcs-real` | `offboard` |
+
+**Simulator profiles (mutually exclusive, `desktop`/`desktop_split` only):**
+
+| Profile | Simulator |
+|---|---|
+| `isaac-sim` | NVIDIA Isaac Sim (Pegasus) |
+| `airsim` | Microsoft AirSim (UE4) |
+| `simple` | Simple Sim |
+
+Only one simulator profile can be active at a time. `airstack up` will error if multiple are set.
 
 ---
 
 ## Profile: `desktop` (default)
 
 Standard simulation and development. All autonomy runs in one container per simulated robot.
-Use this for most day-to-day development.
+Combine with a simulator profile.
 
 ```
 Dev desktop
-├── isaac-sim / simple-sim
+├── simulator (isaac-sim / airsim / simple)
 ├── robot-desktop × N   [role: full]
 └── gcs
 ```
 
 ```bash
-# .env defaults are correct; just run:
+# Isaac Sim (set in .env: COMPOSE_PROFILES="desktop,isaac-sim"):
 airstack up
+
+# AirSim:
+COMPOSE_PROFILES="desktop,airsim" airstack up
 
 # Multiple simulated robots:
 NUM_ROBOTS=3 airstack up
@@ -60,17 +75,17 @@ Use this to debug the split configuration and domain bridge without needing phys
 
 ```
 Dev desktop
-├── isaac-sim / simple-sim
+├── simulator (isaac-sim / airsim / simple)
 ├── robot-desktop-onboard × N   [role: onboard, ROS_DOMAIN_ID = 1..N]
 ├── robot-offboard × N          [role: offboard, ROS_DOMAIN_ID = 0]
 └── gcs                         [domain 0]
 ```
 
 ```bash
-COMPOSE_PROFILES=desktop_split airstack up
+COMPOSE_PROFILES="desktop_split,isaac-sim" airstack up
 
 # Or:
-airstack --profile desktop_split up
+airstack --profile desktop_split --profile isaac-sim up
 ```
 
 !!! note "Domain isolation"

@@ -8,6 +8,7 @@ services:
       dockerfile: Dockerfile
       tags:
         - *airsim_image
+    container_name: airsim
     entrypoint: ""
     command: /root/entrypoint.sh
     stdin_open: true
@@ -16,7 +17,7 @@ services:
     privileged: true
     networks:
       airstack_network:
-        ipv4_address: 172.31.0.201
+        ipv4_address: 172.31.0.200
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
@@ -24,7 +25,7 @@ services:
       - XDG_RUNTIME_DIR=/tmp
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
-      - AIRSIM_BINARY_PATH=${AIRSIM_BINARY_PATH:-/airsim_env/LinuxNoEditor/Blocks.sh}
+      - AIRSIM_BINARY_PATH=${AIRSIM_BINARY_PATH:-/airsim_env/Blocks.sh}
     deploy:
       resources:
         reservations:
