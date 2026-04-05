@@ -1,7 +1,7 @@
 #!/bin/bash
 # Downloads scene folders from Google Drive into scenes/
 
-FILE_ID="1dGlbfeRRWkyVTZVlJdZMl_hcMKjzxEoZ"
+FILE_ID="1LJGZUzaJGkZ27hmXFuu7C97dlZv_w8jg"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZIP_PATH="$SCRIPT_DIR/scenes.zip"
 
