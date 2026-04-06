@@ -88,8 +88,12 @@ Here are the steps:
 **This applies to:**
 - Unordered lists (`-`, `*`, `+`)
 - Ordered lists (`1.`, `2.`, `3.`)
-- Nested lists
+- Nested lists, which must use **four spaces** for sublist indentation
 - Lists after paragraphs, headings, or code blocks
+
+**Sublist rule:** Nested lists also need a blank line before the sublist block.
+
+**Top-level sibling rule:** In complex list sections, top-level sibling items should also be separated by a blank line (for example, put a blank line before `- **Planners:**` when it follows another top-level item and its sublist).
 
 ### Navigation Structure (mkdocs.yml)
 
@@ -871,9 +875,11 @@ airstack up robot-desktop  # Start robot container
 **Lists:**
 ```markdown
 - Level 1
-    - Level 2 (4 spaces)
-        - Level 3 (8 spaces)
+  - Level 2 (4 spaces)
+    - Level 3 (8 spaces)
 ```
+
+**Sublist rule:** Markdown sublists require **four spaces** of indentation to render correctly. Two spaces is not reliable in this repository's documentation.
 
 **Code in lists:**
 ```markdown

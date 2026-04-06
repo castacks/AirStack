@@ -43,7 +43,7 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node pkg="droan_gl" exec="expand" output="screen">
+        <node pkg="droan_gl" exec="droan_gl_node" output="screen">
             <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
             <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="disparity" to="$(var local_disparity_in_topic)" />

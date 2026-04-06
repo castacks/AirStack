@@ -11,6 +11,44 @@ When adding a new module to AirStack, proper integration ensures:
 - **Maintainability:** Module follows conventions and is easy to update
 - **Testability:** Module can be tested in isolation and in full stack
 
+## Step 0: Determine Your Module Type
+
+Before writing any code, decide which type of node you are building.
+The type determines the interface pattern, the bringup integration
+steps, and the documentation requirements.
+
+| | Perpetual Node | Task Executor |
+| - | -------------- | ------------- |
+| **Runs** | Always, launch to shutdown | Only while a goal is active |
+| **Interface** | ROS topics (pub/sub) | ROS 2 action (goal/feedback/result) |
+| **Activation** | Automatic | On-demand from an action client |
+| **Cancellation** | Not applicable | Caller can cancel mid-flight |
+| **Completion** | Never | Time limit, area covered, goal reached |
+| **Examples** | State estimator, VDB mapper | random_walk, droan_gl |
+
+**Use a task executor when your module:**
+
+- Is activated on demand with user-specified parameters
+- Has a well-defined completion condition
+- Should support cancellation mid-flight
+- Should stream progress feedback to the caller
+
+**Use a perpetual node for everything else** (sensor processing,
+state estimation, controllers, world models).
+
+See [System Architecture — Node Types](system_architecture.md#node-types-perpetual-vs-task-executor)
+for the full explanation and task cascade diagram.
+
+### Task executor? Follow the skill
+
+If your module is a task executor, use the
+[add-task-executor](../../../.agents/skills/add-task-executor)
+skill alongside this checklist. It covers action type selection,
+the four required callbacks, threading requirements, and bringup
+integration in one place.
+
+---
+
 ## Standard Topic Patterns
 
 AirStack uses standardized topic naming conventions to ensure consistent communication between modules.
@@ -89,11 +127,40 @@ These topics are used across multiple modules and should be used when applicable
   - Planning: `/[robot]/global_plan`
 
 #### Behavior Layer
+
 - **Inputs:** Mission commands, autonomy state
 - **Outputs:** High-level commands, mode changes
 - **Topics:**
-  - `/[robot]/behavior/mission_state`
-  - `/[robot]/behavior/bt_status`
+
+    - `/[robot]/behavior/mission_state`
+    - `/[robot]/behavior/bt_status`
+
+### Task Action Server Naming Convention
+
+All task action servers must be remapped to:
+
+```text
+/{robot_name}/tasks/{task_name}
+```
+
+Examples:
+
+- `/{robot_name}/tasks/exploration` — ExplorationTask
+- `/{robot_name}/tasks/navigate` — NavigateTask
+- `/{robot_name}/tasks/coverage` — CoverageTask
+
+Add the remap in the layer bringup launch file:
+
+```xml
+<remap from="~/your_task"
+       to="/$(env ROBOT_NAME)/tasks/your_task_name" />
+```
+
+The `~/` prefix expands to the node's private namespace at runtime,
+making the action name configurable without hardcoding.
+
+See [Task Executors](tasks.md) for the complete list of defined
+task action types.
 
 ## Integration Checklist
 
@@ -115,6 +182,26 @@ Use this checklist when integrating a new module:
 - [ ] Topic types match expected interfaces
 - [ ] Topics documented in README.md
 - [ ] Topic remapping tested and verified
+
+### 2b. Action Server Interface (task executors only)
+
+- [ ] Action type chosen from `task_msgs` (or new type added and
+      registered in `task_msgs/CMakeLists.txt`)
+- [ ] All four callbacks implemented: `handle_goal`,
+      `handle_cancel`, `handle_accepted`, `execute`
+- [ ] `execute()` runs in a detached thread (never block
+      `handle_accepted`)
+- [ ] `task_active_` flag reset at **every** exit point in
+      `execute()` — success, cancel, and abort paths
+- [ ] Cancel flag checked before completion condition inside
+      the `execute()` loop
+- [ ] Action server remapped to `/{robot_name}/tasks/{name}`
+      in the layer bringup launch file
+- [ ] `rclcpp::spin()` used in `main()` unless callbacks
+      genuinely need concurrent execution **and** all shared
+      resources are thread-safe (see skill for guidance)
+- [ ] **Task Executor** section added to README.md with
+      goal/feedback/result tables and a CLI test command
 
 ### 3. Parameters
 
@@ -155,6 +242,15 @@ Use this checklist when integrating a new module:
 - [ ] Module tested in full autonomy stack
 - [ ] Module tested in Isaac Sim simulation
 - [ ] Edge cases tested
+
+For task executors, also verify:
+
+- [ ] Action server appears in `ros2 action list` after launch
+- [ ] Test goal accepted and feedback streams at ~1 Hz
+- [ ] Ctrl-C on `ros2 action send_goal` sends a cancel and
+      the node returns `success=false`
+- [ ] Time-limited goal completes with `success=true`
+- [ ] A second goal is rejected while one is already active
 
 ### 8. Documentation
 
@@ -340,6 +436,26 @@ docker stats airstack-robot-desktop-1
 3. Validate YAML syntax
 4. Test parameter loading with `ros2 param get`
 
+### Issue: Action Server Rejecting All Goals
+
+**Symptoms:**
+
+- Every goal is rejected with "task already active"
+- Node was running before but stopped accepting goals
+
+**Possible Causes:**
+
+- `task_active_` flag not reset at an exit path in `execute()`
+  (cancellation, abort, or shutdown branch was missed)
+- Node crashed inside `execute()` before resetting the flag
+
+**Debug Steps:**
+
+1. Check `ros2 action list` — confirm the server is still there
+2. Restart the node to clear the stuck flag
+3. Audit every `return` in `execute()` and confirm
+   `task_active_ = false` precedes each one
+
 ### Issue: Poor Performance
 
 **Symptoms:**
@@ -421,8 +537,14 @@ docker stats airstack-robot-desktop-1
 
 ## References
 
-- [System Architecture](system_architecture.md) - Overall system design
-- [Add ROS 2 Package Skill](../../../.agents/skills/add_ros2_package.md) - Creating packages
-- [Integration Skill](../../../.agents/skills/integrate_module_into_layer.md) - Integration workflow
-- [Testing Skill](../../../.agents/skills/test_in_simulation.md) - Testing procedures
-- [Package Template](../../../../../.agents/skills/add-ros2-package/assets/package_template/) - Template to follow
+- [System Architecture](system_architecture.md) — Overall system
+  design, node type definitions, task cascade diagram
+- [Task Executors](tasks.md) — All task action types and interfaces
+- [add-ros2-package](../../../.agents/skills/add-ros2-package) —
+  Creating a new package
+- [add-task-executor](../../../.agents/skills/add-task-executor) —
+  Implementing a task executor action server
+- [integrate-module-into-layer](./../../../.agents/skills/integrate-module-into-layer)
+  — Adding a module to layer bringup
+- [test-in-simulation](../../../.agents/skills/test-in-simulation) —
+  Testing procedures
