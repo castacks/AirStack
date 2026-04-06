@@ -10,3 +10,6 @@
 [submodule "common/ros_packages/rviz_behavior_tree_panel/xdot_cpp"]
 	path = common/ros_packages/rviz_behavior_tree_panel/xdot_cpp
 	url = https://github.com/castacks/xdot_cpp.git
+[submodule "humanflow"]
+	path = humanflow
+	url = https://github.com/CyAirCMU/HumanFlow.git
