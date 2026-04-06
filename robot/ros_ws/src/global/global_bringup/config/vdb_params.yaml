@@ -22,15 +22,17 @@
 
     apply_raw_sensor_data: true
 
-    # sources: [lidar]
-    # lidar:
-    #   topic: sensors/lidar/point_cloud
-    #   sensor_origin_frame: lidar
+    sources: [lidar]
+    lidar:
+      topic: sensors/lidar/point_cloud
+      sensor_origin_frame: lidar
+      # In cloud header frame: drop points closer than this (m) to sensor origin. 0 = off.
+      min_sensor_range: 0.75
 
-    sources: [stereo_image_proc_point_cloud]
-    stereo_image_proc_point_cloud:
-      topic: perception/stereo_image_proc/point_cloud
-      sensor_origin_frame: camera_left
+    # sources: [stereo_image_proc_point_cloud]
+    # stereo_image_proc_point_cloud:
+    #   topic: perception/stereo_image_proc/point_cloud
+    #   sensor_origin_frame: camera_left
 
     # Remote mapping
     publish_updates: true

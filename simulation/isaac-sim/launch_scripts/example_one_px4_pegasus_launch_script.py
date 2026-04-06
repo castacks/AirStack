@@ -6,7 +6,7 @@ Demonstrates:
  - Loading a Pegasus world with an environment
  - Scaling the environment prim and adding collision geometry
  - Adding a dome light
- - Spawning a PX4 multirotor with ZED camera and Ouster lidar
+ - Spawning a PX4 multirotor with ZED camera and RTX lidar
  - Optionally saving the prepared scene as a self-contained USD
 """
 
@@ -31,7 +31,7 @@ from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
@@ -171,15 +171,16 @@ class PegasusApp:
             camera_rotation_offset=[0.0, 0.0, 0.0], # roll, pitch, yaw in degrees
         )
 
-        # Add an Ouster lidar subgraph to the drone
-        add_ouster_lidar_subgraph(
+        # Add an RTX OmniLidar subgraph to the drone (config + variant via alias)
+        add_rtx_lidar_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/base_link",
             robot_name="robot_1",
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],         # X, Y, Z offset from base_link
+            lidar_name="OusterLidar",
+            lidar_config="ouster_os1",
+            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range=0.75,                    # avoid propeller hits
+            min_range=0.75,
         )
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"

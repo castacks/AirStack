@@ -21,7 +21,7 @@ from pxr import Gf, UsdGeom, UsdLux, Sdf, UsdPhysics
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -206,15 +206,16 @@ class PegasusApp:
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
-        # Add an Ouster lidar (with an associated subgraph) to the drone
-        add_ouster_lidar_subgraph(
+        # Add an RTX OmniLidar subgraph to the drone
+        add_rtx_lidar_subgraph(
             parent_graph_handle=graph_handle1,
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
+            lidar_name="OusterLidar",
+            lidar_config="ouster_os1",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
-            lidar_min_range = 0.75, # Minimum detection range (m) to avoid propeller hits
+            lidar_rotation_offset=[0.0, 0.0, 0.0],
+            min_range=0.75,                   # avoid propeller hits
         )
 
         ####################################################################################################
@@ -241,15 +242,16 @@ class PegasusApp:
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
-        # Add an Ouster lidar (with an associated subgraph) to the drone
-        add_ouster_lidar_subgraph(
+        # Add an RTX OmniLidar subgraph to the drone
+        add_rtx_lidar_subgraph(
             parent_graph_handle=graph_handle2,
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
+            lidar_name="OusterLidar",
+            lidar_config="ouster_os1",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range = 0.75 
+            min_range=0.75,                   # avoid propeller hits
         )
 
         # Reset so physics/articulations are ready
