@@ -596,13 +596,13 @@ See [Integration Checklist](integration_checklist.md) for detailed steps.
 Each robot operates in its own namespace:
 
 ```
-/drone0/
+/robot_1/
   ├── odometry
   ├── global_plan
   ├── trajectory_controller/...
   └── sensors/...
 
-/drone1/
+/robot_2/
   ├── odometry
   ├── global_plan
   ├── trajectory_controller/...
