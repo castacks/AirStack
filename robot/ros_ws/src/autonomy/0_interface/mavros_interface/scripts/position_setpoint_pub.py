@@ -64,18 +64,18 @@ class OdomModifier(Node):
 
         self.path = Path()
         self.path.header.stamp = self.get_clock().now().to_msg()
-        self.path.header.frame_id = 'map'
+        self.path.header.frame_id = 'base_link_stabilized'
         pose1 = PoseStamped()
         pose1.header = self.path.header
         pose1.pose.position.x = 50.0
         pose1.pose.position.y = 0.0
-        pose1.pose.position.z = 15.0
+        pose1.pose.position.z = 0.0
         pose1.pose.orientation.w = 1.0
         pose2 = PoseStamped()
         pose2.header = self.path.header
         pose2.pose.position.x = 60.0
         pose2.pose.position.y = 0.0
-        pose2.pose.position.z = 15.0
+        pose2.pose.position.z = 0.0
         pose2.pose.orientation.w = 1.0
         self.path.poses.append(pose1)
         self.path.poses.append(pose2)
@@ -162,14 +162,18 @@ class OdomModifier(Node):
                             Duration(seconds=2, nanoseconds=0))
             if t == None:
                 return
+            
+            kp_x = 2
+            kp_y = 2
+            kp_z = 4
 
             rot = R.from_quat([t.transform.rotation.x,
                                t.transform.rotation.y,
                                t.transform.rotation.z,
                                t.transform.rotation.w])
-            vel = np.array([msg.pose.position.x - self.odom.pose.pose.position.x,
-                            msg.pose.position.y - self.odom.pose.pose.position.y,
-                            msg.pose.position.z - self.odom.pose.pose.position.z])
+            vel = np.array([kp_x * (msg.pose.position.x - self.odom.pose.pose.position.x),
+                            kp_y * (msg.pose.position.y - self.odom.pose.pose.position.y),
+                            kp_z * (msg.pose.position.z - self.odom.pose.pose.position.z)])
             vel = rot.apply(vel)
             mag = np.linalg.norm(vel)
             if mag > self.max_velocity:

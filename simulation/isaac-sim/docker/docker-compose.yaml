@@ -51,22 +51,22 @@ services:
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # isaac sim stuff
-      - ./isaac_sim_data/cache/kit:/isaac-sim/kit/cache:rw
-      - ./isaac_sim_data/cache/ov:/root/.cache/ov:rw
-      - ./isaac_sim_data/cache/pip:/root/.cache/pip:rw
-      - ./isaac_sim_data/cache/glcache:/root/.cache/nvidia/GLCache:rw
-      - ./isaac_sim_data/cache/computecache:/root/.nv/ComputeCache:rw
-      - ./isaac_sim_data/logs:/root/.nvidia-omniverse/logs:rw
-      - ./isaac_sim_data/data:/root/.local/share/ov/data:rw
-      - ./isaac_sim_data/documents:/root/Documents:rw
+      - $HOME/Documents/isaac_sim_data/cache/kit:/isaac-sim/kit/cache:rw
+      - $HOME/Documents/isaac_sim_data/cache/ov:/root/.cache/ov:rw
+      - $HOME/Documents/isaac_sim_data/cache/pip:/root/.cache/pip:rw
+      - $HOME/Documents/isaac_sim_data/cache/glcache:/root/.cache/nvidia/GLCache:rw
+      - $HOME/Documents/isaac_sim_data/cache/computecache:/root/.nv/ComputeCache:rw
+      - $HOME/Documents/isaac_sim_data/logs:/root/.nvidia-omniverse/logs:rw
+      - $HOME/Documents/isaac_sim_data/data:/root/.local/share/ov/data:rw
+      - $HOME/documents/isaac_sim_data/documents:/root/Documents:rw
       # IMPORTANT: set the version number without the trailing .0
       - ./user.config.json:/root/.local/share/ov/data/Kit/Isaac-Sim/4.2/user.config.json:rw
       - ./ui.py:/isaac-sim/kit/exts/omni.kit.widget.nucleus_connector/omni/kit/widget/nucleus_connector/ui.py:rw
       # developer stuff
       - .dev:/root/.dev:rw # developer config
       - .bashrc:/root/.bashrc:rw # bash config
-      - ../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
-      - ../../common/.tmux.conf:/root/.tmux.conf:rw
+      - ../../../common/inputrc:/etc/inputrc:rw # for using page up/down to search through command history
+      - ../../../common/.tmux.conf:/root/.tmux.conf:rw
       # code
       - ../sitl_integration/kit-app-template/source/extensions/:/root/Documents/Kit/shared/exts/
       - ../sitl_integration:/sitl_integration:rw

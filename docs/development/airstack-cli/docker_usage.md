@@ -23,7 +23,7 @@ To use the AirLab docker registry:
 
 ```bash
 cd AirStack/
-docker login airlab-storage.andrew.cmu.edu:442
+docker login airlab-docker.andrew.cmu.edu
 ## <Enter your andrew id (without @andrew.cmu.edu)>
 ## <Enter your andrew password>
 
@@ -31,7 +31,7 @@ docker login airlab-storage.andrew.cmu.edu:442
 docker compose pull
 ```
 
-The available image tags are listed [here](https://airlab-storage.andrew.cmu.edu:442/v2/airstack/airstack/tags/list).
+The available image tags are listed [here](https://airlab-docker.andrew.cmu.edu/harbor/projects/2/repositories/airstack/artifacts-tab).
 
 ## Build Images From Scratch
 

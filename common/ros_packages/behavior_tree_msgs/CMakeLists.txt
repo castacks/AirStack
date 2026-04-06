@@ -23,6 +23,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Status.msg"
   "msg/BehaviorTreeCommand.msg"
   "msg/BehaviorTreeCommands.msg"
+  "msg/GraphVizXdot.msg"
+  "msg/GraphVizXdotCompressed.msg"
   DEPENDENCIES std_msgs
 )
 

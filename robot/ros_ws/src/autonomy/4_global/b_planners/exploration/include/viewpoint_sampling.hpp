@@ -66,6 +66,9 @@ private:
     Eigen::Vector3d selected_viewpoint_;
     openvdb::FloatGrid::Ptr grid_map_;
 
+    bool bound_exploration_;
+    double x_min, y_min, z_min, x_max, y_max, z_max;
+
 public:
     ViewpointSampling(ListOfClustersT &cluster_list,
                       double viewing_distance,
@@ -81,7 +84,10 @@ public:
                       double coll_check_endpoint_offset,
                       double bbox_fraction_viewp_centroid_coll_check,
                       double viewp_bbox_unknown_frac_thresh,
-                      double viewp_bbox_occ_frac_thresh);
+                      double viewp_bbox_occ_frac_thresh,
+                      bool bound_exploration,
+                      Eigen::Vector3d min_bound,
+                      Eigen::Vector3d max_bound);
 
     // data handling
     void updateGridPtr(const openvdb::FloatGrid::Ptr &grid);

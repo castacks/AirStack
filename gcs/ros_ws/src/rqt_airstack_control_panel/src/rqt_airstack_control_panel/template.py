@@ -391,6 +391,7 @@ class InfoWidget(qt.QWidget):
 
     def docker_exec(self, service, command):
         proc = f'''
+        set -x
         mapfile -t names <<< $(sshpass -p "{self.settings['password']}" \
                                ssh -t -o StrictHostKeyChecking=no {self.settings['username']}@{self.settings['hostname']} \
                                  "cd {self.settings['path']}; docker ps -f name={service} --format '{{{{.Names}}}}'");
@@ -400,12 +401,19 @@ class InfoWidget(qt.QWidget):
                                                 ssh -t -o StrictHostKeyChecking=no \
                                                   {self.settings['username']}@{self.settings['hostname']} \
                                                     \\"cd {self.settings['path']};  docker exec -it $item {command};\\"';"
-            eval "$command"
+            output=$(eval "$command" 2>&1)
+            
+            while grep -q "Error creating terminal" <<< "$output"; do
+                output=$(eval "$command" 2>&1)
+            done
         done
         '''
         
         logger.info(proc)
-        subprocess.Popen(proc, shell=True, executable='/usr/bin/bash')
+        p = subprocess.Popen(proc, shell=True, executable='/usr/bin/bash')
+        out, err = p.communicate(timeout=2)
+        logger.info('out ' + str(out))
+        logger.info('err ' + str(err))
 
     def ssh(self):
         proc = f'''dbus-launch gnome-terminal -- bash -c 'sshpass -p "{self.settings['password']}" \

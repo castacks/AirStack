@@ -582,7 +582,7 @@ bool VDBUtil::collCheckPointInPartialFreeSpace(const openvdb::FloatGrid::Ptr gri
     return point_is_in_free_space;
 }
 
-bool VDBUtil::checkCollisionAlongRay(const openvdb::FloatGrid::Ptr grid,
+bool VDBUtil::checkCollisionAlongRay(const openvdb::FloatGrid::Ptr& grid,
                                      const openvdb::Vec3d &p1_xyz,
                                      const openvdb::Vec3d &p2_xyz,
                                      const float bbox_length,
@@ -632,13 +632,13 @@ bool VDBUtil::checkCollisionAlongRay(const openvdb::FloatGrid::Ptr grid,
 
     if (in_collision)
     {
-        openvdb::Vec3d hit_ray(ray_element_ijk - p1_ijk);
-        double hit_distance = hit_ray.length();
-        double min_threshold_distance = distance - dist_offset_from_cluster;
-        if (hit_distance >= min_threshold_distance)
-        {
-            return false;
-        }
+        // openvdb::Vec3d hit_ray(ray_element_ijk - p1_ijk);
+        // double hit_distance = hit_ray.length();
+        // double min_threshold_distance = distance - dist_offset_from_cluster;
+        // if (hit_distance >= min_threshold_distance)
+        // {
+        //     return false;
+        // }
         // post condition, at hit voxel
         hit_point = ray_element_xyz;
         return true;
@@ -679,6 +679,37 @@ long int VDBUtil::countVoxelsInsideBbox(const openvdb::FloatGrid::Ptr &grid,
     return vox_count;
 }
 
+// void VDBUtil::createCoordBBox(const openvdb::FloatGrid::Ptr grid,
+//                               openvdb::math::CoordBBox &coord_bbox_out,
+//                               const openvdb::Vec3d &center,
+//                               const float bbox_length,
+//                               const float bbox_breadth,
+//                               const float bbox_height)
+// {
+
+//     openvdb::Vec3d bbox_min, bbox_max;
+//     openvdb::Coord ijk_bbox_min, ijk_bbox_max;
+//     openvdb::math::Transform &grid_tf(grid->transform());
+
+//     bbox_min.x() = center.x() - (bbox_length / 2);
+//     bbox_max.x() = center.x() + (bbox_length / 2);
+
+//     bbox_min.y() = center.y() - (bbox_breadth / 2);
+//     bbox_max.y() = center.y() + (bbox_breadth / 2);
+
+//     bbox_min.z() = center.z() - (bbox_height / 2);
+//     bbox_max.z() = center.z() + (bbox_height / 2);
+
+//     ijk_bbox_min = grid_tf.worldToIndexCellCentered(bbox_min);
+//     ijk_bbox_max = grid_tf.worldToIndexCellCentered(bbox_max);
+
+//     coord_bbox_out.reset(ijk_bbox_min, ijk_bbox_max);
+// }
+
+// The above implementation rounds to the nearest cell center. 
+// If bbox_max lands just past a cell center, rounding can pull it back and 
+// you’ll silently drop the outermost layer of cells. 
+// Use a continuous index bbox and floor/ceil:
 void VDBUtil::createCoordBBox(const openvdb::FloatGrid::Ptr grid,
                               openvdb::math::CoordBBox &coord_bbox_out,
                               const openvdb::Vec3d &center,
@@ -686,24 +717,25 @@ void VDBUtil::createCoordBBox(const openvdb::FloatGrid::Ptr grid,
                               const float bbox_breadth,
                               const float bbox_height)
 {
+    const auto& tf = grid->transform();
+    const openvdb::Vec3d half(bbox_length*0.5, bbox_breadth*0.5, bbox_height*0.5);
 
-    openvdb::Vec3d bbox_min, bbox_max;
-    openvdb::Coord ijk_bbox_min, ijk_bbox_max;
-    openvdb::math::Transform &grid_tf(grid->transform());
+    // World-space box -> continuous index-space box
+    const openvdb::BBoxd wbox(center - half, center + half);
+    const openvdb::BBoxd ibox = tf.worldToIndex(wbox);
 
-    bbox_min.x() = center.x() - (bbox_length / 2);
-    bbox_max.x() = center.x() + (bbox_length / 2);
+    // Integer (cell-centered) bounds: floor(min), ceil(max)
+    const openvdb::Coord ijk_min(
+        static_cast<int>(std::floor(ibox.min().x() + 0.5)),
+        static_cast<int>(std::floor(ibox.min().y() + 0.5)),
+        static_cast<int>(std::floor(ibox.min().z() + 0.5)));
+    
+    const openvdb::Coord ijk_max(
+        static_cast<int>(std::ceil (ibox.max().x() - 0.5)),
+        static_cast<int>(std::ceil (ibox.max().y() - 0.5)),
+        static_cast<int>(std::ceil (ibox.max().z() - 0.5)));
 
-    bbox_min.y() = center.y() - (bbox_breadth / 2);
-    bbox_max.y() = center.y() + (bbox_breadth / 2);
-
-    bbox_min.z() = center.z() - (bbox_height / 2);
-    bbox_max.z() = center.z() + (bbox_height / 2);
-
-    ijk_bbox_min = grid_tf.worldToIndexCellCentered(bbox_min);
-    ijk_bbox_max = grid_tf.worldToIndexCellCentered(bbox_max);
-
-    coord_bbox_out.reset(ijk_bbox_min, ijk_bbox_max);
+    coord_bbox_out.reset(ijk_min, ijk_max);
 }
 
 bool VDBUtil::checkIntersectWithCoordBBox(const openvdb::math::CoordBBox &search_bbox,

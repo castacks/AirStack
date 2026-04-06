@@ -21,12 +21,10 @@
     <node pkg="mavros_interface" exec="position_setpoint_pub.py"
         namespace="interface"
         output="screen">
-
-        <param name="command_type" value="2" />
-        <param name="max_velocity" value="3.0" />
-        <param name="target_frame" value="base_link" />
-        <param name="publish_goal" value="false" />
-
+      <param name="command_type" value="0" />
+      <param name="max_velocity" value="3.0" />
+      <param name="target_frame" value="base_link" />
+      <param name="publish_goal" value="false" />
     </node>
 
     <!-- Converts odometry topic into a TF -->
@@ -38,7 +36,7 @@
         <param name="odom_input_qos_is_best_effort" value="true" />
         <param name="new_frame_id" value="map" />
         <param name="new_child_frame_id" value="base_link" />
-        <param name="odometry_output_type" value="1" />
+        <param name="odometry_output_type" value="2" />
 
         <param name="convert_odometry_to_transform" value="true" />
         <param name="convert_odometry_to_stabilized_transform" value="true" />

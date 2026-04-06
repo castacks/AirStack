@@ -24,6 +24,8 @@
 
 #include <behavior_tree_msgs/msg/active.hpp>
 #include <behavior_tree_msgs/msg/status.hpp>
+#include <behavior_tree_msgs/msg/graph_viz_xdot.hpp>
+#include <behavior_tree_msgs/msg/graph_viz_xdot_compressed.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/string.hpp>
@@ -176,8 +178,8 @@ class BehaviorTree {
     int traversal_count;
     std::unordered_map<std::string, int> active_ids;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr active_actions_pub;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr graphviz_pub;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr compressed_pub;
+    rclcpp::Publisher<behavior_tree_msgs::msg::GraphVizXdot>::SharedPtr graphviz_pub;
+    rclcpp::Publisher<behavior_tree_msgs::msg::GraphVizXdotCompressed>::SharedPtr compressed_pub;
     bool first_tick;
 
     void parse_config();

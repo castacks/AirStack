@@ -24,12 +24,14 @@ bool RRT_Planner::RRT_Init( // const float        robot_model_cube_dim,
     const int rrt_region_nodes_count,
     const float rrt_region_nodes_radius,
     const int rrt_region_nodes_z_layers_count_up,
-    const float rrt_region_nodes_z_layers_step)
+    const float rrt_region_nodes_z_layers_step,
+    const float dense_step)
 {
     // Initialization
     kSmooth_horizon_ = smooth_horizon;
     // kRobot_model_cube_dim_ = robot_model_cube_dim;
     kNorm_limit_ = norm_limit;
+    dense_step_ = dense_step;
     kNorm_limit_sq_ = kNorm_limit_ * kNorm_limit_;
     // kVoxel_dim_ = voxel_dim;
     kMax_explore_dist_ = max_explore_dist;
@@ -105,6 +107,15 @@ void RRT_Planner::addRegionVertices(Tree &tree)
 bool RRT_Planner::build_RRT(const ViewPoint &start_point,
                             const ViewPoint &end_point, collision_checker_ns::CollisionChecker &collision_checker, const bool reset_trees)
 {
+    if (collision_checker.collisionCheckInFreeSpace(start_point))
+    {
+        std::cout << "Starting Point Not Free Enough \n";
+    }
+
+    if (collision_checker.collisionCheckInFreeSpace(end_point))
+    {
+        std::cout << "End Point Not Free Enough \n";
+    }
 
     // Initialize the trees
     if (reset_trees)
@@ -224,6 +235,7 @@ bool RRT_Planner::build_RRT(const ViewPoint &start_point,
     if (is_path)
     {
         path_.clear();
+        coarse_path_.clear();
         is_trace_path = extractPathFromGraph(collision_checker);
         if (!is_trace_path)
         {
@@ -352,26 +364,36 @@ void RRT_Planner::extend(const ViewPoint &p_rand, const ViewPoint &p_near, ViewP
     p_new = addPoint(p_near, dist_step);
 }
 
+// bool RRT_Planner::validEdge(const ViewPoint &p_new, const ViewPoint &p_near, collision_checker_ns::CollisionChecker &collision_checker)
+// {
+//     // Collision checking at discrete points between the two points?
+
+//     ViewPoint check_point = p_near;
+//     ViewPoint direction = subtract(p_new, p_near);
+//     double diff = norm(direction);
+//     direction = divide(direction, diff);
+//     ViewPoint step = multiply(direction, double(kNorm_limit_)); // kVoxel_dim_
+
+//     int num_steps = ceil(diff / kNorm_limit_); // kVoxel_dim_
+
+//     // while(norm(subtract(check_point,p_near)) < diff) {
+//     for (int i = 0; i < num_steps; i++)
+//     {
+//         check_point = addPoint(check_point, step);
+//         if (collision_checker.collisionCheckInFreeSpace(check_point))
+//         {
+//             return false;
+//         }
+//     }
+//     return true;
+// }
+
 bool RRT_Planner::validEdge(const ViewPoint &p_new, const ViewPoint &p_near, collision_checker_ns::CollisionChecker &collision_checker)
 {
-    // Collision checking at discrete points between the two points?
-
-    ViewPoint check_point = p_near;
-    ViewPoint direction = subtract(p_new, p_near);
-    double diff = norm(direction);
-    direction = divide(direction, diff);
-    ViewPoint step = multiply(direction, double(kNorm_limit_)); // kVoxel_dim_
-
-    int num_steps = ceil(diff / kNorm_limit_); // kVoxel_dim_
-
-    // while(norm(subtract(check_point,p_near)) < diff) {
-    for (int i = 0; i < num_steps; i++)
+    openvdb::Vec3d hit_point;
+    if (collision_checker.collisionCheckRayStrict(p_new, p_near, hit_point))
     {
-        check_point = addPoint(check_point, step);
-        if (collision_checker.collisionCheckInFreeSpace(check_point))
-        {
-            return false;
-        }
+        return false;
     }
     return true;
 }
@@ -565,6 +587,9 @@ bool RRT_Planner::extractPathFromGraph(collision_checker_ns::CollisionChecker &c
         return false;
     }
 
+    // copy coarse path
+    coarse_path_ = path_;
+
     // Smooth the trajectory
     pathSmooth(path_, collision_checker);
 
@@ -577,6 +602,11 @@ PointSet RRT_Planner::getPath()
     return path_;
 }
 
+PointSet RRT_Planner::getCoarsePath()
+{
+    return coarse_path_;
+}
+
 void RRT_Planner::interpolate(const ViewPoint &p1, const ViewPoint &p2, PointSet &path)
 {
     // Interpolate points between two point -- exclusive of p1 and p2
@@ -585,48 +615,165 @@ void RRT_Planner::interpolate(const ViewPoint &p1, const ViewPoint &p2, PointSet
     ViewPoint direction = subtract(p2, p1);
     double dist = norm(direction);
     direction = divide(direction, dist);
-    ViewPoint step = multiply(direction, kNorm_limit_);
-    while (norm(subtract(check_point, p1)) < dist - kNorm_limit_)
+    ViewPoint step = multiply(direction, dense_step_);
+    while (norm(subtract(check_point, p1)) < dist - dense_step_)
     {
         check_point = addPoint(check_point, step);
         path.push_back(check_point);
     }
 }
 
-void RRT_Planner::pathSmooth(PointSet &path, collision_checker_ns::CollisionChecker &collision_checker)
+// void RRT_Planner::pathSmooth(PointSet &path, collision_checker_ns::CollisionChecker &collision_checker)
+// {
+//     /* Interpolate points --> smooth path */
+//     // DEBUG
+//     // std::cout << "Smoothing Path ..."<<std::endl;
+//     std::size_t num_path = path.size();
+//     PointSet temp_path = path;
+//     ViewPoint p_check, p_forward, cur_p, last_p;
+//     std::size_t check_idx, forward_idx;
+//     check_idx = 0;
+//     path.clear();
+//     while (check_idx < num_path - 1)
+//     {
+//         p_check = temp_path[check_idx];
+//         forward_idx = check_idx + kSmooth_horizon_;
+//         path.push_back(p_check);
+//         while (forward_idx > check_idx)
+//         {
+//             forward_idx = int(fmin(forward_idx, num_path - 1));
+//             p_forward = temp_path[forward_idx];
+//             if (validEdge(p_forward, p_check, collision_checker))
+//             {
+//                 interpolate(p_check, p_forward, path);
+//                 check_idx = forward_idx - 1;
+//                 break;
+//             }
+//             forward_idx--;
+//         }
+//         last_p = temp_path[check_idx];
+//         check_idx++;
+//         cur_p = temp_path[check_idx];
+//         if (normSq(subtract(cur_p, last_p)) > kNorm_limit_sq_)
+//         {
+//             interpolate(last_p, cur_p, path);
+//         }
+//     }
+// }
+
+void RRT_Planner::pathSmooth(PointSet &path,
+                             collision_checker_ns::CollisionChecker &collision_checker)
 {
-    /* Interpolate points --> smooth path */
-    // DEBUG
-    // std::cout << "Smoothing Path ..."<<std::endl;
-    std::size_t num_path = path.size();
-    PointSet temp_path = path;
-    ViewPoint p_check, p_forward, cur_p, last_p;
-    std::size_t check_idx, forward_idx;
-    check_idx = 0;
-    path.clear();
-    while (check_idx < num_path - 1)
+    // straight line, no shortening
+    if (path.size() < 2)
+        return;
+
+    // original discretized path (copy)
+    PointSet Pr;
+    Pr.push_back(path.front());
+    for (size_t j = 0; j + 1 < path.size(); ++j)
     {
-        p_check = temp_path[check_idx];
-        forward_idx = check_idx + kSmooth_horizon_;
-        path.push_back(p_check);
-        while (forward_idx > check_idx)
+        if (equal(path[j], path[j+1])) continue;
+        interpolate(path[j], path[j+1], Pr);
+        Pr.push_back(path[j+1]);
+    }
+
+    path.clear();
+
+    // Start with the first point
+    ViewPoint anchor = Pr.front();
+    path.push_back(anchor);
+
+    // Helpers to bridge ViewPoint <-> VDB world coords
+    auto fromVdb = [](const openvdb::Vec3d &v) -> ViewPoint
+    {
+        ViewPoint p;
+        p.x = v.x();
+        p.y = v.y();
+        p.z = v.z();
+        return p;
+    };
+
+    // Tunables
+    const double step_delta = std::max(1e-3, static_cast<double>(dense_step_)); // linear push step
+    const int max_pivot_steps = 5; // guard for very thick obstacles
+    const double normal_inflation = 1.0; // for estimateSurfaceNormalAtHit
+
+    // Scan forward along Pr, only appending when blocked (or at the very end)
+
+    for (size_t i = 1; i < Pr.size(); ++i)
+    {
+        // Try to see Pr[i] from current anchor
+        openvdb::Vec3d hit_world;
+        const bool blocked = collision_checker.collisionCheckRayStrict(anchor, Pr[i], hit_world);
+
+        if (!blocked)
         {
-            forward_idx = int(fmin(forward_idx, num_path - 1));
-            p_forward = temp_path[forward_idx];
-            if (validEdge(p_forward, p_check, collision_checker))
+            // Visible, connect only if it's the last point on path
+            if (i == Pr.size() - 1)
             {
-                interpolate(p_check, p_forward, path);
-                check_idx = forward_idx - 1;
-                break;
+                interpolate(anchor, Pr[i], path);
+                path.push_back(Pr[i]);
             }
-            forward_idx--;
+            continue;
         }
-        last_p = temp_path[check_idx];
-        check_idx++;
-        cur_p = temp_path[check_idx];
-        if (normSq(subtract(cur_p, last_p)) > kNorm_limit_sq_)
+
+        // Blocked on Pr[i]: try to insert a first-hit pivot
+        bool pivot_inserted = false;
+
+        // Estimate outward normal from occupancy around the hit
+        openvdb::Vec3d n_world;
+        bool have_normal = collision_checker.estimateSurfaceNormalAtHit(hit_world,
+                                                                        normal_inflation,
+                                                                        n_world);
+        if (have_normal)
         {
-            interpolate(last_p, cur_p, path);
+            // Linearly push along the normal until the local footprint is free
+            double delta = 0;
+            ViewPoint pivot;
+
+            for (int step_count=0; step_count < max_pivot_steps; step_count++)
+            {
+                delta += step_delta;
+                pivot = fromVdb(hit_world + n_world * delta);
+                if (!collision_checker.collisionCheckInFreeSpace(pivot))
+                {
+                    if (validEdge(anchor, pivot, collision_checker) and
+                        validEdge(pivot, Pr[i], collision_checker))
+                    {
+                        pivot_inserted = true;
+                        interpolate(anchor, pivot, path);
+                        anchor = pivot;
+                        // new anchor
+                        path.push_back(anchor);
+                        if (i == Pr.size() - 1)
+                        {
+                            interpolate(anchor, Pr[i], path);
+                            path.push_back(Pr[i]);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            std::cout << "no normal at hit point " << hit_world.x() << ", " << hit_world.y() << ", " << hit_world.z() << '\n';
+            pivot_inserted = false;
+        }
+
+        // No pivot added, then fast forward to the last visible point on path
+        if (!pivot_inserted)
+        {
+            // Pivot failed (or became unnecessary) — append the last visible original waypoint
+            interpolate(anchor, Pr[i-1], path);
+            anchor = Pr[i-1];
+            // new anchor
+            path.push_back(anchor);
+            if (i == Pr.size() - 1)
+            {
+                path.push_back(Pr[i]);
+            }
         }
     }
 }

@@ -1,0 +1,5 @@
+<!-- GLOBAL -->
+<launch>
+    <!-- Exploration Planning -->
+    <include file="$(find-pkg-share exploration_planner)/launch/exploration_launch.xml" />
+</launch>

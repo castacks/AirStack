@@ -39,6 +39,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     landing_complete_condition = new bt::Condition("Landing Complete", this);
     in_air_condition = new bt::Condition("In Air", this);
     state_estimate_timed_out_condition = new bt::Condition("State Estimate Timed Out", this);
+    stuck_condition = new bt::Condition("Stuck", this);
+    autonomously_explore_condition = new bt::Condition("Autonomously Explore Commanded", this);
     conditions.push_back(auto_takeoff_commanded_condition);
     conditions.push_back(takeoff_commanded_condition);
     conditions.push_back(armed_condition);
@@ -56,6 +58,8 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
     conditions.push_back(landing_complete_condition);
     conditions.push_back(in_air_condition);
     conditions.push_back(state_estimate_timed_out_condition);
+    conditions.push_back(stuck_condition);
+    conditions.push_back(autonomously_explore_condition);
 
     // actions
     arm_action = new bt::Action("Arm", this);
@@ -98,10 +102,16 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
       this->create_subscription<std_msgs::msg::Bool>("state_estimate_timed_out", 1,
 						     std::bind(&BehaviorExecutive::state_estimate_timed_out_callback,
 							       this, std::placeholders::_1));
+    stuck_sub =
+      this->create_subscription<std_msgs::msg::Bool>("stuck", 1,
+						     std::bind(&BehaviorExecutive::stuck_callback,
+							       this, std::placeholders::_1));
 									 
 
     // publishers
     recording_pub = this->create_publisher<std_msgs::msg::Bool>("set_recording_status", 1);
+    reset_stuck_pub = this->create_publisher<std_msgs::msg::Empty>("reset_stuck", 1);
+    clear_map_pub = this->create_publisher<std_msgs::msg::Empty>("clear_map", 1);
 
     // services
     service_callback_group =
@@ -185,7 +195,12 @@ void BehaviorExecutive::timer_callback() {
         // std::cout << "takeoff" << std::endl;
         takeoff_action->set_running();
 	in_air_condition->set(true);
+	reset_stuck_pub->publish(std_msgs::msg::Empty());
+	
         if (takeoff_action->active_has_changed()) {
+	    // clear the local planner's map
+	    clear_map_pub->publish(std_msgs::msg::Empty());
+	
             // put trajectory controller in track mode
             airstack_msgs::srv::TrajectoryMode::Request::SharedPtr mode_request =
                 std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
@@ -218,9 +233,7 @@ void BehaviorExecutive::timer_callback() {
                     std::cout << "takeoff 1" << std::endl;
                     takeoff_result.wait();
                     std::cout << "takeoff 2" << std::endl;
-                    if (takeoff_result.get()->accepted)
-                        takeoff_action->set_success();
-                    else
+                    if (!takeoff_result.get()->accepted)
                         takeoff_action->set_failure();
                 } else
                     takeoff_action->set_failure();
@@ -320,14 +333,16 @@ void BehaviorExecutive::timer_callback() {
             mode_result.wait();
             std::cout << "mode 2" << std::endl;
 
-            std_srvs::srv::Trigger::Request::SharedPtr request =
-                std::make_shared<std_srvs::srv::Trigger::Request>();
-            auto result = global_planner_toggle_client->async_send_request(request);
-            result.wait();
-            if (result.get()->success)
-                global_plan_action->set_success();
-            else
-                global_plan_action->set_failure();
+	    if(global_planner_toggle_client->service_is_ready()){
+	        std_srvs::srv::Trigger::Request::SharedPtr request =
+                    std::make_shared<std_srvs::srv::Trigger::Request>();
+	        auto result = global_planner_toggle_client->async_send_request(request);
+	        result.wait();
+	        if (result.get()->success)
+                    global_plan_action->set_success();
+	        else
+                    global_plan_action->set_failure();
+	    }
         };
     }
 
@@ -373,6 +388,11 @@ void BehaviorExecutive::landing_state_callback(const std_msgs::msg::String::Shar
 
 void BehaviorExecutive::state_estimate_timed_out_callback(const std_msgs::msg::Bool::SharedPtr msg){
   state_estimate_timed_out_condition->set(msg->data);
+}
+
+
+void BehaviorExecutive::stuck_callback(const std_msgs::msg::Bool::SharedPtr msg){
+  stuck_condition->set(msg->data);
 }
 
 int main(int argc, char** argv) {

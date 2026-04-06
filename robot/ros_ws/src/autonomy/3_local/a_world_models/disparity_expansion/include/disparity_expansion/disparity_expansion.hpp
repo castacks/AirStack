@@ -1,23 +1,3 @@
-// Copyright (c) 2024 Carnegie Mellon University
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 #pragma once
 
 #include <cv_bridge/cv_bridge.h>
@@ -31,6 +11,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <chrono>
 #include <geometry_msgs/msg/polygon_stamped.hpp>
 #include <image_transport/image_transport.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -70,6 +51,7 @@ class DisparityExpansionNode : public rclcpp::Node {
     bool got_cam_info = false;
 
     double downsample_scale;
+    int ignore_left_pixels;
     image_geometry::PinholeCameraModel model_;
     double baseline;
 
@@ -92,6 +74,11 @@ class DisparityExpansionNode : public rclcpp::Node {
     cv::Mat convert_depth_to_disparity(const cv::Mat& depth_image);
 
     void generate_expansion_lookup_table();
+
+    void expand(cv::Mat& disparity_fg_in, cv::Mat& disparity_bg_in,
+  	        cv::Mat& disparity_fg_out, cv::Mat& disparity_bg_out,
+		bool second_pass);
+
 
    public:
     DisparityExpansionNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
@@ -118,4 +105,4 @@ class DisparityExpansionNode : public rclcpp::Node {
                                  const cv_bridge::CvImagePtr& bg_msg);
 
     void publish_frustum(const stereo_msgs::msg::DisparityImage::ConstSharedPtr& msg);
-}; 
+};

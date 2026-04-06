@@ -229,6 +229,15 @@ std::optional<init_params> ExplorationNode::readParameters()
     params.momentum_collision_check_step_size = this->declare_parameter<double>("momentum_collision_check_step_size", 0.4);
 
     this->momentum_time_ = params.momentum_time;
+
+    params.bound_exploration_ = this->declare_parameter<bool>("bound_exploration", false);
+    params.x_min = this->declare_parameter<double>("x_min", -10.0);
+    params.y_min = this->declare_parameter<double>("y_min", -10.0);
+    params.z_min = this->declare_parameter<double>("z_min", -10.0);
+    params.x_max = this->declare_parameter<double>("x_max", 10.0);
+    params.y_max = this->declare_parameter<double>("y_max", 10.0);
+    params.z_max = this->declare_parameter<double>("z_max", 10.0);
+
     // RRT
     params.planner_norm_limit_ = this->declare_parameter<double>("planner_norm_limit", 0.1);
     params.max_explore_dist_ = this->declare_parameter<double>("max_explore_dist", 100.0);
@@ -241,6 +250,7 @@ std::optional<init_params> ExplorationNode::readParameters()
     params.rrt_region_nodes_z_layers_step_ = this->declare_parameter<double>("rrt_region_nodes_z_layers_step", 0.4);
 
     params.priority_level_thred_ = this->declare_parameter<int>("priority_level_thred", 20);
+    params.dense_step_ = this->declare_parameter<double>("dense_step", 0.1);
     return params;
 }
 
@@ -321,6 +331,10 @@ void ExplorationNode::initialize()
         this->create_publisher<visualization_msgs::msg::Marker>(pub_frontier_viz_topic_, 10);
     this->pub_clustered_frontier_vis =
         this->create_publisher<visualization_msgs::msg::Marker>(pub_clustered_frontier_viz_topic_, 10);
+    this->planning_debug_vis =
+        this->create_publisher<visualization_msgs::msg::MarkerArray>("/exploration_debug_vis", 10);
+    this->pub_goal_posestamped =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/move_base_simple/goal", 10);
 
     // Set up the timer
     this->timer = this->create_wall_timer(std::chrono::seconds(5),
@@ -380,7 +394,7 @@ void ExplorationNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedP
     pcl::removeNaNFromPointCloud(*incoming_cloud, *incoming_cloud, idx);
 
     double min_range = 0.5;
-    
+
     // pre-processing: remove too close points
     pcl::PointCloud<pcl::PointXYZ>::Ptr tmp(new pcl::PointCloud<pcl::PointXYZ>);
     tmp->reserve(incoming_cloud->size());
@@ -604,6 +618,79 @@ void ExplorationNode::generate_plan()
         this->current_goal_location.translation.z = last_goal_loc.pose.position.z;
         this->current_goal_location.rotation.z = last_goal_loc.pose.orientation.z;
         this->generated_paths.push_back(generated_single_path);
+
+        // debug vis of RRT
+        PointSet coarse_path = this->exploration_planner->rrt_planner_.getCoarsePath();
+        visualization_msgs::msg::MarkerArray rrt_vis_array;
+
+        if (coarse_path.empty())
+        {
+            planning_debug_vis->publish(rrt_vis_array);
+        }
+        else
+        {
+            const std::string frame_id = "map";
+            const rclcpp::Time stamp = this->now();
+
+            // ----- LINE_STRIP for the polyline -----
+            visualization_msgs::msg::Marker line;
+            line.header.frame_id = frame_id;
+            line.header.stamp = stamp;
+            line.ns = "rrt_coarse_path";
+            line.id = 0;
+            line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+            line.action = visualization_msgs::msg::Marker::ADD;
+            line.pose.orientation.w = 1.0; // identity
+            line.scale.x = 0.03;           // line width (m)
+            line.color.r = 0.1f;
+            line.color.g = 0.5f;
+            line.color.b = 1.0f;
+            line.color.a = 0.9f;
+            line.lifetime = rclcpp::Duration(0, 0); // forever
+
+            line.points.reserve(coarse_path.size());
+            for (const auto &v : coarse_path)
+            {
+                geometry_msgs::msg::Point p;
+                p.x = v.x;
+                p.y = v.y;
+                p.z = v.z;
+                line.points.push_back(p);
+            }
+            rrt_vis_array.markers.push_back(line);
+
+            // ----- SPHERE_LIST for vertices -----
+            visualization_msgs::msg::Marker verts;
+            verts.header.frame_id = frame_id;
+            verts.header.stamp = stamp;
+            verts.ns = "rrt_coarse_path";
+            verts.id = 1;
+            verts.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+            verts.action = visualization_msgs::msg::Marker::ADD;
+            verts.pose.orientation.w = 1.0;
+            verts.scale.x = 0.10;
+            verts.scale.y = 0.10;
+            verts.scale.z = 0.10; // sphere diameter (m)
+            verts.color.r = 1.0f;
+            verts.color.g = 0.2f;
+            verts.color.b = 0.2f;
+            verts.color.a = 0.9f;
+            verts.lifetime = rclcpp::Duration(0, 0);
+
+            verts.points.reserve(coarse_path.size());
+            for (const auto &v : coarse_path)
+            {
+                geometry_msgs::msg::Point p;
+                p.x = v.x;
+                p.y = v.y;
+                p.z = v.z;
+                verts.points.push_back(p);
+            }
+            rrt_vis_array.markers.push_back(verts);
+
+            // publish
+            planning_debug_vis->publish(rrt_vis_array);
+        }
     }
     else
     {
@@ -625,6 +712,11 @@ void ExplorationNode::publish_plan()
     full_path.header.frame_id = this->world_frame_id_;
     this->pub_global_plan->publish(full_path);
     RCLCPP_INFO(this->get_logger(), "Published full path");
+
+    if (!full_path.poses.empty())
+    {
+        this->pub_goal_posestamped->publish(full_path.poses.back());
+    }
 }
 
 void ExplorationNode::timerCallback()

@@ -1,0 +1,30 @@
+<!-- ROBOT -->
+<launch>
+
+  <arg name="sim" default="true" />
+  <arg name="record_bag" default="false" />
+
+  <push_ros_namespace namespace="$(env ROBOT_NAME)" />
+
+  <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
+
+  <!-- Sim -->
+  <group if="$(var sim)">
+    <include file="$(find-pkg-share robot_bringup)/launch/sim.launch.xml" />
+  </group>
+
+  <!-- Static TFs -->
+  <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_static_transforms.launch.xml" />
+
+  <!-- Autonomy -->
+  <include file="$(find-pkg-share integrated_planner)/launch/shimizu_robot/shimizu_autonomy.launch.xml" />
+
+  <!-- Logging -->
+  <!-- <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" /> -->
+
+  <!-- Domain Bridge -->
+  <node pkg="domain_bridge" exec="domain_bridge"
+    args="/home/robot/AirStack/robot/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    output="screen" respawn="true" respawn_delay="1" />
+
+</launch>

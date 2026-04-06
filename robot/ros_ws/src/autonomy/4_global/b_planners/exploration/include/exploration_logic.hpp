@@ -78,6 +78,9 @@ struct init_params
     double momentum_minimum_distance;
     double momentum_time;
     double momentum_collision_check_step_size;
+
+    bool bound_exploration_;
+    double x_min, y_min, z_min, x_max, y_max, z_max;
     
     // RRT
     double planner_norm_limit_;
@@ -91,6 +94,7 @@ struct init_params
     double rrt_region_nodes_z_layers_step_;
 
     int priority_level_thred_;
+    double dense_step_;
 };
 
 class ExplorationPlanner
@@ -130,6 +134,9 @@ public:
     std::vector<ViewPoint> executed_trajectory_;
     std::vector<TimedViewPoint> momentum_executed_trajectory_;
 
+    RRT_Planner rrt_planner_;
+    double dense_step_;
+
 private:
     // Numerical constants
     float max_start_to_goal_dist_m_;
@@ -158,6 +165,9 @@ private:
     double momentum_time_;
     double momentum_collision_check_step_size_;
 
+    bool bound_exploration_;
+    double x_min, y_min, z_min, x_max, y_max, z_max;
+
     double planner_norm_limit_;
     double max_explore_dist_;
     int planner_max_iter_;
@@ -169,8 +179,6 @@ private:
     double rrt_region_nodes_z_layers_step_;
 
     int priority_level_thred_;
-
-    RRT_Planner rrt_planner_;
 
     ViewPoint robot_pos_, explore_goal_;
 

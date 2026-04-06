@@ -24,7 +24,10 @@ namespace viewpoint_sampling_ns
                                          double coll_check_endpoint_offset,
                                          double bbox_fraction_viewp_centroid_coll_check,
                                          double viewp_bbox_unknown_frac_thresh,
-                                         double viewp_bbox_occ_frac_thresh)
+                                         double viewp_bbox_occ_frac_thresh,
+                                         bool bound_exploration,
+                                         Eigen::Vector3d min_bound,
+                                         Eigen::Vector3d max_bound)
     {
 
         viewing_distance_ = viewing_distance;
@@ -43,6 +46,9 @@ namespace viewpoint_sampling_ns
         viewpoint_list_ = pcl::PointCloud<pcl::PointXYZHSV>::Ptr(new pcl::PointCloud<pcl::PointXYZHSV>());
         viewp_bbox_unknown_frac_thresh_ = viewp_bbox_unknown_frac_thresh;
         viewp_bbox_occ_frac_thresh_ = viewp_bbox_occ_frac_thresh;
+        bound_exploration_ = bound_exploration;
+        x_max = max_bound[0]; y_max = max_bound[1]; z_max = max_bound[2];
+        x_min = min_bound[0]; y_min = min_bound[1]; z_min = min_bound[2];
     }
 
     // reset data stored by the class
@@ -446,13 +452,23 @@ namespace viewpoint_sampling_ns
                                                                   viewp_bbox_unknown_frac_thresh_,
                                                                   viewp_bbox_occ_frac_thresh_);
 
+            bool viewpoint_is_in_bound = true;
+            if (bound_exploration_)
+            {
+                if (viewpoint.x() < x_min || viewpoint.y() < y_min || viewpoint.z() < z_min ||
+                    viewpoint.x() > x_max || viewpoint.y() > y_max || viewpoint.z() > z_max)
+                {
+                    viewpoint_is_in_bound = false;
+                }
+            }
+
             openvdb::Vec3d hp;
             openvdb::Vec3d viewpoint_vbd(viewpoint.x(), viewpoint.y(), viewpoint.z());
             openvdb::Vec3d centroid_vdb(current_cluster_centroid_.x(),
                                         current_cluster_centroid_.y(),
                                         current_cluster_centroid_.z());
 
-            bool consider_unknown_occupied = false;
+            bool consider_unknown_occupied = true;
 
             double ray_coll_check_bbox_length =
                 bbox_fraction_viewp_centroid_coll_check_ * bbox_length_;
@@ -473,7 +489,7 @@ namespace viewpoint_sampling_ns
                 coll_check_endpoint_offset_,
                 consider_unknown_occupied);
 
-            if (viewpoint_is_in_free_space && viewpoint_to_centroid_is_free_space)
+            if (viewpoint_is_in_free_space && viewpoint_to_centroid_is_free_space && viewpoint_is_in_bound)
             {
                 selected_viewpoint_ = viewpoint;
                 direction_vector_ = current_cluster_centroid_ - selected_viewpoint_;

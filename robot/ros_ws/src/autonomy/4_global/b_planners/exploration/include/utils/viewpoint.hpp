@@ -169,6 +169,11 @@ static inline Eigen::Vector3d point2eigen(const ViewPoint& p)
     return Eigen::Vector3d(p.x, p.y, p.z);
 }
 
+static inline openvdb::Vec3d point2vdb(const ViewPoint& p)
+{
+    return openvdb::Vec3d(p.x, p.y, p.z);
+}
+
 static inline PCLPointType point2PCL(const ViewPoint &p)
 {
     PCLPointType point;

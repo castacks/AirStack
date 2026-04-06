@@ -1,0 +1,57 @@
+<launch>
+    <!-- Args -->
+
+    <arg name="interface_odometry_in_topic" default="/odom" />
+
+    <!-- Nodes -->
+
+    <!-- <node pkg="robot_interface" exec="robot_interface_node"
+        namespace="interface"
+        output="screen">
+        <param name="interface" value="mavros_interface::MAVROSInterface" />
+        <param name="is_ardupilot" value="true" />
+        <param name="post_takeoff_command_delay_time" value="10." />
+        <param name="do_global_pose_command" value="false" />
+
+        <remap from="ardupilot_takeoff"
+            to="/$(env ROBOT_NAME)/takeoff_landing_planner/ardupilot_takeoff" />
+        <remap from="reset_integrators" to="/$(env ROBOT_NAME)/control/reset_integrators" />
+    </node> -->
+
+    <node pkg="mavros_interface" exec="position_setpoint_pub.py"
+        namespace="interface"
+        output="screen">
+
+        <param name="command_type" value="2" />
+        <param name="max_velocity" value="2.0" />
+        <param name="target_frame" value="base_link" />
+        <param name="publish_goal" value="false" />
+
+    </node>
+
+    <!-- Converts odometry topic into a TF -->
+    <node pkg="robot_interface" namespace="odometry_conversion" exec="odometry_conversion"
+        output="screen">
+        <remap from="odometry_in" to="$(var interface_odometry_in_topic)" />
+        <remap from="odometry_out" to="odometry" />
+
+        <param name="odom_input_qos_is_best_effort" value="true" />
+        <param name="new_frame_id" value="map" />
+        <param name="new_child_frame_id" value="base_link" />
+        <param name="odometry_output_type" value="1" />
+
+        <param name="convert_odometry_to_transform" value="false" />
+        <param name="convert_odometry_to_stabilized_transform" value="true" />
+        <param name="restamp_now_post" value="false" />
+
+    </node>
+
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+        namespace="drone_safety_monitor"
+        output="screen">
+        <param name="state_estimate_timeout" value="1.0" />
+
+        <remap from="state_estimate" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    </node>
+
+</launch>

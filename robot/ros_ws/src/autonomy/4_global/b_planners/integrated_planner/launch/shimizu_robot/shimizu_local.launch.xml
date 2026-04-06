@@ -1,0 +1,97 @@
+<!-- LOCAL -->
+<launch>
+    <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
+    <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+
+    <!-- Control -->
+    <!-- customize trajectory_controller.launch.xml -->
+    <node pkg="trajectory_controller" exec="trajectory_controller"
+        namespace="trajectory_controller"
+        output="screen">
+        <param name="tf_prefix" value="" />
+        <param name="target_frame" value="map" />
+        <param name="tracking_point_distance_limit" value="1000.5" />
+        <param name="velocity_look_ahead_time" value="0.9" />
+        <!-- look ahead time controls the speed, greater is faster -->
+        <param name="look_ahead_time" value="1.0" />
+        <param name="virtual_tracking_ahead_time" value="0.5" />
+        <param name="min_virtual_tracking_velocity" value="0.5" />
+        <param name="sphere_radius" value="1.0" />
+        <param name="ff_min_velocity" value="0." />
+        <param name="search_ahead_factor" value="1.5" />
+        <param name="transition_velocity_scale" value="1.0" />
+        <param name="traj_vis_thickness" value="0.03" />
+        <param name="rewind_skip_max_velocity" value="0.1" />
+        <param name="rewind_skip_max_distance" value="0.1" />
+        <param name="velocity_sphere_radius_multiplier" value="1.0" />
+
+        <!-- remap glue to AirStack -->
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
+
+    </node>
+
+    <!-- Control -->
+    <node pkg="pid_path_tracker" exec="pid_path_tracker" namespace="control" output="screen">
+      <param name="target_frame" value="base_link_stabilized" />
+
+      <param name="x_p"         value="1.0" />
+      <param name="x_i"         value="0.0" />
+      <param name="x_d"         value="0.0" />
+      <param name="x_ff"        value="0.0" />
+      <param name="x_d_alpha"   value="0.0" />
+      <param name="x_min"       value="-3.0" />
+      <param name="x_max"       value="3.0" />
+      <param name="x_constant"  value="0.0" />
+      
+      <param name="y_p"         value="1.0" />
+      <param name="y_i"         value="0.0" />
+      <param name="y_d"         value="0.0" />
+      <param name="y_ff"        value="0.0" />
+      <param name="y_d_alpha"   value="0.0" />
+      <param name="y_min"       value="-3.0" />
+      <param name="y_max"       value="3.0" />
+      <param name="y_constant"  value="0.0" />
+      
+      <param name="z_p"         value="1.0" />
+      <param name="z_i"         value="0.0" />
+      <param name="z_d"         value="0.0" />
+      <param name="z_ff"        value="0.0" />
+      <param name="z_d_alpha"   value="0.0" />
+      <param name="z_min"       value="-1.0" />
+      <param name="z_max"       value="1.0" />
+      <param name="z_constant"  value="0.0" />
+      
+      <param name="vx_p"         value="0.2" />
+      <param name="vx_i"         value="0.025" />
+      <param name="vx_d"         value="0.0" />
+      <param name="vx_ff"        value="0.0" />
+      <param name="vx_d_alpha"   value="0.9" />
+      <param name="vx_min"       value="-0.34" />
+      <param name="vx_max"       value="0.34" />
+      <param name="vx_constant"  value="0.0" />
+      
+      <param name="vy_p"         value="0.2" />
+      <param name="vy_i"         value="0.025" />
+      <param name="vy_d"         value="0.0" />
+      <param name="vy_ff"        value="0.0" />
+      <param name="vy_d_alpha"   value="0.9" />
+      <param name="vy_min"       value="-0.34" />
+      <param name="vy_max"       value="0.34" />
+      <param name="vy_constant"  value="0.0" />
+      
+      <param name="vz_p"         value="0.2" />
+      <param name="vz_i"         value="0.1" />
+      <param name="vz_d"         value="0.0" />
+      <param name="vz_ff"        value="0.0" />
+      <param name="vz_d_alpha"   value="0.0" />
+      <param name="vz_min"       value="-0.5" />
+      <param name="vz_max"       value="1.0" />
+      <param name="vz_constant"  value="0.5" />
+      
+      <!-- remap glue to AirStack -->
+      <remap from="odometry" to="$(var local_odometry_in_topic)" />
+      <remap from="trajectory" to="/cmd_trajectory" />
+      <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
+    </node>
+
+</launch>

@@ -165,9 +165,9 @@ class DisparityGraph {
         marker_.pose.orientation.y = 0.0;
         marker_.pose.orientation.z = 0.0;
         marker_.pose.orientation.w = 1.0;
-        marker_.scale.x = 1;
-        marker_.scale.y = 0.2;
-        marker_.scale.z = 0.2;
+        marker_.scale.x = 0.5;
+        marker_.scale.y = 0.1;
+        marker_.scale.z = 0.1;
         marker_.color.a = 1.0;  // Don't forget to set the alpha!
         marker_.color.r = 0.0;
         marker_.color.g = 1.0;
@@ -227,8 +227,8 @@ class DisparityGraph {
 
             if (fabs(angle_difference) >= angle_tol ||
                 fabs(position_difference) > displacement_tol) {
-                RCLCPP_INFO(node_ptr->get_logger(), "Adding new node, graph size now %d",
-                            (int)disp_graph_.size());
+	        //RCLCPP_INFO(node_ptr->get_logger(), "Adding new node, graph size now %d",
+	        //             (int)disp_graph_.size());
 
                 if (disp_graph_.size() >= graph_size_) {
                     disp_graph_.erase(end);
@@ -252,7 +252,9 @@ class DisparityGraph {
         for (uint i = 0; i < disp_graph_.size(); i++) {
             auto position = disp_graph_.at(i).s2w_tf.getOrigin();
             tf2::toMsg(position, marker_.pose.position);
-            auto rotation = disp_graph_.at(i).s2w_tf.getRotation();
+	    tf2::Quaternion q;
+	    q.setRPY(0, -M_PI_2, 0); // rotate so the arrow faces the +z instead of +x axis
+            auto rotation = disp_graph_.at(i).s2w_tf.getRotation()*q;
             marker_.pose.orientation = tf2::toMsg(rotation);
             marker_.header.stamp = node_ptr->now();
             marker_.ns = "pose";
@@ -340,6 +342,8 @@ class DisparityGraph {
                 "No disparity images in graph, can't see anything, everything is invalid");
         }
 
+	int occupied_count = 0;
+	int free_count = 0;
         for (const auto &graph_node : disp_graph_) {
             tf2::Vector3 local_point = graph_node.w2s_tf * optical_point;
 
@@ -372,6 +376,14 @@ class DisparityGraph {
                 bool is_state_between_fg_and_bg =
                     (state_disparity < graph_node.Im_fg->image.at<float>(v, u)) &&
                     (state_disparity > graph_node.Im_bg->image.at<float>(v, u));
+		
+
+		/*
+		RCLCPP_INFO_STREAM(node_ptr->get_logger(), "fg: " << graph_node.Im_fg->image.at<float>(v, u)
+				   << " bg: " << graph_node.Im_bg->image.at<float>(v, u)
+				   << " disp: " << state_disparity << " occ: " << ((state_disparity - 0.5) / state_disparity)
+				   << " bt: " << is_state_between_fg_and_bg);
+		*/
                 if (is_state_between_fg_and_bg) {
                     // if the disparity point lies between the disparity images, it is occupied and
                     // we add to the occupancy value.
@@ -379,10 +391,12 @@ class DisparityGraph {
                     // heuristic based on distance. also shouldn't we clamp this at 1.0? or is it
                     // not really a probability?
                     occupancy += (state_disparity - 0.5) / state_disparity;
+		    occupied_count++;
                 } else {
-                    // otherwise it's outside, we subtdroan.rvizract from the occupancy value
+                    // otherwise it's outside, we subtract from the occupancy value
                     occupancy -= 0.5 * (state_disparity - 0.5) / state_disparity;
-                    occupancy = std::clamp(occupancy, 0.0, 1.0);
+		    occupancy = occupancy < 0. ? 0. : occupancy;
+		    free_count++;
                 }
             }
             if (occupancy >= thresh) {
@@ -390,6 +404,12 @@ class DisparityGraph {
                 break;
             }
         }
+
+	// if the point we are checking has only been seen as an obstacle,
+	// then mark it as not free even if it doesn't pass the threshold
+	if(is_free && (occupied_count > 0) && (free_count <= 0))
+	  is_free = false;
+	
         // RCLCPP_INFO_STREAM(node_ptr->get_logger(),"occupancy:" << occupancy << " is_free: " <<
         // is_free << " is_seen: " << is_seen);
 
