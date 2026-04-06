@@ -27,7 +27,9 @@ NC='\033[0m' # No Color
 
 # Print usage information
 function print_usage {
-    echo -e "${BOLDCYAN}AirStack Development Tool ($SCRIPT_DIR)${NC}"
+    local version
+    version="$(get_VERSION)"
+    echo -e "${BOLDCYAN}AirStack Development Tool v${version} ($SCRIPT_DIR)${NC}"
     echo ""
     echo "Usage: airstack <command> [options]"
     echo ""
