@@ -14,6 +14,7 @@
 #   /robot_1/state/pose
 #   /robot_1/state/twist
 #   /robot_1/state/twist_inertial
+#   /robot_1/sensors/ouster/point_cloud
 #   /clock
 #   /tf
 #   /tf_static
@@ -110,19 +111,11 @@ topics:
     from_domain: 100
     to_domain: 1
 
-  # LiDAR point cloud (for VDB mapping and navigation)
-  /robot_1/ouster/pointcloud:
+  # LiDAR point cloud (RTX OmniGraph → sensors/ouster/point_cloud)
+  /robot_1/sensors/ouster/point_cloud:
     type: sensor_msgs/msg/PointCloud2
     from_domain: 100
     to_domain: 1
-    remap: /robot_1/sensors/ouster/point_cloud
-
-  # LiDAR laser scan (additional sensor data)
-  /robot_1/ouster/laserscan:
-    type: sensor_msgs/msg/LaserScan
-    from_domain: 100
-    to_domain: 1
-    remap: /robot_1/sensors/ouster/laser_scan
 
   # Robot state - acceleration
   /robot_1/state/accel:

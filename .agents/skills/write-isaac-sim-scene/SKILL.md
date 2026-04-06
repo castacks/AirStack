@@ -102,7 +102,7 @@ from pegasus.simulator.params import SIMULATION_ENVIRONMENTS, ROBOTS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
 from pegasus.simulator.logic.state import State
 from pegasus.simulator.logic.backends.px4_mavlink_backend import (
@@ -339,9 +339,10 @@ class YourSceneApp:
         # Add sensors
         if sensors.get("camera", False):
             self._add_camera_sensor(vehicle)
-        
-        if sensors.get("lidar", False):
-            self._add_lidar_sensor(vehicle)
+
+        # RTX LiDAR uses OmniGraph: spawn_px4_multirotor_node() returns graph_handle,
+        # then call self._add_lidar_sensor(vehicle, graph_handle). See
+        # example_one_px4_pegasus_launch_script.py for the full pattern.
         
         # Initialize vehicle in world
         self.world.scene.add(vehicle)
@@ -362,16 +363,16 @@ class YourSceneApp:
             }
         )
     
-    def _add_lidar_sensor(self, vehicle):
-        """Add LiDAR sensor to vehicle."""
-        add_ouster_lidar_subgraph(
-            lidar_prim_path=vehicle.prim_path + "/OusterLidar",
-            parent_prim_path=vehicle.prim_path,
-            config={
-                "graph_evaluator": "execution",
-                "position": (0.0, 0.0, -0.15),  # Relative to vehicle
-                "orientation": (0.0, 0.0, 0.0, 1.0),
-            }
+    def _add_lidar_sensor(self, vehicle, graph_handle):
+        """Add RTX LiDAR (OmniGraph subgraph) to vehicle."""
+        add_rtx_lidar_subgraph(
+            parent_graph_handle=graph_handle,
+            drone_prim=vehicle.prim_path,
+            robot_name="robot_1",
+            lidar_config="ouster_os1",
+            lidar_offset=[0.0, 0.0, 0.025],
+            lidar_rotation_offset=[0.0, 0.0, 0.0],
+            min_range=0.75,
         )
     
     def run(self):

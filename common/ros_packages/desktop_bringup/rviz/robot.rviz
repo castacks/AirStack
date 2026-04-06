@@ -66,7 +66,7 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        OS1_REV6_128_10hz___512_resolution:
+        lidar_mount:
           Value: false
         base_link:
           Value: true
@@ -124,7 +124,7 @@ Visualization Manager:
           map:
             base_link:
               base_link_body_body_link:
-                OS1_REV6_128_10hz___512_resolution:
+                lidar_mount:
                   lidar:
                     {}
                 base_link_ZED_X:
@@ -177,7 +177,7 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        OS1_REV6_128_10hz___512_resolution:
+        lidar_mount:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -299,7 +299,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: sensors/lidar/point_cloud
+            Value: sensors/ouster/point_cloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: false

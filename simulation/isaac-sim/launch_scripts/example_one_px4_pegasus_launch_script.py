@@ -176,7 +176,6 @@ class PegasusApp:
             parent_graph_handle=graph_handle,
             drone_prim="/World/base_link",
             robot_name="robot_1",
-            lidar_name="OusterLidar",
             lidar_config="ouster_os1",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],

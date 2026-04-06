@@ -5,10 +5,10 @@
     <parent link="base_link"/>
     <child link="base_link_body_body_link"/>
   </joint>
-  <joint name="OS1_REV6_128_10hz___512_resolution_FixedJoint" type="fixed">
+  <joint name="base_link_body_to_lidar_mount" type="fixed">
     <origin xyz="0. 0. 0.025" rpy="0. 0. -1.5707872"/>
     <parent link="base_link_body_body_link"/>
-    <child link="OS1_REV6_128_10hz___512_resolution"/>
+    <child link="lidar_mount"/>
   </joint>
   <joint name="base_link_ZED_X_FixedJoint" type="fixed">
     <origin xyz="0.0 -0.2 -0.05" rpy="0. 0. 0."/>
@@ -39,9 +39,9 @@
     <child link="rotor3"/>
     <axis xyz="0. 0. 1."/>
   </joint>
-  <joint name="joint_OS1_REV6_128_10hz___512_resolution-lidar" type="fixed">
+  <joint name="lidar_mount_to_lidar" type="fixed">
     <origin xyz="0. 0. 0.05" rpy="0 0 1.57"/>
-    <parent link="OS1_REV6_128_10hz___512_resolution"/>
+    <parent link="lidar_mount"/>
     <child link="lidar"/>
   </joint>
   <joint name="joint_base_link_ZED_X-camera_left" type="fixed">
@@ -59,7 +59,7 @@
     <parent link="base_link_ZED_X"/>
     <child link="imu"/>
   </joint>
-  <link name="OS1_REV6_128_10hz___512_resolution">
+  <link name="lidar_mount">
     <visual>
       <origin xyz="0. 0. -0." rpy="1.5707964 0. 1.5707963"/>
       <geometry>
