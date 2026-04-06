@@ -149,7 +149,7 @@ AirStack uses environment variables for configuration, following Docker Compose 
 
 **Default settings** (`.env` file):
 ```bash
-DOCKER_IMAGE_TAG=latest
+VERSION=latest
 AUTOLAUNCH=true
 NUM_ROBOTS=1
 ISAAC_SIM_SCENE=simulation/isaac-sim/scenes/two_drone_RetroNeighborhood.usd

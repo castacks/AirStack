@@ -1,0 +1,15 @@
+# Navigate along a global plan path to its final pose.
+# goal_tolerance_m: distance from the final pose to consider the goal reached
+
+# Goal
+nav_msgs/Path global_plan
+float32 goal_tolerance_m
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
+float32 distance_to_goal
+geometry_msgs/Point current_position

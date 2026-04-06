@@ -23,76 +23,31 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
-#include <array>
+#include <atomic>
 #include <cmath>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
-#include <nav_msgs/srv/get_plan.hpp>
 #include <optional>
-#include <std_srvs/srv/trigger.hpp>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 #include <visualization_msgs/msg/marker.hpp>
 
 #include "random_walk_logic.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
+#include "task_msgs/action/exploration_task.hpp"
+#include "task_msgs/action/navigate_task.hpp"
 
 class RandomWalkNode : public rclcpp::Node {
-   private:
-    // Planner
-    // RandomWalkPlanner random_walk_planner;
-    std::unique_ptr<RandomWalkPlanner> random_walk_planner;
-
-    // String constants
-    std::string world_frame_id_;
-    std::string robot_frame_id_;
-    std::string pub_global_plan_topic_;
-    std::string pub_goal_point_viz_topic_;
-    std::string pub_trajectory_viz_topic_;
-    std::string sub_map_topic_;
-    std::string sub_odometry_topic_;
-    std::string srv_random_walk_toggle_topic_;
-
-    // Variables
-    init_params params;
-    // nav_msgs::msg::Path generated_path;
-    int num_paths_to_generate_;
-    std::vector<nav_msgs::msg::Path> generated_paths;
-    bool publish_visualizations = false;
-    bool received_first_map = false;
-    bool received_first_robot_tf = false;
-    bool enable_random_walk = false;
-    bool is_path_executing = false;
-
-    geometry_msgs::msg::Pose current_location;       // x, y, z, yaw
-    geometry_msgs::msg::Pose current_goal_location;  // x, y, z, yaw
-    geometry_msgs::msg::Pose last_location;         // Last recorded position
-    rclcpp::Time last_position_change;                  // Time of last position change
-    double position_change_threshold = 0.1;       // Minimum distance (meters) to consider as movement
-    double stall_timeout_seconds = 5.0;          // Time without movement before clearing plan
-
-    // Callbacks
-    void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
-
-    void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
-
-    void randomWalkToggleCallback(const std_srvs::srv::Trigger::Request::SharedPtr request,
-                                  std_srvs::srv::Trigger::Response::SharedPtr response);
-
-    void timerCallback();
-
-    void generate_plan();
-
-    void publish_plan();
-
-    // Other functions
-    std::optional<init_params> readParameters();
-
    public:
-    // explicit RandomWalkNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+    using ExplorationTask = task_msgs::action::ExplorationTask;
+    using GoalHandle = rclcpp_action::ServerGoalHandle<ExplorationTask>;
+    using NavigateTask = task_msgs::action::NavigateTask;
+
     RandomWalkNode();
     ~RandomWalkNode() = default;
 
@@ -105,9 +60,61 @@ class RandomWalkNode : public rclcpp::Node {
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_goal_point;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_trajectory_lines;
 
-    // ROS services
-    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_random_walk_toggle;
+    // ROS action server (ExplorationTask)
+    rclcpp_action::Server<ExplorationTask>::SharedPtr action_server_;
 
-    // ROS timers
-    rclcpp::TimerBase::SharedPtr timer;
+    // ROS action client (NavigateTask → local planner)
+    rclcpp_action::Client<NavigateTask>::SharedPtr navigate_client_;
+    rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr navigate_goal_handle_;
+    std::atomic<bool> navigate_goal_done_{true};
+    std::atomic<bool> navigate_goal_succeeded_{false};
+
+   private:
+    // Planner
+    std::unique_ptr<RandomWalkPlanner> random_walk_planner;
+
+    // Topic name parameters
+    std::string world_frame_id_;
+    std::string robot_frame_id_;
+    std::string pub_global_plan_topic_;
+    std::string pub_goal_point_viz_topic_;
+    std::string pub_trajectory_viz_topic_;
+    std::string sub_map_topic_;
+    std::string sub_odometry_topic_;
+
+    // Configuration parameters
+    init_params params;
+    int num_paths_to_generate_;
+    bool publish_visualizations = false;
+
+    // Planning state
+    std::vector<nav_msgs::msg::Path> generated_paths;
+    bool received_first_map = false;
+    bool received_first_robot_tf = false;
+    bool is_path_executing = false;
+
+    geometry_msgs::msg::Pose current_location;
+
+    // Active task state
+    std::atomic<bool> task_active_{false};
+    std::atomic<bool> cancel_requested_{false};
+    rclcpp::Time task_start_time_;
+    float task_time_limit_sec_ = 0.0f;
+
+    // Subscriber callbacks
+    void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);
+    void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+    // Action server callbacks
+    rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& uuid,
+                                            std::shared_ptr<const ExplorationTask::Goal> goal);
+    rclcpp_action::CancelResponse handle_cancel(std::shared_ptr<GoalHandle> goal_handle);
+    void handle_accepted(std::shared_ptr<GoalHandle> goal_handle);
+    void execute(std::shared_ptr<GoalHandle> goal_handle);
+
+    // Planning helpers
+    void generate_plan();
+    void send_navigate_goal();
+
+    std::optional<init_params> readParameters();
 };

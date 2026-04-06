@@ -1,0 +1,17 @@
+# Follow a pre-defined trajectory.
+# loop: if true, repeat the trajectory indefinitely until cancelled
+
+# Goal
+airstack_msgs/TrajectoryXYZVYaw trajectory
+bool loop
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
+float32 progress
+int32 current_waypoint_index
+int32 total_waypoints
+geometry_msgs/Point current_position

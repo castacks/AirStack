@@ -71,14 +71,13 @@ On each tick the controller:
 
 2. **Advances virtual time** using one of two sub-modes depending on the current trajectory velocity at the virtual point:
 
-   **Sphere-intersection mode** (normal, velocity ≥ `min_virtual_tracking_velocity`):
-   - Searches the trajectory in the range `[virtual_time, prev_vtp_time + look_ahead_time]` for the closest waypoint to the robot. This is the **projected point**.
-   - Casts a sphere of radius `sphere_radius` (or `velocity × velocity_sphere_radius_multiplier` when that param is positive) around the projected point.
-   - Calls `get_waypoint_sphere_intersection` to walk forward up to `sphere_radius × search_ahead_factor` along the trajectory from the projected point and find where the sphere boundary intersects the trajectory. This intersection becomes the new **virtual tracking waypoint**.
-   - `virtual_time` is set to the projected point's time; the tracking point is placed at the sphere intersection time.
-
-   **Time-advancement mode** (slow/stopped, velocity < `min_virtual_tracking_velocity`):
-   - Virtual time is advanced by `time_multiplier × elapsed_time`. This prevents the sphere intersection from stalling when the trajectory has zero or near-zero velocity (e.g., at trajectory endpoints).
+    1. **Sphere-intersection mode** (normal case when velocity ≥ `min_virtual_tracking_velocity`):
+        - Searches the trajectory in the range `[virtual_time, prev_vtp_time + look_ahead_time]` for the closest waypoint to the robot. This is the **projected point**.
+        - Casts a sphere of radius `sphere_radius` (or `velocity × velocity_sphere_radius_multiplier` when that param is positive) around the projected point.
+        - Calls `get_waypoint_sphere_intersection` to walk forward up to `sphere_radius × search_ahead_factor` along the trajectory from the projected point and find where the sphere boundary intersects the trajectory. This intersection becomes the new **virtual tracking waypoint**.
+        - `virtual_time` is set to the projected point's time; the tracking point is placed at the sphere intersection time.
+    2. **Time-advancement mode** (slow/stopped case when velocity < `min_virtual_tracking_velocity`):
+        - Virtual time is advanced by `time_multiplier × elapsed_time`. This prevents the sphere intersection from stalling when the trajectory has zero or near-zero velocity (e.g., at trajectory endpoints).
 
 3. **Resolves the virtual tracking point** — Queries the trajectory at `virtual_time + current_virtual_ahead_time` and converts the resulting waypoint to an `airstack_msgs/Odometry` message (pose, velocity, acceleration, jerk).
 

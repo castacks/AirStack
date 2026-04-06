@@ -1,0 +1,118 @@
+name: Check VERSION Increment
+
+on:
+  pull_request:
+
+jobs:
+  check-version:
+    name: Verify VERSION is valid and incremented
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check VERSION format and increment
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          python3 << 'PYEOF'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          SEMVER_RE = re.compile(
+              r'^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$'
+          )
+
+          def parse_version(v):
+              """
+              Parse a version string into a comparable tuple.
+              Returns None if the format is invalid.
+
+              Pre-release ordering: alpha < beta < rc < (release)
+              Tuple: (major, minor, patch, pre_rank, pre_num)
+                where pre_rank: alpha=0, beta=1, rc=2, release=3
+              """
+              m = SEMVER_RE.fullmatch(v)
+              if not m:
+                  return None
+              major = int(m.group(1))
+              minor = int(m.group(2))
+              patch = int(m.group(3))
+              pre_type = m.group(4)   # None for release versions
+              pre_num  = int(m.group(5)) if m.group(5) else 0
+              pre_rank = {'alpha': 0, 'beta': 1, 'rc': 2, None: 3}[pre_type]
+              return (major, minor, patch, pre_rank, pre_num)
+
+          def extract_version(content):
+              """Extract the VALUE of the VERSION= line from .env content."""
+              for line in content.splitlines():
+                  m = re.match(r'^VERSION\s*=\s*["\']?([^"\'#\s]+)', line)
+                  if m:
+                      return m.group(1).strip()
+              return None
+
+          # ── PR branch version ────────────────────────────────────────────
+          with open('.env') as f:
+              pr_version = extract_version(f.read())
+
+          # ── Base branch version ──────────────────────────────────────────
+          base_ref = os.environ['BASE_REF']
+          result = subprocess.run(
+              ['git', 'show', f'origin/{base_ref}:.env'],
+              capture_output=True, text=True
+          )
+          if result.returncode != 0:
+              print(f"::warning::Could not read .env from base branch '{base_ref}' — skipping comparison.")
+              base_version = None
+          else:
+              base_version = extract_version(result.stdout)
+
+          print(f"Base branch VERSION : {base_version!r}")
+          print(f"PR branch VERSION   : {pr_version!r}")
+          print()
+
+          failed = False
+
+          # ── Validate PR version format ───────────────────────────────────
+          if pr_version is None:
+              print("::error::VERSION= line not found in .env")
+              sys.exit(1)
+
+          parsed_pr = parse_version(pr_version)
+          if parsed_pr is None:
+              print(f"::error::VERSION '{pr_version}' does not match the required format.")
+              print("  Accepted formats:")
+              print("    MAJOR.MINOR.PATCH            (e.g. 1.2.3)")
+              print("    MAJOR.MINOR.PATCH-alpha.N    (e.g. 1.3.0-alpha.1)")
+              print("    MAJOR.MINOR.PATCH-beta.N     (e.g. 1.3.0-beta.2)")
+              print("    MAJOR.MINOR.PATCH-rc.N       (e.g. 1.3.0-rc.3)")
+              failed = True
+
+          # ── Validate base version format (warn only) ─────────────────────
+          parsed_base = None
+          if base_version is not None:
+              parsed_base = parse_version(base_version)
+              if parsed_base is None:
+                  print(f"::warning::Base branch VERSION '{base_version}' is not valid semver — skipping increment check.")
+
+          # ── Increment check ───────────────────────────────────────────────
+          if parsed_pr is not None and parsed_base is not None:
+              if parsed_pr <= parsed_base:
+                  print(f"::error::VERSION must be strictly greater than the base branch version.")
+                  print(f"  Base : {base_version}")
+                  print(f"  PR   : {pr_version}")
+                  print()
+                  print("  Bump the VERSION in .env before merging.")
+                  failed = True
+              else:
+                  print(f"VERSION increment OK: {base_version} → {pr_version}")
+
+          if failed:
+              sys.exit(1)
+
+          print("All VERSION checks passed.")
+          PYEOF

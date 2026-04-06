@@ -3,7 +3,7 @@ services:
     profiles:
       - desktop
       - desktop_split
-    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_isaac-sim
+    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
