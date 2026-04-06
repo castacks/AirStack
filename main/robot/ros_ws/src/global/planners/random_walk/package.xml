@@ -31,13 +31,11 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_action</depend>
   <depend>std_msgs</depend>
-  <depend>std_srvs</depend>
-  <depend>base</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>visualization_msgs</depend>
-  <depend>message_generation</depend>
   <depend>tf2</depend>
+  <depend>task_msgs</depend>
   
   <export>
     <build_type>ament_cmake</build_type>

@@ -6,7 +6,7 @@ services:
       context: ../
       dockerfile: docker/Dockerfile.gcs
       tags:
-        - ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
+        - ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
     command: >
       bash -c "
       ssh service restart;
@@ -32,7 +32,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
-    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
     # Needed to display graphical applications
     # ipc: host
     privileged: true

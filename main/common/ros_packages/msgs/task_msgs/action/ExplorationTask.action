@@ -1,0 +1,20 @@
+# Explore an area with random or systematic flight patterns.
+# search_bounds: optional bounding polygon (empty = unbounded)
+# time_limit_sec: maximum task duration in seconds (0 = no limit)
+
+# Goal
+geometry_msgs/Polygon search_bounds
+float32 min_altitude_agl
+float32 max_altitude_agl
+float32 min_flight_speed
+float32 max_flight_speed
+float32 time_limit_sec
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
+float32 progress
+geometry_msgs/Point current_position

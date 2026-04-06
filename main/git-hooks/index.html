@@ -2273,6 +2273,8 @@
       
         
       
+        
+      
     
     
     
@@ -2362,14 +2364,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+      <a href="../docs/robot/autonomy/tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -3787,6 +3789,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -4992,7 +5022,7 @@
 <p>This directory contains git hooks used in the AirStack repository.</p>
 <h2 id="available-hooks">Available Hooks<a class="headerlink" href="#available-hooks" title="Permanent link">&para;</a></h2>
 <h3 id="docker-versioning-hook">Docker Versioning Hook<a class="headerlink" href="#docker-versioning-hook" title="Permanent link">&para;</a></h3>
-<p>The <code>update-docker-image-tag.pre-commit</code> hook automatically updates the <code>DOCKER_IMAGE_TAG</code> in the <code>.env</code> file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified. It also adds a comment above the variable indicating that the value is auto-generated from the git commit hash.</p>
+<p>The <code>update-docker-image-tag.pre-commit</code> hook automatically updates the <code>VERSION</code> in the <code>.env</code> file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified. It also adds a comment above the variable indicating that the value is auto-generated from the git commit hash.</p>
 <p>This ensures that Docker images are always tagged with the exact commit they were built from, eliminating version conflicts between parallel branches.</p>
 <h3 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h3>
 <p>To install the hooks:</p>
@@ -5011,7 +5041,7 @@
 <h2 id="how-the-docker-versioning-hook-works">How the Docker Versioning Hook Works<a class="headerlink" href="#how-the-docker-versioning-hook-works" title="Permanent link">&para;</a></h2>
 <ol>
 <li>When you commit changes, the hook checks if any Dockerfile or docker-compose.yaml files are being committed</li>
-<li>If Docker-related files are detected, it updates the DOCKER_IMAGE_TAG in the .env file with the current git commit hash and adds a comment above the variable</li>
+<li>If Docker-related files are detected, it updates the VERSION in the .env file with the current git commit hash and adds a comment above the variable</li>
 <li>The modified .env file is automatically added to the commit</li>
 </ol>
 <p>This approach eliminates version conflicts between parallel branches by ensuring Docker images are tagged with the exact commit they were built from.</p>

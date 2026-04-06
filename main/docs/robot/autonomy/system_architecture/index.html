@@ -14,7 +14,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../integration_checklist/">
+        <link rel="next" href="../tasks/">
       
       
         
@@ -2292,6 +2292,8 @@
       
         
       
+        
+      
     
     
     
@@ -2423,6 +2425,56 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#node-types-perpetual-vs-task-executor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Types: Perpetual vs Task Executor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Node Types: Perpetual vs Task Executor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#perpetual-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Perpetual Nodes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-executors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Executors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-cascade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Cascade
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2820,14 +2872,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../integration_checklist/" class="md-nav__link">
+      <a href="../tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -4245,6 +4297,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -5521,6 +5601,85 @@
     end
 
     Interface --&gt; Hardware</code></pre>
+<h2 id="node-types-perpetual-vs-task-executor">Node Types: Perpetual vs Task Executor<a class="headerlink" href="#node-types-perpetual-vs-task-executor" title="Permanent link">&para;</a></h2>
+<p>AirStack nodes fall into two categories that differ in lifecycle,
+activation, and interface:</p>
+<h3 id="perpetual-nodes">Perpetual Nodes<a class="headerlink" href="#perpetual-nodes" title="Permanent link">&para;</a></h3>
+<p>Perpetual nodes start at launch and run continuously until shutdown.
+They receive data over topics and publish results immediately — there
+is no external activation step. Most of the autonomy stack consists
+of perpetual nodes.</p>
+<p>Examples: state estimator, VDB mapper, disparity expander, trajectory controller, behavior tree tick loop.</p>
+<h3 id="task-executors">Task Executors<a class="headerlink" href="#task-executors" title="Permanent link">&para;</a></h3>
+<p>Task executors are <strong>ROS 2 action servers</strong> that only do work when an
+action client sends them a goal. They have a well-defined lifecycle:</p>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; Idle: node starts
+    Idle --&gt; Active: goal accepted
+    Active --&gt; Idle: succeed / abort
+    Active --&gt; Idle: cancel accepted</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Perpetual Node</th>
+<th>Task Executor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Activation</td>
+<td>Always running</td>
+<td>On demand via action goal</td>
+</tr>
+<tr>
+<td>Interface</td>
+<td>ROS topics</td>
+<td>ROS 2 action (goal / feedback / result)</td>
+</tr>
+<tr>
+<td>Cancellation</td>
+<td>N/A</td>
+<td>Caller can cancel mid-flight</td>
+</tr>
+<tr>
+<td>Progress reporting</td>
+<td>N/A</td>
+<td>Feedback streamed ~1 Hz</td>
+</tr>
+<tr>
+<td>Completion condition</td>
+<td>Never</td>
+<td>Time limit, area covered, object found, etc.</td>
+</tr>
+<tr>
+<td>Typical layer</td>
+<td>Perception, Control, World Models</td>
+<td>Global/Local Planning</td>
+</tr>
+</tbody>
+</table>
+<p>All task action servers are remapped to <code>/{robot_name}/tasks/{task_name}</code> by convention.</p>
+<h3 id="task-cascade">Task Cascade<a class="headerlink" href="#task-cascade" title="Permanent link">&para;</a></h3>
+<p>High-level tasks (sent by the behavior layer) cascade down through the stack:</p>
+<pre class="mermaid"><code>graph TD
+    BE[behavior_executive] --&gt;|ExplorationTask| RW[random_walk_planner]
+    RW --&gt;|NavigateTask| DG[droan_gl]
+    DG --&gt;|trajectory_segment_to_add| TC[trajectory_controller]
+
+    style BE fill:#cce5ff
+    style TC fill:#cce5ff
+    style RW fill:#d4edda
+    style DG fill:#d4edda</code></pre>
+<p><em>Blue = perpetual node, green = task executor.</em></p>
+<p>The global-layer task executor (e.g. <code>random_walk_planner</code>) decides
+<em>where</em> to go and delegates the actual flying to the local-layer task
+executor (<code>droan_gl</code> or <code>droan_local_planner</code>) via a <code>NavigateTask</code>
+action, which feeds trajectory segments to the perpetual trajectory
+controller.</p>
+<p>See <a href="../tasks/">Task Executors</a> for the full list of task action types
+and their interfaces.</p>
+<hr />
 <h2 id="layer-architecture">Layer Architecture<a class="headerlink" href="#layer-architecture" title="Permanent link">&para;</a></h2>
 <h3 id="hierarchical-organization">Hierarchical Organization<a class="headerlink" href="#hierarchical-organization" title="Permanent link">&para;</a></h3>
 <p>The autonomy stack is organized into six layers, each with specific responsibilities:</p>
@@ -5614,12 +5773,20 @@
 </ul>
 <p><strong>Topics:</strong></p>
 <ul>
-<li><strong>Published:</strong></li>
+<li>
+<p><strong>Published:</strong></p>
+<ul>
 <li><code>/[robot]/interface/mavros/state</code></li>
 <li><code>/[robot]/interface/mavros/local_position/pose</code></li>
 <li><code>/[robot]/interface/battery_state</code></li>
-<li><strong>Subscribed:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Subscribed:</strong></p>
+<ul>
 <li><code>/[robot]/trajectory_controller/cmd_vel</code></li>
+</ul>
+</li>
 </ul>
 <h3 id="sensors-layer">Sensors Layer<a class="headerlink" href="#sensors-layer" title="Permanent link">&para;</a></h3>
 <p><strong>Purpose:</strong> Process and calibrate sensor data.</p>
@@ -5639,10 +5806,12 @@
 </ul>
 <p><strong>Topics:</strong></p>
 <ul>
-<li><strong>Published:</strong></li>
+<li><strong>Published:</strong><ul>
 <li><code>/[robot]/sensors/[sensor_name]/image</code></li>
 <li><code>/[robot]/sensors/[sensor_name]/camera_info</code></li>
 <li><code>/[robot]/sensors/front_stereo/disparity</code></li>
+</ul>
+</li>
 </ul>
 <h3 id="perception-layer">Perception Layer<a class="headerlink" href="#perception-layer" title="Permanent link">&para;</a></h3>
 <p><strong>Purpose:</strong> Estimate robot state and understand environment.</p>
@@ -5676,14 +5845,22 @@
 </ul>
 <p><strong>Topics:</strong></p>
 <ul>
-<li><strong>Published:</strong></li>
+<li>
+<p><strong>Published:</strong></p>
+<ul>
 <li><code>/[robot]/odometry</code> - Primary state estimate</li>
 <li><code>/[robot]/perception/macvo/depth</code></li>
 <li><code>/[robot]/perception/macvo/features</code></li>
-<li><strong>Subscribed:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Subscribed:</strong></p>
+<ul>
 <li><code>/[robot]/sensors/*/image</code></li>
 <li><code>/[robot]/sensors/*/camera_info</code></li>
 <li><code>/[robot]/interface/mavros/imu</code></li>
+</ul>
+</li>
 </ul>
 <h3 id="local-layer">Local Layer<a class="headerlink" href="#local-layer" title="Permanent link">&para;</a></h3>
 <p><strong>Purpose:</strong> Reactive obstacle avoidance and trajectory control.</p>
@@ -5721,29 +5898,49 @@
     AttControl --&gt;|Commands| Interface</code></pre>
 <p><strong>Key Modules:</strong></p>
 <ul>
-<li><strong>World Models:</strong></li>
+<li>
+<p><strong>World Models:</strong></p>
+<ul>
 <li><code>disparity_expansion</code>: Obstacle detection from stereo</li>
 <li><code>disparity_graph</code>: Graph-based obstacle representation</li>
 <li><code>disparity_graph_cost_map</code>: Cost map generation</li>
-<li><strong>Planners:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Planners:</strong></p>
+<ul>
 <li><code>droan_local_planner</code>: DROAN obstacle avoidance</li>
 <li><code>takeoff_landing_planner</code>: Specialized maneuvers</li>
 <li><code>trajectory_library</code>: Trajectory generation utilities</li>
-<li><strong>Controllers:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Controllers:</strong></p>
+<ul>
 <li><code>trajectory_controller</code>: Trajectory tracking</li>
 <li><code>attitude_controller</code>: Attitude control</li>
 </ul>
+</li>
+</ul>
 <p><strong>Topics:</strong></p>
 <ul>
-<li><strong>Subscribed:</strong></li>
+<li>
+<p><strong>Subscribed:</strong></p>
+<ul>
 <li><code>/[robot]/odometry</code></li>
 <li><code>/[robot]/global_plan</code></li>
 <li><code>/[robot]/sensors/front_stereo/disparity</code></li>
-<li><strong>Published:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Published:</strong></p>
+<ul>
 <li><code>/[robot]/trajectory_controller/trajectory_segment_to_add</code></li>
 <li><code>/[robot]/trajectory_controller/look_ahead</code></li>
 <li><code>/[robot]/trajectory_controller/tracking_point</code></li>
 <li><code>/[robot]/local/cost_map</code></li>
+</ul>
+</li>
 </ul>
 <h3 id="global-layer">Global Layer<a class="headerlink" href="#global-layer" title="Permanent link">&para;</a></h3>
 <p><strong>Purpose:</strong> Strategic path planning and global mapping.</p>
@@ -5772,22 +5969,38 @@
     GlobalPlan --&gt; Local</code></pre>
 <p><strong>Key Modules:</strong></p>
 <ul>
-<li><strong>World Models:</strong></li>
+<li>
+<p><strong>World Models:</strong></p>
+<ul>
 <li><code>vdb_mapping_ros2</code>: VDB-based 3D mapping</li>
-<li><strong>Planners:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Planners:</strong></p>
+<ul>
 <li><code>random_walk</code>: Random exploration planner</li>
 <li><code>ensemble_planner</code>: Multi-planner coordination</li>
 </ul>
+</li>
+</ul>
 <p><strong>Topics:</strong></p>
 <ul>
-<li><strong>Subscribed:</strong></li>
+<li>
+<p><strong>Subscribed:</strong></p>
+<ul>
 <li><code>/[robot]/odometry</code></li>
 <li><code>/[robot]/sensors/*/pointcloud</code></li>
 <li><code>/[robot]/behavior/mission_goal</code></li>
-<li><strong>Published:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Published:</strong></p>
+<ul>
 <li><code>/[robot]/global_plan</code></li>
 <li><code>/[robot]/global/map</code></li>
 <li><code>/[robot]/global/occupancy</code></li>
+</ul>
+</li>
 </ul>
 <h3 id="behavior-layer">Behavior Layer<a class="headerlink" href="#behavior-layer" title="Permanent link">&para;</a></h3>
 <p><strong>Purpose:</strong> High-level mission execution and decision making.</p>
@@ -5818,14 +6031,22 @@
 </ul>
 <p><strong>Topics:</strong></p>
 <ul>
-<li><strong>Subscribed:</strong></li>
+<li>
+<p><strong>Subscribed:</strong></p>
+<ul>
 <li><code>/[robot]/odometry</code></li>
 <li><code>/[robot]/interface/mavros/state</code></li>
 <li><code>/[robot]/trajectory_controller/trajectory_completion_percentage</code></li>
-<li><strong>Published:</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>Published:</strong></p>
+<ul>
 <li><code>/[robot]/global/goal</code></li>
 <li><code>/[robot]/trajectory_controller/trajectory_override</code></li>
 <li><code>/[robot]/behavior/mission_state</code></li>
+</ul>
+</li>
 </ul>
 <h2 id="complete-data-flow">Complete Data Flow<a class="headerlink" href="#complete-data-flow" title="Permanent link">&para;</a></h2>
 <h3 id="autonomous-flight-scenario">Autonomous Flight Scenario<a class="headerlink" href="#autonomous-flight-scenario" title="Permanent link">&para;</a></h3>
@@ -6049,13 +6270,13 @@
 <h2 id="multi-robot-architecture">Multi-Robot Architecture<a class="headerlink" href="#multi-robot-architecture" title="Permanent link">&para;</a></h2>
 <h3 id="robot-namespacing">Robot Namespacing<a class="headerlink" href="#robot-namespacing" title="Permanent link">&para;</a></h3>
 <p>Each robot operates in its own namespace:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>/drone0/
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>/robot_1/
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  ├── odometry
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  ├── global_plan
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  ├── trajectory_controller/...
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  └── sensors/...
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>/drone1/
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>/robot_2/
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  ├── odometry
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  ├── global_plan
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  ├── trajectory_controller/...
@@ -6092,9 +6313,13 @@
 <li><a href="../integration_checklist/">Integration Checklist</a> - Module integration guidelines</li>
 <li><a href="../../development/ai_agent_guide.md">AI Agent Guide</a> - Guide for AI agents</li>
 <li><a href="../">Layer Documentation</a> - Detailed layer descriptions</li>
-<li>Skills:</li>
+<li>
+<p>Skills:</p>
+<ul>
 <li><a href="../../../.agents/skills/add-ros2-package">add-ros2-package</a> - Creating packages</li>
 <li><a href="../../../.agents/skills/integrate-module-into-layer">integrate-module-into-layer</a> - Integration workflow</li>
+</ul>
+</li>
 </ul>
 
 
@@ -6148,13 +6373,13 @@
         
         
           
-          <a href="../integration_checklist/" class="md-footer__link md-footer__link--next" aria-label="Next: Integration Guide">
+          <a href="../tasks/" class="md-footer__link md-footer__link--next" aria-label="Next: Tasks and Task Executors">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Integration Guide
+                Tasks and Task Executors
               </div>
             </div>
             <div class="md-footer__button md-icon">

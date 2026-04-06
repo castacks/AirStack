@@ -2292,6 +2292,8 @@
       
         
       
+        
+      
     
     
     
@@ -2384,14 +2386,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+      <a href="../../../../../../docs/robot/autonomy/tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -3198,6 +3200,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DROAN Local Planner
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -3214,6 +3234,224 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-cost-map-disparity-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Cost Map (Disparity Graph)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-trajectory-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Trajectory Library
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-trajectory-scoring-5-hz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Trajectory Scoring (5 Hz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-goal-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Goal Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-rewind-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rewind Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-executor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Executor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Task Executor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cascade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cascade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#goal-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feedback-published-1-hz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feedback (published ~1 Hz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trajectory-controller-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trajectory controller mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI test
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subscriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subscriptions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publications
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -3818,6 +4056,34 @@
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5110,18 +5376,368 @@
 
 
 <h1 id="droan-local-planner">DROAN Local Planner<a class="headerlink" href="#droan-local-planner" title="Permanent link">&para;</a></h1>
-<p>This is part of a set of packages that performs local obstacle avoidance from stereo depth. The method is based on the publication <a href="https://www.ri.cmu.edu/app/uploads/2018/01/root.pdf">"DROAN - Disparity-space representation for obstacle avoidance."</a>. Essentially, the local world model makes a C-space expansion around detected obstacles in the disparity image. The local planner then plans a path by scoring the best trajectory from a trajectory library in this expanded space.</p>
-<p>The packages are</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>DROAN Local Planner is a disparity-based local obstacle avoidance planner based on the publication <a href="https://www.ri.cmu.edu/app/uploads/2018/01/root.pdf">"DROAN - Disparity-space representation for obstacle avoidance."</a> It selects the best collision-free trajectory from a pre-generated library by evaluating each candidate against a CPU-based cost map built from stereo disparity observations.</p>
+<p>This is the CPU implementation. For the GPU-accelerated alternative that uses OpenGL for disparity expansion and collision checking, see <a href="../droan_gl/">droan_gl</a>.</p>
+<h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<h3 id="1-cost-map-disparity-graph">1. Cost Map (Disparity Graph)<a class="headerlink" href="#1-cost-map-disparity-graph" title="Permanent link">&para;</a></h3>
+<p>The cost map is built by three supporting packages:</p>
 <ol>
-<li><a href="../../a_world_models/disparity_expansion/README.md">disparity_expansion</a>   (takes in stereo disparity and expands it to a 3D point cloud)</li>
-<li><a href="../../a_world_models/disparity_graph/README.md">disparity_graph</a>        (creates a graph where each node is a drone pose and 3D point cloud observation)</li>
-<li><a href="../../a_world_models/disparity_graph_cost_map/README.md">disparity_graph_cost_map</a>  (creates a cost map from the disparity graph)</li>
-<li>droan_local_planner  (this package. uses the cost map to plan a path)</li>
+<li><strong>disparity_expansion</strong> — takes stereo disparity and expands each obstacle point outward by the robot radius, producing a 3D obstacle cloud in C-space</li>
+<li><strong>disparity_graph</strong> — maintains a rolling graph of (pose, obstacle cloud) observations, discarding old entries as the drone moves</li>
+<li><strong>disparity_graph_cost_map</strong> — queries the disparity graph to assign a collision cost to any 3D point in space</li>
 </ol>
-<p>DROAN local planner takes the global plan, and finds the global plan's closest point to the drone.
-DROAN trims the global plan to be from that point to the end of the global plan.</p>
-<p>Consequently, DROAN currently does NOT use a waypoint manager, and is NOT guaranteed to reach every waypoint on the global plan, especially if the global plan loops back on itself.
-Ideally in the future we will use a proper waypoint manager.</p>
+<p>The cost map plugin is configurable via the <code>cost_map</code> parameter (default: <code>disparity_graph_cost_map::DisparityGraphCostMap</code>).</p>
+<h3 id="2-trajectory-library">2. Trajectory Library<a class="headerlink" href="#2-trajectory-library" title="Permanent link">&para;</a></h3>
+<p>A fixed set of candidate trajectories (snap-based splines in different directions) is loaded from a YAML config file at startup. Each trajectory is a sequence of 3D waypoints parameterized by time.</p>
+<h3 id="3-trajectory-scoring-5-hz">3. Trajectory Scoring (5 Hz)<a class="headerlink" href="#3-trajectory-scoring-5-hz" title="Permanent link">&para;</a></h3>
+<p>At each planning step, every trajectory in the library is evaluated:</p>
+<ul>
+<li>Each waypoint is queried in the cost map to get an obstacle cost.</li>
+<li>A <strong>safety cost</strong> is computed from the maximum obstacle cost along the trajectory (or only the last waypoint, if <code>evaluate_only_last_waypoint</code> is set).</li>
+<li>A <strong>deviation cost</strong> measures lateral distance from the global plan at the trajectory endpoint.</li>
+<li>A <strong>forward progress</strong> term rewards trajectories whose endpoint is farther along the global plan.</li>
+</ul>
+<p>The composite cost is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cost = safety_cost_weight * safety_cost
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>     + deviation_from_global_plan_weight * deviation
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     - forward_progress_forgiveness_weight * progress
+</span></code></pre></div>
+<p>The trajectory with the lowest cost is published.</p>
+<h3 id="4-goal-modes">4. Goal Modes<a class="headerlink" href="#4-goal-modes" title="Permanent link">&para;</a></h3>
+<p>The planner supports three goal modes:</p>
+<ul>
+<li><strong><code>GLOBAL_PLAN</code></strong> — scores trajectories against the subscribed global plan path. The planner finds the closest point on the global plan to the drone and trims the path from that point forward. This is the mode used when a NavigateTask goal is active.</li>
+<li><strong><code>CUSTOM_WAYPOINT</code></strong> — scores toward a single manually commanded waypoint (<code>custom_waypoint</code> topic).</li>
+<li><strong><code>AUTO_WAYPOINT</code></strong> — scores toward waypoints interpolated from a rolling buffer of past drone positions (useful for unguided exploration without a global plan).</li>
+</ul>
+<h3 id="5-rewind-monitoring">5. Rewind Monitoring<a class="headerlink" href="#5-rewind-monitoring" title="Permanent link">&para;</a></h3>
+<p>Two stuck conditions trigger a map-clearing rewind:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Threshold parameter</th>
+<th>Recovery</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All trajectories in collision</td>
+<td><code>all_in_collision_duration_threshold</code></td>
+<td>Rewind for <code>map_clearing_max_rewind_time</code> or <code>map_clearing_rewind_distance</code></td>
+</tr>
+<tr>
+<td>Drone stationary too long</td>
+<td><code>stuck_duration_threshold</code>, <code>stationary_distance_threshold</code></td>
+<td>Same rewind</td>
+</tr>
+</tbody>
+</table>
+<p>After a rewind, the planner waits <code>map_clearing_wait_time</code> seconds before triggering another rewind to allow the cost map to update.</p>
+<hr />
+<h2 id="task-executor">Task Executor<a class="headerlink" href="#task-executor" title="Permanent link">&para;</a></h2>
+<p>This node is a <strong>task executor</strong>: it runs as a ROS 2 action server and is activated on demand via a <code>NavigateTask</code> goal. It does not plan continuously — planning only happens while a goal is active.</p>
+<p><strong>Action server:</strong> <code>/{robot_name}/tasks/navigate</code>
+<strong>Type:</strong> <code>task_msgs/action/NavigateTask</code></p>
+<h3 id="cascade">Cascade<a class="headerlink" href="#cascade" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>random_walk_planner  →  NavigateTask  →  droan_local_planner
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                                                 ↓
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>                                      trajectory_segment_to_add
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>                                                 ↓
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>                                       trajectory_controller
+</span></code></pre></div>
+<h3 id="goal-parameters">Goal parameters<a class="headerlink" href="#goal-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>global_plan</code></td>
+<td>nav_msgs/Path</td>
+<td>Path to follow; last pose is the goal</td>
+</tr>
+<tr>
+<td><code>goal_tolerance_m</code></td>
+<td>float32</td>
+<td>Distance from goal pose to consider task complete (m)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="feedback-published-1-hz">Feedback (published ~1 Hz)<a class="headerlink" href="#feedback-published-1-hz" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>"navigating"</code></td>
+</tr>
+<tr>
+<td><code>distance_to_goal</code></td>
+<td>float32</td>
+<td>3D Euclidean distance to goal pose (m)</td>
+</tr>
+<tr>
+<td><code>current_position</code></td>
+<td>geometry_msgs/Point</td>
+<td>Current tracking point position</td>
+</tr>
+</tbody>
+</table>
+<h3 id="result">Result<a class="headerlink" href="#result" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>success</code></td>
+<td>bool</td>
+<td>True if goal pose reached within tolerance; false if cancelled or error</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td><code>"Goal reached"</code>, <code>"Cancelled"</code>, or <code>"Node shutting down"</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="trajectory-controller-mode">Trajectory controller mode<a class="headerlink" href="#trajectory-controller-mode" title="Permanent link">&para;</a></h3>
+<p>On goal acceptance the node calls the <code>set_trajectory_mode</code> service with mode <code>ADD_SEGMENT</code>, enabling the trajectory controller to extend the trajectory buffer as new segments arrive. On goal completion or cancellation it restores mode <code>TRACK</code>.</p>
+<h3 id="cli-test">CLI test<a class="headerlink" href="#cli-test" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ros2<span class="w"> </span>action<span class="w"> </span>send_goal<span class="w"> </span>/robot_1/tasks/navigate<span class="w"> </span>task_msgs/action/NavigateTask<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="s1">&#39;{global_plan: {header: {frame_id: &quot;map&quot;}, poses: [{pose: {position: {x: 10.0, y: 0.0, z: 3.0}}}]}, goal_tolerance_m: 1.0}&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--feedback
+</span></code></pre></div>
+<hr />
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>execute_rate</code></td>
+<td><code>5.0</code></td>
+<td>Planning rate (Hz)</td>
+</tr>
+<tr>
+<td><code>trajectory_library_config</code></td>
+<td><code>""</code></td>
+<td>Path to trajectory library YAML</td>
+</tr>
+<tr>
+<td><code>cost_map</code></td>
+<td><code>"PointCloudMapRepresentation"</code></td>
+<td>Cost map plugin class name</td>
+</tr>
+<tr>
+<td><code>safety_cost_weight</code></td>
+<td><code>1.0</code></td>
+<td>Weight for obstacle cost in scoring</td>
+</tr>
+<tr>
+<td><code>deviation_from_global_plan_weight</code></td>
+<td><code>1.0</code></td>
+<td>Weight for lateral deviation from global plan</td>
+</tr>
+<tr>
+<td><code>forward_progress_forgiveness_weight</code></td>
+<td><code>0.5</code></td>
+<td>Weight for rewarding forward progress along plan</td>
+</tr>
+<tr>
+<td><code>obstacle_check_radius</code></td>
+<td><code>1.0</code></td>
+<td>Radius (m) around each waypoint to check for obstacles; must be &gt; robot radius</td>
+</tr>
+<tr>
+<td><code>evaluate_only_last_waypoint</code></td>
+<td><code>false</code></td>
+<td>Score only the trajectory endpoint instead of all waypoints</td>
+</tr>
+<tr>
+<td><code>yaw_mode</code></td>
+<td><code>"SMOOTH_YAW"</code></td>
+<td><code>"SMOOTH_YAW"</code> or <code>"TRAJECTORY_YAW"</code> — how to assign yaw to output trajectory</td>
+</tr>
+<tr>
+<td><code>auto_waypoint_buffer_duration</code></td>
+<td><code>30.0</code></td>
+<td>Seconds of past trajectory to buffer for AUTO_WAYPOINT mode</td>
+</tr>
+<tr>
+<td><code>auto_waypoint_spacing_threshold</code></td>
+<td><code>0.5</code></td>
+<td>Min spacing (m) between buffered auto waypoints</td>
+</tr>
+<tr>
+<td><code>auto_waypoint_angle_threshold</code></td>
+<td><code>30.0</code></td>
+<td>Min angle change (deg) to add a new auto waypoint</td>
+</tr>
+<tr>
+<td><code>custom_waypoint_timeout_factor</code></td>
+<td><code>0.3</code></td>
+<td>Fraction of estimated travel time before custom waypoint times out</td>
+</tr>
+<tr>
+<td><code>custom_waypoint_distance_threshold</code></td>
+<td><code>0.5</code></td>
+<td>Distance (m) to consider custom waypoint reached</td>
+</tr>
+<tr>
+<td><code>stuck_duration_threshold</code></td>
+<td><code>6.0</code></td>
+<td>Seconds stationary before triggering rewind</td>
+</tr>
+<tr>
+<td><code>all_in_collision_duration_threshold</code></td>
+<td><code>2.0</code></td>
+<td>Seconds all trajectories must be in collision to trigger rewind</td>
+</tr>
+<tr>
+<td><code>stationary_distance_threshold</code></td>
+<td><code>0.5</code></td>
+<td>Max movement (m) over history window to be considered stationary</td>
+</tr>
+<tr>
+<td><code>stationary_history_duration</code></td>
+<td><code>10.0</code></td>
+<td>Observation window (s) for stationary detection</td>
+</tr>
+<tr>
+<td><code>map_clearing_max_rewind_time</code></td>
+<td><code>10.0</code></td>
+<td>Max rewind duration (s)</td>
+</tr>
+<tr>
+<td><code>map_clearing_rewind_distance</code></td>
+<td><code>1.5</code></td>
+<td>Target rewind distance (m)</td>
+</tr>
+<tr>
+<td><code>map_clearing_wait_time</code></td>
+<td><code>30.0</code></td>
+<td>Seconds to wait between rewinding again</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="subscriptions">Subscriptions<a class="headerlink" href="#subscriptions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>global_plan</code></td>
+<td>nav_msgs/Path</td>
+<td>Global path for trajectory scoring (also set via NavigateTask goal)</td>
+</tr>
+<tr>
+<td><code>look_ahead</code></td>
+<td>airstack_msgs/Odometry</td>
+<td>Look-ahead point from trajectory controller (trajectory planning origin)</td>
+</tr>
+<tr>
+<td><code>tracking_point</code></td>
+<td>airstack_msgs/Odometry</td>
+<td>Current robot tracking point (for goal distance and stuck detection)</td>
+</tr>
+<tr>
+<td><code>custom_waypoint</code></td>
+<td>geometry_msgs/PoseStamped</td>
+<td>Override waypoint for CUSTOM_WAYPOINT mode</td>
+</tr>
+<tr>
+<td><code>reset_stuck</code></td>
+<td>std_msgs/Empty</td>
+<td>Manually clear stuck detection history</td>
+</tr>
+<tr>
+<td><code>clear_map</code></td>
+<td>std_msgs/Empty</td>
+<td>Trigger map clearing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="publications">Publications<a class="headerlink" href="#publications" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trajectory_segment_to_add</code></td>
+<td>airstack_msgs/TrajectoryXYZVYaw</td>
+<td>Best local trajectory segment</td>
+</tr>
+<tr>
+<td><code>trajectory_override</code></td>
+<td>airstack_msgs/TrajectoryXYZVYaw</td>
+<td>Direct trajectory override (used during rewind)</td>
+</tr>
+<tr>
+<td><code>local_planner_global_plan_vis</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Global plan visualization</td>
+</tr>
+<tr>
+<td><code>trajectory_library_vis</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Trajectory library with collision status coloring</td>
+</tr>
+<tr>
+<td><code>stuck</code></td>
+<td>std_msgs/Bool</td>
+<td>True when rewind is active</td>
+</tr>
+<tr>
+<td><code>rewind_info</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Rewind status text markers</td>
+</tr>
+<tr>
+<td><code>obstacle_vis</code></td>
+<td>sensor_msgs/Range</td>
+<td>Nearest obstacle distance (visualization)</td>
+</tr>
+<tr>
+<td><code>map_clearing_point</code></td>
+<td>geometry_msgs/PoseStamped</td>
+<td>Target point for map clearing visualization</td>
+</tr>
+</tbody>
+</table>
 
 
 

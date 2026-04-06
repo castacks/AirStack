@@ -12,8 +12,8 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_action</depend>
   <depend>std_msgs</depend>
-  <depend>std_srvs</depend>
   <depend>nav_msgs</depend>
+  <depend>task_msgs</depend>
   <depend>behavior_tree</depend>
   <depend>behavior_tree_msgs</depend>
   <depend>airstack_msgs</depend>

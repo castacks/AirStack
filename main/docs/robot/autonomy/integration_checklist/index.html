@@ -11,10 +11,10 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/main/docs/robot/autonomy/integration_checklist/">
       
       
-        <link rel="prev" href="../system_architecture/">
+        <link rel="prev" href="../behavior/behavior_executive/">
       
       
-        <link rel="next" href="../interface/">
+        <link rel="next" href="../../autonomy_modes/">
       
       
         
@@ -2292,6 +2292,8 @@
       
         
       
+        
+      
     
     
     
@@ -2381,44 +2383,17 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Integration Guide
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -2427,502 +2402,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#standard-topic-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Standard Topic Patterns
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Standard Topic Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#topic-naming-convention" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Topic Naming Convention
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#common-standard-topics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common Standard Topics
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#layer-specific-topic-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Layer-Specific Topic Patterns
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Layer-Specific Topic Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#interface-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Interface Layer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sensors-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sensors Layer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#perception-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Perception Layer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#local-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local Layer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#global-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Global Layer
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#behavior-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Behavior Layer
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#integration-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Integration Checklist
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Integration Checklist">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-package-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Package Structure
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-topic-interfaces" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Topic Interfaces
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-launch-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Launch Integration
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Dependencies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#6-code-quality" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Code Quality
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#7-testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. Testing
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#8-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        8. Documentation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#9-visualization-if-applicable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        9. Visualization (if applicable)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#10-multi-robot-support" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        10. Multi-Robot Support
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#integration-testing-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Integration Testing Checklist
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Integration Testing Checklist">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#node-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Node Status
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#topic-connections" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Topic Connections
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data Flow
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#logs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Logs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#performance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-integration-issues" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common Integration Issues
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Integration Issues">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#issue-node-not-starting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Node Not Starting
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-topics-not-connected" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Topics Not Connected
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-parameters-not-loading" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Parameters Not Loading
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-poor-performance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Poor Performance
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Best Practices
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Best Practices">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#topic-remapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Topic Remapping
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error Handling
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -4332,6 +3811,618 @@
 
               
             
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-0-determine-your-module-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 0: Determine Your Module Type
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 0: Determine Your Module Type">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-executor-follow-the-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task executor? Follow the skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#standard-topic-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Topic Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Standard Topic Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#topic-naming-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Topic Naming Convention
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-standard-topics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Standard Topics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-specific-topic-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer-Specific Topic Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Layer-Specific Topic Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interface-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interface Layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sensors-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensors Layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#perception-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Perception Layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#local-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local Layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#global-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behavior-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior Layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-action-server-naming-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Action Server Naming Convention
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-package-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Package Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-topic-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Topic Interfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-action-server-interface-task-executors-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b. Action Server Interface (task executors only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-launch-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Launch Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-code-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Code Quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-visualization-if-applicable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Visualization (if applicable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-multi-robot-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Multi-Robot Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-testing-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration Testing Checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration Testing Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#node-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#topic-connections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Topic Connections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-integration-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Integration Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Integration Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#issue-node-not-starting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Node Not Starting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issue-topics-not-connected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Topics Not Connected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issue-parameters-not-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Parameters Not Loading
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issue-action-server-rejecting-all-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Action Server Rejecting All Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issue-poor-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Poor Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#topic-remapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Topic Remapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameters_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -5592,6 +5683,69 @@
 <li><strong>Maintainability:</strong> Module follows conventions and is easy to update</li>
 <li><strong>Testability:</strong> Module can be tested in isolation and in full stack</li>
 </ul>
+<h2 id="step-0-determine-your-module-type">Step 0: Determine Your Module Type<a class="headerlink" href="#step-0-determine-your-module-type" title="Permanent link">&para;</a></h2>
+<p>Before writing any code, decide which type of node you are building.
+The type determines the interface pattern, the bringup integration
+steps, and the documentation requirements.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Perpetual Node</th>
+<th>Task Executor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Runs</strong></td>
+<td>Always, launch to shutdown</td>
+<td>Only while a goal is active</td>
+</tr>
+<tr>
+<td><strong>Interface</strong></td>
+<td>ROS topics (pub/sub)</td>
+<td>ROS 2 action (goal/feedback/result)</td>
+</tr>
+<tr>
+<td><strong>Activation</strong></td>
+<td>Automatic</td>
+<td>On-demand from an action client</td>
+</tr>
+<tr>
+<td><strong>Cancellation</strong></td>
+<td>Not applicable</td>
+<td>Caller can cancel mid-flight</td>
+</tr>
+<tr>
+<td><strong>Completion</strong></td>
+<td>Never</td>
+<td>Time limit, area covered, goal reached</td>
+</tr>
+<tr>
+<td><strong>Examples</strong></td>
+<td>State estimator, VDB mapper</td>
+<td>random_walk, droan_gl</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Use a task executor when your module:</strong></p>
+<ul>
+<li>Is activated on demand with user-specified parameters</li>
+<li>Has a well-defined completion condition</li>
+<li>Should support cancellation mid-flight</li>
+<li>Should stream progress feedback to the caller</li>
+</ul>
+<p><strong>Use a perpetual node for everything else</strong> (sensor processing,
+state estimation, controllers, world models).</p>
+<p>See <a href="../system_architecture/#node-types-perpetual-vs-task-executor">System Architecture — Node Types</a>
+for the full explanation and task cascade diagram.</p>
+<h3 id="task-executor-follow-the-skill">Task executor? Follow the skill<a class="headerlink" href="#task-executor-follow-the-skill" title="Permanent link">&para;</a></h3>
+<p>If your module is a task executor, use the
+<a href="../../../.agents/skills/add-task-executor">add-task-executor</a>
+skill alongside this checklist. It covers action type selection,
+the four required callbacks, threading requirements, and bringup
+integration in one place.</p>
+<hr />
 <h2 id="standard-topic-patterns">Standard Topic Patterns<a class="headerlink" href="#standard-topic-patterns" title="Permanent link">&para;</a></h2>
 <p>AirStack uses standardized topic naming conventions to ensure consistent communication between modules.</p>
 <h3 id="topic-naming-convention">Topic Naming Convention<a class="headerlink" href="#topic-naming-convention" title="Permanent link">&para;</a></h3>
@@ -5733,10 +5887,32 @@
 <ul>
 <li><strong>Inputs:</strong> Mission commands, autonomy state</li>
 <li><strong>Outputs:</strong> High-level commands, mode changes</li>
-<li><strong>Topics:</strong></li>
+<li>
+<p><strong>Topics:</strong></p>
+<ul>
 <li><code>/[robot]/behavior/mission_state</code></li>
 <li><code>/[robot]/behavior/bt_status</code></li>
 </ul>
+</li>
+</ul>
+<h3 id="task-action-server-naming-convention">Task Action Server Naming Convention<a class="headerlink" href="#task-action-server-naming-convention" title="Permanent link">&para;</a></h3>
+<p>All task action servers must be remapped to:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>/{robot_name}/tasks/{task_name}
+</span></code></pre></div>
+<p>Examples:</p>
+<ul>
+<li><code>/{robot_name}/tasks/exploration</code> — ExplorationTask</li>
+<li><code>/{robot_name}/tasks/navigate</code> — NavigateTask</li>
+<li><code>/{robot_name}/tasks/coverage</code> — CoverageTask</li>
+</ul>
+<p>Add the remap in the layer bringup launch file:</p>
+<div class="language-xml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">&lt;remap</span><span class="w"> </span><span class="na">from=</span><span class="s">&quot;~/your_task&quot;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">       </span><span class="na">to=</span><span class="s">&quot;/$(env ROBOT_NAME)/tasks/your_task_name&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+</span></code></pre></div>
+<p>The <code>~/</code> prefix expands to the node's private namespace at runtime,
+making the action name configurable without hardcoding.</p>
+<p>See <a href="../tasks/">Task Executors</a> for the complete list of defined
+task action types.</p>
 <h2 id="integration-checklist">Integration Checklist<a class="headerlink" href="#integration-checklist" title="Permanent link">&para;</a></h2>
 <p>Use this checklist when integrating a new module:</p>
 <h3 id="1-package-structure">1. Package Structure<a class="headerlink" href="#1-package-structure" title="Permanent link">&para;</a></h3>
@@ -5755,6 +5931,26 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Topic types match expected interfaces</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Topics documented in README.md</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Topic remapping tested and verified</li>
+</ul>
+<h3 id="2b-action-server-interface-task-executors-only">2b. Action Server Interface (task executors only)<a class="headerlink" href="#2b-action-server-interface-task-executors-only" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Action type chosen from <code>task_msgs</code> (or new type added and
+      registered in <code>task_msgs/CMakeLists.txt</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> All four callbacks implemented: <code>handle_goal</code>,
+      <code>handle_cancel</code>, <code>handle_accepted</code>, <code>execute</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>execute()</code> runs in a detached thread (never block
+      <code>handle_accepted</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>task_active_</code> flag reset at <strong>every</strong> exit point in
+      <code>execute()</code> — success, cancel, and abort paths</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Cancel flag checked before completion condition inside
+      the <code>execute()</code> loop</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Action server remapped to <code>/{robot_name}/tasks/{name}</code>
+      in the layer bringup launch file</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>rclcpp::spin()</code> used in <code>main()</code> unless callbacks
+      genuinely need concurrent execution <strong>and</strong> all shared
+      resources are thread-safe (see skill for guidance)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Task Executor</strong> section added to README.md with
+      goal/feedback/result tables and a CLI test command</li>
 </ul>
 <h3 id="3-parameters">3. Parameters<a class="headerlink" href="#3-parameters" title="Permanent link">&para;</a></h3>
 <ul class="task-list">
@@ -5796,6 +5992,15 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Module tested in Isaac Sim simulation</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Edge cases tested</li>
 </ul>
+<p>For task executors, also verify:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Action server appears in <code>ros2 action list</code> after launch</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Test goal accepted and feedback streams at ~1 Hz</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Ctrl-C on <code>ros2 action send_goal</code> sends a cancel and
+      the node returns <code>success=false</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Time-limited goal completes with <code>success=true</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> A second goal is rejected while one is already active</li>
+</ul>
 <h3 id="8-documentation">8. Documentation<a class="headerlink" href="#8-documentation" title="Permanent link">&para;</a></h3>
 <ul class="task-list">
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Module README.md complete (use template)</li>
@@ -5823,11 +6028,11 @@
 <h2 id="integration-testing-checklist">Integration Testing Checklist<a class="headerlink" href="#integration-testing-checklist" title="Permanent link">&para;</a></h2>
 <p>After integration, verify the module works correctly:</p>
 <h3 id="node-status">Node Status<a class="headerlink" href="#node-status" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Verify node is running</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node list | grep your_node&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Check node info</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node info /robot/namespace/your_node&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Verify node is running</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node list | grep your_node&quot;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Check node info</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node info /robot/namespace/your_node&quot;</span>
 </span></code></pre></div>
 <p><strong>Expected:</strong></p>
 <ul class="task-list">
@@ -5836,11 +6041,11 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> All expected publications present</li>
 </ul>
 <h3 id="topic-connections">Topic Connections<a class="headerlink" href="#topic-connections" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Check topic publishers/subscribers</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic info /robot/your/topic&quot;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Check topic publishing rate</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic hz /robot/your/output/topic&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check topic publishers/subscribers</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic info /robot/your/topic&quot;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Check topic publishing rate</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic hz /robot/your/output/topic&quot;</span>
 </span></code></pre></div>
 <p><strong>Expected:</strong></p>
 <ul class="task-list">
@@ -5849,11 +6054,11 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Publishing rates match expectations</li>
 </ul>
 <h3 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Echo input topic</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic echo /robot/input/topic --once&quot;</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Echo output topic</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic echo /robot/output/topic --once&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Echo input topic</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic echo /robot/input/topic --once&quot;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Echo output topic</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic echo /robot/output/topic --once&quot;</span>
 </span></code></pre></div>
 <p><strong>Expected:</strong></p>
 <ul class="task-list">
@@ -5862,11 +6067,11 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Data types are correct</li>
 </ul>
 <h3 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># List parameters</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 param list /robot/namespace/your_node&quot;</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Check parameter values</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 param get /robot/namespace/your_node param_name&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># List parameters</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 param list /robot/namespace/your_node&quot;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Check parameter values</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 param get /robot/namespace/your_node param_name&quot;</span>
 </span></code></pre></div>
 <p><strong>Expected:</strong></p>
 <ul class="task-list">
@@ -5874,11 +6079,11 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Parameter values match config file</li>
 </ul>
 <h3 id="logs">Logs<a class="headerlink" href="#logs" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Check logs for errors</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>docker<span class="w"> </span>logs<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;error\|fail&quot;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Check module-specific logs</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>docker<span class="w"> </span>logs<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;your_module&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Check logs for errors</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>logs<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;error\|fail&quot;</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Check module-specific logs</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>docker<span class="w"> </span>logs<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;your_module&quot;</span>
 </span></code></pre></div>
 <p><strong>Expected:</strong></p>
 <ul class="task-list">
@@ -5887,8 +6092,8 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Module is processing data</li>
 </ul>
 <h3 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Monitor resource usage</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>docker<span class="w"> </span>stats<span class="w"> </span>airstack-robot-desktop-1
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Monitor resource usage</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>stats<span class="w"> </span>airstack-robot-desktop-1
 </span></code></pre></div>
 <p><strong>Expected:</strong></p>
 <ul class="task-list">
@@ -5955,6 +6160,25 @@
 <li>Check parameter declaration in code</li>
 <li>Validate YAML syntax</li>
 <li>Test parameter loading with <code>ros2 param get</code></li>
+</ol>
+<h3 id="issue-action-server-rejecting-all-goals">Issue: Action Server Rejecting All Goals<a class="headerlink" href="#issue-action-server-rejecting-all-goals" title="Permanent link">&para;</a></h3>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Every goal is rejected with "task already active"</li>
+<li>Node was running before but stopped accepting goals</li>
+</ul>
+<p><strong>Possible Causes:</strong></p>
+<ul>
+<li><code>task_active_</code> flag not reset at an exit path in <code>execute()</code>
+  (cancellation, abort, or shutdown branch was missed)</li>
+<li>Node crashed inside <code>execute()</code> before resetting the flag</li>
+</ul>
+<p><strong>Debug Steps:</strong></p>
+<ol>
+<li>Check <code>ros2 action list</code> — confirm the server is still there</li>
+<li>Restart the node to clear the stuck flag</li>
+<li>Audit every <code>return</code> in <code>execute()</code> and confirm
+   <code>task_active_ = false</code> precedes each one</li>
 </ol>
 <h3 id="issue-poor-performance">Issue: Poor Performance<a class="headerlink" href="#issue-poor-performance" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong></p>
@@ -6031,11 +6255,17 @@
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../system_architecture/">System Architecture</a> - Overall system design</li>
-<li><a href="../../../.agents/skills/add_ros2_package.md">Add ROS 2 Package Skill</a> - Creating packages</li>
-<li><a href="../../../.agents/skills/integrate_module_into_layer.md">Integration Skill</a> - Integration workflow</li>
-<li><a href="../../../.agents/skills/test_in_simulation.md">Testing Skill</a> - Testing procedures</li>
-<li><a href="../../../../../.agents/skills/add-ros2-package/assets/package_template/">Package Template</a> - Template to follow</li>
+<li><a href="../system_architecture/">System Architecture</a> — Overall system
+  design, node type definitions, task cascade diagram</li>
+<li><a href="../tasks/">Task Executors</a> — All task action types and interfaces</li>
+<li><a href="../../../.agents/skills/add-ros2-package">add-ros2-package</a> —
+  Creating a new package</li>
+<li><a href="../../../.agents/skills/add-task-executor">add-task-executor</a> —
+  Implementing a task executor action server</li>
+<li><a href="./../../../.agents/skills/integrate-module-into-layer">integrate-module-into-layer</a>
+  — Adding a module to layer bringup</li>
+<li><a href="../../../.agents/skills/test-in-simulation">test-in-simulation</a> —
+  Testing procedures</li>
 </ul>
 
 
@@ -6072,7 +6302,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../system_architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: System Architecture">
+          <a href="../behavior/behavior_executive/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Behavior Executive">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -6082,20 +6312,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                System Architecture
+                Behavior Executive
               </div>
             </div>
           </a>
         
         
           
-          <a href="../interface/" class="md-footer__link md-footer__link--next" aria-label="Next: Robot Interface">
+          <a href="../../autonomy_modes/" class="md-footer__link md-footer__link--next" aria-label="Next: Autonomy Modes">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Robot Interface
+                Autonomy Modes
               </div>
             </div>
             <div class="md-footer__button md-icon">

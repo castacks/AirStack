@@ -2292,6 +2292,8 @@
       
         
       
+        
+      
     
     
     
@@ -2384,14 +2386,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+      <a href="../../../../../../docs/robot/autonomy/tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -3393,6 +3395,128 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#control-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pid-controller-pid_controller-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PID Controller (pid_controller node)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attitude-controller-attitude_controller-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attitude Controller (attitude_controller node)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timer-callback-20-hz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timer Callback (20 Hz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trajectory-stitching-add_segment-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trajectory Stitching (ADD_SEGMENT mode)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rewind-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REWIND Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#velocity-scaled-sphere-radius" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Velocity-Scaled Sphere Radius
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3401,14 +3525,25 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Parameters">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Services
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Services">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#trajectory-modes" class="md-nav__link">
+  <a href="#set_trajectory_mode-airstack_msgssrvtrajectorymode" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Trajectory Modes
+        ~/set_trajectory_mode — airstack_msgs/srv/TrajectoryMode
       
     </span>
   </a>
@@ -3436,6 +3571,17 @@
     <span class="md-ellipsis">
       
         Publications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tf-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TF Frames
       
     </span>
   </a>
@@ -3916,6 +4062,34 @@
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5209,117 +5383,309 @@
 
 <h1 id="trajectory-controller">Trajectory Controller<a class="headerlink" href="#trajectory-controller" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The trajectory controller takes in a trajectory and publishes a tracking point, which a controller should make the drone fly to, and a look ahead point, which a planner should plan from. The trajectory controller can interpret a trajectory as a standalone complete track, like a figure eight or racetrack pattern for tuning controls, or as separate segments that should be stitched together, for example trajectories output by a local planner.</p>
-<p>The trajectory controller tries to keep the tracking point ahead of the robot in a pure pursuit fashion. The robot's position, the red X in the figure below, is projected onto the trajectory. A sphere, shown in 2d as the cyan circle, is placed around this projected point and the intersection between the sphere and the forward point on the trajectory is used as the tracking point, the blue X. The lookahead point, the orange X, is a fixed time duration along the trajectory.</p>
+<p>The trajectory controller takes in a trajectory and publishes a <strong>tracking point</strong> — which a low-level controller uses as the immediate pose target — and a <strong>look-ahead point</strong> — which a local planner uses as its planning start position. The controller can handle two distinct trajectory use cases:</p>
+<ul>
+<li><strong>Fixed trajectories</strong> (figure eights, racetracks, circles) used for controls tuning or scripted maneuvers.</li>
+<li><strong>Stitched segments</strong> output continuously by a local planner, where new segments are appended to the live trajectory.</li>
+</ul>
+<p>The trajectory controller tries to keep the tracking point ahead of the robot in a <strong>pure pursuit</strong> fashion. The robot's position (red X in the figure below) is projected onto the trajectory. A sphere (cyan circle in 2D) is placed around this projected point and the intersection between the sphere and the forward portion of the trajectory is used as the tracking point (blue X). The lookahead point (orange X) is a fixed time duration further along the trajectory.</p>
 <p><img alt="Trajectory Controller" src="trajectory_controller.png" /></p>
+<h2 id="control-architecture">Control Architecture<a class="headerlink" href="#control-architecture" title="Permanent link">&para;</a></h2>
+<p><strong>The trajectory controller is not itself a feedback controller.</strong> It is a pure-pursuit trajectory manager: it advances a reference point along a pre-computed trajectory and publishes that point. Feedback control (closing the loop between the drone's actual state and the reference) is done by a separate downstream node.</p>
+<p>The full chain from trajectory to actuator commands is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Trajectory Controller          PID Controller              Flight Computer
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>─────────────────────          ──────────────              ───────────────
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Pure-pursuit advance     →     Cascaded PID        →      roll/pitch/yaw-rate/
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>of virtual_time                (position loop +           thrust commands
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                               velocity loop)             → MAVROS → hardware
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>~/tracking_point  ─────────►  ~/tracking_point
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                               ~/odometry
+</span></code></pre></div>
+<h3 id="pid-controller-pid_controller-node">PID Controller (<code>pid_controller</code> node)<a class="headerlink" href="#pid-controller-pid_controller-node" title="Permanent link">&para;</a></h3>
+<p>The <code>pid_controller</code> subscribes to <code>~/tracking_point</code> and runs a <strong>cascaded (nested) PID</strong>:</p>
+<ol>
+<li><strong>Outer loop — position PID</strong> (x, y, z independently):</li>
+<li>Error = tracking-point position − drone position</li>
+<li>Output = desired velocity (vx, vy, vz)</li>
+<li>
+<p>Each axis has independent P, I, D, feed-forward, and output-clamp parameters.</p>
+</li>
+<li>
+<p><strong>Inner loop — velocity PID</strong> (vx, vy, vz independently):</p>
+</li>
+<li>Error = desired velocity − measured velocity</li>
+<li>
+<p>Output mapped to attitude/thrust commands:</p>
+<ul>
+<li><code>pitch</code> ← vx PID output</li>
+<li><code>roll</code> ← −vy PID output</li>
+<li><code>thrust</code> ← vz PID output</li>
+<li><code>yaw_rate</code> ← taken directly from the tracking point's yaw</li>
+</ul>
+</li>
+<li>
+<p>Publishes <code>mav_msgs/RollPitchYawrateThrust</code> to the flight computer.</p>
+</li>
+</ol>
+<p>Each PID includes an <strong>exponential moving-average filter</strong> on the derivative term (controlled by <code>_d_alpha</code>) and <strong>integral windup clamping</strong> against the configured output limits.</p>
+<h3 id="attitude-controller-attitude_controller-node">Attitude Controller (<code>attitude_controller</code> node)<a class="headerlink" href="#attitude-controller-attitude_controller-node" title="Permanent link">&para;</a></h3>
+<p>An alternative higher-fidelity controller is available in <code>attitude_controller</code>. It uses a PD position/velocity loop augmented with an <strong>Extended Kalman Filter (EKF)</strong> for disturbance estimation and compensation. The EKF estimates external forces (e.g. wind) acting on the drone; these estimates are fed forward to cancel the disturbance before the PD feedback acts on the residual error. Gains are grouped as <code>kp*</code> (proportional), <code>kd*</code> (derivative), <code>ki*</code> (integral, in both body and ground frames), and <code>kf*</code> (feed-forward scaling).</p>
+<h2 id="algorithm">Algorithm<a class="headerlink" href="#algorithm" title="Permanent link">&para;</a></h2>
+<h3 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h3>
+<p>The controller maintains a <strong>virtual time</strong> — a scalar representing how far along the trajectory the tracking point currently is. Each timer callback advances virtual time and recomputes the tracking point position.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>virtual_time  →  tracking point pose  →  published to ~/tracking_point
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>              +  look_ahead_time       →  published to ~/look_ahead
+</span></code></pre></div>
+<h3 id="timer-callback-20-hz">Timer Callback (20 Hz)<a class="headerlink" href="#timer-callback-20-hz" title="Permanent link">&para;</a></h3>
+<p>On each tick the controller:</p>
+<ol>
+<li>
+<p><strong>Computes tracking error</strong> — Euclidean distance from the robot to the current virtual tracking point. Published as a diagnostic.</p>
+</li>
+<li>
+<p><strong>Advances virtual time</strong> using one of two sub-modes depending on the current trajectory velocity at the virtual point:</p>
+<ol>
+<li><strong>Sphere-intersection mode</strong> (normal case when velocity ≥ <code>min_virtual_tracking_velocity</code>):<ul>
+<li>Searches the trajectory in the range <code>[virtual_time, prev_vtp_time + look_ahead_time]</code> for the closest waypoint to the robot. This is the <strong>projected point</strong>.</li>
+<li>Casts a sphere of radius <code>sphere_radius</code> (or <code>velocity × velocity_sphere_radius_multiplier</code> when that param is positive) around the projected point.</li>
+<li>Calls <code>get_waypoint_sphere_intersection</code> to walk forward up to <code>sphere_radius × search_ahead_factor</code> along the trajectory from the projected point and find where the sphere boundary intersects the trajectory. This intersection becomes the new <strong>virtual tracking waypoint</strong>.</li>
+<li><code>virtual_time</code> is set to the projected point's time; the tracking point is placed at the sphere intersection time.</li>
+</ul>
+</li>
+<li><strong>Time-advancement mode</strong> (slow/stopped case when velocity &lt; <code>min_virtual_tracking_velocity</code>):<ul>
+<li>Virtual time is advanced by <code>time_multiplier × elapsed_time</code>. This prevents the sphere intersection from stalling when the trajectory has zero or near-zero velocity (e.g., at trajectory endpoints).</li>
+</ul>
+</li>
+</ol>
+</li>
+<li>
+<p><strong>Resolves the virtual tracking point</strong> — Queries the trajectory at <code>virtual_time + current_virtual_ahead_time</code> and converts the resulting waypoint to an <code>airstack_msgs/Odometry</code> message (pose, velocity, acceleration, jerk).</p>
+</li>
+<li>
+<p><strong>Resolves the look-ahead point</strong> — Queries the trajectory at <code>virtual_time + look_ahead_time</code> (or <code>virtual_time - look_ahead_time</code> in REWIND mode).</p>
+</li>
+<li>
+<p><strong>Applies mode overrides</strong> — Zeroes velocity/acceleration/jerk fields as required by the current mode (end of trajectory, PAUSE, ROBOT_POSE, slow-speed clamp).</p>
+</li>
+<li>
+<p><strong>Broadcasts TF frames</strong> for the tracking point and look-ahead point (plus stabilized versions with pitch/roll zeroed).</p>
+</li>
+<li>
+<p><strong>Publishes</strong> tracking point, look-ahead, diagnostics, and visualization markers.</p>
+</li>
+</ol>
+<h3 id="trajectory-stitching-add_segment-mode">Trajectory Stitching (ADD_SEGMENT mode)<a class="headerlink" href="#trajectory-stitching-add_segment-mode" title="Permanent link">&para;</a></h3>
+<p>When the local planner publishes a new segment, it is merged into the live trajectory at the closest match point to the segment's start, near <code>virtual_time</code>. Ideally the local planner starts each segment from the lookahead point. The lookahead must be far enough ahead (at least as long as the planner's planning cycle) that the tracking point has not yet passed the start of the new segment when it arrives.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>current trajectory:  ────────●──────────────────────────────────→
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                              ↑ virtual_time
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>new segment:                        ●═════════════════════════════→
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                                    ↑ segment start ≈ lookahead point
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>merged result:       ────────●──────●═════════════════════════════→
+</span></code></pre></div>
+<h3 id="rewind-mode">REWIND Mode<a class="headerlink" href="#rewind-mode" title="Permanent link">&para;</a></h3>
+<p>When entering REWIND, the controller:
+1. Reverses the internal trajectory representation.
+2. Remaps <code>virtual_time</code> to the reversed timeline.
+3. Skips forward past any zero/low-velocity section at the current position (<code>rewind_skip_max_velocity</code>, <code>rewind_skip_max_distance</code>) to avoid getting stuck.
+4. Sets <code>time_multiplier = -1</code> and gradually ramps it back up (through <code>transition_dt</code>) to produce a smooth velocity reversal.</p>
+<p>When exiting REWIND back to ADD_SEGMENT, the trajectory is reversed again and time is remapped so the robot continues forward from its current position.</p>
+<h3 id="velocity-scaled-sphere-radius">Velocity-Scaled Sphere Radius<a class="headerlink" href="#velocity-scaled-sphere-radius" title="Permanent link">&para;</a></h3>
+<p>If <code>velocity_sphere_radius_multiplier &gt; 0</code>, the sphere radius scales with current trajectory velocity: <code>radius = velocity × velocity_sphere_radius_multiplier</code>. This makes the controller more responsive at low speeds and gives more look-ahead at high speeds. When the parameter is ≤ 0 (default), the fixed <code>sphere_radius</code> is used.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart LR
+    odom["~/odometry\nnav_msgs/Odometry"] --&gt; node
+    seg["~/trajectory_segment_to_add\nairstack_msgs/TrajectoryXYZVYaw"] --&gt; node
+    ovr["~/trajectory_override\nairstack_msgs/TrajectoryXYZVYaw"] --&gt; node
+    svc["set_trajectory_mode\nservice"] --&gt; node
+
+    node["trajectory_control_node\n(20 Hz)"]
+
+    node --&gt; tp["~/tracking_point\nairstack_msgs/Odometry"]
+    node --&gt; la["~/look_ahead\nairstack_msgs/Odometry"]
+    node --&gt; tv["~/trajectory_vis\nMarkerArray"]
+    node --&gt; dm["~/trajectory_controller_debug_markers\nMarkerArray"]
+    node --&gt; te["~/tracking_error\nFloat32"]
+    node --&gt; pct["~/trajectory_completion_percentage\nFloat32"]
+    node --&gt; tt["~/trajectory_time\nFloat32"]
+    node --&gt; vel["~/tracking_point_velocity_magnitude\nFloat32"]
+
+    node --&gt;|TF| tf1["{tf_prefix}tracking_point"]
+    node --&gt;|TF| tf2["{tf_prefix}tracking_point_stabilized"]
+    node --&gt;|TF| tf3["{tf_prefix}look_ahead_point"]
+    node --&gt;|TF| tf4["{tf_prefix}look_ahead_point_stabilized"]</code></pre>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th><div style="width:220px">Parameter</div></th>
+<th><div style="width:280px">Parameter</div></th>
+<th>Default</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>tf_prefix</code></td>
-<td>The tf names published are prefixed with the string in this parameter. Tfs are published at the tracking point and lookahead point. There are stabilized versions, the same but with zero pitch and roll, of these two tfs that are also published.</td>
+<td><code>""</code></td>
+<td>Prefix for published TF frame names (e.g. <code>"uav1/"</code> for multi-robot).</td>
 </tr>
 <tr>
 <td><code>target_frame</code></td>
-<td>The tracking point and lookahead point are published in this frame.</td>
+<td><code>"world"</code></td>
+<td>Frame in which the tracking point and lookahead point are expressed. Odometry is transformed into this frame on receipt.</td>
+</tr>
+<tr>
+<td><code>execute_target</code></td>
+<td><code>50.0</code></td>
+<td>Target control loop rate (Hz). The timer actually runs at 20 Hz; this affects <code>transition_dt</code> calculations.</td>
 </tr>
 <tr>
 <td><code>look_ahead_time</code></td>
-<td>How far ahead of the tracking point the lookahead point will be in seconds.</td>
+<td><code>1.0</code></td>
+<td>Fixed time offset (seconds) ahead of the tracking point at which the lookahead point is placed. Should be larger than the local planner's planning cycle time.</td>
+</tr>
+<tr>
+<td><code>virtual_tracking_ahead_time</code></td>
+<td><code>0.5</code></td>
+<td>Additional time offset added to the virtual tracking point lookup.</td>
 </tr>
 <tr>
 <td><code>min_virtual_tracking_velocity</code></td>
-<td>If the velocity on the trajectory is less than this, the tracking point will just move forward in time instead of using the sphere to keep the tracking point ahead of the drone. The units are m/s.</td>
+<td><code>0.1</code></td>
+<td>Velocity threshold (m/s) below which the controller switches from sphere-intersection mode to time-advancement mode. Also suppresses output velocity/acceleration when the trajectory is effectively stopped.</td>
 </tr>
 <tr>
 <td><code>sphere_radius</code></td>
-<td>This is the radius of the sphere used to determine the position of the tracking point. Making it larger pushes the tracking point farther ahead.</td>
+<td><code>1.0</code></td>
+<td>Radius (m) of the sphere used to advance the tracking point in sphere-intersection mode. Larger values push the tracking point further ahead, increasing effective look-ahead distance.</td>
+</tr>
+<tr>
+<td><code>velocity_sphere_radius_multiplier</code></td>
+<td><code>-1.0</code></td>
+<td>If positive, overrides <code>sphere_radius</code> with <code>velocity × this_value</code>, giving a velocity-proportional look-ahead. Set ≤ 0 to use fixed <code>sphere_radius</code>.</td>
 </tr>
 <tr>
 <td><code>search_ahead_factor</code></td>
-<td>To search for the point on the trajectory that intersects with the sphere, the algorithm checks a certain distance ahead along the trajectory. This distance is given by <code>sphere_radius * search_ahead_factor</code>. If the trajectory zigzags a lot relative to the size of the sphere, it's possible that the algorithm wouldn't iterate far enough along the trajectory to find the point where it intersects with the sphere. If a large value for this parameter is used and the trajectory loops back on itself, it is possible that this would cause the tracking point to jump ahead and skip a portion of the trajectory. In almost all cases, this parameter shouldn't need to be changed.</td>
+<td><code>1.5</code></td>
+<td>The algorithm searches <code>sphere_radius × search_ahead_factor</code> metres ahead from the projected point to find the sphere intersection. Increase only if the trajectory zigzags sharply relative to <code>sphere_radius</code>.</td>
+</tr>
+<tr>
+<td><code>tracking_point_distance_limit</code></td>
+<td><code>10.5</code></td>
+<td>(Declared but not currently used in main logic; reserved for future clamping.)</td>
+</tr>
+<tr>
+<td><code>velocity_look_ahead_time</code></td>
+<td><code>0.9</code></td>
+<td>Time offset used when computing the velocity look-ahead.</td>
+</tr>
+<tr>
+<td><code>ff_min_velocity</code></td>
+<td><code>0.0</code></td>
+<td>Feed-forward minimum velocity threshold.</td>
+</tr>
+<tr>
+<td><code>transition_velocity_scale</code></td>
+<td><code>1.0</code></td>
+<td>Scales how quickly <code>time_multiplier</code> ramps from −1 → +1 during REWIND ↔ ADD_SEGMENT transitions. Higher values give faster transitions.</td>
 </tr>
 <tr>
 <td><code>traj_vis_thickness</code></td>
-<td>The thickness of the trajectory visualization markers.</td>
+<td><code>0.03</code></td>
+<td>Thickness (m) of trajectory visualization markers in RViz.</td>
 </tr>
 <tr>
-<td>## Services</td>
-<td></td>
+<td><code>rewind_skip_max_velocity</code></td>
+<td><code>0.1</code></td>
+<td>When entering REWIND, waypoints with velocity below this threshold (m/s) near the current position are skipped to avoid the controller getting stuck at a slow/stopped section.</td>
+</tr>
+<tr>
+<td><code>rewind_skip_max_distance</code></td>
+<td><code>0.1</code></td>
+<td>Maximum arc-length (m) to skip forward when entering REWIND.</td>
 </tr>
 </tbody>
 </table>
-<h3 id="trajectory-modes">Trajectory Modes<a class="headerlink" href="#trajectory-modes" title="Permanent link">&para;</a></h3>
-<p>There are several modes that the trajectory controller can be placed in with a service call to the <code>set_trajectory_mode</code> service:
-See TrajectoryMode.srv.</p>
+<h2 id="services">Services<a class="headerlink" href="#services" title="Permanent link">&para;</a></h2>
+<h3 id="set_trajectory_mode-airstack_msgssrvtrajectorymode"><code>~/set_trajectory_mode</code> — <code>airstack_msgs/srv/TrajectoryMode</code><a class="headerlink" href="#set_trajectory_mode-airstack_msgssrvtrajectorymode" title="Permanent link">&para;</a></h3>
+<p>Switches the controller between operating modes. Returns <code>success: true</code> on all valid mode transitions.</p>
 <table>
 <thead>
 <tr>
-<th>Mode</th>
+<th>Mode constant</th>
+<th>Value</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>TRACK</strong></td>
-<td>This interprets a trajectory subscribed on <code>~/trajectory_override</code> as a complete trajectory that the controller will follow. It is usually used for taking off, landing, and tuning controls on fixed trajectories like figure eights, racetracks, circles, etc...</td>
+<td><code>ROBOT_POSE</code></td>
+<td>1</td>
+<td>Tracking and lookahead points are set to the robot's current odometry pose (zero velocity). Used before takeoff while the robot may be moved manually. Clears the stored trajectory.</td>
 </tr>
 <tr>
-<td><strong>ADD_SEGMENT</strong></td>
-<td>This interprets a trajectory subscribed on <code>~/trajectory_segment_to_add</code> as a segment of a trajectory which will get stitched onto the current trajectory at the closest point to the start of the new segment. This is usually published by a local planner. Ideally it is published at the location of the lookahead point, which is a fixed time ahead of the tracking point. This fixed time should be greater than the time it takes to plan. For example, if the lookahead point is one second ahead of the tracking point, the local planner should be always take less than one second to plan otherwise the tracking point would already be past the start of the plan. If this happens, the trajectory will fail to be stitched and will be ignored.</td>
+<td><code>TRACK</code></td>
+<td>2</td>
+<td>Interprets messages on <code>~/trajectory_override</code> as a complete trajectory to follow from the beginning. Clears any previous trajectory. Suitable for takeoff, landing, and fixed maneuvers.</td>
 </tr>
 <tr>
-<td><strong>PAUSE</strong></td>
-<td>This causes the tracking point to stop where it is.</td>
+<td><code>ADD_SEGMENT</code></td>
+<td>3</td>
+<td>Appends messages on <code>~/trajectory_segment_to_add</code> onto the live trajectory at the point closest to the segment start. Used during autonomous flight with a continuously replanning local planner.</td>
 </tr>
 <tr>
-<td><strong>REWIND</strong></td>
-<td>This makes the tracking point go backwards along the trajectory. This mode is usually used to make the drone blindly backtrack along its trajectory to get it out of a situation it is stuck in.</td>
+<td><code>PAUSE</code></td>
+<td>0</td>
+<td>Freezes the tracking point at its current position (virtual time stops advancing). The robot's low-level controller will hold position at the frozen tracking point.</td>
 </tr>
 <tr>
-<td><strong>ROBOT_POSE</strong></td>
-<td>This makes the tracking point and lookahead point always be at the same position as the drone's odometry. This is useful for before takeoff, when the robot may be carried around so that the location where the takeoff starts is at the drone's position.</td>
+<td><code>REWIND</code></td>
+<td>4</td>
+<td>Reverses playback along the trajectory. The drone backtracks along its recent path, useful for recovering from stuck situations.</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Transition notes:</strong>
+- <code>REWIND → ADD_SEGMENT</code>: Trajectory is reversed again and virtual time is remapped. The controller ramps velocity smoothly from backward to forward.
+- Any mode → <code>ROBOT_POSE</code> or <code>TRACK</code>: Trajectory is cleared.
+- <code>PAUSE</code> → <code>ADD_SEGMENT</code>: Resumes from the current position without clearing the trajectory.</p>
 <h2 id="subscriptions">Subscriptions<a class="headerlink" href="#subscriptions" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th><div style="width:220px">Topic</div></th>
+<th><div style="width:260px">Topic</div></th>
 <th>Type</th>
+<th>QoS</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>~/odometry</code></td>
-<td><a href="https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html">nav_msgs/Odometry</a></td>
-<td>Odometry of the robot.</td>
+<td><a href="https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html"><code>nav_msgs/Odometry</code></a></td>
+<td><code>BestEffort</code>, depth 1</td>
+<td>Robot state. Transformed into <code>target_frame</code> on receipt. Matches MAVROS publisher QoS.</td>
 </tr>
 <tr>
 <td><code>~/trajectory_segment_to_add</code></td>
-<td><a href="/common/ros_packages/airstack_msgs/srv/TrajectoryMode.srv">airstack_msgs/TrajectoryXYZVYaw</a></td>
-<td>For <strong>ADD_SEGMENT</strong> mode, this is the trajectory segment to add to the current trajectory.</td>
+<td><code>airstack_msgs/msg/TrajectoryXYZVYaw</code></td>
+<td>Reliable, depth 1</td>
+<td>Trajectory segment to stitch onto the current trajectory (ADD_SEGMENT mode). Typically the local planner output starting at the current lookahead point.</td>
 </tr>
 <tr>
 <td><code>~/trajectory_override</code></td>
-<td><a href="/common/ros_packages/airstack_msgs/srv/TrajectoryMode.srv">airstack_msgs/TrajectoryXYZVYaw</a></td>
-<td>For <strong>TRACK</strong> mode, this overrides the current trajectory and makes the robot follow this directly.</td>
+<td><code>airstack_msgs/msg/TrajectoryXYZVYaw</code></td>
+<td>Reliable, depth 1</td>
+<td>Complete trajectory replacing the current one (TRACK mode).</td>
 </tr>
 </tbody>
 </table>
+<p>The <code>TrajectoryXYZVYaw</code> message contains a <code>WaypointXYZVYaw[]</code> array where each waypoint carries position (x, y, z), scalar speed <code>v</code>, and <code>yaw</code>. The trajectory library computes timing and derivatives from these waypoints.</p>
 <h2 id="publications">Publications<a class="headerlink" href="#publications" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th><div style="width:260px">Topic</div></th>
+<th><div style="width:280px">Topic</div></th>
 <th>Type</th>
 <th>Description</th>
 </tr>
@@ -5327,58 +5693,91 @@ See TrajectoryMode.srv.</p>
 <tbody>
 <tr>
 <td><code>~/tracking_point</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>airstack_msgs/msg/Odometry</code></td>
+<td>The current virtual tracking point: pose, velocity, acceleration, and jerk along the trajectory. The low-level controller drives the drone toward this point.</td>
 </tr>
 <tr>
 <td><code>~/look_ahead</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>airstack_msgs/msg/Odometry</code></td>
+<td>The look-ahead point: pose and derivatives a fixed <code>look_ahead_time</code> seconds ahead of the tracking point. The local planner starts each new trajectory segment from this point.</td>
 </tr>
 <tr>
 <td><code>~/traj_drone_point</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>airstack_msgs/msg/Odometry</code></td>
+<td>The projected drone point: pose at <code>virtual_time</code> on the trajectory (before the sphere-intersection look-ahead is applied).</td>
+</tr>
+<tr>
+<td><code>~/projected_drone_pose</code></td>
+<td><code>geometry_msgs/msg/PoseStamped</code></td>
+<td>The 3D pose of the closest trajectory waypoint to the robot, as a lightweight <code>PoseStamped</code>.</td>
 </tr>
 <tr>
 <td><code>~/virtual_tracking_point</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>airstack_msgs/msg/Odometry</code></td>
+<td>Alias/debug copy of the tracking point.</td>
 </tr>
 <tr>
 <td><code>~/closest_point</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>airstack_msgs/msg/Odometry</code></td>
+<td>The globally closest point on the entire trajectory to the robot. (Currently disabled in code; reserved for future use.)</td>
 </tr>
 <tr>
 <td><code>~/trajectory_completion_percentage</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>std_msgs/msg/Float32</code></td>
+<td>Percentage of the trajectory completed: <code>virtual_time / duration × 100</code>.</td>
 </tr>
 <tr>
 <td><code>~/trajectory_time</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>std_msgs/msg/Float32</code></td>
+<td>Current trajectory time in seconds. In REWIND mode this counts down from the trajectory duration.</td>
 </tr>
 <tr>
 <td><code>~/tracking_error</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>std_msgs/msg/Float32</code></td>
+<td>Euclidean distance (m) from the robot's current position to the virtual tracking point.</td>
 </tr>
 <tr>
-<td><code>~/velocity_pub</code></td>
-<td>TODO</td>
-<td>TODO</td>
-</tr>
-<tr>
-<td><code>~/debug_markers</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>~/tracking_point_velocity_magnitude</code></td>
+<td><code>std_msgs/msg/Float32</code></td>
+<td>Speed (m/s) of the tracking point as it moves along the trajectory.</td>
 </tr>
 <tr>
 <td><code>~/trajectory_vis</code></td>
-<td>TODO</td>
-<td>TODO</td>
+<td><code>visualization_msgs/msg/MarkerArray</code></td>
+<td>Trajectory path rendered as colored line-strip markers in RViz. Thickness controlled by <code>traj_vis_thickness</code>.</td>
+</tr>
+<tr>
+<td><code>~/trajectory_controller_debug_markers</code></td>
+<td><code>visualization_msgs/msg/MarkerArray</code></td>
+<td>Debug spheres and markers: the sphere around the projected point (cyan), the intersection point (green), and the search end point (blue).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tf-frames">TF Frames<a class="headerlink" href="#tf-frames" title="Permanent link">&para;</a></h2>
+<p>Four TF frames are broadcast on every tick, all in <code>target_frame</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Frame</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{tf_prefix}tracking_point</code></td>
+<td>Full 6-DOF pose of the tracking point (includes pitch and roll from the trajectory).</td>
+</tr>
+<tr>
+<td><code>{tf_prefix}tracking_point_stabilized</code></td>
+<td>Tracking point with pitch and roll zeroed — suitable for camera or gimbal frames.</td>
+</tr>
+<tr>
+<td><code>{tf_prefix}look_ahead_point</code></td>
+<td>Full 6-DOF pose of the look-ahead point.</td>
+</tr>
+<tr>
+<td><code>{tf_prefix}look_ahead_point_stabilized</code></td>
+<td>Look-ahead point with pitch and roll zeroed.</td>
 </tr>
 </tbody>
 </table>

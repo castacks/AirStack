@@ -2273,6 +2273,8 @@
       
         
       
+        
+      
     
     
     
@@ -2362,14 +2364,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -3787,6 +3789,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -4991,10 +5021,10 @@
 <h1 id="docker-versioning-git-hook">Docker Versioning Git Hook<a class="headerlink" href="#docker-versioning-git-hook" title="Permanent link">&para;</a></h1>
 <p>This directory contains a git hook that automatically updates the Docker image tag with the current git commit hash.</p>
 <h2 id="hook-update-docker-image-tagpre-commit">Hook: update-docker-image-tag.pre-commit<a class="headerlink" href="#hook-update-docker-image-tagpre-commit" title="Permanent link">&para;</a></h2>
-<p>This pre-commit hook automatically updates the <code>DOCKER_IMAGE_TAG</code> in the <code>.env</code> file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified.</p>
+<p>This pre-commit hook automatically updates the <code>VERSION</code> in the <code>.env</code> file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified.</p>
 <h3 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Automatically updates <code>DOCKER_IMAGE_TAG</code> with the git commit hash</li>
+<li>Automatically updates <code>VERSION</code> with the git commit hash</li>
 <li>Adds a comment above the variable indicating it's auto-generated</li>
 <li>Only triggers when Docker-related files are modified</li>
 <li>Automatically stages the modified .env file for commit</li>

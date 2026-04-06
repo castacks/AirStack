@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#droan-gl" class="md-skip">
+        <a href="#droan-gl-local-planner" class="md-skip">
           Skip to content
         </a>
       
@@ -2292,6 +2292,8 @@
       
         
       
+        
+      
     
     
     
@@ -2384,14 +2386,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+      <a href="../../../../../../docs/robot/autonomy/tasks/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Integration Guide
+    Tasks and Task Executors
   
 
     
@@ -3288,10 +3290,187 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-disparity-expansion-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Disparity Expansion (GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-disparity-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Disparity Graph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-trajectory-evaluation-25-hz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Trajectory Evaluation (2.5 Hz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-trajectory-scoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Trajectory Scoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-rewind-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rewind Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-executor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task Executor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Task Executor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cascade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cascade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#goal-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feedback-published-1-hz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feedback (published ~1 Hz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trajectory-controller-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trajectory controller mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI test
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
         Parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subscriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subscriptions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publications
       
     </span>
   </a>
@@ -3877,6 +4056,34 @@
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5168,33 +5375,358 @@
   
 
 
-<h1 id="droan-gl">DROAN GL<a class="headerlink" href="#droan-gl" title="Permanent link">&para;</a></h1>
+<h1 id="droan-gl-local-planner">DROAN GL Local Planner<a class="headerlink" href="#droan-gl-local-planner" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>This is an implementation of DROAN based local planner using OpenGL to do the disparity expansion and collision checking on the GPU. In the original version of DROAN, the disparity expansion expanded obstacles as flat surfaces facing the camera because it was expanding using the camera facing bounding box of a sphere instead of the sphere itself so that it could be implemented efficiently on the CPU. This version expands directly using the sphere.</p>
-<p>Here is an example of the expansion. The red points are the raw disparity, black is the foreground expansion and white is the background expansion.</p>
+<p>DROAN GL is a GPU-accelerated local planner for obstacle avoidance using stereo disparity. It implements the <a href="https://www.ri.cmu.edu/app/uploads/2018/01/root.pdf">DROAN</a> (Disparity-space Representation for Obstacle Avoidance and Navigation) algorithm with a key improvement: obstacles are expanded using the true sphere shape rather than the camera-facing bounding box approximation used in the original paper, which can be done efficiently on the GPU via OpenGL shaders.</p>
 <p><img alt="expansion" src="images/expansion.png" /></p>
-<p>Trajectories are generated using snaps in different directions. Collision checking is done on a list of foreground and background disparity expansions. The current one is always used and new ones are added to the list based distance and how much the drone has rotated. Below is an image showing the trajectory library with collision free trajectories shown as green, trajectories with collisions shown as red and trajectories going into unseen areas as grey. This is a marker array which can be configured in rviz to show or not show the different classes of trajectories, collision free, in collision and unseen, and also show the individual points on the trajectories. The green arrows are the camera positions of the foreground and background disparity images used for collision checking. The cyan line is the path from the global planner and the blue line which overlaps the cyan line is the portion of the path that the local planner is using to score the trajectories. All of the foreground and background disparities from the list used in collision checking are visualized in the pointcloud, darker colors are foreground, lighter colors are background. The disparity expansion visualization can be toggled off since it significantly increased the CPU usage.</p>
+<p><em>Red = raw disparity, black = foreground expansion, white = background expansion.</em></p>
 <p><img alt="trajectories" src="images/trajectories.png" /></p>
+<p><em>Green = collision-free trajectories, red = in collision, grey = entering unseen space. Cyan/blue lines = global plan used for scoring. Green arrows = camera poses stored in the disparity graph.</em></p>
+<h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<h3 id="1-disparity-expansion-gpu">1. Disparity Expansion (GPU)<a class="headerlink" href="#1-disparity-expansion-gpu" title="Permanent link">&para;</a></h3>
+<p>On each stereo disparity frame, the GL interface renders the disparity point cloud onto the GPU, then runs expansion shaders that inflate each obstacle point outward by <code>expansion_radius</code> meters as a true sphere. This produces two expanded images:</p>
+<ul>
+<li><strong>Foreground expansion</strong> — obstacles pushed toward the camera (conservative near bound)</li>
+<li><strong>Background expansion</strong> — obstacles pushed away from the camera (conservative far bound)</li>
+</ul>
+<h3 id="2-disparity-graph">2. Disparity Graph<a class="headerlink" href="#2-disparity-graph" title="Permanent link">&para;</a></h3>
+<p>Expanded disparity frames are not used one at a time. Instead, the node maintains a rolling <strong>disparity graph</strong>: a fixed-size list of (pose, foreground expansion, background expansion) tuples representing past observations. A new entry is added to the graph whenever the drone has moved more than <code>graph_distance_threshold</code> meters or rotated more than <code>graph_angle_threshold</code> degrees since the last entry. The graph holds up to <code>graph_nodes</code> entries; the oldest entry is evicted when the list is full.</p>
+<p>This graph is the obstacle representation used for collision checking — it gives the planner a wider spatial memory of obstacles than any single frame could provide.</p>
+<h3 id="3-trajectory-evaluation-25-hz">3. Trajectory Evaluation (2.5 Hz)<a class="headerlink" href="#3-trajectory-evaluation-25-hz" title="Permanent link">&para;</a></h3>
+<p>A timer fires at 2.5 Hz to plan the next local trajectory. Planning is relative to the <strong>look-ahead point</strong> published by the trajectory controller, which is always slightly ahead of the drone's current tracking point.</p>
+<p>For each candidate trajectory in the library:</p>
+<ol>
+<li>Every waypoint along the trajectory is projected into the camera frame of each disparity graph node.</li>
+<li>The GPU counts how many graph nodes see the waypoint as <strong>seen</strong> (obstacle-free), <strong>unseen</strong> (outside camera FOV), or <strong>in collision</strong> (inside expanded obstacle).</li>
+<li>A trajectory is marked <strong>safe</strong> if no waypoint has more collisions than seen observations.</li>
+</ol>
+<h3 id="4-trajectory-scoring">4. Trajectory Scoring<a class="headerlink" href="#4-trajectory-scoring" title="Permanent link">&para;</a></h3>
+<p>Safe trajectories are scored against the global plan:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cost = deviation_from_plan - forward_progress_along_plan
+</span></code></pre></div>
+<p>Lower cost is better. The selected trajectory minimizes lateral deviation from the global plan while maximizing forward progress along it. The best trajectory is published as a <code>TrajectoryXYZVYaw</code> segment to the trajectory controller.</p>
+<h3 id="5-rewind-monitoring">5. Rewind Monitoring<a class="headerlink" href="#5-rewind-monitoring" title="Permanent link">&para;</a></h3>
+<p>Two stuck conditions trigger a rewind (reversal along the past trajectory):</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Parameter</th>
+<th>Rewind duration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All trajectories in collision for too long</td>
+<td><code>all_in_collision_duration_threshold</code></td>
+<td><code>all_in_collision_rewind_duration</code></td>
+</tr>
+<tr>
+<td>Robot stationary for too long</td>
+<td><code>stationary_history_duration</code>, <code>stationary_distance_threshold</code></td>
+<td><code>stationary_rewind_duration</code> or until <code>stationary_rewind_distance</code> is covered</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="task-executor">Task Executor<a class="headerlink" href="#task-executor" title="Permanent link">&para;</a></h2>
+<p>This node is a <strong>task executor</strong>: it runs as a ROS 2 action server and is activated on demand via a <code>NavigateTask</code> goal. It does not plan continuously — planning only happens while a goal is active.</p>
+<p><strong>Action server:</strong> <code>/{robot_name}/tasks/navigate</code>
+<strong>Type:</strong> <code>task_msgs/action/NavigateTask</code></p>
+<h3 id="cascade">Cascade<a class="headerlink" href="#cascade" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>random_walk_planner  →  NavigateTask  →  droan_gl
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                                             ↓
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>                                  trajectory_segment_to_add
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>                                             ↓
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>                                   trajectory_controller
+</span></code></pre></div>
+<h3 id="goal-parameters">Goal parameters<a class="headerlink" href="#goal-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>global_plan</code></td>
+<td>nav_msgs/Path</td>
+<td>Path to follow; last pose is the goal</td>
+</tr>
+<tr>
+<td><code>goal_tolerance_m</code></td>
+<td>float32</td>
+<td>Distance from goal pose to consider task complete (m)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="feedback-published-1-hz">Feedback (published ~1 Hz)<a class="headerlink" href="#feedback-published-1-hz" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>"navigating"</code></td>
+</tr>
+<tr>
+<td><code>distance_to_goal</code></td>
+<td>float32</td>
+<td>3D Euclidean distance to goal pose (m)</td>
+</tr>
+<tr>
+<td><code>current_position</code></td>
+<td>geometry_msgs/Point</td>
+<td>Current tracking point position</td>
+</tr>
+</tbody>
+</table>
+<h3 id="result">Result<a class="headerlink" href="#result" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>success</code></td>
+<td>bool</td>
+<td>True if goal pose reached within tolerance; false if cancelled or error</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td><code>"Goal reached"</code>, <code>"Cancelled"</code>, or <code>"Node shutting down"</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="trajectory-controller-mode">Trajectory controller mode<a class="headerlink" href="#trajectory-controller-mode" title="Permanent link">&para;</a></h3>
+<p>On goal acceptance the node calls the <code>set_trajectory_mode</code> service with mode <code>ADD_SEGMENT</code>, enabling the trajectory controller to extend the trajectory buffer as new segments arrive. On goal completion or cancellation it restores mode <code>TRACK</code>.</p>
+<h3 id="cli-test">CLI test<a class="headerlink" href="#cli-test" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Navigate to a specific pose (requires a populated global plan topic)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>ros2<span class="w"> </span>action<span class="w"> </span>send_goal<span class="w"> </span>/robot_1/tasks/navigate<span class="w"> </span>task_msgs/action/NavigateTask<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="s1">&#39;{global_plan: {header: {frame_id: &quot;map&quot;}, poses: [{pose: {position: {x: 10.0, y: 0.0, z: 3.0}}}]}, goal_tolerance_m: 1.0}&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--feedback
+</span></code></pre></div>
+<hr />
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
-<p><code>target_frame</code> - The frame that visualizations and collision checking happen in.</p>
-<p><code>look_ahead_frame</code> - The frame where trajectories are planned from.</p>
-<p><code>rewind_info_frame</code> - The frame where the rewind info text is published. When a rewind is triggered, a text marker is published which shows the time duration left for the rewind and/or the remaining distance of the rewind.</p>
-<p><code>visualize</code> - Whether or not to publish visualizations of the expanded disparity. Visualizing significantly increased CPU usage.</p>
-<p><code>expansion_radius</code> - How much obstacles are expanded in meters.</p>
-<p><code>seen_radius</code> - The distance in meters around that drone that is considered to be seen.</p>
-<p><code>ht</code> - The total length in seconds of a trajectory.</p>
-<p><code>dt</code> - The increment in seconds for generating points along the trajectory.</p>
-<p><code>downsample_scale</code> - The factor by which the input disparity image will be downsampled.</p>
-<p><code>graph_nodes</code> - The number of expanded foreground and background disparity image pairs to do collision checking on.</p>
-<p><code>graph_distance_threshold</code> - The distance in meters after which a new node will be added to the list.
-<code>graph_angle_threshold</code> - The angle in degrees that the drone has to yaw before a new node will be added to the list.</p>
-<p>Rewinds are triggered by two events. When all trajectories are in collision from length of time the drone will rewind for a set duraiton. When the drone is considered to be staionary for too long, the drone will rewind for some distance or duration, whichever is satisfied first.</p>
-<p><code>all_in_collision_duration_threshold</code> - The amount of time in seconds all trajectories need to be in collision for a rewind to be triggered.</p>
-<p><code>all_in_collision_rewind_duration</code> - The amount of time in seconds the rewind will last for.</p>
-<p><code>stationary_history_duration</code> - The amount of time in seconds that the drone has to be stationary for a rewind to be triggered.</p>
-<p><code>stationary_distance_threshold</code> - If the drone moves less than this distance, it will be considered stationary.</p>
-<p><code>stationary_rewind_distance</code> - The distance in meters that the drone should rewind.</p>
-<p><code>stationary_rewind_duration</code> - The time in seconds that the drone should rewind. The rewind will end when either the distance or duration is met.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_frame</code></td>
+<td><code>"map"</code></td>
+<td>Frame for collision checking and visualization</td>
+</tr>
+<tr>
+<td><code>look_ahead_frame</code></td>
+<td><code>"look_ahead_point_stabilized"</code></td>
+<td>Frame used as trajectory planning origin</td>
+</tr>
+<tr>
+<td><code>rewind_info_frame</code></td>
+<td><code>"base_link_stabilized"</code></td>
+<td>Frame for rewind status text marker</td>
+</tr>
+<tr>
+<td><code>visualize</code></td>
+<td><code>true</code></td>
+<td>Publish expanded disparity pointcloud (high CPU cost when enabled)</td>
+</tr>
+<tr>
+<td><code>expansion_radius</code></td>
+<td>—</td>
+<td>Sphere radius (m) for obstacle expansion</td>
+</tr>
+<tr>
+<td><code>seen_radius</code></td>
+<td>—</td>
+<td>Radius (m) around drone treated as observed/safe</td>
+</tr>
+<tr>
+<td><code>ht</code></td>
+<td>—</td>
+<td>Trajectory horizon (seconds)</td>
+</tr>
+<tr>
+<td><code>dt</code></td>
+<td>—</td>
+<td>Trajectory time step (seconds)</td>
+</tr>
+<tr>
+<td><code>downsample_scale</code></td>
+<td>—</td>
+<td>Disparity image downsample factor before GPU processing</td>
+</tr>
+<tr>
+<td><code>graph_nodes</code></td>
+<td>—</td>
+<td>Max number of disparity observations stored for collision checking</td>
+</tr>
+<tr>
+<td><code>graph_distance_threshold</code></td>
+<td>—</td>
+<td>Min distance (m) travelled before storing a new observation</td>
+</tr>
+<tr>
+<td><code>graph_angle_threshold</code></td>
+<td>—</td>
+<td>Min yaw change (degrees) before storing a new observation</td>
+</tr>
+<tr>
+<td><code>all_in_collision_duration_threshold</code></td>
+<td>—</td>
+<td>Seconds all trajectories must be in collision to trigger rewind</td>
+</tr>
+<tr>
+<td><code>all_in_collision_rewind_duration</code></td>
+<td>—</td>
+<td>Duration (s) of rewind when all-in-collision condition fires</td>
+</tr>
+<tr>
+<td><code>stationary_history_duration</code></td>
+<td>—</td>
+<td>Observation window (s) for stationary detection</td>
+</tr>
+<tr>
+<td><code>stationary_distance_threshold</code></td>
+<td>—</td>
+<td>Max movement (m) over the window to be considered stationary</td>
+</tr>
+<tr>
+<td><code>stationary_rewind_distance</code></td>
+<td>—</td>
+<td>Target rewind distance (m) for stationary rewind</td>
+</tr>
+<tr>
+<td><code>stationary_rewind_duration</code></td>
+<td>—</td>
+<td>Max rewind duration (s) for stationary rewind</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="subscriptions">Subscriptions<a class="headerlink" href="#subscriptions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>disparity</code></td>
+<td>stereo_msgs/DisparityImage</td>
+<td>Stereo disparity image</td>
+</tr>
+<tr>
+<td><code>camera_info</code></td>
+<td>sensor_msgs/CameraInfo</td>
+<td>Camera intrinsics for disparity unprojection</td>
+</tr>
+<tr>
+<td><code>look_ahead</code></td>
+<td>airstack_msgs/Odometry</td>
+<td>Look-ahead point from trajectory controller (trajectory planning origin)</td>
+</tr>
+<tr>
+<td><code>tracking_point</code></td>
+<td>airstack_msgs/Odometry</td>
+<td>Current robot tracking point (for stuck detection and goal distance)</td>
+</tr>
+<tr>
+<td><code>global_plan</code></td>
+<td>nav_msgs/Path</td>
+<td>Global path for trajectory scoring (also set via NavigateTask goal)</td>
+</tr>
+<tr>
+<td><code>reset_stuck</code></td>
+<td>std_msgs/Empty</td>
+<td>Manually clear stuck detection history</td>
+</tr>
+<tr>
+<td><code>clear_map</code></td>
+<td>std_msgs/Empty</td>
+<td>Clear stuck detection history (GL map clearing not yet implemented)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="publications">Publications<a class="headerlink" href="#publications" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trajectory_segment_to_add</code></td>
+<td>airstack_msgs/TrajectoryXYZVYaw</td>
+<td>Best local trajectory segment</td>
+</tr>
+<tr>
+<td><code>foreground_expanded</code></td>
+<td>sensor_msgs/Image</td>
+<td>GPU-expanded foreground disparity (visualization)</td>
+</tr>
+<tr>
+<td><code>background_expanded</code></td>
+<td>sensor_msgs/Image</td>
+<td>GPU-expanded background disparity (visualization)</td>
+</tr>
+<tr>
+<td><code>fg_bg_cloud</code></td>
+<td>sensor_msgs/PointCloud2</td>
+<td>Expanded obstacle pointcloud (visualization)</td>
+</tr>
+<tr>
+<td><code>traj_debug</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Trajectory library with collision status coloring</td>
+</tr>
+<tr>
+<td><code>graph_vis</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Disparity graph camera pose arrows</td>
+</tr>
+<tr>
+<td><code>local_planner_global_plan_vis</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Global plan segment used for scoring</td>
+</tr>
+<tr>
+<td><code>stuck</code></td>
+<td>std_msgs/Bool</td>
+<td>True when rewind is active</td>
+</tr>
+<tr>
+<td><code>rewind_info</code></td>
+<td>visualization_msgs/MarkerArray</td>
+<td>Rewind status text markers</td>
+</tr>
+</tbody>
+</table>
 
 
 

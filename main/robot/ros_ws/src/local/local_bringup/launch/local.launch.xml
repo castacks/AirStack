@@ -43,7 +43,9 @@
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node pkg="droan_gl" exec="expand" output="screen">
+        <node pkg="droan_gl" exec="droan_gl_node" output="screen">
+            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="disparity" to="$(var local_disparity_in_topic)" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
@@ -71,19 +73,6 @@
             <param name="stationary_history_duration" value="10." />
             <param name="stationary_rewind_distance" value="10." />
             <param name="stationary_rewind_duration" value="20." />
-        </node>
-        <!-- DROAN local model -->
-        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
-            output="screen">
-            <param
-                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
-
-            <remap from="disparity" to="$(var local_disparity_in_topic)" />
-            <!-- create disparity from ground truth depth instead of using estimated disparity -->
-            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the
-            right camera's projection matrix. -->
-            <remap from="depth" to="$(var local_depth_in_topic)" />
-            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
         </node>
     </group>
 
@@ -187,6 +176,8 @@
             args="--log-level DEBUG">
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
                 allow_substs="true" />
+            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
             <remap from="tracking_point"
