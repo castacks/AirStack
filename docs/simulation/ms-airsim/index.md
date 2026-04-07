@@ -34,7 +34,7 @@ unzip AbandonedPark.zip
 ### 2. Launch Microsoft AirSim (legacy) + Robot
 
 ```bash
-airstack up --env-file overrides/airsim.env
+airstack up --env-file overrides/ms-airsim.env
 ```
 
 To build the images first:
