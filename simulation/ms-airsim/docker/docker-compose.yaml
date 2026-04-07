@@ -2,7 +2,7 @@ services:
   ms-airsim:
     profiles:
       - ms-airsim
-    image: &ms_airsim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_ms-airsim
+    image: &ms_airsim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_ms-airsim
     build:
       context: ./
       dockerfile: Dockerfile
