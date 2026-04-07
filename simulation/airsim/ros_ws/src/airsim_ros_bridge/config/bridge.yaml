@@ -1,4 +1,0 @@
-airsim_ros_bridge:
-  ros__parameters:
-    airsim_ip: "127.0.0.1"
-    publish_rate: 15.0

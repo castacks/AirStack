@@ -1,10 +1,10 @@
-# AirSim
+# Microsoft AirSim (legacy)
 
-AirSim (Microsoft) is an open-source simulator for drones built on Unreal Engine, with built-in PX4 SITL integration.
+Microsoft AirSim (legacy) is an open-source simulator for drones built on Unreal Engine, with built-in PX4 SITL integration.
 
 ## Overview
 
-AirSim provides an alternative simulation backend for AirStack, offering:
+Microsoft AirSim (legacy) provides an alternative simulation backend for AirStack, offering:
 
 - **PX4 SITL integration** - Native MAVLink lockstep with PX4 autopilot
 - **Unreal Engine environments** - Photorealistic scenes (UE 4.27)
@@ -20,12 +20,12 @@ AirSim provides an alternative simulation backend for AirStack, offering:
 
 ## Quick Start
 
-### 1. Download an AirSim environment
+### 1. Download an environment
 
-Download a pre-built environment from the [AirSim releases](https://github.com/microsoft/AirSim/releases) and extract it into `simulation/airsim/environments/`:
+Download a pre-built environment from the [AirSim releases](https://github.com/microsoft/AirSim/releases) and extract it into `simulation/ms-airsim/environments/`:
 
 ```bash
-cd simulation/airsim
+cd simulation/ms-airsim
 mkdir -p environments && cd environments
 wget https://github.com/microsoft/AirSim/releases/download/v1.8.1-linux/Blocks.zip
 unzip Blocks.zip
@@ -37,24 +37,24 @@ Edit `.env` at the repository root:
 
 ```bash
 SIM_IP="172.31.0.201"
-AIRSIM_ENV_DIR="simulation/airsim/environments"
-AIRSIM_BINARY_PATH="/airsim_env/LinuxNoEditor/Blocks.sh"
+MS_AIRSIM_ENV_DIR="simulation/ms-airsim/environments"
+MS_AIRSIM_BINARY_PATH="/ms-airsim-env/LinuxNoEditor/Blocks.sh"
 ```
 
-### 3. Launch AirSim + Robot
+### 3. Launch Microsoft AirSim (legacy) + Robot
 
 ```bash
 # Option A: pass profiles as flags
-airstack up --profile airsim --profile desktop
+airstack up --profile ms-airsim --profile desktop
 
-# Option B: set profiles in .env (COMPOSE_PROFILES="airsim,desktop") then just:
+# Option B: set profiles in .env (COMPOSE_PROFILES="ms-airsim,desktop") then just:
 airstack up
 ```
 
 To build the images first:
 
 ```bash
-airstack image-build --profile airsim
+airstack image-build --profile ms-airsim
 ```
 
 The container runs two tmux windows:
@@ -64,14 +64,14 @@ The container runs two tmux windows:
 To attach to the tmux session:
 
 ```bash
-airstack connect airsim
+airstack connect ms-airsim
 ```
 
 ## Architecture
 
 ```
 ┌──────────────────────┐     ┌──────────────────────┐
-│   AirSim Container   │     │   Robot Container     │
+│  MS-AirSim Container │     │   Robot Container     │
 │   (172.31.0.201)     │     │                       │
 │                      │     │                       │
 │  AirSim Binary       │     │  MAVROS ◄──── MAVLink UDP ────► PX4 SITL
@@ -91,7 +91,7 @@ airstack connect airsim
 
 **Data flow:**
 
-1. AirSim simulates physics and renders depth images
+1. Microsoft AirSim (legacy) simulates physics and renders depth images
 2. PX4 SITL runs in lockstep with AirSim via TCP (port 4560)
 3. Robot container connects to PX4 via MAVROS (UDP 14540/14580)
 4. Bridge node publishes depth + camera_info to ROS 2 topics
@@ -101,7 +101,7 @@ airstack connect airsim
 
 ### settings.json
 
-Located at `simulation/airsim/config/settings.json`, mounted into the container at `~/Documents/AirSim/settings.json`.
+Located at `simulation/ms-airsim/config/settings.json`, mounted into the container at `~/Documents/AirSim/settings.json`.
 
 Key settings:
 
@@ -126,11 +126,11 @@ To modify camera settings, edit `settings.json` under `Vehicles.drone1.Cameras.f
 
 ### Bridge node parameters
 
-Located at `simulation/airsim/ros_ws/src/airsim_depth_bridge/config/bridge.yaml`:
+Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.yaml`:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `airsim_ip` | `127.0.0.1` | AirSim API address |
+| `ms_airsim_ip` | `127.0.0.1` | AirSim API address |
 | `camera_name` | `front_camera` | AirSim camera name |
 | `vehicle_name` | `drone1` | AirSim vehicle name |
 | `publish_rate` | `15.0` | Depth publish rate (Hz) |
@@ -140,9 +140,9 @@ Located at `simulation/airsim/ros_ws/src/airsim_depth_bridge/config/bridge.yaml`
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIM_IP` | `172.31.0.200` | Simulation container IP. Set to `172.31.0.201` for AirSim |
-| `AIRSIM_ENV_DIR` | `simulation/airsim/environments` | Host path to extracted AirSim environment |
-| `AIRSIM_BINARY_PATH` | `/airsim_env/LinuxNoEditor/Blocks.sh` | Path to binary inside container |
+| `SIM_IP` | `172.31.0.200` | Simulation container IP. Set to `172.31.0.201` for Microsoft AirSim (legacy) |
+| `MS_AIRSIM_ENV_DIR` | `simulation/ms-airsim/environments` | Host path to extracted AirSim environment |
+| `MS_AIRSIM_BINARY_PATH` | `/ms-airsim-env/LinuxNoEditor/Blocks.sh` | Path to binary inside container |
 
 ## Published ROS 2 Topics
 
@@ -176,10 +176,10 @@ Microsoft archived AirSim. For a maintained successor, see [Project AirSim](http
 
 ## Troubleshooting
 
-**Bridge can't connect to AirSim:**
+**Bridge can't connect to Microsoft AirSim (legacy):**
 
 - Ensure the AirSim binary is running and `settings.json` is loaded
-- Check that `airsim_ip` parameter matches where AirSim is running
+- Check that `ms_airsim_ip` parameter matches where AirSim is running
 
 **No depth images:**
 

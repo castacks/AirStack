@@ -15,7 +15,7 @@ RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Aut
 RUN cd PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools
 RUN cd PX4-Autopilot && make px4_sitl_default
 
-# AirSim Python client with msgpack fix
+# Microsoft AirSim (legacy) Python client with msgpack fix
 # See [AirSim #3333](https://github.com/microsoft/AirSim/issues/3333#issuecomment-827894198) for details.
 RUN pip3 install --break-system-packages jinja2 msgpack backports.ssl-match-hostname && \
     pip3 install --break-system-packages \
@@ -30,10 +30,10 @@ RUN sed -i "s/pack_encoding='utf-8', //" \
     true
 
 # Create non-root user (UE4 refuses to run as root)
-RUN useradd -m -s /bin/bash -G sudo airsim && \
-    echo 'airsim ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
-    mkdir -p /home/airsim/Documents/AirSim && \
-    echo "source /opt/ros/jazzy/setup.bash" >> /home/airsim/.bashrc
+RUN useradd -m -s /bin/bash -G sudo ms-airsim && \
+    echo 'ms-airsim ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
+    mkdir -p /home/ms-airsim/Documents/AirSim && \
+    echo "source /opt/ros/jazzy/setup.bash" >> /home/ms-airsim/.bashrc
 
 RUN echo "source /opt/ros/jazzy/setup.bash" >> /root/.bashrc
 

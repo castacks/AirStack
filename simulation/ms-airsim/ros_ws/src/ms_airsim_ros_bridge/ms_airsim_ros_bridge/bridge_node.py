@@ -1,4 +1,4 @@
-"""AirSim-to-ROS 2 bridge: publishes stereo RGB, depth, and camera_info.
+"""Microsoft AirSim (legacy)-to-ROS 2 bridge: publishes stereo RGB, depth, and camera_info.
 
 One process per robot, each on its own ROS_DOMAIN_ID (matching Isaac Sim convention).
 Lazy: only polls AirSim for images that have active ROS subscribers.
@@ -18,17 +18,17 @@ from sensor_msgs.msg import Image, CameraInfo
 from rosgraph_msgs.msg import Clock
 
 
-class AirSimRosBridge(Node):
+class MsAirSimRosBridge(Node):
 
     def __init__(self):
-        super().__init__('airsim_ros_bridge')
+        super().__init__('ms_airsim_ros_bridge')
 
-        self.declare_parameter('airsim_ip', '127.0.0.1')
+        self.declare_parameter('ms_airsim_ip', '127.0.0.1')
         self.declare_parameter('publish_rate', 15.0)
         self.declare_parameter('robot_name', 'robot_1')
         self.declare_parameter('clock_rate', 50.0)
 
-        ip = self.get_parameter('airsim_ip').value
+        ip = self.get_parameter('ms_airsim_ip').value
         rate = self.get_parameter('publish_rate').value
         robot_name = self.get_parameter('robot_name').value
         clock_rate = self.get_parameter('clock_rate').value
@@ -68,7 +68,7 @@ class AirSimRosBridge(Node):
         # simGetCameraInfo returns world-frame poses, not body-relative,
         # so we read the config directly instead.
         import json
-        settings_path = '/home/airsim/Documents/AirSim/settings.json'
+        settings_path = '/home/ms-airsim/Documents/AirSim/settings.json'
         with open(settings_path) as f:
             settings = json.load(f)
         cams = settings['Vehicles'][self.vehicle_name]['Cameras']
@@ -260,7 +260,7 @@ def _make_depth_msg(response, stamp, frame_id):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = AirSimRosBridge()
+    node = MsAirSimRosBridge()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

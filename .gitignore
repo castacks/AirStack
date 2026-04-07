@@ -72,5 +72,5 @@ mkdocs.log
 prompts/
 simulation/isaac-sim/launch_scripts/prepare_scene.py
 
-# Generated AirSim config
-simulation/airsim/config/settings.json
+# Generated Microsoft AirSim (legacy) config
+simulation/ms-airsim/config/settings.json

@@ -709,13 +709,13 @@ function cmd_up {
     # Ensure only one simulator profile is active
     local p="${COMPOSE_PROFILES:-$(sed -n 's/^COMPOSE_PROFILES=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
     for arg in "${global_args[@]}"; do p+=",${arg}"; done
-    local n=0; for s in isaac-sim airsim simple; do [[ ",$p," == *",$s,"* ]] && n=$((n+1)); done
-    (( n > 1 )) && log_error "Only one simulator profile can be active at a time (isaac-sim, airsim, simple)." && exit 1
+    local n=0; for s in isaac-sim ms-airsim simple; do [[ ",$p," == *",$s,"* ]] && n=$((n+1)); done
+    (( n > 1 )) && log_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple)." && exit 1
 
     # Warn if URDF_FILE doesn't match the active simulator
     local urdf=$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')
     if [[ -n "$urdf" ]]; then
-        [[ ",$p," == *",airsim,"* && "$urdf" != *.airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match airsim profile. Expected *.airsim.* URDF."
+        [[ ",$p," == *",ms-airsim,"* && "$urdf" != *.ms-airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match ms-airsim profile. Expected *.ms-airsim.* URDF."
         [[ ",$p," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF."
     fi
 
@@ -811,9 +811,9 @@ function cmd_clean {
         "$PROJECT_ROOT/gcs/ros_ws/build"
         "$PROJECT_ROOT/gcs/ros_ws/install"
         "$PROJECT_ROOT/gcs/ros_ws/log"
-        "$PROJECT_ROOT/simulation/airsim/ros_ws/build"
-        "$PROJECT_ROOT/simulation/airsim/ros_ws/install"
-        "$PROJECT_ROOT/simulation/airsim/ros_ws/log"
+        "$PROJECT_ROOT/simulation/ms-airsim/ros_ws/build"
+        "$PROJECT_ROOT/simulation/ms-airsim/ros_ws/install"
+        "$PROJECT_ROOT/simulation/ms-airsim/ros_ws/log"
     )
 
     log_info "Cleaning all ROS 2 build artifacts..."

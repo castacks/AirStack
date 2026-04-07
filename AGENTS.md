@@ -6,7 +6,7 @@ This file provides guidance to AI coding agents (OpenHands, Claude Code, etc.) w
 
 **Project:** AirStack - Comprehensive autonomous aerial robotics stack developed by AirLab CMU
 
-**Stack:** ROS 2 Jazzy | Docker-based development | Isaac Sim with Pegasus extension | Field robotics
+**Stack:** ROS 2 Jazzy | Docker-based development | Isaac Sim with Pegasus extension | Microsoft AirSim (legacy, UE4) | Field robotics
 
 **Primary Goal:** Enable agents to understand the architecture, implement new algorithms/modules, and integrate them correctly into the layered autonomy stack.
 
@@ -14,7 +14,7 @@ This file provides guidance to AI coding agents (OpenHands, Claude Code, etc.) w
 
 AirStack provides a complete end-to-end system for autonomous drone operations including:
 - Modular autonomy stack (interface, sensors, perception, local planning, global planning, behavior)
-- High-fidelity Isaac Sim simulation environment
+- High-fidelity simulation environments (Isaac Sim with Pegasus extension, Microsoft AirSim legacy/UE4)
 - Ground Control Station for mission planning and monitoring
 - Multi-robot coordination capabilities
 - Hardware deployment tools
@@ -35,6 +35,7 @@ AirStack/
 │       ├── global/          # Global planning & mapping
 │       └── behavior/        # High-level mission execution
 ├── simulation/isaac-sim/    # Isaac Sim (Pegasus extension)
+├── simulation/ms-airsim/       # AirSim (UE4 + PX4 SITL)
 ├── gcs/                     # Ground Control Station
 ├── common/                  # Shared packages & utilities
 ├── docs/                    # MkDocs documentation
@@ -183,7 +184,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - Test with synthetic data
    - Located in module's `test/` directory
 
-2. **System Level:** Full simulation tests in Isaac Sim
+2. **System Level:** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing
    - Real sensor simulation
    - Multi-robot scenarios
@@ -262,7 +263,8 @@ Follow the template structure for consistency across the codebase.
 
 Each major component has its own Docker container:
 - **robot**: ROS 2 autonomy stack (Jazzy)
-- **isaac-sim**: NVIDIA Isaac Sim with Pegasus extension
+- **isaac-sim**: NVIDIA Isaac Sim with Pegasus extension (profile: `desktop` or `robot`)
+- **airsim**: AirSim UE4 binary + PX4 SITL + ROS 2 bridge (profile: `ms-airsim`)
 - **gcs**: Ground Control Station
 - **docs**: Documentation building (MkDocs)
 
@@ -308,7 +310,7 @@ Common mistakes when adding modules:
 6. **Testing Oversights**
    - ❌ Only testing module in isolation
    - ✅ Test in full autonomy stack context
-   - ✅ Verify in Isaac Sim simulation
+   - ✅ Verify in Isaac Sim or Microsoft AirSim (legacy) simulation
 
 ## Key Differences from CLAUDE.md
 
@@ -339,6 +341,7 @@ This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
 - [Getting Started](docs/getting_started/index.md)
 - [Autonomy Stack Overview](docs/robot/autonomy/index.md)
 - [Isaac Sim Setup](docs/simulation/isaac_sim/index.md)
+- [Microsoft AirSim (legacy) Setup](docs/simulation/ms-airsim/index.md)
 - [Testing Guide](docs/development/testing/index.md)
 
 ### External Tools

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>airsim_ros_bridge</name>
+  <name>ms_airsim_ros_bridge</name>
   <version>0.1.0</version>
-  <description>Bridge: publishes stereo RGB, depth, and camera_info from AirSim to ROS 2</description>
+  <description>Bridge: publishes stereo RGB, depth, and camera_info from Microsoft AirSim (legacy) to ROS 2</description>
   <maintainer email="airlab@cmu.edu">AirLab CMU</maintainer>
   <license>Apache-2.0</license>
 

@@ -31,7 +31,7 @@ Profiles are split into **deployment** and **simulator** categories.
 | Profile | Simulator |
 |---|---|
 | `isaac-sim` | NVIDIA Isaac Sim (Pegasus) |
-| `airsim` | Microsoft AirSim (UE4) |
+| `ms-ms-airsim` | Microsoft AirSim (legacy) (UE4) |
 | `simple` | Simple Sim |
 
 Only one simulator profile can be active at a time. `airstack up` will error if multiple are set.
@@ -45,7 +45,7 @@ Combine with a simulator profile.
 
 ```
 Dev desktop
-├── simulator (isaac-sim / airsim / simple)
+├── simulator (isaac-sim / ms-airsim / simple)
 ├── robot-desktop × N   [role: full]
 └── gcs
 ```
@@ -54,8 +54,8 @@ Dev desktop
 # Isaac Sim (set in .env: COMPOSE_PROFILES="desktop,isaac-sim"):
 airstack up
 
-# AirSim:
-COMPOSE_PROFILES="desktop,airsim" airstack up
+# Microsoft AirSim (legacy):
+COMPOSE_PROFILES="desktop,ms-airsim" airstack up
 
 # Multiple simulated robots:
 NUM_ROBOTS=3 airstack up
@@ -75,7 +75,7 @@ Use this to debug the split configuration and domain bridge without needing phys
 
 ```
 Dev desktop
-├── simulator (isaac-sim / airsim / simple)
+├── simulator (isaac-sim / ms-airsim / simple)
 ├── robot-desktop-onboard × N   [role: onboard, ROS_DOMAIN_ID = 1..N]
 ├── robot-offboard × N          [role: offboard, ROS_DOMAIN_ID = 0]
 └── gcs                         [domain 0]

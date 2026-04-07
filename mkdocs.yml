@@ -88,8 +88,9 @@ nav:
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
-      - AirSim:
-          - docs/simulation/airsim/index.md
+      - Microsoft AirSim (legacy):
+          - docs/simulation/ms-airsim/index.md
+          - Docker: docs/simulation/ms-airsim/docker.md
       - Simple Sim:
           - docs/simulation/simple_sim/index.md
           - Docker: docs/simulation/simple_sim/docker.md

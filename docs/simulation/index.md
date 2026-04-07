@@ -17,11 +17,11 @@ simulation/
 │   ├── extensions/                # Custom Isaac Sim extensions
 │   ├── launch_scripts/            # Python launch scripts
 │   └── standalone_examples/       # Example scenes and scripts
-├── airsim/
-│   ├── docker/                    # AirSim containerization
+├── ms-airsim/
+│   ├── docker/                    # Microsoft AirSim (legacy) containerization
 │   │   ├── docker-compose.yaml    # Launch configuration
 │   │   └── Dockerfile             # Image definition
-│   ├── config/                    # AirSim settings.json
+│   ├── config/                    # Microsoft AirSim (legacy) settings.json
 │   └── ros_ws/                    # Depth bridge ROS package
 └── simple-sim/
     ├── docker/                    # Simple simulator container
@@ -35,7 +35,7 @@ simulation/
 Simulation components are launched via Docker Compose. Each simulator has its own configuration:
 
 - **Isaac Sim:** `simulation/isaac-sim/docker/docker-compose.yaml`
-- **AirSim:** `simulation/airsim/docker/docker-compose.yaml`
+- **Microsoft AirSim (legacy):** `simulation/ms-airsim/docker/docker-compose.yaml`
 - **Simple Sim:** `simulation/simple-sim/docker/docker-compose.yaml`
 
 **Key launch points:**
@@ -76,7 +76,7 @@ Isaac Sim is our primary simulation platform, offering:
 - [Ascent SITL Extension](isaac_sim/ascent_sitl_extension.md)
 - [Export from Unreal Engine](isaac_sim/export_stages_from_unreal.md)
 
-### AirSim (Unreal Engine)
+### Microsoft AirSim (legacy) (Unreal Engine)
 
 An open-source drone simulator built on Unreal Engine with native PX4 SITL integration.
 
@@ -86,9 +86,9 @@ An open-source drone simulator built on Unreal Engine with native PX4 SITL integ
 - Depth-based obstacle avoidance testing (DROAN)
 - Environments from the Unreal Engine ecosystem
 
-**Launch:** Set `SIM_IP=172.31.0.201` in `.env`, then `docker compose --profile airsim --profile desktop up`
+**Launch:** Set `SIM_IP=172.31.0.201` in `.env`, then `docker compose --profile ms-airsim --profile desktop up`
 
-**Location:** `simulation/airsim/`
+**Location:** `simulation/ms-airsim/`
 
 ### Simple Sim (Lightweight)
 

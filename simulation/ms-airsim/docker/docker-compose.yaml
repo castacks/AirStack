@@ -1,14 +1,14 @@
 services:
-  airsim:
+  ms-airsim:
     profiles:
-      - airsim
-    image: &airsim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_airsim
+      - ms-airsim
+    image: &ms_airsim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_ms-airsim
     build:
       context: ./
       dockerfile: Dockerfile
       tags:
-        - *airsim_image
-    container_name: airsim
+        - *ms_airsim_image
+    container_name: ms-airsim
     entrypoint: ""
     command: /root/entrypoint.sh
     stdin_open: true
@@ -25,7 +25,7 @@ services:
       - XDG_RUNTIME_DIR=/tmp
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
-      - AIRSIM_BINARY_PATH=${AIRSIM_BINARY_PATH:-/airsim_env/Blocks.sh}
+      - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-/ms-airsim-env/Blocks.sh}
     deploy:
       resources:
         reservations:
@@ -35,7 +35,7 @@ services:
               capabilities: [gpu]
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - ../config:/home/airsim/Documents/AirSim:rw
+      - ../config:/home/ms-airsim/Documents/AirSim:rw
       - ../ros_ws:/root/ros_ws:rw
-      - ${AIRSIM_ENV_DIR:-../environments}:/airsim_env:rw
+      - ${MS_AIRSIM_ENV_DIR:-../environments}:/ms-airsim-env:rw
       - /usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro
