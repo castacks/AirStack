@@ -1,0 +1,25 @@
+# Search an area for a location or object described in natural language.
+# confidence_threshold: minimum match confidence to report a result (0.0-1.0)
+# time_limit_sec: maximum task duration in seconds (0 = no limit)
+
+# Goal
+string query
+geometry_msgs/Polygon search_area
+float32 min_altitude_agl
+float32 max_altitude_agl
+float32 min_flight_speed
+float32 max_flight_speed
+float32 time_limit_sec
+float32 confidence_threshold
+---
+# Result
+bool success
+string message
+geometry_msgs/Pose found_pose
+float32 confidence
+---
+# Feedback
+string status
+float32 progress
+float32 best_confidence_so_far
+geometry_msgs/Point current_position

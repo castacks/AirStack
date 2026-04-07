@@ -9,7 +9,7 @@ services:
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
-    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
+    image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -105,7 +105,7 @@ services:
     extends:  # NOTE THIS EXTENDS THE BASE, NOT ROBOT-DESKTOP
       file: ./robot-base-docker-compose.yaml
       service: robot_base
-    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
+    image: &voxl_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -140,7 +140,7 @@ services:
     extends:
       file: ./robot-base-docker-compose.yaml
       service: robot_base
-    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
+    image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
       args:
@@ -195,7 +195,7 @@ services:
   zed-l4t:
     profiles:
       - l4t
-    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
     build: 
       context: ./
       dockerfile: zed/Dockerfile.zed-l4t

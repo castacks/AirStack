@@ -103,7 +103,7 @@ nav:
       - Autonomy Modules:
           - Overview: docs/robot/autonomy/index.md
           - System Architecture: docs/robot/autonomy/system_architecture.md
-          - Integration Guide: docs/robot/autonomy/integration_checklist.md
+          - Tasks and Task Executors: docs/robot/autonomy/tasks.md
           - Interface:
               - docs/robot/autonomy/interface/index.md
           - Sensors:
@@ -144,6 +144,7 @@ nav:
               - docs/robot/autonomy/behavior/index.md
               - Behavior Tree: docs/robot/autonomy/behavior/behavior_tree.md
               - Behavior Executive: docs/robot/autonomy/behavior/behavior_executive.md
+          - Integration Guide: docs/robot/autonomy/integration_checklist.md
       - Autonomy Modes: docs/robot/autonomy_modes.md
       - DDS Router: docs/robot/autonomy/dds_router.md
       - Static Transforms:

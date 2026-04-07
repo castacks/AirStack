@@ -17,24 +17,24 @@ jobs:
         with:
           fetch-depth: 2  # Fetch current and previous commit
 
-      - name: Check if DOCKER_IMAGE_TAG changed
+      - name: Check if VERSION changed
         id: check-changes
         run: |
-          # Get the current DOCKER_IMAGE_TAG value
-          CURRENT_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          # Get the current VERSION value
+          CURRENT_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
           
-          # Get the previous DOCKER_IMAGE_TAG value
+          # Get the previous VERSION value
           git show HEAD~1:.env > .env.prev 2>/dev/null || echo "" > .env.prev
-          PREVIOUS_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env.prev | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
+          PREVIOUS_TAG=$(grep "^VERSION=" .env.prev | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
           
           echo "Current tag: $CURRENT_TAG"
           echo "Previous tag: $PREVIOUS_TAG"
           
           if [ "$CURRENT_TAG" != "$PREVIOUS_TAG" ] && [ -n "$CURRENT_TAG" ]; then
-            echo "DOCKER_IMAGE_TAG has changed from '$PREVIOUS_TAG' to '$CURRENT_TAG'"
+            echo "VERSION has changed from '$PREVIOUS_TAG' to '$CURRENT_TAG'"
             echo "tag-changed=true" >> $GITHUB_OUTPUT
           else
-            echo "DOCKER_IMAGE_TAG has not changed"
+            echo "VERSION has not changed"
             echo "tag-changed=false" >> $GITHUB_OUTPUT
           fi
 
@@ -64,12 +64,12 @@ jobs:
             exit 1
           fi
           
-          # Display the current DOCKER_IMAGE_TAG for debugging
-          DOCKER_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
-          echo "Building with DOCKER_IMAGE_TAG: $DOCKER_TAG"
+          # Display the current VERSION for debugging
+          DOCKER_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          echo "Building with VERSION: $DOCKER_TAG"
           
           if [ -z "$DOCKER_TAG" ]; then
-            echo "Error: DOCKER_IMAGE_TAG is empty"
+            echo "Error: VERSION is empty"
             exit 1
           fi
 

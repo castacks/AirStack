@@ -28,6 +28,7 @@
             <remap from="reset_stuck" to="/$(env ROBOT_NAME)/droan/reset_stuck" />
             <remap from="clear_map" to="/$(env ROBOT_NAME)/droan/clear_map" />
             <remap from="stuck" to="/$(env ROBOT_NAME)/droan/stuck" />
+            <remap from="exploration_task" to="/$(env ROBOT_NAME)/tasks/exploration" />
 
         </node>
 

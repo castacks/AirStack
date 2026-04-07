@@ -4,11 +4,11 @@ This directory contains a git hook that automatically updates the Docker image t
 
 ## Hook: update-docker-image-tag.pre-commit
 
-This pre-commit hook automatically updates the `DOCKER_IMAGE_TAG` in the `.env` file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified.
+This pre-commit hook automatically updates the `VERSION` in the `.env` file with the current git commit hash whenever Docker-related files (Dockerfile or docker-compose.yaml) are modified.
 
 ### Features
 
-- Automatically updates `DOCKER_IMAGE_TAG` with the git commit hash
+- Automatically updates `VERSION` with the git commit hash
 - Adds a comment above the variable indicating it's auto-generated
 - Only triggers when Docker-related files are modified
 - Automatically stages the modified .env file for commit

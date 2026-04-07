@@ -15,6 +15,8 @@ find_package(cost_map_interface REQUIRED)
 # find_package(disparity_graph_cost_map REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(task_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -39,6 +41,8 @@ ament_target_dependencies(
   "trajectory_library"
   "pluginlib"
   "rclcpp"
+  "rclcpp_action"
+  "task_msgs"
   "std_msgs"
   "geometry_msgs"
   "tf2"

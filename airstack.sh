@@ -27,7 +27,9 @@ NC='\033[0m' # No Color
 
 # Print usage information
 function print_usage {
-    echo -e "${BOLDCYAN}AirStack Development Tool ($SCRIPT_DIR)${NC}"
+    local version
+    version="$(get_VERSION)"
+    echo -e "${BOLDCYAN}AirStack Development Tool v${version} ($SCRIPT_DIR)${NC}"
     echo ""
     echo "Usage: airstack <command> [options]"
     echo ""
@@ -128,7 +130,7 @@ function print_command_help {
             echo "Usage: airstack image-build [service_name...] [options]"
             echo ""
             echo "Build or rebuild Docker Compose services. Passes ENV variables from .env"
-            echo "and any prepended environment variables (e.g. DOCKER_IMAGE_TAG=x airstack build robot)."
+            echo "and any prepended environment variables (e.g. VERSION=x airstack build robot)."
             echo ""
             echo "Options:"
             echo "  --no-cache         Do not use cache when building the image"
@@ -170,7 +172,7 @@ function print_command_help {
         version)
             echo "Usage: airstack version"
             echo ""
-            echo "Display the current AirStack version from DOCKER_IMAGE_TAG in .env file."
+            echo "Display the current AirStack version from VERSION in .env file."
             ;;
         rmi)
             echo "Usage: airstack rmi [flags] <search_term>"
@@ -218,8 +220,8 @@ function log_error {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
-# Get DOCKER_IMAGE_TAG from .env file
-function get_docker_image_tag {
+# Get VERSION from .env file
+function get_VERSION {
     local env_file="$PROJECT_ROOT/.env"
     
     if [ ! -f "$env_file" ]; then
@@ -228,11 +230,11 @@ function get_docker_image_tag {
         return
     fi
     
-    # Extract DOCKER_IMAGE_TAG from .env file
-    local version=$(grep -E "^DOCKER_IMAGE_TAG=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    # Extract VERSION from .env file
+    local version=$(grep -E "^VERSION=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
     
     if [ -z "$version" ]; then
-        log_warn "DOCKER_IMAGE_TAG not found in .env, using 'latest' tag"
+        log_warn "VERSION not found in .env, using 'latest' tag"
         echo "latest"
         return
     fi
@@ -1042,11 +1044,11 @@ function cmd_version {
         return 1
     fi
     
-    # Extract DOCKER_IMAGE_TAG from .env file
-    local version=$(grep -E "^DOCKER_IMAGE_TAG=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    # Extract VERSION from .env file
+    local version=$(grep -E "^VERSION=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
     
     if [ -z "$version" ]; then
-        log_error "DOCKER_IMAGE_TAG not found in .env file"
+        log_error "VERSION not found in .env file"
         return 1
     fi
     

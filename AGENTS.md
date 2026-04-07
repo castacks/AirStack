@@ -79,6 +79,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | Skill | When to Use |
 |-------|------------|
 | [add-ros2-package](.agents/skills/add-ros2-package) | Creating a new algorithm module package |
+| [add-task-executor](.agents/skills/add-task-executor) | Implementing a task executor as a ROS 2 action server |
 | [integrate-module-into-layer](.agents/skills/integrate-module-into-layer) | Adding module to layer bringup |
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |

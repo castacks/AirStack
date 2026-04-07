@@ -10,6 +10,8 @@ This directory contains Agent Skills following the [Agent Skills standard](https
 └── skills/             # Agent Skills directory
     ├── add-ros2-package/
     │   └── SKILL.md    # Create new ROS 2 packages
+    ├── add-task-executor/
+    │   └── SKILL.md    # Implement a task executor as a ROS 2 action server
     ├── integrate-module-into-layer/
     │   └── SKILL.md    # Integrate modules into layer bringup
     ├── write-isaac-sim-scene/
@@ -35,6 +37,7 @@ Each skill is a directory containing a `SKILL.md` file with:
 | Skill | Purpose |
 |-------|---------|
 | [add-ros2-package](skills/add-ros2-package) | Create a new ROS 2 package for the autonomy stack |
+| [add-task-executor](skills/add-task-executor) | Implement a task executor as a ROS 2 action server |
 | [integrate-module-into-layer](skills/integrate-module-into-layer) | Integrate a module into layer bringup |
 | [write-isaac-sim-scene](skills/write-isaac-sim-scene) | Create custom simulation environments |
 | [debug-module](skills/debug-module) | Systematically debug ROS 2 modules |
