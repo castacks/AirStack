@@ -38,6 +38,8 @@ services:
       - QT_X11_NO_MITSHM=1
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
+      - ARDUPILOT_LAUNCH_HEADLESS=${ARDUPILOT_LAUNCH_HEADLESS:-true}
+      - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT:-14580}
     deploy:
       # let it use the GPU
       resources:

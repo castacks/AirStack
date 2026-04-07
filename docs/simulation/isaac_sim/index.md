@@ -51,3 +51,12 @@ AirStack uses the following file naming conventions:
 - `*.robot.usd` ⟵ a prop representing a robot plus ROS2 topic and TF publishers, physics, etc.
 
 - `*.scene.usd` ⟵ an environment PLUS physics, simulation, or robots
+
+## Pegasus launch scripts (`ISAAC_SIM_SCRIPT_NAME`)
+
+Set `ISAAC_SIM_SCRIPT_NAME` in the repo `.env` to one of the Python files under `simulation/isaac-sim/launch_scripts/`:
+
+- `example_one_px4_pegasus_launch_script.py` / `example_two_px4_pegasus_launch_script.py` — PX4 SITL + Pegasus
+- `example_one_ardupilot_pegasus_launch_script.py` / `example_two_ardupilot_pegasus_launch_script.py` — ArduPilot SITL + Pegasus
+
+For ArduPilot in Docker/headless Isaac, set `ARDUPILOT_LAUNCH_HEADLESS=true` (default in `.env`) so autolaunch does not require `gnome-terminal`. Use `FLIGHT_STACK=ardupilot` in `.env` when the robot stack should use MAVROS APM plugins and `is_ardupilot` on the interface node.
