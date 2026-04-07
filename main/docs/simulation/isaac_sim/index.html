@@ -5134,6 +5134,13 @@ USD’s layer and reference system also makes it straightforward to build comple
 <p><code>*.scene.usd</code> ⟵ an environment PLUS physics, simulation, or robots</p>
 </li>
 </ul>
+<h2 id="pegasus-launch-scripts-isaac_sim_script_name">Pegasus launch scripts (<code>ISAAC_SIM_SCRIPT_NAME</code>)<a class="headerlink" href="#pegasus-launch-scripts-isaac_sim_script_name" title="Permanent link">&para;</a></h2>
+<p>Set <code>ISAAC_SIM_SCRIPT_NAME</code> in the repo <code>.env</code> to one of the Python files under <code>simulation/isaac-sim/launch_scripts/</code>:</p>
+<ul>
+<li><code>example_one_px4_pegasus_launch_script.py</code> / <code>example_two_px4_pegasus_launch_script.py</code> — PX4 SITL + Pegasus</li>
+<li><code>example_one_ardupilot_pegasus_launch_script.py</code> / <code>example_two_ardupilot_pegasus_launch_script.py</code> — ArduPilot SITL + Pegasus</li>
+</ul>
+<p>For ArduPilot in Docker/headless Isaac, set <code>ARDUPILOT_LAUNCH_HEADLESS=true</code> (default in <code>.env</code>) so autolaunch does not require <code>gnome-terminal</code>. Use <code>FLIGHT_STACK=ardupilot</code> in <code>.env</code> when the robot stack should use MAVROS APM plugins and <code>is_ardupilot</code> on the interface node.</p>
 
 
 

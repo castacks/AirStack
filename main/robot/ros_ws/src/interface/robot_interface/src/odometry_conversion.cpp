@@ -86,10 +86,17 @@ class OdometryConversion : public rclcpp::Node {
                          airstack::get_param(this, "odometry_position_translation_post_y", 0.),
                          airstack::get_param(this, "odometry_position_translation_post_z", 0.));
 
+        // QoS must match the odometry publisher. MAVROS local_position/odom (ROS 2 Jazzy)
+        // uses BEST_EFFORT; a RELIABLE subscriber will not receive those messages.
+        // Set odom_input_qos_is_best_effort:=false only for publishers that use RELIABLE.
         rmw_qos_profile_t qos = rmw_qos_profile_sensor_data;
         qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
-        qos.depth = 1;
-        if (odom_input_qos_is_best_effort) qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+        qos.depth = 10;
+        if (odom_input_qos_is_best_effort) {
+            qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+        } else {
+            qos.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+        }
         odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
             "odometry_in", rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos),
             std::bind(&OdometryConversion::odom_callback, this, std::placeholders::_1));
