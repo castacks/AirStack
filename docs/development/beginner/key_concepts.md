@@ -163,11 +163,11 @@ AUTOLAUNCH=false airstack up
 # Different scene
 ISAAC_SIM_SCENE=my_scene.usd airstack up
 
-# Custom env file
-airstack --env-file custom.env up
+# Custom env file with overrides
+airstack --env-file overrides/custom.env up
 ```
 
-You can layer multiple env files to compose configurations.
+You can layer multiple env files to compose configurations. **NOTE**: Unlike docker compose, the airstack cli always uses the root `.env` file as the base, and then applies any additional env files on top of it. This ensures that essential defaults are always present, while still allowing for flexible overrides.
 
 ## What Makes AirStack Different
 

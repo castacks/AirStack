@@ -50,6 +50,12 @@ qtcreator-*
 # Emacs
 .#*
 
+# ROS 2 build artifacts (any workspace)
+**/ros_ws/build/
+**/ros_ws/install/
+**/ros_ws/log/
+.build.lock
+
 # ROS2 custom files
 COLCON_IGNORE
 frames_*.gv
@@ -66,3 +72,6 @@ mkdocs.log
 
 prompts/
 simulation/isaac-sim/launch_scripts/prepare_scene.py
+
+# Generated Microsoft AirSim (legacy) config
+simulation/ms-airsim/config/settings.json

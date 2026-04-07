@@ -1,8 +1,7 @@
 services:
   isaac-sim:
     profiles:
-      - desktop
-      - desktop_split
+      - isaac-sim
     image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim
     build:
       context: ../

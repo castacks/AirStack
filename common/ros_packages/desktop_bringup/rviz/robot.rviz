@@ -36,7 +36,7 @@ Panels:
     SyncSource: StereoImageProc Disparity
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
-    topic: /robot_1/behavior/behavior_tree_graphviz
+    topic: behavior/behavior_tree_graphviz
     zoom_factor: 0.1919851303100586
 Visualization Manager:
   Class: ""
@@ -769,7 +769,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_2/sensors/front_stereo/left/image_rect
+        Value: sensors/front_stereo/left/image_rect
       Value: true
   Enabled: true
   Global Options:

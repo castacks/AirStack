@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ms_airsim_ros_bridge</name>
+  <version>0.1.0</version>
+  <description>Bridge: publishes stereo RGB, depth, and camera_info from Microsoft AirSim (legacy) to ROS 2</description>
+  <maintainer email="airlab@cmu.edu">AirLab CMU</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
