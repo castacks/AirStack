@@ -16,7 +16,6 @@ from isaacsim import SimulationApp
 # Must be created before any omni imports
 simulation_app = SimulationApp({"headless": False})
 
-import asyncio
 import os
 import sys
 import time
@@ -154,13 +153,12 @@ class PegasusApp:
         ####################################################################################################
         # Spawn vehicle 1
         ####################################################################################################
-        # vehicleID: sim-internal Pegasus<->PX4 TCP port offset; robot MAVROS uses FCU_URL / domain_id.
         graph_handle1 = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor_1",
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
-            vehicle_id=1,
-            domain_id=1,
+            vehicle_id=1,   # MAVLink port = 14540 + vehicle_id
+            domain_id=1,    # ROS 2 domain ID — match vehicle_id by convention
             usd_file=DRONE_USD,
             init_pos=[2.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
@@ -194,8 +192,8 @@ class PegasusApp:
             pegasus_node_name="PX4Multirotor_2",
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
-            vehicle_id=2,
-            domain_id=2,
+            vehicle_id=2,   # MAVLink port = 14540 + vehicle_id
+            domain_id=2,    # ROS 2 domain ID — match vehicle_id by convention
             usd_file=DRONE_USD,
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],

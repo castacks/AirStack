@@ -1,6 +1,6 @@
 <!-- PERCEPTION -->
 <launch>
-    <arg name="launch_macvo" default="true" />
+    <arg name="launch_macvo" default="false" />
     <arg name="launch_stereo_image_proc" default="true" />
     <group>
         <push-ros-namespace namespace="perception" />

@@ -1,0 +1,41 @@
+services:
+  ms-airsim:
+    profiles:
+      - ms-airsim
+    image: &ms_airsim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_ms-airsim
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      tags:
+        - *ms_airsim_image
+    container_name: ms-airsim
+    entrypoint: ""
+    command: /root/entrypoint.sh
+    stdin_open: true
+    tty: true
+    ipc: host
+    privileged: true
+    networks:
+      airstack_network:
+        ipv4_address: 172.31.0.200
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - XDG_RUNTIME_DIR=/tmp
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+      - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-/ms-airsim-env/Blocks.sh}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ../config:/home/ms-airsim/Documents/AirSim:rw
+      - ../ros_ws:/root/ros_ws:rw
+      - ${MS_AIRSIM_ENV_DIR:-../environments}:/ms-airsim-env:rw
+      - /usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro

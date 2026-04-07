@@ -1635,6 +1635,8 @@
       
         
       
+        
+      
     
     
     
@@ -1925,14 +1927,14 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="simple_sim/" class="md-nav__link ">
+            <a href="ms-airsim/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Simple Sim
+    Microsoft AirSim (legacy)
   
 
     
@@ -1951,6 +1953,114 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Microsoft AirSim (legacy)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ms-airsim/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="simple_sim/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Sim
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5049,16 +5159,23 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├── extensions/                # Custom Isaac Sim extensions
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── launch_scripts/            # Python launch scripts
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   └── standalone_examples/       # Example scenes and scripts
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>└── simple-sim/
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    ├── docker/                    # Simple simulator container
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    │   └── docker-compose.yaml    # Launch configuration
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    ├── models/                    # Lightweight simulation models
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    └── ros_ws/                    # Simple sim ROS workspace
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── ms-airsim/
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── docker/                    # Microsoft AirSim (legacy) containerization
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   │   ├── docker-compose.yaml    # Launch configuration
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   │   └── Dockerfile             # Image definition
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── config/                    # Microsoft AirSim (legacy) settings.json
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   └── ros_ws/                    # Depth bridge ROS package
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└── simple-sim/
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    ├── docker/                    # Simple simulator container
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    │   └── docker-compose.yaml    # Launch configuration
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    ├── models/                    # Lightweight simulation models
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    └── ros_ws/                    # Simple sim ROS workspace
 </span></code></pre></div>
 <h2 id="launch-structure">Launch Structure<a class="headerlink" href="#launch-structure" title="Permanent link">&para;</a></h2>
 <p>Simulation components are launched via Docker Compose. Each simulator has its own configuration:</p>
 <ul>
 <li><strong>Isaac Sim:</strong> <code>simulation/isaac-sim/docker/docker-compose.yaml</code></li>
+<li><strong>Microsoft AirSim (legacy):</strong> <code>simulation/ms-airsim/docker/docker-compose.yaml</code></li>
 <li><strong>Simple Sim:</strong> <code>simulation/simple-sim/docker/docker-compose.yaml</code></li>
 </ul>
 <p><strong>Key launch points:</strong></p>
@@ -5094,6 +5211,16 @@
 <li><a href="isaac_sim/ascent_sitl_extension/">Ascent SITL Extension</a></li>
 <li><a href="isaac_sim/export_stages_from_unreal/">Export from Unreal Engine</a></li>
 </ul>
+<h3 id="microsoft-airsim-legacy-unreal-engine">Microsoft AirSim (legacy) (Unreal Engine)<a class="headerlink" href="#microsoft-airsim-legacy-unreal-engine" title="Permanent link">&para;</a></h3>
+<p>An open-source drone simulator built on Unreal Engine with native PX4 SITL integration.</p>
+<p><strong>Use cases:</strong></p>
+<ul>
+<li>PX4-in-the-loop testing with photorealistic environments</li>
+<li>Depth-based obstacle avoidance testing (DROAN)</li>
+<li>Environments from the Unreal Engine ecosystem</li>
+</ul>
+<p><strong>Launch:</strong> Set <code>SIM_IP=172.31.0.201</code> in <code>.env</code>, then <code>docker compose --profile ms-airsim --profile desktop up</code></p>
+<p><strong>Location:</strong> <code>simulation/ms-airsim/</code></p>
 <h3 id="simple-sim-lightweight">Simple Sim (Lightweight)<a class="headerlink" href="#simple-sim-lightweight" title="Permanent link">&para;</a></h3>
 <p>A lightweight 2D/3D simulator for basic testing and development when full Isaac Sim fidelity isn't needed.</p>
 <p><strong>Use cases:</strong></p>

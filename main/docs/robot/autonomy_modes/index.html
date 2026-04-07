@@ -1633,6 +1633,8 @@
       
         
       
+        
+      
     
     
     
@@ -1914,14 +1916,14 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../simulation/simple_sim/" class="md-nav__link ">
+            <a href="../../simulation/ms-airsim/" class="md-nav__link ">
               
   
   
   <span class="md-ellipsis">
     
   
-    Simple Sim
+    Microsoft AirSim (legacy)
   
 
     
@@ -1940,6 +1942,111 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Microsoft AirSim (legacy)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../simulation/ms-airsim/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../simulation/simple_sim/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simple Sim
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5199,7 +5306,8 @@ The role is hardcoded per compose service — no environment variables need to b
 </table>
 <hr />
 <h2 id="compose-profiles">Compose profiles<a class="headerlink" href="#compose-profiles" title="Permanent link">&para;</a></h2>
-<p>Each profile is a complete, self-contained deployment recipe. Pick one profile per machine.</p>
+<p>Profiles are split into <strong>deployment</strong> and <strong>simulator</strong> categories.</p>
+<p><strong>Deployment profiles:</strong></p>
 <table>
 <thead>
 <tr>
@@ -5213,13 +5321,13 @@ The role is hardcoded per compose service — no environment variables need to b
 <tr>
 <td><code>desktop</code></td>
 <td>Dev desktop</td>
-<td><code>robot-desktop</code> + sim + <code>gcs</code></td>
+<td><code>robot-desktop</code> + <code>gcs</code></td>
 <td><code>full</code></td>
 </tr>
 <tr>
 <td><code>desktop_split</code></td>
 <td>Dev desktop</td>
-<td><code>robot-desktop-onboard</code> + <code>robot-offboard</code> + sim + <code>gcs</code></td>
+<td><code>robot-desktop-onboard</code> + <code>robot-offboard</code> + <code>gcs</code></td>
 <td><code>onboard</code> + <code>offboard</code></td>
 </tr>
 <tr>
@@ -5248,20 +5356,47 @@ The role is hardcoded per compose service — no environment variables need to b
 </tr>
 </tbody>
 </table>
+<p><strong>Simulator profiles (mutually exclusive, <code>desktop</code>/<code>desktop_split</code> only):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Simulator</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>isaac-sim</code></td>
+<td>NVIDIA Isaac Sim (Pegasus)</td>
+</tr>
+<tr>
+<td><code>ms-ms-airsim</code></td>
+<td>Microsoft AirSim (legacy) (UE4)</td>
+</tr>
+<tr>
+<td><code>simple</code></td>
+<td>Simple Sim</td>
+</tr>
+</tbody>
+</table>
+<p>Only one simulator profile can be active at a time. <code>airstack up</code> will error if multiple are set.</p>
 <hr />
 <h2 id="profile-desktop-default">Profile: <code>desktop</code> (default)<a class="headerlink" href="#profile-desktop-default" title="Permanent link">&para;</a></h2>
 <p>Standard simulation and development. All autonomy runs in one container per simulated robot.
-Use this for most day-to-day development.</p>
+Combine with a simulator profile.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Dev desktop
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── isaac-sim / simple-sim
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── simulator (isaac-sim / ms-airsim / simple)
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── robot-desktop × N   [role: full]
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>└── gcs
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># .env defaults are correct; just run:</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Isaac Sim (set in .env: COMPOSE_PROFILES=&quot;desktop,isaac-sim&quot;):</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>airstack<span class="w"> </span>up
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Multiple simulated robots:</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Microsoft AirSim (legacy):</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">COMPOSE_PROFILES</span><span class="o">=</span><span class="s2">&quot;desktop,ms-airsim&quot;</span><span class="w"> </span>airstack<span class="w"> </span>up
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Multiple simulated robots:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up
 </span></code></pre></div>
 <p>Each replica gets a unique <code>ROBOT_NAME</code> (<code>robot_1</code>, <code>robot_2</code>, <code>robot_3</code>) and <code>ROS_DOMAIN_ID</code> (1, 2, 3)
 automatically from the <a href="../docker/robot_identity/"><code>robot_name_map</code></a>.</p>
@@ -5272,15 +5407,15 @@ automatically from the <a href="../docker/robot_identity/"><code>robot_name_map<
 <code>robot-offboard</code> acts as the GCS containers (global planning only).
 Use this to debug the split configuration and domain bridge without needing physical hardware.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Dev desktop
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── isaac-sim / simple-sim
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── simulator (isaac-sim / ms-airsim / simple)
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── robot-desktop-onboard × N   [role: onboard, ROS_DOMAIN_ID = 1..N]
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── robot-offboard × N          [role: offboard, ROS_DOMAIN_ID = 0]
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>└── gcs                         [domain 0]
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">COMPOSE_PROFILES</span><span class="o">=</span>desktop_split<span class="w"> </span>airstack<span class="w"> </span>up
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">COMPOSE_PROFILES</span><span class="o">=</span><span class="s2">&quot;desktop_split,isaac-sim&quot;</span><span class="w"> </span>airstack<span class="w"> </span>up
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Or:</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>airstack<span class="w"> </span>--profile<span class="w"> </span>desktop_split<span class="w"> </span>up
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>airstack<span class="w"> </span>--profile<span class="w"> </span>desktop_split<span class="w"> </span>--profile<span class="w"> </span>isaac-sim<span class="w"> </span>up
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Domain isolation</p>

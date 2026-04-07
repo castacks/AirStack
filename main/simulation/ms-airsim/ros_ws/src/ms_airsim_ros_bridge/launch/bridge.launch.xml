@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="ms_airsim_ros_bridge" exec="bridge_node" name="ms_airsim_ros_bridge" output="screen">
+    <param from="$(find-pkg-share ms_airsim_ros_bridge)/config/bridge.yaml" allow_substs="true" />
+  </node>
+</launch>

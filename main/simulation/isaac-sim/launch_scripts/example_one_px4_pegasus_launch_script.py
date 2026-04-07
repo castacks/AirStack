@@ -16,7 +16,6 @@ from isaacsim import SimulationApp
 # Must be created before any omni imports
 simulation_app = SimulationApp({"headless": False})
 
-import asyncio
 import os
 import sys
 import time
@@ -151,14 +150,12 @@ class PegasusApp:
         # This only creates the graph topology. The actual drone + PX4
         # backend are created by compute_base on the first Play tick.
 
-        # vehicleID + connectionBaseport: sim-internal Pegasus<->PX4 (e.g. tcpin localhost 4560+vehicleID).
-        # Robot MAVROS uses FCU_URL (default udp://:OFFBOARD@172.31.0.200:ONBOARD) — a separate UDP path.
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
             drone_prim="/World/base_link",
             robot_name="robot_1",
-            vehicle_id=1,
-            domain_id=1,
+            vehicle_id=1,   # MAVLink port = 14540 + vehicle_id
+            domain_id=1,    # ROS 2 domain ID — match vehicle_id by convention
             usd_file=DRONE_USD,
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],

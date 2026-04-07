@@ -1,12 +1,10 @@
 # expects context to be the root of the repository, i.e. AirStack/. this is so we can access AirStack/common/
 ARG ISAAC_VERSION="5.1.0"
 ARG PX4_VERSION="v1.16.1"
-ARG ARDUPILOT_BRANCH="ArduCopter-stable"
 
 FROM nvcr.io/nvidia/isaac-sim:${ISAAC_VERSION}
 ARG ISAAC_VERSION
 ARG PX4_VERSION
-ARG ARDUPILOT_BRANCH
 
 # for install stuff
 USER root
@@ -153,19 +151,6 @@ RUN cd PX4-Autopilot && \
 # build px4
 RUN cd PX4-Autopilot && \
     make px4_sitl
-
-# ArduPilot SITL (Pegasus ArduPilot backend + sim_vehicle); path matches OGN default ardupilotDir
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gawk python3-wxgtk4.0 python3-pexpect libxml2-dev libxslt1-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN git clone --branch ${ARDUPILOT_BRANCH} --depth 1 https://github.com/ArduPilot/ardupilot.git /isaac-sim/ardupilot \
-    && cd /isaac-sim/ardupilot \
-    && git submodule update --init --recursive \
-    && ./waf configure --board sitl \
-    && ./waf copter
-
-ENV ARDUPILOT_LAUNCH_HEADLESS=true
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 

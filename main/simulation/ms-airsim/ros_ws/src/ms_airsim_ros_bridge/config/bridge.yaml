@@ -1,0 +1,4 @@
+ms_airsim_ros_bridge:
+  ros__parameters:
+    ms_airsim_ip: "127.0.0.1"
+    publish_rate: 15.0

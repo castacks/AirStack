@@ -17,7 +17,6 @@ services:
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
-      - FLIGHT_STACK=${FLIGHT_STACK:-px4}
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
     volumes:
       # display stuff
