@@ -1,6 +1,6 @@
 # Microsoft AirSim (legacy)
 
-Microsoft AirSim (legacy) is an open-source simulator for drones built on Unreal Engine, with built-in PX4 SITL integration.
+[Microsoft AirSim (legacy)](https://microsoft.github.io/AirSim/) is an open-source simulator for drones built on Unreal Engine, with built-in PX4 SITL integration.
 
 ## Overview
 
