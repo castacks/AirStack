@@ -39,10 +39,10 @@
     <child link="rotor3"/>
     <axis xyz="0. 0. 1."/>
   </joint>
-  <joint name="lidar_mount_to_lidar" type="fixed">
+  <joint name="lidar_mount_to_ouster" type="fixed">
     <origin xyz="0. 0. 0.05" rpy="0 0 1.57"/>
     <parent link="lidar_mount"/>
-    <child link="lidar"/>
+    <child link="ouster"/>
   </joint>
   <joint name="joint_base_link_ZED_X-camera_left" type="fixed">
     <origin xyz="0.05994 -0.00909 0.0134 " rpy="-1.5707964 0. -3.1415927"/>
@@ -105,7 +105,7 @@
   <link name="camera_left"/>
   <link name="camera_right"/>
   <link name="imu"/>
-  <link name="lidar"/>
+  <link name="ouster"/>
   <link name="rotor0">
     <visual>
       <origin xyz="0.0005641 -0.0042183 0. " rpy="0. 0. 0.0000089"/>

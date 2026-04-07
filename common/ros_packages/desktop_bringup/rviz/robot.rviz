@@ -84,7 +84,7 @@ Visualization Manager:
           Value: true
         imu:
           Value: false
-        lidar:
+        ouster:
           Value: false
         look_ahead_point:
           Value: false
@@ -125,7 +125,7 @@ Visualization Manager:
             base_link:
               base_link_body_body_link:
                 lidar_mount:
-                  lidar:
+                  ouster:
                     {}
                 base_link_ZED_X:
                   camera_left:
@@ -208,7 +208,7 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        lidar:
+        ouster:
           Alpha: 1
           Show Axes: false
           Show Trail: false
