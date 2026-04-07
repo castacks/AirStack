@@ -22,7 +22,7 @@ Microsoft AirSim (legacy) provides an alternative simulation backend for AirStac
 
 ### 1. Download an environment
 
-Download a pre-built environment from the [AirSim releases](https://github.com/microsoft/AirSim/releases) and extract it into `simulation/ms-airsim/environments/`:
+Download a pre-built environment from the [AirSim Linux releases](https://github.com/microsoft/AirSim/releases/tag/v1.8.1) and extract it into `simulation/ms-airsim/environments/`:
 
 ```bash
 cd simulation/ms-airsim
