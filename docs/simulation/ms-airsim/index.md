@@ -31,24 +31,10 @@ wget https://github.com/microsoft/AirSim/releases/download/v1.8.1-linux/Blocks.z
 unzip Blocks.zip
 ```
 
-### 2. Set environment variables
-
-Edit `.env` at the repository root:
+### 2. Launch Microsoft AirSim (legacy) + Robot
 
 ```bash
-SIM_IP="172.31.0.201"
-MS_AIRSIM_ENV_DIR="simulation/ms-airsim/environments"
-MS_AIRSIM_BINARY_PATH="/ms-airsim-env/LinuxNoEditor/Blocks.sh"
-```
-
-### 3. Launch Microsoft AirSim (legacy) + Robot
-
-```bash
-# Option A: pass profiles as flags
-airstack up --profile ms-airsim --profile desktop
-
-# Option B: set profiles in .env (COMPOSE_PROFILES="ms-airsim,desktop") then just:
-airstack up
+airstack up --env-file overrides/airsim.env
 ```
 
 To build the images first:
