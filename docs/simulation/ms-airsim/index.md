@@ -27,8 +27,8 @@ Download a pre-built environment from the [AirSim releases](https://github.com/m
 ```bash
 cd simulation/ms-airsim
 mkdir -p environments && cd environments
-wget https://github.com/microsoft/AirSim/releases/download/v1.8.1-linux/Blocks.zip
-unzip Blocks.zip
+wget https://github.com/microsoft/AirSim/releases/download/v1.8.1/AbandonedPark.zip
+unzip AbandonedPark.zip
 ```
 
 ### 2. Launch Microsoft AirSim (legacy) + Robot

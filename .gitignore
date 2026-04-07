@@ -54,6 +54,7 @@ qtcreator-*
 **/ros_ws/build/
 **/ros_ws/install/
 **/ros_ws/log/
+.build.lock
 
 # ROS2 custom files
 COLCON_IGNORE
