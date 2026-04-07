@@ -1,0 +1,9 @@
+raven_nav:
+  ros__parameters:
+    timer_period: 0.5       # seconds between behavior loop iterations
+    score_threshold: 0.95   # minimum softmax sim score to consider a ray
+    # Must match the query order in RayFronts' queries.txt
+    query_labels:
+      - 'red building'
+      - 'water tower'
+      - 'radio tower'

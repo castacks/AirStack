@@ -24,9 +24,5 @@ endif()
 install(DIRECTORY iris DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
-install(PROGRAMS
-  src/robot_2_relative_position.py
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 ament_package()

@@ -128,6 +128,74 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
 # Consolidate root prims under /World
 # ---------------------------------------------------------------------------
 
+def reference_root_prims_under_world(stage, source_usd_url: str) -> list:
+    """Reference non-/World root prims from *source_usd_url* under /World.
+
+    When a USD is loaded via pg.load_environment (reference scoped to /World),
+    root-level prims like /Sky, /Sun, /Environment are excluded. This function
+    opens the source layer, finds those prims, and adds them as individual
+    references under /World — without touching the geometry already loaded.
+
+    Args:
+        stage:          Active USD stage.
+        source_usd_url: omniverse:// or local path of the source USD.
+
+    Returns:
+        List of prim names that were referenced.
+    """
+    source_layer = Sdf.Layer.FindOrOpen(source_usd_url)
+    if source_layer is None:
+        print(f"[scene_prep] reference_root_prims_under_world: could not open {source_usd_url}", flush=True)
+        return []
+
+    non_world = [spec.name for spec in source_layer.rootPrims if spec.name != 'World']
+    if not non_world:
+        print("[scene_prep] reference_root_prims_under_world: no non-World root prims found", flush=True)
+        return []
+
+    for name in non_world:
+        dest_path = f"/World/{name}"
+        dest_prim = stage.DefinePrim(dest_path)
+        dest_prim.GetReferences().AddReference(source_usd_url, f"/{name}")
+        print(f"[scene_prep] Referenced /{name} at {dest_path}", flush=True)
+
+    return non_world
+
+
+def move_root_prims_to_world_live(stage) -> list:
+    """Move any non-/World root prims (e.g. /Environment, /Sun, /Sky) under /World
+    on the currently active live stage.
+
+    Useful when loading a USD from Nucleus whose sky/sun/environment prims sit at
+    the root rather than under /World, causing them to be invisible to the sim.
+
+    Args:
+        stage: Active USD stage (from omni.usd.get_context().get_stage()).
+
+    Returns:
+        List of prim names that were moved.
+    """
+    root_layer = stage.GetRootLayer()
+    all_root = [spec.name for spec in root_layer.rootPrims]
+    print(f"[scene_prep] move_root_prims_to_world_live: root prims = {all_root}", flush=True)
+
+    to_move = [name for name in all_root if name != 'World']
+    if not to_move:
+        print("[scene_prep] move_root_prims_to_world_live: nothing to move", flush=True)
+        return []
+
+    edit = Sdf.BatchNamespaceEdit()
+    for name in to_move:
+        edit.Add(Sdf.Path(f"/{name}"), Sdf.Path(f"/World/{name}"))
+
+    if not root_layer.Apply(edit):
+        print(f"[scene_prep] move_root_prims_to_world_live: namespace edit failed for {to_move}", flush=True)
+        return []
+
+    print(f"[scene_prep] Moved root prims under /World: {to_move}", flush=True)
+    return to_move
+
+
 def move_root_prims_to_world(usd_path: str) -> list:
     """Move any non-/World root prims (e.g. /Environment) under /World.
 

@@ -134,6 +134,7 @@ RUN pip3 install --break-system-packages --ignore-installed \
   six \
   toml \
   scipy \
+  scikit-learn \
   pypose \
   rich \
   tqdm \

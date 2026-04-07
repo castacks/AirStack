@@ -31,7 +31,7 @@ from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 import scene_prep
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit
+from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit, reference_root_prims_under_world
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -47,7 +47,7 @@ STAGE_SCALE = 0.01
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
-ADD_DOME_LIGHT = True
+ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -3.0
@@ -132,7 +132,7 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        # Load environment
+        # Load environment (places geometry at /World/stage)
         self.pg.load_environment(ENV_URL)
 
         stage = omni.usd.get_context().get_stage()
@@ -143,6 +143,9 @@ class PegasusApp:
             carb.log_warn("Stage load timed out — continuing anyway.")
 
         # ----- Scene preparation -----
+        # Bring in sky/sun/environment prims that sit outside /World in the source USD
+        reference_root_prims_under_world(stage, ENV_URL)
+
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
             scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
