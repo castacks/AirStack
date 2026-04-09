@@ -322,12 +322,11 @@ void WaypointWidget::saveBag(const std::string& filename) {
         
         writer.open(storage_options, converter_options);
 
-        writer.create_topic({
-            "waypoints",
-            "nav_msgs/msg/Path",
-            rmw_get_serialization_format(),
-            ""
-        });
+        rosbag2_storage::TopicMetadata topic_metadata;
+        topic_metadata.name = "waypoints";
+        topic_metadata.type = "nav_msgs/msg/Path";
+        topic_metadata.serialization_format = rmw_get_serialization_format();
+        writer.create_topic(topic_metadata);
 
         auto serialized_msg = std::make_shared<rclcpp::SerializedMessage>();
         rclcpp::Serialization<nav_msgs::msg::Path> serialization;
@@ -335,7 +334,7 @@ void WaypointWidget::saveBag(const std::string& filename) {
 
         auto bag_message = std::make_shared<rosbag2_storage::SerializedBagMessage>();
         bag_message->topic_name = "waypoints";
-        bag_message->time_stamp = node_->now().nanoseconds();
+        bag_message->recv_timestamp = node_->now().nanoseconds();
         bag_message->serialized_data = std::shared_ptr<rcutils_uint8_array_t>(
             new rcutils_uint8_array_t,
             [](rcutils_uint8_array_t* data) {
