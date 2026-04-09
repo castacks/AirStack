@@ -28,16 +28,16 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
 : rclcpp::Node("takeoff_landing_task")
 {
   // parameters
-  default_takeoff_velocity_ = airstack::get_param(this, "takeoff_velocity", 1.0f);
-  default_landing_velocity_ = airstack::get_param(this, "landing_velocity", 0.3f);
-  takeoff_acceptance_distance_ = airstack::get_param(this, "takeoff_acceptance_distance", 0.3f);
-  takeoff_acceptance_time_ = airstack::get_param(this, "takeoff_acceptance_time", 1.0f);
-  landing_stationary_distance_ = airstack::get_param(this, "landing_stationary_distance", 0.02f);
-  landing_acceptance_time_ = airstack::get_param(this, "landing_acceptance_time", 5.0f);
+  default_takeoff_velocity_ = airstack::get_param(this, "takeoff_velocity", 1.0);
+  default_landing_velocity_ = airstack::get_param(this, "landing_velocity", 0.3);
+  takeoff_acceptance_distance_ = airstack::get_param(this, "takeoff_acceptance_distance", 0.3);
+  takeoff_acceptance_time_ = airstack::get_param(this, "takeoff_acceptance_time", 1.0);
+  landing_stationary_distance_ = airstack::get_param(this, "landing_stationary_distance", 0.02);
+  landing_acceptance_time_ = airstack::get_param(this, "landing_acceptance_time", 5.0);
   landing_tracking_point_ahead_time_ =
-    airstack::get_param(this, "landing_tracking_point_ahead_time", 5.0f);
-  takeoff_path_roll_ = airstack::get_param(this, "takeoff_path_roll", 0.0f) * M_PI / 180.0f;
-  takeoff_path_pitch_ = airstack::get_param(this, "takeoff_path_pitch", 0.0f) * M_PI / 180.0f;
+    airstack::get_param(this, "landing_tracking_point_ahead_time", 5.0);
+  takeoff_path_roll_ = airstack::get_param(this, "takeoff_path_roll", 0.0) * M_PI / 180.0;
+  takeoff_path_pitch_ = airstack::get_param(this, "takeoff_path_pitch", 0.0) * M_PI / 180.0;
   takeoff_path_relative_to_orientation_ =
     airstack::get_param(this, "takeoff_path_relative_to_orientation", false);
 

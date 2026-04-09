@@ -50,15 +50,15 @@ public:
 
 private:
   // parameters
-  float default_takeoff_velocity_;
-  float default_landing_velocity_;
-  float takeoff_acceptance_distance_;
-  float takeoff_acceptance_time_;
-  float landing_stationary_distance_;
-  float landing_acceptance_time_;
-  float landing_tracking_point_ahead_time_;
-  float takeoff_path_roll_;
-  float takeoff_path_pitch_;
+  double default_takeoff_velocity_;
+  double default_landing_velocity_;
+  double takeoff_acceptance_distance_;
+  double takeoff_acceptance_time_;
+  double landing_stationary_distance_;
+  double landing_acceptance_time_;
+  double landing_tracking_point_ahead_time_;
+  double takeoff_path_roll_;
+  double takeoff_path_pitch_;
   bool takeoff_path_relative_to_orientation_;
 
   // shared state (protected by mutex)
