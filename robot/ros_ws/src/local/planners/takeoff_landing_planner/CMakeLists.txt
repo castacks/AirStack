@@ -47,6 +47,7 @@ ament_target_dependencies(
   airstack_msgs
   airstack_common
   trajectory_library
+  mavros_msgs
   task_msgs
 )
 

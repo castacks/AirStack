@@ -70,6 +70,12 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
     "state_estimate_timed_out", 1,
     [this](std_msgs::msg::Bool::SharedPtr msg) { state_estimate_timed_out_ = msg->data; });
 
+  extended_state_sub_ = this->create_subscription<mavros_msgs::msg::ExtendedState>(
+    "extended_state", 1,
+    [this](mavros_msgs::msg::ExtendedState::SharedPtr msg) {
+      landed_state_ = msg->landed_state;
+    });
+
   // publishers
   traj_override_pub_ =
     this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
@@ -391,9 +397,6 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
 
   RCLCPP_INFO(this->get_logger(), "LandTask: descending at %.2f m/s", velocity);
 
-  // sliding window of odometry for stationary detection
-  std::deque<nav_msgs::msg::Odometry> odom_window;
-
   rclcpp::Rate rate(10);
   while (rclcpp::ok()) {
     if (cancel_requested_) {
@@ -405,58 +408,26 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
       return;
     }
 
-    nav_msgs::msg::Odometry current_odom;
+    float current_z;
     {
       std::lock_guard<std::mutex> lock(odom_mutex_);
-      current_odom = robot_odom_;
+      current_z = robot_odom_.pose.pose.position.z;
     }
 
-    feedback->current_altitude_m = current_odom.pose.pose.position.z;
+    feedback->current_altitude_m = current_z;
     feedback->status = "landing";
     goal_handle->publish_feedback(feedback);
 
-    odom_window.push_back(current_odom);
-
-    // trim window to landing_acceptance_time seconds
-    while (!odom_window.empty()) {
-      double age = (rclcpp::Time(current_odom.header.stamp) -
-        rclcpp::Time(odom_window.front().header.stamp)).seconds();
-      if (age > landing_acceptance_time_) {
-        odom_window.pop_front();
-      } else {
-        break;
-      }
-    }
-
-    // check if we have enough history and the robot has been stationary
-    if (odom_window.size() >= 2) {
-      double window_span = (rclcpp::Time(current_odom.header.stamp) -
-        rclcpp::Time(odom_window.front().header.stamp)).seconds();
-
-      if (window_span >= landing_acceptance_time_) {
-        bool stationary = true;
-        for (const auto & past_odom : odom_window) {
-          double dx = current_odom.pose.pose.position.x - past_odom.pose.pose.position.x;
-          double dy = current_odom.pose.pose.position.y - past_odom.pose.pose.position.y;
-          double dz = current_odom.pose.pose.position.z - past_odom.pose.pose.position.z;
-          double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-          if (dist > landing_stationary_distance_) {
-            stationary = false;
-            break;
-          }
-        }
-
-        if (stationary) {
-          RCLCPP_INFO(this->get_logger(), "LandTask: landing detected at %.2fm",
-            current_odom.pose.pose.position.z);
-          set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
-          result->success = true;
-          result->message = "landing complete";
-          goal_handle->succeed(result);
-          task_active_ = false;
-          return;
-        }
-      }
+    // check if mavros reports on-ground
+    if (landed_state_ == mavros_msgs::msg::ExtendedState::LANDED_STATE_ON_GROUND) {
+      RCLCPP_INFO(this->get_logger(), "LandTask: landed (mavros landed_state = ON_GROUND) at %.2fm",
+        current_z);
+      set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      result->success = true;
+      result->message = "landing complete";
+      goal_handle->succeed(result);
+      task_active_ = false;
+      return;
     }
 
     rate.sleep();

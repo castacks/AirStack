@@ -24,6 +24,8 @@
         <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
         <remap from="state_estimate_timed_out"
             to="/$(env ROBOT_NAME)/behavior/drone_safety_monitor/state_estimate_timed_out" />
+        <remap from="extended_state"
+            to="/$(env ROBOT_NAME)/interface/mavros/extended_state" />
         <remap from="~/takeoff_task" to="/$(env ROBOT_NAME)/tasks/takeoff" />
         <remap from="~/land_task" to="/$(env ROBOT_NAME)/tasks/land" />
     </node>

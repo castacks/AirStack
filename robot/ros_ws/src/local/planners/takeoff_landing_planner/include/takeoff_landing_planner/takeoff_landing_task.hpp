@@ -29,6 +29,7 @@
 #include <airstack_msgs/msg/odometry.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
 #include <airstack_msgs/srv/trajectory_mode.hpp>
+#include <mavros_msgs/msg/extended_state.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
@@ -79,6 +80,9 @@ private:
   std::atomic<bool> has_control_{false};
   std::atomic<bool> state_estimate_timed_out_{false};
 
+  // landed state from mavros
+  std::atomic<uint8_t> landed_state_{0};  // mavros_msgs::msg::ExtendedState::LANDED_STATE_UNDEFINED
+
   // task exclusion
   std::atomic<bool> task_active_{false};
   std::atomic<bool> cancel_requested_{false};
@@ -90,6 +94,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr has_control_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr state_estimate_timed_out_sub_;
   rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr completion_percentage_sub_;
+  rclcpp::Subscription<mavros_msgs::msg::ExtendedState>::SharedPtr extended_state_sub_;
 
   // publishers
   rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_pub_;
