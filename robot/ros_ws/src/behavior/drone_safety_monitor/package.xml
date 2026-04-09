@@ -3,20 +3,18 @@
 <package format="3">
   <name>drone_safety_monitor</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Safety monitor: state estimate watchdog and pause/resume/rewind command handling</description>
   <maintainer email="uav@todo.todo">uav</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>airstack_common</depend>
-  <depend>trajectory_library</depend>
-  <depend>mavros_msgs</depend>
-  <depend>std_srvs</depend>
-  
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
