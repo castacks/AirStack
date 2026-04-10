@@ -1,27 +1,23 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 70
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
         - /Global Options1
         - /TF1/Frames1
-        - /Sensors1
         - /Perception1/StereoImageProc Disparity1
         - /Local1/DROAN1
         - /Local1/DROAN1/Trimmed Global Plan for DROAN1/Topic1
         - /Local1/DROAN1/Droan GPU1
         - /Local1/DROAN1/Droan GPU1/Traj Debug1/Namespaces1
-        - /Global1
         - /Global1/Global Plan1
       Splitter Ratio: 0.3440559506416321
-    Tree Height: 330
+    Tree Height: 215
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
-    Expanded:
-      - /2D Goal Pose1
-      - /Publish Point1
+    Expanded: ~
     Name: Tool Properties
     Splitter Ratio: 0.5886790156364441
   - Class: rviz_common/Views
@@ -33,7 +29,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Foreground Background Cloud
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
@@ -88,6 +84,8 @@ Visualization Manager:
           Value: false
         base_link_frd:
           Value: true
+        base_link_stabilized:
+          Value: true
         camera_left:
           Value: true
         camera_right:
@@ -96,6 +94,10 @@ Visualization Manager:
           Value: false
         lidar:
           Value: false
+        look_ahead_point:
+          Value: true
+        look_ahead_point_stabilized:
+          Value: true
         map:
           Value: true
         map_ned:
@@ -112,6 +114,10 @@ Visualization Manager:
           Value: true
         rotor3:
           Value: true
+        tracking_point:
+          Value: true
+        tracking_point_stabilized:
+          Value: true
         world:
           Value: false
       Marker Scale: 0.30000001192092896
@@ -122,7 +128,39 @@ Visualization Manager:
       Tree:
         world:
           map:
+            base_link:
+              base_link_body_body_link:
+                OS1_REV6_128_10hz___512_resolution:
+                  lidar:
+                    {}
+                base_link_ZED_X:
+                  camera_left:
+                    {}
+                  camera_right:
+                    {}
+                  imu:
+                    {}
+                rotor0:
+                  {}
+                rotor1:
+                  {}
+                rotor2:
+                  {}
+                rotor3:
+                  {}
+              base_link_frd:
+                {}
+            base_link_stabilized:
+              {}
+            look_ahead_point:
+              {}
+            look_ahead_point_stabilized:
+              {}
             map_ned:
+              {}
+            tracking_point:
+              {}
+            tracking_point_stabilized:
               {}
       Update Interval: 0
       Value: true
@@ -443,7 +481,8 @@ Visualization Manager:
               Enabled: true
               Name: Trimmed Global Plan for DROAN
               Namespaces:
-                {}
+                global_plan: true
+                global_plan_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -588,7 +627,12 @@ Visualization Manager:
                   Enabled: true
                   Name: Traj Debug
                   Namespaces:
-                    {}
+                    collision_points: true
+                    collision_trajectories: true
+                    free_points: true
+                    free_trajectories: true
+                    unseen_points: true
+                    unseen_trajectories: true
                   Topic:
                     Depth: 5
                     Durability Policy: Volatile
@@ -600,7 +644,7 @@ Visualization Manager:
                   Enabled: true
                   Name: Graph Vis
                   Namespaces:
-                    {}
+                    default: true
                   Topic:
                     Depth: 5
                     Durability Policy: Volatile
@@ -626,7 +670,8 @@ Visualization Manager:
               Enabled: true
               Name: Global Plan Vis
               Namespaces:
-                {}
+                global_plan: true
+                global_plan_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -638,7 +683,7 @@ Visualization Manager:
               Enabled: true
               Name: Rewind Info
               Namespaces:
-                {}
+                rewind_info: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -654,7 +699,8 @@ Visualization Manager:
               Enabled: true
               Name: Traj Vis
               Namespaces:
-                {}
+                traj_controller: true
+                traj_controller_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -684,7 +730,7 @@ Visualization Manager:
           Enabled: true
           Name: VDB Mapping Marker
           Namespaces:
-            {}
+            "": true
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -737,6 +783,15 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: sensors/front_stereo/left/image_rect
       Value: true
+    - Class: rviz_default_plugins/InteractiveMarkers
+      Enable Transparency: true
+      Enabled: true
+      Interactive Markers Namespace: /robot_1/waypoint_plugin
+      Name: InteractiveMarkers
+      Show Axes: true
+      Show Descriptions: true
+      Show Visual Aids: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -776,6 +831,23 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /clicked_point
+    - Class: rviz_polygon_selection_tool/PolygonSelectionTool
+      Close loop: true
+      Lasso mode: true
+      Line Color: 255; 0; 0
+      Patch size: 15
+      Point Color: 255; 0; 0
+      Point Generation Gap: 0.0020000000949949026
+      Point Size: 50
+      Render as Overlay: false
+      Service name: get_selection
+      Show Text: true
+      Text Size: 0.014999999664723873
+    - Class: waypoint_rviz2_plugin/WaypointTool
+      WaypointTool:
+        default_height: 0
+        frame_id: map
+        topic: global_plan
   Transformation:
     Current:
       Class: rviz_default_plugins/TF
@@ -783,25 +855,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 26.301408767700195
+      Distance: 7.636964797973633
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 6.924289703369141
-        Y: -7.847400188446045
-        Z: -4.3323540687561035
+        X: -14.859757423400879
+        Y: -8.647265434265137
+        Z: 3.183002233505249
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5103968977928162
+      Pitch: 0.6203982830047607
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 2.279876232147217
+      Yaw: 1.6853976249694824
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
@@ -819,7 +891,7 @@ Window Geometry:
     collapsed: false
   MACVO Disparity:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000028400000308fc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000000a00560069006500770073010000007800000137000000a000fffffffb000000100044006900730070006c00610079007301000001b5000001cb000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000001600fffffffb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f600000308fc0200000009fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000001e00460072006f006e007400200052006900670068007400200052004700420100000078000002990000001600fffffffb0000002200460072006f006e00740020005200690067006800740020004400650070007400680100000317000000690000001600fffffffc00000241000000750000000000fffffffa000000000100000002fb0000002200460072006f006e00740020005200690067006800740020004400650070007400680100000000ffffffff0000000000000000fb0000002200460072006f006e007400200052006900670068007400200044006500700074006801000007c4000001f60000000000000000fb0000002200460072006f006e0074002000520069006700680074002000440065007000740068010000014a000001cc0000000000000000fb0000001e004d004100430056004f0020004400690073007000610072006900740079000000028d000001410000001600fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000002fb0000000800540069006d00650100000000000009ba0000025300fffffffb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba000001bffc0100000003fb00000014005400610073006b007300500061006e0065006c01000000000000045d000001d400fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c010000046300000557000002c400fffffffb0000000800540069006d00650100000000000004500000000000000000000005340000030800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001ac00000317fc020000000cfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000000a005600690065007700730100000051000000ce000000a000fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000125000000610000005c00fffffffb000000100044006900730070006c006100790073010000018c00000112000000c700fffffffb0000001e0057006100790070006f0069006e007400200050006c007500670069006e01000002a4000000c4000000b400fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000002eb000000c90000001600fffffffb00000028004d004100430056004f00200049006d00610067006500200046006500610074007500720065007300000002ba000000ca000000000000000000000001000001f600000317fc0200000007fb00000016004c006500660074002000430061006d006500720061010000003b000001880000000000000000fb00000014004c006500660074002000440065007000740068010000003b0000016a0000000000000000fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fc00000051000003170000000000fffffffa000000000100000001fb0000002200460072006f006e007400200052006900670068007400200044006500700074006801000007c4000001f60000000000000000fb0000002200460072006f006e0074002000520069006700680074002000440065007000740068010000014a000001cc0000000000000000fb0000001e004d004100430056004f0020004400690073007000610072006900740079000000028d000001410000001600fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b2000000000000000000000002000009ba00000037fc0100000002fb0000000800540069006d00650100000000000009ba0000025300fffffffb0000000a00560069006500770073030000004e00000080000002e10000019700000003000009ba000001d7fc0100000006fb00000014005400610073006b007300500061006e0065006c0100000000000003f2000001ef00fffffffb0000002200460072006f006e007400200052006900670068007400200044006500700074006801000005c70000021c0000000000000000fb0000001e00460072006f006e0074002000520069006700680074002000520047004201000003f8000002e40000009400fffffffb0000002200460072006f006e007400200052006900670068007400200044006500700074006801000006e2000002d80000009e00fffffffb00000022004200650068006100760069006f0072005400720065006500500061006e0065006c00000006dc000002de0000023300fffffffb0000000800540069006d00650100000000000004500000000000000000000008080000031700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730000000000ffffffff0000000000000000
   Selection:
     collapsed: false
   TasksPanel:
@@ -829,6 +901,8 @@ Window Geometry:
   Tool Properties:
     collapsed: false
   Views:
+    collapsed: false
+  Waypoint Plugin:
     collapsed: false
   Width: 2490
   X: 1990
