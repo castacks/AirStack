@@ -190,6 +190,31 @@ ament_target_dependencies(odom_tf_node
   tf2_geometry_msgs
 )
 
+add_executable(odom_tf_lidar_node 
+  src/modalai_tfpub_lidar.cpp)
+
+target_include_directories(odom_tf_lidar_node
+  PRIVATE
+  ${EIGEN3_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_link_libraries(odom_tf_lidar_node
+  ${EIGEN3_LIBRARIES})
+
+ament_target_dependencies(odom_tf_lidar_node
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  geometry_msgs
+  nav_msgs
+  px4_msgs
+  tf2
+  tf2_ros
+  tf2_eigen
+  tf2_geometry_msgs
+)
+
 add_executable(frame_fix_node 
   src/model_ai_framefix.cpp)
 
@@ -239,6 +264,8 @@ install(TARGETS
   cpa_node
   goal_planner_node
   takeoff_hack_node
+  odom_tf_node
+  odom_tf_lidar_node
   frame_fix_node
   model_ai_px4_test
   DESTINATION lib/${PROJECT_NAME}

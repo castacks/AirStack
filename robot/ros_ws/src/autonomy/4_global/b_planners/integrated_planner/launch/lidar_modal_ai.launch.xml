@@ -1,0 +1,48 @@
+<launch>
+  <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher" output="screen">
+    <param name="robot_description" value="$(command 'cat $(find-pkg-share integrated_planner)/config/model_ai_extrinsics.urdf')"/>
+  </node>
+
+  <node pkg="integrated_planner" exec="odom_tf_lidar_node" name="odom_tf_lidar_node" output="screen"/>
+  <!-- <node pkg="integrated_planner" exec="frame_fix_node" name="frame_fix_node" output="screen" emulate_tty="true"/> -->
+  <node pkg="integrated_planner" exec="goal_planner_node" name="goal_planner_node" output="screen" emulate_tty="true">
+    <param from="$(find-pkg-share integrated_planner)/config/modelai_config.yaml" />
+  </node>
+
+  <node pkg="pid_path_tracker" exec="pid_path_tracker_px4" output="screen">
+    <param name="target_frame" value="base_link" />
+
+    <param name="x_p"         value="0.5" />
+    <param name="x_i"         value="0.0" />
+    <param name="x_d"         value="0.0" />
+    <param name="x_ff"        value="1.0" />
+    <param name="x_d_alpha"   value="0.0" />  
+    <param name="x_min"       value="-0.3" />
+    <param name="x_max"       value="0.3" />
+    <param name="x_constant"  value="0.0" />
+    
+    <param name="y_p"         value="0.5" />
+    <param name="y_i"         value="0.0" />
+    <param name="y_d"         value="0.0" />
+    <param name="y_ff"        value="1.0" />
+    <param name="y_d_alpha"   value="0.0" />
+    <param name="y_min"       value="-0.3" />
+    <param name="y_max"       value="0.3" />
+    <param name="y_constant"  value="0.0" />
+    
+    <param name="z_p"         value="2.0" />
+    <param name="z_i"         value="0.0" />
+    <param name="z_d"         value="0.0" />
+    <param name="z_ff"        value="1.0" />
+    <param name="z_d_alpha"   value="0.0" />
+    <param name="z_min"       value="-0.25" />
+    <param name="z_max"       value="0.25" />
+    <param name="z_constant"  value="0.0" />
+    
+    <remap from="odometry" to="/mocap_odom_processed" />
+    <remap from="trajectory" to="/cmd_trajectory" />
+  </node>
+
+  <node pkg="rviz2" exec="rviz2" 
+    args="-d $(find-pkg-share integrated_planner)/config/modelai_lidar.rviz --ros-args --log-level INFO" output="screen" respawn="true" respawn_delay="1" />
+</launch>
