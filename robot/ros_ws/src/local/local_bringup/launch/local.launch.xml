@@ -33,6 +33,8 @@
             to="/$(env ROBOT_NAME)/behavior/drone_safety_monitor/state_estimate_timed_out" />
         <remap from="extended_state"
             to="/$(env ROBOT_NAME)/interface/mavros/extended_state" />
+        <remap from="robot_command"
+            to="/$(env ROBOT_NAME)/interface/robot_command" />
         <remap from="~/takeoff_task" to="/$(env ROBOT_NAME)/tasks/takeoff" />
         <remap from="~/land_task" to="/$(env ROBOT_NAME)/tasks/land" />
     </node>

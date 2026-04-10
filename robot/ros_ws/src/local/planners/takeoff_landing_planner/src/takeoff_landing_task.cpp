@@ -80,9 +80,11 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
   traj_override_pub_ =
     this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
 
-  // service client
+  // service clients
   traj_mode_client_ =
     this->create_client<airstack_msgs::srv::TrajectoryMode>("set_trajectory_mode");
+  robot_command_client_ =
+    this->create_client<airstack_msgs::srv::RobotCommand>("robot_command");
 
   // action servers
   takeoff_server_ = rclcpp_action::create_server<TakeoffTask>(
@@ -142,6 +144,19 @@ bool TakeoffLandingTaskNode::set_trajectory_mode(int32_t mode)
   return future.get()->success;
 }
 
+bool TakeoffLandingTaskNode::send_robot_command(uint8_t command)
+{
+  if (!robot_command_client_->wait_for_service(std::chrono::seconds(2))) {
+    RCLCPP_ERROR(this->get_logger(), "robot_command service not available");
+    return false;
+  }
+  auto request = std::make_shared<airstack_msgs::srv::RobotCommand::Request>();
+  request->command = command;
+  auto future = robot_command_client_->async_send_request(request);
+  future.wait();
+  return future.get()->success;
+}
+
 // ─────────────────────────── TakeoffTask ──────────────────────────────────────
 
 rclcpp_action::GoalResponse TakeoffLandingTaskNode::takeoff_handle_goal(
@@ -154,14 +169,6 @@ rclcpp_action::GoalResponse TakeoffLandingTaskNode::takeoff_handle_goal(
   }
   if (state_estimate_timed_out_) {
     RCLCPP_WARN(this->get_logger(), "TakeoffTask rejected: state estimate timed out");
-    return rclcpp_action::GoalResponse::REJECT;
-  }
-  if (!is_armed_) {
-    RCLCPP_WARN(this->get_logger(), "TakeoffTask rejected: not armed");
-    return rclcpp_action::GoalResponse::REJECT;
-  }
-  if (!has_control_) {
-    RCLCPP_WARN(this->get_logger(), "TakeoffTask rejected: no offboard control");
     return rclcpp_action::GoalResponse::REJECT;
   }
   if (goal->target_altitude_m <= 0.0f) {
@@ -210,6 +217,32 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
       return;
     }
     wait_rate.sleep();
+  }
+
+  // arm the robot
+  if (!is_armed_) {
+    RCLCPP_INFO(this->get_logger(), "TakeoffTask: arming robot");
+    if (!send_robot_command(airstack_msgs::srv::RobotCommand::Request::ARM)) {
+      RCLCPP_ERROR(this->get_logger(), "TakeoffTask aborted: failed to arm");
+      result->success = false;
+      result->message = "failed to arm";
+      goal_handle->abort(result);
+      task_active_ = false;
+      return;
+    }
+  }
+
+  // request offboard control
+  if (!has_control_) {
+    RCLCPP_INFO(this->get_logger(), "TakeoffTask: requesting offboard control");
+    if (!send_robot_command(airstack_msgs::srv::RobotCommand::Request::REQUEST_CONTROL)) {
+      RCLCPP_ERROR(this->get_logger(), "TakeoffTask aborted: failed to request offboard control");
+      result->success = false;
+      result->message = "failed to request offboard control";
+      goal_handle->abort(result);
+      task_active_ = false;
+      return;
+    }
   }
 
   // set trajectory mode to TRACK

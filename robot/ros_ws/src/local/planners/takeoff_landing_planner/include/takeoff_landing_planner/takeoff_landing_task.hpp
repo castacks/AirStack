@@ -28,6 +28,7 @@
 #include <airstack_common/tflib.hpp>
 #include <airstack_msgs/msg/odometry.hpp>
 #include <airstack_msgs/msg/trajectory_xyzv_yaw.hpp>
+#include <airstack_msgs/srv/robot_command.hpp>
 #include <airstack_msgs/srv/trajectory_mode.hpp>
 #include <mavros_msgs/msg/extended_state.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -99,8 +100,9 @@ private:
   // publishers
   rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_pub_;
 
-  // service client
+  // service clients
   rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_client_;
+  rclcpp::Client<airstack_msgs::srv::RobotCommand>::SharedPtr robot_command_client_;
 
   // action servers
   rclcpp_action::Server<TakeoffTask>::SharedPtr takeoff_server_;
@@ -113,6 +115,7 @@ private:
 
   // helpers
   bool set_trajectory_mode(int32_t mode);
+  bool send_robot_command(uint8_t command);
 
   // TakeoffTask action server callbacks
   rclcpp_action::GoalResponse takeoff_handle_goal(

@@ -120,6 +120,9 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr waypoints_sub_;
   nav_msgs::msg::Path::SharedPtr latest_waypoints_;
 
+  // Global task lock: only one task may run at a time
+  int active_task_tab_{-1};  // -1 = no task running, else = tab index of active task
+
   // Discovery timer
   QTimer * refresh_timer_{nullptr};
 
@@ -149,6 +152,8 @@ private:
   void doCancelGoal(int tab_index);
 
   void setGoalActive(int tab_index, bool active);
+  void setTabStatusColor(int tab_index, const QColor & color);
+  void clearTabStatusColor(int tab_index);
   QString currentRobot() const;
 };
 

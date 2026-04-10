@@ -5,6 +5,8 @@
 
 #include <QHeaderView>
 #include <QMetaObject>
+#include <QPixmap>
+#include <QTabBar>
 #include <QTime>
 #include <pluginlib/class_list_macros.hpp>
 #include <rviz_common/display_context.hpp>
@@ -17,6 +19,7 @@ namespace rviz_tasks_panel
 
 std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
 {
+  // default, min, max
   return {
     {"Takeoff", "tasks/takeoff", {
       {"target_altitude_m", "float32", 5.0, 0.0, 500.0},
@@ -545,14 +548,39 @@ void TasksPanel::setGoalActive(int tab_index, bool active)
 {
   auto & state = tab_states_[tab_index];
   state.goal_active = active;
-  state.execute_btn->setEnabled(!active);
   state.cancel_btn->setEnabled(active);
+
   if (active) {
+    active_task_tab_ = tab_index;
     state.feedback_display->clear();
     state.result_display->clear();
     state.status_label->setText("Running...");
     state.status_label->setStyleSheet("color: blue;");
+    setTabStatusColor(tab_index, Qt::blue);
+  } else {
+    active_task_tab_ = -1;
   }
+
+  // Disable all Execute buttons while any task is running
+  for (size_t i = 0; i < tab_states_.size(); ++i) {
+    tab_states_[i].execute_btn->setEnabled(active_task_tab_ == -1);
+  }
+}
+
+void TasksPanel::setTabStatusColor(int tab_index, const QColor & color)
+{
+  tab_widget_->tabBar()->setTabTextColor(tab_index, color);
+  // Create a small colored icon as a visual border/indicator
+  // TODO: replace this with icons later to denote state more clearly (e.g. clock for running, green check for success, red X for failure)
+  QPixmap px(12, 4);
+  px.fill(color);
+  tab_widget_->setTabIcon(tab_index, QIcon(px));
+}
+
+void TasksPanel::clearTabStatusColor(int tab_index)
+{
+  tab_widget_->tabBar()->setTabTextColor(tab_index, QColor());
+  tab_widget_->setTabIcon(tab_index, QIcon());
 }
 
 QString TasksPanel::currentRobot() const
@@ -586,6 +614,10 @@ void TasksPanel::doSendGoal(
     return;
   }
 
+  // Reset all tab colors from previous task results
+  for (size_t i = 0; i < tab_states_.size(); ++i) {
+    clearTabStatusColor(static_cast<int>(i));
+  }
   setGoalActive(tab_index, true);
 
   auto send_goal_options = typename rclcpp_action::Client<ActionT>::SendGoalOptions();
@@ -616,35 +648,42 @@ void TasksPanel::doSendGoal(
       QString result_text;
       QString status_text;
       QString color;
+      QColor tab_color;
 
       switch (wrapped_result.code) {
         case rclcpp_action::ResultCode::SUCCEEDED:
           result_text = fmt_result(wrapped_result.result);
           status_text = "Succeeded";
-          color = "color: green;";
+          color = "color: darkGreen;";
+          tab_color = Qt::darkGreen;
           break;
         case rclcpp_action::ResultCode::ABORTED:
           result_text = fmt_result(wrapped_result.result);
           status_text = "Aborted";
           color = "color: red;";
+          tab_color = Qt::red;
           break;
         case rclcpp_action::ResultCode::CANCELED:
           result_text = "Goal canceled";
           status_text = "Canceled";
           color = "color: orange;";
+          tab_color = QColor("orange");
           break;
         default:
           result_text = "Unknown result";
           status_text = "Unknown";
           color = "color: gray;";
+          tab_color = Qt::gray;
           break;
       }
 
-      QMetaObject::invokeMethod(this, [this, tab_index, result_text, status_text, color]() {
+      QMetaObject::invokeMethod(this, [this, tab_index, result_text, status_text, color,
+                                        tab_color]() {
         auto & state = tab_states_[tab_index];
         state.result_display->setText(result_text);
         state.status_label->setText(status_text);
         state.status_label->setStyleSheet(color);
+        setTabStatusColor(tab_index, tab_color);
         setGoalActive(tab_index, false);
       }, Qt::QueuedConnection);
     };
@@ -673,7 +712,7 @@ void TasksPanel::onExecuteClicked()
 {
   int idx = tab_widget_->currentIndex();
   if (idx < 0 || idx >= static_cast<int>(tab_states_.size())) {return;}
-  if (tab_states_[idx].goal_active) {return;}
+  if (active_task_tab_ >= 0) {return;}  // only one task at a time
 
   switch (idx) {
     case 0: {  // Takeoff
