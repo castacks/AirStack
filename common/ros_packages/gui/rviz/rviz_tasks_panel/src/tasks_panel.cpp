@@ -5,7 +5,6 @@
 
 #include <QHeaderView>
 #include <QMetaObject>
-#include <QPixmap>
 #include <QTabBar>
 #include <QTime>
 #include <pluginlib/class_list_macros.hpp>
@@ -126,6 +125,7 @@ void TasksPanel::onInitialize()
 
   // Tab widget
   tab_widget_ = new QTabWidget();
+  tab_widget_->setFont(QFont("Noto Sans", 10));
   main_layout->addWidget(tab_widget_);
 
   setLayout(main_layout);
@@ -556,7 +556,7 @@ void TasksPanel::setGoalActive(int tab_index, bool active)
     state.result_display->clear();
     state.status_label->setText("Running...");
     state.status_label->setStyleSheet("color: blue;");
-    setTabStatusColor(tab_index, Qt::blue);
+    setTabStatus(tab_index, QString::fromUtf8(u8"⏳"), Qt::blue); 
   } else {
     active_task_tab_ = -1;
   }
@@ -567,20 +567,18 @@ void TasksPanel::setGoalActive(int tab_index, bool active)
   }
 }
 
-void TasksPanel::setTabStatusColor(int tab_index, const QColor & color)
+void TasksPanel::setTabStatus(int tab_index, const QString & icon, const QColor & text_color)
 {
-  tab_widget_->tabBar()->setTabTextColor(tab_index, color);
-  // Create a small colored icon as a visual border/indicator
-  // TODO: replace this with icons later to denote state more clearly (e.g. clock for running, green check for success, red X for failure)
-  QPixmap px(12, 4);
-  px.fill(color);
-  tab_widget_->setTabIcon(tab_index, QIcon(px));
+  tab_widget_->tabBar()->setTabTextColor(tab_index, text_color);
+  const auto & def = task_defs_[tab_index];
+  tab_widget_->setTabText(tab_index, icon + " " + QString::fromStdString(def.display_name));
 }
 
-void TasksPanel::clearTabStatusColor(int tab_index)
+void TasksPanel::clearTabStatus(int tab_index)
 {
   tab_widget_->tabBar()->setTabTextColor(tab_index, QColor());
-  tab_widget_->setTabIcon(tab_index, QIcon());
+  const auto & def = task_defs_[tab_index];
+  tab_widget_->setTabText(tab_index, QString::fromStdString(def.display_name));
 }
 
 QString TasksPanel::currentRobot() const
@@ -616,7 +614,7 @@ void TasksPanel::doSendGoal(
 
   // Reset all tab colors from previous task results
   for (size_t i = 0; i < tab_states_.size(); ++i) {
-    clearTabStatusColor(static_cast<int>(i));
+    clearTabStatus(static_cast<int>(i));
   }
   setGoalActive(tab_index, true);
 
@@ -648,42 +646,47 @@ void TasksPanel::doSendGoal(
       QString result_text;
       QString status_text;
       QString color;
-      QColor tab_color;
+      QString tab_icon;
+      QColor tab_text_color;
 
       switch (wrapped_result.code) {
         case rclcpp_action::ResultCode::SUCCEEDED:
           result_text = fmt_result(wrapped_result.result);
           status_text = "Succeeded";
           color = "color: darkGreen;";
-          tab_color = Qt::darkGreen;
+          tab_icon = QString::fromUtf8(u8"✅");
+          tab_text_color = Qt::darkGreen;
           break;
         case rclcpp_action::ResultCode::ABORTED:
           result_text = fmt_result(wrapped_result.result);
           status_text = "Aborted";
           color = "color: red;";
-          tab_color = Qt::red;
+          tab_icon = QString::fromUtf8(u8"❌");
+          tab_text_color = Qt::red;
           break;
         case rclcpp_action::ResultCode::CANCELED:
           result_text = "Goal canceled";
           status_text = "Canceled";
           color = "color: orange;";
-          tab_color = QColor("orange");
+          tab_icon = QString::fromUtf8(u8"🚫");
+          tab_text_color = QColor("orange");
           break;
         default:
           result_text = "Unknown result";
           status_text = "Unknown";
           color = "color: gray;";
-          tab_color = Qt::gray;
+          tab_icon = "?";
+          tab_text_color = Qt::gray;
           break;
       }
 
       QMetaObject::invokeMethod(this, [this, tab_index, result_text, status_text, color,
-                                        tab_color]() {
+                                        tab_icon, tab_text_color]() {
         auto & state = tab_states_[tab_index];
         state.result_display->setText(result_text);
         state.status_label->setText(status_text);
         state.status_label->setStyleSheet(color);
-        setTabStatusColor(tab_index, tab_color);
+        setTabStatus(tab_index, tab_icon, tab_text_color);
         setGoalActive(tab_index, false);
       }, Qt::QueuedConnection);
     };

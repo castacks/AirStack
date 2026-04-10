@@ -152,8 +152,8 @@ private:
   void doCancelGoal(int tab_index);
 
   void setGoalActive(int tab_index, bool active);
-  void setTabStatusColor(int tab_index, const QColor & color);
-  void clearTabStatusColor(int tab_index);
+  void setTabStatus(int tab_index, const QString & icon, const QColor & text_color);
+  void clearTabStatus(int tab_index);
   QString currentRobot() const;
 };
 
