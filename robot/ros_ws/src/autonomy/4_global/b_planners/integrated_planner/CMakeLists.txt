@@ -236,6 +236,27 @@ ament_target_dependencies(frame_fix_node
   tf2_geometry_msgs
 )
 
+add_executable(frame_fix_lidar_node 
+  src/model_ai_framefix_lidar.cpp)
+
+target_include_directories(frame_fix_lidar_node
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+ament_target_dependencies(frame_fix_lidar_node
+  rclcpp
+  rclcpp_action
+  std_msgs
+  std_srvs
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_eigen
+  tf2_geometry_msgs
+)
+
 add_executable(model_ai_px4_test 
   src/model_ai_px4_test.cpp)
 
@@ -267,6 +288,7 @@ install(TARGETS
   odom_tf_node
   odom_tf_lidar_node
   frame_fix_node
+  frame_fix_lidar_node
   model_ai_px4_test
   DESTINATION lib/${PROJECT_NAME}
 )

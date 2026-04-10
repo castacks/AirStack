@@ -4,10 +4,12 @@
   </node>
 
   <node pkg="integrated_planner" exec="odom_tf_lidar_node" name="odom_tf_lidar_node" output="screen"/>
-  <!-- <node pkg="integrated_planner" exec="frame_fix_node" name="frame_fix_node" output="screen" emulate_tty="true"/> -->
+  <node pkg="integrated_planner" exec="frame_fix_lidar_node" name="frame_fix_lidar_node" output="screen" emulate_tty="true"/>
   <node pkg="integrated_planner" exec="goal_planner_node" name="goal_planner_node" output="screen" emulate_tty="true">
     <param from="$(find-pkg-share integrated_planner)/config/modelai_config.yaml" />
   </node>
+
+  <node pkg="tf2_ros" exec="static_transform_publisher" name="px4_to_superodom_lidar" args="0 0 0 0.1800308 -0.1800308 0.6838047 -0.6838047 map superodom_map"/>
 
   <node pkg="pid_path_tracker" exec="pid_path_tracker_px4" output="screen">
     <param name="target_frame" value="base_link" />

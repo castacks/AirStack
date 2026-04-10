@@ -22,42 +22,58 @@ public:
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/mocap_odom_processed", 10);
+        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/lidar_odom_processed", 10);
         px4_odom_pub_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>("/fmu/in/vehicle_visual_odometry", 10);
 
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/lidar_odom",
+            "/laser_odometry",
             rclcpp::QoS(rclcpp::KeepLast(50)).best_effort(),
             std::bind(&OdomToTfLidarNode::odomCallback, this, std::placeholders::_1));
 
-        // Extrinsic calibration: odom source rigid body → IMU (FLU)
-        Eigen::Matrix4d mat;
-        mat << 0.99923, 0.03749, -0.01151, 0.00900,
-            -0.03744, 0.99929, 0.00403, 0.00115,
-            0.01166, -0.00360, 0.99993, 0.01700,
-            0.00000, 0.00000, 0.00000, 1.00000;
-        Eigen::Isometry3d T_odom_source_to_imu_flu = Eigen::Isometry3d(mat);
+        // Extrinsic: odom source Lidar pose (tilted, x left) → Lidar pose (tilted, x front)
+        Eigen::Matrix4d mat1;
+        mat1 << 0.0, -1.0, 0.0, 0.0,
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0;
+        
+        Eigen::Matrix4d mat2;
+        mat2 << 0.8703557, 0.0, -0.4924236, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.4924236, 0.0, 0.8703557, 0.0,
+            0.0, 0.0, 0.0, 1.0;
+        
+        Eigen::Matrix4d mat3;
+        mat3 << 1.0, 0.0, 0.0, -0.01315,
+            0.0, 1.0, 0.0, 0.01100,
+            0.0, 0.0, 1.0, 0.01047,
+            0.0, 0.0, 0.0, 1.0;
+        
+        T_superodom_lidarodom_to_imu_frd = Eigen::Isometry3d(mat1 * mat2 * mat3);
 
-        // FLU ↔ FRD flip: diag(1, -1, -1)
-        mat << 1.0, 0.0, 0.0, 0.0,
-            0.0, -1.0, 0.0, 0.0,
-            0.0, 0.0, -1.0, 0.0,
+        mat1 << 0.8703557, 0.0, 0.4924236, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            -0.4924236, 0.0, 0.8703557, 0.0,
+            0.0, 0.0, 0.0, 1.0;
+        
+        mat2 << 0.0, 1.0, 0.0, 0.0,
+            -1.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0;
 
-        T_px4_local_to_odom_world_ = Eigen::Isometry3d(mat);
-        Eigen::Isometry3d T_imu_flu_to_imu_frd = Eigen::Isometry3d(mat);
-
-        T_odom_source_to_imu_frd_ = T_odom_source_to_imu_flu * T_imu_flu_to_imu_frd;
+        T_px4_local_to_superodom_lidar_mapinit = Eigen::Isometry3d(mat1 * mat2);
     }
 
 private:
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
-        Eigen::Isometry3d T_odom_world_to_odom_source;
-        tf2::fromMsg(msg->pose.pose, T_odom_world_to_odom_source);
+        Eigen::Isometry3d T_superodom_lidar_mapinit_to_superodom_lidarodom;
+        tf2::fromMsg(msg->pose.pose, T_superodom_lidar_mapinit_to_superodom_lidarodom);
 
         Eigen::Isometry3d T_px4_local_to_imu_frd =
-            T_px4_local_to_odom_world_ * T_odom_world_to_odom_source * T_odom_source_to_imu_frd_;
+            T_px4_local_to_superodom_lidar_mapinit * 
+            T_superodom_lidar_mapinit_to_superodom_lidarodom * 
+            T_superodom_lidarodom_to_imu_frd;
 
         ////////////////////////////////////////////////////////////////
         // TF for vdb mapping
@@ -132,9 +148,9 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
     rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr px4_odom_pub_;
 
-    Eigen::Isometry3d T_odom_source_to_imu_frd_;
+    Eigen::Isometry3d T_superodom_lidarodom_to_imu_frd;
     // PX4 local (FRD/NED-like) ↔ odom world (FLU)
-    Eigen::Isometry3d T_px4_local_to_odom_world_;
+    Eigen::Isometry3d T_px4_local_to_superodom_lidar_mapinit;
 };
 
 int main(int argc, char **argv)
