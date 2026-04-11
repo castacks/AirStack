@@ -25,7 +25,7 @@ class GimbalStabilizerNode(Node):
         self.joint_command.name = ["yaw_joint","roll_joint", "pitch_joint"]
         self.joint_command.position = [0.0, 0.0, 0.0]
         self.desired_yaw = 0.0
-        self.desired_pitch = 0.0
+        self.desired_pitch = 60.0
 
     def yaw_callback(self, msg):
         self.desired_yaw = msg.data
@@ -63,7 +63,24 @@ class GimbalStabilizerNode(Node):
         ]
 
         # Convert quaternion to Euler angles (roll, pitch, yaw)
-        # roll, pitch, yaw = quat2euler(quaternion, axes='sxyz')
+        # Manual quaternion (w, x, y, z) -> euler (roll, pitch, yaw) conversion without external library
+        w, x, y, z = quaternion
+        # roll (x-axis rotation)
+        sinr_cosp = 2.0 * (w * x + y * z)
+        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+        roll = math.atan2(sinr_cosp, cosr_cosp)
+
+        # pitch (y-axis rotation)
+        sinp = 2.0 * (w * y - z * x)
+        if abs(sinp) >= 1:
+            pitch = math.copysign(math.pi / 2, sinp)  # use 90 degrees if out of range
+        else:
+            pitch = math.asin(sinp)
+
+        # yaw (z-axis rotation)
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
         
         # Inverse the drone angles to stabilize the gimbal
         # self.joint_command.position[0] = -roll  # roll joint
@@ -71,7 +88,7 @@ class GimbalStabilizerNode(Node):
         # self.joint_command.position[2] = -yaw  # yaw joint
 
         self.joint_command.position[0] = -self.desired_yaw/180*3.14  # yaw joint
-        self.joint_command.position[1] = -0.0/180*3.14  # roll joint
+        self.joint_command.position[1] = roll  # roll joint
         self.joint_command.position[2] = self.desired_pitch/180*3.14  # pitch joint
         self.joint_command.velocity = [float('nan'), float('nan'), float('nan')]
         # self.joint_command.velocity = [-1.0, -1.0, -1.0]

@@ -14,6 +14,8 @@ services:
     # for some reason the tmux session manager only works when isaac is running in tmux
     command: >
       bash -c "
+      apt update;
+      apt install -y ros-humble-vision-msgs;
       tmux new -d -s isaac;
       autolaunch=${AUTOLAUNCH};
       if [ $$autolaunch = 'true' ]; then

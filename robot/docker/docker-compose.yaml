@@ -16,6 +16,7 @@ services:
       dockerfile: ./Dockerfile.robot
       args:
         BASE_IMAGE: ubuntu:22.04
+        SKIP_MACVO: true
       tags:
         - *desktop_image
     # we use tmux send-keys so that the session stays alive
@@ -24,8 +25,9 @@ services:
       service ssh restart;
       tmux new -d -s robot_bringup;
       autolaunch=${AUTOLAUNCH};
-      if [ $$autolaunch = 'true' ]; then
-        tmux send-keys -t robot_bringup 'bws && sws && ros2 launch ${ROBOT_LAUNCH_PACKAGE} ${ROBOT_LAUNCH_FILE}' ENTER;
+      if [ $$autolaunch == 'true' ]; then
+        tmux new -d -s robot_bringup;
+        tmux send-keys -t robot_bringup 'bws && sws' ENTER;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet

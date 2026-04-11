@@ -89,6 +89,7 @@
 
     </node>
 
+    <?ignore
     <node pkg="pid_controller" exec="pid_controller" namespace="control" output="screen">
       <param name="target_frame" value="base_link_stabilized" />
 
@@ -151,6 +152,12 @@
       <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
       <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
     </node>
+    ?>
+
+  <!-- Pose hold bridge: forwards tracking_point as position setpoint after takeoff -->
+  <node pkg="mavros_interface" exec="pose_hold_bridge.py" output="screen">
+    <param name="publish_rate" value="1.0" />
+  </node>
 
   <?ignore
   <node pkg="rviz2" exec="rviz2"
