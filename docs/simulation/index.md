@@ -86,7 +86,7 @@ An open-source drone simulator built on Unreal Engine with native PX4 SITL integ
 - Depth-based obstacle avoidance testing (DROAN)
 - Environments from the Unreal Engine ecosystem
 
-**Launch:** Set `SIM_IP=172.31.0.201` in `.env`, then `docker compose --profile ms-airsim --profile desktop up`
+**Launch:** `airstack up --env-file overrides/ms-airsim.env`
 
 **Location:** `simulation/ms-airsim/`
 

@@ -69,8 +69,9 @@ The container runs `entrypoint.sh`, which:
 | `AUTOLAUNCH` | `true` | Auto-start on container launch |
 | `MS_AIRSIM_BINARY_PATH` | `/ms-airsim-env/Blocks.sh` | Path to UE4 binary inside container |
 | `MS_AIRSIM_ENV_DIR` | `../environments` | Host path to extracted UE4 environment |
+| `MS_AIRSIM_HEADLESS` | `false` | Run UE4 without a window (`-RenderOffScreen -nosound`) |
 | `NUM_ROBOTS` | `1` | Number of vehicles and PX4 SITL instances |
-| `SIM_IP` | *(set in `.env`)* | Must be `172.31.0.201` for Microsoft AirSim (legacy) |
+| `SIM_IP` | `172.31.0.200` | Simulator IP on `airstack_network` |
 
 **Camera template variables** (override in `.env` to regenerate `settings.json`):
 
@@ -88,8 +89,11 @@ The container runs `entrypoint.sh`, which:
 **Example overrides:**
 
 ```bash
-# Headless launch with two robots
+# Two robots
 NUM_ROBOTS=2 airstack up --profile ms-airsim
+
+# Headless (no GUI, uses UE4's -RenderOffScreen)
+MS_AIRSIM_HEADLESS=true airstack up --profile ms-airsim
 
 # Custom environment binary
 MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron.sh airstack up --profile ms-airsim
@@ -117,11 +121,8 @@ NUM_ROBOTS=2 python3 generate_settings.py
 **Network configuration:**
 
 - **Network:** `airstack_network` (172.31.0.0/24)
-- **Fixed IP:** 172.31.0.201
+- **Fixed IP:** 172.31.0.200
 - **Purpose:** Communicate with robot containers via ROS 2 DDS and MAVLink UDP
-
-!!! note
-    Microsoft AirSim (legacy) uses `172.31.0.201` (Isaac Sim uses `172.31.0.200`). Only one simulator should be active at a time. Set `SIM_IP=172.31.0.201` in `.env` when using Microsoft AirSim (legacy).
 
 **Port usage:**
 
@@ -312,7 +313,7 @@ AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
 
 **MAVROS won't connect (robot container):**
 
-- Verify `SIM_IP=172.31.0.201` is set in `.env`
+- Verify `SIM_IP=172.31.0.200` is set in `.env`
 - Ensure PX4 SITL has started (look for `[mavlink]` output in the PX4 tmux window)
 - Check MAVLink ports match: offboard `24541+i`, onboard `24581+i`
 
@@ -320,7 +321,7 @@ AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
 
 - Verify the camera names in `settings.json` match those in `bridge.yaml`
 - Check bridge node output for connection errors (tmux bridge window)
-- Echo the topic: `ros2 topic echo /robot_1/sensors/front_camera/depth --once`
+- Echo the topic: `ros2 topic echo /robot_1/sensors/front_stereo/depth --once`
 
 **ROS 2 topics not visible from robot container:**
 

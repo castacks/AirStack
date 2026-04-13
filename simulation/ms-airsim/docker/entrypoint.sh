@@ -3,6 +3,7 @@ set -e
 
 NUM_ROBOTS="${NUM_ROBOTS:-1}"
 MS_AIRSIM_BINARY_PATH="${MS_AIRSIM_BINARY_PATH:-/ms-airsim-env/LinuxNoEditor/Blocks.sh}"
+MS_AIRSIM_HEADLESS="${MS_AIRSIM_HEADLESS:-false}"
 
 # Generate settings.json from template
 python3 /home/ms-airsim/Documents/AirSim/generate_settings.py
@@ -10,8 +11,12 @@ python3 /home/ms-airsim/Documents/AirSim/generate_settings.py
 # Start tmux session
 tmux new -d -s ms-airsim
 
-# Launch Microsoft AirSim (legacy) UE4 binary
-tmux send-keys -t ms-airsim "sudo -u ms-airsim $MS_AIRSIM_BINARY_PATH" ENTER
+# Launch Microsoft AirSim (legacy) UE4 binary (optionally headless via -RenderOffScreen)
+UE4_FLAGS=""
+if [ "$MS_AIRSIM_HEADLESS" = "true" ]; then
+    UE4_FLAGS="-RenderOffScreen -nosound"
+fi
+tmux send-keys -t ms-airsim "sudo -u ms-airsim $MS_AIRSIM_BINARY_PATH $UE4_FLAGS" ENTER
 
 # Wait for AirSim API to be ready
 python3 -c "
