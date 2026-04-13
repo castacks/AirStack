@@ -208,17 +208,110 @@ void WaypointManager::removeWaypoint(int idx)
   auto it = node_map_.find(idx);
   if (it == node_map_.end()) { return; }
 
+  // Destroy the scene node for the deleted waypoint
   it->second->detachAllObjects();
   scene_manager_->destroySceneNode(it->second);
 
   std::stringstream wp_name;
   wp_name << kWaypointPrefix << idx;
   server_->erase(wp_name.str());
-  server_->applyChanges();
-
   node_map_.erase(it);
 
+  // Reorder: rebuild node_map_ with sequential 1-based keys and rename
+  // interactive markers so there are no gaps.
+  reorderWaypoints();
+
+  server_->applyChanges();
+
+  // Set unique_idx_ so the next added waypoint gets the right number
+  unique_idx_ = node_map_.empty() ? 0 : node_map_.rbegin()->first;
+
   Q_EMIT waypointCountChanged(static_cast<int>(node_map_.size()));
+}
+
+void WaypointManager::reorderWaypoints()
+{
+  // Collect entries in current order (std::map iterates by key, ascending)
+  std::vector<std::pair<int, Ogre::SceneNode *>> entries(
+    node_map_.begin(), node_map_.end());
+
+  // Erase all interactive markers from the server (but keep scene nodes alive)
+  for (const auto & [old_idx, node_ptr] : entries) {
+    std::stringstream old_name;
+    old_name << kWaypointPrefix << old_idx;
+    server_->erase(old_name.str());
+  }
+
+  // Rebuild node_map_ with sequential 1-based keys
+  node_map_.clear();
+  for (size_t i = 0; i < entries.size(); ++i) {
+    int new_idx = static_cast<int>(i) + 1;
+    Ogre::SceneNode * node_ptr = entries[i].second;
+    node_map_[new_idx] = node_ptr;
+
+    // Re-create the interactive marker with the new name
+    std::stringstream new_name;
+    new_name << kWaypointPrefix << new_idx;
+    std::string str_name = new_name.str();
+
+    Ogre::Vector3 pos = node_ptr->getPosition();
+    Ogre::Quaternion quat = node_ptr->getOrientation();
+
+    visualization_msgs::msg::InteractiveMarker int_marker;
+    int_marker.header.stamp = node_->now();
+    {
+      std::lock_guard<std::mutex> lock(mtx_);
+      int_marker.header.frame_id = frame_id_;
+    }
+    int_marker.pose.position.x = pos.x;
+    int_marker.pose.position.y = pos.y;
+    int_marker.pose.position.z = pos.z;
+    int_marker.pose.orientation.x = quat.x;
+    int_marker.pose.orientation.y = quat.y;
+    int_marker.pose.orientation.z = quat.z;
+    int_marker.pose.orientation.w = quat.w;
+    int_marker.scale = 1.0;
+    int_marker.name = str_name;
+
+    // Invisible cylinder for picking
+    visualization_msgs::msg::Marker marker;
+    marker.type = visualization_msgs::msg::Marker::CYLINDER;
+    marker.scale.x = 0.5;
+    marker.scale.y = 0.5;
+    marker.scale.z = 0.1;
+    marker.color.a = 0.0;
+
+    visualization_msgs::msg::InteractiveMarkerControl c_control;
+    c_control.always_visible = true;
+    c_control.markers.push_back(marker);
+    int_marker.controls.push_back(c_control);
+
+    visualization_msgs::msg::InteractiveMarkerControl control;
+    control.orientation.w = 0.707106781;
+    control.orientation.x = 0;
+    control.orientation.y = 0.707106781;
+    control.orientation.z = 0;
+    control.interaction_mode =
+      visualization_msgs::msg::InteractiveMarkerControl::MOVE_ROTATE;
+    int_marker.controls.push_back(control);
+
+    control.interaction_mode =
+      visualization_msgs::msg::InteractiveMarkerControl::MOVE_AXIS;
+    int_marker.controls.push_back(control);
+
+    control.interaction_mode =
+      visualization_msgs::msg::InteractiveMarkerControl::MENU;
+    control.name = "menu_delete";
+    control.description = str_name;
+    int_marker.controls.push_back(control);
+
+    server_->insert(int_marker);
+    server_->setCallback(
+      int_marker.name,
+      std::bind(&WaypointManager::processFeedback, this,
+                std::placeholders::_1));
+    menu_handler_.apply(*server_, int_marker.name);
+  }
 }
 
 void WaypointManager::clearAll()
@@ -494,18 +587,36 @@ void WaypointManager::processFeedback(
 
       if (feedback->menu_entry_id == 1) {
         // delete
+        node_entry->second->detachAllObjects();
+        scene_manager_->destroySceneNode(node_entry->second);
+
         std::stringstream wp_name;
         wp_name << kWaypointPrefix << node_entry->first;
         server_->erase(wp_name.str());
-        menu_handler_.reApply(*server_);
-        server_->applyChanges();
-        node_entry->second->detachAllObjects();
-        scene_manager_->destroySceneNode(node_entry->second);
         node_map_.erase(node_entry);
+
+        reorderWaypoints();
+        server_->applyChanges();
+
+        unique_idx_ = node_map_.empty() ? 0 : node_map_.rbegin()->first;
 
         Q_EMIT waypointCountChanged(static_cast<int>(node_map_.size()));
       } else {
-        // "set manual" – noop for now, marker stays at current spinbox pose
+        // "set manual" – select this marker for editing in the Navigate panel
+        selected_marker_name_ = feedback->marker_name;
+
+        Ogre::Vector3 position = node_entry->second->getPosition();
+        Ogre::Quaternion quaternion = node_entry->second->getOrientation();
+
+        tf2::Quaternion qt(quaternion.x, quaternion.y, quaternion.z,
+                           quaternion.w);
+        tf2::Matrix3x3 m(qt);
+        double roll, pitch, yaw;
+        m.getRPY(roll, pitch, yaw);
+
+        Q_EMIT selectedMarkerChanged(
+          QString::fromStdString(feedback->marker_name),
+          position.x, position.y, position.z, yaw);
       }
       break;
     }

@@ -99,6 +99,10 @@ private:
   void processFeedback(
     const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr & feedback);
 
+  /** Rebuild node_map_ with sequential 1-based keys and rename interactive
+   *  markers so there are no gaps after a deletion. */
+  void reorderWaypoints();
+
   bool initialized_{false};
   rclcpp::Node::SharedPtr node_;
   rviz_common::DisplayContext * context_{nullptr};
