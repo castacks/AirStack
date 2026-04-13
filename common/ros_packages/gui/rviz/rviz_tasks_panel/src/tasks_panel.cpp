@@ -22,7 +22,7 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
   // default, min, max
   return {
     {"Takeoff", "tasks/takeoff", {
-      {"target_altitude_m", "float32", 5.0, 0.0, 500.0},
+      {"target_altitude_m", "float32", 10.0, 0.0, 500.0},
       {"velocity_m_s", "float32", 1.0, 0.0, 50.0},
     }},
     {"Land", "tasks/land", {
