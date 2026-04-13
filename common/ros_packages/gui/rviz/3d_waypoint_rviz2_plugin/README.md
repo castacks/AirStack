@@ -1,32 +1,54 @@
 # 3D Waypoint RViz2 Plugin
 
-An interactive RViz2 plugin for ROS2 Humble (and above) that allows users to create, manipulate, and manage 3D waypoints directly in the RViz2 visualization environment.
+An interactive RViz2 tool plugin for creating, manipulating, and managing 3D waypoints directly in the RViz2 viewport. Waypoint state is managed by a shared `WaypointManager` singleton so that both this tool (3D interaction) and the Tasks Panel's Navigate tab (UI controls) operate on the same data.
 
 <img width="899" height="664" alt="image" src="https://github.com/user-attachments/assets/655d8e5d-ee15-4daa-aff8-b45f28d3403a" />
 
+## Architecture
 
+```
+ WaypointTool (rviz_common::Tool)        Tasks Panel Navigate tab
+   mouse click in 3D viewport              UI: height, X/Y/Z/Yaw,
+         |                                 Clear, Save, Load, Execute
+         v                                        |
+     +------------------------------------------+
+     |          WaypointManager (singleton)      |
+     |                                          |
+     |  - InteractiveMarkerServer               |
+     |  - Ogre SceneNode map (waypoint visuals) |
+     |  - add / remove / clear / reorder        |
+     |  - save / load (.db3 bag files)          |
+     |  - getPath() -> nav_msgs/Path            |
+     |  - Qt signals for UI updates             |
+     +------------------------------------------+
+```
+
+- **WaypointTool** (`rviz_common::Tool`) -- handles mouse events in the 3D viewport. Left-click to add, right-click near an existing waypoint to delete. Delegates all state to `WaypointManager`.
+- **WaypointManager** (`QObject` singleton) -- owns all waypoint state: the interactive marker server, the Ogre scene nodes, persistence, and publishing. Emits Qt signals (`waypointCountChanged`, `selectedMarkerChanged`, `waypointsCleared`) so external UI can stay in sync.
+- The **Tasks Panel** (separate `rviz_tasks_panel` package) holds a `shared_ptr` to the same `WaypointManager` instance and provides the full control UI in its Navigate tab.
 
 ## Features
 
 - **Interactive Waypoint Creation**: Click to add waypoints at any position in the 3D environment
-- **3D Manipulation**: Drag and move waypoints using interactive markers
-- **Orientation Control**: Set and adjust waypoint orientation (yaw angle)
-- **Visual Feedback**: Real-time visual representation of waypoints with axis indicators
+- **3D Manipulation**: Drag and move waypoints using interactive markers (MOVE_ROTATE, MOVE_AXIS)
+- **Orientation Control**: Set and adjust waypoint yaw via interactive markers or Navigate tab spinboxes
+- **Visual Feedback**: Real-time axis indicator meshes at each waypoint
 - **Waypoint Management**:
   - Add waypoints with left-click
   - Delete waypoints with right-click or context menu
-  - Manually adjust position and orientation via UI controls
+  - "Set manual" context menu selects the waypoint for editing in the Navigate tab
+  - Automatic reordering after deletion (no gaps in numbering)
   - Clear all waypoints at once
-- **Data Persistence**: Save and load waypoint configurations using ROS2 bag files (.db3)
+- **Data Persistence**: Save and load waypoint configurations using ROS 2 bag files (.db3)
 - **Publishing**: Publish waypoints as `nav_msgs/msg/Path` messages
-- **Configurable**: Set default height, frame ID, and topic name
+- **Configurable**: Default height, frame ID, and topic name (persisted in RViz config)
 
 ## Requirements
 
-- ROS2 Humble or above
+- ROS 2 Jazzy (or Humble and above)
 - RViz2
 - Qt5
-- C++14 or higher
+- C++17
 
 ## Dependencies
 
@@ -46,86 +68,36 @@ An interactive RViz2 plugin for ROS2 Humble (and above) that allows users to cre
 
 ## Building
 
-1. Clone this repository into your ROS2 workspace:
 ```bash
-cd ~/ros2_ws/src
-git clone <repository-url> waypoint_rviz2_plugin
-```
-
-2. Install dependencies:
-```bash
-cd ~/ros2_ws
-rosdep install --from-paths src --ignore-src -r -y
-```
-
-3. Build the package:
-```bash
-cd ~/ros2_ws
 colcon build --packages-select waypoint_rviz2_plugin
-```
-
-4. Source the workspace:
-```bash
-source ~/ros2_ws/install/setup.bash
 ```
 
 ## Usage
 
-### Launching RViz2 with the Plugin
-
-```bash
-ros2 launch waypoint_rviz2_plugin rviz2.launch.py
-```
-
-Or start RViz2 manually:
-```bash
-rviz2
-```
-
-### Adding the Plugin to RViz2
+### Adding the Tool to RViz2
 
 1. Open RViz2
-2. Click on the "Panels" menu and select "Add New Panel"
-3. In the toolbar, click the "+" icon to add a new tool
-4. Select "waypoint_rviz2_plugin/WaypointTool" from the list
-5. The waypoint tool should now appear in the toolbar
+2. In the toolbar, click the "+" icon to add a new tool
+3. Select **waypoint_rviz2_plugin / WaypointTool** from the list
+4. The tool appears in the toolbar with keyboard shortcut **1**
 
-### Using the Plugin
+### Placing Waypoints
 
-1. **Select the Tool**: Click on the Waypoint Tool icon in the RViz2 toolbar (or press '1' as shortcut)
+1. **Select the Tool**: Click the Waypoint Tool icon or press **1**
+2. **Add Waypoints**: Left-click anywhere in the 3D view
+3. **Move Waypoints**: Add the interactive marker display (Add > By topic > `/waypoint_plugin/update/InteractiveMarkers`), then drag markers to reposition
+4. **Delete Waypoints**: Right-click near a waypoint, or use the context menu "delete"
+5. **Select for Editing**: Right-click a marker and choose "set manual" to select it in the Navigate tab
 
-2. **Add Waypoints**: 
-   - Left-click anywhere in the 3D view to place a waypoint
-   - An axis indicator will appear showing the waypoint position
+### Navigate Tab Controls (in Tasks Panel)
 
-3. **Move Waypoints**:
-   - In the Displays panel, make sure to click Add > By topic > /waypoint_plugin/update/InteractiveMarkers
-   - Click and drag the interactive markers to reposition waypoints
-   - Use the rotation controls on the markers to adjust orientation
+All waypoint management UI lives in the Tasks Panel's **Navigate** tab:
 
-5. **Delete Waypoints**:
-   - Right-click on a waypoint to delete it
-   - Or right-click on the interactive marker and select "delete" from the menu
-
-6. **Manual Adjustment**:
-   - Use the panel controls to manually set X, Y, Z position and Yaw orientation
-   - Select "set manual" from the marker context menu to apply manual changes
-
-7. **Configuration**:
-   - **Topic**: Set the topic name for publishing waypoints (default: `/waypoints`)
-   - **Frame**: Set the reference frame for waypoints (default: `map`)
-   - **Default Height**: Set the Z-height for new waypoints
-
-8. **Save/Load**:
-   - Click "Save Waypoints" to save current waypoints to a .db3 bag file
-   - Click "Load Waypoints" to load waypoints from a .db3 bag file
-
-9. **Publish**:
-   - Click "Publish Waypoints" to publish all waypoints as a `nav_msgs/msg/Path` message
-   - To visualize, in the Displays panel click Add > /waypoints > Path
-
-10. **Clear All**:
-   - Click "Clear All" to remove all waypoints from the scene
+- **Default Height** -- Z-height for newly placed waypoints
+- **X / Y / Z / Yaw spinboxes** -- edit the currently selected waypoint's pose
+- **Clear All** -- remove all waypoints
+- **Save / Load** -- persist waypoints to/from `.db3` bag files
+- **Waypoint count** and **selected waypoint** labels update in real time
 
 ### Listening to Published Waypoints
 
@@ -143,39 +115,16 @@ waypoint_rviz2_plugin/
 ├── README.md
 ├── include/
 │   └── waypoint_rviz2_plugin/
-│       ├── waypoint_tool.hpp
-│       └── waypoint_widget.hpp
+│       ├── waypoint_manager.hpp   # Shared singleton (state + operations)
+│       └── waypoint_tool.hpp      # RViz Tool (mouse events only)
 ├── src/
-│   ├── waypoint_tool.cpp
-│   └── waypoint_widget.cpp
-├── ui/
-│   └── waypoint_plugin.ui
+│   ├── waypoint_manager.cpp
+│   └── waypoint_tool.cpp
 ├── media/
-│   └── axis.dae
+│   └── axis.dae                   # 3D axis indicator mesh
 └── launch/
     └── rviz2.launch.py
 ```
-
-## Migration from ROS1
-
-This plugin is a port of the ROS1 Noetic waypoint plugin. Key changes include:
-
-- Updated to use `rclcpp` instead of `roscpp`
-- Updated to use `rviz_common` instead of `rviz`
-- Updated interactive markers API for ROS2
-- Changed from `rosbag` to `rosbag2_cpp` API
-- Updated TF library from `tf` to `tf2`
-- Changed plugin export macros for ROS2
-- Updated build system from `catkin` to `ament_cmake`
-
-## Known Issues
-
-- Saved bag files use the `.db3` format (SQLite3) instead of the ROS1 `.bag` format
-- The 6D checkbox in the UI is currently not implemented
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## License
 
@@ -183,10 +132,10 @@ Apache 2.0
 
 ## Credits
 
-Original ROS1 version by KoKoLates (the21515@gmail.com)
-ROS2 port for Humble and above
+Original ROS 1 version by KoKoLates (the21515@gmail.com).
+ROS 2 port and WaypointManager refactor for AirStack.
 
 ## References
 
-- [RViz2 Plugin Tutorial](https://docs.ros.org/en/humble/Tutorials/Advanced/RViz-Plugins.html)
-- [Interactive Markers](https://docs.ros.org/en/humble/Tutorials/Advanced/RViz/Interactive-Markers.html)
+- [RViz2 Plugin Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Advanced/RViz-Plugins.html)
+- [Interactive Markers](https://docs.ros.org/en/jazzy/Tutorials/Advanced/RViz/Interactive-Markers.html)
