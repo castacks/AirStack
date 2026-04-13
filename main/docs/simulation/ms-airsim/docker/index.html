@@ -5647,14 +5647,19 @@
 <td>Host path to extracted UE4 environment</td>
 </tr>
 <tr>
+<td><code>MS_AIRSIM_HEADLESS</code></td>
+<td><code>false</code></td>
+<td>Run UE4 without a window (<code>-RenderOffScreen -nosound</code>)</td>
+</tr>
+<tr>
 <td><code>NUM_ROBOTS</code></td>
 <td><code>1</code></td>
 <td>Number of vehicles and PX4 SITL instances</td>
 </tr>
 <tr>
 <td><code>SIM_IP</code></td>
-<td><em>(set in <code>.env</code>)</em></td>
-<td>Must be <code>172.31.0.201</code> for Microsoft AirSim (legacy)</td>
+<td><code>172.31.0.200</code></td>
+<td>Simulator IP on <code>airstack_network</code></td>
 </tr>
 </tbody>
 </table>
@@ -5711,11 +5716,14 @@
 </tbody>
 </table>
 <p><strong>Example overrides:</strong></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Headless launch with two robots</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Two robots</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">2</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Custom environment binary</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nv">MS_AIRSIM_ENV_DIR</span><span class="o">=</span>/data/airsim_envs<span class="w"> </span><span class="nv">MS_AIRSIM_BINARY_PATH</span><span class="o">=</span>/ms-airsim-env/CityEnviron.sh<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Headless (no GUI, uses UE4&#39;s -RenderOffScreen)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nv">MS_AIRSIM_HEADLESS</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Custom environment binary</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nv">MS_AIRSIM_ENV_DIR</span><span class="o">=</span>/data/airsim_envs<span class="w"> </span><span class="nv">MS_AIRSIM_BINARY_PATH</span><span class="o">=</span>/ms-airsim-env/CityEnviron.sh<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
 </span></code></pre></div>
 <h2 id="settings-generation">Settings Generation<a class="headerlink" href="#settings-generation" title="Permanent link">&para;</a></h2>
 <p>Microsoft AirSim (legacy) is configured via <code>settings.json</code>, which is generated from a Jinja2 template at container startup:</p>
@@ -5730,13 +5738,9 @@
 <p><strong>Network configuration:</strong></p>
 <ul>
 <li><strong>Network:</strong> <code>airstack_network</code> (172.31.0.0/24)</li>
-<li><strong>Fixed IP:</strong> 172.31.0.201</li>
+<li><strong>Fixed IP:</strong> 172.31.0.200</li>
 <li><strong>Purpose:</strong> Communicate with robot containers via ROS 2 DDS and MAVLink UDP</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Microsoft AirSim (legacy) uses <code>172.31.0.201</code> (Isaac Sim uses <code>172.31.0.200</code>). Only one simulator should be active at a time. Set <code>SIM_IP=172.31.0.201</code> in <code>.env</code> when using Microsoft AirSim (legacy).</p>
-</div>
 <p><strong>Port usage:</strong></p>
 <table>
 <thead>
@@ -5911,7 +5915,7 @@
 </ul>
 <p><strong>MAVROS won't connect (robot container):</strong></p>
 <ul>
-<li>Verify <code>SIM_IP=172.31.0.201</code> is set in <code>.env</code></li>
+<li>Verify <code>SIM_IP=172.31.0.200</code> is set in <code>.env</code></li>
 <li>Ensure PX4 SITL has started (look for <code>[mavlink]</code> output in the PX4 tmux window)</li>
 <li>Check MAVLink ports match: offboard <code>24541+i</code>, onboard <code>24581+i</code></li>
 </ul>
@@ -5919,7 +5923,7 @@
 <ul>
 <li>Verify the camera names in <code>settings.json</code> match those in <code>bridge.yaml</code></li>
 <li>Check bridge node output for connection errors (tmux bridge window)</li>
-<li>Echo the topic: <code>ros2 topic echo /robot_1/sensors/front_camera/depth --once</code></li>
+<li>Echo the topic: <code>ros2 topic echo /robot_1/sensors/front_stereo/depth --once</code></li>
 </ul>
 <p><strong>ROS 2 topics not visible from robot container:</strong></p>
 <ul>

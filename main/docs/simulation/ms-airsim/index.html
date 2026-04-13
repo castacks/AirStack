@@ -5221,9 +5221,10 @@
 <p>To build the images first:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>airstack<span class="w"> </span>image-build<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
 </span></code></pre></div>
-<p>The container runs two tmux windows:
+<p>The container runs <code>1 + 2*NUM_ROBOTS</code> tmux windows:
 - <strong>Window 0</strong>: AirSim binary (Unreal Engine rendering)
-- <strong>Window 1</strong>: ROS 2 bridge node (depth + camera_info publisher)</p>
+- <strong>Windows 1..N</strong>: one PX4 SITL instance per robot
+- <strong>Windows N+1..2N</strong>: one ROS 2 bridge node per robot (depth + stereo RGB + camera_info)</p>
 <p>To attach to the tmux session:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>airstack<span class="w"> </span>connect<span class="w"> </span>ms-airsim
 </span></code></pre></div>
@@ -5231,30 +5232,28 @@
 <iframe src="https://private-user-images.githubusercontent.com/4943471/574307425-90c3d9d0-f53a-46a6-a11d-f3690f682e51.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzU2NjY4NTIsIm5iZiI6MTc3NTY2NjU1MiwicGF0aCI6Ii80OTQzNDcxLzU3NDMwNzQyNS05MGMzZDlkMC1mNTNhLTQ2YTYtYTExZC1mMzY5MGY2ODJlNTEubXA0P1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDQwOCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA0MDhUMTY0MjMyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9YjM4NjEyODA5Nzg0MzY2ODNmZDlkYzlmODNmMmJhNzkwODA2YWViYjU3Nzc2YjA4ZDhiZThjY2MzNWUyYWViYSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.N11vdWatLn7F3mLDdctHIu3p9eZzO52M9oVnnjwW88M" allowfullscreen width="1920" height="500"></iframe>
 
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>┌──────────────────────┐     ┌──────────────────────┐
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>│  MS-AirSim Container │     │   Robot Container     │
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>│   (172.31.0.201)     │     │                       │
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>│                      │     │                       │
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>│  AirSim Binary       │     │  MAVROS ◄──── MAVLink UDP ────► PX4 SITL
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>│    │                 │     │    │                  │
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>│    ▼                 │     │    ▼                  │
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>│  PX4 SITL            │     │  Interface Layer      │
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>│    (TCP lockstep)    │     │    │                  │
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>│                      │     │    ▼                  │
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>│  Bridge Node ────────ROS 2 DDS────►  Perception    │
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>│    (depth +          │     │    │                  │
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>│     camera_info)     │     │    ▼                  │
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>│                      │     │  DROAN (disparity     │
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>│                      │     │   expansion + planner)│
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>└──────────────────────┘     └──────────────────────┘
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>         airstack_network (172.31.0.0/24)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>┌────────────────────────────────┐     ┌──────────────────────┐
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>│     MS-AirSim Container        │     │   Robot Container    │
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>│       (172.31.0.200)           │     │                      │
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>│                                │     │                      │
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>│   AirSim Binary (UE4)          │     │  MAVROS              │
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>│      ▲    │                    │     │    ▲                 │
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>│      │    │ TCP 4560+i         │     │    │                 │
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>│      │    ▼ (lockstep)         │     │    │                 │
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>│   PX4 SITL ×N ─── MAVLink UDP ─┼─────┼─► 24540+i/24580+i    │
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>│      ▲                         │     │    │                 │
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>│      │                         │     │    ▼                 │
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>│   Bridge Node ×N ─── ROS 2 DDS─┼─────┼─► Perception → DROAN │
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>│   (stereo RGB + depth + info)  │     │                      │
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>└────────────────────────────────┘     └──────────────────────┘
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>            airstack_network (172.31.0.0/24)
 </span></code></pre></div>
 <p><strong>Data flow:</strong></p>
 <ol>
-<li>Microsoft AirSim (legacy) simulates physics and renders depth images</li>
-<li>PX4 SITL runs in lockstep with AirSim via TCP (port 4560)</li>
-<li>Robot container connects to PX4 via MAVROS (UDP 14540/14580)</li>
-<li>Bridge node publishes depth + camera_info to ROS 2 topics</li>
+<li>AirSim simulates physics and renders stereo RGB + depth for each vehicle</li>
+<li>N PX4 SITL instances run in lockstep with AirSim via TCP (port <code>4560+i</code>)</li>
+<li>MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard <code>24540+i</code>, onboard <code>24580+i</code>)</li>
+<li>Bridge nodes (one per robot) publish stereo RGB + depth + camera_info to ROS 2 topics</li>
 <li><code>disparity_expansion</code> converts depth to disparity for DROAN</li>
 </ol>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
@@ -5287,29 +5286,61 @@
 </tr>
 <tr>
 <td><code>TcpPort</code></td>
-<td><code>4560</code></td>
-<td>PX4 lockstep connection</td>
+<td><code>4560 + i</code></td>
+<td>PX4 lockstep connection (per robot <code>i</code>)</td>
 </tr>
 <tr>
 <td><code>ControlPortLocal</code></td>
-<td><code>14540</code></td>
-<td>MAVLink offboard port</td>
+<td><code>24540 + i</code></td>
+<td>AirSim MAVLink proxy local port (moved off <code>14540+i</code> so it doesn't intercept PX4 ↔ MAVROS traffic)</td>
 </tr>
 <tr>
 <td><code>ControlPortRemote</code></td>
-<td><code>14580</code></td>
-<td>MAVLink onboard port</td>
+<td><code>24580 + i</code></td>
+<td>AirSim MAVLink proxy remote port</td>
 </tr>
 </tbody>
 </table>
-<h3 id="camera">Camera<a class="headerlink" href="#camera" title="Permanent link">&para;</a></h3>
-<p>The default configuration uses a single forward-facing depth camera:</p>
-<ul>
-<li>Resolution: 480x300</li>
-<li>FOV: 90 degrees</li>
-<li>Position: 20cm forward, 10cm up from body center</li>
-</ul>
-<p>To modify camera settings, edit <code>settings.json</code> under <code>Vehicles.drone1.Cameras.front_camera</code>.</p>
+<p><code>settings.json</code> is generated at container start from <a href="https://github.com/.../simulation/ms-airsim/config/settings.json.j2"><code>settings.json.j2</code></a> via <a href="https://github.com/.../simulation/ms-airsim/config/generate_settings.py"><code>generate_settings.py</code></a>, which expands per-robot port offsets, spawn positions, and camera parameters.</p>
+<h3 id="cameras">Cameras<a class="headerlink" href="#cameras" title="Permanent link">&para;</a></h3>
+<p>The default configuration is a forward-facing <strong>stereo pair</strong> (left + right) plus aligned depth:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Default</th>
+<th><code>.env</code> override</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Resolution</td>
+<td>480×300</td>
+<td><code>AIRSIM_CAM_WIDTH</code>, <code>AIRSIM_CAM_HEIGHT</code></td>
+</tr>
+<tr>
+<td>FOV</td>
+<td>110°</td>
+<td><code>AIRSIM_CAM_FOV</code></td>
+</tr>
+<tr>
+<td>Baseline (2 × Y offset)</td>
+<td>0.12 m</td>
+<td><code>AIRSIM_CAM_Y</code></td>
+</tr>
+<tr>
+<td>Forward (X) offset</td>
+<td>0.4 m</td>
+<td><code>AIRSIM_CAM_X</code></td>
+</tr>
+<tr>
+<td>Pitch</td>
+<td>0°</td>
+<td><code>AIRSIM_CAM_PITCH</code></td>
+</tr>
+</tbody>
+</table>
+<p>Cameras are defined per vehicle in the generated <code>settings.json</code> under <code>Vehicles.drone&lt;i&gt;.Cameras</code>.</p>
 <h3 id="bridge-node-parameters">Bridge node parameters<a class="headerlink" href="#bridge-node-parameters" title="Permanent link">&para;</a></h3>
 <p>Located at <code>simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.yaml</code>:</p>
 <table>
@@ -5324,27 +5355,22 @@
 <tr>
 <td><code>ms_airsim_ip</code></td>
 <td><code>127.0.0.1</code></td>
-<td>AirSim API address</td>
-</tr>
-<tr>
-<td><code>camera_name</code></td>
-<td><code>front_camera</code></td>
-<td>AirSim camera name</td>
-</tr>
-<tr>
-<td><code>vehicle_name</code></td>
-<td><code>drone1</code></td>
-<td>AirSim vehicle name</td>
+<td>AirSim API address (same container, so localhost)</td>
 </tr>
 <tr>
 <td><code>publish_rate</code></td>
 <td><code>15.0</code></td>
-<td>Depth publish rate (Hz)</td>
+<td>Camera / depth publish rate (Hz)</td>
 </tr>
 <tr>
 <td><code>robot_name</code></td>
 <td><code>robot_1</code></td>
-<td>ROS 2 topic namespace</td>
+<td>ROS 2 topic namespace (set per-instance by the entrypoint to <code>robot_&lt;i&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>clock_rate</code></td>
+<td><code>50.0</code></td>
+<td><code>/clock</code> publish rate (Hz)</td>
 </tr>
 </tbody>
 </table>
@@ -5361,7 +5387,7 @@
 <tr>
 <td><code>SIM_IP</code></td>
 <td><code>172.31.0.200</code></td>
-<td>Simulation container IP. Set to <code>172.31.0.201</code> for Microsoft AirSim (legacy)</td>
+<td>Simulation container IP</td>
 </tr>
 <tr>
 <td><code>MS_AIRSIM_ENV_DIR</code></td>
@@ -5386,31 +5412,37 @@
 </thead>
 <tbody>
 <tr>
-<td><code>/{robot_name}/sensors/front_camera/depth</code></td>
+<td><code>/{robot_name}/sensors/front_stereo/left/image_rect</code></td>
+<td><code>sensor_msgs/Image</code></td>
+<td>Left RGB image</td>
+</tr>
+<tr>
+<td><code>/{robot_name}/sensors/front_stereo/left/camera_info</code></td>
+<td><code>sensor_msgs/CameraInfo</code></td>
+<td>Left camera intrinsics</td>
+</tr>
+<tr>
+<td><code>/{robot_name}/sensors/front_stereo/right/image_rect</code></td>
+<td><code>sensor_msgs/Image</code></td>
+<td>Right RGB image</td>
+</tr>
+<tr>
+<td><code>/{robot_name}/sensors/front_stereo/right/camera_info</code></td>
+<td><code>sensor_msgs/CameraInfo</code></td>
+<td>Right camera intrinsics</td>
+</tr>
+<tr>
+<td><code>/{robot_name}/sensors/front_stereo/depth</code></td>
 <td><code>sensor_msgs/Image</code></td>
 <td>Depth image (32FC1, meters)</td>
 </tr>
 <tr>
-<td><code>/{robot_name}/sensors/front_camera/camera_info</code></td>
-<td><code>sensor_msgs/CameraInfo</code></td>
-<td>Camera intrinsics (P matrix)</td>
+<td><code>/clock</code></td>
+<td><code>rosgraph_msgs/Clock</code></td>
+<td>Simulation clock from AirSim</td>
 </tr>
 </tbody>
 </table>
-<h2 id="adding-stereo-cameras">Adding Stereo Cameras<a class="headerlink" href="#adding-stereo-cameras" title="Permanent link">&para;</a></h2>
-<p>To switch from depth-only to stereo (for full disparity-based DROAN), add a second camera to <code>settings.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">&quot;Cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;front_left&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">&quot;CaptureSettings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;ImageType&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Width&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">480</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Height&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;FOV_Degrees&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">90</span><span class="p">}],</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">&quot;X&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Y&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.06</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Z&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.1</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="p">},</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">&quot;front_right&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">&quot;CaptureSettings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;ImageType&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Width&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">480</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Height&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;FOV_Degrees&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">90</span><span class="p">}],</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">&quot;X&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Y&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.06</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Z&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.1</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="p">}</span>
-</span></code></pre></div>
-<p>This creates a stereo pair with 12cm baseline (matching ZED cameras). The bridge node would need to be extended to publish rectified stereo images.</p>
 <h3 id="project-status">Project status<a class="headerlink" href="#project-status" title="Permanent link">&para;</a></h3>
 <p>Microsoft archived AirSim. For a maintained successor, see <a href="https://github.com/iamaisim/ProjectAirSim">Project AirSim</a> (UE5, new API — integration planned as a future AirStack feature).</p>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
@@ -5426,9 +5458,9 @@
 </ul>
 <p><strong>MAVROS won't connect:</strong></p>
 <ul>
-<li>Verify <code>SIM_IP=172.31.0.201</code> is set in <code>.env</code></li>
+<li>Verify <code>SIM_IP=172.31.0.200</code> is set in <code>.env</code> (default)</li>
 <li>Ensure PX4 SITL has started (check AirSim console for MAVLink messages)</li>
-<li>Check port configuration: offboard=14540, onboard=14580</li>
+<li>Check port configuration: offboard=24540+i, onboard=24580+i</li>
 </ul>
 
 
