@@ -2,7 +2,7 @@
 
 An interactive RViz2 tool plugin for creating, manipulating, and managing 3D waypoints directly in the RViz2 viewport. Waypoint state is managed by a shared `WaypointManager` singleton so that both this tool (3D interaction) and the Tasks Panel's Navigate tab (UI controls) operate on the same data.
 
-<img width="899" height="664" alt="image" src="https://github.com/user-attachments/assets/655d8e5d-ee15-4daa-aff8-b45f28d3403a" />
+![Waypoint Tool Demo](rviz_task_panel_waypoints.png)
 
 ## Architecture
 
