@@ -3,6 +3,7 @@
 
 #include "rviz_tasks_panel/tasks_panel.hpp"
 
+#include <QFileDialog>
 #include <QHeaderView>
 #include <QMetaObject>
 #include <QTabBar>
@@ -100,12 +101,30 @@ void TasksPanel::onInitialize()
   polygon_client_ =
     raw_node_->create_client<rviz_polygon_selection_tool::srv::GetSelection>("get_selection");
 
-  // Waypoints subscription
-  waypoints_sub_ = raw_node_->create_subscription<nav_msgs::msg::Path>(
-    "waypoints", 1,
-    [this](nav_msgs::msg::Path::SharedPtr msg) {
-      latest_waypoints_ = msg;
+  // Shared waypoint manager (singleton created by WaypointTool)
+  waypoint_manager_ = waypoint_rviz2_plugin::WaypointManager::instance();
+  if (!waypoint_manager_->isInitialized()) {
+    // WaypointTool hasn't initialized yet; try again shortly
+    QTimer::singleShot(1000, [this]() {
+      if (waypoint_manager_ && !waypoint_manager_->isInitialized()) {
+        waypoint_manager_->initialize(getDisplayContext(),
+          getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node());
+      }
     });
+  }
+
+  // Connect waypoint manager signals
+  connect(waypoint_manager_.get(),
+    &waypoint_rviz2_plugin::WaypointManager::waypointCountChanged,
+    this, &TasksPanel::onWaypointCountChanged, Qt::QueuedConnection);
+  connect(waypoint_manager_.get(),
+    &waypoint_rviz2_plugin::WaypointManager::selectedMarkerChanged,
+    this, &TasksPanel::onSelectedMarkerChanged, Qt::QueuedConnection);
+  connect(waypoint_manager_.get(),
+    &waypoint_rviz2_plugin::WaypointManager::waypointsCleared,
+    this, [this]() {
+      onWaypointCountChanged(0);
+    }, Qt::QueuedConnection);
 
   // Build UI
   auto * main_layout = new QVBoxLayout();
@@ -273,12 +292,85 @@ QWidget * TasksPanel::buildGoalFieldWidget(const GoalFieldDef & def, int tab_ind
     auto * container = new QWidget();
     auto * layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    auto * label = new QLabel("Use Waypoint Tool (key: 1) in RViz");
-    auto * status = new QLabel("No waypoints received");
-    layout->addWidget(label);
-    layout->addWidget(status);
-    // Store status label for updates
-    tab_states_[tab_index].field_data[def.name + "_status_label"] = status;
+
+    // Instruction label
+    layout->addWidget(new QLabel("Activate Waypoint Tool (key: 1) to place waypoints"));
+
+    // Height / count / selected row
+    auto * info_row = new QHBoxLayout();
+    info_row->addWidget(new QLabel("Height:"));
+    wp_height_spin_ = new QDoubleSpinBox();
+    wp_height_spin_->setRange(-100.0, 500.0);
+    wp_height_spin_->setSingleStep(0.1);
+    wp_height_spin_->setValue(waypoint_manager_ ? waypoint_manager_->defaultHeight() : 0.0);
+    wp_height_spin_->setMaximumWidth(80);
+    info_row->addWidget(wp_height_spin_);
+
+    wp_count_label_ = new QLabel("Waypoints: 0");
+    info_row->addWidget(wp_count_label_);
+
+    wp_selected_label_ = new QLabel("Selected: none");
+    info_row->addWidget(wp_selected_label_);
+    info_row->addStretch();
+    layout->addLayout(info_row);
+
+    // X / Y / Z / Yaw spinboxes for editing selected waypoint
+    auto * pose_row = new QHBoxLayout();
+
+    pose_row->addWidget(new QLabel("X:"));
+    wp_x_spin_ = new QDoubleSpinBox();
+    wp_x_spin_->setRange(-1000.0, 1000.0);
+    wp_x_spin_->setSingleStep(0.5);
+    pose_row->addWidget(wp_x_spin_);
+
+    pose_row->addWidget(new QLabel("Y:"));
+    wp_y_spin_ = new QDoubleSpinBox();
+    wp_y_spin_->setRange(-1000.0, 1000.0);
+    wp_y_spin_->setSingleStep(0.5);
+    pose_row->addWidget(wp_y_spin_);
+
+    pose_row->addWidget(new QLabel("Z:"));
+    wp_z_spin_ = new QDoubleSpinBox();
+    wp_z_spin_->setRange(-1000.0, 1000.0);
+    wp_z_spin_->setSingleStep(0.5);
+    pose_row->addWidget(wp_z_spin_);
+
+    pose_row->addWidget(new QLabel("Yaw:"));
+    wp_yaw_spin_ = new QDoubleSpinBox();
+    wp_yaw_spin_->setRange(-3.15, 3.15);
+    wp_yaw_spin_->setSingleStep(0.1);
+    pose_row->addWidget(wp_yaw_spin_);
+    layout->addLayout(pose_row);
+
+    // Action buttons
+    auto * btn_row = new QHBoxLayout();
+    auto * clear_btn = new QPushButton("Clear All");
+    auto * save_btn = new QPushButton("Save");
+    auto * load_btn = new QPushButton("Load");
+    btn_row->addWidget(clear_btn);
+    btn_row->addWidget(save_btn);
+    btn_row->addWidget(load_btn);
+    btn_row->addStretch();
+    layout->addLayout(btn_row);
+
+    // Connect height spinbox to manager
+    connect(wp_height_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+      [this](double val) {
+        if (waypoint_manager_) { waypoint_manager_->setDefaultHeight(val); }
+      });
+
+    // Connect pose spinboxes to update selected waypoint
+    auto pose_changed = [this](double) { onWaypointPoseChanged(0.0); };
+    connect(wp_x_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged), pose_changed);
+    connect(wp_y_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged), pose_changed);
+    connect(wp_z_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged), pose_changed);
+    connect(wp_yaw_spin_, QOverload<double>::of(&QDoubleSpinBox::valueChanged), pose_changed);
+
+    // Connect buttons
+    connect(clear_btn, &QPushButton::clicked, this, &TasksPanel::onClearWaypoints);
+    connect(save_btn, &QPushButton::clicked, this, &TasksPanel::onSaveWaypoints);
+    connect(load_btn, &QPushButton::clicked, this, &TasksPanel::onLoadWaypoints);
+
     return container;
   }
   if (def.ros_type == "airstack_msgs/FixedTrajectory") {
@@ -513,7 +605,9 @@ geometry_msgs::msg::Polygon TasksPanel::getPolygon(int tab_index, const std::str
 
 nav_msgs::msg::Path TasksPanel::getPath(int, const std::string &)
 {
-  if (latest_waypoints_) {return *latest_waypoints_;}
+  if (waypoint_manager_ && waypoint_manager_->isInitialized()) {
+    return waypoint_manager_->getPath();
+  }
   return nav_msgs::msg::Path();
 }
 
@@ -975,6 +1069,60 @@ void TasksPanel::load(const rviz_common::Config & config)
       tab_states_[i].executor_combo->setCurrentText(executor);
     }
   }
+}
+
+// ─────────────────────────── waypoint slots ──────────────────────────────────
+
+void TasksPanel::onWaypointCountChanged(int count)
+{
+  if (wp_count_label_) {
+    wp_count_label_->setText(QString("Waypoints: %1").arg(count));
+  }
+}
+
+void TasksPanel::onSelectedMarkerChanged(
+  const QString & name, double x, double y, double z, double yaw)
+{
+  if (wp_selected_label_) {
+    wp_selected_label_->setText(QString("Selected: %1").arg(name));
+  }
+
+  // Update spinboxes without triggering poseChanged
+  wp_updating_spinboxes_ = true;
+  if (wp_x_spin_) { wp_x_spin_->setValue(x); }
+  if (wp_y_spin_) { wp_y_spin_->setValue(y); }
+  if (wp_z_spin_) { wp_z_spin_->setValue(z); }
+  if (wp_yaw_spin_) { wp_yaw_spin_->setValue(yaw); }
+  wp_updating_spinboxes_ = false;
+}
+
+void TasksPanel::onClearWaypoints()
+{
+  if (waypoint_manager_) { waypoint_manager_->clearAll(); }
+}
+
+void TasksPanel::onSaveWaypoints()
+{
+  QString filename = QFileDialog::getSaveFileName(
+    this, tr("Save Waypoints"), "waypoints", tr("Bag Files (*.db3)"));
+  if (filename.isEmpty()) { return; }
+  if (waypoint_manager_) { waypoint_manager_->saveBag(filename.toStdString()); }
+}
+
+void TasksPanel::onLoadWaypoints()
+{
+  QString filename = QFileDialog::getOpenFileName(
+    this, tr("Load Waypoints"), "~/", tr("Bag Files (*.db3)"));
+  if (filename.isEmpty()) { return; }
+  if (waypoint_manager_) { waypoint_manager_->loadBag(filename.toStdString()); }
+}
+
+void TasksPanel::onWaypointPoseChanged(double)
+{
+  if (wp_updating_spinboxes_ || !waypoint_manager_) { return; }
+  waypoint_manager_->updateSelectedPose(
+    wp_x_spin_->value(), wp_y_spin_->value(),
+    wp_z_spin_->value(), wp_yaw_spin_->value());
 }
 
 }  // namespace rviz_tasks_panel

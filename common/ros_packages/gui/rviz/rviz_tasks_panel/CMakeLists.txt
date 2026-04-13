@@ -22,6 +22,7 @@ find_package(nav_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(rviz_polygon_selection_tool REQUIRED)
+find_package(waypoint_rviz2_plugin REQUIRED)
 
 qt5_wrap_cpp(MOC_FILES
   include/rviz_tasks_panel/tasks_panel.hpp
@@ -49,6 +50,7 @@ ament_target_dependencies(tasks_panel
   diagnostic_msgs
   action_msgs
   rviz_polygon_selection_tool
+  waypoint_rviz2_plugin
 )
 
 target_link_libraries(tasks_panel

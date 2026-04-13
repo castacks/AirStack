@@ -45,6 +45,8 @@
 #include <task_msgs/action/semantic_search_task.hpp>
 #include <task_msgs/action/fixed_trajectory_task.hpp>
 
+#include <waypoint_rviz2_plugin/waypoint_manager.hpp>
+
 namespace rviz_tasks_panel
 {
 
@@ -102,6 +104,15 @@ private Q_SLOTS:
   void onGetPolygon(int tab_index, const std::string & field_name);
   void onTrajectoryTypeChanged(int tab_index, const QString & type);
 
+  // Waypoint UI slots
+  void onWaypointCountChanged(int count);
+  void onSelectedMarkerChanged(
+    const QString & name, double x, double y, double z, double yaw);
+  void onClearWaypoints();
+  void onSaveWaypoints();
+  void onLoadWaypoints();
+  void onWaypointPoseChanged(double value);
+
 private:
   rclcpp::Node::SharedPtr raw_node_;
 
@@ -116,9 +127,18 @@ private:
   // Polygon selection service
   rclcpp::Client<rviz_polygon_selection_tool::srv::GetSelection>::SharedPtr polygon_client_;
 
-  // Waypoints subscription
-  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr waypoints_sub_;
-  nav_msgs::msg::Path::SharedPtr latest_waypoints_;
+  // Shared waypoint manager (singleton, also held by WaypointTool)
+  std::shared_ptr<waypoint_rviz2_plugin::WaypointManager> waypoint_manager_;
+
+  // Waypoint UI widgets (Navigate tab)
+  QLabel * wp_count_label_{nullptr};
+  QLabel * wp_selected_label_{nullptr};
+  QDoubleSpinBox * wp_height_spin_{nullptr};
+  QDoubleSpinBox * wp_x_spin_{nullptr};
+  QDoubleSpinBox * wp_y_spin_{nullptr};
+  QDoubleSpinBox * wp_z_spin_{nullptr};
+  QDoubleSpinBox * wp_yaw_spin_{nullptr};
+  bool wp_updating_spinboxes_{false};  // guard against signal loops
 
   // Global task lock: only one task may run at a time
   int active_task_tab_{-1};  // -1 = no task running, else = tab index of active task

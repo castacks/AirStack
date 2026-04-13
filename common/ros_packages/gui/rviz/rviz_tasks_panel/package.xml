@@ -20,6 +20,7 @@
   <depend>diagnostic_msgs</depend>
   <depend>action_msgs</depend>
   <depend>rviz_polygon_selection_tool</depend>
+  <depend>waypoint_rviz2_plugin</depend>
   <depend>qtbase5-dev</depend>
 
   <export>
