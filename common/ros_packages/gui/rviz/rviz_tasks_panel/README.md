@@ -5,6 +5,10 @@ action goals. Provides a tabbed GUI where operators can
 parameterize, execute, and cancel tasks on any discovered robot,
 with live feedback and result display.
 
+![Screenshot of the RViz Tasks Panel showing multiple tabs and parameter widgets](./media/rviz_tasks_panel.png)
+![takeoff](./media/tasks_panel_takeoff.png)
+![navigate](./media/tasks_panel_navigate.png)
+
 ## Overview
 
 The Tasks Panel replaces CLI-based action goal dispatch with a
