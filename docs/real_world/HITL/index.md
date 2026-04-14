@@ -37,7 +37,7 @@ This starts:
 
 - Isaac Sim (`isaac-sim-hitl`)
 - GCS (`gcs-hitl`)
-- Fast DDS discovery server (`dds-discovery-hitl`, auto-started as dependency of `gcs-hitl`)
+- Fast DDS discovery server process inside the `gcs-hitl` container
 
 ### Robot Host
 
@@ -109,6 +109,6 @@ This is usually not discovery failure. Check:
 
 ### Discovery server unreachable
 
-- Verify `DISCOVERY_SERVER_IP` matches the host running `gcs-hitl` (which auto-starts `dds-discovery-hitl`)
+- Verify `DISCOVERY_SERVER_IP` matches the host running `gcs-hitl`
 - Verify no port conflict on `11811`
 - Verify host firewall/network ACLs

@@ -56,7 +56,7 @@ For HITL (host networking + scalable DDS discovery), use:
 airstack up gcs-hitl
 ```
 
-`gcs-hitl` automatically starts `dds-discovery-hitl` via `depends_on`, so the discovery server always runs on the GCS host in HITL mode.
+`gcs-hitl` starts the Fast DDS discovery server process inside the same container when `HITL_DISCOVERY_MODE=server`, so discovery is owned by the GCS host without a separate image pull.
 
 **What happens:**
 

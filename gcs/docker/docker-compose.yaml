@@ -36,25 +36,9 @@ services:
     extends:
       file: ./docker-compose.yaml
       service: gcs-real
-    depends_on:
-      - dds-discovery-hitl
     environment:
       - HITL_DISCOVERY_MODE=${HITL_DISCOVERY_MODE:-server}
       - DISCOVERY_SERVER_IP=${DISCOVERY_SERVER_IP:-192.168.233.25}
       - DISCOVERY_SERVER_PORT=${DISCOVERY_SERVER_PORT:-11811}
       - DISCOVERY_SERVER_ID=${DISCOVERY_SERVER_ID:-0}
       - FASTDDS_STATIC_PEER_IP=${FASTDDS_STATIC_PEER_IP:-192.168.233.25}
-
-  # ===================================================================================================================
-  # Fast DDS discovery server for scalable multi-host HITL discovery.
-  dds-discovery-hitl:
-    profiles:
-      - hitl
-    image: eprosima/discovery-server:latest
-    network_mode: host
-    command: >
-      fastdds discovery
-      -i ${DISCOVERY_SERVER_ID:-0}
-      -l 0.0.0.0
-      -p ${DISCOVERY_SERVER_PORT:-11811}
-    restart: unless-stopped
