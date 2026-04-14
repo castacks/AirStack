@@ -7,7 +7,7 @@ The TakeoffLandingPlanner provides ROS 2 action servers for takeoff and landing 
 ## Features
 
 - Trajectory-based takeoff to a configurable target altitude and velocity
-- Trajectory-based landing with stationary-detection completion
+- Trajectory-based landing with on-ground detection, followed by automatic disarm
 - Configurable takeoff trajectory direction (roll/pitch, absolute or body-relative)
 - Precondition checking: rejects goals when state estimate is timed out or a task is already running
 - Publishes `is_airborne` for downstream consumers (e.g. the RViz Tasks Panel)

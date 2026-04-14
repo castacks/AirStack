@@ -88,6 +88,11 @@ private:
   std::atomic<bool> task_active_{false};
   std::atomic<bool> cancel_requested_{false};
 
+  // set by land_execute on success; cleared by takeoff_execute on start.
+  // prevents extended_state callback from re-publishing is_airborne=true
+  // after MAVROS transiently reverts to IN_AIR post-landing.
+  std::atomic<bool> landed_{false};
+
   // subscribers
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr robot_odom_sub_;
   rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr tracking_point_sub_;

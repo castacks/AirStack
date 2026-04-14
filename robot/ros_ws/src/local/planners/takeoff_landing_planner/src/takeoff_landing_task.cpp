@@ -74,10 +74,20 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
     "extended_state", 1,
     [this](mavros_msgs::msg::ExtendedState::SharedPtr msg) {
       landed_state_ = msg->landed_state;
-      std_msgs::msg::Bool airborne_msg;
-      airborne_msg.data =
-        (msg->landed_state == mavros_msgs::msg::ExtendedState::LANDED_STATE_IN_AIR);
-      is_airborne_pub_->publish(airborne_msg);
+      bool in_air = (msg->landed_state == mavros_msgs::msg::ExtendedState::LANDED_STATE_IN_AIR);
+      if (!in_air) {
+        // Definitive non-airborne state from MAVROS — always publish false.
+        std_msgs::msg::Bool airborne_msg;
+        airborne_msg.data = false;
+        is_airborne_pub_->publish(airborne_msg);
+      } else if (!landed_) {
+        // IN_AIR and no confirmed landing — publish true.
+        std_msgs::msg::Bool airborne_msg;
+        airborne_msg.data = true;
+        is_airborne_pub_->publish(airborne_msg);
+      }
+      // If landed_ is set and MAVROS reports IN_AIR, publish nothing:
+      // land_execute already published false; MAVROS is transiently wrong.
     });
 
   // publishers
@@ -208,6 +218,8 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
   auto result = std::make_shared<TakeoffTask::Result>();
   auto feedback = std::make_shared<TakeoffTask::Feedback>();
   feedback->target_altitude_m = target_altitude;
+
+  landed_ = false;  // clear latch — a new takeoff is starting
 
   // wait for odometry
   rclcpp::Rate wait_rate(10);
@@ -461,6 +473,11 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
       RCLCPP_INFO(this->get_logger(), "LandTask: landed (mavros landed_state = ON_GROUND) at %.2fm",
         current_z);
       set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+      send_robot_command(airstack_msgs::srv::RobotCommand::Request::DISARM);
+      landed_ = true;
+      std_msgs::msg::Bool airborne_msg;
+      airborne_msg.data = false;
+      is_airborne_pub_->publish(airborne_msg);
       result->success = true;
       result->message = "landing complete";
       goal_handle->succeed(result);
