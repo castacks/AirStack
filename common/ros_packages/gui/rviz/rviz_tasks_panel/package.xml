@@ -17,6 +17,7 @@
   <depend>airstack_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>diagnostic_msgs</depend>
   <depend>action_msgs</depend>
   <depend>rviz_polygon_selection_tool</depend>

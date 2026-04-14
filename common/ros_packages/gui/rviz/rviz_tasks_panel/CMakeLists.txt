@@ -22,6 +22,7 @@ find_package(nav_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(rviz_polygon_selection_tool REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(waypoint_rviz2_plugin REQUIRED)
 
 qt5_wrap_cpp(MOC_FILES
@@ -47,6 +48,7 @@ ament_target_dependencies(tasks_panel
   airstack_msgs
   geometry_msgs
   nav_msgs
+  std_msgs
   diagnostic_msgs
   action_msgs
   rviz_polygon_selection_tool

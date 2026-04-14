@@ -74,11 +74,16 @@ TakeoffLandingTaskNode::TakeoffLandingTaskNode()
     "extended_state", 1,
     [this](mavros_msgs::msg::ExtendedState::SharedPtr msg) {
       landed_state_ = msg->landed_state;
+      std_msgs::msg::Bool airborne_msg;
+      airborne_msg.data =
+        (msg->landed_state == mavros_msgs::msg::ExtendedState::LANDED_STATE_IN_AIR);
+      is_airborne_pub_->publish(airborne_msg);
     });
 
   // publishers
   traj_override_pub_ =
     this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
+  is_airborne_pub_ = this->create_publisher<std_msgs::msg::Bool>("is_airborne", 1);
 
   // service clients
   traj_mode_client_ =

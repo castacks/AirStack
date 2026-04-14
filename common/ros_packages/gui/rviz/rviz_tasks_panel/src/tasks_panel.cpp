@@ -27,11 +27,11 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
     }},
     {"Land", "tasks/land", {
       {"velocity_m_s", "float32", 0.3, 0.0, 10.0},
-    }},
+    }, true},
     {"Navigate", "tasks/navigate", {
       {"global_plan", "nav_msgs/Path", 0, 0, 0},
       {"goal_tolerance_m", "float32", 1.0, 0.0, 100.0},
-    }},
+    }, true},
     {"Exploration", "tasks/exploration", {
       {"search_bounds", "geometry_msgs/Polygon", 0, 0, 0},
       {"min_altitude_agl", "float32", 3.0, 0.0, 500.0},
@@ -39,7 +39,7 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"min_flight_speed", "float32", 1.0, 0.0, 50.0},
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
       {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
-    }},
+    }, true},
     {"Coverage", "tasks/coverage", {
       {"coverage_area", "geometry_msgs/Polygon", 0, 0, 0},
       {"min_altitude_agl", "float32", 3.0, 0.0, 500.0},
@@ -48,7 +48,7 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
       {"line_spacing_m", "float32", 5.0, 0.1, 1000.0},
       {"heading_deg", "float32", 0.0, 0.0, 360.0},
-    }},
+    }, true},
     {"Object Search", "tasks/object_search", {
       {"object_class", "string", 0, 0, 0},
       {"search_area", "geometry_msgs/Polygon", 0, 0, 0},
@@ -58,7 +58,7 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
       {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
       {"target_count", "int32", 1, 0, 10000},
-    }},
+    }, true},
     {"Object Counting", "tasks/object_counting", {
       {"object_class", "string", 0, 0, 0},
       {"count_area", "geometry_msgs/Polygon", 0, 0, 0},
@@ -66,7 +66,7 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"max_altitude_agl", "float32", 10.0, 0.0, 500.0},
       {"min_flight_speed", "float32", 1.0, 0.0, 50.0},
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
-    }},
+    }, true},
     {"Semantic Search", "tasks/semantic_search", {
       {"query", "string", 0, 0, 0},
       {"search_area", "geometry_msgs/Polygon", 0, 0, 0},
@@ -76,11 +76,11 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
       {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
       {"confidence_threshold", "float32", 0.5, 0.0, 1.0},
-    }},
+    }, true},
     {"Fixed Trajectory", "tasks/fixed_trajectory", {
       {"trajectory_spec", "airstack_msgs/FixedTrajectory", 0, 0, 0},
       {"loop", "bool", 0, 0, 0},
-    }},
+    }, true},
   };
 }
 
@@ -479,6 +479,8 @@ void TasksPanel::onRefreshExecutors()
       robot_combo_->setCurrentText(current_robot);
     }
   }
+
+  renewAirborneSubscription();
 }
 
 // ─────────────────────────── special widgets ──────────────────────────────────
@@ -650,15 +652,45 @@ void TasksPanel::setGoalActive(int tab_index, bool active)
     state.result_display->clear();
     state.status_label->setText("Running...");
     state.status_label->setStyleSheet("color: blue;");
-    setTabStatus(tab_index, QString::fromUtf8(u8"⏳"), Qt::blue); 
+    setTabStatus(tab_index, QString::fromUtf8(u8"⏳"), Qt::blue);
   } else {
     active_task_tab_ = -1;
   }
 
-  // Disable all Execute buttons while any task is running
+  updateExecuteButtons();
+}
+
+void TasksPanel::updateExecuteButtons()
+{
   for (size_t i = 0; i < tab_states_.size(); ++i) {
-    tab_states_[i].execute_btn->setEnabled(active_task_tab_ == -1);
+    bool task_idle = (active_task_tab_ == -1);
+    bool airborne_ok = !task_defs_[i].requires_airborne || is_airborne_;
+    tab_states_[i].execute_btn->setEnabled(task_idle && airborne_ok);
   }
+}
+
+void TasksPanel::renewAirborneSubscription()
+{
+  QString robot = robot_combo_->currentText();
+  if (robot == is_airborne_robot_) {return;}
+  is_airborne_robot_ = robot;
+
+  is_airborne_sub_.reset();
+  is_airborne_ = false;
+  updateExecuteButtons();
+
+  if (robot.isEmpty() || !raw_node_) {return;}
+
+  std::string topic = robot.toStdString() + "/takeoff_landing_planner/is_airborne";
+  is_airborne_sub_ = raw_node_->create_subscription<std_msgs::msg::Bool>(
+    topic, 1,
+    [this](std_msgs::msg::Bool::SharedPtr msg) {
+      bool airborne = msg->data;
+      QMetaObject::invokeMethod(this, [this, airborne]() {
+        is_airborne_ = airborne;
+        updateExecuteButtons();
+      }, Qt::QueuedConnection);
+    });
 }
 
 void TasksPanel::setTabStatus(int tab_index, const QString & icon, const QColor & text_color)
@@ -810,6 +842,7 @@ void TasksPanel::onExecuteClicked()
   int idx = tab_widget_->currentIndex();
   if (idx < 0 || idx >= static_cast<int>(tab_states_.size())) {return;}
   if (active_task_tab_ >= 0) {return;}  // only one task at a time
+  if (task_defs_[idx].requires_airborne && !is_airborne_) {return;}  // airborne required
 
   switch (idx) {
     case 0: {  // Takeoff

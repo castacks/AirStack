@@ -99,6 +99,7 @@ private:
 
   // publishers
   rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr traj_override_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_airborne_pub_;
 
   // service clients
   rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_client_;

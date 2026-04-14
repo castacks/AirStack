@@ -59,20 +59,27 @@ separate waypoint panel needed.
   saved/restored with the RViz config
 - **Single-task lock** -- only one action may execute at a time
   to prevent conflicts
+- **Airborne-only tasks** -- Land, Navigate, and all mission
+  tasks are disabled until the drone is airborne (subscribes to
+  `is_airborne` from `takeoff_landing_planner`); Takeoff is
+  always available while idle
 
 ## Supported Task Types
 
-| Tab | Action Type | Key Parameters |
-|-----|-------------|----------------|
-| Takeoff | `TakeoffTask` | `target_altitude_m`, `velocity_m_s` |
-| Land | `LandTask` | `velocity_m_s` |
-| Navigate | `NavigateTask` | `global_plan` (Path), `goal_tolerance_m` |
-| Exploration | `ExplorationTask` | `search_bounds` (Polygon), altitude/speed, `time_limit_sec` |
-| Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg` |
-| Object Search | `ObjectSearchTask` | `object_class`, `search_area`, `target_count` |
-| Object Counting | `ObjectCountingTask` | `object_class`, `count_area` |
-| Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold` |
-| Fixed Trajectory | `FixedTrajectoryTask` | `trajectory_spec`, `loop` |
+Tasks marked **airborne-only** are disabled until the drone is
+in the air.
+
+| Tab | Action Type | Key Parameters | Airborne-only |
+|-----|-------------|----------------|---------------|
+| Takeoff | `TakeoffTask` | `target_altitude_m`, `velocity_m_s` | |
+| Land | `LandTask` | `velocity_m_s` | ✓ |
+| Navigate | `NavigateTask` | `global_plan` (Path), `goal_tolerance_m` | ✓ |
+| Exploration | `ExplorationTask` | `search_bounds` (Polygon), altitude/speed, `time_limit_sec` | ✓ |
+| Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg` | ✓ |
+| Object Search | `ObjectSearchTask` | `object_class`, `search_area`, `target_count` | ✓ |
+| Object Counting | `ObjectCountingTask` | `object_class`, `count_area` | ✓ |
+| Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold` | ✓ |
+| Fixed Trajectory | `FixedTrajectoryTask` | `trajectory_spec`, `loop` | ✓ |
 
 ## Widget Type Mapping
 
@@ -93,7 +100,7 @@ separate waypoint panel needed.
 - `rclcpp` / `rclcpp_action` -- ROS 2 node and action client
 - `task_msgs` -- action definitions for all 9 task types
 - `airstack_msgs` -- `FixedTrajectory` message
-- `geometry_msgs` / `nav_msgs` -- standard message types
+- `geometry_msgs` / `nav_msgs` / `std_msgs` -- standard message types
 - `diagnostic_msgs` / `action_msgs` -- status introspection
 - `rviz_polygon_selection_tool` -- polygon selection service
 - `waypoint_rviz2_plugin` -- shared `WaypointManager` singleton
@@ -164,6 +171,10 @@ the **Refresh** button.
 - **Thread safety**: ROS 2 callbacks use
   `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to
   marshal UI updates to the Qt main thread
+- **Airborne gate**: subscribes to `{robot}/is_airborne`
+  (std_msgs/Bool from `takeoff_landing_planner`); per-tab Execute
+  buttons are enabled only when `task_idle && airborne_ok`, where
+  `airborne_ok = !requires_airborne || is_airborne_`
 
 ## License
 

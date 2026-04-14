@@ -32,6 +32,7 @@
 #include <geometry_msgs/msg/polygon.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <airstack_msgs/msg/fixed_trajectory.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 #include <rviz_polygon_selection_tool/srv/get_selection.hpp>
 
@@ -68,6 +69,7 @@ struct TaskTypeDef
   std::string display_name;
   std::string action_topic_suffix;  // e.g. "tasks/takeoff"
   std::vector<GoalFieldDef> goal_fields;
+  bool requires_airborne{false};  // if true, Execute is disabled while drone is on the ground
 };
 
 // Per-tab runtime state
@@ -143,6 +145,11 @@ private:
   // Global task lock: only one task may run at a time
   int active_task_tab_{-1};  // -1 = no task running, else = tab index of active task
 
+  // Airborne state (fed by is_airborne topic from takeoff_landing_planner)
+  bool is_airborne_{false};
+  QString is_airborne_robot_;  // robot namespace currently subscribed to
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_airborne_sub_;
+
   // Discovery timer
   QTimer * refresh_timer_{nullptr};
 
@@ -172,6 +179,8 @@ private:
   void doCancelGoal(int tab_index);
 
   void setGoalActive(int tab_index, bool active);
+  void updateExecuteButtons();
+  void renewAirborneSubscription();
   void setTabStatus(int tab_index, const QString & icon, const QColor & text_color);
   void clearTabStatus(int tab_index);
   QString currentRobot() const;

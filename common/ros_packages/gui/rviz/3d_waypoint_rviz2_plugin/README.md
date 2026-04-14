@@ -133,7 +133,8 @@ Apache 2.0
 ## Credits
 
 Original ROS 1 version by KoKoLates (the21515@gmail.com).
-ROS 2 port and WaypointManager refactor for AirStack.
+
+ROS 2 port and WaypointManager refactor for AirStack (Andrew Jong ajong@andrew.cmu.edu).
 
 ## References
 
