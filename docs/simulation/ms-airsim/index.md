@@ -43,9 +43,10 @@ To build the images first:
 airstack image-build --profile ms-airsim
 ```
 
-The container runs two tmux windows:
+The container runs `1 + 2*NUM_ROBOTS` tmux windows:
 - **Window 0**: AirSim binary (Unreal Engine rendering)
-- **Window 1**: ROS 2 bridge node (depth + camera_info publisher)
+- **Windows 1..N**: one PX4 SITL instance per robot
+- **Windows N+1..2N**: one ROS 2 bridge node per robot (depth + stereo RGB + camera_info)
 
 To attach to the tmux session:
 
@@ -53,34 +54,37 @@ To attach to the tmux session:
 airstack connect ms-airsim
 ```
 
+A video is below:
+
+<iframe src="https://private-user-images.githubusercontent.com/4943471/574307425-90c3d9d0-f53a-46a6-a11d-f3690f682e51.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzU2NjY4NTIsIm5iZiI6MTc3NTY2NjU1MiwicGF0aCI6Ii80OTQzNDcxLzU3NDMwNzQyNS05MGMzZDlkMC1mNTNhLTQ2YTYtYTExZC1mMzY5MGY2ODJlNTEubXA0P1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDQwOCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA0MDhUMTY0MjMyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9YjM4NjEyODA5Nzg0MzY2ODNmZDlkYzlmODNmMmJhNzkwODA2YWViYjU3Nzc2YjA4ZDhiZThjY2MzNWUyYWViYSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.N11vdWatLn7F3mLDdctHIu3p9eZzO52M9oVnnjwW88M" allowfullscreen width="1920" height="500"></iframe>
+
+
 ## Architecture
 
 ```
-┌──────────────────────┐     ┌──────────────────────┐
-│  MS-AirSim Container │     │   Robot Container     │
-│   (172.31.0.201)     │     │                       │
-│                      │     │                       │
-│  AirSim Binary       │     │  MAVROS ◄──── MAVLink UDP ────► PX4 SITL
-│    │                 │     │    │                  │
-│    ▼                 │     │    ▼                  │
-│  PX4 SITL            │     │  Interface Layer      │
-│    (TCP lockstep)    │     │    │                  │
-│                      │     │    ▼                  │
-│  Bridge Node ────────ROS 2 DDS────►  Perception    │
-│    (depth +          │     │    │                  │
-│     camera_info)     │     │    ▼                  │
-│                      │     │  DROAN (disparity     │
-│                      │     │   expansion + planner)│
-└──────────────────────┘     └──────────────────────┘
-         airstack_network (172.31.0.0/24)
+┌────────────────────────────────┐     ┌──────────────────────┐
+│     MS-AirSim Container        │     │   Robot Container    │
+│       (172.31.0.200)           │     │                      │
+│                                │     │                      │
+│   AirSim Binary (UE4)          │     │  MAVROS              │
+│      ▲    │                    │     │    ▲                 │
+│      │    │ TCP 4560+i         │     │    │                 │
+│      │    ▼ (lockstep)         │     │    │                 │
+│   PX4 SITL ×N ─── MAVLink UDP ─┼─────┼─► 24540+i/24580+i    │
+│      ▲                         │     │    │                 │
+│      │                         │     │    ▼                 │
+│   Bridge Node ×N ─── ROS 2 DDS─┼─────┼─► Perception → DROAN │
+│   (stereo RGB + depth + info)  │     │                      │
+└────────────────────────────────┘     └──────────────────────┘
+            airstack_network (172.31.0.0/24)
 ```
 
 **Data flow:**
 
-1. Microsoft AirSim (legacy) simulates physics and renders depth images
-2. PX4 SITL runs in lockstep with AirSim via TCP (port 4560)
-3. Robot container connects to PX4 via MAVROS (UDP 14540/14580)
-4. Bridge node publishes depth + camera_info to ROS 2 topics
+1. AirSim simulates physics and renders stereo RGB + depth for each vehicle
+2. N PX4 SITL instances run in lockstep with AirSim via TCP (port `4560+i`)
+3. MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard `24540+i`, onboard `24580+i`)
+4. Bridge nodes (one per robot) publish stereo RGB + depth + camera_info to ROS 2 topics
 5. `disparity_expansion` converts depth to disparity for DROAN
 
 ## Configuration
@@ -96,19 +100,25 @@ Key settings:
 | `SimMode` | `Multirotor` | Drone simulation |
 | `ClockType` | `SteppableClock` | Lockstep with PX4 |
 | `VehicleType` | `PX4Multirotor` | PX4 SITL vehicle |
-| `TcpPort` | `4560` | PX4 lockstep connection |
-| `ControlPortLocal` | `14540` | MAVLink offboard port |
-| `ControlPortRemote` | `14580` | MAVLink onboard port |
+| `TcpPort` | `4560 + i` | PX4 lockstep connection (per robot `i`) |
+| `ControlPortLocal` | `24540 + i` | AirSim MAVLink proxy local port (moved off `14540+i` so it doesn't intercept PX4 ↔ MAVROS traffic) |
+| `ControlPortRemote` | `24580 + i` | AirSim MAVLink proxy remote port |
 
-### Camera
+`settings.json` is generated at container start from [`settings.json.j2`](https://github.com/.../simulation/ms-airsim/config/settings.json.j2) via [`generate_settings.py`](https://github.com/.../simulation/ms-airsim/config/generate_settings.py), which expands per-robot port offsets, spawn positions, and camera parameters.
 
-The default configuration uses a single forward-facing depth camera:
+### Cameras
 
-- Resolution: 480x300
-- FOV: 90 degrees
-- Position: 20cm forward, 10cm up from body center
+The default configuration is a forward-facing **stereo pair** (left + right) plus aligned depth:
 
-To modify camera settings, edit `settings.json` under `Vehicles.drone1.Cameras.front_camera`.
+| Property | Default | `.env` override |
+|----------|---------|-----------------|
+| Resolution | 480×300 | `AIRSIM_CAM_WIDTH`, `AIRSIM_CAM_HEIGHT` |
+| FOV | 110° | `AIRSIM_CAM_FOV` |
+| Baseline (2 × Y offset) | 0.12 m | `AIRSIM_CAM_Y` |
+| Forward (X) offset | 0.4 m | `AIRSIM_CAM_X` |
+| Pitch | 0° | `AIRSIM_CAM_PITCH` |
+
+Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.drone<i>.Cameras`.
 
 ### Bridge node parameters
 
@@ -116,17 +126,16 @@ Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.y
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `ms_airsim_ip` | `127.0.0.1` | AirSim API address |
-| `camera_name` | `front_camera` | AirSim camera name |
-| `vehicle_name` | `drone1` | AirSim vehicle name |
-| `publish_rate` | `15.0` | Depth publish rate (Hz) |
-| `robot_name` | `robot_1` | ROS 2 topic namespace |
+| `ms_airsim_ip` | `127.0.0.1` | AirSim API address (same container, so localhost) |
+| `publish_rate` | `15.0` | Camera / depth publish rate (Hz) |
+| `robot_name` | `robot_1` | ROS 2 topic namespace (set per-instance by the entrypoint to `robot_<i>`) |
+| `clock_rate` | `50.0` | `/clock` publish rate (Hz) |
 
 ### Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIM_IP` | `172.31.0.200` | Simulation container IP. Set to `172.31.0.201` for Microsoft AirSim (legacy) |
+| `SIM_IP` | `172.31.0.200` | Simulation container IP |
 | `MS_AIRSIM_ENV_DIR` | `simulation/ms-airsim/environments` | Host path to extracted AirSim environment |
 | `MS_AIRSIM_BINARY_PATH` | `/ms-airsim-env/LinuxNoEditor/Blocks.sh` | Path to binary inside container |
 
@@ -134,27 +143,12 @@ Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.y
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/{robot_name}/sensors/front_camera/depth` | `sensor_msgs/Image` | Depth image (32FC1, meters) |
-| `/{robot_name}/sensors/front_camera/camera_info` | `sensor_msgs/CameraInfo` | Camera intrinsics (P matrix) |
-
-## Adding Stereo Cameras
-
-To switch from depth-only to stereo (for full disparity-based DROAN), add a second camera to `settings.json`:
-
-```json
-"Cameras": {
-  "front_left": {
-    "CaptureSettings": [{"ImageType": 0, "Width": 480, "Height": 300, "FOV_Degrees": 90}],
-    "X": 0.2, "Y": -0.06, "Z": -0.1
-  },
-  "front_right": {
-    "CaptureSettings": [{"ImageType": 0, "Width": 480, "Height": 300, "FOV_Degrees": 90}],
-    "X": 0.2, "Y": 0.06, "Z": -0.1
-  }
-}
-```
-
-This creates a stereo pair with 12cm baseline (matching ZED cameras). The bridge node would need to be extended to publish rectified stereo images.
+| `/{robot_name}/sensors/front_stereo/left/image_rect` | `sensor_msgs/Image` | Left RGB image |
+| `/{robot_name}/sensors/front_stereo/left/camera_info` | `sensor_msgs/CameraInfo` | Left camera intrinsics |
+| `/{robot_name}/sensors/front_stereo/right/image_rect` | `sensor_msgs/Image` | Right RGB image |
+| `/{robot_name}/sensors/front_stereo/right/camera_info` | `sensor_msgs/CameraInfo` | Right camera intrinsics |
+| `/{robot_name}/sensors/front_stereo/depth` | `sensor_msgs/Image` | Depth image (32FC1, meters) |
+| `/clock` | `rosgraph_msgs/Clock` | Simulation clock from AirSim |
 
 ### Project status
 
@@ -174,6 +168,6 @@ Microsoft archived AirSim. For a maintained successor, see [Project AirSim](http
 
 **MAVROS won't connect:**
 
-- Verify `SIM_IP=172.31.0.201` is set in `.env`
+- Verify `SIM_IP=172.31.0.200` is set in `.env` (default)
 - Ensure PX4 SITL has started (check AirSim console for MAVLink messages)
-- Check port configuration: offboard=14540, onboard=14580
+- Check port configuration: offboard=24540+i, onboard=24580+i

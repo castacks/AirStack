@@ -26,6 +26,7 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-/ms-airsim-env/Blocks.sh}
+      - MS_AIRSIM_HEADLESS=${MS_AIRSIM_HEADLESS:-false}
     deploy:
       resources:
         reservations:
