@@ -67,12 +67,6 @@ services:
       - AUTONOMY_ROLE=full
       - ROBOT_NAME=${ROBOT_NAME:-robot_1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
-      - HITL_DISCOVERY_MODE=${HITL_DISCOVERY_MODE:-server}
-      - DISCOVERY_SERVER_IP=${DISCOVERY_SERVER_IP:-192.168.233.25}
-      - DISCOVERY_SERVER_PORT=${DISCOVERY_SERVER_PORT:-11811}
-      - DISCOVERY_SERVER_ID=${DISCOVERY_SERVER_ID:-0}
-      - ROS_DISCOVERY_SERVER=${DISCOVERY_SERVER_IP:-192.168.233.25}:${DISCOVERY_SERVER_PORT:-11811}
-      - FASTDDS_STATIC_PEER_IP=${FASTDDS_STATIC_PEER_IP:-192.168.233.25}
 
   # ===================================================================================================================
   # desktop_split: simulates onboard computer on desktop for debugging the split configuration.
