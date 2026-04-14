@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+install/
+log/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Qt generated files
+*.autosave
+moc_*.cpp
+moc_*.h
+ui_*.h
+
+# Bag files
+*.bag
+*.db3
+*.db3-shm
+*.db3-wal
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS files
+.DS_Store
+Thumbs.db
