@@ -55,7 +55,6 @@ services:
       - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:ro
       # autonomy stack stuff
       - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw
-      - ../../robot/ros_ws/src/coordination:/root/AirStack/gcs/ros_ws/src/coordination:ro
       - ../../common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml
       - ../ros_ws:/root/AirStack/gcs/ros_ws:rw
       # bags

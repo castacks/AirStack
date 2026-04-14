@@ -18,6 +18,15 @@
             <!-- https://answers.ros.org/question/370595/ros2-foxy-nodes-cant-communicate-through-docker-container-border/ -->
             <!-- https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#isaac-sim-app-install-ros:~:text=Run%20export%20FASTRTPS_DEFAULT_PROFILES_FILE%3D~/.ros/fastdds.xml%20in%20the%20terminals%20that%20will%20use%20ROS%202%20functions -->
             <useBuiltinTransports>false</useBuiltinTransports>
+            <builtin>
+                <initialPeersList>
+                    <locator>
+                        <udpv4>
+                            <address>192.168.233.25</address>
+                        </udpv4>
+                    </locator>
+                </initialPeersList>
+            </builtin>
         </rtps>
     </participant>
 </profiles>

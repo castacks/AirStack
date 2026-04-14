@@ -9,6 +9,12 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+# Set local Nucleus as asset root before importing Pegasus (which resolves it at import time)
+carb.settings.get_settings().set(
+    "/persistent/isaac/asset_root/default",
+    "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
+)
+
 import time
 
 import omni.kit.app
