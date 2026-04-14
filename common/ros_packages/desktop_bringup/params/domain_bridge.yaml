@@ -18,54 +18,6 @@ topics:
     from_domain: 1
     to_domain: 0
     type: nav_msgs/msg/Odometry
-  
-
-  #rayfronts topics to bridge
-
-  /robot_1/current_target:
-    from_domain: 1
-    to_domain: 2
-    type: std_msgs/msg/String
-  
-  /robot_2/current_target:
-    from_domain: 2
-    to_domain: 1
-    type: std_msgs/msg/String
-
-  /robot_1/odometry_conversion/odometry:
-    from_domain: 1
-    to_domain: 2
-    type: nav_msgs/msg/Odometry
-  
-  /robot_2/odometry_conversion/odometry:
-    from_domain: 2
-    to_domain: 1
-    type: nav_msgs/msg/Odometry
-  
-  /robot_2/relative_position:
-    from_domain: 2
-    to_domain: 1
-    type: nav_msgs/msg/Odometry
-  
-  /robot_1/filtered_rays:
-    from_domain: 1
-    to_domain: 2
-    type: visualization_msgs/msg/MarkerArray
-  
-  /robot_2/filtered_rays:
-    from_domain: 2
-    to_domain: 1
-    type: visualization_msgs/msg/MarkerArray
-  
-  /robot_2/rayfronts/semantic_ray_frontiers:
-    from_domain: 2
-    to_domain: 1
-    type: visualization_msgs/msg/MarkerArray
-  
-  /robot_1/rayfronts/semantic_ray_frontiers:
-    from_domain: 1
-    to_domain: 2
-    type: visualization_msgs/msg/MarkerArray
 
   /robot_2/vdb_mapping/vdb_map_visualization:
     from_domain: 2

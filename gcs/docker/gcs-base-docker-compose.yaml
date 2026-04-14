@@ -6,7 +6,7 @@ services:
       context: ../
       dockerfile: docker/Dockerfile.gcs
       tags:
-        - ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+        - ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
     command: >
       bash -c "
       ssh service restart;
@@ -33,7 +33,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
-    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_gcs
     # Needed to display graphical applications
     # ipc: host
     privileged: true
@@ -55,6 +55,7 @@ services:
       - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:ro
       # autonomy stack stuff
       - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw
+      - ../../robot/ros_ws/src/coordination:/root/AirStack/gcs/ros_ws/src/coordination:ro
       - ../../common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml
       - ../ros_ws:/root/AirStack/gcs/ros_ws:rw
       # bags
