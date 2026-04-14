@@ -15,6 +15,12 @@ def generate_launch_description():
     return LaunchDescription([
         ExecuteProcess(
             cmd=['ddsrouter', '-c', config],
+            env={
+                **os.environ,
+                # ddsrouter runtime libs are installed under /usr/local/lib.
+                # Scope this path to ddsrouter to avoid changing ROS 2 RMW resolution.
+                'LD_LIBRARY_PATH': '/usr/local/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),
+            },
             output='screen',
             name='gcs_gossip_dds_router',
         ),
