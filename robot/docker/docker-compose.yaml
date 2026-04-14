@@ -52,6 +52,26 @@ services:
               capabilities: [gpu]
 
   # ===================================================================================================================
+  # hitl desktop: run full robot stack on a desktop host network for multi-machine HITL.
+  robot-desktop-hitl:
+    profiles: !override
+      - hitl
+    extends:
+      file: ./docker-compose.yaml
+      service: robot-desktop
+    network_mode: host
+    networks: !reset null
+    ports: !reset {}
+    deploy: !reset {}
+    environment:
+      - AUTONOMY_ROLE=full
+      - HITL_DISCOVERY_MODE=${HITL_DISCOVERY_MODE:-server}
+      - DISCOVERY_SERVER_IP=${DISCOVERY_SERVER_IP:-192.168.233.25}
+      - DISCOVERY_SERVER_PORT=${DISCOVERY_SERVER_PORT:-11811}
+      - DISCOVERY_SERVER_ID=${DISCOVERY_SERVER_ID:-0}
+      - FASTDDS_STATIC_PEER_IP=${FASTDDS_STATIC_PEER_IP:-192.168.233.25}
+
+  # ===================================================================================================================
   # desktop_split: simulates onboard computer on desktop for debugging the split configuration.
   # Same image as robot-desktop; role=onboard means only lite autonomy modules launch.
   # robot-offboard (below) runs concurrently on the same machine with role=offboard.

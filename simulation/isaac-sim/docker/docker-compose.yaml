@@ -94,3 +94,9 @@ services:
     container_name: isaac-sim
     network_mode: host
     networks: !reset null
+    environment:
+      - HITL_DISCOVERY_MODE=${HITL_DISCOVERY_MODE:-server}
+      - DISCOVERY_SERVER_IP=${DISCOVERY_SERVER_IP:-192.168.233.25}
+      - DISCOVERY_SERVER_PORT=${DISCOVERY_SERVER_PORT:-11811}
+      - DISCOVERY_SERVER_ID=${DISCOVERY_SERVER_ID:-0}
+      - FASTDDS_STATIC_PEER_IP=${FASTDDS_STATIC_PEER_IP:-192.168.233.25}
