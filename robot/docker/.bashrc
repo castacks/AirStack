@@ -135,10 +135,16 @@ if [ -n "$name_to_map" ]; then
     script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
     script_dir=$(dirname "$script_path")
 
+    existing_robot_name=${ROBOT_NAME:-}
     existing_robot_domain_id=${ROS_DOMAIN_ID:-}
 
     eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
-    export ROBOT_NAME
+    # if ROBOT_NAME was already set in the environment, use it instead of mapped value
+    if [ -n "$existing_robot_name" ]; then
+        export ROBOT_NAME=$existing_robot_name
+    else
+        export ROBOT_NAME
+    fi
 
     # if ROS_DOMAIN_ID was already set in the environment, use that instead of the mapped value
     if [ -z "$existing_robot_domain_id" ]; then

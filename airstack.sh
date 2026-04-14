@@ -119,6 +119,7 @@ function print_command_help {
             echo "Options:"
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
+            echo "  --robot_num N Set ROBOT_NAME/ROS_DOMAIN_ID for robot HITL containers (numeric only)"
             ;;
         images)
             echo "Usage: airstack images"
@@ -702,9 +703,60 @@ function classify_compose_args {
 function cmd_up {
     check_docker
 
+    local robot_num=""
+    local filtered_args=()
+    local args=("$@")
+    local i=0
+    while [ $i -lt ${#args[@]} ]; do
+        local arg="${args[$i]}"
+        if [ "$arg" = "--robot_num" ]; then
+            i=$((i+1))
+            if [ $i -ge ${#args[@]} ]; then
+                log_error "--robot_num requires a value"
+                exit 1
+            fi
+            robot_num="${args[$i]}"
+            if ! [[ "$robot_num" =~ ^[0-9]+$ ]]; then
+                log_error "--robot_num must be a number (received: $robot_num)"
+                exit 1
+            fi
+        elif [[ "$arg" == --robot_num=* ]]; then
+            robot_num="${arg#--robot_num=}"
+            if ! [[ "$robot_num" =~ ^[0-9]+$ ]]; then
+                log_error "--robot_num must be a number (received: $robot_num)"
+                exit 1
+            fi
+        else
+            filtered_args+=("$arg")
+        fi
+        i=$((i+1))
+    done
+
     local global_args=()
     local subcmd_args=()
-    classify_compose_args global_args subcmd_args "$@"
+    classify_compose_args global_args subcmd_args "${filtered_args[@]}"
+
+    local service_count=0
+    local target_is_hitl=false
+    for s in "${subcmd_args[@]}"; do
+        if [[ "$s" != -* ]]; then
+            service_count=$((service_count+1))
+            if [ "$s" = "robot-desktop-hitl" ]; then
+                target_is_hitl=true
+            fi
+        fi
+    done
+
+    if [ -n "$robot_num" ]; then
+        if [ "$service_count" -ne 1 ] || [ "$target_is_hitl" = false ]; then
+            log_error "--robot_num can only be used with exactly one service: robot-desktop-hitl"
+            log_error "Example: airstack up robot-desktop-hitl --robot_num 2"
+            exit 1
+        fi
+    elif [ "$service_count" -eq 1 ] && [ "$target_is_hitl" = true ]; then
+        robot_num="1"
+        log_info "No --robot_num provided; defaulting to robot_num=1 for robot-desktop-hitl"
+    fi
 
     # Ensure only one simulator profile is active
     local p="${COMPOSE_PROFILES:-$(sed -n 's/^COMPOSE_PROFILES=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
@@ -723,7 +775,13 @@ function cmd_up {
     xhost + &> /dev/null || true
 
     log_info "Starting services..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
+    if [ -n "$robot_num" ]; then
+        local robot_name="robot_${robot_num}"
+        log_info "Using robot identity from --robot_num: ROBOT_NAME=${robot_name}, ROS_DOMAIN_ID=${robot_num}"
+        ROBOT_NAME="$robot_name" ROS_DOMAIN_ID="$robot_num" run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
+    else
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
+    fi
     log_info "Services brought up successfully"
 }
 
