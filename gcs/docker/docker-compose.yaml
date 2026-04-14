@@ -50,7 +50,7 @@ services:
   dds-discovery-hitl:
     profiles:
       - hitl
-    image: eprosima/fastdds:latest
+    image: eprosima/discovery-server:latest
     network_mode: host
     command: >
       fastdds discovery
