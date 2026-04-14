@@ -178,12 +178,6 @@ class PegasusApp:
                 robot_name=f"robot_{i}",
                 vehicle_id=i,
                 domain_id=i,
-                # Match robot interface.launch.py defaults:
-                #   FCU_URL = udp://:<14540+domain>@<SIM_IP>:<14580+domain>
-                # so each vehicle listens on 14580 + vehicle_id.
-                connection_type="udpin",
-                connection_ip="0.0.0.0",
-                connection_baseport=14580,
                 usd_file=DRONE_USD,
                 init_pos=pos,
                 init_orient=cfg["orient"],
