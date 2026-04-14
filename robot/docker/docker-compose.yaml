@@ -67,6 +67,9 @@ services:
       - AUTONOMY_ROLE=full
       - ROBOT_NAME=${ROBOT_NAME:-robot_1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
+      # HITL uses host networking; default bridge IP (172.31.0.200) is not reachable here.
+      # Point SIM_IP at the host running Isaac Sim (override in .env as needed).
+      - SIM_IP=${SIM_IP:-192.168.233.25}
 
   # ===================================================================================================================
   # desktop_split: simulates onboard computer on desktop for debugging the split configuration.
