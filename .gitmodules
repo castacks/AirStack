@@ -14,3 +14,7 @@
 	path = simulation/isaac-sim/extensions/PegasusSimulator
 	url = https://github.com/castacks/PegasusSimulator-AirStack-Integration.git
 
+[submodule "common/rayfronts"]
+	path = common/rayfronts
+	url = https://github.com/RayFronts/RayFronts.git
+	branch = modalai

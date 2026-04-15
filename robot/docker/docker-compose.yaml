@@ -11,9 +11,13 @@ services:
       service: robot_base
     image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
     build:
-      dockerfile: ./Dockerfile.robot
+      # context at repo root so runtime-rayfronts stage can COPY ./common/rayfronts
+      context: ../../
+      dockerfile: robot/docker/Dockerfile.robot
       args:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
+        ENABLE_RAYFRONTS: "true"
+        FINAL_STAGE: runtime-rayfronts
       tags:
         - *desktop_image
     # we use tmux sd-keys so that the session stays alive
