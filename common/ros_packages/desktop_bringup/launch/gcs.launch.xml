@@ -12,7 +12,6 @@
   <?ignore
   <node pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share desktop_bringup)/rviz/gcs.rviz --ros-args --log-level INFO" output="screen" respawn="true" respawn_delay="1" />
     ?>
-  
 
   <node pkg="rqt_gui" exec="rqt_gui"
     args="--perspective-file $(find-pkg-share rqt_gcs)/config/gcs.perspective --ros-args --log-level INFO"
@@ -28,9 +27,6 @@
     <param name="use_sim_time" value="$(var sim)" />
     <param name="send_buffer_limit" value="10000000" />
   </node>
-
-
-   
 
   <!-- Gossip bridge: connects GCS domain (0) to gossip bus (domain 99) -->
   <include file="$(find-pkg-share coordination_bringup)/launch/gcs_gossip_bridge.launch.py" />

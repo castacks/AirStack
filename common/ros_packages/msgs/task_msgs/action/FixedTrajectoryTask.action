@@ -1,8 +1,8 @@
-# Follow a pre-defined trajectory.
+# Follow a fixed trajectory specified by type and parameters.
 # loop: if true, repeat the trajectory indefinitely until cancelled
 
 # Goal
-airstack_msgs/TrajectoryXYZVYaw trajectory
+airstack_msgs/FixedTrajectory trajectory_spec
 bool loop
 ---
 # Result
@@ -12,6 +12,4 @@ string message
 # Feedback
 string status
 float32 progress
-int32 current_waypoint_index
-int32 total_waypoints
 geometry_msgs/Point current_position

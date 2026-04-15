@@ -122,21 +122,7 @@ def launch_setup(context, *args, **kwargs):
     )
     actions.append(odometry_conversion_node)
 
-    # --- Drone safety monitor -----------------------------------------------
-    drone_safety_monitor_node = Node(
-        package='drone_safety_monitor',
-        executable='drone_safety_monitor',
-        namespace='drone_safety_monitor',
-        output='screen',
-        parameters=[{
-            'state_estimate_timeout': 1.0,
-        }],
-        remappings=[
-            ('state_estimate',
-             f'/{robot_name}/odometry_conversion/odometry'),
-        ],
-    )
-    actions.append(drone_safety_monitor_node)
+    # NOTE: drone_safety_monitor is now launched from behavior_bringup
 
     return actions
 

@@ -332,6 +332,13 @@ RUN apt update -y && apt install -y --no-install-recommends \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
+# Install emoji font support and refresh font cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  fonts-noto-color-emoji \
+  fontconfig \
+  && fc-cache -f -v \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
 # Install DDS Router runtime library dependencies + OpenVDB

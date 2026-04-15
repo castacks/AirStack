@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -18,6 +19,7 @@ find_package(tf2_ros REQUIRED)
 find_package(airstack_msgs REQUIRED)
 find_package(airstack_common REQUIRED)
 find_package(trajectory_library REQUIRED)
+find_package(task_msgs REQUIRED)
 
 
 add_executable(trajectory_controller src/trajectory_controller.cpp)
@@ -35,7 +37,19 @@ ament_target_dependencies(trajectory_controller
   airstack_msgs
   airstack_common
   trajectory_library)
-install(TARGETS trajectory_controller
+
+add_executable(fixed_trajectory_task src/fixed_trajectory_task.cpp)
+target_include_directories(fixed_trajectory_task PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(fixed_trajectory_task
+  rclcpp
+  rclcpp_action
+  nav_msgs
+  airstack_msgs
+  task_msgs)
+
+install(TARGETS trajectory_controller fixed_trajectory_task
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
