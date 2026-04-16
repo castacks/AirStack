@@ -40,3 +40,4 @@ services:
       - ../ros_ws:/root/ros_ws:rw
       - ${MS_AIRSIM_ENV_DIR:-../environments}:/ms-airsim-env:rw
       - /usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro
+      - ../../../common/.tmux.conf:/root/.tmux.conf:rw
