@@ -712,8 +712,8 @@ function cmd_up {
     local n=0; for s in isaac-sim ms-airsim simple; do [[ ",$p," == *",$s,"* ]] && n=$((n+1)); done
     (( n > 1 )) && log_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple)." && exit 1
 
-    # Warn if URDF_FILE doesn't match the active simulator
-    local urdf=$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')
+    # Warn if URDF_FILE doesn't match the active simulator (env var overrides .env)
+    local urdf="${URDF_FILE:-$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
     if [[ -n "$urdf" ]]; then
         [[ ",$p," == *",ms-airsim,"* && "$urdf" != *.ms-airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match ms-airsim profile. Expected *.ms-airsim.* URDF."
         [[ ",$p," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF."
@@ -781,6 +781,47 @@ function cmd_images {
         docker images | head -1
         docker images | grep -i "$project_name" || true
     fi
+}
+
+function cmd_image_delete {
+    check_docker
+
+    local env_file="$PROJECT_ROOT/.env"
+    local project_name=""
+    if [ -f "$env_file" ]; then
+        project_name=$(grep -E "^PROJECT_NAME=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    fi
+    if [ -z "$project_name" ]; then
+        log_error "PROJECT_NAME not found in .env; refusing to delete."
+        return 1
+    fi
+
+    # Match images whose repository contains "/PROJECT_NAME" or equals "PROJECT_NAME".
+    # Using a regex anchored to a path segment avoids false positives on similar names.
+    local refs
+    refs=$(docker images --format '{{.Repository}}:{{.Tag}}' \
+        | grep -E "(^|/)${project_name}(:|$)" || true)
+
+    if [ -z "$refs" ]; then
+        log_info "No images found matching project: $project_name"
+        return 0
+    fi
+
+    log_info "The following images will be deleted:"
+    echo "$refs" | sed 's/^/  /'
+
+    # Confirm unless --yes / -y is passed.
+    local auto_yes=false
+    for arg in "$@"; do
+        [[ "$arg" == "-y" || "$arg" == "--yes" ]] && auto_yes=true
+    done
+    if ! $auto_yes; then
+        read -r -p "Delete these images? [y/N] " reply
+        [[ "$reply" =~ ^[Yy]$ ]] || { log_info "Aborted."; return 0; }
+    fi
+
+    echo "$refs" | xargs -r docker rmi -f
+    log_info "Done."
 }
 
 function cmd_down {
@@ -1121,6 +1162,7 @@ function register_builtin_commands {
     COMMANDS["image-push"]="cmd_image_push"
     COMMANDS["image-pull"]="cmd_image_pull"
     COMMANDS["images"]="cmd_images"
+    COMMANDS["image-delete"]="cmd_image_delete"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["clean"]="cmd_clean"
@@ -1138,6 +1180,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
+    COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
     COMMAND_HELP["up"]="Start services using Docker Compose"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
