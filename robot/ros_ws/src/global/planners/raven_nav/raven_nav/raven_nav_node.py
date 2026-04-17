@@ -1,3 +1,4 @@
+import json
 import os
 import numpy as np
 
@@ -19,12 +20,16 @@ class RavenNavNode(Node):
         robot_name = os.getenv('ROBOT_NAME', 'robot')
         self._prefix = f'/{robot_name}'
 
-        # Ray data parsed from rays_sim/all (all in FLU world frame after conversion)
-        self._ray_origins = None    # (N, 3) FLU
-        self._ray_dirs = None       # (N, 3) FLU
-        self._ray_scores = None     # (N, M) softmax scores
+        # Ray data from rays_sim/all (converted to FLU world frame)
+        self._ray_origins = None    # (N, 3)
+        self._ray_dirs = None       # (N, 3)
+        self._ray_scores = None     # (N, Q)
 
-        self._frontiers = None      # (N, 3) FLU — published already in FLU
+        # Voxel data from voxels_sim/all
+        self._vox_xyz = None        # (N, 3)
+        self._vox_scores = None     # (N, Q)
+
+        self._frontiers = None      # (N, 3)
         self._cur_pose = None       # (3,)
 
         self._waypoint_locked = False
@@ -49,12 +54,17 @@ class RavenNavNode(Node):
             PointCloud2, f'{self._prefix}/frontier_viewpoints', 10)
         self._current_target_pub = self.create_publisher(
             String, f'{self._prefix}/current_target', 10)
+        self._voxel_bbox_pub = self.create_publisher(
+            MarkerArray, f'{self._prefix}/voxel_clusters', 10)
+        self._completed_targets_pub = self.create_publisher(
+            String, f'{self._prefix}/completed_targets', 10)
 
         self._publisher_dict = {
             'path': self._path_pub,
             'filtered_rays': self._filtered_rays_pub,
             'viewpoint': self._viewpoint_pub,
             'current_target': self._current_target_pub,
+            'voxel_bbox': self._voxel_bbox_pub,
         }
 
         self._behavior_manager = BehaviorManager(
@@ -63,10 +73,17 @@ class RavenNavNode(Node):
             score_threshold=self._score_threshold,
         )
 
+        # Subscribe to all-queries topics so rayfronts always publishes to them
+        rf_prefix = f'{self._prefix}/rayfronts/msg_serv'
         self.create_subscription(
             PointCloud2,
-            f'{self._prefix}/rayfronts/msg_serv/rays_sim/all',
-            self._rays_cb, 10)
+            f'{rf_prefix}/rays_sim/all',
+            self._ray_all_cb, 10)
+        self.create_subscription(
+            PointCloud2,
+            f'{rf_prefix}/voxels_sim/all',
+            self._vox_all_cb, 10)
+
         self.create_subscription(
             PointCloud2,
             f'{self._prefix}/rayfronts/msg_serv/frontiers',
@@ -88,74 +105,78 @@ class RavenNavNode(Node):
             f'query_labels={self._query_labels} | '
             f'score_threshold={self._score_threshold}')
 
-    def _rays_cb(self, msg: PointCloud2):
-        """Parse rays_sim/all PointCloud2.
-
-        Fields: x, y, z (RDF origin), theta, phi (degrees), sim_0, sim_1, ...
-        Converts origin + direction to world FLU frame.
-        """
-        field_names = [f.name for f in msg.fields]
-        pts = list(point_cloud2.read_points(msg, field_names=field_names,
-                                            skip_nans=True))
+    def _ray_all_cb(self, msg: PointCloud2):
+        """Receive all-queries ray PointCloud2 (fields: x,y,z,theta,phi,sim_0,sim_1,...)."""
+        Q = len(self._query_labels)
+        if Q == 0:
+            return
+        fields = ('x', 'y', 'z', 'theta', 'phi') + tuple(f'sim_{q}' for q in range(Q))
+        pts = list(point_cloud2.read_points(msg, field_names=fields, skip_nans=True))
         if not pts:
             self._ray_origins = None
             self._ray_dirs = None
             self._ray_scores = None
             return
+        arr = np.array([list(p) for p in pts], dtype=np.float32)
+        rdf_orig = arr[:, :3]
+        theta = np.deg2rad(arr[:, 3])
+        phi = np.deg2rad(arr[:, 4])
+        sim_all = arr[:, 5:]  # (N, Q)
+        # Spherical → Cartesian in RDF
+        dx = np.cos(theta) * np.sin(phi)
+        dy = np.sin(theta) * np.sin(phi)
+        dz = np.cos(phi)
+        rdf_dirs = np.stack([dx, dy, dz], axis=1)
+        # RDF → FLU
+        flu_orig = np.stack([rdf_orig[:, 2], -rdf_orig[:, 0], -rdf_orig[:, 1]], axis=1)
+        flu_dirs = np.stack([rdf_dirs[:, 2], -rdf_dirs[:, 0], -rdf_dirs[:, 1]], axis=1)
+        self._ray_origins = flu_orig
+        self._ray_dirs = flu_dirs
+        self._ray_scores = sim_all
 
-        pts_arr = np.array([list(p) for p in pts], dtype=np.float32)
-
-        x_idx = field_names.index('x')
-        y_idx = field_names.index('y')
-        z_idx = field_names.index('z')
-        theta_idx = field_names.index('theta')
-        phi_idx = field_names.index('phi')
-
-        rdf_origins = pts_arr[:, [x_idx, y_idx, z_idx]]
-        theta = np.deg2rad(pts_arr[:, theta_idx])
-        phi = np.deg2rad(pts_arr[:, phi_idx])
-
-        # Spherical → Cartesian in RDF frame
-        # Matches geometry3d.spherical_to_cartesian / cartesian_to_spherical:
-        #   theta = azimuthal in xy-plane, phi = polar from +z (forward)
-        # x=cos(theta)*sin(phi), y=sin(theta)*sin(phi), z=cos(phi)
-        dx_rdf = np.cos(theta) * np.sin(phi)
-        dy_rdf = np.sin(theta) * np.sin(phi)
-        dz_rdf = np.cos(phi)
-        rdf_dirs = np.stack([dx_rdf, dy_rdf, dz_rdf], axis=1)
-
-        # RDF → FLU: world_x=rdf_z, world_y=-rdf_x, world_z=-rdf_y
-        self._ray_origins = np.stack([
-            rdf_origins[:, 2], -rdf_origins[:, 0], -rdf_origins[:, 1]], axis=1)
-        self._ray_dirs = np.stack([
-            rdf_dirs[:, 2], -rdf_dirs[:, 0], -rdf_dirs[:, 1]], axis=1)
-
-        # Collect sim_* columns in order
-        sim_cols = [i for i, n in enumerate(field_names) if n.startswith('sim_')]
-        sim_cols.sort(key=lambda i: int(field_names[i].split('_')[1]))
-        if sim_cols:
-            self._ray_scores = pts_arr[:, sim_cols]  # (N, M)
-        else:
-            self._ray_scores = None
+    def _vox_all_cb(self, msg: PointCloud2):
+        """Receive all-queries voxel PointCloud2 (fields: x,y,z,sim_0,sim_1,...)."""
+        Q = len(self._query_labels)
+        if Q == 0:
+            return
+        fields = ('x', 'y', 'z') + tuple(f'sim_{q}' for q in range(Q))
+        pts = list(point_cloud2.read_points(msg, field_names=fields, skip_nans=True))
+        if not pts:
+            self._vox_xyz = None
+            self._vox_scores = None
+            return
+        arr = np.array([list(p) for p in pts], dtype=np.float32)
+        rdf_xyz = arr[:, :3]
+        sim_all = arr[:, 3:]  # (N, Q)
+        # RDF → FLU
+        flu_xyz = np.stack([rdf_xyz[:, 2], -rdf_xyz[:, 0], -rdf_xyz[:, 1]], axis=1)
+        self._vox_xyz = flu_xyz
+        self._vox_scores = sim_all
 
     def _frontiers_cb(self, msg: PointCloud2):
-        """Parse msg_serv/frontiers — already in FLU world frame."""
         pts = list(point_cloud2.read_points(msg, field_names=('x', 'y', 'z'),
                                             skip_nans=True))
-        if pts:
-            self._frontiers = np.array([[p[0], p[1], p[2]] for p in pts],
-                                       dtype=np.float32)
-        else:
-            self._frontiers = None
+        self._frontiers = (
+            np.array([[p[0], p[1], p[2]] for p in pts], dtype=np.float32)
+            if pts else None)
 
     def _odometry_cb(self, msg: Odometry):
         p = msg.pose.pose.position
         self._cur_pose = np.array([p.x, p.y, p.z], dtype=np.float64)
 
     def _input_prompt_cb(self, msg: String):
-        targets = [t.strip().lower() for t in msg.data.split(',') if t.strip()]
+        targets = [t.strip() for t in msg.data.split(',') if t.strip()]
         if targets:
             self._target_objects = targets
+            # Keep _query_labels in sync so vox/ray callbacks read the right columns
+            if targets != self._query_labels:
+                self._query_labels = targets[:]
+                # Clear cached data so stale multi-column arrays don't confuse behaviors
+                self._vox_xyz = None
+                self._vox_scores = None
+                self._ray_origins = None
+                self._ray_dirs = None
+                self._ray_scores = None
             self.get_logger().info(f'target objects updated: {self._target_objects}')
 
     def _timer_cb(self):
@@ -170,6 +191,8 @@ class RavenNavNode(Node):
             ray_scores=self._ray_scores,
             query_labels=self._query_labels,
             target_objects=self._target_objects,
+            vox_xyz=self._vox_xyz,
+            vox_scores=self._vox_scores,
         )
         self._behavior_mode = self._behavior_manager.behavior_mode
 
@@ -188,21 +211,30 @@ class RavenNavNode(Node):
                 target_waypoint=self._target_waypoint,
                 target_waypoint2=self._target_waypoint2,
                 publisher_dict=self._publisher_dict,
+                vox_xyz=self._vox_xyz,
+                vox_scores=self._vox_scores,
+                query_labels=self._query_labels,
             )
 
-        # Throttled status summary
+        # Completed-targets publishing disabled — task stops only on manual cancel
+        completed = list(self._behavior_manager.completed_queries)
+
+        # Status log
         n_frontiers = len(self._frontiers) if self._frontiers is not None else 0
         n_rays = len(self._ray_origins) if self._ray_origins is not None else 0
+        n_voxels = len(self._vox_xyz) if self._vox_xyz is not None else 0
         ray_beh = self._behavior_manager.ray_behavior
-        n_filtered = len(ray_beh._filtered_indices) if ray_beh._filtered_indices is not None else 0
-        publishing = self._target_waypoint is not None
+        n_filtered = (len(ray_beh._filtered_indices)
+                      if ray_beh._filtered_indices is not None else 0)
         wp = (f'({self._target_waypoint[0]:.1f}, {self._target_waypoint[1]:.1f}, '
-              f'{self._target_waypoint[2]:.1f})') if publishing else 'none'
+              f'{self._target_waypoint[2]:.1f})'
+              if self._target_waypoint is not None else 'none')
         self.get_logger().info(
             f'[{self._behavior_mode}] '
-            f'frontiers={n_frontiers} | rays={n_rays} filtered={n_filtered} | '
-            f'target={self._behavior_manager.ray_behavior.current_target} | '
-            f'publishing={publishing} wp={wp}',
+            f'frontiers={n_frontiers} rays={n_rays} filtered={n_filtered} '
+            f'voxels={n_voxels} | '
+            f'target={ray_beh.current_target} | '
+            f'completed={completed} | wp={wp}',
             throttle_duration_sec=2.0,
         )
 

@@ -1016,13 +1016,7 @@ void TasksPanel::onExecuteClicked()
       goal.confidence_threshold = getFloat(7, "confidence_threshold");
       doSendGoal<task_msgs::action::SemanticSearchTask>(7, goal,
         [](const auto & fb) {
-          return QString("status: %1 | progress: %2 | best_conf: %3 | pos: (%4, %5, %6)")
-            .arg(QString::fromStdString(fb.status))
-            .arg(fb.progress, 0, 'f', 2)
-            .arg(fb.best_confidence_so_far, 0, 'f', 3)
-            .arg(fb.current_position.x, 0, 'f', 1)
-            .arg(fb.current_position.y, 0, 'f', 1)
-            .arg(fb.current_position.z, 0, 'f', 1);
+          return QString::fromStdString(fb.status);
         },
         [](const auto & r) {
           return QString("success: %1\nmessage: %2\nconfidence: %3")

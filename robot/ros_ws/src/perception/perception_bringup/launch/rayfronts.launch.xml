@@ -1,7 +1,6 @@
 <launch>
   <arg name="config_name" default="low_memory"/>
   <arg name="dataset"     default="ros2isaacsim"/>
-  <arg name="queries_file" default="/opt/rayfronts/queries.txt"/>
   <arg name="query_period" default="10"/>
 
   <executable
@@ -10,7 +9,7 @@
          dataset=$(var dataset)
          messaging_service=ros
          querying.text_query_mode=prompts
-         querying.query_file=$(var queries_file)
+         querying.query_file=null
          querying.compute_prob=True
          querying.period=$(var query_period)"
     cwd="/opt/rayfronts"

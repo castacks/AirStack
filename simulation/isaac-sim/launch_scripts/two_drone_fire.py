@@ -188,7 +188,7 @@ class PegasusApp:
                 drone_prim=f"/World/drone{i}/base_link",
                 robot_name=f"robot_{i}",
                 camera_name="ZEDCamera",
-                camera_offset=[0.1, 0.0, 0.0],
+                camera_offset=[0.21, 0.0, 0.05],
                 camera_rotation_offset=[0.0, 0.0, 0.0],
             )
 
