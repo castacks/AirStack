@@ -75,3 +75,6 @@ simulation/isaac-sim/launch_scripts/prepare_scene.py
 
 # Generated Microsoft AirSim (legacy) config
 simulation/ms-airsim/config/settings.json
+
+# Test results
+tests/results/

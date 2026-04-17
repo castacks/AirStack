@@ -1,0 +1,13 @@
+services:
+  test:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${AIRSTACK_PATH}:${AIRSTACK_PATH}:ro
+      - ${AIRSTACK_PATH}/tests/results:${AIRSTACK_PATH}/tests/results
+    environment:
+      - AIRSTACK_ROOT=${AIRSTACK_PATH}
+    working_dir: ${AIRSTACK_PATH}/tests
+    network_mode: host

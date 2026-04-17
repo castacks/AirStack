@@ -3,32 +3,24 @@
 # dev.sh - Development-related commands for AirStack
 # This module provides commands for development tasks
 
-# Function to run tests
+# Function to run tests via the dockerized test runner.
+# Usage: airstack test                        — run all tests
+#        airstack test build_packages         — run one marker
+#        airstack test build_docker build_packages — multiple markers
 function cmd_dev_test {
-    log_info "Running tests..."
-    
-    local test_path="$PROJECT_ROOT/tests"
-    local test_filter=""
-    
-    # Parse arguments
-    for arg in "$@"; do
-        if [[ "$arg" == --path=* ]]; then
-            test_path="${arg#--path=}"
-        elif [[ "$arg" == --filter=* ]]; then
-            test_filter="${arg#--filter=}"
-        fi
-    done
-    
-    if [ -n "$test_filter" ]; then
-        log_info "Running tests matching '$test_filter' in $test_path"
-        # Add your test command here, e.g.:
-        # pytest "$test_path" -k "$test_filter"
-        echo "Test command would run here with filter: $test_filter"
+    check_docker
+    local compose_file="$PROJECT_ROOT/tests/docker/docker-compose.yaml"
+    local markers=("$@")
+
+    export AIRSTACK_PATH="$PROJECT_ROOT"
+    docker compose -f "$compose_file" build --quiet
+
+    if [ ${#markers[@]} -eq 0 ]; then
+        docker compose -f "$compose_file" run --rm test pytest
     else
-        log_info "Running all tests in $test_path"
-        # Add your test command here, e.g.:
-        # pytest "$test_path"
-        echo "Test command would run here"
+        local marker
+        marker=$(IFS=" or "; echo "${markers[*]}")
+        docker compose -f "$compose_file" run --rm test pytest -m "$marker"
     fi
 }
 
