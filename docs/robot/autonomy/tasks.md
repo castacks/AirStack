@@ -41,6 +41,38 @@ geometry_msgs/Point current_position
 
 ---
 
+### FixedTrajectoryTask
+
+**File:** `action/FixedTrajectoryTask.action`
+**Action server:** `/{robot_name}/tasks/fixed_trajectory`
+**Implemented by:** *(not yet implemented)*
+
+Follow a pre-defined trajectory specified by shape type and parameters. With `loop: true`, the trajectory repeats until the task is cancelled.
+
+#### Goal
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `trajectory_spec` | airstack_msgs/FixedTrajectory | Trajectory type (e.g. `Circle`, `Figure8`, `Lawnmower`) and key-value attributes |
+| `loop` | bool | If true, repeat trajectory indefinitely until cancelled |
+
+#### Result
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `success` | bool | True if trajectory completed (or cancelled normally when looping); false on error |
+| `message` | string | Completion reason |
+
+#### Feedback
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `status` | string | Task status string |
+| `progress` | float32 | Fraction of current pass completed (0.0–1.0) |
+| `current_position` | geometry_msgs/Point | Current robot position |
+
+---
+
 ### NavigateTask
 
 **File:** `action/NavigateTask.action`
@@ -156,127 +188,13 @@ Perform a systematic lawnmower-pattern coverage survey of a polygonal area. Comp
 
 ---
 
-### ObjectSearchTask
-
-**File:** `action/ObjectSearchTask.action`
-**Action server:** `/{robot_name}/tasks/object_search`
-**Implemented by:** *(not yet implemented)*
-
-Search an area for instances of a named object class. Stops early when `target_count` objects have been found (or 0 to search until time limit or full coverage).
-
-#### Goal
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `object_class` | string | Object class to search for (e.g. `"person"`, `"vehicle"`) |
-| `search_area` | geometry_msgs/Polygon | Area to search |
-| `min_altitude_agl` | float32 | Minimum flight altitude above ground (m) |
-| `max_altitude_agl` | float32 | Maximum flight altitude above ground (m) |
-| `min_flight_speed` | float32 | Minimum flight speed (m/s) |
-| `max_flight_speed` | float32 | Maximum flight speed (m/s) |
-| `time_limit_sec` | float32 | Maximum task duration in seconds (0 = no limit) |
-| `target_count` | int32 | Stop after finding this many objects (0 = search all) |
-
-#### Result
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `success` | bool | True if target count reached or area exhausted; false if cancelled |
-| `message` | string | Completion reason |
-| `objects_found` | int32 | Total number of objects found |
-| `object_poses` | geometry_msgs/PoseArray | Poses of all detected objects |
-
-#### Feedback
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `status` | string | Task status string |
-| `progress` | float32 | Search area fraction covered (0.0–1.0) |
-| `objects_found_so_far` | int32 | Objects detected so far |
-| `current_position` | geometry_msgs/Point | Current robot position |
-
----
-
-### ObjectCountingTask
-
-**File:** `action/ObjectCountingTask.action`
-**Action server:** `/{robot_name}/tasks/object_counting`
-**Implemented by:** *(not yet implemented)*
-
-Count all instances of a named object class within a defined area. Unlike `ObjectSearchTask`, this task always covers the full area regardless of how many objects are found.
-
-#### Goal
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `object_class` | string | Object class to count (e.g. `"car"`, `"tree"`) |
-| `count_area` | geometry_msgs/Polygon | Area to survey |
-| `min_altitude_agl` | float32 | Minimum flight altitude above ground (m) |
-| `max_altitude_agl` | float32 | Maximum flight altitude above ground (m) |
-| `min_flight_speed` | float32 | Minimum flight speed (m/s) |
-| `max_flight_speed` | float32 | Maximum flight speed (m/s) |
-
-#### Result
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `success` | bool | True if area fully surveyed; false if cancelled |
-| `message` | string | Completion reason |
-| `count` | int32 | Total number of objects counted |
-| `object_poses` | geometry_msgs/PoseArray | Poses of all detected objects |
-
-#### Feedback
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `status` | string | Task status string |
-| `progress` | float32 | Survey coverage fraction (0.0–1.0) |
-| `current_count` | int32 | Objects counted so far |
-| `current_position` | geometry_msgs/Point | Current robot position |
-
----
-
-### FixedTrajectoryTask
-
-**File:** `action/FixedTrajectoryTask.action`
-**Action server:** `/{robot_name}/tasks/fixed_trajectory`
-**Implemented by:** *(not yet implemented)*
-
-Follow a pre-defined `TrajectoryXYZVYaw` waypoint trajectory. With `loop: true`, the trajectory repeats until the task is cancelled.
-
-#### Goal
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `trajectory` | airstack_msgs/TrajectoryXYZVYaw | Waypoint trajectory to execute |
-| `loop` | bool | If true, repeat trajectory indefinitely until cancelled |
-
-#### Result
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `success` | bool | True if trajectory completed (or cancelled normally when looping); false on error |
-| `message` | string | Completion reason |
-
-#### Feedback
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `status` | string | Task status string |
-| `progress` | float32 | Fraction of waypoints completed (0.0–1.0) in current pass |
-| `current_waypoint_index` | int32 | Index of current waypoint |
-| `total_waypoints` | int32 | Total number of waypoints in trajectory |
-| `current_position` | geometry_msgs/Point | Current robot position |
-
----
-
 ### SemanticSearchTask
 
 **File:** `action/SemanticSearchTask.action`
 **Action server:** `/{robot_name}/tasks/semantic_search`
 **Implemented by:** *(not yet implemented)*
 
-Search for a location or object described in natural language. Uses a vision-language model to match the query against observations during flight.
+Search an area for a target described in natural language. Uses a vision-language model to match the query against observations during flight. Stops early once `target_count` matches have been found.
 
 #### Goal
 
@@ -290,15 +208,17 @@ Search for a location or object described in natural language. Uses a vision-lan
 | `max_flight_speed` | float32 | Maximum flight speed (m/s) |
 | `time_limit_sec` | float32 | Maximum task duration in seconds (0 = no limit) |
 | `confidence_threshold` | float32 | Minimum confidence to accept a match (0.0–1.0) |
+| `target_count` | int32 | Stop after finding this many matches (0 = search until time limit or full coverage) |
 
 #### Result
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if a match above threshold was found; false if cancelled or not found |
+| `success` | bool | True if at least one match above threshold was found; false if cancelled or not found |
 | `message` | string | Completion reason |
-| `found_pose` | geometry_msgs/Pose | Pose of the best match (if found) |
+| `found_poses` | geometry_msgs/PoseArray | Poses of all matches found |
 | `confidence` | float32 | Confidence of the best match (0.0–1.0) |
+| `objects_found` | int32 | Total number of matches found |
 
 #### Feedback
 
@@ -307,7 +227,38 @@ Search for a location or object described in natural language. Uses a vision-lan
 | `status` | string | Task status string |
 | `progress` | float32 | Search coverage fraction (0.0–1.0) |
 | `best_confidence_so_far` | float32 | Highest confidence match seen so far |
+| `objects_found_so_far` | int32 | Number of matches found so far |
 | `current_position` | geometry_msgs/Point | Current robot position |
+
+---
+
+### ChatTask
+
+**File:** `action/ChatTask.action`
+**Action server:** `/{robot_name}/tasks/chat`
+**Implemented by:** *(not yet implemented)*
+
+Send a free-form text prompt and optional images to the robot for processing by an onboard language model or remote AI service. The task completes when the model produces a response.
+
+#### Goal
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `text` | string | Free-form text prompt or question |
+| `images` | sensor_msgs/CompressedImage[] | Zero or more images to include with the prompt |
+
+#### Result
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `success` | bool | True if the model produced a response; false on error |
+| `message` | string | Model response text, or error description on failure |
+
+#### Feedback
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `status` | string | Processing status (e.g. `"processing"`, `"streaming"`) |
 
 ---
 

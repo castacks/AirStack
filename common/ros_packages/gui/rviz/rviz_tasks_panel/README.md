@@ -80,9 +80,8 @@ in the air.
 | Navigate | `NavigateTask` | `global_plan` (Path), `goal_tolerance_m` | ✓ |
 | Exploration | `ExplorationTask` | `search_bounds` (Polygon), altitude/speed, `time_limit_sec` | ✓ |
 | Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg` | ✓ |
-| Object Search | `ObjectSearchTask` | `object_class`, `search_area`, `target_count` | ✓ |
-| Object Counting | `ObjectCountingTask` | `object_class`, `count_area` | ✓ |
-| Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold` | ✓ |
+| Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold`, `target_count` | ✓ |
+| Chat | `ChatTask` | `text`, `images` (file upload) | |
 | Fixed Trajectory | `FixedTrajectoryTask` | `trajectory_spec`, `loop` | ✓ |
 
 ## Widget Type Mapping

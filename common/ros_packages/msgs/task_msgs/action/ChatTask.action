@@ -1,0 +1,12 @@
+# Send free-form text and optional images to the robot for processing.
+
+# Goal
+string text
+sensor_msgs/CompressedImage[] images
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
