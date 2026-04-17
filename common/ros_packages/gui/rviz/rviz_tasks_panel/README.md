@@ -81,6 +81,7 @@ in the air.
 | Exploration | `ExplorationTask` | `search_bounds` (Polygon), altitude/speed, `time_limit_sec` | ✓ |
 | Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg` | ✓ |
 | Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold`, `target_count` | ✓ |
+| Chat | `ChatTask` | `text`, `images` (file upload) | |
 | Fixed Trajectory | `FixedTrajectoryTask` | `trajectory_spec`, `loop` | ✓ |
 
 ## Widget Type Mapping

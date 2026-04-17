@@ -42,7 +42,10 @@
 #include <task_msgs/action/exploration_task.hpp>
 #include <task_msgs/action/coverage_task.hpp>
 #include <task_msgs/action/semantic_search_task.hpp>
+#include <task_msgs/action/chat_task.hpp>
 #include <task_msgs/action/fixed_trajectory_task.hpp>
+
+#include <sensor_msgs/msg/compressed_image.hpp>
 
 #include <waypoint_rviz2_plugin/waypoint_manager.hpp>
 
@@ -164,6 +167,8 @@ private:
   geometry_msgs::msg::Polygon getPolygon(int tab_index, const std::string & field_name);
   nav_msgs::msg::Path getPath(int tab_index, const std::string & field_name);
   airstack_msgs::msg::FixedTrajectory getFixedTrajectory(int tab_index, const std::string & field_name);
+  std::vector<sensor_msgs::msg::CompressedImage> getImages(int tab_index, const std::string & field_name);
+  void rebuildImageThumbnails(int tab_index, const std::string & field_name);
 
   // Template for sending goals with type-specific callbacks
   template<typename ActionT>

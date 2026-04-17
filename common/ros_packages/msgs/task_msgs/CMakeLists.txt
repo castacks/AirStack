@@ -10,9 +10,11 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(airstack_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/ChatTask.action"
   "action/CoverageTask.action"
   "action/ExplorationTask.action"
   "action/FixedTrajectoryTask.action"
@@ -20,7 +22,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/NavigateTask.action"
   "action/SemanticSearchTask.action"
   "action/TakeoffTask.action"
-  DEPENDENCIES action_msgs geometry_msgs nav_msgs airstack_msgs
+  DEPENDENCIES action_msgs geometry_msgs nav_msgs sensor_msgs airstack_msgs
 )
 
 if(BUILD_TESTING)

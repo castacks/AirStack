@@ -3,8 +3,11 @@
 
 #include "rviz_tasks_panel/tasks_panel.hpp"
 
+#include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHeaderView>
+#include <QScrollArea>
 #include <QMetaObject>
 #include <QTabBar>
 #include <QTime>
@@ -27,6 +30,10 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
     }},
     {"Land", "tasks/land", {
       {"velocity_m_s", "float32", 0.3, 0.0, 10.0},
+    }, true},
+    {"Fixed Trajectory", "tasks/fixed_trajectory", {
+      {"trajectory_spec", "airstack_msgs/FixedTrajectory", 0, 0, 0},
+      {"loop", "bool", 0, 0, 0},
     }, true},
     {"Navigate", "tasks/navigate", {
       {"global_plan", "nav_msgs/Path", 0, 0, 0},
@@ -60,10 +67,10 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"confidence_threshold", "float32", 0.5, 0.0, 1.0},
       {"target_count", "int32", 1, 0, 10000},
     }, true},
-    {"Fixed Trajectory", "tasks/fixed_trajectory", {
-      {"trajectory_spec", "airstack_msgs/FixedTrajectory", 0, 0, 0},
-      {"loop", "bool", 0, 0, 0},
-    }, true},
+    {"Chat", "tasks/chat", {
+      {"text", "text", 0, 0, 0},
+      {"images", "sensor_msgs/CompressedImage[]", 0, 0, 0},
+    }},
   };
 }
 
@@ -256,6 +263,53 @@ QWidget * TasksPanel::buildGoalFieldWidget(const GoalFieldDef & def, int tab_ind
     auto * cb = new QCheckBox();
     cb->setChecked(def.default_value != 0.0);
     return cb;
+  }
+  if (def.ros_type == "text") {
+    auto * edit = new QTextEdit();
+    edit->setPlaceholderText("Enter message text...");
+    edit->setMinimumHeight(100);
+    edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    return edit;
+  }
+  if (def.ros_type == "sensor_msgs/CompressedImage[]") {
+    auto * container = new QWidget();
+    auto * layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(4);
+
+    auto * upload_btn = new QPushButton("Upload Images...");
+    layout->addWidget(upload_btn);
+
+    auto * scroll = new QScrollArea();
+    scroll->setWidgetResizable(true);
+    scroll->setMinimumHeight(60);
+    scroll->setMaximumHeight(200);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    auto * scroll_contents = new QWidget();
+    auto * scroll_layout = new QVBoxLayout(scroll_contents);
+    scroll_layout->setAlignment(Qt::AlignTop);
+    scroll_layout->setSpacing(2);
+    scroll_layout->setContentsMargins(2, 2, 2, 2);
+    scroll->setWidget(scroll_contents);
+    layout->addWidget(scroll);
+
+    std::string field_name = def.name;
+    tab_states_[tab_index].field_data[field_name] = std::vector<std::string>{};
+    tab_states_[tab_index].field_data[field_name + "_scroll_widget"] = scroll_contents;
+
+    connect(upload_btn, &QPushButton::clicked, [this, tab_index, field_name]() {
+      QStringList files = QFileDialog::getOpenFileNames(
+        this, "Select Images", QString(),
+        "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.tif)");
+      if (files.isEmpty()) { return; }
+      auto & paths = std::any_cast<std::vector<std::string> &>(
+        tab_states_[tab_index].field_data[field_name]);
+      for (const auto & f : files) { paths.push_back(f.toStdString()); }
+      rebuildImageThumbnails(tab_index, field_name);
+    });
+
+    return container;
   }
   if (def.ros_type == "geometry_msgs/Polygon") {
     auto * container = new QWidget();
@@ -569,6 +623,7 @@ std::string TasksPanel::getString(int tab_index, const std::string & field_name)
 {
   auto * w = tab_states_[tab_index].field_widgets[field_name];
   if (auto * edit = qobject_cast<QLineEdit *>(w)) {return edit->text().toStdString();}
+  if (auto * edit = qobject_cast<QTextEdit *>(w)) {return edit->toPlainText().toStdString();}
   return "";
 }
 
@@ -619,6 +674,95 @@ airstack_msgs::msg::FixedTrajectory TasksPanel::getFixedTrajectory(
   }
 
   return ft;
+}
+
+void TasksPanel::rebuildImageThumbnails(int tab_index, const std::string & field_name)
+{
+  auto sw_it = tab_states_[tab_index].field_data.find(field_name + "_scroll_widget");
+  if (sw_it == tab_states_[tab_index].field_data.end()) { return; }
+  auto * scroll_contents = std::any_cast<QWidget *>(sw_it->second);
+  auto * scroll_layout = scroll_contents->layout();
+
+  // Remove all existing rows
+  QLayoutItem * item;
+  while ((item = scroll_layout->takeAt(0)) != nullptr) {
+    if (item->widget()) { item->widget()->deleteLater(); }
+    delete item;
+  }
+
+  auto paths_it = tab_states_[tab_index].field_data.find(field_name);
+  if (paths_it == tab_states_[tab_index].field_data.end()) { return; }
+  const auto & paths = std::any_cast<const std::vector<std::string> &>(paths_it->second);
+
+  for (size_t i = 0; i < paths.size(); ++i) {
+    auto * row = new QWidget();
+    auto * row_layout = new QHBoxLayout(row);
+    row_layout->setContentsMargins(2, 2, 2, 2);
+    row_layout->setSpacing(6);
+
+    // Thumbnail
+    auto * thumb = new QLabel();
+    QPixmap pix(QString::fromStdString(paths[i]));
+    if (pix.isNull()) {
+      thumb->setText("?");
+      thumb->setAlignment(Qt::AlignCenter);
+    } else {
+      thumb->setPixmap(pix.scaled(48, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    }
+    thumb->setFixedSize(48, 48);
+    thumb->setStyleSheet("border: 1px solid gray;");
+    row_layout->addWidget(thumb);
+
+    // Filename
+    auto * name_label = new QLabel(QFileInfo(QString::fromStdString(paths[i])).fileName());
+    name_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    row_layout->addWidget(name_label, 1);
+
+    // Remove button
+    auto * remove_btn = new QPushButton(QString::fromUtf8(u8"✕"));
+    remove_btn->setFixedSize(24, 24);
+    remove_btn->setToolTip("Remove image");
+    int idx = static_cast<int>(i);
+    connect(remove_btn, &QPushButton::clicked, [this, tab_index, field_name, idx]() {
+      auto & paths_ref = std::any_cast<std::vector<std::string> &>(
+        tab_states_[tab_index].field_data[field_name]);
+      paths_ref.erase(paths_ref.begin() + idx);
+      rebuildImageThumbnails(tab_index, field_name);
+    });
+    row_layout->addWidget(remove_btn);
+
+    scroll_layout->addWidget(row);
+  }
+}
+
+std::vector<sensor_msgs::msg::CompressedImage> TasksPanel::getImages(
+  int tab_index, const std::string & field_name)
+{
+  std::vector<sensor_msgs::msg::CompressedImage> images;
+  auto it = tab_states_[tab_index].field_data.find(field_name);
+  if (it == tab_states_[tab_index].field_data.end()) { return images; }
+
+  const auto & paths = std::any_cast<const std::vector<std::string> &>(it->second);
+  for (const auto & path : paths) {
+    QFile file(QString::fromStdString(path));
+    if (!file.open(QIODevice::ReadOnly)) { continue; }
+    QByteArray data = file.readAll();
+
+    sensor_msgs::msg::CompressedImage img;
+    QString lower = QString::fromStdString(path).toLower();
+    if (lower.endsWith(".png")) {
+      img.format = "png";
+    } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+      img.format = "jpeg";
+    } else if (lower.endsWith(".bmp")) {
+      img.format = "bmp";
+    } else {
+      img.format = "tiff";
+    }
+    img.data.assign(data.begin(), data.end());
+    images.push_back(std::move(img));
+  }
+  return images;
 }
 
 // ─────────────────────────── UI state helpers ─────────────────────────────────
@@ -862,35 +1006,11 @@ void TasksPanel::onExecuteClicked()
         });
       break;
     }
-    case 2: {  // Navigate
-      task_msgs::action::NavigateTask::Goal goal;
-      goal.global_plan = getPath(2, "global_plan");
-      goal.goal_tolerance_m = getFloat(2, "goal_tolerance_m");
-      doSendGoal<task_msgs::action::NavigateTask>(2, goal,
-        [](const auto & fb) {
-          return QString("status: %1 | dist: %2 m | pos: (%3, %4, %5)")
-            .arg(QString::fromStdString(fb.status))
-            .arg(fb.distance_to_goal, 0, 'f', 1)
-            .arg(fb.current_position.x, 0, 'f', 1)
-            .arg(fb.current_position.y, 0, 'f', 1)
-            .arg(fb.current_position.z, 0, 'f', 1);
-        },
-        [](const auto & r) {
-          return QString("success: %1\nmessage: %2")
-            .arg(r->success ? "true" : "false")
-            .arg(QString::fromStdString(r->message));
-        });
-      break;
-    }
-    case 3: {  // Exploration
-      task_msgs::action::ExplorationTask::Goal goal;
-      goal.search_bounds = getPolygon(3, "search_bounds");
-      goal.min_altitude_agl = getFloat(3, "min_altitude_agl");
-      goal.max_altitude_agl = getFloat(3, "max_altitude_agl");
-      goal.min_flight_speed = getFloat(3, "min_flight_speed");
-      goal.max_flight_speed = getFloat(3, "max_flight_speed");
-      goal.time_limit_sec = getFloat(3, "time_limit_sec");
-      doSendGoal<task_msgs::action::ExplorationTask>(3, goal,
+    case 2: {  // Fixed Trajectory
+      task_msgs::action::FixedTrajectoryTask::Goal goal;
+      goal.trajectory_spec = getFixedTrajectory(2, "trajectory_spec");
+      goal.loop = getBool(2, "loop");
+      doSendGoal<task_msgs::action::FixedTrajectoryTask>(2, goal,
         [](const auto & fb) {
           return QString("status: %1 | progress: %2 | pos: (%3, %4, %5)")
             .arg(QString::fromStdString(fb.status))
@@ -906,16 +1026,60 @@ void TasksPanel::onExecuteClicked()
         });
       break;
     }
-    case 4: {  // Coverage
-      task_msgs::action::CoverageTask::Goal goal;
-      goal.coverage_area = getPolygon(4, "coverage_area");
+    case 3: {  // Navigate
+      task_msgs::action::NavigateTask::Goal goal;
+      goal.global_plan = getPath(3, "global_plan");
+      goal.goal_tolerance_m = getFloat(3, "goal_tolerance_m");
+      doSendGoal<task_msgs::action::NavigateTask>(3, goal,
+        [](const auto & fb) {
+          return QString("status: %1 | dist: %2 m | pos: (%3, %4, %5)")
+            .arg(QString::fromStdString(fb.status))
+            .arg(fb.distance_to_goal, 0, 'f', 1)
+            .arg(fb.current_position.x, 0, 'f', 1)
+            .arg(fb.current_position.y, 0, 'f', 1)
+            .arg(fb.current_position.z, 0, 'f', 1);
+        },
+        [](const auto & r) {
+          return QString("success: %1\nmessage: %2")
+            .arg(r->success ? "true" : "false")
+            .arg(QString::fromStdString(r->message));
+        });
+      break;
+    }
+    case 4: {  // Exploration
+      task_msgs::action::ExplorationTask::Goal goal;
+      goal.search_bounds = getPolygon(4, "search_bounds");
       goal.min_altitude_agl = getFloat(4, "min_altitude_agl");
       goal.max_altitude_agl = getFloat(4, "max_altitude_agl");
       goal.min_flight_speed = getFloat(4, "min_flight_speed");
       goal.max_flight_speed = getFloat(4, "max_flight_speed");
-      goal.line_spacing_m = getFloat(4, "line_spacing_m");
-      goal.heading_deg = getFloat(4, "heading_deg");
-      doSendGoal<task_msgs::action::CoverageTask>(4, goal,
+      goal.time_limit_sec = getFloat(4, "time_limit_sec");
+      doSendGoal<task_msgs::action::ExplorationTask>(4, goal,
+        [](const auto & fb) {
+          return QString("status: %1 | progress: %2 | pos: (%3, %4, %5)")
+            .arg(QString::fromStdString(fb.status))
+            .arg(fb.progress, 0, 'f', 2)
+            .arg(fb.current_position.x, 0, 'f', 1)
+            .arg(fb.current_position.y, 0, 'f', 1)
+            .arg(fb.current_position.z, 0, 'f', 1);
+        },
+        [](const auto & r) {
+          return QString("success: %1\nmessage: %2")
+            .arg(r->success ? "true" : "false")
+            .arg(QString::fromStdString(r->message));
+        });
+      break;
+    }
+    case 5: {  // Coverage
+      task_msgs::action::CoverageTask::Goal goal;
+      goal.coverage_area = getPolygon(5, "coverage_area");
+      goal.min_altitude_agl = getFloat(5, "min_altitude_agl");
+      goal.max_altitude_agl = getFloat(5, "max_altitude_agl");
+      goal.min_flight_speed = getFloat(5, "min_flight_speed");
+      goal.max_flight_speed = getFloat(5, "max_flight_speed");
+      goal.line_spacing_m = getFloat(5, "line_spacing_m");
+      goal.heading_deg = getFloat(5, "heading_deg");
+      doSendGoal<task_msgs::action::CoverageTask>(5, goal,
         [](const auto & fb) {
           return QString("status: %1 | progress: %2 | coverage: %3% | pos: (%4, %5, %6)")
             .arg(QString::fromStdString(fb.status))
@@ -933,18 +1097,18 @@ void TasksPanel::onExecuteClicked()
         });
       break;
     }
-    case 5: {  // Semantic Search
+    case 6: {  // Semantic Search
       task_msgs::action::SemanticSearchTask::Goal goal;
-      goal.query = getString(5, "query");
-      goal.search_area = getPolygon(5, "search_area");
-      goal.min_altitude_agl = getFloat(5, "min_altitude_agl");
-      goal.max_altitude_agl = getFloat(5, "max_altitude_agl");
-      goal.min_flight_speed = getFloat(5, "min_flight_speed");
-      goal.max_flight_speed = getFloat(5, "max_flight_speed");
-      goal.time_limit_sec = getFloat(5, "time_limit_sec");
-      goal.confidence_threshold = getFloat(5, "confidence_threshold");
-      goal.target_count = getInt(5, "target_count");
-      doSendGoal<task_msgs::action::SemanticSearchTask>(5, goal,
+      goal.query = getString(6, "query");
+      goal.search_area = getPolygon(6, "search_area");
+      goal.min_altitude_agl = getFloat(6, "min_altitude_agl");
+      goal.max_altitude_agl = getFloat(6, "max_altitude_agl");
+      goal.min_flight_speed = getFloat(6, "min_flight_speed");
+      goal.max_flight_speed = getFloat(6, "max_flight_speed");
+      goal.time_limit_sec = getFloat(6, "time_limit_sec");
+      goal.confidence_threshold = getFloat(6, "confidence_threshold");
+      goal.target_count = getInt(6, "target_count");
+      doSendGoal<task_msgs::action::SemanticSearchTask>(6, goal,
         [](const auto & fb) {
           return QString("status: %1 | progress: %2 | best_conf: %3 | found: %4 | pos: (%5, %6, %7)")
             .arg(QString::fromStdString(fb.status))
@@ -964,18 +1128,13 @@ void TasksPanel::onExecuteClicked()
         });
       break;
     }
-    case 6: {  // Fixed Trajectory
-      task_msgs::action::FixedTrajectoryTask::Goal goal;
-      goal.trajectory_spec = getFixedTrajectory(6, "trajectory_spec");
-      goal.loop = getBool(6, "loop");
-      doSendGoal<task_msgs::action::FixedTrajectoryTask>(6, goal,
+    case 7: {  // Chat
+      task_msgs::action::ChatTask::Goal goal;
+      goal.text = getString(7, "text");
+      goal.images = getImages(7, "images");
+      doSendGoal<task_msgs::action::ChatTask>(7, goal,
         [](const auto & fb) {
-          return QString("status: %1 | progress: %2 | pos: (%3, %4, %5)")
-            .arg(QString::fromStdString(fb.status))
-            .arg(fb.progress, 0, 'f', 2)
-            .arg(fb.current_position.x, 0, 'f', 1)
-            .arg(fb.current_position.y, 0, 'f', 1)
-            .arg(fb.current_position.z, 0, 'f', 1);
+          return QString::fromStdString(fb.status);
         },
         [](const auto & r) {
           return QString("success: %1\nmessage: %2")
@@ -998,11 +1157,12 @@ void TasksPanel::onCancelClicked()
   switch (idx) {
     case 0: doCancelGoal<task_msgs::action::TakeoffTask>(0); break;
     case 1: doCancelGoal<task_msgs::action::LandTask>(1); break;
-    case 2: doCancelGoal<task_msgs::action::NavigateTask>(2); break;
-    case 3: doCancelGoal<task_msgs::action::ExplorationTask>(3); break;
-    case 4: doCancelGoal<task_msgs::action::CoverageTask>(4); break;
-    case 5: doCancelGoal<task_msgs::action::SemanticSearchTask>(5); break;
-    case 6: doCancelGoal<task_msgs::action::FixedTrajectoryTask>(6); break;
+    case 2: doCancelGoal<task_msgs::action::FixedTrajectoryTask>(2); break;
+    case 3: doCancelGoal<task_msgs::action::NavigateTask>(3); break;
+    case 4: doCancelGoal<task_msgs::action::ExplorationTask>(4); break;
+    case 5: doCancelGoal<task_msgs::action::CoverageTask>(5); break;
+    case 6: doCancelGoal<task_msgs::action::SemanticSearchTask>(6); break;
+    case 7: doCancelGoal<task_msgs::action::ChatTask>(7); break;
   }
 }
 
