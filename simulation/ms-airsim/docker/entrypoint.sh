@@ -3,7 +3,6 @@ set -e
 
 NUM_ROBOTS="${NUM_ROBOTS:-1}"
 AUTOLAUNCH="${AUTOLAUNCH:-true}"
-MS_AIRSIM_BINARY_PATH="${MS_AIRSIM_BINARY_PATH:-/ms-airsim-env/LinuxNoEditor/Blocks.sh}"
 MS_AIRSIM_HEADLESS="${MS_AIRSIM_HEADLESS:-false}"
 # Seconds to let AirSim sensors settle before PX4 starts its EKF.
 # Too short → PX4 snapshots a bad local origin (altitude offset).
@@ -19,6 +18,18 @@ tmux new -d -s ms-airsim -n airsim
 # window list (airsim, robot_<i>_px4, robot_<i>_bridge) has room to breathe.
 tmux set-option -t ms-airsim status-right ''
 
+# Scene resolution. If MS_AIRSIM_BINARY_PATH is unset, the airsim tmux window
+# auto-fetches Blocks so the download is visible. If set, the file must exist.
+FETCH_PREFIX=""
+if [ -z "$MS_AIRSIM_BINARY_PATH" ]; then
+    MS_AIRSIM_BINARY_PATH="/ms-airsim-env/Blocks/LinuxNoEditor/Blocks.sh"
+    FETCH_PREFIX="SCENES_DIR=/ms-airsim-env bash /ms-airsim-env/fetch_scene.sh blocks && chown -R ms-airsim:ms-airsim /ms-airsim-env/Blocks && chmod -R a+rwX /ms-airsim-env/Blocks && "
+elif [ ! -f "$MS_AIRSIM_BINARY_PATH" ]; then
+    echo "ERROR: MS_AIRSIM_BINARY_PATH=$MS_AIRSIM_BINARY_PATH does not exist." >&2
+    echo "Extract the scene into the mounted volume, or unset MS_AIRSIM_BINARY_PATH to auto-fetch Blocks." >&2
+    exit 1
+fi
+
 if [ "$AUTOLAUNCH" = "true" ]; then
     # Build ROS workspace
     cd /root/ros_ws && colcon build --symlink-install
@@ -28,7 +39,7 @@ if [ "$AUTOLAUNCH" = "true" ]; then
         UE4_FLAGS="-RenderOffScreen -nosound"
     fi
     tmux send-keys -t ms-airsim:airsim \
-        "sudo -u ms-airsim $MS_AIRSIM_BINARY_PATH $UE4_FLAGS" ENTER
+        "${FETCH_PREFIX}sudo -u ms-airsim $MS_AIRSIM_BINARY_PATH $UE4_FLAGS" ENTER
 
     # Launch bridge nodes — one window per robot, named robot_<i>_bridge
     for i in $(seq 1 "$NUM_ROBOTS"); do

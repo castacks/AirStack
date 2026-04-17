@@ -20,16 +20,22 @@ Microsoft AirSim (legacy) provides an alternative simulation backend for AirStac
 
 ## Quick Start
 
-### 1. Download an environment
+### 1. Scene (auto-fetched on first launch)
 
-Download a pre-built environment from the [AirSim Linux releases](https://github.com/microsoft/AirSim/releases/tag/v1.8.1) and extract it into `simulation/ms-airsim/environments/`:
+If `MS_AIRSIM_BINARY_PATH` is unset, the container's entrypoint auto-downloads the Blocks scene (~200 MB) into `simulation/ms-airsim/assets/scenes/Blocks/` inside the `airsim` tmux window on first launch. Progress and any errors are visible there.
+
+To pre-fetch (e.g. before CI) or pick a different scene, run the helper directly:
 
 ```bash
-cd simulation/ms-airsim
-mkdir -p environments && cd environments
-wget https://github.com/microsoft/AirSim/releases/download/v1.8.1/AbandonedPark.zip
-unzip AbandonedPark.zip
+./simulation/ms-airsim/assets/scenes/fetch_scene.sh              # blocks (default)
+./simulation/ms-airsim/assets/scenes/fetch_scene.sh airsimnh     # or: abandonedpark, forest,
+                                                                 # landscapemountains, soccerfield,
+                                                                 # building99, zhangjiajie
 ```
+
+To use a scene that isn't one of the presets, extract it yourself into `simulation/ms-airsim/assets/scenes/` and set `MS_AIRSIM_BINARY_PATH` to its `.sh` path inside the container.
+
+Scenes are pulled from the [AirSim Linux releases](https://github.com/microsoft/AirSim/releases/tag/v1.8.1).
 
 ### 2. Launch Microsoft AirSim (legacy) + Robot
 
@@ -136,8 +142,8 @@ Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.y
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SIM_IP` | `172.31.0.200` | Simulation container IP |
-| `MS_AIRSIM_ENV_DIR` | `simulation/ms-airsim/environments` | Host path to extracted AirSim environment |
-| `MS_AIRSIM_BINARY_PATH` | `/ms-airsim-env/LinuxNoEditor/Blocks.sh` | Path to binary inside container |
+| `MS_AIRSIM_ENV_DIR` | `simulation/ms-airsim/assets/scenes` | Host path to extracted AirSim scenes |
+| `MS_AIRSIM_BINARY_PATH` | _(unset → auto-fetch Blocks)_ | Path to binary inside container. If unset, the entrypoint fetches Blocks and points at it. |
 
 ## Published ROS 2 Topics
 
