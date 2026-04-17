@@ -18,8 +18,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/FixedTrajectoryTask.action"
   "action/LandTask.action"
   "action/NavigateTask.action"
-  "action/ObjectCountingTask.action"
-  "action/ObjectSearchTask.action"
   "action/SemanticSearchTask.action"
   "action/TakeoffTask.action"
   DEPENDENCIES action_msgs geometry_msgs nav_msgs airstack_msgs

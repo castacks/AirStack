@@ -41,8 +41,6 @@
 #include <task_msgs/action/navigate_task.hpp>
 #include <task_msgs/action/exploration_task.hpp>
 #include <task_msgs/action/coverage_task.hpp>
-#include <task_msgs/action/object_search_task.hpp>
-#include <task_msgs/action/object_counting_task.hpp>
 #include <task_msgs/action/semantic_search_task.hpp>
 #include <task_msgs/action/fixed_trajectory_task.hpp>
 

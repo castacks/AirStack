@@ -49,24 +49,6 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"line_spacing_m", "float32", 5.0, 0.1, 1000.0},
       {"heading_deg", "float32", 0.0, 0.0, 360.0},
     }, true},
-    {"Object Search", "tasks/object_search", {
-      {"object_class", "string", 0, 0, 0},
-      {"search_area", "geometry_msgs/Polygon", 0, 0, 0},
-      {"min_altitude_agl", "float32", 3.0, 0.0, 500.0},
-      {"max_altitude_agl", "float32", 10.0, 0.0, 500.0},
-      {"min_flight_speed", "float32", 1.0, 0.0, 50.0},
-      {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
-      {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
-      {"target_count", "int32", 1, 0, 10000},
-    }, true},
-    {"Object Counting", "tasks/object_counting", {
-      {"object_class", "string", 0, 0, 0},
-      {"count_area", "geometry_msgs/Polygon", 0, 0, 0},
-      {"min_altitude_agl", "float32", 3.0, 0.0, 500.0},
-      {"max_altitude_agl", "float32", 10.0, 0.0, 500.0},
-      {"min_flight_speed", "float32", 1.0, 0.0, 50.0},
-      {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
-    }, true},
     {"Semantic Search", "tasks/semantic_search", {
       {"query", "string", 0, 0, 0},
       {"search_area", "geometry_msgs/Polygon", 0, 0, 0},
@@ -76,6 +58,7 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
       {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
       {"confidence_threshold", "float32", 0.5, 0.0, 1.0},
+      {"target_count", "int32", 1, 0, 10000},
     }, true},
     {"Fixed Trajectory", "tasks/fixed_trajectory", {
       {"trajectory_spec", "airstack_msgs/FixedTrajectory", 0, 0, 0},
@@ -950,93 +933,42 @@ void TasksPanel::onExecuteClicked()
         });
       break;
     }
-    case 5: {  // Object Search
-      task_msgs::action::ObjectSearchTask::Goal goal;
-      goal.object_class = getString(5, "object_class");
+    case 5: {  // Semantic Search
+      task_msgs::action::SemanticSearchTask::Goal goal;
+      goal.query = getString(5, "query");
       goal.search_area = getPolygon(5, "search_area");
       goal.min_altitude_agl = getFloat(5, "min_altitude_agl");
       goal.max_altitude_agl = getFloat(5, "max_altitude_agl");
       goal.min_flight_speed = getFloat(5, "min_flight_speed");
       goal.max_flight_speed = getFloat(5, "max_flight_speed");
       goal.time_limit_sec = getFloat(5, "time_limit_sec");
+      goal.confidence_threshold = getFloat(5, "confidence_threshold");
       goal.target_count = getInt(5, "target_count");
-      doSendGoal<task_msgs::action::ObjectSearchTask>(5, goal,
+      doSendGoal<task_msgs::action::SemanticSearchTask>(5, goal,
         [](const auto & fb) {
-          return QString("status: %1 | progress: %2 | found: %3 | pos: (%4, %5, %6)")
+          return QString("status: %1 | progress: %2 | best_conf: %3 | found: %4 | pos: (%5, %6, %7)")
             .arg(QString::fromStdString(fb.status))
             .arg(fb.progress, 0, 'f', 2)
+            .arg(fb.best_confidence_so_far, 0, 'f', 3)
             .arg(fb.objects_found_so_far)
             .arg(fb.current_position.x, 0, 'f', 1)
             .arg(fb.current_position.y, 0, 'f', 1)
             .arg(fb.current_position.z, 0, 'f', 1);
         },
         [](const auto & r) {
-          return QString("success: %1\nmessage: %2\nobjects_found: %3")
+          return QString("success: %1\nmessage: %2\nconfidence: %3\nobjects_found: %4")
             .arg(r->success ? "true" : "false")
             .arg(QString::fromStdString(r->message))
+            .arg(r->confidence, 0, 'f', 3)
             .arg(r->objects_found);
         });
       break;
     }
-    case 6: {  // Object Counting
-      task_msgs::action::ObjectCountingTask::Goal goal;
-      goal.object_class = getString(6, "object_class");
-      goal.count_area = getPolygon(6, "count_area");
-      goal.min_altitude_agl = getFloat(6, "min_altitude_agl");
-      goal.max_altitude_agl = getFloat(6, "max_altitude_agl");
-      goal.min_flight_speed = getFloat(6, "min_flight_speed");
-      goal.max_flight_speed = getFloat(6, "max_flight_speed");
-      doSendGoal<task_msgs::action::ObjectCountingTask>(6, goal,
-        [](const auto & fb) {
-          return QString("status: %1 | progress: %2 | count: %3 | pos: (%4, %5, %6)")
-            .arg(QString::fromStdString(fb.status))
-            .arg(fb.progress, 0, 'f', 2)
-            .arg(fb.current_count)
-            .arg(fb.current_position.x, 0, 'f', 1)
-            .arg(fb.current_position.y, 0, 'f', 1)
-            .arg(fb.current_position.z, 0, 'f', 1);
-        },
-        [](const auto & r) {
-          return QString("success: %1\nmessage: %2\ncount: %3")
-            .arg(r->success ? "true" : "false")
-            .arg(QString::fromStdString(r->message))
-            .arg(r->count);
-        });
-      break;
-    }
-    case 7: {  // Semantic Search
-      task_msgs::action::SemanticSearchTask::Goal goal;
-      goal.query = getString(7, "query");
-      goal.search_area = getPolygon(7, "search_area");
-      goal.min_altitude_agl = getFloat(7, "min_altitude_agl");
-      goal.max_altitude_agl = getFloat(7, "max_altitude_agl");
-      goal.min_flight_speed = getFloat(7, "min_flight_speed");
-      goal.max_flight_speed = getFloat(7, "max_flight_speed");
-      goal.time_limit_sec = getFloat(7, "time_limit_sec");
-      goal.confidence_threshold = getFloat(7, "confidence_threshold");
-      doSendGoal<task_msgs::action::SemanticSearchTask>(7, goal,
-        [](const auto & fb) {
-          return QString("status: %1 | progress: %2 | best_conf: %3 | pos: (%4, %5, %6)")
-            .arg(QString::fromStdString(fb.status))
-            .arg(fb.progress, 0, 'f', 2)
-            .arg(fb.best_confidence_so_far, 0, 'f', 3)
-            .arg(fb.current_position.x, 0, 'f', 1)
-            .arg(fb.current_position.y, 0, 'f', 1)
-            .arg(fb.current_position.z, 0, 'f', 1);
-        },
-        [](const auto & r) {
-          return QString("success: %1\nmessage: %2\nconfidence: %3")
-            .arg(r->success ? "true" : "false")
-            .arg(QString::fromStdString(r->message))
-            .arg(r->confidence, 0, 'f', 3);
-        });
-      break;
-    }
-    case 8: {  // Fixed Trajectory
+    case 6: {  // Fixed Trajectory
       task_msgs::action::FixedTrajectoryTask::Goal goal;
-      goal.trajectory_spec = getFixedTrajectory(8, "trajectory_spec");
-      goal.loop = getBool(8, "loop");
-      doSendGoal<task_msgs::action::FixedTrajectoryTask>(8, goal,
+      goal.trajectory_spec = getFixedTrajectory(6, "trajectory_spec");
+      goal.loop = getBool(6, "loop");
+      doSendGoal<task_msgs::action::FixedTrajectoryTask>(6, goal,
         [](const auto & fb) {
           return QString("status: %1 | progress: %2 | pos: (%3, %4, %5)")
             .arg(QString::fromStdString(fb.status))
@@ -1069,10 +1001,8 @@ void TasksPanel::onCancelClicked()
     case 2: doCancelGoal<task_msgs::action::NavigateTask>(2); break;
     case 3: doCancelGoal<task_msgs::action::ExplorationTask>(3); break;
     case 4: doCancelGoal<task_msgs::action::CoverageTask>(4); break;
-    case 5: doCancelGoal<task_msgs::action::ObjectSearchTask>(5); break;
-    case 6: doCancelGoal<task_msgs::action::ObjectCountingTask>(6); break;
-    case 7: doCancelGoal<task_msgs::action::SemanticSearchTask>(7); break;
-    case 8: doCancelGoal<task_msgs::action::FixedTrajectoryTask>(8); break;
+    case 5: doCancelGoal<task_msgs::action::SemanticSearchTask>(5); break;
+    case 6: doCancelGoal<task_msgs::action::FixedTrajectoryTask>(6); break;
   }
 }
 
