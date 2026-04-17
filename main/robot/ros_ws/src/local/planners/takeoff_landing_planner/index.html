@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../../../../docs/assets/StackedWhite.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
       
@@ -5258,16 +5258,14 @@
 
 <h1 id="takeoff-landing-planner">Takeoff Landing Planner<a class="headerlink" href="#takeoff-landing-planner" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The TakeoffLandingPlanner provides a rich interface for handling takeoff/landing commands, with support for both trajectory-based and ArduPilot command-based modes. It monitors the robot's position, generates appropriate trajectories, and tracks the completion status of takeoff and landing maneuvers.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+<p>The TakeoffLandingPlanner provides ROS 2 action servers for takeoff and landing maneuvers. It monitors the robot's state, generates trajectory overrides to reach the target altitude (takeoff) or ground (landing), and tracks completion via position and time thresholds.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Two takeoff modes: standard and high altitude</li>
-<li>Configurable takeoff and landing velocities</li>
-<li>Configurable takeoff trajectory direction</li>
-<li>Trajectory-based takeoff and landing with position tracking</li>
-<li>Direct ArduPilot takeoff command support</li>
-<li>Completion monitoring with distance and time thresholds</li>
-<li>State publishing for integration with higher-level systems</li>
+<li>Trajectory-based takeoff to a configurable target altitude and velocity</li>
+<li>Trajectory-based landing with on-ground detection, followed by automatic disarm</li>
+<li>Configurable takeoff trajectory direction (roll/pitch, absolute or body-relative)</li>
+<li>Precondition checking: rejects goals when state estimate is timed out or a task is already running</li>
+<li>Publishes <code>is_airborne</code> for downstream consumers (e.g. the RViz Tasks Panel)</li>
 </ul>
 <h2 id="topics">Topics<a class="headerlink" href="#topics" title="Permanent link">&para;</a></h2>
 <h3 id="subscriptions">Subscriptions<a class="headerlink" href="#subscriptions" title="Permanent link">&para;</a></h3>
@@ -5281,29 +5279,39 @@
 </thead>
 <tbody>
 <tr>
-<td><code>trajectory_completion_percentage</code></td>
-<td><code>std_msgs/Float32</code></td>
-<td>Current completion percentage of trajectory (from <a href="../../c_controls/trajectory_controller/src/trajectory_controller.cpp">trajectory_controller</a>)</td>
+<td><code>odometry</code></td>
+<td><code>nav_msgs/Odometry</code></td>
+<td>Robot pose and velocity</td>
 </tr>
 <tr>
 <td><code>tracking_point</code></td>
 <td><code>airstack_msgs/Odometry</code></td>
-<td>Current tracking point for trajectory (from <a href="../../c_controls/trajectory_controller/src/trajectory_controller.cpp">trajectory_controller</a>)</td>
+<td>Current trajectory tracking point</td>
 </tr>
 <tr>
-<td><code>odometry</code></td>
-<td><code>nav_msgs/Odometry</code></td>
-<td>Robot odometry data</td>
+<td><code>trajectory_completion_percentage</code></td>
+<td><code>std_msgs/Float32</code></td>
+<td>Trajectory completion (0–100) from trajectory_controller</td>
 </tr>
 <tr>
-<td><code>ekf_active</code></td>
+<td><code>is_armed</code></td>
 <td><code>std_msgs/Bool</code></td>
-<td>EKF status flag</td>
+<td>Vehicle arm status</td>
 </tr>
 <tr>
-<td><code>high_takeoff</code></td>
+<td><code>has_control</code></td>
 <td><code>std_msgs/Bool</code></td>
-<td>Flag to trigger high altitude takeoff</td>
+<td>Offboard control acquired</td>
+</tr>
+<tr>
+<td><code>state_estimate_timed_out</code></td>
+<td><code>std_msgs/Bool</code></td>
+<td>Whether the state estimate has timed out</td>
+</tr>
+<tr>
+<td><code>extended_state</code></td>
+<td><code>mavros_msgs/ExtendedState</code></td>
+<td>MAVROS landed state (used to publish <code>is_airborne</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -5320,21 +5328,16 @@
 <tr>
 <td><code>trajectory_override</code></td>
 <td><code>airstack_msgs/TrajectoryXYZVYaw</code></td>
-<td>Generated takeoff/landing trajectory</td>
+<td>Takeoff/landing trajectory sent to trajectory_controller</td>
 </tr>
 <tr>
-<td><code>takeoff_state</code></td>
-<td><code>std_msgs/String</code></td>
-<td>Current takeoff state ("NONE", "TAKING_OFF", "COMPLETE")</td>
-</tr>
-<tr>
-<td><code>landing_state</code></td>
-<td><code>std_msgs/String</code></td>
-<td>Current landing state ("NONE", "LANDING", "COMPLETE")</td>
+<td><code>is_airborne</code></td>
+<td><code>std_msgs/Bool</code></td>
+<td>True when <code>landed_state == LANDED_STATE_IN_AIR</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="services">Services<a class="headerlink" href="#services" title="Permanent link">&para;</a></h2>
+<h2 id="service-clients">Service Clients<a class="headerlink" href="#service-clients" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -5345,14 +5348,170 @@
 </thead>
 <tbody>
 <tr>
-<td><code>set_takeoff_landing_command</code></td>
-<td><code>airstack_msgs/TakeoffLandingCommand</code></td>
-<td>Sets command mode (NONE, TAKEOFF, LAND)</td>
+<td><code>set_trajectory_mode</code></td>
+<td><code>airstack_msgs/TrajectoryMode</code></td>
+<td>Switch trajectory controller mode</td>
 </tr>
 <tr>
-<td><code>ardupilot_takeoff</code></td>
-<td><code>std_srvs/Trigger</code></td>
-<td>Triggers direct ArduPilot takeoff command</td>
+<td><code>robot_command</code></td>
+<td><code>airstack_msgs/RobotCommand</code></td>
+<td>Arm, request offboard control, disarm</td>
+</tr>
+</tbody>
+</table>
+<h2 id="action-servers">Action Servers<a class="headerlink" href="#action-servers" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>~/takeoff_task</code></td>
+<td><code>task_msgs/TakeoffTask</code></td>
+<td>Execute a takeoff maneuver</td>
+</tr>
+<tr>
+<td><code>~/land_task</code></td>
+<td><code>task_msgs/LandTask</code></td>
+<td>Execute a landing maneuver</td>
+</tr>
+</tbody>
+</table>
+<h3 id="takeofftask">TakeoffTask<a class="headerlink" href="#takeofftask" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_altitude_m</code></td>
+<td>float32</td>
+<td>Target altitude in meters</td>
+</tr>
+<tr>
+<td><code>velocity_m_s</code></td>
+<td>float32</td>
+<td>Ascent velocity in m/s</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Feedback</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Human-readable status message</td>
+</tr>
+<tr>
+<td><code>current_altitude_m</code></td>
+<td>float32</td>
+<td>Current altitude in meters</td>
+</tr>
+<tr>
+<td><code>target_altitude_m</code></td>
+<td>float32</td>
+<td>Target altitude in meters</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Result</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>success</code></td>
+<td>bool</td>
+<td>Whether takeoff succeeded</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>Outcome description</td>
+</tr>
+</tbody>
+</table>
+<h3 id="landtask">LandTask<a class="headerlink" href="#landtask" title="Permanent link">&para;</a></h3>
+<p><strong>Goal</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>velocity_m_s</code></td>
+<td>float32</td>
+<td>Descent velocity in m/s</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Feedback</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Human-readable status message</td>
+</tr>
+<tr>
+<td><code>current_altitude_m</code></td>
+<td>float32</td>
+<td>Current altitude in meters</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Result</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>success</code></td>
+<td>bool</td>
+<td>Whether landing succeeded</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>Outcome description</td>
 </tr>
 </tbody>
 </table>
@@ -5368,115 +5527,77 @@
 </thead>
 <tbody>
 <tr>
-<td><code>takeoff_height</code></td>
-<td>float</td>
-<td>0.5</td>
-<td>Standard takeoff height in meters</td>
-</tr>
-<tr>
-<td><code>high_takeoff_height</code></td>
-<td>float</td>
-<td>1.2</td>
-<td>High altitude takeoff height in meters</td>
-</tr>
-<tr>
 <td><code>takeoff_velocity</code></td>
 <td>float</td>
-<td>0.3</td>
-<td>Velocity during takeoff in m/s</td>
+<td>1.0</td>
+<td>Default ascent velocity in m/s</td>
 </tr>
 <tr>
 <td><code>landing_velocity</code></td>
 <td>float</td>
 <td>0.3</td>
-<td>Velocity during landing in m/s</td>
+<td>Default descent velocity in m/s</td>
 </tr>
 <tr>
 <td><code>takeoff_acceptance_distance</code></td>
 <td>float</td>
-<td>0.1</td>
-<td>Maximum distance to consider takeoff complete in meters</td>
+<td>0.3</td>
+<td>Distance threshold to consider target altitude reached (m)</td>
 </tr>
 <tr>
 <td><code>takeoff_acceptance_time</code></td>
 <td>float</td>
-<td>2.0</td>
-<td>Required time at acceptance distance in seconds</td>
+<td>1.0</td>
+<td>Time that must be spent within acceptance distance (s)</td>
 </tr>
 <tr>
 <td><code>landing_stationary_distance</code></td>
 <td>float</td>
 <td>0.02</td>
-<td>Maximum movement distance to consider landed in meters</td>
+<td>Max movement to consider the drone stationary on landing (m)</td>
 </tr>
 <tr>
 <td><code>landing_acceptance_time</code></td>
 <td>float</td>
 <td>5.0</td>
-<td>Required time at stationary distance in seconds</td>
+<td>Time the drone must remain stationary to confirm landing (s)</td>
 </tr>
 <tr>
 <td><code>landing_tracking_point_ahead_time</code></td>
 <td>float</td>
 <td>5.0</td>
-<td>How far ahead the tracking point should be</td>
+<td>Lookahead time for the landing tracking point</td>
 </tr>
 <tr>
 <td><code>takeoff_path_roll</code></td>
 <td>float</td>
 <td>0.0</td>
-<td>Roll angle for takeoff path in degrees</td>
+<td>Roll offset for the takeoff trajectory (degrees)</td>
 </tr>
 <tr>
 <td><code>takeoff_path_pitch</code></td>
 <td>float</td>
 <td>0.0</td>
-<td>Pitch angle for takeoff path in degrees</td>
+<td>Pitch offset for the takeoff trajectory (degrees)</td>
 </tr>
 <tr>
 <td><code>takeoff_path_relative_to_orientation</code></td>
 <td>bool</td>
 <td>false</td>
-<td>Whether to use robot's current orientation for takeoff</td>
+<td>Apply roll/pitch relative to the robot's current orientation</td>
 </tr>
 </tbody>
 </table>
-<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
-<h3 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
-<p>To launch the TakeoffLandingPlanner node:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ros2<span class="w"> </span>run<span class="w"> </span>takeoff_landing_planner<span class="w"> </span>takeoff_landing_planner
-</span></code></pre></div>
-<h3 id="initiating-takeoff">Initiating Takeoff<a class="headerlink" href="#initiating-takeoff" title="Permanent link">&para;</a></h3>
-<p>To command a takeoff:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ros2<span class="w"> </span>service<span class="w"> </span>call<span class="w"> </span>/set_takeoff_landing_command<span class="w"> </span>airstack_msgs/srv/TakeoffLandingCommand<span class="w"> </span><span class="s2">&quot;{command: 1}&quot;</span>
-</span></code></pre></div>
-<h3 id="initiating-landing">Initiating Landing<a class="headerlink" href="#initiating-landing" title="Permanent link">&para;</a></h3>
-<p>To command a landing:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ros2<span class="w"> </span>service<span class="w"> </span>call<span class="w"> </span>/set_takeoff_landing_command<span class="w"> </span>airstack_msgs/srv/TakeoffLandingCommand<span class="w"> </span><span class="s2">&quot;{command: 2}&quot;</span>
-</span></code></pre></div>
-<h3 id="ardupilot-takeoff">ArduPilot Takeoff<a class="headerlink" href="#ardupilot-takeoff" title="Permanent link">&para;</a></h3>
-<p>To use direct ArduPilot takeoff commands:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ros2<span class="w"> </span>service<span class="w"> </span>call<span class="w"> </span>/ardupilot_takeoff<span class="w"> </span>std_srvs/srv/Trigger<span class="w"> </span><span class="s2">&quot;{}&quot;</span>
-</span></code></pre></div>
-<h2 id="state-monitoring">State Monitoring<a class="headerlink" href="#state-monitoring" title="Permanent link">&para;</a></h2>
-<p>The node publishes the current state of takeoff and landing operations through the <code>takeoff_state</code> and <code>landing_state</code> topics. Monitor these topics to track the progress and completion of operations:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/takeoff_state
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/landing_state
-</span></code></pre></div>
 <h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
 <ul>
-<li>airstack_msgs</li>
-<li>nav_msgs</li>
-<li>mavros_msgs</li>
-<li>std_msgs</li>
-<li>std_srvs</li>
-<li>tf2_ros</li>
-</ul>
-<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The node uses TF2 to track relative positions between the robot and tracking points</li>
-<li>Landing completion detection relies on both position stability and tracking point metrics</li>
-<li>The default landing target is hardcoded (-10000.0) and should be parameterized in future versions</li>
+<li><code>rclcpp</code> / <code>rclcpp_action</code></li>
+<li><code>airstack_msgs</code></li>
+<li><code>airstack_common</code></li>
+<li><code>nav_msgs</code></li>
+<li><code>mavros_msgs</code></li>
+<li><code>std_msgs</code></li>
+<li><code>task_msgs</code></li>
+<li><code>trajectory_library</code></li>
 </ul>
 
 

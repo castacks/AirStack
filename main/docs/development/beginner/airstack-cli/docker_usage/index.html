@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../../assets/StackedWhite.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
       
@@ -5488,7 +5488,7 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="nv">PROJECT_NAME</span><span class="o">=</span><span class="s2">&quot;airstack&quot;</span>
 </span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="c1"># If you&#39;ve run ./airstack.sh setup, then this will auto-generate from the git commit hash every time a change is made </span>
 </span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="c1"># to a Dockerfile or docker-compose.yaml file. Otherwise this can also be set explicitly to make a release version.</span>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="nv">VERSION</span><span class="o">=</span><span class="s2">&quot;0.18.0-alpha.3&quot;</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="nv">VERSION</span><span class="o">=</span><span class="s2">&quot;0.18.0-alpha.5&quot;</span>
 </span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="c1"># Choose &quot;dev&quot; or &quot;prebuilt&quot;. &quot;dev&quot; is for mounted code that must be built live. &quot;prebuilt&quot; is for built ros_ws baked into the image</span>
 </span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="nv">DOCKER_IMAGE_BUILD_MODE</span><span class="o">=</span><span class="s2">&quot;dev&quot;</span><span class="w">  </span>
 </span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="c1"># Where to push and pull images from. Can replace with your docker hub username if using docker hub.</span>
@@ -5507,7 +5507,7 @@ When no <code>--env-file</code> argument is passed to <code>docker compose</code
 </span><span id="__span-14-30"><a id="__codelineno-14-30" name="__codelineno-14-30" href="#__codelineno-14-30"></a><span class="c1"># ============== ISAAC SIM =====================</span>
 </span><span id="__span-14-31"><a id="__codelineno-14-31" name="__codelineno-14-31" href="#__codelineno-14-31"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="s2">&quot;/isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd&quot;</span>
 </span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a><span class="c1"># Set to &quot;true&quot; to launch Isaac Sim using a standalone Python script instead of USD file</span>
-</span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="s2">&quot;false&quot;</span><span class="w"> </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
+</span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="s2">&quot;true&quot;</span><span class="w"> </span><span class="c1"># &quot;true&quot; or &quot;false&quot;</span>
 </span><span id="__span-14-34"><a id="__codelineno-14-34" name="__codelineno-14-34" href="#__codelineno-14-34"></a><span class="c1"># Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)</span>
 </span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35" href="#__codelineno-14-35"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span><span class="s2">&quot;example_one_px4_pegasus_launch_script.py&quot;</span>
 </span><span id="__span-14-36"><a id="__codelineno-14-36" name="__codelineno-14-36" href="#__codelineno-14-36"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="s2">&quot;false&quot;</span>

@@ -1,0 +1,5 @@
+<library path="tasks_panel">
+  <class type="rviz_tasks_panel::TasksPanel" base_class_type="rviz_common::Panel">
+    <description>Panel for dispatching and monitoring ROS 2 task action goals</description>
+  </class>
+</library>

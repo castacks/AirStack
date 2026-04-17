@@ -63,12 +63,6 @@
         <param name="restamp_now_post"                         value="false" />
     </node>
 
-    <!-- ── Safety monitor ──────────────────────────────────────────────── -->
-    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
-          namespace="drone_safety_monitor" output="screen">
-        <param name="state_estimate_timeout" value="1.0" />
-        <remap from="state_estimate"
-               to="$(var interface_odometry_out_topic)" />
-    </node>
+    <!-- NOTE: drone_safety_monitor is now launched from behavior_bringup -->
 
 </launch>
