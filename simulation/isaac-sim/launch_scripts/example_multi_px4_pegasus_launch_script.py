@@ -8,15 +8,16 @@ Env:
  - PLAY_SIM_ON_START (default true): autoplay timeline
 """
 
+import os
+import sys
+import time
+
 import carb
 from isaacsim import SimulationApp
 
 # Must be created before any omni imports
-simulation_app = SimulationApp({"headless": False})
-
-import os
-import sys
-import time
+_headless = os.environ.get("ISAAC_SIM_HEADLESS", "false").lower() == "true"
+simulation_app = SimulationApp({"headless": _headless})
 
 import omni.kit.app
 import omni.timeline

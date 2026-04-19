@@ -3,25 +3,16 @@
 # dev.sh - Development-related commands for AirStack
 # This module provides commands for development tasks
 
-# Function to run tests via the dockerized test runner.
-# Usage: airstack test                        — run all tests
-#        airstack test build_packages         — run one marker
-#        airstack test build_docker build_packages — multiple markers
+# Run tests via the dockerized pytest runner. All args forward to pytest.
 function cmd_dev_test {
     check_docker
     local compose_file="$PROJECT_ROOT/tests/docker/docker-compose.yaml"
-    local markers=("$@")
-
     export AIRSTACK_PATH="$PROJECT_ROOT"
+    # Grant X access so sim containers spawned by tests in GUI mode
+    # (`pytest --gui`) can reach the host's X server. No-op otherwise.
+    xhost + || log_warn "xhost failed (is DISPLAY set? xhost installed?)"
     docker compose -f "$compose_file" build --quiet
-
-    if [ ${#markers[@]} -eq 0 ]; then
-        docker compose -f "$compose_file" run --rm test pytest
-    else
-        local marker
-        marker=$(IFS=" or "; echo "${markers[*]}")
-        docker compose -f "$compose_file" run --rm test pytest -m "$marker"
-    fi
+    docker compose -f "$compose_file" run --rm test pytest "$@"
 }
 
 # Function to build documentation

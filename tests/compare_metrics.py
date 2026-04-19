@@ -51,6 +51,37 @@ def merge_metrics(run_dir):
     return merged
 
 
+def _is_scored(entry):
+    """True if this metric entry can be numerically compared.
+
+    Skip time-series (list-valued, key 'samples'), non-numeric sentinels ('timeout'),
+    and any dict that lacks a 'value' field.
+    """
+    if not isinstance(entry, dict):
+        return False
+    if "samples" in entry:
+        return False
+    if "value" not in entry:
+        return False
+    v = entry["value"]
+    return isinstance(v, (int, float))
+
+
+def _fmt(entry):
+    """Format a metric entry for display. Handles sentinels, lists, and numbers."""
+    if not isinstance(entry, dict):
+        return str(entry)
+    if "samples" in entry:
+        return f"[{len(entry['samples'])} samples]"
+    if "value" not in entry:
+        return "—"
+    v = entry["value"]
+    unit = entry.get("unit", "")
+    if isinstance(v, (int, float)):
+        return f"{v:.1f}{unit}"
+    return f"{v}{unit}" if unit else str(v)
+
+
 def compare(current, baseline, threshold):
     rows = []
     has_regression = False
@@ -71,10 +102,28 @@ def compare(current, baseline, threshold):
             if not c or not b:
                 rows.append({
                     "test": test, "metric": key,
-                    "baseline": f"{b['value']}{b.get('unit', '')}" if b else "—",
-                    "current": f"{c['value']}{c.get('unit', '')}" if c else "—",
+                    "baseline": _fmt(b) if b else "—",
+                    "current": _fmt(c) if c else "—",
                     "change": "new" if c and not b else "removed",
                     "flag": "",
+                })
+                continue
+
+            # Non-scorable: time series, sentinels ("timeout"), strings. Show but don't score.
+            if not _is_scored(c) or not _is_scored(b):
+                flag = ""
+                # Special case: if current is "timeout" but baseline was numeric, it's a regression
+                cv = c.get("value") if isinstance(c, dict) else None
+                bv = b.get("value") if isinstance(b, dict) else None
+                if isinstance(cv, str) and cv == "timeout" and isinstance(bv, (int, float)):
+                    flag = "regression"
+                    has_regression = True
+                rows.append({
+                    "test": test, "metric": key,
+                    "baseline": _fmt(b),
+                    "current": _fmt(c),
+                    "change": "—",
+                    "flag": flag,
                 })
                 continue
 
@@ -97,8 +146,8 @@ def compare(current, baseline, threshold):
 
             rows.append({
                 "test": test, "metric": key,
-                "baseline": f"{bv:.1f}{b.get('unit', '')}",
-                "current": f"{cv:.1f}{c.get('unit', '')}",
+                "baseline": _fmt(b),
+                "current": _fmt(c),
                 "change": f"{change_pct:+.1f}%",
                 "flag": "regression" if regressed else ("improved" if improved else ""),
             })

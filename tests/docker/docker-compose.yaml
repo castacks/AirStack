@@ -9,5 +9,6 @@ services:
       - ${AIRSTACK_PATH}/tests/results:${AIRSTACK_PATH}/tests/results
     environment:
       - AIRSTACK_ROOT=${AIRSTACK_PATH}
+      - DISPLAY=${DISPLAY:-}
     working_dir: ${AIRSTACK_PATH}/tests
     network_mode: host
