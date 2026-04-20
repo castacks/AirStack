@@ -259,6 +259,80 @@ def wait_for_container(name_pattern, timeout=120):
     raise TimeoutError(f"Container matching '{name_pattern}' not running after {timeout}s")
 
 
+# ── compute-usage sampling ─────────────────────────────────────────────────
+
+_BYTES_RE = re.compile(r"([\d.]+)\s*([KMGT]?i?B)$")
+_BYTES_TO_MB = {
+    "B": 1 / (1024 * 1024),
+    "KiB": 1 / 1024, "KB": 1 / 1000,
+    "MiB": 1, "MB": 1,
+    "GiB": 1024, "GB": 1000,
+    "TiB": 1024 * 1024, "TB": 1_000_000,
+}
+
+
+def _parse_docker_bytes(s):
+    """Parse a docker-stats byte string (e.g. '123.4MiB', '0B') to MB."""
+    m = _BYTES_RE.match((s or "").strip())
+    if not m:
+        return 0.0
+    return float(m.group(1)) * _BYTES_TO_MB.get(m.group(2), 1)
+
+
+def sample_compute_usage(sim_container):
+    """Snapshot of compute resources: per-container CPU/mem/disk-IO/net-IO plus
+    global host CPU/mem and GPU util/VRAM/temp/power. Returns {key: value},
+    keys shaped `{entity}.{metric}` where entity is the full container name or
+    'host'. Per-robot replicas (e.g. airstack-robot-desktop-1/2/3) are kept
+    distinct so raw metrics.json preserves per-robot data; compare_metrics
+    pools them at report time. Silently omits metrics that fail to sample."""
+    import psutil
+
+    out = {}
+
+    stats = _run_teed(
+        ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
+        timeout=20,
+    )
+    for line in stats.stdout.strip().splitlines():
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        name = d.get("Name", "")
+        if not name or name.startswith("docker-test-run"):
+            continue
+        out[f"{name}.cpu_pct"] = float(d.get("CPUPerc", "0%").rstrip("%") or 0)
+        mem_raw = d.get("MemUsage", "").split("/")[0].strip()
+        out[f"{name}.mem_mb"] = _parse_docker_bytes(mem_raw)
+        for io_field, metric in (("BlockIO", "disk_io_mb"), ("NetIO", "net_io_mb")):
+            parts = (d.get(io_field, "") or "").split("/")
+            total = sum(_parse_docker_bytes(p.strip()) for p in parts)
+            out[f"{name}.{metric}"] = total
+
+    out["host.cpu_pct"] = psutil.cpu_percent(interval=0.5)
+    out["host.mem_mb"] = psutil.virtual_memory().used / (1024 * 1024)
+
+    gpu = _run_teed(
+        ["docker", "exec", sim_container, "nvidia-smi",
+         "--query-gpu=utilization.gpu,memory.used,temperature.gpu,power.draw",
+         "--format=csv,noheader,nounits"],
+        timeout=10,
+    )
+    if gpu.returncode == 0 and gpu.stdout.strip():
+        fields = [f.strip() for f in gpu.stdout.strip().splitlines()[0].split(",")]
+        if len(fields) >= 4:
+            try:
+                out["host.gpu_pct"] = float(fields[0])
+                out["host.vram_mb"] = float(fields[1])
+                out["host.gpu_temp_c"] = float(fields[2])
+                out["host.gpu_power_w"] = float(fields[3])
+            except ValueError:
+                pass
+
+    return out
+
+
 def docker_image_size_mb(service, env=None):
     compose_env = os.environ.copy()
     if env:

@@ -23,8 +23,27 @@ FLAG_SUFFIX = {"regression": " :red_circle:", "improved": " :green_circle:"}
 
 ITER_RE = re.compile(r"-iter(\d+)(?=\])")
 ROBOT_RE = re.compile(r"\brobot_\d+\b")
-HZ_AGGS = ("mean", "start_mean", "end_mean", "min", "max")
-HZ_METRIC_RE = re.compile(rf"^(.+)\.hz_({'|'.join(HZ_AGGS + ('samples',))})$")
+AGGS = ("mean", "start_mean", "end_mean", "min", "max")
+
+# Time-series metrics recorded as `{prefix}.{type}_samples`. Each entry here
+# declares the display unit + regression direction for the derived aggregates.
+SAMPLE_TYPES = {
+    "hz": {"unit": "Hz", "direction": "higher_is_better"},
+    "cpu_pct": {"unit": "%", "direction": "lower_is_better"},
+    "mem_mb": {"unit": "MB", "direction": "lower_is_better"},
+    "disk_io_mb": {"unit": "MB", "direction": "lower_is_better"},
+    "net_io_mb": {"unit": "MB", "direction": "lower_is_better"},
+    "gpu_pct": {"unit": "%", "direction": "lower_is_better"},
+    "vram_mb": {"unit": "MB", "direction": "lower_is_better"},
+    "gpu_temp_c": {"unit": "°C", "direction": "lower_is_better"},
+    "gpu_power_w": {"unit": "W", "direction": "lower_is_better"},
+}
+COMPUTE_TYPES = tuple(k for k in SAMPLE_TYPES if k != "hz")
+
+HZ_METRIC_RE = re.compile(rf"^(.+)\.hz_({'|'.join(AGGS + ('samples',))})$")
+COMPUTE_METRIC_RE = re.compile(
+    rf"^(.+)\.({'|'.join(COMPUTE_TYPES)})_({'|'.join(AGGS + ('samples',))})$"
+)
 
 
 def _split_test_name(name):
@@ -40,39 +59,53 @@ def _split_test_name(name):
 def _aggregate_samples(series_list):
     """Align per-iteration sample lists by `t` and return per-step mean/std.
 
-    Input: [[{"t": 10, "hz": 19.27}, ...], [{"t": 10, "hz": 45.67}, ...], ...]
-    Output: [{"t": 10, "hz_mean": 32.5, "hz_std": 13.2, "n": 2}, ...]
+    Input: [[{"t": 10, "value": 19.27}, ...], [{"t": 10, "value": 45.67}, ...], ...]
+    Output: [{"t": 10, "mean": 32.5, "std": 13.2, "n": 2}, ...]
     """
     by_t = defaultdict(list)
     for series in series_list:
         for s in series:
-            t, hz = s.get("t"), s.get("hz")
-            if t is None or hz is None:
+            t, v = s.get("t"), s.get("value", s.get("hz"))
+            if t is None or v is None:
                 continue
-            by_t[t].append(hz)
+            by_t[t].append(v)
     out = []
     for t in sorted(by_t):
         vals = by_t[t]
         out.append({
             "t": t,
-            "hz_mean": round(statistics.mean(vals), 2),
-            "hz_std": round(statistics.pstdev(vals), 2) if len(vals) > 1 else 0.0,
+            "mean": round(statistics.mean(vals), 2),
+            "std": round(statistics.pstdev(vals), 2) if len(vals) > 1 else 0.0,
             "n": len(vals),
         })
     return out
 
 
+def _collapse_robot_topic_names(key):
+    """`robot_1.sensors.foo` → `robot.sensors.foo`. No-op for keys without a
+    topic-style `robot_N` segment."""
+    return ROBOT_RE.sub("robot", key)
+
+
+def _collapse_robot_container_names(key):
+    """`airstack-robot-desktop-1.cpu_pct` → `airstack-robot-desktop.cpu_pct`.
+    Strips a docker-compose `-N` suffix from the first dotted segment only,
+    which is where a container name lives in our metric keys."""
+    first, dot, rest = key.partition(".")
+    first = re.sub(r"-\d+$", "", first)
+    return f"{first}{dot}{rest}"
+
+
 def _collapse_robots(merged):
     """Merge per-robot metric keys into robot-agnostic ones (homogeneous robots).
-    `robot_1.sensors.foo.hz_samples` + `robot_2.sensors.foo.hz_samples` →
-    `robot.sensors.foo.hz_samples` with sample lists concatenated. Mutates
-    `merged` in place."""
+    Both topic-style (`robot_N`) and container-style (`-N` replica suffix)
+    naming schemes collapse to the same base. Sample lists are concatenated on
+    collision."""
     for metrics in merged.values():
-        merged_samples = {}  # new_key -> combined samples list
+        merged_samples = {}
         for key, val in list(metrics.items()):
-            if not ROBOT_RE.search(key):
-                continue
-            new_key = ROBOT_RE.sub("robot", key)
+            new_key = _collapse_robot_container_names(
+                _collapse_robot_topic_names(key))
             if new_key == key:
                 continue
             metrics.pop(key)
@@ -84,42 +117,46 @@ def _collapse_robots(merged):
             metrics[new_key] = {"samples": samples}
 
 
-def _expand_hz_samples(merged):
-    """For each `{topic}.hz_samples` time series, synthesize scalar aggregates
-    (hz_mean, hz_min, hz_max, hz_start_mean, hz_end_mean) as peer metrics.
-    Mutates `merged` in place."""
-    suffix = ".hz_samples"
-    hz_up = {"unit": "Hz", "direction": "higher_is_better"}
+def _expand_time_series(merged):
+    """For each `{prefix}.{type}_samples` time series (type ∈ SAMPLE_TYPES),
+    synthesize scalar aggregates ({type}_{mean,min,max,start_mean,end_mean})
+    as peer metrics. Mutates `merged` in place."""
     for metrics in merged.values():
         for key, val in list(metrics.items()):
-            if not (isinstance(val, dict) and "samples" in val and key.endswith(suffix)):
+            if not (isinstance(val, dict) and "samples" in val
+                    and key.endswith("_samples")):
+                continue
+            stem = key.removesuffix("_samples")
+            sample_type = next(
+                (t for t in SAMPLE_TYPES if stem.endswith(f".{t}")), None)
+            if sample_type is None:
                 continue
             samples = val["samples"]
             if not samples:
                 continue
-            # Post-robot-merge, samples from different robots may interleave.
-            # Sort by t so start_mean/end_mean slicing lands on clean time halves.
+            # Post-collapse, samples from different robots/containers may
+            # interleave. Sort by t so start_mean/end_mean land on clean halves.
             samples = sorted(samples, key=lambda s: s["t"])
-            topic = key.removesuffix(suffix)
-            hz = [s["hz"] for s in samples]
+            meta = SAMPLE_TYPES[sample_type]
+            vals = [s.get("value", s.get("hz")) for s in samples]
             ts = [s["t"] for s in samples]
             half = len(samples) // 2 or 1
             aggs = {
-                "hz_mean": {"value": round(statistics.mean(hz), 2), **hz_up},
-                "hz_min": {"value": min(hz), **hz_up},
-                "hz_max": {"value": max(hz), **hz_up},
-                "hz_start_mean": {
-                    "value": round(statistics.mean(hz[:half]), 2),
-                    "t_start": ts[0], "t_end": ts[half - 1], **hz_up,
+                "mean": {"value": round(statistics.mean(vals), 2), **meta},
+                "min": {"value": min(vals), **meta},
+                "max": {"value": max(vals), **meta},
+                "start_mean": {
+                    "value": round(statistics.mean(vals[:half]), 2),
+                    "t_start": ts[0], "t_end": ts[half - 1], **meta,
                 },
             }
-            if len(hz) > half:
-                aggs["hz_end_mean"] = {
-                    "value": round(statistics.mean(hz[half:]), 2),
-                    "t_start": ts[half], "t_end": ts[-1], **hz_up,
+            if len(vals) > half:
+                aggs["end_mean"] = {
+                    "value": round(statistics.mean(vals[half:]), 2),
+                    "t_start": ts[half], "t_end": ts[-1], **meta,
                 }
             for agg_name, entry in aggs.items():
-                metrics.setdefault(f"{topic}.{agg_name}", entry)
+                metrics.setdefault(f"{stem}_{agg_name}", entry)
 
 
 def parse_results_xml(path):
@@ -156,7 +193,7 @@ def merge_metrics(run_dir):
             merged[test_name] = {}
         merged[test_name].update(test_metrics)
     _collapse_robots(merged)
-    _expand_hz_samples(merged)
+    _expand_time_series(merged)
     return _collapse_iterations(merged)
 
 
@@ -333,15 +370,19 @@ def _hz_cell(c, b, threshold):
 
 
 def compare(current, baseline, threshold):
-    """Split metrics into main table rows and sensor-rate pivot rows.
-
-    Returns (main_rows, hz_rows, hz_iter_counts, has_regression). Test execution
-    order (as written to results.xml / metrics.json) is preserved for grouping.
-    `hz_iter_counts[module] = (baseline_n, current_n)` records the iteration
-    count so format_markdown can annotate the sensor-rate section header."""
+    """Split metrics into three groups: flat rows, hz pivot rows, compute pivot
+    rows. Test execution order is preserved for grouping. `iter_counts[module]`
+    records the iteration count for annotating pivot-table headers."""
     main_rows = []
-    hz_data = {}
-    hz_iter_counts = {}
+    hz_data = {}        # (test, module, display, topic) → {agg: (text, flag)}
+    compute_data = {}   # (test, module, display, entity, metric_type) → {agg: (text, flag)}
+    iter_counts = {}    # module → (baseline_n, current_n)
+
+    def note_iters(module, c, b):
+        if module not in iter_counts:
+            b_n = b.get("total") if isinstance(b, dict) else None
+            c_n = c.get("total") if isinstance(c, dict) else None
+            iter_counts[module] = (b_n, c_n)
 
     ordered_tests = list(current) + [t for t in baseline if t not in current]
     for test in ordered_tests:
@@ -352,18 +393,28 @@ def compare(current, baseline, threshold):
                       [k for k in base if k != "status" and k not in curr]
         for key in metric_keys:
             c, b = curr.get(key), base.get(key)
-            m = HZ_METRIC_RE.match(key)
-            if m:
-                topic, agg = m.group(1), m.group(2)
+
+            hz_m = HZ_METRIC_RE.match(key)
+            if hz_m:
+                topic, agg = hz_m.group(1), hz_m.group(2)
                 if agg == "samples":
                     continue
                 hz_data.setdefault((test, module, display, topic), {})[agg] = \
                     _hz_cell(c, b, threshold)
-                if module not in hz_iter_counts:
-                    b_n = b.get("total") if isinstance(b, dict) else None
-                    c_n = c.get("total") if isinstance(c, dict) else None
-                    hz_iter_counts[module] = (b_n, c_n)
+                note_iters(module, c, b)
                 continue
+
+            compute_m = COMPUTE_METRIC_RE.match(key)
+            if compute_m:
+                entity, metric_type, agg = compute_m.group(1), compute_m.group(2), compute_m.group(3)
+                if agg == "samples":
+                    continue
+                compute_data.setdefault(
+                    (test, module, display, entity, metric_type), {}
+                )[agg] = _hz_cell(c, b, threshold)
+                note_iters(module, c, b)
+                continue
+
             bfmt, cfmt, change, flag = _score_pair(c, b, threshold)
             main_rows.append({
                 "module": module, "test": display, "metric": key,
@@ -375,53 +426,65 @@ def compare(current, baseline, threshold):
         {"module": module, "test": display, "topic": topic, "aggs": aggs}
         for (_, module, display, topic), aggs in hz_data.items()
     ]
+    compute_rows = [
+        {"module": module, "test": display, "entity": entity,
+         "metric_type": metric_type, "aggs": aggs}
+        for (_, module, display, entity, metric_type), aggs in compute_data.items()
+    ]
     has_regression = (
         any(r["flag"] == "regression" for r in main_rows)
         or any(flag == "regression" for r in hz_rows for _, flag in r["aggs"].values())
+        or any(flag == "regression" for r in compute_rows for _, flag in r["aggs"].values())
     )
-    return main_rows, hz_rows, hz_iter_counts, has_regression
+    return main_rows, hz_rows, compute_rows, iter_counts, has_regression
 
 
-def _hz_section_heading(baseline_n, current_n):
+def _iter_annotation(baseline_n, current_n):
     if baseline_n and current_n and baseline_n == current_n:
-        suffix = f"n={baseline_n} iterations; "
-    elif baseline_n or current_n:
-        suffix = f"baseline n={baseline_n}, current n={current_n}; "
-    else:
-        suffix = ""
-    return f"### Sim publishing rates ({suffix}baseline → current, per-topic)"
+        return f"n={baseline_n} iterations; "
+    if baseline_n or current_n:
+        return f"baseline n={baseline_n}, current n={current_n}; "
+    return ""
 
 
-def format_markdown(main_rows, hz_rows, hz_iter_counts, has_regression):
-    def hz_cell(pair):
-        if not pair:
-            return "—"
-        text, flag = pair
-        return text + FLAG_SUFFIX.get(flag, "")
+def _pivot_cell(pair):
+    if not pair:
+        return "—"
+    text, flag = pair
+    return text + FLAG_SUFFIX.get(flag, "")
 
+
+def _group_by_module(rows):
     modules = []
-    main_by_module = {}
-    hz_by_module = {}
-    for r in main_rows:
+    grouped = {}
+    for r in rows:
         mod = r["module"]
-        if mod not in main_by_module:
-            main_by_module[mod] = []
+        if mod not in grouped:
+            grouped[mod] = []
             if mod not in modules:
                 modules.append(mod)
-        main_by_module[mod].append(r)
-    for r in hz_rows:
-        mod = r["module"]
-        if mod not in hz_by_module:
-            hz_by_module[mod] = []
-            if mod not in modules:
-                modules.append(mod)
-        hz_by_module[mod].append(r)
+        grouped[mod].append(r)
+    return modules, grouped
+
+
+def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, has_regression):
+    main_mods, main_by_module = _group_by_module(main_rows)
+    hz_mods, hz_by_module = _group_by_module(hz_rows)
+    compute_mods, compute_by_module = _group_by_module(compute_rows)
+    modules = []
+    for m in main_mods + hz_mods + compute_mods:
+        if m not in modules:
+            modules.append(m)
 
     sections = []
     for mod in modules:
         sub = [f"## {mod}"]
         main = main_by_module.get(mod, [])
         hz = hz_by_module.get(mod, [])
+        compute = compute_by_module.get(mod, [])
+        b_n, c_n = iter_counts.get(mod, (None, None))
+        annotation = _iter_annotation(b_n, c_n)
+
         if main:
             table = tabulate(
                 [[r["test"], r["metric"], r["baseline"], r["current"],
@@ -432,13 +495,27 @@ def format_markdown(main_rows, hz_rows, hz_iter_counts, has_regression):
             sub.append("### Metrics\n\n" + table)
         if hz:
             table = tabulate(
-                [[r["test"], r["topic"]] + [hz_cell(r["aggs"].get(agg)) for agg in HZ_AGGS]
+                [[r["test"], r["topic"]] + [_pivot_cell(r["aggs"].get(agg)) for agg in AGGS]
                  for r in hz],
-                headers=["Test", "Topic", *HZ_AGGS],
+                headers=["Test", "Topic", *AGGS],
                 tablefmt="github",
             )
-            b_n, c_n = hz_iter_counts.get(mod, (None, None))
-            sub.append(_hz_section_heading(b_n, c_n) + "\n\n" + table)
+            sub.append(
+                f"### Sim publishing rates ({annotation}baseline → current, per-topic)\n\n"
+                + table
+            )
+        if compute:
+            table = tabulate(
+                [[r["test"], r["entity"], r["metric_type"]]
+                 + [_pivot_cell(r["aggs"].get(agg)) for agg in AGGS]
+                 for r in compute],
+                headers=["Test", "Entity", "Metric", *AGGS],
+                tablefmt="github",
+            )
+            sub.append(
+                f"### Compute usage ({annotation}baseline → current, "
+                f"per-container and global)\n\n" + table
+            )
         sections.append("\n\n".join(sub))
 
     if has_regression:
@@ -457,8 +534,9 @@ def main():
 
     current = merge_metrics(Path(args.current))
     baseline = merge_metrics(Path(args.baseline))
-    main_rows, hz_rows, hz_iter_counts, has_regression = compare(current, baseline, args.threshold)
-    md = format_markdown(main_rows, hz_rows, hz_iter_counts, has_regression)
+    main_rows, hz_rows, compute_rows, iter_counts, has_regression = compare(
+        current, baseline, args.threshold)
+    md = format_markdown(main_rows, hz_rows, compute_rows, iter_counts, has_regression)
 
     print(md)
     if args.output:

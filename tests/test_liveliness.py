@@ -19,6 +19,7 @@ from conftest import (
     logger,
     parallel_sample_hz,
     ros2_exec,
+    sample_compute_usage,
     wait_for_first_message,
 )
 
@@ -163,6 +164,22 @@ def _check_sim_publishing(env):
     return True, f"{len(rates)} topics healthy", rates
 
 
+def _check_compute_usage(env):
+    """Snapshot compute resources. Returns (ok, msg, samples_dict). ok=True as
+    long as sampling produced any numeric values; this test is diagnostic, not
+    gating — regressions surface via compare_metrics."""
+    logger.info("Sampling compute usage")
+    try:
+        samples = sample_compute_usage(env["sim_container"])
+    except Exception as e:
+        logger.warning("Compute sampling raised: %s", e)
+        return False, f"compute sampling failed: {e}", {}
+    if not samples:
+        return False, "no compute samples returned", {}
+    logger.info("Sampled %d compute metrics", len(samples))
+    return True, f"{len(samples)} compute metrics sampled", samples
+
+
 # ── tests ──────────────────────────────────────────────────────────────────
 
 def _poll_until(predicate, timeout, interval, fail_msg):
@@ -242,6 +259,14 @@ class TestLiveliness:
         ok, msg, _ = _check_sim_publishing(airstack_env)
         assert ok, msg
 
+    @pytest.mark.dependency(name="compute", depends=["sim_ready"])
+    def test_compute_usage(self, airstack_env):
+        """Snapshot per-container CPU/mem/IO + host CPU/mem + GPU util/VRAM/
+        temp/power. Passes as long as sampling returned values — time-series
+        recording happens in test_stable."""
+        ok, msg, _ = _check_compute_usage(airstack_env)
+        assert ok, msg
+
     @pytest.mark.dependency(name="nodes", depends=["containers"])
     def test_sentinel_nodes_present(self, airstack_env):
         """Wait up to 300s for the expected sentinel nodes per robot."""
@@ -277,10 +302,14 @@ class TestLiveliness:
                 ok_t, msg_t = _check_tmux_panes(airstack_env)
                 ok_n, msg_n = _check_sentinel_nodes(airstack_env)
                 ok_p, msg_p, rates = _check_sim_publishing(airstack_env)
+                _, _, compute = _check_compute_usage(airstack_env)
 
                 for topic, hz in rates.items():
-                    key = topic.lstrip("/").replace("/", ".")
-                    series.setdefault(key, []).append({"t": elapsed, "hz": hz or 0.0})
+                    key = topic.lstrip("/").replace("/", ".") + ".hz"
+                    series.setdefault(key, []).append({"t": elapsed, "value": hz or 0.0})
+
+                for key, value in compute.items():
+                    series.setdefault(key, []).append({"t": elapsed, "value": value})
 
                 if not (ok_t and ok_n and ok_p):
                     pytest.fail(
@@ -290,4 +319,4 @@ class TestLiveliness:
         finally:
             for key, samples in series.items():
                 if samples:
-                    m.record_list(tid, f"{key}.hz_samples", samples)
+                    m.record_list(tid, f"{key}_samples", samples)
