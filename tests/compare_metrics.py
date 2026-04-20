@@ -10,9 +10,116 @@ Usage:
 """
 import argparse
 import json
+import re
+import statistics
 import sys
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from pathlib import Path
+
+from tabulate import tabulate
+
+FLAG_SUFFIX = {"regression": " :red_circle:", "improved": " :green_circle:"}
+
+ITER_RE = re.compile(r"-iter(\d+)(?=\])")
+ROBOT_RE = re.compile(r"\brobot_\d+\b")
+HZ_AGGS = ("mean", "start_mean", "end_mean", "min", "max")
+HZ_METRIC_RE = re.compile(rf"^(.+)\.hz_({'|'.join(HZ_AGGS + ('samples',))})$")
+
+
+def _split_test_name(name):
+    """`test_liveliness.TestLiveliness.test_foo[id]` →
+    (module="test_liveliness", display="test_foo[id]"). Drops the Class segment
+    for display since there's one class per module."""
+    parts = name.split(".", 2)
+    if len(parts) == 3:
+        return parts[0], parts[2]
+    return parts[0], name
+
+
+def _aggregate_samples(series_list):
+    """Align per-iteration sample lists by `t` and return per-step mean/std.
+
+    Input: [[{"t": 10, "hz": 19.27}, ...], [{"t": 10, "hz": 45.67}, ...], ...]
+    Output: [{"t": 10, "hz_mean": 32.5, "hz_std": 13.2, "n": 2}, ...]
+    """
+    by_t = defaultdict(list)
+    for series in series_list:
+        for s in series:
+            t, hz = s.get("t"), s.get("hz")
+            if t is None or hz is None:
+                continue
+            by_t[t].append(hz)
+    out = []
+    for t in sorted(by_t):
+        vals = by_t[t]
+        out.append({
+            "t": t,
+            "hz_mean": round(statistics.mean(vals), 2),
+            "hz_std": round(statistics.pstdev(vals), 2) if len(vals) > 1 else 0.0,
+            "n": len(vals),
+        })
+    return out
+
+
+def _collapse_robots(merged):
+    """Merge per-robot metric keys into robot-agnostic ones (homogeneous robots).
+    `robot_1.sensors.foo.hz_samples` + `robot_2.sensors.foo.hz_samples` →
+    `robot.sensors.foo.hz_samples` with sample lists concatenated. Mutates
+    `merged` in place."""
+    for metrics in merged.values():
+        merged_samples = {}  # new_key -> combined samples list
+        for key, val in list(metrics.items()):
+            if not ROBOT_RE.search(key):
+                continue
+            new_key = ROBOT_RE.sub("robot", key)
+            if new_key == key:
+                continue
+            metrics.pop(key)
+            if isinstance(val, dict) and "samples" in val:
+                merged_samples.setdefault(new_key, []).extend(val["samples"])
+            else:
+                metrics.setdefault(new_key, val)
+        for new_key, samples in merged_samples.items():
+            metrics[new_key] = {"samples": samples}
+
+
+def _expand_hz_samples(merged):
+    """For each `{topic}.hz_samples` time series, synthesize scalar aggregates
+    (hz_mean, hz_min, hz_max, hz_start_mean, hz_end_mean) as peer metrics.
+    Mutates `merged` in place."""
+    suffix = ".hz_samples"
+    hz_up = {"unit": "Hz", "direction": "higher_is_better"}
+    for metrics in merged.values():
+        for key, val in list(metrics.items()):
+            if not (isinstance(val, dict) and "samples" in val and key.endswith(suffix)):
+                continue
+            samples = val["samples"]
+            if not samples:
+                continue
+            # Post-robot-merge, samples from different robots may interleave.
+            # Sort by t so start_mean/end_mean slicing lands on clean time halves.
+            samples = sorted(samples, key=lambda s: s["t"])
+            topic = key.removesuffix(suffix)
+            hz = [s["hz"] for s in samples]
+            ts = [s["t"] for s in samples]
+            half = len(samples) // 2 or 1
+            aggs = {
+                "hz_mean": {"value": round(statistics.mean(hz), 2), **hz_up},
+                "hz_min": {"value": min(hz), **hz_up},
+                "hz_max": {"value": max(hz), **hz_up},
+                "hz_start_mean": {
+                    "value": round(statistics.mean(hz[:half]), 2),
+                    "t_start": ts[0], "t_end": ts[half - 1], **hz_up,
+                },
+            }
+            if len(hz) > half:
+                aggs["hz_end_mean"] = {
+                    "value": round(statistics.mean(hz[half:]), 2),
+                    "t_start": ts[half], "t_end": ts[-1], **hz_up,
+                }
+            for agg_name, entry in aggs.items():
+                metrics.setdefault(f"{topic}.{agg_name}", entry)
 
 
 def parse_results_xml(path):
@@ -48,7 +155,79 @@ def merge_metrics(run_dir):
         if test_name not in merged:
             merged[test_name] = {}
         merged[test_name].update(test_metrics)
-    return merged
+    _collapse_robots(merged)
+    _expand_hz_samples(merged)
+    return _collapse_iterations(merged)
+
+
+def _collapse_iterations(merged):
+    """Strip -iterN from test keys and aggregate metrics across iterations.
+
+    - Numeric scalars → `value` = mean, `stddev`, `n` (success count),
+      `total` (iter count), `failures` (sentinel count), `missing` (neither).
+      If all iterations produced sentinels (e.g. all timeout), value = sentinel.
+    - Time-series `samples` → aligned per `t` across iterations; output list
+      has `hz_mean`, `hz_std`, `n` per step.
+    """
+    numeric = {}  # (base, key) -> {"values": [...], "sentinels": [...], "meta": {...}}
+    series = {}   # (base, key) -> [samples_list, ...]
+    out = {}
+    iters_per_test = {}
+
+    for name, metrics in merged.items():
+        m = ITER_RE.search(name)
+        iter_n = int(m.group(1)) if m else 0
+        base = ITER_RE.sub("", name)
+        iters_per_test.setdefault(base, set()).add(iter_n)
+        bucket = out.setdefault(base, {})
+        for key, val in metrics.items():
+            if key == "status":
+                if val == "failed" or bucket.get("status") == "failed":
+                    bucket["status"] = "failed"
+                else:
+                    bucket["status"] = val
+                continue
+            if isinstance(val, dict) and "samples" in val:
+                series.setdefault((base, key), []).append(val["samples"])
+                continue
+            if isinstance(val, dict) and "value" in val:
+                acc = numeric.setdefault((base, key), {
+                    "values": [], "sentinels": [], "meta": {
+                        "unit": val.get("unit", ""),
+                        "direction": val.get("direction", "lower_is_better"),
+                    }})
+                for k, v2 in val.items():
+                    if k not in ("value", "unit", "direction", "samples"):
+                        acc["meta"].setdefault(k, v2)
+                v = val["value"]
+                (acc["values"] if isinstance(v, (int, float)) else acc["sentinels"]).append(v)
+                continue
+            bucket.setdefault(key, val)
+
+    for (base, key), acc in numeric.items():
+        total = len(iters_per_test[base])
+        nums, sentinels = acc["values"], acc["sentinels"]
+        entry = dict(acc["meta"])
+        entry["total"] = total
+        entry["failures"] = len(sentinels)
+        entry["missing"] = total - len(nums) - len(sentinels)
+        if nums:
+            entry["value"] = round(statistics.mean(nums), 3)
+            entry["stddev"] = round(statistics.pstdev(nums), 3) if len(nums) > 1 else 0.0
+            entry["n"] = len(nums)
+        elif sentinels:
+            entry["value"] = sentinels[0]
+            entry["n"] = 0
+        else:
+            continue
+        out[base][key] = entry
+
+    for (base, key), series_list in series.items():
+        out[base][key] = {
+            "samples": _aggregate_samples(series_list),
+            "n": len(series_list),
+        }
+    return out
 
 
 def _is_scored(entry):
@@ -68,110 +247,204 @@ def _is_scored(entry):
 
 
 def _fmt(entry):
-    """Format a metric entry for display. Handles sentinels, lists, and numbers."""
+    """Format a metric entry for display. For aggregated numeric metrics,
+    shows `mean ± stddev (n=success/total, F fail, M miss)`. Flags (failures,
+    missing) are only appended when non-zero."""
     if not isinstance(entry, dict):
         return str(entry)
     if "samples" in entry:
-        return f"[{len(entry['samples'])} samples]"
+        label = f"[{len(entry['samples'])} steps"
+        if entry.get("n", 1) > 1:
+            label += f" × n={entry['n']}"
+        return label + "]"
     if "value" not in entry:
         return "—"
     v = entry["value"]
     unit = entry.get("unit", "")
+    n = entry.get("n", 0)
+    total = entry.get("total", n)
+    failures = entry.get("failures", 0)
+    missing = entry.get("missing", 0)
+    stddev = entry.get("stddev")
+
+    def _context():
+        parts = [f"n={n}/{total}"] if total > 1 else []
+        if failures:
+            parts.append(f"{failures} fail")
+        if missing:
+            parts.append(f"{missing} miss")
+        return f" ({', '.join(parts)})" if parts else ""
+
     if isinstance(v, (int, float)):
-        return f"{v:.1f}{unit}"
-    return f"{v}{unit}" if unit else str(v)
+        base = f"{v:.4g}{unit}"
+        if total > 1 and stddev is not None:
+            base = f"{v:.4g}{unit} ± {stddev:.2g}"
+        return base + _context()
+    body = f"{v}{unit}" if unit else str(v)
+    return body + _context()
+
+
+def _score_pair(c, b, threshold):
+    """Compare two metric entries. Returns (baseline_fmt, current_fmt, change_str,
+    flag). flag in {"", "regression", "improved"}. Handles missing/sentinel/
+    time-series entries as well."""
+    if not c or not b:
+        return (_fmt(b) if b else "—",
+                _fmt(c) if c else "—",
+                "new" if c and not b else "removed", "")
+
+    # Non-scorable: time series or sentinel strings.
+    if not _is_scored(c) or not _is_scored(b):
+        flag = ""
+        cv = c.get("value") if isinstance(c, dict) else None
+        bv = b.get("value") if isinstance(b, dict) else None
+        # Timeout after previously-numeric baseline = regression.
+        if isinstance(cv, str) and cv == "timeout" and isinstance(bv, (int, float)):
+            flag = "regression"
+        return _fmt(b), _fmt(c), "—", flag
+
+    cv, bv = c["value"], b["value"]
+    direction = c.get("direction", "lower_is_better")
+    change_pct = ((cv - bv) / bv) * 100 if bv != 0 else 0
+    regressed = (direction == "lower_is_better" and change_pct > threshold) or \
+                (direction == "higher_is_better" and change_pct < -threshold)
+    improved = (direction == "lower_is_better" and change_pct < -threshold) or \
+               (direction == "higher_is_better" and change_pct > threshold)
+    flag = "regression" if regressed else ("improved" if improved else "")
+    return _fmt(b), _fmt(c), f"{change_pct:+.1f}%", flag
+
+
+def _hz_cell(c, b, threshold):
+    """Compact `base → curr (Δ%)` cell for the pivoted sensor table. Appends
+    `t=A-Bs` when the metric carries a t_start/t_end window (start_mean/end_mean).
+    Returns (cell_text, flag)."""
+    bfmt, cfmt, change, flag = _score_pair(c, b, threshold)
+    if not c or not b:
+        return (cfmt if c else bfmt, flag)
+    if not _is_scored(c) or not _is_scored(b):
+        return (f"{bfmt} → {cfmt}", flag)
+    b_short = f"{b['value']:.4g}"
+    c_short = f"{c['value']:.4g}"
+    annotations = [change]
+    t_start, t_end = c.get("t_start"), c.get("t_end")
+    if t_start is not None and t_end is not None:
+        annotations.insert(0, f"t={t_start}-{t_end}s")
+    return (f"{b_short} → {c_short} ({', '.join(annotations)})", flag)
 
 
 def compare(current, baseline, threshold):
-    rows = []
-    has_regression = False
+    """Split metrics into main table rows and sensor-rate pivot rows.
 
-    all_tests = sorted(set(list(current.keys()) + list(baseline.keys())))
-    for test in all_tests:
+    Returns (main_rows, hz_rows, hz_iter_counts, has_regression). Test execution
+    order (as written to results.xml / metrics.json) is preserved for grouping.
+    `hz_iter_counts[module] = (baseline_n, current_n)` records the iteration
+    count so format_markdown can annotate the sensor-rate section header."""
+    main_rows = []
+    hz_data = {}
+    hz_iter_counts = {}
+
+    ordered_tests = list(current) + [t for t in baseline if t not in current]
+    for test in ordered_tests:
+        module, display = _split_test_name(test)
         curr = current.get(test, {})
         base = baseline.get(test, {})
-
-        # Collect all metric keys (skip 'status')
-        metric_keys = sorted(set(
-            [k for k in curr if k != "status"] +
-            [k for k in base if k != "status"]
-        ))
+        metric_keys = [k for k in curr if k != "status"] + \
+                      [k for k in base if k != "status" and k not in curr]
         for key in metric_keys:
-            c = curr.get(key)
-            b = base.get(key)
-            if not c or not b:
-                rows.append({
-                    "test": test, "metric": key,
-                    "baseline": _fmt(b) if b else "—",
-                    "current": _fmt(c) if c else "—",
-                    "change": "new" if c and not b else "removed",
-                    "flag": "",
-                })
+            c, b = curr.get(key), base.get(key)
+            m = HZ_METRIC_RE.match(key)
+            if m:
+                topic, agg = m.group(1), m.group(2)
+                if agg == "samples":
+                    continue
+                hz_data.setdefault((test, module, display, topic), {})[agg] = \
+                    _hz_cell(c, b, threshold)
+                if module not in hz_iter_counts:
+                    b_n = b.get("total") if isinstance(b, dict) else None
+                    c_n = c.get("total") if isinstance(c, dict) else None
+                    hz_iter_counts[module] = (b_n, c_n)
                 continue
-
-            # Non-scorable: time series, sentinels ("timeout"), strings. Show but don't score.
-            if not _is_scored(c) or not _is_scored(b):
-                flag = ""
-                # Special case: if current is "timeout" but baseline was numeric, it's a regression
-                cv = c.get("value") if isinstance(c, dict) else None
-                bv = b.get("value") if isinstance(b, dict) else None
-                if isinstance(cv, str) and cv == "timeout" and isinstance(bv, (int, float)):
-                    flag = "regression"
-                    has_regression = True
-                rows.append({
-                    "test": test, "metric": key,
-                    "baseline": _fmt(b),
-                    "current": _fmt(c),
-                    "change": "—",
-                    "flag": flag,
-                })
-                continue
-
-            cv, bv = c["value"], b["value"]
-            direction = c.get("direction", "lower_is_better")
-
-            if bv != 0:
-                change_pct = ((cv - bv) / bv) * 100
-            else:
-                change_pct = 0
-
-            # Determine if this is a regression
-            regressed = (direction == "lower_is_better" and change_pct > threshold) or \
-                        (direction == "higher_is_better" and change_pct < -threshold)
-            improved = (direction == "lower_is_better" and change_pct < -threshold) or \
-                       (direction == "higher_is_better" and change_pct > threshold)
-
-            if regressed:
-                has_regression = True
-
-            rows.append({
-                "test": test, "metric": key,
-                "baseline": _fmt(b),
-                "current": _fmt(c),
-                "change": f"{change_pct:+.1f}%",
-                "flag": "regression" if regressed else ("improved" if improved else ""),
+            bfmt, cfmt, change, flag = _score_pair(c, b, threshold)
+            main_rows.append({
+                "module": module, "test": display, "metric": key,
+                "baseline": bfmt, "current": cfmt,
+                "change": change, "flag": flag,
             })
 
-    return rows, has_regression
-
-
-def format_markdown(rows, has_regression):
-    lines = [
-        "| Test | Metric | Baseline | Current | Change |",
-        "|------|--------|----------|---------|--------|",
+    hz_rows = [
+        {"module": module, "test": display, "topic": topic, "aggs": aggs}
+        for (_, module, display, topic), aggs in hz_data.items()
     ]
-    for r in rows:
-        change = r["change"]
-        if r["flag"] == "regression":
-            change += " :red_circle:"
-        elif r["flag"] == "improved":
-            change += " :green_circle:"
-        lines.append(f"| {r['test']} | {r['metric']} | {r['baseline']} | {r['current']} | {change} |")
+    has_regression = (
+        any(r["flag"] == "regression" for r in main_rows)
+        or any(flag == "regression" for r in hz_rows for _, flag in r["aggs"].values())
+    )
+    return main_rows, hz_rows, hz_iter_counts, has_regression
+
+
+def _hz_section_heading(baseline_n, current_n):
+    if baseline_n and current_n and baseline_n == current_n:
+        suffix = f"n={baseline_n} iterations; "
+    elif baseline_n or current_n:
+        suffix = f"baseline n={baseline_n}, current n={current_n}; "
+    else:
+        suffix = ""
+    return f"### Sim publishing rates ({suffix}baseline → current, per-topic)"
+
+
+def format_markdown(main_rows, hz_rows, hz_iter_counts, has_regression):
+    def hz_cell(pair):
+        if not pair:
+            return "—"
+        text, flag = pair
+        return text + FLAG_SUFFIX.get(flag, "")
+
+    modules = []
+    main_by_module = {}
+    hz_by_module = {}
+    for r in main_rows:
+        mod = r["module"]
+        if mod not in main_by_module:
+            main_by_module[mod] = []
+            if mod not in modules:
+                modules.append(mod)
+        main_by_module[mod].append(r)
+    for r in hz_rows:
+        mod = r["module"]
+        if mod not in hz_by_module:
+            hz_by_module[mod] = []
+            if mod not in modules:
+                modules.append(mod)
+        hz_by_module[mod].append(r)
+
+    sections = []
+    for mod in modules:
+        sub = [f"## {mod}"]
+        main = main_by_module.get(mod, [])
+        hz = hz_by_module.get(mod, [])
+        if main:
+            table = tabulate(
+                [[r["test"], r["metric"], r["baseline"], r["current"],
+                  r["change"] + FLAG_SUFFIX.get(r["flag"], "")] for r in main],
+                headers=["Test", "Metric", "Baseline", "Current", "Change"],
+                tablefmt="github",
+            )
+            sub.append("### Metrics\n\n" + table)
+        if hz:
+            table = tabulate(
+                [[r["test"], r["topic"]] + [hz_cell(r["aggs"].get(agg)) for agg in HZ_AGGS]
+                 for r in hz],
+                headers=["Test", "Topic", *HZ_AGGS],
+                tablefmt="github",
+            )
+            b_n, c_n = hz_iter_counts.get(mod, (None, None))
+            sub.append(_hz_section_heading(b_n, c_n) + "\n\n" + table)
+        sections.append("\n\n".join(sub))
 
     if has_regression:
-        lines += ["", "**Regression detected** — some metrics exceeded the threshold."]
+        sections.append("**Regression detected** — some metrics exceeded the threshold.")
 
-    return "\n".join(lines)
+    return "\n\n".join(sections)
 
 
 def main():
@@ -184,8 +457,8 @@ def main():
 
     current = merge_metrics(Path(args.current))
     baseline = merge_metrics(Path(args.baseline))
-    rows, has_regression = compare(current, baseline, args.threshold)
-    md = format_markdown(rows, has_regression)
+    main_rows, hz_rows, hz_iter_counts, has_regression = compare(current, baseline, args.threshold)
+    md = format_markdown(main_rows, hz_rows, hz_iter_counts, has_regression)
 
     print(md)
     if args.output:

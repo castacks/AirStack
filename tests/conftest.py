@@ -11,6 +11,33 @@ from pathlib import Path
 
 import pytest
 
+SIM_CONFIG = {
+    "msairsim": {
+        "profile": "ms-airsim",
+        "sim_container": "ms-airsim",
+        "sim_setup_bash": "/root/ros_ws/install/setup.bash",
+        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
+        "extra_env": {
+            "URDF_FILE": "robot_descriptions/iris/urdf/iris_stereo.ms-airsim.urdf",
+            # Clear any user-set paths in .env so entrypoint auto-fetches Blocks.
+            # Shell env wins over --env-file in docker compose substitution.
+            "MS_AIRSIM_ENV_DIR": "",
+            "MS_AIRSIM_BINARY_PATH": "",
+        },
+    },
+    "isaacsim": {
+        "profile": "isaac-sim",
+        "sim_container": "isaac-sim",
+        "sim_setup_bash": "/opt/ros/jazzy/setup.bash",
+        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
+        "extra_env": {
+            "ISAAC_SIM_USE_STANDALONE": "true",
+            "ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_launch_script.py",
+            "PLAY_SIM_ON_START": "true",
+        },
+    },
+}
+
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
 RUN_DIR = None
 LOGS_DIR = None
@@ -19,6 +46,8 @@ ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
 # Track the currently-running pytest item so current_log() and current_test_id()
 # can pick up the parametrize id without tests having to pass `request` around.
 _CURRENT_ITEM = None
+METRICS = None
+
 
 logger = logging.getLogger("airstack")
 logger.setLevel(logging.INFO)
@@ -109,20 +138,21 @@ def pytest_generate_tests(metafunc):
 
 # ── logging / subprocess helpers ───────────────────────────────────────────
 
+def _nodeid_dotted(nodeid, with_path_sep=False):
+    """pytest nodeid → `module.Class.test_name[params]` form. When
+    `with_path_sep=True`, also flattens `/` in path prefixes (for log filenames)."""
+    out = nodeid.replace(".py::", ".").replace("::", ".")
+    return out.replace("/", ".") if with_path_sep else out
+
+
 def current_log():
     """Log name for the currently-running pytest item, or None outside a test.
 
     Subprocess helpers default to this so every call fired from a test auto-logs
-    to the right file without plumbing log_name through every layer.
-    """
+    to the right file without plumbing log_name through every layer."""
     if _CURRENT_ITEM is None:
         return None
-    # "test_liveliness.py::TestLiveliness::test_foo[id]" →
-    # "test_liveliness.TestLiveliness.test_foo[id]"
-    return (_CURRENT_ITEM.nodeid
-            .replace("/", ".")
-            .replace(".py::", ".")
-            .replace("::", "."))
+    return _nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)
 
 
 def read_log_tail(log_name=None, lines=50):
@@ -138,10 +168,7 @@ def read_log_tail(log_name=None, lines=50):
 
 def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
     """Run a subprocess, teeing stdout+stderr live to the log file and
-    capturing them for parsing.
-
-    
-    """
+    capturing them for parsing."""
     log_name = log_name or current_log()
     if not log_name:
         return subprocess.run(cmd_list, capture_output=True, text=True,
@@ -260,12 +287,12 @@ class MetricsRecorder:
         self._path = path
         self._data = json.loads(path.read_text()) if path.exists() else {}
 
-    def record(self, test_name, key, value, unit="", direction="lower_is_better"):
+    def record(self, test_name, key, value, unit="", direction="lower_is_better", **extra):
         if test_name not in self._data:
             self._data[test_name] = {}
-        self._data[test_name][key] = {
-            "value": value, "unit": unit, "direction": direction,
-        }
+        entry = {"value": value, "unit": unit, "direction": direction}
+        entry.update(extra)
+        self._data[test_name][key] = entry
         self._path.write_text(json.dumps(self._data, indent=2))
 
     def record_list(self, test_name, key, values):
@@ -275,10 +302,6 @@ class MetricsRecorder:
         self._data[test_name][key] = {"samples": values}
         self._path.write_text(json.dumps(self._data, indent=2))
 
-
-METRICS = None
-
-
 def get_metrics():
     global METRICS
     if METRICS is None:
@@ -287,41 +310,14 @@ def get_metrics():
 
 
 def current_test_id():
-    """Full pytest test id for this test invocation — used as the metrics.json key."""
+    """Test id used as the metrics.json key. Matches JUnit XML's classname.name
+    format so compare_metrics.py can merge results.xml and metrics.json entries."""
     if _CURRENT_ITEM is None:
         return "unknown"
-    return _CURRENT_ITEM.nodeid
+    return _nodeid_dotted(_CURRENT_ITEM.nodeid)
 
 
 # ── shared sim test infrastructure (liveliness, comms, takeoff all reuse) ──
-
-SIM_CONFIG = {
-    "msairsim": {
-        "profile": "ms-airsim",
-        "sim_container": "ms-airsim",
-        "sim_setup_bash": "/root/ros_ws/install/setup.bash",
-        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
-        "extra_env": {
-            "URDF_FILE": "robot_descriptions/iris/urdf/iris_stereo.ms-airsim.urdf",
-            # Clear any user-set paths in .env so entrypoint auto-fetches Blocks.
-            # Shell env wins over --env-file in docker compose substitution.
-            "MS_AIRSIM_ENV_DIR": "",
-            "MS_AIRSIM_BINARY_PATH": "",
-        },
-    },
-    "isaacsim": {
-        "profile": "isaac-sim",
-        "sim_container": "isaac-sim",
-        "sim_setup_bash": "/opt/ros/jazzy/setup.bash",
-        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
-        "extra_env": {
-            "ISAAC_SIM_USE_STANDALONE": "true",
-            "ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_launch_script.py",
-            "PLAY_SIM_ON_START": "true",
-        },
-    },
-}
-
 
 def wait_for_first_message(container, topic, domain_id, setup_bash, timeout=60):
     """Wait up to `timeout` seconds for one message on `topic`. Returns seconds

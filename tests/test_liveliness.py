@@ -165,42 +165,53 @@ def _check_sim_publishing(env):
 
 # ── tests ──────────────────────────────────────────────────────────────────
 
+def _poll_until(predicate, timeout, interval, fail_msg):
+    """Sleep-poll `predicate` up to `timeout` seconds. On deadline, fail via
+    `pytest.fail` with `fail_msg` (str) or `fail_msg()` (callable), so the
+    message can reflect predicate-collected state."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return
+        time.sleep(interval)
+    pytest.fail(fail_msg() if callable(fail_msg) else fail_msg)
+
+
 @pytest.mark.liveliness
 @pytest.mark.timeout(1800)
 class TestLiveliness:
 
+    @pytest.mark.dependency(name="containers")
     def test_robot_containers_running(self, airstack_env):
         """Wait up to 120s for N robot containers to be Running."""
         num_robots = airstack_env["num_robots"]
         pattern = airstack_env["robot_pattern"]
 
-        deadline = time.time() + 120
-        while time.time() < deadline:
+        def ready():
             containers = get_robot_containers(pattern)
-            if len(containers) >= num_robots and all(container_running(c) for c in containers):
-                return
-            time.sleep(3)
-        pytest.fail(f"only {len(get_robot_containers(pattern))}/{num_robots} robot "
-                    f"containers Running after 120s")
+            return (len(containers) >= num_robots
+                    and all(container_running(c) for c in containers))
 
+        _poll_until(ready, timeout=120, interval=3,
+                    fail_msg=lambda: f"only {len(get_robot_containers(pattern))}/"
+                                     f"{num_robots} robot containers Running after 120s")
+
+    @pytest.mark.dependency(name="sim_container", depends=["containers"])
     def test_sim_container_running(self, airstack_env):
         sc = airstack_env["sim_container"]
-        deadline = time.time() + 120
-        while time.time() < deadline:
-            if container_running(sc):
-                return
-            time.sleep(3)
-        pytest.fail(f"{sc} not Running after 120s")
+        _poll_until(lambda: container_running(sc),
+                    timeout=120, interval=3,
+                    fail_msg=f"{sc} not Running after 120s")
 
+    @pytest.mark.dependency(depends=["containers"])
     def test_gcs_container_running(self, airstack_env):
-        deadline = time.time() + 120
-        while time.time() < deadline:
+        def ready():
             names = find_all_containers("gcs")
-            if names and all(container_running(n) for n in names):
-                return
-            time.sleep(3)
-        pytest.fail("gcs container not Running after 120s")
+            return bool(names) and all(container_running(n) for n in names)
+        _poll_until(ready, timeout=120, interval=3,
+                    fail_msg="gcs container not Running after 120s")
 
+    @pytest.mark.dependency(name="sim_ready", depends=["sim_container"])
     def test_sim_ready_time(self, airstack_env):
         """Wait for first /clock message from the sim container. 600s hard timeout.
 
@@ -220,28 +231,36 @@ class TestLiveliness:
             pytest.fail("sim never published /clock within 600s")
         m.record(tid, "sim_ready_duration_s", round(time.time() - start, 2), unit="s")
 
+    @pytest.mark.dependency(name="tmux", depends=["containers"])
     def test_tmux_panes_have_expected_processes(self, airstack_env):
         ok, msg = _check_tmux_panes(airstack_env)
         assert ok, msg
 
+    @pytest.mark.dependency(name="sim_publishing", depends=["sim_ready"])
     def test_sim_publishing(self, airstack_env):
         """Parallel Hz sample of all sim-side topics. Fail on any stalled topic."""
         ok, msg, _ = _check_sim_publishing(airstack_env)
         assert ok, msg
 
+    @pytest.mark.dependency(name="nodes", depends=["containers"])
     def test_sentinel_nodes_present(self, airstack_env):
         """Wait up to 300s for the expected sentinel nodes per robot."""
-        deadline = time.time() + 300
-        ok, msg = False, ""
-        while time.time() < deadline:
-            ok, msg = _check_sentinel_nodes(airstack_env)
-            if ok:
-                return
-            time.sleep(5)
-        pytest.fail(f"sentinel nodes not ready after 300s: {msg}")
+        last_msg = [""]
 
+        def ready():
+            ok, msg = _check_sentinel_nodes(airstack_env)
+            last_msg[0] = msg
+            return ok
+
+        _poll_until(ready, timeout=300, interval=5,
+                    fail_msg=lambda: f"sentinel nodes not ready after 300s: {last_msg[0]}")
+
+    @pytest.mark.dependency(depends=["sim_ready", "sim_publishing", "nodes", "tmux"])
     def test_stable(self, airstack_env, request):
-        """Poll every --stable-interval for up to --stable-duration. Early exit on failure."""
+        """Poll every --stable-interval for up to --stable-duration. Early exit on failure.
+
+        Only the raw hz time series is recorded per topic; compare_metrics.py
+        derives mean/min/max/start_mean/end_mean from it."""
         duration = request.config.getoption("--stable-duration")
         interval = request.config.getoption("--stable-interval")
         m = get_metrics()
@@ -250,42 +269,25 @@ class TestLiveliness:
         series = {}
         elapsed = 0
 
-        while elapsed < duration:
-            time.sleep(interval)
-            elapsed += interval
+        try:
+            while elapsed < duration:
+                time.sleep(interval)
+                elapsed += interval
 
-            ok_t, msg_t = _check_tmux_panes(airstack_env)
-            ok_n, msg_n = _check_sentinel_nodes(airstack_env)
-            ok_p, msg_p, rates = _check_sim_publishing(airstack_env)
+                ok_t, msg_t = _check_tmux_panes(airstack_env)
+                ok_n, msg_n = _check_sentinel_nodes(airstack_env)
+                ok_p, msg_p, rates = _check_sim_publishing(airstack_env)
 
-            for topic, hz in rates.items():
-                key = topic.lstrip("/").replace("/", ".")
-                series.setdefault(key, []).append({"t": elapsed, "hz": hz or 0.0})
+                for topic, hz in rates.items():
+                    key = topic.lstrip("/").replace("/", ".")
+                    series.setdefault(key, []).append({"t": elapsed, "hz": hz or 0.0})
 
-            if not (ok_t and ok_n and ok_p):
-                self._record_stable_aggregates(m, tid, series)
-                pytest.fail(
-                    f"instability at t={elapsed}s: tmux={msg_t} | "
-                    f"nodes={msg_n} | publishing={msg_p}"
-                )
-
-        self._record_stable_aggregates(m, tid, series)
-
-    @staticmethod
-    def _record_stable_aggregates(m, tid, series):
-        """Record aggregate stats + full time series per topic."""
-        for key, samples in series.items():
-            hz_values = [s["hz"] for s in samples]
-            if not hz_values:
-                continue
-            m.record_list(tid, f"{key}.hz_samples", samples)
-            m.record(tid, f"{key}.hz_first", hz_values[0], unit="Hz",
-                     direction="higher_is_better")
-            m.record(tid, f"{key}.hz_last", hz_values[-1], unit="Hz",
-                     direction="higher_is_better")
-            m.record(tid, f"{key}.hz_mean",
-                     round(sum(hz_values) / len(hz_values), 2),
-                     unit="Hz", direction="higher_is_better")
-            m.record(tid, f"{key}.hz_range",
-                     round(max(hz_values) - min(hz_values), 2),
-                     unit="Hz", direction="lower_is_better")
+                if not (ok_t and ok_n and ok_p):
+                    pytest.fail(
+                        f"instability at t={elapsed}s: tmux={msg_t} | "
+                        f"nodes={msg_n} | publishing={msg_p}"
+                    )
+        finally:
+            for key, samples in series.items():
+                if samples:
+                    m.record_list(tid, f"{key}.hz_samples", samples)
