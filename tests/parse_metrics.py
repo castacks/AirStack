@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Compare test metrics between two runs.
+"""Parse test metrics. Renders a markdown report for one run, or a diff
+between two runs when --baseline is supplied.
 
 Reads results.xml (JUnit XML) for test durations and metrics.json for custom
-metrics (image sizes, etc.). Outputs a markdown table and exits 1 on regression.
+metrics. In diff mode, exits 1 on regression; in single mode, always exits 0.
 
 Usage:
-    python compare_metrics.py --current tests/results/<run>/ --baseline tests/results/<run>/
-    python compare_metrics.py --current tests/results/<run>/ --baseline tests/results/<run>/ --threshold 30
+    python parse_metrics.py --current tests/results/<run>/
+    python parse_metrics.py --current tests/results/<run>/ --baseline tests/results/<run>/
+    python parse_metrics.py --current tests/results/<run>/ --baseline tests/results/<run>/ --threshold 30
 """
 import argparse
 import json
@@ -321,25 +323,18 @@ def _fmt(entry):
     return body + _context()
 
 
-def _score_pair(c, b, threshold):
-    """Compare two metric entries. Returns (baseline_fmt, current_fmt, change_str,
-    flag). flag in {"", "regression", "improved"}. Handles missing/sentinel/
-    time-series entries as well."""
+def _score(c, b, threshold):
+    """Compute change% and regression flag for a metric pair. Returns
+    (change_str, flag). flag ∈ {"", "regression", "improved"}. When either
+    entry is missing/sentinel/time-series, returns a stub with an empty flag
+    (except: `timeout` current after numeric baseline → regression)."""
     if not c or not b:
-        return (_fmt(b) if b else "—",
-                _fmt(c) if c else "—",
-                "new" if c and not b else "removed", "")
-
-    # Non-scorable: time series or sentinel strings.
+        return ("new" if c and not b else "removed"), ""
     if not _is_scored(c) or not _is_scored(b):
-        flag = ""
         cv = c.get("value") if isinstance(c, dict) else None
         bv = b.get("value") if isinstance(b, dict) else None
-        # Timeout after previously-numeric baseline = regression.
-        if isinstance(cv, str) and cv == "timeout" and isinstance(bv, (int, float)):
-            flag = "regression"
-        return _fmt(b), _fmt(c), "—", flag
-
+        flag = "regression" if (cv == "timeout" and isinstance(bv, (int, float))) else ""
+        return "—", flag
     cv, bv = c["value"], b["value"]
     direction = c.get("direction", "lower_is_better")
     change_pct = ((cv - bv) / bv) * 100 if bv != 0 else 0
@@ -348,35 +343,45 @@ def _score_pair(c, b, threshold):
     improved = (direction == "lower_is_better" and change_pct < -threshold) or \
                (direction == "higher_is_better" and change_pct > threshold)
     flag = "regression" if regressed else ("improved" if improved else "")
-    return _fmt(b), _fmt(c), f"{change_pct:+.1f}%", flag
+    return f"{change_pct:+.1f}%", flag
 
 
-def _hz_cell(c, b, threshold):
-    """Compact `base → curr (Δ%)` cell for the pivoted sensor table. Appends
-    `t=A-Bs` when the metric carries a t_start/t_end window (start_mean/end_mean).
-    Returns (cell_text, flag)."""
-    bfmt, cfmt, change, flag = _score_pair(c, b, threshold)
-    if not c or not b:
-        return (cfmt if c else bfmt, flag)
+def _pivot_cell(c, b, threshold, diff_mode):
+    """Render a pivot-table cell. Diff mode: `b_short → c_short (Δ%[, t=...])`
+    + regression flag suffix. Single mode: just the current value. Returns
+    (text, flag)."""
+    def t_window(entry):
+        ts, te = (entry or {}).get("t_start"), (entry or {}).get("t_end")
+        return f"t={ts}-{te}s" if ts is not None and te is not None else ""
+
+    if not diff_mode or not (c and b):
+        entry = c or b
+        if not entry:
+            return "—", ""
+        if not _is_scored(entry):
+            return _fmt(entry), ""
+        text = f"{entry['value']:.4g}{entry.get('unit', '')}"
+        t = t_window(entry)
+        return (f"{text} ({t})" if t else text), ""
+
     if not _is_scored(c) or not _is_scored(b):
-        return (f"{bfmt} → {cfmt}", flag)
-    b_short = f"{b['value']:.4g}"
-    c_short = f"{c['value']:.4g}"
-    annotations = [change]
-    t_start, t_end = c.get("t_start"), c.get("t_end")
-    if t_start is not None and t_end is not None:
-        annotations.insert(0, f"t={t_start}-{t_end}s")
-    return (f"{b_short} → {c_short} ({', '.join(annotations)})", flag)
+        return f"{_fmt(b)} → {_fmt(c)}", ""
+
+    change, flag = _score(c, b, threshold)
+    t = t_window(c)
+    annotations = ([t] if t else []) + [change]
+    return f"{b['value']:.4g} → {c['value']:.4g} ({', '.join(annotations)})", flag
 
 
-def compare(current, baseline, threshold):
-    """Split metrics into three groups: flat rows, hz pivot rows, compute pivot
-    rows. Test execution order is preserved for grouping. `iter_counts[module]`
-    records the iteration count for annotating pivot-table headers."""
+def build_rows(current, baseline):
+    """Route metrics into three groups: flat rows, hz pivot rows, compute pivot
+    rows. Rows carry raw metric entries; rendering/scoring happens in
+    format_markdown. `baseline` may be an empty dict for single-input mode.
+    Test execution order from `current` is preserved for grouping."""
     main_rows = []
-    hz_data = {}        # (test, module, display, topic) → {agg: (text, flag)}
-    compute_data = {}   # (test, module, display, entity, metric_type) → {agg: (text, flag)}
-    iter_counts = {}    # module → (baseline_n, current_n)
+    hz_data = {}       # (test, module, display, topic) → {agg: (c, b)}
+    compute_data = {}  # (test, module, display, entity, metric_type) → {agg: (c, b)}
+    iter_counts = {}   # module → (baseline_n, current_n)
 
     def note_iters(module, c, b):
         if module not in iter_counts:
@@ -399,8 +404,7 @@ def compare(current, baseline, threshold):
                 topic, agg = hz_m.group(1), hz_m.group(2)
                 if agg == "samples":
                     continue
-                hz_data.setdefault((test, module, display, topic), {})[agg] = \
-                    _hz_cell(c, b, threshold)
+                hz_data.setdefault((test, module, display, topic), {})[agg] = (c, b)
                 note_iters(module, c, b)
                 continue
 
@@ -411,15 +415,13 @@ def compare(current, baseline, threshold):
                     continue
                 compute_data.setdefault(
                     (test, module, display, entity, metric_type), {}
-                )[agg] = _hz_cell(c, b, threshold)
+                )[agg] = (c, b)
                 note_iters(module, c, b)
                 continue
 
-            bfmt, cfmt, change, flag = _score_pair(c, b, threshold)
             main_rows.append({
                 "module": module, "test": display, "metric": key,
-                "baseline": bfmt, "current": cfmt,
-                "change": change, "flag": flag,
+                "current_entry": c, "baseline_entry": b,
             })
 
     hz_rows = [
@@ -431,27 +433,17 @@ def compare(current, baseline, threshold):
          "metric_type": metric_type, "aggs": aggs}
         for (_, module, display, entity, metric_type), aggs in compute_data.items()
     ]
-    has_regression = (
-        any(r["flag"] == "regression" for r in main_rows)
-        or any(flag == "regression" for r in hz_rows for _, flag in r["aggs"].values())
-        or any(flag == "regression" for r in compute_rows for _, flag in r["aggs"].values())
-    )
-    return main_rows, hz_rows, compute_rows, iter_counts, has_regression
+    return main_rows, hz_rows, compute_rows, iter_counts
 
 
-def _iter_annotation(baseline_n, current_n):
+def _iter_annotation(baseline_n, current_n, diff_mode):
+    if not diff_mode:
+        return f"n={current_n} iterations; " if current_n else ""
     if baseline_n and current_n and baseline_n == current_n:
         return f"n={baseline_n} iterations; "
     if baseline_n or current_n:
         return f"baseline n={baseline_n}, current n={current_n}; "
     return ""
-
-
-def _pivot_cell(pair):
-    if not pair:
-        return "—"
-    text, flag = pair
-    return text + FLAG_SUFFIX.get(flag, "")
 
 
 def _group_by_module(rows):
@@ -467,7 +459,39 @@ def _group_by_module(rows):
     return modules, grouped
 
 
-def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, has_regression):
+def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, threshold, diff_mode):
+    regressions = [False]
+
+    def pivot_cell(pair):
+        if not pair:
+            return "—"
+        text, flag = _pivot_cell(*pair, threshold=threshold, diff_mode=diff_mode)
+        if flag == "regression":
+            regressions[0] = True
+        return text + FLAG_SUFFIX.get(flag, "")
+
+    def render_main(rows):
+        if diff_mode:
+            out = []
+            for r in rows:
+                c, b = r["current_entry"], r["baseline_entry"]
+                change, flag = _score(c, b, threshold)
+                if flag == "regression":
+                    regressions[0] = True
+                out.append([
+                    r["test"], r["metric"],
+                    _fmt(b) if b else "—",
+                    _fmt(c) if c else "—",
+                    change + FLAG_SUFFIX.get(flag, ""),
+                ])
+            return out, ["Test", "Metric", "Baseline", "Current", "Change"]
+        return ([[r["test"], r["metric"], _fmt(r["current_entry"])] for r in rows],
+                ["Test", "Metric", "Value"])
+
+    def render_pivot(rows, leading):
+        return [leading(r) + [pivot_cell(r["aggs"].get(agg)) for agg in AGGS]
+                for r in rows]
+
     main_mods, main_by_module = _group_by_module(main_rows)
     hz_mods, hz_by_module = _group_by_module(hz_rows)
     compute_mods, compute_by_module = _group_by_module(compute_rows)
@@ -476,73 +500,67 @@ def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, has_regressio
         if m not in modules:
             modules.append(m)
 
+    hz_suffix = "baseline → current, per-topic" if diff_mode else "per-topic"
+    compute_suffix = ("baseline → current, per-container and global" if diff_mode
+                      else "per-container and global")
+
     sections = []
     for mod in modules:
         sub = [f"## {mod}"]
-        main = main_by_module.get(mod, [])
-        hz = hz_by_module.get(mod, [])
-        compute = compute_by_module.get(mod, [])
         b_n, c_n = iter_counts.get(mod, (None, None))
-        annotation = _iter_annotation(b_n, c_n)
+        annotation = _iter_annotation(b_n, c_n, diff_mode)
 
+        main = main_by_module.get(mod, [])
         if main:
-            table = tabulate(
-                [[r["test"], r["metric"], r["baseline"], r["current"],
-                  r["change"] + FLAG_SUFFIX.get(r["flag"], "")] for r in main],
-                headers=["Test", "Metric", "Baseline", "Current", "Change"],
-                tablefmt="github",
-            )
-            sub.append("### Metrics\n\n" + table)
+            rows, headers = render_main(main)
+            sub.append("### Metrics\n\n" + tabulate(rows, headers=headers, tablefmt="github"))
+
+        hz = hz_by_module.get(mod, [])
         if hz:
-            table = tabulate(
-                [[r["test"], r["topic"]] + [_pivot_cell(r["aggs"].get(agg)) for agg in AGGS]
-                 for r in hz],
-                headers=["Test", "Topic", *AGGS],
-                tablefmt="github",
-            )
             sub.append(
-                f"### Sim publishing rates ({annotation}baseline → current, per-topic)\n\n"
-                + table
-            )
+                f"### Sim publishing rates ({annotation}{hz_suffix})\n\n"
+                + tabulate(render_pivot(hz, lambda r: [r["test"], r["topic"]]),
+                           headers=["Test", "Topic", *AGGS], tablefmt="github"))
+
+        compute = compute_by_module.get(mod, [])
         if compute:
-            table = tabulate(
-                [[r["test"], r["entity"], r["metric_type"]]
-                 + [_pivot_cell(r["aggs"].get(agg)) for agg in AGGS]
-                 for r in compute],
-                headers=["Test", "Entity", "Metric", *AGGS],
-                tablefmt="github",
-            )
             sub.append(
-                f"### Compute usage ({annotation}baseline → current, "
-                f"per-container and global)\n\n" + table
-            )
+                f"### Compute usage ({annotation}{compute_suffix})\n\n"
+                + tabulate(render_pivot(
+                    compute, lambda r: [r["test"], r["entity"], r["metric_type"]]),
+                    headers=["Test", "Entity", "Metric", *AGGS], tablefmt="github"))
+
         sections.append("\n\n".join(sub))
 
-    if has_regression:
+    has_regression = regressions[0]
+    if diff_mode and has_regression:
         sections.append("**Regression detected** — some metrics exceeded the threshold.")
 
-    return "\n\n".join(sections)
+    return "\n\n".join(sections), has_regression
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compare test metrics between runs")
+    parser = argparse.ArgumentParser(
+        description="Render a markdown report for a test run, or a diff if --baseline is supplied.")
     parser.add_argument("--current", required=True, help="Current run directory")
-    parser.add_argument("--baseline", required=True, help="Baseline run directory")
+    parser.add_argument("--baseline", help="Baseline run directory (enables diff mode)")
     parser.add_argument("--threshold", type=float, default=20, help="Regression threshold (%%)")
     parser.add_argument("--output", help="Write markdown report to file")
     args = parser.parse_args()
 
     current = merge_metrics(Path(args.current))
-    baseline = merge_metrics(Path(args.baseline))
-    main_rows, hz_rows, compute_rows, iter_counts, has_regression = compare(
-        current, baseline, args.threshold)
-    md = format_markdown(main_rows, hz_rows, compute_rows, iter_counts, has_regression)
+    baseline = merge_metrics(Path(args.baseline)) if args.baseline else {}
+    diff_mode = bool(args.baseline)
+
+    main_rows, hz_rows, compute_rows, iter_counts = build_rows(current, baseline)
+    md, has_regression = format_markdown(
+        main_rows, hz_rows, compute_rows, iter_counts, args.threshold, diff_mode)
 
     print(md)
     if args.output:
         Path(args.output).write_text(md)
 
-    sys.exit(1 if has_regression else 0)
+    sys.exit(1 if diff_mode and has_regression else 0)
 
 
 if __name__ == "__main__":

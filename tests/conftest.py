@@ -284,7 +284,7 @@ def sample_compute_usage(sim_container):
     global host CPU/mem and GPU util/VRAM/temp/power. Returns {key: value},
     keys shaped `{entity}.{metric}` where entity is the full container name or
     'host'. Per-robot replicas (e.g. airstack-robot-desktop-1/2/3) are kept
-    distinct so raw metrics.json preserves per-robot data; compare_metrics
+    distinct so raw metrics.json preserves per-robot data; parse_metrics
     pools them at report time. Silently omits metrics that fail to sample."""
     import psutil
 
@@ -370,7 +370,7 @@ class MetricsRecorder:
         self._path.write_text(json.dumps(self._data, indent=2))
 
     def record_list(self, test_name, key, values):
-        """Store a raw list (time series) — not scored by compare_metrics."""
+        """Store a raw list (time series) — not scored by parse_metrics."""
         if test_name not in self._data:
             self._data[test_name] = {}
         self._data[test_name][key] = {"samples": values}
@@ -385,7 +385,7 @@ def get_metrics():
 
 def current_test_id():
     """Test id used as the metrics.json key. Matches JUnit XML's classname.name
-    format so compare_metrics.py can merge results.xml and metrics.json entries."""
+    format so parse_metrics.py can merge results.xml and metrics.json entries."""
     if _CURRENT_ITEM is None:
         return "unknown"
     return _nodeid_dotted(_CURRENT_ITEM.nodeid)

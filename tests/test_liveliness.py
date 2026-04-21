@@ -167,7 +167,7 @@ def _check_sim_publishing(env):
 def _check_compute_usage(env):
     """Snapshot compute resources. Returns (ok, msg, samples_dict). ok=True as
     long as sampling produced any numeric values; this test is diagnostic, not
-    gating — regressions surface via compare_metrics."""
+    gating — regressions surface via parse_metrics."""
     logger.info("Sampling compute usage")
     try:
         samples = sample_compute_usage(env["sim_container"])
@@ -284,7 +284,7 @@ class TestLiveliness:
     def test_stable(self, airstack_env, request):
         """Poll every --stable-interval for up to --stable-duration. Early exit on failure.
 
-        Only the raw hz time series is recorded per topic; compare_metrics.py
+        Only the raw hz time series is recorded per topic; parse_metrics.py
         derives mean/min/max/start_mean/end_mean from it."""
         duration = request.config.getoption("--stable-duration")
         interval = request.config.getoption("--stable-interval")
