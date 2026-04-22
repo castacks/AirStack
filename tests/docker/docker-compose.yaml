@@ -1,8 +1,11 @@
 services:
   test:
+    image: &tests_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_tests
     build:
       context: ../
       dockerfile: docker/Dockerfile
+      tags:
+        - *tests_image
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${AIRSTACK_PATH}:${AIRSTACK_PATH}:ro

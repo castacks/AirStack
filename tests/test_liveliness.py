@@ -180,6 +180,77 @@ def _check_compute_usage(env):
     return True, f"{len(samples)} compute metrics sampled", samples
 
 
+def _read_clock_once(sim_container, setup_bash):
+    """Read one /clock message. Returns (sim_t_seconds, wall_t_seconds) or
+    (None, None) on failure. Wall time is recorded right after parsing so the
+    variable subscription-setup latency of `ros2 topic echo --once` is bounded
+    on the near side — i.e. wall_t is taken just after the sim sample was
+    observed, not before the subscription opened."""
+    result = ros2_exec(
+        sim_container,
+        "timeout 5 ros2 topic echo --once /clock",
+        domain_id=1, setup_bash=setup_bash, timeout=10,
+    )
+    if result.returncode != 0:
+        logger.warning("ros2 topic echo /clock failed (rc=%d): stderr=%s",
+                       result.returncode, result.stderr.strip()[:300])
+        return None, None
+    sec = nsec = None
+    for line in result.stdout.splitlines():
+        s = line.strip()
+        if s.startswith("sec:") and sec is None:
+            try:
+                sec = int(s.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+        elif s.startswith("nanosec:") and nsec is None:
+            try:
+                nsec = int(s.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+        if sec is not None and nsec is not None:
+            return sec + nsec * 1e-9, time.time()
+    logger.warning("could not parse /clock sec/nanosec. stdout head=%r",
+                   result.stdout[:300])
+    return None, None
+
+
+def _check_realtime_factor(env, sample_interval=20.0):
+    """Measure sim realtime factor = Δ sim_time / Δ wall_time between two
+    /clock reads. Returns (ok, msg, rtf_or_None). ok=False only if rtf < 0.1
+    (sim essentially stalled).
+
+    Uses a 20s window so subscription-setup jitter (~1s) is <5% of the signal.
+    Not called from test_stable (overruns the 10s poll cadence)."""
+    cfg = env["cfg"]
+    sim_container = env["sim_container"]
+    setup_bash = cfg["sim_setup_bash"]
+
+    logger.info("RTF: reading initial /clock from %s", sim_container)
+    sim_t1, wall_t1 = _read_clock_once(sim_container, setup_bash)
+    if sim_t1 is None:
+        return False, "failed to read initial /clock", None
+    logger.info("RTF: initial sim_t=%.3f, sleeping %.1fs", sim_t1, sample_interval)
+
+    time.sleep(sample_interval)
+
+    sim_t2, wall_t2 = _read_clock_once(sim_container, setup_bash)
+    if sim_t2 is None:
+        return False, "failed to read final /clock", None
+
+    wall_delta = wall_t2 - wall_t1
+    sim_delta = sim_t2 - sim_t1
+    logger.info("RTF: final sim_t=%.3f (sim Δ=%.3fs, wall Δ=%.3fs)",
+                sim_t2, sim_delta, wall_delta)
+    if wall_delta <= 0:
+        return False, "non-positive wall time delta", None
+    rtf = sim_delta / wall_delta
+    logger.info("RTF: %.3f", rtf)
+    if rtf < 0.1:
+        return False, f"RTF={rtf:.3f} (sim near-stalled)", rtf
+    return True, f"RTF={rtf:.3f}", rtf
+
+
 # ── tests ──────────────────────────────────────────────────────────────────
 
 def _poll_until(predicate, timeout, interval, fail_msg):
@@ -265,6 +336,19 @@ class TestLiveliness:
         temp/power. Passes as long as sampling returned values — time-series
         recording happens in test_stable."""
         ok, msg, _ = _check_compute_usage(airstack_env)
+        assert ok, msg
+
+    @pytest.mark.dependency(name="rtf", depends=["sim_ready"])
+    def test_realtime_factor(self, airstack_env):
+        """Measure RTF = Δ sim_time / Δ wall_time from /clock. Fails only if
+        sim is near-stalled (RTF < 0.1); low-but-nonzero values are recorded
+        but not gating."""
+        ok, msg, rtf = _check_realtime_factor(airstack_env)
+        if rtf is not None:
+            get_metrics().record(
+                current_test_id(), "sim.realtime_factor", round(rtf, 3),
+                unit="", direction="higher_is_better",
+            )
         assert ok, msg
 
     @pytest.mark.dependency(name="nodes", depends=["containers"])

@@ -7,12 +7,13 @@
 function cmd_dev_test {
     check_docker
     local compose_file="$PROJECT_ROOT/tests/docker/docker-compose.yaml"
+    local env_file="$PROJECT_ROOT/.env"
     export AIRSTACK_PATH="$PROJECT_ROOT"
     # Grant X access so sim containers spawned by tests in GUI mode
     # (`pytest --gui`) can reach the host's X server. No-op otherwise.
     xhost + || log_warn "xhost failed (is DISPLAY set? xhost installed?)"
-    docker compose -f "$compose_file" build --quiet
-    docker compose -f "$compose_file" run --rm test pytest "$@"
+    docker compose --env-file "$env_file" -f "$compose_file" build --quiet
+    docker compose --env-file "$env_file" -f "$compose_file" run --rm test pytest "$@"
 }
 
 # Function to build documentation

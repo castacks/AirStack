@@ -39,6 +39,7 @@ SAMPLE_TYPES = {
     "vram_mb": {"unit": "MB", "direction": "lower_is_better"},
     "gpu_temp_c": {"unit": "°C", "direction": "lower_is_better"},
     "gpu_power_w": {"unit": "W", "direction": "lower_is_better"},
+    "realtime_factor": {"unit": "", "direction": "higher_is_better"},
 }
 COMPUTE_TYPES = tuple(k for k in SAMPLE_TYPES if k != "hz")
 
