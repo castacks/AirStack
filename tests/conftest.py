@@ -71,6 +71,9 @@ def pytest_addoption(parser):
     parser.addoption("--gui", action="store_true", default=False,
                      help="Show sim GUI windows for visual sanity checks. "
                           "Default: headless (no X, good for CI).")
+    parser.addoption("--takeoff-velocities", default="0.5,1,2",
+                     help="Comma-separated takeoff/land velocities (m/s) to "
+                          "sweep in test_autonomy. Default: 0.5,1,2")
 
 
 def pytest_configure(config):
@@ -99,6 +102,14 @@ def pytest_runtest_teardown(item):
         _test_log_handler.close()
         _test_log_handler = None
     _CURRENT_ITEM = None
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Attach phase reports to the item so fixtures can inspect pass/fail."""
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, f"_rep_{rep.when}", rep)
 
 
 @contextmanager
@@ -134,6 +145,37 @@ def pytest_generate_tests(metafunc):
     params = [(s, n, i) for s in sims for n in nums for i in range(iterations)]
     ids = [f"{s}-{n}-iter{i}" for s, n, i in params]
     metafunc.parametrize("airstack_env", params, ids=ids, indirect=True, scope="class")
+
+
+# Sort autonomy tests by (airstack_env, velocity, phase) so the stack comes
+# up once per env and the drone goes ground→air→ground per velocity.
+_AUTONOMY_PHASE_ORDER = {
+    "test_px4_ready": 0,
+    "test_takeoff":   1,
+    "test_hover":     2,
+    "test_landing":   3,
+}
+
+
+def pytest_collection_modifyitems(items):
+    def phase(item):
+        if getattr(item.module, "__name__", "") != "test_autonomy":
+            return None
+        name = item.originalname or item.name.split("[", 1)[0]
+        return _AUTONOMY_PHASE_ORDER.get(name)
+
+    def sort_key(item):
+        cs = getattr(item, "callspec", None)
+        env = cs.params.get("airstack_env", ()) if cs else ()
+        vel = float(cs.params.get("velocity", 0.0)) if cs else 0.0
+        return (env, vel, phase(item))
+
+    slots = [(i, it) for i, it in enumerate(items) if phase(it) is not None]
+    if not slots:
+        return
+    sorted_items = sorted((it for _, it in slots), key=sort_key)
+    for (i, _), new_item in zip(slots, sorted_items):
+        items[i] = new_item
 
 
 # ── logging / subprocess helpers ───────────────────────────────────────────
@@ -509,6 +551,8 @@ def airstack_env(request):
     env_overrides.update(cfg.get("extra_env", {}))
 
     with logger_to(log):
+        logger.info("Shutting down any previously running stack")
+        airstack_cmd("down", timeout=120, log_name=log)
         logger.info("Bringing up stack: sim=%s num_robots=%d iter=%d headless=%s",
                     sim, num_robots, iteration, headless)
         t0 = time.time()
