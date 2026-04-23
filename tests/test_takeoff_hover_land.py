@@ -1,4 +1,4 @@
-"""Autonomy tests — 4-phase chain per velocity.
+"""Takeoff-hover-land tests — 4-phase chain per velocity.
 
 Per (sim, num_robots, iter, velocity): ready → takeoff → hover → land.
 Drone returns to ground at end of each velocity so the next velocity
@@ -427,7 +427,7 @@ def _landing_one_robot(n, robot_container, cfg, velocity):
 
 @pytest.mark.autonomy
 @pytest.mark.timeout(1800)
-class TestAutonomy:
+class TestTakeoffHoverLand:
 
     @pytest.fixture(scope="session")
     def _failed_envs(self):

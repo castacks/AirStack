@@ -73,7 +73,7 @@ def pytest_addoption(parser):
                           "Default: headless (no X, good for CI).")
     parser.addoption("--takeoff-velocities", default="0.5,1,2",
                      help="Comma-separated takeoff/land velocities (m/s) to "
-                          "sweep in test_autonomy. Default: 0.5,1,2")
+                          "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
 
 
 def pytest_configure(config):
@@ -153,10 +153,10 @@ _MODULE_ORDER = [
     "test_build_docker",
     "test_build_packages",
     "test_liveliness",
-    "test_autonomy",
+    "test_takeoff_hover_land",
 ]
 
-# Within test_autonomy, each (env, velocity) runs phases in this chain order.
+# Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.
 _AUTONOMY_PHASE_ORDER = [
     "test_px4_ready",
     "test_takeoff",
@@ -175,11 +175,11 @@ def pytest_collection_modifyitems(items):
     #    order intact, so pytest's default file/class order survives.
     items.sort(key=lambda it: _rank(getattr(it.module, "__name__", ""), _MODULE_ORDER))
 
-    # 2. Within test_autonomy: sort by (airstack_env, velocity, phase) so each
+    # 2. Within test_takeoff_hover_land: sort by (airstack_env, velocity, phase) so each
     #    (sim, robots, iter) env brings up the stack once and the drone goes
     #    ground→air→ground per velocity.
     def phase(item):
-        if getattr(item.module, "__name__", "") != "test_autonomy":
+        if getattr(item.module, "__name__", "") != "test_takeoff_hover_land":
             return None
         name = item.originalname or item.name.split("[", 1)[0]
         return _rank(name, _AUTONOMY_PHASE_ORDER)
