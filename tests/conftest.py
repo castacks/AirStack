@@ -171,11 +171,36 @@ def pytest_collection_modifyitems(items):
         return (env, vel, phase(item))
 
     slots = [(i, it) for i, it in enumerate(items) if phase(it) is not None]
-    if not slots:
-        return
-    sorted_items = sorted((it for _, it in slots), key=sort_key)
-    for (i, _), new_item in zip(slots, sorted_items):
-        items[i] = new_item
+    if slots:
+        sorted_items = sorted((it for _, it in slots), key=sort_key)
+        for (i, _), new_item in zip(slots, sorted_items):
+            items[i] = new_item
+
+    # Rewrite bracketed test IDs into a consistent hierarchy: sim > robots >
+    # velocity > iteration. Bypasses pytest's own concatenation (which would
+    # otherwise order by reverse-parametrize-call order). Keeps pytest console,
+    # JUnit XML, and metrics.json all in the same natural order without
+    # refactoring the parametrize structure.
+    for item in items:
+        cs = getattr(item, "callspec", None)
+        if cs is None:
+            continue
+        env = cs.params.get("airstack_env")
+        parts = []
+        if env:
+            sim, n, i = env
+            parts.append(f"{sim}-rob#{n}")
+        if "velocity" in cs.params:
+            parts.append(f"v{cs.params['velocity']}")
+        if env:
+            parts.append(f"iter{i}")
+        if not parts:
+            continue
+        new_id = "-".join(parts)
+        if cs.id == new_id:
+            continue
+        item.name = item.name.replace(f"[{cs.id}]", f"[{new_id}]")
+        item._nodeid = item._nodeid.replace(f"[{cs.id}]", f"[{new_id}]")
 
 
 # ── logging / subprocess helpers ───────────────────────────────────────────
