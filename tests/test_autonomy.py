@@ -476,30 +476,54 @@ class TestAutonomy:
 
         started = time.time()
         ready_at = {}
+        # Per-robot progress through the two sequential gates.
+        connected = set()   # robots that have reported mavros/state.connected=True
         pending = list(range(1, num_robots + 1))
         deadline = started + PX4_READY_TIMEOUT_S
 
         while pending and time.time() < deadline:
             for n in list(pending):
-                # --once exits 0 on the first message; the inner `timeout` makes
-                # it exit nonzero if nothing is published within the window.
-                result = ros2_exec(
+                # Gate 1: MAVROS ↔ PX4 heartbeat. Fast, reliable signal that
+                # the stack is alive.
+                if n not in connected:
+                    r = ros2_exec(
+                        robot_container,
+                        f"timeout 5 ros2 topic echo --once --csv "
+                        f"--field connected /robot_{n}/interface/mavros/state",
+                        domain_id=n, setup_bash=cfg["robot_setup_bash"], timeout=10,
+                    )
+                    if any(line.strip() == "True" for line in r.stdout.splitlines()):
+                        connected.add(n)
+                    else:
+                        continue  # try again next poll
+
+                # Gate 2: local_position/odom actually publishing (EKF has a
+                # valid local origin). Catches the case where connected=True
+                # fires long before PX4 is ready for arming.
+                r = ros2_exec(
                     robot_container,
                     f"timeout 5 ros2 topic echo --once "
                     f"/robot_{n}/interface/mavros/local_position/odom",
                     domain_id=n, setup_bash=cfg["robot_setup_bash"], timeout=10,
                 )
-                if result.returncode == 0:
+                if r.returncode == 0 and "pose:" in r.stdout:
                     ready_at[n] = round(time.time() - started, 2)
                     pending.remove(n)
+
             if pending:
-                logger.info("waiting for local_position/odom; pending=%s elapsed=%.0fs",
-                            pending, time.time() - started)
+                logger.info("px4_ready: connected=%s pending=%s elapsed=%.0fs",
+                            sorted(connected), pending, time.time() - started)
                 time.sleep(PX4_POLL_INTERVAL_S)
 
         if pending:
-            pytest.fail(f"robots {sorted(pending)} never published "
-                        f"local_position/odom within {PX4_READY_TIMEOUT_S:.0f}s")
+            not_connected = [n for n in pending if n not in connected]
+            if not_connected:
+                pytest.fail(f"robots {sorted(not_connected)} never reported "
+                            f"MAVROS connected=True within "
+                            f"{PX4_READY_TIMEOUT_S:.0f}s")
+            pytest.fail(f"robots {sorted(pending)} connected but never "
+                        f"published local_position/odom within "
+                        f"{PX4_READY_TIMEOUT_S:.0f}s")
 
         for n, dur in ready_at.items():
             _record(n, {"ready_duration_sys_s": dur})
