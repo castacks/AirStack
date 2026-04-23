@@ -179,6 +179,27 @@ def parse_results_xml(path):
     return metrics
 
 
+def parse_passrates(path):
+    """Per (module, base_test) pass/fail/skip counts aggregated across -iterN
+    iterations. results.xml is the authoritative source — metrics.json can't
+    distinguish early-fail from skipped (neither produces entries)."""
+    if not path.exists():
+        return {}
+    counts = {}
+    for tc in ET.parse(path).iter("testcase"):
+        full = f"{tc.get('classname')}.{tc.get('name')}"
+        module, display = _split_test_name(full)
+        base = ITER_RE.sub("", display)
+        if tc.find("failure") is not None or tc.find("error") is not None:
+            outcome = "fail"
+        elif tc.find("skipped") is not None:
+            outcome = "skip"
+        else:
+            outcome = "pass"
+        counts.setdefault((module, base), {"pass": 0, "fail": 0, "skip": 0})[outcome] += 1
+    return counts
+
+
 def parse_metrics_json(path):
     if not path.exists():
         return {}
@@ -460,7 +481,8 @@ def _group_by_module(rows):
     return modules, grouped
 
 
-def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, threshold, diff_mode):
+def format_markdown(main_rows, hz_rows, compute_rows, iter_counts,
+                    current_pr, baseline_pr, threshold, diff_mode):
     regressions = [False]
 
     def pivot_cell(pair):
@@ -493,11 +515,41 @@ def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, threshold, di
         return [leading(r) + [pivot_cell(r["aggs"].get(agg)) for agg in AGGS]
                 for r in rows]
 
+    def _rate(c):
+        considered = c["pass"] + c["fail"]
+        return f"{c['pass'] * 100 / considered:.0f}%" if considered else "—"
+
+    def render_passrates(mod):
+        bases = sorted({b for (m, b) in current_pr if m == mod}
+                       | {b for (m, b) in baseline_pr if m == mod})
+        if not bases:
+            return None
+        rows = []
+        empty = {"pass": 0, "fail": 0, "skip": 0}
+        if diff_mode:
+            for b in bases:
+                cur, bl = current_pr.get((mod, b), empty), baseline_pr.get((mod, b), empty)
+                rows.append([
+                    b,
+                    f"{bl['pass']} → {cur['pass']}",
+                    f"{bl['fail']} → {cur['fail']}",
+                    f"{bl['skip']} → {cur['skip']}",
+                    f"{_rate(bl)} → {_rate(cur)}",
+                ])
+            headers = ["Test", "Pass", "Fail", "Skip", "Rate (baseline → current)"]
+        else:
+            for b in bases:
+                c = current_pr.get((mod, b), empty)
+                rows.append([b, c["pass"], c["fail"], c["skip"], _rate(c)])
+            headers = ["Test", "Pass", "Fail", "Skip", "Rate"]
+        return tabulate(rows, headers=headers, tablefmt="github")
+
     main_mods, main_by_module = _group_by_module(main_rows)
     hz_mods, hz_by_module = _group_by_module(hz_rows)
     compute_mods, compute_by_module = _group_by_module(compute_rows)
+    pr_mods = list(dict.fromkeys(m for (m, _) in list(current_pr) + list(baseline_pr)))
     modules = []
-    for m in main_mods + hz_mods + compute_mods:
+    for m in main_mods + hz_mods + compute_mods + pr_mods:
         if m not in modules:
             modules.append(m)
 
@@ -510,6 +562,10 @@ def format_markdown(main_rows, hz_rows, compute_rows, iter_counts, threshold, di
         sub = [f"## {mod}"]
         b_n, c_n = iter_counts.get(mod, (None, None))
         annotation = _iter_annotation(b_n, c_n, diff_mode)
+
+        pr_table = render_passrates(mod)
+        if pr_table is not None:
+            sub.append("### Pass rates\n\n" + pr_table)
 
         main = main_by_module.get(mod, [])
         if main:
@@ -551,11 +607,15 @@ def main():
 
     current = merge_metrics(Path(args.current))
     baseline = merge_metrics(Path(args.baseline)) if args.baseline else {}
+    current_pr = parse_passrates(Path(args.current) / "results.xml")
+    baseline_pr = (parse_passrates(Path(args.baseline) / "results.xml")
+                   if args.baseline else {})
     diff_mode = bool(args.baseline)
 
     main_rows, hz_rows, compute_rows, iter_counts = build_rows(current, baseline)
     md, has_regression = format_markdown(
-        main_rows, hz_rows, compute_rows, iter_counts, args.threshold, diff_mode)
+        main_rows, hz_rows, compute_rows, iter_counts,
+        current_pr, baseline_pr, args.threshold, diff_mode)
 
     print(md)
     if args.output:

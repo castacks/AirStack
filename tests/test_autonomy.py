@@ -197,20 +197,29 @@ def _tracking_metrics_takeoff(odom, target, velocity):
     return out
 
 
-def _tracking_metrics_hover(odom, target):
+def _tracking_metrics_hover(odom):
+    """Measure whether the drone stayed put relative to where takeoff left it.
+
+    Reference altitude is the mean over the first SETTLING_WINDOW_S of hover
+    (not the takeoff target), so takeoff inaccuracy doesn't leak into hover.
+    Hover tests "drone holds position", not "drone is at target".
+    """
     xs = [r["pose.pose.position.x"] for r in odom]
     ys = [r["pose.pose.position.y"] for r in odom]
     zs = [r["pose.pose.position.z"] for r in odom]
+    ts = [_stamp(r) for r in odom]
+
+    ref_cutoff = ts[0] + SETTLING_WINDOW_S
+    ref_z = statistics.mean(z for z, t in zip(zs, ts) if t <= ref_cutoff)
+
     # Total 3D positional jitter around the mean point. Equal to
     # sqrt(var(x) + var(y) + var(z)) — one axis-agnostic stability number.
-    if len(odom) > 1:
-        pos_stddev = math.sqrt(statistics.pvariance(xs)
-                               + statistics.pvariance(ys)
-                               + statistics.pvariance(zs))
-    else:
-        pos_stddev = 0.0
+    pos_stddev = math.sqrt(statistics.pvariance(xs)
+                           + statistics.pvariance(ys)
+                           + statistics.pvariance(zs)) if len(odom) > 1 else 0.0
     return {
-        "hover_altitude_mean_error_m": round(abs(statistics.mean(zs) - target), 3),
+        # Drift from starting altitude over the full hover window.
+        "hover_altitude_mean_error_m": round(abs(statistics.mean(zs) - ref_z), 3),
         "hover_position_stddev_m": round(pos_stddev, 3),
     }
 
@@ -374,7 +383,6 @@ def _takeoff_one_robot(n, robot_container, cfg, velocity):
 
 
 def _hover_one_robot(n, robot_container, cfg, velocity):
-    target = TARGET_ALTITUDE_M
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
                               n, HOVER_DURATION_S + 2, f"v{velocity}_hover")
     # Passive phase: no blocking action, so we sleep to let the capture
@@ -383,12 +391,12 @@ def _hover_one_robot(n, robot_container, cfg, velocity):
     odom, gt = _finish_captures(streams)
     if not odom:
         pytest.fail(f"robot_{n} hover: no odom samples captured")
-    metrics = _tracking_metrics_hover(odom, target)
+    metrics = _tracking_metrics_hover(odom)
     metrics.update(_gt_metrics(odom, gt))
     _record(n, metrics)
-    mean_err = metrics["hover_altitude_mean_error_m"]
-    assert mean_err < 0.5, (
-        f"robot_{n} hover altitude mean error {mean_err:.2f}m exceeds ±0.5m tolerance")
+    drift = metrics["hover_altitude_mean_error_m"]
+    assert drift < 0.5, (
+        f"robot_{n} drifted {drift:.2f}m in altitude during hover (>0.5m tolerance)")
 
 
 def _landing_one_robot(n, robot_container, cfg, velocity):
@@ -438,7 +446,11 @@ class TestAutonomy:
         yield
         rep = getattr(request.node, "_rep_call", None)
         if rep is not None and rep.failed:
-            _failed_envs.add(env_id)
+            # Hover failures don't poison the chain — we still want landing
+            # to run so the drone comes back to the ground, and the next
+            # velocity gets its chance.
+            if "test_hover" not in request.node.name:
+                _failed_envs.add(env_id)
 
     @pytest.mark.dependency(name="autonomy_ready")
     def test_px4_ready(self, airstack_env, velocity, _ready_envs):
@@ -511,7 +523,7 @@ class TestAutonomy:
         _run_parallel(num_robots,
                       lambda n: _hover_one_robot(n, robot_container, cfg, velocity))
 
-    @pytest.mark.dependency(name="autonomy_landing", depends=["autonomy_hover"])
+    @pytest.mark.dependency(name="autonomy_landing", depends=["autonomy_takeoff"])
     def test_landing(self, airstack_env, velocity):
         """Send LandTask per robot in parallel; verify final altitude and record metrics."""
         cfg = airstack_env["cfg"]
