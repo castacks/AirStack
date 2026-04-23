@@ -11,8 +11,10 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 | [`test_build_docker.py`](../../../../tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
 | [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
 | [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability | Docker daemon, GPU, sim license |
+| [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `autonomy` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 
-Marks can be combined with pytest logic: `-m "build_docker or build_packages"`, `-m liveliness`.
+Marks can be combined with pytest logic:
+`-m "build_docker or build_packages"`, `-m liveliness`, `-m autonomy`.
 
 ---
 
@@ -50,43 +52,68 @@ tests/results/
 
 ---
 
-## Running Locally
+## Running Tests
 
-### Prerequisites
+### `airstack test` (primary interface)
 
-- Docker daemon running with the `runner` user (or your user) in the `docker` group
-- NVIDIA drivers + `nvidia-container-toolkit` for liveliness tests
-- `pip install -r tests/requirements.txt`
-
-### Direct (recommended for development)
+`airstack test` is the standard way to run tests. It builds the containerized
+test runner from `tests/docker/`, mounts the repo read-only, and forwards all
+arguments directly to pytest. No local Python environment needed.
 
 ```bash
-# From the repo root:
-export AIRSTACK_ROOT=$(pwd)
+# From the repo root (AirStack must be set up: airstack setup):
 
-# Build tests only (fast, no GPU needed)
-pytest tests/ -m "build_docker or build_packages" -v
+# Build tests only — fast, no GPU needed
+airstack test -m "build_docker or build_packages" -v
 
-# Full liveliness run — ms-airsim, 1 robot, 1 iteration, 60s stability window
-pytest tests/ -m liveliness \
+# Liveliness run — ms-airsim, 1 robot, 1 iteration, 60 s stability window
+airstack test -m liveliness \
   --sim msairsim \
   --num-robots 1 \
   --stress-iterations 1 \
   --stable-duration 60 \
   -v
 
+# Autonomy run — takeoff/hover/land at three velocities
+airstack test -m autonomy \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --takeoff-velocities 0.5,1,2 \
+  -v
+
 # Show GUI windows (for local visual inspection)
-pytest tests/ -m liveliness --gui -v
+airstack test -m liveliness --gui -v
 ```
 
-### Docker-compose wrapper
+`airstack test` calls `xhost +` automatically so GUI-mode sim containers
+can reach the host X server; it is a no-op when `DISPLAY` is not set.
 
-The `tests/docker/` directory provides a containerized test runner that has Docker CLI and all Python dependencies pre-installed.
+### Prerequisites
+
+- Docker daemon running with your user in the `docker` group
+- NVIDIA drivers + `nvidia-container-toolkit` for liveliness/autonomy tests
+- `airstack setup` completed (adds `airstack` to `PATH`)
+
+### Direct pytest (for development / debugging)
+
+Run pytest directly when you need faster iteration (no container rebuild) or
+want to attach a debugger. Requires a local Python environment.
 
 ```bash
-export AIRSTACK_PATH=$(pwd)
-docker compose -f tests/docker/docker-compose.yaml run --rm test \
-  pytest -m "build_docker or build_packages" -v
+export AIRSTACK_ROOT=$(pwd)
+pip install -r tests/requirements.txt
+
+# Build tests only
+pytest tests/ -m "build_docker or build_packages" -v
+
+# Liveliness run
+pytest tests/ -m liveliness \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --stable-duration 60 \
+  -v
 ```
 
 ### CLI option reference
@@ -99,6 +126,69 @@ docker compose -f tests/docker/docker-compose.yaml run --rm test \
 | `--stable-duration` | `120` | Seconds `test_stable` polls for |
 | `--stable-interval` | `10` | Seconds between polls in `test_stable` |
 | `--gui` | off | Show simulator GUI (disables headless mode) |
+| `--takeoff-velocities` | `0.5,1,2` | Takeoff/land speeds in m/s |
+
+---
+
+## Autonomy Tests (`test_takeoff_hover_land.py`)
+
+`TestTakeoffHoverLand` runs a **4-phase flight chain** for every combination of
+`(sim, num_robots, iteration, velocity)`. The drone returns to the ground after
+each velocity so the next velocity starts from a clean state.
+
+### Phase order
+
+| Phase | Test | What happens |
+| ----- | ---- | ------------ |
+| 1 | `test_px4_ready` | Waits for MAVROS + PX4 EKF ready; once per env |
+| 2 | `test_takeoff` | Sends TakeoffTask; asserts altitude within 10 % |
+| 3 | `test_hover` | Captures odom for 10 s; asserts altitude drift < 0.5 m |
+| 4 | `test_landing` | Sends LandTask; asserts final altitude < 0.5 m |
+
+If any phase other than `test_hover` fails, the remaining phases for that env
+are skipped (the chain guard prevents a stuck-in-air drone from blocking later
+velocity sweeps). A hover failure does **not** skip landing, so the drone always
+returns to the ground.
+
+### Recorded metrics
+
+| Metric key | Unit | Description |
+| ---------- | ---- | ----------- |
+| `ready_duration_sys_s` | s | Wall-clock time from test start until PX4 ready |
+| `takeoff_duration_sim_s` | s | Sim-time from first motion to 95 % of target |
+| `land_duration_sim_s` | s | Sim time from 80 % peak descent to < 0.5 m |
+| `velocity_rmse_m_sim_s` | m/s | RMSE of dz/dt vs commanded velocity during climb/descent |
+| `altitude_error_m` | m | Signed steady-state error at takeoff success (+ = high) |
+| `overshoot_m` | m | Unsigned transient overshoot above target |
+| `hover_altitude_mean_error_m` | m | Mean altitude drift during hover |
+| `hover_position_stddev_m` | m | 3-D position jitter (sqrt of summed axis variances) |
+| `final_altitude_m` | m | Altitude at landing action completion |
+| `odometry_error_mean_m` | m | Mean 3-D position error vs ground-truth odom |
+| `odometry_error_max_m` | m | Peak 3-D error vs ground-truth odom |
+| `odometry_altitude_bias_m` | m | Signed z-axis bias vs ground-truth odom |
+
+Metrics are recorded per robot as `robot_N.<key>` and written to
+`tests/results/<timestamp>/metrics.json`.
+
+### Running autonomy tests
+
+```bash
+# Sweep velocities 0.5, 1, 2 m/s; 1 robot; ms-airsim
+airstack test -m autonomy \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --takeoff-velocities 0.5,1,2 \
+  -v
+
+# Single velocity, Isaac Sim, 3 robots
+airstack test -m autonomy \
+  --sim isaacsim \
+  --num-robots 3 \
+  --stress-iterations 1 \
+  --takeoff-velocities 1 \
+  -v
+```
 
 ---
 
