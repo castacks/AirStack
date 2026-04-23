@@ -33,6 +33,8 @@ HOVER_DURATION_S = 10.0
 PX4_READY_TIMEOUT_S = 300.0
 PX4_POLL_INTERVAL_S = 2.0
 MOTION_ABOVE_START_M = 0.3  # z threshold for "drone started moving" (relative to z[0])
+SETTLING_WINDOW_S = 1.0     # seconds of trailing samples used for steady-state altitude
+MAX_GT_MATCH_AGE_S = 0.1    # drop an odom sample if nearest GT is >100ms away
 
 # Full column schemas of `ros2 topic echo --csv` output, in declaration order.
 # Covariance arrays expand to 36 comma-separated values each. Downstream code
@@ -49,12 +51,6 @@ ODOM_SCHEMA = (
        "twist.twist.angular.x", "twist.twist.angular.y", "twist.twist.angular.z"]
     + [f"twist.covariance[{i}]" for i in range(36)]
 )
-POSE_SCHEMA = [
-    "header.stamp.sec", "header.stamp.nanosec", "header.frame_id",
-    "pose.position.x", "pose.position.y", "pose.position.z",
-    "pose.orientation.x", "pose.orientation.y",
-    "pose.orientation.z", "pose.orientation.w",
-]
 
 METRIC_UNITS = {
     "ready_duration_sys_s": "s",
@@ -154,14 +150,6 @@ def _action_message(stdout):
 
 # ── metric computation ────────────────────────────────────────────────────
 
-def _roll_pitch(qx, qy, qz, qw):
-    """Quaternion → (roll, pitch) in radians. Yaw is unused at hover."""
-    roll = math.atan2(2.0 * (qw * qx + qy * qz), 1.0 - 2.0 * (qx * qx + qy * qy))
-    sinp = max(-1.0, min(1.0, 2.0 * (qw * qy - qz * qx)))
-    pitch = math.asin(sinp)
-    return roll, pitch
-
-
 def _valid_range(start, end):
     """True iff both indices are set and end follows start."""
     return start is not None and end is not None and end > start
@@ -183,9 +171,15 @@ def _tracking_metrics_takeoff(odom, target, velocity):
     zs = [r["pose.pose.position.z"] for r in odom]
     ts = [_stamp(r) for r in odom]
     peak = max(zs)
+    # Steady-state altitude at the moment of success: mean of samples within
+    # the trailing SETTLING_WINDOW_S. Captures where the drone actually parked,
+    # vs `peak` which captures transient overshoot.
+    cutoff = ts[-1] - SETTLING_WINDOW_S
+    settled = [z for z, t in zip(zs, ts) if t >= cutoff]
     out = {
-        "peak_altitude_m": round(peak, 3),
-        "altitude_error_m": round(abs(peak - target), 3),
+        # Signed: positive = settled above target, negative = below target.
+        "altitude_error_m": round(statistics.mean(settled) - target, 3),
+        # Unsigned transient overshoot: 0 if drone never went above target.
         "overshoot_m": round(max(0.0, peak - target), 3),
     }
     # Motion threshold is relative to starting altitude so drones that spawn
@@ -207,21 +201,18 @@ def _tracking_metrics_hover(odom, target):
     xs = [r["pose.pose.position.x"] for r in odom]
     ys = [r["pose.pose.position.y"] for r in odom]
     zs = [r["pose.pose.position.z"] for r in odom]
-    out = {
-        "hover_altitude_stddev_m": round(statistics.pstdev(zs) if len(zs) > 1 else 0.0, 3),
-        "hover_altitude_mean_error_m": round(abs(statistics.mean(zs) - target), 3),
-    }
-    x0, y0 = xs[0], ys[0]
-    drift = max(math.sqrt((x - x0) ** 2 + (y - y0) ** 2) for x, y in zip(xs, ys))
-    out["horizontal_drift_max_m"] = round(drift, 3)
+    # Total 3D positional jitter around the mean point. Equal to
+    # sqrt(var(x) + var(y) + var(z)) — one axis-agnostic stability number.
     if len(odom) > 1:
-        rolls, pitches = zip(*(_roll_pitch(
-            r["pose.pose.orientation.x"], r["pose.pose.orientation.y"],
-            r["pose.pose.orientation.z"], r["pose.pose.orientation.w"])
-            for r in odom))
-        out["attitude_stddev_rad"] = round(
-            statistics.pstdev(rolls) + statistics.pstdev(pitches), 3)
-    return out
+        pos_stddev = math.sqrt(statistics.pvariance(xs)
+                               + statistics.pvariance(ys)
+                               + statistics.pvariance(zs))
+    else:
+        pos_stddev = 0.0
+    return {
+        "hover_altitude_mean_error_m": round(abs(statistics.mean(zs) - target), 3),
+        "hover_position_stddev_m": round(pos_stddev, 3),
+    }
 
 
 def _tracking_metrics_landing(odom, velocity):
@@ -257,12 +248,14 @@ def _gt_metrics(odom, gt):
         if not candidates:
             continue
         best = min(candidates, key=lambda r: abs(_stamp(r) - t))
+        if abs(_stamp(best) - t) > MAX_GT_MATCH_AGE_S:
+            continue  # stale GT — pairing would conflate motion with bias
         ox, oy, oz = (row["pose.pose.position.x"],
                       row["pose.pose.position.y"],
                       row["pose.pose.position.z"])
-        gx, gy, gz = (best["pose.position.x"],
-                      best["pose.position.y"],
-                      best["pose.position.z"])
+        gx, gy, gz = (best["pose.pose.position.x"],
+                      best["pose.pose.position.y"],
+                      best["pose.pose.position.z"])
         errs.append(math.sqrt((ox - gx) ** 2 + (oy - gy) ** 2 + (oz - gz) ** 2))
         z_biases.append(oz - gz)
     if not errs:
@@ -299,7 +292,7 @@ def _start_captures(robot_container, setup_bash, domain, duration_s, tag):
         robot_container, f"/robot_{domain}/interface/mavros/local_position/odom",
         domain, setup_bash, duration_s, odom_path)
     gt_proc, gt_fh, gt_ef = _start_csv_stream(
-        robot_container, f"/robot_{domain}/ground_truth/pose",
+        robot_container, f"/robot_{domain}/odom_ground_truth",
         domain, setup_bash, duration_s, gt_path)
     return {
         "duration_s": duration_s,
@@ -330,7 +323,7 @@ def _finish_captures(streams):
         odom_ef.close()
         gt_ef.close()
     odom = _parse_csv(odom_path, ODOM_SCHEMA)
-    gt = _parse_csv(gt_path, POSE_SCHEMA)
+    gt = _parse_csv(gt_path, ODOM_SCHEMA)
     if not odom:
         logger.warning("odom capture empty. stdout head=%r stderr head=%r",
                        open(odom_path).read(500),
@@ -374,9 +367,10 @@ def _takeoff_one_robot(n, robot_container, cfg, velocity):
     metrics = _tracking_metrics_takeoff(odom, target, velocity)
     metrics.update(_gt_metrics(odom, gt))
     _record(n, metrics)
-    peak = metrics["peak_altitude_m"]
-    assert peak >= target * 0.9, (
-        f"robot_{n} peak altitude {peak:.2f}m < target*0.9={target * 0.9:.2f}m")
+    err = metrics["altitude_error_m"]
+    assert abs(err) <= target * 0.1, (
+        f"robot_{n} settled altitude {target + err:.2f}m differs from "
+        f"target {target:.1f}m by more than 10%")
 
 
 def _hover_one_robot(n, robot_container, cfg, velocity):
@@ -448,11 +442,16 @@ class TestAutonomy:
 
     @pytest.mark.dependency(name="autonomy_ready")
     def test_px4_ready(self, airstack_env, velocity, _ready_envs):
-        """Wait until every robot's MAVROS reports connected=True. Skipped on
-        velocities after the first in the same airstack_env — the drone is
-        already proven alive and post-landing MAV_STATE fluctuations shouldn't
-        re-gate the chain. The takeoff action handles arming/mode itself, so
-        STANDBY is not a required precondition."""
+        """Wait until /robot_N/interface/mavros/local_position/odom is publishing.
+
+        That topic goes live only after PX4's EKF converges and sets a home
+        position — the exact precondition PX4's arming preflight requires and
+        the topic the test later captures during takeoff. `connected=True` on
+        mavros/state fires ~25s earlier and is insufficient (takeoff action
+        returns `failed to arm` in that window).
+
+        Skipped on velocities after the first in the same airstack_env.
+        """
         env_id = (airstack_env["sim"], airstack_env["num_robots"],
                   airstack_env["iteration"])
         if env_id in _ready_envs:
@@ -465,36 +464,30 @@ class TestAutonomy:
 
         started = time.time()
         ready_at = {}
-        last_seen = {}
         pending = list(range(1, num_robots + 1))
         deadline = started + PX4_READY_TIMEOUT_S
 
         while pending and time.time() < deadline:
             for n in list(pending):
+                # --once exits 0 on the first message; the inner `timeout` makes
+                # it exit nonzero if nothing is published within the window.
                 result = ros2_exec(
                     robot_container,
-                    f"timeout 5 ros2 topic echo --once --csv "
-                    f"--field connected /robot_{n}/interface/mavros/state",
+                    f"timeout 5 ros2 topic echo --once "
+                    f"/robot_{n}/interface/mavros/local_position/odom",
                     domain_id=n, setup_bash=cfg["robot_setup_bash"], timeout=10,
                 )
-                for line in result.stdout.splitlines():
-                    s = line.strip()
-                    if s in ("True", "False"):
-                        last_seen[n] = s
-                        if s == "True":
-                            ready_at[n] = round(time.time() - started, 2)
-                            pending.remove(n)
-                        break
+                if result.returncode == 0:
+                    ready_at[n] = round(time.time() - started, 2)
+                    pending.remove(n)
             if pending:
-                logger.info("waiting for MAVROS connected=True; pending=%s "
-                            "last_seen=%s elapsed=%.0fs",
-                            pending, last_seen, time.time() - started)
+                logger.info("waiting for local_position/odom; pending=%s elapsed=%.0fs",
+                            pending, time.time() - started)
                 time.sleep(PX4_POLL_INTERVAL_S)
 
         if pending:
-            last = {n: last_seen.get(n, "no-sample") for n in sorted(pending)}
-            pytest.fail(f"robots {sorted(pending)} never reported connected=True "
-                        f"within {PX4_READY_TIMEOUT_S:.0f}s. Last seen: {last}")
+            pytest.fail(f"robots {sorted(pending)} never published "
+                        f"local_position/odom within {PX4_READY_TIMEOUT_S:.0f}s")
 
         for n, dur in ready_at.items():
             _record(n, {"ready_duration_sys_s": dur})
