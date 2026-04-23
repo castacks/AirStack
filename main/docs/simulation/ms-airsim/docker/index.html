@@ -1023,16 +1023,6 @@
           
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1050,7 +1040,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/intermediate/testing/" class="md-nav__link ">
+            <a href="../../../../tests/" class="md-nav__link ">
               
   
   
@@ -1067,11 +1057,6 @@
 
             </a>
             
-              
-              <label class="md-nav__link " for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
           </div>
         
         <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
@@ -1085,146 +1070,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/testing_frameworks/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing Frameworks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/unit_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Unit testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/integration_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Integration Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/system_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    System testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/ci_cd/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI/CD Pipeline
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
           </ul>
@@ -2183,10 +2028,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#ue4-environment" class="md-nav__link">
+  <a href="#ue4-scene" class="md-nav__link">
     <span class="md-ellipsis">
       
-        UE4 Environment
+        UE4 Scene
       
     </span>
   </a>
@@ -5566,10 +5411,11 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├── settings.json.j2      # Jinja2 template for AirSim settings
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── settings.json         # Generated settings (git-ignored)
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   └── generate_settings.py  # Settings generator script
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── environments/             # Pre-built UE4 binaries (git-ignored)
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└── ros_ws/                   # ROS 2 bridge workspace
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    └── src/
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        └── ms_airsim_ros_bridge/  # Depth + camera_info bridge node
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── assets/scenes/            # Pre-built UE4 binaries (git-ignored), e.g. Blocks/, AirSimNH/
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   └── fetch_scene.sh        # Idempotent download + extract helper (tracked)
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>└── ros_ws/                   # ROS 2 bridge workspace
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    └── src/
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        └── ms_airsim_ros_bridge/  # Depth + camera_info bridge node
 </span></code></pre></div>
 <h2 id="service-architecture">Service Architecture<a class="headerlink" href="#service-architecture" title="Permanent link">&para;</a></h2>
 <p>The Microsoft AirSim (legacy) service is defined in <code>simulation/ms-airsim/docker/docker-compose.yaml</code>.</p>
@@ -5615,11 +5461,11 @@
 <ol>
 <li>Generates <code>settings.json</code> from the Jinja2 template using current environment variables</li>
 <li>Creates a tmux session named <code>ms-airsim</code></li>
-<li>Launches the UE4 binary as the <code>ms-airsim</code> user (UE4 refuses to run as root)</li>
+<li>Builds the ROS 2 bridge workspace (<code>colcon build</code>)</li>
+<li>In the <code>airsim</code> window: if <code>MS_AIRSIM_BINARY_PATH</code> is unset, runs <code>fetch_scene.sh blocks</code> to download + extract the default scene, then launches the UE4 binary as the <code>ms-airsim</code> user (UE4 refuses to run as root)</li>
+<li>Launches one bridge node per robot, each with <code>ROS_DOMAIN_ID=&lt;robot_index&gt;</code></li>
 <li>Waits for the AirSim API to become available (TCP port 41451)</li>
 <li>Spawns one PX4 SITL instance per robot, each in its own tmux window</li>
-<li>Builds the ROS 2 bridge workspace (<code>colcon build</code>)</li>
-<li>Launches one bridge node per robot, each with <code>ROS_DOMAIN_ID=&lt;robot_index&gt;</code></li>
 </ol>
 <h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <table>
@@ -5638,13 +5484,13 @@
 </tr>
 <tr>
 <td><code>MS_AIRSIM_BINARY_PATH</code></td>
-<td><code>/ms-airsim-env/Blocks.sh</code></td>
-<td>Path to UE4 binary inside container</td>
+<td><em>(unset → auto-fetch Blocks)</em></td>
+<td>Path to UE4 binary inside container. If unset, the entrypoint fetches Blocks into the mounted scenes dir and points at it.</td>
 </tr>
 <tr>
 <td><code>MS_AIRSIM_ENV_DIR</code></td>
-<td><code>../environments</code></td>
-<td>Host path to extracted UE4 environment</td>
+<td><code>../assets/scenes</code></td>
+<td>Host path to extracted UE4 scenes</td>
 </tr>
 <tr>
 <td><code>MS_AIRSIM_HEADLESS</code></td>
@@ -5722,8 +5568,8 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Headless (no GUI, uses UE4&#39;s -RenderOffScreen)</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nv">MS_AIRSIM_HEADLESS</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Custom environment binary</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nv">MS_AIRSIM_ENV_DIR</span><span class="o">=</span>/data/airsim_envs<span class="w"> </span><span class="nv">MS_AIRSIM_BINARY_PATH</span><span class="o">=</span>/ms-airsim-env/CityEnviron.sh<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Custom scene binary</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nv">MS_AIRSIM_ENV_DIR</span><span class="o">=</span>/data/airsim_envs<span class="w"> </span><span class="nv">MS_AIRSIM_BINARY_PATH</span><span class="o">=</span>/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
 </span></code></pre></div>
 <h2 id="settings-generation">Settings Generation<a class="headerlink" href="#settings-generation" title="Permanent link">&para;</a></h2>
 <p>Microsoft AirSim (legacy) is configured via <code>settings.json</code>, which is generated from a Jinja2 template at container startup:</p>
@@ -5810,16 +5656,14 @@
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../ros_ws:/root/ros_ws:rw</span>
 </span></code></pre></div>
 <p>Mounts the bridge source so edits on the host are reflected after a rebuild inside the container.</p>
-<h3 id="ue4-environment">UE4 Environment<a class="headerlink" href="#ue4-environment" title="Permanent link">&para;</a></h3>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${MS_AIRSIM_ENV_DIR:-../environments}:/ms-airsim-env:rw</span>
-</span></code></pre></div>
-<p>Mounts pre-built UE4 binaries. Set <code>MS_AIRSIM_ENV_DIR</code> in <code>.env</code> to point to the extracted environment directory.</p>
+<h3 id="ue4-scene">UE4 Scene<a class="headerlink" href="#ue4-scene" title="Permanent link">&para;</a></h3>
+<p>Mounts pre-built UE4 binaries. If <code>MS_AIRSIM_BINARY_PATH</code> is unset, the entrypoint auto-populates this directory with the default Blocks scene on first launch. Run <code>assets/scenes/fetch_scene.sh</code> to pre-fetch or pick a different scene, or set <code>MS_AIRSIM_ENV_DIR</code> in <code>.env</code> to point to an external scenes directory.</p>
 <h2 id="accessing-the-container">Accessing the Container<a class="headerlink" href="#accessing-the-container" title="Permanent link">&para;</a></h2>
 <h3 id="via-tmux-session">Via tmux Session<a class="headerlink" href="#via-tmux-session" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Attach to the running tmux session</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>airstack<span class="w"> </span>connect<span class="w"> </span>ms-airsim
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Then inside the container:</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>tmux<span class="w"> </span>a<span class="w"> </span>-t<span class="w"> </span>ms-airsim
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Attach to the running tmux session</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>airstack<span class="w"> </span>connect<span class="w"> </span>ms-airsim
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1"># Then inside the container:</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>tmux<span class="w"> </span>a<span class="w"> </span>-t<span class="w"> </span>ms-airsim
 </span></code></pre></div>
 <p><strong>Tmux windows layout:</strong></p>
 <table>
@@ -5851,7 +5695,7 @@
 <li><code>Ctrl-b [</code> — scroll mode (arrow keys, <code>q</code> to exit)</li>
 </ul>
 <h3 id="via-logs">Via Logs<a class="headerlink" href="#via-logs" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>airstack<span class="w"> </span>logs<span class="w"> </span>ms-airsim
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>airstack<span class="w"> </span>logs<span class="w"> </span>ms-airsim
 </span></code></pre></div>
 <h2 id="multi-robot-support">Multi-Robot Support<a class="headerlink" href="#multi-robot-support" title="Permanent link">&para;</a></h2>
 <p>Set <code>NUM_ROBOTS</code> to spawn multiple vehicles. Each robot gets:</p>
@@ -5861,23 +5705,23 @@
 <li>Its own ROS 2 bridge node on <code>ROS_DOMAIN_ID=&lt;index&gt;</code></li>
 <li>Vehicles are spawned 3 m apart along the Y-axis (configurable via <code>AIRSIM_SPAWN_SPACING</code>)</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Launch with 3 robots</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim<span class="w"> </span>--profile<span class="w"> </span>desktop
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Launch with 3 robots</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim<span class="w"> </span>--profile<span class="w"> </span>desktop
 </span></code></pre></div>
 <h2 id="image-management">Image Management<a class="headerlink" href="#image-management" title="Permanent link">&para;</a></h2>
 <h3 id="pulling-pre-built-images">Pulling Pre-built Images<a class="headerlink" href="#pulling-pre-built-images" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Login to AirLab registry</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-docker.andrew.cmu.edu
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Pull image</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>simulation/ms-airsim/docker/docker-compose.yaml<span class="w"> </span>pull
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Login to AirLab registry</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>docker<span class="w"> </span>login<span class="w"> </span>airlab-docker.andrew.cmu.edu
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Pull image</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>simulation/ms-airsim/docker/docker-compose.yaml<span class="w"> </span>pull
 </span></code></pre></div>
 <h3 id="building-from-source">Building from Source<a class="headerlink" href="#building-from-source" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Build image</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>airstack<span class="w"> </span>image-build<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Or directly</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>simulation/ms-airsim/docker/docker-compose.yaml<span class="w"> </span>build
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Build image</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>airstack<span class="w"> </span>image-build<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Or directly</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>simulation/ms-airsim/docker/docker-compose.yaml<span class="w"> </span>build
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -5886,12 +5730,12 @@
 <h2 id="development-workflow">Development Workflow<a class="headerlink" href="#development-workflow" title="Permanent link">&para;</a></h2>
 <h3 id="editing-the-bridge-node">Editing the Bridge Node<a class="headerlink" href="#editing-the-bridge-node" title="Permanent link">&para;</a></h3>
 <p>The ROS workspace is mounted live, so you can edit on the host and rebuild inside the container:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Rebuild bridge</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ms-airsim<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;cd /root/ros_ws &amp;&amp; colcon build --symlink-install&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Rebuild bridge</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ms-airsim<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;cd /root/ros_ws &amp;&amp; colcon build --symlink-install&quot;</span>
 </span></code></pre></div>
 <h3 id="iterating-on-settings">Iterating on Settings<a class="headerlink" href="#iterating-on-settings" title="Permanent link">&para;</a></h3>
 <p>Change camera or vehicle parameters via environment variables and restart the container — <code>settings.json</code> is regenerated each time.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nv">AIRSIM_CAM_FOV</span><span class="o">=</span><span class="m">120</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">AIRSIM_CAM_FOV</span><span class="o">=</span><span class="m">120</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
 </span></code></pre></div>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
 <p><strong>AirSim binary won't launch:</strong></p>

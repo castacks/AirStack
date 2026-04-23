@@ -1023,16 +1023,6 @@
           
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1050,7 +1040,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../development/intermediate/testing/" class="md-nav__link ">
+            <a href="../../../tests/" class="md-nav__link ">
               
   
   
@@ -1067,11 +1057,6 @@
 
             </a>
             
-              
-              <label class="md-nav__link " for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
           </div>
         
         <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
@@ -1085,146 +1070,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/intermediate/testing/testing_frameworks/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing Frameworks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/intermediate/testing/unit_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Unit testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/intermediate/testing/integration_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Integration Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/intermediate/testing/system_testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    System testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/intermediate/testing/ci_cd/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI/CD Pipeline
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
           </ul>
@@ -5208,13 +5053,16 @@
 <li>UE 4.27 only (older engine)</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<h3 id="1-download-an-environment">1. Download an environment<a class="headerlink" href="#1-download-an-environment" title="Permanent link">&para;</a></h3>
-<p>Download a pre-built environment from the <a href="https://github.com/microsoft/AirSim/releases/tag/v1.8.1">AirSim Linux releases</a> and extract it into <code>simulation/ms-airsim/environments/</code>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>simulation/ms-airsim
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>environments<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>environments
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>wget<span class="w"> </span>https://github.com/microsoft/AirSim/releases/download/v1.8.1/AbandonedPark.zip
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>unzip<span class="w"> </span>AbandonedPark.zip
+<h3 id="1-scene-auto-fetched-on-first-launch">1. Scene (auto-fetched on first launch)<a class="headerlink" href="#1-scene-auto-fetched-on-first-launch" title="Permanent link">&para;</a></h3>
+<p>If <code>MS_AIRSIM_BINARY_PATH</code> is unset, the container's entrypoint auto-downloads the Blocks scene (~200 MB) into <code>simulation/ms-airsim/assets/scenes/Blocks/</code> inside the <code>airsim</code> tmux window on first launch. Progress and any errors are visible there.</p>
+<p>To pre-fetch (e.g. before CI) or pick a different scene, run the helper directly:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./simulation/ms-airsim/assets/scenes/fetch_scene.sh<span class="w">              </span><span class="c1"># blocks (default)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./simulation/ms-airsim/assets/scenes/fetch_scene.sh<span class="w"> </span>airsimnh<span class="w">     </span><span class="c1"># or: abandonedpark, forest,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">                                                                 </span><span class="c1"># landscapemountains, soccerfield,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">                                                                 </span><span class="c1"># building99, zhangjiajie</span>
 </span></code></pre></div>
+<p>To use a scene that isn't one of the presets, extract it yourself into <code>simulation/ms-airsim/assets/scenes/</code> and set <code>MS_AIRSIM_BINARY_PATH</code> to its <code>.sh</code> path inside the container.</p>
+<p>Scenes are pulled from the <a href="https://github.com/microsoft/AirSim/releases/tag/v1.8.1">AirSim Linux releases</a>.</p>
 <h3 id="2-launch-microsoft-airsim-legacy-robot">2. Launch Microsoft AirSim (legacy) + Robot<a class="headerlink" href="#2-launch-microsoft-airsim-legacy-robot" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--env-file<span class="w"> </span>overrides/ms-airsim.env
 </span></code></pre></div>
@@ -5391,13 +5239,13 @@
 </tr>
 <tr>
 <td><code>MS_AIRSIM_ENV_DIR</code></td>
-<td><code>simulation/ms-airsim/environments</code></td>
-<td>Host path to extracted AirSim environment</td>
+<td><code>simulation/ms-airsim/assets/scenes</code></td>
+<td>Host path to extracted AirSim scenes</td>
 </tr>
 <tr>
 <td><code>MS_AIRSIM_BINARY_PATH</code></td>
-<td><code>/ms-airsim-env/LinuxNoEditor/Blocks.sh</code></td>
-<td>Path to binary inside container</td>
+<td><em>(unset → auto-fetch Blocks)</em></td>
+<td>Path to binary inside container. If unset, the entrypoint fetches Blocks and points at it.</td>
 </tr>
 </tbody>
 </table>

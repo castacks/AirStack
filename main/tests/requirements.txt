@@ -1,0 +1,6 @@
+pytest
+pytest-timeout
+pytest-dependency
+tabulate
+psutil
+pandas

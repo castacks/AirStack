@@ -5,7 +5,8 @@
         <!-- nothing right now -->
     </group>
     <!-- should we put this under the sensors namespace above? -->
-    <node
+    <!-- <node
         pkg="gimbal_stabilizer" exec="gimbal_stabilizer_node" name="gimbal_stabilizer" output="screen">
-    </node>    
+    </node> -->
+
 </launch>

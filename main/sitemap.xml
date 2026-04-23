@@ -121,10 +121,6 @@
          <lastmod>2026-04-23</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/main/docs/development/intermediate/testing/system_testing/</loc>
-         <lastmod>2026-04-23</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/main/docs/development/intermediate/testing/testing_frameworks/</loc>
          <lastmod>2026-04-23</lastmod>
     </url>
@@ -442,6 +438,10 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/main/simulation/isaac-sim/standalone_examples/api/isaacsim.robot.manipulators/rmpflow_supported_robots/</loc>
+         <lastmod>2026-04-23</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/main/tests/</loc>
          <lastmod>2026-04-23</lastmod>
     </url>
 </urlset>
