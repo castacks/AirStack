@@ -42,8 +42,3 @@ topics:
     type: std_msgs/msg/Bool
     from_domain: $(var gcs_domain)
     to_domain: $(env ROS_DOMAIN_ID)
-
-  /robot_1/current_target:
-    type: std_msgs/msg/String
-    from_domain: 1
-    to_domain: 2

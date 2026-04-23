@@ -4,13 +4,18 @@ from raven_nav.behaviors.voxel_behavior import VoxelBehavior
 
 
 class BehaviorManager:
-    def __init__(self, get_clock, publisher_dict, score_threshold=0.95):
+    def __init__(self, get_clock, publisher_dict, score_threshold=0.95,
+                 min_altitude=1.5, max_altitude=100.0):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
-        self.frontier_behavior = FrontierBehavior(self.get_clock)
+        self.frontier_behavior = FrontierBehavior(self.get_clock,
+                                                   min_altitude=min_altitude,
+                                                   max_altitude=max_altitude)
         current_target_pub = publisher_dict.get('current_target')
         self.ray_behavior = RayBehavior(self.get_clock, current_target_pub,
-                                        score_threshold=score_threshold)
+                                        score_threshold=score_threshold,
+                                        min_altitude=min_altitude,
+                                        max_altitude=max_altitude)
         self.voxel_behavior = VoxelBehavior(self.get_clock)
         # Priority: Voxel (navigate to confirmed detections) > Ray > Frontier
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]

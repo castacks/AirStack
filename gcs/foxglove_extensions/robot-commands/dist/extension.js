@@ -1,177 +1,912 @@
-(()=>{
+(() => {
 "use strict";
 
-const BT_COMMANDS_DATATYPES = new Map([
-  [
-    "behavior_tree_msgs/msg/BehaviorTreeCommands",
-    {
-      definitions: [
-        {
-          name: "commands",
-          type: "behavior_tree_msgs/msg/BehaviorTreeCommand",
-          isArray: true,
-          isComplex: true,
-        },
-      ],
-    },
-  ],
-  [
-    "behavior_tree_msgs/msg/BehaviorTreeCommand",
-    {
-      definitions: [
-        { name: "condition_name", type: "string", isArray: false, isComplex: false },
-        { name: "status", type: "int8", isArray: false, isComplex: false },
-      ],
-    },
-  ],
-]);
+// ─────────────────────────── constants ────────────────────────────────────────
 
-const PRESET_COMMANDS = [
-  { label: "Arm & Takeoff",        value: "Auto Takeoff Commanded" },
-  { label: "Global Plan",          value: "Global Plan Commanded" },
-  { label: "Fixed Trajectory",     value: "Fixed Trajectory Commanded" },
-  { label: "Autonomously Explore", value: "Autonomously Explore Commanded" },
-  { label: "Pause",                value: "Pause Commanded" },
-  { label: "Rewind",               value: "Rewind Commanded" },
-  { label: "Land",                 value: "Land Commanded" },
-  { label: "Disarm",               value: "Disarm Commanded" },
-  { label: "Custom",               value: "__custom__" },
-];
-
-const DEFAULT_STATE = {
-  robot: "robot_1",
-  command: "Auto Takeoff Commanded",
-  custom_command: "",
-  button_label: "Arm & Takeoff",
-  button_color: "#10B981",
+const GOAL_STATUS = {
+  UNKNOWN: 0,
+  ACCEPTED: 1,
+  EXECUTING: 2,
+  CANCELING: 3,
+  SUCCEEDED: 4,
+  CANCELED: 5,
+  ABORTED: 6,
 };
 
-function getConditionName(state) {
-  return state.command === "__custom__" ? state.custom_command : state.command;
+const TERMINAL_STATUSES = new Set([
+  GOAL_STATUS.SUCCEEDED,
+  GOAL_STATUS.CANCELED,
+  GOAL_STATUS.ABORTED,
+]);
+
+const TRAJECTORY_DEFAULTS = {
+  Circle:    [["frame_id","base_link"],["radius","5.0"],["velocity","2.0"]],
+  Figure8:   [["frame_id","base_link"],["length","10.0"],["width","5.0"],["height","0.0"],["velocity","2.0"],["max_acceleration","1.0"]],
+  Racetrack: [["frame_id","base_link"],["length","20.0"],["width","10.0"],["height","0.0"],["velocity","2.0"],["turn_velocity","1.0"],["max_acceleration","1.0"]],
+  Line:      [["frame_id","base_link"],["length","10.0"],["height","0.0"],["velocity","2.0"],["max_acceleration","1.0"]],
+  Point:     [["frame_id","base_link"],["x","5.0"],["y","0.0"],["height","0.0"],["velocity","2.0"],["max_acceleration","1.0"]],
+  Lawnmower: [["frame_id","base_link"],["length","20.0"],["width","5.0"],["height","10.0"],["velocity","2.0"],["vertical","0"]],
+};
+
+// Shared altitude/speed field sets used across several area tasks.
+const altSpeedFields = [
+  { name: "min_altitude_agl",  kind: "float", default: 3.0,  min: 0,   max: 500, step: 0.1 },
+  { name: "max_altitude_agl",  kind: "float", default: 10.0, min: 0,   max: 500, step: 0.1 },
+  { name: "min_flight_speed",  kind: "float", default: 1.0,  min: 0,   max: 50,  step: 0.1 },
+  { name: "max_flight_speed",  kind: "float", default: 3.0,  min: 0,   max: 50,  step: 0.1 },
+];
+
+// Tab registry: drives rendering, goal packing, and feedback formatting.
+// Each tab owns its default sub-state (built from `fields`) and a goal builder.
+const TASK_TABS = [
+  {
+    id: "takeoff",
+    label: "Takeoff",
+    actionSuffix: "tasks/takeoff",
+    fields: [
+      { name: "target_altitude_m", kind: "float", default: 10.0, min: 0, max: 500, step: 0.1 },
+      { name: "velocity_m_s",      kind: "float", default: 1.0,  min: 0, max: 50,  step: 0.1 },
+    ],
+    buildGoal: (s) => ({
+      target_altitude_m: numOr(s.target_altitude_m, 0),
+      velocity_m_s:      numOr(s.velocity_m_s, 0),
+    }),
+    formatFeedback: (fb) =>
+      `status: ${fb.status ?? ""} | alt: ${toFixed(fb.current_altitude_m)} / ${toFixed(fb.target_altitude_m)} m`,
+  },
+  {
+    id: "land",
+    label: "Land",
+    actionSuffix: "tasks/land",
+    fields: [
+      { name: "velocity_m_s", kind: "float", default: 0.3, min: 0, max: 10, step: 0.1, hint: "0 = use config default" },
+    ],
+    buildGoal: (s) => ({ velocity_m_s: numOr(s.velocity_m_s, 0) }),
+    formatFeedback: (fb) =>
+      `status: ${fb.status ?? ""} | alt: ${toFixed(fb.current_altitude_m)} m`,
+  },
+  {
+    id: "navigate",
+    label: "Navigate",
+    actionSuffix: "tasks/navigate",
+    fields: [
+      { name: "frame_id",         kind: "string", default: "map" },
+      { name: "waypoints",        kind: "path",   default: "[[0.0, 0.0, 5.0]]",
+        hint: "JSON array of [x, y, z] waypoints in the above frame" },
+      { name: "goal_tolerance_m", kind: "float",  default: 1.0, min: 0, max: 100, step: 0.1 },
+    ],
+    buildGoal: (s) => ({
+      global_plan: buildPath(s.frame_id, s.waypoints),
+      goal_tolerance_m: numOr(s.goal_tolerance_m, 0),
+    }),
+    formatFeedback: genericAreaFeedback,
+  },
+  {
+    id: "exploration",
+    label: "Exploration",
+    actionSuffix: "tasks/exploration",
+    fields: [
+      { name: "search_bounds", kind: "polygon", default: "[]",
+        hint: "JSON array of [x, y, z] vertices ([] = unbounded)" },
+      ...altSpeedFields,
+      { name: "time_limit_sec", kind: "float", default: 120.0, min: 0, max: 86400, step: 1 },
+    ],
+    buildGoal: (s) => ({
+      search_bounds: buildPolygon(s.search_bounds),
+      min_altitude_agl: numOr(s.min_altitude_agl, 0),
+      max_altitude_agl: numOr(s.max_altitude_agl, 0),
+      min_flight_speed: numOr(s.min_flight_speed, 0),
+      max_flight_speed: numOr(s.max_flight_speed, 0),
+      time_limit_sec:   numOr(s.time_limit_sec, 0),
+    }),
+    formatFeedback: genericAreaFeedback,
+  },
+  {
+    id: "coverage",
+    label: "Coverage",
+    actionSuffix: "tasks/coverage",
+    fields: [
+      { name: "coverage_area", kind: "polygon", default: "[]",
+        hint: "JSON array of [x, y, z] vertices" },
+      ...altSpeedFields,
+      { name: "line_spacing_m", kind: "float", default: 5.0, min: 0.1, max: 1000, step: 0.1 },
+      { name: "heading_deg",    kind: "float", default: 0.0, min: 0,   max: 360,  step: 1 },
+    ],
+    buildGoal: (s) => ({
+      coverage_area: buildPolygon(s.coverage_area),
+      min_altitude_agl: numOr(s.min_altitude_agl, 0),
+      max_altitude_agl: numOr(s.max_altitude_agl, 0),
+      min_flight_speed: numOr(s.min_flight_speed, 0),
+      max_flight_speed: numOr(s.max_flight_speed, 0),
+      line_spacing_m:   numOr(s.line_spacing_m, 0),
+      heading_deg:      numOr(s.heading_deg, 0),
+    }),
+    formatFeedback: (fb) => {
+      const base = genericAreaFeedback(fb);
+      const cov = fb.coverage_percentage;
+      return cov != null ? `${base} | coverage: ${toFixed(cov, 1)}%` : base;
+    },
+  },
+  {
+    id: "object_search",
+    label: "Object Search",
+    actionSuffix: "tasks/object_search",
+    fields: [
+      { name: "object_class", kind: "string", default: "" },
+      { name: "search_area",  kind: "polygon", default: "[]",
+        hint: "JSON array of [x, y, z] vertices" },
+      ...altSpeedFields,
+      { name: "time_limit_sec", kind: "float", default: 120.0, min: 0, max: 86400, step: 1 },
+      { name: "target_count",   kind: "int",   default: 1,     min: 0, max: 10000, step: 1,
+        hint: "0 = find all within area/time" },
+    ],
+    buildGoal: (s) => ({
+      object_class: String(s.object_class ?? ""),
+      search_area:  buildPolygon(s.search_area),
+      min_altitude_agl: numOr(s.min_altitude_agl, 0),
+      max_altitude_agl: numOr(s.max_altitude_agl, 0),
+      min_flight_speed: numOr(s.min_flight_speed, 0),
+      max_flight_speed: numOr(s.max_flight_speed, 0),
+      time_limit_sec: numOr(s.time_limit_sec, 0),
+      target_count:   intOr(s.target_count, 0),
+    }),
+    formatFeedback: (fb) => {
+      const base = genericAreaFeedback(fb);
+      const n = fb.objects_found_so_far;
+      return n != null ? `${base} | found: ${n}` : base;
+    },
+  },
+  {
+    id: "object_counting",
+    label: "Object Counting",
+    actionSuffix: "tasks/object_counting",
+    fields: [
+      { name: "object_class", kind: "string",  default: "" },
+      { name: "count_area",   kind: "polygon", default: "[]",
+        hint: "JSON array of [x, y, z] vertices" },
+      ...altSpeedFields,
+    ],
+    buildGoal: (s) => ({
+      object_class: String(s.object_class ?? ""),
+      count_area:   buildPolygon(s.count_area),
+      min_altitude_agl: numOr(s.min_altitude_agl, 0),
+      max_altitude_agl: numOr(s.max_altitude_agl, 0),
+      min_flight_speed: numOr(s.min_flight_speed, 0),
+      max_flight_speed: numOr(s.max_flight_speed, 0),
+    }),
+    formatFeedback: (fb) => {
+      const base = genericAreaFeedback(fb);
+      const n = fb.current_count;
+      return n != null ? `${base} | count: ${n}` : base;
+    },
+  },
+  {
+    id: "semantic_search",
+    label: "Semantic Search",
+    actionSuffix: "tasks/semantic_search",
+    fields: [
+      { name: "query",              kind: "string", default: "" },
+      { name: "background_queries", kind: "string", default: "",
+        hint: "comma-separated contrast classes, e.g. building,tree,ground" },
+      { name: "search_area",        kind: "polygon", default: "[]",
+        hint: "JSON array of [x, y, z] vertices" },
+      { name: "min_altitude_agl",   kind: "float", default: 3.0,  min: 0, max: 500, step: 0.1 },
+      { name: "max_altitude_agl",   kind: "float", default: 15.0, min: 0, max: 500, step: 0.1 },
+      { name: "min_flight_speed",   kind: "float", default: 1.0,  min: 0, max: 50,  step: 0.1 },
+      { name: "max_flight_speed",   kind: "float", default: 3.0,  min: 0, max: 50,  step: 0.1 },
+      { name: "confidence_threshold", kind: "float", default: 0.95, min: 0, max: 1, step: 0.01 },
+    ],
+    buildGoal: (s) => ({
+      query: String(s.query ?? ""),
+      background_queries: String(s.background_queries ?? ""),
+      search_area: buildPolygon(s.search_area),
+      min_altitude_agl: numOr(s.min_altitude_agl, 0),
+      max_altitude_agl: numOr(s.max_altitude_agl, 0),
+      min_flight_speed: numOr(s.min_flight_speed, 0),
+      max_flight_speed: numOr(s.max_flight_speed, 0),
+      confidence_threshold: numOr(s.confidence_threshold, 0),
+    }),
+    formatFeedback: (fb) => {
+      const base = genericAreaFeedback(fb);
+      const c = fb.best_confidence_so_far;
+      return c != null ? `${base} | best conf: ${toFixed(c, 2)}` : base;
+    },
+  },
+  {
+    id: "fixed_trajectory",
+    label: "Fixed Trajectory",
+    actionSuffix: "tasks/fixed_trajectory",
+    fields: [],  // custom renderer
+    defaultState: () => ({
+      type: "Circle",
+      attributes: TRAJECTORY_DEFAULTS.Circle.map(([k,v]) => [k,v]),
+      loop: false,
+    }),
+    buildGoal: (s) => ({
+      trajectory_spec: {
+        type: s.type,
+        attributes: (s.attributes ?? []).map(([k,v]) => ({ key: String(k), value: String(v) })),
+      },
+      loop: Boolean(s.loop),
+    }),
+    formatFeedback: genericAreaFeedback,
+  },
+];
+
+function tabById(id) {
+  return TASK_TABS.find((t) => t.id === id) ?? TASK_TABS[0];
 }
+
+// ─────────────────────────── utilities ────────────────────────────────────────
+
+function numOr(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+function intOr(v, d) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; }
+function toFixed(v, n = 1) { const x = Number(v); return Number.isFinite(x) ? x.toFixed(n) : "0.0"; }
+
+function genericAreaFeedback(fb) {
+  const p = fb.current_position ?? {};
+  const prog = fb.progress != null ? ` | progress: ${toFixed(fb.progress, 2)}` : "";
+  return `status: ${fb.status ?? ""}${prog} | pos: (${toFixed(p.x)}, ${toFixed(p.y)}, ${toFixed(p.z)})`;
+}
+
+function parseJsonPoints(text) {
+  // Accepts "[[x,y,z], ...]" or "[]". Returns array of {x,y,z} or throws.
+  const parsed = JSON.parse(text);
+  if (!Array.isArray(parsed)) throw new Error("must be a JSON array");
+  return parsed.map((pt, i) => {
+    if (!Array.isArray(pt) || pt.length < 2) {
+      throw new Error(`point ${i} must be [x, y] or [x, y, z]`);
+    }
+    return { x: Number(pt[0]) || 0, y: Number(pt[1]) || 0, z: Number(pt[2]) || 0 };
+  });
+}
+
+function buildPolygon(text) {
+  try {
+    const pts = parseJsonPoints(text ?? "[]");
+    return { points: pts.map((p) => ({ x: p.x, y: p.y, z: p.z })) };
+  } catch {
+    return { points: [] };
+  }
+}
+
+function buildPath(frameId, text) {
+  let pts = [];
+  try { pts = parseJsonPoints(text ?? "[]"); } catch { pts = []; }
+  const header = { stamp: { sec: 0, nanosec: 0 }, frame_id: String(frameId ?? "map") };
+  return {
+    header,
+    poses: pts.map((p) => ({
+      header,
+      pose: {
+        position: { x: p.x, y: p.y, z: p.z },
+        orientation: { x: 0, y: 0, z: 0, w: 1 },
+      },
+    })),
+  };
+}
+
+function randomUuidBytes() {
+  const bytes = new Uint8Array(16);
+  (globalThis.crypto ?? window.crypto).getRandomValues(bytes);
+  return Array.from(bytes);
+}
+
+function uuidEqual(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function actionTopic(robot, suffix, leaf) {
+  return `/${robot}/${suffix}/${leaf}`;
+}
+
+function statusLabel(code) {
+  switch (code) {
+    case GOAL_STATUS.ACCEPTED:  return "Accepted";
+    case GOAL_STATUS.EXECUTING: return "Running";
+    case GOAL_STATUS.CANCELING: return "Cancelling";
+    case GOAL_STATUS.SUCCEEDED: return "Succeeded";
+    case GOAL_STATUS.CANCELED:  return "Canceled";
+    case GOAL_STATUS.ABORTED:   return "Aborted";
+    default:                    return "Unknown";
+  }
+}
+
+function statusColor(code) {
+  switch (code) {
+    case GOAL_STATUS.SUCCEEDED: return "#16a34a";
+    case GOAL_STATUS.ABORTED:   return "#dc2626";
+    case GOAL_STATUS.CANCELED:  return "#ea580c";
+    case GOAL_STATUS.CANCELING: return "#ea580c";
+    default:                    return "#2563eb";
+  }
+}
+
+// Build the default sub-state for a tab from its field list (or explicit defaultState).
+function defaultTabState(tab) {
+  if (tab.defaultState) return tab.defaultState();
+  const s = {};
+  for (const f of tab.fields) s[f.name] = f.default;
+  return s;
+}
+
+// ─────────────────────────── panel ────────────────────────────────────────────
 
 function activate(extensionContext) {
   extensionContext.registerPanel({
-    name: "Robot Command Button",
+    name: "Robot Tasks",
     initPanel: (panelContext) => {
-      let state = Object.assign({}, DEFAULT_STATE, panelContext.initialState ?? {});
-      let advertisedTopic = null;
+      // Build default state.
+      const DEFAULT_STATE = { robot: "robot_1", activeTab: TASK_TABS[0].id };
+      for (const tab of TASK_TABS) DEFAULT_STATE[tab.id] = defaultTabState(tab);
 
+      // Merge persisted state (shallow per tab, so new fields added in code show up).
+      const persisted = panelContext.initialState ?? {};
+      const state = {
+        robot: persisted.robot ?? DEFAULT_STATE.robot,
+        activeTab: persisted.activeTab ?? DEFAULT_STATE.activeTab,
+      };
+      for (const tab of TASK_TABS) {
+        state[tab.id] = { ...DEFAULT_STATE[tab.id], ...(persisted[tab.id] ?? {}) };
+        // Deep-copy attributes array for fixed_trajectory to avoid sharing refs.
+        if (tab.id === "fixed_trajectory" && Array.isArray(state[tab.id].attributes)) {
+          state[tab.id].attributes = state[tab.id].attributes.map(([k,v]) => [k,v]);
+        }
+      }
+
+      // Runtime (not persisted)
+      const runtime = {
+        activeTabId: null,
+        activeGoalUuid: null,
+        feedbackLines: [],
+        resultText: "",
+        statusText: "Idle",
+        statusCode: GOAL_STATUS.UNKNOWN,
+        subscribedTopics: [],
+      };
+
+      const MAX_FEEDBACK_LINES = 100;
+
+      // ── DOM ───────────────────────────────────────────────────────────────
       const root = panelContext.panelElement;
       root.style.cssText =
-        "display:flex;align-items:center;justify-content:center;height:100%;padding:12px;box-sizing:border-box;";
+        "display:flex;flex-direction:column;height:100%;box-sizing:border-box;padding:8px;gap:8px;font-family:sans-serif;color:inherit;overflow-y:auto;overflow-x:hidden;";
 
-      const btn = document.createElement("button");
-      btn.style.cssText =
-        "width:100%;height:100%;min-height:48px;border:none;border-radius:6px;" +
-        "font-size:16px;font-weight:bold;color:white;cursor:pointer;transition:opacity 0.1s;";
-      btn.addEventListener("mousedown", () => (btn.style.opacity = "0.75"));
-      btn.addEventListener("mouseup", () => (btn.style.opacity = "1"));
-      btn.addEventListener("mouseleave", () => (btn.style.opacity = "1"));
-      btn.addEventListener("click", handleClick);
-      root.appendChild(btn);
+      // Robot row
+      const robotRow = document.createElement("div");
+      robotRow.style.cssText = "display:flex;align-items:center;gap:6px;flex-shrink:0;";
+      const robotLabel = document.createElement("span");
+      robotLabel.textContent = "Robot:";
+      robotLabel.style.fontWeight = "bold";
+      const robotInput = document.createElement("input");
+      robotInput.type = "text";
+      robotInput.value = state.robot;
+      robotInput.style.cssText = "flex:1;padding:4px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+      robotInput.addEventListener("change", () => {
+        state.robot = robotInput.value.trim() || "robot_1";
+        persist();
+      });
+      robotRow.appendChild(robotLabel);
+      robotRow.appendChild(robotInput);
+      root.appendChild(robotRow);
 
-      function render() {
-        btn.textContent = state.button_label || "Button";
-        btn.style.backgroundColor = state.button_color || "#10B981";
-        panelContext.setDefaultPanelTitle(state.button_label || "Robot Command Button");
+      // Tab bar (horizontally scrollable so many tabs fit)
+      const tabBar = document.createElement("div");
+      tabBar.style.cssText = "display:flex;gap:2px;border-bottom:1px solid #444;overflow-x:auto;flex-shrink:0;";
+      const tabButtons = {};
+      for (const tab of TASK_TABS) {
+        const b = document.createElement("button");
+        b.textContent = tab.label;
+        b.style.cssText =
+          "padding:8px 10px;border:none;background:transparent;color:inherit;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;white-space:nowrap;";
+        b.addEventListener("click", () => {
+          state.activeTab = tab.id;
+          persist();
+          renderTabs();
+        });
+        tabButtons[tab.id] = b;
+        tabBar.appendChild(b);
       }
+      root.appendChild(tabBar);
 
-      function handleClick() {
-        const conditionName = getConditionName(state);
-        if (!conditionName) return;
-        const topic = `/${state.robot}/behavior/behavior_tree_commands`;
+      // Tab bodies
+      const tabBodies = {};
+      for (const tab of TASK_TABS) {
+        const body = document.createElement("div");
+        body.style.cssText = "display:flex;flex-direction:column;gap:6px;flex-shrink:0;";
 
-        if (advertisedTopic !== topic) {
-          if (advertisedTopic != null) {
-            panelContext.unadvertise(advertisedTopic);
+        if (tab.id === "fixed_trajectory") {
+          body.appendChild(buildFixedTrajectoryForm(state.fixed_trajectory, persist));
+        } else {
+          // Render simple fields first, then polygon/path (collapsible) at the bottom.
+          const isCollapsible = (f) => f.kind === "polygon" || f.kind === "path";
+          const simple  = tab.fields.filter((f) => !isCollapsible(f));
+          const complex = tab.fields.filter(isCollapsible);
+          for (const field of [...simple, ...complex]) {
+            body.appendChild(buildField(field, state[tab.id], persist));
           }
-          panelContext.advertise(topic, "behavior_tree_msgs/msg/BehaviorTreeCommands", {
-            datatypes: BT_COMMANDS_DATATYPES,
-          });
-          advertisedTopic = topic;
         }
 
-        // Send 2 (SUCCESS) for the selected command, 0 (IDLE) for all others.
-        // Matches rqt behaviour exactly.
-        const commands = [];
-        for (const preset of PRESET_COMMANDS) {
-          if (preset.value === "__custom__") continue;
-          commands.push({
-            condition_name: preset.value,
-            status: preset.value === conditionName ? 2 : 0,
-          });
-        }
-        if (state.command === "__custom__" && conditionName) {
-          commands.push({ condition_name: conditionName, status: 2 });
-        }
-        panelContext.publish(topic, { commands });
+        tabBodies[tab.id] = body;
+        root.appendChild(body);
       }
 
-      function updateSettings() {
-        const isCustom = state.command === "__custom__";
-        const fields = {
-          button_label: {
-            label: "Label",
-            input: "string",
-            value: state.button_label,
-          },
-          button_color: {
-            label: "Color",
-            input: "rgb",
-            value: state.button_color,
-          },
-          robot: {
-            label: "Robot Name",
-            input: "string",
-            value: state.robot,
-            placeholder: "robot_1",
-          },
-          command: {
-            label: "Command",
-            input: "select",
-            value: state.command,
-            options: PRESET_COMMANDS,
-          },
-        };
+      // Feedback area
+      const feedbackLabel = document.createElement("div");
+      feedbackLabel.textContent = "Feedback";
+      feedbackLabel.style.cssText = "font-weight:bold;margin-top:4px;flex-shrink:0;";
+      const feedbackBox = document.createElement("div");
+      feedbackBox.style.cssText = "min-height:80px;max-height:180px;overflow-y:auto;background:rgba(0,0,0,0.2);border:1px solid #444;border-radius:4px;padding:6px;font-family:monospace;font-size:12px;white-space:pre-wrap;flex-shrink:0;";
+      root.appendChild(feedbackLabel);
+      root.appendChild(feedbackBox);
 
-        if (isCustom) {
-          fields.custom_command = {
-            label: "Custom Command Name",
-            input: "string",
-            value: state.custom_command,
-            placeholder: "e.g. My Custom Commanded",
-          };
+      const resultLabel = document.createElement("div");
+      resultLabel.textContent = "Result";
+      resultLabel.style.cssText = "font-weight:bold;flex-shrink:0;";
+      const resultBox = document.createElement("div");
+      resultBox.style.cssText = "min-height:32px;background:rgba(0,0,0,0.2);border:1px solid #444;border-radius:4px;padding:6px;font-family:monospace;font-size:12px;white-space:pre-wrap;flex-shrink:0;";
+      root.appendChild(resultLabel);
+      root.appendChild(resultBox);
+
+      // Status + buttons
+      const statusRow = document.createElement("div");
+      statusRow.style.cssText = "display:flex;align-items:center;gap:8px;flex-shrink:0;";
+      const statusLbl = document.createElement("span");
+      statusLbl.style.cssText = "flex:1;font-weight:bold;";
+      const cancelBtn = document.createElement("button");
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.style.cssText = "padding:8px 16px;border-radius:4px;border:none;background:#6b7280;color:white;cursor:pointer;";
+      const executeBtn = document.createElement("button");
+      executeBtn.textContent = "Execute";
+      executeBtn.style.cssText = "padding:8px 16px;border-radius:4px;border:none;background:#10b981;color:white;cursor:pointer;font-weight:bold;";
+      statusRow.appendChild(statusLbl);
+      statusRow.appendChild(cancelBtn);
+      statusRow.appendChild(executeBtn);
+      root.appendChild(statusRow);
+
+      // ── helpers ──────────────────────────────────────────────────────────
+      function persist() { panelContext.saveState(state); }
+
+      function renderTabs() {
+        for (const tab of TASK_TABS) {
+          const isActive = tab.id === state.activeTab;
+          tabBodies[tab.id].style.display = isActive ? "flex" : "none";
+          tabButtons[tab.id].style.borderBottomColor = isActive ? "#10b981" : "transparent";
+          tabButtons[tab.id].style.fontWeight = isActive ? "bold" : "normal";
         }
+      }
 
-        panelContext.updatePanelSettingsEditor({
-          actionHandler: (action) => {
-            if (action.action !== "update") return;
-            const key = action.payload.path[1];
-            state[key] = action.payload.value;
-            panelContext.saveState(state);
-            render();
-            updateSettings();
-          },
-          nodes: {
-            general: {
-              label: "Button",
-              fields,
+      function renderStatus() {
+        statusLbl.textContent = `Status: ${runtime.statusText}`;
+        statusLbl.style.color = statusColor(runtime.statusCode);
+        const inProgress = runtime.activeTabId != null && !TERMINAL_STATUSES.has(runtime.statusCode);
+        executeBtn.disabled = inProgress;
+        executeBtn.style.opacity = inProgress ? "0.5" : "1";
+        cancelBtn.disabled = !inProgress || runtime.activeTabId !== state.activeTab;
+        cancelBtn.style.opacity = cancelBtn.disabled ? "0.5" : "1";
+      }
+
+      function renderFeedback() {
+        feedbackBox.textContent = runtime.feedbackLines.join("\n");
+        feedbackBox.scrollTop = feedbackBox.scrollHeight;
+        resultBox.textContent = runtime.resultText;
+      }
+
+      function appendFeedback(line) {
+        const ts = new Date().toLocaleTimeString();
+        runtime.feedbackLines.push(`[${ts}] ${line}`);
+        if (runtime.feedbackLines.length > MAX_FEEDBACK_LINES) {
+          runtime.feedbackLines.splice(0, runtime.feedbackLines.length - MAX_FEEDBACK_LINES);
+        }
+        renderFeedback();
+      }
+
+      function resetRuntimeForNewGoal() {
+        runtime.feedbackLines = [];
+        runtime.resultText = "";
+        runtime.statusText = "Sending...";
+        runtime.statusCode = GOAL_STATUS.UNKNOWN;
+        renderFeedback();
+        renderStatus();
+      }
+
+      // ── subscriptions ────────────────────────────────────────────────────
+      function subscribeForActiveGoal(tab) {
+        const topics = [
+          actionTopic(state.robot, tab.actionSuffix, "_action/feedback"),
+          actionTopic(state.robot, tab.actionSuffix, "_action/status"),
+        ];
+        runtime.subscribedTopics = topics;
+        panelContext.subscribe(topics.map((topic) => ({ topic })));
+      }
+
+      function unsubscribeAll() {
+        runtime.subscribedTopics = [];
+        panelContext.subscribe([]);
+      }
+
+      // ── execute / cancel ─────────────────────────────────────────────────
+      executeBtn.addEventListener("click", async () => {
+        if (runtime.activeTabId != null) return;
+        const tab = tabById(state.activeTab);
+        let goal;
+        try {
+          goal = tab.buildGoal(state[tab.id]);
+        } catch (err) {
+          runtime.statusText = "Invalid goal";
+          runtime.statusCode = GOAL_STATUS.ABORTED;
+          runtime.resultText = `buildGoal failed: ${err?.message ?? err}`;
+          renderStatus();
+          renderFeedback();
+          return;
+        }
+        const goalId = randomUuidBytes();
+
+        runtime.activeTabId = tab.id;
+        runtime.activeGoalUuid = goalId;
+        resetRuntimeForNewGoal();
+        subscribeForActiveGoal(tab);
+
+        const sendGoalService = actionTopic(state.robot, tab.actionSuffix, "_action/send_goal");
+        try {
+          const response = await panelContext.callService(sendGoalService, {
+            goal_id: { uuid: goalId }, goal,
+          });
+          if (!response?.accepted) {
+            runtime.statusText = "Rejected by server";
+            runtime.statusCode = GOAL_STATUS.ABORTED;
+            runtime.activeTabId = null;
+            runtime.activeGoalUuid = null;
+            unsubscribeAll();
+            renderStatus();
+            return;
+          }
+          runtime.statusText = statusLabel(GOAL_STATUS.ACCEPTED);
+          runtime.statusCode = GOAL_STATUS.ACCEPTED;
+          renderStatus();
+        } catch (err) {
+          runtime.statusText = "Send failed";
+          runtime.statusCode = GOAL_STATUS.ABORTED;
+          runtime.resultText = String(err?.message ?? err);
+          runtime.activeTabId = null;
+          runtime.activeGoalUuid = null;
+          unsubscribeAll();
+          renderStatus();
+          renderFeedback();
+        }
+      });
+
+      cancelBtn.addEventListener("click", async () => {
+        if (runtime.activeGoalUuid == null) return;
+        const tab = tabById(runtime.activeTabId);
+        const cancelService = actionTopic(state.robot, tab.actionSuffix, "_action/cancel_goal");
+        runtime.statusText = statusLabel(GOAL_STATUS.CANCELING);
+        runtime.statusCode = GOAL_STATUS.CANCELING;
+        renderStatus();
+        try {
+          await panelContext.callService(cancelService, {
+            goal_info: { goal_id: { uuid: runtime.activeGoalUuid }, stamp: { sec: 0, nanosec: 0 } },
+          });
+        } catch (err) {
+          appendFeedback(`cancel call failed: ${err?.message ?? err}`);
+        }
+      });
+
+      // ── incoming messages ────────────────────────────────────────────────
+      async function handleStatusMessage(msg) {
+        if (runtime.activeGoalUuid == null) return;
+        const list = msg?.status_list ?? [];
+        for (const entry of list) {
+          const uuid = entry?.goal_info?.goal_id?.uuid;
+          if (!uuid || !uuidEqual(uuid, runtime.activeGoalUuid)) continue;
+          const code = entry.status;
+          runtime.statusCode = code;
+          runtime.statusText = statusLabel(code);
+          renderStatus();
+
+          if (TERMINAL_STATUSES.has(code)) {
+            const tab = tabById(runtime.activeTabId);
+            const getResultService = actionTopic(state.robot, tab.actionSuffix, "_action/get_result");
+            try {
+              const res = await panelContext.callService(getResultService, {
+                goal_id: { uuid: runtime.activeGoalUuid },
+              });
+              const result = res?.result ?? {};
+              runtime.resultText = `success: ${result.success}\nmessage: ${result.message ?? ""}`;
+            } catch (err) {
+              runtime.resultText = `(get_result failed: ${err?.message ?? err})`;
+            }
+            runtime.activeTabId = null;
+            runtime.activeGoalUuid = null;
+            unsubscribeAll();
+            renderStatus();
+            renderFeedback();
+          }
+        }
+      }
+
+      function handleFeedbackMessage(msg) {
+        if (runtime.activeGoalUuid == null) return;
+        const uuid = msg?.goal_id?.uuid;
+        if (!uuid || !uuidEqual(uuid, runtime.activeGoalUuid)) return;
+        const tab = tabById(runtime.activeTabId);
+        appendFeedback(tab.formatFeedback(msg.feedback ?? {}));
+      }
+
+      // ── render loop ──────────────────────────────────────────────────────
+      panelContext.onRender = (renderState, done) => {
+        const frame = renderState.currentFrame;
+        if (frame) {
+          for (const evt of frame) {
+            if (!runtime.subscribedTopics.includes(evt.topic)) continue;
+            if (evt.topic.endsWith("_action/status")) {
+              handleStatusMessage(evt.message);
+            } else if (evt.topic.endsWith("_action/feedback")) {
+              handleFeedbackMessage(evt.message);
+            }
+          }
+        }
+        done();
+      };
+      panelContext.watch("currentFrame");
+      panelContext.watch("topics");
+
+      panelContext.updatePanelSettingsEditor({
+        actionHandler: (action) => {
+          if (action.action !== "update") return;
+          const key = action.payload.path[1];
+          if (key === "robot") {
+            state.robot = String(action.payload.value || "robot_1");
+            robotInput.value = state.robot;
+            persist();
+          }
+        },
+        nodes: {
+          general: {
+            label: "Settings",
+            fields: {
+              robot: { label: "Robot Name", input: "string", value: state.robot, placeholder: "robot_1" },
             },
           },
-        });
-      }
+        },
+      });
 
-      render();
-      updateSettings();
+      panelContext.setDefaultPanelTitle("Robot Tasks");
+      renderTabs();
+      renderStatus();
+      renderFeedback();
 
-      return () => {
-        if (advertisedTopic != null) {
-          panelContext.unadvertise(advertisedTopic);
-        }
-      };
+      return () => { unsubscribeAll(); };
     },
   });
+}
+
+// ─────────────────────────── field builders ───────────────────────────────────
+
+function fieldRow(labelText, control, hint) {
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:flex;flex-direction:column;gap:2px;";
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;align-items:center;gap:6px;";
+  const label = document.createElement("span");
+  label.textContent = labelText + ":";
+  label.style.cssText = "flex:1;";
+  row.appendChild(label);
+  row.appendChild(control);
+  wrap.appendChild(row);
+  if (hint) {
+    const h = document.createElement("span");
+    h.textContent = hint;
+    h.style.cssText = "font-size:11px;opacity:0.6;padding-left:4px;";
+    wrap.appendChild(h);
+  }
+  return wrap;
+}
+
+function buildField(field, tabState, persist) {
+  switch (field.kind) {
+    case "float":
+    case "int": {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = field.kind === "int" ? "1" : String(field.step ?? 0.1);
+      if (field.min != null) input.min = String(field.min);
+      if (field.max != null) input.max = String(field.max);
+      input.value = String(tabState[field.name]);
+      input.style.cssText = "width:120px;padding:4px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+      input.addEventListener("change", () => {
+        const v = field.kind === "int" ? parseInt(input.value, 10) : Number(input.value);
+        tabState[field.name] = Number.isFinite(v) ? v : 0;
+        persist();
+      });
+      return fieldRow(field.name, input, field.hint);
+    }
+    case "string": {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = String(tabState[field.name] ?? "");
+      input.style.cssText = "flex:1;min-width:120px;padding:4px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+      input.addEventListener("change", () => {
+        tabState[field.name] = input.value;
+        persist();
+      });
+      return fieldRow(field.name, input, field.hint);
+    }
+    case "bool": {
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = Boolean(tabState[field.name]);
+      cb.addEventListener("change", () => {
+        tabState[field.name] = cb.checked;
+        persist();
+      });
+      return fieldRow(field.name, cb, field.hint);
+    }
+    case "polygon":
+    case "path": {
+      const openKey = `_${field.name}_open`;
+      const details = document.createElement("details");
+      details.style.cssText = "border:1px solid #444;border-radius:4px;padding:4px 6px;margin-top:2px;";
+      details.open = Boolean(tabState[openKey]);
+      const summary = document.createElement("summary");
+      summary.style.cssText = "cursor:pointer;user-select:none;font-size:13px;";
+      const countPoints = (text) => {
+        try {
+          const parsed = JSON.parse(text || "[]");
+          return Array.isArray(parsed) ? parsed.length : 0;
+        } catch { return null; }
+      };
+      const renderSummary = () => {
+        const n = countPoints(tabState[field.name]);
+        const label = n == null ? "invalid" : `${n} pt${n === 1 ? "" : "s"}`;
+        summary.textContent = `${field.name} (${label})`;
+      };
+      renderSummary();
+      details.appendChild(summary);
+
+      details.addEventListener("toggle", () => {
+        tabState[openKey] = details.open;
+        persist();
+      });
+
+      const ta = document.createElement("textarea");
+      ta.rows = 3;
+      ta.value = String(tabState[field.name] ?? "[]");
+      ta.style.cssText = "width:100%;box-sizing:border-box;margin-top:4px;padding:4px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-family:monospace;font-size:12px;resize:vertical;";
+      const err = document.createElement("span");
+      err.style.cssText = "display:block;font-size:11px;color:#dc2626;min-height:14px;";
+      const validate = () => {
+        try { JSON.parse(ta.value || "[]"); err.textContent = ""; }
+        catch (e) { err.textContent = "invalid JSON: " + (e?.message ?? e); }
+      };
+      ta.addEventListener("input", () => {
+        tabState[field.name] = ta.value;
+        validate();
+        renderSummary();
+        persist();
+      });
+      validate();
+      details.appendChild(ta);
+      if (field.hint) {
+        const h = document.createElement("span");
+        h.textContent = field.hint;
+        h.style.cssText = "display:block;font-size:11px;opacity:0.6;margin-top:2px;";
+        details.appendChild(h);
+      }
+      details.appendChild(err);
+      return details;
+    }
+  }
+  const fallback = document.createElement("div");
+  fallback.textContent = `(unsupported field kind: ${field.kind})`;
+  return fallback;
+}
+
+function buildFixedTrajectoryForm(tabState, persist) {
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "display:flex;flex-direction:column;gap:6px;";
+
+  // Type combo
+  const typeRow = document.createElement("div");
+  typeRow.style.cssText = "display:flex;align-items:center;gap:6px;";
+  const typeLabel = document.createElement("span");
+  typeLabel.textContent = "type:";
+  typeLabel.style.flex = "1";
+  const typeSelect = document.createElement("select");
+  typeSelect.style.cssText = "padding:4px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+  for (const name of Object.keys(TRAJECTORY_DEFAULTS)) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    if (name === tabState.type) opt.selected = true;
+    typeSelect.appendChild(opt);
+  }
+  typeRow.appendChild(typeLabel);
+  typeRow.appendChild(typeSelect);
+  wrapper.appendChild(typeRow);
+
+  // Attributes table
+  const table = document.createElement("div");
+  table.style.cssText = "display:flex;flex-direction:column;gap:2px;";
+  wrapper.appendChild(table);
+
+  function renderAttributes() {
+    table.replaceChildren();
+    tabState.attributes.forEach(([k, v], idx) => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:4px;";
+      const keyIn = document.createElement("input");
+      keyIn.type = "text";
+      keyIn.value = k;
+      keyIn.placeholder = "key";
+      keyIn.style.cssText = "flex:1;padding:3px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+      keyIn.addEventListener("change", () => {
+        tabState.attributes[idx][0] = keyIn.value;
+        persist();
+      });
+      const valIn = document.createElement("input");
+      valIn.type = "text";
+      valIn.value = v;
+      valIn.placeholder = "value";
+      valIn.style.cssText = "flex:1;padding:3px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+      valIn.addEventListener("change", () => {
+        tabState.attributes[idx][1] = valIn.value;
+        persist();
+      });
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "✕";
+      delBtn.style.cssText = "width:28px;border-radius:4px;border:none;background:#6b7280;color:white;cursor:pointer;";
+      delBtn.addEventListener("click", () => {
+        tabState.attributes.splice(idx, 1);
+        persist();
+        renderAttributes();
+      });
+      row.appendChild(keyIn);
+      row.appendChild(valIn);
+      row.appendChild(delBtn);
+      table.appendChild(row);
+    });
+  }
+  renderAttributes();
+
+  typeSelect.addEventListener("change", () => {
+    tabState.type = typeSelect.value;
+    tabState.attributes = (TRAJECTORY_DEFAULTS[tabState.type] ?? []).map(([k, v]) => [k, v]);
+    persist();
+    renderAttributes();
+  });
+
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "+ Add Attribute";
+  addBtn.style.cssText = "align-self:flex-start;padding:4px 8px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;";
+  addBtn.addEventListener("click", () => {
+    tabState.attributes.push(["", ""]);
+    persist();
+    renderAttributes();
+  });
+  wrapper.appendChild(addBtn);
+
+  // Loop checkbox
+  const loopRow = document.createElement("label");
+  loopRow.style.cssText = "display:flex;align-items:center;gap:6px;cursor:pointer;";
+  const loopCb = document.createElement("input");
+  loopCb.type = "checkbox";
+  loopCb.checked = Boolean(tabState.loop);
+  loopCb.addEventListener("change", () => {
+    tabState.loop = loopCb.checked;
+    persist();
+  });
+  const loopLabel = document.createElement("span");
+  loopLabel.textContent = "loop";
+  loopRow.appendChild(loopCb);
+  loopRow.appendChild(loopLabel);
+  wrapper.appendChild(loopRow);
+
+  return wrapper;
 }
 
 module.exports = { activate };

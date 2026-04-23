@@ -26,6 +26,7 @@
     <param name="address" value="0.0.0.0" />
     <param name="use_sim_time" value="$(var sim)" />
     <param name="send_buffer_limit" value="10000000" />
+    <param name="include_hidden" value="true" />
   </node>
 
   <!-- Gossip bridge: connects GCS domain (0) to gossip bus (domain 99) -->

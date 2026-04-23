@@ -70,7 +70,7 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd:
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.07
+SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
 DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
     {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 3.5},

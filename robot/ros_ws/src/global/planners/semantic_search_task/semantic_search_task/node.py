@@ -67,12 +67,18 @@ def _filter_raven(line: str) -> str | None:
     line = _clean(line)
     if not line:
         return None
+    low = line.lower()
+    # Surface startup, waiting, and error messages
+    if 'raven_nav started' in low:
+        return 'raven_nav started'
+    if 'waiting for odometry' in low:
+        return 'Waiting for odometry...'
+    if 'error' in low or 'exception' in low or 'traceback' in low:
+        return f'ERROR: {line}'
     # The periodic status line looks like:
     # [Frontier-based] frontiers=N rays=N filtered=N voxels=N | target=X | completed=[] | wp=(...)
     m = re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line)
     if not m:
-        if 'error' in line.lower():
-            return f'ERROR: {line}'
         return None
 
     mode = m.group(1)
@@ -80,13 +86,20 @@ def _filter_raven(line: str) -> str | None:
     rays = re.search(r'rays=(\d+)', line)
     voxels = re.search(r'voxels=(\d+)', line)
     completed = re.search(r'completed=(\[[^\]]*\])', line)
-    wp = re.search(r'wp=(\S+)', line)
+    wp = re.search(r'wp=(\([^)]+\))', line)
+
+    target = re.search(r'target=(.+?)\s*\|', line)
+    filtered = re.search(r'filtered=(\d+)', line)
 
     parts = [f'[{mode}]']
+    if target and target.group(1).strip() != 'None':
+        parts.append(f'current_target="{target.group(1).strip()}"')
     if frontiers:
         parts.append(f'frontiers={frontiers.group(1)}')
     if rays:
         parts.append(f'rays={rays.group(1)}')
+    if filtered:
+        parts.append(f'filtered={filtered.group(1)}')
     if voxels:
         parts.append(f'voxels={voxels.group(1)}')
     if completed and completed.group(1) != '[]':
@@ -235,7 +248,6 @@ class SemanticSearchTaskNode(Node):
         goal.max_altitude_agl = 15.0
         goal.min_flight_speed = 1.0
         goal.max_flight_speed = 3.0
-        goal.time_limit_sec = 0.0   # 0 = no limit, runs until cancelled
         client.send_goal_async(goal)
         self.get_logger().info('ExplorationTask sent to random_walk_planner')
 
@@ -259,7 +271,38 @@ class SemanticSearchTaskNode(Node):
             result.message = 'Empty query'
             return result
 
-        self.get_logger().info(f'SemanticSearchTask | queries={queries}')
+        bg_raw = [bq.strip() for bq in goal.background_queries.split(',')
+                  if bq.strip()]
+        if not bg_raw:
+            self._task_active = False
+            goal_handle.abort()
+            result = SemanticSearchTask.Result()
+            result.success = False
+            result.message = (
+                'background_queries is required but was not provided. '
+                'Softmax normalization needs contrast classes (e.g. '
+                '"building,tree,ground") to produce meaningful scores.')
+            return result
+
+        # Build the full query list: target queries + background contrast queries.
+        # Softmax normalization across queries requires N >= 2 to produce
+        # meaningful discriminative scores; with N=1 every score is 1.0.
+        bg = [bq for bq in bg_raw if bq not in queries]
+        all_queries = queries + bg
+
+        if len(all_queries) < 2:
+            self._task_active = False
+            goal_handle.abort()
+            result = SemanticSearchTask.Result()
+            result.success = False
+            result.message = (
+                f'Need at least 2 total queries for softmax normalization, '
+                f'got {len(all_queries)}. Add more background_queries that '
+                f'differ from the target query.')
+            return result
+
+        self.get_logger().info(
+            f'SemanticSearchTask | targets={queries} all_queries={all_queries}')
 
         rayfronts_proc = raven_proc = random_walk_proc = None
         rayfronts_q = raven_q = queue.Queue()
@@ -289,12 +332,18 @@ class SemanticSearchTaskNode(Node):
 
             # Start raven first so it's subscribed to rays_sim/all and voxels_sim/all
             # before rayfronts runs its first query cycle (rayfronts lazy-publishes
-            # those topics only when a subscriber exists)
-            labels_yaml = str(queries).replace("'", '"')
+            # those topics only when a subscriber exists).
+            # query_labels = full set (for sim column mapping)
+            # target_labels = only the user's targets (for behavior filtering)
+            all_labels_yaml = str(all_queries).replace("'", '"')
+            target_labels_yaml = str(queries).replace("'", '"')
             raven_proc, raven_q = self._spawn([
                 'ros2', 'run', 'raven_nav', 'raven_nav_node',
                 '--ros-args',
-                '-p', f'query_labels:={labels_yaml}',
+                '-p', f'query_labels:={all_labels_yaml}',
+                '-p', f'target_labels:={target_labels_yaml}',
+                '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
+                '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
             ])
@@ -304,7 +353,6 @@ class SemanticSearchTaskNode(Node):
             ])
 
 
-            start = self.get_clock().now()
             best_conf = 0.0
             rayfronts_ready = False
             prev_rf_sub_count = 0
@@ -336,10 +384,13 @@ class SemanticSearchTaskNode(Node):
                 _completed_targets_cb, 10, callback_group=self._cbg)
 
             # Subscribe to voxels_sim/all for best-confidence tracking
-            Q = len(queries)
             def _vox_all_cb(msg):
                 nonlocal best_conf, mapping_started
-                fields = ('x', 'y', 'z') + tuple(f'sim_{q}' for q in range(Q))
+                msg_field_names = [f.name for f in msg.fields]
+                sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')])
+                if not sim_fields:
+                    return
+                fields = ('x', 'y', 'z') + tuple(sim_fields)
                 from sensor_msgs_py import point_cloud2 as pc2
                 pts = list(pc2.read_points(msg, field_names=fields, skip_nans=True))
                 if pts:
@@ -359,22 +410,6 @@ class SemanticSearchTaskNode(Node):
                     result = SemanticSearchTask.Result()
                     result.success = False
                     result.message = 'Cancelled'
-                    return result
-
-                elapsed = (self.get_clock().now() - start).nanoseconds / 1e9
-                if goal.time_limit_sec > 0 and elapsed >= goal.time_limit_sec:
-                    done = [q for q in queries
-                            if q.lower() in set(c.lower() for c in completed_targets)]
-                    succeeded = len(done) == len(queries)
-                    if succeeded:
-                        goal_handle.succeed()
-                    else:
-                        goal_handle.abort()
-                    result = SemanticSearchTask.Result()
-                    result.success = succeeded
-                    result.message = (f'Timed out. Visited {len(done)}/{len(queries)}: '
-                                      f'{", ".join(done)}')
-                    result.confidence = best_conf
                     return result
 
                 # Drain and filter rayfronts output
@@ -400,14 +435,15 @@ class SemanticSearchTaskNode(Node):
 
                 # Send queries to rayfronts whenever its subscriber appears (or reappears).
                 # This handles the initial load AND any rayfronts restart mid-task.
+                # Send ALL queries (target + background) so softmax is meaningful.
                 rf_sub_count = self.count_subscribers(f'{self._rf_prefix}/new_text_query')
                 if rf_sub_count > 0 and prev_rf_sub_count == 0:
                     rayfronts_ready = True
-                    for q in queries:
+                    for q in all_queries:
                         self._text_query_pub.publish(String(data=q))
-                    last_rf_status = f'Queries sent: {", ".join(queries)}'
+                    last_rf_status = f'Queries sent: {", ".join(all_queries)}'
                     self.get_logger().info(
-                        f'Queries sent to rayfronts: {queries}')
+                        f'Queries sent to rayfronts: {all_queries}')
                 if rf_sub_count == 0 and prev_rf_sub_count > 0:
                     rayfronts_ready = False
                     self.get_logger().info('rayfronts subscriber lost — will resend on reconnect')

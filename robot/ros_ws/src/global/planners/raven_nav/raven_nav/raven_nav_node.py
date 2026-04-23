@@ -42,7 +42,14 @@ class RavenNavNode(Node):
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
-        self._target_objects = self._query_labels[:]
+        # target_labels: which queries to actually navigate toward.
+        # Defaults to query_labels if empty. Must be a subset of query_labels.
+        target_labels_param = self.declare_parameter('target_labels', ['']).value
+        target_labels = [t for t in target_labels_param if t]
+        self._target_objects = target_labels if target_labels else self._query_labels[:]
+
+        self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
+        self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
 
         timer_period = self.declare_parameter('timer_period', 0.5).value
 
@@ -71,6 +78,8 @@ class RavenNavNode(Node):
             get_clock=self.get_clock,
             publisher_dict=self._publisher_dict,
             score_threshold=self._score_threshold,
+            min_altitude=self._min_altitude,
+            max_altitude=self._max_altitude,
         )
 
         # Subscribe to all-queries topics so rayfronts always publishes to them
@@ -103,14 +112,24 @@ class RavenNavNode(Node):
             f'raven_nav started | robot={robot_name} | '
             f'timer={timer_period:.2f}s | '
             f'query_labels={self._query_labels} | '
-            f'score_threshold={self._score_threshold}')
+            f'score_threshold={self._score_threshold} | '
+            f'altitude=[{self._min_altitude}, {self._max_altitude}]')
 
     def _ray_all_cb(self, msg: PointCloud2):
         """Receive all-queries ray PointCloud2 (fields: x,y,z,theta,phi,sim_0,sim_1,...)."""
         Q = len(self._query_labels)
         if Q == 0:
             return
-        fields = ('x', 'y', 'z', 'theta', 'phi') + tuple(f'sim_{q}' for q in range(Q))
+        # Discover actual sim_* fields from the message to handle query count mismatches
+        msg_field_names = [f.name for f in msg.fields]
+        sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')])
+        Q_actual = len(sim_fields)
+        if Q_actual == 0:
+            self._ray_origins = None
+            self._ray_dirs = None
+            self._ray_scores = None
+            return
+        fields = ('x', 'y', 'z', 'theta', 'phi') + tuple(sim_fields)
         pts = list(point_cloud2.read_points(msg, field_names=fields, skip_nans=True))
         if not pts:
             self._ray_origins = None
@@ -139,7 +158,15 @@ class RavenNavNode(Node):
         Q = len(self._query_labels)
         if Q == 0:
             return
-        fields = ('x', 'y', 'z') + tuple(f'sim_{q}' for q in range(Q))
+        # Discover actual sim_* fields from the message to handle query count mismatches
+        msg_field_names = [f.name for f in msg.fields]
+        sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')])
+        Q_actual = len(sim_fields)
+        if Q_actual == 0:
+            self._vox_xyz = None
+            self._vox_scores = None
+            return
+        fields = ('x', 'y', 'z') + tuple(sim_fields)
         pts = list(point_cloud2.read_points(msg, field_names=fields, skip_nans=True))
         if not pts:
             self._vox_xyz = None

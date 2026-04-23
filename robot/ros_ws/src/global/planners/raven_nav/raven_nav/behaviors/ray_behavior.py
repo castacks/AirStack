@@ -10,10 +10,13 @@ _log = logging.getLogger(__name__)
 
 
 class RayBehavior:
-    def __init__(self, get_clock, current_target_publisher=None, score_threshold=0.95):
+    def __init__(self, get_clock, current_target_publisher=None, score_threshold=0.95,
+                 min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
         self.name = 'Ray-based'
         self.score_threshold = score_threshold
+        self.min_altitude = min_altitude
+        self.max_altitude = max_altitude
         self.prev_filtered_marker_ids = 0
         self.current_target = None
         self.current_target_pub = current_target_publisher
@@ -45,6 +48,7 @@ class RayBehavior:
             return False
 
         relevant_scores = ray_scores[:, label_indices]          # (N, num_targets)
+
         mask = (relevant_scores > self.score_threshold).any(axis=1)
         indices = np.where(mask)[0]
 
@@ -80,61 +84,41 @@ class RayBehavior:
         dirs = self._ray_dirs[self._filtered_indices]          # (K, 3) FLU
         labels = self._per_ray_label
 
-        # --- Filter rays pointing behind the robot in XY ---
+        # Filter rays outside altitude range (z is altitude in FLU)
+        alt_mask = (origins[:, 2] >= self.min_altitude) & (origins[:, 2] <= self.max_altitude)
+        origins = origins[alt_mask]
+        dirs = dirs[alt_mask]
+        labels = [labels[i] for i in range(len(labels)) if alt_mask[i]]
+
+        if len(origins) == 0:
+            return waypoint_locked, target_waypoint1, target_waypoint2
+
         xy_dirs = dirs[:, :2]
         norms = np.linalg.norm(xy_dirs, axis=1, keepdims=True)
         xy_dirs_normed = xy_dirs / (norms + 1e-6)
 
-        ray_target_xy = origins[:, :2] + xy_dirs_normed
-        to_target = ray_target_xy - cur_pose_np[:2]
-        dot = np.einsum('ij,ij->i', xy_dirs_normed, to_target)
+        # Filter rays pointing behind the robot in XY.
+        # Apply valid mask to all arrays so indices stay consistent (krrish-develop).
+        orig_xy = origins[:, :2]
+        ray_target_xy = orig_xy + xy_dirs_normed
+        to_ray_target = ray_target_xy - cur_pose_np[:2]
+        dot = np.einsum('ij,ij->i', xy_dirs_normed, to_ray_target)
         valid = dot > 0
 
-        _log.warning(
-            f'ray execute: score_filtered={len(origins)} '
-            f'direction_valid={int(valid.sum())} '
-            f'robot_xy=({cur_pose_np[0]:.1f},{cur_pose_np[1]:.1f})')
+        xy_dirs_normed = xy_dirs_normed[valid]
+        origins = origins[valid]
+        dirs = dirs[valid]
+        labels = [labels[i] for i in range(len(labels)) if valid[i]]
 
-        if not valid.any():
-            # All rays point behind the robot. Two cases:
-            # 1. Same target + same direction as current travel → already heading
-            #    correctly (e.g. drone passed the ray origin), keep going.
-            # 2. Same target + different direction, OR different target → stay
-            #    committed to active target, keep current waypoint.
-            behind_for_active = (self._active_target is None or
-                                 self.current_target == self._active_target)
-
-            same_direction = False
-            if target_waypoint1 is not None:
-                travel_xy = np.array([target_waypoint1[0], target_waypoint1[1]]) - cur_pose_np[:2]
-                travel_norm = np.linalg.norm(travel_xy)
-                if travel_norm > 1e-6:
-                    travel_dir = travel_xy / travel_norm
-                    avg_behind = xy_dirs_normed.mean(axis=0)
-                    avg_behind = avg_behind / (np.linalg.norm(avg_behind) + 1e-6)
-                    same_direction = float(np.dot(avg_behind, travel_dir)) > np.cos(np.deg2rad(45))
-
-            if behind_for_active and same_direction:
-                _log.warning(
-                    f'ray execute: all rays behind, consistent with active target '
-                    f'({self._active_target}) and direction — keeping waypoint')
-            else:
-                _log.warning(
-                    f'ray execute: all rays behind — staying committed to active '
-                    f'target ({self._active_target}, current={self.current_target})')
+        if len(origins) == 0:
             return waypoint_locked, target_waypoint1, target_waypoint2
 
-        origins_v = origins[valid]
-        dirs_v = dirs[valid]
-        xy_dirs_v = xy_dirs_normed[valid]
-        labels_v = [labels[i] for i in range(len(labels)) if valid[i]]
-
-        # --- Greedy spatial clustering per label (45 deg XY threshold) ---
+        # Greedy spatial clustering per label (45 deg XY threshold)
         angle_cos_thresh = np.cos(np.deg2rad(45))
         groups = []
-        for i in range(len(origins_v)):
-            xy_dir = xy_dirs_v[i]
-            label = labels_v[i]
+        for i in range(len(origins)):
+            xy_dir = xy_dirs_normed[i]
+            label = labels[i]
             assigned = False
             for group in groups:
                 if group['label'] != label:
@@ -154,20 +138,19 @@ class RayBehavior:
                     'label': label,
                 })
 
+        MIN_RAYS_PER_GROUP = 1
+        groups = [g for g in groups if len(g['rays']) >= MIN_RAYS_PER_GROUP]
+
         if not groups:
-            _log.warning('ray execute: no groups formed — no waypoint')
             return waypoint_locked, target_waypoint1, target_waypoint2
 
-        _log.warning(f'ray execute: {len(groups)} groups, publishing waypoint')
-
-        # --- Score groups: lower is better ---
-        # score = dist(avg_origin, robot) - 5 * group_size
+        # Score groups: lower is better (dist - 5 * density)
         k = 5.0
         group_avgs = []
         for group in groups:
             idxs = group['indices']
-            avg_origin = origins_v[idxs].mean(axis=0)
-            avg_dir = dirs_v[idxs].mean(axis=0)
+            avg_origin = origins[idxs].mean(axis=0)
+            avg_dir = dirs[idxs].mean(axis=0)
             avg_dir = avg_dir / (np.linalg.norm(avg_dir) + 1e-6)
             density = len(idxs)
             score = np.linalg.norm(avg_origin - cur_pose_np) - k * density
@@ -198,9 +181,8 @@ class RayBehavior:
         published_target = best[3]
         if self._active_target is None:
             self._active_target = published_target
-            _log.warning(f'ray execute: active target set to {published_target}')
 
-        self._visualize_filtered_rays(groups, origins_v, dirs_v, publisher_dict)
+        self._visualize_filtered_rays(groups, origins, dirs, publisher_dict)
 
         return waypoint_locked, target_waypoint1, target_waypoint2
 

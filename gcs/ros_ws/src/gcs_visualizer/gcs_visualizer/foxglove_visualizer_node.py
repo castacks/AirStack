@@ -6,9 +6,9 @@ body-frame axes, local trajectory, global plan, and VDB occupancy map.
 All markers are published to /gcs/robot_markers in the global ENU 'map' frame.
 """
 
-import copy
 import re
 
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
@@ -16,8 +16,7 @@ from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
-from geometry_msgs.msg import TransformStamped, Point
-from tf2_ros import StaticTransformBroadcaster
+from geometry_msgs.msg import Point
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
@@ -46,6 +45,26 @@ ROBOT_COLORS = [
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
 
 
+def _translate_marker(msg: Marker, bx: float, by: float, bz: float) -> Marker:
+    """Return a new Marker with all points translated by (bx, by, bz) via numpy."""
+    m = Marker()
+    m.type = msg.type
+    m.action = msg.action
+    m.pose = msg.pose
+    m.scale = msg.scale
+    m.color = msg.color
+    m.colors = list(msg.colors)
+    m.header.frame_id = 'map'
+    n = len(msg.points)
+    if n > 0:
+        xyz = np.array([(pt.x, pt.y, pt.z) for pt in msg.points], dtype=np.float64)
+        xyz[:, 0] += bx
+        xyz[:, 1] += by
+        xyz[:, 2] += bz
+        m.points = [Point(x=float(r[0]), y=float(r[1]), z=float(r[2])) for r in xyz]
+    return m
+
+
 class FoxgloveVisualizerNode(Node):
     def __init__(self):
         super().__init__('foxglove_visualizer_node')
@@ -64,6 +83,7 @@ class FoxgloveVisualizerNode(Node):
         self._trajectories   = {}
         self._global_plans   = {}
         self._vdb_markers    = {}
+        self._vdb_global     = {}  # pre-translated global-frame VDB, keyed by robot_name
         self._subscribed_gps  = set()
         self._subscribed_odom = set()
         self._subscribed_traj = set()
@@ -72,14 +92,6 @@ class FoxgloveVisualizerNode(Node):
         self._alt_ground      = None
 
         self._pub = self.create_publisher(MarkerArray, '/gcs/robot_markers', 10)
-
-        self._static_tf = StaticTransformBroadcaster(self)
-        map_tf = TransformStamped()
-        map_tf.header.stamp = self.get_clock().now().to_msg()
-        map_tf.header.frame_id = 'map'
-        map_tf.child_frame_id = 'enu_origin'
-        map_tf.transform.rotation.w = 1.0
-        self._static_tf.sendTransform(map_tf)
 
         self.create_timer(5.0, self._discover_robots)
         self.create_timer(0.1, self._publish_markers)
@@ -156,6 +168,10 @@ class FoxgloveVisualizerNode(Node):
         self._gps_positions[robot_name] = pos
         if robot_name not in self._gps_boot:
             self._gps_boot[robot_name] = pos
+            if robot_name in self._vdb_markers:
+                bx, by, bz = pos
+                self._vdb_global[robot_name] = _translate_marker(
+                    self._vdb_markers[robot_name], bx, by, bz)
 
     def _odom_callback(self, msg: Odometry, robot_name: str):
         o = msg.pose.pose.orientation
@@ -169,6 +185,10 @@ class FoxgloveVisualizerNode(Node):
 
     def _vdb_callback(self, msg: Marker, robot_name: str):
         self._vdb_markers[robot_name] = msg
+        boot = self._gps_boot.get(robot_name)
+        if boot is not None:
+            bx, by, bz = boot
+            self._vdb_global[robot_name] = _translate_marker(msg, bx, by, bz)
 
     def _publish_markers(self):
         if not self._gps_positions:
@@ -281,40 +301,49 @@ class FoxgloveVisualizerNode(Node):
             plan = self._global_plans.get(robot_name)
             if plan is not None and boot is not None:
                 bx, by, bz = boot
-                color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-                line = Marker()
-                line.header.frame_id = 'map'
-                line.header.stamp = now
-                line.ns = f'{robot_name}_global_plan'
-                line.id = i * 10000 + 9999
-                line.type = Marker.LINE_STRIP
-                line.action = Marker.ADD
-                line.pose.orientation.w = 1.0
-                line.scale.x = 0.1
-                line.color.r = color[0]
-                line.color.g = color[1]
-                line.color.b = color[2]
-                line.color.a = 0.8
-                line.lifetime = Duration(sec=2, nanosec=0)
-                for pose_stamped in plan.poses:
-                    p = pose_stamped.pose.position
-                    line.points.append(Point(x=p.x + bx, y=p.y + by, z=p.z + bz))
-                if len(line.points) >= 2:
+                poses = plan.poses
+                n_poses = len(poses)
+                if n_poses >= 2:
+                    color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
+                    xyz = np.array(
+                        [(ps.pose.position.x, ps.pose.position.y, ps.pose.position.z)
+                         for ps in poses], dtype=np.float64)
+                    xyz[:, 0] += bx
+                    xyz[:, 1] += by
+                    xyz[:, 2] += bz
+                    line = Marker()
+                    line.header.frame_id = 'map'
+                    line.header.stamp = now
+                    line.ns = f'{robot_name}_global_plan'
+                    line.id = i * 10000 + 9999
+                    line.type = Marker.LINE_STRIP
+                    line.action = Marker.ADD
+                    line.pose.orientation.w = 1.0
+                    line.scale.x = 0.1
+                    line.color.r = color[0]
+                    line.color.g = color[1]
+                    line.color.b = color[2]
+                    line.color.a = 0.8
+                    line.lifetime = Duration(sec=2, nanosec=0)
+                    line.points = [Point(x=float(r[0]), y=float(r[1]), z=float(r[2]))
+                                   for r in xyz]
                     array.markers.append(line)
 
-            vdb = self._vdb_markers.get(robot_name)
-            if vdb is not None and boot is not None:
-                bx, by, bz = boot
-                m = copy.deepcopy(vdb)
+            vdb = self._vdb_global.get(robot_name)
+            if vdb is not None:
+                m = Marker()
                 m.header.frame_id = 'map'
                 m.header.stamp = now
                 m.ns = f'{robot_name}_vdb'
                 m.id = i * 10000 + 9998
+                m.type = vdb.type
+                m.action = vdb.action
+                m.pose = vdb.pose
+                m.scale = vdb.scale
+                m.color = vdb.color
+                m.colors = vdb.colors
+                m.points = vdb.points  # pre-translated, safe to share read-only
                 m.lifetime = Duration(sec=2, nanosec=0)
-                for pt in m.points:
-                    pt.x += bx
-                    pt.y += by
-                    pt.z += bz
                 array.markers.append(m)
 
         self._pub.publish(array)

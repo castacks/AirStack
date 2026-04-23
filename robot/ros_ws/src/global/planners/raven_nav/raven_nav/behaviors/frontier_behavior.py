@@ -9,9 +9,11 @@ from geometry_msgs.msg import PoseStamped
 
 
 class FrontierBehavior:
-    def __init__(self, get_clock):
+    def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
         self.name = 'Frontier-based'
+        self.min_altitude = min_altitude
+        self.max_altitude = max_altitude
 
     def condition_check(self):
         return True
@@ -32,7 +34,8 @@ class FrontierBehavior:
             -frontiers_raw[:, 1],
         ], axis=1)
 
-        frontiers = frontiers[frontiers[:, 2] > 1.5]
+        alt_mask = (frontiers[:, 2] >= self.min_altitude) & (frontiers[:, 2] <= self.max_altitude)
+        frontiers = frontiers[alt_mask]
         if frontiers.shape[0] == 0:
             return waypoint_locked, target_waypoint, target_waypoint2
 
@@ -43,7 +46,7 @@ class FrontierBehavior:
         for l in unique_labels:
             cluster_pts = frontiers[labels == l]
             centroid = cluster_pts.mean(axis=0)
-            if centroid[2] > 4.0 and centroid[2] < 10.0:
+            if self.min_altitude <= centroid[2] <= self.max_altitude:
                 viewpoints.append(centroid)
 
         if len(viewpoints) == 0:

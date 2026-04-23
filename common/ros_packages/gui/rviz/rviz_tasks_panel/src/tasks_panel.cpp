@@ -69,13 +69,13 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
     }, true},
     {"Semantic Search", "tasks/semantic_search", {
       {"query", "string", 0, 0, 0},
+      {"background_queries", "string", 0, 0, 0},
       {"search_area", "geometry_msgs/Polygon", 0, 0, 0},
       {"min_altitude_agl", "float32", 3.0, 0.0, 500.0},
-      {"max_altitude_agl", "float32", 10.0, 0.0, 500.0},
+      {"max_altitude_agl", "float32", 15.0, 0.0, 500.0},
       {"min_flight_speed", "float32", 1.0, 0.0, 50.0},
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
-      {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
-      {"confidence_threshold", "float32", 0.5, 0.0, 1.0},
+      {"confidence_threshold", "float32", 0.95, 0.0, 1.0},
     }, true},
     {"Fixed Trajectory", "tasks/fixed_trajectory", {
       {"trajectory_spec", "airstack_msgs/FixedTrajectory", 0, 0, 0},
@@ -1007,12 +1007,12 @@ void TasksPanel::onExecuteClicked()
     case 7: {  // Semantic Search
       task_msgs::action::SemanticSearchTask::Goal goal;
       goal.query = getString(7, "query");
+      goal.background_queries = getString(7, "background_queries");
       goal.search_area = getPolygon(7, "search_area");
       goal.min_altitude_agl = getFloat(7, "min_altitude_agl");
       goal.max_altitude_agl = getFloat(7, "max_altitude_agl");
       goal.min_flight_speed = getFloat(7, "min_flight_speed");
       goal.max_flight_speed = getFloat(7, "max_flight_speed");
-      goal.time_limit_sec = getFloat(7, "time_limit_sec");
       goal.confidence_threshold = getFloat(7, "confidence_threshold");
       doSendGoal<task_msgs::action::SemanticSearchTask>(7, goal,
         [](const auto & fb) {
