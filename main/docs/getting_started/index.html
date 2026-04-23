@@ -5157,7 +5157,7 @@ A GPU of GeForce RTX 4080 or higher is recommended for the best performance.</p>
 <h2 id="install-and-setup">Install and Setup<a class="headerlink" href="#install-and-setup" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./airstack.sh<span class="w"> </span>install<span class="w">  </span><span class="c1"># installs docker, docker-compose, and the NVIDIA Container Toolkit</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./airstack.sh<span class="w"> </span>setup<span class="w">  </span><span class="c1"># this lets you use the `airstack` command and sets up your keys</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">source</span><span class="w"> </span>~/.bashrc<span class="w">  </span><span class="c1"># execute and apply settings in ~/.bashrc to enable airstack command</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">source</span><span class="w"> </span>~/.bashrc<span class="w">  </span><span class="c1"># OR ~/.zshrc. applies settings to enable `airstack` command</span>
 </span></code></pre></div>
 <h2 id="docker-images">Docker Images<a class="headerlink" href="#docker-images" title="Permanent link">&para;</a></h2>
 <p>Now you have two options on how to proceed. You can build the docker image from scratch or pull the existing image on the airlab docker registry. Building the image from scratch can be useful if you would like to add new dependencies or add new custom functionality. For most users just pulling the existing image will be more conveninent and fast since it doesn't require access to the Nvidia registry.</p>
@@ -5170,7 +5170,7 @@ To use the AirLab Docker registry do the following
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">## &lt;Enter your andrew password&gt;</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1">## Pull the images in the docker compose file</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>docker<span class="w"> </span>compose<span class="w"> </span>pull
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>airstack<span class="w"> </span>image-pull
 </span></code></pre></div>
 
 The images will be pulled from the server automatically. This might take a while since the images are large.
@@ -5179,40 +5179,32 @@ The images will be pulled from the server automatically. This might take a while
 
 <details><summary>Option 2: Build Docker Images From Scratch</summary>
 
-1.  Download the Ascent Spirit SITL software package by running this script:
+1.  First, gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
 
-    <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cd AirStack/
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>bash simulation/isaac-sim/installation/download_sitl.bash
-</span></code></pre></div>
+2. Then:
 
-2.  Next, gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
-
-    Then:
-
-    <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>build<span class="w">  </span><span class="c1"># build the images locally</span>
+    <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>AirStack/
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>airstack<span class="w"> </span>image-build
 </span></code></pre></div>
 
 If you have permission you can push updated images to the docker server.
 
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>push
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>airstack<span class="w"> </span>image-push
 </span></code></pre></div>
 
 </details>
 
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>xhost<span class="w"> </span>+<span class="w">     </span><span class="c1"># This is needed every system boot to allow Docker to access the X server</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="c1"># This will launch the robot, ground control station, and isaac sim</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="c1"># This will launch the robot, ground control station, and isaac sim</span>
 </span></code></pre></div>
 <p>This will automatically launch and play the Isaac scene specified under <code>AirStack/.env</code> (default is the Fire Academy).</p>
 <h2 id="move-robot">Move Robot<a class="headerlink" href="#move-robot" title="Permanent link">&para;</a></h2>
-<p>Find the RQT GUI window. Hit <code>Arm and Takeoff</code>, then hit <code>Global Plan</code> in the trajectory window like in this video:</p>
-<iframe src="https://drive.google.com/file/d/1XYgSUTU5tf6e6sOuStYJXIs2SK3XL7g6/preview?usp=sharing&t=0" width="840" height="480" allow="autoplay" allowfullscreen="allowfullscreen"></iframe>
+<p>Find the RViz window, <code>Takeoff</code>, then <code>Navigate</code> and <code>Explore</code> in the trajectory window like in this video:</p>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/EAKsHzNIU2I?si=zQUFq8fPst2BIIMz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-<p>You can also switch to <code>Fixed Trajectory</code> mode and hit <code>Publish</code> on the bottom right to fly a predefined trajectory.</p>
 <h2 id="shutdown">Shutdown<a class="headerlink" href="#shutdown" title="Permanent link">&para;</a></h2>
 <p>To shutdown and remove docker containers:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>airstack<span class="w"> </span>down<span class="w"> </span><span class="c1"># This will stop and remove the docker containers</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>airstack<span class="w"> </span>down<span class="w"> </span><span class="c1"># This will stop and remove the docker containers</span>
 </span></code></pre></div>
 <p>Congratulations! You did it. </p>
 
