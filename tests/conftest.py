@@ -147,22 +147,42 @@ def pytest_generate_tests(metafunc):
     metafunc.parametrize("airstack_env", params, ids=ids, indirect=True, scope="class")
 
 
-# Sort autonomy tests by (airstack_env, velocity, phase) so the stack comes
-# up once per env and the drone goes ground→air→ground per velocity.
-_AUTONOMY_PHASE_ORDER = {
-    "test_px4_ready": 0,
-    "test_takeoff":   1,
-    "test_hover":     2,
-    "test_landing":   3,
-}
+# Run cheap/fast-fail tests first so real problems surface early:
+# docker image builds → colcon workspace builds → liveliness → autonomy.
+_MODULE_ORDER = [
+    "test_build_docker",
+    "test_build_packages",
+    "test_liveliness",
+    "test_autonomy",
+]
+
+# Within test_autonomy, each (env, velocity) runs phases in this chain order.
+_AUTONOMY_PHASE_ORDER = [
+    "test_px4_ready",
+    "test_takeoff",
+    "test_hover",
+    "test_landing",
+]
+
+
+def _rank(name, order):
+    """Index of `name` in `order`; `len(order)` if unknown (i.e., sort last)."""
+    return order.index(name) if name in order else len(order)
 
 
 def pytest_collection_modifyitems(items):
+    # 1. Cross-module: enforce `_MODULE_ORDER`. Stable sort keeps within-module
+    #    order intact, so pytest's default file/class order survives.
+    items.sort(key=lambda it: _rank(getattr(it.module, "__name__", ""), _MODULE_ORDER))
+
+    # 2. Within test_autonomy: sort by (airstack_env, velocity, phase) so each
+    #    (sim, robots, iter) env brings up the stack once and the drone goes
+    #    ground→air→ground per velocity.
     def phase(item):
         if getattr(item.module, "__name__", "") != "test_autonomy":
             return None
         name = item.originalname or item.name.split("[", 1)[0]
-        return _AUTONOMY_PHASE_ORDER.get(name)
+        return _rank(name, _AUTONOMY_PHASE_ORDER)
 
     def sort_key(item):
         cs = getattr(item, "callspec", None)
@@ -176,7 +196,7 @@ def pytest_collection_modifyitems(items):
         for (i, _), new_item in zip(slots, sorted_items):
             items[i] = new_item
 
-    # Rewrite bracketed test IDs into a consistent hierarchy: sim > robots >
+    # 3. Rewrite bracketed test IDs into a consistent hierarchy: sim > robots >
     # velocity > iteration. Bypasses pytest's own concatenation (which would
     # otherwise order by reverse-parametrize-call order). Keeps pytest console,
     # JUnit XML, and metrics.json all in the same natural order without
