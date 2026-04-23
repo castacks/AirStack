@@ -37,6 +37,9 @@ RUN useradd -m -s /bin/bash -G sudo ms-airsim && \
 
 RUN echo "source /opt/ros/jazzy/setup.bash" >> /root/.bashrc
 
+# tmux plugin manager (tpm)
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
+
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
 

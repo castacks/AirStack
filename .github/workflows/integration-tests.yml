@@ -1,0 +1,221 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      marks:
+        description: "pytest marks expression (e.g. liveliness, build_docker, 'liveliness or build_docker')"
+        default: liveliness
+        required: false
+      sim:
+        description: "Sim targets, comma-separated: msairsim, isaacsim"
+        default: msairsim
+        required: false
+      num_robots:
+        description: "Robot counts, comma-separated (e.g. 1,3)"
+        default: "1"
+        required: false
+      stress_iterations:
+        description: "Iterations per (sim, num_robots) config"
+        default: "1"
+        required: false
+      stable_duration:
+        description: "Seconds for test_stable polling window"
+        default: "120"
+        required: false
+      baseline_run_id:
+        description: "Run ID to use as baseline for metric comparison (blank = latest successful run on main)"
+        default: ""
+        required: false
+
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: [self-hosted, airstack, gpu]
+    # Only run on PRs from the same repo (not forks) to prevent arbitrary code
+    # execution on the self-hosted runner from untrusted contributors.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: pip3 install -r tests/requirements.txt
+
+      - name: Ensure airstack.sh is executable
+        run: chmod +x airstack.sh
+
+      - name: Run tests
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+          DISPLAY: ""
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MARKS="${{ inputs.marks }}"
+            SIM="${{ inputs.sim }}"
+            NUM_ROBOTS="${{ inputs.num_robots }}"
+            ITERATIONS="${{ inputs.stress_iterations }}"
+            STABLE="${{ inputs.stable_duration }}"
+          else
+            MARKS="build_docker or build_packages"
+            SIM="msairsim"
+            NUM_ROBOTS="1"
+            ITERATIONS="1"
+            STABLE="120"
+          fi
+
+          pytest tests/ \
+            -m "$MARKS" \
+            --sim "$SIM" \
+            --num-robots "$NUM_ROBOTS" \
+            --stress-iterations "$ITERATIONS" \
+            --stable-duration "$STABLE" \
+            -v
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.sha }}-${{ github.run_id }}
+          path: tests/results/
+          retention-days: 90
+
+  report:
+    name: Metrics Report
+    runs-on: ubuntu-latest
+    needs: run-tests
+    if: always()
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install report dependencies
+        run: pip install tabulate
+
+      - name: Download current test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-${{ github.sha }}-${{ github.run_id }}
+          path: current-results/
+
+      # PR mode: fetch latest artifact from the base branch (e.g. develop or main)
+      - name: Download baseline results (PR)
+        if: github.event_name == 'pull_request'
+        uses: dawidd6/action-download-artifact@v3
+        continue-on-error: true
+        with:
+          workflow: integration-tests.yml
+          branch: ${{ github.base_ref }}
+          name_is_regexp: true
+          name: "test-results-.*"
+          path: baseline-results/
+          if_no_artifact_found: warn
+
+      # Manual dispatch with explicit baseline run ID
+      - name: Download baseline results (manual, explicit run ID)
+        if: >
+          github.event_name == 'workflow_dispatch' &&
+          inputs.baseline_run_id != ''
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          run-id: ${{ inputs.baseline_run_id }}
+          name_is_regexp: true
+          name: "test-results-.*"
+          path: baseline-results/
+
+      # Manual dispatch without explicit baseline: fetch latest from main
+      - name: Download baseline results (manual, latest main)
+        if: >
+          github.event_name == 'workflow_dispatch' &&
+          inputs.baseline_run_id == ''
+        uses: dawidd6/action-download-artifact@v3
+        continue-on-error: true
+        with:
+          workflow: integration-tests.yml
+          branch: main
+          name_is_regexp: true
+          name: "test-results-.*"
+          path: baseline-results/
+          if_no_artifact_found: warn
+
+      - name: Locate result directories
+        id: dirs
+        run: |
+          CURRENT=$(ls current-results/ 2>/dev/null | sort -r | head -1)
+          echo "current=current-results/$CURRENT" >> "$GITHUB_OUTPUT"
+
+          BASELINE=$(ls baseline-results/ 2>/dev/null | sort -r | head -1)
+          if [ -n "$BASELINE" ]; then
+            echo "baseline=baseline-results/$BASELINE" >> "$GITHUB_OUTPUT"
+          else
+            echo "baseline=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate metrics report
+        id: report
+        continue-on-error: true
+        run: |
+          CURRENT="${{ steps.dirs.outputs.current }}"
+          BASELINE="${{ steps.dirs.outputs.baseline }}"
+
+          if [ -n "$BASELINE" ]; then
+            python tests/parse_metrics.py \
+              --current "$CURRENT" \
+              --baseline "$BASELINE" \
+              --output report.md
+          else
+            python tests/parse_metrics.py \
+              --current "$CURRENT" \
+              --output report.md
+          fi
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              body = fs.readFileSync('report.md', 'utf8');
+            } catch {
+              body = '_No metrics report generated._';
+            }
+            const header = `## Test Metrics — \`${{ github.sha }}\`\n\n`;
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: header + body,
+            });
+
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ -f report.md ]; then
+            echo "## Test Metrics — \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No metrics report generated._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fail on regression
+        if: steps.report.outcome == 'failure'
+        run: |
+          echo "::error::Metric regression detected — see the report above for details."
+          exit 1
