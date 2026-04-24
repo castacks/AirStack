@@ -2,11 +2,13 @@
 """
 peer_registry_monitor.py — CLI diagnostic tool for the gossip peer registry.
 
-Run on any robot or from a machine joined to domain 99:
-    ROS_DOMAIN_ID=99 python3 peer_registry_monitor.py
+Under rmw_zenoh_cpp all containers share one graph (ROS_DOMAIN_ID=0), so you
+can run this from any container with no extra env setup:
 
-Or on a specific robot's domain to see what that robot receives:
-    ROS_DOMAIN_ID=1 python3 peer_registry_monitor.py
+    python3 peer_registry_monitor.py
+
+The optional ROBOT_INDEX env var is used only for display purposes (identifying
+which robot you're running from).
 
 Options:
   --robot   Only show entries for this robot name (partial match)
@@ -124,9 +126,9 @@ class RegistryMonitor(Node):
     def print_registry(self) -> None:
         self._drain_inbox()
         _clear()
-        domain = os.environ.get("ROS_DOMAIN_ID", "?")
+        robot_index = os.environ.get("ROBOT_INDEX", "?")
         now_str = time.strftime("%H:%M:%S")
-        print(f"{BOLD}Peer Registry  {DIM}[domain={domain}  {now_str}]{RESET}")
+        print(f"{BOLD}Peer Registry  {DIM}[robot_index={robot_index}  {now_str}]{RESET}")
         print("─" * 80)
 
         with self._registry_lock:

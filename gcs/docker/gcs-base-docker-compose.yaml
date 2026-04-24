@@ -12,14 +12,8 @@ services:
       ssh service restart;
       python3 /root/AirStack/gcs/foxglove_extensions/install.sh;
       tmux new -d -s bringup;
-      if [ \"$${HITL_DISCOVERY_MODE:-}\" = 'server' ]; then
-        if command -v fastdds >/dev/null 2>&1; then
-          tmux new-window -t bringup -n dds_discovery;
-          tmux send-keys -t bringup:dds_discovery 'fastdds discovery -i $${DISCOVERY_SERVER_ID:-0} -l 0.0.0.0 -p $${DISCOVERY_SERVER_PORT:-11811}' ENTER;
-        else
-          echo '[WARN] fastdds CLI not found in gcs container; discovery server not started.';
-        fi;
-      fi;
+      tmux new-window -t bringup -n zenoh_router;
+      tmux send-keys -t bringup:zenoh_router 'source /opt/ros/jazzy/setup.bash && ros2 run rmw_zenoh_cpp rmw_zenohd' ENTER;
       if [ $$AUTOLAUNCH = 'true' ]; then
         tmux send-keys -t bringup:0.0 'bws &&  sws; ros2 launch desktop_bringup gcs.launch.xml' ENTER;
       fi;

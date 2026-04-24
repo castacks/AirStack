@@ -7,57 +7,35 @@
 
 # Define the ROS2 workspace directory
 ROS2_WS_DIR="$HOME/AirStack/gcs/ros_ws"
-# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="$ROS2_WS_DIR/src/fastdds.xml"
 
-# HITL DDS mode:
-# - server (default): use Fast DDS Discovery Server via ROS_DISCOVERY_SERVER.
-# - static-peer: generate a temporary Fast DDS profile with one initial peer.
-if [ "${HITL_DISCOVERY_MODE:-}" = "static-peer" ]; then
-    if [ -n "${FASTDDS_STATIC_PEER_IP:-}" ]; then
-        cat > /tmp/fastdds_static_peer.xml <<EOF
-<?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles" >
-    <transport_descriptors>
-        <transport_descriptor>
-            <transport_id>UdpTransport</transport_id>
-            <type>UDPv4</type>
-        </transport_descriptor>
-    </transport_descriptors>
-    <participant profile_name="udp_transport_profile" is_default_profile="true">
-        <rtps>
-            <userTransports>
-                <transport_id>UdpTransport</transport_id>
-            </userTransports>
-            <useBuiltinTransports>false</useBuiltinTransports>
-            <builtin>
-                <initialPeersList>
-                    <locator>
-                        <udpv4>
-                            <address>${FASTDDS_STATIC_PEER_IP}</address>
-                        </udpv4>
-                    </locator>
-                </initialPeersList>
-            </builtin>
-        </rtps>
-    </participant>
-</profiles>
+# --- Middleware: Zenoh (rmw_zenoh_cpp) ---
+# The GCS container hosts the Zenoh router (rmw_zenohd, launched from gcs-base-docker-compose
+# command). ROS nodes in this container connect to it via the peer session below.
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ZENOH_ROUTER_PORT="${ZENOH_ROUTER_PORT:-7447}"
+
+# Router config (listens for all other containers)
+cat > /tmp/zenoh_router.json5 <<EOF
+{
+  mode: "router",
+  listen: { endpoints: ["tcp/[::]:${ZENOH_ROUTER_PORT}"] },
+  scouting: { multicast: { enabled: false }, gossip: { enabled: true, multihop: true } },
+  transport: { shared_memory: { enabled: false } }
+}
 EOF
-        export FASTRTPS_DEFAULT_PROFILES_FILE="/tmp/fastdds_static_peer.xml"
-    fi
-    unset ROS_DISCOVERY_SERVER
-elif [ -n "${DISCOVERY_SERVER_IP:-}" ]; then
-    discovery_server_list="${DISCOVERY_SERVER_IP}:${DISCOVERY_SERVER_PORT:-11811}"
-    if [ -n "${DISCOVERY_SERVER_BACKUP_IPS:-}" ]; then
-        IFS=',' read -r -a discovery_backup_ips <<< "${DISCOVERY_SERVER_BACKUP_IPS}"
-        for backup_ip in "${discovery_backup_ips[@]}"; do
-            if [ -n "${backup_ip}" ]; then
-                discovery_server_list="${discovery_server_list};${backup_ip}:${DISCOVERY_SERVER_PORT:-11811}"
-            fi
-        done
-    fi
-    export ROS_DISCOVERY_SERVER="${discovery_server_list}"
-fi
+export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json5
+
+# Session config for nodes launched inside the gcs container — connects to the local router
+cat > /tmp/zenoh_session.json5 <<EOF
+{
+  mode: "peer",
+  connect: { endpoints: ["tcp/127.0.0.1:${ZENOH_ROUTER_PORT}"] },
+  scouting: { multicast: { enabled: false }, gossip: { enabled: true, multihop: true } },
+  // See robot .bashrc for why SHM is disabled.
+  transport: { shared_memory: { enabled: false } }
+}
+EOF
+export ZENOH_SESSION_CONFIG_URI=/tmp/zenoh_session.json5
 
 # fix ROS2 jazzy setuptools deprecation warning https://robotics.stackexchange.com/questions/24230/setuptoolsdeprecationwarning-in-ros2-jazzy/24349#24349
 PYTHONWARNINGS="ignore:easy_install command is deprecated,ignore:setup.py install is deprecated"

@@ -1,5 +1,14 @@
 # DDS Router — Cross-Domain Topic Bridging
 
+!!! warning "Superseded by Zenoh migration"
+    This document describes the pre-Zenoh bridging architecture. AirStack now
+    runs `rmw_zenoh_cpp` on every container (`ROS_DOMAIN_ID=0` everywhere,
+    Zenoh discovery router in the GCS container). Cross-domain bridging is no
+    longer needed and no ddsrouter process is launched — see
+    [CLAUDE.md § ROS 2 Middleware: Zenoh](../../../CLAUDE.md) for the current
+    design. The content below is retained for historical reference and for
+    teams considering reverting to FastDDS.
+
 AirStack's onboard/offboard split (described in [Autonomy Modes](../autonomy_modes.md)) requires ROS 2 nodes running on different DDS domain IDs to exchange a controlled set of topics. AirStack uses [eProsima DDS Router](https://github.com/eProsima/DDS-Router) to bridge those topics without merging entire domains. We choose this over the native ROS 2 Domain Bridge due to the convenience of bridging services and actions.
 
 ---

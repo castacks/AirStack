@@ -109,8 +109,10 @@ Study these well-structured modules as examples for different types:
 | **Local Planner** | DROAN Local Planner | `robot/ros_ws/src/local/planners/droan_local_planner` |
 | **Local World Model** | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
 | **Controller** | Trajectory Controller | `robot/ros_ws/src/local/c_controls/trajectory_controller` |
-| **Global Planner** | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
+| **Global Planner (behavior-driven)** | raven_nav | `robot/ros_ws/src/global/planners/raven_nav` |
+| **Global Planner (simple baseline)** | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
 | **Global World Model** | VDB Mapping | `robot/ros_ws/src/global/world_models/vdb_mapping_ros2` |
+| **Perception (semantic mapping)** | Rayfronts | `common/rayfronts` (first-class ROS 2 pkg) + `robot/ros_ws/src/perception/perception_bringup/launch/rayfronts.launch.xml` |
 | **Behavior** | Behavior Tree | `robot/ros_ws/src/behavior/behavior_tree` |
 
 Each reference shows:
@@ -275,7 +277,18 @@ Each major component has its own Docker container:
 - Environment variables: `.env` file (Docker image tags, launch config)
 - Robot configuration: Environment variables set in `robot/docker/.env`
 
-**Networking:** Custom bridge network (172.31.0.0/24) for inter-container communication.
+**Networking:** Custom bridge network (172.31.0.0/24) for inter-container communication. The GCS container has static IP `172.31.0.10` on this network and hosts the Zenoh discovery router (see ROS 2 Middleware below).
+
+## ROS 2 Middleware: Zenoh (`rmw_zenoh_cpp`)
+
+**All containers run `rmw_zenoh_cpp`.** FastDDS, `ddsrouter`, and the old `domain_bridge` cross-domain plumbing were removed. If you see mentions of `dds_router.yaml`, `fastdds.xml`, `ROS_DISCOVERY_SERVER`, or `HITL_DISCOVERY_MODE` in older docs/commits, they are stale.
+
+- **Router:** `rmw_zenohd` runs in the GCS container (started from `gcs-base-docker-compose.yaml`) on `tcp/0.0.0.0:7447`.
+- **Clients:** every other container connects to the router via `/tmp/zenoh_session.json5` generated in `.bashrc`. The endpoint is taken from `ZENOH_ROUTER_IP` (sim default `172.31.0.10`; host-network deployments set it to the GCS LAN IP).
+- **ROS_DOMAIN_ID:** forced to `0` in every container. `rmw_zenoh_cpp` treats `ROS_DOMAIN_ID` as a hard-isolation keyexpr prefix, so collapsing to domain 0 gives every container one shared graph. Per-robot separation is via ROS namespace (`/{ROBOT_NAME}/…`, already done via `push_ros_namespace` in `robot.launch.xml`).
+- **`ROBOT_INDEX`** (numeric) replaces the old overloaded use of `ROS_DOMAIN_ID` as a per-robot label. It's set by `resolve_robot_name.py` alongside `ROBOT_NAME`, and is what MAVLink port offsets, bag filenames, etc. key off of. Any new code that needs a per-robot integer should read `ROBOT_INDEX`, **not** `ROS_DOMAIN_ID`.
+- **Why this matters for agents:** adding a cross-container topic no longer requires editing any bridge/allowlist. Publish under the robot's namespace and subscribe from anywhere. The legacy `dds_router.yaml` / `domain_bridge.yaml` files are kept on disk for revertability only — don't edit them expecting behavior changes.
+- **Multi-robot bandwidth:** Zenoh pub/sub is demand-driven. Robot_1's firehose only hits the wire if some other node actively subscribes. Nothing in AirStack subscribes to another robot's raw sensors by default.
 
 ## Critical Pitfalls to Avoid
 

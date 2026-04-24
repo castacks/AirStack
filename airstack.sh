@@ -119,7 +119,7 @@ function print_command_help {
             echo "Options:"
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
-            echo "  --robot_num N Set ROBOT_NAME/ROS_DOMAIN_ID for robot HITL containers (numeric only)"
+            echo "  --robot_num N Set ROBOT_NAME/ROBOT_INDEX for robot HITL containers (numeric only)"
             ;;
         images)
             echo "Usage: airstack images"
@@ -777,8 +777,8 @@ function cmd_up {
     log_info "Starting services..."
     if [ -n "$robot_num" ]; then
         local robot_name="robot_${robot_num}"
-        log_info "Using robot identity from --robot_num: ROBOT_NAME=${robot_name}, ROS_DOMAIN_ID=${robot_num}"
-        ROBOT_NAME="$robot_name" ROS_DOMAIN_ID="$robot_num" run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
+        log_info "Using robot identity from --robot_num: ROBOT_NAME=${robot_name}, ROBOT_INDEX=${robot_num}"
+        ROBOT_NAME="$robot_name" ROBOT_INDEX="$robot_num" run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
     else
         run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
     fi
@@ -981,22 +981,22 @@ function cmd_status {
         return 0
     fi
 
-    # Collect rows: container_name, robot_name, ros_domain_id, status, ports
+    # Collect rows: container_name, robot_name, robot_index, status, ports
     local -a rows=()
     while IFS=$'\t' read -r name status ports; do
-        local robot_name ros_domain_id vars
+        local robot_name robot_index vars
         # Single exec: unique prefix lets us grep out .bashrc echo noise
         vars=$(docker exec "$name" bash --login -c \
-            'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROS_DOMAIN_ID"' 2>/dev/null \
+            'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROBOT_INDEX"' 2>/dev/null \
             | grep "^AIRSTACK_VARS:" | tail -1)
         if [ -n "$vars" ]; then
             robot_name="${vars#AIRSTACK_VARS:}"  # strip leading prefix
-            ros_domain_id="${robot_name##*:}"    # everything after last colon
+            robot_index="${robot_name##*:}"      # everything after last colon
             robot_name="${robot_name%%:*}"        # everything before first colon
         fi
-        [ -z "$robot_name" ]    && robot_name="N/A"
-        [ -z "$ros_domain_id" ] && ros_domain_id="N/A"
-        rows+=("${name}|${robot_name}|${ros_domain_id}|${status}|${ports}")
+        [ -z "$robot_name" ]  && robot_name="N/A"
+        [ -z "$robot_index" ] && robot_index="N/A"
+        rows+=("${name}|${robot_name}|${robot_index}|${status}|${ports}")
     done <<< "$containers"
 
     # Sort rows alphabetically by container name
@@ -1005,36 +1005,36 @@ function cmd_status {
     mapfile -t rows <<< "$sorted"
 
     # Determine column widths (minimum = header length)
-    local w_container=14 w_robot=10 w_domain=13 w_status=6 w_ports=5
+    local w_container=14 w_robot=10 w_index=12 w_status=6 w_ports=5
     for row in "${rows[@]}"; do
-        IFS='|' read -r c_name c_robot c_domain c_status c_ports <<< "$row"
+        IFS='|' read -r c_name c_robot c_index c_status c_ports <<< "$row"
         [ ${#c_name}   -gt $w_container ] && w_container=${#c_name}
         [ ${#c_robot}  -gt $w_robot ]     && w_robot=${#c_robot}
-        [ ${#c_domain} -gt $w_domain ]    && w_domain=${#c_domain}
+        [ ${#c_index}  -gt $w_index ]     && w_index=${#c_index}
         [ ${#c_status} -gt $w_status ]    && w_status=${#c_status}
     done
     # Add padding
     w_container=$((w_container + 2))
     w_robot=$((w_robot + 2))
-    w_domain=$((w_domain + 2))
+    w_index=$((w_index + 2))
     w_status=$((w_status + 2))
 
     # Print header
-    printf "${BOLDCYAN}%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s${NC}\n" \
-        "CONTAINER NAME" "ROBOT_NAME" "ROS_DOMAIN_ID" "STATUS" "PORTS"
+    printf "${BOLDCYAN}%-${w_container}s %-${w_robot}s %-${w_index}s %-${w_status}s %s${NC}\n" \
+        "CONTAINER NAME" "ROBOT_NAME" "ROBOT_INDEX" "STATUS" "PORTS"
     # Separator
-    printf "%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s\n" \
+    printf "%-${w_container}s %-${w_robot}s %-${w_index}s %-${w_status}s %s\n" \
         "$(printf '%*s' "$w_container" '' | tr ' ' '-')" \
         "$(printf '%*s' "$w_robot"     '' | tr ' ' '-')" \
-        "$(printf '%*s' "$w_domain"    '' | tr ' ' '-')" \
+        "$(printf '%*s' "$w_index"     '' | tr ' ' '-')" \
         "$(printf '%*s' "$w_status"    '' | tr ' ' '-')" \
         "-----"
 
     # Print rows
     for row in "${rows[@]}"; do
-        IFS='|' read -r c_name c_robot c_domain c_status c_ports <<< "$row"
-        printf "%-${w_container}s %-${w_robot}s %-${w_domain}s %-${w_status}s %s\n" \
-            "$c_name" "$c_robot" "$c_domain" "$c_status" "$c_ports"
+        IFS='|' read -r c_name c_robot c_index c_status c_ports <<< "$row"
+        printf "%-${w_container}s %-${w_robot}s %-${w_index}s %-${w_status}s %s\n" \
+            "$c_name" "$c_robot" "$c_index" "$c_status" "$c_ports"
     done
 }
 

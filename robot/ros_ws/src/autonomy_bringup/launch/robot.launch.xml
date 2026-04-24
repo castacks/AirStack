@@ -15,6 +15,20 @@ lite, desktop_split sim)
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
+  <!-- tf2 and rviz tool outputs publish to absolute names, which collide when every
+       container shares one Zenoh graph. Remap to an *absolute* per-robot topic —
+       NOT a relative one — because many autonomy nodes live under sub-namespaces
+       (mavros at /ROBOT/interface/mavros, droan at /ROBOT/droan, etc.) and a
+       relative target would compound into /ROBOT/sub/tf instead of /ROBOT/tf.
+       Pre-Zenoh this wasn't needed because each robot was on its own ROS_DOMAIN_ID
+       and DDS isolated them. -->
+  <set_remap from="/tf"                    to="/$(env ROBOT_NAME)/tf" />
+  <set_remap from="/tf_static"             to="/$(env ROBOT_NAME)/tf_static" />
+  <set_remap from="/clicked_point"         to="/$(env ROBOT_NAME)/clicked_point" />
+  <set_remap from="/goal_pose"             to="/$(env ROBOT_NAME)/goal_pose" />
+  <set_remap from="/initialpose"           to="/$(env ROBOT_NAME)/initialpose" />
+  <set_remap from="/move_base_simple/goal" to="/$(env ROBOT_NAME)/move_base_simple/goal" />
+
   <set_parameter name="use_sim_time" value="true" if="$(var sim)" />
 
   <!-- Robot State Publisher -->
@@ -32,17 +46,14 @@ lite, desktop_split sim)
 
   <!-- ── Role dispatch ───────────────────────────────────────────────── -->
 
+  <!-- Under rmw_zenoh_cpp (since the Zenoh migration) all containers share ROS_DOMAIN_ID=0
+       and the Zenoh router running in the GCS container provides discovery across containers.
+       No per-role ddsrouter instance is launched here anymore. -->
+
   <!-- full: every autonomy module runs here -->
   <group if="$(eval '&quot;$(var role)&quot; == &quot;full&quot;')">
     <include
       file="$(find-pkg-share autonomy_bringup)/onboard_all/launch/onboard_autonomy_all.launch.xml" />
-
-    <!-- Domain Bridge (GCS) -->
-    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-      <arg name="config_file"
-        value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
-      <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
-    </include>
 
     <!-- Gossip coordination layer -->
     <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
@@ -55,13 +66,6 @@ lite, desktop_split sim)
   <group if="$(eval '&quot;$(var role)&quot; == &quot;onboard&quot;')">
     <include
       file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/onboard_autonomy_local.launch.xml" />
-
-    <!-- Domain Bridge (GCS) -->
-    <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-      <arg name="config_file"
-        value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/dds_router.yaml" />
-      <arg name="args" value="gcs_domain:=$(var gcs_domain)" />
-    </include>
 
     <!-- Gossip coordination layer -->
     <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">

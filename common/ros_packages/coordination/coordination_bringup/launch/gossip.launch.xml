@@ -1,17 +1,13 @@
 <!-- Gossip coordination layer bringup.
-     Starts the gossip DDS Router bridge and the gossip_node.
-     Included by robot.launch.xml for both 'full' and 'onboard' roles.
+     Starts the gossip_node. Under rmw_zenoh_cpp all containers share a single
+     graph (ROS_DOMAIN_ID=0) via the Zenoh router in the GCS container, so no
+     dedicated DDS Router bridge for gossip is needed. The gossip_domain and
+     publish_rate args are retained for launch compatibility but gossip_domain
+     is a no-op.
 -->
 <launch>
   <arg name="gossip_domain"  default="99" />
   <arg name="publish_rate"   default="1.0" />
-
-  <!-- Bridge robot domain ↔ gossip domain for /gossip/peers -->
-  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-    <arg name="config_file"
-      value="$(find-pkg-share coordination_bringup)/config/gossip_dds_router.yaml" />
-    <arg name="args" value="gossip_domain:=$(var gossip_domain)" />
-  </include>
 
   <!-- Gossip node -->
   <node pkg="coordination_bringup" exec="gossip_node" name="gossip_node" output="screen">

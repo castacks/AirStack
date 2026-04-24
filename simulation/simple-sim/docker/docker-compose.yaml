@@ -13,7 +13,7 @@ services:
       bash -c "ssh service restart;
       tmux new -d -s sim
       && tmux send-keys -t sim
-      'cd /models && ./download.sh && cd ~/ros_ws/ && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=1 ros2 launch sim sim.launch.xml' ENTER
+      'cd /models && ./download.sh && cd ~/ros_ws/ && colcon build --symlink-install && source install/setup.bash && ROBOT_INDEX=1 ros2 launch sim sim.launch.xml' ENTER
       && sleep infinity"
     # Interactive shell
     stdin_open: true

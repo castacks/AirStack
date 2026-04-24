@@ -11,8 +11,19 @@
     <arg name="urdf_file" value="$(var urdf_file)" />
   </include>
 
-  <!-- Visualization: only in sim/desktop environments -->
+  <!-- Visualization: only in sim/desktop environments.
+       The autonomy_bringup include above declares <push_ros_namespace> at its top
+       level, which leaks into this parent scope, so rviz already inherits the
+       /<ROBOT_NAME>/ namespace. We only need to re-declare set_remap here because
+       remap rules are scoped to the launch file that declares them. -->
   <group if="$(var sim)">
+    <!-- Use absolute targets — see note in autonomy_bringup/launch/robot.launch.xml -->
+    <set_remap from="/tf"                    to="/$(env ROBOT_NAME)/tf" />
+    <set_remap from="/tf_static"             to="/$(env ROBOT_NAME)/tf_static" />
+    <set_remap from="/clicked_point"         to="/$(env ROBOT_NAME)/clicked_point" />
+    <set_remap from="/goal_pose"             to="/$(env ROBOT_NAME)/goal_pose" />
+    <set_remap from="/initialpose"           to="/$(env ROBOT_NAME)/initialpose" />
+    <set_remap from="/move_base_simple/goal" to="/$(env ROBOT_NAME)/move_base_simple/goal" />
     <node pkg="rviz2" exec="rviz2"
       args="-d $(find-pkg-share desktop_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
       output="screen" respawn="true" respawn_delay="1" />

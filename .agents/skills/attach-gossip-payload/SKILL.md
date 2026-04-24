@@ -7,9 +7,14 @@ protocol — for example, a frontier map, sensor summary, or task status.
 ## Background
 
 Each robot runs a `gossip_node` that periodically broadcasts a `PeerProfile`
-to all other robots on the gossip domain (default domain 99). The profile
-carries structured fields (GPS, heading, waypoint) plus an open-ended
-`payloads` array of serialized ROS messages.
+to all other robots. The profile carries structured fields (GPS, heading, waypoint)
+plus an open-ended `payloads` array of serialized ROS messages.
+
+Since the Zenoh migration, all containers share one ROS graph (`rmw_zenoh_cpp`,
+`ROS_DOMAIN_ID=0`, Zenoh router in the GCS container). The gossip topic
+`/gossip/peers` is just a regular topic on this shared graph — no per-robot
+domain, no dedicated bridge. The `gossip_domain` launch arg is retained but is
+a no-op under Zenoh.
 
 **Key files:**
 | File | Purpose |
@@ -188,11 +193,13 @@ docker exec airstack-gcs-1 bash -c "ros2 topic list | grep /gcs/payload"
 
 ## Architecture notes
 
-- `gossip_node` runs on the **robot's domain** (e.g. domain 1 for `robot_1`)
-  and can subscribe directly to any topic on that domain, including Rayfronts
-- The gossip DDS Router bridges `/gossip/peers` to the shared gossip domain
-  (default 99) — the payload bytes travel inside the PeerProfile message,
-  so payload topics do **not** need their own DDS router entries
+- `gossip_node` runs in each robot container and subscribes directly to any topic
+  on the shared Zenoh graph, including Rayfronts (now a first-class ROS package
+  at `common/rayfronts`)
+- Under Zenoh all containers share one graph, so `/gossip/peers` reaches every
+  peer and the GCS without a dedicated cross-domain bridge. The payload bytes
+  travel inside the PeerProfile message — attached payload topics do **not**
+  need any separate bridging config
 - Payloads are re-serialized every publish tick from the latest cached message;
   stale data is never cleared between ticks (latest-wins per topic)
 - Payload size matters for gossip bandwidth — avoid attaching large point clouds

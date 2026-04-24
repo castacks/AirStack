@@ -37,6 +37,8 @@ services:
       - QT_X11_NO_MITSHM=1
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
+      # Zenoh router endpoint — defaults to GCS static IP on airstack_network
+      - ZENOH_ROUTER_IP=${ZENOH_ROUTER_IP:-172.31.0.10}
     deploy:
       # let it use the GPU
       resources:

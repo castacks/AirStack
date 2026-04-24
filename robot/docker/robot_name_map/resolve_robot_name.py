@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Resolve a Docker container name to a robot name and ROS domain ID using a YAML mapping config.
+Resolve a Docker container name to a robot name and per-robot index using a YAML mapping config.
+
+The YAML key is still spelled `domain_id` for backwards compatibility with existing
+configs — under rmw_zenoh_cpp we don't use it as ROS_DOMAIN_ID anymore (Zenoh would
+isolate robots if we did), but it's still a unique per-robot integer used for
+MAVLink ports, bag filenames, etc.
 
 Usage:
     ./resolve_robot_name.py <container_name> <config_file>
@@ -10,7 +15,7 @@ Example:
 
 Output (stdout):
     ROBOT_NAME=robot_1
-    ROS_DOMAIN_ID=1
+    ROBOT_INDEX=1
 """
 
 import re
@@ -69,7 +74,7 @@ def main():
 
     robot_name, domain_id = result
     print(f"ROBOT_NAME={robot_name}")
-    print(f"ROS_DOMAIN_ID={domain_id}")
+    print(f"ROBOT_INDEX={domain_id}")
 
 
 if __name__ == "__main__":

@@ -507,8 +507,10 @@ After creating the package:
   - [Using Parameters](https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-CPP.html)
   
 - **AirStack Examples:**
-  - Reference planner: `robot/ros_ws/src/local/planners/droan_local_planner`
+  - Reference local planner: `robot/ros_ws/src/local/planners/droan_local_planner`
+  - Reference global planner / behavior manager: `robot/ros_ws/src/global/planners/raven_nav` (raven_nav — behavior-driven global planner)
   - Reference controller: `robot/ros_ws/src/local/c_controls/trajectory_controller`
+  - Reference perception package: `common/rayfronts` (Rayfronts — now a first-class ROS 2 package with its own `package.xml`, launched from `robot/ros_ws/src/perception/perception_bringup/launch/rayfronts.launch.xml`)
   - Package template: `assets/package_template/`
 
 - **Next Skills:**

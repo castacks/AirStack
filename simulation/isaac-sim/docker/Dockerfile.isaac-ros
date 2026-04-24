@@ -79,6 +79,7 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
     ros-jazzy-topic-tools \
     ros-jazzy-grid-map \
     ros-jazzy-domain-bridge \
+    ros-jazzy-rmw-zenoh-cpp \
     ros-jazzy-moveit \
     python3-colcon-common-extensions && \
     rm -rf /var/lib/apt/lists/*
@@ -161,7 +162,8 @@ RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plu
 COPY docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
 ENV OMNI_KIT_ALLOW_ROOT=1
 ENV PRIVACY_CONSENT=Y
-ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+ENV RMW_IMPLEMENTATION=rmw_zenoh_cpp
+# Kept for revertability; rmw_zenoh_cpp ignores this.
 ENV FASTRTPS_DEFAULT_PROFILES_FILE=/isaac-sim/.ros/fastdds.xml
 ENV ISAACSIM_PATH=/isaac-sim
 ENV ISAACSIM_PYTHON=/isaac-sim/python.sh

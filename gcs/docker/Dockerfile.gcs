@@ -10,7 +10,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     cmake build-essential less jq python3-pip tmux gdb \
     ros-dev-tools ros-jazzy-mavros ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
     ros-jazzy-image-view ros-jazzy-topic-tools ros-jazzy-grid-map \
-    ros-jazzy-domain-bridge ros-jazzy-ros2cli python3-colcon-common-extensions \
+    ros-jazzy-domain-bridge ros-jazzy-rmw-zenoh-cpp ros-jazzy-ros2cli python3-colcon-common-extensions \
     libglib2.0-dev libcgal-dev mosquitto mosquitto-clients \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \

@@ -1,6 +1,6 @@
 ---
 name: visualize-in-foxglove
-description: Add visualization of a ROS 2 topic to Foxglove/GCS. Use when you want a new topic (path, markers, odometry, etc.) to appear in the Foxglove dashboard on the GCS. Covers DDS router bridging, robot_marker_node integration, and coordinate frame translation.
+description: Add visualization of a ROS 2 topic to Foxglove/GCS. Use when you want a new topic (path, markers, odometry, etc.) to appear in the Foxglove dashboard on the GCS. Covers robot_marker_node integration and coordinate frame translation.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -17,43 +17,29 @@ running in the GCS container.
 ## Architecture Overview
 
 ```
-Robot container (domain: ROS_DOMAIN_ID)
+Robot container (rmw_zenoh_cpp, ROS_DOMAIN_ID=0, namespace /robot_N)
   └─ publishes topics
 
-DDS Router (onboard_all)
-  └─ bridges allowlisted topics to GCS domain
+Zenoh router (rmw_zenohd, runs in GCS container, listens tcp/0.0.0.0:7447)
+  └─ provides discovery; all containers connect as peers
 
-GCS container (domain: 0)
+GCS container (rmw_zenoh_cpp, ROS_DOMAIN_ID=0)
   ├─ Foxglove bridge → streams to browser
   └─ robot_marker_node → transforms & republishes as /gcs/robot_markers MarkerArray
 ```
 
-**Key insight:** A topic must appear in the DDS router allowlist AND be subscribed to
-in the GCS before it will appear in Foxglove. Missing either step = nothing shows up.
+**Key insight:** Since the Zenoh migration, every container shares one Zenoh graph — any
+topic a robot publishes is already reachable from the GCS. There is no `dds_router.yaml`
+allowlist to maintain; the only thing to wire up is the GCS-side subscription.
 
 ---
 
-## Step 1 — Bridge the Topic in DDS Router
+## Step 1 — (No bridge config needed)
 
-**File:** `robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml`
-
-Add an entry to the `allowlist` for every topic you want on the GCS:
-
-```yaml
-allowlist:
-  - name: "rt/$(env ROBOT_NAME)/your/topic/here"
-```
-
-**Rules:**
-- All ROS 2 topics must be prefixed with `rt/` (ROS Topic).
-- Services use `rq/` (request) and `rr/` (reply).
-- The router runs per-robot (one instance per robot container), so `$(env ROBOT_NAME)`
-  expands to `robot_1`, `robot_2`, etc. automatically.
-- Topics are bidirectional by default.
-- Without this entry the topic simply does not cross domain boundaries — the GCS node
-  will never see it regardless of how it subscribes.
-
-After editing this file, **restart the robot containers** for the change to take effect.
+Historical note: this step used to be "add the topic to `dds_router.yaml`'s allowlist".
+After the Zenoh migration, that allowlist no longer exists. All topics cross the
+rmw_zenoh_cpp graph automatically. If you are reading an old doc or commit that edits
+`dds_router.yaml`, it's obsolete.
 
 ---
 
@@ -147,10 +133,10 @@ if plan is not None and boot is not None:
 ## Step 3 — Verify
 
 ```bash
-# Check topic is crossing the domain bridge
+# Confirm the robot is publishing
 docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo /robot_1/your_topic --once"
 
-# Check GCS is receiving it
+# Confirm the GCS sees it (Zenoh graph is shared — should work without extra config)
 docker exec airstack-gcs-1 bash -c "ros2 topic echo /robot_1/your_topic --once"
 
 # Check GCS node subscribed (look for log line)
@@ -158,6 +144,9 @@ docker logs airstack-gcs-1 2>&1 | grep "Subscribed to"
 
 # Check the combined marker output
 docker exec airstack-gcs-1 bash -c "ros2 topic echo /gcs/robot_markers --once"
+
+# If topics are missing cross-container, sanity-check the Zenoh router is up:
+docker exec airstack-gcs-1 bash -c "pgrep -fa rmw_zenohd"
 ```
 
 ---
@@ -166,9 +155,10 @@ docker exec airstack-gcs-1 bash -c "ros2 topic echo /gcs/robot_markers --once"
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Topic visible on robot, not on GCS | Not in dds_router allowlist | Add `rt/$(env ROBOT_NAME)/topic` to allowlist |
+| Topic visible on robot, not on GCS | Zenoh router not running, or client can't reach it | `pgrep -fa rmw_zenohd` in GCS; verify `ZENOH_ROUTER_IP` in robot env is reachable |
 | Topic on GCS but not in Foxglove | Not subscribed in robot_marker_node or Foxglove panel missing | Add subscription or add panel |
 | Marker appears at wrong position | Missing boot GPS offset | Apply `bx, by, bz` from `_gps_boot` to all points |
 | Marker double-offset | Added boot to both `pose.position` AND `points` | Only offset `points` for LINE_STRIP/ARROW markers |
 | Planning topic missed after late publish | Using BEST_EFFORT QoS | Use `10` (RELIABLE) for planning topics |
 | New robot not discovered | Topic appeared before discovery timer fired | Discovery runs every 5s; wait or trigger manually |
+| Cross-robot visibility (want robot_2 hidden from robot_1) | Zenoh's single graph exposes topic ads across robots | Optional: add keyexpr `allowed_origin` filter in per-robot `/tmp/zenoh_session.json5` |

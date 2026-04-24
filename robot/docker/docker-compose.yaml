@@ -27,6 +27,9 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
+      # Zenoh router endpoint — defaults to the GCS static IP on airstack_network.
+      # Overridden per-service for host-network deployments (HITL/L4T/VOXL).
+      - ZENOH_ROUTER_IP=${ZENOH_ROUTER_IP:-172.31.0.10}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
@@ -70,7 +73,9 @@ services:
     environment:
       - AUTONOMY_ROLE=full
       - ROBOT_NAME=${ROBOT_NAME:-robot_1}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
+      # Zenoh router endpoint: set to the GCS host LAN IP for HITL deployments.
+      # Falls back to DISCOVERY_SERVER_IP (legacy HITL env var) if ZENOH_ROUTER_IP is unset.
+      - ZENOH_ROUTER_IP=${ZENOH_ROUTER_IP:-${DISCOVERY_SERVER_IP:-}}
       # HITL uses host networking; default bridge IP (172.31.0.200) is not reachable here.
       # Point SIM_IP at the host running Isaac Sim (override in .env as needed).
       - SIM_IP=${SIM_IP:-192.168.233.25}
@@ -114,7 +119,6 @@ services:
     ports: !reset {}  # offboard containers don't need ssh ports
     environment:
       - ROBOT_NAME_SOURCE=container_name  # robot_name_map resolves replica index → robot_N
-      - ROS_DOMAIN_ID=0                   # all offboard containers share domain 0; domain_bridge connects to per-robot onboard domains
       - LAUNCH_PACKAGE=autonomy_bringup   # no RViz per-robot; visualization lives in the GCS container
       - AUTONOMY_ROLE=offboard            # runs global planner only
     # inherit deploy.replicas from robot-desktop (NUM_ROBOTS)
@@ -138,11 +142,13 @@ services:
         SKIP_TENSORRT: true
       tags: 
         - *voxl_image
-    environment: 
+    environment:
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
+      # Zenoh router endpoint — VOXL runs on host network, so set to GCS LAN IP in .env
+      - ZENOH_ROUTER_IP=${ZENOH_ROUTER_IP:-${DISCOVERY_SERVER_IP:-}}
     command: >
       bash -c "
       tmux new -d -s bringup;
@@ -193,6 +199,8 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
+      # Zenoh router endpoint — L4T runs on host network, so set to GCS LAN IP in .env
+      - ZENOH_ROUTER_IP=${ZENOH_ROUTER_IP:-${DISCOVERY_SERVER_IP:-}}
       # mavros mavlink settings
       - FCU_URL="/dev/ttyTHS4:115200"
       - TGT_SYSTEM=1
@@ -247,7 +255,8 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY
       - QT_X11_NO_MITSHM=1
-      - ROS_DOMAIN_ID=1
+      # Zenoh router endpoint for HITL/real-robot (host network) — set in .env
+      - ZENOH_ROUTER_IP=${ZENOH_ROUTER_IP:-${DISCOVERY_SERVER_IP:-}}
     stdin_open: true  # Equivalent to -it for interactive terminal
     tty: true  # Ensures that a pseudo-terminal is allocated
     volumes:

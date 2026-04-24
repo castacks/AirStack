@@ -140,9 +140,11 @@ class SemanticSearchTaskNode(Node):
     def __init__(self):
         super().__init__('semantic_search_task')
         robot_name = os.getenv('ROBOT_NAME', 'robot_1')
-        ros_domain = os.getenv('ROS_DOMAIN_ID', '0')
+        # Under rmw_zenoh_cpp we no longer use ROS_DOMAIN_ID as a per-robot index
+        # (Zenoh isolates sessions by it). Use ROBOT_INDEX for per-robot labelling.
+        robot_index = os.getenv('ROBOT_INDEX', '0')
         self._robot_prefix = f'/{robot_name}'
-        self._rf_prefix = f'/robot_{ros_domain}/rayfronts/msg_serv'
+        self._rf_prefix = f'/robot_{robot_index}/rayfronts/msg_serv'
 
         self._cbg = ReentrantCallbackGroup()
         self._task_active = False

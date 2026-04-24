@@ -93,6 +93,7 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-jazzy-topic-tools \
   ros-jazzy-grid-map \
   ros-jazzy-domain-bridge \
+  ros-jazzy-rmw-zenoh-cpp \
   ros-jazzy-rosbag2-storage-mcap \
   ros-jazzy-xacro \
   ros-jazzy-foxglove-bridge \
@@ -326,6 +327,7 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-jazzy-topic-tools \
   ros-jazzy-grid-map \
   ros-jazzy-domain-bridge \
+  ros-jazzy-rmw-zenoh-cpp \
   ros-jazzy-rosbag2-storage-mcap \
   ros-jazzy-xacro \
   ros-jazzy-foxglove-bridge \

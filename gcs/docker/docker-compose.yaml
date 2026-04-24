@@ -7,10 +7,14 @@ services:
       file: ./gcs-base-docker-compose.yaml
       service: gcs-base
     networks:
-      - airstack_network
+      airstack_network:
+        # Static IP so other containers can reach the Zenoh router at a known endpoint.
+        # Matches ZENOH_ROUTER_IP default in robot/isaac-sim .bashrc files.
+        ipv4_address: 172.31.0.10
     ports:
       - 2222:22 # for ssh
       - 8766:8765 # for Foxglove remote display
+      - 7447:7447 # zenoh router (rmw_zenohd)
 
   # ===================================================================================================================
   # for running on a real world laptop on the local network, set network mode to host

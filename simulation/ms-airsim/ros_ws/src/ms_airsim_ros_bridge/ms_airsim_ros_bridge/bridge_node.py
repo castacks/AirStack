@@ -1,6 +1,7 @@
 """Microsoft AirSim (legacy)-to-ROS 2 bridge: publishes stereo RGB, depth, and camera_info.
 
-One process per robot, each on its own ROS_DOMAIN_ID (matching Isaac Sim convention).
+One process per robot, distinguished by ROBOT_NAME/ROBOT_INDEX (all containers share
+ROS_DOMAIN_ID=0 under rmw_zenoh_cpp).
 Lazy: only polls AirSim for images that have active ROS subscribers.
 Clock is published at high rate from a dedicated thread/client.
 """

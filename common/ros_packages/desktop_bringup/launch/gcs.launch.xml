@@ -27,10 +27,18 @@
     <param name="use_sim_time" value="$(var sim)" />
     <param name="send_buffer_limit" value="10000000" />
     <param name="include_hidden" value="true" />
+    <!-- Subscribe BEST_EFFORT to high-rate sensor/visualization topics. Image,
+         point cloud, and TF publishers use BEST_EFFORT; a RELIABLE subscriber
+         won't match and silently drops everything. Each entry is a regex.
+         Single broad regex wrapped as a 1-element list keeps the yaml parsing simple. -->
+    <param name="best_effort_qos_topic_whitelist"
+           value="['^/robot_[^/]+/(sensors|perception|vdb_mapping|rayfronts)/.*|^/robot_[^/]+/tf(_static)?$']" />
   </node>
 
-  <!-- Gossip bridge: connects GCS domain (0) to gossip bus (domain 99) -->
-  <include file="$(find-pkg-share coordination_bringup)/launch/gcs_gossip_bridge.launch.py" />
+  <!-- Under rmw_zenoh_cpp all containers share the same Zenoh graph; gossip traffic
+       reaches the GCS directly, no cross-domain bridge needed. The gcs_gossip_bridge
+       include is retained in the repo (deprecated) for revertability. -->
+  <!-- <include file="$(find-pkg-share coordination_bringup)/launch/gcs_gossip_bridge.launch.py" /> -->
 
   <!-- GCS Visualizer: drone mesh markers in global ENU frame -->
   <include file="$(find-pkg-share gcs_visualizer)/launch/gcs_visualizer.launch.xml" />

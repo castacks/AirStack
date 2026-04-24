@@ -148,16 +148,21 @@ topics:
     from_domain: 100
     to_domain: 1
 
-  # TF transforms (important for camera frames)
+  # TF transforms (important for camera frames).
+  # Since the Zenoh migration, robot-side tf2 is remapped to /<robot_name>/tf
+  # (see robot.launch.xml set_remap), so we republish Isaac Sim's flat /tf
+  # under the robot's namespace here.
   /tf:
     type: tf2_msgs/msg/TFMessage
     from_domain: 100
     to_domain: 1
+    remap: /robot_1/tf
 
   /tf_static:
     type: tf2_msgs/msg/TFMessage
     from_domain: 100
     to_domain: 1
+    remap: /robot_1/tf_static
 
   # Clock for simulation time synchronization
   /clock:

@@ -124,59 +124,27 @@ fi
 source /opt/ros/jazzy/setup.bash
 source /isaac-sim/jazzy_ws/install/setup.bash  # isaacsim ros2 package
 
-# needed for communication with Isaac Sim ROS2  # https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension
-export FASTRTPS_DEFAULT_PROFILES_FILE="/isaac-sim/.ros/fastdds.xml"
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-# HITL DDS mode:
-# - server (default): use Fast DDS Discovery Server via ROS_DISCOVERY_SERVER.
-# - static-peer: generate a temporary Fast DDS profile with one initial peer.
-if [ "${HITL_DISCOVERY_MODE:-}" = "static-peer" ]; then
-    if [ -n "${FASTDDS_STATIC_PEER_IP:-}" ]; then
-        cat > /tmp/fastdds_static_peer.xml <<EOF
-<?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles" >
-    <transport_descriptors>
-        <transport_descriptor>
-            <transport_id>UdpTransport</transport_id>
-            <type>UDPv4</type>
-        </transport_descriptor>
-    </transport_descriptors>
-    <participant profile_name="udp_transport_profile" is_default_profile="true">
-        <rtps>
-            <userTransports>
-                <transport_id>UdpTransport</transport_id>
-            </userTransports>
-            <useBuiltinTransports>false</useBuiltinTransports>
-            <builtin>
-                <initialPeersList>
-                    <locator>
-                        <udpv4>
-                            <address>${FASTDDS_STATIC_PEER_IP}</address>
-                        </udpv4>
-                    </locator>
-                </initialPeersList>
-            </builtin>
-        </rtps>
-    </participant>
-</profiles>
+# --- Middleware: Zenoh (rmw_zenoh_cpp) ---
+# Connects to the Zenoh router running inside the GCS container.
+# - Bridge-network (standard sim): default 172.31.0.10 (gcs static IP on airstack_network)
+# - Host-network (isaac-sim-hitl): operator sets ZENOH_ROUTER_IP to the GCS host LAN IP
+#   (falls back to the legacy DISCOVERY_SERVER_IP so existing HITL configs work unchanged)
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+ZENOH_ROUTER_IP="${ZENOH_ROUTER_IP:-${DISCOVERY_SERVER_IP:-172.31.0.10}}"
+ZENOH_ROUTER_PORT="${ZENOH_ROUTER_PORT:-7447}"
+cat > /tmp/zenoh_session.json5 <<EOF
+{
+  mode: "peer",
+  connect: { endpoints: ["tcp/${ZENOH_ROUTER_IP}:${ZENOH_ROUTER_PORT}"] },
+  scouting: { multicast: { enabled: false }, gossip: { enabled: true, multihop: true } },
+  // See robot .bashrc for why SHM is disabled.
+  transport: { shared_memory: { enabled: false } }
+}
 EOF
-        export FASTRTPS_DEFAULT_PROFILES_FILE="/tmp/fastdds_static_peer.xml"
-    fi
-    unset ROS_DISCOVERY_SERVER
-elif [ -n "${DISCOVERY_SERVER_IP:-}" ]; then
-    discovery_server_list="${DISCOVERY_SERVER_IP}:${DISCOVERY_SERVER_PORT:-11811}"
-    if [ -n "${DISCOVERY_SERVER_BACKUP_IPS:-}" ]; then
-        IFS=',' read -r -a discovery_backup_ips <<< "${DISCOVERY_SERVER_BACKUP_IPS}"
-        for backup_ip in "${discovery_backup_ips[@]}"; do
-            if [ -n "${backup_ip}" ]; then
-                discovery_server_list="${discovery_server_list};${backup_ip}:${DISCOVERY_SERVER_PORT:-11811}"
-            fi
-        done
-    fi
-    export ROS_DISCOVERY_SERVER="${discovery_server_list}"
-fi
-# for local development, prevent conflict with other desktops
-export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+export ZENOH_SESSION_CONFIG_URI=/tmp/zenoh_session.json5
+
+# Zenoh treats ROS_DOMAIN_ID as a hard-isolation keyexpr prefix; all containers share domain 0.
+export ROS_DOMAIN_ID=0
 
 # --- Environment Separation ---
 # Define the PYTHONPATH specifically for Isaac Sim (Python 3.10)

@@ -2,13 +2,18 @@
 """ROS2 Python launch file for interface bringup.
 
 Dynamically computes FCU URL and TGT_SYSTEM from environment variables:
-    OFFBOARD_PORT = OFFBOARD_BASE_PORT + ROS_DOMAIN_ID
-    ONBOARD_PORT  = ONBOARD_BASE_PORT  + ROS_DOMAIN_ID
+    ROBOT_INDEX   = trailing integer of ROBOT_NAME (robot_1 -> 1), or env override
+    OFFBOARD_PORT = OFFBOARD_BASE_PORT                   (fixed, per-netns)
+    ONBOARD_PORT  = ONBOARD_BASE_PORT  + ROBOT_INDEX     (per-robot)
     FCU_URL       = udp://:<OFFBOARD_PORT>@<SIM_IP>:<ONBOARD_PORT>
-    TGT_SYSTEM    = 1 + ROS_DOMAIN_ID
+    TGT_SYSTEM    = 1 + ROBOT_INDEX
+
+Under rmw_zenoh_cpp every container is on ROS_DOMAIN_ID=0 (Zenoh's isolation model),
+so per-robot uniqueness is carried by ROBOT_INDEX instead of ROS_DOMAIN_ID.
 """
 
 import os
+import re
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
@@ -20,21 +25,46 @@ from launch_ros.substitutions import FindPackageShare
 def launch_setup(context, *args, **kwargs):
     """Compute FCU URL and TGT_SYSTEM, then return all launch actions."""
 
-    # --- Dynamic port / URL calculation (mirrors robot .bashrc logic) -------
-    # Use pre-set env vars if available, otherwise compute from base ports + domain id
-    ros_domain_id = int(os.environ.get('ROS_DOMAIN_ID', '0'))
+    # --- Per-robot port offset ---------------------------------------------
+    # Historically derived from ROS_DOMAIN_ID, but under rmw_zenoh_cpp all
+    # containers share ROS_DOMAIN_ID=0 for one shared graph. Derive the per-
+    # robot offset from the trailing integer in ROBOT_NAME (e.g. "robot_1" -> 1,
+    # "drone-alpha-3" -> 3). Set ROBOT_INDEX explicitly to override when the
+    # robot name has no trailing number.
+    robot_name_env = os.environ.get('ROBOT_NAME', '')
+    explicit_index = os.environ.get('ROBOT_INDEX')
+    if explicit_index is not None:
+        robot_index = int(explicit_index)
+    else:
+        trailing_digits = re.search(r'(\d+)$', robot_name_env)
+        if trailing_digits is None:
+            raise RuntimeError(
+                f"ROBOT_NAME='{robot_name_env}' has no trailing integer; "
+                "set ROBOT_INDEX explicitly so each robot gets a unique MAVLink port."
+            )
+        robot_index = int(trailing_digits.group(1))
 
     if os.environ.get('FCU_URL'):
         fcu_url = os.environ['FCU_URL']
     else:
-        offboard_base_port = int(os.environ.get('OFFBOARD_BASE_PORT', '14540'))
-        onboard_base_port = int(os.environ.get('ONBOARD_BASE_PORT', '14580'))
-        offboard_port = offboard_base_port + ros_domain_id
-        onboard_port = onboard_base_port + ros_domain_id
+        # Target PX4's Normal-mode MAVLink endpoint (not Onboard mode):
+        # - Onboard mode sends outbound to a HARDCODED 127.0.0.1 target, so replies
+        #   never leave the sim container. We can't reach it cross-container.
+        # - Normal mode learns the target IP from received heartbeats, so it works
+        #   across any container topology without patching PX4's rc.mavlink.
+        # Default Pegasus/PX4 SITL ports for Normal mode:
+        #   PX4 local (where PX4 listens)  : 18570 + robot_index   (e.g. 18571, 18572)
+        #   PX4 remote (where PX4 sends)   : 14550 (QGC default — mavros binds this)
+        offboard_base_port = int(os.environ.get('OFFBOARD_BASE_PORT', '14550'))
+        onboard_base_port = int(os.environ.get('ONBOARD_BASE_PORT', '18570'))
+        # Local bind port: same for every robot (each mavros is in its own container netns).
+        # If you ever run multiple mavros instances in ONE netns, add +robot_index here.
+        offboard_port = offboard_base_port
+        onboard_port = onboard_base_port + robot_index
         sim_ip = os.environ.get('SIM_IP', '172.31.0.200')
         fcu_url = f'udp://:{offboard_port}@{sim_ip}:{onboard_port}'
 
-    tgt_system = os.environ.get('TGT_SYSTEM') or str(1 + ros_domain_id)
+    tgt_system = os.environ.get('TGT_SYSTEM') or str(1 + robot_index)
 
     # --- Other environment variables ----------------------------------------
     robot_name = os.environ.get('ROBOT_NAME', 'robot')
