@@ -4,6 +4,7 @@ import os
 import re
 import shlex
 import subprocess
+import threading
 import time
 from contextlib import contextmanager
 from datetime import datetime
@@ -264,7 +265,7 @@ def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
     quoted = " ".join(shlex.quote(a) for a in cmd_list)
     with open(log_path, "a") as f:
         f.write(f"\n$ {quoted}\n")
-    shell_cmd = f"{quoted} 2>&1 | tee -a {shlex.quote(str(log_path))}"
+    shell_cmd = f"set -o pipefail; {quoted} 2>&1 | tee -a {shlex.quote(str(log_path))}"
     return subprocess.run(["bash", "-c", shell_cmd],
                           capture_output=True, text=True,
                           timeout=timeout, env=env, cwd=cwd)
@@ -323,8 +324,11 @@ def find_container(name_pattern):
 
 
 def get_robot_containers(pattern="robot.*desktop"):
-    """Return a sorted list of currently-running robot container names."""
-    return sorted(find_all_containers(pattern))
+    """Return running robot containers sorted by their replica index"""
+    def _index(name):
+        tail = name.rsplit("-", 1)[-1]
+        return int(tail) if tail.isdigit() else 0
+    return sorted(find_all_containers(pattern), key=_index)
 
 
 def container_running(name):
@@ -348,10 +352,10 @@ def wait_for_container(name_pattern, timeout=120):
 
 # ── compute-usage sampling ─────────────────────────────────────────────────
 
-_BYTES_RE = re.compile(r"([\d.]+)\s*([KMGT]?i?B)$")
+_BYTES_RE = re.compile(r"([\d.]+)\s*([kKMGT]?i?B)$")
 _BYTES_TO_MB = {
     "B": 1 / (1024 * 1024),
-    "KiB": 1 / 1024, "KB": 1 / 1000,
+    "KiB": 1 / 1024, "KB": 1 / 1000, "kB": 1 / 1000,
     "MiB": 1, "MB": 1,
     "GiB": 1024, "GB": 1000,
     "TiB": 1024 * 1024, "TB": 1_000_000,
@@ -447,21 +451,29 @@ class MetricsRecorder:
     def __init__(self, path):
         self._path = path
         self._data = json.loads(path.read_text()) if path.exists() else {}
+        self._lock = threading.Lock()
+
+    def _flush(self):
+        tmp = self._path.with_suffix(self._path.suffix + ".tmp")
+        tmp.write_text(json.dumps(self._data, indent=2))
+        os.replace(tmp, self._path)
 
     def record(self, test_name, key, value, unit="", direction="lower_is_better", **extra):
-        if test_name not in self._data:
-            self._data[test_name] = {}
-        entry = {"value": value, "unit": unit, "direction": direction}
-        entry.update(extra)
-        self._data[test_name][key] = entry
-        self._path.write_text(json.dumps(self._data, indent=2))
+        with self._lock:
+            if test_name not in self._data:
+                self._data[test_name] = {}
+            entry = {"value": value, "unit": unit, "direction": direction}
+            entry.update(extra)
+            self._data[test_name][key] = entry
+            self._flush()
 
     def record_list(self, test_name, key, values):
         """Store a raw list (time series) — not scored by parse_metrics."""
-        if test_name not in self._data:
-            self._data[test_name] = {}
-        self._data[test_name][key] = {"samples": values}
-        self._path.write_text(json.dumps(self._data, indent=2))
+        with self._lock:
+            if test_name not in self._data:
+                self._data[test_name] = {}
+            self._data[test_name][key] = {"samples": values}
+            self._flush()
 
 def get_metrics():
     global METRICS
@@ -580,7 +592,11 @@ def airstack_env(request):
     """
     sim, num_robots, iteration = request.param
     cfg = SIM_CONFIG[sim]
-    log = f"airstack_env[{_CURRENT_ITEM.callspec.id}]"
+    # Route fixture narration to a file whose name tracks the post-rewrite
+    # test id (see pytest_collection_modifyitems), so airstack up/down output
+    # lands next to the triggering test's own log instead of under pytest's
+    # stale callspec.id.
+    log = f"airstack_env.{_nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)}"
 
     headless = not request.config.getoption("--gui")
     env_overrides = {

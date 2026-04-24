@@ -13,6 +13,7 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -300,9 +301,19 @@ def _start_captures(robot_container, setup_bash, domain, duration_s, tag):
     odom_proc, odom_fh, odom_ef = _start_csv_stream(
         robot_container, f"/robot_{domain}/interface/mavros/local_position/odom",
         domain, setup_bash, duration_s, odom_path)
-    gt_proc, gt_fh, gt_ef = _start_csv_stream(
-        robot_container, f"/robot_{domain}/odom_ground_truth",
-        domain, setup_bash, duration_s, gt_path)
+    try:
+        gt_proc, gt_fh, gt_ef = _start_csv_stream(
+            robot_container, f"/robot_{domain}/odom_ground_truth",
+            domain, setup_bash, duration_s, gt_path)
+    except BaseException:
+        odom_proc.terminate()
+        try:
+            odom_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            odom_proc.kill()
+        odom_fh.close()
+        odom_ef.close()
+        raise
     return {
         "duration_s": duration_s,
         "odom": (odom_proc, odom_fh, odom_ef, odom_path),
@@ -335,8 +346,8 @@ def _finish_captures(streams):
     gt = _parse_csv(gt_path, ODOM_SCHEMA)
     if not odom:
         logger.warning("odom capture empty. stdout head=%r stderr head=%r",
-                       open(odom_path).read(500),
-                       open(odom_path + ".err").read(500))
+                       Path(odom_path).read_text()[:500],
+                       Path(odom_path + ".err").read_text()[:500])
     if not gt:
         logger.warning("ground truth not available — skipping state-estimation error metrics.")
     return odom, gt
