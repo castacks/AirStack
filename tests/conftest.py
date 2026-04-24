@@ -592,7 +592,11 @@ def airstack_env(request):
     """
     sim, num_robots, iteration = request.param
     cfg = SIM_CONFIG[sim]
-    log = f"airstack_env[{_CURRENT_ITEM.callspec.id}]"
+    # Route fixture narration to a file whose name tracks the post-rewrite
+    # test id (see pytest_collection_modifyitems), so airstack up/down output
+    # lands next to the triggering test's own log instead of under pytest's
+    # stale callspec.id.
+    log = f"airstack_env.{_nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)}"
 
     headless = not request.config.getoption("--gui")
     env_overrides = {

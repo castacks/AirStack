@@ -56,39 +56,32 @@ tests/results/
 ### Prerequisites
 
 - Docker daemon running with the `runner` user (or your user) in the `docker` group
-- NVIDIA drivers + `nvidia-container-toolkit` for liveliness tests
-- `pip install -r tests/requirements.txt`
+- NVIDIA drivers + `nvidia-container-toolkit` for liveliness / autonomy tests
 
-### Direct (recommended for development)
+### Via `airstack test`
+
+`airstack test` builds the test image if needed and runs pytest inside a dedicated container (Docker CLI and pytest pre-installed, AirStack repo mounted, host Docker socket bridged). Everything after `airstack test` is forwarded to pytest.
 
 ```bash
-# From the repo root:
-export AIRSTACK_ROOT=$(pwd)
-
 # Build tests only (fast, no GPU needed)
-pytest tests/ -m "build_docker or build_packages" -v
+airstack test -m "build_docker or build_packages" -v
 
 # Full liveliness run — ms-airsim, 1 robot, 1 iteration, 60s stability window
-pytest tests/ -m liveliness \
+airstack test -m liveliness \
   --sim msairsim \
   --num-robots 1 \
   --stress-iterations 1 \
   --stable-duration 60 \
   -v
 
+# Autonomy sweep — takeoff/hover/land at default velocities
+airstack test -m autonomy --sim msairsim --num-robots 1 -v
+
 # Show GUI windows (for local visual inspection)
-pytest tests/ -m liveliness --gui -v
+airstack test -m liveliness --gui -v
 ```
 
-### Docker-compose wrapper
-
-The `tests/docker/` directory provides a containerized test runner that has Docker CLI and all Python dependencies pre-installed.
-
-```bash
-export AIRSTACK_PATH=$(pwd)
-docker compose -f tests/docker/docker-compose.yaml run --rm test \
-  pytest -m "build_docker or build_packages" -v
-```
+Results land in `tests/results/<timestamp>/` on the host (the directory is bind-mounted into the test container).
 
 ### CLI option reference
 
