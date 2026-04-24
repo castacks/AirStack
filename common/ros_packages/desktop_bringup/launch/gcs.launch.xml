@@ -35,6 +35,9 @@
   <!-- GCS Visualizer: drone mesh markers in global ENU frame -->
   <include file="$(find-pkg-share gcs_visualizer)/launch/gcs_visualizer.launch.xml" />
 
+  <!-- Action relay: bridges task actions from GCS (domain 0) to each robot (domain N) -->
+  <include file="$(find-pkg-share action_relay)/launch/action_relay.launch.py" />
+
   <!-- ===================== -->
 
 </launch>

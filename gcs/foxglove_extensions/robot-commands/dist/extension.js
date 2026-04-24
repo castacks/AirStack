@@ -43,6 +43,7 @@ const TASK_TABS = [
     id: "takeoff",
     label: "Takeoff",
     actionSuffix: "tasks/takeoff",
+    goalSchema: "task_msgs/TakeoffTask_Goal",
     fields: [
       { name: "target_altitude_m", kind: "float", default: 10.0, min: 0, max: 500, step: 0.1 },
       { name: "velocity_m_s",      kind: "float", default: 1.0,  min: 0, max: 50,  step: 0.1 },
@@ -58,6 +59,7 @@ const TASK_TABS = [
     id: "land",
     label: "Land",
     actionSuffix: "tasks/land",
+    goalSchema: "task_msgs/LandTask_Goal",
     fields: [
       { name: "velocity_m_s", kind: "float", default: 0.3, min: 0, max: 10, step: 0.1, hint: "0 = use config default" },
     ],
@@ -69,6 +71,7 @@ const TASK_TABS = [
     id: "navigate",
     label: "Navigate",
     actionSuffix: "tasks/navigate",
+    goalSchema: "task_msgs/NavigateTask_Goal",
     fields: [
       { name: "frame_id",         kind: "string", default: "map" },
       { name: "waypoints",        kind: "path",   default: "[[0.0, 0.0, 5.0]]",
@@ -85,6 +88,7 @@ const TASK_TABS = [
     id: "exploration",
     label: "Exploration",
     actionSuffix: "tasks/exploration",
+    goalSchema: "task_msgs/ExplorationTask_Goal",
     fields: [
       { name: "search_bounds", kind: "polygon", default: "[]",
         hint: "JSON array of [x, y, z] vertices ([] = unbounded)" },
@@ -105,6 +109,7 @@ const TASK_TABS = [
     id: "coverage",
     label: "Coverage",
     actionSuffix: "tasks/coverage",
+    goalSchema: "task_msgs/CoverageTask_Goal",
     fields: [
       { name: "coverage_area", kind: "polygon", default: "[]",
         hint: "JSON array of [x, y, z] vertices" },
@@ -131,6 +136,7 @@ const TASK_TABS = [
     id: "object_search",
     label: "Object Search",
     actionSuffix: "tasks/object_search",
+    goalSchema: "task_msgs/ObjectSearchTask_Goal",
     fields: [
       { name: "object_class", kind: "string", default: "" },
       { name: "search_area",  kind: "polygon", default: "[]",
@@ -160,6 +166,7 @@ const TASK_TABS = [
     id: "object_counting",
     label: "Object Counting",
     actionSuffix: "tasks/object_counting",
+    goalSchema: "task_msgs/ObjectCountingTask_Goal",
     fields: [
       { name: "object_class", kind: "string",  default: "" },
       { name: "count_area",   kind: "polygon", default: "[]",
@@ -184,6 +191,7 @@ const TASK_TABS = [
     id: "semantic_search",
     label: "Semantic Search",
     actionSuffix: "tasks/semantic_search",
+    goalSchema: "task_msgs/SemanticSearchTask_Goal",
     fields: [
       { name: "query",              kind: "string", default: "" },
       { name: "background_queries", kind: "string", default: "",
@@ -216,6 +224,7 @@ const TASK_TABS = [
     id: "fixed_trajectory",
     label: "Fixed Trajectory",
     actionSuffix: "tasks/fixed_trajectory",
+    goalSchema: "task_msgs/FixedTrajectoryTask_Goal",
     fields: [],  // custom renderer
     defaultState: () => ({
       type: "Circle",
@@ -358,18 +367,26 @@ function activate(extensionContext) {
         }
       }
 
-      // Runtime (not persisted)
+      // Runtime (not persisted) — per-tab feedback/result/status
+      const perTab = {};
+      for (const tab of TASK_TABS) {
+        perTab[tab.id] = {
+          feedbackLines: [],
+          resultText: "",
+          statusText: "Idle",
+          statusCode: GOAL_STATUS.UNKNOWN,
+          active: false,
+        };
+      }
       const runtime = {
-        activeTabId: null,
-        activeGoalUuid: null,
-        feedbackLines: [],
-        resultText: "",
-        statusText: "Idle",
-        statusCode: GOAL_STATUS.UNKNOWN,
         subscribedTopics: [],
       };
 
       const MAX_FEEDBACK_LINES = 100;
+
+      // Helpers to get the active tab's per-tab state
+      function curTab() { return perTab[state.activeTab]; }
+      function anyActive() { return TASK_TABS.some((t) => perTab[t.id].active); }
 
       // ── DOM ───────────────────────────────────────────────────────────────
       const root = panelContext.panelElement;
@@ -477,164 +494,170 @@ function activate(extensionContext) {
           tabBodies[tab.id].style.display = isActive ? "flex" : "none";
           tabButtons[tab.id].style.borderBottomColor = isActive ? "#10b981" : "transparent";
           tabButtons[tab.id].style.fontWeight = isActive ? "bold" : "normal";
+          // Show active indicator on tab if it has a running goal
+          const pt = perTab[tab.id];
+          tabButtons[tab.id].style.color = pt.active ? "#10b981" : "inherit";
         }
+        renderStatus();
+        renderFeedback();
       }
 
       function renderStatus() {
-        statusLbl.textContent = `Status: ${runtime.statusText}`;
-        statusLbl.style.color = statusColor(runtime.statusCode);
-        const inProgress = runtime.activeTabId != null && !TERMINAL_STATUSES.has(runtime.statusCode);
-        executeBtn.disabled = inProgress;
-        executeBtn.style.opacity = inProgress ? "0.5" : "1";
-        cancelBtn.disabled = !inProgress || runtime.activeTabId !== state.activeTab;
+        const t = curTab();
+        statusLbl.textContent = `Status: ${t.statusText}`;
+        statusLbl.style.color = statusColor(t.statusCode);
+        // Disable execute if ANY tab has an active goal
+        const blocked = anyActive();
+        executeBtn.disabled = blocked;
+        executeBtn.style.opacity = blocked ? "0.5" : "1";
+        cancelBtn.disabled = !t.active;
         cancelBtn.style.opacity = cancelBtn.disabled ? "0.5" : "1";
       }
 
       function renderFeedback() {
-        feedbackBox.textContent = runtime.feedbackLines.join("\n");
+        const t = curTab();
+        feedbackBox.textContent = t.feedbackLines.join("\n");
         feedbackBox.scrollTop = feedbackBox.scrollHeight;
-        resultBox.textContent = runtime.resultText;
+        resultBox.textContent = t.resultText;
       }
 
-      function appendFeedback(line) {
+      function appendFeedback(line, tabId) {
+        const tid = tabId ?? state.activeTab;
+        const t = perTab[tid];
+        if (!t) return;
         const ts = new Date().toLocaleTimeString();
-        runtime.feedbackLines.push(`[${ts}] ${line}`);
-        if (runtime.feedbackLines.length > MAX_FEEDBACK_LINES) {
-          runtime.feedbackLines.splice(0, runtime.feedbackLines.length - MAX_FEEDBACK_LINES);
+        t.feedbackLines.push(`[${ts}] ${line}`);
+        if (t.feedbackLines.length > MAX_FEEDBACK_LINES) {
+          t.feedbackLines.splice(0, t.feedbackLines.length - MAX_FEEDBACK_LINES);
         }
-        renderFeedback();
+        // Only update display if this tab is currently visible
+        if (tid === state.activeTab) renderFeedback();
       }
 
       function resetRuntimeForNewGoal() {
-        runtime.feedbackLines = [];
-        runtime.resultText = "";
-        runtime.statusText = "Sending...";
-        runtime.statusCode = GOAL_STATUS.UNKNOWN;
+        const t = curTab();
+        t.feedbackLines = [];
+        t.resultText = "";
+        t.statusText = "Sending...";
+        t.statusCode = GOAL_STATUS.UNKNOWN;
         renderFeedback();
         renderStatus();
       }
 
-      // ── subscriptions ────────────────────────────────────────────────────
-      function subscribeForActiveGoal(tab) {
-        const topics = [
-          actionTopic(state.robot, tab.actionSuffix, "_action/feedback"),
-          actionTopic(state.robot, tab.actionSuffix, "_action/status"),
-        ];
+      // ── subscriptions (relay uses plain std_msgs/String topics) ────────
+      // Subscribe to ALL relay topics for all tabs so we catch results
+      // even when the user switches tabs during execution.
+      function rebuildSubscriptions() {
+        const topics = [];
+        for (const tab of TASK_TABS) {
+          if (perTab[tab.id].active) {
+            topics.push(`/${state.robot}/${tab.actionSuffix}/relay_feedback`);
+            topics.push(`/${state.robot}/${tab.actionSuffix}/relay_result`);
+          }
+        }
         runtime.subscribedTopics = topics;
         panelContext.subscribe(topics.map((topic) => ({ topic })));
       }
 
-      function unsubscribeAll() {
-        runtime.subscribedTopics = [];
-        panelContext.subscribe([]);
-      }
-
       // ── execute / cancel ─────────────────────────────────────────────────
       executeBtn.addEventListener("click", async () => {
-        if (runtime.activeTabId != null) return;
+        // Block if ANY tab has an active goal
+        if (anyActive()) return;
         const tab = tabById(state.activeTab);
+        const t = perTab[tab.id];
         let goal;
         try {
           goal = tab.buildGoal(state[tab.id]);
         } catch (err) {
-          runtime.statusText = "Invalid goal";
-          runtime.statusCode = GOAL_STATUS.ABORTED;
-          runtime.resultText = `buildGoal failed: ${err?.message ?? err}`;
+          t.statusText = "Invalid goal";
+          t.statusCode = GOAL_STATUS.ABORTED;
+          t.resultText = `buildGoal failed: ${err?.message ?? err}`;
           renderStatus();
           renderFeedback();
           return;
         }
-        const goalId = randomUuidBytes();
 
-        runtime.activeTabId = tab.id;
-        runtime.activeGoalUuid = goalId;
+        t.active = true;
         resetRuntimeForNewGoal();
-        subscribeForActiveGoal(tab);
+        rebuildSubscriptions();
 
-        const sendGoalService = actionTopic(state.robot, tab.actionSuffix, "_action/send_goal");
+        const goalTopic = `/${state.robot}/${tab.actionSuffix}/goal`;
         try {
-          const response = await panelContext.callService(sendGoalService, {
-            goal_id: { uuid: goalId }, goal,
-          });
-          if (!response?.accepted) {
-            runtime.statusText = "Rejected by server";
-            runtime.statusCode = GOAL_STATUS.ABORTED;
-            runtime.activeTabId = null;
-            runtime.activeGoalUuid = null;
-            unsubscribeAll();
-            renderStatus();
-            return;
-          }
-          runtime.statusText = statusLabel(GOAL_STATUS.ACCEPTED);
-          runtime.statusCode = GOAL_STATUS.ACCEPTED;
+          panelContext.advertise(goalTopic, "std_msgs/msg/String");
+          panelContext.publish(goalTopic, { data: JSON.stringify(goal) });
+          t.statusText = "Goal sent";
+          t.statusCode = GOAL_STATUS.EXECUTING;
+          appendFeedback(`Sent goal: ${JSON.stringify(goal)}`);
           renderStatus();
         } catch (err) {
-          runtime.statusText = "Send failed";
-          runtime.statusCode = GOAL_STATUS.ABORTED;
-          runtime.resultText = String(err?.message ?? err);
-          runtime.activeTabId = null;
-          runtime.activeGoalUuid = null;
-          unsubscribeAll();
+          t.statusText = "Publish failed";
+          t.statusCode = GOAL_STATUS.ABORTED;
+          t.resultText = String(err?.message ?? err);
+          t.active = false;
+          rebuildSubscriptions();
           renderStatus();
           renderFeedback();
         }
       });
 
       cancelBtn.addEventListener("click", async () => {
-        if (runtime.activeGoalUuid == null) return;
-        const tab = tabById(runtime.activeTabId);
-        const cancelService = actionTopic(state.robot, tab.actionSuffix, "_action/cancel_goal");
-        runtime.statusText = statusLabel(GOAL_STATUS.CANCELING);
-        runtime.statusCode = GOAL_STATUS.CANCELING;
-        renderStatus();
+        const t = curTab();
+        if (!t.active) return;
+        const tab = tabById(state.activeTab);
+        const cancelTopic = `/${state.robot}/${tab.actionSuffix}/cancel`;
         try {
-          await panelContext.callService(cancelService, {
-            goal_info: { goal_id: { uuid: runtime.activeGoalUuid }, stamp: { sec: 0, nanosec: 0 } },
-          });
+          panelContext.advertise(cancelTopic, "std_msgs/msg/String");
+          panelContext.publish(cancelTopic, { data: "cancel" });
+          appendFeedback("Cancel requested");
         } catch (err) {
-          appendFeedback(`cancel call failed: ${err?.message ?? err}`);
+          appendFeedback(`Cancel failed: ${err?.message ?? err}`);
         }
       });
 
-      // ── incoming messages ────────────────────────────────────────────────
-      async function handleStatusMessage(msg) {
-        if (runtime.activeGoalUuid == null) return;
-        const list = msg?.status_list ?? [];
-        for (const entry of list) {
-          const uuid = entry?.goal_info?.goal_id?.uuid;
-          if (!uuid || !uuidEqual(uuid, runtime.activeGoalUuid)) continue;
-          const code = entry.status;
-          runtime.statusCode = code;
-          runtime.statusText = statusLabel(code);
-          renderStatus();
+      // ── incoming messages (relay publishes std_msgs/String as JSON) ────
+      // Find which tab owns a given relay topic
+      function tabForTopic(topic) {
+        for (const tab of TASK_TABS) {
+          if (topic.includes(`/${tab.actionSuffix}/`)) return tab;
+        }
+        return null;
+      }
 
-          if (TERMINAL_STATUSES.has(code)) {
-            const tab = tabById(runtime.activeTabId);
-            const getResultService = actionTopic(state.robot, tab.actionSuffix, "_action/get_result");
-            try {
-              const res = await panelContext.callService(getResultService, {
-                goal_id: { uuid: runtime.activeGoalUuid },
-              });
-              const result = res?.result ?? {};
-              runtime.resultText = `success: ${result.success}\nmessage: ${result.message ?? ""}`;
-            } catch (err) {
-              runtime.resultText = `(get_result failed: ${err?.message ?? err})`;
-            }
-            runtime.activeTabId = null;
-            runtime.activeGoalUuid = null;
-            unsubscribeAll();
-            renderStatus();
-            renderFeedback();
-          }
+      function handleRelayFeedback(topic, msg) {
+        const tab = tabForTopic(topic);
+        if (!tab) return;
+        const t = perTab[tab.id];
+        if (!t.active) return;
+        const data = msg?.data;
+        if (!data) return;
+        try {
+          const fb = JSON.parse(data);
+          appendFeedback(tab.formatFeedback(fb), tab.id);
+        } catch {
+          appendFeedback(data, tab.id);
         }
       }
 
-      function handleFeedbackMessage(msg) {
-        if (runtime.activeGoalUuid == null) return;
-        const uuid = msg?.goal_id?.uuid;
-        if (!uuid || !uuidEqual(uuid, runtime.activeGoalUuid)) return;
-        const tab = tabById(runtime.activeTabId);
-        appendFeedback(tab.formatFeedback(msg.feedback ?? {}));
+      function handleRelayResult(topic, msg) {
+        const tab = tabForTopic(topic);
+        if (!tab) return;
+        const t = perTab[tab.id];
+        if (!t.active) return;
+        const data = msg?.data;
+        if (!data) return;
+        try {
+          const result = JSON.parse(data);
+          t.resultText = `success: ${result.success}\nmessage: ${result.message ?? ""}`;
+          t.statusText = result.success ? "Succeeded" : "Failed";
+          t.statusCode = result.success ? GOAL_STATUS.SUCCEEDED : GOAL_STATUS.ABORTED;
+        } catch {
+          t.resultText = data;
+          t.statusText = "Done";
+          t.statusCode = GOAL_STATUS.SUCCEEDED;
+        }
+        t.active = false;
+        rebuildSubscriptions();
+        renderTabs();
       }
 
       // ── render loop ──────────────────────────────────────────────────────
@@ -643,10 +666,10 @@ function activate(extensionContext) {
         if (frame) {
           for (const evt of frame) {
             if (!runtime.subscribedTopics.includes(evt.topic)) continue;
-            if (evt.topic.endsWith("_action/status")) {
-              handleStatusMessage(evt.message);
-            } else if (evt.topic.endsWith("_action/feedback")) {
-              handleFeedbackMessage(evt.message);
+            if (evt.topic.endsWith("/relay_feedback")) {
+              handleRelayFeedback(evt.topic, evt.message);
+            } else if (evt.topic.endsWith("/relay_result")) {
+              handleRelayResult(evt.topic, evt.message);
             }
           }
         }
@@ -680,7 +703,10 @@ function activate(extensionContext) {
       renderStatus();
       renderFeedback();
 
-      return () => { unsubscribeAll(); };
+      return () => {
+        runtime.subscribedTopics = [];
+        panelContext.subscribe([]);
+      };
     },
   });
 }
