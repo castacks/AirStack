@@ -5461,7 +5461,7 @@
 <ol>
 <li>Generates <code>settings.json</code> from the Jinja2 template using current environment variables</li>
 <li>Creates a tmux session named <code>ms-airsim</code></li>
-<li>If <code>AUTOLAUNCH=true</code>: builds the ROS 2 bridge workspace (<code>colcon build</code>)</li>
+<li>Builds the ROS 2 bridge workspace (<code>colcon build</code>)</li>
 <li>In the <code>airsim</code> window: if <code>MS_AIRSIM_BINARY_PATH</code> is unset, runs <code>fetch_scene.sh blocks</code> to download + extract the default scene, then launches the UE4 binary as the <code>ms-airsim</code> user (UE4 refuses to run as root)</li>
 <li>Launches one bridge node per robot, each with <code>ROS_DOMAIN_ID=&lt;robot_index&gt;</code></li>
 <li>Waits for the AirSim API to become available (TCP port 41451)</li>
@@ -5496,6 +5496,11 @@
 <td><code>MS_AIRSIM_HEADLESS</code></td>
 <td><code>false</code></td>
 <td>Run UE4 without a window (<code>-RenderOffScreen -nosound</code>)</td>
+</tr>
+<tr>
+<td><code>MS_AIRSIM_PX4_START_DELAY</code></td>
+<td><code>3</code></td>
+<td>Seconds to wait after AirSim becomes ready before starting PX4, so sensors settle before the EKF snapshots a local origin</td>
 </tr>
 <tr>
 <td><code>NUM_ROBOTS</code></td>

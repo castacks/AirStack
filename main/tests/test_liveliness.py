@@ -59,8 +59,9 @@ def sim_side_topics(num_robots):
 def _parse_panes(raw):
     """Return (crashed, active_count). Input lines: 'session:window|pane_pid|title|kids'.
 
-    Crashed: pane with 0 descendants whose title isn't 'shell' (shell-tagged panes
-    are intentionally idle bash). Active: pane with at least one descendant.
+    Crashed: pane with no direct children whose title isn't 'shell' (shell-tagged
+    panes are intentionally idle bash). Active: pane with at least one direct
+    child.
     """
     crashed = []
     active = 0
@@ -81,8 +82,9 @@ def _parse_panes(raw):
 
 
 def _check_tmux_panes(env):
-    """Return (ok, msg). Zero-descendant pane (not a 'shell'-tagged idle bash) = crashed."""
-    # Format: session:window|pane_pid|pane_title|descendant_count
+    """Return (ok, msg). Pane with no direct child processes (and not a
+    'shell'-tagged idle bash) = crashed."""
+    # Format: session:window|pane_pid|pane_title|direct_child_count
     cmd = (
         "tmux list-panes -a -F '#{session_name}:#{window_name}|#{pane_pid}|#{pane_title}' "
         "| while IFS='|' read -r w pid t; do "

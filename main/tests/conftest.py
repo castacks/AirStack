@@ -324,8 +324,11 @@ def find_container(name_pattern):
 
 
 def get_robot_containers(pattern="robot.*desktop"):
-    """Return a sorted list of currently-running robot container names."""
-    return sorted(find_all_containers(pattern))
+    """Return running robot containers sorted by their replica index"""
+    def _index(name):
+        tail = name.rsplit("-", 1)[-1]
+        return int(tail) if tail.isdigit() else 0
+    return sorted(find_all_containers(pattern), key=_index)
 
 
 def container_running(name):
@@ -450,19 +453,19 @@ class MetricsRecorder:
         self._data = json.loads(path.read_text()) if path.exists() else {}
         self._lock = threading.Lock()
 
-    def _atomic_write(self):
-        tmp = self._path.with_suffix(".tmp")
+    def _flush(self):
+        tmp = self._path.with_suffix(self._path.suffix + ".tmp")
         tmp.write_text(json.dumps(self._data, indent=2))
-        tmp.replace(self._path)
+        os.replace(tmp, self._path)
 
     def record(self, test_name, key, value, unit="", direction="lower_is_better", **extra):
-        entry = {"value": value, "unit": unit, "direction": direction}
-        entry.update(extra)
         with self._lock:
             if test_name not in self._data:
                 self._data[test_name] = {}
+            entry = {"value": value, "unit": unit, "direction": direction}
+            entry.update(extra)
             self._data[test_name][key] = entry
-            self._atomic_write()
+            self._flush()
 
     def record_list(self, test_name, key, values):
         """Store a raw list (time series) — not scored by parse_metrics."""
@@ -470,7 +473,7 @@ class MetricsRecorder:
             if test_name not in self._data:
                 self._data[test_name] = {}
             self._data[test_name][key] = {"samples": values}
-            self._atomic_write()
+            self._flush()
 
 def get_metrics():
     global METRICS
@@ -589,7 +592,11 @@ def airstack_env(request):
     """
     sim, num_robots, iteration = request.param
     cfg = SIM_CONFIG[sim]
-    log = f"airstack_env[{_CURRENT_ITEM.callspec.id}]"
+    # Route fixture narration to a file whose name tracks the post-rewrite
+    # test id (see pytest_collection_modifyitems), so airstack up/down output
+    # lands next to the triggering test's own log instead of under pytest's
+    # stale callspec.id.
+    log = f"airstack_env.{_nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)}"
 
     headless = not request.config.getoption("--gui")
     env_overrides = {
