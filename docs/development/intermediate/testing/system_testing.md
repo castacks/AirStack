@@ -11,8 +11,9 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 | [`test_build_docker.py`](../../../../tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
 | [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
 | [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability | Docker daemon, GPU, sim license |
+| [`test_autonomy.py`](../../../../tests/test_autonomy.py) | `autonomy` | Takeoff → hover → landing action chain, parametrized over commanded velocity; records tracking error, overshoot, and (when available) odom-vs-ground-truth error | Docker daemon, GPU, sim license |
 
-Marks can be combined with pytest logic: `-m "build_docker or build_packages"`, `-m liveliness`.
+Marks can be combined with pytest logic: `-m "build_docker or build_packages"`, `-m "liveliness or autonomy"`.
 
 ---
 

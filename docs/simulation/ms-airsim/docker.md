@@ -71,6 +71,7 @@ The container runs `entrypoint.sh`, which:
 | `MS_AIRSIM_BINARY_PATH` | _(unset → auto-fetch Blocks)_ | Path to UE4 binary inside container. If unset, the entrypoint fetches Blocks into the mounted scenes dir and points at it. |
 | `MS_AIRSIM_ENV_DIR` | `../assets/scenes` | Host path to extracted UE4 scenes |
 | `MS_AIRSIM_HEADLESS` | `false` | Run UE4 without a window (`-RenderOffScreen -nosound`) |
+| `MS_AIRSIM_PX4_START_DELAY` | `3` | Seconds to wait after AirSim becomes ready before starting PX4, so sensors settle before the EKF snapshots a local origin |
 | `NUM_ROBOTS` | `1` | Number of vehicles and PX4 SITL instances |
 | `SIM_IP` | `172.31.0.200` | Simulator IP on `airstack_network` |
 

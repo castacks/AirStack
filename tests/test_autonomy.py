@@ -57,7 +57,6 @@ METRIC_UNITS = {
     "takeoff_duration_sim_s": "s",
     "land_duration_sim_s": "s",
     "velocity_rmse_m_sim_s": "m/s",
-    "attitude_stddev_rad": "rad",
     # Everything else: "m".
 }
 
