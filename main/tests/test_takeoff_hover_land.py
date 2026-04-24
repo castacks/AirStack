@@ -57,7 +57,6 @@ METRIC_UNITS = {
     "takeoff_duration_sim_s": "s",
     "land_duration_sim_s": "s",
     "velocity_rmse_m_sim_s": "m/s",
-    "attitude_stddev_rad": "rad",
     # Everything else: "m".
 }
 
@@ -334,9 +333,9 @@ def _finish_captures(streams):
     odom = _parse_csv(odom_path, ODOM_SCHEMA)
     gt = _parse_csv(gt_path, ODOM_SCHEMA)
     if not odom:
-        logger.warning("odom capture empty. stdout head=%r stderr head=%r",
-                       open(odom_path).read(500),
-                       open(odom_path + ".err").read(500))
+        with open(odom_path) as _f, open(odom_path + ".err") as _ef:
+            logger.warning("odom capture empty. stdout head=%r stderr head=%r",
+                           _f.read(500), _ef.read(500))
     if not gt:
         logger.warning("ground truth not available — skipping state-estimation error metrics.")
     return odom, gt

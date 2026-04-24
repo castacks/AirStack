@@ -37,15 +37,14 @@ Panels:
     zoom_factor: 0.1919851303100586
   - Class: rviz_tasks_panel::TasksPanel
     Name: TasksPanel
-    executor_0: /robot_1/tasks/takeoff
-    executor_1: /robot_1/tasks/land
-    executor_2: /robot_1/tasks/navigate
-    executor_3: /robot_1/tasks/exploration
-    executor_4: ""
+    executor_0: tasks/takeoff
+    executor_1: tasks/land
+    executor_2: tasks/fixed_trajectory
+    executor_3: tasks/navigate
+    executor_4: tasks/exploration
     executor_5: ""
     executor_6: ""
     executor_7: ""
-    executor_8: /robot_1/tasks/fixed_trajectory
     robot: /robot_1
 Visualization Manager:
   Class: ""

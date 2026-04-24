@@ -4,6 +4,7 @@ import os
 import re
 import shlex
 import subprocess
+import threading
 import time
 from contextlib import contextmanager
 from datetime import datetime
@@ -264,7 +265,7 @@ def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
     quoted = " ".join(shlex.quote(a) for a in cmd_list)
     with open(log_path, "a") as f:
         f.write(f"\n$ {quoted}\n")
-    shell_cmd = f"{quoted} 2>&1 | tee -a {shlex.quote(str(log_path))}"
+    shell_cmd = f"set -o pipefail; {quoted} 2>&1 | tee -a {shlex.quote(str(log_path))}"
     return subprocess.run(["bash", "-c", shell_cmd],
                           capture_output=True, text=True,
                           timeout=timeout, env=env, cwd=cwd)
@@ -348,10 +349,10 @@ def wait_for_container(name_pattern, timeout=120):
 
 # ── compute-usage sampling ─────────────────────────────────────────────────
 
-_BYTES_RE = re.compile(r"([\d.]+)\s*([KMGT]?i?B)$")
+_BYTES_RE = re.compile(r"([\d.]+)\s*([kKMGT]?i?B)$")
 _BYTES_TO_MB = {
     "B": 1 / (1024 * 1024),
-    "KiB": 1 / 1024, "KB": 1 / 1000,
+    "KiB": 1 / 1024, "KB": 1 / 1000, "kB": 1 / 1000,
     "MiB": 1, "MB": 1,
     "GiB": 1024, "GB": 1000,
     "TiB": 1024 * 1024, "TB": 1_000_000,
@@ -447,21 +448,29 @@ class MetricsRecorder:
     def __init__(self, path):
         self._path = path
         self._data = json.loads(path.read_text()) if path.exists() else {}
+        self._lock = threading.Lock()
+
+    def _atomic_write(self):
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self._data, indent=2))
+        tmp.replace(self._path)
 
     def record(self, test_name, key, value, unit="", direction="lower_is_better", **extra):
-        if test_name not in self._data:
-            self._data[test_name] = {}
         entry = {"value": value, "unit": unit, "direction": direction}
         entry.update(extra)
-        self._data[test_name][key] = entry
-        self._path.write_text(json.dumps(self._data, indent=2))
+        with self._lock:
+            if test_name not in self._data:
+                self._data[test_name] = {}
+            self._data[test_name][key] = entry
+            self._atomic_write()
 
     def record_list(self, test_name, key, values):
         """Store a raw list (time series) — not scored by parse_metrics."""
-        if test_name not in self._data:
-            self._data[test_name] = {}
-        self._data[test_name][key] = {"samples": values}
-        self._path.write_text(json.dumps(self._data, indent=2))
+        with self._lock:
+            if test_name not in self._data:
+                self._data[test_name] = {}
+            self._data[test_name][key] = {"samples": values}
+            self._atomic_write()
 
 def get_metrics():
     global METRICS

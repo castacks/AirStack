@@ -462,58 +462,60 @@ void TasksPanel::onRefreshExecutors()
   if (!raw_node_) {return;}
 
   auto topic_map = raw_node_->get_topic_names_and_types();
-
-  // Collect robot namespaces and per-task executors
   std::set<std::string> robots;
 
+  // ── Step 1: Discover executors per task ──
+  std::vector<QStringList> discovered_executors(task_defs_.size());
   for (size_t i = 0; i < task_defs_.size(); ++i) {
     const std::string suffix = task_defs_[i].action_topic_suffix + "/_action/status";
-    QStringList executors;
-
     for (const auto & [topic, types] : topic_map) {
       if (topic.size() > suffix.size() &&
-        topic.substr(topic.size() - suffix.size()) == suffix)
+          topic.substr(topic.size() - suffix.size()) == suffix)
       {
-        // Extract action name (remove /_action/status)
-        std::string action_name = topic.substr(0, topic.size() - std::string("/_action/status").size());
-        executors.append(QString::fromStdString(action_name));
-
-        // Extract robot namespace (everything before /tasks/...)
+        std::string action_name = topic.substr(
+          0, topic.size() - std::string("/_action/status").size());
+        discovered_executors[i].append(QString::fromStdString(action_name));
         std::string task_suffix = task_defs_[i].action_topic_suffix;
         size_t pos = action_name.rfind(task_suffix);
         if (pos != std::string::npos && pos > 1) {
-          robots.insert(action_name.substr(0, pos - 1));  // -1 to remove trailing /
+          robots.insert(action_name.substr(0, pos - 1));
         }
-      }
-    }
-
-    // Update executor combo preserving current selection
-    auto & combo = tab_states_[i].executor_combo;
-    QString current = combo->currentText();
-    combo->clear();
-    combo->addItems(executors);
-    if (!current.isEmpty()) {
-      int idx = combo->findText(current);
-      if (idx >= 0) {
-        combo->setCurrentIndex(idx);
-      } else {
-        combo->setCurrentText(current);
       }
     }
   }
 
-  // Update robot combo
+  // ── Step 2: Update robot combo first so resolved_robot is known ──
   QString current_robot = robot_combo_->currentText();
   robot_combo_->clear();
   for (const auto & r : robots) {
     robot_combo_->addItem(QString::fromStdString(r));
   }
-  if (!current_robot.isEmpty()) {
-    int idx = robot_combo_->findText(current_robot);
+  if (!robots.empty()) {
+    int idx = current_robot.isEmpty() ? -1 : robot_combo_->findText(current_robot);
     if (idx >= 0) {
       robot_combo_->setCurrentIndex(idx);
-    } else {
-      robot_combo_->setCurrentText(current_robot);
+    }
+    // else: keep first discovered robot (index 0, default)
+  }
+
+  // ── Step 3: Update executor combos, resolving relative paths via current robot ──
+  QString resolved_robot = robot_combo_->currentText();
+  for (size_t i = 0; i < task_defs_.size(); ++i) {
+    auto & combo = tab_states_[i].executor_combo;
+    QString current = combo->currentText();
+    combo->clear();
+    combo->addItems(discovered_executors[i]);
+    if (!current.isEmpty()) {
+      QString to_find = current;
+      if (!current.startsWith("/") && !resolved_robot.isEmpty()) {
+        to_find = resolved_robot + "/" + current;
+      }
+      int idx = combo->findText(to_find);
+      if (idx >= 0) {
+        combo->setCurrentIndex(idx);
+      } else {
+        combo->setCurrentText(current);  // keep relative text as editable
+      }
     }
   }
 
@@ -1173,9 +1175,13 @@ void TasksPanel::save(rviz_common::Config config) const
   rviz_common::Panel::save(config);
   config.mapSetValue("robot", robot_combo_->currentText());
   for (size_t i = 0; i < tab_states_.size(); ++i) {
-    config.mapSetValue(
-      QString("executor_%1").arg(i),
-      tab_states_[i].executor_combo->currentText());
+    QString executor = tab_states_[i].executor_combo->currentText();
+    QString robot = robot_combo_->currentText();
+    // Strip robot namespace prefix so the saved path is robot-agnostic
+    if (!executor.isEmpty() && !robot.isEmpty() && executor.startsWith(robot + "/")) {
+      executor = executor.mid(robot.length() + 1);
+    }
+    config.mapSetValue(QString("executor_%1").arg(i), executor);
   }
 }
 
@@ -1188,7 +1194,16 @@ void TasksPanel::load(const rviz_common::Config & config)
   }
   for (size_t i = 0; i < tab_states_.size(); ++i) {
     QString executor;
-    if (config.mapGetString(QString("executor_%1").arg(i), &executor)) {
+    if (config.mapGetString(QString("executor_%1").arg(i), &executor) && !executor.isEmpty()) {
+      // Normalize legacy absolute paths: strip robot prefix using the known task suffix
+      if (executor.startsWith("/") && i < task_defs_.size()) {
+        const std::string & suffix = task_defs_[i].action_topic_suffix;
+        std::string exec_str = executor.toStdString();
+        if (exec_str.size() > suffix.size() &&
+            exec_str.substr(exec_str.size() - suffix.size()) == suffix) {
+          executor = QString::fromStdString(suffix);
+        }
+      }
       tab_states_[i].executor_combo->setCurrentText(executor);
     }
   }
