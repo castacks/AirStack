@@ -263,7 +263,7 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 #### Required third-party action
 
-The workflow uses [`dawidd6/action-download-artifact@v3`](https://github.com/dawidd6/action-download-artifact) to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.
+The workflow uses [`dawidd6/action-download-artifact@v6`](https://github.com/dawidd6/action-download-artifact) to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.
 
 ---
 

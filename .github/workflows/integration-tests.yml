@@ -114,7 +114,7 @@ jobs:
       # PR mode: fetch latest artifact from the base branch (e.g. develop or main)
       - name: Download baseline results (PR)
         if: github.event_name == 'pull_request'
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
           workflow: integration-tests.yml
@@ -142,7 +142,7 @@ jobs:
         if: >
           github.event_name == 'workflow_dispatch' &&
           inputs.baseline_run_id == ''
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
           workflow: integration-tests.yml
