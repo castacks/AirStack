@@ -324,8 +324,11 @@ def find_container(name_pattern):
 
 
 def get_robot_containers(pattern="robot.*desktop"):
-    """Return a sorted list of currently-running robot container names."""
-    return sorted(find_all_containers(pattern))
+    """Return running robot containers sorted by their replica index"""
+    def _index(name):
+        tail = name.rsplit("-", 1)[-1]
+        return int(tail) if tail.isdigit() else 0
+    return sorted(find_all_containers(pattern), key=_index)
 
 
 def container_running(name):
