@@ -11,6 +11,12 @@ AirStack was tested on Ubuntu 22.04. A GPU of GeForce RTX 4080 or higher is reco
     ./airstack.sh install
     ./airstack.sh setup
 
+During setup, you may be prompted for an AirLab Nucleus API token. You can safely skip this step for local-only usage by leaving it empty and pressing Enter.
+
+If you encounter an error related to a missing `omni_pass.env` file during startup, you can safely create a placeholder file as a workaround:
+
+    touch ~/RAVEN/AirStack/simulation/isaac-sim/docker/omni_pass.env
+
 ## Build Docker Images
 
     cd ~/RAVEN/AirStack
