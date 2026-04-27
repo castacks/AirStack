@@ -75,6 +75,9 @@ def pytest_addoption(parser):
     parser.addoption("--takeoff-velocities", default="0.5,1,2",
                      help="Comma-separated takeoff/land velocities (m/s) to "
                           "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
+    parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
+                     help="Comma-separated fixed trajectory types to sweep in "
+                          "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
 
 
 def pytest_configure(config):
@@ -155,6 +158,7 @@ _MODULE_ORDER = [
     "test_build_packages",
     "test_liveliness",
     "test_takeoff_hover_land",
+    "test_fixed_trajectory",
 ]
 
 # Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.
@@ -164,6 +168,20 @@ _AUTONOMY_PHASE_ORDER = [
     "test_hover",
     "test_landing",
 ]
+
+# Within test_fixed_trajectory, each (env, trajectory_type) runs phases in this order.
+_FIXED_TRAJ_PHASE_ORDER = [
+    "test_px4_ready",
+    "test_takeoff",
+    "test_fixed_trajectory",
+    "test_landing",
+]
+
+# Maps module name → phase order list for per-module chain sorting.
+_MODULE_PHASE_ORDERS = {
+    "test_takeoff_hover_land": _AUTONOMY_PHASE_ORDER,
+    "test_fixed_trajectory": _FIXED_TRAJ_PHASE_ORDER,
+}
 
 
 def _rank(name, order):
@@ -176,32 +194,34 @@ def pytest_collection_modifyitems(items):
     #    order intact, so pytest's default file/class order survives.
     items.sort(key=lambda it: _rank(getattr(it.module, "__name__", ""), _MODULE_ORDER))
 
-    # 2. Within test_takeoff_hover_land: sort by (airstack_env, velocity, phase) so each
-    #    (sim, robots, iter) env brings up the stack once and the drone goes
-    #    ground→air→ground per velocity.
-    def phase(item):
-        if getattr(item.module, "__name__", "") != "test_takeoff_hover_land":
-            return None
-        name = item.originalname or item.name.split("[", 1)[0]
-        return _rank(name, _AUTONOMY_PHASE_ORDER)
+    # 2. Within each parametrized autonomy-style module, sort by
+    #    (airstack_env, secondary_param, phase) so each env brings up the stack
+    #    once and the drone goes ground→air→ground per secondary parameter.
+    for mod_name, phase_order in _MODULE_PHASE_ORDERS.items():
+        def _phase(item, _order=phase_order, _mod=mod_name):
+            if getattr(item.module, "__name__", "") != _mod:
+                return None
+            name = item.originalname or item.name.split("[", 1)[0]
+            return _rank(name, _order)
 
-    def sort_key(item):
-        cs = getattr(item, "callspec", None)
-        env = cs.params.get("airstack_env", ()) if cs else ()
-        vel = float(cs.params.get("velocity", 0.0)) if cs else 0.0
-        return (env, vel, phase(item))
+        def _sort_key(item, _mod=mod_name):
+            cs = getattr(item, "callspec", None)
+            env = cs.params.get("airstack_env", ()) if cs else ()
+            # test_takeoff_hover_land sweeps velocity; test_fixed_trajectory sweeps type
+            secondary = (
+                float(cs.params["velocity"]) if cs and "velocity" in cs.params
+                else (cs.params.get("trajectory_type", "") if cs else "")
+            )
+            return (env, secondary, _phase(item))
 
-    slots = [(i, it) for i, it in enumerate(items) if phase(it) is not None]
-    if slots:
-        sorted_items = sorted((it for _, it in slots), key=sort_key)
-        for (i, _), new_item in zip(slots, sorted_items):
-            items[i] = new_item
+        slots = [(i, it) for i, it in enumerate(items) if _phase(it) is not None]
+        if slots:
+            sorted_items = sorted((it for _, it in slots), key=_sort_key)
+            for (i, _), new_item in zip(slots, sorted_items):
+                items[i] = new_item
 
-    # 3. Rewrite bracketed test IDs into a consistent hierarchy: sim > robots >
-    # velocity > iteration. Bypasses pytest's own concatenation (which would
-    # otherwise order by reverse-parametrize-call order). Keeps pytest console,
-    # JUnit XML, and metrics.json all in the same natural order without
-    # refactoring the parametrize structure.
+    # 3. Rewrite bracketed test IDs into a consistent hierarchy:
+    #    sim > robots > secondary param > iteration.
     for item in items:
         cs = getattr(item, "callspec", None)
         if cs is None:
@@ -213,6 +233,8 @@ def pytest_collection_modifyitems(items):
             parts.append(f"{sim}-rob#{n}")
         if "velocity" in cs.params:
             parts.append(f"v{cs.params['velocity']}")
+        if "trajectory_type" in cs.params:
+            parts.append(f"traj{cs.params['trajectory_type']}")
         if env:
             parts.append(f"iter{i}")
         if not parts:

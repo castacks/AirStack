@@ -14,6 +14,7 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 | [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
 | [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability | Docker daemon, GPU, sim license |
 | [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `autonomy` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+| [`test_fixed_trajectory.py`](../../../../tests/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
 
 Marks can be combined with pytest logic:
 `-m "build_docker or build_packages"`, `-m liveliness`, `-m autonomy`.
@@ -191,6 +192,85 @@ airstack test -m autonomy \
   --takeoff-velocities 1 \
   -v
 ```
+
+---
+
+## Fixed Trajectory Tests (`test_fixed_trajectory.py`)
+
+`TestFixedTrajectory` runs a **4-phase flight chain** for every combination of
+`(sim, num_robots, iteration, trajectory_type)`. For each trajectory type the drone
+takes off, executes the pattern, then lands — regardless of whether the trajectory
+phase passes or fails (a trajectory failure does not skip landing).
+
+Supported trajectory types: `Circle`, `Figure8`, `Racetrack`, `Line` (same patterns as
+the `fixed_trajectory_task` ROS 2 action server in `trajectory_controller`).
+
+### Phase order
+
+| Phase | Test | What happens |
+| ----- | ---- | ------------ |
+| 1 | `test_px4_ready` | Waits for MAVROS + PX4 EKF ready; once per env |
+| 2 | `test_takeoff` | Takeoff to 10 m at 1 m/s; asserts altitude within 10 % |
+| 3 | `test_fixed_trajectory` | Sends `FixedTrajectoryTask`; captures odom; asserts cross-track error |
+| 4 | `test_landing` | Sends `LandTask`; asserts final altitude < 0.5 m |
+
+A failure in `test_fixed_trajectory` does **not** poison the chain — `test_landing` always
+runs so the drone returns to the ground before the next trajectory type starts.
+
+### Recorded metrics
+
+| Metric key | Unit | Description |
+| ---------- | ---- | ----------- |
+| `ready_duration_sys_s` | s | Wall-clock time from test start until PX4 ready |
+| `takeoff_duration_sim_s` | s | Sim-time from first motion to 95 % of target altitude |
+| `altitude_error_m` | m | Signed steady-state altitude error after takeoff |
+| `overshoot_m` | m | Unsigned transient overshoot above target |
+| `trajectory_success` | — | 1.0 if action returned `success: true`, 0.0 otherwise (`higher_is_better`) |
+| `trajectory_execution_time_sim_s` | s | Sim-time elapsed from action dispatch to completion |
+| `cross_track_error_mean_m` | m | Mean 2-D lateral distance from nearest ideal-path point |
+| `cross_track_error_max_m` | m | Worst-case lateral deviation |
+| `path_rmse_m` | m | 2-D RMSE against the ideal path |
+| `final_altitude_m` | m | Altitude at landing action completion |
+| `land_duration_sim_s` | s | Sim-time from 80 % peak descent to < 0.5 m |
+
+Cross-track error tolerance is set to **5.0 m** — deliberately loose because the circle
+trajectory is known to fail. The test documents the current deviation while still
+completing the full flight cycle.
+
+### Default trajectory parameters
+
+| Type | Parameters |
+| ---- | ---------- |
+| Circle | radius=10 m, velocity=2 m/s |
+| Figure8 | length=15 m, width=8 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s² |
+| Racetrack | length=30 m, width=10 m, height=0 m, velocity=3 m/s, turn_velocity=1.5 m/s, max_acceleration=1 m/s² |
+| Line | length=20 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s² |
+
+### Running fixed trajectory tests
+
+```bash
+# All four trajectory types; ms-airsim; 1 robot
+airstack test -m autonomy \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --trajectory-types Circle,Figure8,Racetrack,Line \
+  -v
+
+# Circle only (quick check of the known failure case)
+airstack test -m autonomy \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --trajectory-types Circle \
+  -v
+```
+
+### CLI option reference (trajectory-specific)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--trajectory-types` | `Circle,Figure8,Racetrack,Line` | Comma-separated trajectory types to sweep |
 
 ---
 
