@@ -33,7 +33,7 @@ on:
 jobs:
   run-tests:
     name: Run Tests
-    runs-on: [self-hosted, airstack, gpu]
+    runs-on: [self-hosted, airstack-ephemeral]
     # Only run on PRs from the same repo (not forks) to prevent arbitrary code
     # execution on the self-hosted runner from untrusted contributors.
     if: >

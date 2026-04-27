@@ -1,0 +1,71 @@
+#cloud-config
+# Rendered per-spawn by orchestrator.py with two Jinja variables:
+#   encoded_jit_config - single-use base64 JIT config from GitHub
+#   runner_version     - GitHub Actions runner version (e.g. 2.319.1)
+#
+# The base image (Ubuntu-24.04-GPU-Headless) already has NVIDIA drivers.
+# This cloud-init adds Docker (with the compose plugin), nvidia-container-toolkit,
+# downloads the GitHub Actions runner, registers it with the JIT config, runs
+# exactly one job (the JIT config + --ephemeral makes the runner exit after one
+# job), and shuts the VM down. The orchestrator then deletes the server.
+
+package_update: true
+package_upgrade: false
+packages:
+  - jq
+  - curl
+  - ca-certificates
+  - gnupg
+
+write_files:
+  - path: /usr/local/bin/airstack-runner-bootstrap.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euxo pipefail
+
+      # Install Docker (with compose plugin) from Docker's official channel.
+      # get.docker.com handles apt repo setup + nvidia-container-toolkit-compatible
+      # docker-ce, plus the docker-compose-plugin we need for `airstack up`.
+      curl -fsSL https://get.docker.com | sh
+
+      # nvidia-container-toolkit is required for GPU containers (liveliness /
+      # autonomy tests). The base image has the NVIDIA *drivers* but we still
+      # need the container runtime hooks here.
+      distribution=$(. /etc/os-release; echo "$ID$VERSION_ID")
+      curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+        | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+      curl -fsSL "https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list" \
+        | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+        > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+      apt-get update
+      apt-get install -y nvidia-container-toolkit
+      nvidia-ctk runtime configure --runtime=docker
+      systemctl restart docker
+
+      usermod -aG docker ubuntu
+
+      # GitHub Actions runner.
+      RUNNER_VERSION="{{ runner_version }}"
+      RUNNER_DIR=/home/ubuntu/actions-runner
+      mkdir -p "$RUNNER_DIR"
+      cd "$RUNNER_DIR"
+      curl -fsSL -o runner.tar.gz \
+        "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
+      tar xzf runner.tar.gz
+      rm runner.tar.gz
+      chown -R ubuntu:ubuntu "$RUNNER_DIR"
+
+      # Run exactly one job under the ubuntu user. The JIT config is single-use
+      # and ephemeral, so run.sh exits after one job completes.
+      sudo -u ubuntu --preserve-env=HOME -H bash -c \
+        "cd '$RUNNER_DIR' && ./run.sh --jitconfig '{{ encoded_jit_config }}'" \
+        || echo "runner exited non-zero (job failure or runner error)"
+
+      # Backstop: power down. The orchestrator's reap loop is the authoritative
+      # deleter — it sees the GitHub job complete and calls Nova delete.
+      shutdown -h +1
+
+runcmd:
+  - /usr/local/bin/airstack-runner-bootstrap.sh

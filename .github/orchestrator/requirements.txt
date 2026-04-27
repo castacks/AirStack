@@ -1,0 +1,4 @@
+openstacksdk>=3.0,<5
+requests>=2.31
+PyYAML>=6.0
+Jinja2>=3.1
