@@ -7,8 +7,6 @@ Functions:
     add_colliders               — Recursively apply CollisionAPI to all meshes
     add_dome_light              — Add or update a dome light on the stage
     save_scene_as_contained_usd — Collect all assets into a self-contained directory
-    spawn_falling_cubes         — Add rigid-body cubes that fall from above the origin
-    SimTimer                    — Periodic wall/sim-time reporter for benchmarking
 """
 
 import asyncio
