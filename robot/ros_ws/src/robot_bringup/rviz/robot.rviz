@@ -35,7 +35,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Lidar
+    SyncSource: Disparity
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
@@ -468,7 +468,7 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /robot_1/macvo/odometry
           Value: true
-      Enabled: true
+      Enabled: false
       Name: Perception
     - Class: rviz_common/Group
       Displays:
@@ -478,7 +478,8 @@ Visualization Manager:
               Enabled: true
               Name: Trimmed Global Plan for DROAN
               Namespaces:
-                {}
+                global_plan: true
+                global_plan_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -602,7 +603,7 @@ Visualization Manager:
                   Enabled: true
                   Invert Rainbow: false
                   Max Color: 255; 255; 255
-                  Max Intensity: 37
+                  Max Intensity: 49
                   Min Color: 0; 0; 0
                   Min Intensity: 31
                   Name: Foreground Background Cloud
@@ -668,7 +669,8 @@ Visualization Manager:
               Enabled: true
               Name: Global Plan Vis
               Namespaces:
-                {}
+                global_plan: true
+                global_plan_extra_text: true
               Topic:
                 Depth: 5
                 Durability Policy: Volatile
@@ -812,7 +814,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 29.624448776245117
+      Distance: 38.61411666870117
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -827,10 +829,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.555398166179657
+      Pitch: 0.5603985786437988
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.44539591670036316
+      Yaw: 4.573587417602539
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
