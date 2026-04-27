@@ -40,6 +40,11 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # Pegasus physics tuning — read by pegasus/simulator/params.py
+      - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-250}
+      - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
+      - PX4_RENDERING_HZ=${PX4_RENDERING_HZ:-60}
+      - ARDUPILOT_RENDERING_HZ=${ARDUPILOT_RENDERING_HZ:-120}
     deploy:
       # let it use the GPU
       resources:

@@ -87,8 +87,10 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
 # setup mavros dependencies
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
-# Update LD_LIBRARY_PATH to include ROS2 libraries (Fixes internal rclpy import)
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros/jazzy/lib:/jazzy/lib
+# Update LD_LIBRARY_PATH to include ROS2 libraries (Fixes internal rclpy import).
+# The isaacsim.ros2.bridge extension ships its own jazzy-built DDS/rmw libs at
+# /isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib; /jazzy/lib does not exist.
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros/jazzy/lib:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib
 
 
 # ============================================================================
@@ -145,6 +147,17 @@ RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/shar
 
 # Install PX4 things
 RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
+
+# Patch px4-rc.simulator so IMU_INTEG_RATE is configurable at runtime via the
+# PX4_IMU_INTEG_RATE environment variable instead of being hardcoded to 250 Hz.
+# This lets PegasusSimulator's PX4LaunchTool set the rate to match physics_dt:
+#   param set-default IMU_INTEG_RATE ${PX4_IMU_INTEG_RATE:-250}
+# The px4-rc.simulator file is read at PX4 SITL startup (not compiled in),
+# so this patch takes effect without rebuilding.
+RUN sed -i \
+    's|param set-default IMU_INTEG_RATE 250|param set-default IMU_INTEG_RATE ${PX4_IMU_INTEG_RATE:-250}|' \
+    /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.simulator
+
 # install px4 dependencies and build
 RUN cd PX4-Autopilot && \
     DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
