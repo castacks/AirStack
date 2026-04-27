@@ -177,7 +177,6 @@ def spawn_server(
     network = conn.network.find_network(config["network_name"], ignore_missing=False)
     create_kwargs = dict(
         name=name,
-        image_id=config["image_id"],
         flavor_id=flavor.id,
         networks=[{"uuid": network.id}],
         key_name=config["keypair_name"],
@@ -188,6 +187,28 @@ def spawn_server(
             JOB_META_KEY: job_id,
         },
     )
+
+    # Flavors with disk=0 (typical for GPU flavors on this cloud) cannot boot
+    # directly from an image — Nova rejects with "Block Device Mapping is
+    # Invalid: You specified more local devices than the limit allows". When
+    # boot_volume_size_gb is set, boot from a Cinder volume sourced from the
+    # image and delete it on termination. Otherwise fall back to direct image
+    # boot (works only when the flavor has a non-zero root disk).
+    boot_volume_size_gb = int(config.get("boot_volume_size_gb") or 0)
+    if boot_volume_size_gb > 0:
+        create_kwargs["block_device_mapping"] = [
+            {
+                "uuid": config["image_id"],
+                "source_type": "image",
+                "destination_type": "volume",
+                "boot_index": 0,
+                "volume_size": boot_volume_size_gb,
+                "delete_on_termination": True,
+            }
+        ]
+    else:
+        create_kwargs["image_id"] = config["image_id"]
+
     az = config.get("availability_zone")
     if az:
         create_kwargs["availability_zone"] = az

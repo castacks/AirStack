@@ -29,6 +29,13 @@ security_group: ""
 # Leave empty to let Nova pick.
 availability_zone: ""
 
+# If the chosen flavor has disk=0 (common for GPU flavors), Nova rejects
+# direct image-boot with "Block Device Mapping is Invalid: You specified more
+# local devices than the limit allows". Set this to >0 to boot from a Cinder
+# volume of that size sourced from image_id (deleted on termination). Leave
+# at 0 to boot directly from the image (only works for non-zero-disk flavors).
+boot_volume_size_gb: 0
+
 # --- GitHub ---
 
 # owner/name of the repo whose queued workflow_jobs to pick up.
