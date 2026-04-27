@@ -1,0 +1,56 @@
+# AirStack CI orchestrator configuration.
+# Copy to /etc/airstack-orchestrator/config.yaml and fill in placeholders.
+
+# --- OpenStack target ---
+
+# Cloud profile name in ~/.config/openstack/clouds.yaml.
+openstack_cloud: airstack
+
+# Ubuntu-24.04-GPU-Headless (confirmed available on airlab-cloud).
+image_id: a891a6fe-5e4f-4b84-a6c9-482848c8f972
+
+# OpenStack flavor with GPU + enough disk for Docker + sim images.
+# Look up with: openstack flavor list
+flavor_name: ""
+
+# OpenStack network the ephemeral instance attaches to. Must allow outbound
+# 443 to api.github.com (no inbound is required: the runner makes an outbound
+# long-poll connection to GitHub).
+network_name: ""
+
+# OpenStack keypair injected into the instance for break-glass SSH access.
+# The orchestrator never SSHes into workers itself.
+keypair_name: ""
+
+# Security group applied to spawned instances. Outbound 443 must be allowed.
+security_group: ""
+
+# --- GitHub ---
+
+# owner/name of the repo whose queued workflow_jobs to pick up.
+repo: "castacks/AirStack"
+
+# Labels the orchestrator polls for. A queued workflow_job whose `labels`
+# array is a superset of this list gets a server spawned for it.
+runner_labels:
+  - self-hosted
+  - airstack-ephemeral
+
+# GitHub Actions runner version (must exist as a release tag at
+# https://github.com/actions/runner/releases).
+runner_version: "2.319.1"
+
+# --- Limits ---
+
+# Maximum simultaneous in-flight ephemeral instances.
+max_concurrent: 3
+
+# Hard ceiling for a single job. Past this age the reaper force-deletes the
+# server even if GitHub still reports the job as in-progress. Must comfortably
+# exceed the longest expected job (autonomy/liveliness runs).
+max_job_minutes: 90
+
+# --- Polling intervals (seconds) ---
+
+spawn_poll_interval_s: 15
+reap_poll_interval_s: 30

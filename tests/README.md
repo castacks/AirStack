@@ -251,7 +251,7 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 #### Jobs
 
-**`run-tests`** runs on the self-hosted GPU runner (`[self-hosted, airstack, gpu]`). It installs dependencies, runs pytest, and uploads `tests/results/` as an artifact named `test-results-<sha>-<run_id>` with 90-day retention.
+**`run-tests`** runs on a freshly-spawned ephemeral OpenStack instance (`[self-hosted, airstack-ephemeral]`). The instance is provisioned per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads `tests/results/` as an artifact named `test-results-<sha>-<run_id>` with 90-day retention.
 
 **`report`** runs on `ubuntu-latest` after `run-tests` (even if it failed). It:
 
@@ -267,93 +267,54 @@ The workflow uses [`dawidd6/action-download-artifact@v6`](https://github.com/daw
 
 ---
 
-## Self-Hosted Runner Setup
+## CI/CD Orchestrator (OpenStack-backed ephemeral runners)
 
-AirStack's tests require a GPU and Docker, so they run on a self-hosted OpenStack VM. The setup uses the **ephemeral runner** pattern: each runner process registers, executes exactly one job, and then de-registers. This prevents cross-job environment contamination and stale runner accumulation.
+AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral OpenStack instances** spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.
 
-### 1. Create the runner user
+### Architecture
 
-```bash
-sudo useradd -m -s /bin/bash runner
-sudo usermod -aG docker runner   # allows Docker commands without sudo
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
+│   • polls GitHub for queued workflow_jobs                    │
+│   • mints single-use JIT runner tokens                       │
+│   • spawns / reaps ephemeral instances via OpenStack Nova    │
+│   • holds the GitHub PAT and OpenStack application credential│
+└────────────┬───────────────────────────────────┬─────────────┘
+             │                                   │
+             ▼                                   ▼
+┌──────────────────────────────┐   ┌────────────────────────────────┐
+│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
+│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
+│        Headless              │   │  labels: [self-hosted,         │
+│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
+│ + nvidia-container-toolkit + │   └────────────────────────────────┘
+│ GH Actions runner; runs ONE  │
+│ job, then is destroyed.      │
+└──────────────────────────────┘
 ```
 
-### 2. Install the GitHub Actions runner binary
-
-Download the latest runner tarball from [github.com/actions/runner/releases](https://github.com/actions/runner/releases) and unpack it:
-
-```bash
-sudo mkdir -p /opt/actions-runner
-cd /opt/actions-runner
-# Replace the URL with the current release for linux-x64:
-curl -Lo actions-runner.tar.gz https://github.com/actions/runner/releases/download/vX.Y.Z/actions-runner-linux-x64-X.Y.Z.tar.gz
-sudo tar xzf actions-runner.tar.gz -C /opt/actions-runner
-sudo chown -R runner:runner /opt/actions-runner
-```
-
-### 3. Store the GitHub PAT
-
-[Create a fine-grained PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) with **`repo`** scope (for private repos) or **`public_repo`** scope (for public repos). Store it securely:
-
-```bash
-echo "ghp_YOUR_TOKEN_HERE" | sudo tee /etc/github-runner-pat
-sudo chmod 600 /etc/github-runner-pat
-sudo chown runner:runner /etc/github-runner-pat
-```
-
-### 4. Configure runner environment
-
-Create `/etc/github-runner-env` (loaded by the systemd unit):
-
-```ini
-REPO_URL=https://github.com/YOUR_ORG/AirStack
-REPO_PATH=YOUR_ORG/AirStack
-RUNNER_LABELS=self-hosted,airstack,gpu
-RUNNER_GROUP=Default
-RUNNER_DIR=/opt/actions-runner
-PAT_FILE=/etc/github-runner-pat
-```
-
-```bash
-sudo chmod 600 /etc/github-runner-env
-sudo chown runner:runner /etc/github-runner-env
-```
-
-### 5. Install the registration script
-
-```bash
-sudo cp .github/runners/register-runner.sh /opt/actions-runner/register-runner.sh
-sudo chown runner:runner /opt/actions-runner/register-runner.sh
-sudo chmod +x /opt/actions-runner/register-runner.sh
-```
-
-### 6. Install and enable the systemd service
-
-```bash
-sudo cp .github/runners/airstack-runner.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now airstack-runner.service
-```
-
-Check status:
-
-```bash
-sudo systemctl status airstack-runner.service
-sudo journalctl -u airstack-runner.service -f
-```
-
-### 7. Verify runner registration
-
-After the service starts it will loop waiting for a job. Confirm it appears in **GitHub → Repository → Settings → Actions → Runners** with the labels `self-hosted`, `airstack`, `gpu` and status **Idle**.
-
-Trigger a `workflow_dispatch` run and watch the runner pick it up, complete the job, and re-register.
-
-### Security considerations
+### Why this instead of a long-lived self-hosted runner
 
 | Concern | Mitigation |
 |---------|------------|
-| Fork PRs executing arbitrary code on the runner | Workflow has `if: github.event.pull_request.head.repo.full_name == github.repository` — fork PRs are skipped entirely |
-| Cross-job state pollution | `--ephemeral` flag: runner de-registers and the process exits after each job; the systemd loop starts a clean process for the next job |
-| Runner running as root | Dedicated non-root `runner` user; never set `RUNNER_ALLOW_RUNASROOT=1` |
-| Docker socket gives root-equivalent access | Accepted risk for lab use; the fork PR guard above limits who can reach the runner |
-| Long-lived PAT stored on disk | Scope the PAT to the minimum required; rotate it periodically; `chmod 600` and owned by `runner` only |
+| Cross-job state pollution (Docker cache, dangling networks, leftover artifacts) | Each job runs on a fresh VM. Spent VM is destroyed within ~30 s of job completion. |
+| Fork PRs executing arbitrary code | Workflow's `if: github.event.pull_request.head.repo.full_name == github.repository` — fork PRs skipped. |
+| Runner running as root | The runner runs as the unprivileged `ubuntu` user inside an instance whose only purpose is one job. |
+| Docker socket gives root-equivalent access | Bounded to a single one-shot VM. The orchestrator host doesn't expose Docker at all. |
+| Long-lived PAT on the runner host | The PAT lives only on the orchestrator. Workers receive a single-use **JIT runner config** — a base64 token bound to one runner registration. |
+| Persistent OpenStack creds tied to a user password | Orchestrator authenticates with an **application credential** (revocable, scoped) instead of `openrc.sh`. |
+
+### Setup
+
+The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](../../../../.github/orchestrator/README.md) for:
+
+- creating the OpenStack application credential and `clouds.yaml`
+- staging the GitHub PAT
+- running `setup.sh` on the orchestrator VM
+- filling in flavor / network / keypair / security-group in `/etc/airstack-orchestrator/config.yaml`
+- enabling and verifying the `airstack-orchestrator.service` systemd unit
+
+### Runner labels
+
+The workflow file requests `runs-on: [self-hosted, airstack-ephemeral]`. The orchestrator polls for queued jobs whose labels are a superset of `runner_labels` in its config, mints a JIT config registering the ephemeral runner under those same labels, and spawns the worker. To route jobs to a different pool (e.g. CPU-only workers) in the future, add a second label set in config and adjust the workflow's `runs-on`.

@@ -1,0 +1,40 @@
+[Unit]
+Description=AirStack CI Orchestrator (spawns ephemeral OpenStack runners)
+Documentation=https://github.com/castacks/AirStack/tree/main/.github/orchestrator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orchestrator
+Group=orchestrator
+WorkingDirectory=/opt/airstack-orchestrator
+
+# Application credential lives in the orchestrator user's home so openstacksdk
+# finds it via the default cloud-config search path.
+Environment=HOME=/home/orchestrator
+Environment=OS_CLIENT_CONFIG_FILE=/home/orchestrator/.config/openstack/clouds.yaml
+
+ExecStart=/opt/airstack-orchestrator/venv/bin/python \
+  /opt/airstack-orchestrator/orchestrator.py \
+  --config /etc/airstack-orchestrator/config.yaml \
+  --pat /etc/airstack-orchestrator/github-pat \
+  --state /var/lib/airstack-orchestrator/state.json \
+  --template /opt/airstack-orchestrator/cloud-init.yaml.j2
+
+Restart=always
+RestartSec=10
+
+# Allow draining loops on stop (SIGTERM handled by orchestrator.py).
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/airstack-orchestrator
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
