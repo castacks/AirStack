@@ -175,7 +175,7 @@ def spawn_server(
 ) -> str:
     flavor = conn.compute.find_flavor(config["flavor_name"], ignore_missing=False)
     network = conn.network.find_network(config["network_name"], ignore_missing=False)
-    server = conn.compute.create_server(
+    create_kwargs = dict(
         name=name,
         image_id=config["image_id"],
         flavor_id=flavor.id,
@@ -188,6 +188,10 @@ def spawn_server(
             JOB_META_KEY: job_id,
         },
     )
+    az = config.get("availability_zone")
+    if az:
+        create_kwargs["availability_zone"] = az
+    server = conn.compute.create_server(**create_kwargs)
     return server.id
 
 

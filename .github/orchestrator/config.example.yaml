@@ -25,6 +25,10 @@ keypair_name: ""
 # Security group applied to spawned instances. Outbound 443 must be allowed.
 security_group: ""
 
+# OpenStack availability zone to spawn instances in (e.g. nova, gpu-zone-1).
+# Leave empty to let Nova pick.
+availability_zone: ""
+
 # --- GitHub ---
 
 # owner/name of the repo whose queued workflow_jobs to pick up.

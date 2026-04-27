@@ -115,6 +115,7 @@ Edit the placeholders the example ships with:
 | `network_name` | Network the workers attach to | `openstack network list` |
 | `keypair_name` | SSH keypair for break-glass access | `openstack keypair list` |
 | `security_group` | Outbound 443 must be allowed | `openstack security group list` |
+| `availability_zone` | Optional AZ for the spawned instance; leave empty to let Nova pick | `openstack availability zone list` |
 | `repo` | `owner/name` of the repo to poll | from GitHub URL |
 | `runner_version` | Version tag from [actions/runner releases](https://github.com/actions/runner/releases) | check before each major upgrade |
 
