@@ -87,8 +87,10 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
 # setup mavros dependencies
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
-# Update LD_LIBRARY_PATH to include ROS2 libraries (Fixes internal rclpy import)
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros/jazzy/lib:/jazzy/lib
+# Update LD_LIBRARY_PATH to include ROS2 libraries (Fixes internal rclpy import).
+# The isaacsim.ros2.bridge extension ships its own jazzy-built DDS/rmw libs at
+# /isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib; /jazzy/lib does not exist.
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros/jazzy/lib:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib
 
 
 # ============================================================================
