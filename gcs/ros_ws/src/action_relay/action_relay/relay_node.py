@@ -21,16 +21,21 @@ Usage:
 """
 
 import json
+import math
+import threading
 
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from rclpy.qos import (
+    QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy,
+)
 
 from builtin_interfaces.msg import Time
 from geometry_msgs.msg import Point, Pose, Polygon, Point32, PoseStamped
 from nav_msgs.msg import Path
+from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header, String
 
 from airstack_msgs.msg import FixedTrajectory
@@ -38,7 +43,23 @@ from diagnostic_msgs.msg import KeyValue
 from task_msgs.action import (
     TakeoffTask, LandTask, NavigateTask,
     FixedTrajectoryTask, SemanticSearchTask,
+    ExplorationTask,
 )
+
+# ── Map-frame ENU origin (must match gcs_visualizer/gcs_utils.py) ────────────
+# Foxglove panels publish waypoints/polygons in this same global ENU frame, and
+# the gcs_visualizer renders the robot at gps_to_enu(...) - boot. The robot's
+# task executors expect coordinates relative to its own boot pose, so we
+# subtract the robot's boot ENU position before forwarding.
+ORIGIN_LAT = 38.736832
+ORIGIN_LON = -9.137977
+
+
+def gps_to_enu(lat, lon, alt, alt_ground):
+    x = (lon - ORIGIN_LON) * 111320.0 * math.cos(math.radians(ORIGIN_LAT))
+    y = (lat - ORIGIN_LAT) * 111320.0
+    z = alt - alt_ground
+    return x, y, z
 
 # ── Registry ─────────────────────────────────────────────────────────────────
 RELAYS = [
@@ -47,6 +68,7 @@ RELAYS = [
     ('navigate',         NavigateTask),
     ('fixed_trajectory', FixedTrajectoryTask),
     ('semantic_search',  SemanticSearchTask),
+    ('exploration',      ExplorationTask),
 ]
 
 _RELIABLE_QOS = QoSProfile(
@@ -59,26 +81,45 @@ _RELIABLE_QOS = QoSProfile(
 # ── Goal builders ────────────────────────────────────────────────────────────
 # Each converts a JSON dict into a typed Goal message.
 
-def _build_takeoff_goal(d):
+def _map_to_robot(x, y, z, ts):
+    """Subtract the robot's boot ENU position from a global-ENU point."""
+    boot = ts.get('boot') if ts else None
+    if boot is None:
+        return x, y, z
+    bx, by, bz = boot
+    return x - bx, y - by, z - bz
+
+
+def _build_takeoff_goal(d, ts):
     g = TakeoffTask.Goal()
     g.target_altitude_m = float(d.get('target_altitude_m', 0))
     g.velocity_m_s = float(d.get('velocity_m_s', 0))
     return g
 
 
-def _build_land_goal(d):
+def _build_land_goal(d, ts):
     g = LandTask.Goal()
     g.velocity_m_s = float(d.get('velocity_m_s', 0))
     return g
 
 
-def _build_navigate_goal(d):
+def _build_navigate_goal(d, ts):
     g = NavigateTask.Goal()
     g.goal_tolerance_m = float(d.get('goal_tolerance_m', 1.0))
     plan_data = d.get('global_plan', {})
     header = Header()
     hdr = plan_data.get('header', {})
-    header.frame_id = str(hdr.get('frame_id', 'map'))
+    in_frame = str(hdr.get('frame_id', 'map'))
+    # Waypoints from the Foxglove editor are in *global* ENU (gcs_visualizer's
+    # shared map). The robot's own TF tree uses 'map' rooted at its takeoff
+    # position, so we subtract the boot offset and keep the 'map' frame_id —
+    # the on-robot planner (droan_gl, target_frame=map) expects this.
+    if in_frame == 'map':
+        if ts is None or ts.get('boot') is None:
+            raise RuntimeError(
+                'Cannot transform map-frame waypoints: robot GPS boot pose '
+                'not yet received. Wait for first GPS fix and retry.')
+    header.frame_id = in_frame
     stamp = hdr.get('stamp', {})
     header.stamp = Time(sec=int(stamp.get('sec', 0)),
                         nanosec=int(stamp.get('nanosec', 0)))
@@ -88,9 +129,12 @@ def _build_navigate_goal(d):
         ps.header = header
         pos = pose_data.get('pose', {}).get('position', {})
         ori = pose_data.get('pose', {}).get('orientation', {})
-        ps.pose.position = Point(
-            x=float(pos.get('x', 0)), y=float(pos.get('y', 0)),
-            z=float(pos.get('z', 0)))
+        x = float(pos.get('x', 0))
+        y = float(pos.get('y', 0))
+        z = float(pos.get('z', 0))
+        if in_frame == 'map':
+            x, y, z = _map_to_robot(x, y, z, ts)
+        ps.pose.position = Point(x=x, y=y, z=z)
         ps.pose.orientation.x = float(ori.get('x', 0))
         ps.pose.orientation.y = float(ori.get('y', 0))
         ps.pose.orientation.z = float(ori.get('z', 0))
@@ -100,7 +144,7 @@ def _build_navigate_goal(d):
     return g
 
 
-def _build_fixed_trajectory_goal(d):
+def _build_fixed_trajectory_goal(d, ts):
     g = FixedTrajectoryTask.Goal()
     g.loop = bool(d.get('loop', False))
     spec_data = d.get('trajectory_spec', {})
@@ -115,7 +159,7 @@ def _build_fixed_trajectory_goal(d):
     return g
 
 
-def _build_semantic_search_goal(d):
+def _build_semantic_search_goal(d, ts):
     g = SemanticSearchTask.Goal()
     g.query = str(d.get('query', ''))
     g.background_queries = str(d.get('background_queries', ''))
@@ -124,14 +168,38 @@ def _build_semantic_search_goal(d):
     g.min_flight_speed = float(d.get('min_flight_speed', 0))
     g.max_flight_speed = float(d.get('max_flight_speed', 0))
     g.confidence_threshold = float(d.get('confidence_threshold', 0.95))
-    # search_area polygon
     area = d.get('search_area', {})
+    g.search_area = _build_polygon_from_global(area.get('points', []), ts)
+    return g
+
+
+def _build_polygon_from_global(points, ts):
+    """Transform editor-frame polygon points to the robot's local 'map' frame."""
+    if points and (ts is None or ts.get('boot') is None):
+        raise RuntimeError(
+            'Cannot transform polygon vertices: robot GPS boot pose '
+            'not yet received. Wait for first GPS fix and retry.')
     poly = Polygon()
-    for pt in area.get('points', []):
-        poly.points.append(Point32(
-            x=float(pt.get('x', 0)), y=float(pt.get('y', 0)),
-            z=float(pt.get('z', 0))))
-    g.search_area = poly
+    for pt in points:
+        x, y, z = _map_to_robot(
+            float(pt.get('x', 0)),
+            float(pt.get('y', 0)),
+            float(pt.get('z', 0)),
+            ts,
+        )
+        poly.points.append(Point32(x=x, y=y, z=z))
+    return poly
+
+
+def _build_exploration_goal(d, ts):
+    g = ExplorationTask.Goal()
+    g.min_altitude_agl = float(d.get('min_altitude_agl', 0))
+    g.max_altitude_agl = float(d.get('max_altitude_agl', 0))
+    g.min_flight_speed = float(d.get('min_flight_speed', 0))
+    g.max_flight_speed = float(d.get('max_flight_speed', 0))
+    g.time_limit_sec = float(d.get('time_limit_sec', 0))
+    bounds = d.get('search_bounds', {})
+    g.search_bounds = _build_polygon_from_global(bounds.get('points', []), ts)
     return g
 
 
@@ -141,12 +209,14 @@ _GOAL_BUILDERS = {
     'navigate':         _build_navigate_goal,
     'fixed_trajectory': _build_fixed_trajectory_goal,
     'semantic_search':  _build_semantic_search_goal,
+    'exploration':      _build_exploration_goal,
 }
 
 
 # ── Relay wiring ─────────────────────────────────────────────────────────────
 
-def _make_relay(node0, nodeN, executorN, topic, suffix, action_type, robot_domain):
+def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
+                robot_domain, transform_state):
     """Wire up goal subscriber (domain 0) + action client (domain N)."""
 
     client = ActionClient(nodeN, action_type, topic)
@@ -157,6 +227,7 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type, robot_domai
 
     goal_builder = _GOAL_BUILDERS[suffix]
     active_goal = {'handle': None}
+    cancel_event = threading.Event()
 
     def on_goal_str(msg):
         """Receive JSON goal from Foxglove, parse, forward as action."""
@@ -167,7 +238,12 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type, robot_domai
             _publish_result(False, f'Invalid JSON: {e}')
             return
 
-        goal_msg = goal_builder(data)
+        try:
+            goal_msg = goal_builder(data, transform_state)
+        except RuntimeError as e:
+            node0.get_logger().warn(f'[relay] {topic}: {e}')
+            _publish_result(False, str(e))
+            return
         node0.get_logger().info(f'[relay] {topic}: goal: {goal_msg}')
 
         if not client.wait_for_server(timeout_sec=5.0):
@@ -190,12 +266,21 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type, robot_domai
             return
 
         active_goal['handle'] = robot_goal_handle
+        cancel_event.clear()
         node0.get_logger().info(f'[relay] {topic}: goal accepted')
         feedback_pub.publish(String(data='Goal accepted by robot'))
 
         result_future = robot_goal_handle.get_result_async()
+        cancel_sent = False
         while not result_future.done():
+            if cancel_event.is_set() and not cancel_sent:
+                # Issue cancel from the same thread that owns executorN to
+                # avoid racing the rcl ActionClient.
+                robot_goal_handle.cancel_goal_async()
+                cancel_sent = True
+                feedback_pub.publish(String(data='Cancel forwarded to robot'))
             executorN.spin_once(timeout_sec=0.05)
+        cancel_event.clear()
 
         active_goal['handle'] = None
         wrapped = result_future.result()
@@ -209,13 +294,12 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type, robot_domai
         _publish_result(success, message)
 
     def on_cancel(msg):
-        """Cancel the active goal on the robot."""
-        gh = active_goal.get('handle')
-        if gh is None:
+        """Signal the goal-handler loop to forward a cancel to the robot."""
+        if active_goal.get('handle') is None:
             node0.get_logger().warn(f'[relay] {topic}: cancel requested but no active goal')
             return
-        node0.get_logger().info(f'[relay] {topic}: forwarding cancel to robot')
-        gh.cancel_goal_async()
+        node0.get_logger().info(f'[relay] {topic}: cancel requested')
+        cancel_event.set()
 
     def _on_feedback(fb_msg):
         fb = fb_msg.feedback
@@ -276,9 +360,41 @@ def main(args=None):
         f'Action relay: robot={robot_name} domain={robot_domain} '
         f'relaying {len(RELAYS)} action(s)')
 
+    # Track this robot's boot ENU position so we can convert global-frame
+    # waypoints/polygons (from the Foxglove editors) to robot-local before
+    # forwarding. First valid GPS fix is treated as boot, matching gcs_visualizer.
+    transform_state = {'boot': None, 'alt_ground': None}
+    gps_qos = QoSProfile(
+        depth=1,
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST,
+    )
+
+    def _on_gps(msg: NavSatFix):
+        if msg.status.status < 0:
+            return
+        if transform_state['alt_ground'] is None:
+            transform_state['alt_ground'] = msg.altitude
+        if transform_state['boot'] is None:
+            pos = gps_to_enu(msg.latitude, msg.longitude, msg.altitude,
+                             transform_state['alt_ground'])
+            transform_state['boot'] = pos
+            node0.get_logger().info(
+                f"[relay] {robot_name} boot ENU = "
+                f"({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+
+    node0.create_subscription(
+        NavSatFix,
+        f'/{robot_name}/interface/mavros/global_position/global',
+        _on_gps,
+        gps_qos,
+    )
+
     for suffix, action_type in RELAYS:
         topic = f'/{robot_name}/tasks/{suffix}'
-        _make_relay(node0, nodeN, executorN, topic, suffix, action_type, robot_domain)
+        _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
+                    robot_domain, transform_state)
 
     executor0 = MultiThreadedExecutor(context=ctx0)
     executor0.add_node(node0)

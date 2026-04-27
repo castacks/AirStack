@@ -7,5 +7,17 @@
 
     <!-- Planning -->
     <include file="$(find-pkg-share semantic_search_task)/launch/semantic_search_task.launch.xml" />
-    
+
+    <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"
+        output="screen">
+        <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
+        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+        <remap from="~/global_plan_toggle" to="/$(env ROBOT_NAME)/behavior/global_plan_toggle" />
+        <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+        <!-- Branch additions: ExplorationTask action server + NavigateTask client -->
+        <remap from="~/exploration_task" to="/$(env ROBOT_NAME)/tasks/exploration" />
+        <remap from="navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+    </node>
+
 </launch>

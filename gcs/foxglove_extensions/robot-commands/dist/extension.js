@@ -19,6 +19,44 @@ const TERMINAL_STATUSES = new Set([
   GOAL_STATUS.ABORTED,
 ]);
 
+// Topic the Waypoint Editor publishes its current list on (std_msgs/String JSON).
+const EDITOR_LIST_TOPIC = "/gcs/waypoints/list";
+
+// Topic the Polygon Editor publishes its current vertex list on.
+const POLYGON_LIST_TOPIC = "/gcs/polygon/list";
+
+// Module-level caches of latest editor data, refreshed in the panel's onRender.
+// The "Grab from Editor" button on each polygon/path field copies these into
+// the textbox.
+let editorWaypointsCache = [];
+let polygonVerticesCache = [];
+
+// Per-tab runtime (feedback lines, last result, status, active flag) lives at
+// module scope so it survives Foxglove panel re-instantiation (layout swaps,
+// dock changes). It is only cleared explicitly by Execute via
+// resetRuntimeForNewGoal.
+// Keyed by `${robot}::${tabId}` so each robot's panel has its own runtime —
+// otherwise a goal running for robot_1 would color robot_2's panel too.
+const perTabRuntime = {};
+function getPerTab(robot, tabId) {
+  const key = `${robot}::${tabId}`;
+  if (!perTabRuntime[key]) {
+    perTabRuntime[key] = {
+      feedbackLines: [],
+      resultText: "",
+      statusText: "Idle",
+      statusCode: 0,  // GOAL_STATUS.UNKNOWN
+      active: false,
+    };
+  }
+  return perTabRuntime[key];
+}
+
+// JSON-encode the cached editor list as `[[x,y,z], ...]` for the textbox.
+function editorCacheToJson(cache) {
+  return JSON.stringify((cache ?? []).map((p) => [p.x, p.y, p.z]));
+}
+
 const TRAJECTORY_DEFAULTS = {
   Circle:    [["frame_id","base_link"],["radius","5.0"],["velocity","2.0"]],
   Figure8:   [["frame_id","base_link"],["length","10.0"],["width","5.0"],["height","0.0"],["velocity","2.0"],["max_acceleration","1.0"]],
@@ -75,7 +113,7 @@ const TASK_TABS = [
     fields: [
       { name: "frame_id",         kind: "string", default: "map" },
       { name: "waypoints",        kind: "path",   default: "[[0.0, 0.0, 5.0]]",
-        hint: "JSON array of [x, y, z] waypoints in the above frame" },
+        hint: "JSON array of [x, y, z] waypoints. Use 'Grab from Editor' to copy in the Waypoint Editor's current list." },
       { name: "goal_tolerance_m", kind: "float",  default: 1.0, min: 0, max: 100, step: 0.1 },
     ],
     buildGoal: (s) => ({
@@ -91,7 +129,7 @@ const TASK_TABS = [
     goalSchema: "task_msgs/ExplorationTask_Goal",
     fields: [
       { name: "search_bounds", kind: "polygon", default: "[]",
-        hint: "JSON array of [x, y, z] vertices ([] = unbounded)" },
+        hint: "JSON array of [x, y, z] vertices ([] = unbounded). Use 'Grab from Editor' to copy in the Polygon Editor's current list." },
       ...altSpeedFields,
       { name: "time_limit_sec", kind: "float", default: 120.0, min: 0, max: 86400, step: 1 },
     ],
@@ -112,7 +150,7 @@ const TASK_TABS = [
     goalSchema: "task_msgs/CoverageTask_Goal",
     fields: [
       { name: "coverage_area", kind: "polygon", default: "[]",
-        hint: "JSON array of [x, y, z] vertices" },
+        hint: "JSON array of [x, y, z] vertices. Use 'Grab from Editor' to copy in the Polygon Editor's current list." },
       ...altSpeedFields,
       { name: "line_spacing_m", kind: "float", default: 5.0, min: 0.1, max: 1000, step: 0.1 },
       { name: "heading_deg",    kind: "float", default: 0.0, min: 0,   max: 360,  step: 1 },
@@ -140,7 +178,7 @@ const TASK_TABS = [
     fields: [
       { name: "object_class", kind: "string", default: "" },
       { name: "search_area",  kind: "polygon", default: "[]",
-        hint: "JSON array of [x, y, z] vertices" },
+        hint: "JSON array of [x, y, z] vertices. Use 'Grab from Editor' to copy in the Polygon Editor's current list." },
       ...altSpeedFields,
       { name: "time_limit_sec", kind: "float", default: 120.0, min: 0, max: 86400, step: 1 },
       { name: "target_count",   kind: "int",   default: 1,     min: 0, max: 10000, step: 1,
@@ -170,7 +208,7 @@ const TASK_TABS = [
     fields: [
       { name: "object_class", kind: "string",  default: "" },
       { name: "count_area",   kind: "polygon", default: "[]",
-        hint: "JSON array of [x, y, z] vertices" },
+        hint: "JSON array of [x, y, z] vertices. Use 'Grab from Editor' to copy in the Polygon Editor's current list." },
       ...altSpeedFields,
     ],
     buildGoal: (s) => ({
@@ -197,7 +235,7 @@ const TASK_TABS = [
       { name: "background_queries", kind: "string", default: "",
         hint: "comma-separated contrast classes, e.g. building,tree,ground" },
       { name: "search_area",        kind: "polygon", default: "[]",
-        hint: "JSON array of [x, y, z] vertices" },
+        hint: "JSON array of [x, y, z] vertices. Use 'Grab from Editor' to copy in the Polygon Editor's current list." },
       { name: "min_altitude_agl",   kind: "float", default: 3.0,  min: 0, max: 500, step: 0.1 },
       { name: "max_altitude_agl",   kind: "float", default: 15.0, min: 0, max: 500, step: 0.1 },
       { name: "min_flight_speed",   kind: "float", default: 1.0,  min: 0, max: 50,  step: 0.1 },
@@ -367,17 +405,17 @@ function activate(extensionContext) {
         }
       }
 
-      // Runtime (not persisted) — per-tab feedback/result/status
-      const perTab = {};
-      for (const tab of TASK_TABS) {
-        perTab[tab.id] = {
-          feedbackLines: [],
-          resultText: "",
-          statusText: "Idle",
-          statusCode: GOAL_STATUS.UNKNOWN,
-          active: false,
-        };
-      }
+      // Per-tab runtime is module-scoped (perTabRuntime) so it survives panel
+      // re-mounts. Lookups read `state.robot` lazily so changing the robot
+      // input switches the panel to that robot's runtime instantly.
+      const perTab = new Proxy({}, {
+        get(_, key) { return getPerTab(state.robot, String(key)); },
+        has(_, key) {
+          return Boolean(perTabRuntime[`${state.robot}::${String(key)}`]);
+        },
+      });
+      // Pre-create entries for the current robot.
+      for (const tab of TASK_TABS) getPerTab(state.robot, tab.id);
       const runtime = {
         subscribedTopics: [],
       };
@@ -406,6 +444,9 @@ function activate(extensionContext) {
       robotInput.addEventListener("change", () => {
         state.robot = robotInput.value.trim() || "robot_1";
         persist();
+        for (const tab of TASK_TABS) getPerTab(state.robot, tab.id);
+        rebuildSubscriptions();
+        renderTabs();
       });
       robotRow.appendChild(robotLabel);
       robotRow.appendChild(robotInput);
@@ -494,9 +535,19 @@ function activate(extensionContext) {
           tabBodies[tab.id].style.display = isActive ? "flex" : "none";
           tabButtons[tab.id].style.borderBottomColor = isActive ? "#10b981" : "transparent";
           tabButtons[tab.id].style.fontWeight = isActive ? "bold" : "normal";
-          // Show active indicator on tab if it has a running goal
+          // Tab text color: yellow while running, green on success, yellow on
+          // failure/cancel, inherit otherwise.
           const pt = perTab[tab.id];
-          tabButtons[tab.id].style.color = pt.active ? "#10b981" : "inherit";
+          let color = "inherit";
+          if (pt.active) {
+            color = "#eab308";  // yellow — running
+          } else if (pt.statusCode === GOAL_STATUS.SUCCEEDED) {
+            color = "#10b981";  // green — succeeded
+          } else if (pt.statusCode === GOAL_STATUS.ABORTED ||
+                     pt.statusCode === GOAL_STATUS.CANCELED) {
+            color = "#eab308";  // yellow — failed / canceled
+          }
+          tabButtons[tab.id].style.color = color;
         }
         renderStatus();
         renderFeedback();
@@ -542,13 +593,14 @@ function activate(extensionContext) {
         t.statusCode = GOAL_STATUS.UNKNOWN;
         renderFeedback();
         renderStatus();
+        renderTabs();
       }
 
       // ── subscriptions (relay uses plain std_msgs/String topics) ────────
       // Subscribe to ALL relay topics for all tabs so we catch results
       // even when the user switches tabs during execution.
       function rebuildSubscriptions() {
-        const topics = [];
+        const topics = [EDITOR_LIST_TOPIC, POLYGON_LIST_TOPIC];
         for (const tab of TASK_TABS) {
           if (perTab[tab.id].active) {
             topics.push(`/${state.robot}/${tab.actionSuffix}/relay_feedback`);
@@ -558,6 +610,9 @@ function activate(extensionContext) {
         runtime.subscribedTopics = topics;
         panelContext.subscribe(topics.map((topic) => ({ topic })));
       }
+      // Subscribe to the editor topic immediately so the cache is warm before
+      // the user clicks Execute on Navigate.
+      rebuildSubscriptions();
 
       // ── execute / cancel ─────────────────────────────────────────────────
       executeBtn.addEventListener("click", async () => {
@@ -666,7 +721,17 @@ function activate(extensionContext) {
         if (frame) {
           for (const evt of frame) {
             if (!runtime.subscribedTopics.includes(evt.topic)) continue;
-            if (evt.topic.endsWith("/relay_feedback")) {
+            if (evt.topic === EDITOR_LIST_TOPIC) {
+              try {
+                const data = JSON.parse(evt.message?.data ?? "{}");
+                editorWaypointsCache = Array.isArray(data.waypoints) ? data.waypoints : [];
+              } catch { /* ignore bad data */ }
+            } else if (evt.topic === POLYGON_LIST_TOPIC) {
+              try {
+                const data = JSON.parse(evt.message?.data ?? "{}");
+                polygonVerticesCache = Array.isArray(data.vertices) ? data.vertices : [];
+              } catch { /* ignore bad data */ }
+            } else if (evt.topic.endsWith("/relay_feedback")) {
               handleRelayFeedback(evt.topic, evt.message);
             } else if (evt.topic.endsWith("/relay_result")) {
               handleRelayResult(evt.topic, evt.message);
@@ -817,6 +882,25 @@ function buildField(field, tabState, persist) {
       });
       validate();
       details.appendChild(ta);
+
+      // "Grab from Editor" button — snapshots the matching editor cache
+      // (waypoints for path fields, polygon vertices for polygon fields) into
+      // the textbox so the user can capture, modify the editor, capture again
+      // for another command/drone, etc.
+      const grabBtn = document.createElement("button");
+      grabBtn.textContent = "Grab from Editor";
+      grabBtn.style.cssText = "margin-top:4px;padding:4px 10px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-size:12px;";
+      grabBtn.addEventListener("click", () => {
+        const cache = field.kind === "polygon" ? polygonVerticesCache : editorWaypointsCache;
+        const json = editorCacheToJson(cache);
+        ta.value = json;
+        tabState[field.name] = json;
+        validate();
+        renderSummary();
+        persist();
+      });
+      details.appendChild(grabBtn);
+
       if (field.hint) {
         const h = document.createElement("span");
         h.textContent = field.hint;

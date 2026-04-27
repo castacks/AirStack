@@ -1,0 +1,9 @@
+{
+  "name": "polygon-editor",
+  "displayName": "Polygon Editor",
+  "description": "Click-to-place polygon vertex editor for the Foxglove 3D view.",
+  "publisher": "AirLab CMU",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js"
+}
