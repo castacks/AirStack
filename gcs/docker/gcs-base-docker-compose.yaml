@@ -61,6 +61,8 @@ services:
       - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
       - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
       - ./Foxglove:/root/.config/Foxglove:rw
+      # waypoint/polygon editor saves (so they survive container restarts)
+      - ../saves:/root/.airstack:rw
       # foxglove extensions
       - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:ro
       # autonomy stack stuff

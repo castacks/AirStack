@@ -8,16 +8,19 @@
     <!-- Planning -->
     <include file="$(find-pkg-share semantic_search_task)/launch/semantic_search_task.launch.xml" />
 
-    <node pkg="random_walk_planner" exec="random_walk_planner" name="random_walk_planner"
-        output="screen">
+    <!-- The C++ constructor names the node "random_walk_node" (don't set
+         launch name= or it will rename and break the remap source paths).
+         The parent launch pushes a $(env ROBOT_NAME) namespace, so we use
+         RELATIVE remap sources here so they resolve to the namespaced
+         topics at runtime. -->
+    <node pkg="random_walk_planner" exec="random_walk_planner" output="screen">
         <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
-        <remap from="vdb_map_visualization" to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
-        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
-        <remap from="~/global_plan_toggle" to="/$(env ROBOT_NAME)/behavior/global_plan_toggle" />
-        <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-        <!-- Branch additions: ExplorationTask action server + NavigateTask client -->
-        <remap from="~/exploration_task" to="/$(env ROBOT_NAME)/tasks/exploration" />
-        <remap from="navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+        <remap from="vdb_map_visualization" to="vdb_mapping/vdb_map_visualization" />
+        <remap from="odometry" to="odometry_conversion/odometry" />
+        <remap from="random_walk_node/global_plan" to="global_plan" />
+        <remap from="random_walk_node/global_plan_toggle" to="behavior/global_plan_toggle" />
+        <remap from="random_walk_node/exploration_task" to="tasks/exploration" />
+        <remap from="navigate_task" to="tasks/navigate" />
     </node>
 
 </launch>

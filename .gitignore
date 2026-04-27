@@ -82,3 +82,7 @@ simulation/isaac-sim/launch_scripts/AbandonedFactory_Launch.py
 simulation/isaac-sim/launch_scripts/ConstructionSite_Launch.py
 simulation/isaac-sim/launch_scripts/FireAcademy_Launch.py
 simulation/isaac-sim/launch_scripts/RetroNeighborhood_Launch.py
+
+# Persisted waypoint/polygon editor saves (host-side mount target)
+gcs/saves/*
+!gcs/saves/.gitkeep

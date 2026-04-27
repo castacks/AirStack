@@ -23,6 +23,7 @@ Usage:
 import json
 import math
 import threading
+import time
 
 import rclpy
 from rclpy.action import ActionClient
@@ -229,6 +230,10 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
     active_goal = {'handle': None}
     cancel_event = threading.Event()
 
+    # Tasks exempt from the "must be airborne" precondition.
+    AIRBORNE_EXEMPT = {'takeoff', 'land'}
+    MIN_AIRBORNE_Z_M = 5.0
+
     def on_goal_str(msg):
         """Receive JSON goal from Foxglove, parse, forward as action."""
         try:
@@ -237,6 +242,27 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             node0.get_logger().error(f'[relay] {topic}: bad JSON: {e}')
             _publish_result(False, f'Invalid JSON: {e}')
             return
+
+        # Airborne precondition: every task except takeoff/land requires the
+        # drone to be at least MIN_AIRBORNE_Z_M above its takeoff altitude.
+        if suffix not in AIRBORNE_EXEMPT:
+            cur_z = transform_state.get('current_z')
+            if cur_z is None:
+                node0.get_logger().warn(
+                    f'[relay] {topic}: rejected — no GPS altitude yet')
+                _publish_result(
+                    False,
+                    'Robot altitude unknown (no GPS fix yet) — takeoff first.')
+                return
+            if cur_z < MIN_AIRBORNE_Z_M:
+                node0.get_logger().warn(
+                    f'[relay] {topic}: rejected — drone at {cur_z:.2f}m AGL, '
+                    f'need >= {MIN_AIRBORNE_Z_M}m')
+                _publish_result(
+                    False,
+                    f'Takeoff first — drone is at {cur_z:.2f}m AGL '
+                    f'(need >= {MIN_AIRBORNE_Z_M:.0f}m).')
+                return
 
         try:
             goal_msg = goal_builder(data, transform_state)
@@ -270,28 +296,55 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
         node0.get_logger().info(f'[relay] {topic}: goal accepted')
         feedback_pub.publish(String(data='Goal accepted by robot'))
 
-        result_future = robot_goal_handle.get_result_async()
-        cancel_sent = False
-        while not result_future.done():
-            if cancel_event.is_set() and not cancel_sent:
-                # Issue cancel from the same thread that owns executorN to
-                # avoid racing the rcl ActionClient.
-                robot_goal_handle.cancel_goal_async()
-                cancel_sent = True
-                feedback_pub.publish(String(data='Cancel forwarded to robot'))
-            executorN.spin_once(timeout_sec=0.05)
-        cancel_event.clear()
+        # Drive the result loop. We always end this block by publishing a
+        # relay_result so the panel can move on, even if the robot's executor
+        # gets stuck on cancel or result_future.result() blows up.
+        try:
+            result_future = robot_goal_handle.get_result_async()
+            cancel_sent = False
+            cancel_deadline = None
+            CANCEL_TIMEOUT_SEC = 10.0
 
-        active_goal['handle'] = None
-        wrapped = result_future.result()
-        robot_result = wrapped.result
-        status = wrapped.status
-        status_str = {4: 'SUCCEEDED', 5: 'CANCELED'}.get(status, 'ABORTED')
-        node0.get_logger().info(f'[relay] {topic}: {status_str}')
+            while not result_future.done():
+                if cancel_event.is_set():
+                    if not cancel_sent:
+                        # Issue cancel from the same thread that owns executorN
+                        # to avoid racing the rcl ActionClient.
+                        robot_goal_handle.cancel_goal_async()
+                        cancel_sent = True
+                        cancel_deadline = time.monotonic() + CANCEL_TIMEOUT_SEC
+                        feedback_pub.publish(String(data='Cancel forwarded to robot'))
+                    elif cancel_deadline is not None and time.monotonic() > cancel_deadline:
+                        node0.get_logger().warn(
+                            f'[relay] {topic}: cancel timed out after '
+                            f'{CANCEL_TIMEOUT_SEC:.0f}s — forcing CANCELED result')
+                        break
+                executorN.spin_once(timeout_sec=0.05)
 
-        success = getattr(robot_result, 'success', status == 4)
-        message = getattr(robot_result, 'message', status_str)
-        _publish_result(success, message)
+            if result_future.done():
+                wrapped = result_future.result()
+                robot_result = wrapped.result
+                status = wrapped.status
+                status_str = {4: 'SUCCEEDED', 5: 'CANCELED'}.get(status, 'ABORTED')
+                success = getattr(robot_result, 'success', status == 4)
+                message = getattr(robot_result, 'message', status_str)
+            else:
+                # cancel timed out — server didn't return a result in time
+                status_str = 'CANCELED'
+                success = False
+                message = 'Canceled (server did not respond within timeout)'
+
+            node0.get_logger().info(f'[relay] {topic}: {status_str}')
+            _publish_result(success, message)
+        except Exception as e:
+            node0.get_logger().error(f'[relay] {topic}: result loop failed: {e}')
+            try:
+                _publish_result(False, f'Result handling failed: {e}')
+            except Exception:
+                pass
+        finally:
+            active_goal['handle'] = None
+            cancel_event.clear()
 
     def on_cancel(msg):
         """Signal the goal-handler loop to forward a cancel to the robot."""
@@ -363,7 +416,10 @@ def main(args=None):
     # Track this robot's boot ENU position so we can convert global-frame
     # waypoints/polygons (from the Foxglove editors) to robot-local before
     # forwarding. First valid GPS fix is treated as boot, matching gcs_visualizer.
-    transform_state = {'boot': None, 'alt_ground': None}
+    # current_z is the most recent altitude AGL (relative to alt_ground), used
+    # to gate non-takeoff tasks so the user can't accidentally send a navigate
+    # command while the drone is on the ground.
+    transform_state = {'boot': None, 'alt_ground': None, 'current_z': None}
     gps_qos = QoSProfile(
         depth=1,
         reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -383,6 +439,7 @@ def main(args=None):
             node0.get_logger().info(
                 f"[relay] {robot_name} boot ENU = "
                 f"({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+        transform_state['current_z'] = msg.altitude - transform_state['alt_ground']
 
     node0.create_subscription(
         NavSatFix,

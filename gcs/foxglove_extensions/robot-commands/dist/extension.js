@@ -21,15 +21,46 @@ const TERMINAL_STATUSES = new Set([
 
 // Topic the Waypoint Editor publishes its current list on (std_msgs/String JSON).
 const EDITOR_LIST_TOPIC = "/gcs/waypoints/list";
+const EDITOR_SAVES_TOPIC = "/gcs/waypoints/saves";
 
 // Topic the Polygon Editor publishes its current vertex list on.
 const POLYGON_LIST_TOPIC = "/gcs/polygon/list";
+const POLYGON_SAVES_TOPIC = "/gcs/polygon/saves";
 
 // Module-level caches of latest editor data, refreshed in the panel's onRender.
 // The "Grab from Editor" button on each polygon/path field copies these into
 // the textbox.
 let editorWaypointsCache = [];
 let polygonVerticesCache = [];
+// Save caches: {name: {color, vertices}} keyed by save name.
+let editorSavesCache = {};
+let polygonSavesCache = {};
+
+// Registry of (kind, <select>) pairs so we can refresh them when save caches
+// update without rebuilding the whole panel. kind is "polygon" or "path".
+const sourceDropdowns = [];
+
+function refreshSourceDropdowns() {
+  for (const { kind, select } of sourceDropdowns) {
+    const cache = kind === "polygon" ? polygonSavesCache : editorSavesCache;
+    const names = Object.keys(cache).sort();
+    const prev = select.value;
+    select.replaceChildren();
+    const activeOpt = document.createElement("option");
+    activeOpt.value = "";
+    activeOpt.textContent = "active";
+    select.appendChild(activeOpt);
+    for (const name of names) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+    // Preserve prior selection if the save still exists.
+    if (prev === "" || names.includes(prev)) select.value = prev;
+    else select.value = "";
+  }
+}
 
 // Per-tab runtime (feedback lines, last result, status, active flag) lives at
 // module scope so it survives Foxglove panel re-instantiation (layout swaps,
@@ -600,7 +631,10 @@ function activate(extensionContext) {
       // Subscribe to ALL relay topics for all tabs so we catch results
       // even when the user switches tabs during execution.
       function rebuildSubscriptions() {
-        const topics = [EDITOR_LIST_TOPIC, POLYGON_LIST_TOPIC];
+        const topics = [
+          EDITOR_LIST_TOPIC, EDITOR_SAVES_TOPIC,
+          POLYGON_LIST_TOPIC, POLYGON_SAVES_TOPIC,
+        ];
         for (const tab of TASK_TABS) {
           if (perTab[tab.id].active) {
             topics.push(`/${state.robot}/${tab.actionSuffix}/relay_feedback`);
@@ -730,6 +764,24 @@ function activate(extensionContext) {
               try {
                 const data = JSON.parse(evt.message?.data ?? "{}");
                 polygonVerticesCache = Array.isArray(data.vertices) ? data.vertices : [];
+              } catch { /* ignore bad data */ }
+            } else if (evt.topic === EDITOR_SAVES_TOPIC) {
+              try {
+                const data = JSON.parse(evt.message?.data ?? "{}");
+                editorSavesCache = {};
+                for (const s of (data.saves ?? [])) {
+                  editorSavesCache[s.name] = { color: s.color, vertices: s.vertices };
+                }
+                refreshSourceDropdowns();
+              } catch { /* ignore bad data */ }
+            } else if (evt.topic === POLYGON_SAVES_TOPIC) {
+              try {
+                const data = JSON.parse(evt.message?.data ?? "{}");
+                polygonSavesCache = {};
+                for (const s of (data.saves ?? [])) {
+                  polygonSavesCache[s.name] = { color: s.color, vertices: s.vertices };
+                }
+                refreshSourceDropdowns();
               } catch { /* ignore bad data */ }
             } else if (evt.topic.endsWith("/relay_feedback")) {
               handleRelayFeedback(evt.topic, evt.message);
@@ -883,15 +935,34 @@ function buildField(field, tabState, persist) {
       validate();
       details.appendChild(ta);
 
-      // "Grab from Editor" button — snapshots the matching editor cache
-      // (waypoints for path fields, polygon vertices for polygon fields) into
-      // the textbox so the user can capture, modify the editor, capture again
-      // for another command/drone, etc.
+      // "Grab from <source>" — source dropdown lets the user pick the active
+      // editor or any saved save. The dropdown is registered globally so its
+      // option list refreshes whenever the save caches update.
+      const grabRow = document.createElement("div");
+      grabRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:4px;";
+
+      const sourceLabel = document.createElement("span");
+      sourceLabel.textContent = "from:";
+      sourceLabel.style.cssText = "font-size:11px;opacity:0.7;";
+      grabRow.appendChild(sourceLabel);
+
+      const sourceSelect = document.createElement("select");
+      sourceSelect.style.cssText = "flex:1;min-width:80px;padding:3px 4px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;font-size:12px;";
+      grabRow.appendChild(sourceSelect);
+      sourceDropdowns.push({ kind: field.kind, select: sourceSelect });
+
       const grabBtn = document.createElement("button");
-      grabBtn.textContent = "Grab from Editor";
-      grabBtn.style.cssText = "margin-top:4px;padding:4px 10px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-size:12px;";
+      grabBtn.textContent = "Grab";
+      grabBtn.style.cssText = "padding:4px 10px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-size:12px;";
       grabBtn.addEventListener("click", () => {
-        const cache = field.kind === "polygon" ? polygonVerticesCache : editorWaypointsCache;
+        const sel = sourceSelect.value;
+        let cache;
+        if (sel === "" || sel == null) {
+          cache = field.kind === "polygon" ? polygonVerticesCache : editorWaypointsCache;
+        } else {
+          const saves = field.kind === "polygon" ? polygonSavesCache : editorSavesCache;
+          cache = saves[sel]?.vertices ?? [];
+        }
         const json = editorCacheToJson(cache);
         ta.value = json;
         tabState[field.name] = json;
@@ -899,7 +970,11 @@ function buildField(field, tabState, persist) {
         renderSummary();
         persist();
       });
-      details.appendChild(grabBtn);
+      grabRow.appendChild(grabBtn);
+      details.appendChild(grabRow);
+
+      // Populate dropdown immediately with whatever is in the cache.
+      refreshSourceDropdowns();
 
       if (field.hint) {
         const h = document.createElement("span");

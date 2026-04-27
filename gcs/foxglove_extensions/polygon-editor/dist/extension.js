@@ -5,6 +5,7 @@
 
 const CMD_TOPIC = "/gcs/polygon/command";
 const LIST_TOPIC = "/gcs/polygon/list";
+const SAVES_TOPIC = "/gcs/polygon/saves";
 const CMD_SCHEMA = "std_msgs/msg/String";
 
 // ─────────────────────────── panel ───────────────────────────────────────────
@@ -22,6 +23,7 @@ function activate(extensionContext) {
       let vertices = [];  // [{x, y, z}, ...]
       let selectedIdx = -1;
       let enabled = false;  // synced from /gcs/polygon/list
+      let saves = [];  // synced from /gcs/polygon/saves
 
       function persist() { panelContext.saveState(state); }
       function sendCmd(cmd) {
@@ -111,9 +113,96 @@ function activate(extensionContext) {
       addRow.appendChild(addBtn);
       root.appendChild(addRow);
 
+      // ── Saves section ────────────────────────────────────────────────
+      const savesLabel = el("div",
+        "font-size:11px;font-weight:bold;opacity:0.8;margin-top:6px;flex-shrink:0;");
+      savesLabel.textContent = "Saves";
+      root.appendChild(savesLabel);
+
+      const saveAddRow = el("div", "display:flex;align-items:center;gap:4px;flex-shrink:0;");
+      const saveNameIn = el("input",
+        "flex:1;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-size:12px;");
+      saveNameIn.type = "text";
+      saveNameIn.placeholder = "save name…";
+      const saveAddBtn = el("button",
+        "padding:4px 10px;border-radius:4px;border:none;background:#10b981;color:white;cursor:pointer;font-size:12px;");
+      saveAddBtn.textContent = "+ Add";
+      saveAddBtn.addEventListener("click", () => {
+        const name = saveNameIn.value.trim();
+        if (!name) return;
+        sendCmd({ action: "add_save", name });
+      });
+      saveAddRow.appendChild(saveNameIn);
+      saveAddRow.appendChild(saveAddBtn);
+      root.appendChild(saveAddRow);
+
+      const saveList = el("div",
+        "border:1px solid #333;border-radius:4px;min-height:0;flex-shrink:0;");
+      root.appendChild(saveList);
+
       // Status
       const statusEl = el("div", "font-size:11px;opacity:0.6;flex-shrink:0;");
       root.appendChild(statusEl);
+
+      function renderSaves() {
+        saveList.replaceChildren();
+        if (saves.length === 0) {
+          const empty = el("div", "padding:6px 8px;opacity:0.5;font-size:11px;");
+          empty.textContent = "No saves yet. Type a name and click + Add.";
+          saveList.appendChild(empty);
+          return;
+        }
+        for (const s of saves) {
+          const row = el("div",
+            "display:flex;align-items:center;gap:6px;padding:4px 6px;border-bottom:1px solid #333;font-size:12px;");
+          const swatch = el("span",
+            "display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;");
+          const [r, g, b] = s.color || [0.5, 0.5, 0.5];
+          swatch.style.background =
+            `rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`;
+          row.appendChild(swatch);
+
+          const nameEl = el("span", "flex:1;font-family:monospace;");
+          nameEl.textContent = `${s.name} (${s.count} vert${s.count === 1 ? "" : "s"})`;
+          row.appendChild(nameEl);
+
+          const loadBtn = el("button",
+            "padding:2px 8px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-size:11px;");
+          loadBtn.textContent = "Load";
+          loadBtn.addEventListener("click", () => {
+            sendCmd({ action: "load_save", name: s.name });
+          });
+          row.appendChild(loadBtn);
+
+          const saveBtn = el("button", "");
+          if (s.saved) {
+            saveBtn.textContent = "✓ Saved";
+            saveBtn.disabled = true;
+            saveBtn.style.cssText =
+              "padding:2px 8px;border-radius:3px;border:1px solid #10b981;background:rgba(16,185,129,0.1);color:#10b981;cursor:default;font-size:11px;";
+          } else {
+            saveBtn.textContent = "Save";
+            saveBtn.style.cssText =
+              "padding:2px 8px;border-radius:3px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:11px;";
+            saveBtn.addEventListener("click", () => {
+              sendCmd({ action: "save_save", name: s.name });
+            });
+          }
+          row.appendChild(saveBtn);
+
+          const delBtn = el("button",
+            "padding:2px 6px;border-radius:3px;border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;");
+          delBtn.textContent = "✕";
+          delBtn.title = "Delete save";
+          delBtn.addEventListener("click", () => {
+            sendCmd({ action: "delete_save", name: s.name });
+          });
+          row.appendChild(delBtn);
+
+          saveList.appendChild(row);
+        }
+      }
+      renderSaves();
 
       // ── render helpers ───────────────────────────────────────────────
       function renderEnableBtn() {
@@ -201,7 +290,10 @@ function activate(extensionContext) {
       renderList();
 
       // ── subscriptions ────────────────────────────────────────────────
-      panelContext.subscribe([{ topic: LIST_TOPIC }]);
+      panelContext.subscribe([
+        { topic: LIST_TOPIC },
+        { topic: SAVES_TOPIC },
+      ]);
       panelContext.watch("currentFrame");
 
       panelContext.onRender = (renderState, done) => {
@@ -222,6 +314,12 @@ function activate(extensionContext) {
                 }
                 if (selectedIdx >= vertices.length) selectedIdx = -1;
                 renderList();
+              } catch { /* ignore bad data */ }
+            } else if (evt.topic === SAVES_TOPIC) {
+              try {
+                const data = JSON.parse(evt.message.data);
+                saves = Array.isArray(data.saves) ? data.saves : [];
+                renderSaves();
               } catch { /* ignore bad data */ }
             }
           }

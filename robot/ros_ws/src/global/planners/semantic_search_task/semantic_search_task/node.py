@@ -177,16 +177,20 @@ class SemanticSearchTaskNode(Node):
         return GoalResponse.ACCEPT
 
     def _cleanup_existing(self) -> None:
-        """Kill any leftover rayfronts, raven, or random_walk processes."""
-        for pattern in ['rayfronts.mapping_server', 'raven_nav_node',
-                        'random_walk_planner']:
+        """Kill any leftover rayfronts or raven processes.
+
+        random_walk_planner is intentionally NOT killed here: it now runs as
+        a long-lived task executor under global_bringup, and pkill'ing it
+        would tear down the ExplorationTask action server every time this
+        node initializes or starts a goal.
+        """
+        for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             result = subprocess.run(
                 ['pkill', '-SIGTERM', '-f', pattern], capture_output=True)
             if result.returncode == 0:
                 self.get_logger().info(f'Killed existing {pattern} process(es)')
         time.sleep(2.0)
-        for pattern in ['rayfronts.mapping_server', 'raven_nav_node',
-                        'random_walk_planner']:
+        for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             subprocess.run(['pkill', '-SIGKILL', '-f', pattern], capture_output=True)
 
     def _spawn(self, cmd: list) -> tuple:
