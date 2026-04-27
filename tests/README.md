@@ -22,7 +22,7 @@ Marks can be combined with pytest logic:
 
 ### Bring-up scope (`airstack_env`)
 
-`airstack_env` is **class-scoped** and parametrized per `(sim, num_robots, iteration)`. Each test **class** that uses it (`TestLiveliness`, `TestSensors`, `TestTakeoffHoverLand`, …) performs its **own** ``airstack up`` / ``airstack down`` for that parametrization. Selecting both classes (for example, ``-m "liveliness or sensors"``) runs **two** full stack cycles per tuple (liveliness class, then sensors class). Collection order (see ``conftest.py``) runs **liveliness before sensors** when both are selected. To save wall time, run ``-m liveliness`` or ``-m sensors`` alone when one suite is enough.
+`airstack_env` is **class-scoped** and parametrized per `(sim, num_robots, iteration)`. Each test **class** that uses it (`TestLiveliness`, `TestSensors`, `TestTakeoffHoverLand`, `TestFixedTrajectory`, …) performs its **own** ``airstack up`` / ``airstack down`` for that parametrization. Selecting multiple classes (for example, ``-m "liveliness or sensors"``) runs **separate** full stack cycles per class. Collection order (see ``conftest.py``) runs **liveliness → sensors → takeoff_hover_land → fixed_trajectory** when all are selected. To save wall time, run a single mark (e.g. ``-m liveliness`` or ``-m sensors``) when one suite is enough.
 
 ---
 
