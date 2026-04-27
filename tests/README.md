@@ -293,7 +293,7 @@ sudo chown -R runner:runner /opt/actions-runner
 
 ### 3. Store the GitHub PAT
 
-Create a fine-grained or classic PAT with **`repo`** scope (for private repos) or **`public_repo`** scope (for public repos). Store it securely:
+[Create a fine-grained PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) with **`repo`** scope (for private repos) or **`public_repo`** scope (for public repos). Store it securely:
 
 ```bash
 echo "ghp_YOUR_TOKEN_HERE" | sudo tee /etc/github-runner-pat
