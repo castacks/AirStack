@@ -45,7 +45,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install test dependencies
-        run: pip3 install -r tests/requirements.txt
+        # Ubuntu 24.04 marks the system Python as externally-managed (PEP 668),
+        # so `pip install` outside a venv is rejected. Use a venv and prepend
+        # its bin/ to $GITHUB_PATH so subsequent steps pick up `pytest`
+        # automatically.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv
+          python3 -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r tests/requirements.txt
 
       - name: Ensure airstack.sh is executable
         run: chmod +x airstack.sh
