@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]  # Adjust branches as needed
     paths:
       - '.env'
+  workflow_dispatch:
 
 jobs:
   check-docker-tag-change:
@@ -40,7 +41,7 @@ jobs:
 
   docker-build:
     needs: check-docker-tag-change
-    if: needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true'
     runs-on: [self-hosted, airstack-ephemeral]
     timeout-minutes: 120
     steps:
@@ -102,7 +103,7 @@ jobs:
 
   notify:
     needs: [check-docker-tag-change, docker-build]
-    if: always() && needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Notify build and push result
