@@ -307,7 +307,7 @@ AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they 
 
 ### Setup
 
-The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](../../../../.github/orchestrator/README.md) for:
+The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
 
 - creating the OpenStack application credential and `clouds.yaml`
 - staging the GitHub PAT

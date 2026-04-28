@@ -156,3 +156,127 @@ openstack server list --name '^ephemeral-'
 - **PAT rotation**: `sudo install -o root -g orchestrator -m 0640 /tmp/new-pat /etc/airstack-orchestrator/github-pat && sudo systemctl restart airstack-orchestrator.service`.
 - **Pause spawning** (e.g. for maintenance): `sudo systemctl stop airstack-orchestrator.service`. Already-spawned workers will still complete their jobs and self-shutdown; on restart, the reap loop deletes them.
 - **Logs**: `journalctl -u airstack-orchestrator.service -f`. Cloud-init logs from individual workers are visible only via `openstack console log show <server>` while the worker is running.
+
+## Debugging a failed job
+
+When a GitHub workflow run fails or stalls, the failure can be in any of four places: the orchestrator (didn't spawn), cloud-init (didn't bootstrap), the GH Actions runner (didn't register or crashed), or the workflow steps themselves. Each has a different inspection path.
+
+### 1. Find which worker ran the job
+
+`state.json` is the authoritative job ↔ server ↔ floating-IP map:
+
+```bash
+sudo jq -r '.jobs | to_entries[] | "\(.key)\t\(.value.server_id)\t\(.value.floating_ip)\t\(.value.runner_name)"' \
+  /var/lib/airstack-orchestrator/state.json
+```
+
+Pick the row for your failing `job_id` (visible in the GitHub Actions URL). Save the values:
+
+```bash
+JOB_ID=73286176852          # from the GitHub UI
+SERVER=$(sudo jq -r ".jobs[\"$JOB_ID\"].server_id"   /var/lib/airstack-orchestrator/state.json)
+FIP=$(   sudo jq -r ".jobs[\"$JOB_ID\"].floating_ip" /var/lib/airstack-orchestrator/state.json)
+```
+
+If the job isn't in `state.json`, the orchestrator never spawned for it — see step 2 below.
+
+### 2. Did the orchestrator spawn at all?
+
+```bash
+sudo journalctl -u airstack-orchestrator.service --since "30 min ago" --no-pager
+```
+
+What you want to see for a healthy spawn:
+
+```text
+spawned server <uuid> for job <job_id> (<job name>)
+attached floating IP <addr> to server <uuid> (job <job_id>)
+```
+
+Common things that block a spawn (and how to spot them):
+
+| Log line / symptom | What it means | Fix |
+|---|---|---|
+| `find_queued_jobs failed: 401 ...` | PAT expired / wrong scope | Rotate the PAT (see Operational notes) |
+| `spawn failed for job ...: Block Device Mapping is Invalid` | Flavor has `disk=0` and `boot_volume_size_gb` is 0 | Set `boot_volume_size_gb > 0` |
+| `no free floating IP in pool` | All FIPs in `floating_ips` are already in use | Wait for an in-flight job to complete, or expand the pool |
+| `floating_ips configured but not found` | Pool addresses don't exist in the project | Double-check `openstack floating ip list` |
+| Job is queued in GitHub but no `spawned` log | Runner labels in the workflow's `runs-on` don't match `runner_labels` in config | Make them match |
+
+### 3. SSH into a running worker
+
+If the worker is `ACTIVE`, the floating IP is attached and you can connect directly. The keypair was injected during spawn — use the matching private key:
+
+```bash
+ssh -i <keypair>.pem ubuntu@"$FIP"
+```
+
+If your workstation can't reach the FIP subnet, jump through the orchestrator (which is on the same network):
+
+```bash
+ssh -J ubuntu@<orchestrator-ip> -i <keypair>.pem ubuntu@"$FIP"
+```
+
+### 4. SSH into a SHUTOFF worker
+
+Workers shut themselves down after `run.sh` exits (whether the job succeeded, failed, or the runner crashed). The orchestrator only deletes a server once GitHub reports the job `completed`, so a SHUTOFF worker is preserved while you debug.
+
+```bash
+# Optional but safer — keep the orchestrator from reaping mid-session.
+sudo systemctl stop airstack-orchestrator.service
+
+openstack server start "$SERVER"
+# Wait ~30s, then SSH using the FIP from state.json.
+ssh -i <keypair>.pem ubuntu@"$FIP"
+```
+
+When done, delete the worker manually and resume the orchestrator:
+
+```bash
+openstack server delete "$SERVER"
+sudo jq "del(.jobs[\"$JOB_ID\"])" /var/lib/airstack-orchestrator/state.json \
+  | sudo tee /var/lib/airstack-orchestrator/state.json.new >/dev/null
+sudo mv /var/lib/airstack-orchestrator/state.json.new /var/lib/airstack-orchestrator/state.json
+sudo systemctl start airstack-orchestrator.service
+```
+
+### 5. What to read once you're on the worker
+
+```bash
+# Combined boot + cloud-init output. Most useful single file: shows every
+# line our airstack-runner-bootstrap.sh printed, including run.sh's exit.
+sudo less /var/log/cloud-init-output.log
+sudo tail -300 /var/log/cloud-init-output.log
+
+# Cloud-init's structured log — quick way to surface errors.
+sudo grep -E 'WARN|ERROR|FAIL' /var/log/cloud-init.log
+
+# GitHub Actions runner diagnostics. The Worker_*.log corresponds to the
+# actual job execution; Runner_*.log covers registration and dispatch.
+ls -lt /home/ubuntu/actions-runner/_diag/
+sudo tail -300 /home/ubuntu/actions-runner/_diag/Runner_*.log
+sudo tail -300 /home/ubuntu/actions-runner/_diag/Worker_*.log
+
+# Sanity-check Docker came up cleanly — a frequent failure point.
+sudo systemctl status docker
+docker info 2>&1 | head
+```
+
+### 6. Console log fallback
+
+Some flavors on this cloud don't expose the serial console (`openstack console log show` returns *Guest does not have a console available*). For those, the SSH path above is the only option. Where it does work, the console log persists across SHUTOFF and is faster than restarting the VM:
+
+```bash
+openstack console log show "$SERVER" | tail -200
+```
+
+### 7. Common failure patterns at the worker
+
+| Symptom in `cloud-init-output.log` (near end) | Cause | Fix |
+|---|---|---|
+| `Could not connect to api.github.com` / DNS errors | Security group blocking egress, or no NAT for the network | Allow outbound 443; if behind NAT, ensure FIP networking covers egress |
+| `Bad credentials` / `Invalid configuration ... runnerEvent` | JIT config TTL elapsed before `run.sh` started — bootstrap took too long | Pre-bake Docker + nvidia-container-toolkit into the image to shrink bootstrap |
+| `nvidia-ctk: command not found` or NVIDIA driver mismatch | Image's driver doesn't match the toolkit version | Use a different image, or pin a compatible toolkit version |
+| `apt-get update` fails | Image's apt sources are unreachable from this network | Check network/security-group; or pre-bake packages into the image |
+| Runner registered, then `pytest` failed | A normal test failure | Read the GitHub Actions log — that's the canonical view of the workflow output |
+| `No space left on device` | `boot_volume_size_gb` too small for Docker images + sim assets | Bump `boot_volume_size_gb` |
