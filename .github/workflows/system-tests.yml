@@ -57,6 +57,25 @@ jobs:
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r tests/requirements.txt
 
+      # Optional registry-cache mode. When the secrets/vars are present we log
+      # in to the internal Docker registry; the next step then sets
+      # AIRSTACK_REGISTRY_CACHE=1 so airstack.sh pre-pulls + uses BuildKit
+      # inline cache (build_docker tests get layer-reuse speedup) and pre-pulls
+      # before `airstack up` (other tests skip the implicit rebuild). When
+      # secrets are absent both steps are skipped and behavior is unchanged.
+      - name: Log in to internal Docker registry
+        id: docker_login
+        if: ${{ vars.DOCKER_REGISTRY_URL != '' && secrets.DOCKER_REGISTRY_PASSWORD != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_REGISTRY_URL }}
+          username: ${{ vars.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Enable registry-cache mode
+        if: ${{ steps.docker_login.outcome == 'success' }}
+        run: echo "AIRSTACK_REGISTRY_CACHE=1" >> "$GITHUB_ENV"
+
       - name: Ensure airstack.sh is executable
         run: chmod +x airstack.sh
 
