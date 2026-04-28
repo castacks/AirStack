@@ -40,6 +40,11 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 120
+    # Mirror the registry password into env so step-level `if:` expressions
+    # can check whether registry-cache mode is available — `secrets.*` itself
+    # is not addressable from `if:` expressions.
+    env:
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,7 +70,7 @@ jobs:
       # secrets are absent both steps are skipped and behavior is unchanged.
       - name: Log in to internal Docker registry
         id: docker_login
-        if: ${{ vars.DOCKER_REGISTRY_URL != '' && secrets.DOCKER_REGISTRY_PASSWORD != '' }}
+        if: ${{ vars.DOCKER_REGISTRY_URL != '' && env.DOCKER_REGISTRY_PASSWORD != '' }}
         uses: docker/login-action@v3
         with:
           registry: ${{ vars.DOCKER_REGISTRY_URL }}
