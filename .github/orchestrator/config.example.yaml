@@ -63,7 +63,7 @@ runner_labels:
 
 # GitHub Actions runner version (must exist as a release tag at
 # https://github.com/actions/runner/releases).
-runner_version: "2.319.1"
+runner_version: "2.334.0"
 
 # --- Limits ---
 
