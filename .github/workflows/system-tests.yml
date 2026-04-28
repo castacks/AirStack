@@ -1,4 +1,4 @@
-name: Integration Tests
+name: System Tests
 
 on:
   pull_request:
@@ -117,7 +117,7 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
-          workflow: integration-tests.yml
+          workflow: system-tests.yml
           branch: ${{ github.base_ref }}
           name_is_regexp: true
           name: "test-results-.*"
@@ -145,7 +145,7 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
-          workflow: integration-tests.yml
+          workflow: system-tests.yml
           branch: main
           name_is_regexp: true
           name: "test-results-.*"
