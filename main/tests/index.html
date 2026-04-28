@@ -14,7 +14,7 @@
         <link rel="prev" href="../docs/development/beginner/fork_your_own_project/">
       
       
-        <link rel="next" href="../docs/development/intermediate/frame_conventions/">
+        <link rel="next" href="ci-cd-orchestrator/">
       
       
         
@@ -1038,6 +1038,8 @@
           
         
       
+        
+      
     
     
     
@@ -1072,6 +1074,11 @@
 
             </a>
             
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
           </div>
         
         <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="true">
@@ -1085,6 +1092,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ci-cd-orchestrator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack CI Orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
           </ul>
@@ -5390,8 +5425,8 @@ returns to the ground.</p>
 <p>Regressions are flagged with :red_circle:, improvements with :green_circle:.</p>
 <hr />
 <h2 id="cicd-integration">CI/CD Integration<a class="headerlink" href="#cicd-integration" title="Permanent link">&para;</a></h2>
-<h3 id="workflow-integration-testsyml">Workflow: <code>integration-tests.yml</code><a class="headerlink" href="#workflow-integration-testsyml" title="Permanent link">&para;</a></h3>
-<p><a href="../../../../.github/workflows/integration-tests.yml"><code>.github/workflows/integration-tests.yml</code></a> runs on:</p>
+<h3 id="workflow-system-testsyml">Workflow: <code>system-tests.yml</code><a class="headerlink" href="#workflow-system-testsyml" title="Permanent link">&para;</a></h3>
+<p><a href="../../../../.github/workflows/system-tests.yml"><code>.github/workflows/system-tests.yml</code></a> runs on:</p>
 <ul>
 <li><strong>Pull requests</strong> to <code>main</code> or <code>develop</code> — automatically runs <code>build_docker or build_packages</code> tests (no GPU-intensive liveliness run on every PR)</li>
 <li><strong>Manual dispatch</strong> (<code>workflow_dispatch</code>) — fully configurable for liveliness runs and metric comparisons</li>
@@ -5439,7 +5474,7 @@ returns to the ground.</p>
 </tbody>
 </table>
 <h4 id="jobs">Jobs<a class="headerlink" href="#jobs" title="Permanent link">&para;</a></h4>
-<p><strong><code>run-tests</code></strong> runs on the self-hosted GPU runner (<code>[self-hosted, airstack, gpu]</code>). It installs dependencies, runs pytest, and uploads <code>tests/results/</code> as an artifact named <code>test-results-&lt;sha&gt;-&lt;run_id&gt;</code> with 90-day retention.</p>
+<p><strong><code>run-tests</code></strong> runs on a freshly-spawned ephemeral OpenStack instance (<code>[self-hosted, airstack-ephemeral]</code>). The instance is provisioned per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads <code>tests/results/</code> as an artifact named <code>test-results-&lt;sha&gt;-&lt;run_id&gt;</code> with 90-day retention.</p>
 <p><strong><code>report</code></strong> runs on <code>ubuntu-latest</code> after <code>run-tests</code> (even if it failed). It:</p>
 <ol>
 <li>Downloads the current artifact</li>
@@ -5449,59 +5484,31 @@ returns to the ground.</p>
 <li>Fails with <code>::error::</code> if <code>parse_metrics.py</code> exits 1 (regression detected)</li>
 </ol>
 <h4 id="required-third-party-action">Required third-party action<a class="headerlink" href="#required-third-party-action" title="Permanent link">&para;</a></h4>
-<p>The workflow uses <a href="https://github.com/dawidd6/action-download-artifact"><code>dawidd6/action-download-artifact@v3</code></a> to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.</p>
+<p>The workflow uses <a href="https://github.com/dawidd6/action-download-artifact"><code>dawidd6/action-download-artifact@v6</code></a> to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.</p>
 <hr />
-<h2 id="self-hosted-runner-setup">Self-Hosted Runner Setup<a class="headerlink" href="#self-hosted-runner-setup" title="Permanent link">&para;</a></h2>
-<p>AirStack's tests require a GPU and Docker, so they run on a self-hosted OpenStack VM. The setup uses the <strong>ephemeral runner</strong> pattern: each runner process registers, executes exactly one job, and then de-registers. This prevents cross-job environment contamination and stale runner accumulation.</p>
-<h3 id="1-create-the-runner-user">1. Create the runner user<a class="headerlink" href="#1-create-the-runner-user" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo<span class="w"> </span>useradd<span class="w"> </span>-m<span class="w"> </span>-s<span class="w"> </span>/bin/bash<span class="w"> </span>runner
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>sudo<span class="w"> </span>usermod<span class="w"> </span>-aG<span class="w"> </span>docker<span class="w"> </span>runner<span class="w">   </span><span class="c1"># allows Docker commands without sudo</span>
+<h2 id="cicd-orchestrator-openstack-backed-ephemeral-runners">CI/CD Orchestrator (OpenStack-backed ephemeral runners)<a class="headerlink" href="#cicd-orchestrator-openstack-backed-ephemeral-runners" title="Permanent link">&para;</a></h2>
+<p>AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on <strong>truly ephemeral OpenStack instances</strong> spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.</p>
+<h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>┌──────────────────────────────────────────────────────────────┐
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>│   • polls GitHub for queued workflow_jobs                    │
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>│   • mints single-use JIT runner tokens                       │
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>│   • spawns / reaps ephemeral instances via OpenStack Nova    │
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│   • holds the GitHub PAT and OpenStack application credential│
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>└────────────┬───────────────────────────────────┬─────────────┘
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>             │                                   │
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>             ▼                                   ▼
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>┌──────────────────────────────┐   ┌────────────────────────────────┐
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>│        Headless              │   │  labels: [self-hosted,         │
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>│ + nvidia-container-toolkit + │   └────────────────────────────────┘
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>│ GH Actions runner; runs ONE  │
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>│ job, then is destroyed.      │
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>└──────────────────────────────┘
 </span></code></pre></div>
-<h3 id="2-install-the-github-actions-runner-binary">2. Install the GitHub Actions runner binary<a class="headerlink" href="#2-install-the-github-actions-runner-binary" title="Permanent link">&para;</a></h3>
-<p>Download the latest runner tarball from <a href="https://github.com/actions/runner/releases">github.com/actions/runner/releases</a> and unpack it:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/opt/actions-runner
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">cd</span><span class="w"> </span>/opt/actions-runner
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># Replace the URL with the current release for linux-x64:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>curl<span class="w"> </span>-Lo<span class="w"> </span>actions-runner.tar.gz<span class="w"> </span>https://github.com/actions/runner/releases/download/vX.Y.Z/actions-runner-linux-x64-X.Y.Z.tar.gz
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>sudo<span class="w"> </span>tar<span class="w"> </span>xzf<span class="w"> </span>actions-runner.tar.gz<span class="w"> </span>-C<span class="w"> </span>/opt/actions-runner
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>sudo<span class="w"> </span>chown<span class="w"> </span>-R<span class="w"> </span>runner:runner<span class="w"> </span>/opt/actions-runner
-</span></code></pre></div>
-<h3 id="3-store-the-github-pat">3. Store the GitHub PAT<a class="headerlink" href="#3-store-the-github-pat" title="Permanent link">&para;</a></h3>
-<p>Create a fine-grained or classic PAT with <strong><code>repo</code></strong> scope (for private repos) or <strong><code>public_repo</code></strong> scope (for public repos). Store it securely:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;ghp_YOUR_TOKEN_HERE&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/github-runner-pat
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>sudo<span class="w"> </span>chmod<span class="w"> </span><span class="m">600</span><span class="w"> </span>/etc/github-runner-pat
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>sudo<span class="w"> </span>chown<span class="w"> </span>runner:runner<span class="w"> </span>/etc/github-runner-pat
-</span></code></pre></div>
-<h3 id="4-configure-runner-environment">4. Configure runner environment<a class="headerlink" href="#4-configure-runner-environment" title="Permanent link">&para;</a></h3>
-<p>Create <code>/etc/github-runner-env</code> (loaded by the systemd unit):</p>
-<div class="language-ini highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="na">REPO_URL</span><span class="o">=</span><span class="s">https://github.com/YOUR_ORG/AirStack</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="na">REPO_PATH</span><span class="o">=</span><span class="s">YOUR_ORG/AirStack</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="na">RUNNER_LABELS</span><span class="o">=</span><span class="s">self-hosted,airstack,gpu</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="na">RUNNER_GROUP</span><span class="o">=</span><span class="s">Default</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="na">RUNNER_DIR</span><span class="o">=</span><span class="s">/opt/actions-runner</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="na">PAT_FILE</span><span class="o">=</span><span class="s">/etc/github-runner-pat</span>
-</span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo<span class="w"> </span>chmod<span class="w"> </span><span class="m">600</span><span class="w"> </span>/etc/github-runner-env
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>sudo<span class="w"> </span>chown<span class="w"> </span>runner:runner<span class="w"> </span>/etc/github-runner-env
-</span></code></pre></div>
-<h3 id="5-install-the-registration-script">5. Install the registration script<a class="headerlink" href="#5-install-the-registration-script" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>sudo<span class="w"> </span>cp<span class="w"> </span>.github/runners/register-runner.sh<span class="w"> </span>/opt/actions-runner/register-runner.sh
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>sudo<span class="w"> </span>chown<span class="w"> </span>runner:runner<span class="w"> </span>/opt/actions-runner/register-runner.sh
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>sudo<span class="w"> </span>chmod<span class="w"> </span>+x<span class="w"> </span>/opt/actions-runner/register-runner.sh
-</span></code></pre></div>
-<h3 id="6-install-and-enable-the-systemd-service">6. Install and enable the systemd service<a class="headerlink" href="#6-install-and-enable-the-systemd-service" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>sudo<span class="w"> </span>cp<span class="w"> </span>.github/runners/airstack-runner.service<span class="w"> </span>/etc/systemd/system/
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>daemon-reload
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>airstack-runner.service
-</span></code></pre></div>
-<p>Check status:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>status<span class="w"> </span>airstack-runner.service
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>sudo<span class="w"> </span>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-runner.service<span class="w"> </span>-f
-</span></code></pre></div>
-<h3 id="7-verify-runner-registration">7. Verify runner registration<a class="headerlink" href="#7-verify-runner-registration" title="Permanent link">&para;</a></h3>
-<p>After the service starts it will loop waiting for a job. Confirm it appears in <strong>GitHub → Repository → Settings → Actions → Runners</strong> with the labels <code>self-hosted</code>, <code>airstack</code>, <code>gpu</code> and status <strong>Idle</strong>.</p>
-<p>Trigger a <code>workflow_dispatch</code> run and watch the runner pick it up, complete the job, and re-register.</p>
-<h3 id="security-considerations">Security considerations<a class="headerlink" href="#security-considerations" title="Permanent link">&para;</a></h3>
+<h3 id="why-this-instead-of-a-long-lived-self-hosted-runner">Why this instead of a long-lived self-hosted runner<a class="headerlink" href="#why-this-instead-of-a-long-lived-self-hosted-runner" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -5511,27 +5518,42 @@ returns to the ground.</p>
 </thead>
 <tbody>
 <tr>
-<td>Fork PRs executing arbitrary code on the runner</td>
-<td>Workflow has <code>if: github.event.pull_request.head.repo.full_name == github.repository</code> — fork PRs are skipped entirely</td>
+<td>Cross-job state pollution (Docker cache, dangling networks, leftover artifacts)</td>
+<td>Each job runs on a fresh VM. Spent VM is destroyed within ~30 s of job completion.</td>
 </tr>
 <tr>
-<td>Cross-job state pollution</td>
-<td><code>--ephemeral</code> flag: runner de-registers and the process exits after each job; the systemd loop starts a clean process for the next job</td>
+<td>Fork PRs executing arbitrary code</td>
+<td>Workflow's <code>if: github.event.pull_request.head.repo.full_name == github.repository</code> — fork PRs skipped.</td>
 </tr>
 <tr>
 <td>Runner running as root</td>
-<td>Dedicated non-root <code>runner</code> user; never set <code>RUNNER_ALLOW_RUNASROOT=1</code></td>
+<td>The runner runs as the unprivileged <code>ubuntu</code> user inside an instance whose only purpose is one job.</td>
 </tr>
 <tr>
 <td>Docker socket gives root-equivalent access</td>
-<td>Accepted risk for lab use; the fork PR guard above limits who can reach the runner</td>
+<td>Bounded to a single one-shot VM. The orchestrator host doesn't expose Docker at all.</td>
 </tr>
 <tr>
-<td>Long-lived PAT stored on disk</td>
-<td>Scope the PAT to the minimum required; rotate it periodically; <code>chmod 600</code> and owned by <code>runner</code> only</td>
+<td>Long-lived PAT on the runner host</td>
+<td>The PAT lives only on the orchestrator. Workers receive a single-use <strong>JIT runner config</strong> — a base64 token bound to one runner registration.</td>
+</tr>
+<tr>
+<td>Persistent OpenStack creds tied to a user password</td>
+<td>Orchestrator authenticates with an <strong>application credential</strong> (revocable, scoped) instead of <code>openrc.sh</code>.</td>
 </tr>
 </tbody>
 </table>
+<h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h3>
+<p>The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in <a href="../../../../.github/orchestrator/"><code>.github/orchestrator/</code></a>. See <a href="ci-cd-orchestrator/"><code>.github/orchestrator/README.md</code></a> for:</p>
+<ul>
+<li>creating the OpenStack application credential and <code>clouds.yaml</code></li>
+<li>staging the GitHub PAT</li>
+<li>running <code>setup.sh</code> on the orchestrator VM</li>
+<li>filling in flavor / network / keypair / security-group in <code>/etc/airstack-orchestrator/config.yaml</code></li>
+<li>enabling and verifying the <code>airstack-orchestrator.service</code> systemd unit</li>
+</ul>
+<h3 id="runner-labels">Runner labels<a class="headerlink" href="#runner-labels" title="Permanent link">&para;</a></h3>
+<p>The workflow file requests <code>runs-on: [self-hosted, airstack-ephemeral]</code>. The orchestrator polls for queued jobs whose labels are a superset of <code>runner_labels</code> in its config, mints a JIT config registering the ephemeral runner under those same labels, and spawns the worker. To route jobs to a different pool (e.g. CPU-only workers) in the future, add a second label set in config and adjust the workflow's <code>runs-on</code>.</p>
 
 
 
@@ -5584,13 +5606,13 @@ returns to the ground.</p>
         
         
           
-          <a href="../docs/development/intermediate/frame_conventions/" class="md-footer__link md-footer__link--next" aria-label="Next: Frame Conventions">
+          <a href="ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: AirStack CI Orchestrator">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Frame Conventions
+                AirStack CI Orchestrator
               </div>
             </div>
             <div class="md-footer__button md-icon">

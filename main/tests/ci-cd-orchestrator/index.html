@@ -8,31 +8,31 @@
       
       
       
-        <link rel="canonical" href="https://docs.theairlab.org/docs/main/docs/development/beginner/development_environment/">
+        <link rel="canonical" href="https://docs.theairlab.org/docs/main/tests/ci-cd-orchestrator/">
       
       
-        <link rel="prev" href="../airstack-cli/docker_usage/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../vscode/vscode_debug/">
+        <link rel="next" href="../../docs/development/intermediate/frame_conventions/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/StackedWhite.png">
+      <link rel="icon" href="../../docs/assets/StackedWhite.png">
       <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
       
-        <title>Development Environment Setup - AirStack</title>
+        <title>AirStack CI Orchestrator - AirStack</title>
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#development-environment-setup" class="md-skip">
+        <a href="#airstack-ci-orchestrator" class="md-skip">
           Skip to content
         </a>
       
@@ -96,9 +96,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
+    <a href="../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
       
-  <img src="../../../assets/airstack_white.png" alt="logo">
+  <img src="../../docs/assets/airstack_white.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Development Environment Setup
+              AirStack CI Orchestrator
             
           </span>
         </div>
@@ -228,7 +228,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../" class="md-tabs__link">
+      <a href="../../docs/" class="md-tabs__link">
         
   
   
@@ -249,7 +249,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../getting_started/" class="md-tabs__link">
+        <a href="../../docs/getting_started/" class="md-tabs__link">
           
   
   
@@ -273,7 +273,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+        <a href="../../docs/development/" class="md-tabs__link">
           
   
   
@@ -295,7 +295,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../simulation/" class="md-tabs__link">
+        <a href="../../docs/simulation/" class="md-tabs__link">
           
   
   
@@ -317,7 +317,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../robot/" class="md-tabs__link">
+        <a href="../../docs/robot/" class="md-tabs__link">
           
   
   
@@ -339,7 +339,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../gcs/" class="md-tabs__link">
+        <a href="../../docs/gcs/" class="md-tabs__link">
           
   
   
@@ -361,7 +361,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../real_world/" class="md-tabs__link">
+        <a href="../../docs/real_world/" class="md-tabs__link">
           
   
   
@@ -381,7 +381,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../about/" class="md-tabs__link">
+      <a href="../../docs/about/" class="md-tabs__link">
         
   
   
@@ -418,9 +418,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../../.." title="AirStack" class="md-nav__button md-logo" aria-label="AirStack" data-md-component="logo">
+    <a href="../.." title="AirStack" class="md-nav__button md-logo" aria-label="AirStack" data-md-component="logo">
       
-  <img src="../../../assets/airstack_white.png" alt="logo">
+  <img src="../../docs/assets/airstack_white.png" alt="logo">
 
     </a>
     AirStack
@@ -447,7 +447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../" class="md-nav__link">
+      <a href="../../docs/" class="md-nav__link">
         
   
   
@@ -499,7 +499,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../getting_started/" class="md-nav__link ">
+            <a href="../../docs/getting_started/" class="md-nav__link ">
               
   
   
@@ -543,7 +543,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting_started/tutorials_reference/" class="md-nav__link">
+      <a href="../../docs/getting_started/tutorials_reference/" class="md-nav__link">
         
   
   
@@ -612,7 +612,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../docs/development/" class="md-nav__link ">
               
   
   
@@ -653,8 +653,6 @@
                 
   
   
-    
-  
   
   
     
@@ -680,11 +678,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
         
           
           <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
@@ -705,7 +703,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -783,7 +781,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../key_concepts/" class="md-nav__link">
+      <a href="../../docs/development/beginner/key_concepts/" class="md-nav__link">
         
   
   
@@ -811,7 +809,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../airstack-cli/info.md" class="md-nav__link">
+      <a href="../../docs/development/beginner/airstack-cli/info.md" class="md-nav__link">
         
   
   
@@ -839,7 +837,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../airstack-cli/docker_usage/" class="md-nav__link">
+      <a href="../../docs/development/beginner/airstack-cli/docker_usage/" class="md-nav__link">
         
   
   
@@ -872,37 +870,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Development Environment Setup
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../docs/development/beginner/development_environment/" class="md-nav__link">
         
   
   
@@ -918,98 +889,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        System Requirements
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ide-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        IDE Configuration
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="IDE Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#vscode-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        VSCode (Recommended)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debugging-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debugging Setup
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#workspace-aliases" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Workspace Aliases
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-tips" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development Tips
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1022,7 +901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../vscode/vscode_debug/" class="md-nav__link">
+      <a href="../../docs/development/beginner/vscode/vscode_debug/" class="md-nav__link">
         
   
   
@@ -1050,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../fork_your_own_project/" class="md-nav__link">
+      <a href="../../docs/development/beginner/fork_your_own_project/" class="md-nav__link">
         
   
   
@@ -1083,6 +962,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1106,11 +987,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
@@ -1131,7 +1012,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1146,6 +1027,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1166,15 +1049,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../tests/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1198,7 +1081,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1215,10 +1098,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../../tests/ci-cd-orchestrator/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack CI Orchestrator
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1234,6 +1144,225 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#one-time-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One-time setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="One-time setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-openstack-application-credential" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Create OpenStack application credential
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-stage-credentials-on-the-orchestrator-vm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Stage credentials on the orchestrator VM
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-setupsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run setup.sh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-fill-in-etcairstack-orchestratorconfigyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Fill in /etc/airstack-orchestrator/config.yaml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-start-the-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Start the service
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-to-end-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-to-end verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#debugging-a-failed-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debugging a failed job
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Debugging a failed job">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-find-which-worker-ran-the-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Find which worker ran the job
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-did-the-orchestrator-spawn-at-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Did the orchestrator spawn at all?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-ssh-into-a-running-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. SSH into a running worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-ssh-into-a-shutoff-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. SSH into a SHUTOFF worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-what-to-read-once-youre-on-the-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. What to read once you're on the worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-console-log-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Console log fallback
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-common-failure-patterns-at-the-worker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Common failure patterns at the worker
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1254,7 +1383,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../intermediate/frame_conventions/" class="md-nav__link">
+      <a href="../../docs/development/intermediate/frame_conventions/" class="md-nav__link">
         
   
   
@@ -1340,7 +1469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../intermediate/contributing/" class="md-nav__link">
+      <a href="../../docs/development/intermediate/contributing/" class="md-nav__link">
         
   
   
@@ -1368,7 +1497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../intermediate/documentation/" class="md-nav__link">
+      <a href="../../docs/development/intermediate/documentation/" class="md-nav__link">
         
   
   
@@ -1473,7 +1602,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced/ai_agent_guide/" class="md-nav__link">
+      <a href="../../docs/development/advanced/ai_agent_guide/" class="md-nav__link">
         
   
   
@@ -1559,7 +1688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced/airstack-cli/extending/" class="md-nav__link">
+      <a href="../../docs/development/advanced/airstack-cli/extending/" class="md-nav__link">
         
   
   
@@ -1587,7 +1716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced/airstack-cli/architecture/" class="md-nav__link">
+      <a href="../../docs/development/advanced/airstack-cli/architecture/" class="md-nav__link">
         
   
   
@@ -1667,7 +1796,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/" class="md-nav__link ">
+            <a href="../../docs/simulation/" class="md-nav__link ">
               
   
   
@@ -1742,7 +1871,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/isaac_sim/" class="md-nav__link ">
+            <a href="../../docs/simulation/isaac_sim/" class="md-nav__link ">
               
   
   
@@ -1786,7 +1915,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/docker/" class="md-nav__link">
+      <a href="../../docs/simulation/isaac_sim/docker/" class="md-nav__link">
         
   
   
@@ -1814,7 +1943,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/pegasus_scene_setup/" class="md-nav__link">
+      <a href="../../docs/simulation/isaac_sim/pegasus_scene_setup/" class="md-nav__link">
         
   
   
@@ -1842,7 +1971,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
+      <a href="../../docs/simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
         
   
   
@@ -1870,7 +1999,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
+      <a href="../../docs/simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
         
   
   
@@ -1931,7 +2060,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/ms-airsim/" class="md-nav__link ">
+            <a href="../../docs/simulation/ms-airsim/" class="md-nav__link ">
               
   
   
@@ -1975,7 +2104,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/ms-airsim/docker/" class="md-nav__link">
+      <a href="../../docs/simulation/ms-airsim/docker/" class="md-nav__link">
         
   
   
@@ -2036,7 +2165,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/simple_sim/" class="md-nav__link ">
+            <a href="../../docs/simulation/simple_sim/" class="md-nav__link ">
               
   
   
@@ -2080,7 +2209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/simple_sim/docker/" class="md-nav__link">
+      <a href="../../docs/simulation/simple_sim/docker/" class="md-nav__link">
         
   
   
@@ -2160,7 +2289,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/" class="md-nav__link ">
+            <a href="../../docs/robot/" class="md-nav__link ">
               
   
   
@@ -2227,7 +2356,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/configuration/" class="md-nav__link ">
+            <a href="../../docs/robot/configuration/" class="md-nav__link ">
               
   
   
@@ -2299,7 +2428,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/docker/" class="md-nav__link ">
+            <a href="../../docs/robot/docker/" class="md-nav__link ">
               
   
   
@@ -2343,7 +2472,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/docker/robot_identity/" class="md-nav__link">
+      <a href="../../docs/robot/docker/robot_identity/" class="md-nav__link">
         
   
   
@@ -2420,7 +2549,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/" class="md-nav__link ">
               
   
   
@@ -2464,7 +2593,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/system_architecture/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/system_architecture/" class="md-nav__link">
         
   
   
@@ -2492,7 +2621,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/tasks/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/tasks/" class="md-nav__link">
         
   
   
@@ -2543,7 +2672,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/interface/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/interface/" class="md-nav__link ">
               
   
   
@@ -2615,7 +2744,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/sensors/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/sensors/" class="md-nav__link ">
               
   
   
@@ -2659,7 +2788,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/sensors/gimbal/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/sensors/gimbal/" class="md-nav__link">
         
   
   
@@ -2720,7 +2849,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/perception/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/perception/" class="md-nav__link ">
               
   
   
@@ -2764,7 +2893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/perception/state_estimation.md" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/perception/state_estimation.md" class="md-nav__link">
         
   
   
@@ -2829,7 +2958,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/local/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/local/" class="md-nav__link ">
               
   
   
@@ -2898,7 +3027,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/local/world_model/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/local/world_model/" class="md-nav__link ">
               
   
   
@@ -2969,7 +3098,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link ">
+            <a href="../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link ">
               
   
   
@@ -3013,7 +3142,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
         
   
   
@@ -3041,7 +3170,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
         
   
   
@@ -3116,7 +3245,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/local/planning/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/local/planning/" class="md-nav__link ">
               
   
   
@@ -3160,7 +3289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/trajectory_library/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/planners/trajectory_library/" class="md-nav__link">
         
   
   
@@ -3213,7 +3342,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/" class="md-nav__link ">
+            <a href="../../robot/ros_ws/src/local/planners/takeoff_landing_planner/" class="md-nav__link ">
               
   
   
@@ -3257,7 +3386,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/test/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/planners/takeoff_landing_planner/test/" class="md-nav__link">
         
   
   
@@ -3293,7 +3422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
         
   
   
@@ -3321,7 +3450,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
         
   
   
@@ -3382,7 +3511,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/local/controls/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/local/controls/" class="md-nav__link ">
               
   
   
@@ -3426,7 +3555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/controls/trajectory_controller/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/local/controls/trajectory_controller/" class="md-nav__link">
         
   
   
@@ -3497,7 +3626,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/global/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/global/" class="md-nav__link ">
               
   
   
@@ -3566,7 +3695,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/global/world_model/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/global/world_model/" class="md-nav__link ">
               
   
   
@@ -3610,7 +3739,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md" class="md-nav__link">
         
   
   
@@ -3673,7 +3802,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/global/planning/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/global/planning/" class="md-nav__link ">
               
   
   
@@ -3717,7 +3846,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/global/planners/random_walk/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/global/planners/random_walk/" class="md-nav__link">
         
   
   
@@ -3745,7 +3874,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
+      <a href="../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
         
   
   
@@ -3816,7 +3945,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/autonomy/behavior/" class="md-nav__link ">
+            <a href="../../docs/robot/autonomy/behavior/" class="md-nav__link ">
               
   
   
@@ -3860,7 +3989,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/behavior/behavior_tree/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/behavior/behavior_tree/" class="md-nav__link">
         
   
   
@@ -3888,7 +4017,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/behavior/behavior_executive/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/behavior/behavior_executive/" class="md-nav__link">
         
   
   
@@ -3924,7 +4053,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/integration_checklist/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/integration_checklist/" class="md-nav__link">
         
   
   
@@ -3960,7 +4089,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy_modes/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy_modes/" class="md-nav__link">
         
   
   
@@ -3988,7 +4117,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/autonomy/dds_router/" class="md-nav__link">
+      <a href="../../docs/robot/autonomy/dds_router/" class="md-nav__link">
         
   
   
@@ -4039,7 +4168,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/static_transforms/" class="md-nav__link ">
+            <a href="../../docs/robot/static_transforms/" class="md-nav__link ">
               
   
   
@@ -4115,7 +4244,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../robot/logging/" class="md-nav__link ">
+            <a href="../../docs/robot/logging/" class="md-nav__link ">
               
   
   
@@ -4159,7 +4288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/logging/rosbags/" class="md-nav__link">
+      <a href="../../docs/robot/logging/rosbags/" class="md-nav__link">
         
   
   
@@ -4187,7 +4316,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/logging/data_offloading/" class="md-nav__link">
+      <a href="../../docs/robot/logging/data_offloading/" class="md-nav__link">
         
   
   
@@ -4215,7 +4344,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../common/ros_packages/bag_recorder_pid/README.md" class="md-nav__link">
+      <a href="../../common/ros_packages/bag_recorder_pid/README.md" class="md-nav__link">
         
   
   
@@ -4291,7 +4420,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../gcs/" class="md-nav__link ">
+            <a href="../../docs/gcs/" class="md-nav__link ">
               
   
   
@@ -4358,7 +4487,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../gcs/docker/" class="md-nav__link ">
+            <a href="../../docs/gcs/docker/" class="md-nav__link ">
               
   
   
@@ -4461,7 +4590,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/usage/user_interface/" class="md-nav__link">
+      <a href="../../docs/gcs/usage/user_interface/" class="md-nav__link">
         
   
   
@@ -4553,7 +4682,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/command_center/command_center/" class="md-nav__link">
+      <a href="../../docs/gcs/command_center/command_center/" class="md-nav__link">
         
   
   
@@ -4645,7 +4774,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/casualty_assessment/casualty_assessment/" class="md-nav__link">
+      <a href="../../docs/gcs/casualty_assessment/casualty_assessment/" class="md-nav__link">
         
   
   
@@ -4737,7 +4866,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/wintak/installation/" class="md-nav__link">
+      <a href="../../docs/gcs/wintak/installation/" class="md-nav__link">
         
   
   
@@ -4811,7 +4940,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/" class="md-nav__link ">
+            <a href="../../docs/real_world/" class="md-nav__link ">
               
   
   
@@ -4855,7 +4984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../real_world/deploying_to_hardware/" class="md-nav__link">
+      <a href="../../docs/real_world/deploying_to_hardware/" class="md-nav__link">
         
   
   
@@ -4906,7 +5035,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/installation/" class="md-nav__link ">
+            <a href="../../docs/real_world/installation/" class="md-nav__link ">
               
   
   
@@ -4976,7 +5105,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/HITL/" class="md-nav__link ">
+            <a href="../../docs/real_world/HITL/" class="md-nav__link ">
               
   
   
@@ -5046,7 +5175,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/data_offloading/" class="md-nav__link ">
+            <a href="../../docs/real_world/data_offloading/" class="md-nav__link ">
               
   
   
@@ -5100,7 +5229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../about/" class="md-nav__link">
+      <a href="../../docs/about/" class="md-nav__link">
         
   
   
@@ -5146,7 +5275,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../docs/development/" class="md-path__link">
           
   <span class="md-ellipsis">
     Development
@@ -5169,10 +5298,10 @@
     
     
       <li class="md-path__item">
-        <a href="../key_concepts/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Beginner Tutorials
+    Intermediate Tutorials
   </span>
 
         </a>
@@ -5180,6 +5309,24 @@
     
   
 
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Testing
+  </span>
+
+        </a>
+      </li>
     
   
 
@@ -5197,74 +5344,321 @@
   
 
 
-<h1 id="development-environment-setup">Development Environment Setup<a class="headerlink" href="#development-environment-setup" title="Permanent link">&para;</a></h1>
-<p>Set up your IDE and tools for AirStack development. This guide assumes you've completed <a href="../../../getting_started/">Getting Started</a> and understand <a href="../key_concepts/">Key Concepts</a>.</p>
-<h2 id="system-requirements">System Requirements<a class="headerlink" href="#system-requirements" title="Permanent link">&para;</a></h2>
-<p><strong>Host Machine:</strong></p>
-<ul>
-<li><strong>OS</strong>: Ubuntu 22.04/24.04 LTS (recommended)</li>
-<li><strong>CPU</strong>: 8+ cores</li>
-<li><strong>RAM</strong>: 16GB minimum, 32GB+ recommended  </li>
-<li><strong>GPU</strong>: NVIDIA RTX 3070+ for Isaac Sim</li>
-<li><strong>Storage</strong>: 100GB+ free SSD space</li>
-</ul>
-<p><strong>Software:</strong></p>
-<ul>
-<li>Docker with NVIDIA Container Toolkit (installed via <code>airstack install</code>)</li>
-<li>Git with SSH keys</li>
-<li>VSCode (recommended) or your preferred IDE</li>
-</ul>
-<h2 id="ide-configuration">IDE Configuration<a class="headerlink" href="#ide-configuration" title="Permanent link">&para;</a></h2>
-<h3 id="vscode-recommended">VSCode (Recommended)<a class="headerlink" href="#vscode-recommended" title="Permanent link">&para;</a></h3>
-<p>VSCode provides excellent ROS 2 and C++ support. When you open the AirStack folder, VSCode will prompt you to install recommended extensions from <code>.vscode/extensions.json</code>.</p>
-<p><strong>Key Extensions:</strong></p>
-<ul>
-<li>ROS extension (for ROS 2 development)</li>
-<li>C/C++ extension (Microsoft)</li>
-<li>Python extension</li>
-<li>Docker extension (for container management)</li>
-<li>CMake Tools</li>
-<li>YAML extension</li>
-</ul>
-<p><strong>Settings:</strong></p>
-<p>VSCode is pre-configured for AirStack in <code>.vscode/settings.json</code>. This includes:</p>
-<ul>
-<li>ROS 2 workspace setup</li>
-<li>C++ IntelliSense configuration</li>
-<li>CMake integration</li>
-<li>Python path configuration</li>
-</ul>
-<h3 id="debugging-setup">Debugging Setup<a class="headerlink" href="#debugging-setup" title="Permanent link">&para;</a></h3>
-<p>For debugging ROS 2 nodes inside containers, see <a href="../vscode/vscode_debug/">VSCode Debugging Guide</a>.</p>
-<h2 id="workspace-aliases">Workspace Aliases<a class="headerlink" href="#workspace-aliases" title="Permanent link">&para;</a></h2>
-<p>Inside robot containers, several aliases simplify development:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>bws<span class="w">    </span><span class="c1"># Build workspace (alias for colcon build)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>sws<span class="w">    </span><span class="c1"># Source workspace (alias for source install/setup.bash)</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cws<span class="w">    </span><span class="c1"># Clean workspace (removes build/install/log)</span>
+<h1 id="airstack-ci-orchestrator">AirStack CI Orchestrator<a class="headerlink" href="#airstack-ci-orchestrator" title="Permanent link">&para;</a></h1>
+<p>Long-running service that watches GitHub for queued workflow jobs and spawns truly ephemeral OpenStack instances to execute each one. The orchestrator VM is the only host that holds the GitHub PAT and the OpenStack credential; the workers are destroyed after a single job.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────────┐
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)             │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                                                             │
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  airstack-orchestrator.service → orchestrator.py            │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│    spawn loop  (every 15s):                                 │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│      • GET  /repos/&lt;repo&gt;/actions/runs?status=queued        │
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│      • POST /repos/&lt;repo&gt;/actions/runners/generate-jitconfig│
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│      • openstack server create  (image, flavor, user_data)  │
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│      • record (job_id → server_id) in state.json            │
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│    reap loop   (every 30s):                                 │
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│      • job completed     → openstack server delete          │
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│      • job age &gt; N min   → force delete (straggler)         │
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│      • owned but not in state → orphan reap                 │
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│                                                             │
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  /etc/airstack-orchestrator/                                │
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│      config.yaml                                            │
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│      github-pat                                             │
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│  /home/orchestrator/.config/openstack/clouds.yaml           │
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│  /var/lib/airstack-orchestrator/state.json                  │
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>└─────────┬─────────────────────────────────┬─────────────────┘
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>          │ Nova / Neutron API              │ GitHub REST API
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>          ▼                                 ▼
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>┌──────────────────────────────────┐  ┌──────────────────────┐
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│  Ephemeral worker (per job)      │  │  GitHub Actions      │
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│  Image: Ubuntu-24.04-GPU-Headless│  │  workflow_job queue  │
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│  cloud-init:                     │  └──────────────────────┘
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│    install docker + nv toolkit   │
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│    download GH runner            │
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│    run.sh --jitconfig &lt;token&gt;    │
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│    shutdown -h +1                │
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>└──────────────────────────────────┘
 </span></code></pre></div>
-<p>These are defined in <code>robot/.bashrc</code> and available in all robot containers.</p>
-<h2 id="development-tips">Development Tips<a class="headerlink" href="#development-tips" title="Permanent link">&para;</a></h2>
-<p><strong>Quick iteration:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Start without auto-launch</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>robot-desktop-desktop
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># In another terminal, build and test</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select my_package &amp;&amp; sws &amp;&amp; ros2 launch my_package test.launch.xml&quot;</span>
-</span></code></pre></div></p>
-<p><strong>Interactive development:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Connect to container</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>airstack<span class="w"> </span>connect<span class="w"> </span>robot
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Inside container, iterate quickly</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># working dir is /root/AirStack/robot/ros_ws</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>bws<span class="w"> </span>--packages-select<span class="w"> </span>my_package
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>sws
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>ros2<span class="w"> </span>launch<span class="w"> </span>my_package<span class="w"> </span>test.launch.xml
-</span></code></pre></div></p>
-<p><strong>Build with debug symbols:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select my_package --cmake-args &#39;-DCMAKE_BUILD_TYPE=Debug&#39;&quot;</span>
-</span></code></pre></div></p>
-<p>See <a href="../key_concepts/">Key Concepts</a> for the full development loop.</p>
+<p>Key properties:</p>
+<ul>
+<li><strong>Truly ephemeral</strong>: every job runs on a clean VM. No Docker layer cache pollution, no leftover networks, no carry-over from prior runs.</li>
+<li><strong>PAT isolation</strong>: the GitHub PAT lives only on the orchestrator. Workers receive a single-use <a href="https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-a-repository">JIT runner config</a> — a base64 token bound to one runner registration, valid only for a short window.</li>
+<li><strong>Application-credential auth</strong>: the orchestrator authenticates to OpenStack with an application credential (revocable, scoped, no password), not the user's <code>openrc.sh</code>.</li>
+<li><strong>Crash-safe reaping</strong>: every server we spawn is tagged with <code>airstack-role=ephemeral-runner</code>. The reap loop force-deletes any owned server not present in <code>state.json</code>, so a crashed orchestrator can't leak instances.</li>
+</ul>
+<h2 id="one-time-setup">One-time setup<a class="headerlink" href="#one-time-setup" title="Permanent link">&para;</a></h2>
+<h3 id="1-create-openstack-application-credential">1. Create OpenStack application credential<a class="headerlink" href="#1-create-openstack-application-credential" title="Permanent link">&para;</a></h3>
+<p>On your local workstation (not the orchestrator VM):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">source</span><span class="w"> </span>~/.airlabcloud/openrc.sh
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>openstack<span class="w"> </span>application<span class="w"> </span>credential<span class="w"> </span>create<span class="w"> </span>airstack-orchestrator<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--description<span class="w"> </span><span class="s2">&quot;AirStack CI orchestrator — spawns ephemeral test runners&quot;</span>
+</span></code></pre></div>
+<p>The output prints <code>id</code> and <code>secret</code>. Build a <code>clouds.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">clouds</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">airstack</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">auth_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v3applicationcredential</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">auth_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://airlab-cloud.andrew.cmu.edu:5000/v3/</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">application_credential_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;id from above&gt;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">application_credential_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;secret from above&gt;</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">region_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Airlab</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">interface</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">identity_api_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</span></code></pre></div>
+<h3 id="2-stage-credentials-on-the-orchestrator-vm">2. Stage credentials on the orchestrator VM<a class="headerlink" href="#2-stage-credentials-on-the-orchestrator-vm" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># clouds.yaml: install for the orchestrator user (created in step 3)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>scp<span class="w"> </span>clouds.yaml<span class="w"> </span>ubuntu@&lt;orchestrator-ip&gt;:/tmp/clouds.yaml
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># GitHub PAT: needs `Actions: read/write` and `Administration: read/write`</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># (fine-grained) or classic `repo` scope.</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>scp<span class="w"> </span>~/.airlabcloud/airstack-github-pat.txt<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span>ubuntu@&lt;orchestrator-ip&gt;:/tmp/github-pat
+</span></code></pre></div>
+<h3 id="3-run-setupsh">3. Run setup.sh<a class="headerlink" href="#3-run-setupsh" title="Permanent link">&para;</a></h3>
+<p>On the orchestrator VM:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/castacks/AirStack.git<span class="w"> </span>/tmp/airstack
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>sudo<span class="w"> </span>bash<span class="w"> </span>/tmp/airstack/.github/orchestrator/setup.sh
+</span></code></pre></div>
+<p><code>setup.sh</code> creates the <code>orchestrator</code> system user, builds the Python venv, copies <code>orchestrator.py</code> and <code>cloud-init.yaml.j2</code> into <code>/opt/airstack-orchestrator/</code>, scaffolds <code>/etc/airstack-orchestrator/</code>, installs the systemd unit, and consumes <code>/tmp/github-pat</code>.</p>
+<p>You still need to put the <code>clouds.yaml</code> in place under the orchestrator user's home:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>sudo<span class="w"> </span>install<span class="w"> </span>-d<span class="w"> </span>-o<span class="w"> </span>orchestrator<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0700</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>/home/orchestrator/.config/openstack
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-o<span class="w"> </span>orchestrator<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0600</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>/tmp/clouds.yaml<span class="w"> </span>/home/orchestrator/.config/openstack/clouds.yaml
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>sudo<span class="w"> </span>shred<span class="w"> </span>-u<span class="w"> </span>/tmp/clouds.yaml
+</span></code></pre></div>
+<h3 id="4-fill-in-etcairstack-orchestratorconfigyaml">4. Fill in <code>/etc/airstack-orchestrator/config.yaml</code><a class="headerlink" href="#4-fill-in-etcairstack-orchestratorconfigyaml" title="Permanent link">&para;</a></h3>
+<p>Edit the placeholders the example ships with:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What goes here</th>
+<th>How to find it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flavor_name</code></td>
+<td>OpenStack flavor with GPU + enough disk</td>
+<td><code>openstack flavor list</code></td>
+</tr>
+<tr>
+<td><code>network_name</code></td>
+<td>Network the workers attach to</td>
+<td><code>openstack network list</code></td>
+</tr>
+<tr>
+<td><code>keypair_name</code></td>
+<td>SSH keypair for break-glass access</td>
+<td><code>openstack keypair list</code></td>
+</tr>
+<tr>
+<td><code>security_group</code></td>
+<td>Outbound 443 must be allowed</td>
+<td><code>openstack security group list</code></td>
+</tr>
+<tr>
+<td><code>availability_zone</code></td>
+<td>Optional AZ for the spawned instance; leave empty to let Nova pick</td>
+<td><code>openstack availability zone list</code></td>
+</tr>
+<tr>
+<td><code>boot_volume_size_gb</code></td>
+<td>Set &gt;0 if your flavor has <code>disk=0</code> (common for GPU flavors) — boots from a Cinder volume of this size sourced from <code>image_id</code>; leave 0 for direct image-boot</td>
+<td><code>openstack flavor show &lt;flavor&gt;</code> (check disk field)</td>
+</tr>
+<tr>
+<td><code>floating_ips</code></td>
+<td>Pre-allocated FIP pool, rotated through sequentially — each spawn picks the first free one. <code>max_concurrent</code> is capped at <code>len(pool)</code>. Leave empty to skip FIP attachment</td>
+<td><code>openstack floating ip list</code></td>
+</tr>
+<tr>
+<td><code>repo</code></td>
+<td><code>owner/name</code> of the repo to poll</td>
+<td>from GitHub URL</td>
+</tr>
+<tr>
+<td><code>runner_version</code></td>
+<td>Version tag from <a href="https://github.com/actions/runner/releases">actions/runner releases</a></td>
+<td>check before each major upgrade</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-start-the-service">5. Start the service<a class="headerlink" href="#5-start-the-service" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>airstack-orchestrator.service
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>-f
+</span></code></pre></div>
+<p>You should see <code>orchestrator started: repo=... labels=... max_concurrent=N</code> and then periodic poll activity.</p>
+<h2 id="end-to-end-verification">End-to-end verification<a class="headerlink" href="#end-to-end-verification" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Trigger a fast build-only run.</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>gh<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>system-tests.yml<span class="w"> </span>-f<span class="w"> </span><span class="nv">marks</span><span class="o">=</span>build_docker
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Within ~30s, a server should appear:</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--metadata<span class="w"> </span>airstack-role<span class="o">=</span>ephemeral-runner
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># or if your OpenStack setup doesn&#39;t support metadata queries:</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span><span class="s1">&#39;^ephemeral-&#39;</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1"># Watch GitHub → Actions → Runners — the ephemeral runner should appear,</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># pick up the job, then disappear.</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1"># Within ~30s of job completion, the server should be gone:</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--metadata<span class="w"> </span>airstack-role<span class="o">=</span>ephemeral-runner
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span><span class="s1">&#39;^ephemeral-&#39;</span>
+</span></code></pre></div>
+<h2 id="operational-notes">Operational notes<a class="headerlink" href="#operational-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>State file</strong>: <code>/var/lib/airstack-orchestrator/state.json</code> is the in-flight job tracker. Wiping it triggers an orphan sweep on the next reap iteration — owned servers will be force-deleted. Don't wipe it while jobs are mid-flight unless that's what you want.</li>
+<li><strong>Stuck instance</strong>: any server older than <code>max_job_minutes</code> (default 90) is force-deleted regardless of GitHub job status. Bump this if liveliness/autonomy runs grow longer than ~75 minutes.</li>
+<li><strong>PAT rotation</strong>: <code>sudo install -o root -g orchestrator -m 0640 /tmp/new-pat /etc/airstack-orchestrator/github-pat &amp;&amp; sudo systemctl restart airstack-orchestrator.service</code>.</li>
+<li><strong>Pause spawning</strong> (e.g. for maintenance): <code>sudo systemctl stop airstack-orchestrator.service</code>. Already-spawned workers will still complete their jobs and self-shutdown; on restart, the reap loop deletes them.</li>
+<li><strong>Logs</strong>: <code>journalctl -u airstack-orchestrator.service -f</code>. Cloud-init logs from individual workers are visible only via <code>openstack console log show &lt;server&gt;</code> while the worker is running.</li>
+</ul>
+<h2 id="debugging-a-failed-job">Debugging a failed job<a class="headerlink" href="#debugging-a-failed-job" title="Permanent link">&para;</a></h2>
+<p>When a GitHub workflow run fails or stalls, the failure can be in any of four places: the orchestrator (didn't spawn), cloud-init (didn't bootstrap), the GH Actions runner (didn't register or crashed), or the workflow steps themselves. Each has a different inspection path.</p>
+<h3 id="1-find-which-worker-ran-the-job">1. Find which worker ran the job<a class="headerlink" href="#1-find-which-worker-ran-the-job" title="Permanent link">&para;</a></h3>
+<p><code>state.json</code> is the authoritative job ↔ server ↔ floating-IP map:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.jobs | to_entries[] | &quot;\(.key)\t\(.value.server_id)\t\(.value.floating_ip)\t\(.value.runner_name)&quot;&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>/var/lib/airstack-orchestrator/state.json
+</span></code></pre></div>
+<p>Pick the row for your failing <code>job_id</code> (visible in the GitHub Actions URL). Save the values:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="m">73286176852</span><span class="w">          </span><span class="c1"># from the GitHub UI</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">SERVER</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].server_id&quot;</span><span class="w">   </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">FIP</span><span class="o">=</span><span class="k">$(</span><span class="w">   </span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].floating_ip&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
+</span></code></pre></div>
+<p>If the job isn't in <code>state.json</code>, the orchestrator never spawned for it — see step 2 below.</p>
+<h3 id="2-did-the-orchestrator-spawn-at-all">2. Did the orchestrator spawn at all?<a class="headerlink" href="#2-did-the-orchestrator-spawn-at-all" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo<span class="w"> </span>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>--since<span class="w"> </span><span class="s2">&quot;30 min ago&quot;</span><span class="w"> </span>--no-pager
+</span></code></pre></div>
+<p>What you want to see for a healthy spawn:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>spawned server &lt;uuid&gt; for job &lt;job_id&gt; (&lt;job name&gt;)
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>attached floating IP &lt;addr&gt; to server &lt;uuid&gt; (job &lt;job_id&gt;)
+</span></code></pre></div>
+<p>Common things that block a spawn (and how to spot them):</p>
+<table>
+<thead>
+<tr>
+<th>Log line / symptom</th>
+<th>What it means</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>find_queued_jobs failed: 401 ...</code></td>
+<td>PAT expired / wrong scope</td>
+<td>Rotate the PAT (see Operational notes)</td>
+</tr>
+<tr>
+<td><code>spawn failed for job ...: Block Device Mapping is Invalid</code></td>
+<td>Flavor has <code>disk=0</code> and <code>boot_volume_size_gb</code> is 0</td>
+<td>Set <code>boot_volume_size_gb &gt; 0</code></td>
+</tr>
+<tr>
+<td><code>no free floating IP in pool</code></td>
+<td>All FIPs in <code>floating_ips</code> are already in use</td>
+<td>Wait for an in-flight job to complete, or expand the pool</td>
+</tr>
+<tr>
+<td><code>floating_ips configured but not found</code></td>
+<td>Pool addresses don't exist in the project</td>
+<td>Double-check <code>openstack floating ip list</code></td>
+</tr>
+<tr>
+<td>Job is queued in GitHub but no <code>spawned</code> log</td>
+<td>Runner labels in the workflow's <code>runs-on</code> don't match <code>runner_labels</code> in config</td>
+<td>Make them match</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-ssh-into-a-running-worker">3. SSH into a running worker<a class="headerlink" href="#3-ssh-into-a-running-worker" title="Permanent link">&para;</a></h3>
+<p>If the worker is <code>ACTIVE</code>, the floating IP is attached and you can connect directly. The keypair was injected during spawn — use the matching private key:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ssh<span class="w"> </span>-i<span class="w"> </span>&lt;keypair&gt;.pem<span class="w"> </span>ubuntu@<span class="s2">&quot;</span><span class="nv">$FIP</span><span class="s2">&quot;</span>
+</span></code></pre></div>
+<p>If your workstation can't reach the FIP subnet, jump through the orchestrator (which is on the same network):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>ssh<span class="w"> </span>-J<span class="w"> </span>ubuntu@&lt;orchestrator-ip&gt;<span class="w"> </span>-i<span class="w"> </span>&lt;keypair&gt;.pem<span class="w"> </span>ubuntu@<span class="s2">&quot;</span><span class="nv">$FIP</span><span class="s2">&quot;</span>
+</span></code></pre></div>
+<h3 id="4-ssh-into-a-shutoff-worker">4. SSH into a SHUTOFF worker<a class="headerlink" href="#4-ssh-into-a-shutoff-worker" title="Permanent link">&para;</a></h3>
+<p>Workers shut themselves down after <code>run.sh</code> exits (whether the job succeeded, failed, or the runner crashed). The orchestrator only deletes a server once GitHub reports the job <code>completed</code>, so a SHUTOFF worker is preserved while you debug.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Optional but safer — keep the orchestrator from reaping mid-session.</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>airstack-orchestrator.service
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>openstack<span class="w"> </span>server<span class="w"> </span>start<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVER</span><span class="s2">&quot;</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Wait ~30s, then SSH using the FIP from state.json.</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>ssh<span class="w"> </span>-i<span class="w"> </span>&lt;keypair&gt;.pem<span class="w"> </span>ubuntu@<span class="s2">&quot;</span><span class="nv">$FIP</span><span class="s2">&quot;</span>
+</span></code></pre></div>
+<p>When done, delete the worker manually and resume the orchestrator:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>openstack<span class="w"> </span>server<span class="w"> </span>delete<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVER</span><span class="s2">&quot;</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>sudo<span class="w"> </span>jq<span class="w"> </span><span class="s2">&quot;del(.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;])&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/var/lib/airstack-orchestrator/state.json.new<span class="w"> </span>&gt;/dev/null
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>sudo<span class="w"> </span>mv<span class="w"> </span>/var/lib/airstack-orchestrator/state.json.new<span class="w"> </span>/var/lib/airstack-orchestrator/state.json
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>start<span class="w"> </span>airstack-orchestrator.service
+</span></code></pre></div>
+<h3 id="5-what-to-read-once-youre-on-the-worker">5. What to read once you're on the worker<a class="headerlink" href="#5-what-to-read-once-youre-on-the-worker" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Combined boot + cloud-init output. Most useful single file: shows every</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># line our airstack-runner-bootstrap.sh printed, including run.sh&#39;s exit.</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>sudo<span class="w"> </span>less<span class="w"> </span>/var/log/cloud-init-output.log
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>sudo<span class="w"> </span>tail<span class="w"> </span>-300<span class="w"> </span>/var/log/cloud-init-output.log
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="c1"># Cloud-init&#39;s structured log — quick way to surface errors.</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>sudo<span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;WARN|ERROR|FAIL&#39;</span><span class="w"> </span>/var/log/cloud-init.log
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="c1"># GitHub Actions runner diagnostics. The Worker_*.log corresponds to the</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># actual job execution; Runner_*.log covers registration and dispatch.</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>ls<span class="w"> </span>-lt<span class="w"> </span>/home/ubuntu/actions-runner/_diag/
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>sudo<span class="w"> </span>tail<span class="w"> </span>-300<span class="w"> </span>/home/ubuntu/actions-runner/_diag/Runner_*.log
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>sudo<span class="w"> </span>tail<span class="w"> </span>-300<span class="w"> </span>/home/ubuntu/actions-runner/_diag/Worker_*.log
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="c1"># Sanity-check Docker came up cleanly — a frequent failure point.</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>status<span class="w"> </span>docker
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>docker<span class="w"> </span>info<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</span></code></pre></div>
+<h3 id="6-console-log-fallback">6. Console log fallback<a class="headerlink" href="#6-console-log-fallback" title="Permanent link">&para;</a></h3>
+<p>Some flavors on this cloud don't expose the serial console (<code>openstack console log show</code> returns <em>Guest does not have a console available</em>). For those, the SSH path above is the only option. Where it does work, the console log persists across SHUTOFF and is faster than restarting the VM:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>openstack<span class="w"> </span>console<span class="w"> </span>log<span class="w"> </span>show<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVER</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-200
+</span></code></pre></div>
+<h3 id="7-common-failure-patterns-at-the-worker">7. Common failure patterns at the worker<a class="headerlink" href="#7-common-failure-patterns-at-the-worker" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Symptom in <code>cloud-init-output.log</code> (near end)</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Could not connect to api.github.com</code> / DNS errors</td>
+<td>Security group blocking egress, or no NAT for the network</td>
+<td>Allow outbound 443; if behind NAT, ensure FIP networking covers egress</td>
+</tr>
+<tr>
+<td><code>Bad credentials</code> / <code>Invalid configuration ... runnerEvent</code></td>
+<td>JIT config TTL elapsed before <code>run.sh</code> started — bootstrap took too long</td>
+<td>Pre-bake Docker + nvidia-container-toolkit into the image to shrink bootstrap</td>
+</tr>
+<tr>
+<td><code>nvidia-ctk: command not found</code> or NVIDIA driver mismatch</td>
+<td>Image's driver doesn't match the toolkit version</td>
+<td>Use a different image, or pin a compatible toolkit version</td>
+</tr>
+<tr>
+<td><code>apt-get update</code> fails</td>
+<td>Image's apt sources are unreachable from this network</td>
+<td>Check network/security-group; or pre-bake packages into the image</td>
+</tr>
+<tr>
+<td>Runner registered, then <code>pytest</code> failed</td>
+<td>A normal test failure</td>
+<td>Read the GitHub Actions log — that's the canonical view of the workflow output</td>
+</tr>
+<tr>
+<td><code>No space left on device</code></td>
+<td><code>boot_volume_size_gb</code> too small for Docker images + sim assets</td>
+<td>Bump <code>boot_volume_size_gb</code></td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -5300,7 +5694,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../airstack-cli/docker_usage/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Docker Workflow">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: System Testing">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -5310,20 +5704,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Docker Workflow
+                System Testing
               </div>
             </div>
           </a>
         
         
           
-          <a href="../vscode/vscode_debug/" class="md-footer__link md-footer__link--next" aria-label="Next: Visual Studio Code: Docker Integration and Debugger Setup">
+          <a href="../../docs/development/intermediate/frame_conventions/" class="md-footer__link md-footer__link--next" aria-label="Next: Frame Conventions">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Visual Studio Code: Docker Integration and Debugger Setup
+                Frame Conventions
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -5386,10 +5780,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
