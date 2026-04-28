@@ -36,6 +36,20 @@ availability_zone: ""
 # at 0 to boot directly from the image (only works for non-zero-disk flavors).
 boot_volume_size_gb: 0
 
+# Pre-allocated pool of floating IPs to rotate through for SSH access to
+# workers. The orchestrator picks the first free IP from this list, in order,
+# for each new spawn. When the worker is destroyed the IP auto-disassociates
+# and returns to the pool. If non-empty, max_concurrent is capped at len(pool)
+# so the orchestrator never spawns a worker it can't address.
+# Allocate via: openstack floating ip create <external-network>
+# Leave empty to skip floating-IP attachment entirely.
+floating_ips: []
+# Example:
+# floating_ips:
+#   - 172.19.220.131
+#   - 172.19.220.171
+#   - 172.19.220.89
+
 # --- GitHub ---
 
 # owner/name of the repo whose queued workflow_jobs to pick up.
