@@ -74,6 +74,12 @@ jobs:
             echo "Error: .env file not found"
             exit 1
           fi
+
+      - name: Create dummy omni_pass.env
+        run: |
+          # Some compose files expect this file to exist, even if it is empty.
+          mkdir -p simulation/isaac-sim/docker
+          : > simulation/isaac-sim/docker/omni_pass.env
           
           # Display the current VERSION for debugging
           DOCKER_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
