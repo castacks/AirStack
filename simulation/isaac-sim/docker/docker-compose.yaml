@@ -8,6 +8,8 @@ services:
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
         - *image_tag
+      cache_from:
+        - *image_tag
     container_name: isaac-sim
     entrypoint: ""
     command: >
