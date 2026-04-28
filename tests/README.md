@@ -231,9 +231,9 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 ## CI/CD Integration
 
-### Workflow: `integration-tests.yml`
+### Workflow: `system-tests.yml`
 
-[`.github/workflows/integration-tests.yml`](../../../../.github/workflows/integration-tests.yml) runs on:
+[`.github/workflows/system-tests.yml`](../../../../.github/workflows/system-tests.yml) runs on:
 
 - **Pull requests** to `main` or `develop` — automatically runs `build_docker or build_packages` tests (no GPU-intensive liveliness run on every PR)
 - **Manual dispatch** (`workflow_dispatch`) — fully configurable for liveliness runs and metric comparisons

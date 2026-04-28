@@ -134,7 +134,7 @@ You should see `orchestrator started: repo=... labels=... max_concurrent=N` and 
 
 ```bash
 # Trigger a fast build-only run.
-gh workflow run integration-tests.yml -f marks=build_docker
+gh workflow run system-tests.yml -f marks=build_docker
 
 # Within ~30s, a server should appear:
 openstack server list --metadata airstack-role=ephemeral-runner
