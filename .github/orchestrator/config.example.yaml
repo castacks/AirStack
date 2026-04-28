@@ -73,7 +73,7 @@ max_concurrent: 3
 # Hard ceiling for a single job. Past this age the reaper force-deletes the
 # server even if GitHub still reports the job as in-progress. Must comfortably
 # exceed the longest expected job (autonomy/liveliness runs).
-max_job_minutes: 90
+max_job_minutes: 2880  # 48 hours
 
 # --- Polling intervals (seconds) ---
 

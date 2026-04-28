@@ -1,6 +1,8 @@
 # AirStack CI Orchestrator
 
-Long-running service that watches GitHub for queued workflow jobs and spawns truly ephemeral OpenStack instances to execute each one. The orchestrator VM is the only host that holds the GitHub PAT and the OpenStack credential; the workers are destroyed after a single job.
+This describes how to use a self-hosted OpenStack VM to run GitHub Actions jobs on truly ephemeral workers. The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, spawns a fresh OpenStack instance for each one with a single-use JIT runner token, and reaps (deletes) the instance when the job completes. This allows us to run CI workloads on GPU-equipped VMs without sharing any state between runs or exposing long-lived credentials on the worker.
+
+The orchestrator VM is the only host that holds the GitHub PAT and the OpenStack credential; the workers are destroyed after a single job.
 
 ## Architecture
 
@@ -44,6 +46,10 @@ Key properties:
 - **PAT isolation**: the GitHub PAT lives only on the orchestrator. Workers receive a single-use [JIT runner config](https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-a-repository) — a base64 token bound to one runner registration, valid only for a short window.
 - **Application-credential auth**: the orchestrator authenticates to OpenStack with an application credential (revocable, scoped, no password), not the user's `openrc.sh`.
 - **Crash-safe reaping**: every server we spawn is tagged with `airstack-role=ephemeral-runner`. The reap loop force-deletes any owned server not present in `state.json`, so a crashed orchestrator can't leak instances.
+
+## Prerequisites
+- OpenStack instance already setup for the orchestrator VM. The orchestrator itself is lightweight and doesn't need a GPU. 1 vCPU, 2GB RAM, and 20GB disk is sufficient for the orchestrator service. Make sure you can ssh into it and that it has outbound internet access.
+- An OpenStack flavor with GPU passthrough and enough disk to run Docker + the tests. The orchestrator spawns workers from this flavor, so it must have a GPU and sufficient disk (or `boot_volume_size_gb` must be set) to run the workloads. It's common for GPU flavors to have `disk=0`, which means they boot from an ephemeral disk — in that case, you must set `boot_volume_size_gb` to a value large enough for the OS + Docker images + test assets (e.g., 40GB). If your OpenStack setup supports it, you can also boot from a Cinder volume sourced from an image; in that case, pre-bake Docker and the NVIDIA toolkit into the image to speed up boot time.
 
 ## One-time setup
 
