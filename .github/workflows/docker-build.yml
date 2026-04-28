@@ -6,6 +6,15 @@ on:
     paths:
       - '.env'
   workflow_dispatch:
+    inputs:
+      compose_profiles:
+        description: 'Docker Compose profiles to build (comma-separated)'
+        required: false
+        default: 'desktop,isaac-sim,ms-airsim'
+        type: string
+
+env:
+  DEFAULT_PROFILES: 'desktop,isaac-sim,ms-airsim'
 
 jobs:
   check-docker-tag-change:
@@ -82,6 +91,13 @@ jobs:
           source .env
           set +a  # Stop exporting
           
+          # Always override COMPOSE_PROFILES for all trigger types
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+          
           docker compose build
 
       - name: Run Docker Compose Push
@@ -90,6 +106,13 @@ jobs:
           set -a  # Export all variables
           source .env
           set +a  # Stop exporting
+          
+          # Always override COMPOSE_PROFILES for all trigger types
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
           
           docker compose push
 
