@@ -16,10 +16,12 @@ from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, TransformStamped
+from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
+    ORIGIN_LAT, ORIGIN_LON,
 )
 
 SENSOR_QOS = QoSProfile(
@@ -84,10 +86,33 @@ class FoxgloveVisualizerNode(Node):
         self._global_plans   = {}
         self._vdb_markers    = {}
         self._vdb_global     = {}  # pre-translated global-frame VDB, keyed by robot_name
+        # Per-robot NavSatFix re-publisher (frame_id rewritten to 'map' so
+        # Foxglove's Map panel will accept it as a location source).
+        self._location_pubs: dict = {}
         self._subscribed_gps  = set()
         self._subscribed_odom = set()
         self._subscribed_traj = set()
         self._subscribed_plan = set()
+
+        # Make 'map' a known frame on the GCS domain so Foxglove resolves it.
+        # The robot side already publishes the same identity static TF
+        # (robot.launch.xml world_to_map_broadcaster).
+        self._static_tf_broadcaster = StaticTransformBroadcaster(self)
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = 'world'
+        t.child_frame_id = 'map'
+        t.transform.rotation.w = 1.0
+        self._static_tf_broadcaster.sendTransform(t)
+
+        # Publish a stationary "map origin" location at the configured
+        # ORIGIN_LAT/LON so the Foxglove Map panel always has a fixed
+        # reference (otherwise the panel auto-centers on the robot, making
+        # the robot appear at the visible map's center). 1 Hz so any newly
+        # opened Map layer picks it up quickly.
+        self._origin_pub = self.create_publisher(
+            NavSatFix, '/gcs/map_origin/location', 10)
+        self.create_timer(1.0, self._publish_map_origin)
         self._subscribed_vdb  = set()
         self._alt_ground      = None
 
@@ -173,6 +198,23 @@ class FoxgloveVisualizerNode(Node):
                 self._vdb_global[robot_name] = _translate_marker(
                     self._vdb_markers[robot_name], bx, by, bz)
 
+        # Re-publish on /gcs/<robot>/location with frame_id='map' so the
+        # Foxglove Map panel will accept it as a location source. lat/lon
+        # are passed through unchanged.
+        if robot_name not in self._location_pubs:
+            self._location_pubs[robot_name] = self.create_publisher(
+                NavSatFix, f'/gcs/{robot_name}/location', 10)
+        out = NavSatFix()
+        out.header.stamp = msg.header.stamp
+        out.header.frame_id = 'map'
+        out.status = msg.status
+        out.latitude = msg.latitude
+        out.longitude = msg.longitude
+        out.altitude = msg.altitude
+        out.position_covariance = msg.position_covariance
+        out.position_covariance_type = msg.position_covariance_type
+        self._location_pubs[robot_name].publish(out)
+
     def _odom_callback(self, msg: Odometry, robot_name: str):
         o = msg.pose.pose.orientation
         self._orientations[robot_name] = (o.x, o.y, o.z, o.w)
@@ -189,6 +231,17 @@ class FoxgloveVisualizerNode(Node):
         if boot is not None:
             bx, by, bz = boot
             self._vdb_global[robot_name] = _translate_marker(msg, bx, by, bz)
+
+    def _publish_map_origin(self):
+        m = NavSatFix()
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.header.frame_id = 'map'
+        m.status.status = 0  # STATUS_FIX
+        m.status.service = 1  # SERVICE_GPS
+        m.latitude = ORIGIN_LAT
+        m.longitude = ORIGIN_LON
+        m.altitude = 0.0
+        self._origin_pub.publish(m)
 
     def _publish_markers(self):
         if not self._gps_positions:

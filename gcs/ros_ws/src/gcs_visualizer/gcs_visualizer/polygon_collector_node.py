@@ -188,6 +188,11 @@ class PolygonCollectorNode(Node):
                 v = self._vertices.pop(fi)
                 self._vertices.insert(ti, v)
 
+        elif action == 'duplicate':
+            idx = int(cmd.get('index', -1))
+            if 0 <= idx < len(self._vertices):
+                self._vertices.insert(idx + 1, dict(self._vertices[idx]))
+
         elif action == 'clear':
             self._vertices.clear()
 

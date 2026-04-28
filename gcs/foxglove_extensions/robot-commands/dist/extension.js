@@ -1171,28 +1171,31 @@ function buildEditorSection(kind, panelContext) {
   const ctrlRow = document.createElement("div");
   ctrlRow.style.cssText = "display:flex;align-items:center;gap:8px;";
   const enableBtn = document.createElement("button");
-  enableBtn.style.cssText = "padding:6px 12px;border-radius:4px;border:none;color:white;cursor:pointer;font-weight:bold;font-size:12px;";
+  enableBtn.style.cssText = "padding:8px 16px;border-radius:5px;border:none;color:white;cursor:pointer;font-weight:bold;font-size:14px;";
   enableBtn.addEventListener("click", () => {
     const enabled = (kind === "polygon") ? polygonEnabled : editorEnabled;
     sendCmd({ action: "set_enabled", enabled: !enabled });
   });
   const altLabel = document.createElement("span");
   altLabel.textContent = "Z:";
-  altLabel.style.fontSize = "12px";
+  altLabel.style.fontSize = "14px";
   const altInput = document.createElement("input");
   altInput.type = "number";
   altInput.step = "0.5";
-  altInput.style.cssText = "width:60px;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+  altInput.style.cssText = "width:80px;padding:6px 8px;border-radius:5px;border:1px solid #555;background:transparent;color:inherit;font-size:14px;";
   altInput.addEventListener("change", () => {
     sendCmd({ action: "set_altitude", z: Number(altInput.value) || 0 });
   });
   const clearBtn = document.createElement("button");
   clearBtn.textContent = "Clear";
-  clearBtn.style.cssText = "padding:5px 10px;border-radius:4px;border:none;background:#dc2626;color:white;cursor:pointer;font-size:12px;";
+  clearBtn.style.cssText = "padding:8px 14px;border-radius:5px;border:none;background:#dc2626;color:white;cursor:pointer;font-size:14px;";
   clearBtn.addEventListener("click", () => sendCmd({ action: "clear" }));
   ctrlRow.appendChild(enableBtn);
-  ctrlRow.appendChild(altLabel);
-  ctrlRow.appendChild(altInput);
+  // Z control is only meaningful for waypoints — polygons are 2D.
+  if (kind !== "polygon") {
+    ctrlRow.appendChild(altLabel);
+    ctrlRow.appendChild(altInput);
+  }
   const spacer = document.createElement("span");
   spacer.style.flex = "1";
   ctrlRow.appendChild(spacer);
@@ -1209,28 +1212,31 @@ function buildEditorSection(kind, panelContext) {
   addRow.style.cssText = "display:flex;align-items:center;gap:4px;";
   const mkNumIn = (label, def) => {
     const w = document.createElement("div");
-    w.style.cssText = "display:flex;align-items:center;gap:2px;";
+    w.style.cssText = "display:flex;align-items:center;gap:4px;";
     const l = document.createElement("span");
-    l.textContent = label + ":"; l.style.cssText = "font-size:11px;opacity:0.7;";
+    l.textContent = label + ":"; l.style.cssText = "font-size:13px;opacity:0.75;";
     const i = document.createElement("input");
     i.type = "number"; i.step = "0.5"; i.value = def;
-    i.style.cssText = "width:50px;padding:2px 4px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;font-size:11px;";
+    i.style.cssText = "width:64px;padding:5px 7px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-size:13px;";
+    l.style.fontSize = "13px";
     w.appendChild(l); w.appendChild(i);
     return { wrap: w, input: i };
   };
-  const addX = mkNumIn("X", "0"), addY = mkNumIn("Y", "0"), addZ = mkNumIn("Z", "0");
+  const addX = mkNumIn("X", "0"), addY = mkNumIn("Y", "0");
+  const addZ = (kind === "polygon") ? null : mkNumIn("Z", "0");
   const addBtn = document.createElement("button");
   addBtn.textContent = "+ Add";
-  addBtn.style.cssText = "padding:4px 10px;border-radius:4px;border:none;background:" + cfg.primary + ";color:white;cursor:pointer;font-size:12px;";
+  addBtn.style.cssText = "padding:6px 14px;border-radius:5px;border:none;background:" + cfg.primary + ";color:white;cursor:pointer;font-size:14px;";
   addBtn.addEventListener("click", () => {
     sendCmd({
       action: "add",
       x: Number(addX.input.value) || 0,
       y: Number(addY.input.value) || 0,
-      z: Number(addZ.input.value) || 0,
+      z: addZ ? (Number(addZ.input.value) || 0) : 0,
     });
   });
-  addRow.appendChild(addX.wrap); addRow.appendChild(addY.wrap); addRow.appendChild(addZ.wrap);
+  addRow.appendChild(addX.wrap); addRow.appendChild(addY.wrap);
+  if (addZ) addRow.appendChild(addZ.wrap);
   addRow.appendChild(addBtn);
   wrap.appendChild(addRow);
 
@@ -1244,10 +1250,10 @@ function buildEditorSection(kind, panelContext) {
   saveAddRow.style.cssText = "display:flex;align-items:center;gap:4px;";
   const saveNameIn = document.createElement("input");
   saveNameIn.type = "text"; saveNameIn.placeholder = "save name…";
-  saveNameIn.style.cssText = "flex:1;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-size:12px;";
+  saveNameIn.style.cssText = "flex:1;padding:6px 8px;border-radius:5px;border:1px solid #555;background:transparent;color:inherit;font-size:14px;";
   const saveAddBtn = document.createElement("button");
   saveAddBtn.textContent = "+ Add";
-  saveAddBtn.style.cssText = "padding:4px 10px;border-radius:4px;border:none;background:" + cfg.primary + ";color:white;cursor:pointer;font-size:12px;";
+  saveAddBtn.style.cssText = "padding:6px 14px;border-radius:5px;border:none;background:" + cfg.primary + ";color:white;cursor:pointer;font-size:14px;";
   saveAddBtn.addEventListener("click", () => {
     const name = saveNameIn.value.trim();
     if (!name) return;
@@ -1289,15 +1295,15 @@ function buildEditorSection(kind, panelContext) {
         for (let i = 0; i < cache.length; i++) {
           const v = cache[i];
           const row = document.createElement("div");
-          row.style.cssText = "display:flex;align-items:center;gap:3px;padding:3px 5px;border-bottom:1px solid #333;font-size:11px;font-family:monospace;";
+          row.style.cssText = "display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid #333;font-size:14px;font-family:monospace;";
           const idx = document.createElement("span");
           idx.textContent = String(i);
-          idx.style.cssText = `width:18px;font-weight:bold;color:${cfg.primary};`;
+          idx.style.cssText = `width:24px;font-weight:bold;font-size:14px;color:${cfg.primary};`;
           row.appendChild(idx);
           const mkCoord = (val, axis) => {
             const inp = document.createElement("input");
             inp.type = "number"; inp.step = "0.5"; inp.value = String(val);
-            inp.style.cssText = "width:50px;padding:1px 3px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;font-family:monospace;font-size:11px;text-align:right;";
+            inp.style.cssText = "width:68px;padding:5px 7px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-family:monospace;font-size:13px;text-align:right;";
             inp.addEventListener("change", () => {
               const nx = axis === "x" ? Number(inp.value) || 0 : v.x;
               const ny = axis === "y" ? Number(inp.value) || 0 : v.y;
@@ -1308,20 +1314,24 @@ function buildEditorSection(kind, panelContext) {
           };
           row.appendChild(mkCoord(v.x, "x"));
           row.appendChild(mkCoord(v.y, "y"));
-          row.appendChild(mkCoord(v.z, "z"));
+          if (kind !== "polygon") row.appendChild(mkCoord(v.z, "z"));
           const mkBtn = (text, on) => {
             const b = document.createElement("button");
             b.textContent = text;
-            b.style.cssText = "width:22px;height:22px;padding:0;border:none;background:transparent;color:inherit;cursor:pointer;font-size:11px;border-radius:3px;";
+            b.style.cssText = "width:30px;height:30px;padding:0;border:none;background:transparent;color:inherit;cursor:pointer;font-size:15px;border-radius:4px;";
             b.addEventListener("click", on);
             return b;
           };
           if (i > 0) row.appendChild(mkBtn("▲", () => sendCmd({ action: "reorder", from: i, to: i - 1 })));
-          else { const sp = document.createElement("span"); sp.style.width = "22px"; row.appendChild(sp); }
+          else { const sp = document.createElement("span"); sp.style.width = "30px"; row.appendChild(sp); }
           if (i < cache.length - 1) row.appendChild(mkBtn("▼", () => sendCmd({ action: "reorder", from: i, to: i + 1 })));
-          else { const sp = document.createElement("span"); sp.style.width = "22px"; row.appendChild(sp); }
+          else { const sp = document.createElement("span"); sp.style.width = "30px"; row.appendChild(sp); }
+          const dupBtn = mkBtn("⧉", () => sendCmd({ action: "duplicate", index: i }));
+          dupBtn.title = "Duplicate";
+          row.appendChild(dupBtn);
           const delBtn = mkBtn("✕", () => sendCmd({ action: "delete", index: i }));
           delBtn.style.color = "#dc2626";
+          delBtn.title = "Delete";
           row.appendChild(delBtn);
           listContainer.appendChild(row);
         }
@@ -1339,9 +1349,9 @@ function buildEditorSection(kind, panelContext) {
         for (const name of names) {
           const s = savesCache[name];
           const row = document.createElement("div");
-          row.style.cssText = "display:flex;align-items:center;gap:5px;padding:3px 5px;border-bottom:1px solid #333;font-size:11px;";
+          row.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #333;font-size:14px;";
           const sw = document.createElement("span");
-          sw.style.cssText = "display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;";
+          sw.style.cssText = "display:inline-block;width:12px;height:12px;border-radius:50%;flex-shrink:0;";
           const c = s.color || [0.5, 0.5, 0.5];
           sw.style.background = `rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})`;
           row.appendChild(sw);
@@ -1352,7 +1362,7 @@ function buildEditorSection(kind, panelContext) {
           const small = (text, color, on) => {
             const b = document.createElement("button");
             b.textContent = text;
-            b.style.cssText = `padding:1px 6px;border-radius:3px;border:1px solid #555;background:transparent;color:${color};cursor:pointer;font-size:10px;`;
+            b.style.cssText = `padding:4px 10px;border-radius:4px;border:1px solid #555;background:transparent;color:${color};cursor:pointer;font-size:13px;`;
             b.addEventListener("click", on);
             return b;
           };

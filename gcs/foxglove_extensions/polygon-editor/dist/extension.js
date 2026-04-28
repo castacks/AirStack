@@ -52,32 +52,20 @@ function activate(extensionContext) {
       const ctrlRow = el("div", "display:flex;align-items:center;gap:8px;flex-shrink:0;");
 
       const enableBtn = el("button",
-        "padding:6px 14px;border-radius:4px;border:none;color:white;cursor:pointer;font-weight:bold;font-size:13px;");
+        "padding:8px 18px;border-radius:5px;border:none;color:white;cursor:pointer;font-weight:bold;font-size:15px;");
       enableBtn.addEventListener("click", () => {
         sendCmd({ action: "set_enabled", enabled: !enabled });
       });
       ctrlRow.appendChild(enableBtn);
 
-      const altLabel = el("span", "font-size:12px;");
-      altLabel.textContent = "Z:";
-      const altInput = el("input",
-        "width:60px;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;");
-      altInput.type = "number";
-      altInput.step = "0.5";
-      altInput.value = String(state.defaultZ);
-      altInput.addEventListener("change", () => {
-        state.defaultZ = Number(altInput.value) || 0.0;
-        persist();
-        sendCmd({ action: "set_altitude", z: state.defaultZ });
-      });
+      // Z is intentionally not exposed for polygons — vertices always carry
+      // z=0 server-side; the consumers treat polygons as 2D footprints.
 
       const clearBtn = el("button",
-        "padding:6px 10px;border-radius:4px;border:none;background:#dc2626;color:white;cursor:pointer;font-size:12px;");
+        "padding:8px 14px;border-radius:5px;border:none;background:#dc2626;color:white;cursor:pointer;font-size:14px;");
       clearBtn.textContent = "Clear All";
       clearBtn.addEventListener("click", () => { sendCmd({ action: "clear" }); });
 
-      ctrlRow.appendChild(altLabel);
-      ctrlRow.appendChild(altInput);
       ctrlRow.appendChild(el("span", "flex:1;"));  // spacer
       ctrlRow.appendChild(clearBtn);
       root.appendChild(ctrlRow);
@@ -91,25 +79,23 @@ function activate(extensionContext) {
         "flex:1;overflow-y:auto;border:1px solid #444;border-radius:4px;min-height:60px;");
       root.appendChild(listContainer);
 
-      // Add vertex manually row
+      // Add vertex manually row (X/Y only — Z is fixed to 0 for polygons)
       const addRow = el("div", "display:flex;align-items:center;gap:4px;flex-shrink:0;");
       const addXIn = numInput("X", "0");
       const addYIn = numInput("Y", "0");
-      const addZIn = numInput("Z", String(state.defaultZ));
       const addBtn = el("button",
-        "padding:4px 10px;border-radius:4px;border:none;background:#10b981;color:white;cursor:pointer;font-size:12px;");
+        "padding:6px 14px;border-radius:5px;border:none;background:#10b981;color:white;cursor:pointer;font-size:14px;");
       addBtn.textContent = "+ Add";
       addBtn.addEventListener("click", () => {
         sendCmd({
           action: "add",
           x: Number(addXIn.input.value) || 0,
           y: Number(addYIn.input.value) || 0,
-          z: Number(addZIn.input.value) || state.defaultZ,
+          z: 0,
         });
       });
       addRow.appendChild(addXIn.wrap);
       addRow.appendChild(addYIn.wrap);
-      addRow.appendChild(addZIn.wrap);
       addRow.appendChild(addBtn);
       root.appendChild(addRow);
 
@@ -121,11 +107,11 @@ function activate(extensionContext) {
 
       const saveAddRow = el("div", "display:flex;align-items:center;gap:4px;flex-shrink:0;");
       const saveNameIn = el("input",
-        "flex:1;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-size:12px;");
+        "flex:1;padding:6px 8px;border-radius:5px;border:1px solid #555;background:transparent;color:inherit;font-size:14px;");
       saveNameIn.type = "text";
       saveNameIn.placeholder = "save name…";
       const saveAddBtn = el("button",
-        "padding:4px 10px;border-radius:4px;border:none;background:#10b981;color:white;cursor:pointer;font-size:12px;");
+        "padding:6px 14px;border-radius:5px;border:none;background:#10b981;color:white;cursor:pointer;font-size:14px;");
       saveAddBtn.textContent = "+ Add";
       saveAddBtn.addEventListener("click", () => {
         const name = saveNameIn.value.trim();
@@ -154,7 +140,7 @@ function activate(extensionContext) {
         }
         for (const s of saves) {
           const row = el("div",
-            "display:flex;align-items:center;gap:6px;padding:4px 6px;border-bottom:1px solid #333;font-size:12px;");
+            "display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #333;font-size:14px;");
           const swatch = el("span",
             "display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;");
           const [r, g, b] = s.color || [0.5, 0.5, 0.5];
@@ -167,7 +153,7 @@ function activate(extensionContext) {
           row.appendChild(nameEl);
 
           const loadBtn = el("button",
-            "padding:2px 8px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-size:11px;");
+            "padding:4px 10px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;cursor:pointer;font-size:13px;");
           loadBtn.textContent = "Load";
           loadBtn.addEventListener("click", () => {
             sendCmd({ action: "load_save", name: s.name });
@@ -179,11 +165,11 @@ function activate(extensionContext) {
             saveBtn.textContent = "✓ Saved";
             saveBtn.disabled = true;
             saveBtn.style.cssText =
-              "padding:2px 8px;border-radius:3px;border:1px solid #10b981;background:rgba(16,185,129,0.1);color:#10b981;cursor:default;font-size:11px;";
+              "padding:4px 10px;border-radius:4px;border:1px solid #10b981;background:rgba(16,185,129,0.1);color:#10b981;cursor:default;font-size:13px;";
           } else {
             saveBtn.textContent = "Save";
             saveBtn.style.cssText =
-              "padding:2px 8px;border-radius:3px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:11px;";
+              "padding:4px 10px;border-radius:4px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:13px;";
             saveBtn.addEventListener("click", () => {
               sendCmd({ action: "save_save", name: s.name });
             });
@@ -191,7 +177,7 @@ function activate(extensionContext) {
           row.appendChild(saveBtn);
 
           const delBtn = el("button",
-            "padding:2px 6px;border-radius:3px;border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:13px;");
+            "padding:4px 8px;border-radius:4px;border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:15px;");
           delBtn.textContent = "✕";
           delBtn.title = "Delete save";
           delBtn.addEventListener("click", () => {
@@ -230,26 +216,22 @@ function activate(extensionContext) {
         for (let i = 0; i < vertices.length; i++) {
           const v = vertices[i];
           const row = el("div",
-            "display:flex;align-items:center;gap:4px;padding:4px 6px;" +
-            "border-bottom:1px solid #333;font-size:12px;font-family:monospace;" +
+            "display:flex;align-items:center;gap:5px;padding:5px 8px;" +
+            "border-bottom:1px solid #333;font-size:14px;font-family:monospace;" +
             (i === selectedIdx ? "background:rgba(220,38,38,0.18);" : ""));
 
-          const idx = el("span", "width:20px;font-weight:bold;color:#dc2626;");
+          const idx = el("span", "width:24px;font-weight:bold;font-size:14px;color:#dc2626;");
           idx.textContent = String(i);
           row.appendChild(idx);
 
           const xIn = coordInput(v.x, (val) => {
-            sendCmd({ action: "move", index: i, x: val, y: v.y, z: v.z });
+            sendCmd({ action: "move", index: i, x: val, y: v.y, z: 0 });
           });
           const yIn = coordInput(v.y, (val) => {
-            sendCmd({ action: "move", index: i, x: v.x, y: val, z: v.z });
-          });
-          const zIn = coordInput(v.z, (val) => {
-            sendCmd({ action: "move", index: i, x: v.x, y: v.y, z: val });
+            sendCmd({ action: "move", index: i, x: v.x, y: val, z: 0 });
           });
           row.appendChild(xIn);
           row.appendChild(yIn);
-          row.appendChild(zIn);
 
           if (i > 0) {
             const upBtn = smallBtn("▲", () => {
@@ -258,7 +240,7 @@ function activate(extensionContext) {
             upBtn.title = "Move up";
             row.appendChild(upBtn);
           } else {
-            row.appendChild(el("span", "width:24px;"));
+            row.appendChild(el("span", "width:32px;"));
           }
 
           if (i < vertices.length - 1) {
@@ -268,8 +250,14 @@ function activate(extensionContext) {
             downBtn.title = "Move down";
             row.appendChild(downBtn);
           } else {
-            row.appendChild(el("span", "width:24px;"));
+            row.appendChild(el("span", "width:32px;"));
           }
+
+          const dupBtn = smallBtn("⧉", () => {
+            sendCmd({ action: "duplicate", index: i });
+          });
+          dupBtn.title = "Duplicate";
+          row.appendChild(dupBtn);
 
           const delBtn = smallBtn("✕", () => {
             sendCmd({ action: "delete", index: i });
@@ -344,8 +332,8 @@ function el(tag, style) {
 
 function smallBtn(text, onClick) {
   const b = el("button",
-    "width:24px;height:24px;padding:0;border:none;background:transparent;" +
-    "color:inherit;cursor:pointer;font-size:12px;border-radius:3px;");
+    "width:32px;height:32px;padding:0;border:none;background:transparent;" +
+    "color:inherit;cursor:pointer;font-size:15px;border-radius:4px;");
   b.textContent = text;
   b.addEventListener("mouseenter", () => { b.style.background = "rgba(255,255,255,0.1)"; });
   b.addEventListener("mouseleave", () => { b.style.background = "transparent"; });
@@ -355,8 +343,8 @@ function smallBtn(text, onClick) {
 
 function coordInput(value, onChange) {
   const inp = el("input",
-    "width:55px;padding:2px 4px;border-radius:3px;border:1px solid #555;" +
-    "background:transparent;color:inherit;font-family:monospace;font-size:11px;text-align:right;");
+    "width:72px;padding:5px 7px;border-radius:4px;border:1px solid #555;" +
+    "background:transparent;color:inherit;font-family:monospace;font-size:13px;text-align:right;");
   inp.type = "number";
   inp.step = "0.5";
   inp.value = String(value);
@@ -367,12 +355,12 @@ function coordInput(value, onChange) {
 }
 
 function numInput(label, defaultVal) {
-  const wrap = el("div", "display:flex;align-items:center;gap:2px;");
-  const lbl = el("span", "font-size:11px;opacity:0.7;");
+  const wrap = el("div", "display:flex;align-items:center;gap:4px;");
+  const lbl = el("span", "font-size:13px;opacity:0.75;");
   lbl.textContent = label + ":";
   const input = el("input",
-    "width:50px;padding:2px 4px;border-radius:3px;border:1px solid #555;" +
-    "background:transparent;color:inherit;font-size:11px;");
+    "width:64px;padding:5px 7px;border-radius:4px;border:1px solid #555;" +
+    "background:transparent;color:inherit;font-size:13px;");
   input.type = "number";
   input.step = "0.5";
   input.value = defaultVal;

@@ -204,6 +204,11 @@ class WaypointCollectorNode(Node):
                 wp = self._waypoints.pop(fi)
                 self._waypoints.insert(ti, wp)
 
+        elif action == 'duplicate':
+            idx = int(cmd.get('index', -1))
+            if 0 <= idx < len(self._waypoints):
+                self._waypoints.insert(idx + 1, dict(self._waypoints[idx]))
+
         elif action == 'clear':
             self._waypoints.clear()
 
