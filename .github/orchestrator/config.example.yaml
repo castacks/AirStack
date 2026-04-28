@@ -11,30 +11,30 @@ image_id: a891a6fe-5e4f-4b84-a6c9-482848c8f972
 
 # OpenStack flavor with GPU + enough disk for Docker + sim images.
 # Look up with: openstack flavor list
-flavor_name: ""
+flavor_name: "gpu.rtxpro5000.1"
 
 # OpenStack network the ephemeral instance attaches to. Must allow outbound
 # 443 to api.github.com (no inbound is required: the runner makes an outbound
 # long-poll connection to GitHub).
-network_name: ""
+network_name: "airstack.AirLab.Apps_group_network_gates"
 
 # OpenStack keypair injected into the instance for break-glass SSH access.
 # The orchestrator never SSHes into workers itself.
-keypair_name: ""
+keypair_name: "airstack-ci-cd"
 
 # Security group applied to spawned instances. Outbound 443 must be allowed.
-security_group: ""
+security_group: "default"
 
 # OpenStack availability zone to spawn instances in (e.g. nova, gpu-zone-1).
 # Leave empty to let Nova pick.
-availability_zone: ""
+availability_zone: "gates"
 
 # If the chosen flavor has disk=0 (common for GPU flavors), Nova rejects
 # direct image-boot with "Block Device Mapping is Invalid: You specified more
 # local devices than the limit allows". Set this to >0 to boot from a Cinder
 # volume of that size sourced from image_id (deleted on termination). Leave
 # at 0 to boot directly from the image (only works for non-zero-disk flavors).
-boot_volume_size_gb: 0
+boot_volume_size_gb: 100
 
 # Pre-allocated pool of floating IPs to rotate through for SSH access to
 # workers. The orchestrator picks the first free IP from this list, in order,
