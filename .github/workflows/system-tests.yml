@@ -95,6 +95,17 @@ jobs:
       - name: Ensure airstack.sh is executable
         run: chmod +x airstack.sh
 
+      # The ephemeral runner starts with no local images. `airstack_env` in
+      # tests/conftest.py fails fast if compose images are missing, so prep
+      # them here. Under AIRSTACK_REGISTRY_CACHE=1 this pulls first and
+      # builds only what's missing/changed. Skipped when `build_docker` is
+      # in the marks expression — those tests build per-service themselves.
+      - name: Ensure Docker images present
+        if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.marks || 'build_docker or build_packages', 'build_docker') }}
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+        run: ./airstack.sh image-build
+
       - name: Run tests
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
