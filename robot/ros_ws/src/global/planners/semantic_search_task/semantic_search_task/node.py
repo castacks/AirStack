@@ -237,8 +237,10 @@ class SemanticSearchTaskNode(Node):
             '-r', f'~/global_plan_toggle:=/{robot_name}/behavior/global_plan_toggle',
         ])
 
-    def _send_exploration_task(self, robot_name: str) -> None:
-        """Send an unbounded ExplorationTask goal to random_walk_planner to activate droan_gl."""
+    def _send_exploration_task(self, robot_name: str):
+        """Send an unbounded ExplorationTask goal to random_walk_planner to
+        activate droan_gl. Returns (client, send_future) so the caller can
+        cancel the upstream goal when the semantic_search task ends."""
         client = ActionClient(
             self,
             ExplorationTask,
@@ -246,14 +248,33 @@ class SemanticSearchTaskNode(Node):
             callback_group=self._cbg)
         if not client.wait_for_server(timeout_sec=10.0):
             self.get_logger().warn('ExplorationTask server not available after 10s')
-            return
+            return None, None
         goal = ExplorationTask.Goal()
         goal.min_altitude_agl = 2.0
         goal.max_altitude_agl = 15.0
         goal.min_flight_speed = 1.0
         goal.max_flight_speed = 3.0
-        client.send_goal_async(goal)
+        send_future = client.send_goal_async(goal)
         self.get_logger().info('ExplorationTask sent to random_walk_planner')
+        return client, send_future
+
+    def _cancel_exploration_task(self, send_future):
+        """Best-effort cancel of an ExplorationTask started via
+        _send_exploration_task. Safe to call with None / not-yet-accepted."""
+        if send_future is None or not send_future.done():
+            return
+        try:
+            handle = send_future.result()
+        except Exception:
+            return
+        if handle is None or not getattr(handle, 'accepted', False):
+            return
+        try:
+            handle.cancel_goal_async()
+            self.get_logger().info(
+                'Cancelled upstream ExplorationTask (random_walk_planner)')
+        except Exception as e:
+            self.get_logger().warn(f'Failed to cancel ExplorationTask: {e}')
 
     def _interruptible_sleep(self, goal_handle, secs: float) -> bool:
         """Sleep for secs, waking early if cancel requested. Returns True if cancelled."""
@@ -309,6 +330,7 @@ class SemanticSearchTaskNode(Node):
             f'SemanticSearchTask | targets={queries} all_queries={all_queries}')
 
         rayfronts_proc = raven_proc = random_walk_proc = None
+        exploration_send_future = None
         rayfronts_q = raven_q = queue.Queue()
 
         # Track last meaningful line from each process for feedback
@@ -435,7 +457,8 @@ class SemanticSearchTaskNode(Node):
                     self.get_logger().info(
                         'Raven published first waypoint — starting random_walk_planner')
                     time.sleep(3.0)
-                    self._send_exploration_task(robot_name)
+                    _, exploration_send_future = self._send_exploration_task(
+                        robot_name)
 
                 # Send queries to rayfronts whenever its subscriber appears (or reappears).
                 # This handles the initial load AND any rayfronts restart mid-task.
@@ -503,6 +526,9 @@ class SemanticSearchTaskNode(Node):
                     continue   # cancel was requested, loop back to check it
 
         finally:
+            # Cancel the upstream ExplorationTask so the bringup-launched
+            # random_walk_planner stops wandering when this task ends.
+            self._cancel_exploration_task(exploration_send_future)
             self._kill('rayfronts', rayfronts_proc)
             self._kill('raven', raven_proc)
             self._kill('random_walk', random_walk_proc)

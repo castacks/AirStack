@@ -125,6 +125,165 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
 
 
 # ---------------------------------------------------------------------------
+# Top-down "map" camera: orthographic, fixed over (0,0), used to publish a
+# one-shot aerial of the static sim scene that the GCS visualizer will
+# convert into a textured ground in Foxglove's 3D panel.
+# ---------------------------------------------------------------------------
+
+def add_orthographic_camera(stage,
+                            prim_path: str = "/World/MapCamera",
+                            altitude_m: float = 80.0,
+                            coverage_m: float = 80.0,
+                            scene_scale_factor: float = 1.0):
+    """Create a static orthographic camera straight over (0, 0) looking down.
+
+    Args:
+        stage:               Active USD stage.
+        prim_path:           Where to place the camera prim.
+        altitude_m:          Camera height above world origin (metric).
+        coverage_m:          Side length of the world square in frame (metric).
+        scene_scale_factor:  1 / meters_per_unit. Pass the value returned by
+                             ``get_stage_meters_per_unit`` so metric inputs
+                             land in the right stage-space units.
+
+    Returns:
+        The string prim path (handy for callers that pass it to the OG helper).
+    """
+    cam = UsdGeom.Camera.Define(stage, Sdf.Path(prim_path))
+
+    # Place the camera over (0, 0). USD cameras look along -Z by default,
+    # which is already straight down — no rotation needed.
+    xform = UsdGeom.Xformable(cam.GetPrim())
+    xform.ClearXformOpOrder()
+    xform.AddTranslateOp().Set(
+        Gf.Vec3d(0.0, 0.0, float(altitude_m) * float(scene_scale_factor)))
+
+    # Orthographic projection. USD aperture is in tenths of a stage unit, so
+    # for a 1 m stage `coverage_m * 10` puts a coverage_m × coverage_m square
+    # exactly in frame; scale_factor extends that to non-meter stage units.
+    cam.CreateProjectionAttr(UsdGeom.Tokens.orthographic)
+    aperture = float(coverage_m) * 10.0 * float(scene_scale_factor)
+    cam.CreateHorizontalApertureAttr(aperture)
+    cam.CreateVerticalApertureAttr(aperture)
+    cam.CreateClippingRangeAttr(
+        Gf.Vec2f(0.1, max(2.0, float(altitude_m) * 2.0) * float(scene_scale_factor)))
+
+    print(f"[scene_prep] Orthographic map camera at '{prim_path}' "
+          f"(alt={altitude_m} m, coverage={coverage_m} m)")
+    return prim_path
+
+
+def add_overhead_camera_publisher(parent_graph_path: str,
+                                  camera_prim_path: str,
+                                  topic: str = "/sim/overhead/image",
+                                  spec_topic: str = "/sim/overhead/spec",
+                                  frame_id: str = "map",
+                                  coverage_m: float = 80.0,
+                                  pixels_per_meter: float = 4.0,
+                                  max_resolution: int = 2048,
+                                  domain_id: int = 0):
+    """Wire an orthographic camera to a raw ``sensor_msgs/Image`` topic, plus
+    a spec ``std_msgs/Float32`` topic carrying ``coverage_m`` so consumers
+    can size the ground texture without manual configuration.
+
+    The image resolution is auto-derived from ``coverage_m × pixels_per_meter``
+    and capped at ``max_resolution`` so a typo can't blow up bandwidth. Sim
+    scene is static, so we only need one valid frame — the GCS visualizer
+    catches it then unsubscribes, making the brief startup burst the only
+    network cost.
+
+    Builds a standalone OmniGraph at ``parent_graph_path`` with its own
+    ROS2Context targeting ``domain_id`` regardless of which domain the
+    drones are using.
+    """
+    import omni.graph.core as og  # lazy so non-sim contexts can import scene_prep
+
+    res = max(64, min(int(round(float(coverage_m) * float(pixels_per_meter))),
+                      int(max_resolution)))
+
+    controller = og.Controller()
+    g = parent_graph_path
+
+    if og.get_graph_by_path(g) is None:
+        og.Controller.create_graph({"graph_path": g, "evaluator_name": "execution"})
+
+    nodes = {
+        "context":      f"{g}/MapCameraROS2Context",
+        "playback":     f"{g}/MapCameraOnPlaybackTick",
+        "create_rp":    f"{g}/MapCameraCreateRenderProduct",
+        "rgb":          f"{g}/MapCameraRGBHelper",
+        "frame":        f"{g}/MapCameraFrameId",
+        "topic":        f"{g}/MapCameraTopic",
+        # Spec branch: publishes coverage_m once per tick on a separate topic
+        # so the GCS visualizer auto-discovers FOV.
+        "spec_value":   f"{g}/MapCameraSpecValue",
+        "spec_topic":   f"{g}/MapCameraSpecTopic",
+        "spec_pub":     f"{g}/MapCameraSpecPublisher",
+    }
+
+    controller.edit(
+        graph_id=g,
+        edit_commands={
+            og.Controller.Keys.CREATE_NODES: [
+                (nodes["context"],    "isaacsim.ros2.bridge.ROS2Context"),
+                (nodes["playback"],   "omni.graph.action.OnPlaybackTick"),
+                (nodes["create_rp"],  "isaacsim.core.nodes.IsaacCreateRenderProduct"),
+                (nodes["rgb"],        "isaacsim.ros2.bridge.ROS2CameraHelper"),
+                (nodes["frame"],      "omni.graph.nodes.ConstantString"),
+                (nodes["topic"],      "omni.graph.nodes.ConstantString"),
+                (nodes["spec_value"], "omni.graph.nodes.ConstantFloat"),
+                (nodes["spec_topic"], "omni.graph.nodes.ConstantString"),
+                (nodes["spec_pub"],   "isaacsim.ros2.bridge.ROS2Publisher"),
+            ],
+            og.Controller.Keys.CONNECT: [
+                # Image branch
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['create_rp']}.inputs:execIn"),
+                (f"{nodes['create_rp']}.outputs:execOut", f"{nodes['rgb']}.inputs:execIn"),
+                (f"{nodes['create_rp']}.outputs:renderProductPath",
+                 f"{nodes['rgb']}.inputs:renderProductPath"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['rgb']}.inputs:context"),
+                (f"{nodes['frame']}.inputs:value",        f"{nodes['rgb']}.inputs:frameId"),
+                (f"{nodes['topic']}.inputs:value",        f"{nodes['rgb']}.inputs:topicName"),
+                # Spec branch
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['spec_pub']}.inputs:execIn"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['spec_pub']}.inputs:context"),
+                (f"{nodes['spec_topic']}.inputs:value",   f"{nodes['spec_pub']}.inputs:topicName"),
+            ],
+            og.Controller.Keys.SET_VALUES: [
+                (("inputs:domain_id",         nodes["context"]),  int(domain_id)),
+                (("inputs:cameraPrim",        nodes["create_rp"]), camera_prim_path),
+                (("inputs:width",             nodes["create_rp"]), res),
+                (("inputs:height",            nodes["create_rp"]), res),
+                (("inputs:type",              nodes["rgb"]), "rgb"),
+                (("inputs:value",             nodes["frame"]), str(frame_id)),
+                (("inputs:value",             nodes["topic"]), str(topic)),
+                (("inputs:value",             nodes["spec_value"]), float(coverage_m)),
+                (("inputs:value",             nodes["spec_topic"]), str(spec_topic)),
+                (("inputs:messageName",       nodes["spec_pub"]), "Float32"),
+                (("inputs:messagePackage",    nodes["spec_pub"]), "std_msgs"),
+                (("inputs:messageSubfolder",  nodes["spec_pub"]), "msg"),
+            ],
+        },
+    )
+
+    # The ROS2Publisher's value input is dynamically typed — created on the
+    # node after the message type is set. Connect ConstantFloat → publisher.
+    controller.edit(
+        graph_id=g,
+        edit_commands={
+            og.Controller.Keys.CONNECT: [
+                (f"{nodes['spec_value']}.inputs:value",
+                 f"{nodes['spec_pub']}.inputs:data"),
+            ],
+        },
+    )
+
+    print(f"[scene_prep] Overhead camera publisher wired: "
+          f"{topic} ({res}x{res} raw Image), {spec_topic} ({coverage_m} m), "
+          f"domain_id={domain_id}")
+
+
+# ---------------------------------------------------------------------------
 # Consolidate root prims under /World
 # ---------------------------------------------------------------------------
 

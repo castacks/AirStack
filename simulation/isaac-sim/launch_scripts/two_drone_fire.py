@@ -37,7 +37,11 @@ from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 import scene_prep
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit, reference_root_prims_under_world
+from scene_prep import (
+    scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit,
+    reference_root_prims_under_world,
+    add_orthographic_camera, add_overhead_camera_publisher,
+)
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -75,6 +79,16 @@ DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
     {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
 ]
+
+# Top-down "map" camera over (0, 0). Captures one aerial of the static scene
+# that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.
+OVERHEAD_ALTITUDE_M    = 150.0
+OVERHEAD_COVERAGE_M    = 200.0   # The only per-map knob: world meters per side.
+OVERHEAD_PX_PER_METER  = 4.0     # Source-image density. Bump for sharper texture.
+OVERHEAD_TOPIC         = "/sim/overhead/image"
+OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"
+OVERHEAD_FRAME_ID      = "map"
+OVERHEAD_DOMAIN_ID     = 0
 # ---------------------------------------------------------
 
 
@@ -166,6 +180,27 @@ class PegasusApp:
 
         # Units
         mpu, s = get_stage_meters_per_unit(stage)
+
+        # Top-down orthographic camera over (0, 0). Publishes one JPEG aerial
+        # of the static scene at low rate; the GCS visualizer republishes it
+        # as a textured ground for Foxglove's 3D panel.
+        cam_path = add_orthographic_camera(
+            stage,
+            prim_path="/World/MapCamera",
+            altitude_m=OVERHEAD_ALTITUDE_M,
+            coverage_m=OVERHEAD_COVERAGE_M,
+            scene_scale_factor=s,
+        )
+        add_overhead_camera_publisher(
+            parent_graph_path="/World/MapCameraGraph",
+            camera_prim_path=cam_path,
+            topic=OVERHEAD_TOPIC,
+            spec_topic=OVERHEAD_SPEC_TOPIC,
+            frame_id=OVERHEAD_FRAME_ID,
+            coverage_m=OVERHEAD_COVERAGE_M,
+            pixels_per_meter=OVERHEAD_PX_PER_METER,
+            domain_id=OVERHEAD_DOMAIN_ID,
+        )
 
         # Spawn all drones
         for cfg in DRONE_CONFIGS:

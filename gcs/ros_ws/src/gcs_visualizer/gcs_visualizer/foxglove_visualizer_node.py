@@ -12,11 +12,12 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix, Image
 from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Point, TransformStamped
+from std_msgs.msg import ColorRGBA, Float32
 from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
@@ -29,6 +30,13 @@ SENSOR_QOS = QoSProfile(
     durability=DurabilityPolicy.VOLATILE,
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
+)
+
+LATCHED_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
 )
 
 GPS_SUFFIX  = '/interface/mavros/global_position/global'
@@ -113,6 +121,43 @@ class FoxgloveVisualizerNode(Node):
         self._origin_pub = self.create_publisher(
             NavSatFix, '/gcs/map_origin/location', 10)
         self.create_timer(1.0, self._publish_map_origin)
+
+        # Sim-mode "textured ground" pipeline. The simulator publishes a
+        # raw overhead Image of its static scene plus a coverage_m spec on a
+        # separate Float32 topic so the GCS doesn't need to be configured
+        # manually. We wait until both have been received, then build a
+        # TRIANGLE_LIST marker with per-vertex colors and publish it once on
+        # a latched topic for Foxglove's 3D panel. Subscriptions are torn
+        # down after the first build to free up bandwidth.
+        self.declare_parameter('overhead_image_topic', '/sim/overhead/image')
+        self.declare_parameter('overhead_spec_topic', '/sim/overhead/spec')
+        self.declare_parameter('overhead_coverage_m', 0.0)        # 0 → wait for spec topic
+        self.declare_parameter('overhead_grid_resolution', 0)     # 0 → derive from coverage
+        self.declare_parameter('overhead_grid_per_m', 0.8)
+        self.declare_parameter('overhead_max_grid_resolution', 384)
+        self._overhead_topic = self.get_parameter(
+            'overhead_image_topic').value
+        self._overhead_spec_topic = self.get_parameter(
+            'overhead_spec_topic').value
+        # 0 → unknown / wait for spec; >0 → manual override.
+        cov_param = float(self.get_parameter('overhead_coverage_m').value)
+        self._overhead_coverage_m = cov_param if cov_param > 0 else None
+        grid_param = int(self.get_parameter('overhead_grid_resolution').value)
+        self._overhead_grid_n_override = grid_param if grid_param > 0 else None
+        self._overhead_grid_per_m = float(self.get_parameter(
+            'overhead_grid_per_m').value)
+        self._overhead_max_grid_n = int(self.get_parameter(
+            'overhead_max_grid_resolution').value)
+        self._ground_published = False
+        self._pending_image = None    # cache image until spec arrives (or vice versa)
+        self._ground_pub = self.create_publisher(
+            Marker, '/gcs/sim_ground', LATCHED_QOS)
+        self._overhead_sub = self.create_subscription(
+            Image, self._overhead_topic,
+            self._on_overhead_image, SENSOR_QOS)
+        self._overhead_spec_sub = self.create_subscription(
+            Float32, self._overhead_spec_topic,
+            self._on_overhead_spec, SENSOR_QOS)
         self._subscribed_vdb  = set()
         self._alt_ground      = None
 
@@ -242,6 +287,117 @@ class FoxgloveVisualizerNode(Node):
         m.longitude = ORIGIN_LON
         m.altitude = 0.0
         self._origin_pub.publish(m)
+
+    def _on_overhead_spec(self, msg: Float32):
+        """Cache the sim-published coverage_m. We may have already received
+        an image — if so, finish the build now."""
+        if self._ground_published:
+            return
+        if self._overhead_coverage_m is None and float(msg.data) > 0:
+            self._overhead_coverage_m = float(msg.data)
+            self.get_logger().info(
+                f'Sim overhead spec: coverage_m = {self._overhead_coverage_m:.1f}')
+        if self._pending_image is not None:
+            img = self._pending_image
+            self._pending_image = None
+            self._build_sim_ground_marker(img)
+
+    def _on_overhead_image(self, msg: Image):
+        """Cache or process the first valid sim-overhead Image."""
+        if self._ground_published:
+            return
+        if self._overhead_coverage_m is None:
+            # Hold onto the image until the spec arrives.
+            self._pending_image = msg
+            return
+        self._build_sim_ground_marker(msg)
+
+    def _build_sim_ground_marker(self, msg: Image):
+        """Build and publish the TRIANGLE_LIST sim_ground marker, then tear
+        down both overhead subscriptions so we stop pulling traffic."""
+        if self._ground_published:
+            return
+
+        # Decode raw Image: encoding can be rgb8 / rgba8 / bgr* — Isaac Sim's
+        # RGB camera helper publishes rgba8.
+        try:
+            arr = np.frombuffer(bytes(msg.data), dtype=np.uint8)
+            arr = arr.reshape((msg.height, msg.width, -1))
+            enc = (msg.encoding or '').lower()
+            if enc.startswith('rgba'):
+                pix = arr[..., :3]
+            elif enc.startswith('bgra'):
+                pix = arr[..., [2, 1, 0]]
+            elif enc.startswith('bgr'):
+                pix = arr[..., ::-1]
+            else:
+                pix = arr[..., :3]
+        except Exception as e:
+            self.get_logger().warn(f'Failed to decode overhead Image: {e}')
+            return
+
+        coverage = float(self._overhead_coverage_m)
+        # Grid resolution: explicit override > coverage × density (capped).
+        if self._overhead_grid_n_override is not None:
+            N = self._overhead_grid_n_override
+        else:
+            N = int(round(coverage * self._overhead_grid_per_m))
+        N = max(8, min(N, int(self._overhead_max_grid_n)))
+
+        # Downsample to N×N grid via simple nearest-neighbor stride.
+        H, W = pix.shape[:2]
+        ys = (np.linspace(0, H - 1, N)).astype(np.int32)
+        xs = (np.linspace(0, W - 1, N)).astype(np.int32)
+        pixels = pix[ys[:, None], xs[None, :], :]  # (N, N, 3)
+
+        cell = coverage / N
+
+        marker = Marker()
+        marker.header.frame_id = 'map'
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = 'sim_ground'
+        marker.id = 0
+        marker.type = Marker.TRIANGLE_LIST
+        marker.action = Marker.ADD
+        marker.pose.orientation.w = 1.0
+        marker.scale.x = 1.0
+        marker.scale.y = 1.0
+        marker.scale.z = 1.0
+        marker.color.a = 1.0  # per-vertex colors override .color, but a must be set
+
+        # Build the grid. Image row 0 is the +Y edge (image-up = world-north).
+        # World x = (col / N - 0.5) * coverage; world y = (0.5 - row / N) * coverage.
+        for row in range(N):
+            y_top = (0.5 - row / N) * coverage
+            y_bot = y_top - cell
+            for col in range(N):
+                x_left = (col / N - 0.5) * coverage
+                x_right = x_left + cell
+                r, g, b = pixels[row, col]
+                color = ColorRGBA(r=r/255.0, g=g/255.0, b=b/255.0, a=1.0)
+
+                p_tl = Point(x=x_left,  y=y_top, z=0.0)
+                p_tr = Point(x=x_right, y=y_top, z=0.0)
+                p_bl = Point(x=x_left,  y=y_bot, z=0.0)
+                p_br = Point(x=x_right, y=y_bot, z=0.0)
+
+                # CCW winding (looking down +Z): top-left, bottom-left, bottom-right
+                # then top-left, bottom-right, top-right.
+                marker.points.extend([p_tl, p_bl, p_br,
+                                      p_tl, p_br, p_tr])
+                marker.colors.extend([color] * 6)
+
+        self._ground_pub.publish(marker)
+        self._ground_published = True
+        # Stop pulling raw image bytes (and the now-redundant spec) off the wire.
+        for sub_attr in ('_overhead_sub', '_overhead_spec_sub'):
+            try:
+                self.destroy_subscription(getattr(self, sub_attr))
+            except Exception:
+                pass
+        self.get_logger().info(
+            f'Published sim_ground marker: {N}x{N} cells, '
+            f'{len(marker.points)} verts, coverage {coverage:.1f} m')
 
     def _publish_markers(self):
         if not self._gps_positions:
