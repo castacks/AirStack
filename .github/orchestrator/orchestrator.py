@@ -233,6 +233,51 @@ def list_owned_servers(conn: openstack.connection.Connection) -> list[Any]:
     return owned
 
 
+def find_free_floating_ip(
+    conn: openstack.connection.Connection, pool: list[str]
+) -> Any:
+    """Return the FloatingIP resource for the first address in `pool` that is
+    not currently associated with any port. Returns None if all are in use.
+
+    Iterates `pool` in order so attachments rotate through it sequentially.
+    Logs a warning for any pool member that doesn't exist in this project.
+    """
+    if not pool:
+        return None
+    pool_set = set(pool)
+    fips_by_addr: dict[str, Any] = {}
+    for fip in conn.network.ips():
+        if fip.floating_ip_address in pool_set:
+            fips_by_addr[fip.floating_ip_address] = fip
+    missing = pool_set - fips_by_addr.keys()
+    if missing:
+        log.warning(
+            "floating_ips configured but not found in this project: %s",
+            sorted(missing),
+        )
+    for addr in pool:
+        fip = fips_by_addr.get(addr)
+        if fip is not None and not fip.port_id:
+            return fip
+    return None
+
+
+def attach_floating_ip(
+    conn: openstack.connection.Connection, server_id: str, fip: Any
+) -> str:
+    """Wait for the server to have a network port, then associate `fip`.
+    Returns the floating IP address."""
+    for _ in range(60):  # ~120s
+        ports = list(conn.network.ports(device_id=server_id))
+        if ports:
+            break
+        time.sleep(2)
+    else:
+        raise RuntimeError(f"server {server_id} got no network port within 120s")
+    conn.network.update_ip(fip, port_id=ports[0].id)
+    return fip.floating_ip_address
+
+
 def now_utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -252,6 +297,13 @@ class Orchestrator:
         self.runner_labels = config["runner_labels"]
         self.runner_version = config["runner_version"]
         self.max_concurrent = int(config.get("max_concurrent", 3))
+        self.floating_ips: list[str] = list(config.get("floating_ips") or [])
+        # Cap spawns to FIP pool size so we never queue jobs we can't address.
+        self.effective_max_concurrent = self.max_concurrent
+        if self.floating_ips:
+            self.effective_max_concurrent = min(
+                self.max_concurrent, len(self.floating_ips)
+            )
         self.max_job_minutes = int(config.get("max_job_minutes", 90))
         self.spawn_interval = int(config.get("spawn_poll_interval_s", 15))
         self.reap_interval = int(config.get("reap_poll_interval_s", 30))
@@ -264,7 +316,7 @@ class Orchestrator:
     def spawn_once(self) -> None:
         state = load_state(self.state_path)
         active = len(state["jobs"])
-        if active >= self.max_concurrent:
+        if active >= self.effective_max_concurrent:
             return
         try:
             queued = find_queued_jobs(self.repo, self.runner_labels, self.pat)
@@ -273,11 +325,25 @@ class Orchestrator:
             return
 
         for job in queued:
-            if active >= self.max_concurrent:
+            if active >= self.effective_max_concurrent:
                 break
             job_id = job["job_id"]
             if job_id in state["jobs"]:
                 continue
+
+            # Pre-check FIP availability before minting a JIT token so we
+            # don't burn one when there's nowhere to attach the worker.
+            reserved_fip = None
+            if self.floating_ips:
+                reserved_fip = find_free_floating_ip(self.conn, self.floating_ips)
+                if reserved_fip is None:
+                    log.warning(
+                        "no free floating IP in pool (%d configured); "
+                        "deferring spawns until one frees up",
+                        len(self.floating_ips),
+                    )
+                    break
+
             ts = int(time.time())
             runner_name = f"ephemeral-{job_id}-{ts}"
             try:
@@ -294,12 +360,32 @@ class Orchestrator:
                 log.exception("spawn failed for job %s: %s", job_id, e)
                 continue
 
+            floating_ip_addr: str | None = None
+            if reserved_fip is not None:
+                try:
+                    floating_ip_addr = attach_floating_ip(
+                        self.conn, server_id, reserved_fip
+                    )
+                    log.info(
+                        "attached floating IP %s to server %s (job %s)",
+                        floating_ip_addr, server_id, job_id,
+                    )
+                except Exception as e:
+                    log.exception(
+                        "FIP attach failed for server %s; deleting to avoid "
+                        "leaking a worker without external access: %s",
+                        server_id, e,
+                    )
+                    delete_server(self.conn, server_id)
+                    continue
+
             state["jobs"][job_id] = {
                 "run_id": job["run_id"],
                 "server_id": server_id,
                 "runner_name": runner_name,
                 "spawned_at": now_utc_iso(),
                 "name": job["name"],
+                "floating_ip": floating_ip_addr,
             }
             save_state(self.state_path, state)
             active += 1
@@ -369,8 +455,10 @@ class Orchestrator:
 
     def run(self) -> None:
         log.info(
-            "orchestrator started: repo=%s labels=%s max_concurrent=%d",
+            "orchestrator started: repo=%s labels=%s max_concurrent=%d "
+            "(effective=%d, floating_ip_pool=%d)",
             self.repo, self.runner_labels, self.max_concurrent,
+            self.effective_max_concurrent, len(self.floating_ips),
         )
         last_spawn = 0.0
         last_reap = 0.0

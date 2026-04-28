@@ -117,6 +117,7 @@ Edit the placeholders the example ships with:
 | `security_group` | Outbound 443 must be allowed | `openstack security group list` |
 | `availability_zone` | Optional AZ for the spawned instance; leave empty to let Nova pick | `openstack availability zone list` |
 | `boot_volume_size_gb` | Set >0 if your flavor has `disk=0` (common for GPU flavors) — boots from a Cinder volume of this size sourced from `image_id`; leave 0 for direct image-boot | `openstack flavor show <flavor>` (check disk field) |
+| `floating_ips` | Pre-allocated FIP pool, rotated through sequentially — each spawn picks the first free one. `max_concurrent` is capped at `len(pool)`. Leave empty to skip FIP attachment | `openstack floating ip list` |
 | `repo` | `owner/name` of the repo to poll | from GitHub URL |
 | `runner_version` | Version tag from [actions/runner releases](https://github.com/actions/runner/releases) | check before each major upgrade |
 
@@ -137,12 +138,15 @@ gh workflow run integration-tests.yml -f marks=build_docker
 
 # Within ~30s, a server should appear:
 openstack server list --metadata airstack-role=ephemeral-runner
+# or if your OpenStack setup doesn't support metadata queries:
+openstack server list --name '^ephemeral-'
 
 # Watch GitHub → Actions → Runners — the ephemeral runner should appear,
 # pick up the job, then disappear.
 
 # Within ~30s of job completion, the server should be gone:
 openstack server list --metadata airstack-role=ephemeral-runner
+openstack server list --name '^ephemeral-'
 ```
 
 ## Operational notes
