@@ -11,32 +11,32 @@ topics:
 
   /robot_1/vdb_mapping/vdb_map_visualization:
     from_domain: 1
-    to_domain: 0
+    to_domain: 8
     type: visualization_msgs/msg/Marker
 
   /robot_1/odometry_conversion/odometry:
     from_domain: 1
-    to_domain: 0
+    to_domain: 8
     type: nav_msgs/msg/Odometry
 
   /robot_2/vdb_mapping/vdb_map_visualization:
     from_domain: 2
-    to_domain: 0
+    to_domain: 8
     type: visualization_msgs/msg/Marker
 
   /robot_2/odometry_conversion/odometry:
     from_domain: 2
-    to_domain: 0
+    to_domain: 8
     type: nav_msgs/msg/Odometry
 
   /robot_3/vdb_mapping/vdb_map_visualization:
     from_domain: 3
-    to_domain: 0
+    to_domain: 8
     type: visualization_msgs/msg/Marker
 
   /robot_3/odometry_conversion/odometry:
     from_domain: 3
-    to_domain: 0
+    to_domain: 8
     type: nav_msgs/msg/Odometry
 
   robot_2/interface/mavros/state:
@@ -47,43 +47,68 @@ topics:
   /robot_1/behavior/behavior_tree_graphviz:
     type: std_msgs/msg/String
     from_domain: 1
-    to_domain: 0
+    to_domain: 8
   /robot_2/behavior/behavior_tree_graphviz:
     type: std_msgs/msg/String
     from_domain: 2
-    to_domain: 0
+    to_domain: 8
 
   /robot_3/behavior/behavior_tree_graphviz:
     type: std_msgs/msg/String
     from_domain: 3
-    to_domain: 0
+    to_domain: 8
 
 #  GPS related topics -----------
   /robot_1/interface/mavros/global_position/raw/fix:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 1
-    to_domain: 0
+    to_domain: 8
   /robot_2/interface/mavros/global_position/raw/fix:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 2
-    to_domain: 0
+    to_domain: 8
   /robot_3/interface/mavros/global_position/raw/fix:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 3
-    to_domain: 0
+    to_domain: 8
   /robot_1/interface/mavros/global_position/global:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 1
-    to_domain: 0
+    to_domain: 8
   /robot_2/interface/mavros/global_position/global:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 2
-    to_domain: 0
+    to_domain: 8
   /robot_3/interface/mavros/global_position/global:
     type: sensor_msgs/msg/NavSatFix
     from_domain: 3
-    to_domain: 0
+    to_domain: 8
+  # Cross-robot global position bridges (partial mesh among domains 1, 2, 3)
+  # Uses relative topic form as a distinct YAML key from the absolute form above.
+  # Only one extra target per topic is possible this way (3 of 6 directions).
+  # For full mesh, additional domain_bridge nodes/configs would be needed.
+  robot_1/interface/mavros/global_position/global:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 1
+    to_domain: 3
+  robot_2/interface/mavros/global_position/global:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 2
+    to_domain: 3
+  robot_3/interface/mavros/global_position/global:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: 3
+    to_domain: 2
 
+  # Exchange information_map between robot 2 and robot 3
+  /robot_2/information_map:
+    type: nav_msgs/msg/OccupancyGrid
+    from_domain: 2
+    to_domain: 3
+  /robot_3/information_map:
+    type: nav_msgs/msg/OccupancyGrid
+    from_domain: 3
+    to_domain: 2
 
   # Bridge "/clock" topic from doman ID 2 to domain ID 3,
   # Override durability to be 'volatile' and override depth to be 1
