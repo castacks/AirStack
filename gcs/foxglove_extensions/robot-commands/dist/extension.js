@@ -35,10 +35,23 @@ let polygonVerticesCache = [];
 // Save caches: {name: {color, vertices}} keyed by save name.
 let editorSavesCache = {};
 let polygonSavesCache = {};
+// Capture-toggle + default-altitude state per editor (synced from list topics).
+let editorEnabled = false;
+let polygonEnabled = false;
+let editorDefaultZ = 10.0;
+let polygonDefaultZ = 0.0;
 
 // Registry of (kind, <select>) pairs so we can refresh them when save caches
 // update without rebuilding the whole panel. kind is "polygon" or "path".
 const sourceDropdowns = [];
+
+// Registry of inline editor sections — multiple instances live at once (one
+// per tab body) and all reflect the same shared state. Each entry exposes
+// a render() that re-paints from the module caches on every update.
+const editorSections = { waypoint: [], polygon: [] };
+function refreshEditorSections(kind) {
+  for (const section of editorSections[kind]) section.render();
+}
 
 function refreshSourceDropdowns() {
   for (const { kind, select } of sourceDropdowns) {
@@ -518,6 +531,20 @@ function activate(extensionContext) {
           for (const field of [...simple, ...complex]) {
             body.appendChild(buildField(field, state[tab.id], persist));
           }
+          // If this tab takes a path or polygon, embed the matching editor as
+          // a collapsible section so the user doesn't need a separate panel.
+          // The underlying state is shared across all instances via the
+          // /gcs/<editor>/list and /saves topics, so editing in one tab
+          // immediately reflects in another (e.g. polygon drawn in Exploration
+          // shows up live in Semantic Search's editor section).
+          const hasPath = tab.fields.some((f) => f.kind === "path");
+          const hasPolygon = tab.fields.some((f) => f.kind === "polygon");
+          if (hasPath) {
+            body.appendChild(buildEditorSection("waypoint", panelContext));
+          }
+          if (hasPolygon) {
+            body.appendChild(buildEditorSection("polygon", panelContext));
+          }
         }
 
         tabBodies[tab.id] = body;
@@ -759,11 +786,17 @@ function activate(extensionContext) {
               try {
                 const data = JSON.parse(evt.message?.data ?? "{}");
                 editorWaypointsCache = Array.isArray(data.waypoints) ? data.waypoints : [];
+                if (data.default_z != null) editorDefaultZ = Number(data.default_z) || 0;
+                if (data.enabled != null) editorEnabled = Boolean(data.enabled);
+                refreshEditorSections("waypoint");
               } catch { /* ignore bad data */ }
             } else if (evt.topic === POLYGON_LIST_TOPIC) {
               try {
                 const data = JSON.parse(evt.message?.data ?? "{}");
                 polygonVerticesCache = Array.isArray(data.vertices) ? data.vertices : [];
+                if (data.default_z != null) polygonDefaultZ = Number(data.default_z) || 0;
+                if (data.enabled != null) polygonEnabled = Boolean(data.enabled);
+                refreshEditorSections("polygon");
               } catch { /* ignore bad data */ }
             } else if (evt.topic === EDITOR_SAVES_TOPIC) {
               try {
@@ -773,6 +806,7 @@ function activate(extensionContext) {
                   editorSavesCache[s.name] = { color: s.color, vertices: s.vertices };
                 }
                 refreshSourceDropdowns();
+                refreshEditorSections("waypoint");
               } catch { /* ignore bad data */ }
             } else if (evt.topic === POLYGON_SAVES_TOPIC) {
               try {
@@ -782,6 +816,7 @@ function activate(extensionContext) {
                   polygonSavesCache[s.name] = { color: s.color, vertices: s.vertices };
                 }
                 refreshSourceDropdowns();
+                refreshEditorSections("polygon");
               } catch { /* ignore bad data */ }
             } else if (evt.topic.endsWith("/relay_feedback")) {
               handleRelayFeedback(evt.topic, evt.message);
@@ -1092,6 +1127,246 @@ function buildFixedTrajectoryForm(tabState, persist) {
   wrapper.appendChild(loopRow);
 
   return wrapper;
+}
+
+// ─────────────────────────── inline editor section ────────────────────────
+
+// Builds a collapsible section that mirrors the standalone Waypoint or
+// Polygon Editor's UI but lives inside a Robot Tasks tab body. Multiple
+// instances can coexist (one per tab); they all share state via the
+// /gcs/<editor>/list and /gcs/<editor>/saves topics, so an edit made in one
+// instance is immediately reflected in the others.
+//
+// kind:    "waypoint" | "polygon"
+// returns: a <details> element to append to a tab body.
+function buildEditorSection(kind, panelContext) {
+  const cfg = kind === "polygon"
+    ? { title: "Polygon Editor", cmdTopic: "/gcs/polygon/command",
+        listField: "vertices", noun: "vert", nounPlural: "vertices",
+        primary: "#dc2626" }
+    : { title: "Waypoint Editor", cmdTopic: "/gcs/waypoints/command",
+        listField: "waypoints", noun: "wp", nounPlural: "waypoints",
+        primary: "#10b981" };
+
+  const sendCmd = (cmd) => {
+    try {
+      panelContext.advertise(cfg.cmdTopic, "std_msgs/msg/String");
+      panelContext.publish(cfg.cmdTopic, { data: JSON.stringify(cmd) });
+    } catch (err) {
+      statusEl.textContent = "Cmd failed: " + (err?.message ?? err);
+    }
+  };
+
+  const details = document.createElement("details");
+  details.style.cssText = "border:1px solid #444;border-radius:4px;padding:6px 8px;margin-top:4px;";
+  const summary = document.createElement("summary");
+  summary.style.cssText = "cursor:pointer;user-select:none;font-weight:bold;font-size:13px;";
+  details.appendChild(summary);
+
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:flex;flex-direction:column;gap:6px;margin-top:6px;";
+  details.appendChild(wrap);
+
+  // Capture toggle + altitude + clear
+  const ctrlRow = document.createElement("div");
+  ctrlRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+  const enableBtn = document.createElement("button");
+  enableBtn.style.cssText = "padding:6px 12px;border-radius:4px;border:none;color:white;cursor:pointer;font-weight:bold;font-size:12px;";
+  enableBtn.addEventListener("click", () => {
+    const enabled = (kind === "polygon") ? polygonEnabled : editorEnabled;
+    sendCmd({ action: "set_enabled", enabled: !enabled });
+  });
+  const altLabel = document.createElement("span");
+  altLabel.textContent = "Z:";
+  altLabel.style.fontSize = "12px";
+  const altInput = document.createElement("input");
+  altInput.type = "number";
+  altInput.step = "0.5";
+  altInput.style.cssText = "width:60px;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+  altInput.addEventListener("change", () => {
+    sendCmd({ action: "set_altitude", z: Number(altInput.value) || 0 });
+  });
+  const clearBtn = document.createElement("button");
+  clearBtn.textContent = "Clear";
+  clearBtn.style.cssText = "padding:5px 10px;border-radius:4px;border:none;background:#dc2626;color:white;cursor:pointer;font-size:12px;";
+  clearBtn.addEventListener("click", () => sendCmd({ action: "clear" }));
+  ctrlRow.appendChild(enableBtn);
+  ctrlRow.appendChild(altLabel);
+  ctrlRow.appendChild(altInput);
+  const spacer = document.createElement("span");
+  spacer.style.flex = "1";
+  ctrlRow.appendChild(spacer);
+  ctrlRow.appendChild(clearBtn);
+  wrap.appendChild(ctrlRow);
+
+  // Vertex list
+  const listContainer = document.createElement("div");
+  listContainer.style.cssText = "max-height:160px;overflow-y:auto;border:1px solid #333;border-radius:4px;min-height:40px;";
+  wrap.appendChild(listContainer);
+
+  // Manual add row
+  const addRow = document.createElement("div");
+  addRow.style.cssText = "display:flex;align-items:center;gap:4px;";
+  const mkNumIn = (label, def) => {
+    const w = document.createElement("div");
+    w.style.cssText = "display:flex;align-items:center;gap:2px;";
+    const l = document.createElement("span");
+    l.textContent = label + ":"; l.style.cssText = "font-size:11px;opacity:0.7;";
+    const i = document.createElement("input");
+    i.type = "number"; i.step = "0.5"; i.value = def;
+    i.style.cssText = "width:50px;padding:2px 4px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;font-size:11px;";
+    w.appendChild(l); w.appendChild(i);
+    return { wrap: w, input: i };
+  };
+  const addX = mkNumIn("X", "0"), addY = mkNumIn("Y", "0"), addZ = mkNumIn("Z", "0");
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "+ Add";
+  addBtn.style.cssText = "padding:4px 10px;border-radius:4px;border:none;background:" + cfg.primary + ";color:white;cursor:pointer;font-size:12px;";
+  addBtn.addEventListener("click", () => {
+    sendCmd({
+      action: "add",
+      x: Number(addX.input.value) || 0,
+      y: Number(addY.input.value) || 0,
+      z: Number(addZ.input.value) || 0,
+    });
+  });
+  addRow.appendChild(addX.wrap); addRow.appendChild(addY.wrap); addRow.appendChild(addZ.wrap);
+  addRow.appendChild(addBtn);
+  wrap.appendChild(addRow);
+
+  // Saves section
+  const savesLabel = document.createElement("div");
+  savesLabel.textContent = "Saves";
+  savesLabel.style.cssText = "font-size:11px;font-weight:bold;opacity:0.8;margin-top:4px;";
+  wrap.appendChild(savesLabel);
+
+  const saveAddRow = document.createElement("div");
+  saveAddRow.style.cssText = "display:flex;align-items:center;gap:4px;";
+  const saveNameIn = document.createElement("input");
+  saveNameIn.type = "text"; saveNameIn.placeholder = "save name…";
+  saveNameIn.style.cssText = "flex:1;padding:3px 5px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;font-size:12px;";
+  const saveAddBtn = document.createElement("button");
+  saveAddBtn.textContent = "+ Add";
+  saveAddBtn.style.cssText = "padding:4px 10px;border-radius:4px;border:none;background:" + cfg.primary + ";color:white;cursor:pointer;font-size:12px;";
+  saveAddBtn.addEventListener("click", () => {
+    const name = saveNameIn.value.trim();
+    if (!name) return;
+    sendCmd({ action: "add_save", name });
+  });
+  saveAddRow.appendChild(saveNameIn); saveAddRow.appendChild(saveAddBtn);
+  wrap.appendChild(saveAddRow);
+
+  const savesList = document.createElement("div");
+  savesList.style.cssText = "border:1px solid #333;border-radius:4px;min-height:0;";
+  wrap.appendChild(savesList);
+
+  const statusEl = document.createElement("div");
+  statusEl.style.cssText = "font-size:11px;opacity:0.6;";
+  wrap.appendChild(statusEl);
+
+  // ── render ──────────────────────────────────────────────────────
+  const section = {
+    render() {
+      const cache = (kind === "polygon") ? polygonVerticesCache : editorWaypointsCache;
+      const enabled = (kind === "polygon") ? polygonEnabled : editorEnabled;
+      const defaultZ = (kind === "polygon") ? polygonDefaultZ : editorDefaultZ;
+      const savesCache = (kind === "polygon") ? polygonSavesCache : editorSavesCache;
+
+      summary.textContent = `${cfg.title} (${cache.length} ${cache.length === 1 ? cfg.noun : cfg.nounPlural})`;
+
+      enableBtn.textContent = enabled ? "Capture: ON" : "Capture: OFF";
+      enableBtn.style.background = enabled ? "#10b981" : "#dc2626";
+      if (document.activeElement !== altInput) altInput.value = String(defaultZ);
+
+      // Vertex list
+      listContainer.replaceChildren();
+      if (cache.length === 0) {
+        const empty = document.createElement("div");
+        empty.style.cssText = "padding:8px;text-align:center;opacity:0.5;font-size:11px;";
+        empty.textContent = `No ${cfg.nounPlural}. Enable capture and click in 3D, or add manually.`;
+        listContainer.appendChild(empty);
+      } else {
+        for (let i = 0; i < cache.length; i++) {
+          const v = cache[i];
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;align-items:center;gap:3px;padding:3px 5px;border-bottom:1px solid #333;font-size:11px;font-family:monospace;";
+          const idx = document.createElement("span");
+          idx.textContent = String(i);
+          idx.style.cssText = `width:18px;font-weight:bold;color:${cfg.primary};`;
+          row.appendChild(idx);
+          const mkCoord = (val, axis) => {
+            const inp = document.createElement("input");
+            inp.type = "number"; inp.step = "0.5"; inp.value = String(val);
+            inp.style.cssText = "width:50px;padding:1px 3px;border-radius:3px;border:1px solid #555;background:transparent;color:inherit;font-family:monospace;font-size:11px;text-align:right;";
+            inp.addEventListener("change", () => {
+              const nx = axis === "x" ? Number(inp.value) || 0 : v.x;
+              const ny = axis === "y" ? Number(inp.value) || 0 : v.y;
+              const nz = axis === "z" ? Number(inp.value) || 0 : v.z;
+              sendCmd({ action: "move", index: i, x: nx, y: ny, z: nz });
+            });
+            return inp;
+          };
+          row.appendChild(mkCoord(v.x, "x"));
+          row.appendChild(mkCoord(v.y, "y"));
+          row.appendChild(mkCoord(v.z, "z"));
+          const mkBtn = (text, on) => {
+            const b = document.createElement("button");
+            b.textContent = text;
+            b.style.cssText = "width:22px;height:22px;padding:0;border:none;background:transparent;color:inherit;cursor:pointer;font-size:11px;border-radius:3px;";
+            b.addEventListener("click", on);
+            return b;
+          };
+          if (i > 0) row.appendChild(mkBtn("▲", () => sendCmd({ action: "reorder", from: i, to: i - 1 })));
+          else { const sp = document.createElement("span"); sp.style.width = "22px"; row.appendChild(sp); }
+          if (i < cache.length - 1) row.appendChild(mkBtn("▼", () => sendCmd({ action: "reorder", from: i, to: i + 1 })));
+          else { const sp = document.createElement("span"); sp.style.width = "22px"; row.appendChild(sp); }
+          const delBtn = mkBtn("✕", () => sendCmd({ action: "delete", index: i }));
+          delBtn.style.color = "#dc2626";
+          row.appendChild(delBtn);
+          listContainer.appendChild(row);
+        }
+      }
+
+      // Saves
+      savesList.replaceChildren();
+      const names = Object.keys(savesCache).sort();
+      if (names.length === 0) {
+        const empty = document.createElement("div");
+        empty.style.cssText = "padding:5px 8px;opacity:0.5;font-size:11px;";
+        empty.textContent = "No saves yet.";
+        savesList.appendChild(empty);
+      } else {
+        for (const name of names) {
+          const s = savesCache[name];
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;align-items:center;gap:5px;padding:3px 5px;border-bottom:1px solid #333;font-size:11px;";
+          const sw = document.createElement("span");
+          sw.style.cssText = "display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;";
+          const c = s.color || [0.5, 0.5, 0.5];
+          sw.style.background = `rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})`;
+          row.appendChild(sw);
+          const nm = document.createElement("span");
+          nm.textContent = `${name} (${(s.vertices ?? []).length})`;
+          nm.style.cssText = "flex:1;font-family:monospace;";
+          row.appendChild(nm);
+          const small = (text, color, on) => {
+            const b = document.createElement("button");
+            b.textContent = text;
+            b.style.cssText = `padding:1px 6px;border-radius:3px;border:1px solid #555;background:transparent;color:${color};cursor:pointer;font-size:10px;`;
+            b.addEventListener("click", on);
+            return b;
+          };
+          row.appendChild(small("Load", "inherit", () => sendCmd({ action: "load_save", name })));
+          row.appendChild(small("Save", "#2563eb", () => sendCmd({ action: "save_save", name })));
+          row.appendChild(small("✕", "#dc2626", () => sendCmd({ action: "delete_save", name })));
+          savesList.appendChild(row);
+        }
+      }
+    },
+  };
+  editorSections[kind].push(section);
+  section.render();
+  return details;
 }
 
 module.exports = { activate };

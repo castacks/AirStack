@@ -128,6 +128,93 @@ bool RandomWalkPlanner::check_if_collided_single_voxel(
     }
 }
 
+void RandomWalkPlanner::set_search_bounds(
+    const std::vector<std::pair<float, float>>& xy_polygon)
+{
+    std::lock_guard<std::mutex> lock(this->mutex);
+    search_bounds_xy_ = xy_polygon;
+}
+
+void RandomWalkPlanner::clear_search_bounds()
+{
+    std::lock_guard<std::mutex> lock(this->mutex);
+    search_bounds_xy_.clear();
+}
+
+bool RandomWalkPlanner::point_in_search_bounds(float x, float y) const
+{
+    // Empty polygon → unbounded.
+    const auto n = search_bounds_xy_.size();
+    if (n < 3) return true;
+    bool inside = false;
+    for (size_t i = 0, j = n - 1; i < n; j = i++)
+    {
+        const float xi = search_bounds_xy_[i].first;
+        const float yi = search_bounds_xy_[i].second;
+        const float xj = search_bounds_xy_[j].first;
+        const float yj = search_bounds_xy_[j].second;
+        const bool intersects = ((yi > y) != (yj > y)) &&
+                                (x < (xj - xi) * (y - yi) / (yj - yi + 1e-9f) + xi);
+        if (intersects) inside = !inside;
+    }
+    return inside;
+}
+
+bool RandomWalkPlanner::has_search_bounds() const
+{
+    std::lock_guard<std::mutex> lock(this->mutex);
+    return search_bounds_xy_.size() >= 3;
+}
+
+bool RandomWalkPlanner::is_inside_search_bounds(float x, float y) const
+{
+    std::lock_guard<std::mutex> lock(this->mutex);
+    return point_in_search_bounds(x, y);
+}
+
+std::pair<float, float> RandomWalkPlanner::nearest_inside_point(float x, float y) const
+{
+    std::lock_guard<std::mutex> lock(this->mutex);
+    const auto n = search_bounds_xy_.size();
+    if (n < 3) return {x, y};
+
+    // Find closest point on any polygon edge.
+    float best_dx = 0.0f, best_dy = 0.0f;
+    float best_d2 = std::numeric_limits<float>::infinity();
+    for (size_t i = 0, j = n - 1; i < n; j = i++)
+    {
+        const float ax = search_bounds_xy_[j].first;
+        const float ay = search_bounds_xy_[j].second;
+        const float bx = search_bounds_xy_[i].first;
+        const float by = search_bounds_xy_[i].second;
+        const float ex = bx - ax;
+        const float ey = by - ay;
+        const float seg_len2 = ex * ex + ey * ey;
+        float t = 0.0f;
+        if (seg_len2 > 1e-9f) t = ((x - ax) * ex + (y - ay) * ey) / seg_len2;
+        if (t < 0.0f) t = 0.0f;
+        if (t > 1.0f) t = 1.0f;
+        const float px = ax + t * ex;
+        const float py = ay + t * ey;
+        const float d2 = (px - x) * (px - x) + (py - y) * (py - y);
+        if (d2 < best_d2) { best_d2 = d2; best_dx = px; best_dy = py; }
+    }
+
+    // Push the closest-edge point toward the polygon centroid so we end up
+    // strictly inside (avoids on-boundary ambiguity for the inside test).
+    float cx = 0.0f, cy = 0.0f;
+    for (const auto& p : search_bounds_xy_) { cx += p.first; cy += p.second; }
+    cx /= static_cast<float>(n);
+    cy /= static_cast<float>(n);
+
+    const float vx = cx - best_dx;
+    const float vy = cy - best_dy;
+    const float vlen = std::sqrt(vx * vx + vy * vy);
+    if (vlen < 1e-3f) return {best_dx, best_dy};
+    const float step = std::min(1.0f, vlen);  // 1 m inward, capped at centroid
+    return {best_dx + vx / vlen * step, best_dy + vy / vlen * step};
+}
+
 bool RandomWalkPlanner::check_if_collided(const std::tuple<float, float, float>& point)
 {
     // make sure the point is within the bounds -30 to 30
@@ -137,6 +224,12 @@ bool RandomWalkPlanner::check_if_collided(const std::tuple<float, float, float>&
         return true;
     }
 
+    // Reject points outside the goal's search_bounds polygon (XY footprint
+    // in robot-local map). Empty polygon → no-op.
+    if (!point_in_search_bounds(std::get<0>(point), std::get<1>(point)))
+    {
+        return true;
+    }
 
     std::lock_guard<std::mutex> lock(this->mutex);
     for (const std::tuple<float, float, float>& voxel : this->voxel_points)
