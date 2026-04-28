@@ -49,6 +49,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create Isaac Sim omni_pass.env
+        run: |
+          mkdir -p simulation/isaac-sim/docker
+          cat > simulation/isaac-sim/docker/omni_pass.env <<'EOF'
+          OMNI_USER=guest
+          OMNI_PASS=guest
+          OMNI_SERVER="omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
+          ACCEPT_EULA=Y
+          OMNI_ENV_PRIVACY_CONSENT=Y
+          EOF
+
       - name: Install test dependencies
         # Ubuntu 24.04 marks the system Python as externally-managed (PEP 668),
         # so `pip install` outside a venv is rejected. Use a venv and prepend
