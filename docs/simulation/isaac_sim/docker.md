@@ -114,6 +114,12 @@ Key variables for Isaac Sim configuration:
 | `PLAY_SIM_ON_START` | Auto-play simulation when GUI opens | `true` |
 | `ISAAC_SIM_USE_STANDALONE` | Use standalone Python launch | `false` |
 | `ISAAC_SIM_SCRIPT_NAME` | Standalone script filename | - |
+| `PX4_PHYSICS_HZ` | Physics step rate for PX4 SITL — also sets PX4 `IMU_INTEG_RATE` | `250` |
+| `PX4_RENDERING_HZ` | Rendering frame rate for PX4 profiles (independent of physics) | `60` |
+| `ARDUPILOT_PHYSICS_HZ` | Physics step rate for ArduPilot SITL | `800` |
+| `ARDUPILOT_RENDERING_HZ` | Rendering frame rate for ArduPilot profiles | `120` |
+
+`PX4_PHYSICS_HZ` and `PX4_RENDERING_HZ` are set in the top-level `.env`. Pegasus defaults to 250 Hz but AirStack runs PX4 at **100 Hz** for near-real-time performance. See [Pegasus Scene Setup → Physics Rate](pegasus_scene_setup.md) for valid values and the full configuration flow.
 
 **Example overrides:**
 
