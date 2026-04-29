@@ -7,12 +7,9 @@ Functions:
     add_colliders               — Recursively apply CollisionAPI to all meshes
     add_dome_light              — Add or update a dome light on the stage
     save_scene_as_contained_usd — Collect all assets into a self-contained directory
-    spawn_falling_cubes         — Add rigid-body cubes that fall from above the origin
-    SimTimer                    — Periodic wall/sim-time reporter for benchmarking
 """
 
 import asyncio
-import time as _time
 import omni.kit.app
 import omni.usd
 from pxr import Gf, UsdGeom, UsdPhysics, UsdLux, Sdf
@@ -167,82 +164,3 @@ def save_scene_as_contained_usd(source_usd_url: str, output_dir: str) -> bool:
 
     collector.destroy()
     return result[0]
-
-
-# ---------------------------------------------------------------------------
-# Falling-cube physics probes
-# ---------------------------------------------------------------------------
-
-_DEFAULT_CUBES = [
-    {"path": "/World/FallingCubes/Cube0", "pos": ( 3.0, 0.0, 8.0), "half_size": 0.25},
-    {"path": "/World/FallingCubes/Cube1", "pos": (-3.0, 2.0, 12.0), "half_size": 0.20},
-]
-
-
-def spawn_falling_cubes(stage, cubes=None):
-    """Spawn rigid-body cubes that fall from above the origin.
-
-    The cubes serve as a fixed physics probe workload — their fall time gives a
-    consistent signal of how hard the physics engine is working.
-
-    Args:
-        stage: Active USD stage.
-        cubes: List of dicts with keys ``path``, ``pos`` (XYZ metres), and
-               optional ``half_size`` (default 0.25 m).  Uses a sensible
-               default set when *None*.
-    """
-    if cubes is None:
-        cubes = _DEFAULT_CUBES
-
-    for spec in cubes:
-        prim_path = spec["path"]
-        pos = spec.get("pos", (0.0, 0.0, 10.0))
-        half = spec.get("half_size", 0.25)
-
-        cube_prim = UsdGeom.Cube.Define(stage, prim_path).GetPrim()
-        cube_prim.GetAttribute("size").Set(half * 2.0)
-
-        xf = UsdGeom.Xformable(cube_prim)
-        xf.ClearXformOpOrder()
-        translate_op = xf.AddTranslateOp()
-        translate_op.Set(Gf.Vec3d(float(pos[0]), float(pos[1]), float(pos[2])))
-
-        UsdPhysics.RigidBodyAPI.Apply(cube_prim)
-        UsdPhysics.CollisionAPI.Apply(cube_prim)
-
-
-# ---------------------------------------------------------------------------
-# Simulation timer / real-time ratio reporter
-# ---------------------------------------------------------------------------
-
-class SimTimer:
-    """Prints wall-clock time, simulation time, and real-time ratio periodically.
-
-    Usage::
-
-        timer = SimTimer("my_script", interval_s=5.0)
-        # inside the step loop:
-        timer.tick(world.current_time)   # or pass omni.timeline sim time
-
-    Args:
-        label:      Short name shown in every log line.
-        interval_s: How often to print (seconds of wall-clock time).
-    """
-
-    def __init__(self, label: str = "sim", interval_s: float = 5.0):
-        self.label = label
-        self.interval_s = interval_s
-        self._wall_start = _time.monotonic()
-        self._last_print = self._wall_start
-
-    def tick(self, sim_time_s: float) -> None:
-        """Call once per physics/render step with the current simulation time."""
-        now = _time.monotonic()
-        if now - self._last_print >= self.interval_s:
-            wall = now - self._wall_start
-            ratio = sim_time_s / wall if wall > 0 else 0.0
-            print(
-                f"[{self.label}] wall={wall:8.1f} s  sim={sim_time_s:9.3f} s  ratio={ratio:.2f}x",
-                flush=True,
-            )
-            self._last_print = now
