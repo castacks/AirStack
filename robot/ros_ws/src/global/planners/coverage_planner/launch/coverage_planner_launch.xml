@@ -1,0 +1,15 @@
+<launch>
+  <!--
+    Standalone launcher for the coverage planner.
+
+    In production this node is launched through global_bringup/launch/global.launch.xml
+    which applies the standard remaps onto the AirStack topic namespace. This file is
+    useful for iterative development (bws && ros2 launch coverage_planner
+    coverage_planner_launch.xml).
+  -->
+  <node pkg="coverage_planner" exec="coverage_planner" name="coverage_planner"
+        output="screen">
+    <param from="$(find-pkg-share coverage_planner)/config/coverage_planner_config.yaml"
+           allow_substs="true" />
+  </node>
+</launch>

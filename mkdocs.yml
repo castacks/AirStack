@@ -141,6 +141,7 @@ nav:
                   - docs/robot/autonomy/global/planning/index.md
                   - Random Walk: robot/ros_ws/src/global/planners/random_walk/README.md
                   - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
+                  - Coverage Planner: robot/ros_ws/src/global/planners/coverage_planner/README.md
           - Behavior:
               - docs/robot/autonomy/behavior/index.md
               - Behavior Tree: docs/robot/autonomy/behavior/behavior_tree.md

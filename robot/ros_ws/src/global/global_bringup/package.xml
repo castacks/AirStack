@@ -9,6 +9,10 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>random_walk_planner</exec_depend>
+  <exec_depend>coverage_planner</exec_depend>
+  <exec_depend>vdb_mapping_ros2</exec_depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

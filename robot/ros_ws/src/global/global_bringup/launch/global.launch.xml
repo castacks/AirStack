@@ -15,5 +15,16 @@
         <remap from="navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
         <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
     </node>
-    
+
+    <!-- Coverage Planner (boustrophedon / lawn-mower) -->
+    <node pkg="coverage_planner" exec="coverage_planner" name="coverage_planner"
+        output="screen">
+        <param from="$(find-pkg-share coverage_planner)/config/coverage_planner_config.yaml"
+               allow_substs="true" />
+        <remap from="~/global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+        <remap from="~/coverage_task" to="/$(env ROBOT_NAME)/tasks/coverage" />
+        <remap from="navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+        <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    </node>
+
 </launch>

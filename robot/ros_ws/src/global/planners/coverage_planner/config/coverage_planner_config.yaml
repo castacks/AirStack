@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    # ---- Frames & topics ----------------------------------------------
+    world_frame_id: "map"
+    pub_global_plan_topic: "~/global_plan"
+    pub_path_viz_topic: "~/coverage_path_viz"
+    pub_coverage_area_viz_topic: "~/coverage_area_viz"
+    sub_odometry_topic: "odometry"
+
+    # ---- Defaults (used if the CoverageTask goal doesn't override) ----
+    default_altitude_m: 5.0           # world-z altitude (m) when goal min/max AGL is 0
+    default_line_spacing_m: 5.0       # perpendicular spacing between sweep lines (m)
+    default_boundary_inset_m: 0.0     # shrink the polygon by this much before sweeping (m)
+    waypoint_tolerance_m: 2.0         # goal_tolerance_m passed to the local planner (m)
+
+    # ---- Behaviour ----------------------------------------------------
+    publish_visualizations: true      # publish RViz markers for the generated path
