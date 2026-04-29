@@ -347,9 +347,18 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             cancel_event.clear()
 
     def on_cancel(msg):
-        """Signal the goal-handler loop to forward a cancel to the robot."""
+        """Signal the goal-handler loop to forward a cancel to the robot.
+
+        If there's no active goal at the relay (already finished, or the
+        panel's state desynced from the relay's), republish a synthetic
+        result so any stuck panel UI can flip back to idle. A panel that's
+        already idle will ignore it (its `t.active` is false).
+        """
         if active_goal.get('handle') is None:
             node0.get_logger().warn(f'[relay] {topic}: cancel requested but no active goal')
+            _publish_result(
+                False,
+                'Cancel: no active goal at relay (panel state likely desynced)')
             return
         node0.get_logger().info(f'[relay] {topic}: cancel requested')
         cancel_event.set()

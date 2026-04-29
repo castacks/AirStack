@@ -83,7 +83,7 @@ DRONE_CONFIGS = [
 # Top-down "map" camera over (0, 0). Captures one aerial of the static scene
 # that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.
 OVERHEAD_ALTITUDE_M    = 150.0
-OVERHEAD_COVERAGE_M    = 200.0   # The only per-map knob: world meters per side.
+OVERHEAD_COVERAGE_M    = 200.0   # per-map knob: world meters per side.
 OVERHEAD_PX_PER_METER  = 4.0     # Source-image density. Bump for sharper texture.
 OVERHEAD_TOPIC         = "/sim/overhead/image"
 OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"

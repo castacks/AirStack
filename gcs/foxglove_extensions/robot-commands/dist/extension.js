@@ -738,26 +738,45 @@ function activate(extensionContext) {
         }
         return null;
       }
+      // Extract the robot name from a relay topic like
+      // /robot_2/tasks/takeoff/relay_feedback → "robot_2". Falls back to the
+      // panel's current state.robot if the topic doesn't match the pattern
+      // (defensive — every relay topic follows the convention).
+      function robotForTopic(topic) {
+        const m = /^\/([^/]+)\/tasks\//.exec(topic);
+        return m ? m[1] : state.robot;
+      }
 
       function handleRelayFeedback(topic, msg) {
         const tab = tabForTopic(topic);
         if (!tab) return;
-        const t = perTab[tab.id];
+        const robot = robotForTopic(topic);
+        // Look up the perTab entry by the *message's* robot, not by
+        // state.robot. With multiple panels open (or any race where state.robot
+        // doesn't match the topic), going through the proxy would route to
+        // the wrong robot's state and silently drop the message.
+        const t = getPerTab(robot, tab.id);
         if (!t.active) return;
         const data = msg?.data;
         if (!data) return;
-        try {
-          const fb = JSON.parse(data);
-          appendFeedback(tab.formatFeedback(fb), tab.id);
-        } catch {
-          appendFeedback(data, tab.id);
+        const line = (() => {
+          try { return tab.formatFeedback(JSON.parse(data)); }
+          catch { return data; }
+        })();
+        const ts = new Date().toLocaleTimeString();
+        t.feedbackLines.push(`[${ts}] ${line}`);
+        if (t.feedbackLines.length > MAX_FEEDBACK_LINES) {
+          t.feedbackLines.splice(0, t.feedbackLines.length - MAX_FEEDBACK_LINES);
         }
+        // Update display only when the visible tab + robot match the message.
+        if (robot === state.robot && tab.id === state.activeTab) renderFeedback();
       }
 
       function handleRelayResult(topic, msg) {
         const tab = tabForTopic(topic);
         if (!tab) return;
-        const t = perTab[tab.id];
+        const robot = robotForTopic(topic);
+        const t = getPerTab(robot, tab.id);
         if (!t.active) return;
         const data = msg?.data;
         if (!data) return;
@@ -772,8 +791,13 @@ function activate(extensionContext) {
           t.statusCode = GOAL_STATUS.SUCCEEDED;
         }
         t.active = false;
-        rebuildSubscriptions();
-        renderTabs();
+        // Only rebuild subscriptions / re-render if this affects the
+        // currently-displayed robot. Other panels will see the perTab change
+        // on their next tick.
+        if (robot === state.robot) {
+          rebuildSubscriptions();
+          renderTabs();
+        }
       }
 
       // ── render loop ──────────────────────────────────────────────────────
