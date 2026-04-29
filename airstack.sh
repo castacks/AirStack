@@ -751,6 +751,15 @@ function cmd_up {
     # Add xhost + to allow GUI applications
     xhost + &> /dev/null || true
 
+    # Registry-cache mode (CI / opt-in): pull existing images first so `up`
+    # uses the registry copy as-is and skips the implicit rebuild path. No-op
+    # when AIRSTACK_REGISTRY_CACHE is unset.
+    if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
+        log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling images before up..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
+            log_warn "Pre-up pull encountered failures; continuing with whatever is local"
+    fi
+
     log_info "Starting services..."
     run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
     log_info "Services brought up successfully"
@@ -763,8 +772,26 @@ function cmd_image_build {
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "$@"
 
-    log_info "Building services..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
+    # Registry-cache mode (CI / opt-in): pre-pull existing images to seed the
+    # local cache, build with BUILDKIT_INLINE_CACHE=1 so the resulting image
+    # carries layer-cache metadata, and push so the next run benefits. The
+    # cache_from declarations in each component compose file make BuildKit
+    # actually reuse the pulled layers. No-op when the env var is unset.
+    if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
+        log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling for cache seed..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
+            log_warn "Pre-build pull encountered failures; continuing without cache seed"
+
+        log_info "Building services with BUILDKIT_INLINE_CACHE=1..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build --build-arg BUILDKIT_INLINE_CACHE=1 "${subcmd_args[@]}"
+
+        log_info "Pushing built images for next-run cache..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push --ignore-push-failures "${subcmd_args[@]}" || \
+            log_warn "Post-build push encountered failures; future runs may not benefit from cache"
+    else
+        log_info "Building services..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
+    fi
     log_info "Build completed successfully"
 }
 

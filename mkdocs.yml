@@ -66,6 +66,7 @@ nav:
       - Intermediate Tutorials:
           - Testing:
               - tests/README.md
+              - tests/ci-cd-orchestrator.md
           - Frame Conventions: docs/development/intermediate/frame_conventions.md
           - Contributing: 
               - docs/development/intermediate/contributing.md

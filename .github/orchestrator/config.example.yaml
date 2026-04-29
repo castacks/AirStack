@@ -1,0 +1,81 @@
+# AirStack CI orchestrator configuration.
+# Copy to /etc/airstack-orchestrator/config.yaml and fill in placeholders.
+
+# --- OpenStack target ---
+
+# Cloud profile name in ~/.config/openstack/clouds.yaml.
+openstack_cloud: airstack
+
+# Ubuntu-24.04-GPU-Headless (confirmed available on airlab-cloud).
+image_id: a891a6fe-5e4f-4b84-a6c9-482848c8f972
+
+# OpenStack flavor with GPU + enough disk for Docker + sim images.
+# Look up with: openstack flavor list
+flavor_name: "gpu.rtxpro5000.1"
+
+# OpenStack network the ephemeral instance attaches to. Must allow outbound
+# 443 to api.github.com (no inbound is required: the runner makes an outbound
+# long-poll connection to GitHub).
+network_name: "airstack.AirLab.Apps_group_network_gates"
+
+# OpenStack keypair injected into the instance for break-glass SSH access.
+# The orchestrator never SSHes into workers itself.
+keypair_name: "airstack-ci-cd"
+
+# Security group applied to spawned instances. Outbound 443 must be allowed.
+security_group: "default"
+
+# OpenStack availability zone to spawn instances in (e.g. nova, gpu-zone-1).
+# Leave empty to let Nova pick.
+availability_zone: "gates"
+
+# If the chosen flavor has disk=0 (common for GPU flavors), Nova rejects
+# direct image-boot with "Block Device Mapping is Invalid: You specified more
+# local devices than the limit allows". Set this to >0 to boot from a Cinder
+# volume of that size sourced from image_id (deleted on termination). Leave
+# at 0 to boot directly from the image (only works for non-zero-disk flavors).
+boot_volume_size_gb: 300
+
+# Pre-allocated pool of floating IPs to rotate through for SSH access to
+# workers. The orchestrator picks the first free IP from this list, in order,
+# for each new spawn. When the worker is destroyed the IP auto-disassociates
+# and returns to the pool. If non-empty, max_concurrent is capped at len(pool)
+# so the orchestrator never spawns a worker it can't address.
+# Allocate via: openstack floating ip create <external-network>
+# Leave empty to skip floating-IP attachment entirely.
+floating_ips: []
+# Example:
+# floating_ips:
+#   - 172.19.220.131
+#   - 172.19.220.171
+#   - 172.19.220.89
+
+# --- GitHub ---
+
+# owner/name of the repo whose queued workflow_jobs to pick up.
+repo: "castacks/AirStack"
+
+# Labels the orchestrator polls for. A queued workflow_job whose `labels`
+# array is a superset of this list gets a server spawned for it.
+runner_labels:
+  - self-hosted
+  - airstack-ephemeral
+
+# GitHub Actions runner version (must exist as a release tag at
+# https://github.com/actions/runner/releases).
+runner_version: "2.334.0"
+
+# --- Limits ---
+
+# Maximum simultaneous in-flight ephemeral instances.
+max_concurrent: 3
+
+# Hard ceiling for a single job. Past this age the reaper force-deletes the
+# server even if GitHub still reports the job as in-progress. Must comfortably
+# exceed the longest expected job (autonomy/liveliness runs).
+max_job_minutes: 2880  # 48 hours
+
+# --- Polling intervals (seconds) ---
+
+spawn_poll_interval_s: 15
+reap_poll_interval_s: 30

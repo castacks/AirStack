@@ -5,6 +5,16 @@ on:
     branches: [ main, develop ]  # Adjust branches as needed
     paths:
       - '.env'
+  workflow_dispatch:
+    inputs:
+      compose_profiles:
+        description: 'Docker Compose profiles to build (comma-separated)'
+        required: false
+        default: 'desktop,isaac-sim,ms-airsim'
+        type: string
+
+env:
+  DEFAULT_PROFILES: 'desktop,isaac-sim,ms-airsim'
 
 jobs:
   check-docker-tag-change:
@@ -40,8 +50,9 @@ jobs:
 
   docker-build:
     needs: check-docker-tag-change
-    if: needs.check-docker-tag-change.outputs.tag-changed == 'true'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    runs-on: [self-hosted, airstack-ephemeral]
+    timeout-minutes: 120
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -52,8 +63,8 @@ jobs:
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.DOCKER_REGISTRY_URL }}  # e.g., your-registry.com or leave empty for Docker Hub
-          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          registry: ${{ vars.DOCKER_REGISTRY_URL }}  # e.g., your-registry.com or leave empty for Docker Hub
+          username: ${{ vars.DOCKER_REGISTRY_USERNAME }}
           password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
       - name: Verify .env file and extract tag
@@ -63,6 +74,12 @@ jobs:
             echo "Error: .env file not found"
             exit 1
           fi
+
+      - name: Create dummy omni_pass.env
+        run: |
+          # Some compose files expect this file to exist, even if it is empty.
+          mkdir -p simulation/isaac-sim/docker
+          : > simulation/isaac-sim/docker/omni_pass.env
           
           # Display the current VERSION for debugging
           DOCKER_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
@@ -80,6 +97,13 @@ jobs:
           source .env
           set +a  # Stop exporting
           
+          # Always override COMPOSE_PROFILES for all trigger types
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+          
           docker compose build
 
       - name: Run Docker Compose Push
@@ -88,6 +112,13 @@ jobs:
           set -a  # Export all variables
           source .env
           set +a  # Stop exporting
+          
+          # Always override COMPOSE_PROFILES for all trigger types
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
           
           docker compose push
 
@@ -101,7 +132,7 @@ jobs:
 
   notify:
     needs: [check-docker-tag-change, docker-build]
-    if: always() && needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Notify build and push result

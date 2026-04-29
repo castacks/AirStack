@@ -16,6 +16,8 @@ services:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
       tags:
         - *desktop_image
+      cache_from:
+        - *desktop_image
     # we use tmux sd-keys so that the session stays alive
     environment:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc
@@ -113,7 +115,9 @@ services:
         REAL_ROBOT: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
-      tags: 
+      tags:
+        - *voxl_image
+      cache_from:
         - *voxl_image
     environment: 
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
@@ -146,7 +150,9 @@ services:
       args:
         BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
         REAL_ROBOT: true
-      tags: 
+      tags:
+        - *l4t_image
+      cache_from:
         - *l4t_image
     # we use tmux send-keys so that the session stays alive
     ipc: host
@@ -195,14 +201,16 @@ services:
   zed-l4t:
     profiles:
       - l4t
-    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
-    build: 
+    image: &zed_l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
+    build:
       context: ./
       dockerfile: zed/Dockerfile.zed-l4t
       args:
         L4T_MAJOR: 36
         L4T_MINOR: 4
         L4T_PATCH: 0
+      cache_from:
+        - *zed_l4t_image
     command: >
       bash -c "ssh service restart;
       tmux new -d -s zed_driver && 

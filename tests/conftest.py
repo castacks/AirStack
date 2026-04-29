@@ -424,7 +424,8 @@ def sample_compute_usage(sim_container):
     return out
 
 
-def docker_image_size_mb(service, env=None):
+def _compose_images(env=None):
+    """Resolved image refs that `docker compose up` would use under `env`."""
     compose_env = os.environ.copy()
     if env:
         compose_env.update(env)
@@ -433,7 +434,26 @@ def docker_image_size_mb(service, env=None):
          "config", "--images"],
         timeout=30, env=compose_env, cwd=AIRSTACK_ROOT,
     )
-    image = next((l.strip() for l in result.stdout.strip().splitlines() if service in l), None)
+    return [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
+
+
+def missing_images(env=None):
+    """Images required by the current compose config but not present locally.
+    Used by airstack_env to fail fast instead of letting `airstack up` hang
+    pulling/building when images haven't been prebuilt."""
+    missing = []
+    for image in _compose_images(env=env):
+        result = _run_teed(
+            ["docker", "image", "inspect", image, "--format", "{{.Id}}"],
+            timeout=10,
+        )
+        if result.returncode != 0:
+            missing.append(image)
+    return missing
+
+
+def docker_image_size_mb(service, env=None):
+    image = next((i for i in _compose_images(env=env) if service in i), None)
     if not image:
         return None
     result = _run_teed(
@@ -612,6 +632,14 @@ def airstack_env(request):
     env_overrides.update(cfg.get("extra_env", {}))
 
     with logger_to(log):
+        missing = missing_images(env=env_overrides)
+        if missing:
+            pytest.fail(
+                "Required docker images not built locally:\n  - "
+                + "\n  - ".join(missing)
+                + "\nBuild them first, e.g. `airstack test -m build_docker` "
+                  "or `airstack image-build <service>`."
+            )
         logger.info("Shutting down any previously running stack")
         airstack_cmd("down", timeout=120, log_name=log)
         logger.info("Bringing up stack: sim=%s num_robots=%d iter=%d headless=%s",

@@ -1,4 +1,4 @@
-name: Integration Tests
+name: System Tests
 
 on:
   pull_request:
@@ -33,22 +33,109 @@ on:
 jobs:
   run-tests:
     name: Run Tests
-    runs-on: [self-hosted, airstack, gpu]
+    runs-on: [self-hosted, airstack-ephemeral]
     # Only run on PRs from the same repo (not forks) to prevent arbitrary code
     # execution on the self-hosted runner from untrusted contributors.
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 120
+    # Mirror the registry password into env so step-level `if:` expressions
+    # can check whether registry-cache mode is available — `secrets.*` itself
+    # is not addressable from `if:` expressions.
+    env:
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create Isaac Sim omni_pass.env
+        run: |
+          mkdir -p simulation/isaac-sim/docker
+          cat > simulation/isaac-sim/docker/omni_pass.env <<'EOF'
+          OMNI_USER=guest
+          OMNI_PASS=guest
+          OMNI_SERVER="omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
+          ACCEPT_EULA=Y
+          OMNI_ENV_PRIVACY_CONSENT=Y
+          EOF
+
       - name: Install test dependencies
-        run: pip3 install -r tests/requirements.txt
+        # Ubuntu 24.04 marks the system Python as externally-managed (PEP 668),
+        # so `pip install` outside a venv is rejected. Use a venv and prepend
+        # its bin/ to $GITHUB_PATH so subsequent steps pick up `pytest`
+        # automatically.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv
+          python3 -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r tests/requirements.txt
+
+      # Optional registry-cache mode. When the secrets/vars are present we log
+      # in to the internal Docker registry; the next step then sets
+      # AIRSTACK_REGISTRY_CACHE=1 so airstack.sh pre-pulls + uses BuildKit
+      # inline cache (build_docker tests get layer-reuse speedup) and pre-pulls
+      # before `airstack up` (other tests skip the implicit rebuild). When
+      # secrets are absent both steps are skipped and behavior is unchanged.
+      - name: Log in to internal Docker registry
+        id: docker_login
+        if: ${{ vars.DOCKER_REGISTRY_URL != '' && env.DOCKER_REGISTRY_PASSWORD != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DOCKER_REGISTRY_URL }}
+          username: ${{ vars.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Enable registry-cache mode
+        if: ${{ steps.docker_login.outcome == 'success' }}
+        run: echo "AIRSTACK_REGISTRY_CACHE=1" >> "$GITHUB_ENV"
 
       - name: Ensure airstack.sh is executable
         run: chmod +x airstack.sh
+
+      # The ephemeral runner starts with no local images. `airstack_env` in
+      # tests/conftest.py fails fast if compose images are missing, so prep
+      # them here. Profile-gated services (ms-airsim, isaac-sim) are skipped
+      # by compose unless their profile is active, so we mirror the fixture's
+      # profile selection from `inputs.sim`. Pull-only by default; fall back
+      # to a full build only if the registry doesn't have everything (e.g.
+      # new branch with no published image yet). Skipped when `build_docker`
+      # is in the marks expression — those tests build per-service themselves.
+      - name: Ensure Docker images present
+        if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.marks || 'build_docker or build_packages', 'build_docker') }}
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+        run: |
+          SIM_INPUT="${{ github.event_name == 'workflow_dispatch' && inputs.sim || 'msairsim' }}"
+          profiles=desktop
+          [[ ",$SIM_INPUT," == *,msairsim,* ]] && profiles="$profiles,ms-airsim"
+          [[ ",$SIM_INPUT," == *,isaacsim,* ]] && profiles="$profiles,isaac-sim"
+          export COMPOSE_PROFILES="$profiles"
+          echo "Pulling images for COMPOSE_PROFILES=$COMPOSE_PROFILES"
+
+          # Pull from registry; tolerate per-image failures so we can detect
+          # what's still missing afterwards instead of aborting on the first
+          # gap. `--progress=quiet` suppresses per-layer progress; errors
+          # still surface on stderr.
+          ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
+
+          missing=()
+          while IFS= read -r img; do
+            [[ -z "$img" ]] && continue
+            if ! docker image inspect "$img" --format '{{.Id}}' >/dev/null 2>&1; then
+              missing+=("$img")
+            fi
+          done < <(docker compose -f docker-compose.yaml config --images)
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Pull did not produce these images; falling back to build:"
+            printf '  - %s\n' "${missing[@]}"
+            ./airstack.sh --progress=quiet image-build
+          else
+            echo "All required images present after pull — skipping build."
+          fi
 
       - name: Run tests
         env:
@@ -117,7 +204,7 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
-          workflow: integration-tests.yml
+          workflow: system-tests.yml
           branch: ${{ github.base_ref }}
           name_is_regexp: true
           name: "test-results-.*"
@@ -145,7 +232,7 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
-          workflow: integration-tests.yml
+          workflow: system-tests.yml
           branch: main
           name_is_regexp: true
           name: "test-results-.*"
