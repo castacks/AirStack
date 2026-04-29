@@ -98,13 +98,23 @@ jobs:
       # The ephemeral runner starts with no local images. `airstack_env` in
       # tests/conftest.py fails fast if compose images are missing, so prep
       # them here. Under AIRSTACK_REGISTRY_CACHE=1 this pulls first and
-      # builds only what's missing/changed. Skipped when `build_docker` is
-      # in the marks expression — those tests build per-service themselves.
+      # builds only what's missing/changed. Profile-gated services (ms-airsim,
+      # isaac-sim) are skipped by compose unless their profile is active, so
+      # we mirror the fixture's profile selection from `inputs.sim`. Skipped
+      # when `build_docker` is in the marks expression — those tests build
+      # per-service themselves with the right profiles.
       - name: Ensure Docker images present
         if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.marks || 'build_docker or build_packages', 'build_docker') }}
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
-        run: ./airstack.sh image-build
+        run: |
+          SIM_INPUT="${{ github.event_name == 'workflow_dispatch' && inputs.sim || 'msairsim' }}"
+          profiles=desktop
+          [[ ",$SIM_INPUT," == *,msairsim,* ]] && profiles="$profiles,ms-airsim"
+          [[ ",$SIM_INPUT," == *,isaacsim,* ]] && profiles="$profiles,isaac-sim"
+          export COMPOSE_PROFILES="$profiles"
+          echo "Pre-building/pulling with COMPOSE_PROFILES=$COMPOSE_PROFILES"
+          ./airstack.sh image-build
 
       - name: Run tests
         env:
