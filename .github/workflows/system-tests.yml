@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       marks:
-        description: "pytest marks expression (e.g. liveliness, build_docker, 'liveliness or build_docker')"
+        description: "pytest marks expression (e.g. build_docker, build_packages, liveliness, takeoff_hover_land). Use 'or' to combine marks: 'liveliness or takeoff_hover_land'. Leave blank to run all tests.)"
         default: "liveliness or takeoff_hover_land"
         required: false
       sim:
-        description: "Sim targets, comma-separated: msairsim, isaacsim"
+        description: "Sim targets, comma-separated: msairsim,isaacsim"
         default: msairsim,isaacsim
         required: false
       num_robots:
