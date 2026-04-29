@@ -164,7 +164,10 @@ jobs:
             --num-robots "$NUM_ROBOTS" \
             --stress-iterations "$ITERATIONS" \
             --stable-duration "$STABLE" \
-            -v
+            -v -s \
+            --log-cli-level=INFO \
+            --log-cli-format='%(asctime)s [%(levelname)s] %(name)s: %(message)s' \
+            --log-cli-date-format='%H:%M:%S'
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
