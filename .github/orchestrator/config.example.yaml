@@ -6,8 +6,8 @@
 # Cloud profile name in ~/.config/openstack/clouds.yaml.
 openstack_cloud: airstack
 
-# Ubuntu-24.04-GPU-Headless (confirmed available on airlab-cloud).
-image_id: a891a6fe-5e4f-4b84-a6c9-482848c8f972
+# Ubuntu-24.04-Desktop (confirmed available on airlab-cloud).
+image_id: 2ebb9061-8995-4238-a3cc-e230a3e863aa
 
 # OpenStack flavor with GPU + enough disk for Docker + sim images.
 # Look up with: openstack flavor list
