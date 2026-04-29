@@ -436,7 +436,7 @@ def _landing_one_robot(n, robot_container, cfg, velocity):
 
 # ── tests ──────────────────────────────────────────────────────────────────
 
-@pytest.mark.autonomy
+@pytest.mark.takeoff_hover_land
 @pytest.mark.timeout(1800)
 class TestTakeoffHoverLand:
 

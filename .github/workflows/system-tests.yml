@@ -7,11 +7,11 @@ on:
     inputs:
       marks:
         description: "pytest marks expression (e.g. liveliness, build_docker, 'liveliness or build_docker')"
-        default: liveliness
+        default: "liveliness or takeoff_hover_land"
         required: false
       sim:
         description: "Sim targets, comma-separated: msairsim, isaacsim"
-        default: msairsim
+        default: msairsim,isaacsim
         required: false
       num_robots:
         description: "Robot counts, comma-separated (e.g. 1,3)"

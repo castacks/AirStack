@@ -13,11 +13,15 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 | [`test_build_docker.py`](../../../../tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
 | [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
 | [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability | Docker daemon, GPU, sim license |
+<<<<<<< HEAD
 | [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `autonomy` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`test_fixed_trajectory.py`](../../../../tests/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
+=======
+| [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+>>>>>>> 9b441914 (Change pytest mark 'autonomy' to 'takeoff_hover_land')
 
 Marks can be combined with pytest logic:
-`-m "build_docker or build_packages"`, `-m liveliness`, `-m autonomy`.
+`-m "build_docker or build_packages"`, `-m liveliness`, `-m takeoff_hover_land`.
 
 ---
 
@@ -77,8 +81,8 @@ airstack test -m liveliness \
   --stable-duration 60 \
   -v
 
-# Autonomy run — takeoff/hover/land at three velocities
-airstack test -m autonomy \
+# Takeoff/hover/land run — three velocities
+airstack test -m takeoff_hover_land \
   --sim msairsim \
   --num-robots 1 \
   --stress-iterations 1 \
@@ -95,7 +99,7 @@ can reach the host X server; it is a no-op when `DISPLAY` is not set.
 ### Prerequisites
 
 - Docker daemon running with your user in the `docker` group
-- NVIDIA drivers + `nvidia-container-toolkit` for liveliness/autonomy tests
+- NVIDIA drivers + `nvidia-container-toolkit` for liveliness/takeoff_hover_land tests
 - `airstack setup` completed (adds `airstack` to `PATH`)
 
 ### Direct pytest (for development / debugging)
@@ -173,11 +177,11 @@ returns to the ground.
 Metrics are recorded per robot as `robot_N.<key>` and written to
 `tests/results/<timestamp>/metrics.json`.
 
-### Running autonomy tests
+### Running takeoff_hover_land tests
 
 ```bash
 # Sweep velocities 0.5, 1, 2 m/s; 1 robot; ms-airsim
-airstack test -m autonomy \
+airstack test -m takeoff_hover_land \
   --sim msairsim \
   --num-robots 1 \
   --stress-iterations 1 \
@@ -185,7 +189,7 @@ airstack test -m autonomy \
   -v
 
 # Single velocity, Isaac Sim, 3 robots
-airstack test -m autonomy \
+airstack test -m takeoff_hover_land \
   --sim isaacsim \
   --num-robots 3 \
   --stress-iterations 1 \
