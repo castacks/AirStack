@@ -117,8 +117,9 @@ jobs:
 
           # Pull from registry; tolerate per-image failures so we can detect
           # what's still missing afterwards instead of aborting on the first
-          # gap.
-          ./airstack.sh image-pull --ignore-pull-failures || true
+          # gap. `--progress=quiet` suppresses per-layer progress; errors
+          # still surface on stderr.
+          ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
 
           missing=()
           while IFS= read -r img; do
@@ -131,7 +132,7 @@ jobs:
           if (( ${#missing[@]} > 0 )); then
             echo "Pull did not produce these images; falling back to build:"
             printf '  - %s\n' "${missing[@]}"
-            ./airstack.sh image-build
+            ./airstack.sh --progress=quiet image-build
           else
             echo "All required images present after pull — skipping build."
           fi
