@@ -116,7 +116,7 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "
 # Note: numpy>=1.26 required for Python 3.12 compatibility
 # Using --ignore-installed to avoid conflicts with system packages
 RUN pip3 install --break-system-packages --ignore-installed \
-  empy \
+  empy==3.3.4 \
   future \
   lxml \
   matplotlib==3.8.4 \
