@@ -215,6 +215,12 @@ RUN if [ "${ENABLE_RAYFRONTS}" = "true" ]; then \
       setuptools==79.0.1; \
   fi
 
+# Re-pin empy to 3.x. The RayFronts block above transitively upgrades it via
+# transformers/bloom/colcon-core to 4.x, which is API-incompatible with
+# rosidl_generator_rs and breaks the workspace build with
+# "TransientParseError: not enough data to read" on rmw.rs.em.
+RUN pip3 install --break-system-packages --force-reinstall empy==3.3.4
+
 # Patched OpenVDB (OasisArtisan fork) — exposes Int8Grid to Python bindings
 RUN if [ "${ENABLE_RAYFRONTS}" = "true" ]; then \
     apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
