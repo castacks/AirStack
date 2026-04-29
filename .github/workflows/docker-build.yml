@@ -53,12 +53,18 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true'
     runs-on: [self-hosted, airstack-ephemeral]
     timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write  # Required for keyless cosign signing via GitHub OIDC
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
 
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
@@ -121,6 +127,62 @@ jobs:
           fi
           
           docker compose push
+
+      - name: Sign pushed images with Cosign (keyless)
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -a
+          source .env
+          set +a
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+
+          IMAGES=$(docker compose config --images | sort -u)
+          if [ -z "$IMAGES" ]; then
+            echo "No images resolved from compose config; nothing to sign."
+            exit 1
+          fi
+
+          for IMG in $IMAGES; do
+            DIGEST=$(docker buildx imagetools inspect "$IMG" --format '{{.Manifest.Digest}}')
+            if [ -z "$DIGEST" ]; then
+              echo "Error: could not resolve digest for $IMG"
+              exit 1
+            fi
+            REPO="${IMG%:*}"
+            REF="${REPO}@${DIGEST}"
+            echo "Signing $REF"
+            cosign sign "$REF"
+          done
+
+      - name: Verify Cosign signatures
+        run: |
+          set -a
+          source .env
+          set +a
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+
+          IMAGES=$(docker compose config --images | sort -u)
+          for IMG in $IMAGES; do
+            DIGEST=$(docker buildx imagetools inspect "$IMG" --format '{{.Manifest.Digest}}')
+            REPO="${IMG%:*}"
+            REF="${REPO}@${DIGEST}"
+            echo "Verifying $REF"
+            cosign verify "$REF" \
+              --certificate-identity-regexp "^https://github\\.com/${{ github.repository }}/\\.github/workflows/docker-build\\.yml@" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              > /dev/null
+          done
 
       - name: Optional - Run Docker Compose Up (uncomment if needed)
         run: |
