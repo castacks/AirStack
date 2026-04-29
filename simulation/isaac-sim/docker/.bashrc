@@ -183,9 +183,9 @@ export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 # This strips out the System ROS (Python 3.12) paths to prevent conflicts
 export ISAAC_SIM_PYTHONPATH=$(echo $PYTHONPATH | tr ':' '\n' | grep -v "lib/python3.12/site-packages" | paste -sd ':' -):/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
 
-# Helper function to run Isaac Sim python scripts with the correct environment
+# Helper function to run Isaac Sim python scripts with the correct environment.
 run_isaac_python() {
-    PYTHONPATH="$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh "$@"
+    PYTHONPATH="$ISAAC_SIM_PYTHONPATH" exec /isaac-sim/python.sh "$@"
 }
 export -f run_isaac_python
 

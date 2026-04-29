@@ -86,3 +86,10 @@ simulation/isaac-sim/launch_scripts/RetroNeighborhood_Launch.py
 # Persisted waypoint/polygon editor saves (host-side mount target)
 gcs/saves/*
 !gcs/saves/.gitkeep
+
+# Downloaded UE4 scene binaries (fetched via assets/scenes/fetch_scene.sh)
+simulation/ms-airsim/assets/scenes/*
+!simulation/ms-airsim/assets/scenes/fetch_scene.sh
+
+# Test results
+tests/results/

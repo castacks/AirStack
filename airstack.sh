@@ -188,11 +188,40 @@ function print_command_help {
             echo "  airstack rmi -f myimage"
             ;;
         test)
-            echo "Usage: airstack test [options]"
+            echo "Usage: airstack test [pytest options]"
             echo ""
-            echo "Options:"
-            echo "  --path=PATH    Path to test directory"
-            echo "  --filter=PATTERN  Filter tests by pattern"
+            echo "Build the containerized test runner (tests/docker/) and run pytest"
+            echo "inside it. All arguments are forwarded directly to pytest."
+            echo "Results are written to tests/results/<timestamp>/."
+            echo ""
+            echo "Test marks (-m):"
+            echo "  build_docker    Docker image build tests (no GPU needed)"
+            echo "  build_packages  colcon workspace build tests (no GPU needed)"
+            echo "  liveliness      Full stack up: nodes, topics, compute, stability"
+            echo "  autonomy        Takeoff / hover / land flight chain"
+            echo ""
+            echo "AirStack-specific options:"
+            echo "  --sim=TARGETS              Comma-separated sim targets"
+            echo "                             (default: msairsim,isaacsim)"
+            echo "  --num-robots=COUNTS        Comma-separated robot counts (default: 1,3)"
+            echo "  --stress-iterations=N      Up/down cycles per config (default: 3)"
+            echo "  --stable-duration=SECS     Seconds test_stable polls for (default: 120)"
+            echo "  --stable-interval=SECS     Seconds between polls (default: 10)"
+            echo "  --takeoff-velocities=LIST  Comma-separated takeoff/land speeds in m/s"
+            echo "                             for autonomy tests (default: 0.5,1,2)"
+            echo "  --gui                      Show simulator GUI (default: headless)"
+            echo ""
+            echo "Examples:"
+            echo "  # Build tests only — fast, no GPU needed"
+            echo "  airstack test -m 'build_docker or build_packages' -v"
+            echo ""
+            echo "  # Liveliness run — ms-airsim, 1 robot, 60 s stability window"
+            echo "  airstack test -m liveliness --sim msairsim --num-robots 1 \\"
+            echo "    --stress-iterations 1 --stable-duration 60 -v"
+            echo ""
+            echo "  # Autonomy run — takeoff/hover/land at 0.5, 1, and 2 m/s"
+            echo "  airstack test -m autonomy --sim msairsim --num-robots 1 \\"
+            echo "    --stress-iterations 1 --takeoff-velocities 0.5,1,2 -v"
             ;;
         docs)
             echo "Usage: airstack docs [serve]"
@@ -764,8 +793,8 @@ function cmd_up {
     local n=0; for s in isaac-sim ms-airsim simple; do [[ ",$p," == *",$s,"* ]] && n=$((n+1)); done
     (( n > 1 )) && log_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple)." && exit 1
 
-    # Warn if URDF_FILE doesn't match the active simulator
-    local urdf=$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')
+    # Warn if URDF_FILE doesn't match the active simulator (env var overrides .env)
+    local urdf="${URDF_FILE:-$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
     if [[ -n "$urdf" ]]; then
         [[ ",$p," == *",ms-airsim,"* && "$urdf" != *.ms-airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match ms-airsim profile. Expected *.ms-airsim.* URDF."
         [[ ",$p," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF."
@@ -773,6 +802,15 @@ function cmd_up {
 
     # Add xhost + to allow GUI applications
     xhost + &> /dev/null || true
+
+    # Registry-cache mode (CI / opt-in): pull existing images first so `up`
+    # uses the registry copy as-is and skips the implicit rebuild path. No-op
+    # when AIRSTACK_REGISTRY_CACHE is unset.
+    if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
+        log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling images before up..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
+            log_warn "Pre-up pull encountered failures; continuing with whatever is local"
+    fi
 
     log_info "Starting services..."
     if [ -n "$robot_num" ]; then
@@ -792,8 +830,26 @@ function cmd_image_build {
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "$@"
 
-    log_info "Building services..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
+    # Registry-cache mode (CI / opt-in): pre-pull existing images to seed the
+    # local cache, build with BUILDKIT_INLINE_CACHE=1 so the resulting image
+    # carries layer-cache metadata, and push so the next run benefits. The
+    # cache_from declarations in each component compose file make BuildKit
+    # actually reuse the pulled layers. No-op when the env var is unset.
+    if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
+        log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling for cache seed..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
+            log_warn "Pre-build pull encountered failures; continuing without cache seed"
+
+        log_info "Building services with BUILDKIT_INLINE_CACHE=1..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build --build-arg BUILDKIT_INLINE_CACHE=1 "${subcmd_args[@]}"
+
+        log_info "Pushing built images for next-run cache..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push --ignore-push-failures "${subcmd_args[@]}" || \
+            log_warn "Post-build push encountered failures; future runs may not benefit from cache"
+    else
+        log_info "Building services..."
+        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"
+    fi
     log_info "Build completed successfully"
 }
 
@@ -841,6 +897,47 @@ function cmd_images {
     fi
 }
 
+function cmd_image_delete {
+    check_docker
+
+    local env_file="$PROJECT_ROOT/.env"
+    local project_name=""
+    if [ -f "$env_file" ]; then
+        project_name=$(grep -E "^PROJECT_NAME=" "$env_file" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    fi
+    if [ -z "$project_name" ]; then
+        log_error "PROJECT_NAME not found in .env; refusing to delete."
+        return 1
+    fi
+
+    # Match images whose repository contains "/PROJECT_NAME" or equals "PROJECT_NAME".
+    # Using a regex anchored to a path segment avoids false positives on similar names.
+    local refs
+    refs=$(docker images --format '{{.Repository}}:{{.Tag}}' \
+        | grep -E "(^|/)${project_name}(:|$)" || true)
+
+    if [ -z "$refs" ]; then
+        log_info "No images found matching project: $project_name"
+        return 0
+    fi
+
+    log_info "The following images will be deleted:"
+    echo "$refs" | sed 's/^/  /'
+
+    # Confirm unless --yes / -y is passed.
+    local auto_yes=false
+    for arg in "$@"; do
+        [[ "$arg" == "-y" || "$arg" == "--yes" ]] && auto_yes=true
+    done
+    if ! $auto_yes; then
+        read -r -p "Delete these images? [y/N] " reply
+        [[ "$reply" =~ ^[Yy]$ ]] || { log_info "Aborted."; return 0; }
+    fi
+
+    echo "$refs" | xargs -r docker rmi -f
+    log_info "Done."
+}
+
 function cmd_down {
     check_docker
     
@@ -872,6 +969,9 @@ function cmd_clean {
         "$PROJECT_ROOT/simulation/ms-airsim/ros_ws/build"
         "$PROJECT_ROOT/simulation/ms-airsim/ros_ws/install"
         "$PROJECT_ROOT/simulation/ms-airsim/ros_ws/log"
+        "$PROJECT_ROOT/simulation/simple-sim/ros_ws/build"
+        "$PROJECT_ROOT/simulation/simple-sim/ros_ws/install"
+        "$PROJECT_ROOT/simulation/simple-sim/ros_ws/log"
     )
 
     log_info "Cleaning all ROS 2 build artifacts..."
@@ -1179,6 +1279,7 @@ function register_builtin_commands {
     COMMANDS["image-push"]="cmd_image_push"
     COMMANDS["image-pull"]="cmd_image_pull"
     COMMANDS["images"]="cmd_images"
+    COMMANDS["image-delete"]="cmd_image_delete"
     COMMANDS["up"]="cmd_up"
     COMMANDS["down"]="cmd_down"
     COMMANDS["clean"]="cmd_clean"
@@ -1196,6 +1297,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-push"]="Push Docker Compose service images to a registry"
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
+    COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
     COMMAND_HELP["up"]="Start services using Docker Compose"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"

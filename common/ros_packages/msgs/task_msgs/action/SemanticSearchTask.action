@@ -1,4 +1,5 @@
 # Search an area for a location or object described in natural language.
+# query: natural-language description of the target (e.g. "red car", "person waving")
 # confidence_threshold: minimum match confidence to report a result (0.0-1.0, default 0.95)
 # background_queries: comma-separated contrast classes for softmax normalization
 #   (e.g. "building,tree,ground"). Required — softmax over a single query is degenerate.
@@ -16,11 +17,13 @@ float32 confidence_threshold 0.95
 # Result
 bool success
 string message
-geometry_msgs/Pose found_pose
+geometry_msgs/PoseArray found_poses
 float32 confidence
+int32 objects_found
 ---
 # Feedback
 string status
 float32 progress
 float32 best_confidence_so_far
+int32 objects_found_so_far
 geometry_msgs/Point current_position

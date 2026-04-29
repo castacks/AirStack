@@ -15,7 +15,30 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
+from nav_msgs.msg import Odometry
 from rosgraph_msgs.msg import Clock
+
+
+_SQRT2_INV = 1.0 / math.sqrt(2.0)
+
+
+def _ned_vec_to_enu(x_ned, y_ned, z_ned):
+    """World-frame vector (position/velocity) in NED → ENU."""
+    return y_ned, x_ned, -z_ned
+
+
+def _ned_quat_to_enu(qx, qy, qz, qw):
+    """Body-FRD-in-world-NED quaternion (AirSim) → body-FLU-in-world-ENU (ROS).
+
+    Composition: q_enu = q_NED_TO_ENU * q_ned * q_FLU_TO_FRD, where
+    q_NED_TO_ENU is 180° about (1,1,0)/√2 and q_FLU_TO_FRD is 180° about +X.
+    Returns (x, y, z, w) in geometry_msgs/Quaternion order.
+    """
+    w_enu = -_SQRT2_INV * (qw + qz)
+    x_enu = -_SQRT2_INV * (qx + qy)
+    y_enu = _SQRT2_INV * (qy - qx)
+    z_enu = _SQRT2_INV * (qz - qw)
+    return x_enu, y_enu, z_enu, w_enu
 
 
 class MsAirSimRosBridge(Node):
@@ -27,11 +50,13 @@ class MsAirSimRosBridge(Node):
         self.declare_parameter('publish_rate', 15.0)
         self.declare_parameter('robot_name', 'robot_1')
         self.declare_parameter('clock_rate', 50.0)
+        self.declare_parameter('gt_rate', 50.0)
 
         ip = self.get_parameter('ms_airsim_ip').value
         rate = self.get_parameter('publish_rate').value
         robot_name = self.get_parameter('robot_name').value
         clock_rate = self.get_parameter('clock_rate').value
+        gt_rate = self.get_parameter('gt_rate').value
         self.vehicle_name = robot_name
 
         # Connect to AirSim (retry until ready)
@@ -85,6 +110,9 @@ class MsAirSimRosBridge(Node):
         self.left_depth_pub = self.create_publisher(Image, f'{prefix}/left/depth_ground_truth', 1)
         self.right_depth_pub = self.create_publisher(Image, f'{prefix}/right/depth_ground_truth', 1)
         self.clock_pub = self.create_publisher(Clock, '/clock', 10)
+        self.gt_pub = self.create_publisher(
+            Odometry, f'/{robot_name}/odom_ground_truth', 10
+        )
 
         self._shutdown = threading.Event()
 
@@ -94,6 +122,16 @@ class MsAirSimRosBridge(Node):
         self._clock_interval = 1.0 / clock_rate
         self._clock_thread = threading.Thread(target=self._clock_loop, daemon=True)
         self._clock_thread.start()
+
+        # Dedicated ground-truth-odom thread with its own AirSim client.
+        # AirSim kinematics are world-NED / body-FRD; we convert to world-ENU /
+        # body-FLU so the topic matches the frame of MAVROS local_position/odom
+        # and the test's _gt_metrics can compare component-wise.
+        self._gt_client = airsim.MultirotorClient(ip=ip)
+        self._gt_client.confirmConnection()
+        self._gt_interval = 1.0 / gt_rate
+        self._gt_thread = threading.Thread(target=self._gt_loop, daemon=True)
+        self._gt_thread.start()
 
         # Background image fetcher with its own AirSim client
         self._image_client = airsim.MultirotorClient(ip=ip)
@@ -111,7 +149,9 @@ class MsAirSimRosBridge(Node):
         )
 
     def _clock_loop(self):
+        next_t = time.monotonic()
         while not self._shutdown.is_set():
+            next_t += self._clock_interval
             try:
                 state = self._clock_client.getMultirotorState(
                     vehicle_name=self.vehicle_name
@@ -123,7 +163,66 @@ class MsAirSimRosBridge(Node):
                 self.clock_pub.publish(clock_msg)
             except Exception:
                 pass
-            time.sleep(self._clock_interval)
+            slack = next_t - time.monotonic()
+            if slack > 0:
+                time.sleep(slack)
+
+    def _gt_loop(self):
+        next_t = time.monotonic()
+        while not self._shutdown.is_set():
+            next_t += self._gt_interval
+            try:
+                k = self._gt_client.simGetGroundTruthKinematics(
+                    vehicle_name=self.vehicle_name
+                )
+                sim_ts = self._gt_client.getMultirotorState(
+                    vehicle_name=self.vehicle_name
+                ).timestamp
+
+                msg = Odometry()
+                msg.header.stamp.sec = int(sim_ts // 1_000_000_000)
+                msg.header.stamp.nanosec = int(sim_ts % 1_000_000_000)
+                msg.header.frame_id = f'{self.vehicle_name}/map'
+                msg.child_frame_id = f'{self.vehicle_name}/base_link'
+
+                px, py, pz = _ned_vec_to_enu(
+                    k.position.x_val, k.position.y_val, k.position.z_val
+                )
+                msg.pose.pose.position.x = px
+                msg.pose.pose.position.y = py
+                msg.pose.pose.position.z = pz
+
+                qx, qy, qz, qw = _ned_quat_to_enu(
+                    k.orientation.x_val, k.orientation.y_val,
+                    k.orientation.z_val, k.orientation.w_val,
+                )
+                msg.pose.pose.orientation.x = qx
+                msg.pose.pose.orientation.y = qy
+                msg.pose.pose.orientation.z = qz
+                msg.pose.pose.orientation.w = qw
+
+                lx, ly, lz = _ned_vec_to_enu(
+                    k.linear_velocity.x_val, k.linear_velocity.y_val,
+                    k.linear_velocity.z_val,
+                )
+                msg.twist.twist.linear.x = lx
+                msg.twist.twist.linear.y = ly
+                msg.twist.twist.linear.z = lz
+
+                ax, ay, az = _ned_vec_to_enu(
+                    k.angular_velocity.x_val, k.angular_velocity.y_val,
+                    k.angular_velocity.z_val,
+                )
+                msg.twist.twist.angular.x = ax
+                msg.twist.twist.angular.y = ay
+                msg.twist.twist.angular.z = az
+
+                self.gt_pub.publish(msg)
+            except Exception:
+                pass
+            slack = next_t - time.monotonic()
+            if slack > 0:
+                time.sleep(slack)
 
     def _has_subscribers(self, *publishers):
         return any(p.get_subscription_count() > 0 for p in publishers)
@@ -219,6 +318,7 @@ class MsAirSimRosBridge(Node):
     def destroy_node(self):
         self._shutdown.set()
         self._clock_thread.join(timeout=2.0)
+        self._gt_thread.join(timeout=2.0)
         self._image_thread.join(timeout=2.0)
         super().destroy_node()
 

@@ -663,7 +663,7 @@ docker exec airstack-isaac-sim-1 bash -c "ros2 topic hz /drone1/sensors/camera/i
 
 - **AirStack Examples:**
   - Single drone: `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`
-  - Two drones: `simulation/isaac-sim/launch_scripts/example_two_px4_pegasus_launch_script.py`
+  - Multiple drones: `simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py`
 
 - **Scene Preparation Utilities:**
   - `simulation/isaac-sim/utils/scene_prep.py`

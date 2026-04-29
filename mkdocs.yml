@@ -65,12 +65,8 @@ nav:
           - docs/development/beginner/fork_your_own_project.md
       - Intermediate Tutorials:
           - Testing:
-              - docs/development/intermediate/testing/index.md
-              - docs/development/intermediate/testing/testing_frameworks.md
-              - docs/development/intermediate/testing/unit_testing.md
-              - docs/development/intermediate/testing/integration_testing.md
-              - docs/development/intermediate/testing/system_testing.md
-              - docs/development/intermediate/testing/ci_cd.md
+              - tests/README.md
+              - tests/ci-cd-orchestrator.md
           - Frame Conventions: docs/development/intermediate/frame_conventions.md
           - Contributing: 
               - docs/development/intermediate/contributing.md

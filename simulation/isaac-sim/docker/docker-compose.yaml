@@ -8,6 +8,8 @@ services:
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
         - *image_tag
+      cache_from:
+        - *image_tag
     container_name: isaac-sim
     entrypoint: ""
     command: >
@@ -37,6 +39,9 @@ services:
       - QT_X11_NO_MITSHM=1
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
     deploy:
       # let it use the GPU
       resources:

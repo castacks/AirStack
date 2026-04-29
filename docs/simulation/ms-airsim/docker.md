@@ -15,7 +15,8 @@ simulation/ms-airsim/
 │   ├── settings.json.j2      # Jinja2 template for AirSim settings
 │   ├── settings.json         # Generated settings (git-ignored)
 │   └── generate_settings.py  # Settings generator script
-├── environments/             # Pre-built UE4 binaries (git-ignored)
+├── assets/scenes/            # Pre-built UE4 binaries (git-ignored), e.g. Blocks/, AirSimNH/
+│   └── fetch_scene.sh        # Idempotent download + extract helper (tracked)
 └── ros_ws/                   # ROS 2 bridge workspace
     └── src/
         └── ms_airsim_ros_bridge/  # Depth + camera_info bridge node
@@ -56,20 +57,21 @@ The container runs `entrypoint.sh`, which:
 
 1. Generates `settings.json` from the Jinja2 template using current environment variables
 2. Creates a tmux session named `ms-airsim`
-3. Launches the UE4 binary as the `ms-airsim` user (UE4 refuses to run as root)
-4. Waits for the AirSim API to become available (TCP port 41451)
-5. Spawns one PX4 SITL instance per robot, each in its own tmux window
-6. Builds the ROS 2 bridge workspace (`colcon build`)
-7. Launches one bridge node per robot, each with `ROS_DOMAIN_ID=<robot_index>`
+3. Builds the ROS 2 bridge workspace (`colcon build`)
+4. In the `airsim` window: if `MS_AIRSIM_BINARY_PATH` is unset, runs `fetch_scene.sh blocks` to download + extract the default scene, then launches the UE4 binary as the `ms-airsim` user (UE4 refuses to run as root)
+5. Launches one bridge node per robot, each with `ROS_DOMAIN_ID=<robot_index>`
+6. Waits for the AirSim API to become available (TCP port 41451)
+7. Spawns one PX4 SITL instance per robot, each in its own tmux window
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUTOLAUNCH` | `true` | Auto-start on container launch |
-| `MS_AIRSIM_BINARY_PATH` | `/ms-airsim-env/Blocks.sh` | Path to UE4 binary inside container |
-| `MS_AIRSIM_ENV_DIR` | `../environments` | Host path to extracted UE4 environment |
+| `MS_AIRSIM_BINARY_PATH` | _(unset → auto-fetch Blocks)_ | Path to UE4 binary inside container. If unset, the entrypoint fetches Blocks into the mounted scenes dir and points at it. |
+| `MS_AIRSIM_ENV_DIR` | `../assets/scenes` | Host path to extracted UE4 scenes |
 | `MS_AIRSIM_HEADLESS` | `false` | Run UE4 without a window (`-RenderOffScreen -nosound`) |
+| `MS_AIRSIM_PX4_START_DELAY` | `3` | Seconds to wait after AirSim becomes ready before starting PX4, so sensors settle before the EKF snapshots a local origin |
 | `NUM_ROBOTS` | `1` | Number of vehicles and PX4 SITL instances |
 | `SIM_IP` | `172.31.0.200` | Simulator IP on `airstack_network` |
 
@@ -95,8 +97,8 @@ NUM_ROBOTS=2 airstack up --profile ms-airsim
 # Headless (no GUI, uses UE4's -RenderOffScreen)
 MS_AIRSIM_HEADLESS=true airstack up --profile ms-airsim
 
-# Custom environment binary
-MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron.sh airstack up --profile ms-airsim
+# Custom scene binary
+MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh airstack up --profile ms-airsim
 ```
 
 ## Settings Generation
@@ -193,13 +195,9 @@ Mounts `simulation/ms-airsim/config/` to the AirSim config directory. `settings.
 
 Mounts the bridge source so edits on the host are reflected after a rebuild inside the container.
 
-### UE4 Environment
+### UE4 Scene
 
-```yaml
-- ${MS_AIRSIM_ENV_DIR:-../environments}:/ms-airsim-env:rw
-```
-
-Mounts pre-built UE4 binaries. Set `MS_AIRSIM_ENV_DIR` in `.env` to point to the extracted environment directory.
+Mounts pre-built UE4 binaries. If `MS_AIRSIM_BINARY_PATH` is unset, the entrypoint auto-populates this directory with the default Blocks scene on first launch. Run `assets/scenes/fetch_scene.sh` to pre-fetch or pick a different scene, or set `MS_AIRSIM_ENV_DIR` in `.env` to point to an external scenes directory.
 
 ## Accessing the Container
 

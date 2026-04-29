@@ -8,6 +8,8 @@ services:
       dockerfile: Dockerfile
       tags:
         - *ms_airsim_image
+      cache_from:
+        - *ms_airsim_image
     container_name: ms-airsim
     entrypoint: ""
     command: /root/entrypoint.sh
@@ -25,8 +27,9 @@ services:
       - XDG_RUNTIME_DIR=/tmp
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
-      - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-/ms-airsim-env/Blocks.sh}
+      - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-}
       - MS_AIRSIM_HEADLESS=${MS_AIRSIM_HEADLESS:-false}
+      - MS_AIRSIM_PX4_START_DELAY=${MS_AIRSIM_PX4_START_DELAY:-3}
     deploy:
       resources:
         reservations:
@@ -38,5 +41,6 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ../config:/home/ms-airsim/Documents/AirSim:rw
       - ../ros_ws:/root/ros_ws:rw
-      - ${MS_AIRSIM_ENV_DIR:-../environments}:/ms-airsim-env:rw
+      - ${MS_AIRSIM_ENV_DIR:-../assets/scenes}:/ms-airsim-env:rw
       - /usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro
+      - ../../../common/.tmux.conf:/root/.tmux.conf:rw
