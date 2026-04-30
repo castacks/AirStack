@@ -8,10 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       marks:
-        description: "pytest marks expression (e.g. 'build_docker', 'build_packages', 'liveliness', 'takeoff_hover_land'). \
-          Use 'or' to combine marks: 'build_packages or liveliness'. Leave blank to run all. \
-          Recommend to always include 'build_packages' to ensure code is built before launch."
-        default: "build_packages or liveliness or takeoff_hover_land"
+        description: "pytest marks expression (e.g. 'build_docker', 'liveliness', 'takeoff_hover_land'). \
+          Use 'or' to combine marks: 'liveliness or takeoff_hover_land'. Leave blank to run all marks. \
+          Note: 'build_packages' is automatically prepended whenever any marks are specified, \
+          to ensure code is built before launch tests run."
+        default: "liveliness or takeoff_hover_land"
         required: false
       sim:
         description: "Sim targets, comma-separated: msairsim,isaacsim"
@@ -157,11 +158,21 @@ jobs:
           # whatever pytest will actually exercise.
           sim = 'msairsim,isaacsim'
           marks = ''
+          marks_idx = -1
           for i, a in enumerate(args):
               if a == '--sim' and i + 1 < len(args):
                   sim = args[i + 1]
               elif a == '-m' and i + 1 < len(args):
                   marks = args[i + 1]
+                  marks_idx = i + 1
+
+          # When the user specified any marks, prepend build_packages so code
+          # is built before launch tests try to use it. Skipped when no marks
+          # are given (pytest runs everything including build_packages) and
+          # when build_packages is already in the expression.
+          if marks and 'build_packages' not in marks:
+              marks = f'build_packages or {marks}'
+              args[marks_idx] = marks
 
           skip_prep = 'build_docker' in marks
           quoted = ' '.join(shlex.quote(a) for a in args)
@@ -189,11 +200,12 @@ jobs:
             const args = ${{ toJSON(steps.parse.outputs.pytest_args) }};
             const cmd = `pytest tests/ ${args}`.trim();
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const note = `Note: \`build_packages\` is automatically prepended whenever any marks are specified, to ensure code is built before launch tests run.`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `Running \`${cmd}\` — [view run](${runUrl}). Status will appear as a check on this PR.`,
+              body: `Running \`${cmd}\` — [view run](${runUrl}). Status will appear as a check on this PR.\n\n${note}`,
             });
 
       # Pin a Check Run on the PR's head SHA so the run shows up in the
