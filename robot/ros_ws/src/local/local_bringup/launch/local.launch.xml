@@ -52,9 +52,9 @@
         <remap from="~/fixed_trajectory_task" to="/$(env ROBOT_NAME)/tasks/fixed_trajectory" />
     </node>
 
-    <!-- droan_gl disabled for blind-flight testing; using droan_local_planner below instead
     <group>
         <push-ros-namespace namespace="droan" />
+        <!-- DROAN Local Planner -->
         <node pkg="droan_gl" exec="droan_gl_node" output="screen">
             <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
             <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
@@ -66,6 +66,7 @@
             <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
             <remap from="trajectory_segment_to_add"
                 to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+
             <param name="target_frame" value="map" />
             <param name="look_ahead_frame" value="look_ahead_point_stabilized" />
             <param name="rewind_info_frame" value="base_link_stabilized" />
@@ -85,8 +86,18 @@
             <param name="stationary_rewind_distance" value="10." />
             <param name="stationary_rewind_duration" value="20." />
         </node>
+        <?ignore
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
+            output="screen">
+            <param
+                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
+
+            <remap from="disparity" to="$(var local_disparity_in_topic)" />
+            <remap from="depth" to="$(var local_depth_in_topic)" />
+            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
+        </node>
+        ?>
     </group>
-    -->
 
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
@@ -183,6 +194,7 @@
     output="screen" respawn="true" respawn_delay="1" />
   ?>
 
+  	<?ignore
         <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
             args="--log-level DEBUG">
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
@@ -198,6 +210,7 @@
             <remap from="trajectory_segment_to_add"
                 to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
           </node>
+	  ?>
 
 
 </launch>
