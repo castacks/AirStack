@@ -57,16 +57,17 @@ jobs:
     timeout-minutes: 120
     # Adding any `permissions:` entry disables GITHUB_TOKEN's defaults, so
     # every scope used here has to be re-granted explicitly:
-    #   checks:write       — create/update the Check Run on the PR head
-    #   contents:read      — actions/checkout
-    #   issues:write       — rocket reaction (PR comments live under the
-    #                        issues API)
-    #   pull-requests:read — gh api repos/.../pulls/<num> for head SHA lookup
+    #   checks:write        — create/update the Check Run on the PR head
+    #   contents:read       — actions/checkout
+    #   pull-requests:write — post the acknowledgment comment on the PR.
+    #     Even though the endpoint is /issues/{n}/comments, comments on
+    #     PRs are gated by the pull-requests permission, not issues — the
+    #     `x-accepted-github-permissions` header lists both as alternatives
+    #     but only pull-requests:write actually works for PR comments.
     permissions:
       checks: write
       contents: read
-      issues: write
-      pull-requests: read
+      pull-requests: write
     # Mirror the registry password into env so step-level `if:` expressions
     # can check whether registry-cache mode is available — `secrets.*` itself
     # is not addressable from `if:` expressions.
