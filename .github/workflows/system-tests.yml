@@ -2,7 +2,9 @@ name: System Tests
 
 on:
   pull_request:
-    branches: [main, develop]
+    types: [opened]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       marks:
@@ -34,22 +36,175 @@ jobs:
   run-tests:
     name: Run Tests
     runs-on: [self-hosted, airstack-ephemeral]
-    # Only run on PRs from the same repo (not forks) to prevent arbitrary code
-    # execution on the self-hosted runner from untrusted contributors.
-    if: >
+    # Triggers:
+    #   - workflow_dispatch (manual)
+    #   - PR opened from the same repo (not a fork) — same-repo guard
+    #     prevents arbitrary code execution on the self-hosted runner from
+    #     untrusted contributors.
+    #   - PR comment starting with `/pytest` from a user with write access
+    #     (OWNER/MEMBER/COLLABORATOR). issue_comment fires for both issues
+    #     and PRs; `issue.pull_request` disambiguates. The author_association
+    #     gate is what keeps random commenters from running code on the
+    #     self-hosted runner.
+    if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       startsWith(github.event.comment.body, '/pytest') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     timeout-minutes: 120
+    # Adding any `permissions:` entry disables GITHUB_TOKEN's defaults, so
+    # every scope used here has to be re-granted explicitly:
+    #   checks:write       — create/update the Check Run on the PR head
+    #   contents:read      — actions/checkout
+    #   issues:write       — rocket reaction (PR comments live under the
+    #                        issues API)
+    #   pull-requests:read — gh api repos/.../pulls/<num> for head SHA lookup
+    permissions:
+      checks: write
+      contents: read
+      issues: write
+      pull-requests: read
     # Mirror the registry password into env so step-level `if:` expressions
     # can check whether registry-cache mode is available — `secrets.*` itself
     # is not addressable from `if:` expressions.
     env:
       DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
     steps:
+      - name: Acknowledge PR comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket',
+            });
+
+      - name: Resolve PR head
+        if: github.event_name == 'issue_comment'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM=${{ github.event.issue.number }}
+          DATA=$(gh api repos/${{ github.repository }}/pulls/$PR_NUM)
+          HEAD_SHA=$(echo "$DATA" | jq -r .head.sha)
+          HEAD_REPO=$(echo "$DATA" | jq -r .head.repo.full_name)
+          BASE_REF=$(echo "$DATA" | jq -r .base.ref)
+          # Even though the commenter has write access, the PR's code lives on
+          # the head repo. If that's a fork we'd be running untrusted code on
+          # the self-hosted runner.
+          if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
+            echo "::error::PR #$PR_NUM is from a fork ($HEAD_REPO); /pytest is not supported for forks."
+            exit 1
+          fi
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      # Pin a Check Run on the PR's head SHA so the run shows up in the
+      # PR's "Checks" tab while it executes — issue_comment-triggered runs
+      # are otherwise associated with the default branch and don't surface
+      # on the PR. Finalized at end of job with the actual conclusion.
+      - name: Open in-progress check on PR head
+        if: github.event_name == 'issue_comment'
+        id: check_create
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const res = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'System Tests',
+              head_sha: '${{ steps.pr.outputs.head_sha }}',
+              status: 'in_progress',
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            core.setOutput('id', res.data.id);
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # For issue_comment we must check out the PR head explicitly —
+          # GITHUB_SHA points at the default branch for that event. For
+          # workflow_dispatch, empty string lets checkout use its default.
+          ref: ${{ github.event_name == 'issue_comment' && steps.pr.outputs.head_sha || '' }}
           submodules: recursive
+
+      - name: Parse pytest args
+        id: parse
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          INPUT_MARKS: ${{ inputs.marks }}
+          INPUT_SIM: ${{ inputs.sim }}
+          INPUT_NUM_ROBOTS: ${{ inputs.num_robots }}
+          INPUT_ITERATIONS: ${{ inputs.stress_iterations }}
+          INPUT_STABLE: ${{ inputs.stable_duration }}
+        run: |
+          python3 <<'PYEOF'
+          import os, shlex, sys
+
+          event = os.environ['GH_EVENT_NAME']
+          if event == 'workflow_dispatch':
+              args = []
+              if (m := os.environ.get('INPUT_MARKS', '').strip()):
+                  args.extend(['-m', m])
+              if (s := os.environ.get('INPUT_SIM', '').strip()):
+                  args.extend(['--sim', s])
+              if (n := os.environ.get('INPUT_NUM_ROBOTS', '').strip()):
+                  args.extend(['--num-robots', n])
+              if (it := os.environ.get('INPUT_ITERATIONS', '').strip()):
+                  args.extend(['--stress-iterations', it])
+              if (st := os.environ.get('INPUT_STABLE', '').strip()):
+                  args.extend(['--stable-duration', st])
+          elif event == 'pull_request':
+              # PR-opened auto-run uses pytest's conftest defaults — same as
+              # /pytest with no args.
+              args = []
+          else:
+              body = os.environ.get('COMMENT_BODY', '')
+              # Only the first line is parsed — everything below it is
+              # treated as freeform comment text (notes, context, etc.).
+              first_line = (body.splitlines()[0] if body else '').strip()
+              if not first_line.startswith('/pytest'):
+                  print('::error::Comment does not start with /pytest', file=sys.stderr)
+                  sys.exit(1)
+              args_line = first_line[len('/pytest'):].strip()
+              try:
+                  args = shlex.split(args_line)
+              except ValueError as e:
+                  print(f'::error::Could not parse pytest args from comment: {e}', file=sys.stderr)
+                  sys.exit(1)
+
+          # Pull out --sim and -m so the image-prep step can scope profiles
+          # and decide whether to skip (build_docker tests rebuild themselves).
+          # When --sim isn't given we mirror conftest's default so prep covers
+          # whatever pytest will actually exercise.
+          sim = 'msairsim,isaacsim'
+          marks = ''
+          for i, a in enumerate(args):
+              if a == '--sim' and i + 1 < len(args):
+                  sim = args[i + 1]
+              elif a == '-m' and i + 1 < len(args):
+                  marks = args[i + 1]
+
+          skip_prep = 'build_docker' in marks
+          quoted = ' '.join(shlex.quote(a) for a in args)
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'pytest_args={quoted}\n')
+              f.write(f'sim={sim}\n')
+              f.write(f'skip_image_prep={"true" if skip_prep else "false"}\n')
+
+          print(f'Resolved pytest args: {quoted or "(none — pytest defaults)"}')
+          print(f'Resolved sim profile: {sim}')
+          print(f'Skip image prep: {skip_prep}')
+          PYEOF
 
       - name: Create Isaac Sim omni_pass.env
         run: |
@@ -101,16 +256,17 @@ jobs:
       # tests/conftest.py fails fast if compose images are missing, so prep
       # them here. Profile-gated services (ms-airsim, isaac-sim) are skipped
       # by compose unless their profile is active, so we mirror the fixture's
-      # profile selection from `inputs.sim`. Pull-only by default; fall back
-      # to a full build only if the registry doesn't have everything (e.g.
-      # new branch with no published image yet). Skipped when `build_docker`
-      # is in the marks expression — those tests build per-service themselves.
+      # profile selection from the parsed --sim. Pull-only by default; fall
+      # back to a full build only if the registry doesn't have everything
+      # (e.g. new branch with no published image yet). Skipped when the
+      # marks expression contains build_docker — those tests build per-service
+      # themselves.
       - name: Ensure Docker images present
-        if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.marks || 'build_docker or build_packages', 'build_docker') }}
+        if: ${{ steps.parse.outputs.skip_image_prep != 'true' }}
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
+          SIM_INPUT: ${{ steps.parse.outputs.sim }}
         run: |
-          SIM_INPUT="${{ github.event_name == 'workflow_dispatch' && inputs.sim || 'msairsim' }}"
           profiles=desktop
           [[ ",$SIM_INPUT," == *,msairsim,* ]] && profiles="$profiles,ms-airsim"
           [[ ",$SIM_INPUT," == *,isaacsim,* ]] && profiles="$profiles,isaac-sim"
@@ -143,27 +299,15 @@ jobs:
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
           DISPLAY: ""
+          PYTEST_ARGS: ${{ steps.parse.outputs.pytest_args }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            MARKS="${{ inputs.marks }}"
-            SIM="${{ inputs.sim }}"
-            NUM_ROBOTS="${{ inputs.num_robots }}"
-            ITERATIONS="${{ inputs.stress_iterations }}"
-            STABLE="${{ inputs.stable_duration }}"
-          else
-            MARKS="build_docker or build_packages"
-            SIM="msairsim"
-            NUM_ROBOTS="1"
-            ITERATIONS="1"
-            STABLE="120"
-          fi
-
+          # Re-split the shell-quoted args from the parse step so we forward
+          # them to pytest as a proper argv list (preserving values like
+          # `-m 'a or b'`). Empty PYTEST_ARGS yields an empty array, so
+          # pytest falls back to its conftest defaults.
+          mapfile -t ARGS < <(python3 -c "import os, shlex; print('\n'.join(shlex.split(os.environ['PYTEST_ARGS'])))")
           pytest tests/ \
-            -m "$MARKS" \
-            --sim "$SIM" \
-            --num-robots "$NUM_ROBOTS" \
-            --stress-iterations "$ITERATIONS" \
-            --stable-duration "$STABLE" \
+            "${ARGS[@]}" \
             -v -s \
             --log-cli-level=INFO \
             --log-cli-format='%(asctime)s [%(levelname)s] %(name)s: %(message)s' \
@@ -177,11 +321,31 @@ jobs:
           path: tests/results/
           retention-days: 90
 
+      # Close out the Check Run with the job's final conclusion. The
+      # `steps.check_create.outputs.id` guard skips this when the open
+      # step didn't run (workflow_dispatch) or failed before producing
+      # an id.
+      - name: Finalize check on PR head
+        if: always() && github.event_name == 'issue_comment' && steps.check_create.outputs.id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: ${{ steps.check_create.outputs.id }},
+              status: 'completed',
+              conclusion: '${{ job.status }}',
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
   report:
     name: Metrics Report
     runs-on: ubuntu-latest
     needs: run-tests
-    if: always()
+    # Skip when run-tests was skipped (e.g., comment didn't match `/pytest`)
+    # so we don't post empty-report comments on every PR comment.
+    if: always() && needs.run-tests.result != 'skipped'
     permissions:
       pull-requests: write
 
@@ -199,20 +363,34 @@ jobs:
       - name: Install report dependencies
         run: pip install tabulate
 
+      - name: Resolve PR base branch
+        if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
+        id: pr_ctx
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base_ref=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            BASE=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} --jq .base.ref)
+            echo "base_ref=$BASE" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download current test results
         uses: actions/download-artifact@v4
         with:
           name: test-results-${{ github.sha }}-${{ github.run_id }}
           path: current-results/
 
-      # PR mode: fetch latest artifact from the base branch (e.g. develop or main)
+      # PR mode (opened or comment-triggered): fetch latest artifact from
+      # the PR's base branch (e.g. develop or main).
       - name: Download baseline results (PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
         uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
           workflow: system-tests.yml
-          branch: ${{ github.base_ref }}
+          branch: ${{ steps.pr_ctx.outputs.base_ref }}
           name_is_regexp: true
           name: "test-results-.*"
           path: baseline-results/
@@ -278,7 +456,7 @@ jobs:
           fi
 
       - name: Post PR comment
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
