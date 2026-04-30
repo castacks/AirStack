@@ -5693,8 +5693,29 @@
 <td>Standalone script filename</td>
 <td>-</td>
 </tr>
+<tr>
+<td><code>PX4_PHYSICS_HZ</code></td>
+<td>Physics step rate for PX4 SITL — also sets PX4 <code>IMU_INTEG_RATE</code></td>
+<td><code>250</code></td>
+</tr>
+<tr>
+<td><code>PX4_RENDERING_HZ</code></td>
+<td>Rendering frame rate for PX4 profiles (independent of physics)</td>
+<td><code>60</code></td>
+</tr>
+<tr>
+<td><code>ARDUPILOT_PHYSICS_HZ</code></td>
+<td>Physics step rate for ArduPilot SITL</td>
+<td><code>800</code></td>
+</tr>
+<tr>
+<td><code>ARDUPILOT_RENDERING_HZ</code></td>
+<td>Rendering frame rate for ArduPilot profiles</td>
+<td><code>120</code></td>
+</tr>
 </tbody>
 </table>
+<p><code>PX4_PHYSICS_HZ</code> and <code>PX4_RENDERING_HZ</code> are set in the top-level <code>.env</code>. Pegasus defaults to 250 Hz but AirStack runs PX4 at <strong>100 Hz</strong> for near-real-time performance. See <a href="../pegasus_scene_setup/">Pegasus Scene Setup → Physics Rate</a> for valid values and the full configuration flow.</p>
 <p><strong>Example overrides:</strong></p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Launch without GUI (headless)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim

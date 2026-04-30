@@ -1848,6 +1848,73 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#physics-rate-and-imu_integ_rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Physics Rate and IMU_INTEG_RATE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Physics Rate and IMU_INTEG_RATE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#valid-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Valid values
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Benchmarking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Benchmarking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-the-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the suite
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5387,6 +5454,44 @@ The drone not arming/taking off can be a symptom of the PX4Multirotor Node not b
 <li>Restart your docker container by running <code>airstack down isaac-sim &amp;&amp; airstack up isaac-sim</code> and the extension should load every time now.</li>
 </ul>
 <hr />
+<h2 id="physics-rate-and-imu_integ_rate">Physics Rate and IMU_INTEG_RATE<a class="headerlink" href="#physics-rate-and-imu_integ_rate" title="Permanent link">&para;</a></h2>
+<p>The Isaac Sim physics step rate is the dominant factor in simulation performance. Pegasus defaults to <strong>250 Hz</strong>, which runs well below real-time when a full sensor suite is active. AirStack lowers this to <strong>100 Hz</strong> by reducing PX4's <code>IMU_INTEG_RATE</code> to match — since <code>IMU_INTEG_RATE</code> controls how often Isaac Sim steps the physics world in lockstep with PX4. 100 Hz is the minimum viable rate: PX4's EKF2 estimator has a fixed 10 ms update period, so <code>IMU_INTEG_RATE</code> must be at least 100 Hz or the state estimator falls behind sensor data.</p>
+<h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
+<p>Two variables in the top-level <code>.env</code> control the rates:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Pegasus physics/rendering rates (read by params.py; PX4_IMU_INTEG_RATE synced automatically).</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Minimum frequency supported by PX4 is 100 Hz.</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">PX4_PHYSICS_HZ</span><span class="o">=</span><span class="s2">&quot;100&quot;</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">PX4_RENDERING_HZ</span><span class="o">=</span><span class="s2">&quot;30&quot;</span>
+</span></code></pre></div>
+<ul>
+<li><strong><code>PX4_PHYSICS_HZ</code></strong> — Sets <code>physics_dt = 1 / PX4_PHYSICS_HZ</code> in Isaac Sim's physics scene, and automatically syncs PX4's <code>IMU_INTEG_RATE</code> parameter to the same value via <code>PX4LaunchTool</code> → <code>px4-rc.simulator</code>. Patched within the Docker image to read the environment variable and set the IMU_INTEG_RATE parameter.</li>
+<li><strong><code>PX4_RENDERING_HZ</code></strong> — Sets the rendering frame rate independently of physics. 30 Hz rendering has no effect on physics accuracy or PX4 behavior, but does slightly affect performance due to resource usage.</li>
+</ul>
+<h3 id="valid-values">Valid values<a class="headerlink" href="#valid-values" title="Permanent link">&para;</a></h3>
+<p>PX4's documented presets for <code>IMU_INTEG_RATE</code> are <strong>100, 200, 250, 400 Hz</strong>. The minimum is <strong>100 Hz</strong> — the EKF2 estimator runs at 100 Hz (10 ms period) and <code>IMU_INTEG_RATE</code> must be at least this fast. Values below 100 Hz are accepted by the firmware but cause attitude controller oscillation and are not recommended.</p>
+<ul>
+<li><code>100</code> — AirStack default; stable, best real-time performance with sensors</li>
+<li><code>200</code> — good balance, but will get slower</li>
+<li><code>250</code> — Pegasus/PX4 SITL default; best control quality but slower than real-time with sensors</li>
+<li><code>400</code> — maximum recommended. Untested</li>
+</ul>
+<hr />
+<h2 id="performance-benchmarking">Performance Benchmarking<a class="headerlink" href="#performance-benchmarking" title="Permanent link">&para;</a></h2>
+<p>A benchmarking suite in <code>simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/</code> measures the real-time factor (RTF = simulated seconds / wall-clock seconds) across physics rates, scene complexities, and drone backends.</p>
+<h3 id="running-the-suite">Running the suite<a class="headerlink" href="#running-the-suite" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Full suite (24 scripts) — from outside the container</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>isaac-sim<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="s2">&quot;/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/run_all.py&quot;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Single script</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>isaac-sim<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="s2">&quot;/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/1_cube_no_pegasus.py&quot;</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Subset by number</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>isaac-sim<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="s2">&quot;/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/run_all.py --scripts 1-8&quot;</span>
+</span></code></pre></div>
+<p>See <code>benchmarking/README.md</code> for the full script inventory, output format, and analysis plots.</p>
 
 
 
