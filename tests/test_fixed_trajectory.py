@@ -1,16 +1,3 @@
-"""Fixed-trajectory performance tests.
-
-Per (sim, num_robots, iter, trajectory_type): ready → takeoff → execute trajectory → land.
-
-The drone takes off to TARGET_ALTITUDE_M, executes one fixed-pattern trajectory
-(Circle, Figure8, Racetrack, or Line), then lands. Odometry is captured throughout
-the trajectory phase and compared against an ideal reference path (generated in Python
-from the same equations as fixed_trajectory_task.cpp) to measure cross-track error.
-
-Each trajectory type is an independent full-cycle test so failures in one type do not
-prevent the remaining types from running — the drone always returns to the ground at
-the end of each cycle via the landing phase.
-"""
 
 import math
 import statistics
