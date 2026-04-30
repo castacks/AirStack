@@ -5134,14 +5134,14 @@
 </tr>
 <tr>
 <td><a href="../../../../tests/test_takeoff_hover_land.py"><code>test_takeoff_hover_land.py</code></a></td>
-<td><code>autonomy</code></td>
+<td><code>takeoff_hover_land</code></td>
 <td>End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity)</td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
 </tbody>
 </table>
 <p>Marks can be combined with pytest logic:
-<code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m autonomy</code>.</p>
+<code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m takeoff_hover_land</code>.</p>
 <hr />
 <h2 id="test-infrastructure">Test Infrastructure<a class="headerlink" href="#test-infrastructure" title="Permanent link">&para;</a></h2>
 <p>All shared fixtures, helpers, and configuration live in <a href="../../../../tests/conftest.py"><code>tests/conftest.py</code></a>.</p>
@@ -5185,8 +5185,8 @@ arguments directly to pytest. No local Python environment needed.</p>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>-v
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Autonomy run — takeoff/hover/land at three velocities</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Takeoff/hover/land run — three velocities</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
@@ -5201,7 +5201,7 @@ can reach the host X server; it is a no-op when <code>DISPLAY</code> is not set.
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Docker daemon running with your user in the <code>docker</code> group</li>
-<li>NVIDIA drivers + <code>nvidia-container-toolkit</code> for liveliness/autonomy tests</li>
+<li>NVIDIA drivers + <code>nvidia-container-toolkit</code> for liveliness/takeoff_hover_land tests</li>
 <li><code>airstack setup</code> completed (adds <code>airstack</code> to <code>PATH</code>)</li>
 </ul>
 <h3 id="direct-pytest-for-development-debugging">Direct pytest (for development / debugging)<a class="headerlink" href="#direct-pytest-for-development-debugging" title="Permanent link">&para;</a></h3>
@@ -5383,9 +5383,9 @@ returns to the ground.</p>
 </table>
 <p>Metrics are recorded per robot as <code>robot_N.&lt;key&gt;</code> and written to
 <code>tests/results/&lt;timestamp&gt;/metrics.json</code>.</p>
-<h3 id="running-autonomy-tests">Running autonomy tests<a class="headerlink" href="#running-autonomy-tests" title="Permanent link">&para;</a></h3>
+<h3 id="running-takeoff_hover_land-tests">Running takeoff_hover_land tests<a class="headerlink" href="#running-takeoff_hover_land-tests" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Sweep velocities 0.5, 1, 2 m/s; 1 robot; ms-airsim</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
@@ -5393,7 +5393,7 @@ returns to the ground.</p>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span>-v
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Single velocity, Isaac Sim, 3 robots</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>

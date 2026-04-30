@@ -5036,7 +5036,11 @@
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── common/                  # Shared packages &amp; utilities
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── docs/                    # MkDocs documentation
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>├── mkdocs.yml               # MkDocs config file
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>└── .agents/skills/          # Detailed workflow guides for agents
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── tests/                   # System tests (pytest) + metrics reporting
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>├── .github/
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── workflows/           # GitHub Actions CI (system-tests, docker-build, etc.)
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   └── orchestrator/        # OpenStack-backed ephemeral self-hosted runners
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>└── .agents/skills/          # Detailed workflow guides for agents
 </span></code></pre></div>
 <h3 id="layered-autonomy-pattern">Layered Autonomy Pattern<a class="headerlink" href="#layered-autonomy-pattern" title="Permanent link">&para;</a></h3>
 <p>The autonomy stack follows a <strong>layered architecture</strong> where data flows through processing stages:</p>
@@ -5251,7 +5255,53 @@
 <li>End-to-end autonomy stack testing</li>
 <li>Real sensor simulation</li>
 <li>Multi-robot scenarios</li>
+<li>Implemented in <a href="tests/"><code>tests/</code></a> — see below</li>
 </ol>
+<h3 id="system-test-suite-tests">System Test Suite (<code>tests/</code>)<a class="headerlink" href="#system-test-suite-tests" title="Permanent link">&para;</a></h3>
+<p>Pytest-based system tests live at the repo root in <a href="tests/"><code>tests/</code></a>. They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, sensor publishing rates, compute usage, and end-to-end flight behavior.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Mark</th>
+<th>What it tests</th>
+<th>Hardware</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../tests/test_build_docker.py"><code>tests/test_build_docker.py</code></a></td>
+<td><code>build_docker</code></td>
+<td>Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim)</td>
+<td>Docker</td>
+</tr>
+<tr>
+<td><a href="../tests/test_build_packages.py"><code>tests/test_build_packages.py</code></a></td>
+<td><code>build_packages</code></td>
+<td><code>colcon build</code> inside each container</td>
+<td>Docker</td>
+</tr>
+<tr>
+<td><a href="../tests/test_liveliness.py"><code>tests/test_liveliness.py</code></a></td>
+<td><code>liveliness</code></td>
+<td>Full-stack health: containers, tmux, ROS 2 nodes, topic Hz, compute, sustained stability</td>
+<td>Docker, GPU, sim license</td>
+</tr>
+<tr>
+<td><a href="../tests/test_takeoff_hover_land.py"><code>tests/test_takeoff_hover_land.py</code></a></td>
+<td><code>takeoff_hover_land</code></td>
+<td>4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity)</td>
+<td>Docker, GPU, sim license</td>
+</tr>
+</tbody>
+</table>
+<p>Shared fixtures, the <code>airstack_env</code> parametrized fixture, and <code>MetricsRecorder</code> live in <a href="../tests/conftest.py"><code>tests/conftest.py</code></a>. Each run produces a timestamped directory under <code>tests/results/&lt;timestamp&gt;/</code> with <code>results.xml</code>, <code>metrics.json</code>, and per-test logs. <a href="../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a> generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).</p>
+<p><strong>Run via the CLI</strong> (containerized runner — no local Python needed):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span>-v
+</span></code></pre></div>
+<p>Full reference: <a href="../tests/"><code>tests/README.md</code></a>.</p>
 <h3 id="autonomous-debugging-approach">Autonomous Debugging Approach<a class="headerlink" href="#autonomous-debugging-approach" title="Permanent link">&para;</a></h3>
 <p>When a module doesn't work:
 1. Verify module is running (<code>ros2 node list</code>)
@@ -5262,7 +5312,50 @@
 6. Add instrumentation (debug publishers, logging)
 7. Create minimal reproduction test</p>
 <p>See detailed debugging workflow: <a href=".agents/skills/debug_module">.agents/skills/debug_module</a></p>
-<p><strong>Note:</strong> Full testing infrastructure is a work in progress. Focus on integration tests and simulation validation for now.</p>
+<h2 id="cicd">CI/CD<a class="headerlink" href="#cicd" title="Permanent link">&para;</a></h2>
+<p>GitHub Actions workflows live in <a href=".github/workflows/"><code>.github/workflows/</code></a>:</p>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Trigger</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../.github/workflows/system-tests.yml"><code>system-tests.yml</code></a></td>
+<td>PR opened, <code>/pytest</code> PR comment (write-access only), or <code>workflow_dispatch</code></td>
+<td>Runs the <code>tests/</code> suite on an ephemeral GPU runner; posts metrics report (with regression diff vs base branch / <code>main</code>) as a PR comment and to the job summary</td>
+</tr>
+<tr>
+<td><a href="../.github/workflows/docker-build.yml"><code>docker-build.yml</code></a></td>
+<td>Push to <code>main</code>/<code>develop</code> that changes <code>.env</code> (<code>VERSION=</code>), or manual dispatch</td>
+<td>Builds, pushes, and cosign-signs all compose images on the ephemeral runner</td>
+</tr>
+<tr>
+<td><a href="../.github/workflows/check-version-increment.yml"><code>check-version-increment.yml</code></a></td>
+<td>Pull request</td>
+<td>Validates <code>.env</code> <code>VERSION=</code> is valid semver and strictly greater than the base branch</td>
+</tr>
+<tr>
+<td><code>deploy_docs_from_{main,develop,release}.yaml</code></td>
+<td>Push to the matching branch (<code>docs/**</code>, <code>mkdocs.yml</code>, <code>*.md</code>)</td>
+<td>Publishes versioned MkDocs site via <code>mike</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>/pytest</code> PR comments</strong> trigger <code>system-tests.yml</code> for users with write access (OWNER/MEMBER/COLLABORATOR), pulling args from the first line of the comment (e.g. <code>/pytest -m liveliness --sim msairsim</code>). Fork PRs are blocked — same-repo only — to keep arbitrary code off the self-hosted runner.</p>
+<h3 id="ephemeral-runner-orchestrator">Ephemeral Runner Orchestrator<a class="headerlink" href="#ephemeral-runner-orchestrator" title="Permanent link">&para;</a></h3>
+<p>GPU-required jobs (<code>runs-on: [self-hosted, airstack-ephemeral]</code>) execute on <strong>OpenStack VMs spawned per-job and destroyed on completion</strong>. The orchestrator service code lives in <a href=".github/orchestrator/"><code>.github/orchestrator/</code></a>:</p>
+<ul>
+<li><a href="../.github/orchestrator/orchestrator.py"><code>orchestrator.py</code></a> — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, creates an OpenStack server with cloud-init bootstrap; reap loop deletes the server when the job completes (or after <code>max_job_minutes</code>)</li>
+<li><a href="../.github/orchestrator/cloud-init.yaml.j2"><code>cloud-init.yaml.j2</code></a> — bootstraps Docker + nvidia-container-toolkit + GH Actions runner on the worker, registers with the JIT token, runs one job, then <code>shutdown -h</code></li>
+<li><a href="../.github/orchestrator/config.example.yaml"><code>config.example.yaml</code></a> — flavor / network / keypair / floating-IP pool / runner labels / repo</li>
+<li><a href="../.github/orchestrator/airstack-orchestrator.service"><code>airstack-orchestrator.service</code></a> + <a href="../.github/orchestrator/setup.sh"><code>setup.sh</code></a> — systemd unit and one-time installer</li>
+</ul>
+<p><strong>Why ephemeral:</strong> clean Docker cache per run, no leaked containers, GitHub PAT and OpenStack credentials only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). State map at <code>/var/lib/airstack-orchestrator/state.json</code>; logs via <code>journalctl -u airstack-orchestrator.service -f</code>.</p>
+<p><strong>Setup, debugging a failed job, and SSH-into-worker procedures:</strong> <a href="../.github/orchestrator/"><code>.github/orchestrator/README.md</code></a> (also exposed as <a href="../tests/ci-cd-orchestrator/"><code>tests/ci-cd-orchestrator.md</code></a> symlink for the docs site).</p>
 <h2 id="documentation-requirements">Documentation Requirements<a class="headerlink" href="#documentation-requirements" title="Permanent link">&para;</a></h2>
 <p>When implementing a new feature/module, you must:</p>
 <h3 id="1-module-readmemd">1. Module README.md<a class="headerlink" href="#1-module-readmemd" title="Permanent link">&para;</a></h3>
@@ -5276,13 +5369,13 @@
 <p><strong>Template:</strong> See <code>.agents/skills/add-ros2-package/assets/package_template/README.md</code></p>
 <h3 id="2-update-mkdocsyml">2. Update mkdocs.yml<a class="headerlink" href="#2-update-mkdocsyml" title="Permanent link">&para;</a></h3>
 <p>Add the module README to the navigation structure:
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">nav</span><span class="p">:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Robot</span><span class="p">:</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Autonomy Modules</span><span class="p">:</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Local</span><span class="p">:</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Planning</span><span class="p">:</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Your Module</span><span class="p">:</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot/ros_ws/src/local/planners/your_package/README.md</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">nav</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Robot</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Autonomy Modules</span><span class="p">:</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Local</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Planning</span><span class="p">:</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Your Module</span><span class="p">:</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot/ros_ws/src/local/planners/your_package/README.md</span>
 </span></code></pre></div></p>
 <p>The <code>same-dir</code> plugin allows linking to README files outside the <code>docs/</code> directory.</p>
 <h3 id="3-system-level-documentation-if-needed">3. System-Level Documentation (if needed)<a class="headerlink" href="#3-system-level-documentation-if-needed" title="Permanent link">&para;</a></h3>
