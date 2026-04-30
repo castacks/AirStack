@@ -888,6 +888,18 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /mode_text
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        semantic_ray_frontiers: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /rayfronts/semantic_ray_frontiers
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -934,7 +946,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 87.5694351196289
+      Distance: 170.5213165283203
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -949,10 +961,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.49039989709854126
+      Pitch: 0.505399763584137
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.7654016017913818
+      Yaw: 0.1372213512659073
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
