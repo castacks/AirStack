@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Benchmark 3 — Full PX4 SITL + OmniGraph + RTX sensors, MAVLink back-and-forth flight.
+Single-drone PX4 SITL launch script with OmniGraph, RTX sensors, and MAVLink flight.
 
 Demonstrates:
  - Loading a Pegasus world with an environment
@@ -9,10 +9,6 @@ Demonstrates:
  - Spawning a PX4 multirotor with ZED camera and Ouster lidar
  - Autonomous back-and-forth flight via MAVLink OFFBOARD mode
  - Optionally saving the prepared scene as a self-contained USD
-
-Compare real-time ratio with:
-  • test_nonlinear_controller_no_px4.py   — bare Multirotor, no sensors
-  • test_omnigraph_sensors_nonlinear.py   — sensors, no PX4 process
 """
 
 import carb
@@ -21,6 +17,7 @@ from isaacsim import SimulationApp
 # Must be created before any omni imports
 simulation_app = SimulationApp({"headless": False})
 
+import asyncio
 import os
 import sys
 import time
@@ -41,7 +38,7 @@ from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_sub
 from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd, spawn_falling_cubes, SimTimer
+from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +235,6 @@ class PegasusApp:
         # Add a dome light for uniform scene illumination.
         # Pass intensity/exposure kwargs to override defaults defined in scene_prep.
         add_dome_light(stage)
-        spawn_falling_cubes(stage)
 
         # Optionally save the prepared scene as a self-contained USD package.
         # The Collector copies all Nucleus-hosted textures and MDLs locally.
@@ -298,8 +294,6 @@ class PegasusApp:
         self.commander = MavlinkBackAndForthCommander(vehicle_id=1)
         self.commander.start()
 
-        self.timer = SimTimer("px4-full", interval_s=5.0)
-
     def run(self):
 
         if self.play_on_start:
@@ -314,7 +308,6 @@ class PegasusApp:
             world = World.instance()
             if world is not None and hasattr(world, '_scene'):
                 world.step(render=True)
-                self.timer.tick(self.world.current_time)
                 if world is not self.world:
                     self.world = world
                     self.pg._world = world
