@@ -1,8 +1,0 @@
-<launch>
-    <node pkg="raven_nav" exec="raven_nav_node" name="raven_nav" output="screen">
-        <param from="$(find-pkg-share raven_nav)/config/raven_nav.yaml"
-               allow_substs="true" />
-        <remap from="/$(env ROBOT_NAME)/odometry"
-               to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-    </node>
-</launch>

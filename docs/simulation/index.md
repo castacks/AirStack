@@ -17,12 +17,6 @@ simulation/
 │   ├── extensions/                # Custom Isaac Sim extensions
 │   ├── launch_scripts/            # Python launch scripts
 │   └── standalone_examples/       # Example scenes and scripts
-├── ms-airsim/
-│   ├── docker/                    # Microsoft AirSim (legacy) containerization
-│   │   ├── docker-compose.yaml    # Launch configuration
-│   │   └── Dockerfile             # Image definition
-│   ├── config/                    # Microsoft AirSim (legacy) settings.json
-│   └── ros_ws/                    # Depth bridge ROS package
 └── simple-sim/
     ├── docker/                    # Simple simulator container
     │   └── docker-compose.yaml    # Launch configuration
@@ -35,7 +29,6 @@ simulation/
 Simulation components are launched via Docker Compose. Each simulator has its own configuration:
 
 - **Isaac Sim:** `simulation/isaac-sim/docker/docker-compose.yaml`
-- **Microsoft AirSim (legacy):** `simulation/ms-airsim/docker/docker-compose.yaml`
 - **Simple Sim:** `simulation/simple-sim/docker/docker-compose.yaml`
 
 **Key launch points:**
@@ -75,20 +68,6 @@ Isaac Sim is our primary simulation platform, offering:
 - [Pegasus Scene Setup](isaac_sim/pegasus_scene_setup.md)
 - [Ascent SITL Extension](isaac_sim/ascent_sitl_extension.md)
 - [Export from Unreal Engine](isaac_sim/export_stages_from_unreal.md)
-
-### Microsoft AirSim (legacy) (Unreal Engine)
-
-An open-source drone simulator built on Unreal Engine with native PX4 SITL integration.
-
-**Use cases:**
-
-- PX4-in-the-loop testing with photorealistic environments
-- Depth-based obstacle avoidance testing (DROAN)
-- Environments from the Unreal Engine ecosystem
-
-**Launch:** `airstack up --env-file overrides/ms-airsim.env`
-
-**Location:** `simulation/ms-airsim/`
 
 ### Simple Sim (Lightweight)
 
@@ -132,26 +111,6 @@ A lightweight 2D/3D simulator for basic testing and development when full Isaac 
 4. Coordinate via ground control station
 
 **Learn more:** [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md#robot)
-
-### Multi-Computer HITL Simulation
-
-For cross-machine HITL, run simulation + GCS on one host and robot containers on other hosts:
-
-```bash
-# Sim/GCS host
-airstack up isaac-sim-hitl gcs-hitl
-
-# Robot host
-airstack up robot-desktop-hitl
-```
-
-Discovery defaults:
-
-- `HITL_DISCOVERY_MODE=server`
-- `DISCOVERY_SERVER_IP=192.168.233.25`
-- `DISCOVERY_SERVER_PORT=11811`
-
-For larger fleets, set `DISCOVERY_SERVER_BACKUP_IPS` with backup server IPs.
 
 ### Custom Scenes
 
@@ -203,12 +162,6 @@ PLAY_SIM_ON_START=false airstack up isaac-sim
 - Verify all containers on same Docker network (`docker network ls`)
 - Check `ROS_DOMAIN_ID` settings in containers
 - See [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md)
-
-**HITL discovery but no payload data:**
-
-- Verify `ROS_DISCOVERY_SERVER` in all HITL containers
-- Verify DDS Router allowlist includes required topics
-- Verify QoS compatibility (`ros2 topic info -v <topic>`)
 
 **Performance issues:**
 

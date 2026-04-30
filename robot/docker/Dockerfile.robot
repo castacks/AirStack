@@ -1,7 +1,5 @@
 # either ubuntu:24.04 or l4t. ubuntu:24.04 is default
 ARG BASE_IMAGE
-ARG ENABLE_RAYFRONTS=false
-ARG FINAL_STAGE=runtime
 # ============================================================
 # Stage 1 — builder: compile/download everything
 # ============================================================
@@ -14,7 +12,6 @@ ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDo
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
-ARG ENABLE_RAYFRONTS
 
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/jazzy.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
@@ -137,7 +134,6 @@ RUN pip3 install --break-system-packages --ignore-installed \
   six \
   toml \
   scipy \
-  scikit-learn \
   pypose \
   rich \
   tqdm \
@@ -158,15 +154,8 @@ RUN pip3 install --break-system-packages --ignore-installed \
 
 # Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-    if [ "${ENABLE_RAYFRONTS}" = "true" ]; then \
-      pip3 install --break-system-packages \
-        --index-url https://download.pytorch.org/whl/cu130 \
-        torch==2.9.1 torchvision torchaudio && \
-      pip3 install --break-system-packages onnx tensorrt; \
-    else \
-      pip3 install --break-system-packages \
-        torch torchvision onnx tensorrt; \
-    fi; \
+    pip3 install --break-system-packages \
+      torch torchvision onnx tensorrt; \
   fi
 
 # Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
@@ -201,42 +190,6 @@ RUN mkdir -p /tmp/DDS-Router/src \
   && vcs import src < ddsrouter.repos \
   && colcon build --merge-install --install-base /usr/local \
   && rm -rf /tmp/DDS-Router
-
-# RayFronts deps (builder-stage, gated on ENABLE_RAYFRONTS=true)
-RUN if [ "${ENABLE_RAYFRONTS}" = "true" ]; then \
-    pip3 install --break-system-packages \
-      hydra-core open_clip_torch "transformers<5" \
-      git+https://github.com/facebookresearch/segment-anything.git \
-      ftfy regex nanobind pandas protobuf \
-      "scipy==1.15.2" "scikit-image" "numpy<2" && \
-    pip3 install --break-system-packages \
-      torch-scatter==2.1.2 && \
-    pip3 install --break-system-packages --force-reinstall --no-deps \
-      setuptools==79.0.1; \
-  fi
-
-# Re-pin empy to 3.x. The RayFronts block above transitively upgrades it via
-# transformers/bloom/colcon-core to 4.x, which is API-incompatible with
-# rosidl_generator_rs and breaks the workspace build with
-# "TransientParseError: not enough data to read" on rmw.rs.em.
-RUN pip3 install --break-system-packages --force-reinstall empy==3.3.4
-
-# Patched OpenVDB (OasisArtisan fork) — exposes Int8Grid to Python bindings
-RUN if [ "${ENABLE_RAYFRONTS}" = "true" ]; then \
-    apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-      libboost-iostreams-dev libtbb-dev libblosc-dev python3-dev && \
-    git clone --depth 1 https://github.com/OasisArtisan/openvdb /tmp/openvdb && \
-    cmake -S /tmp/openvdb -B /tmp/openvdb/build \
-      -DCMAKE_INSTALL_PREFIX=/usr/local \
-      -DOPENVDB_BUILD_PYTHON_MODULE=ON \
-      -DOPENVDB_PYTHON_WRAP_ALL_GRID_TYPES=ON \
-      -DUSE_NUMPY=ON \
-      -Dnanobind_DIR=$(python3 -c "import nanobind,os;print(os.path.join(os.path.dirname(nanobind.__file__),'cmake'))") && \
-    cmake --build /tmp/openvdb/build -j4 && \
-    cmake --install /tmp/openvdb/build && \
-    rm -rf /tmp/openvdb && \
-    rm -rf /var/lib/apt/lists/*; \
-  fi
 
 # Cleanup
 RUN apt autoremove -y \
@@ -399,15 +352,3 @@ RUN echo 'root:airstack' | chpasswd \
 EXPOSE 22
 
 WORKDIR /root/AirStack/robot/ros_ws
-
-
-# runtime + compiled RayFronts (only reached when FINAL_STAGE=runtime-rayfronts)
-FROM runtime AS runtime-rayfronts
-COPY ./common/rayfronts          /opt/rayfronts
-COPY ./common/rayfronts_configs/ /opt/rayfronts/rayfronts/configs/
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      cmake build-essential python3-dev \
- && cd /opt/rayfronts && CMAKE_INSTALL_PREFIX=/usr/local ./compile.sh \
- && rm -rf /var/lib/apt/lists/*
-
-FROM ${FINAL_STAGE} AS final

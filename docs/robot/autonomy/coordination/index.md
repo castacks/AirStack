@@ -22,9 +22,6 @@ Robot 1 (domain 1)          Shared gossip domain (99)          GCS (domain 0)
 
 Each robot builds a local registry of all known peers from incoming messages. The registry never leaves the robot — only each drone's own profile is transmitted.
 
-!!! note "Partial connectivity"
-    Today the system assumes all-to-all visibility via the shared domain. If a drone is out of radio range of another, it will simply not appear in that drone's registry. Relay forwarding is planned but not yet implemented.
-
 ## PeerProfile
 
 Every message on `/gossip/peers` is a `PeerProfile` containing:

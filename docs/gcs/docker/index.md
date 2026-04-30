@@ -50,20 +50,12 @@ The GCS container is launched with:
 airstack up gcs
 ```
 
-For HITL (host networking + scalable DDS discovery), use:
-
-```bash
-airstack up gcs-hitl
-```
-
-`gcs-hitl` starts the Fast DDS discovery server process inside the same container when `HITL_DISCOVERY_MODE=server`, so discovery is owned by the GCS host without a separate image pull.
-
 **What happens:**
 
 1. Docker Compose starts the GCS container from `gcs/docker/docker-compose.yaml`
 2. The `command:` attribute launches GCS ROS 2 nodes
 3. RQT GUI opens automatically (if `DISPLAY` configured)
-4. Foxglove Studio starts and `foxglove_bridge` serves on port 8765
+4. Foxglove Studio starts on port 8765
 
 **Container command:**
 
@@ -84,7 +76,7 @@ Key variables for GCS configuration:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VERSION` | Image version tag | Set in `.env` |
+| `DOCKER_IMAGE_TAG` | Image version tag | Set in `.env` |
 | `DOCKER_IMAGE_BUILD_MODE` | Build mode (release/dev) | `dev` |
 | `AUTOLAUNCH` | Auto-start GCS on container launch | `true` |
 | `ROS_DOMAIN_ID` | ROS 2 domain (0 for GCS) | `0` |
@@ -113,14 +105,6 @@ The GCS container connects to the `airstack_network` bridge network, allowing co
 - **Network:** `airstack_network` (172.31.0.0/24)
 - **ROS_DOMAIN_ID:** 0 (GCS shares domain 0)
 - **Ports:** 8765 (Foxglove), 22 (SSH)
-
-### HITL Host-Network Mode
-
-When using `gcs-hitl`, the container runs in `network_mode: host`:
-
-- Foxglove bridge binds to `0.0.0.0:8765`
-- DDS discovery uses `ROS_DISCOVERY_SERVER` (from `DISCOVERY_SERVER_IP` / `DISCOVERY_SERVER_PORT`)
-- No `airstack_network` bridge isolation; traffic is on the host LAN interfaces
 
 ## Accessing the GCS
 
@@ -157,12 +141,6 @@ Access Foxglove Studio in your web browser:
 
 ```
 http://localhost:8765
-```
-
-For remote visualization from another machine on the same network:
-
-```
-ws://<gcs_host_ip>:8765
 ```
 
 Pre-configured layouts are available in `gcs/docker/Foxglove/layouts/`.
@@ -271,12 +249,6 @@ docker compose build --no-cache gcs
 - Verify Foxglove port not in use: `sudo lsof -i :8765`
 - Check container networking: `docker inspect airstack-gcs-1`
 - Access via container IP if localhost fails
-
-**HITL DDS discovery issues:**
-
-- Verify `ROS_DISCOVERY_SERVER` is set in the GCS container
-- Verify `DISCOVERY_SERVER_IP:DISCOVERY_SERVER_PORT` is reachable from all robot hosts
-- If discovery works but no data flows, verify DDS Router allowlist and QoS compatibility
 
 **ROS 2 communication issues:**
 

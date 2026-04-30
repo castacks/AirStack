@@ -78,13 +78,15 @@ SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
 DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
     {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 3, "x_m": 20.0, "y_m": 12.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 4, "x_m": 17.0, "y_m": 14.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
 ]
 
 # Top-down "map" camera over (0, 0). Captures one aerial of the static scene
 # that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.
 OVERHEAD_ALTITUDE_M    = 150.0
 OVERHEAD_COVERAGE_M    = 200.0   # per-map knob: world meters per side.
-OVERHEAD_PX_PER_METER  = 4.0     # Source-image density. Bump for sharper texture.
+OVERHEAD_PX_PER_METER  = 12.0     # Source-image density. Bump for sharper texture.
 OVERHEAD_TOPIC         = "/sim/overhead/image"
 OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"
 OVERHEAD_FRAME_ID      = "map"
