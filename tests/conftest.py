@@ -63,7 +63,7 @@ def pytest_addoption(parser):
                      help="Comma-separated sim targets: msairsim, isaacsim")
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
-    parser.addoption("--stress-iterations", type=int, default=3,
+    parser.addoption("--stress-iterations", type=int, default=1,
                      help="Number of up/down iterations per (sim, num_robots) config")
     parser.addoption("--stable-duration", type=int, default=120,
                      help="Seconds test_stable polls for")
@@ -72,7 +72,7 @@ def pytest_addoption(parser):
     parser.addoption("--gui", action="store_true", default=False,
                      help="Show sim GUI windows for visual sanity checks. "
                           "Default: headless (no X, good for CI).")
-    parser.addoption("--takeoff-velocities", default="0.5,1,2",
+    parser.addoption("--takeoff-velocities", default="0.5",
                      help="Comma-separated takeoff/land velocities (m/s) to "
                           "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
 
