@@ -8,8 +8,10 @@ on:
   workflow_dispatch:
     inputs:
       marks:
-        description: "pytest marks expression (e.g. build_docker, build_packages, liveliness, takeoff_hover_land). Use 'or' to combine marks: 'liveliness or takeoff_hover_land'. Leave blank to run all tests.)"
-        default: "liveliness or takeoff_hover_land"
+        description: "pytest marks expression (e.g. 'build_docker', 'build_packages', 'liveliness', 'takeoff_hover_land'). \
+          Use 'or' to combine marks: 'build_packages or liveliness'. Leave blank to run all. \
+          Recommend to always include 'build_packages' to ensure code is built before launch."
+        default: "build_packages or liveliness or takeoff_hover_land"
         required: false
       sim:
         description: "Sim targets, comma-separated: msairsim,isaacsim"
