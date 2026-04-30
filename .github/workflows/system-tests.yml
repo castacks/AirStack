@@ -73,18 +73,6 @@ jobs:
     env:
       DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
     steps:
-      - name: Acknowledge PR comment
-        if: github.event_name == 'issue_comment'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: 'rocket',
-            });
-
       - name: Resolve PR head
         if: github.event_name == 'issue_comment'
         id: pr
@@ -106,35 +94,9 @@ jobs:
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
 
-      # Pin a Check Run on the PR's head SHA so the run shows up in the
-      # PR's "Checks" tab while it executes — issue_comment-triggered runs
-      # are otherwise associated with the default branch and don't surface
-      # on the PR. Finalized at end of job with the actual conclusion.
-      - name: Open in-progress check on PR head
-        if: github.event_name == 'issue_comment'
-        id: check_create
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const res = await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'System Tests',
-              head_sha: '${{ steps.pr.outputs.head_sha }}',
-              status: 'in_progress',
-              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
-            core.setOutput('id', res.data.id);
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # For issue_comment we must check out the PR head explicitly —
-          # GITHUB_SHA points at the default branch for that event. For
-          # workflow_dispatch, empty string lets checkout use its default.
-          ref: ${{ github.event_name == 'issue_comment' && steps.pr.outputs.head_sha || '' }}
-          submodules: recursive
-
+      # Parsed up-front (before checkout) so the acknowledgment comment below
+      # can echo the resolved args. This step only reads env vars, so it
+      # doesn't need the working tree.
       - name: Parse pytest args
         id: parse
         env:
@@ -205,6 +167,56 @@ jobs:
           print(f'Resolved sim profile: {sim}')
           print(f'Skip image prep: {skip_prep}')
           PYEOF
+
+      # Reply on the PR thread so the commenter sees their /pytest was
+      # picked up and can confirm we parsed the args correctly. The
+      # workflow_dispatch path skips this (no PR to comment on); the
+      # pull_request-opened path skips it too (the PR Checks tab is
+      # already showing the native run).
+      - name: Post acknowledgment comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const args = ${{ toJSON(steps.parse.outputs.pytest_args) }};
+            const cmd = `pytest tests/ ${args}`.trim();
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Running \`${cmd}\` — [view run](${runUrl}). Status will appear as a check on this PR.`,
+            });
+
+      # Pin a Check Run on the PR's head SHA so the run shows up in the
+      # PR's "Checks" tab while it executes — issue_comment-triggered runs
+      # are otherwise associated with the default branch and don't surface
+      # on the PR. Finalized at end of job with the actual conclusion.
+      - name: Open in-progress check on PR head
+        if: github.event_name == 'issue_comment'
+        id: check_create
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const res = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'System Tests',
+              head_sha: '${{ steps.pr.outputs.head_sha }}',
+              status: 'in_progress',
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            core.setOutput('id', res.data.id);
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # For issue_comment we must check out the PR head explicitly —
+          # GITHUB_SHA points at the default branch for that event. For
+          # workflow_dispatch and pull_request, empty string lets checkout
+          # use its default (the dispatched ref / the PR merge commit).
+          ref: ${{ github.event_name == 'issue_comment' && steps.pr.outputs.head_sha || '' }}
+          submodules: recursive
 
       - name: Create Isaac Sim omni_pass.env
         run: |
