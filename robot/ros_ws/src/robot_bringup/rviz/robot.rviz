@@ -20,6 +20,7 @@ Panels:
         - /Frontier Centroids1
         - /RGB Voxels (RayFronts)1
         - /PointCloud21
+        - /Mode Description1
       Splitter Ratio: 0.43288591504096985
     Tree Height: 269
   - Class: rviz_common/Selection
@@ -39,7 +40,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Frontier Centroids
+    SyncSource: RGB Voxels (RayFronts)
   - Class: rviz_behavior_tree_panel::BehaviorTreePanel
     Name: BehaviorTreePanel
     topic: /robot_1/behavior/behavior_tree_graphviz
@@ -81,7 +82,7 @@ Visualization Manager:
         base_link_frd:
           Value: true
         base_link_stabilized:
-          Value: false
+          Value: true
         camera_left:
           Value: true
         camera_right:
@@ -91,9 +92,9 @@ Visualization Manager:
         lidar:
           Value: false
         look_ahead_point:
-          Value: false
+          Value: true
         look_ahead_point_stabilized:
-          Value: false
+          Value: true
         macvo_ned:
           Value: false
         map:
@@ -113,9 +114,9 @@ Visualization Manager:
         rotor3:
           Value: true
         tracking_point:
-          Value: false
+          Value: true
         tracking_point_stabilized:
-          Value: false
+          Value: true
         world:
           Value: false
       Marker Scale: 0.30000001192092896
@@ -874,6 +875,19 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Mode Description
+      Namespaces:
+        mode_text: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /mode_text
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -920,25 +934,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 87.72265625
+      Distance: 87.5694351196289
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -2.296241521835327
-        Y: 0.28794482350349426
-        Z: 0.4903464615345001
+        X: -6.453560829162598
+        Y: -7.836468696594238
+        Z: -1.8400647640228271
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2703999876976013
+      Pitch: 0.49039989709854126
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 1.3154007196426392
+      Yaw: 0.7654016017913818
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
