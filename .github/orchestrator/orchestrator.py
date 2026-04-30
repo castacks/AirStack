@@ -262,6 +262,69 @@ def find_free_floating_ip(
     return None
 
 
+def check_flavor_capacity(
+    conn: openstack.connection.Connection,
+    flavor_name: str,
+) -> tuple[bool, str]:
+    """Pre-flight: ask Nova's placement API whether any host can satisfy this
+    flavor's resource request right now.
+
+    Returns (ok, reason). When ok=False the orchestrator should defer the
+    spawn iteration; reason is a one-line human-readable explanation
+    (e.g. "no host can satisfy {'VCPU': 8, 'MEMORY_MB': 32768, 'VGPU': 1}").
+
+    If the placement API can't be queried for any reason we return
+    (True, "<reason placement skipped>") and let Nova make the call. The
+    pre-flight is a fast-path optimization, not a gate — Nova still has the
+    final say at create_server time (and ERROR-status fallback handles
+    anything we miss).
+    """
+    try:
+        flavor = conn.compute.find_flavor(flavor_name, ignore_missing=False)
+    except Exception as e:
+        return True, f"flavor lookup failed: {e}"
+
+    # Standard resources every Nova flavor expresses.
+    resources: dict[str, int] = {}
+    if getattr(flavor, "vcpus", 0):
+        resources["VCPU"] = int(flavor.vcpus)
+    if getattr(flavor, "ram", 0):
+        resources["MEMORY_MB"] = int(flavor.ram)
+    if getattr(flavor, "disk", 0):
+        resources["DISK_GB"] = int(flavor.disk)
+
+    # Custom / specialized resources (VGPU, PCI_*, CUSTOM_*) come from the
+    # flavor's extra_specs as `resources:<CLASS>=<count>`. This is how Nova
+    # itself learns to ask placement for GPU capacity.
+    extra = getattr(flavor, "extra_specs", {}) or {}
+    for k, v in extra.items():
+        if not k.startswith("resources:"):
+            continue
+        rc = k.split(":", 1)[1]
+        try:
+            resources[rc] = int(v)
+        except (TypeError, ValueError):
+            pass
+
+    if not resources:
+        return True, "flavor expresses no resources — skipping placement check"
+
+    try:
+        result = conn.placement.allocation_candidates(
+            resources=resources, limit=1,
+        )
+        if hasattr(result, "allocation_requests"):
+            candidates = list(result.allocation_requests or [])
+        else:
+            candidates = list(result)
+    except Exception as e:
+        return True, f"placement query failed ({type(e).__name__}: {e})"
+
+    if candidates:
+        return True, ""
+    return False, f"no host can satisfy {resources}"
+
+
 def wait_for_server_active(
     conn: openstack.connection.Connection,
     server_id: str,
@@ -393,6 +456,27 @@ class Orchestrator:
             log.warning("find_queued_jobs failed: %s", e)
             return
 
+        # Pre-flight capacity check via placement API. Every queued job uses
+        # the same flavor, so we check once per iteration. When OpenStack is
+        # out of GPUs / vCPU / RAM we defer the whole iteration — better than
+        # burning JIT tokens on creates that Nova will flip to ERROR. The
+        # next iteration retries automatically.
+        if queued:
+            ok, reason = check_flavor_capacity(
+                self.conn, self.config["flavor_name"]
+            )
+            if not ok:
+                log.warning(
+                    "deferring spawn — OpenStack capacity unavailable: %s. "
+                    "Will retry in %ds.",
+                    reason, self.spawn_interval,
+                )
+                return
+            elif reason:
+                # Soft-skip path: placement check couldn't run (e.g. older
+                # Nova). Surface why so it's debuggable, then proceed.
+                log.debug("placement pre-flight: %s", reason)
+
         for job in queued:
             if active >= self.effective_max_concurrent:
                 break
@@ -436,7 +520,27 @@ class Orchestrator:
                     timeout_s=int(self.config.get("server_active_timeout_s", 300)),
                 )
             except Exception as e:
-                log.exception("spawn failed for job %s: %s", job_id, e)
+                # Tag capacity-related Nova faults so log-grepping for
+                # "capacity unavailable" finds both the pre-flight defer and
+                # the post-create fallback (e.g. PCI passthrough that
+                # placement doesn't track).
+                msg = str(e).lower()
+                capacity_markers = (
+                    "no valid host",
+                    "insufficient",
+                    "quotaexceeded",
+                    "out of resource",
+                    "no host can satisfy",
+                    "no allocation candidates",
+                )
+                if any(m in msg for m in capacity_markers):
+                    log.warning(
+                        "spawn failed for job %s — OpenStack capacity "
+                        "unavailable (post-create): %s. Will retry in %ds.",
+                        job_id, e, self.spawn_interval,
+                    )
+                else:
+                    log.exception("spawn failed for job %s: %s", job_id, e)
                 if server_id:
                     log.warning(
                         "deleting failed server %s to release its volume / FIP",
