@@ -73,26 +73,31 @@ jobs:
     env:
       DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
     steps:
+      # Uses actions/github-script (Node, bundled with the runner) instead
+      # of `gh` so we don't depend on system tools — the ephemeral
+      # self-hosted runner doesn't have gh/jq installed.
       - name: Resolve PR head
         if: github.event_name == 'issue_comment'
         id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUM=${{ github.event.issue.number }}
-          DATA=$(gh api repos/${{ github.repository }}/pulls/$PR_NUM)
-          HEAD_SHA=$(echo "$DATA" | jq -r .head.sha)
-          HEAD_REPO=$(echo "$DATA" | jq -r .head.repo.full_name)
-          BASE_REF=$(echo "$DATA" | jq -r .base.ref)
-          # Even though the commenter has write access, the PR's code lives on
-          # the head repo. If that's a fork we'd be running untrusted code on
-          # the self-hosted runner.
-          if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
-            echo "::error::PR #$PR_NUM is from a fork ($HEAD_REPO); /pytest is not supported for forks."
-            exit 1
-          fi
-          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            // Even though the commenter has write access, the PR's code
+            // lives on the head repo. If that's a fork, we'd be running
+            // untrusted code on the self-hosted runner.
+            const headRepo = pr.data.head.repo.full_name;
+            const expected = `${context.repo.owner}/${context.repo.repo}`;
+            if (headRepo !== expected) {
+              core.setFailed(`PR #${context.issue.number} is from a fork (${headRepo}); /pytest is not supported for forks.`);
+              return;
+            }
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('base_ref', pr.data.base.ref);
 
       # Parsed up-front (before checkout) so the acknowledgment comment below
       # can echo the resolved args. This step only reads env vars, so it
