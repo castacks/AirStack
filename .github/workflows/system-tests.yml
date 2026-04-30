@@ -426,13 +426,17 @@ jobs:
 
       - name: Locate result directories
         id: dirs
+        # Find the dir holding results.xml. Nesting depth differs by downloader:
+        # actions/download-artifact@v4 (single name) extracts straight into the
+        # path, while dawidd6/action-download-artifact@v6 with name_is_regexp
+        # wraps each artifact in a subdir named after it. `find` handles both.
         run: |
-          CURRENT=$(ls current-results/ 2>/dev/null | sort -r | head -1)
-          echo "current=current-results/$CURRENT" >> "$GITHUB_OUTPUT"
+          CURRENT_XML=$(find current-results/ -name results.xml 2>/dev/null | sort -r | head -1)
+          [ -n "$CURRENT_XML" ] && echo "current=$(dirname "$CURRENT_XML")" >> "$GITHUB_OUTPUT"
 
-          BASELINE=$(ls baseline-results/ 2>/dev/null | sort -r | head -1)
-          if [ -n "$BASELINE" ]; then
-            echo "baseline=baseline-results/$BASELINE" >> "$GITHUB_OUTPUT"
+          BASELINE_XML=$(find baseline-results/ -name results.xml 2>/dev/null | sort -r | head -1)
+          if [ -n "$BASELINE_XML" ]; then
+            echo "baseline=$(dirname "$BASELINE_XML")" >> "$GITHUB_OUTPUT"
           else
             echo "baseline=" >> "$GITHUB_OUTPUT"
           fi
