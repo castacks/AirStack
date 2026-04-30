@@ -262,6 +262,75 @@ def find_free_floating_ip(
     return None
 
 
+def wait_for_server_active(
+    conn: openstack.connection.Connection,
+    server_id: str,
+    timeout_s: int = 300,
+    poll_interval_s: float = 3.0,
+) -> Any:
+    """Poll Nova until the server is ACTIVE. Raise with full context if it
+    enters ERROR or never reaches ACTIVE in time.
+
+    Nova surfaces the actual reason for an ERROR via the `fault` attribute
+    (message + code + details), so we log it verbatim. We also include
+    task_state / vm_state / power_state because Nova sometimes leaves the
+    fault empty and these tell you whether the failure was at scheduling,
+    networking, or block-device-mapping time.
+    """
+    deadline = time.monotonic() + timeout_s
+    last_status = "?"
+    last_task = None
+    while time.monotonic() < deadline:
+        s = conn.compute.get_server(server_id)
+        status = getattr(s, "status", "UNKNOWN") or "UNKNOWN"
+        task = (
+            getattr(s, "task_state", None)
+            or getattr(s, "OS-EXT-STS:task_state", None)
+        )
+        if status != last_status or task != last_task:
+            log.info(
+                "server %s status=%s task_state=%s", server_id, status, task,
+            )
+            last_status, last_task = status, task
+
+        if status == "ACTIVE":
+            return s
+
+        if status == "ERROR":
+            fault = getattr(s, "fault", None) or {}
+            vm_state = (
+                getattr(s, "vm_state", None)
+                or getattr(s, "OS-EXT-STS:vm_state", None)
+            )
+            power_state = (
+                getattr(s, "power_state", None)
+                or getattr(s, "OS-EXT-STS:power_state", None)
+            )
+            host = getattr(s, "compute_host", None) or getattr(
+                s, "OS-EXT-SRV-ATTR:host", None
+            )
+            az = getattr(s, "availability_zone", None) or getattr(
+                s, "OS-EXT-AZ:availability_zone", None
+            )
+            raise RuntimeError(
+                "server "
+                + str(server_id)
+                + " entered ERROR: "
+                + f"fault.code={fault.get('code')!r} "
+                + f"fault.message={fault.get('message')!r} "
+                + f"fault.details={fault.get('details')!r} "
+                + f"task_state={task!r} vm_state={vm_state!r} "
+                + f"power_state={power_state!r} host={host!r} az={az!r}"
+            )
+
+        time.sleep(poll_interval_s)
+
+    raise RuntimeError(
+        f"server {server_id} did not reach ACTIVE within {timeout_s}s "
+        f"(last status={last_status!r} task_state={last_task!r})"
+    )
+
+
 def attach_floating_ip(
     conn: openstack.connection.Connection, server_id: str, fip: Any
 ) -> str:
@@ -346,6 +415,7 @@ class Orchestrator:
 
             ts = int(time.time())
             runner_name = f"ephemeral-{job_id}-{ts}"
+            server_id: str | None = None
             try:
                 jit = mint_jit_config(
                     self.repo, runner_name, self.runner_labels, self.pat
@@ -356,8 +426,23 @@ class Orchestrator:
                 server_id = spawn_server(
                     self.conn, self.config, runner_name, job_id, user_data
                 )
+                # Don't move on until Nova reports ACTIVE. If it transitions
+                # to ERROR, this raises with the Nova fault details so the
+                # operator can see *why* the spawn failed (quota, scheduling,
+                # block-device-mapping, networking, etc.).
+                wait_for_server_active(
+                    self.conn,
+                    server_id,
+                    timeout_s=int(self.config.get("server_active_timeout_s", 300)),
+                )
             except Exception as e:
                 log.exception("spawn failed for job %s: %s", job_id, e)
+                if server_id:
+                    log.warning(
+                        "deleting failed server %s to release its volume / FIP",
+                        server_id,
+                    )
+                    delete_server(self.conn, server_id)
                 continue
 
             floating_ip_addr: str | None = None
