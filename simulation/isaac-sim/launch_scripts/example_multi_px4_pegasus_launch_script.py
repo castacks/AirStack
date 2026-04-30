@@ -8,6 +8,7 @@ Env:
  - PLAY_SIM_ON_START (default true): autoplay timeline
 """
 
+import asyncio
 import os
 import sys
 import time

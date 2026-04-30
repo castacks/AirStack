@@ -183,10 +183,10 @@ RUN apt update && apt install -y --no-install-recommends \
   libasio-dev libtinyxml2-dev libssl-dev libyaml-cpp-dev \
   && rm -rf /var/lib/apt/lists/*
 
-# Clone sources and build + install globally into /usr/local
+# Clone sources and build + install globally into /usr/local. Pinned to v3.4.0
 RUN mkdir -p /tmp/DDS-Router/src \
   && cd /tmp/DDS-Router \
-  && wget https://raw.githubusercontent.com/eProsima/DDS-Router/main/ddsrouter.repos \
+  && wget https://raw.githubusercontent.com/eProsima/DDS-Router/v3.4.0/ddsrouter.repos \
   && vcs import src < ddsrouter.repos \
   && colcon build --merge-install --install-base /usr/local \
   && rm -rf /tmp/DDS-Router

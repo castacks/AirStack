@@ -40,6 +40,10 @@ AirStack/
 ├── common/                  # Shared packages & utilities
 ├── docs/                    # MkDocs documentation
 ├── mkdocs.yml               # MkDocs config file
+├── tests/                   # System tests (pytest) + metrics reporting
+├── .github/
+│   ├── workflows/           # GitHub Actions CI (system-tests, docker-build, etc.)
+│   └── orchestrator/        # OpenStack-backed ephemeral self-hosted runners
 └── .agents/skills/          # Detailed workflow guides for agents
 ```
 
@@ -190,6 +194,30 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - End-to-end autonomy stack testing
    - Real sensor simulation
    - Multi-robot scenarios
+   - Implemented in [`tests/`](tests/) — see below
+
+### System Test Suite (`tests/`)
+
+Pytest-based system tests live at the repo root in [`tests/`](tests/). They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, sensor publishing rates, compute usage, and end-to-end flight behavior.
+
+| File | Mark | What it tests | Hardware |
+|------|------|---------------|----------|
+| [`tests/test_build_docker.py`](tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim) | Docker |
+| [`tests/test_build_packages.py`](tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container | Docker |
+| [`tests/test_liveliness.py`](tests/test_liveliness.py) | `liveliness` | Full-stack health: containers, tmux, ROS 2 nodes, topic Hz, compute, sustained stability | Docker, GPU, sim license |
+| [`tests/test_takeoff_hover_land.py`](tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | 4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity) | Docker, GPU, sim license |
+
+Shared fixtures, the `airstack_env` parametrized fixture, and `MetricsRecorder` live in [`tests/conftest.py`](tests/conftest.py). Each run produces a timestamped directory under `tests/results/<timestamp>/` with `results.xml`, `metrics.json`, and per-test logs. [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
+
+**Run via the CLI** (containerized runner — no local Python needed):
+
+```bash
+airstack test -m "build_docker or build_packages" -v
+airstack test -m liveliness --sim msairsim --num-robots 1 --stress-iterations 1 -v
+airstack test -m takeoff_hover_land --sim msairsim --takeoff-velocities 0.5,1,2 -v
+```
+
+Full reference: [`tests/README.md`](tests/README.md).
 
 ### Autonomous Debugging Approach
 When a module doesn't work:
@@ -203,7 +231,31 @@ When a module doesn't work:
 
 See detailed debugging workflow: [.agents/skills/debug_module](.agents/skills/debug_module)
 
-**Note:** Full testing infrastructure is a work in progress. Focus on integration tests and simulation validation for now.
+## CI/CD
+
+GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| [`system-tests.yml`](.github/workflows/system-tests.yml) | PR opened, `/pytest` PR comment (write-access only), or `workflow_dispatch` | Runs the `tests/` suite on an ephemeral GPU runner; posts metrics report (with regression diff vs base branch / `main`) as a PR comment and to the job summary |
+| [`docker-build.yml`](.github/workflows/docker-build.yml) | Push to `main`/`develop` that changes `.env` (`VERSION=`), or manual dispatch | Builds, pushes, and cosign-signs all compose images on the ephemeral runner |
+| [`check-version-increment.yml`](.github/workflows/check-version-increment.yml) | Pull request | Validates `.env` `VERSION=` is valid semver and strictly greater than the base branch |
+| `deploy_docs_from_{main,develop,release}.yaml` | Push to the matching branch (`docs/**`, `mkdocs.yml`, `*.md`) | Publishes versioned MkDocs site via `mike` |
+
+**`/pytest` PR comments** trigger `system-tests.yml` for users with write access (OWNER/MEMBER/COLLABORATOR), pulling args from the first line of the comment (e.g. `/pytest -m liveliness --sim msairsim`). Fork PRs are blocked — same-repo only — to keep arbitrary code off the self-hosted runner.
+
+### Ephemeral Runner Orchestrator
+
+GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **OpenStack VMs spawned per-job and destroyed on completion**. The orchestrator service code lives in [`.github/orchestrator/`](.github/orchestrator/):
+
+- [`orchestrator.py`](.github/orchestrator/orchestrator.py) — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, creates an OpenStack server with cloud-init bootstrap; reap loop deletes the server when the job completes (or after `max_job_minutes`)
+- [`cloud-init.yaml.j2`](.github/orchestrator/cloud-init.yaml.j2) — bootstraps Docker + nvidia-container-toolkit + GH Actions runner on the worker, registers with the JIT token, runs one job, then `shutdown -h`
+- [`config.example.yaml`](.github/orchestrator/config.example.yaml) — flavor / network / keypair / floating-IP pool / runner labels / repo
+- [`airstack-orchestrator.service`](.github/orchestrator/airstack-orchestrator.service) + [`setup.sh`](.github/orchestrator/setup.sh) — systemd unit and one-time installer
+
+**Why ephemeral:** clean Docker cache per run, no leaked containers, GitHub PAT and OpenStack credentials only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
+
+**Setup, debugging a failed job, and SSH-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
 
 ## Documentation Requirements
 

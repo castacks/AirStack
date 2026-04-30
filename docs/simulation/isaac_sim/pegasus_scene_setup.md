@@ -137,3 +137,54 @@ The drone not arming/taking off can be a symptom of the PX4Multirotor Node not b
   - Restart your docker container by running `airstack down isaac-sim && airstack up isaac-sim` and the extension should load every time now.
 
 ---
+
+## Physics Rate and IMU_INTEG_RATE
+
+The Isaac Sim physics step rate is the dominant factor in simulation performance. Pegasus defaults to **250 Hz**, which runs well below real-time when a full sensor suite is active. AirStack lowers this to **100 Hz** by reducing PX4's `IMU_INTEG_RATE` to match — since `IMU_INTEG_RATE` controls how often Isaac Sim steps the physics world in lockstep with PX4. 100 Hz is the minimum viable rate: PX4's EKF2 estimator has a fixed 10 ms update period, so `IMU_INTEG_RATE` must be at least 100 Hz or the state estimator falls behind sensor data.
+
+### Configuration
+
+Two variables in the top-level `.env` control the rates:
+
+```bash
+# Pegasus physics/rendering rates (read by params.py; PX4_IMU_INTEG_RATE synced automatically).
+# Minimum frequency supported by PX4 is 100 Hz.
+PX4_PHYSICS_HZ="100"
+PX4_RENDERING_HZ="30"
+```
+
+- **`PX4_PHYSICS_HZ`** — Sets `physics_dt = 1 / PX4_PHYSICS_HZ` in Isaac Sim's physics scene, and automatically syncs PX4's `IMU_INTEG_RATE` parameter to the same value via `PX4LaunchTool` → `px4-rc.simulator`. Patched within the Docker image to read the environment variable and set the IMU_INTEG_RATE parameter.
+- **`PX4_RENDERING_HZ`** — Sets the rendering frame rate independently of physics. 30 Hz rendering has no effect on physics accuracy or PX4 behavior, but does slightly affect performance due to resource usage.
+
+### Valid values
+
+PX4's documented presets for `IMU_INTEG_RATE` are **100, 200, 250, 400 Hz**. The minimum is **100 Hz** — the EKF2 estimator runs at 100 Hz (10 ms period) and `IMU_INTEG_RATE` must be at least this fast. Values below 100 Hz are accepted by the firmware but cause attitude controller oscillation and are not recommended.
+
+- `100` — AirStack default; stable, best real-time performance with sensors
+- `200` — good balance, but will get slower
+- `250` — Pegasus/PX4 SITL default; best control quality but slower than real-time with sensors
+- `400` — maximum recommended. Untested
+
+---
+
+## Performance Benchmarking
+
+A benchmarking suite in `simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/` measures the real-time factor (RTF = simulated seconds / wall-clock seconds) across physics rates, scene complexities, and drone backends.
+
+### Running the suite
+
+```bash
+# Full suite (24 scripts) — from outside the container
+docker exec isaac-sim bash -c \
+  "/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/run_all.py"
+
+# Single script
+docker exec isaac-sim bash -c \
+  "/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/1_cube_no_pegasus.py"
+
+# Subset by number
+docker exec isaac-sim bash -c \
+  "/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/extensions/PegasusSimulator/benchmarking/run_all.py --scripts 1-8"
+```
+
+See `benchmarking/README.md` for the full script inventory, output format, and analysis plots.
