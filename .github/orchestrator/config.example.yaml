@@ -79,3 +79,9 @@ max_job_minutes: 2880  # 48 hours
 
 spawn_poll_interval_s: 15
 reap_poll_interval_s: 30
+
+# How long to wait for a freshly-created server to reach ACTIVE before
+# treating the spawn as failed. If Nova flips the server to ERROR within this
+# window the orchestrator logs the full fault (code/message/details/host/AZ)
+# and deletes the server so the next iteration can retry cleanly.
+server_active_timeout_s: 300
