@@ -20,6 +20,9 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "task_msgs/action/coverage_task.hpp"
 #include "task_msgs/action/navigate_task.hpp"
+#include "airstack_msgs/msg/trajectory_xyzv_yaw.hpp"
+#include "airstack_msgs/msg/odometry.hpp"
+#include "airstack_msgs/srv/trajectory_mode.hpp"
 
 namespace coverage_planner {
 
@@ -52,6 +55,10 @@ class CoveragePlannerNode : public rclcpp::Node {
     void publish_visualization(const nav_msgs::msg::Path& path);
     void send_navigate_goal(const nav_msgs::msg::Path& path,
                             double goal_tolerance_m);
+    void send_trajectory_override(const std::vector<Waypoint>& waypoints,
+                                  double velocity);
+    bool set_trajectory_mode(int32_t mode);
+    void tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg);
 
     // ---- Configuration parameters -------------------------------------
     std::string world_frame_id_;
@@ -77,6 +84,14 @@ class CoveragePlannerNode : public rclcpp::Node {
     rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr navigate_goal_handle_;
     std::atomic<bool> navigate_goal_done_{true};
     std::atomic<bool> navigate_goal_succeeded_{false};
+
+    // Direct trajectory override (bypasses local planner)
+    rclcpp::Publisher<airstack_msgs::msg::TrajectoryXYZVYaw>::SharedPtr pub_traj_override_;
+    rclcpp::Client<airstack_msgs::srv::TrajectoryMode>::SharedPtr traj_mode_client_;
+    rclcpp::Subscription<airstack_msgs::msg::Odometry>::SharedPtr sub_tracking_point_;
+    airstack_msgs::msg::Odometry tracking_point_odom_;
+    std::atomic<bool> got_tracking_point_{false};
+    bool direct_mode_{false};
 
     geometry_msgs::msg::Pose current_pose_;
     bool received_odometry_{false};

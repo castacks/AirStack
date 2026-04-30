@@ -58,6 +58,15 @@ CoveragePlannerNode::CoveragePlannerNode() : rclcpp::Node("coverage_planner_node
 
     navigate_client_ = rclcpp_action::create_client<NavigateTask>(this, "navigate_task");
 
+    // ---- Direct trajectory override (bypasses local planner) ----------
+    pub_traj_override_ =
+        this->create_publisher<airstack_msgs::msg::TrajectoryXYZVYaw>("trajectory_override", 1);
+    traj_mode_client_ =
+        this->create_client<airstack_msgs::srv::TrajectoryMode>("set_trajectory_mode");
+    sub_tracking_point_ = this->create_subscription<airstack_msgs::msg::Odometry>(
+        "tracking_point", 10,
+        std::bind(&CoveragePlannerNode::tracking_point_callback, this, _1));
+
     RCLCPP_INFO(this->get_logger(),
                 "coverage_planner initialized. Waiting for CoverageTask goals on %s",
                 (std::string(this->get_fully_qualified_name()) + "/coverage_task").c_str());
@@ -183,26 +192,42 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                 "Generated coverage path: %zu waypoints, %.1fm total length",
                 waypoints.size(), path_len_m);
 
-    // ---- Hand off to the local planner -------------------------------
-    send_navigate_goal(ros_path, waypoint_tolerance_m_);
+    // ---- Try local planner first, fall back to direct mode -----------
+    direct_mode_ = false;
+    if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
+        RCLCPP_WARN(this->get_logger(),
+                    "NavigateTask action server not available; using direct trajectory override");
+        direct_mode_ = true;
+    }
+
+    if (direct_mode_) {
+        // Bypass local planner: publish trajectory override directly
+        const double velocity = 2.0;  // m/s cruise speed
+        set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::TRACK);
+        send_trajectory_override(waypoints, velocity);
+    } else {
+        send_navigate_goal(ros_path, waypoint_tolerance_m_);
+    }
 
     // ---- Monitor loop (publish feedback ~1 Hz) -----------------------
     rclcpp::Rate rate(1.0);
     while (rclcpp::ok()) {
         if (cancel_requested_) {
+            if (direct_mode_) {
+                set_trajectory_mode(
+                    airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+            }
             finalize(false, "Task cancelled", 0.0f);
             return;
         }
 
         // Feedback -----------------------------------------------------
         auto feedback = std::make_shared<CoverageTask::Feedback>();
-        feedback->status = navigate_goal_done_ ? "complete" : "surveying";
         feedback->current_position.x = current_pose_.position.x;
         feedback->current_position.y = current_pose_.position.y;
         feedback->current_position.z = current_pose_.position.z;
-        // Rough progress: fraction of path length already flown from the
-        // current tracking position. Approximate using the nearest
-        // waypoint index.
+
+        // Rough progress: nearest waypoint index
         std::size_t nearest = 0;
         double nearest_d2 = std::numeric_limits<double>::infinity();
         for (std::size_t i = 0; i < waypoints.size(); ++i) {
@@ -220,26 +245,48 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                                      static_cast<float>(waypoints.size() - 1);
         feedback->progress = std::clamp(frac, 0.0f, 1.0f);
         feedback->coverage_percentage = feedback->progress * 100.0f;
-        goal_handle->publish_feedback(feedback);
 
-        // Completion --------------------------------------------------
-        if (navigate_goal_done_) {
-            if (navigate_goal_succeeded_) {
-                finalize(true, "Coverage complete", 100.0f);
-                RCLCPP_INFO(this->get_logger(), "CoverageTask succeeded");
-            } else {
-                finalize(false, "Local planner failed to complete coverage path",
-                         feedback->coverage_percentage);
-                RCLCPP_WARN(this->get_logger(),
-                            "CoverageTask aborted: NavigateTask did not succeed");
+        if (direct_mode_) {
+            // In direct mode, check if tracking point is near the last waypoint
+            feedback->status = "surveying (direct)";
+            if (got_tracking_point_ && !waypoints.empty()) {
+                const double dx = tracking_point_odom_.pose.position.x - waypoints.back().x;
+                const double dy = tracking_point_odom_.pose.position.y - waypoints.back().y;
+                const double dz = tracking_point_odom_.pose.position.z - waypoints.back().z;
+                const double dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < waypoint_tolerance_m_) {
+                    set_trajectory_mode(
+                        airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+                    finalize(true, "Coverage complete (direct mode)", 100.0f);
+                    RCLCPP_INFO(this->get_logger(), "CoverageTask succeeded (direct mode)");
+                    return;
+                }
             }
-            return;
+        } else {
+            feedback->status = navigate_goal_done_ ? "complete" : "surveying";
+            // Completion via NavigateTask
+            if (navigate_goal_done_) {
+                if (navigate_goal_succeeded_) {
+                    finalize(true, "Coverage complete", 100.0f);
+                    RCLCPP_INFO(this->get_logger(), "CoverageTask succeeded");
+                } else {
+                    finalize(false, "Local planner failed to complete coverage path",
+                             feedback->coverage_percentage);
+                    RCLCPP_WARN(this->get_logger(),
+                                "CoverageTask aborted: NavigateTask did not succeed");
+                }
+                return;
+            }
         }
 
+        goal_handle->publish_feedback(feedback);
         rate.sleep();
     }
 
     // Node shutdown
+    if (direct_mode_) {
+        set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+    }
     finalize(false, "Node shutting down", 0.0f);
 }
 
@@ -354,6 +401,59 @@ void CoveragePlannerNode::send_navigate_goal(const nav_msgs::msg::Path& path,
     navigate_client_->async_send_goal(goal, opts);
     RCLCPP_INFO(this->get_logger(), "Dispatched NavigateTask with %zu waypoints",
                 path.poses.size());
+}
+
+// ---------------------------------------------------------------------------
+// Tracking point callback (for direct mode completion detection)
+// ---------------------------------------------------------------------------
+
+void CoveragePlannerNode::tracking_point_callback(
+    const airstack_msgs::msg::Odometry::SharedPtr msg) {
+    tracking_point_odom_ = *msg;
+    got_tracking_point_ = true;
+}
+
+// ---------------------------------------------------------------------------
+// Trajectory mode helper
+// ---------------------------------------------------------------------------
+
+bool CoveragePlannerNode::set_trajectory_mode(int32_t mode) {
+    if (!traj_mode_client_->wait_for_service(std::chrono::seconds(2))) {
+        RCLCPP_ERROR(this->get_logger(), "set_trajectory_mode service not available");
+        return false;
+    }
+    auto request = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
+    request->mode = mode;
+    auto future = traj_mode_client_->async_send_request(request);
+    future.wait();
+    return future.get()->success;
+}
+
+// ---------------------------------------------------------------------------
+// Direct trajectory override (bypasses local planner entirely)
+// ---------------------------------------------------------------------------
+
+void CoveragePlannerNode::send_trajectory_override(
+    const std::vector<Waypoint>& waypoints, double velocity) {
+    airstack_msgs::msg::TrajectoryXYZVYaw traj;
+    traj.header.stamp = this->now();
+    traj.header.frame_id = world_frame_id_;
+
+    // Time between waypoints based on spacing and velocity
+    for (std::size_t i = 0; i < waypoints.size(); ++i) {
+        airstack_msgs::msg::WaypointXYZVYaw wp;
+        wp.position.x = waypoints[i].x;
+        wp.position.y = waypoints[i].y;
+        wp.position.z = waypoints[i].z;
+        wp.velocity = velocity;
+        wp.yaw = waypoints[i].yaw;
+        traj.waypoints.push_back(wp);
+    }
+
+    pub_traj_override_->publish(traj);
+    RCLCPP_INFO(this->get_logger(),
+                "Published trajectory override with %zu waypoints at %.1f m/s",
+                waypoints.size(), velocity);
 }
 
 }  // namespace coverage_planner

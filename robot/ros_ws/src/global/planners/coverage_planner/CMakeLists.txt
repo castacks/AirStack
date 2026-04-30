@@ -19,6 +19,7 @@ find_package(nav_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(task_msgs REQUIRED)
+find_package(airstack_msgs REQUIRED)
 
 add_executable(coverage_planner
   src/coverage_planner_node.cpp
@@ -35,6 +36,7 @@ ament_target_dependencies(coverage_planner
   visualization_msgs
   tf2
   task_msgs
+  airstack_msgs
 )
 
 install(TARGETS coverage_planner

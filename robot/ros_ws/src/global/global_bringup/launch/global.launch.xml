@@ -25,6 +25,13 @@
         <remap from="~/coverage_task" to="/$(env ROBOT_NAME)/tasks/coverage" />
         <remap from="navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
         <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+        <!-- Direct trajectory override (bypasses local planner when unavailable) -->
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="set_trajectory_mode"
+            to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
+        <remap from="tracking_point"
+            to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
     </node>
 
 </launch>
