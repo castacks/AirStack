@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 """
-Example single-drone PX4 launcher with scene preparation.
+Single-drone PX4 SITL launch script with OmniGraph, RTX sensors, and MAVLink flight.
 
 Demonstrates:
  - Loading a Pegasus world with an environment
  - Scaling the environment prim and adding collision geometry
  - Adding a dome light
  - Spawning a PX4 multirotor with ZED camera and Ouster lidar
+ - Autonomous back-and-forth flight via MAVLink OFFBOARD mode
  - Optionally saving the prepared scene as a self-contained USD
 """
 
@@ -16,9 +17,12 @@ from isaacsim import SimulationApp
 # Must be created before any omni imports
 simulation_app = SimulationApp({"headless": False})
 
+import asyncio
 import os
 import sys
 import time
+import math
+import threading
 
 import omni.kit.app
 import omni.timeline
@@ -35,6 +39,107 @@ from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgra
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
+
+
+# ---------------------------------------------------------------------------
+# MAVLink back-and-forth commander
+# ---------------------------------------------------------------------------
+
+class MavlinkBackAndForthCommander(threading.Thread):
+    """Daemon thread that arms the drone and flies it back and forth via MAVLink OFFBOARD.
+
+    Connects to PX4 SITL's GCS UDP port (14540 + vehicle_id).
+    Pre-streams setpoints, switches to OFFBOARD, arms, climbs to CRUISE_ALT,
+    then sends sinusoidal SET_POSITION_TARGET_LOCAL_NED messages.
+    """
+
+    CRUISE_ALT  = 3.0    # m (NED: negative is up → -3.0)
+    HALF_RANGE  = 4.0    # m amplitude
+    PERIOD_S    = 12.0   # s per back-and-forth cycle
+    SETPOINT_HZ = 20     # Hz stream rate for OFFBOARD to stay active
+
+    def __init__(self, vehicle_id: int = 1):
+        super().__init__(daemon=True)
+        self._stop_evt = threading.Event()
+        self._vehicle_id = vehicle_id
+        # GCS port: 14540 for vehicle 0, 14541 for vehicle 1, …
+        self._port = f"udpin:localhost:{14540 + vehicle_id}"
+
+    def stop(self):
+        self._stop_evt.set()
+
+    def _connect(self):
+        try:
+            from pymavlink import mavutil
+        except ImportError:
+            carb.log_error("pymavlink not installed — MAVLink commander disabled.")
+            return None
+        conn = mavutil.mavlink_connection(self._port)
+        conn.wait_heartbeat(timeout=30)
+        carb.log_warn(f"[commander] Connected to PX4 on {self._port}")
+        return conn
+
+    def _send_sp(self, conn, x, y, z_ned):
+        """Send SET_POSITION_TARGET_LOCAL_NED (type-mask = position only)."""
+        conn.mav.set_position_target_local_ned_send(
+            0,                           # time_boot_ms (irrelevant in SITL)
+            conn.target_system,
+            conn.target_component,
+            1,                           # MAV_FRAME_LOCAL_NED
+            0b0000111111111000,          # type-mask: enable pos x/y/z
+            x, y, z_ned,                 # position (NED)
+            0, 0, 0,                     # velocity
+            0, 0, 0,                     # acceleration
+            0, 0,                        # yaw, yaw_rate
+        )
+
+    def run(self):
+        conn = self._connect()
+        if conn is None:
+            return
+
+        dt = 1.0 / self.SETPOINT_HZ
+
+        # Pre-stream setpoints so OFFBOARD mode can be engaged
+        carb.log_warn("[commander] Pre-streaming setpoints …")
+        for _ in range(int(self.SETPOINT_HZ * 2)):
+            if self._stop_evt.is_set():
+                return
+            self._send_sp(conn, 0.0, 0.0, -self.CRUISE_ALT)
+            time.sleep(dt)
+
+        # Switch to OFFBOARD
+        conn.mav.command_long_send(
+            conn.target_system, conn.target_component,
+            176,        # MAV_CMD_DO_SET_MODE
+            0,
+            1,          # MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
+            6,          # PX4 OFFBOARD custom mode
+            0, 0, 0, 0, 0,
+        )
+        time.sleep(0.5)
+
+        # Arm
+        conn.mav.command_long_send(
+            conn.target_system, conn.target_component,
+            400,        # MAV_CMD_COMPONENT_ARM_DISARM
+            0,
+            1, 0, 0, 0, 0, 0, 0,
+        )
+        carb.log_warn("[commander] Armed — climbing …")
+
+        t = 0.0
+        while not self._stop_evt.is_set():
+            if t < 5.0:
+                # Climb phase
+                self._send_sp(conn, 0.0, 0.0, -self.CRUISE_ALT)
+            else:
+                # Sinusoidal back-and-forth
+                phase = 2.0 * math.pi * (t - 5.0) / self.PERIOD_S
+                x = self.HALF_RANGE * math.sin(phase)
+                self._send_sp(conn, x, 0.0, -self.CRUISE_ALT)
+            time.sleep(dt)
+            t += dt
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -184,6 +289,11 @@ class PegasusApp:
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 
+        # Start the MAVLink back-and-forth commander in the background.
+        # It will connect once PX4 SITL is up and the sim is playing.
+        self.commander = MavlinkBackAndForthCommander(vehicle_id=1)
+        self.commander.start()
+
     def run(self):
 
         if self.play_on_start:
@@ -205,6 +315,7 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
+        self.commander.stop()
         self.timeline.stop()
         simulation_app.close()
 

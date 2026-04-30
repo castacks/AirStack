@@ -10,6 +10,7 @@ Functions:
 """
 
 import asyncio
+import time as _time
 import omni.kit.app
 import omni.usd
 from pxr import Gf, UsdGeom, UsdPhysics, UsdLux, Sdf
