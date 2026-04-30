@@ -369,7 +369,6 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
         fb_dict = {}
         for name in fields:
             val = getattr(fb, name)
-            # Convert ROS message types to dicts for JSON
             if hasattr(val, 'get_fields_and_field_types'):
                 sub = {}
                 for sn in val.get_fields_and_field_types():

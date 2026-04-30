@@ -310,7 +310,6 @@ class WaypointCollectorNode(Node):
         for i, wp in enumerate(self._waypoints):
             pos = Point(x=wp['x'], y=wp['y'], z=wp['z'])
 
-            # Star glyph (text marker, always faces camera)
             star = Marker()
             star.header.frame_id = self._frame_id
             star.header.stamp = stamp
@@ -325,7 +324,6 @@ class WaypointCollectorNode(Node):
             star.text = '★'
             array.markers.append(star)
 
-            # Index label
             label = Marker()
             label.header.frame_id = self._frame_id
             label.header.stamp = stamp

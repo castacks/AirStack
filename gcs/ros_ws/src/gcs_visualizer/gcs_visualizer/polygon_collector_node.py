@@ -319,7 +319,6 @@ class PolygonCollectorNode(Node):
             label.text = str(i)
             array.markers.append(label)
 
-        # Closed polygon outline (last vertex back to first).
         if len(self._vertices) >= 2:
             line = Marker()
             line.header.frame_id = self._frame_id
@@ -333,7 +332,6 @@ class PolygonCollectorNode(Node):
             line.pose.orientation.w = 1.0
             for v in self._vertices:
                 line.points.append(Point(x=v['x'], y=v['y'], z=v['z']))
-            # Close the loop
             first = self._vertices[0]
             line.points.append(Point(x=first['x'], y=first['y'], z=first['z']))
             array.markers.append(line)
@@ -386,7 +384,6 @@ class PolygonCollectorNode(Node):
             if not verts:
                 continue
 
-            # Closed line strip outline (last vertex back to first).
             if len(verts) >= 2:
                 line = Marker()
                 line.header.frame_id = self._frame_id
