@@ -52,6 +52,7 @@
         <remap from="~/fixed_trajectory_task" to="/$(env ROBOT_NAME)/tasks/fixed_trajectory" />
     </node>
 
+    <?ignore
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
@@ -98,6 +99,7 @@
         </node>
         ?>
     </group>
+    ?>
 
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
@@ -194,7 +196,6 @@
     output="screen" respawn="true" respawn_delay="1" />
   ?>
 
-  	<?ignore
         <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
             args="--log-level DEBUG">
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
@@ -210,7 +211,6 @@
             <remap from="trajectory_segment_to_add"
                 to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
           </node>
-	  ?>
 
 
 </launch>
