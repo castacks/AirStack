@@ -154,8 +154,11 @@ RUN pip3 install --break-system-packages --ignore-installed \
 
 # Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-    pip3 install --break-system-packages \
-      torch torchvision onnx tensorrt; \
+  pip3 install --break-system-packages \
+  torch \
+  torchvision \
+  onnx \
+  tensorrt; \
   fi
 
 # Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
@@ -171,7 +174,8 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
 
 # Fixes for MACVO Integration (skipped if SKIP_MACVO=true)
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-  pip install --break-system-packages huggingface_hub; \
+  pip install --break-system-packages huggingface_hub && \
+  pip uninstall --break-system-packages matplotlib -y; \
   fi
 
 # TMux config
@@ -352,3 +356,4 @@ RUN echo 'root:airstack' | chpasswd \
 EXPOSE 22
 
 WORKDIR /root/AirStack/robot/ros_ws
+
