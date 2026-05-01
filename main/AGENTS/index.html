@@ -5113,6 +5113,10 @@
 <td>Adding module to layer bringup</td>
 </tr>
 <tr>
+<td><a href=".agents/skills/write-launch-file">write-launch-file</a></td>
+<td>Authoring ROS 2 launch files with AirStack conventions (ROBOT_NAME namespacing, topic remapping, allow_substs)</td>
+</tr>
+<tr>
 <td><a href=".agents/skills/write-isaac-sim-scene">write-isaac-sim-scene</a></td>
 <td>Creating custom simulation scenes</td>
 </tr>
@@ -5126,11 +5130,31 @@
 </tr>
 <tr>
 <td><a href=".agents/skills/test-in-simulation">test-in-simulation</a></td>
-<td>End-to-end simulation testing</td>
+<td>End-to-end simulation testing of a module</td>
+</tr>
+<tr>
+<td><a href=".agents/skills/run-system-tests">run-system-tests</a></td>
+<td>Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger)</td>
 </tr>
 <tr>
 <td><a href=".agents/skills/add-behavior-tree-node">add-behavior-tree-node</a></td>
 <td>Creating behavior tree nodes</td>
+</tr>
+<tr>
+<td><a href=".agents/skills/use-airstack-cli">use-airstack-cli</a></td>
+<td>Using the <code>airstack</code> CLI and the non-interactive <code>docker exec</code> pattern</td>
+</tr>
+<tr>
+<td><a href=".agents/skills/configure-multi-robot">configure-multi-robot</a></td>
+<td>Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation</td>
+</tr>
+<tr>
+<td><a href=".agents/skills/bump-version-and-release">bump-version-and-release</a></td>
+<td>Bumping <code>.env</code> VERSION and CHANGELOG before merge to clear the version-check gate</td>
+</tr>
+<tr>
+<td><a href=".agents/skills/capture-discovered-knowledge">capture-discovered-knowledge</a></td>
+<td>After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work</td>
 </tr>
 </tbody>
 </table>
@@ -5406,9 +5430,20 @@
 - <strong>docs</strong>: Documentation building (MkDocs)</p>
 <p><strong>Configuration:</strong>
 - Main compose file: <code>docker-compose.yaml</code> (includes all component compose files)
-- Environment variables: <code>.env</code> file (Docker image tags, launch config)
-- Robot configuration: Environment variables set in <code>robot/docker/.env</code></p>
+- Environment variables: top-level <a href=".env"><code>.env</code></a> (image tags, <code>VERSION</code>, <code>NUM_ROBOTS</code>, <code>ROBOT_NAME_MAP_CONFIG_FILE</code>, <code>ISAAC_SIM_SCRIPT_NAME</code>, <code>AUTONOMY_ROLE</code>, etc.)
+- Per-container shell init: <a href="../robot/docker/.bashrc"><code>robot/docker/.bashrc</code></a> — resolves <code>ROBOT_NAME</code> and <code>ROS_DOMAIN_ID</code> at startup (see Multi-Robot Configuration below)</p>
 <p><strong>Networking:</strong> Custom bridge network (172.31.0.0/24) for inter-container communication.</p>
+<h2 id="multi-robot-configuration">Multi-Robot Configuration<a class="headerlink" href="#multi-robot-configuration" title="Permanent link">&para;</a></h2>
+<p>Multi-robot is implemented via Docker Compose <strong>replicas</strong>, not multiple namespaces in one container. Setting <code>NUM_ROBOTS=3</code> in <a href=".env"><code>.env</code></a> spawns three separate containers (<code>airstack-robot-desktop-1</code>, <code>-2</code>, <code>-3</code>) via <code>deploy.replicas: ${NUM_ROBOTS:-1}</code> in <a href="../robot/docker/docker-compose.yaml"><code>robot/docker/docker-compose.yaml</code></a>.</p>
+<p><code>ROBOT_NAME</code> is <strong>not</strong> set directly in <code>.env</code>. Each container computes it at startup: <a href="../robot/docker/.bashrc"><code>robot/docker/.bashrc</code></a> reads <code>ROBOT_NAME_SOURCE</code> (<code>container_name</code> or <code>hostname</code>) and runs <a href="../robot/docker/robot_name_map/resolve_robot_name.py"><code>resolve_robot_name.py</code></a> against the mapping in <a href="robot/docker/robot_name_map/"><code>robot/docker/robot_name_map/</code></a> (default: <a href="../robot/docker/robot_name_map/default_robot_name_map.yaml"><code>default_robot_name_map.yaml</code></a>). The resolver exports both <code>ROBOT_NAME</code> and <code>ROS_DOMAIN_ID</code> — robot N gets domain N by default, so each robot is on its own DDS partition.</p>
+<p>The autonomy bringup variant is selected by <code>AUTONOMY_ROLE</code> (<code>full</code> | <code>onboard</code> | <code>offboard</code>), dispatched in <a href="../robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml"><code>robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml</code></a>:</p>
+<ul>
+<li><strong>full</strong> — every autonomy module runs on this machine (sim/dev desktop, autonomous Jetson)</li>
+<li><strong>onboard</strong> — lite modules only (interface, sensors, perception, local planning, behavior); pairs with <strong>offboard</strong></li>
+<li><strong>offboard</strong> — global planning only; runs on GCS paired with onboard robots</li>
+</ul>
+<p>For Isaac Sim, the default <code>ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py</code> only spawns a single drone. Multi-robot Isaac Sim requires <code>ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py</code> (the system test harness sets this automatically when <code>--num-robots &gt; 1</code>).</p>
+<p><strong>Full workflow:</strong> <a href=".agents/skills/configure-multi-robot">.agents/skills/configure-multi-robot</a></p>
 <h2 id="critical-pitfalls-to-avoid">Critical Pitfalls to Avoid<a class="headerlink" href="#critical-pitfalls-to-avoid" title="Permanent link">&para;</a></h2>
 <p>Common mistakes when adding modules:</p>
 <ol>
