@@ -26,20 +26,6 @@
 
 payload_topics:
 
-  # ── Rayfronts ──────────────────────────────────────────────────────────────
-  # Filtered semantic rays — peer robots consume this as filtered_rays/transposed
-  # to avoid revisiting already-explored areas.
-  - topic: "/{robot_name}/filtered_rays"
-    type: "visualization_msgs/msg/MarkerArray"
-
-  # Frontier viewpoints — candidate exploration targets computed by Rayfronts.
-  # Peers can use these to select non-overlapping goals.
-  - topic: "/{robot_name}/frontier_viewpoints"
-    type: "sensor_msgs/msg/PointCloud2"
-  
-  - topic : "/{robot_name}/rayfronts/voxel_rgb"
-    type: "sensor_msgs/msg/PointCloud2"
-
-  # ── Add more payloads below ────────────────────────────────────────────────
+  # ── Add payloads below ─────────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

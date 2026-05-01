@@ -11,13 +11,9 @@ services:
       service: robot_base
     image: &desktop_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
     build:
-      # context at repo root so runtime-rayfronts stage can COPY ./common/rayfronts
-      context: ../../
-      dockerfile: robot/docker/Dockerfile.robot
+      dockerfile: ./Dockerfile.robot
       args:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
-        ENABLE_RAYFRONTS: "true"
-        FINAL_STAGE: runtime-rayfronts
       tags:
         - *desktop_image
       cache_from:
@@ -29,6 +25,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
+      - SIM_IP=${SIM_IP:-172.31.0.200}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
@@ -56,26 +53,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
-  # ===================================================================================================================
-  # hitl desktop: run full robot stack on a desktop host network for multi-machine HITL.
-  robot-desktop-hitl:
-    profiles: !override
-      - hitl
-    extends:
-      file: ./docker-compose.yaml
-      service: robot-desktop
-    network_mode: host
-    networks: !reset null
-    ports: !reset {}
-    deploy: !reset {}
-    environment:
-      - AUTONOMY_ROLE=full
-      - ROBOT_NAME=${ROBOT_NAME:-robot_1}
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-1}
-      # HITL uses host networking; default bridge IP (172.31.0.200) is not reachable here.
-      # Point SIM_IP at the host running Isaac Sim (override in .env as needed).
-      - SIM_IP=${SIM_IP:-192.168.233.25}
 
   # ===================================================================================================================
   # desktop_split: simulates onboard computer on desktop for debugging the split configuration.

@@ -13,7 +13,7 @@ Payloads are **config-driven** — no changes to `gossip_node.py` are needed.
 
 ## Step 1 — Add to gossip_payloads.yaml
 
-**File:** `robot/ros_ws/src/coordination/coordination_bringup/config/gossip_payloads.yaml`
+**File:** `common/ros_packages/coordination/coordination_bringup/config/gossip_payloads.yaml`
 
 ```yaml
 payload_topics:
@@ -41,20 +41,7 @@ ros2 run coordination_bringup peer_registry_monitor
 
 ## Step 2 — Visualize in Foxglove
 
-Payloads don't appear in Foxglove automatically — you need a handler in `payload_visualizer_node.py` that republishes the payload to its own topic. There are two ways to do this:
-
-### Option A — Use the Claude skill (recommended)
-
-The `attach-gossip-payload` skill handles both the yaml edit and the GCS handler in one go. In Claude Code:
-
-```
-Follow the attach-gossip-payload skill to add /{robot_name}/your/topic
-of type your_msgs/msg/YourType and visualize it in Foxglove
-```
-
-See the full skill at .agents/skills/attach-gossip-payload
-
-### Option B — Manual
+Payloads don't appear in Foxglove automatically — you need a handler in `payload_visualizer_node.py` that republishes the payload to its own topic. The manual steps are below; an [AI-native skill](#ai-native-skill) is also available to do both this and Step 1 in one go.
 
 **File:** `gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/payload_visualizer_node.py`
 
@@ -73,10 +60,7 @@ def _handle_your_payload(self, robot_name, msg, i, now):
 
 ```python
 PAYLOAD_HANDLERS = {
-    'filtered_rays':       ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
-    'frontier_viewpoints': ('sensor_msgs/msg/PointCloud2',        _handle_frontier_viewpoints),
-    'rgb_voxels':          ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
-    'your_name':           ('your_msgs/msg/YourType',             _handle_your_payload),  # ← add
+    'your_name': ('your_msgs/msg/YourType', _handle_your_payload),
 }
 ```
 
@@ -85,23 +69,35 @@ PAYLOAD_HANDLERS = {
 ```bash
 docker exec airstack-gcs-1 bash -c "bws --packages-select gcs_visualizer && sws"
 ```
-or restart Airstack
+
+or restart AirStack.
 
 Foxglove will now show `/gcs/payload/{robot_name}/your_name` as a subscribable topic with full visualization controls.
+
+### AI-native skill
+
+The `attach-gossip-payload` skill automates Step 1 and Step 2 — yaml edit and the GCS handler in a single pass. In Claude Code:
+
+```
+Follow the attach-gossip-payload skill to add /{robot_name}/your/topic
+of type your_msgs/msg/YourType and visualize it in Foxglove
+```
+
+See the full skill at `.agents/skills/attach-gossip-payload`.
 
 ## Visualization options
 
 For `PointCloud2` payloads, you have two options:
 
-**Default — Foxglove GUI:** Publish as raw `PointCloud2`. Foxglove's panel settings control point size, shape, and color per-user. No code changes needed.
+**Default — Foxglove GUI:** Publish as raw. Foxglove's panel settings control point size, shape, and color per-user. No code changes needed.
 
-**Preconfigured — fixed shape/size/color in code:** Convert to a `MarkerArray` in the handler. An example to set`voxel_rgb` to render as 0.5 m cubes with per-point RGB colors:
+**Preconfigured — fixed shape/size/color in code:** Convert to a `MarkerArray` in the handler. An example that renders a point cloud as 0.5 m cubes with per-point RGB colors:
 
 ```python
-def _handle_rgb_voxels(self, robot_name, msg, i, now):
+def _handle_my_payload(self, robot_name, msg, i, now):
     marker = point_cloud2_to_cube_marker(
         msg, 0.0, 0.0, self._display_z_offset(),
-        ns=f'{robot_name}_voxel_rgb',
+        ns=f'{robot_name}_my_payload',
         marker_id=i * 100000,
         stamp=now,
         lifetime=Duration(sec=2, nanosec=0),
@@ -111,9 +107,5 @@ def _handle_rgb_voxels(self, robot_name, msg, i, now):
     if marker is not None:
         out = MarkerArray()
         out.markers.append(marker)
-        self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', MarkerArray).publish(out)
+        self._pub_for(f'/gcs/payload/{robot_name}/my_payload', MarkerArray).publish(out)
 ```
-
-## Bandwidth note
-
-Payloads are re-serialized and sent in full every tick. A 500 KB PointCloud2 at 1 Hz is ~4 Mbps per robot — keep an eye on this for large maps. Reduce the gossip `publish_rate` parameter or only attach payloads when needed for bandwidth-constrained deployments.

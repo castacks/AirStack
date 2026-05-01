@@ -18,7 +18,3 @@
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
 
-[submodule "common/rayfronts"]
-	path = common/rayfronts
-	url = https://github.com/RayFronts/RayFronts.git
-	branch = modalai

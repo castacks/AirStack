@@ -6,8 +6,6 @@
     </include>
 
     <!-- Planning -->
-    <include file="$(find-pkg-share semantic_search_task)/launch/semantic_search_task.launch.xml" />
-
     <!-- The C++ constructor names the node "random_walk_node" (don't set
          launch name= or it will rename and break the remap source paths).
          The parent launch pushes a $(env ROBOT_NAME) namespace, so we use

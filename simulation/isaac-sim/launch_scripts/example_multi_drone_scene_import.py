@@ -6,6 +6,12 @@ from isaacsim import SimulationApp
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
 simulation_app = SimulationApp({"headless": False})
 
+# Set local Nucleus as asset root before importing Pegasus (which resolves it at import time)
+carb.settings.get_settings().set(
+    "/persistent/isaac/asset_root/default",
+    "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
+)
+
 import os
 import sys
 import time
@@ -31,15 +37,18 @@ from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 import scene_prep
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit
+from scene_prep import (
+    scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit,
+    reference_root_prims_under_world,
+    add_orthographic_camera, add_overhead_camera_publisher,
+)
 
 
 # --------------------- CONFIGURATION ---------------------
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Assets/ACFA/FireAcademyFaro/fire_academy_fixed_textures.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd"
 #f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
@@ -48,7 +57,7 @@ STAGE_SCALE = 0.01
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
-ADD_DOME_LIGHT = True
+ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -3.0
@@ -62,11 +71,26 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # y_m = North offset from world origin (meters)
 # z_m = Up offset / height above floor (meters)
 # orient = initial quaternion [x, y, z, w]
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.15
+# spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd:
+# {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
+# {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
+SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
 DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 27.0, "y_m": 7.6,  "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0]},
-    {"domain_id": 2, "x_m": 23.0, "y_m": 9.8,  "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0]},
+    {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 3, "x_m": 27.0, "y_m": 12.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 4, "x_m": 23.0, "y_m": 14.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
 ]
+
+# Top-down "map" camera over (0, 0). Captures one aerial of the static scene
+# that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.
+OVERHEAD_ALTITUDE_M    = 150.0
+OVERHEAD_COVERAGE_M    = 200.0   # per-map knob: world meters per side.
+OVERHEAD_PX_PER_METER  = 12.0     # Source-image density. Bump for sharper texture.
+OVERHEAD_TOPIC         = "/sim/overhead/image"
+OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"
+OVERHEAD_FRAME_ID      = "map"
+OVERHEAD_DOMAIN_ID     = 0
 # ---------------------------------------------------------
 
 
@@ -130,7 +154,8 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        # Load environment
+        self.timeline.stop()
+
         self.pg.load_environment(ENV_URL)
 
         stage = omni.usd.get_context().get_stage()
@@ -141,6 +166,9 @@ class PegasusApp:
             carb.log_warn("Stage load timed out — continuing anyway.")
 
         # ----- Scene preparation -----
+        # Bring in sky/sun/environment prims that sit outside /World in the source USD
+        reference_root_prims_under_world(stage, ENV_URL)
+
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
             scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
@@ -155,6 +183,27 @@ class PegasusApp:
 
         # Units
         mpu, s = get_stage_meters_per_unit(stage)
+
+        # Top-down orthographic camera over (0, 0). Publishes one JPEG aerial
+        # of the static scene at low rate; the GCS visualizer republishes it
+        # as a textured ground for Foxglove's 3D panel.
+        cam_path = add_orthographic_camera(
+            stage,
+            prim_path="/World/MapCamera",
+            altitude_m=OVERHEAD_ALTITUDE_M,
+            coverage_m=OVERHEAD_COVERAGE_M,
+            scene_scale_factor=s,
+        )
+        add_overhead_camera_publisher(
+            parent_graph_path="/World/MapCameraGraph",
+            camera_prim_path=cam_path,
+            topic=OVERHEAD_TOPIC,
+            spec_topic=OVERHEAD_SPEC_TOPIC,
+            frame_id=OVERHEAD_FRAME_ID,
+            coverage_m=OVERHEAD_COVERAGE_M,
+            pixels_per_meter=OVERHEAD_PX_PER_METER,
+            domain_id=OVERHEAD_DOMAIN_ID,
+        )
 
         # Spawn all drones
         for cfg in DRONE_CONFIGS:
@@ -177,7 +226,7 @@ class PegasusApp:
                 drone_prim=f"/World/drone{i}/base_link",
                 robot_name=f"robot_{i}",
                 camera_name="ZEDCamera",
-                camera_offset=[0.2, 0.0, -0.05],
+                camera_offset=[0.21, 0.0, 0.05],
                 camera_rotation_offset=[0.0, 0.0, 0.0],
             )
 
@@ -188,16 +237,8 @@ class PegasusApp:
                 lidar_name="OS1_REV6_128_10hz___512_resolution",
                 lidar_offset=[0.0, 0.0, 0.025],
                 lidar_rotation_offset=[0.0, 0.0, 0.0],
-                lidar_min_range=0.75,
+                lidar_min_range=cfg["lidar_min_range"],
             )
-
-        # Give physics time to register the spawned drone prims before reset.
-        # Complex scenes (e.g. fire academy) need more ticks than simpler ones.
-        for _ in range(30):
-            omni.kit.app.get_app().update()
-
-        # Reset so physics/articulations are ready
-        self.world.reset()
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
         self.stop_sim = False
@@ -208,15 +249,17 @@ class PegasusApp:
         else:
             self.timeline.stop()
 
-        # Main loop
+        app = omni.kit.app.get_app()
         while simulation_app.is_running() and not self.stop_sim:
-            try:
-                self.world.step(render=True)
-            except Exception as e:
-                carb.log_error(f"Error during simulation step: {e}")
-                break
+            world = World.instance()
+            if world is not None and hasattr(world, '_scene'):
+                world.step(render=True)
+                if world is not self.world:
+                    self.world = world
+                    self.pg._world = world
+            else:
+                app.update()
 
-        # Cleanup
         carb.log_warn("PegasusApp Simulation App is closing.")
         self.timeline.stop()
         simulation_app.close()

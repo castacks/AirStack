@@ -1,9 +1,0 @@
-<launch>
-    <node pkg="semantic_search_task" exec="semantic_search_task"
-          name="semantic_search_task" output="screen">
-        <remap from="~/semantic_search_task"
-               to="/$(env ROBOT_NAME)/tasks/semantic_search" />
-        <remap from="/$(env ROBOT_NAME)/odometry"
-               to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-    </node>
-</launch>

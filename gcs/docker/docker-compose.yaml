@@ -27,12 +27,3 @@ services:
       - $HOME/bags:/bags
       # TODO: Update rviz config location if needed
       - ../plot:/plot
-
-  # ===================================================================================================================
-  # hitl alias for host-network GCS with discovery-server client defaults.
-  gcs-hitl:
-    profiles: !override
-      - hitl
-    extends:
-      file: ./docker-compose.yaml
-      service: gcs-real
