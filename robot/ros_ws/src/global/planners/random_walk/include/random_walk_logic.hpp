@@ -23,6 +23,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <random>
@@ -52,11 +53,28 @@ class RandomWalkPlanner {
         std::tuple<float, float, float, float> start_point,
         float timeout_duration);  // x, y, z, yaw
 
+    // Optional XY footprint that bounds where the planner is allowed to
+    // generate goal points. Empty → unbounded (preserves prior behavior).
+    // Set with set_search_bounds; coordinates are in the same frame as
+    // voxel_points and odometry (the robot's local "map", rooted at takeoff).
+    void set_search_bounds(const std::vector<std::pair<float, float>>& xy_polygon);
+    void clear_search_bounds();
+    bool has_search_bounds() const;
+    bool is_inside_search_bounds(float x, float y) const;
+    // Returns the closest point on the polygon boundary, then nudged a small
+    // distance toward the polygon centroid so the result is firmly inside
+    // (avoids edge-case ambiguity with the inside test). If no bounds set
+    // returns (x, y) unchanged.
+    std::pair<float, float> nearest_inside_point(float x, float y) const;
+
     float path_end_threshold_m;
 
     std::vector<std::tuple<float, float, float>> voxel_points;
 
    private:
+    bool point_in_search_bounds(float x, float y) const;
+    std::vector<std::pair<float, float>> search_bounds_xy_;
+
     // Numerical constants
     float max_start_to_goal_dist_m_;
     int checking_point_cnt;
@@ -67,7 +85,7 @@ class RandomWalkPlanner {
     // Variables
     std::tuple<float, float, float> voxel_size_m;
 
-    std::mutex mutex;
+    mutable std::mutex mutex;
 
     // Functions
     bool check_if_collided_single_voxel(const std::tuple<float, float, float>& point,

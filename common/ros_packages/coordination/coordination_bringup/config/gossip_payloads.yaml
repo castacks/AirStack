@@ -1,0 +1,31 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Gossip Payload Topics
+# ─────────────────────────────────────────────────────────────────────────────
+# List ROS topics here to have them automatically included as typed payloads
+# in this robot's PeerProfile and distributed to all peers via gossip.
+#
+# Each entry requires:
+#   topic: topic name — use {robot_name} as a placeholder for the robot namespace
+#   type:  fully-qualified ROS message type (package/msg/Type)
+#
+# If a topic has never published, the payload is silently skipped — the node
+# will not crash or block waiting for it.
+#
+# ── How to add your own payload ──────────────────────────────────────────────
+# 1. Add an entry below with the topic + type.
+# 2. On the receiving end, call peer_profile.get_payload("<type>") to get the
+#    deserialized message, or peer_profile.payload_types() to list what's there.
+#
+# Example (receiving side in Python):
+#   from coordination_bringup.peer_profile import PeerProfile
+#   profile = PeerProfile.from_ros_msg(peer_msg)
+#   rays = profile.get_payload("visualization_msgs/msg/MarkerArray")
+#   if rays is not None:
+#       # use rays as a visualization_msgs/msg/MarkerArray
+# ─────────────────────────────────────────────────────────────────────────────
+
+payload_topics:
+
+  # ── Add payloads below ─────────────────────────────────────────────────────
+  # - topic: "/{robot_name}/your/topic"
+  #   type: "your_msgs/msg/YourType"

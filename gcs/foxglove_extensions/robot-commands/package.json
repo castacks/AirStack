@@ -1,0 +1,9 @@
+{
+  "name": "robot-commands",
+  "displayName": "Robot Tasks",
+  "description": "Tabbed panel to send goals to AirStack task executors (ROS 2 actions).",
+  "publisher": "AirLab CMU",
+  "version": "2.0.0",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js"
+}

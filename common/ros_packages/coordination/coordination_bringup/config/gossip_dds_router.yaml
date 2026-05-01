@@ -1,0 +1,18 @@
+# Gossip DDS Router configuration
+# Bridges /gossip/peers between the robot's own ROS_DOMAIN_ID and the
+# shared gossip domain so all robots can see each other's PeerProfile
+# broadcasts without any per-robot enumeration.
+#
+# Every robot runs this identical config.  Adding a new robot only
+# requires incrementing NUM_ROBOTS – no changes here needed.
+
+participants:
+  - name: "robot"
+    kind: "local"
+    domain: $(env ROS_DOMAIN_ID)
+  - name: "gossip_bus"
+    kind: "local"
+    domain: $(var gossip_domain)
+
+allowlist:
+  - name: "rt/gossip/peers"

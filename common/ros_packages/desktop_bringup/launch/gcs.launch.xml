@@ -12,6 +12,32 @@
   <?ignore
   <node pkg="rviz2" exec="rviz2" args="-d $(find-pkg-share desktop_bringup)/rviz/gcs.rviz --ros-args --log-level INFO" output="screen" respawn="true" respawn_delay="1" />
     ?>
+
+  <node pkg="rqt_gui" exec="rqt_gui"
+    args="--perspective-file $(find-pkg-share rqt_gcs)/config/gcs.perspective --ros-args --log-level INFO"
+    output="screen" respawn="true" respawn_delay="1" />
+
+  <!-- launch foxglove-studio -no-standbox -->
+
+  <executable cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox'" output="screen"/>
+
+  <node pkg="foxglove_bridge" exec="foxglove_bridge" output="screen" respawn="true" respawn_delay="1">
+    <param name="port" value="8765" />
+    <param name="address" value="0.0.0.0" />
+    <param name="use_sim_time" value="$(var sim)" />
+    <param name="send_buffer_limit" value="10000000" />
+    <param name="include_hidden" value="true" />
+  </node>
+
+  <!-- Gossip bridge: connects GCS domain (0) to gossip bus (domain 99) -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gcs_gossip_bridge.launch.py" />
+
+  <!-- GCS Visualizer: drone mesh markers in global ENU frame -->
+  <include file="$(find-pkg-share gcs_visualizer)/launch/gcs_visualizer.launch.xml" />
+
+  <!-- Action relay: bridges task actions from GCS (domain 0) to each robot (domain N) -->
+  <include file="$(find-pkg-share action_relay)/launch/action_relay.launch.py" />
+
   <!-- ===================== -->
 
 </launch>

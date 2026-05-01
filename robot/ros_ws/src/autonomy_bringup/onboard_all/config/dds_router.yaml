@@ -19,11 +19,24 @@ participants:
   - name: "gcs"
     kind: "local"
     domain: $(var gcs_domain)
-
 allowlist:
+  # lidar and world model
+  - name: "rt/$(env ROBOT_NAME)/sensors/ouster/point_cloud"
+  - name: "rt/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization"
+
+  # camera streams
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/left/image_rect"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/image_rect"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info"
+  - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth"
+  - name: "rt/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud"
+
   # state information
   - name: "rt/$(env ROBOT_NAME)/odometry_conversion/odometry"
-  - name: "rt/$(env ROBOT_NAME)/interface/mavros/global_position/raw/fix"
+  - name: "rt/$(env ROBOT_NAME)/interface/mavros/global_position/global"
+  - name: "rt/$(env ROBOT_NAME)/trajectory_controller/trajectory_vis"
+  - name: "rt/$(env ROBOT_NAME)/global_plan"
 
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
@@ -54,3 +67,6 @@ allowlist:
 
   # control commands
   - name: "rt/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command"
+
+  # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
+  # NOT here — having it in both routers causes message flooding/amplification.

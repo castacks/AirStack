@@ -1,0 +1,20 @@
+<launch>
+  <arg name="robot_name_prefix" default="robot" />
+
+  <!-- Standard visualization: mesh, labels, axes, trajectory, global plan, VDB -->
+  <node pkg="gcs_visualizer" exec="foxglove_visualizer_node" name="foxglove_visualizer_node" output="screen">
+    <param name="robot_name_prefix" value="$(var robot_name_prefix)" />
+    <param name="overhead_grid_per_m" value="3.0" />
+    <param name="overhead_max_grid_resolution" value="1024" />
+  </node>
+
+  <!-- Payload visualization: project-specific data from PeerProfile gossip payloads -->
+  <!-- Remove or replace this node for projects that don't use Rayfronts -->
+  <node pkg="gcs_visualizer" exec="payload_visualizer_node" name="payload_visualizer_node" output="screen" />
+
+  <!-- Waypoint collector: click-to-place waypoints from Foxglove 3D panel -->
+  <node pkg="gcs_visualizer" exec="waypoint_collector_node" name="waypoint_collector_node" output="screen" />
+
+  <!-- Polygon collector: click-to-place polygon vertices from Foxglove 3D panel -->
+  <node pkg="gcs_visualizer" exec="polygon_collector_node" name="polygon_collector_node" output="screen" />
+</launch>

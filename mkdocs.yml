@@ -82,6 +82,8 @@ nav:
           - docs/simulation/isaac_sim/index.md
           - Docker: docs/simulation/isaac_sim/docker.md
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
+          - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
+          - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
       - Microsoft AirSim (legacy):
@@ -142,6 +144,9 @@ nav:
               - Behavior Tree: docs/robot/autonomy/behavior/behavior_tree.md
               - Behavior Executive: docs/robot/autonomy/behavior/behavior_executive.md
           - Integration Guide: docs/robot/autonomy/integration_checklist.md
+          - Coordination:
+              - Overview: docs/robot/autonomy/coordination/index.md
+              - Payloads & Foxglove: docs/robot/autonomy/coordination/payloads.md
       - Autonomy Modes: docs/robot/autonomy_modes.md
       - DDS Router: docs/robot/autonomy/dds_router.md
       - Static Transforms:
@@ -157,6 +162,9 @@ nav:
           - docs/gcs/docker/index.md
       - Usage:
           - User Interface: docs/gcs/usage/user_interface.md
+      - Foxglove:
+          - Visualization: docs/gcs/foxglove.md
+          - Adding Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
       - Command Center:
           - docs/gcs/command_center/command_center.md
       - Casualty Assessment:

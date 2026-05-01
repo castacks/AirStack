@@ -81,11 +81,14 @@ class PegasusApp:
         # Reset so physics/articulations are ready
         self.world.reset()
 
+        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
         self.stop_sim = False
 
     def run(self):
-        # Start sim timeline
-        self.timeline.play()
+        if self.play_on_start:
+            self.timeline.play()
+        else:
+            self.timeline.stop()
 
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:

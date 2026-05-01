@@ -141,6 +141,11 @@ void RandomWalkNode::mapCallback(const visualization_msgs::msg::Marker::SharedPt
         this->params.voxel_size_m =
             std::tuple<float, float, float>(msg->scale.x, msg->scale.y, msg->scale.z);
         this->random_walk_planner = std::make_unique<RandomWalkPlanner>(this->params);
+        // Apply any bounds that arrived before the planner existed.
+        {
+            std::lock_guard<std::mutex> lock(pending_bounds_mutex_);
+            this->random_walk_planner->set_search_bounds(pending_bounds_);
+        }
         RCLCPP_INFO(this->get_logger(), "Received first map, initialized planner");
     }
     this->random_walk_planner->voxel_points.clear();
@@ -202,9 +207,26 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     // and will be wired in when the planner supports them.
     RCLCPP_INFO(this->get_logger(),
                 "ExplorationTask executing: alt=[%.1f,%.1f]m AGL, "
-                "speed=[%.1f,%.1f]m/s, time_limit=%.1fs",
+                "speed=[%.1f,%.1f]m/s, time_limit=%.1fs, %zu bounds vertices",
                 goal->min_altitude_agl, goal->max_altitude_agl, goal->min_flight_speed,
-                goal->max_flight_speed, goal->time_limit_sec);
+                goal->max_flight_speed, goal->time_limit_sec,
+                goal->search_bounds.points.size());
+
+    // Snapshot the requested polygon (XY only — Z is governed by altitude_agl
+    // bounds). Stash on the node so it survives a not-yet-constructed planner;
+    // also push to the planner immediately if one exists.
+    {
+        std::vector<std::pair<float, float>> bounds_xy;
+        bounds_xy.reserve(goal->search_bounds.points.size());
+        for (const auto& p : goal->search_bounds.points) {
+            bounds_xy.emplace_back(p.x, p.y);
+        }
+        std::lock_guard<std::mutex> lock(pending_bounds_mutex_);
+        pending_bounds_ = bounds_xy;
+        if (this->random_walk_planner) {
+            this->random_walk_planner->set_search_bounds(pending_bounds_);
+        }
+    }
 
     task_start_time_ = this->now();
     task_time_limit_sec_ = goal->time_limit_sec;
@@ -213,6 +235,85 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     // Reset planning state for this task
     is_path_executing = false;
     generated_paths.clear();
+
+    // If the drone is currently outside the requested polygon, fly it to the
+    // nearest point inside before starting the random walk. Otherwise the
+    // random walker (which generates goals within ~10m of current pose)
+    // would be unable to find any valid candidates and would just stall.
+    if (this->random_walk_planner && this->random_walk_planner->has_search_bounds()) {
+        const float cur_x = static_cast<float>(this->current_location.position.x);
+        const float cur_y = static_cast<float>(this->current_location.position.y);
+        if (!this->random_walk_planner->is_inside_search_bounds(cur_x, cur_y)) {
+            const auto target = this->random_walk_planner->nearest_inside_point(cur_x, cur_y);
+            const float target_z = std::max(
+                static_cast<float>(this->current_location.position.z), 0.5f);
+            RCLCPP_INFO(this->get_logger(),
+                        "Drone at (%.2f,%.2f) is outside search_bounds; "
+                        "navigating to (%.2f,%.2f,%.2f) before exploring",
+                        cur_x, cur_y, target.first, target.second, target_z);
+
+            // Build a single-pose Path in the planner's world frame.
+            nav_msgs::msg::Path approach;
+            approach.header.stamp = this->now();
+            approach.header.frame_id = this->world_frame_id_;
+            geometry_msgs::msg::PoseStamped ps;
+            ps.header = approach.header;
+            ps.pose.position.x = target.first;
+            ps.pose.position.y = target.second;
+            ps.pose.position.z = target_z;
+            ps.pose.orientation.w = 1.0;
+            approach.poses.push_back(ps);
+
+            // Send via the same NavigateTask client used by the random walker.
+            // Reuse navigate_goal_done_/_succeeded so cancel handling and the
+            // result loop remain consistent.
+            navigate_goal_done_ = false;
+            navigate_goal_succeeded_ = false;
+            if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
+                RCLCPP_WARN(this->get_logger(),
+                            "NavigateTask server unavailable; cannot fly to polygon");
+            } else {
+                auto nav_goal = NavigateTask::Goal();
+                nav_goal.global_plan = approach;
+                nav_goal.goal_tolerance_m = static_cast<float>(
+                    this->random_walk_planner->path_end_threshold_m);
+
+                auto goal_options = rclcpp_action::Client<NavigateTask>::SendGoalOptions();
+                goal_options.goal_response_callback =
+                    [this](const rclcpp_action::ClientGoalHandle<NavigateTask>::SharedPtr& gh) {
+                        navigate_goal_handle_ = gh;
+                        if (!gh) navigate_goal_done_ = true;
+                    };
+                goal_options.result_callback =
+                    [this](const rclcpp_action::ClientGoalHandle<NavigateTask>::WrappedResult& r) {
+                        navigate_goal_succeeded_ =
+                            (r.code == rclcpp_action::ResultCode::SUCCEEDED) && r.result->success;
+                        navigate_goal_done_ = true;
+                    };
+                navigate_client_->async_send_goal(nav_goal, goal_options);
+
+                rclcpp::Rate approach_rate(5.0);
+                while (rclcpp::ok() && !navigate_goal_done_) {
+                    if (cancel_requested_) {
+                        if (navigate_goal_handle_)
+                            navigate_client_->async_cancel_goal(navigate_goal_handle_);
+                        auto result = std::make_shared<ExplorationTask::Result>();
+                        result->success = false;
+                        result->message = "Task cancelled while approaching polygon";
+                        task_active_ = false;
+                        goal_handle->canceled(result);
+                        return;
+                    }
+                    approach_rate.sleep();
+                }
+                if (!navigate_goal_succeeded_) {
+                    RCLCPP_WARN(this->get_logger(),
+                                "Approach to polygon did not succeed; "
+                                "exploration will start from current pose anyway");
+                }
+            }
+        }
+    }
 
     rclcpp::Rate rate(1.0);  // 1 Hz planning loop
 
