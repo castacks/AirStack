@@ -86,11 +86,17 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [add-ros2-package](.agents/skills/add-ros2-package) | Creating a new algorithm module package |
 | [add-task-executor](.agents/skills/add-task-executor) | Implementing a task executor as a ROS 2 action server |
 | [integrate-module-into-layer](.agents/skills/integrate-module-into-layer) | Adding module to layer bringup |
+| [write-launch-file](.agents/skills/write-launch-file) | Authoring ROS 2 launch files with AirStack conventions (ROBOT_NAME namespacing, topic remapping, allow_substs) |
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
-| [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing |
+| [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing of a module |
+| [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
+| [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
+| [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
+| [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
+| [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
 
 **Agent Workflow Example:**
 1. Study reference implementation for module type
@@ -322,10 +328,26 @@ Each major component has its own Docker container:
 
 **Configuration:**
 - Main compose file: `docker-compose.yaml` (includes all component compose files)
-- Environment variables: `.env` file (Docker image tags, launch config)
-- Robot configuration: Environment variables set in `robot/docker/.env`
+- Environment variables: top-level [`.env`](.env) (image tags, `VERSION`, `NUM_ROBOTS`, `ROBOT_NAME_MAP_CONFIG_FILE`, `ISAAC_SIM_SCRIPT_NAME`, `AUTONOMY_ROLE`, etc.)
+- Per-container shell init: [`robot/docker/.bashrc`](robot/docker/.bashrc) — resolves `ROBOT_NAME` and `ROS_DOMAIN_ID` at startup (see Multi-Robot Configuration below)
 
 **Networking:** Custom bridge network (172.31.0.0/24) for inter-container communication.
+
+## Multi-Robot Configuration
+
+Multi-robot is implemented via Docker Compose **replicas**, not multiple namespaces in one container. Setting `NUM_ROBOTS=3` in [`.env`](.env) spawns three separate containers (`airstack-robot-desktop-1`, `-2`, `-3`) via `deploy.replicas: ${NUM_ROBOTS:-1}` in [`robot/docker/docker-compose.yaml`](robot/docker/docker-compose.yaml).
+
+`ROBOT_NAME` is **not** set directly in `.env`. Each container computes it at startup: [`robot/docker/.bashrc`](robot/docker/.bashrc) reads `ROBOT_NAME_SOURCE` (`container_name` or `hostname`) and runs [`resolve_robot_name.py`](robot/docker/robot_name_map/resolve_robot_name.py) against the mapping in [`robot/docker/robot_name_map/`](robot/docker/robot_name_map/) (default: [`default_robot_name_map.yaml`](robot/docker/robot_name_map/default_robot_name_map.yaml)). The resolver exports both `ROBOT_NAME` and `ROS_DOMAIN_ID` — robot N gets domain N by default, so each robot is on its own DDS partition.
+
+The autonomy bringup variant is selected by `AUTONOMY_ROLE` (`full` | `onboard` | `offboard`), dispatched in [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml):
+
+- **full** — every autonomy module runs on this machine (sim/dev desktop, autonomous Jetson)
+- **onboard** — lite modules only (interface, sensors, perception, local planning, behavior); pairs with **offboard**
+- **offboard** — global planning only; runs on GCS paired with onboard robots
+
+For Isaac Sim, the default `ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py` only spawns a single drone. Multi-robot Isaac Sim requires `ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py` (the system test harness sets this automatically when `--num-robots > 1`).
+
+**Full workflow:** [.agents/skills/configure-multi-robot](.agents/skills/configure-multi-robot)
 
 ## Critical Pitfalls to Avoid
 
