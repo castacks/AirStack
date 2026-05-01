@@ -219,8 +219,8 @@ function print_command_help {
             echo "  airstack test -m liveliness --sim msairsim --num-robots 1 \\"
             echo "    --stress-iterations 1 --stable-duration 60 -v"
             echo ""
-            echo "  # Autonomy run — takeoff/hover/land at 0.5, 1, and 2 m/s"
-            echo "  airstack test -m autonomy --sim msairsim --num-robots 1 \\"
+            echo "  # Takeoff/hover/land run — at 0.5, 1, and 2 m/s"
+            echo "  airstack test -m takeoff_hover_land --sim msairsim --num-robots 1 \\"
             echo "    --stress-iterations 1 --takeoff-velocities 0.5,1,2 -v"
             ;;
         docs)

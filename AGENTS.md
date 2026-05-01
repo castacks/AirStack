@@ -40,6 +40,10 @@ AirStack/
 ├── common/                  # Shared packages & utilities
 ├── docs/                    # MkDocs documentation
 ├── mkdocs.yml               # MkDocs config file
+├── tests/                   # System tests (pytest) + metrics reporting
+├── .github/
+│   ├── workflows/           # GitHub Actions CI (system-tests, docker-build, etc.)
+│   └── orchestrator/        # OpenStack-backed ephemeral self-hosted runners
 └── .agents/skills/          # Detailed workflow guides for agents
 ```
 
@@ -82,13 +86,19 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [add-ros2-package](.agents/skills/add-ros2-package) | Creating a new algorithm module package |
 | [add-task-executor](.agents/skills/add-task-executor) | Implementing a task executor as a ROS 2 action server |
 | [integrate-module-into-layer](.agents/skills/integrate-module-into-layer) | Adding module to layer bringup |
+| [write-launch-file](.agents/skills/write-launch-file) | Authoring ROS 2 launch files with AirStack conventions (ROBOT_NAME namespacing, topic remapping, allow_substs) |
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
 | [visualize-in-foxglove](.agents/skills/visualize-in-foxglove) | Adding topic visualization to Foxglove/GCS |
 | [attach-gossip-payload](.agents/skills/attach-gossip-payload) | Broadcasting custom ROS messages to peers via PeerProfile gossip payloads |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
-| [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing |
+| [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing of a module |
+| [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
+| [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
+| [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
+| [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
+| [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
 
 **Agent Workflow Example:**
 1. Study reference implementation for module type
@@ -190,6 +200,30 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - End-to-end autonomy stack testing
    - Real sensor simulation
    - Multi-robot scenarios
+   - Implemented in [`tests/`](tests/) — see below
+
+### System Test Suite (`tests/`)
+
+Pytest-based system tests live at the repo root in [`tests/`](tests/). They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, sensor publishing rates, compute usage, and end-to-end flight behavior.
+
+| File | Mark | What it tests | Hardware |
+|------|------|---------------|----------|
+| [`tests/test_build_docker.py`](tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim) | Docker |
+| [`tests/test_build_packages.py`](tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container | Docker |
+| [`tests/test_liveliness.py`](tests/test_liveliness.py) | `liveliness` | Full-stack health: containers, tmux, ROS 2 nodes, topic Hz, compute, sustained stability | Docker, GPU, sim license |
+| [`tests/test_takeoff_hover_land.py`](tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | 4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity) | Docker, GPU, sim license |
+
+Shared fixtures, the `airstack_env` parametrized fixture, and `MetricsRecorder` live in [`tests/conftest.py`](tests/conftest.py). Each run produces a timestamped directory under `tests/results/<timestamp>/` with `results.xml`, `metrics.json`, and per-test logs. [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
+
+**Run via the CLI** (containerized runner — no local Python needed):
+
+```bash
+airstack test -m "build_docker or build_packages" -v
+airstack test -m liveliness --sim msairsim --num-robots 1 --stress-iterations 1 -v
+airstack test -m takeoff_hover_land --sim msairsim --takeoff-velocities 0.5,1,2 -v
+```
+
+Full reference: [`tests/README.md`](tests/README.md).
 
 ### Autonomous Debugging Approach
 When a module doesn't work:
@@ -203,7 +237,31 @@ When a module doesn't work:
 
 See detailed debugging workflow: [.agents/skills/debug_module](.agents/skills/debug_module)
 
-**Note:** Full testing infrastructure is a work in progress. Focus on integration tests and simulation validation for now.
+## CI/CD
+
+GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| [`system-tests.yml`](.github/workflows/system-tests.yml) | PR opened, `/pytest` PR comment (write-access only), or `workflow_dispatch` | Runs the `tests/` suite on an ephemeral GPU runner; posts metrics report (with regression diff vs base branch / `main`) as a PR comment and to the job summary |
+| [`docker-build.yml`](.github/workflows/docker-build.yml) | Push to `main`/`develop` that changes `.env` (`VERSION=`), or manual dispatch | Builds, pushes, and cosign-signs all compose images on the ephemeral runner |
+| [`check-version-increment.yml`](.github/workflows/check-version-increment.yml) | Pull request | Validates `.env` `VERSION=` is valid semver and strictly greater than the base branch |
+| `deploy_docs_from_{main,develop,release}.yaml` | Push to the matching branch (`docs/**`, `mkdocs.yml`, `*.md`) | Publishes versioned MkDocs site via `mike` |
+
+**`/pytest` PR comments** trigger `system-tests.yml` for users with write access (OWNER/MEMBER/COLLABORATOR), pulling args from the first line of the comment (e.g. `/pytest -m liveliness --sim msairsim`). Fork PRs are blocked — same-repo only — to keep arbitrary code off the self-hosted runner.
+
+### Ephemeral Runner Orchestrator
+
+GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **OpenStack VMs spawned per-job and destroyed on completion**. The orchestrator service code lives in [`.github/orchestrator/`](.github/orchestrator/):
+
+- [`orchestrator.py`](.github/orchestrator/orchestrator.py) — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, creates an OpenStack server with cloud-init bootstrap; reap loop deletes the server when the job completes (or after `max_job_minutes`)
+- [`cloud-init.yaml.j2`](.github/orchestrator/cloud-init.yaml.j2) — bootstraps Docker + nvidia-container-toolkit + GH Actions runner on the worker, registers with the JIT token, runs one job, then `shutdown -h`
+- [`config.example.yaml`](.github/orchestrator/config.example.yaml) — flavor / network / keypair / floating-IP pool / runner labels / repo
+- [`airstack-orchestrator.service`](.github/orchestrator/airstack-orchestrator.service) + [`setup.sh`](.github/orchestrator/setup.sh) — systemd unit and one-time installer
+
+**Why ephemeral:** clean Docker cache per run, no leaked containers, GitHub PAT and OpenStack credentials only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
+
+**Setup, debugging a failed job, and SSH-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
 
 ## Documentation Requirements
 
@@ -272,10 +330,26 @@ Each major component has its own Docker container:
 
 **Configuration:**
 - Main compose file: `docker-compose.yaml` (includes all component compose files)
-- Environment variables: `.env` file (Docker image tags, launch config)
-- Robot configuration: Environment variables set in `robot/docker/.env`
+- Environment variables: top-level [`.env`](.env) (image tags, `VERSION`, `NUM_ROBOTS`, `ROBOT_NAME_MAP_CONFIG_FILE`, `ISAAC_SIM_SCRIPT_NAME`, `AUTONOMY_ROLE`, etc.)
+- Per-container shell init: [`robot/docker/.bashrc`](robot/docker/.bashrc) — resolves `ROBOT_NAME` and `ROS_DOMAIN_ID` at startup (see Multi-Robot Configuration below)
 
 **Networking:** Custom bridge network (172.31.0.0/24) for inter-container communication.
+
+## Multi-Robot Configuration
+
+Multi-robot is implemented via Docker Compose **replicas**, not multiple namespaces in one container. Setting `NUM_ROBOTS=3` in [`.env`](.env) spawns three separate containers (`airstack-robot-desktop-1`, `-2`, `-3`) via `deploy.replicas: ${NUM_ROBOTS:-1}` in [`robot/docker/docker-compose.yaml`](robot/docker/docker-compose.yaml).
+
+`ROBOT_NAME` is **not** set directly in `.env`. Each container computes it at startup: [`robot/docker/.bashrc`](robot/docker/.bashrc) reads `ROBOT_NAME_SOURCE` (`container_name` or `hostname`) and runs [`resolve_robot_name.py`](robot/docker/robot_name_map/resolve_robot_name.py) against the mapping in [`robot/docker/robot_name_map/`](robot/docker/robot_name_map/) (default: [`default_robot_name_map.yaml`](robot/docker/robot_name_map/default_robot_name_map.yaml)). The resolver exports both `ROBOT_NAME` and `ROS_DOMAIN_ID` — robot N gets domain N by default, so each robot is on its own DDS partition.
+
+The autonomy bringup variant is selected by `AUTONOMY_ROLE` (`full` | `onboard` | `offboard`), dispatched in [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml):
+
+- **full** — every autonomy module runs on this machine (sim/dev desktop, autonomous Jetson)
+- **onboard** — lite modules only (interface, sensors, perception, local planning, behavior); pairs with **offboard**
+- **offboard** — global planning only; runs on GCS paired with onboard robots
+
+For Isaac Sim, the default `ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py` only spawns a single drone. Multi-robot Isaac Sim requires `ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py` (the system test harness sets this automatically when `--num-robots > 1`).
+
+**Full workflow:** [.agents/skills/configure-multi-robot](.agents/skills/configure-multi-robot)
 
 ## Critical Pitfalls to Avoid
 
