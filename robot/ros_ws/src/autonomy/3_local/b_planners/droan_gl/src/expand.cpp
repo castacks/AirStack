@@ -194,28 +194,28 @@ private:
     vis::Marker &free_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
     free_markers.set_namespace("free_points");
     free_markers.set_color(0., 1., 0.);
-    free_markers.set_scale(0.1, 0.1, 0.1);
+    free_markers.set_scale(0.02, 0.02, 0.02);
     vis::Marker &free_traj_markers = traj_markers.add_line_list(target_frame, look_ahead.header.stamp,
                                                                 0., 1., 0., 0.8,
-                                                                0.1, 0);
+                                                                0.02, 0);
     free_traj_markers.set_namespace("free_trajectories");
 
     vis::Marker &collision_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
     collision_markers.set_namespace("collision_points");
     collision_markers.set_color(1., 0., 0.);
-    collision_markers.set_scale(0.1, 0.1, 0.1);
+    collision_markers.set_scale(0.02, 0.02, 0.02);
     vis::Marker &collision_traj_markers = traj_markers.add_line_list(target_frame, look_ahead.header.stamp,
                                                                      1., 0., 0., 0.8,
-                                                                     0.1, 0);
+                                                                     0.02, 0);
     collision_traj_markers.set_namespace("collision_trajectories");
 
     vis::Marker &unseen_markers = traj_markers.add_points(target_frame, look_ahead.header.stamp);
     unseen_markers.set_namespace("unseen_points");
     unseen_markers.set_color(0.7, 0.7, 0.7, 0.3);
-    unseen_markers.set_scale(0.1, 0.1, 0.1);
+    unseen_markers.set_scale(0.02, 0.02, 0.02);
     vis::Marker &unseen_traj_markers = traj_markers.add_line_list(target_frame, look_ahead.header.stamp,
                                                                   0.7, 0.7, 0.7, 0.3,
-                                                                  0.1, 0);
+                                                                  0.02, 0);
     unseen_traj_markers.set_namespace("unseen_trajectories");
 
     int best_traj_index = -1;

@@ -130,7 +130,7 @@ TrajectoryControlNode::TrajectoryControlNode() : rclcpp::Node("trajectory_contro
     ff_min_velocity = airstack::get_param(this, "ff_min_velocity", 0.4);
     search_ahead_factor = airstack::get_param(this, "search_ahead_factor", 1.5);
     transition_velocity_scale = airstack::get_param(this, "transition_velocity_scale", 1.0);
-    traj_vis_thickness = airstack::get_param(this, "traj_vis_thickness", 0.03);
+    traj_vis_thickness = airstack::get_param(this, "traj_vis_thickness", 0.25);
     rewind_skip_max_velocity = airstack::get_param(this, "rewind_skip_max_velocity", 0.1);
     rewind_skip_max_distance = airstack::get_param(this, "rewind_skip_max_distance", 0.1);
     velocity_sphere_radius_multiplier = airstack::get_param(this, "velocity_sphere_radius_multiplier", -1.0);
