@@ -11,11 +11,20 @@
   <node pkg="perception_bringup" exec="odom_to_pose_stamped.py"
         name="odom_to_pose_stamped" output="screen"/>
 
+  <!--
+    Robot-namespace topic prefixes. Upstream rayfronts defaults publish to
+    /rayfronts/... and /rayfronts/msg_serv/... ; we override Hydra config so
+    everything lives under /robot_$(env ROS_DOMAIN_ID)/rayfronts/... to match what
+    raven_nav_node and semantic_search_task subscribe to.
+  -->
   <executable
     cmd="python3 -m rayfronts.mapping_server
          --config-name $(var config_name)
          dataset=$(var dataset)
          messaging_service=ros
+         messaging_service.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv
+         messaging_service.text_query_topic=/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/new_text_query
+         vis.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts
          querying.text_query_mode=prompts
          querying.query_file=null
          querying.compute_prob=True

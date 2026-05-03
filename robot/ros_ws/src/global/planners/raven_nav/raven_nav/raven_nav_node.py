@@ -19,6 +19,12 @@ class RavenNavNode(Node):
 
         robot_name = os.getenv('ROBOT_NAME', 'robot')
         self._prefix = f'/{robot_name}'
+        # rayfronts topics live under /robot_${ROS_DOMAIN_ID}/rayfronts/...
+        # (kept separate from ROBOT_NAME so all rayfronts consumers — raven,
+        # semantic_search_task, the rayfronts.launch.xml Hydra override — agree
+        # on a single domain-id-based prefix).
+        ros_domain = os.getenv('ROS_DOMAIN_ID', '0')
+        self._rf_prefix = f'/robot_{ros_domain}/rayfronts/msg_serv'
 
         # Ray data from rays_sim/all (converted to FLU world frame)
         self._ray_origins = None    # (N, 3)
@@ -84,19 +90,18 @@ class RavenNavNode(Node):
         )
 
         # Subscribe to all-queries topics so rayfronts always publishes to them
-        rf_prefix = f'{self._prefix}/rayfronts/msg_serv'
         self.create_subscription(
             PointCloud2,
-            f'{rf_prefix}/rays_sim/all',
+            f'{self._rf_prefix}/rays_sim/all',
             self._ray_all_cb, 10)
         self.create_subscription(
             PointCloud2,
-            f'{rf_prefix}/voxels_sim/all',
+            f'{self._rf_prefix}/voxels_sim/all',
             self._vox_all_cb, 10)
 
         self.create_subscription(
             PointCloud2,
-            f'{self._prefix}/rayfronts/msg_serv/frontiers',
+            f'{self._rf_prefix}/frontiers',
             self._frontiers_cb, 10)
         self.create_subscription(
             Odometry,
