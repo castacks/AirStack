@@ -3,6 +3,20 @@
   <arg name="dataset"     default="ros2isaacsim"/>
   <arg name="query_period" default="10"/>
 
+  <!--
+    Bridge: republish nav_msgs/Odometry as geometry_msgs/PoseStamped so rayfronts
+    (which only knows PoseStamped on its pose_topic) can consume our odometry
+    stream. Avoids any submodule-level patch to rayfronts/datasets/ros.py.
+  -->
+  <executable
+    cmd="ros2 run topic_tools transform
+         /robot_1/odometry_conversion/odometry
+         /robot_1/odometry_conversion/pose_stamped
+         geometry_msgs/PoseStamped
+         'geometry_msgs.msg.PoseStamped(header=m.header, pose=m.pose.pose)'
+         --import geometry_msgs nav_msgs"
+    output="screen"/>
+
   <executable
     cmd="python3 -m rayfronts.mapping_server
          --config-name $(var config_name)

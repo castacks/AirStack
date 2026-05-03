@@ -6,11 +6,11 @@ _target_: rayfronts.datasets.Ros2Subscriber
 # Topic containing RGB images of type sensor_msgs/msg/Image
 rgb_topic: "/robot_1/sensors/front_stereo/left/image_rect"
 
-# Topic containing odometry of type nav_msgs/msg/Odometry
-pose_topic: "/robot_1/odometry_conversion/odometry"
-
-# Message type for the pose topic: "PoseStamped" or "Odometry"
-pose_msg_type: "Odometry"
+# PoseStamped topic. The raw odometry comes out as nav_msgs/Odometry on
+# /robot_1/odometry_conversion/odometry; rayfronts.launch.xml runs a
+# topic_tools transform that bridges it to PoseStamped on this topic so we
+# don't have to patch rayfronts/datasets/ros.py to handle Odometry directly.
+pose_topic: "/robot_1/odometry_conversion/pose_stamped"
 
 # Topic containing depth images of type .
 depth_topic: "/robot_1/sensors/front_stereo/left/depth_ground_truth"
