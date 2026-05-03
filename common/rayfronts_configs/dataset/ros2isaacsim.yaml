@@ -1,0 +1,36 @@
+defaults:
+  - base_dataset
+
+_target_: rayfronts.datasets.Ros2Subscriber
+
+# Topic containing RGB images of type sensor_msgs/msg/Image
+rgb_topic: "/robot_1/sensors/front_stereo/left/image_rect"
+
+# Topic containing odometry of type nav_msgs/msg/Odometry
+pose_topic: "/robot_1/odometry_conversion/odometry"
+
+# Message type for the pose topic: "PoseStamped" or "Odometry"
+pose_msg_type: "Odometry"
+
+# Topic containing depth images of type .
+depth_topic: "/robot_1/sensors/front_stereo/left/depth_ground_truth"
+
+# Topic containing intrinsics information from messages
+# of type sensor_msgs/msg/CameraInfo. Will be used at initialization only.
+intrinsics_topic: "/robot_1/sensors/front_stereo/left/camera_info"
+
+# Path to json file containing intrinsics with the following keys
+# fx, fy, cx, cy, w, h. This will be prioritized over the intrinsics topic.
+intrinsics_file: null
+
+# (Optional) Topic containing confidence in depth values.
+# Message type: sensor_msgs/msg/Image.
+confidence_topic: null
+
+# Topic containing point cloud of type sensor_msgs/msg/PointCloud.
+# this is an alternative inefficient depth source to disparity.
+point_cloud_topic: null
+
+# A string of 3 letters describing the camera coordinate system in
+# r/l u/d f/b in any order. (e.g, rdf, flu, rfu)
+src_coord_system: "flu"
