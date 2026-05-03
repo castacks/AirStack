@@ -8,14 +8,8 @@
     (which only knows PoseStamped on its pose_topic) can consume our odometry
     stream. Avoids any submodule-level patch to rayfronts/datasets/ros.py.
   -->
-  <executable
-    cmd="ros2 run topic_tools transform
-         /robot_1/odometry_conversion/odometry
-         /robot_1/odometry_conversion/pose_stamped
-         geometry_msgs/PoseStamped
-         'geometry_msgs.msg.PoseStamped(header=m.header, pose=m.pose.pose)'
-         --import geometry_msgs nav_msgs"
-    output="screen"/>
+  <node pkg="perception_bringup" exec="odom_to_pose_stamped.py"
+        name="odom_to_pose_stamped" output="screen"/>
 
   <executable
     cmd="python3 -m rayfronts.mapping_server
