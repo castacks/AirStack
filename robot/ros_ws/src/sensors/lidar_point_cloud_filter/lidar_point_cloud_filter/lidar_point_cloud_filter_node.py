@@ -13,10 +13,15 @@ from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 
 
-def _lidar_qos(depth: int) -> QoSProfile:
+def _point_cloud_qos(depth: int, reliable: bool) -> QoSProfile:
+    """QoS aligned with common bridges (e.g. Isaac Replicator: RELIABLE) and RViz."""
     return QoSProfile(
-        depth=depth,
-        reliability=QoSReliabilityPolicy.BEST_EFFORT,
+        depth=max(1, depth),
+        reliability=(
+            QoSReliabilityPolicy.RELIABLE
+            if reliable
+            else QoSReliabilityPolicy.BEST_EFFORT
+        ),
         history=QoSHistoryPolicy.KEEP_LAST,
     )
 
@@ -31,19 +36,22 @@ class LidarPointCloudFilterNode(Node):
         self.declare_parameter('near_range_m', 0.75)
         self.declare_parameter(
             'input_topic',
-            f'/{_robot}/sensors/lidar/point_cloud_raw',
+            f'/{_robot}/sensors/ouster/point_cloud_raw',
         )
         self.declare_parameter(
             'output_topic',
-            f'/{_robot}/sensors/lidar/point_cloud',
+            f'/{_robot}/sensors/ouster/point_cloud',
         )
         self.declare_parameter('qos_depth', 10)
+        # Match RELIABLE publishers (e.g. Isaac Sim ROS2 bridge); set false for best-effort lidar.
+        self.declare_parameter('qos_reliable', True)
 
         self._near_range_m = float(self.get_parameter('near_range_m').value)
         self._input_topic = str(self.get_parameter('input_topic').value)
         self._output_topic = str(self.get_parameter('output_topic').value)
         qos_depth = int(self.get_parameter('qos_depth').value)
-        self._qos = _lidar_qos(max(1, qos_depth))
+        qos_reliable = bool(self.get_parameter('qos_reliable').value)
+        self._qos = _point_cloud_qos(qos_depth, qos_reliable)
 
         self._fields = [
             PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
@@ -62,7 +70,7 @@ class LidarPointCloudFilterNode(Node):
 
         self.get_logger().info(
             f'Filtering lidar: in={self._input_topic} out={self._output_topic} '
-            f'near_range_m={self._near_range_m}'
+            f'near_range_m={self._near_range_m} qos_reliable={qos_reliable}'
         )
 
     def _cloud_callback(self, msg: PointCloud2) -> None:
@@ -74,25 +82,34 @@ class LidarPointCloudFilterNode(Node):
                 self._warned_missing_xyz = True
             return
 
-        names = [f.name for f in msg.fields]
+        pts = list(
+            point_cloud2.read_points(
+                msg, field_names=('x', 'y', 'z'), skip_nans=True
+            )
+        )
+        if not pts:
+            self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, []))
+            return
 
-        dtype_list = [('x', np.float32), ('y', np.float32), ('z', np.float32), ('intensity', np.float32)]
-        data = np.frombuffer(msg.data, dtype=np.dtype(dtype_list))
+        mat = np.array(
+            [(float(p[0]), float(p[1]), float(p[2])) for p in pts],
+            dtype=np.float64,
+        )
+        r2 = mat[:, 0] ** 2 + mat[:, 1] ** 2 + mat[:, 2] ** 2
+        if self._near_range_m <= 0.0:
+            mask = np.ones(mat.shape[0], dtype=bool)
+        else:
+            mask = r2 >= (self._near_range_m ** 2)
 
-        mask = np.isfinite(data['x']) & np.isfinite(data['y']) & np.isfinite(data['z'])
+        if not np.any(mask):
+            self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, []))
+            return
 
-        clean_data = data[mask]
-
-        x = clean_data['x']
-        y = clean_data['y']
-        z = clean_data['z']
-        r2 = x * x + y * y + z * z
-        near2 = self._near_range_m * self._near_range_m
-        mask = r2 >= near2
-
-        sel = clean_data[mask]
-        out = point_cloud2.create_cloud(msg.header, self._fields, sel)
-        self._pub.publish(out)
+        sel = mat[mask]
+        out_rows = [(float(r[0]), float(r[1]), float(r[2])) for r in sel]
+        self._pub.publish(
+            point_cloud2.create_cloud(msg.header, self._fields, out_rows)
+        )
 
     @staticmethod
     def _has_xyz_fields(msg: PointCloud2) -> bool:
@@ -109,4 +126,3 @@ def main(args=None) -> None:
     finally:
         node.destroy_node()
         rclpy.shutdown()
-
