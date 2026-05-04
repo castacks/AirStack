@@ -180,6 +180,7 @@ class PegasusApp:
             drone_prim="/World/drone1/base_link",
             robot_name="robot_1",
             lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
             min_range=0.75,                   # avoid propeller hits
@@ -215,6 +216,7 @@ class PegasusApp:
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
             min_range=0.75,                   # avoid propeller hits

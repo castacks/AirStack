@@ -1,0 +1,10 @@
+# Default parameters for lidar_point_cloud_filter (override in launch or a layered params file).
+#
+# Absolute topics avoid resolving under .../lidar_point_cloud_filter/ when the node is namespaced.
+# $(env ROBOT_NAME) is expanded when the launch file loads this file with allow_substs="true".
+/**:
+  ros__parameters:
+    near_range_m: 0.75
+    input_topic: "/$(env ROBOT_NAME)/sensors/lidar/point_cloud_raw"
+    output_topic: "/$(env ROBOT_NAME)/sensors/lidar/point_cloud"
+    qos_depth: 10
