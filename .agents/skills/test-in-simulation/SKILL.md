@@ -399,11 +399,11 @@ If module supports multi-robot:
 NUM_ROBOTS=2 airstack up isaac-sim robot
 
 # Verify each robot runs independently
-docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep drone"
+docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep robot"
 
 # Expected:
-# /drone0/...
-# /drone1/...
+# /robot_1/...
+# /robot_2/...
 
 # Test coordination or conflicts
 ```

@@ -2,116 +2,119 @@
 
 ## Overview
 
-The TakeoffLandingPlanner provides a rich interface for handling takeoff/landing commands, with support for both trajectory-based and ArduPilot command-based modes. It monitors the robot's position, generates appropriate trajectories, and tracks the completion status of takeoff and landing maneuvers.
+The TakeoffLandingPlanner provides ROS 2 action servers for takeoff and landing maneuvers. It monitors the robot's state, generates trajectory overrides to reach the target altitude (takeoff) or ground (landing), and tracks completion via position and time thresholds.
 
-## Highlights
+## Features
 
-- Two takeoff modes: standard and high altitude
-- Configurable takeoff and landing velocities
-- Configurable takeoff trajectory direction
-- Trajectory-based takeoff and landing with position tracking
-- Direct ArduPilot takeoff command support
-- Completion monitoring with distance and time thresholds
-- State publishing for integration with higher-level systems
+- Trajectory-based takeoff to a configurable target altitude and velocity
+- Trajectory-based landing with on-ground detection, followed by automatic disarm
+- Configurable takeoff trajectory direction (roll/pitch, absolute or body-relative)
+- Precondition checking: rejects goals when state estimate is timed out or a task is already running
+- Publishes `is_airborne` for downstream consumers (e.g. the RViz Tasks Panel)
 
 ## Topics
 
 ### Subscriptions
 
-| Topic                              | Type                     | Description                                                                                                                                      |
-| ---------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `trajectory_completion_percentage` | `std_msgs/Float32`       | Current completion percentage of trajectory (from [trajectory_controller](../../c_controls/trajectory_controller/src/trajectory_controller.cpp)) |
-| `tracking_point`                   | `airstack_msgs/Odometry` | Current tracking point for trajectory (from [trajectory_controller](../../c_controls/trajectory_controller/src/trajectory_controller.cpp))       |
-| `odometry`                         | `nav_msgs/Odometry`      | Robot odometry data                                                                                                                              |
-| `ekf_active`                       | `std_msgs/Bool`          | EKF status flag                                                                                                                                  |
-| `high_takeoff`                     | `std_msgs/Bool`          | Flag to trigger high altitude takeoff                                                                                                            |
+| Topic                              | Type                              | Description                                          |
+|------------------------------------|-----------------------------------|------------------------------------------------------|
+| `odometry`                         | `nav_msgs/Odometry`               | Robot pose and velocity                              |
+| `tracking_point`                   | `airstack_msgs/Odometry`          | Current trajectory tracking point                   |
+| `trajectory_completion_percentage` | `std_msgs/Float32`                | Trajectory completion (0–100) from trajectory_controller |
+| `is_armed`                         | `std_msgs/Bool`                   | Vehicle arm status                                   |
+| `has_control`                      | `std_msgs/Bool`                   | Offboard control acquired                            |
+| `state_estimate_timed_out`         | `std_msgs/Bool`                   | Whether the state estimate has timed out             |
+| `extended_state`                   | `mavros_msgs/ExtendedState`       | MAVROS landed state (used to publish `is_airborne`)  |
 
 ### Publications
 
-| Topic                 | Type                              | Description                                              |
-| --------------------- | --------------------------------- | -------------------------------------------------------- |
-| `trajectory_override` | `airstack_msgs/TrajectoryXYZVYaw` | Generated takeoff/landing trajectory                     |
-| `takeoff_state`       | `std_msgs/String`                 | Current takeoff state ("NONE", "TAKING_OFF", "COMPLETE") |
-| `landing_state`       | `std_msgs/String`                 | Current landing state ("NONE", "LANDING", "COMPLETE")    |
+| Topic               | Type                              | Description                                             |
+|---------------------|-----------------------------------|---------------------------------------------------------|
+| `trajectory_override` | `airstack_msgs/TrajectoryXYZVYaw` | Takeoff/landing trajectory sent to trajectory_controller |
+| `is_airborne`       | `std_msgs/Bool`                   | True when `landed_state == LANDED_STATE_IN_AIR`         |
 
-## Services
+## Service Clients
 
-| Service                       | Type                                  | Description                               |
-| ----------------------------- | ------------------------------------- | ----------------------------------------- |
-| `set_takeoff_landing_command` | `airstack_msgs/TakeoffLandingCommand` | Sets command mode (NONE, TAKEOFF, LAND)   |
-| `ardupilot_takeoff`           | `std_srvs/Trigger`                    | Triggers direct ArduPilot takeoff command |
+| Service               | Type                              | Description                            |
+|-----------------------|-----------------------------------|----------------------------------------|
+| `set_trajectory_mode` | `airstack_msgs/TrajectoryMode`    | Switch trajectory controller mode      |
+| `robot_command`       | `airstack_msgs/RobotCommand`      | Arm, request offboard control, disarm  |
+
+## Action Servers
+
+| Action          | Type                      | Description                  |
+|-----------------|---------------------------|------------------------------|
+| `~/takeoff_task` | `task_msgs/TakeoffTask`  | Execute a takeoff maneuver   |
+| `~/land_task`    | `task_msgs/LandTask`     | Execute a landing maneuver   |
+
+### TakeoffTask
+
+**Goal**
+
+| Field               | Type    | Description                    |
+|---------------------|---------|--------------------------------|
+| `target_altitude_m` | float32 | Target altitude in meters      |
+| `velocity_m_s`      | float32 | Ascent velocity in m/s         |
+
+**Feedback**
+
+| Field                | Type    | Description                    |
+|----------------------|---------|--------------------------------|
+| `status`             | string  | Human-readable status message  |
+| `current_altitude_m` | float32 | Current altitude in meters     |
+| `target_altitude_m`  | float32 | Target altitude in meters      |
+
+**Result**
+
+| Field     | Type    | Description              |
+|-----------|---------|--------------------------|
+| `success` | bool    | Whether takeoff succeeded |
+| `message` | string  | Outcome description      |
+
+### LandTask
+
+**Goal**
+
+| Field          | Type    | Description              |
+|----------------|---------|--------------------------|
+| `velocity_m_s` | float32 | Descent velocity in m/s  |
+
+**Feedback**
+
+| Field                | Type    | Description                   |
+|----------------------|---------|-------------------------------|
+| `status`             | string  | Human-readable status message |
+| `current_altitude_m` | float32 | Current altitude in meters    |
+
+**Result**
+
+| Field     | Type   | Description               |
+|-----------|--------|---------------------------|
+| `success` | bool   | Whether landing succeeded |
+| `message` | string | Outcome description       |
 
 ## Parameters
 
-| Parameter                              | Type  | Default | Description                                             |
-| -------------------------------------- | ----- | ------- | ------------------------------------------------------- |
-| `takeoff_height`                       | float | 0.5     | Standard takeoff height in meters                       |
-| `high_takeoff_height`                  | float | 1.2     | High altitude takeoff height in meters                  |
-| `takeoff_velocity`                     | float | 0.3     | Velocity during takeoff in m/s                          |
-| `landing_velocity`                     | float | 0.3     | Velocity during landing in m/s                          |
-| `takeoff_acceptance_distance`          | float | 0.1     | Maximum distance to consider takeoff complete in meters |
-| `takeoff_acceptance_time`              | float | 2.0     | Required time at acceptance distance in seconds         |
-| `landing_stationary_distance`          | float | 0.02    | Maximum movement distance to consider landed in meters  |
-| `landing_acceptance_time`              | float | 5.0     | Required time at stationary distance in seconds         |
-| `landing_tracking_point_ahead_time`    | float | 5.0     | How far ahead the tracking point should be              |
-| `takeoff_path_roll`                    | float | 0.0     | Roll angle for takeoff path in degrees                  |
-| `takeoff_path_pitch`                   | float | 0.0     | Pitch angle for takeoff path in degrees                 |
-| `takeoff_path_relative_to_orientation` | bool  | false   | Whether to use robot's current orientation for takeoff  |
-
-## Usage
-
-### Basic Usage
-
-To launch the TakeoffLandingPlanner node:
-
-```bash
-ros2 run takeoff_landing_planner takeoff_landing_planner
-```
-
-### Initiating Takeoff
-
-To command a takeoff:
-
-```bash
-ros2 service call /set_takeoff_landing_command airstack_msgs/srv/TakeoffLandingCommand "{command: 1}"
-```
-
-### Initiating Landing
-
-To command a landing:
-
-```bash
-ros2 service call /set_takeoff_landing_command airstack_msgs/srv/TakeoffLandingCommand "{command: 2}"
-```
-
-### ArduPilot Takeoff
-
-To use direct ArduPilot takeoff commands:
-
-```bash
-ros2 service call /ardupilot_takeoff std_srvs/srv/Trigger "{}"
-```
-
-## State Monitoring
-
-The node publishes the current state of takeoff and landing operations through the `takeoff_state` and `landing_state` topics. Monitor these topics to track the progress and completion of operations:
-
-```bash
-ros2 topic echo /takeoff_state
-ros2 topic echo /landing_state
-```
+| Parameter                              | Type  | Default | Description                                                   |
+|----------------------------------------|-------|---------|---------------------------------------------------------------|
+| `takeoff_velocity`                     | float | 1.0     | Default ascent velocity in m/s                                |
+| `landing_velocity`                     | float | 0.3     | Default descent velocity in m/s                               |
+| `takeoff_acceptance_distance`          | float | 0.3     | Distance threshold to consider target altitude reached (m)    |
+| `takeoff_acceptance_time`              | float | 1.0     | Time that must be spent within acceptance distance (s)        |
+| `landing_stationary_distance`          | float | 0.02    | Max movement to consider the drone stationary on landing (m)  |
+| `landing_acceptance_time`              | float | 5.0     | Time the drone must remain stationary to confirm landing (s)  |
+| `landing_tracking_point_ahead_time`    | float | 5.0     | Lookahead time for the landing tracking point                 |
+| `takeoff_path_roll`                    | float | 0.0     | Roll offset for the takeoff trajectory (degrees)              |
+| `takeoff_path_pitch`                   | float | 0.0     | Pitch offset for the takeoff trajectory (degrees)             |
+| `takeoff_path_relative_to_orientation` | bool  | false   | Apply roll/pitch relative to the robot's current orientation  |
 
 ## Dependencies
 
-- airstack_msgs
-- nav_msgs
-- mavros_msgs
-- std_msgs
-- std_srvs
-- tf2_ros
-
-## Notes
-
-- The node uses TF2 to track relative positions between the robot and tracking points
-- Landing completion detection relies on both position stability and tracking point metrics
-- The default landing target is hardcoded (-10000.0) and should be parameterized in future versions
+- `rclcpp` / `rclcpp_action`
+- `airstack_msgs`
+- `airstack_common`
+- `nav_msgs`
+- `mavros_msgs`
+- `std_msgs`
+- `task_msgs`
+- `trajectory_library`

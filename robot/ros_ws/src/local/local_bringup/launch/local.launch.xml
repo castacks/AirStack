@@ -15,35 +15,49 @@
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)" />
 
 
-    <!-- Basic Planners -->
-    <node pkg="trajectory_library"
-        namespace="fixed_trajectory_generator" exec="fixed_trajectory_generator.py" output="screen">
-        <remap from="trajectory_override"
-            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
-    </node>
-
-    <!-- customize takeoff_landing_planner.launch.xml -->
-    <node pkg="takeoff_landing_planner"
-        namespace="takeoff_landing_planner"
-        exec="takeoff_landing_planner" output="screen">
+    <!-- Takeoff/Landing Task Action Servers -->
+    <node pkg="takeoff_landing_planner" exec="takeoff_landing_task"
+          namespace="takeoff_landing_planner" output="screen">
         <param from="$(find-pkg-share takeoff_landing_planner)/config/takeoff_landing_planner.yaml"
             allow_substs="true" />
-
-        <!-- remap glue to AirStack -->
         <remap from="trajectory_override"
             to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
-        <remap from="trajectory_completion_percentage"
-            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
+        <remap from="set_trajectory_mode"
+            to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
         <remap from="tracking_point"
             to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
         <remap from="odometry" to="$(var local_odometry_in_topic)" />
-        <remap from="mavros/cmd/takeoff" to="/$(env ROBOT_NAME)/interface/mavros/cmd/takeoff" />
+        <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
+        <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
+        <remap from="state_estimate_timed_out"
+            to="/$(env ROBOT_NAME)/behavior/drone_safety_monitor/state_estimate_timed_out" />
+        <remap from="extended_state"
+            to="/$(env ROBOT_NAME)/interface/mavros/extended_state" />
+        <remap from="robot_command"
+            to="/$(env ROBOT_NAME)/interface/robot_command" />
+        <remap from="~/takeoff_task" to="/$(env ROBOT_NAME)/tasks/takeoff" />
+        <remap from="~/land_task" to="/$(env ROBOT_NAME)/tasks/land" />
+    </node>
+
+    <!-- Fixed Trajectory Task Action Server -->
+    <node pkg="trajectory_controller" exec="fixed_trajectory_task"
+          namespace="trajectory_controller" output="screen">
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="set_trajectory_mode"
+            to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
+        <remap from="trajectory_completion_percentage"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_completion_percentage" />
+        <remap from="odometry" to="$(var local_odometry_in_topic)" />
+        <remap from="~/fixed_trajectory_task" to="/$(env ROBOT_NAME)/tasks/fixed_trajectory" />
     </node>
 
     <group>
         <push-ros-namespace namespace="droan" />
         <!-- DROAN Local Planner -->
-        <node pkg="droan_gl" exec="expand" output="screen">
+        <node pkg="droan_gl" exec="droan_gl_node" output="screen">
+            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="disparity" to="$(var local_disparity_in_topic)" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
@@ -72,19 +86,17 @@
             <param name="stationary_rewind_distance" value="10." />
             <param name="stationary_rewind_duration" value="20." />
         </node>
-        <!-- DROAN local model -->
+        <?ignore
         <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
             output="screen">
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
 
             <remap from="disparity" to="$(var local_disparity_in_topic)" />
-            <!-- create disparity from ground truth depth instead of using estimated disparity -->
-            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the
-            right camera's projection matrix. -->
             <remap from="depth" to="$(var local_depth_in_topic)" />
             <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
         </node>
+        ?>
     </group>
 
     <!-- Control -->
@@ -187,6 +199,8 @@
             args="--log-level DEBUG">
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
                 allow_substs="true" />
+            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
+            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
             <remap from="tracking_point"

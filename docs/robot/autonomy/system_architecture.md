@@ -31,6 +31,73 @@ graph TB
     Interface --> Hardware
 ```
 
+## Node Types: Perpetual vs Task Executor
+
+AirStack nodes fall into two categories that differ in lifecycle,
+activation, and interface:
+
+### Perpetual Nodes
+
+Perpetual nodes start at launch and run continuously until shutdown.
+They receive data over topics and publish results immediately — there
+is no external activation step. Most of the autonomy stack consists
+of perpetual nodes.
+
+Examples: state estimator, VDB mapper, disparity expander, trajectory controller, behavior tree tick loop.
+
+### Task Executors
+
+Task executors are **ROS 2 action servers** that only do work when an
+action client sends them a goal. They have a well-defined lifecycle:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: node starts
+    Idle --> Active: goal accepted
+    Active --> Idle: succeed / abort
+    Active --> Idle: cancel accepted
+```
+
+| Property | Perpetual Node | Task Executor |
+| -------- | -------------- | ------------- |
+| Activation | Always running | On demand via action goal |
+| Interface | ROS topics | ROS 2 action (goal / feedback / result) |
+| Cancellation | N/A | Caller can cancel mid-flight |
+| Progress reporting | N/A | Feedback streamed ~1 Hz |
+| Completion condition | Never | Time limit, area covered, object found, etc. |
+| Typical layer | Perception, Control, World Models | Global/Local Planning |
+
+All task action servers are remapped to `/{robot_name}/tasks/{task_name}` by convention.
+
+### Task Cascade
+
+High-level tasks (sent by the behavior layer) cascade down through the stack:
+
+```mermaid
+graph TD
+    BE[behavior_executive] -->|ExplorationTask| RW[random_walk_planner]
+    RW -->|NavigateTask| DG[droan_gl]
+    DG -->|trajectory_segment_to_add| TC[trajectory_controller]
+
+    style BE fill:#cce5ff
+    style TC fill:#cce5ff
+    style RW fill:#d4edda
+    style DG fill:#d4edda
+```
+
+*Blue = perpetual node, green = task executor.*
+
+The global-layer task executor (e.g. `random_walk_planner`) decides
+*where* to go and delegates the actual flying to the local-layer task
+executor (`droan_gl` or `droan_local_planner`) via a `NavigateTask`
+action, which feeds trajectory segments to the perpetual trajectory
+controller.
+
+See [Task Executors](tasks.md) for the full list of task action types
+and their interfaces.
+
+---
+
 ## Layer Architecture
 
 ### Hierarchical Organization
@@ -99,11 +166,12 @@ graph TB
 **Topics:**
 
 - **Published:**
-  - `/[robot]/interface/mavros/state`
-  - `/[robot]/interface/mavros/local_position/pose`
-  - `/[robot]/interface/battery_state`
+    - `/[robot]/interface/mavros/state`
+    - `/[robot]/interface/mavros/local_position/pose`
+    - `/[robot]/interface/battery_state`
+
 - **Subscribed:**
-  - `/[robot]/trajectory_controller/cmd_vel`
+    - `/[robot]/trajectory_controller/cmd_vel`
 
 ### Sensors Layer
 
@@ -129,9 +197,9 @@ graph LR
 **Topics:**
 
 - **Published:**
-  - `/[robot]/sensors/[sensor_name]/image`
-  - `/[robot]/sensors/[sensor_name]/camera_info`
-  - `/[robot]/sensors/front_stereo/disparity`
+    - `/[robot]/sensors/[sensor_name]/image`
+    - `/[robot]/sensors/[sensor_name]/camera_info`
+    - `/[robot]/sensors/front_stereo/disparity`
 
 ### Perception Layer
 
@@ -171,13 +239,14 @@ graph TB
 **Topics:**
 
 - **Published:**
-  - `/[robot]/odometry` - Primary state estimate
-  - `/[robot]/perception/macvo/depth`
-  - `/[robot]/perception/macvo/features`
+    - `/[robot]/odometry` - Primary state estimate
+    - `/[robot]/perception/macvo/depth`
+    - `/[robot]/perception/macvo/features`
+
 - **Subscribed:**
-  - `/[robot]/sensors/*/image`
-  - `/[robot]/sensors/*/camera_info`
-  - `/[robot]/interface/mavros/imu`
+    - `/[robot]/sensors/*/image`
+    - `/[robot]/sensors/*/camera_info`
+    - `/[robot]/interface/mavros/imu`
 
 ### Local Layer
 
@@ -222,28 +291,36 @@ graph TB
 **Key Modules:**
 
 - **World Models:**
-  - `disparity_expansion`: Obstacle detection from stereo
-  - `disparity_graph`: Graph-based obstacle representation
-  - `disparity_graph_cost_map`: Cost map generation
+
+    - `disparity_expansion`: Obstacle detection from stereo
+    - `disparity_graph`: Graph-based obstacle representation
+    - `disparity_graph_cost_map`: Cost map generation
+
 - **Planners:**
-  - `droan_local_planner`: DROAN obstacle avoidance
-  - `takeoff_landing_planner`: Specialized maneuvers
-  - `trajectory_library`: Trajectory generation utilities
+
+    - `droan_local_planner`: DROAN obstacle avoidance
+    - `takeoff_landing_planner`: Specialized maneuvers
+    - `trajectory_library`: Trajectory generation utilities
+
 - **Controllers:**
-  - `trajectory_controller`: Trajectory tracking
-  - `attitude_controller`: Attitude control
+
+    - `trajectory_controller`: Trajectory tracking
+    - `attitude_controller`: Attitude control
 
 **Topics:**
 
 - **Subscribed:**
-  - `/[robot]/odometry`
-  - `/[robot]/global_plan`
-  - `/[robot]/sensors/front_stereo/disparity`
+
+    - `/[robot]/odometry`
+    - `/[robot]/global_plan`
+    - `/[robot]/sensors/front_stereo/disparity`
+
 - **Published:**
-  - `/[robot]/trajectory_controller/trajectory_segment_to_add`
-  - `/[robot]/trajectory_controller/look_ahead`
-  - `/[robot]/trajectory_controller/tracking_point`
-  - `/[robot]/local/cost_map`
+
+    - `/[robot]/trajectory_controller/trajectory_segment_to_add`
+    - `/[robot]/trajectory_controller/look_ahead`
+    - `/[robot]/trajectory_controller/tracking_point`
+    - `/[robot]/local/cost_map`
 
 ### Global Layer
 
@@ -278,21 +355,27 @@ graph TB
 **Key Modules:**
 
 - **World Models:**
-  - `vdb_mapping_ros2`: VDB-based 3D mapping
+
+    - `vdb_mapping_ros2`: VDB-based 3D mapping
+
 - **Planners:**
-  - `random_walk`: Random exploration planner
-  - `ensemble_planner`: Multi-planner coordination
+
+    - `random_walk`: Random exploration planner
+    - `ensemble_planner`: Multi-planner coordination
 
 **Topics:**
 
 - **Subscribed:**
-  - `/[robot]/odometry`
-  - `/[robot]/sensors/*/pointcloud`
-  - `/[robot]/behavior/mission_goal`
+
+    - `/[robot]/odometry`
+    - `/[robot]/sensors/*/pointcloud`
+    - `/[robot]/behavior/mission_goal`
+
 - **Published:**
-  - `/[robot]/global_plan`
-  - `/[robot]/global/map`
-  - `/[robot]/global/occupancy`
+
+    - `/[robot]/global_plan`
+    - `/[robot]/global/map`
+    - `/[robot]/global/occupancy`
 
 ### Behavior Layer
 
@@ -329,13 +412,16 @@ graph TB
 **Topics:**
 
 - **Subscribed:**
-  - `/[robot]/odometry`
-  - `/[robot]/interface/mavros/state`
-  - `/[robot]/trajectory_controller/trajectory_completion_percentage`
+
+    - `/[robot]/odometry`
+    - `/[robot]/interface/mavros/state`
+    - `/[robot]/trajectory_controller/trajectory_completion_percentage`
+
 - **Published:**
-  - `/[robot]/global/goal`
-  - `/[robot]/trajectory_controller/trajectory_override`
-  - `/[robot]/behavior/mission_state`
+
+    - `/[robot]/global/goal`
+    - `/[robot]/trajectory_controller/trajectory_override`
+    - `/[robot]/behavior/mission_state`
 
 ## Complete Data Flow
 
@@ -510,13 +596,13 @@ See [Integration Checklist](integration_checklist.md) for detailed steps.
 Each robot operates in its own namespace:
 
 ```
-/drone0/
+/robot_1/
   ├── odometry
   ├── global_plan
   ├── trajectory_controller/...
   └── sensors/...
 
-/drone1/
+/robot_2/
   ├── odometry
   ├── global_plan
   ├── trajectory_controller/...
@@ -560,5 +646,6 @@ graph TB
 - [AI Agent Guide](../../development/ai_agent_guide.md) - Guide for AI agents
 - [Layer Documentation](index.md) - Detailed layer descriptions
 - Skills:
-  - [add-ros2-package](../../../.agents/skills/add-ros2-package) - Creating packages
-  - [integrate-module-into-layer](../../../.agents/skills/integrate-module-into-layer) - Integration workflow
+
+    - [add-ros2-package](../../../.agents/skills/add-ros2-package) - Creating packages
+    - [integrate-module-into-layer](../../../.agents/skills/integrate-module-into-layer) - Integration workflow

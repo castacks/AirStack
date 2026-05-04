@@ -91,7 +91,7 @@ AirStack/
 ### Development Tools
 
 **Git Hooks**:
-- Docker versioning hook automatically updates `DOCKER_IMAGE_TAG` in `.env` with git commit hash when Docker files are modified
+- Docker versioning hook automatically updates `VERSION` in `.env` with git commit hash when Docker files are modified
 - Ensures Docker images are tagged with exact commit for version consistency across branches
 
 **CLI Tool** (`airstack.sh`):

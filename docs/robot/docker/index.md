@@ -94,7 +94,7 @@ Key variables are set in the project's `.env` file and forwarded into the contai
 
 | Variable | Description |
 |---|---|
-| `DOCKER_IMAGE_TAG` | Image version tag |
+| `VERSION` | Image version tag |
 | `DOCKER_IMAGE_BUILD_MODE` | Build mode (e.g. `release`, `dev`) |
 | `PROJECT_DOCKER_REGISTRY` | Docker registry prefix |
 | `PROJECT_NAME` | Project / image name |

@@ -1,0 +1,4 @@
+{
+  "//": "required 4 space indentation for rendering sublists in mkdocs",
+  "MD007": { "indent": 4 }
+}

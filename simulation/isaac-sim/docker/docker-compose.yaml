@@ -1,13 +1,14 @@
 services:
   isaac-sim:
     profiles:
-      - desktop
-      - desktop_split
-    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${DOCKER_IMAGE_TAG}_isaac-sim
+      - isaac-sim
+    image: &image_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_isaac-sim
     build:
       context: ../
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
+        - *image_tag
+      cache_from:
         - *image_tag
     container_name: isaac-sim
     entrypoint: ""
@@ -38,6 +39,14 @@ services:
       - QT_X11_NO_MITSHM=1
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # Pegasus physics tuning — read by pegasus/simulator/params.py
+      - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
+      - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
+      - PX4_RENDERING_HZ=${PX4_RENDERING_HZ:-30}
+      - ARDUPILOT_RENDERING_HZ=${ARDUPILOT_RENDERING_HZ:-120}
     deploy:
       # let it use the GPU
       resources:

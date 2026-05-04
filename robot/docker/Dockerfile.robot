@@ -116,7 +116,7 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "
 # Note: numpy>=1.26 required for Python 3.12 compatibility
 # Using --ignore-installed to avoid conflicts with system packages
 RUN pip3 install --break-system-packages --ignore-installed \
-  empy \
+  empy==3.3.4 \
   future \
   lxml \
   matplotlib==3.8.4 \
@@ -187,10 +187,10 @@ RUN apt update && apt install -y --no-install-recommends \
   libasio-dev libtinyxml2-dev libssl-dev libyaml-cpp-dev \
   && rm -rf /var/lib/apt/lists/*
 
-# Clone sources and build + install globally into /usr/local
+# Clone sources and build + install globally into /usr/local. Pinned to v3.4.0
 RUN mkdir -p /tmp/DDS-Router/src \
   && cd /tmp/DDS-Router \
-  && wget https://raw.githubusercontent.com/eProsima/DDS-Router/main/ddsrouter.repos \
+  && wget https://raw.githubusercontent.com/eProsima/DDS-Router/v3.4.0/ddsrouter.repos \
   && vcs import src < ddsrouter.repos \
   && colcon build --merge-install --install-base /usr/local \
   && rm -rf /tmp/DDS-Router
@@ -293,6 +293,13 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-jazzy-xacro \
   ros-jazzy-foxglove-bridge \
   python3-colcon-common-extensions \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install emoji font support and refresh font cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  fonts-noto-color-emoji \
+  fontconfig \
+  && fc-cache -f -v \
   && rm -rf /var/lib/apt/lists/*
 
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh

@@ -16,32 +16,84 @@ Upon activation by the behavior tree, the Random Walk Planner will:
 This loop continues, allowing the system to explore various trajectories and stress test the overall autonomy stack.
 
 ## Parameters
-| <div style="width:220px">Parameter</div>  | Description
-|----------------------------|---------------------------------------------------------------
-| `num_paths_to_generate`    | Number of straight-line paths to concatenate into a complete trajectory.|
-| `max_start_to_goal_dist_m` | Maximum distance (in meters) from the start point to the goal point for each straight-line segment.|
-| `checking_point_cnt`       | Number of points along each straight-line segment to check for collisions.|
-| `max_z_change_m`           | Maximum allowed change in height (z-axis) between the start and goal points.|
-| `collision_padding_m`      | Extra padding (in meters) added around a voxel's dimensions when checking for collisions.|
-| `path_end_threshold_m`     | Distance threshold (in meters) for considering the current path completed and generating a new one.|
-| `max_yaw_change_degrees`   | Maximum allowed change in angle (in radians) between consecutive straight-line segments to ensure a relatively consistent direction.|
-| `robot_frame_id`           | The frame name for the robot's base frame to look up the transform from the robot position to the world.|
 
-## Services
-| <div style="width:220px">Parameter</div> | Type | Description
-|----------------------------|----------------------------------------|-----------------------|
-| `~/global_plan_toggle`     | std_srvs/Trigger | A toggle switch to turn on and off the random walk planner.|
+| Parameter | Description |
+| --------- | ----------- |
+| `num_paths_to_generate` | Number of straight-line paths to concatenate into a complete trajectory. |
+| `max_start_to_goal_dist_m` | Maximum distance (m) from start to goal for each straight-line segment. |
+| `checking_point_cnt` | Number of points along each segment to check for collisions. |
+| `max_z_change_m` | Maximum allowed change in height (z-axis) between start and goal points. |
+| `collision_padding_m` | Extra padding (m) around a voxel when checking for collisions. |
+| `path_end_threshold_m` | Distance threshold (m) for considering the current path completed. |
+| `max_yaw_change_degrees` | Maximum allowed yaw change between consecutive segments. |
+| `robot_frame_id` | Frame name for the robot base, used for transform lookups. |
+
+## Task Executor
+
+This node is a **task executor**: it runs as a ROS 2 action server and is activated on demand via an `ExplorationTask` goal. It does not plan continuously — planning only happens while a goal is active.
+
+**Action server:** `/{robot_name}/tasks/exploration`  
+**Type:** `task_msgs/action/ExplorationTask`
+
+### Cascade
+
+Random walk delegates navigation to the local planner via a second action:
+
+```
+behavior_executive  →  ExplorationTask  →  random_walk_planner
+                                               ↓
+                                        NavigateTask (/{robot_name}/tasks/navigate)
+                                               ↓
+                                          droan_gl (local planner)
+                                               ↓
+                                       trajectory_controller
+```
+
+### Goal parameters
+| Field | Type | Description |
+|-------|------|-------------|
+| `search_bounds` | geometry_msgs/Polygon | Bounding polygon for search (empty = unbounded) |
+| `min_altitude_agl` | float32 | Minimum flight altitude above ground (m) |
+| `max_altitude_agl` | float32 | Maximum flight altitude above ground (m) |
+| `min_flight_speed` | float32 | Minimum flight speed (m/s) |
+| `max_flight_speed` | float32 | Maximum flight speed (m/s) |
+| `time_limit_sec` | float32 | Maximum task duration in seconds (0 = no limit) |
+
+### Feedback (published ~1 Hz)
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `"planning"` or `"navigating"` |
+| `progress` | float32 | Elapsed / time_limit (0 if no time limit) |
+| `current_position` | geometry_msgs/Point | Current robot position |
+
+### Result
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | True if time limit reached normally; false if cancelled or error |
+| `message` | string | Human-readable completion reason |
+
+### CLI test
+```bash
+# Send a 30-second unbounded exploration goal with feedback
+ros2 action send_goal /robot_1/tasks/exploration task_msgs/action/ExplorationTask \
+  '{min_altitude_agl: 3.0, max_altitude_agl: 8.0, min_flight_speed: 1.0, max_flight_speed: 3.0, time_limit_sec: 30.0}' \
+  --feedback
+
+# Ctrl-C cancels the goal; the node returns success=false, message="Task cancelled"
+```
 
 ## Subscriptions
-| <div style="width:220px">Parameter</div> | Type | Description
-|----------------------------|----------------------------------------|-----------------------|
-| `~/sub_map_topic`     | visualization_msgs/Marker | Stores the map representation that is output from the world or local map topic; currently using vdb local map.|
-| `~/tf`                | geometry_msgs/TransformStamped | Stores the transform from the robot to the world.|
+| Topic | Type | Description |
+|-------|------|-------------|
+| `vdb_map_visualization` | visualization_msgs/Marker | Occupancy map from VDB mapping |
+| `odometry` | nav_msgs/Odometry | Robot state estimate |
 
 ## Publications
-| <div style="width:220px">Parameter</div> | Type | Description
-|----------------------------|----------------------------------------|-----------------------|
-| `~/pub_global_plan_topic`  | nav_msgs/Path | Outputs the global plan that is generated from the random walk planner.|
+| Topic | Type | Description |
+|-------|------|-------------|
+| `~/global_plan` | nav_msgs/Path | Generated path (also sent as NavigateTask goal) |
+| `~/goal_point_viz` | visualization_msgs/Marker | Goal point visualization |
+| `~/traj_viz` | visualization_msgs/Marker | Trajectory visualization |
 
 
 

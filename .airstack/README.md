@@ -106,7 +106,7 @@ ISAAC_SIM_USE_STANDALONE=true ./airstack.sh up isaac-sim robot
 NUM_ROBOTS=3 AUTOLAUNCH=false ./airstack.sh up
 
 # Works with any .env variable
-DOCKER_IMAGE_TAG=dev-latest ./airstack.sh up
+VERSION=dev-latest ./airstack.sh up
 ```
 
 The wrapper automatically:

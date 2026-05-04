@@ -76,7 +76,7 @@ Key variables for GCS configuration:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOCKER_IMAGE_TAG` | Image version tag | Set in `.env` |
+| `VERSION` | Image version tag | Set in `.env` |
 | `DOCKER_IMAGE_BUILD_MODE` | Build mode (release/dev) | `dev` |
 | `AUTOLAUNCH` | Auto-start GCS on container launch | `true` |
 | `ROS_DOMAIN_ID` | ROS 2 domain (0 for GCS) | `0` |

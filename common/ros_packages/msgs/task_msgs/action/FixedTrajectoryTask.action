@@ -1,0 +1,15 @@
+# Follow a fixed trajectory specified by type and parameters.
+# loop: if true, repeat the trajectory indefinitely until cancelled
+
+# Goal
+airstack_msgs/FixedTrajectory trajectory_spec
+bool loop
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
+float32 progress
+geometry_msgs/Point current_position

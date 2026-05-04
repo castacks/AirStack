@@ -33,7 +33,7 @@ cd AirStack
 ```bash
 ./airstack.sh install  # installs docker, docker-compose, and the NVIDIA Container Toolkit
 ./airstack.sh setup  # this lets you use the `airstack` command and sets up your keys
-source ~/.bashrc  # execute and apply settings in ~/.bashrc to enable airstack command
+source ~/.bashrc  # OR ~/.zshrc. applies settings to enable `airstack` command
 ```
 
 ## Docker Images
@@ -50,7 +50,7 @@ docker login airlab-docker.andrew.cmu.edu
 ## <Enter your andrew password>
 
 ## Pull the images in the docker compose file
-docker compose pull
+airstack image-pull
 ```
 
 The images will be pulled from the server automatically. This might take a while since the images are large.
@@ -59,26 +59,19 @@ The images will be pulled from the server automatically. This might take a while
 
 <details><summary>Option 2: Build Docker Images From Scratch</summary>
 
-1.  Download the Ascent Spirit SITL software package by running this script:
+1.  First, gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
 
-    ```
-    cd AirStack/
-    bash simulation/isaac-sim/installation/download_sitl.bash
-    ```
-
-2.  Next, gain access to NVIDIA NGC Containers by following <a href="https://docs.nvidia.com/launchpad/ai/base-command-coe/latest/bc-coe-docker-basics-step-02.html">these instructions</a>.
-
-    Then:
+2. Then:
 
     ```bash
     cd AirStack/
-    docker compose build  # build the images locally
+    airstack image-build
     ```
 
 If you have permission you can push updated images to the docker server.
 
 ```bash
-docker compose push
+airstack image-push
 ```
 
 </details>
@@ -86,7 +79,6 @@ docker compose push
 ## Launch
 
 ```bash
-xhost +     # This is needed every system boot to allow Docker to access the X server
 airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
@@ -94,11 +86,10 @@ This will automatically launch and play the Isaac scene specified under `AirStac
 
 ## Move Robot
 
-Find the RQT GUI window. Hit `Arm and Takeoff`, then hit `Global Plan` in the trajectory window like in this video:
+Find the RViz window, `Takeoff`, then `Navigate` and `Explore` in the trajectory window like in this video:
 
-<iframe src="https://drive.google.com/file/d/1XYgSUTU5tf6e6sOuStYJXIs2SK3XL7g6/preview?usp=sharing&t=0" width="840" height="480" allow="autoplay" allowfullscreen="allowfullscreen"></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/EAKsHzNIU2I?si=zQUFq8fPst2BIIMz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-You can also switch to `Fixed Trajectory` mode and hit `Publish` on the bottom right to fly a predefined trajectory.
 
 ## Shutdown
 

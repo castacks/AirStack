@@ -62,7 +62,6 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME})
 
 
-install(PROGRAMS scripts/fixed_trajectory_generator.py DESTINATION lib/${PROJECT_NAME})
 
 ament_export_include_directories(
   include

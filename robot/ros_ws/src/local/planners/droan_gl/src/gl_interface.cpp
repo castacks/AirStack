@@ -83,12 +83,12 @@ void GLInterface::handle_disparity(const stereo_msgs::msg::DisparityImage::Share
   {
     geometry_msgs::msg::TransformStamped t;
     t = tf_buffer->lookupTransform(target_frame, msg->header.frame_id,
-                                   rclcpp::Time(msg->header.stamp), rclcpp::Duration::from_seconds(0.1));
+                                   tf2::TimePointZero);
     tf2::fromMsg(t, graph_node.tf);
   }
   catch (tf2::TransformException &ex)
   {
-    RCLCPP_ERROR_STREAM(node->get_logger(), "Transform exception in render_spheres: " << ex.what());
+    RCLCPP_ERROR_THROTTLE(node->get_logger(), *(node->get_clock()), 1000, "Transform exception in handle_disparity: %s", ex.what());
     return;
   }
 
@@ -342,12 +342,12 @@ void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry &look
   {
     geometry_msgs::msg::TransformStamped t;
     t = tf_buffer->lookupTransform(target_frame, look_ahead_frame,
-                                   look_ahead_odom.header.stamp, rclcpp::Duration::from_seconds(0.1));
+                                   tf2::TimePointZero);
     tf2::fromMsg(t, look_ahead_tf);
   }
   catch (tf2::TransformException &ex)
   {
-    RCLCPP_ERROR_STREAM(node->get_logger(), "Transform exception in render_spheres: " << ex.what());
+    RCLCPP_ERROR_THROTTLE(node->get_logger(), *(node->get_clock()), 1000, "Transform exception in evaluate_trajectories: %s", ex.what());
     return;
   }
   look_ahead_to_target_tf = look_ahead_tf.inverse();

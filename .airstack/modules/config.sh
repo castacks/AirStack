@@ -60,9 +60,13 @@ function cmd_config_nucleus {
     read -r -p "API Token: " API_TOKEN
     
     if [ ! -z "${API_TOKEN}" ]; then
-        sed "s/PASTE-YOUR-API-TOKEN/$API_TOKEN/g" "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
+        local escaped_api_token="${API_TOKEN//\\/\\\\}"
+        escaped_api_token="${escaped_api_token//&/\\&}"
+        escaped_api_token="${escaped_api_token//\//\\/}"
+        sed "s/PASTE-YOUR-API-TOKEN/$escaped_api_token/g" "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
         log_info "Nucleus login configuration complete"
     else
+        cp "$OMNI_PASS_SOURCE" "$OMNI_PASS_DESTINATION"
         log_info "Skipping Nucleus login configuration"
     fi
 }

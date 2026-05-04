@@ -5,6 +5,16 @@ on:
     branches: [ main, develop ]  # Adjust branches as needed
     paths:
       - '.env'
+  workflow_dispatch:
+    inputs:
+      compose_profiles:
+        description: 'Docker Compose profiles to build (comma-separated)'
+        required: false
+        default: 'desktop,isaac-sim,ms-airsim'
+        type: string
+
+env:
+  DEFAULT_PROFILES: 'desktop,isaac-sim,ms-airsim'
 
 jobs:
   check-docker-tag-change:
@@ -16,44 +26,54 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 2  # Fetch current and previous commit
+          submodules: recursive
 
-      - name: Check if DOCKER_IMAGE_TAG changed
+      - name: Check if VERSION changed
         id: check-changes
         run: |
-          # Get the current DOCKER_IMAGE_TAG value
-          CURRENT_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          # Get the current VERSION value
+          CURRENT_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
           
-          # Get the previous DOCKER_IMAGE_TAG value
+          # Get the previous VERSION value
           git show HEAD~1:.env > .env.prev 2>/dev/null || echo "" > .env.prev
-          PREVIOUS_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env.prev | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
+          PREVIOUS_TAG=$(grep "^VERSION=" .env.prev | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
           
           echo "Current tag: $CURRENT_TAG"
           echo "Previous tag: $PREVIOUS_TAG"
           
           if [ "$CURRENT_TAG" != "$PREVIOUS_TAG" ] && [ -n "$CURRENT_TAG" ]; then
-            echo "DOCKER_IMAGE_TAG has changed from '$PREVIOUS_TAG' to '$CURRENT_TAG'"
+            echo "VERSION has changed from '$PREVIOUS_TAG' to '$CURRENT_TAG'"
             echo "tag-changed=true" >> $GITHUB_OUTPUT
           else
-            echo "DOCKER_IMAGE_TAG has not changed"
+            echo "VERSION has not changed"
             echo "tag-changed=false" >> $GITHUB_OUTPUT
           fi
 
   docker-build:
     needs: check-docker-tag-change
-    if: needs.check-docker-tag-change.outputs.tag-changed == 'true'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    runs-on: [self-hosted, airstack-ephemeral]
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write  # Required for keyless cosign signing via GitHub OIDC
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Log in to Docker Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.DOCKER_REGISTRY_URL }}  # e.g., your-registry.com or leave empty for Docker Hub
-          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          registry: ${{ vars.DOCKER_REGISTRY_URL }}  # e.g., your-registry.com or leave empty for Docker Hub
+          username: ${{ vars.DOCKER_REGISTRY_USERNAME }}
           password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
       - name: Verify .env file and extract tag
@@ -63,13 +83,19 @@ jobs:
             echo "Error: .env file not found"
             exit 1
           fi
+
+      - name: Create dummy omni_pass.env
+        run: |
+          # Some compose files expect this file to exist, even if it is empty.
+          mkdir -p simulation/isaac-sim/docker
+          : > simulation/isaac-sim/docker/omni_pass.env
           
-          # Display the current DOCKER_IMAGE_TAG for debugging
-          DOCKER_TAG=$(grep "^DOCKER_IMAGE_TAG=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
-          echo "Building with DOCKER_IMAGE_TAG: $DOCKER_TAG"
+          # Display the current VERSION for debugging
+          DOCKER_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          echo "Building with VERSION: $DOCKER_TAG"
           
           if [ -z "$DOCKER_TAG" ]; then
-            echo "Error: DOCKER_IMAGE_TAG is empty"
+            echo "Error: VERSION is empty"
             exit 1
           fi
 
@@ -80,6 +106,13 @@ jobs:
           source .env
           set +a  # Stop exporting
           
+          # Always override COMPOSE_PROFILES for all trigger types
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+          
           docker compose build
 
       - name: Run Docker Compose Push
@@ -89,7 +122,70 @@ jobs:
           source .env
           set +a  # Stop exporting
           
+          # Always override COMPOSE_PROFILES for all trigger types
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+          
           docker compose push
+
+      - name: Sign pushed images with Cosign (keyless)
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -a
+          source .env
+          set +a
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+
+          IMAGES=$(docker compose config --images | sort -u)
+          if [ -z "$IMAGES" ]; then
+            echo "No images resolved from compose config; nothing to sign."
+            exit 1
+          fi
+
+          for IMG in $IMAGES; do
+            DIGEST=$(docker buildx imagetools inspect "$IMG" --format '{{.Manifest.Digest}}')
+            if [ -z "$DIGEST" ]; then
+              echo "Error: could not resolve digest for $IMG"
+              exit 1
+            fi
+            REPO="${IMG%:*}"
+            REF="${REPO}@${DIGEST}"
+            echo "Signing $REF"
+            cosign sign "$REF"
+          done
+
+      - name: Verify Cosign signatures
+        run: |
+          set -a
+          source .env
+          set +a
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+
+          IMAGES=$(docker compose config --images | sort -u)
+          for IMG in $IMAGES; do
+            DIGEST=$(docker buildx imagetools inspect "$IMG" --format '{{.Manifest.Digest}}')
+            REPO="${IMG%:*}"
+            REF="${REPO}@${DIGEST}"
+            echo "Verifying $REF"
+            cosign verify "$REF" \
+              --certificate-identity-regexp "^https://github\\.com/${{ github.repository }}/\\.github/workflows/docker-build\\.yml@" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              > /dev/null
+          done
 
       - name: Optional - Run Docker Compose Up (uncomment if needed)
         run: |
@@ -101,7 +197,7 @@ jobs:
 
   notify:
     needs: [check-docker-tag-change, docker-build]
-    if: always() && needs.check-docker-tag-change.outputs.tag-changed == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.check-docker-tag-change.outputs.tag-changed == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Notify build and push result

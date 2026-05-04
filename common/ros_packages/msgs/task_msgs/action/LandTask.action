@@ -1,0 +1,12 @@
+# Land the robot.
+
+# Goal
+float32 velocity_m_s      # 0.0 = use default from config
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string status
+float32 current_altitude_m

@@ -1,0 +1,22 @@
+# Perform a systematic coverage survey of a polygonal area.
+# heading_deg: direction of coverage passes (degrees, 0 = north)
+
+# Goal
+geometry_msgs/Polygon coverage_area
+float32 min_altitude_agl
+float32 max_altitude_agl
+float32 min_flight_speed
+float32 max_flight_speed
+float32 line_spacing_m
+float32 heading_deg
+---
+# Result
+bool success
+string message
+float32 coverage_percentage
+---
+# Feedback
+string status
+float32 progress
+float32 coverage_percentage
+geometry_msgs/Point current_position

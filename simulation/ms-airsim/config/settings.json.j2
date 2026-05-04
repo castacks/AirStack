@@ -1,0 +1,89 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ClockType": "SteppableClock",
+  "Vehicles": {
+    {% for i in range(1, num_robots + 1) %}
+    "robot_{{ i }}": {
+      "VehicleType": "PX4Multirotor",
+      "UseSerial": false,
+      "LockStep": true,
+      "UseTcp": true,
+      "TcpPort": {{ 4560 + i }},
+      "ControlPortLocal": {{ 24540 + i }},
+      "ControlPortRemote": {{ 24580 + i }},
+      "Parameters": {
+        "NAV_RCL_ACT": 0,
+        "NAV_DLL_ACT": 0,
+        "COM_OBL_RC_ACT": 5,
+        "MAV_1_BROADCAST": 1
+      },
+      "Cameras": {
+        "front_left": {
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }}
+            },
+            {
+              "ImageType": 2,
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }},
+              "PixelsAsFloat": true
+            }
+          ],
+          "X": {{ cam_x }},
+          "Y": {{ -cam_y }},
+          "Z": {{ cam_z }},
+          "Pitch": {{ cam_pitch }},
+          "Roll": 0,
+          "Yaw": 0
+        },
+        "front_right": {
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }}
+            },
+            {
+              "ImageType": 2,
+              "Width": {{ width }},
+              "Height": {{ height }},
+              "FOV_Degrees": {{ fov }},
+              "PixelsAsFloat": true
+            }
+          ],
+          "X": {{ cam_x }},
+          "Y": {{ cam_y }},
+          "Z": {{ cam_z }},
+          "Pitch": {{ cam_pitch }},
+          "Roll": 0,
+          "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "imu": {
+          "SensorType": 2,
+          "Enabled": true
+        },
+        "gps": {
+          "SensorType": 3,
+          "Enabled": true
+        },
+        "barometer": {
+          "SensorType": 1,
+          "Enabled": true
+        }
+      },
+      "X": 0,
+      "Y": {{ (i - 1) * spawn_spacing }},
+      "Z": 0
+    }{{ "," if not loop.last }}
+    {% endfor %}
+  }
+}

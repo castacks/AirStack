@@ -4,7 +4,7 @@
 Dynamically computes FCU URL and TGT_SYSTEM from environment variables:
     OFFBOARD_PORT = OFFBOARD_BASE_PORT + ROS_DOMAIN_ID
     ONBOARD_PORT  = ONBOARD_BASE_PORT  + ROS_DOMAIN_ID
-    FCU_URL       = udp://:<OFFBOARD_PORT>@172.31.0.200:<ONBOARD_PORT>
+    FCU_URL       = udp://:<OFFBOARD_PORT>@<SIM_IP>:<ONBOARD_PORT>
     TGT_SYSTEM    = 1 + ROS_DOMAIN_ID
 """
 
@@ -31,7 +31,8 @@ def launch_setup(context, *args, **kwargs):
         onboard_base_port = int(os.environ.get('ONBOARD_BASE_PORT', '14580'))
         offboard_port = offboard_base_port + ros_domain_id
         onboard_port = onboard_base_port + ros_domain_id
-        fcu_url = f'udp://:{offboard_port}@172.31.0.200:{onboard_port}'
+        sim_ip = os.environ.get('SIM_IP', '172.31.0.200')
+        fcu_url = f'udp://:{offboard_port}@{sim_ip}:{onboard_port}'
 
     tgt_system = os.environ.get('TGT_SYSTEM') or str(1 + ros_domain_id)
 
@@ -121,21 +122,7 @@ def launch_setup(context, *args, **kwargs):
     )
     actions.append(odometry_conversion_node)
 
-    # --- Drone safety monitor -----------------------------------------------
-    drone_safety_monitor_node = Node(
-        package='drone_safety_monitor',
-        executable='drone_safety_monitor',
-        namespace='drone_safety_monitor',
-        output='screen',
-        parameters=[{
-            'state_estimate_timeout': 1.0,
-        }],
-        remappings=[
-            ('state_estimate',
-             f'/{robot_name}/odometry_conversion/odometry'),
-        ],
-    )
-    actions.append(drone_safety_monitor_node)
+    # NOTE: drone_safety_monitor is now launched from behavior_bringup
 
     return actions
 

@@ -1,0 +1,10 @@
+<library path="waypoint_rviz2_plugin">
+  <class name="waypoint_rviz2_plugin/WaypointTool"
+         type="waypoint_rviz2_plugin::WaypointTool"
+         base_class_type="rviz_common::Tool">
+    <description>
+      Interactive waypoint creation and manipulation tool for RViz2.
+      Click to add waypoints, drag to move them, right-click to delete.
+    </description>
+  </class>
+</library>

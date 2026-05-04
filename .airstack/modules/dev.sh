@@ -3,33 +3,17 @@
 # dev.sh - Development-related commands for AirStack
 # This module provides commands for development tasks
 
-# Function to run tests
+# Run tests via the dockerized pytest runner. All args forward to pytest.
 function cmd_dev_test {
-    log_info "Running tests..."
-    
-    local test_path="$PROJECT_ROOT/tests"
-    local test_filter=""
-    
-    # Parse arguments
-    for arg in "$@"; do
-        if [[ "$arg" == --path=* ]]; then
-            test_path="${arg#--path=}"
-        elif [[ "$arg" == --filter=* ]]; then
-            test_filter="${arg#--filter=}"
-        fi
-    done
-    
-    if [ -n "$test_filter" ]; then
-        log_info "Running tests matching '$test_filter' in $test_path"
-        # Add your test command here, e.g.:
-        # pytest "$test_path" -k "$test_filter"
-        echo "Test command would run here with filter: $test_filter"
-    else
-        log_info "Running all tests in $test_path"
-        # Add your test command here, e.g.:
-        # pytest "$test_path"
-        echo "Test command would run here"
-    fi
+    check_docker
+    local compose_file="$PROJECT_ROOT/tests/docker/docker-compose.yaml"
+    local env_file="$PROJECT_ROOT/.env"
+    export AIRSTACK_PATH="$PROJECT_ROOT"
+    # Grant X access so sim containers spawned by tests in GUI mode
+    # (`pytest --gui`) can reach the host's X server. No-op otherwise.
+    xhost + || log_warn "xhost failed (is DISPLAY set? xhost installed?)"
+    docker compose --env-file "$env_file" -f "$compose_file" build --quiet
+    docker compose --env-file "$env_file" -f "$compose_file" run --rm test pytest "$@"
 }
 
 # Function to build documentation
