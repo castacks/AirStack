@@ -146,7 +146,7 @@ class GossipNode(Node):
             self.get_logger().warn(f"Could not load payload config '{config_path}': {e}")
             return
 
-        for entry in cfg.get("payload_topics", []):
+        for entry in (cfg.get("payload_topics") or []):
             topic_template = entry.get("topic", "")
             type_str = entry.get("type", "")
             if not topic_template or not type_str:
