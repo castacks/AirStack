@@ -12,12 +12,12 @@ class VoxelBehavior:
     def __init__(self, get_clock):
         self.get_clock = get_clock
         self.name = 'Voxel-based'
-        # {cluster_id: [cx, cy, cz, sx, sy, sz]}
+        # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
-        # {cluster_id: query_label} — which query each cluster belongs to
+        # {cluster_id: query_label}
         self.cluster_query_map = {}
-        self.visited_clusters = []    # list of [cx,cy,cz,sx,sy,sz]
-        self.unvisited_clusters = []  # list of (cluster_id, [cx,cy,cz,sx,sy,sz])
+        self.visited_clusters = []
+        self.unvisited_clusters = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
 
@@ -30,12 +30,9 @@ class VoxelBehavior:
         self.prev_voxel_cluster_ids = 0
 
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects):
-        """
-        vox_xyz:      np.ndarray (N, 3) — voxel world positions
-        vox_scores:   np.ndarray (N, Q) — softmax similarity per query
-        query_labels: list[str]         — ordered label for each sim column
-        target_objects: list[str]       — which labels we're searching for
-        """
+        """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols."""
+        # TODO(re-enable): soft-disabled while validating frontier-only multi-robot.
+        return False
         if vox_xyz is None or vox_scores is None or not target_objects:
             return False
         if len(vox_xyz) == 0:
@@ -56,7 +53,7 @@ class VoxelBehavior:
         if len(indices) == 0:
             return False
 
-        # Cluster the high-confidence voxels with connected-component labeling
+        # 3D connected-component labeling on high-confidence voxels.
         filtered_vox = np.round(vox_xyz[indices], 3)
         vox_size = 0.5
 
@@ -89,12 +86,10 @@ class VoxelBehavior:
             center = (min_world + max_world) / 2
             size = max_world - min_world
 
-            # Data is already in FLU (raven_nav converts before passing)
             cx, cy, cz = center[0], center[1], center[2]
             sx, sy, sz = size[0], size[1], size[2]
 
-            # Tag cluster with best-scoring query label for this cluster
-            cluster_scores = relevant_scores[idx]  # (cluster_size, len(label_indices))
+            cluster_scores = relevant_scores[idx]
             best_local = int(cluster_scores.mean(axis=0).argmax())
             best_label = target_objects[best_local] if best_local < len(target_objects) else target_objects[0]
 
@@ -132,8 +127,7 @@ class VoxelBehavior:
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = 'map'
 
-        # Track whether the waypoint was already locked before this tick.
-        # Arrival detection must NOT fire in the same tick the waypoint is first set.
+        # Don't fire arrival detection on the tick the waypoint was first set.
         waypoint_was_locked = waypoint_locked
 
         for i, (idx, cluster) in enumerate(sorted_clusters):
@@ -146,7 +140,7 @@ class VoxelBehavior:
                 continue
             dir_norm = direction / dist
 
-            # Find surface point facing the drone
+            # Surface point facing the drone (slab-based AABB intersect).
             ray_origin_local = cur_pose_np - center
             tmin, tmax = -np.inf, np.inf
             for axis in range(3):
@@ -159,7 +153,7 @@ class VoxelBehavior:
                 continue
             t_hit = tmin if tmin > 0 else tmax
             surface_point = cur_pose_np + dir_norm * t_hit
-            adjacent = surface_point - dir_norm * 1.0   # 1m in front of surface
+            adjacent = surface_point - dir_norm * 1.0  # 1m in front
 
             if i == 0:
                 if not waypoint_locked:
@@ -182,10 +176,7 @@ class VoxelBehavior:
 
         path_pub.publish(path)
 
-        # Mark cluster as visited only when the drone has been navigating toward a
-        # previously-locked waypoint (waypoint_was_locked) AND arrives within 3m.
-        # Skipping the check on the tick the waypoint was first set prevents
-        # immediate false-positive "arrived" detections.
+        # Mark cluster visited only on a previously-locked waypoint within 3m.
         if waypoint_was_locked and target_waypoint2 is not None and \
                 np.linalg.norm(cur_pose_np - target_waypoint2) < 3.0:
             if sorted_clusters:
@@ -197,8 +188,6 @@ class VoxelBehavior:
             waypoint_locked = False
 
         return waypoint_locked, target_waypoint, target_waypoint2
-
-    # ── helpers ──────────────────────────────────────────────────────────────
 
     def _is_near_visited(self, center, size, visited_clusters, threshold=10.0):
         return any(
@@ -216,7 +205,6 @@ class VoxelBehavior:
     def _visualize_clusters(self, pub):
         markers = MarkerArray()
         now = self.get_clock().now().to_msg()
-        # Delete old markers
         for i in range(self.prev_voxel_cluster_ids):
             m = Marker()
             m.header.frame_id = 'map'
@@ -225,7 +213,6 @@ class VoxelBehavior:
             m.id = i
             m.action = Marker.DELETE
             markers.markers.append(m)
-        # Add new markers
         for j, (_, cluster) in enumerate(self.unvisited_clusters):
             m = Marker()
             m.header.frame_id = 'map'

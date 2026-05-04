@@ -92,8 +92,18 @@ function getPerTab(robot, tabId) {
       statusCode: 0,  // GOAL_STATUS.UNKNOWN
       active: false,
     };
+    rememberRobot(robot);
   }
   return perTabRuntime[key];
+}
+
+// Set of every robot name we've ever interacted with (current panel's robot,
+// any robot whose perTab entry was created, any robot seen in a relay_result /
+// relay_status / relay_feedback message). Used by rebuildSubscriptions so we
+// keep listening to every robot's terminal state, not just the visible one.
+const knownRobots = new Set();
+function rememberRobot(robot) {
+  if (robot && typeof robot === "string") knownRobots.add(robot);
 }
 
 // JSON-encode the cached editor list as `[[x,y,z], ...]` for the textbox.
@@ -655,21 +665,36 @@ function activate(extensionContext) {
       }
 
       // ── subscriptions (relay uses plain std_msgs/String topics) ────────
-      // Subscribe to ALL relay topics for all tabs so we catch results
-      // even when the user switches tabs during execution.
+      // We subscribe to relay_status (latched, canonical state) and
+      // relay_result (latched, terminal result) for EVERY robot we know about —
+      // not just the currently-visible one — so that switching robot tabs (or
+      // backgrounding the browser tab) never loses a terminal state event. Both
+      // topics are TRANSIENT_LOCAL on the relay side, so a re-subscribe on
+      // visibility change immediately replays the most recent value.
+      // relay_feedback stays subscribed only for robots with active goals to
+      // avoid noise from stale subscriptions.
+      rememberRobot(state.robot);
       function rebuildSubscriptions() {
-        const topics = [
+        rememberRobot(state.robot);
+        const topics = new Set([
           EDITOR_LIST_TOPIC, EDITOR_SAVES_TOPIC,
           POLYGON_LIST_TOPIC, POLYGON_SAVES_TOPIC,
-        ];
-        for (const tab of TASK_TABS) {
-          if (perTab[tab.id].active) {
-            topics.push(`/${state.robot}/${tab.actionSuffix}/relay_feedback`);
-            topics.push(`/${state.robot}/${tab.actionSuffix}/relay_result`);
+        ]);
+        for (const robot of knownRobots) {
+          for (const tab of TASK_TABS) {
+            // Always subscribed (latched) — canonical state machine.
+            topics.add(`/${robot}/${tab.actionSuffix}/relay_status`);
+            // Always subscribed (latched) — terminal result for this goal.
+            topics.add(`/${robot}/${tab.actionSuffix}/relay_result`);
+            // Only while a goal is active for THIS robot+tab — avoids
+            // streaming idle feedback noise across robots.
+            if (getPerTab(robot, tab.id).active) {
+              topics.add(`/${robot}/${tab.actionSuffix}/relay_feedback`);
+            }
           }
         }
-        runtime.subscribedTopics = topics;
-        panelContext.subscribe(topics.map((topic) => ({ topic })));
+        runtime.subscribedTopics = Array.from(topics);
+        panelContext.subscribe(runtime.subscribedTopics.map((topic) => ({ topic })));
       }
       // Subscribe to the editor topic immediately so the cache is warm before
       // the user clicks Execute on Navigate.
@@ -751,12 +776,16 @@ function activate(extensionContext) {
         const tab = tabForTopic(topic);
         if (!tab) return;
         const robot = robotForTopic(topic);
+        rememberRobot(robot);
         // Look up the perTab entry by the *message's* robot, not by
         // state.robot. With multiple panels open (or any race where state.robot
         // doesn't match the topic), going through the proxy would route to
         // the wrong robot's state and silently drop the message.
         const t = getPerTab(robot, tab.id);
-        if (!t.active) return;
+        // Don't gate on t.active: feedback can arrive for a goal we missed
+        // the start of (e.g. task started from the CLI, or relay_status
+        // already flipped us back to idle). Rendering the line is harmless and
+        // the running indicator is driven by relay_status anyway.
         const data = msg?.data;
         if (!data) return;
         const line = (() => {
@@ -776,8 +805,13 @@ function activate(extensionContext) {
         const tab = tabForTopic(topic);
         if (!tab) return;
         const robot = robotForTopic(topic);
+        rememberRobot(robot);
         const t = getPerTab(robot, tab.id);
-        if (!t.active) return;
+        // Don't gate on t.active. The relay's relay_result is latched, so the
+        // most recent result is replayed on every (re)subscribe — including
+        // when we wake from a tab-visibility throttle. Applying it
+        // unconditionally is what makes the panel's displayed state recover
+        // even if the original "live" result was missed.
         const data = msg?.data;
         if (!data) return;
         try {
@@ -798,6 +832,64 @@ function activate(extensionContext) {
           rebuildSubscriptions();
           renderTabs();
         }
+      }
+
+      // Canonical state machine from the relay (latched topic). State is one of
+      // 'idle' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'unavailable'.
+      // Used so the panel never gets stuck thinking a goal is still running just
+      // because it missed the live result event.
+      function handleRelayStatus(topic, msg) {
+        const tab = tabForTopic(topic);
+        if (!tab) return;
+        const robot = robotForTopic(topic);
+        rememberRobot(robot);
+        const t = getPerTab(robot, tab.id);
+        const data = msg?.data;
+        if (!data) return;
+        let parsed;
+        try { parsed = JSON.parse(data); }
+        catch { return; }
+        const state_ = String(parsed.state || "").toLowerCase();
+        const message = parsed.message || "";
+        const wasActive = t.active;
+        switch (state_) {
+          case "running":
+            t.active = true;
+            t.statusText = message || "Running";
+            t.statusCode = GOAL_STATUS.EXECUTING;
+            break;
+          case "succeeded":
+            t.active = false;
+            t.statusText = "Succeeded";
+            t.statusCode = GOAL_STATUS.SUCCEEDED;
+            if (message) t.resultText = `success: true\nmessage: ${message}`;
+            break;
+          case "failed":
+            t.active = false;
+            t.statusText = "Failed";
+            t.statusCode = GOAL_STATUS.ABORTED;
+            if (message) t.resultText = `success: false\nmessage: ${message}`;
+            break;
+          case "canceled":
+            t.active = false;
+            t.statusText = "Canceled";
+            t.statusCode = GOAL_STATUS.CANCELED;
+            if (message) t.resultText = `success: false\nmessage: ${message}`;
+            break;
+          case "idle":
+          case "unavailable":
+            t.active = false;
+            if (!t.statusText || t.statusText === "Running" || t.statusText === "Sending...") {
+              t.statusText = state_ === "idle" ? "Idle" : "Unavailable";
+              t.statusCode = GOAL_STATUS.UNKNOWN;
+            }
+            break;
+        }
+        if (robot === state.robot && (wasActive !== t.active)) {
+          rebuildSubscriptions();
+          renderTabs();
+        }
+        if (robot === state.robot) renderStatus();
       }
 
       // ── render loop ──────────────────────────────────────────────────────
@@ -846,6 +938,8 @@ function activate(extensionContext) {
               handleRelayFeedback(evt.topic, evt.message);
             } else if (evt.topic.endsWith("/relay_result")) {
               handleRelayResult(evt.topic, evt.message);
+            } else if (evt.topic.endsWith("/relay_status")) {
+              handleRelayStatus(evt.topic, evt.message);
             }
           }
         }
@@ -862,6 +956,12 @@ function activate(extensionContext) {
             state.robot = String(action.payload.value || "robot_1");
             robotInput.value = state.robot;
             persist();
+            // Mirror the textbox path: pre-create perTab entries (which adds
+            // this robot to knownRobots) and re-subscribe so the new robot's
+            // latched relay_status / relay_result topics replay immediately.
+            for (const tab of TASK_TABS) getPerTab(state.robot, tab.id);
+            rebuildSubscriptions();
+            renderTabs();
           }
         },
         nodes: {
@@ -879,7 +979,27 @@ function activate(extensionContext) {
       renderStatus();
       renderFeedback();
 
+      // Re-subscribe whenever the browser tab becomes visible again. Foxglove
+      // throttles JS execution while the tab is hidden, so a TRANSIENT_LOCAL
+      // message that arrived during the gap may have been dropped from its
+      // queue. Re-subscribing forces the relay's latched relay_status /
+      // relay_result to replay, recovering canonical state on resume.
+      const onVisibilityChange = () => {
+        if (typeof document !== "undefined" && !document.hidden) {
+          rebuildSubscriptions();
+          renderTabs();
+          renderStatus();
+          renderFeedback();
+        }
+      };
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", onVisibilityChange);
+      }
+
       return () => {
+        if (typeof document !== "undefined") {
+          document.removeEventListener("visibilitychange", onVisibilityChange);
+        }
         runtime.subscribedTopics = [];
         panelContext.subscribe([]);
       };

@@ -21,19 +21,20 @@ class RayBehavior:
         self.current_target = None
         self.current_target_pub = current_target_publisher
 
-        # Set by condition_check, consumed by execute
-        self._filtered_indices = None   # indices into ray arrays that pass threshold
-        self._ray_origins = None        # (N, 3) FLU — full ray set
-        self._ray_dirs = None           # (N, 3) FLU
-        self._per_ray_label = None      # list[str] — best label per filtered ray
+        # Set by condition_check, consumed by execute.
+        self._filtered_indices = None
+        self._ray_origins = None
+        self._ray_dirs = None
+        self._per_ray_label = None
 
-        # Active target: the target the drone is committed to pursuing.
-        # Set on first acquisition; stays fixed until explicitly reset.
+        # Sticky once acquired; reset() clears it.
         self._active_target = None
 
     def condition_check(self, ray_origins, ray_dirs, ray_scores,
                         query_labels, target_objects):
-        """Returns True if any ray scores above threshold for a target object."""
+        """True if any ray scores above threshold for a target object."""
+        # TODO(re-enable): soft-disabled while validating frontier-only multi-robot.
+        return False
         self.current_target = None
         self._filtered_indices = None
 
@@ -41,21 +42,18 @@ class RayBehavior:
                 len(ray_origins) == 0 or len(target_objects) == 0):
             return False
 
-        # Find column indices in ray_scores for each target object
         label_indices = [query_labels.index(t) for t in target_objects
                          if t in query_labels]
         if not label_indices:
             return False
 
-        relevant_scores = ray_scores[:, label_indices]          # (N, num_targets)
-
+        relevant_scores = ray_scores[:, label_indices]
         mask = (relevant_scores > self.score_threshold).any(axis=1)
         indices = np.where(mask)[0]
 
         if indices.size == 0:
             return False
 
-        # Assign each passing ray its best-scoring target label
         per_ray_label = []
         targets_found = []
         for idx in indices:
@@ -80,11 +78,10 @@ class RayBehavior:
                 target_waypoint2, publisher_dict):
         path_publisher = publisher_dict['path']
 
-        origins = self._ray_origins[self._filtered_indices]   # (K, 3) FLU
-        dirs = self._ray_dirs[self._filtered_indices]          # (K, 3) FLU
+        origins = self._ray_origins[self._filtered_indices]
+        dirs = self._ray_dirs[self._filtered_indices]
         labels = self._per_ray_label
 
-        # Filter rays outside altitude range (z is altitude in FLU)
         alt_mask = (origins[:, 2] >= self.min_altitude) & (origins[:, 2] <= self.max_altitude)
         origins = origins[alt_mask]
         dirs = dirs[alt_mask]
@@ -97,8 +94,7 @@ class RayBehavior:
         norms = np.linalg.norm(xy_dirs, axis=1, keepdims=True)
         xy_dirs_normed = xy_dirs / (norms + 1e-6)
 
-        # Filter rays pointing behind the robot in XY.
-        # Apply valid mask to all arrays so indices stay consistent (krrish-develop).
+        # Drop rays pointing behind the robot in XY.
         orig_xy = origins[:, :2]
         ray_target_xy = orig_xy + xy_dirs_normed
         to_ray_target = ray_target_xy - cur_pose_np[:2]
@@ -113,7 +109,7 @@ class RayBehavior:
         if len(origins) == 0:
             return waypoint_locked, target_waypoint1, target_waypoint2
 
-        # Greedy spatial clustering per label (45 deg XY threshold)
+        # Greedy per-label clustering with a 45deg XY threshold.
         angle_cos_thresh = np.cos(np.deg2rad(45))
         groups = []
         for i in range(len(origins)):
@@ -144,7 +140,7 @@ class RayBehavior:
         if not groups:
             return waypoint_locked, target_waypoint1, target_waypoint2
 
-        # Score groups: lower is better (dist - 5 * density)
+        # Score = distance - 5 * density. Lower wins.
         k = 5.0
         group_avgs = []
         for group in groups:

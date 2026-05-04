@@ -6,6 +6,8 @@ pose_topic. The airstack pipeline publishes Odometry, so we run this bridge
 alongside rayfronts to expose a PoseStamped view of the same pose.
 """
 
+import os
+
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
@@ -15,10 +17,14 @@ from geometry_msgs.msg import PoseStamped
 class OdomToPoseStamped(Node):
     def __init__(self):
         super().__init__('odom_to_pose_stamped')
+        # Default to robot_$ROS_DOMAIN_ID so standalone `ros2 run` still does
+        # the right thing per container; rayfronts.launch.xml overrides these
+        # explicitly via <param> tags.
+        domain = os.getenv('ROS_DOMAIN_ID', '1')
         self.declare_parameter('input_topic',
-                               '/robot_1/odometry_conversion/odometry')
+                               f'/robot_{domain}/odometry_conversion/odometry')
         self.declare_parameter('output_topic',
-                               '/robot_1/odometry_conversion/pose_stamped')
+                               f'/robot_{domain}/odometry_conversion/pose_stamped')
         in_topic = self.get_parameter('input_topic').value
         out_topic = self.get_parameter('output_topic').value
         self._pub = self.create_publisher(PoseStamped, out_topic, 10)

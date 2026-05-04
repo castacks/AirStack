@@ -78,6 +78,16 @@ _RELIABLE_QOS = QoSProfile(
     durability=DurabilityPolicy.VOLATILE,
 )
 
+# Latched: most recent message is delivered to any new / late subscriber
+# (including a Foxglove panel whose JS thread was throttled while the browser
+# tab was inactive). Used for relay_result and relay_status so the panel can
+# always recover the canonical task state on resume.
+_LATCHED_QOS = QoSProfile(
+    depth=1,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+)
+
 
 # ── Goal builders ────────────────────────────────────────────────────────────
 # Each converts a JSON dict into a typed Goal message.
@@ -224,7 +234,28 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
     cbg = ReentrantCallbackGroup()
 
     feedback_pub = node0.create_publisher(String, f'{topic}/relay_feedback', _RELIABLE_QOS)
-    result_pub = node0.create_publisher(String, f'{topic}/relay_result', _RELIABLE_QOS)
+    # Latched so a panel that resumes after a browser-tab throttle still gets
+    # the most recent result on (re)subscribe.
+    result_pub = node0.create_publisher(String, f'{topic}/relay_result', _LATCHED_QOS)
+    # Canonical state machine, also latched. The panel uses this as the source
+    # of truth for "is there an active goal?" — independent of feedback events.
+    status_pub = node0.create_publisher(String, f'{topic}/relay_status', _LATCHED_QOS)
+
+    def _publish_status(state, message=''):
+        """Publish a structured state-machine snapshot.
+
+        state: 'idle' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'unavailable'
+        Latched: any new subscriber immediately receives this most-recent snapshot.
+        """
+        status_pub.publish(String(data=json.dumps({
+            'state': state,
+            'message': message,
+            'topic': topic,
+        })))
+
+    # Seed the latched topic so a panel that opens BEFORE any task has run
+    # still sees a coherent 'idle' state instead of an empty subscription.
+    _publish_status('idle', 'Ready')
 
     goal_builder = _GOAL_BUILDERS[suffix]
     active_goal = {'handle': None}
@@ -295,6 +326,7 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
         cancel_event.clear()
         node0.get_logger().info(f'[relay] {topic}: goal accepted')
         feedback_pub.publish(String(data='Goal accepted by robot'))
+        _publish_status('running', 'Goal accepted by robot')
 
         # Drive the result loop. We always end this block by publishing a
         # relay_result so the panel can move on, even if the robot's executor
@@ -381,6 +413,15 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
     def _publish_result(success, message):
         result_pub.publish(String(
             data=json.dumps({'success': success, 'message': message})))
+        # Mirror into the latched state-machine topic. 'canceled' isn't a separate
+        # success path here — the relay surfaces cancel as success=False — so we
+        # infer it from the message text.
+        if success:
+            _publish_status('succeeded', message)
+        elif 'cancel' in (message or '').lower():
+            _publish_status('canceled', message)
+        else:
+            _publish_status('failed', message)
 
     node0.create_subscription(
         String, f'{topic}/goal', on_goal_str, _RELIABLE_QOS,
@@ -393,7 +434,7 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
 
     if not hasattr(node0, '_relays'):
         node0._relays = []
-    node0._relays.append((client, feedback_pub, result_pub))
+    node0._relays.append((client, feedback_pub, result_pub, status_pub))
 
     node0.get_logger().info(
         f'[relay] {topic}/goal -> client(domain {robot_domain})')

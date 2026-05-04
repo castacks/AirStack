@@ -44,6 +44,55 @@ def rotate_vector(v, q):
     )
 
 
+def global_enu_to_local(point_xyz, boot_enu_xyz,
+                        local_alt_ground=None,
+                        gossip_origin_alt=DEFAULT_ORIGIN_ALT):
+    """Inverse of gossip_node._publish_own translation.
+
+    Converts a point in the gossip frame (global ENU, alt datum=DEFAULT_ORIGIN_ALT)
+    into this robot's local 'map' frame (ENU relative to this robot's boot GPS,
+    z=0 at this robot's ground).
+
+    point_xyz:        (x, y, z) in gossip frame.
+    boot_enu_xyz:     this robot's boot ENU position (gps_to_enu of first fix).
+    local_alt_ground: this robot's first-fix MSL altitude. If None, only
+                      subtracts boot z (only correct when both robots booted at
+                      exactly the same altitude).
+    """
+    import numpy as np
+    bx, by, bz = boot_enu_xyz
+    px, py, pz = point_xyz
+    lx = px - bx
+    ly = py - by
+    if local_alt_ground is None:
+        lz = pz - bz
+    else:
+        # gossip used: gossip_z = msl_alt - DEFAULT_ORIGIN_ALT
+        # so absolute MSL = gossip_z + DEFAULT_ORIGIN_ALT
+        # local AGL = absolute MSL - local ground
+        lz = pz + gossip_origin_alt - local_alt_ground
+    return np.array([lx, ly, lz], dtype=np.float64)
+
+
+def global_enu_to_local_batch(points_Nx3, boot_enu_xyz,
+                              local_alt_ground=None,
+                              gossip_origin_alt=DEFAULT_ORIGIN_ALT):
+    """Vectorized global_enu_to_local. Accepts (N,3) ndarray, returns (N,3)."""
+    import numpy as np
+    pts = np.asarray(points_Nx3, dtype=np.float64)
+    if pts.ndim != 2 or pts.shape[1] != 3:
+        raise ValueError(f"points_Nx3 must be (N,3), got {pts.shape}")
+    bx, by, bz = boot_enu_xyz
+    out = np.empty_like(pts)
+    out[:, 0] = pts[:, 0] - bx
+    out[:, 1] = pts[:, 1] - by
+    if local_alt_ground is None:
+        out[:, 2] = pts[:, 2] - bz
+    else:
+        out[:, 2] = pts[:, 2] + gossip_origin_alt - local_alt_ground
+    return out
+
+
 def transform_marker_array(marker_array, bx, by, bz, q=(0.0, 0.0, 0.0, 1.0)):
     """Deep-copy a MarkerArray and transform all points[]: p_map = R(q)*p + (bx,by,bz).
 

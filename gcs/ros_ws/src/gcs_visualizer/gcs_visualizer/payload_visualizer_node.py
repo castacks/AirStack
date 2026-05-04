@@ -23,12 +23,15 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
 from sensor_msgs.msg import PointCloud2
+from std_msgs.msg import Float64, String
 from visualization_msgs.msg import MarkerArray
 from builtin_interfaces.msg import Duration
 
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_bringup.peer_profile import PeerProfile
-from gcs_visualizer.gcs_utils import transform_marker_array, transform_point_cloud2, point_cloud2_to_cube_marker
+from gcs_visualizer.gcs_utils import (
+    transform_marker_array, transform_point_cloud2, point_cloud2_to_cube_marker,
+)
 
 # Must match frame_utils.DEFAULT_ORIGIN_ALT — used to compute the z-offset between
 # gossip_node's fixed ENU origin and the GCS display datum (first GPS altitude seen).
@@ -41,6 +44,16 @@ GOSSIP_QOS = QoSProfile(
     durability=DurabilityPolicy.VOLATILE,
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
+)
+
+# Match the publisher in foxglove_visualizer_node._ground_msl_pub. Latched
+# delivery: a late-joining subscriber receives the most recent value on
+# subscribe, so startup order between the two visualizer nodes doesn't matter.
+GROUND_MSL_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
 )
 
 class PayloadVisualizerNode(Node):
@@ -58,7 +71,22 @@ class PayloadVisualizerNode(Node):
             PeerProfileMsg, '/gossip/peers',
             self._on_peer_profile, GOSSIP_QOS)
 
+        # Source of truth for the ground reference altitude. Computed by
+        # foxglove_visualizer_node from msl - odom_z so it isn't biased by a
+        # robot that's already in the air at GCS startup.
+        self.create_subscription(
+            Float64, '/gcs/map_origin/ground_msl',
+            self._on_ground_msl, GROUND_MSL_QOS)
+
         self.get_logger().info('PayloadVisualizerNode started')
+
+    def _on_ground_msl(self, msg: Float64) -> None:
+        new_val = float(msg.data)
+        if self._alt_ground != new_val:
+            self.get_logger().info(
+                f'ground_msl received: {new_val:.2f} m '
+                f'(display z-offset = {_GOSSIP_ORIGIN_ALT - new_val:.2f} m)')
+        self._alt_ground = new_val
 
     def _pub_for(self, topic, msg_type):
         if topic not in self._pubs:
@@ -66,10 +94,10 @@ class PayloadVisualizerNode(Node):
         return self._pubs[topic]
 
     def _update_boot(self, robot_name: str, gps_fix) -> None:
+        # Per-robot first-seen flag — independent of the ground reference,
+        # which now comes from the latched /gcs/map_origin/ground_msl topic.
         if gps_fix.status.status < 0:
             return
-        if self._alt_ground is None:
-            self._alt_ground = gps_fix.altitude
         if robot_name not in self._gps_boot:
             self._gps_boot[robot_name] = True
 
@@ -129,29 +157,43 @@ class PayloadVisualizerNode(Node):
             m.lifetime = Duration(sec=2, nanosec=0)
         self._pub_for(f'/gcs/payload/{robot_name}/filtered_rays', MarkerArray).publish(out_ma)
 
-    def _handle_frontier_viewpoints(self, robot_name, msg, i, now):
+    def _handle_raw_frontiers(self, robot_name, msg, i, now):
         out = transform_point_cloud2(msg, 0.0, 0.0, self._display_z_offset())
         out.header.stamp = now
-        self._pub_for(f'/gcs/payload/{robot_name}/frontier_viewpoints', PointCloud2).publish(out)
+        self._pub_for(f'/gcs/payload/{robot_name}/raw_frontiers', PointCloud2).publish(out)
+
+    def _handle_navigation_mode(self, robot_name, msg, i, now):
+        # Pure passthrough — no spatial transform needed for a String.
+        self._pub_for(
+            f'/gcs/payload/{robot_name}/navigation_mode', String).publish(msg)
 
     def _handle_rgb_voxels(self, robot_name, msg, i, now):
-        marker = point_cloud2_to_cube_marker(
-            msg, 0.0, 0.0, self._display_z_offset(),
-            ns=f'{robot_name}_voxel_rgb',
-            marker_id=i * 100000,
-            stamp=now,
-            lifetime=Duration(sec=2, nanosec=0),
-            scale=0.5,
-        )
-        if marker is not None:
-            out = MarkerArray()
-            out.markers.append(marker)
-            self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', MarkerArray).publish(out)
+        # Republish as raw PointCloud2 — Foxglove's 3D panel handles point
+        # size, color mode, decay, etc. natively. Example of the alternative
+        # (locked styling via point_cloud2_to_cube_marker) preserved below
+        # for reference; switch back if you want a fixed-size CUBE_LIST per
+        # robot, e.g. to give each robot a distinct shape:
+        #
+        #   marker = point_cloud2_to_cube_marker(
+        #       msg, 0.0, 0.0, self._display_z_offset(),
+        #       ns=f'{robot_name}_voxel_rgb',
+        #       marker_id=i * 100000,
+        #       stamp=now,
+        #       lifetime=Duration(sec=2, nanosec=0),
+        #       scale=0.5,
+        #   )
+        #   if marker is not None:
+        #       out = MarkerArray(); out.markers.append(marker)
+        #       self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', MarkerArray).publish(out)
+        out = transform_point_cloud2(msg, 0.0, 0.0, self._display_z_offset())
+        out.header.stamp = now
+        self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', PointCloud2).publish(out)
 
     PAYLOAD_HANDLERS = {
         'filtered_rays':       ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
-        'frontier_viewpoints': ('sensor_msgs/msg/PointCloud2',        _handle_frontier_viewpoints),
+        'raw_frontiers':       ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
         'voxel_rgb':           ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
+        'navigation_mode':     ('std_msgs/msg/String',                _handle_navigation_mode),
     }
 
 

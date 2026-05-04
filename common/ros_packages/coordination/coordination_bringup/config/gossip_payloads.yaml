@@ -26,6 +26,29 @@
 
 payload_topics:
 
-  # ── Add payloads below ─────────────────────────────────────────────────────
+  # ── Rayfronts + Raven ──────────────────────────────────────────────────────
+  # Filtered semantic rays (raven_nav) — peer robots consume this as
+  # filtered_rays/transposed to avoid revisiting already-explored areas.
+  - topic: "/{robot_name}/filtered_rays"
+    type: "visualization_msgs/msg/MarkerArray"
+
+  # Raw frontiers (raven_nav) — post-altitude+polygon filter, pre-clustering.
+  # Peers cluster the union of (own + peer) raw frontiers to expand their own
+  # candidate pool. Each robot still publishes its own filtered viewpoints
+  # locally on /<robot>/frontier_viewpoints (NOT shared via gossip).
+  - topic: "/{robot_name}/raw_frontiers"
+    type: "sensor_msgs/msg/PointCloud2"
+
+  # RGB voxel map (rayfronts) — semantic 3D map for GCS visualization.
+  - topic: "/{robot_name}/rayfronts/voxel_rgb"
+    type: "sensor_msgs/msg/PointCloud2"
+
+  # Active raven_nav behavior ('frontier'/'ray'/'voxel'/'idle'). Used by peer
+  # raven_nav instances to decide whether to treat that robot's waypoint as a
+  # frontier "claim" for the multi-robot divergence heuristic.
+  - topic: "/{robot_name}/navigation_mode"
+    type: "std_msgs/msg/String"
+
+  # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

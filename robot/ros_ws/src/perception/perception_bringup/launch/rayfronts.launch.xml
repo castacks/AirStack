@@ -9,7 +9,12 @@
     stream. Avoids any submodule-level patch to rayfronts/datasets/ros.py.
   -->
   <node pkg="perception_bringup" exec="odom_to_pose_stamped.py"
-        name="odom_to_pose_stamped" output="screen"/>
+        name="odom_to_pose_stamped" output="screen">
+    <param name="input_topic"
+           value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/odometry"/>
+    <param name="output_topic"
+           value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/pose_stamped"/>
+  </node>
 
   <!--
     Robot-namespace topic prefixes. Upstream rayfronts defaults publish to
@@ -21,6 +26,10 @@
     cmd="python3 -m rayfronts.mapping_server
          --config-name $(var config_name)
          dataset=$(var dataset)
+         dataset.rgb_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/image_rect
+         dataset.pose_topic=/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/pose_stamped
+         dataset.depth_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/depth_ground_truth
+         dataset.intrinsics_topic=/robot_$(env ROS_DOMAIN_ID)/sensors/front_stereo/left/camera_info
          messaging_service=ros
          messaging_service.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv
          messaging_service.text_query_topic=/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/new_text_query

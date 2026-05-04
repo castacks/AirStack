@@ -9,11 +9,13 @@ import time
 import numpy as np
 import rclpy
 import rclpy.executors
-from geometry_msgs.msg import Point, Polygon, Pose
+from geometry_msgs.msg import Point, Polygon, PolygonStamped, Pose
 from nav_msgs.msg import Odometry
 from rclpy.action import ActionServer, ActionClient, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
+                       ReliabilityPolicy)
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String
@@ -68,11 +70,18 @@ def _filter_raven(line: str) -> str | None:
     if not line:
         return None
     low = line.lower()
+    # Pass through multi-robot coordination debug lines verbatim — these are
+    # gated behind raven's debug_coordination param and tagged "[coord]" so
+    # we don't have to re-parse the format.
+    if '[coord]' in line:
+        return line
     # Surface startup, waiting, and error messages
     if 'raven_nav started' in low:
         return 'raven_nav started'
     if 'waiting for odometry' in low:
         return 'Waiting for odometry...'
+    if 'boot gps captured' in low or 'search_area' in low:
+        return line
     if 'error' in low or 'exception' in low or 'traceback' in low:
         return f'ERROR: {line}'
     # The periodic status line looks like:
@@ -111,10 +120,37 @@ def _filter_raven(line: str) -> str | None:
 
 # ── Subprocess helpers ────────────────────────────────────────────────────────
 
-def _pipe_to_queue(proc: subprocess.Popen, q: queue.Queue) -> None:
-    for line in iter(proc.stdout.readline, b''):
-        q.put(line.decode('utf-8', errors='replace').rstrip())
-    q.put(None)
+def _pipe_to_queue(proc: subprocess.Popen, q: queue.Queue,
+                   log_path: str | None = None) -> None:
+    """Stream subprocess stdout into a queue, and optionally tee unfiltered to a file.
+
+    The action feedback path runs every line through _filter_rayfronts /
+    _filter_raven, which drops most output (tqdm progress bars, INFO logs that
+    don't match the whitelist, etc.). The tee preserves everything for
+    debugging — `tail -f /tmp/rayfronts_<robot>.log` shows raw stdout/stderr.
+    """
+    log_fh = None
+    if log_path:
+        try:
+            log_fh = open(log_path, 'w', buffering=1)  # line-buffered
+        except OSError:
+            log_fh = None
+    try:
+        for line in iter(proc.stdout.readline, b''):
+            decoded = line.decode('utf-8', errors='replace').rstrip()
+            q.put(decoded)
+            if log_fh is not None:
+                try:
+                    log_fh.write(decoded + '\n')
+                except OSError:
+                    pass
+        q.put(None)
+    finally:
+        if log_fh is not None:
+            try:
+                log_fh.close()
+            except OSError:
+                pass
 
 
 def _drain(q: queue.Queue) -> list:
@@ -151,6 +187,20 @@ class SemanticSearchTaskNode(Node):
         self._text_query_pub = self.create_publisher(
             String, f'{self._rf_prefix}/new_text_query', 10)
 
+        # Latched polygon constraint for raven_nav. raven_nav joins after this
+        # node spawns it, so TRANSIENT_LOCAL ensures it gets the most recent
+        # polygon on subscribe. We publish at task start and clear at task end
+        # so a stale polygon never carries over to the next task.
+        latched_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        self._search_area_pub = self.create_publisher(
+            PolygonStamped, f'{self._robot_prefix}/raven_nav/search_area',
+            latched_qos)
+
         self.create_subscription(
             Odometry, f'{self._robot_prefix}/odometry',
             self._odom_cb, 10, callback_group=self._cbg)
@@ -168,6 +218,19 @@ class SemanticSearchTaskNode(Node):
     def _odom_cb(self, msg: Odometry):
         p = msg.pose.pose.position
         self._cur_pos = [p.x, p.y, p.z]
+
+    def _publish_search_area(self, polygon: Polygon) -> None:
+        """Republish the polygon as a stamped, frame-tagged message for raven_nav.
+
+        action_relay has already transformed the vertices into the robot's local
+        'map' frame, so we just stamp and forward. An empty polygon clears the
+        constraint downstream.
+        """
+        stamped = PolygonStamped()
+        stamped.header.stamp = self.get_clock().now().to_msg()
+        stamped.header.frame_id = 'map'
+        stamped.polygon = polygon
+        self._search_area_pub.publish(stamped)
 
     def _handle_goal(self, goal_request):
         if self._task_active:
@@ -193,14 +256,26 @@ class SemanticSearchTaskNode(Node):
         for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             subprocess.run(['pkill', '-SIGKILL', '-f', pattern], capture_output=True)
 
-    def _spawn(self, cmd: list) -> tuple:
+    def _spawn(self, cmd: list, log_name: str | None = None) -> tuple:
+        """Spawn a subprocess; if log_name is given, tee unfiltered stdout to
+        /tmp/<log_name>_<robot>.log for debugging (filter still drives feedback).
+        """
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             start_new_session=True)
         q = queue.Queue()
-        threading.Thread(target=_pipe_to_queue, args=(proc, q), daemon=True).start()
+        log_path = None
+        if log_name:
+            robot_name = os.getenv('ROBOT_NAME', 'robot')
+            log_path = f'/tmp/{log_name}_{_sanitize(robot_name)}.log'
+            self.get_logger().info(f'Teeing {log_name} stdout to {log_path}')
+        threading.Thread(
+            target=_pipe_to_queue,
+            args=(proc, q, log_path),
+            daemon=True,
+        ).start()
         return proc, q
 
     def _kill(self, name: str, proc: subprocess.Popen) -> None:
@@ -329,6 +404,17 @@ class SemanticSearchTaskNode(Node):
         self.get_logger().info(
             f'SemanticSearchTask | targets={queries} all_queries={all_queries}')
 
+        # Push the search area to raven_nav before spawning it. action_relay has
+        # already transformed vertices into the robot's local 'map' frame.
+        self._publish_search_area(goal.search_area)
+        n_pts = len(goal.search_area.points)
+        if n_pts >= 3:
+            self.get_logger().info(
+                f'search_area: {n_pts} vertices forwarded to raven_nav')
+        else:
+            self.get_logger().info(
+                f'search_area: {n_pts} vertices (unconstrained search)')
+
         rayfronts_proc = raven_proc = random_walk_proc = None
         exploration_send_future = None
         rayfronts_q = raven_q = queue.Queue()
@@ -372,11 +458,11 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
-            ])
+            ], log_name='raven')
 
             rayfronts_proc, rayfronts_q = self._spawn([
                 'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
-            ])
+            ], log_name='rayfronts')
 
 
             best_conf = 0.0
@@ -387,15 +473,25 @@ class SemanticSearchTaskNode(Node):
             raven_published_waypoint = False
             completed_targets: set = set()
 
-            # Subscribe to raven's global_plan to detect first waypoint
+            # Subscribe to raven's global_plan to detect first waypoint.
+            # Use BEST_EFFORT QoS to match raven's publisher (some robots in
+            # the stack publish global_plan as BEST_EFFORT for low-latency,
+            # others as RELIABLE; subscribing BEST_EFFORT accepts both).
             from nav_msgs.msg import Path
+            from rclpy.qos import QoSProfile, ReliabilityPolicy
+            global_plan_qos = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT, depth=1)
             def _global_plan_cb(msg):
                 nonlocal raven_published_waypoint
                 if msg.poses:
+                    if not raven_published_waypoint:
+                        self.get_logger().info(
+                            f'First raven global_plan received '
+                            f'({len(msg.poses)} poses)')
                     raven_published_waypoint = True
             self.create_subscription(
                 Path, f'/{robot_name}/global_plan',
-                _global_plan_cb, 1, callback_group=self._cbg)
+                _global_plan_cb, global_plan_qos, callback_group=self._cbg)
 
             # Subscribe to raven's completed_targets
             def _completed_targets_cb(msg):
@@ -450,7 +546,10 @@ class SemanticSearchTaskNode(Node):
                     if msg:
                         last_rv_status = msg
 
-                # Start random_walk once raven publishes its first waypoint
+                # Start random_walk once raven publishes its first waypoint.
+                # The drone must NOT start moving until raven is ready to
+                # provide semantic targets — random_walk would otherwise drift
+                # the robot around before raven has computed where to look.
                 if raven_published_waypoint and not random_walk_started:
                     random_walk_started = True
                     random_walk_proc, _ = self._spawn_random_walk(robot_name)
@@ -532,6 +631,9 @@ class SemanticSearchTaskNode(Node):
             self._kill('rayfronts', rayfronts_proc)
             self._kill('raven', raven_proc)
             self._kill('random_walk', random_walk_proc)
+            # Clear the latched polygon so the next task starts unconstrained
+            # by default unless it provides its own search_area.
+            self._publish_search_area(Polygon())
             self._task_active = False
 
         goal_handle.abort()

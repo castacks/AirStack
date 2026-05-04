@@ -1,42 +1,74 @@
 import json
 import os
+import re
 import numpy as np
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
+                       ReliabilityPolicy)
+from geometry_msgs.msg import PolygonStamped
 from nav_msgs.msg import Odometry, Path
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import NavSatFix, PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String
 from visualization_msgs.msg import MarkerArray
 
+from coordination_bringup.frame_utils import gps_to_enu
+from coordination_msgs.msg import PeerProfile as PeerProfileMsg
+
 from raven_nav.behavior_manager import BehaviorManager
+from raven_nav.peer_state import PeerState
+
+
+GOSSIP_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+)
+
+# Latched: late-joining raven_nav still gets the most recent search_area.
+LATCHED_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
+)
+
+_NAV_MODE_TAG = {
+    'Frontier-based': 'frontier',
+    'Ray-based':      'ray',
+    'Voxel-based':    'voxel',
+}
 
 
 class RavenNavNode(Node):
     def __init__(self):
         super().__init__('raven_nav')
 
-        robot_name = os.getenv('ROBOT_NAME', 'robot')
-        self._prefix = f'/{robot_name}'
-        # rayfronts topics live under /robot_${ROS_DOMAIN_ID}/rayfronts/...
-        # (kept separate from ROBOT_NAME so all rayfronts consumers — raven,
-        # semantic_search_task, the rayfronts.launch.xml Hydra override — agree
-        # on a single domain-id-based prefix).
+        self._robot_name = os.getenv('ROBOT_NAME', 'robot')
+        self._prefix = f'/{self._robot_name}'
+        # rayfronts topics are under /robot_${ROS_DOMAIN_ID}/rayfronts/...
         ros_domain = os.getenv('ROS_DOMAIN_ID', '0')
         self._rf_prefix = f'/robot_{ros_domain}/rayfronts/msg_serv'
 
-        # Ray data from rays_sim/all (converted to FLU world frame)
-        self._ray_origins = None    # (N, 3)
-        self._ray_dirs = None       # (N, 3)
-        self._ray_scores = None     # (N, Q)
+        # Numeric id for the tiebreak; lower id wins contested frontiers.
+        try:
+            self._my_id = int(ros_domain)
+        except (TypeError, ValueError):
+            m = re.search(r'(\d+)$', self._robot_name)
+            self._my_id = int(m.group(1)) if m else 0
 
-        # Voxel data from voxels_sim/all
-        self._vox_xyz = None        # (N, 3)
-        self._vox_scores = None     # (N, Q)
+        # Ray/voxel data from rayfronts (converted to FLU)
+        self._ray_origins = None
+        self._ray_dirs = None
+        self._ray_scores = None
+        self._vox_xyz = None
+        self._vox_scores = None
 
-        self._frontiers = None      # (N, 3)
-        self._cur_pose = None       # (3,)
+        self._frontiers = None
+        self._cur_pose = None
 
         self._waypoint_locked = False
         self._target_waypoint = None
@@ -44,13 +76,20 @@ class RavenNavNode(Node):
         self._behavior_mode = 'Frontier-based'
         self._last_completed = []
 
-        # Parameters
+        # Set on first GPS fix.
+        self._boot_enu: 'np.ndarray | None' = None
+        self._alt_ground: 'float | None' = None
+        self._peer_state = PeerState()
+
+        # Polygon constraint in local 'map' frame. None = unconstrained.
+        self._search_area_xy: 'np.ndarray | None' = None
+        self._warned_polygon_degenerate = False
+
         self._score_threshold = self.declare_parameter('score_threshold', 0.95).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
-        # target_labels: which queries to actually navigate toward.
-        # Defaults to query_labels if empty. Must be a subset of query_labels.
+        # Subset of query_labels to navigate toward; empty = all.
         target_labels_param = self.declare_parameter('target_labels', ['']).value
         target_labels = [t for t in target_labels_param if t]
         self._target_objects = target_labels if target_labels else self._query_labels[:]
@@ -59,6 +98,8 @@ class RavenNavNode(Node):
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
 
         timer_period = self.declare_parameter('timer_period', 0.5).value
+        # Coordination debug lines are tagged "[coord]".
+        self._debug_coord = self.declare_parameter('debug_coordination', True).value
 
         self._path_pub = self.create_publisher(
             Path, f'{self._prefix}/global_plan', 10)
@@ -66,17 +107,23 @@ class RavenNavNode(Node):
             MarkerArray, f'{self._prefix}/filtered_rays', 10)
         self._viewpoint_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/frontier_viewpoints', 10)
+        # Shared with peers via gossip; receivers apply their own filters.
+        self._raw_frontiers_pub = self.create_publisher(
+            PointCloud2, f'{self._prefix}/raw_frontiers', 10)
         self._current_target_pub = self.create_publisher(
             String, f'{self._prefix}/current_target', 10)
         self._voxel_bbox_pub = self.create_publisher(
             MarkerArray, f'{self._prefix}/voxel_clusters', 10)
         self._completed_targets_pub = self.create_publisher(
             String, f'{self._prefix}/completed_targets', 10)
+        self._nav_mode_pub = self.create_publisher(
+            String, f'{self._prefix}/navigation_mode', 10)
 
         self._publisher_dict = {
             'path': self._path_pub,
             'filtered_rays': self._filtered_rays_pub,
             'viewpoint': self._viewpoint_pub,
+            'raw_frontiers': self._raw_frontiers_pub,
             'current_target': self._current_target_pub,
             'voxel_bbox': self._voxel_bbox_pub,
         }
@@ -89,7 +136,7 @@ class RavenNavNode(Node):
             max_altitude=self._max_altitude,
         )
 
-        # Subscribe to all-queries topics so rayfronts always publishes to them
+        # rayfronts publishes _sim/all topics only when something subscribes.
         self.create_subscription(
             PointCloud2,
             f'{self._rf_prefix}/rays_sim/all',
@@ -112,26 +159,43 @@ class RavenNavNode(Node):
             '/input_prompt',
             self._input_prompt_cb, 10)
 
+        # mavros publishes raw/fix as BEST_EFFORT; matching it here is required.
+        navsat_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+        )
+        self.create_subscription(
+            NavSatFix,
+            f'{self._prefix}/interface/mavros/global_position/raw/fix',
+            self._navsat_cb, navsat_qos)
+        self.create_subscription(
+            PeerProfileMsg, '/gossip/peers',
+            self._on_peer_profile, GOSSIP_QOS)
+        self.create_subscription(
+            PolygonStamped,
+            f'{self._prefix}/raven_nav/search_area',
+            self._search_area_cb, LATCHED_QOS)
+
         self.create_timer(timer_period, self._timer_cb)
 
         self.get_logger().info(
-            f'raven_nav started | robot={robot_name} | '
+            f'raven_nav started | robot={self._robot_name} (id={self._my_id}) | '
             f'timer={timer_period:.2f}s | '
             f'query_labels={self._query_labels} | '
             f'score_threshold={self._score_threshold} | '
             f'altitude=[{self._min_altitude}, {self._max_altitude}]')
 
     def _ray_all_cb(self, msg: PointCloud2):
-        """Receive all-queries ray PointCloud2 (fields: x,y,z,theta,phi,sim_0,sim_1,...)."""
+        """Ray PointCloud2 fields: x,y,z,theta,phi,sim_0,sim_1,..."""
         Q = len(self._query_labels)
         if Q == 0:
             return
-        # Discover actual sim_* fields from the message to handle query count mismatches
         msg_field_names = [f.name for f in msg.fields]
         sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')],
                             key=lambda s: int(s.split('_', 1)[1]))
-        Q_actual = len(sim_fields)
-        if Q_actual == 0:
+        if not sim_fields:
             self._ray_origins = None
             self._ray_dirs = None
             self._ray_scores = None
@@ -147,8 +211,7 @@ class RavenNavNode(Node):
         rdf_orig = arr[:, :3]
         theta = np.deg2rad(arr[:, 3])
         phi = np.deg2rad(arr[:, 4])
-        sim_all = arr[:, 5:]  # (N, Q)
-        # Spherical → Cartesian in RDF
+        sim_all = arr[:, 5:]
         dx = np.cos(theta) * np.sin(phi)
         dy = np.sin(theta) * np.sin(phi)
         dz = np.cos(phi)
@@ -161,16 +224,14 @@ class RavenNavNode(Node):
         self._ray_scores = sim_all
 
     def _vox_all_cb(self, msg: PointCloud2):
-        """Receive all-queries voxel PointCloud2 (fields: x,y,z,sim_0,sim_1,...)."""
+        """Voxel PointCloud2 fields: x,y,z,sim_0,sim_1,..."""
         Q = len(self._query_labels)
         if Q == 0:
             return
-        # Discover actual sim_* fields from the message to handle query count mismatches
         msg_field_names = [f.name for f in msg.fields]
         sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')],
                             key=lambda s: int(s.split('_', 1)[1]))
-        Q_actual = len(sim_fields)
-        if Q_actual == 0:
+        if not sim_fields:
             self._vox_xyz = None
             self._vox_scores = None
             return
@@ -182,7 +243,7 @@ class RavenNavNode(Node):
             return
         arr = np.array([list(p) for p in pts], dtype=np.float32)
         rdf_xyz = arr[:, :3]
-        sim_all = arr[:, 3:]  # (N, Q)
+        sim_all = arr[:, 3:]
         # RDF → FLU
         flu_xyz = np.stack([rdf_xyz[:, 2], -rdf_xyz[:, 0], -rdf_xyz[:, 1]], axis=1)
         self._vox_xyz = flu_xyz
@@ -203,23 +264,80 @@ class RavenNavNode(Node):
         targets = [t.strip() for t in msg.data.split(',') if t.strip()]
         if targets:
             self._target_objects = targets
-            # Keep _query_labels in sync so vox/ray callbacks read the right columns
             if targets != self._query_labels:
+                # Column count changed; clear cached arrays + visited state.
                 self._query_labels = targets[:]
-                # Clear cached data so stale multi-column arrays don't confuse behaviors
                 self._vox_xyz = None
                 self._vox_scores = None
                 self._ray_origins = None
                 self._ray_dirs = None
                 self._ray_scores = None
-                # Visited bboxes were tagged against the previous columns; drop them.
                 self._behavior_manager.voxel_behavior.reset()
                 self._last_completed = []
             self.get_logger().info(f'target objects updated: {self._target_objects}')
 
+    def _navsat_cb(self, msg: NavSatFix):
+        """Capture boot ENU + ground altitude on first valid fix."""
+        if self._boot_enu is not None:
+            return
+        if msg.status.status < 0:
+            return
+        self._alt_ground = msg.altitude
+        self._boot_enu = np.array(
+            gps_to_enu(msg.latitude, msg.longitude, msg.altitude),
+            dtype=np.float64,
+        )
+        self.get_logger().info(
+            f'boot GPS captured: alt_ground={self._alt_ground:.2f}m, '
+            f'boot_enu=({self._boot_enu[0]:.2f}, {self._boot_enu[1]:.2f}, '
+            f'{self._boot_enu[2]:.2f})')
+
+    def _on_peer_profile(self, msg: PeerProfileMsg):
+        # Skip own profile (gossip publishes self too) and pre-boot messages.
+        if msg.robot_name == self._robot_name:
+            return
+        if self._boot_enu is None:
+            if self._debug_coord:
+                self.get_logger().info(
+                    f'[coord] dropped peer profile from {msg.robot_name}: '
+                    'own boot GPS not received yet',
+                    throttle_duration_sec=5.0)
+            return
+        new_peer = msg.robot_name not in self._peer_state.peer_last_seen
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        self._peer_state.update(msg, self._boot_enu, self._alt_ground, now_sec)
+        if new_peer and self._debug_coord:
+            wp = self._peer_state.peer_waypoints.get(msg.robot_name)
+            pos = self._peer_state.peer_positions.get(msg.robot_name)
+            wp_s = (f'wp=({wp[0]:.1f}, {wp[1]:.1f}, {wp[2]:.1f})'
+                    if wp is not None else 'wp=none')
+            pos_s = (f'pos=({pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f})'
+                     if pos is not None else 'pos=none')
+            self.get_logger().info(
+                f'[coord] peer FIRST SEEN: {msg.robot_name} '
+                f'(id={self._peer_state.peer_ids.get(msg.robot_name)}) {pos_s} {wp_s}')
+
+    def _search_area_cb(self, msg: PolygonStamped):
+        """Empty / <3 vertex polygon clears the constraint."""
+        pts = msg.polygon.points
+        if len(pts) < 3:
+            self._search_area_xy = None
+            if not self._warned_polygon_degenerate and len(pts) > 0:
+                self.get_logger().warn(
+                    f'search_area has {len(pts)} vertex/vertices (<3); '
+                    'treating as unconstrained.')
+                self._warned_polygon_degenerate = True
+            return
+        self._warned_polygon_degenerate = False
+        self._search_area_xy = np.array(
+            [[p.x, p.y] for p in pts], dtype=np.float64)
+        self.get_logger().info(
+            f'search_area updated: {self._search_area_xy.shape[0]} vertices.')
+
     def _timer_cb(self):
         if self._cur_pose is None:
             self.get_logger().warn('waiting for odometry...', throttle_duration_sec=5.0)
+            self._nav_mode_pub.publish(String(data='idle'))
             return
 
         prev_mode = self._behavior_mode
@@ -240,6 +358,16 @@ class RavenNavNode(Node):
             self._target_waypoint = None
             self._target_waypoint2 = None
 
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        before = set(self._peer_state.peer_last_seen.keys())
+        self._peer_state.prune(now_sec)
+        after = set(self._peer_state.peer_last_seen.keys())
+        dropped = before - after
+        if dropped and self._debug_coord:
+            for n in dropped:
+                self.get_logger().info(
+                    f'[coord] peer LOST (stale > {self._peer_state.profile_ttl_sec}s): {n}')
+
         self._waypoint_locked, self._target_waypoint, self._target_waypoint2 = \
             self._behavior_manager.behavior_execute(
                 behavior_mode=self._behavior_mode,
@@ -252,14 +380,20 @@ class RavenNavNode(Node):
                 vox_xyz=self._vox_xyz,
                 vox_scores=self._vox_scores,
                 query_labels=self._query_labels,
+                peer_state=self._peer_state,
+                my_id=self._my_id,
+                search_area_xy=self._search_area_xy,
+                debug_logger=(self.get_logger() if self._debug_coord else None),
             )
+
+        self._nav_mode_pub.publish(
+            String(data=_NAV_MODE_TAG.get(self._behavior_mode, 'idle')))
 
         completed = sorted(self._behavior_manager.completed_queries)
         if completed != self._last_completed:
             self._completed_targets_pub.publish(String(data=json.dumps(completed)))
             self._last_completed = completed
 
-        # Status log
         n_frontiers = len(self._frontiers) if self._frontiers is not None else 0
         n_rays = len(self._ray_origins) if self._ray_origins is not None else 0
         n_voxels = len(self._vox_xyz) if self._vox_xyz is not None else 0

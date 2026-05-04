@@ -17,7 +17,7 @@ class BehaviorManager:
                                         min_altitude=min_altitude,
                                         max_altitude=max_altitude)
         self.voxel_behavior = VoxelBehavior(self.get_clock)
-        # Priority: Voxel (navigate to confirmed detections) > Ray > Frontier
+        # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 
     @property
@@ -46,7 +46,9 @@ class BehaviorManager:
     def behavior_execute(self, behavior_mode, frontiers, cur_pose_np,
                          waypoint_locked, target_waypoint, target_waypoint2,
                          publisher_dict,
-                         vox_xyz=None, vox_scores=None, query_labels=None):
+                         vox_xyz=None, vox_scores=None, query_labels=None,
+                         peer_state=None, my_id=0, search_area_xy=None,
+                         debug_logger=None):
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
@@ -58,4 +60,7 @@ class BehaviorManager:
         else:
             return self.frontier_behavior.execute(
                 frontiers, cur_pose_np, waypoint_locked,
-                target_waypoint, target_waypoint2, publisher_dict)
+                target_waypoint, target_waypoint2, publisher_dict,
+                peer_state=peer_state, my_id=my_id,
+                search_area_xy=search_area_xy,
+                debug_logger=debug_logger)

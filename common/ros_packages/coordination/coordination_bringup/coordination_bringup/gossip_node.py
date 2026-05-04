@@ -21,6 +21,7 @@ from rclpy.qos import (
 )
 import rosidl_runtime_py.utilities as rosidl_utils
 
+from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Float64
@@ -240,10 +241,31 @@ class GossipNode(Node):
                     transformed = self._transform_to_global(msg, bx, by, bz, q)
                     self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
 
+            # Translate the waypoint into the same global ENU frame as payloads.
+            # PeerProfile.waypoint is filled from /<robot>/global_plan in the
+            # sender's local 'map' frame; receivers run global_enu_to_local on it
+            # assuming it's global, so we MUST do the local->global step here.
+            if self._profile.has_waypoint():
+                self._profile.waypoint = self._translate_waypoint(
+                    self._profile.waypoint, bx, by, bz)
+
         # Stamp with current ROS clock (not MAVROS GPS stamp) so receivers can
         # enforce monotonic ordering across ticks.
         self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
         self._gossip_pub.publish(self._profile.to_ros_msg())
+
+    @staticmethod
+    def _translate_waypoint(wp, bx, by, bz):
+        """Return a copy of PoseStamped wp with position translated by (bx, by, bz)
+        and frame_id set to 'map'. Orientation is left untouched."""
+        out = PoseStamped()
+        out.header.stamp = wp.header.stamp
+        out.header.frame_id = 'map'
+        out.pose.position.x = wp.pose.position.x + bx
+        out.pose.position.y = wp.pose.position.y + by
+        out.pose.position.z = wp.pose.position.z + bz
+        out.pose.orientation = wp.pose.orientation
+        return out
 
     def _transform_to_global(self, msg, bx, by, bz, q):
         if isinstance(msg, MarkerArray):

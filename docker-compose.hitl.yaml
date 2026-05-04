@@ -1,0 +1,10 @@
+services:
+  robot-desktop:
+    network_mode: host
+    networks: !reset {}
+    ports: !reset []
+    hostname: robot-1
+    environment:
+      - ROBOT_NAME_SOURCE=hostname
+      - ROS_DOMAIN_ID=1
+      - SIM_IP=192.168.81.84
