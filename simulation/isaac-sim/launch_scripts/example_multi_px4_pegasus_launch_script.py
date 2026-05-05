@@ -108,14 +108,15 @@ def spawn_drone(index: int):
     )
 
     if ENABLE_LIDAR:
-        add_ouster_lidar_subgraph(
+        add_rtx_lidar_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim=drone_prim,
             robot_name=robot_name,
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],
+            lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
+            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range=0.75,
+            min_range=0.75,
         )
 
 
