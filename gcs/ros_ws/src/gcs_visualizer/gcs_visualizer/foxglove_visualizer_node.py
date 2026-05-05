@@ -17,12 +17,12 @@ from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Point, TransformStamped
-from std_msgs.msg import ColorRGBA, Float32
+from std_msgs.msg import ColorRGBA, Float32, Float64
 from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
-    ORIGIN_LAT, ORIGIN_LON,
+    ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
 )
 
 SENSOR_QOS = QoSProfile(
@@ -44,12 +44,6 @@ ODOM_SUFFIX = '/odometry_conversion/odometry'
 TRAJ_SUFFIX = '/trajectory_controller/trajectory_vis'
 PLAN_SUFFIX = '/global_plan'
 VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
-
-ROBOT_COLORS = [
-    (1.0, 0.2, 0.2),  # red
-    (0.2, 1.0, 0.2),  # green
-    (0.2, 0.2, 1.0),  # blue
-]
 
 # OBJ mesh axis correction quaternion (belly -Z, nose +X)
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
@@ -159,7 +153,19 @@ class FoxgloveVisualizerNode(Node):
             Float32, self._overhead_spec_topic,
             self._on_overhead_spec, SENSOR_QOS)
         self._subscribed_vdb  = set()
-        self._alt_ground      = None
+
+        # Ground reference altitude (MSL of map z=0). Set once when we have
+        # both GPS and odom from the same robot — see _try_lock_ground. Until
+        # then, GPS callbacks defer; otherwise gps_to_enu would fail with None.
+        self._alt_ground          = None
+        self._alt_ground_anchor   = None
+        self._gps_msl: dict       = {}   # robot_name -> last MSL altitude (m)
+        self._odom_z: dict        = {}   # robot_name -> last odom z (AGL above takeoff, m)
+        # Latched so payload_visualizer_node and any other consumer get the
+        # most recent value immediately on subscribe, regardless of startup
+        # order relative to this node.
+        self._ground_msl_pub = self.create_publisher(
+            Float64, '/gcs/map_origin/ground_msl', LATCHED_QOS)
 
         self._pub = self.create_publisher(MarkerArray, '/gcs/robot_markers', 10)
 
@@ -229,11 +235,40 @@ class FoxgloveVisualizerNode(Node):
                     self._subscribed_vdb.add(topic)
                     self.get_logger().info(f'Subscribed to vdb_map_visualization: {topic}')
 
+    def _try_lock_ground(self, robot_name: str) -> None:
+        """Lock _alt_ground = msl - odom_z for the first robot with both signals.
+
+        Locking once (no recompute) keeps visualizations stable; using
+        msl - odom_z makes the ground reference invariant to whether the
+        triggering robot is on the ground or already in the air.
+        """
+        if self._alt_ground is not None:
+            return
+        msl = self._gps_msl.get(robot_name)
+        agl = self._odom_z.get(robot_name)
+        if msl is None or agl is None:
+            return
+        ground = msl - agl
+        self._alt_ground = ground
+        self._alt_ground_anchor = robot_name
+        self._ground_msl_pub.publish(Float64(data=float(ground)))
+        self.get_logger().info(
+            f'ground reference locked: {robot_name} at MSL {ground:.2f} m '
+            f'(msl={msl:.2f}, agl={agl:.2f})')
+
     def _gps_callback(self, msg: NavSatFix, robot_name: str):
         if msg.status.status < 0:
             return
+        # Cache the raw MSL before any ENU conversion so _try_lock_ground can
+        # compute ground = msl - odom_z without re-reading the message.
+        self._gps_msl[robot_name] = msg.altitude
+        self._try_lock_ground(robot_name)
         if self._alt_ground is None:
-            self._alt_ground = msg.altitude
+            # Still waiting for an odom message from any robot — defer.
+            self.get_logger().warn(
+                'awaiting odom from any robot to anchor ground plane',
+                throttle_duration_sec=10.0)
+            return
         pos = gps_to_enu(msg.latitude, msg.longitude, msg.altitude, self._alt_ground)
         self._gps_positions[robot_name] = pos
         if robot_name not in self._gps_boot:
@@ -263,6 +298,10 @@ class FoxgloveVisualizerNode(Node):
     def _odom_callback(self, msg: Odometry, robot_name: str):
         o = msg.pose.pose.orientation
         self._orientations[robot_name] = (o.x, o.y, o.z, o.w)
+        # odom is in 'map' frame anchored to the robot's takeoff point, so
+        # position.z is altitude above takeoff (≈ AGL of the actual ground).
+        self._odom_z[robot_name] = msg.pose.pose.position.z
+        self._try_lock_ground(robot_name)
 
     def _traj_callback(self, msg: MarkerArray, robot_name: str):
         self._trajectories[robot_name] = msg
@@ -374,12 +413,12 @@ class FoxgloveVisualizerNode(Node):
                 x_left = (col / N - 0.5) * coverage
                 x_right = x_left + cell
                 r, g, b = pixels[row, col]
-                color = ColorRGBA(r=r/255.0, g=g/255.0, b=b/255.0, a=1.0)
+                color = ColorRGBA(r=r/255.0, g=g/255.0, b=b/255.0, a=0.7)
 
-                p_tl = Point(x=x_left,  y=y_top, z=0.0)
-                p_tr = Point(x=x_right, y=y_top, z=0.0)
-                p_bl = Point(x=x_left,  y=y_bot, z=0.0)
-                p_br = Point(x=x_right, y=y_bot, z=0.0)
+                p_tl = Point(x=x_left,  y=y_top, z=-0.01)
+                p_tr = Point(x=x_right, y=y_top, z=-0.01)
+                p_bl = Point(x=x_left,  y=y_bot, z=-0.01)
+                p_br = Point(x=x_right, y=y_bot, z=-0.01)
 
                 # CCW winding (looking down +Z): top-left, bottom-left, bottom-right
                 # then top-left, bottom-right, top-right.
@@ -492,15 +531,19 @@ class FoxgloveVisualizerNode(Node):
             if traj is not None and boot is not None:
                 bx, by, bz = boot
                 transformed = transform_marker_array(traj, bx, by, bz)
+                traj_color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
                 for k, m in enumerate(transformed.markers):
                     m.ns = f'{robot_name}_traj'
                     m.id = i * 10000 + k
                     m.header.stamp = now
                     m.lifetime = lifetime
-                    if m.color.a > 0:
-                        m.color.r = 0.8
-                        m.color.g = 0.5
-                        m.color.b = 0.0
+                    m.color.r = traj_color[0]
+                    m.color.g = traj_color[1]
+                    m.color.b = traj_color[2]
+                    m.color.a = 1.0
+                    m.colors = []
+                    if m.type in (Marker.LINE_STRIP, Marker.LINE_LIST):
+                        m.scale.x = 0.15
                     needs_points = m.type in (Marker.LINE_STRIP, Marker.LINE_LIST,
                                               Marker.POINTS, Marker.ARROW)
                     if needs_points and len(m.points) == 0:
@@ -528,11 +571,11 @@ class FoxgloveVisualizerNode(Node):
                     line.type = Marker.LINE_STRIP
                     line.action = Marker.ADD
                     line.pose.orientation.w = 1.0
-                    line.scale.x = 0.1
-                    line.color.r = color[0]
-                    line.color.g = color[1]
-                    line.color.b = color[2]
-                    line.color.a = 0.8
+                    line.scale.x = 0.15
+                    line.color.r = float(np.sqrt(color[0]))
+                    line.color.g = float(np.sqrt(color[1]))
+                    line.color.b = float(np.sqrt(color[2]))
+                    line.color.a = 1.0
                     line.lifetime = Duration(sec=2, nanosec=0)
                     line.points = [Point(x=float(r[0]), y=float(r[1]), z=float(r[2]))
                                    for r in xyz]

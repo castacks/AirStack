@@ -13,6 +13,7 @@ services:
       bash -c "
       ssh service restart;
       python3 /root/AirStack/gcs/foxglove_extensions/install.sh;
+      python3 /root/AirStack/gcs/foxglove_extensions/render_layout.py || true;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH = 'true' ]; then
         tmux send-keys -t bringup:0.0 'bws &&  sws; ros2 launch desktop_bringup gcs.launch.xml' ENTER;
@@ -58,7 +59,7 @@ services:
       # waypoint/polygon editor saves (so they survive container restarts)
       - ../saves:/root/.airstack:rw
       # foxglove extensions
-      - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:ro
+      - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:rw
       # autonomy stack stuff
       - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw
       - ../../common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml
