@@ -31,7 +31,7 @@ from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
