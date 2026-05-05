@@ -442,13 +442,42 @@ class SemanticSearchTaskNode(Node):
                     break
                 time.sleep(0.5)
 
-            # Start raven first so it's subscribed to rays_sim/all and voxels_sim/all
-            # before rayfronts runs its first query cycle (rayfronts lazy-publishes
-            # those topics only when a subscriber exists).
-            # query_labels = full set (for sim column mapping)
-            # target_labels = only the user's targets (for behavior filtering)
+            # Wait for rayfronts to accumulate points before starting raven —
+            # otherwise multiple drones pick the same frontier.
             all_labels_yaml = str(all_queries).replace("'", '"')
             target_labels_yaml = str(queries).replace("'", '"')
+
+            rayfronts_proc, rayfronts_q = self._spawn([
+                'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
+            ], log_name='rayfronts')
+
+            mapping_batches_seen = 0
+            required_batches = 3
+            self.get_logger().info(
+                f'Waiting for {required_batches} rayfronts mapping batches')
+            while mapping_batches_seen < required_batches and rclpy.ok():
+                if goal_handle.is_cancel_requested:
+                    self._kill('rayfronts', rayfronts_proc)
+                    goal_handle.canceled()
+                    result = SemanticSearchTask.Result()
+                    result.success = False
+                    result.message = 'Cancelled'
+                    return result
+                for raw in _drain(rayfronts_q):
+                    low = _clean(raw).lower()
+                    if 'ms/batch' in low:
+                        mapping_batches_seen += 1
+                    msg = _filter_rayfronts(raw)
+                    if msg:
+                        last_rf_status = msg
+                fb = SemanticSearchTask.Feedback()
+                fb.status = f'[rayfronts] {last_rf_status}'
+                goal_handle.publish_feedback(fb)
+                time.sleep(0.2)
+            self.get_logger().info(
+                f'rayfronts processed {mapping_batches_seen} batches — '
+                f'starting raven')
+
             raven_proc, raven_q = self._spawn([
                 'ros2', 'run', 'raven_nav', 'raven_nav_node',
                 '--ros-args',
@@ -459,10 +488,6 @@ class SemanticSearchTaskNode(Node):
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
             ], log_name='raven')
-
-            rayfronts_proc, rayfronts_q = self._spawn([
-                'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
-            ], log_name='rayfronts')
 
 
             best_conf = 0.0
