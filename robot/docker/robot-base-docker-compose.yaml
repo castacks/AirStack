@@ -38,4 +38,7 @@ services:
       - ../ros_ws:/root/AirStack/robot/ros_ws:rw
       # bags
       - ../bags:/bags:rw
+      # persistent model cache (huggingface / torch / clip / etc.) so rayfronts
+      # doesn't redownload weights on every container start
+      - ./cache:/root/.cache:rw
 

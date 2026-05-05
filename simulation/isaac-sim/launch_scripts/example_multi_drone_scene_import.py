@@ -48,19 +48,29 @@ from scene_prep import (
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+ENV_URL = "file:///isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/RetroNeighborhood/RetroNeighborhood_Export.usd"
+
 STAGE_SCALE = 0.01
+
+# pg.load_environment already mounts the whole source USD under /World.
+# reference_root_prims_under_world() opens the *same* USD again and
+# re-references its non-World root prims at /World/<name>. That's harmless
+# for *.scene.usd assets whose root prims are small (Sky/Sun/Environment),
+# but for *.stage.usd assets whose root prim *is* the geometry, it spawns a
+# second full-scale copy of the entire scene next to the one Pegasus
+# already loaded ("inception"). Leave False unless you know the source USD
+# keeps lights/sky as separate root prims you actually need pulled in.
+REFERENCE_ROOT_PRIMS = False
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
-ADD_DOME_LIGHT = False
+ADD_DOME_LIGHT = True
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
-DOME_LIGHT_EXPOSURE = -3.0
+DOME_LIGHT_EXPOSURE = -5.0
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
@@ -75,10 +85,17 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
+# DRONE_CONFIGS = [
+#     {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     {"domain_id": 3, "x_m": 19.0, "y_m": 12.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     ]
+
+
 DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-    {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-    {"domain_id": 3, "x_m": 19.0, "y_m": 12.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 5.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 3, "x_m": 0.0, "y_m": 5.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
     ]
 
 # Top-down "map" camera over (0, 0). Captures one aerial of the static scene
@@ -166,7 +183,8 @@ class PegasusApp:
 
         # ----- Scene preparation -----
         # Bring in sky/sun/environment prims that sit outside /World in the source USD
-        reference_root_prims_under_world(stage, ENV_URL)
+        if REFERENCE_ROOT_PRIMS:
+            reference_root_prims_under_world(stage, ENV_URL)
 
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():

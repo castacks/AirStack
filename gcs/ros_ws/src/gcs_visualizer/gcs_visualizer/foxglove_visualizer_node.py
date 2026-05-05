@@ -22,7 +22,7 @@ from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
-    ORIGIN_LAT, ORIGIN_LON,
+    ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
 )
 
 SENSOR_QOS = QoSProfile(
@@ -44,12 +44,6 @@ ODOM_SUFFIX = '/odometry_conversion/odometry'
 TRAJ_SUFFIX = '/trajectory_controller/trajectory_vis'
 PLAN_SUFFIX = '/global_plan'
 VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
-
-ROBOT_COLORS = [
-    (1.0, 0.2, 0.2),  # red
-    (0.2, 1.0, 0.2),  # green
-    (0.2, 0.2, 1.0),  # blue
-]
 
 # OBJ mesh axis correction quaternion (belly -Z, nose +X)
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
@@ -537,15 +531,19 @@ class FoxgloveVisualizerNode(Node):
             if traj is not None and boot is not None:
                 bx, by, bz = boot
                 transformed = transform_marker_array(traj, bx, by, bz)
+                traj_color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
                 for k, m in enumerate(transformed.markers):
                     m.ns = f'{robot_name}_traj'
                     m.id = i * 10000 + k
                     m.header.stamp = now
                     m.lifetime = lifetime
-                    if m.color.a > 0:
-                        m.color.r = 0.8
-                        m.color.g = 0.5
-                        m.color.b = 0.0
+                    m.color.r = traj_color[0]
+                    m.color.g = traj_color[1]
+                    m.color.b = traj_color[2]
+                    m.color.a = 1.0
+                    m.colors = []
+                    if m.type in (Marker.LINE_STRIP, Marker.LINE_LIST):
+                        m.scale.x = 0.15
                     needs_points = m.type in (Marker.LINE_STRIP, Marker.LINE_LIST,
                                               Marker.POINTS, Marker.ARROW)
                     if needs_points and len(m.points) == 0:
@@ -573,11 +571,11 @@ class FoxgloveVisualizerNode(Node):
                     line.type = Marker.LINE_STRIP
                     line.action = Marker.ADD
                     line.pose.orientation.w = 1.0
-                    line.scale.x = 0.1
-                    line.color.r = color[0]
-                    line.color.g = color[1]
-                    line.color.b = color[2]
-                    line.color.a = 0.8
+                    line.scale.x = 0.15
+                    line.color.r = float(np.sqrt(color[0]))
+                    line.color.g = float(np.sqrt(color[1]))
+                    line.color.b = float(np.sqrt(color[2]))
+                    line.color.a = 1.0
                     line.lifetime = Duration(sec=2, nanosec=0)
                     line.points = [Point(x=float(r[0]), y=float(r[1]), z=float(r[2]))
                                    for r in xyz]

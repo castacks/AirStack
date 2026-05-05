@@ -19,6 +19,7 @@ from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String
+from action_msgs.srv import CancelGoal
 from task_msgs.action import SemanticSearchTask, ExplorationTask
 
 # ── ANSI / ROS log stripping ──────────────────────────────────────────────────
@@ -240,10 +241,12 @@ class SemanticSearchTaskNode(Node):
         return GoalResponse.ACCEPT
 
     def _cleanup_existing(self) -> None:
-        """Kill any leftover rayfronts or raven processes.
+        """Kill any leftover rayfronts or raven processes and cancel any
+        active navigation goals so a fresh ExplorationTask isn't rejected
+        by droan (`task already active`) or delivered to a stale executor.
 
-        random_walk_planner is intentionally NOT killed here: it now runs as
-        a long-lived task executor under global_bringup, and pkill'ing it
+        random_walk_planner is intentionally NOT killed here: it runs as a
+        long-lived task executor under global_bringup, and pkill'ing it
         would tear down the ExplorationTask action server every time this
         node initializes or starts a goal.
         """
@@ -255,6 +258,39 @@ class SemanticSearchTaskNode(Node):
         time.sleep(2.0)
         for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             subprocess.run(['pkill', '-SIGKILL', '-f', pattern], capture_output=True)
+
+        robot_name = os.getenv('ROBOT_NAME', 'robot_1')
+        self._cancel_active_navigation(robot_name)
+
+    def _cancel_active_navigation(self, robot_name: str) -> None:
+        """Cancel-all on ExplorationTask and NavigateTask servers.
+
+        Uses the action's underlying _action/cancel_goal service with a
+        zero goal_id, which the action spec defines as cancel-all.
+        """
+        for action in (f'/{robot_name}/tasks/exploration',
+                       f'/{robot_name}/tasks/navigate'):
+            srv_name = f'{action}/_action/cancel_goal'
+            client = self.create_client(
+                CancelGoal, srv_name, callback_group=self._cbg)
+            if not client.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(
+                    f'No cancel service at {srv_name} (server not up — skipping)')
+                self.destroy_client(client)
+                continue
+            req = CancelGoal.Request()
+            future = client.call_async(req)
+            try:
+                deadline = time.time() + 2.0
+                while not future.done() and time.time() < deadline:
+                    time.sleep(0.05)
+                resp = future.result() if future.done() else None
+                n = len(resp.goals_canceling) if resp is not None else 0
+                self.get_logger().info(
+                    f'Cancelled {n} active goal(s) on {action}')
+            except Exception as e:
+                self.get_logger().warn(f'cancel-all on {action} failed: {e}')
+            self.destroy_client(client)
 
     def _spawn(self, cmd: list, log_name: str | None = None) -> tuple:
         """Spawn a subprocess; if log_name is given, tee unfiltered stdout to
@@ -293,24 +329,6 @@ class SemanticSearchTaskNode(Node):
                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
             except ProcessLookupError:
                 pass
-
-    def _spawn_random_walk(self, robot_name: str) -> subprocess.Popen:
-        # Resolve the config file path via ros2 pkg
-        prefix = subprocess.run(
-            ['ros2', 'pkg', 'prefix', 'random_walk_planner'],
-            capture_output=True, text=True).stdout.strip()
-        config = f'{prefix}/share/random_walk_planner/config/random_walk_config.yaml'
-        return self._spawn([
-            'ros2', 'run', 'random_walk_planner', 'random_walk_planner',
-            '--ros-args',
-            '--params-file', config,
-            '-r', f'~/global_plan:=/{robot_name}/global_plan',
-            '-r', f'~/exploration_task:=/{robot_name}/tasks/exploration',
-            '-r', f'navigate_task:=/{robot_name}/tasks/navigate',
-            '-r', f'odometry:=/{robot_name}/odometry_conversion/odometry',
-            '-r', f'vdb_map_visualization:=/{robot_name}/vdb_mapping/vdb_map_visualization',
-            '-r', f'~/global_plan_toggle:=/{robot_name}/behavior/global_plan_toggle',
-        ])
 
     def _send_exploration_task(self, robot_name: str):
         """Send an unbounded ExplorationTask goal to random_walk_planner to
@@ -415,7 +433,7 @@ class SemanticSearchTaskNode(Node):
             self.get_logger().info(
                 f'search_area: {n_pts} vertices (unconstrained search)')
 
-        rayfronts_proc = raven_proc = random_walk_proc = None
+        rayfronts_proc = raven_proc = None
         exploration_send_future = None
         rayfronts_q = raven_q = queue.Queue()
 
@@ -577,10 +595,10 @@ class SemanticSearchTaskNode(Node):
                 # the robot around before raven has computed where to look.
                 if raven_published_waypoint and not random_walk_started:
                     random_walk_started = True
-                    random_walk_proc, _ = self._spawn_random_walk(robot_name)
+                    self._cancel_active_navigation(robot_name)
                     self.get_logger().info(
-                        'Raven published first waypoint — starting random_walk_planner')
-                    time.sleep(3.0)
+                        'Raven published first waypoint — sending ExplorationTask '
+                        'to existing random_walk_planner')
                     _, exploration_send_future = self._send_exploration_task(
                         robot_name)
 
@@ -655,7 +673,6 @@ class SemanticSearchTaskNode(Node):
             self._cancel_exploration_task(exploration_send_future)
             self._kill('rayfronts', rayfronts_proc)
             self._kill('raven', raven_proc)
-            self._kill('random_walk', random_walk_proc)
             # Clear the latched polygon so the next task starts unconstrained
             # by default unless it provides its own search_area.
             self._publish_search_area(Polygon())
