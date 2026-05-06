@@ -2,7 +2,7 @@
 
 Uses the same ``airstack_env`` parametrization as liveliness. With ``class``-scoped
 fixtures this module performs its **own** stack bring-up when selected; combined
-``-m "liveliness and sensors"`` therefore runs two bring-up cycles per
+selecting both classes (for example ``-m "liveliness or sensors"``) therefore runs two bring-up cycles per
 ``(sim, num_robots, iteration)``. Use ``-m sensors`` alone to exercise only sensor
 checks (still one full ``airstack up``).
 """
