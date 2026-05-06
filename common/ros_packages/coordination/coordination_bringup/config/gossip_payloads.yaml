@@ -49,6 +49,16 @@ payload_topics:
   - topic: "/{robot_name}/navigation_mode"
     type: "std_msgs/msg/String"
 
+  # Per-target bids from the ray-mode auction. Higher = closer = wins.
+  - topic: "/{robot_name}/bids"
+    type: "airstack_msgs/msg/BidVector"
+
+  # Shared rays (raven_nav) — FLU local-frame rays so peer drones can bid on
+  # the same target the publisher saw. gossip translates x,y,z to global ENU;
+  # dx,dy,dz directions and sim_* scores pass through unchanged.
+  - topic: "/{robot_name}/shared_rays"
+    type: "sensor_msgs/msg/PointCloud2"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

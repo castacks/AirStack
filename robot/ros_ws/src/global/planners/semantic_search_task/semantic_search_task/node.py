@@ -85,33 +85,30 @@ def _filter_raven(line: str) -> str | None:
         return line
     if 'error' in low or 'exception' in low or 'traceback' in low:
         return f'ERROR: {line}'
-    # The periodic status line looks like:
-    # [Frontier-based] frontiers=N rays=N filtered=N voxels=N | target=X | completed=[] | wp=(...)
     m = re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line)
     if not m:
         return None
 
     mode = m.group(1)
-    frontiers = re.search(r'frontiers=(\d+)', line)
-    rays = re.search(r'rays=(\d+)', line)
-    voxels = re.search(r'voxels=(\d+)', line)
-    completed = re.search(r'completed=(\[[^\]]*\])', line)
-    wp = re.search(r'wp=(\([^)]+\))', line)
-
     target = re.search(r'target=(.+?)\s*\|', line)
+    wp = re.search(r'wp=(\([^)]+\))', line)
+    completed = re.search(r'completed=(\[[^\]]*\])', line)
+    rays = re.search(r'\brays=(\d+)', line)
+    merged = re.search(r'merged_rays=(\d+)', line)
     filtered = re.search(r'filtered=(\d+)', line)
+    assigned = re.search(r'assigned=(\S+)', line)
 
     parts = [f'[{mode}]']
     if target and target.group(1).strip() != 'None':
         parts.append(f'current_target="{target.group(1).strip()}"')
-    if frontiers:
-        parts.append(f'frontiers={frontiers.group(1)}')
-    if rays:
+    if assigned and assigned.group(1) not in ('None', 'none'):
+        parts.append(f'assigned={assigned.group(1)}')
+    if rays and merged and rays.group(1) != merged.group(1):
+        parts.append(f'rays={rays.group(1)}(+{int(merged.group(1)) - int(rays.group(1))} peer)')
+    elif rays and rays.group(1) != '0':
         parts.append(f'rays={rays.group(1)}')
-    if filtered:
+    if filtered and filtered.group(1) != '0':
         parts.append(f'filtered={filtered.group(1)}')
-    if voxels:
-        parts.append(f'voxels={voxels.group(1)}')
     if completed and completed.group(1) != '[]':
         parts.append(f'completed={completed.group(1)}')
     if wp and wp.group(1) != 'none':
@@ -663,38 +660,16 @@ class SemanticSearchTaskNode(Node):
                     result.confidence = best_conf
                     return result
 
-                # Build clean feedback status
-                pos_str = ''
-                if self._cur_pos:
-                    pos_str = (f'pos=({self._cur_pos[0]:.1f}, '
-                               f'{self._cur_pos[1]:.1f}, '
-                               f'{self._cur_pos[2]:.1f})')
-
-                pending = [q for q in queries
-                           if q.lower() not in set(c.lower() for c in completed_targets)]
-                done = [q for q in queries
-                        if q.lower() in set(c.lower() for c in completed_targets)]
-
                 if not rayfronts_ready:
                     status = f'[rayfronts] {last_rf_status}'
                 elif not mapping_started:
                     status = (f'[rayfronts] {last_rf_status}\n'
                               f'[raven] {last_rv_status}')
                 else:
-                    progress = f'{len(done)}/{len(queries)} targets visited'
-                    done_str = f'done=[{", ".join(done)}]' if done else ''
-                    pending_str = f'pending=[{", ".join(pending)}]' if pending else ''
-                    status = (f'[raven] {last_rv_status}\n'
-                              f'{progress}  {done_str}  {pending_str}  {pos_str}').strip()
+                    status = f'[raven] {last_rv_status}'
 
                 fb = SemanticSearchTask.Feedback()
                 fb.status = status
-                fb.best_confidence_so_far = best_conf
-                if self._cur_pos:
-                    fb.current_position = Point(
-                        x=self._cur_pos[0],
-                        y=self._cur_pos[1],
-                        z=self._cur_pos[2])
                 goal_handle.publish_feedback(fb)
 
                 if self._interruptible_sleep(goal_handle, 1.0):

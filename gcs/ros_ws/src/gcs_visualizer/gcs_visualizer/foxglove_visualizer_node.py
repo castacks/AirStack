@@ -44,6 +44,7 @@ ODOM_SUFFIX = '/odometry_conversion/odometry'
 TRAJ_SUFFIX = '/trajectory_controller/trajectory_vis'
 PLAN_SUFFIX = '/global_plan'
 VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
+RAY_GROUPS_SUFFIX = '/ray_groups_viz'
 
 # OBJ mesh axis correction quaternion (belly -Z, nose +X)
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
@@ -80,6 +81,7 @@ class FoxgloveVisualizerNode(Node):
         self._traj_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(TRAJ_SUFFIX)}$')
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
         self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
+        self._ray_groups_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(RAY_GROUPS_SUFFIX)}$')
 
         self._gps_positions  = {}
         self._gps_boot       = {}
@@ -153,6 +155,8 @@ class FoxgloveVisualizerNode(Node):
             Float32, self._overhead_spec_topic,
             self._on_overhead_spec, SENSOR_QOS)
         self._subscribed_vdb  = set()
+        self._subscribed_ray_groups = set()
+        self._ray_groups_pubs: dict = {}
 
         # Ground reference altitude (MSL of map z=0). Set once when we have
         # both GPS and odom from the same robot — see _try_lock_ground. Until
@@ -235,6 +239,21 @@ class FoxgloveVisualizerNode(Node):
                     self._subscribed_vdb.add(topic)
                     self.get_logger().info(f'Subscribed to vdb_map_visualization: {topic}')
 
+            if topic not in self._subscribed_ray_groups:
+                m = self._ray_groups_pattern.match(topic)
+                if m and 'visualization_msgs/msg/MarkerArray' in type_list:
+                    name = m.group(1)
+                    out_topic = f'/gcs/{name}/ray_groups_viz'
+                    self._ray_groups_pubs[name] = self.create_publisher(
+                        MarkerArray, out_topic, 10)
+                    self.create_subscription(
+                        MarkerArray, topic,
+                        lambda msg, n=name: self._ray_groups_callback(msg, n),
+                        10,
+                    )
+                    self._subscribed_ray_groups.add(topic)
+                    self.get_logger().info(f'Subscribed to ray_groups_viz: {topic}')
+
     def _try_lock_ground(self, robot_name: str) -> None:
         """Lock _alt_ground = msl - odom_z for the first robot with both signals.
 
@@ -315,6 +334,34 @@ class FoxgloveVisualizerNode(Node):
         if boot is not None:
             bx, by, bz = boot
             self._vdb_global[robot_name] = _translate_marker(msg, bx, by, bz)
+
+    def _ray_groups_callback(self, msg: MarkerArray, robot_name: str):
+        """Translate each marker into the global frame via the robot's boot offset."""
+        boot = self._gps_boot.get(robot_name)
+        out = MarkerArray()
+        if boot is None:
+            out.markers = list(msg.markers)
+        else:
+            bx, by, bz = boot
+            ns_prefix = f'{robot_name}_'
+            for m in msg.markers:
+                tm = _translate_marker(m, bx, by, bz)
+                tm.header.stamp = m.header.stamp
+                tm.ns = ns_prefix + m.ns
+                tm.id = m.id
+                tm.type = m.type
+                tm.action = m.action
+                tm.text = m.text
+                # _translate_marker preserves pose; offset it for non-points markers.
+                if not m.points:
+                    tm.pose.position.x = m.pose.position.x + bx
+                    tm.pose.position.y = m.pose.position.y + by
+                    tm.pose.position.z = m.pose.position.z + bz
+                    tm.pose.orientation = m.pose.orientation
+                out.markers.append(tm)
+        pub = self._ray_groups_pubs.get(robot_name)
+        if pub is not None:
+            pub.publish(out)
 
     def _publish_map_origin(self):
         m = NavSatFix()

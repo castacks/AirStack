@@ -48,9 +48,9 @@ from scene_prep import (
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-ENV_URL = "file:///isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/RetroNeighborhood/RetroNeighborhood_Export.usd"
+#ENV_URL = "file:///isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/RetroNeighborhood/RetroNeighborhood_Export.usd"
 
 STAGE_SCALE = 0.01
 
@@ -62,12 +62,12 @@ STAGE_SCALE = 0.01
 # second full-scale copy of the entire scene next to the one Pegasus
 # already loaded ("inception"). Leave False unless you know the source USD
 # keeps lights/sky as separate root prims you actually need pulled in.
-REFERENCE_ROOT_PRIMS = False
+REFERENCE_ROOT_PRIMS = True
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # Lighting
-ADD_DOME_LIGHT = True
+ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -5.0
@@ -85,18 +85,17 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
 SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
-# DRONE_CONFIGS = [
-#     {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-#     {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-#     {"domain_id": 3, "x_m": 19.0, "y_m": 12.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-#     ]
-
-
 DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
-    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
-    {"domain_id": 3, "x_m": -7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
     ]
+
+
+# DRONE_CONFIGS = [
+#     {"domain_id": 1, "x_m": 7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+#     {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+#     {"domain_id": 3, "x_m": -7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+#     ]
 
 # Top-down "map" camera over (0, 0). Captures one aerial of the static scene
 # that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.

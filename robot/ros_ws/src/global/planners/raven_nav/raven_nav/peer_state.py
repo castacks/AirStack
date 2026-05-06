@@ -39,11 +39,20 @@ def _stamp_to_sec(stamp) -> float:
 
 
 @dataclass
+class PeerRays:
+    origins: np.ndarray  # (N, 3) in local map frame
+    dirs:    np.ndarray  # (N, 3) FLU unit vectors
+    scores:  np.ndarray  # (N, K) — K = len(query_labels)
+
+
+@dataclass
 class PeerState:
     peer_positions:  Dict[str, np.ndarray] = field(default_factory=dict)  # (3,)
     peer_waypoints:  Dict[str, np.ndarray] = field(default_factory=dict)  # (3,)
     peer_nav_modes:  Dict[str, str]        = field(default_factory=dict)
     peer_frontiers:  Dict[str, np.ndarray] = field(default_factory=dict)  # (N,3)
+    peer_rays:       Dict[str, 'PeerRays']  = field(default_factory=dict)
+    peer_bids:       Dict[str, Dict[str, float]] = field(default_factory=dict)
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -79,8 +88,8 @@ class PeerState:
         if nav_msg is not None and self._payload_fresh(nav_stamp, now_sec):
             self.peer_nav_modes[name] = str(nav_msg.data)
 
-        front_msg, front_stamp = profile.get_payload_with_stamp(
-            "sensor_msgs/msg/PointCloud2")
+        front_msg, front_stamp = profile.get_payload_by_name_with_stamp(
+            "raw_frontiers")
         if front_msg is not None and self._payload_fresh(front_stamp, now_sec):
             pts = list(point_cloud2.read_points(
                 front_msg, field_names=("x", "y", "z"), skip_nans=True))
@@ -94,11 +103,46 @@ class PeerState:
             else:
                 self.peer_frontiers[name] = np.zeros((0, 3), dtype=np.float64)
 
+        rays_msg, rays_stamp = profile.get_payload_by_name_with_stamp(
+            "shared_rays")
+        if rays_msg is not None and self._payload_fresh(rays_stamp, now_sec):
+            self.peer_rays[name] = self._parse_shared_rays(
+                rays_msg, my_boot_enu, my_alt_ground)
+
+        bid_msg, bid_stamp = profile.get_payload_with_stamp(
+            "airstack_msgs/msg/BidVector")
+        if bid_msg is not None and self._payload_fresh(bid_stamp, now_sec):
+            self.peer_bids[name] = {
+                lbl: float(val)
+                for lbl, val in zip(bid_msg.labels, bid_msg.values)
+            }
+
         peer_id = _extract_robot_id(name)
         if peer_id is not None:
             self.peer_ids[name] = peer_id
 
         self.peer_last_seen[name] = now_sec
+
+    def _parse_shared_rays(self, msg, my_boot_enu, my_alt_ground) -> 'PeerRays':
+        """Decode x,y,z,dx,dy,dz,sim_* PointCloud2 into PeerRays in local frame."""
+        names = [f.name for f in msg.fields]
+        sim_fields = sorted([f for f in names if f.startswith('sim_')],
+                            key=lambda s: int(s.split('_', 1)[1]))
+        fields = ('x', 'y', 'z', 'dx', 'dy', 'dz') + tuple(sim_fields)
+        pts = list(point_cloud2.read_points(
+            msg, field_names=fields, skip_nans=True))
+        if not pts:
+            return PeerRays(
+                origins=np.zeros((0, 3), dtype=np.float64),
+                dirs=np.zeros((0, 3), dtype=np.float32),
+                scores=np.zeros((0, len(sim_fields)), dtype=np.float32))
+        arr = np.array([list(p) for p in pts], dtype=np.float64)
+        origins_global = arr[:, :3]
+        dirs = arr[:, 3:6].astype(np.float32)
+        scores = arr[:, 6:].astype(np.float32)
+        origins_local = global_enu_to_local_batch(
+            origins_global, my_boot_enu, local_alt_ground=my_alt_ground)
+        return PeerRays(origins=origins_local, dirs=dirs, scores=scores)
 
     def _payload_fresh(self, stamp, now_sec: float) -> bool:
         # Zero stamp = no stamp set; treat as fresh.

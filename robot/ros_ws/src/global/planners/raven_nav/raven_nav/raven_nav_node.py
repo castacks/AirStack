@@ -12,13 +12,17 @@ from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import NavSatFix, PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String
-from visualization_msgs.msg import MarkerArray
+from geometry_msgs.msg import Point
+from visualization_msgs.msg import Marker, MarkerArray
 
 from coordination_bringup.frame_utils import gps_to_enu
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
+from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
 from raven_nav.peer_state import PeerState
+from raven_nav import bid_manager
+from raven_nav.ray_groups import compute_ray_groups
 
 
 GOSSIP_QOS = QoSProfile(
@@ -118,6 +122,21 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/completed_targets', 10)
         self._nav_mode_pub = self.create_publisher(
             String, f'{self._prefix}/navigation_mode', 10)
+        self._my_bids_pub = self.create_publisher(
+            BidVector, f'{self._prefix}/bids', 10)
+        self._shared_rays_pub = self.create_publisher(
+            PointCloud2, f'{self._prefix}/shared_rays', 10)
+        self._ray_groups_viz_pub = self.create_publisher(
+            MarkerArray, f'{self._prefix}/ray_groups_viz', 10)
+        self._prev_ray_group_marker_count = 0
+        self._assigned_target: 'str | None' = None
+        self._committed_to_assigned = False
+        self._solo_ticks = 0
+        # Drone is "committed" once it reaches within this distance of its
+        # first ray waypoint. Until then, it broadcasts its raw distance bid
+        # so a closer peer can still take over.
+        self._commit_radius_m = self.declare_parameter(
+            'commit_radius_m', 3.0).value
 
         self._publisher_dict = {
             'path': self._path_pub,
@@ -222,6 +241,39 @@ class RavenNavNode(Node):
         self._ray_origins = flu_orig
         self._ray_dirs = flu_dirs
         self._ray_scores = sim_all
+        self._publish_shared_rays(flu_orig, flu_dirs, sim_all, sim_fields, msg.header.stamp)
+
+    def _publish_shared_rays(self, origins, dirs, scores, sim_field_names, stamp):
+        """Republish rays in FLU/local frame for gossip distribution.
+
+        Fields: x, y, z, dx, dy, dz, sim_0, sim_1, ...
+        gossip_node translates only x,y,z; dx,dy,dz pass through unchanged.
+        """
+        from sensor_msgs.msg import PointField
+        n = len(origins)
+        if n == 0:
+            return
+        K = scores.shape[1]
+        out = PointCloud2()
+        out.header.stamp = stamp
+        out.header.frame_id = 'map'
+        out.height = 1
+        out.width = n
+        out.is_bigendian = False
+        out.is_dense = True
+        names = ['x', 'y', 'z', 'dx', 'dy', 'dz'] + list(sim_field_names)
+        out.fields = [
+            PointField(name=nm, offset=4 * i, datatype=PointField.FLOAT32, count=1)
+            for i, nm in enumerate(names)
+        ]
+        out.point_step = 4 * len(names)
+        out.row_step = out.point_step * n
+        flat = np.empty((n, len(names)), dtype=np.float32)
+        flat[:, 0:3] = origins.astype(np.float32)
+        flat[:, 3:6] = dirs.astype(np.float32)
+        flat[:, 6:6 + K] = scores.astype(np.float32)
+        out.data = flat.tobytes()
+        self._shared_rays_pub.publish(out)
 
     def _vox_all_cb(self, msg: PointCloud2):
         """Voxel PointCloud2 fields: x,y,z,sim_0,sim_1,..."""
@@ -334,17 +386,202 @@ class RavenNavNode(Node):
         self.get_logger().info(
             f'search_area updated: {self._search_area_xy.shape[0]} vertices.')
 
+    def _merge_own_and_peer_rays(self):
+        """Stack own + peer rays. Peer rays are already in local frame.
+
+        Returns (origins, dirs, scores) or (None, None, None) if nothing exists.
+        Peer rays whose score column count differs from ours are dropped — column
+        ordering is only consistent across robots when query_labels match.
+        """
+        own_o = self._ray_origins
+        own_d = self._ray_dirs
+        own_s = self._ray_scores
+        K = own_s.shape[1] if own_s is not None else None
+        chunks_o, chunks_d, chunks_s = [], [], []
+        if own_o is not None and len(own_o) > 0:
+            chunks_o.append(own_o)
+            chunks_d.append(own_d)
+            chunks_s.append(own_s)
+        for name, pr in self._peer_state.peer_rays.items():
+            if pr.scores.size == 0:
+                continue
+            if K is None:
+                K = pr.scores.shape[1]
+            if pr.scores.shape[1] != K:
+                continue
+            chunks_o.append(pr.origins.astype(np.float32))
+            chunks_d.append(pr.dirs.astype(np.float32))
+            chunks_s.append(pr.scores.astype(np.float32))
+        if not chunks_o:
+            return None, None, None
+        return (np.concatenate(chunks_o, axis=0),
+                np.concatenate(chunks_d, axis=0),
+                np.concatenate(chunks_s, axis=0))
+
+    _RAY_GROUP_COLORS = [
+        (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0),
+        (1.0, 1.0, 0.0), (0.0, 1.0, 1.0), (1.0, 0.0, 1.0),
+        (1.0, 0.5, 0.0), (0.5, 0.0, 1.0), (0.0, 0.5, 0.5),
+        (0.5, 0.5, 0.5),
+    ]
+
+    def _publish_ray_groups_viz(self, groups):
+        """Emit one ARROW per ray + one TEXT label per group, colored by group index."""
+        ma = MarkerArray()
+        now = self.get_clock().now().to_msg()
+        marker_id = 0
+        for i, g in enumerate(groups):
+            r, gr, b = self._RAY_GROUP_COLORS[i % len(self._RAY_GROUP_COLORS)]
+            for k in range(g.num_rays):
+                p0 = g.ray_origins[k]
+                d = g.ray_dirs[k]
+                d = d / (np.linalg.norm(d) + 1e-6)
+                p1 = p0 + 2.0 * d
+                arrow = Marker()
+                arrow.header.frame_id = 'map'
+                arrow.header.stamp = now
+                arrow.ns = 'ray_groups'
+                arrow.id = marker_id
+                arrow.type = Marker.ARROW
+                arrow.action = Marker.ADD
+                arrow.points = [
+                    Point(x=float(p0[0]), y=float(p0[1]), z=float(p0[2])),
+                    Point(x=float(p1[0]), y=float(p1[1]), z=float(p1[2])),
+                ]
+                arrow.scale.x = 0.3
+                arrow.scale.y = 0.6
+                arrow.scale.z = 0.4
+                arrow.color.r, arrow.color.g, arrow.color.b, arrow.color.a = r, gr, b, 0.7
+                ma.markers.append(arrow)
+                marker_id += 1
+            text = Marker()
+            text.header.frame_id = 'map'
+            text.header.stamp = now
+            text.ns = 'ray_groups_labels'
+            text.id = marker_id
+            text.type = Marker.TEXT_VIEW_FACING
+            text.action = Marker.ADD
+            text.pose.position.x = float(g.avg_origin[0])
+            text.pose.position.y = float(g.avg_origin[1])
+            text.pose.position.z = float(g.avg_origin[2] + 1.5)
+            text.pose.orientation.w = 1.0
+            text.scale.z = 1.0
+            text.color.r, text.color.g, text.color.b, text.color.a = r, gr, b, 1.0
+            text.text = f'{g.label} (n={g.num_rays}, d={g.min_dist_to_robot:.1f}m)'
+            ma.markers.append(text)
+            marker_id += 1
+        # Delete leftover markers from a previous (longer) frame.
+        for j in range(marker_id, self._prev_ray_group_marker_count):
+            m = Marker()
+            m.header.frame_id = 'map'
+            m.header.stamp = now
+            m.ns = 'ray_groups' if (j % 2 == 0) else 'ray_groups_labels'
+            m.id = j
+            m.action = Marker.DELETE
+            ma.markers.append(m)
+        self._prev_ray_group_marker_count = marker_id
+        self._ray_groups_viz_pub.publish(ma)
+
     def _timer_cb(self):
         if self._cur_pose is None:
             self.get_logger().warn('waiting for odometry...', throttle_duration_sec=5.0)
             self._nav_mode_pub.publish(String(data='idle'))
             return
 
+        # Merge own rays with peer rays so the auction sees the same ray pool
+        # all robots see. Peer rays already converted to local frame in PeerState.
+        merged_origins, merged_dirs, merged_scores = self._merge_own_and_peer_rays()
+
+        # Compute ray groups once: shared between the bid auction and
+        # ray_behavior waypoint selection.
+        ray_groups = compute_ray_groups(
+            merged_origins, merged_dirs, merged_scores,
+            self._query_labels, self._target_objects,
+            self._score_threshold, self._cur_pose,
+            min_altitude=self._min_altitude,
+            max_altitude=self._max_altitude)
+        self._behavior_manager.ray_behavior.ray_groups = ray_groups
+        self._publish_ray_groups_viz(ray_groups)
+
+        # Run the auction first so an assigned_target (or None) is available
+        # to mode_select / behavior_execute. Once a robot has won a target it
+        # holds it until the target is marked completed — we broadcast a
+        # sentinel-high bid so no peer can steal it mid-pursuit.
+        my_bids = bid_manager.compute_my_bids(ray_groups)
+
+        completed = self._behavior_manager.completed_queries
+        if (self._assigned_target is not None
+                and self._assigned_target in completed):
+            self._assigned_target = None
+            self._committed_to_assigned = False
+
+        # Commit promotion: if we've reached the first waypoint of our
+        # current target, switch from raw-bid to LOCKED_BID broadcast.
+        if (self._assigned_target is not None
+                and not self._committed_to_assigned
+                and self._target_waypoint is not None):
+            d = float(np.linalg.norm(
+                self._cur_pose[:3] - np.asarray(self._target_waypoint[:3])))
+            if d <= self._commit_radius_m:
+                self._committed_to_assigned = True
+                if self._debug_coord:
+                    self.get_logger().info(
+                        f'[coord] committed to {self._assigned_target} '
+                        f'(reached waypoint, d={d:.1f}m)')
+
+        if self._assigned_target is not None:
+            if self._committed_to_assigned:
+                # Locked: broadcast LOCKED_BID, run collision tiebreak.
+                my_bids[self._assigned_target] = bid_manager.LOCKED_BID
+                for peer_name, bids in self._peer_state.peer_bids.items():
+                    if bids.get(self._assigned_target) == bid_manager.LOCKED_BID:
+                        pid = self._peer_state.peer_ids.get(peer_name)
+                        if pid is not None and pid < self._my_id:
+                            del my_bids[self._assigned_target]
+                            self._assigned_target = None
+                            self._committed_to_assigned = False
+                            break
+            else:
+                # Tentative: raw bid stays in my_bids. Re-run the auction —
+                # if a peer is now closer (or has committed), drop the claim.
+                winner = bid_manager.assign(
+                    self._my_id, my_bids,
+                    self._peer_state.peer_bids, self._peer_state.peer_ids)
+                if winner != self._assigned_target:
+                    self._assigned_target = None
+
+        if self._assigned_target is None:
+            # Don't claim a fresh target until we've heard from at least one
+            # peer this session (or run for a few ticks alone). Prevents the
+            # race where two robots simultaneously lock on the same target
+            # before either has seen the other's bid.
+            seen_peers = bool(self._peer_state.peer_bids) or self._solo_ticks > 5
+            if seen_peers:
+                self._assigned_target = bid_manager.assign(
+                    self._my_id, my_bids,
+                    self._peer_state.peer_bids, self._peer_state.peer_ids)
+                # New claim is tentative — raw bid stays in my_bids.
+                self._committed_to_assigned = False
+            else:
+                self._solo_ticks += 1
+
+        # Make the auction outcome visible to mode_select / execute.
+        self._behavior_manager.ray_behavior.assigned_target = self._assigned_target
+
+        bv = BidVector()
+        bv.robot_name = self._robot_name
+        bv.labels = list(my_bids.keys())
+        bv.values = list(my_bids.values())
+        self._my_bids_pub.publish(bv)
+        if self._debug_coord:
+            self.get_logger().info(
+                f'[coord] my_bids={ {k: round(v, 2) for k, v in my_bids.items()} } '
+                f'peer_bids={ {n: {k: round(v, 2) for k, v in b.items()} for n, b in self._peer_state.peer_bids.items()} } '
+                f'assigned={self._assigned_target}',
+                throttle_duration_sec=2.0)
+
         prev_mode = self._behavior_mode
         self._behavior_manager.mode_select(
-            ray_origins=self._ray_origins,
-            ray_dirs=self._ray_dirs,
-            ray_scores=self._ray_scores,
             query_labels=self._query_labels,
             target_objects=self._target_objects,
             vox_xyz=self._vox_xyz,
@@ -374,6 +611,7 @@ class RavenNavNode(Node):
                 my_id=self._my_id,
                 search_area_xy=self._search_area_xy,
                 debug_logger=(self.get_logger() if self._debug_coord else None),
+                assigned_target=self._assigned_target,
             )
 
         self._nav_mode_pub.publish(
@@ -386,18 +624,21 @@ class RavenNavNode(Node):
 
         n_frontiers = len(self._frontiers) if self._frontiers is not None else 0
         n_rays = len(self._ray_origins) if self._ray_origins is not None else 0
+        n_peer_rays = sum(
+            len(pr.origins) for pr in self._peer_state.peer_rays.values())
         n_voxels = len(self._vox_xyz) if self._vox_xyz is not None else 0
         ray_beh = self._behavior_manager.ray_behavior
-        n_filtered = (len(ray_beh._filtered_indices)
-                      if ray_beh._filtered_indices is not None else 0)
+        n_filtered = sum(g.num_rays for g in ray_beh.ray_groups)
         wp = (f'({self._target_waypoint[0]:.1f}, {self._target_waypoint[1]:.1f}, '
               f'{self._target_waypoint[2]:.1f})'
               if self._target_waypoint is not None else 'none')
         self.get_logger().info(
             f'[{self._behavior_mode}] '
-            f'frontiers={n_frontiers} rays={n_rays} filtered={n_filtered} '
+            f'frontiers={n_frontiers} rays={n_rays} peer_rays={n_peer_rays} '
+            f'merged_rays={n_rays + n_peer_rays} filtered={n_filtered} '
             f'voxels={n_voxels} | '
             f'target={ray_beh.current_target} | '
+            f'assigned={self._assigned_target} | '
             f'completed={completed} | wp={wp}',
             throttle_duration_sec=2.0,
         )

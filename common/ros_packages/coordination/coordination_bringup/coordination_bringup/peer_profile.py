@@ -88,6 +88,14 @@ class PeerProfile:
                 return deserialize_message(p["data"], msg_class), p.get("stamp")
         return None, None
 
+    def get_payload_by_name_with_stamp(self, name: str):
+        """Like get_payload_by_name() but returns (msg, stamp). (None, None) if not found."""
+        for p in self._payloads:
+            if p.get("name") == name:
+                msg_class = rosidl_utils.get_message(p["type"])
+                return deserialize_message(p["data"], msg_class), p.get("stamp")
+        return None, None
+
     def get_all_payloads(self) -> List[Any]:
         result = []
         for p in self._payloads:
