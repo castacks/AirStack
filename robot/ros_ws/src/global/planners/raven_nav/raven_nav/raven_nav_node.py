@@ -246,10 +246,24 @@ class RavenNavNode(Node):
     def _publish_shared_rays(self, origins, dirs, scores, sim_field_names, stamp):
         """Republish rays in FLU/local frame for gossip distribution.
 
+        Pre-filtered to only rays where some target column passes threshold —
+        peers re-filter locally but starting from a smaller cloud cuts gossip
+        bandwidth and the merged-ray count significantly.
+
         Fields: x, y, z, dx, dy, dz, sim_0, sim_1, ...
         gossip_node translates only x,y,z; dx,dy,dz pass through unchanged.
         """
         from sensor_msgs.msg import PointField
+        if self._target_objects:
+            label_indices = [self._query_labels.index(t)
+                             for t in self._target_objects
+                             if t in self._query_labels]
+            if label_indices:
+                relevant = scores[:, label_indices]
+                keep = (relevant > self._score_threshold).any(axis=1)
+                origins = origins[keep]
+                dirs = dirs[keep]
+                scores = scores[keep]
         n = len(origins)
         if n == 0:
             return

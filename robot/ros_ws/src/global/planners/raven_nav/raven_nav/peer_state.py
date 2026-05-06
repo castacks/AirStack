@@ -109,8 +109,15 @@ class PeerState:
             self.peer_rays[name] = self._parse_shared_rays(
                 rays_msg, my_boot_enu, my_alt_ground)
 
-        bid_msg, bid_stamp = profile.get_payload_with_stamp(
-            "airstack_msgs/msg/BidVector")
+        # Look up the bid payload by name (gossip auto-derives "bids" from
+        # the topic /<robot>/bids). By-name avoids type-import issues if
+        # airstack_msgs isn't loadable for some reason — get_payload_with_stamp
+        # would raise during deserialize.
+        try:
+            bid_msg, bid_stamp = profile.get_payload_by_name_with_stamp("bids")
+        except Exception as e:
+            bid_msg, bid_stamp = None, None
+            print(f'[peer_state] BidVector deserialize failed for {name}: {e}')
         if bid_msg is not None and self._payload_fresh(bid_stamp, now_sec):
             self.peer_bids[name] = {
                 lbl: float(val)
