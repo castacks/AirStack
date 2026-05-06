@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath
 import scene_prep
 from scene_prep import (
     scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit,
-    reference_root_prims_under_world,
+    reference_root_prims_under_world, dedupe_physics_scenes,
     add_orthographic_camera, add_overhead_camera_publisher,
 )
 
@@ -93,9 +93,9 @@ SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
 
 
 DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
-    {"domain_id": 2, "x_m": 5.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
-    {"domain_id": 3, "x_m": 0.0, "y_m": 5.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 1, "x_m": 7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 3, "x_m": -7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
     ]
 
 # Top-down "map" camera over (0, 0). Captures one aerial of the static scene
@@ -180,6 +180,8 @@ class PegasusApp:
 
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
+
+        dedupe_physics_scenes(stage)
 
         # ----- Scene preparation -----
         # Bring in sky/sun/environment prims that sit outside /World in the source USD

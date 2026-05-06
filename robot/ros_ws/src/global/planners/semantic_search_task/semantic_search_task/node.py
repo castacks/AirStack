@@ -437,6 +437,11 @@ class SemanticSearchTaskNode(Node):
         exploration_send_future = None
         rayfronts_q = raven_q = queue.Queue()
 
+        STUCK_TIMEOUT_S = 5.0
+        STUCK_DISTANCE_M = 0.3
+        last_motion_pos = None
+        last_motion_time = None
+
         # Track last meaningful line from each process for feedback
         last_rf_status = 'Starting rayfronts...'
         last_rv_status = 'Starting raven...'
@@ -601,6 +606,34 @@ class SemanticSearchTaskNode(Node):
                         'to existing random_walk_planner')
                     _, exploration_send_future = self._send_exploration_task(
                         robot_name)
+                    last_motion_pos = list(self._cur_pos) if self._cur_pos else None
+                    last_motion_time = time.time()
+
+                if (random_walk_started and self._cur_pos is not None
+                        and last_motion_time is not None):
+                    now = time.time()
+                    if last_motion_pos is None:
+                        last_motion_pos = list(self._cur_pos)
+                        last_motion_time = now
+                    else:
+                        dx = self._cur_pos[0] - last_motion_pos[0]
+                        dy = self._cur_pos[1] - last_motion_pos[1]
+                        dz = self._cur_pos[2] - last_motion_pos[2]
+                        if (dx * dx + dy * dy + dz * dz) ** 0.5 > STUCK_DISTANCE_M:
+                            last_motion_pos = list(self._cur_pos)
+                            last_motion_time = now
+                        elif now - last_motion_time > STUCK_TIMEOUT_S:
+                            self.get_logger().warn(
+                                f'Robot has not moved >{STUCK_DISTANCE_M:.1f} m in '
+                                f'{STUCK_TIMEOUT_S:.1f}s — cancelling and re-sending '
+                                f'ExplorationTask')
+                            self._cancel_exploration_task(exploration_send_future)
+                            self._cancel_active_navigation(robot_name)
+                            time.sleep(0.5)
+                            _, exploration_send_future = self._send_exploration_task(
+                                robot_name)
+                            last_motion_pos = list(self._cur_pos)
+                            last_motion_time = time.time()
 
                 # Send queries to rayfronts whenever its subscriber appears (or reappears).
                 # This handles the initial load AND any rayfronts restart mid-task.

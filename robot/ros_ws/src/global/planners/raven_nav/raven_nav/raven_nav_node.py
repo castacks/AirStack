@@ -358,16 +358,6 @@ class RavenNavNode(Node):
             self._target_waypoint = None
             self._target_waypoint2 = None
 
-        now_sec = self.get_clock().now().nanoseconds * 1e-9
-        before = set(self._peer_state.peer_last_seen.keys())
-        self._peer_state.prune(now_sec)
-        after = set(self._peer_state.peer_last_seen.keys())
-        dropped = before - after
-        if dropped and self._debug_coord:
-            for n in dropped:
-                self.get_logger().info(
-                    f'[coord] peer LOST (stale > {self._peer_state.profile_ttl_sec}s): {n}')
-
         self._waypoint_locked, self._target_waypoint, self._target_waypoint2 = \
             self._behavior_manager.behavior_execute(
                 behavior_mode=self._behavior_mode,

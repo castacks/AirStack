@@ -86,6 +86,38 @@ def scale_stage_prim(stage, prim_path: str, scale_factor: float):
 
 
 # ---------------------------------------------------------------------------
+# Physics scene dedupe
+# ---------------------------------------------------------------------------
+
+def dedupe_physics_scenes(stage) -> str | None:
+    """Keep the first UsdPhysics.Scene found in the stage; delete the rest.
+
+    Isaac's World autocreates a PhysicsScene on init, and Kit-saved USDs
+    often bake one in too. PhysX can only step a single scene coherently,
+    so duplicates trigger "Physics scenes stepping is not the same" and
+    desynced sensors. Returns the kept prim path (or None if no scene).
+    """
+    scenes = [p for p in stage.Traverse() if p.IsA(UsdPhysics.Scene)]
+    if not scenes:
+        print("[scene_prep] No PhysicsScene found in stage")
+        return None
+    keep, *extras = scenes
+    for extra in extras:
+        path = extra.GetPath()
+        # Prims that come from a referenced sublayer (e.g. PhysicsScene baked
+        # into the loaded USD) can't be deleted with RemovePrim from the live
+        # root layer — there's no spec there to remove. SetActive(False)
+        # writes an "active = false" override on the root layer, which makes
+        # USD ignore the prim entirely without touching the source asset.
+        if not extra.SetActive(False):
+            print(f"[scene_prep] WARN: failed to deactivate PhysicsScene at {path}")
+        else:
+            print(f"[scene_prep] Deactivated duplicate PhysicsScene: {path}")
+    print(f"[scene_prep] Kept PhysicsScene: {keep.GetPath()}")
+    return str(keep.GetPath())
+
+
+# ---------------------------------------------------------------------------
 # Collision
 # ---------------------------------------------------------------------------
 

@@ -47,9 +47,8 @@ class PeerState:
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
-    # profile_ttl: drop the peer entirely. payload_ttl: ignore individual
-    # stale payloads (peer is alive but, e.g., rayfronts went silent).
-    profile_ttl_sec: float = 5.0
+    # payload_ttl: ignore individual stale payloads (peer is alive but, e.g.,
+    # rayfronts went silent).
     payload_ttl_sec: float = 30.0
 
     def update(self, msg: PeerProfileMsg, my_boot_enu: np.ndarray,
@@ -100,17 +99,6 @@ class PeerState:
             self.peer_ids[name] = peer_id
 
         self.peer_last_seen[name] = now_sec
-
-    def prune(self, now_sec: float) -> None:
-        stale = [n for n, t in self.peer_last_seen.items()
-                 if now_sec - t > self.profile_ttl_sec]
-        for n in stale:
-            self.peer_positions.pop(n, None)
-            self.peer_waypoints.pop(n, None)
-            self.peer_nav_modes.pop(n, None)
-            self.peer_frontiers.pop(n, None)
-            self.peer_ids.pop(n, None)
-            self.peer_last_seen.pop(n, None)
 
     def _payload_fresh(self, stamp, now_sec: float) -> bool:
         # Zero stamp = no stamp set; treat as fresh.
