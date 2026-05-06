@@ -52,7 +52,7 @@ COMPUTE_METRIC_RE = re.compile(
 def _split_test_name(name):
     """`test_liveliness.TestLiveliness.test_foo[id]` →
     (module="test_liveliness", display="test_foo[id]"). Drops the Class segment
-    for display since there's one class per module."""
+    for display since there's one class per module (same for ``test_sensors``)."""
     parts = name.split(".", 2)
     if len(parts) == 3:
         return parts[0], parts[2]

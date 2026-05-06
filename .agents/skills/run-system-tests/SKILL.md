@@ -1,6 +1,6 @@
 ---
 name: run-system-tests
-description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, takeoff_hover_land), trigger runs via /pytest PR comments, and read metrics.json regression reports. Use for invoking tests, debugging failures from results.xml/metrics.json, or adding a new system test.
+description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land), trigger runs via /pytest PR comments, and read metrics.json regression reports. Use for invoking tests, debugging failures from results.xml/metrics.json, or adding a new system test.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -22,32 +22,53 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 
 ## Test Suite Overview
 
-The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`. There are exactly four marks today:
+The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`. Marks include `build_docker`, `build_packages`, `liveliness`, `sensors`, and `takeoff_hover_land`:
 
 | File | Mark | What it tests | Hardware required |
 |------|------|---------------|-------------------|
 | `tests/test_build_docker.py` | `build_docker` | `airstack image-build` for `robot-desktop`, `gcs`, `isaac-sim`, `ms-airsim`; records image size to `metrics.json` | Docker daemon |
 | `tests/test_build_packages.py` | `build_packages` | `colcon build` (`bws`) inside the robot, GCS, and ms-airsim ROS workspaces — brought up with `AUTOLAUNCH=false` | Docker daemon |
-| `tests/test_liveliness.py` | `liveliness` | Full stack up, container Running state, tmux pane survival, sentinel ROS 2 nodes (mavros, robot_state_publisher, trajectory_control_node), sim topic Hz, compute usage, sustained `test_stable` polling window, sim realtime factor | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
+| `tests/test_liveliness.py` | `liveliness` | Stack bring-up: containers Running, `/clock` readiness, tmux panes, sentinel ROS 2 nodes, compute, infra-only `test_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
+| `tests/test_sensors.py` | `sensors` | Topic Hz (Isaac: batched on sim + robot; LiDAR `echo-once` + cloud sanity), RTF, `test_sensor_streams_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
 | `tests/test_takeoff_hover_land.py` | `takeoff_hover_land` | 4-phase flight chain per `(sim, num_robots, iteration, velocity)`: `test_px4_ready` → `test_takeoff` → `test_hover` → `test_landing`. Records altitude error, overshoot, hover stability, landing accuracy, odometry drift | Docker daemon, NVIDIA GPU, sim license |
 
-The four marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc** — register any new mark there or pytest will warn about unknown marks.
+The marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc** — register any new mark there or pytest will warn about unknown marks.
 
 ### Test ordering (set by `pytest_collection_modifyitems`)
 
 `conftest.py` enforces a deterministic global order so cheap-and-fast-failing tests surface first:
 
 ```
-test_build_docker → test_build_packages → test_liveliness → test_takeoff_hover_land
+test_build_docker → test_build_packages → test_liveliness → test_sensors → test_takeoff_hover_land
 ```
 
 Within `test_takeoff_hover_land`, items are re-sorted to `(airstack_env, velocity, phase)` so each `(sim, robots, iter)` env brings the stack up once and the drone goes ground → air → ground per velocity before pytest moves to the next velocity.
+
+### Isaac Sim (`sensors`): why Hz is batched and LiDAR uses `echo --once`
+
+[`tests/sensor_probes.py`](../../../tests/sensor_probes.py) implements the `sensors`
+mark. Pegasus / OmniGraph ROS bridges and the sim→robot path can stop reporting
+rates if too many `ros2 topic hz` processes run concurrently.
+
+- **Sim-side (Isaac):** three `parallel_sample_hz` passes — `/clock`, then both
+  `image_rect` topics, then both `depth_ground_truth` topics.
+- **Robot-side (Isaac):** two passes — both stereo images, then both depths.
+  **ms-airsim** keeps a single four-topic parallel batch on the robot container.
+- **Filtered LiDAR** (`PointCloud2`): uses `ros2 topic echo --once` per robot
+  (see `parallel_echo_once_robot_topics` in `conftest.py`), not `topic hz`.
+- **Multi-drone Pegasus script:** pytest sets `ENABLE_LIDAR=true` in
+  `conftest.py` `SIM_CONFIG["isaacsim"]["extra_env"]` so LiDAR matches the
+  single-drone example (which always enables RTX LiDAR).
+
+User-facing write-up: [`tests/README.md`](../../../tests/README.md) (section
+*Isaac Sim and the sensors mark*).
 
 ### `build_packages` is auto-prepended in CI
 
 The `system-tests.yml` workflow's `Parse pytest args` step automatically prepends `build_packages` to the marks expression whenever the user specifies any marks (and `build_packages` isn't already in the expression). For example:
 
 - `/pytest -m liveliness` → effectively runs `-m "build_packages or liveliness"`
+- `/pytest -m sensors` → effectively runs `-m "build_packages or sensors"`
 - `/pytest -m takeoff_hover_land` → effectively runs `-m "build_packages or takeoff_hover_land"`
 - `/pytest` (no marks) → pytest defaults (everything)
 - `/pytest -m build_docker` → unchanged (the build_docker tests rebuild from scratch anyway)
@@ -69,6 +90,14 @@ airstack test -m "build_docker or build_packages" -v
 # Liveliness — single sim, single robot, single iteration
 airstack test -m liveliness \
   --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --stable-duration 60 \
+  -v
+
+# Sensors (sim + robot Hz, LiDAR, RTF) — Isaac example; runs after liveliness in collection order
+airstack test -m sensors \
+  --sim isaacsim \
   --num-robots 1 \
   --stress-iterations 1 \
   --stable-duration 60 \
@@ -105,8 +134,8 @@ The `airstack_env` fixture is parametrized over `(sim, num_robots, iteration)` t
 | `--sim` | `msairsim,isaacsim` | `airstack_env` | One env-tuple per sim |
 | `--num-robots` | `1,3` | `airstack_env` | Cross-product with sim |
 | `--stress-iterations` | `1` | `airstack_env` | Up/down cycles per `(sim, num_robots)` |
-| `--stable-duration` | `120` | `test_liveliness::test_stable` | Total seconds polled |
-| `--stable-interval` | `10` | `test_liveliness::test_stable` | Seconds between polls |
+| `--stable-duration` | `120` | `test_liveliness::test_stable` and `test_sensors::test_sensor_streams_stable` | Total seconds polled |
+| `--stable-interval` | `10` | `test_liveliness::test_stable` and `test_sensors::test_sensor_streams_stable` | Seconds between polls |
 | `--gui` | off (headless) | `airstack_env` | Sets `QT_QPA_PLATFORM=offscreen` when off |
 | `--takeoff-velocities` | `0.5` (current default) | `test_takeoff_hover_land` | One full 4-phase chain per velocity |
 
@@ -115,7 +144,7 @@ Total parametrize cardinality for sim tests = `len(sims) × len(num_robots) × s
 ### Prerequisites
 
 - Docker daemon running, your user in the `docker` group
-- For `liveliness` / `takeoff_hover_land`: NVIDIA driver + `nvidia-container-toolkit`
+- For `liveliness` / `sensors` / `takeoff_hover_land`: NVIDIA driver + `nvidia-container-toolkit`
 - For `isaacsim`: `simulation/isaac-sim/docker/omni_pass.env` populated with Omniverse credentials (CI generates a `guest`/`guest` version automatically)
 - `airstack setup` already run so `airstack` is on `PATH`
 - All required compose images present locally — `airstack_env` calls `missing_images()` and fails fast otherwise. Build them first via `airstack test -m build_docker` or `airstack image-build <service>`.
@@ -170,7 +199,8 @@ tests/results/2025-04-21_14-30-00/
 ├── metrics.json       # Custom metrics keyed by test_node_id → metric_key
 └── logs/
     ├── test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-    ├── test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
+        ├── test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
+        ├── test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
     ├── airstack_env.test_liveliness.TestLiveliness.test_robot_containers_running[...].log
     └── ...
 ```
@@ -213,7 +243,7 @@ python tests/parse_metrics.py \
 The report has three sections per test module:
 
 - **Metrics** — flat scalar metrics (test, key, current, baseline, change%)
-- **Sim publishing rates** — pivoted Hz aggregates per topic (`mean`, `start_mean`, `end_mean`, `min`, `max`)
+- **Sim publishing rates** — pivoted Hz aggregates per topic (`mean`, `start_mean`, `end_mean`, `min`, `max`) from the `sensors` mark (sim + robot streams)
 - **Compute usage** — pivoted CPU/mem/GPU per container
 
 Regressions exceeding `--threshold` (default 20%) are flagged `:red_circle:`; improvements beyond threshold get `:green_circle:`. CI fails the job on any regression.
@@ -230,7 +260,7 @@ If your test...
 
 - Builds a Docker image → reuse `build_docker`
 - Builds a colcon workspace → reuse `build_packages`
-- Verifies the running stack → reuse `liveliness`
+- Verifies the running stack → `liveliness` (infra); sensor topic rates / LiDAR / RTF → `sensors`
 - Drives the autonomy stack to fly → reuse `takeoff_hover_land`
 - Doesn't fit any of these → **register a new mark in `tests/pytest.ini`** before using it. Update the table in `tests/README.md` and the AGENTS.md "System Test Suite" table at the same time.
 
@@ -296,11 +326,11 @@ If multiple tests need the same setup, add a fixture in `conftest.py` (not in yo
 ## Common Pitfalls
 
 - **Forgetting `build_packages`**. If you run `-m liveliness` locally on a fresh checkout, the workspace inside the container is empty and sentinel nodes won't appear. Either run `-m "build_packages or liveliness"` or rely on the CI auto-prepend.
-- **Mixing marks unintentionally**. `-m "liveliness or takeoff_hover_land"` brings the stack up multiple times (once per parametrize tuple per mark). Combine deliberately, not by reflex.
-- **Running on insufficient hardware**. `liveliness` and `takeoff_hover_land` require an NVIDIA GPU plus nvidia-container-toolkit; without them the sim container won't get GPU access and topic Hz checks will time out. If you only have a CPU, scope to `-m "build_docker or build_packages"`.
+- **Mixing marks unintentionally**. `-m "liveliness or takeoff_hover_land"` brings the stack up once per selected mark's test classes (per parametrization). `-m "liveliness and sensors"` runs **both** classes for each tuple — **two** full ``airstack up`` / ``down`` cycles per `(sim, robots, iter)` because ``airstack_env`` is class-scoped. Combine deliberately, not by reflex.
+- **Running on insufficient hardware**. `liveliness`, `sensors`, and `takeoff_hover_land` require an NVIDIA GPU plus nvidia-container-toolkit; without them the sim container won't get GPU access and topic Hz checks will time out. If you only have a CPU, scope to `-m "build_docker or build_packages"`.
 - **Expecting interactive sim feedback**. `airstack_env` runs headless by default (`MS_AIRSIM_HEADLESS=true`, `ISAAC_SIM_HEADLESS=true`, `QT_QPA_PLATFORM=offscreen`). Don't add stdin prompts, GUI dialogs, or `input()` calls to test code — they will hang in CI. For local visual debugging only, pass `--gui`.
 - **Not capturing metrics in a new test**. If a test fails silently (no metric recorded) the regression report has nothing to compare. Always record at least one scalar via `MetricsRecorder` so the test shows up in `metrics.json`.
-- **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim --num-robots 1,3` with `--stress-iterations 3` is 12 stack up/downs per liveliness test — expensive. Override locally to a single tuple while iterating.
+- **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim --num-robots 1,3` with `--stress-iterations 3` multiply stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating.
 - **Hardcoded container names**. Always use `find_container`, `get_robot_containers`, or `wait_for_container` — replica suffixes (`-1`, `-2`, `-3`) and compose project prefixes change.
 - **Asserting on stdout instead of using `read_log_tail`**. The conftest tees subprocess output to per-test log files; assertions should reference those logs (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
 - **Trying to SSH into a CI runner mid-job**. Workers are ephemeral OpenStack VMs destroyed within ~30s of job completion. Re-running the job creates a fresh VM. For genuine debugging on the runner, see `.github/orchestrator/README.md` (also exposed at `tests/ci-cd-orchestrator.md`) — but in 99% of cases, reproduce locally with `airstack test`.
@@ -316,6 +346,10 @@ airstack test -m "build_docker or build_packages" -v
 
 # Single-config liveliness (fastest path to a real signal)
 airstack test -m liveliness --sim msairsim --num-robots 1 \
+  --stress-iterations 1 --stable-duration 60 -v
+
+# Single-config sensors (Isaac topic Hz + LiDAR; see tests/README § Isaac)
+airstack test -m sensors --sim isaacsim --num-robots 1 \
   --stress-iterations 1 --stable-duration 60 -v
 
 # Full takeoff/hover/land sweep with three velocities
@@ -342,6 +376,7 @@ python tests/parse_metrics.py \
 ```
 /pytest
 /pytest -m liveliness --sim msairsim --num-robots 1
+/pytest -m sensors --sim isaacsim --num-robots 1
 /pytest -m takeoff_hover_land --takeoff-velocities 0.5,1
 /pytest -m "build_docker or build_packages"
 ```
@@ -354,8 +389,9 @@ python tests/parse_metrics.py \
 |---------------|---------------------|
 | Smoke-test image + workspace builds | `-m "build_docker or build_packages"` |
 | Verify the stack comes up clean | `-m liveliness` |
+| Verify sim + robot sensor streams (Hz, LiDAR, RTF) | `-m sensors` |
 | Verify autonomy can fly the drone | `-m takeoff_hover_land` |
-| Full PR validation (CI default for manual dispatch) | `-m "liveliness or takeoff_hover_land"` (CI auto-prepends `build_packages`) |
+| Full PR validation (CI default for manual dispatch) | `-m "liveliness or takeoff_hover_land"` (CI auto-prepends `build_packages`). Add `or sensors` when you need topic-rate regression signal. |
 | Run literally everything | omit `-m` |
 
 ### Files to know

@@ -268,11 +268,16 @@ The system test suite (pytest, runs against the full Docker stack) is invoked th
 ```bash
 airstack test -m "build_docker or build_packages" -v
 airstack test -m liveliness --sim msairsim --num-robots 1 -v
+airstack test -m sensors --sim isaacsim --num-robots 1 -v   # topic Hz + LiDAR (after liveliness if both selected)
 airstack test -m takeoff_hover_land --sim msairsim --takeoff-velocities 0.5,1,2 -v
 ```
 
-For full details on the test fixtures, marks, and metrics reporting, see the
-`test-in-simulation` skill and `tests/README.md`.
+For full details on **pytest system tests** (fixtures, marks, `liveliness` vs
+`sensors`, Isaac Hz batching, metrics, `/pytest` CI), see the
+[`run-system-tests`](../run-system-tests/SKILL.md) skill and
+[`tests/README.md`](../../../tests/README.md). For **authoring and running
+scenarios inside Isaac Sim or AirSim** (missions, RViz checks, scene tweaks), see
+the [`test-in-simulation`](../test-in-simulation/SKILL.md) skill.
 
 ### Lint and format
 
@@ -377,7 +382,8 @@ docker logs -f airstack-robot-desktop-1 2>&1 | grep -iE "error|fail"
 
 # ---- Other ----
 airstack docs                                    # Build + serve MkDocs
-airstack test -m liveliness -v                   # Run system tests
+airstack test -m liveliness -v                   # Stack infra tests
+airstack test -m sensors -v                     # Sensor topic + LiDAR tests (Isaac batching — see tests/README)
 airstack lint                                    # Lint
 airstack format                                  # Format
 ```

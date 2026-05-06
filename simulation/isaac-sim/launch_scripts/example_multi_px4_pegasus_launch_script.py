@@ -4,7 +4,10 @@ Multi-drone PX4 Pegasus launcher, parametrized by NUM_ROBOTS.
 
 Env:
  - NUM_ROBOTS (default 1): how many drones to spawn
- - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone
+ - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone (``add_rtx_lidar_subgraph``;
+   publishes ``point_cloud_raw`` under ``/robot_<i>/sensors/ouster/`` via OmniGraph). The
+   single-drone example script always enables LiDAR; AirStack pytest ``isaacsim`` liveliness
+   sets ``ENABLE_LIDAR=true`` so behavior matches.
  - PLAY_SIM_ON_START (default true): autoplay timeline
 """
 
