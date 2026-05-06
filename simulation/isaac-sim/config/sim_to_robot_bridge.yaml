@@ -33,60 +33,6 @@ to_domain: 1      # Robot domain
 
 topics:
   # Camera topics - bridge to correct robot topic structure
-  
-  # Left camera image (map Isaac Sim topic to robot expected topic)
-  /robot_1/left/color/image_raw:
-    type: sensor_msgs/msg/Image
-    from_domain: 100
-    to_domain: 1
-    remap: /robot_1/sensors/front_stereo/left/image_rect
-
-  # Left camera info  
-  /robot_1/left/color/camera_info:
-    type: sensor_msgs/msg/CameraInfo
-    from_domain: 100
-    to_domain: 1
-    remap: /robot_1/sensors/front_stereo/left/camera_info
-
-  # Right camera image
-  /robot_1/right/color/image_raw:
-    type: sensor_msgs/msg/Image
-    from_domain: 100
-    to_domain: 1
-    remap: /robot_1/sensors/front_stereo/right/image_rect
-
-  # Right camera info
-  /robot_1/right/color/camera_info:
-    type: sensor_msgs/msg/CameraInfo
-    from_domain: 100 
-    to_domain: 1
-    remap: /robot_1/sensors/front_stereo/right/camera_info
-
-  # Left camera depth (ground truth depth from Isaac Sim)
-  /robot_1/left/depth:
-    type: sensor_msgs/msg/Image
-    from_domain: 100
-    to_domain: 1
-    remap: /robot_1/sensors/front_stereo/left/depth
-
-  # Right camera depth (ground truth depth from Isaac Sim)  
-  /robot_1/right/depth:
-    type: sensor_msgs/msg/Image
-    from_domain: 100
-    to_domain: 1
-    remap: /robot_1/sensors/front_stereo/right/depth
-
-  # Rectified images for MAC-VO (republished from image_raw to robot expected paths)
-  /robot_1/sensors/left/image_rect:
-    type: sensor_msgs/msg/Image
-    from_domain: 100
-    to_domain: 1
-
-  /robot_1/sensors/right/image_rect:
-    type: sensor_msgs/msg/Image
-    from_domain: 100
-    to_domain: 1
-
   # GPS data
   /robot_1/sensors/gps:
     type: sensor_msgs/msg/NavSatFix
@@ -108,12 +54,6 @@ topics:
   # Magnetometer data
   /robot_1/sensors/mag:
     type: sensor_msgs/msg/MagneticField
-    from_domain: 100
-    to_domain: 1
-
-  # LiDAR point cloud (RTX OmniGraph → sensors/ouster/point_cloud)
-  /robot_1/sensors/ouster/point_cloud:
-    type: sensor_msgs/msg/PointCloud2
     from_domain: 100
     to_domain: 1
 

@@ -91,7 +91,7 @@ services:
       - isaac-sim-gui
     command: >
       bash -c "tmux new -d -s isaac; 
-        tmux send-keys -t isaac 'bash /isaac-sim/AirStack/simulation/isaac-sim/docker/tmux_gui_with_shell.sh' ENTER; 
+        tmux send-keys -t isaac '/isaac-sim/runapp.sh' ENTER;  
       sleep infinity"
     networks: !reset null
   # ===================================================================================================================

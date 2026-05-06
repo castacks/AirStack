@@ -6,7 +6,7 @@ Demonstrates:
  - Loading a Pegasus world with an environment
  - Scaling the environment prim and adding collision geometry
  - Adding a dome light
- - Spawning a PX4 multirotor with ZED camera and Ouster lidar
+- Spawning a PX4 multirotor with ZED camera and RTX lidar
  - Optionally saving the prepared scene as a self-contained USD
 """
 

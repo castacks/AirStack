@@ -82,11 +82,16 @@ class LidarPointCloudFilterNode(Node):
                 self._warned_missing_xyz = True
             return
 
+        # Extract points from the cloud and skip any points with NaN values
         pts = list(
             point_cloud2.read_points(
                 msg, field_names=('x', 'y', 'z'), skip_nans=True
             )
         )
+
+        # Remove any points with infinite values
+        pts = [p for p in pts if np.isfinite((p[0], p[1], p[2])).all()]
+
         if not pts:
             self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, []))
             return
