@@ -7,12 +7,12 @@ containers, tmux, and sentinel nodes; sensor Hz / LiDAR validation lives here.
 
 **Isaac Sim (`env["sim"] == "isaacsim"`)** — Pegasus / OmniGraph ROS bridges are
 easily overwhelmed when many ``ros2 topic hz`` clients run at once. This module
-therefore batches Hz probes:
+therefore caps concurrent Hz clients (see ``ISAACSIM_HZ_CHUNK_SIZE``):
 
-- **Sim container:** ``/clock`` alone, then both ``image_rect`` topics, then both
-  ``depth_ground_truth`` topics (three ``parallel_sample_hz`` passes).
-- **Robot container:** both ``image_rect`` topics, then both depth topics (two
-  passes). ms-airsim still uses a single parallel batch of all four robot topics.
+- **Sim container:** ``/clock`` alone, then ``image_rect`` topics in chunks, then
+  ``depth_ground_truth`` in chunks (each chunk at most two probes per ``docker exec``).
+- **Robot container:** same chunking for image then depth. ms-airsim still uses one
+  parallel batch of all stereo/depth topics.
 
 **Filtered LiDAR** (``PointCloud2``) — ``ros2 topic hz`` often never prints a rate
 on large clouds; this suite uses ``parallel_echo_once_robot_topics`` instead.
@@ -58,19 +58,74 @@ LIDAR_CLOUD_VALIDATE_SCRIPT = (
 STABLE_HZ_DURATION_S = 5
 STABLE_HZ_WINDOW = 5
 
+# Isaac Sim ROS bridge: max concurrent ``ros2 topic hz`` per ``parallel_sample_hz`` exec.
+ISAACSIM_HZ_CHUNK_SIZE = 2
+
+
+def _parallel_sample_hz_isaacsim_chunks(
+    container,
+    pairs,
+    *,
+    setup_bash,
+    duration,
+    window,
+    log_label,
+):
+    """Run ``parallel_sample_hz`` in fixed-size chunks to limit bridge load.
+
+    Each ``docker exec`` runs at most ``ISAACSIM_HZ_CHUNK_SIZE`` concurrent
+    ``ros2 topic hz`` processes, regardless of how many ``pairs`` span robots.
+    """
+    rates = {}
+    if not pairs:
+        return rates
+    step = ISAACSIM_HZ_CHUNK_SIZE
+    nchunks = (len(pairs) + step - 1) // step
+    for i in range(0, len(pairs), step):
+        chunk = pairs[i : i + step]
+        ci = i // step + 1
+        logger.info(
+            "%s chunk %d/%d — %d topic(s)",
+            log_label,
+            ci,
+            nchunks,
+            len(chunk),
+        )
+        rates.update(
+            parallel_sample_hz(
+                container,
+                chunk,
+                setup_bash=setup_bash,
+                duration=duration,
+                window=window,
+            )
+        )
+    return rates
+
 
 def sim_side_topics(num_robots):
-    """Return (topic, domain_id) tuples for all sim-side topics at a given robot count."""
+    """Return (topic, domain_id) tuples for all sim-side topics at a given robot count.
+
+    ``/clock`` is included once on domain 1. ``parallel_sample_hz`` keys results by
+    topic string only, so a separate ``/clock`` sample per robot domain would reuse
+    one dict entry and overwrite per-probe temp file paths.
+    """
     topics = []
+    if num_robots > 0:
+        topics.append(("/clock", 1))
     for n in range(1, num_robots + 1):
-        topics.append(("/clock", n))
         for tmpl in STEREO_DEPTH_TOPIC_TEMPLATES:
             topics.append((tmpl.format(N=n), n))
     return topics
 
 
 def check_sim_publishing(env, *, duration=10, window=5):
-    """Hz sample of sim-side topics (/clock + stereo/depth). Returns (ok, msg, rates)."""
+    """Hz sample of sim-side topics (/clock + stereo/depth). Returns (ok, msg, rates).
+
+    Isaac Sim: ``/clock`` alone; stereo image and depth topic lists are chunked
+    (``_parallel_sample_hz_isaacsim_chunks``) so multi-robot runs still cap
+    concurrent ``ros2 topic hz`` clients per exec at ``ISAACSIM_HZ_CHUNK_SIZE``.
+    """
     cfg = env["cfg"]
     topics = sim_side_topics(env["num_robots"])
     logger.info("Sampling Hz for %d sim-side topics (duration=%ss)", len(topics), duration)
@@ -93,31 +148,25 @@ def check_sim_publishing(env, *, duration=10, window=5):
                 )
             )
         if image_pairs:
-            logger.info(
-                "Isaac sim Hz: batch 2 — %d stereo image topic(s)",
-                len(image_pairs),
-            )
             rates.update(
-                parallel_sample_hz(
+                _parallel_sample_hz_isaacsim_chunks(
                     env["sim_container"],
                     image_pairs,
                     setup_bash=cfg["sim_setup_bash"],
                     duration=duration,
                     window=window,
+                    log_label="Isaac sim Hz: stereo image",
                 )
             )
         if depth_pairs:
-            logger.info(
-                "Isaac sim Hz: batch 3 — %d stereo depth topic(s)",
-                len(depth_pairs),
-            )
             rates.update(
-                parallel_sample_hz(
+                _parallel_sample_hz_isaacsim_chunks(
                     env["sim_container"],
                     depth_pairs,
                     setup_bash=cfg["sim_setup_bash"],
                     duration=duration,
                     window=window,
+                    log_label="Isaac sim Hz: stereo depth",
                 )
             )
     else:
@@ -148,9 +197,11 @@ def robot_stereo_depth_hz_pairs(num_robots):
 def check_robot_stereo_hz(env, *, duration=10, window=5):
     """Hz sample stereo + depth on each robot domain (validates sim→robot path).
 
-    Isaac Sim: same overload pattern as sim-side — batch **image_rect** (2 topics)
-    then **depth** (2 topics) so at most two ``ros2 topic hz`` clients run at once on
-    the robot container. ms-airsim uses a single parallel batch.
+    Isaac Sim: ``image_pairs`` / ``depth_pairs`` list every robot's topics, but
+    ``_parallel_sample_hz_isaacsim_chunks`` runs ``parallel_sample_hz`` repeatedly
+    with at most ``ISAACSIM_HZ_CHUNK_SIZE`` topics per exec (default 2), so
+    multi-robot runs do not spawn all robots' Hz clients in one batch.
+    ms-airsim uses a single parallel batch of all pairs on ``robots[0]``.
     """
     cfg = env["cfg"]
     robots = get_robot_containers(env["robot_pattern"])
@@ -168,31 +219,25 @@ def check_robot_stereo_hz(env, *, duration=10, window=5):
         depth_pairs = [p for p in pairs if "image_rect" not in p[0]]
         rates = {}
         if image_pairs:
-            logger.info(
-                "Isaac robot Hz: batch 1 — %d stereo image topic(s)",
-                len(image_pairs),
-            )
             rates.update(
-                parallel_sample_hz(
+                _parallel_sample_hz_isaacsim_chunks(
                     robots[0],
                     image_pairs,
                     setup_bash=cfg["robot_setup_bash"],
                     duration=duration,
                     window=window,
+                    log_label="Isaac robot Hz: stereo image",
                 )
             )
         if depth_pairs:
-            logger.info(
-                "Isaac robot Hz: batch 2 — %d stereo depth topic(s)",
-                len(depth_pairs),
-            )
             rates.update(
-                parallel_sample_hz(
+                _parallel_sample_hz_isaacsim_chunks(
                     robots[0],
                     depth_pairs,
                     setup_bash=cfg["robot_setup_bash"],
                     duration=duration,
                     window=window,
+                    log_label="Isaac robot Hz: stereo depth",
                 )
             )
     else:
@@ -264,7 +309,11 @@ def check_lidar_filtered_cloud_sanity(env):
     cfg = env["cfg"]
     robots = get_robot_containers(env["robot_pattern"])
     if len(robots) < env["num_robots"]:
-        return False, f"lidar sanity: only {len(robots)}/{env['num_robots']} robot containers"
+        return (
+            False,
+            f"lidar sanity: only {len(robots)}/{env['num_robots']} robot containers",
+            {},
+        )
     inner_base = (
         f"source {ROS_DISTRO_SETUP} && source {cfg['robot_setup_bash']} && "
         f"export ROS_DOMAIN_ID={{domain}} && "

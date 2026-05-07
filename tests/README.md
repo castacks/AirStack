@@ -51,8 +51,8 @@ and are driven by [`tests/test_sensors.py`](../../../../tests/test_sensors.py):
 
 | Path | What we measure | How |
 |------|-----------------|-----|
-| Sim → `/clock`, stereo images, stereo depth | Publish rate | ``ros2 topic hz`` in **three** batches on the sim container (clock, then 2× image, then 2× depth) so at most two Hz clients run at once. |
-| Robot → same topic names (bridge) | Publish rate | **Two** batches on the robot container for Isaac (2× image, then 2× depth). ms-airsim: one batch of four topics. |
+| Sim → `/clock`, stereo images, stereo depth | Publish rate | ``ros2 topic hz`` on the sim container: ``/clock`` alone, then **chunks of two** ``image_rect`` topics, then **chunks of two** depth topics (``ISAACSIM_HZ_CHUNK_SIZE`` in ``sensor_probes.py``). |
+| Robot → same topic names (bridge) | Publish rate | Same **two-at-a-time** chunking on the robot container for Isaac. ms-airsim: one batch of four topics. |
 | Robot → filtered ``.../ouster/point_cloud`` | Stream alive | ``ros2 topic echo --once`` per robot (not Hz — large ``PointCloud2``). |
 | LiDAR geometry | Near-range vs ``near_range_m`` | ``lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py`` (raw vs filtered). |
 

@@ -19,6 +19,7 @@ simulation_app = SimulationApp({"headless": False})
 import os
 import sys
 import time
+import asyncio
 
 import omni.kit.app
 import omni.timeline

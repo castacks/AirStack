@@ -12,6 +12,11 @@ from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 
+try:
+    from numpy.lib.recfunctions import structured_to_unstructured
+except ImportError:  # pragma: no cover
+    from sensor_msgs_py.numpy_compat import structured_to_unstructured
+
 
 def _point_cloud_qos(depth: int, reliable: bool) -> QoSProfile:
     """QoS aligned with common bridges (e.g. Isaac Replicator: RELIABLE) and RViz."""
@@ -82,39 +87,31 @@ class LidarPointCloudFilterNode(Node):
                 self._warned_missing_xyz = True
             return
 
-        # Extract points from the cloud and skip any points with NaN values
-        pts = list(
-            point_cloud2.read_points(
-                msg, field_names=('x', 'y', 'z'), skip_nans=True
-            )
+        # Buffer-backed structured array (skip_nans=True); Nx3 without Python tuples.
+        pts_struct = point_cloud2.read_points(
+            msg, field_names=('x', 'y', 'z'), skip_nans=True
         )
-
-        # Remove any points with infinite values
-        pts = [p for p in pts if np.isfinite((p[0], p[1], p[2])).all()]
-
-        if not pts:
+        if pts_struct.size == 0:
             self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, []))
             return
 
-        mat = np.array(
-            [(float(p[0]), float(p[1]), float(p[2])) for p in pts],
-            dtype=np.float64,
-        )
-        r2 = mat[:, 0] ** 2 + mat[:, 1] ** 2 + mat[:, 2] ** 2
+        arr = structured_to_unstructured(pts_struct)
+        finite = np.isfinite(arr).all(axis=1)
+        r2 = np.sum(arr.astype(np.float64, copy=False) ** 2, axis=1)
         if self._near_range_m <= 0.0:
-            mask = np.ones(mat.shape[0], dtype=bool)
+            near_ok = np.ones(arr.shape[0], dtype=bool)
         else:
-            mask = r2 >= (self._near_range_m ** 2)
+            near_ok = r2 >= (self._near_range_m ** 2)
+        valid = finite & near_ok
 
-        if not np.any(mask):
+        if not np.any(valid):
             self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, []))
             return
 
-        sel = mat[mask]
-        out_rows = [(float(r[0]), float(r[1]), float(r[2])) for r in sel]
-        self._pub.publish(
-            point_cloud2.create_cloud(msg.header, self._fields, out_rows)
-        )
+        out = arr[valid]
+        if out.dtype != np.float32:
+            out = out.astype(np.float32, copy=False)
+        self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, out))
 
     @staticmethod
     def _has_xyz_fields(msg: PointCloud2) -> bool:

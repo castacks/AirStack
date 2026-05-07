@@ -141,10 +141,19 @@ class TestSensors:
                     duration=STABLE_HZ_DURATION_S,
                     window=STABLE_HZ_WINDOW,
                 )
-                rates = {**rates_sim, **rates_rsd, **rates_lidar}
-                for topic, hz in rates.items():
-                    key = topic.lstrip("/").replace("/", ".") + ".hz"
-                    series.setdefault(key, []).append({"t": elapsed, "value": hz or 0.0})
+                # Sim and robot Hz probes share the same topic strings; namespace so
+                # metrics.json time-series are not merged/overwritten.
+                for prefix, rates_dict in (
+                    ("sim", rates_sim),
+                    ("robot", rates_rsd),
+                    ("lidar", rates_lidar),
+                ):
+                    for topic, hz in rates_dict.items():
+                        tail = topic.lstrip("/").replace("/", ".") + ".hz"
+                        key = f"{prefix}.{tail}"
+                        series.setdefault(key, []).append(
+                            {"t": elapsed, "value": hz or 0.0}
+                        )
                 if not (ok_sim and ok_rsd and ok_lidar):
                     pytest.fail(
                         f"sensor instability at t={elapsed}s: sim_hz={msg_sim} | "

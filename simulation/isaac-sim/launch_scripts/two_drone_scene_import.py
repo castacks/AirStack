@@ -206,15 +206,16 @@ class PegasusApp:
             camera_rotation_offset=[0.0, 0.0, 0.0],  # Rotation in degrees (roll, pitch, yaw)
         )
 
-        # Add an RTX OmniLidar subgraph to the drone
+        # Add an RTX OmniLidar subgraph to the drone (config + variant via alias)
         add_rtx_lidar_subgraph(
-            parent_graph_handle=graph_handle1,
-            drone_prim="/World/drone1/base_link",
+            parent_graph_handle=graph_handle,
+            drone_prim="/World/base_link",
             robot_name="robot_1",
             lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            min_range=0.75,                   # avoid propeller hits
+            min_range=0.75,
         )
 
         ####################################################################################################
@@ -247,6 +248,7 @@ class PegasusApp:
             drone_prim="/World/drone2/base_link",
             robot_name="robot_2",
             lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
             lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
             min_range=0.75,                   # avoid propeller hits
