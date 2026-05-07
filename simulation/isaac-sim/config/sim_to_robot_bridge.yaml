@@ -32,7 +32,6 @@ from_domain: 100  # Simulation domain
 to_domain: 1      # Robot domain
 
 topics:
-  # Camera topics - bridge to correct robot topic structure
   # GPS data
   /robot_1/sensors/gps:
     type: sensor_msgs/msg/NavSatFix
