@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'raven_nav_node = raven_nav.raven_nav_node:main',
+            'view_ray_tables = raven_nav.view_ray_tables:main',
         ],
     },
 )

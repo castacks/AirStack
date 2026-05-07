@@ -84,13 +84,17 @@ class PeerState:
                 local_alt_ground=my_alt_ground,
             )
 
-        nav_msg, nav_stamp = profile.get_payload_with_stamp("std_msgs/msg/String")
-        if nav_msg is not None and self._payload_fresh(nav_stamp, now_sec):
+        # Per-payload freshness gating is disabled: the gossip publisher may
+        # use sim time while we use wall time, which makes absolute-stamp
+        # comparisons meaningless. Each gossip tick overwrites the previous
+        # value, so consumers can rely on peer_last_seen (wall-clock, set
+        # below) for liveness, and on the most-recent message for content.
+        nav_msg, _ = profile.get_payload_with_stamp("std_msgs/msg/String")
+        if nav_msg is not None:
             self.peer_nav_modes[name] = str(nav_msg.data)
 
-        front_msg, front_stamp = profile.get_payload_by_name_with_stamp(
-            "raw_frontiers")
-        if front_msg is not None and self._payload_fresh(front_stamp, now_sec):
+        front_msg, _ = profile.get_payload_by_name_with_stamp("raw_frontiers")
+        if front_msg is not None:
             pts = list(point_cloud2.read_points(
                 front_msg, field_names=("x", "y", "z"), skip_nans=True))
             if pts:
@@ -103,9 +107,8 @@ class PeerState:
             else:
                 self.peer_frontiers[name] = np.zeros((0, 3), dtype=np.float64)
 
-        rays_msg, rays_stamp = profile.get_payload_by_name_with_stamp(
-            "shared_rays")
-        if rays_msg is not None and self._payload_fresh(rays_stamp, now_sec):
+        rays_msg, _ = profile.get_payload_by_name_with_stamp("shared_rays")
+        if rays_msg is not None:
             self.peer_rays[name] = self._parse_shared_rays(
                 rays_msg, my_boot_enu, my_alt_ground)
 
@@ -118,11 +121,22 @@ class PeerState:
         except Exception as e:
             bid_msg, bid_stamp = None, None
             print(f'[peer_state] BidVector deserialize failed for {name}: {e}')
-        if bid_msg is not None and self._payload_fresh(bid_stamp, now_sec):
+        if bid_msg is None:
+            payload_names = [p.get("name", "") for p in profile._payloads]
+            print(f'[peer_state] no "bids" payload for {name} '
+                  f'(available payload names: {payload_names})')
+        else:
+            # Don't gate on stamp-vs-now: the publisher (gossip_node) may use
+            # sim time while we use wall time, which makes absolute-time
+            # comparisons meaningless. Gossip refresh is implicit — the most
+            # recent PeerProfile overwrites the previous bid each tick, so a
+            # truly stale peer just stops updating peer_bids[name].
             self.peer_bids[name] = {
                 lbl: float(val)
                 for lbl, val in zip(bid_msg.labels, bid_msg.values)
             }
+            print(f'[peer_state] applied bids for {name}: '
+                  f'{ {k: round(v, 2) for k, v in self.peer_bids[name].items()} }')
 
         peer_id = _extract_robot_id(name)
         if peer_id is not None:

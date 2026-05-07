@@ -85,35 +85,11 @@ def _filter_raven(line: str) -> str | None:
         return line
     if 'error' in low or 'exception' in low or 'traceback' in low:
         return f'ERROR: {line}'
-    m = re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line)
-    if not m:
-        return None
-
-    mode = m.group(1)
-    target = re.search(r'target=(.+?)\s*\|', line)
-    wp = re.search(r'wp=(\([^)]+\))', line)
-    completed = re.search(r'completed=(\[[^\]]*\])', line)
-    rays = re.search(r'\brays=(\d+)', line)
-    merged = re.search(r'merged_rays=(\d+)', line)
-    filtered = re.search(r'filtered=(\d+)', line)
-    assigned = re.search(r'assigned=(\S+)', line)
-
-    parts = [f'[{mode}]']
-    if target and target.group(1).strip() != 'None':
-        parts.append(f'current_target="{target.group(1).strip()}"')
-    if assigned and assigned.group(1) not in ('None', 'none'):
-        parts.append(f'assigned={assigned.group(1)}')
-    if rays and merged and rays.group(1) != merged.group(1):
-        parts.append(f'rays={rays.group(1)}(+{int(merged.group(1)) - int(rays.group(1))} peer)')
-    elif rays and rays.group(1) != '0':
-        parts.append(f'rays={rays.group(1)}')
-    if filtered and filtered.group(1) != '0':
-        parts.append(f'filtered={filtered.group(1)}')
-    if completed and completed.group(1) != '[]':
-        parts.append(f'completed={completed.group(1)}')
-    if wp and wp.group(1) != 'none':
-        parts.append(f'wp={wp.group(1)}')
-    return ' '.join(parts)
+    # Pass through the compact mode-tagged status line verbatim. The [coord]
+    # branch above already handles bids / peer_bids / assigned.
+    if re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line):
+        return line
+    return None
 
 
 # ── Subprocess helpers ────────────────────────────────────────────────────────
@@ -377,27 +353,14 @@ class SemanticSearchTaskNode(Node):
 
     def _execute(self, goal_handle):
         goal = goal_handle.request
-        queries = [q.strip() for q in goal.query.split(',') if q.strip()]
-        if not queries:
-            self._task_active = False
-            goal_handle.abort()
-            result = SemanticSearchTask.Result()
-            result.success = False
-            result.message = 'Empty query'
-            return result
-
-        bg_raw = [bq.strip() for bq in goal.background_queries.split(',')
-                  if bq.strip()]
-        if not bg_raw:
-            self._task_active = False
-            goal_handle.abort()
-            result = SemanticSearchTask.Result()
-            result.success = False
-            result.message = (
-                'background_queries is required but was not provided. '
-                'Softmax normalization needs contrast classes (e.g. '
-                '"building,tree,ground") to produce meaningful scores.')
-            return result
+        # TEMP: hardcoded queries — ignore goal.query / goal.background_queries
+        # so the action input boxes don't matter while we debug the bid system.
+        queries = ['water tower', 'red building']
+        bg_raw = ['sky', 'ground', 'grass', 'road']
+        self.get_logger().warn(
+            f'Using HARDCODED queries: targets={queries} background={bg_raw} '
+            f'(ignoring goal.query={goal.query!r}, '
+            f'goal.background_queries={goal.background_queries!r})')
 
         # Build the full query list: target queries + background contrast queries.
         # Softmax normalization across queries requires N >= 2 to produce
@@ -638,8 +601,16 @@ class SemanticSearchTaskNode(Node):
                 rf_sub_count = self.count_subscribers(f'{self._rf_prefix}/new_text_query')
                 if rf_sub_count > 0 and prev_rf_sub_count == 0:
                     rayfronts_ready = True
+                    # DDS discovery race: count_subscribers returns >0 as soon
+                    # as the subscriber is discovered, but the pub/sub match
+                    # may not be fully wired yet — the first publish after
+                    # this transition can silently drop. Sleep briefly to let
+                    # the match settle, then pace publishes so rayfronts can
+                    # process each query before the next arrives.
+                    time.sleep(0.3)
                     for q in all_queries:
                         self._text_query_pub.publish(String(data=q))
+                        time.sleep(0.1)
                     last_rf_status = f'Queries sent: {", ".join(all_queries)}'
                     self.get_logger().info(
                         f'Queries sent to rayfronts: {all_queries}')

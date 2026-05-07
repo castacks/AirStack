@@ -306,11 +306,7 @@ const TASK_TABS = [
       max_flight_speed: numOr(s.max_flight_speed, 0),
       confidence_threshold: numOr(s.confidence_threshold, 0),
     }),
-    formatFeedback: (fb) => {
-      const base = genericAreaFeedback(fb);
-      const c = fb.best_confidence_so_far;
-      return c != null ? `${base} | best conf: ${toFixed(c, 2)}` : base;
-    },
+    formatFeedback: (fb) => `status: ${fb.status ?? ""}`,
   },
   {
     id: "fixed_trajectory",

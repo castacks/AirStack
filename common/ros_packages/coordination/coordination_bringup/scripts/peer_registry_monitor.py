@@ -22,8 +22,16 @@ import time
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
+from rclpy.serialization import deserialize_message
 
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
+
+try:
+    from airstack_msgs.msg import BidVector as _BidVectorMsg
+except ImportError:
+    _BidVectorMsg = None
+
+_BID_TYPE = "airstack_msgs/msg/BidVector"
 
 GOSSIP_QOS = QoSProfile(
     reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -69,6 +77,24 @@ def _fmt_stamp(gps_fix) -> str:
         return "n/a"
     t = s.sec + s.nanosec * 1e-9
     return time.strftime("%H:%M:%S", time.localtime(t)) + f".{s.nanosec // 1_000_000:03d}"
+
+
+def _fmt_bids(payload) -> str | None:
+    if payload.payload_type != _BID_TYPE:
+        return None
+    if _BidVectorMsg is None:
+        return f"{DIM}(airstack_msgs not importable){RESET}"
+    try:
+        bv = deserialize_message(bytes(payload.payload_data), _BidVectorMsg)
+    except Exception as e:
+        return f"{DIM}(deserialize failed: {e}){RESET}"
+    if hasattr(bv, "bids"):
+        pairs = [(b.label, float(b.value)) for b in bv.bids]
+    else:
+        pairs = list(zip(list(bv.labels), [float(v) for v in bv.values]))
+    if not pairs:
+        return f"{DIM}(empty){RESET}"
+    return "  ".join(f"{lbl}={val:.3f}" for lbl, val in pairs)
 
 
 def _clear():
@@ -155,6 +181,10 @@ class RegistryMonitor(Node):
                 print(f"    {GREEN}gps     {RESET} {_fmt_gps(msg.gps_fix, msg.heading)}")
                 print(f"    {YELLOW}waypoint{RESET} {_fmt_waypoint(msg.waypoint)}")
                 print(f"    {DIM}payloads{RESET} {payload_summary}")
+                for p in msg.payloads:
+                    bid_str = _fmt_bids(p)
+                    if bid_str is not None:
+                        print(f"    {YELLOW}bids    {RESET} {bid_str}")
                 print()
 
         print(f"{DIM}Listening on /gossip/peers — Ctrl+C to quit{RESET}")

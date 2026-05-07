@@ -1,10 +1,11 @@
 """Canonical filtered-and-grouped ray representation.
 
 Filtering pipeline (applied once per tick by raven_nav_node):
-  1. score > threshold for at least one target label (softmax-based scores
-     sum to 1, so this also excludes background-dominant rays)
+  1. row argmax (over ALL query columns) lands on a TARGET label AND that
+     winning score > threshold. Equivalent to "target dominates background
+     AND is above threshold" because softmax rows sum to 1.
   2. altitude in [min, max]
-  3. argmax-within-targets label assignment
+  3. label = the winning target column
   4. greedy clustering: same-label rays within angle_thresh on XY direction
 
 The forward-only "behind-ray" filter is intentionally NOT here — bidding needs
@@ -69,9 +70,18 @@ def compute_ray_groups(
     if not label_indices:
         return []
 
-    # 1. score threshold on target columns
-    relevant = ray_scores[:, label_indices]
-    keep = np.where((relevant > score_threshold).any(axis=1))[0]
+    # 1. target must dominate background AND be above threshold.
+    # Softmax rows sum to 1, so "target dominates background" is equivalent to
+    # "row argmax (over ALL columns) lands in label_indices". This correctly
+    # drops sky/grass/road-pointing rays that happen to have a small target
+    # score above threshold but background dominating (e.g. sim_sky=0.97,
+    # sim_water_tower=0.96).
+    target_set = set(label_indices)
+    overall_best = np.argmax(ray_scores, axis=1)         # (N,)
+    is_target_winner = np.array(
+        [int(c) in target_set for c in overall_best], dtype=bool)
+    winner_score = ray_scores[np.arange(len(ray_scores)), overall_best]
+    keep = np.where(is_target_winner & (winner_score > score_threshold))[0]
     if keep.size == 0:
         return []
 
@@ -81,11 +91,10 @@ def compute_ray_groups(
     if keep.size == 0:
         return []
 
-    # 3. per-ray argmax label
-    rel_keep = relevant[keep]
-    best_cols = np.argmax(rel_keep, axis=1)
-    per_label = [target_objects[c] for c in best_cols]
-    per_score = rel_keep[np.arange(len(keep)), best_cols]
+    # 3. per-ray label = the global argmax (already known to be a target)
+    best_cols_global = overall_best[keep]
+    per_label = [query_labels[c] for c in best_cols_global]
+    per_score = ray_scores[keep, best_cols_global]
 
     # 4. greedy per-label clustering on XY direction
     dirs_keep = ray_dirs[keep]

@@ -42,7 +42,9 @@ class BehaviorManager:
                          publisher_dict,
                          vox_xyz=None, vox_scores=None, query_labels=None,
                          peer_state=None, my_id=0, search_area_xy=None,
-                         debug_logger=None, assigned_target=None):
+                         debug_logger=None, assigned_target=None,
+                         committed_target_dir=None,
+                         committed_target_origin=None):
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
@@ -58,4 +60,6 @@ class BehaviorManager:
                 target_waypoint, target_waypoint2, publisher_dict,
                 peer_state=peer_state, my_id=my_id,
                 search_area_xy=search_area_xy,
-                debug_logger=debug_logger)
+                debug_logger=debug_logger,
+                committed_target_dir=committed_target_dir,
+                committed_target_origin=committed_target_origin)

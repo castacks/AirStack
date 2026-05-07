@@ -77,7 +77,9 @@ class FrontierBehavior:
     def execute(self, frontiers_raw, cur_pose_np, waypoint_locked, target_waypoint,
                 target_waypoint2, publisher_dict,
                 peer_state=None, my_id=0, search_area_xy=None,
-                debug_logger=None):
+                debug_logger=None,
+                committed_target_dir=None,
+                committed_target_origin=None):
         viewpoint_publisher = publisher_dict['viewpoint']
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
         path_publisher = publisher_dict['path']
@@ -189,6 +191,28 @@ class FrontierBehavior:
         peer_pen, peer_breakdown = _peer_penalty(viewpoints, peer_state, my_id)
         scores = scores + peer_pen
 
+        # Strong bias toward viewpoints aligned with the last-seen direction of
+        # the currently committed ray-mode target. Activates when raven has
+        # committed to a target but ray-mode lost sight (so we fell back to
+        # frontiers) — keep wandering in the same direction we last saw it.
+        committed_bias = np.zeros(viewpoints.shape[0], dtype=np.float64)
+        committed_dir_used = None
+        if committed_target_dir is not None:
+            cd = np.asarray(committed_target_dir, dtype=np.float64)
+            cd_xy = cd[:2]
+            cd_norm = np.linalg.norm(cd_xy)
+            if cd_norm > 1e-6:
+                cd_xy = cd_xy / cd_norm
+                cand_xy = (viewpoints[:, :2] - cur_pose_np[:2])
+                cand_norms = np.linalg.norm(cand_xy, axis=1, keepdims=True)
+                cand_unit = cand_xy / (cand_norms + 1e-6)
+                cos_sim_committed = cand_unit @ cd_xy
+                # Heavy weight (50): aligned candidates ~free, opposite ~+100.
+                committed_weight = 50.0
+                committed_bias = committed_weight * (1.0 - cos_sim_committed)
+                scores = scores + committed_bias
+                committed_dir_used = cd_xy
+
         top_n = 5
         num_candidates = min(top_n, viewpoints.shape[0])
         if num_candidates == 0:
@@ -224,6 +248,12 @@ class FrontierBehavior:
                     f'[coord] no waypoint yet for peers: {", ".join(unknown_peers)}',
                     throttle_duration_sec=2.0)
 
+            if committed_dir_used is not None:
+                debug_logger.info(
+                    f'[coord] committed-target bias active: '
+                    f'dir_xy=({committed_dir_used[0]:.2f},{committed_dir_used[1]:.2f}) '
+                    f'(weight=50)',
+                    throttle_duration_sec=2.0)
             lines = []
             for rank, idx in enumerate(top_indices):
                 vp = viewpoints[idx]
@@ -231,6 +261,7 @@ class FrontierBehavior:
                 lines.append(
                     f'    {marker} #{rank}: ({vp[0]:.1f},{vp[1]:.1f},{vp[2]:.1f}) '
                     f'base={base_scores[idx]:.2f} peer_pen={peer_pen[idx]:.2f} '
+                    f'cmt_bias={committed_bias[idx]:.2f} '
                     f'total={scores[idx]:.2f}')
             header = (f'[coord] frontier pick (id={my_id}, '
                       f'{len(viewpoints)} candidates, peers_repelled='

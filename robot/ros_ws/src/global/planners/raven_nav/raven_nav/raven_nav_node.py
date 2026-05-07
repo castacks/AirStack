@@ -89,7 +89,7 @@ class RavenNavNode(Node):
         self._search_area_xy: 'np.ndarray | None' = None
         self._warned_polygon_degenerate = False
 
-        self._score_threshold = self.declare_parameter('score_threshold', 0.95).value
+        self._score_threshold = self.declare_parameter('score_threshold', 0.65).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
@@ -104,6 +104,15 @@ class RavenNavNode(Node):
         timer_period = self.declare_parameter('timer_period', 0.5).value
         # Coordination debug lines are tagged "[coord]".
         self._debug_coord = self.declare_parameter('debug_coordination', True).value
+        # Pretty-printed ray score + ray group tables to the logger.
+        self._debug_ray_table = self.declare_parameter('debug_ray_table', True).value
+        self._debug_table_max_rows = int(self.declare_parameter(
+            'debug_table_max_rows', 30).value)
+        self._debug_table_period = float(self.declare_parameter(
+            'debug_table_period_sec', 5.0).value)
+        # Labels parsed from rayfronts q{N}_<label> topics — authoritative
+        # column order. Filled lazily on first ray callback.
+        self._detected_query_labels: 'list[str] | None' = None
 
         self._path_pub = self.create_publisher(
             Path, f'{self._prefix}/global_plan', 10)
@@ -124,6 +133,13 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/navigation_mode', 10)
         self._my_bids_pub = self.create_publisher(
             BidVector, f'{self._prefix}/bids', 10)
+        # Pretty-printed debug tables. Use the view_ray_tables script to render.
+        self._ray_table_pub = self.create_publisher(
+            String, f'{self._prefix}/debug/ray_table', 10)
+        self._groups_table_pub = self.create_publisher(
+            String, f'{self._prefix}/debug/groups_table', 10)
+        self._bids_table_pub = self.create_publisher(
+            String, f'{self._prefix}/debug/bids_table', 10)
         self._shared_rays_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/shared_rays', 10)
         self._ray_groups_viz_pub = self.create_publisher(
@@ -132,6 +148,16 @@ class RavenNavNode(Node):
         self._assigned_target: 'str | None' = None
         self._committed_to_assigned = False
         self._solo_ticks = 0
+        # Running max bid (= -min distance ever observed) per label. We
+        # broadcast this fixed value, not the per-tick distance, so the bid
+        # only improves over time and peers can compare apples to apples.
+        self._best_seen_bids: 'dict[str, float]' = {}
+        # Cached direction/origin (in local map frame) of the last ray group
+        # we observed for the currently committed target. Used by frontier
+        # behavior to bias toward the last-seen direction when ray-mode loses
+        # sight of the target temporarily.
+        self._committed_target_last_dir: 'np.ndarray | None' = None
+        self._committed_target_last_origin: 'np.ndarray | None' = None
         # Drone is "committed" once it reaches within this distance of its
         # first ray waypoint. Until then, it broadcasts its raw distance bid
         # so a closer peer can still take over.
@@ -206,6 +232,23 @@ class RavenNavNode(Node):
             f'score_threshold={self._score_threshold} | '
             f'altitude=[{self._min_altitude}, {self._max_altitude}]')
 
+    def _detect_rayfronts_labels(self) -> 'list[str] | None':
+        """Parse q{N}_<label> topics under {rf_prefix}/rays_sim/ to derive the
+        authoritative column ordering. Returns labels in q-index order, or None
+        if no q-topics are visible (rayfronts may not be up yet)."""
+        prefix = f'{self._rf_prefix}/rays_sim/'
+        pat = re.compile(rf'^{re.escape(prefix)}q(\d+)_(.+)$')
+        parsed = []
+        for name, _ in self.get_topic_names_and_types():
+            m = pat.match(name)
+            if m:
+                # q-topic uses underscores; query_labels param uses spaces.
+                parsed.append((int(m.group(1)), m.group(2).replace('_', ' ')))
+        if not parsed:
+            return None
+        parsed.sort()
+        return [lbl for _, lbl in parsed]
+
     def _ray_all_cb(self, msg: PointCloud2):
         """Ray PointCloud2 fields: x,y,z,theta,phi,sim_0,sim_1,..."""
         Q = len(self._query_labels)
@@ -214,6 +257,18 @@ class RavenNavNode(Node):
         msg_field_names = [f.name for f in msg.fields]
         sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')],
                             key=lambda s: int(s.split('_', 1)[1]))
+        # Detect canonical column labels once. Warn loudly if the configured
+        # query_labels don't match — the column→label mapping would be wrong.
+        if self._detected_query_labels is None:
+            detected = self._detect_rayfronts_labels()
+            if detected is not None:
+                self._detected_query_labels = detected
+                if detected != self._query_labels:
+                    self.get_logger().warn(
+                        f'[ray_table] query_labels MISMATCH — using rayfronts '
+                        f'topic order as truth.\n'
+                        f'  configured: {self._query_labels}\n'
+                        f'  rayfronts:  {detected}')
         if not sim_fields:
             self._ray_origins = None
             self._ray_dirs = None
@@ -496,6 +551,124 @@ class RavenNavNode(Node):
         self._prev_ray_group_marker_count = marker_id
         self._ray_groups_viz_pub.publish(ma)
 
+    def _column_labels(self) -> 'list[str]':
+        """Authoritative per-column label list: detected rayfronts labels if
+        present, otherwise the configured query_labels. Padded with col_N if
+        sim_K column count exceeds the label list."""
+        return self._detected_query_labels or self._query_labels
+
+    def _debug_print_ray_table(self):
+        """Per-tick (throttled) softmax score table.
+        Rows = own rays. Columns = sim_0..sim_(Q-1) in rayfronts order.
+        Last two columns: argmax label + max score."""
+        scores = self._ray_scores
+        if scores is None or len(scores) == 0:
+            self._ray_table_pub.publish(String(data='(no rays)'))
+            return
+        labels = self._column_labels()
+        K = scores.shape[1]
+        col_labels = [labels[i] if i < len(labels) else f'col_{i}' for i in range(K)]
+        target_set = set(self._target_objects or [])
+        # Mark target columns with [T], background with [B]; column header
+        # itself includes the marker so it's obvious in the printed table.
+        col_kinds = ['T' if lbl in target_set else 'B' for lbl in col_labels]
+        col_headers = [f'[{k}]{lbl}' for k, lbl in zip(col_kinds, col_labels)]
+        col_w = max(10, max(len(s) for s in col_headers))
+        target_idxs = [j for j, k in enumerate(col_kinds) if k == 'T']
+        n_show = min(len(scores), self._debug_table_max_rows)
+
+        header = (['ray#'.rjust(5)]
+                  + [s.rjust(col_w) for s in col_headers]
+                  + ['argmax'.rjust(col_w + 3), 'max'.rjust(7), 'pass'.rjust(5)])
+        lines = ['  '.join(header)]
+        for i in range(n_show):
+            row = scores[i]
+            ax = int(np.argmax(row))
+            ax_label = f'[{col_kinds[ax]}]{col_labels[ax]}'
+            mx = float(row[ax])
+            # New filter (matches ray_groups.py): argmax must land on a target
+            # column AND that score must exceed threshold.
+            passes = bool(target_idxs
+                          and ax in target_idxs
+                          and mx > self._score_threshold)
+            cells = ([str(i).rjust(5)]
+                     + [f'{v:.3f}'.rjust(col_w) for v in row]
+                     + [ax_label.rjust(col_w + 3), f'{mx:.3f}'.rjust(7),
+                        ('Y' if passes else 'n').rjust(5)])
+            lines.append('  '.join(cells))
+        if len(scores) > n_show:
+            lines.append(f'  ... ({len(scores) - n_show} more rays, '
+                         f'increase debug_table_max_rows to see all)')
+        n_pass = int(sum(
+            1 for i in range(len(scores))
+            if int(np.argmax(scores[i])) in target_idxs
+            and scores[i, int(np.argmax(scores[i]))] > self._score_threshold))
+        lines.append(
+            f'  threshold={self._score_threshold} | '
+            f'targets={[col_labels[j] for j in target_idxs]} | '
+            f'background={[col_labels[j] for j in range(K) if j not in target_idxs]} | '
+            f'passing={n_pass}/{len(scores)}')
+        # Per-target max ray: best evidence ray for each target column,
+        # whether or not it actually passes the filter. Useful to see "is
+        # this target even visible?" when filter rejects everything.
+        max_lines = ['', 'per-target max ray:']
+        origins = self._ray_origins
+        dirs = self._ray_dirs
+        if not target_idxs:
+            max_lines.append('  (no targets configured)')
+        else:
+            tlabel_w = max(len(col_labels[j]) for j in target_idxs)
+            for j in target_idxs:
+                col = scores[:, j]
+                k = int(np.argmax(col))
+                row = scores[k]
+                ax = int(np.argmax(row))
+                ax_label = f'[{col_kinds[ax]}]{col_labels[ax]}'
+                target_label = f'[T]{col_labels[j]}'
+                pieces = [
+                    f'  {target_label.ljust(tlabel_w + 3)}',
+                    f'score={float(col[k]):.3f}',
+                    f'argmax={ax_label}',
+                ]
+                if origins is not None and k < len(origins):
+                    o = origins[k]
+                    pieces.append(
+                        f'origin=({o[0]:7.2f},{o[1]:7.2f},{o[2]:7.2f})')
+                if dirs is not None and k < len(dirs):
+                    d = dirs[k]
+                    pieces.append(
+                        f'dir=({d[0]:6.2f},{d[1]:6.2f},{d[2]:6.2f})')
+                max_lines.append('  '.join(pieces))
+        body = (f'{len(scores)} own rays\n'
+                + '\n'.join(lines)
+                + '\n' + '\n'.join(max_lines))
+        self._ray_table_pub.publish(String(data=body))
+
+    def _debug_print_groups_table(self, groups):
+        """Filtered ray groups summary.
+        Columns: group#, num_rays, avg_score, max_score, min_score,
+                 label_idx (in rayfronts column order), label, min_dist."""
+        labels = self._column_labels()
+        if not groups:
+            self._groups_table_pub.publish(String(data='(no groups passed filter)'))
+            return
+        header = ['group#', 'num_rays', 'avg', 'max', 'min', 'col_idx', 'label', 'min_dist']
+        widths = [6, 8, 6, 6, 6, 7, 18, 8]
+        lines = ['  '.join(h.rjust(w) for h, w in zip(header, widths))]
+        for i, g in enumerate(groups):
+            min_s = float(g.ray_scores.min()) if len(g.ray_scores) > 0 else 0.0
+            try:
+                col_idx = labels.index(g.label)
+            except ValueError:
+                col_idx = -1
+            cells = [str(i), str(g.num_rays),
+                     f'{g.avg_score:.3f}', f'{g.max_score:.3f}', f'{min_s:.3f}',
+                     str(col_idx), g.label, f'{g.min_dist_to_robot:.2f}']
+            lines.append('  '.join(c.rjust(w) for c, w in zip(cells, widths)))
+        body = (f'{len(groups)} groups (threshold={self._score_threshold})\n'
+                + '\n'.join(lines))
+        self._groups_table_pub.publish(String(data=body))
+
     def _timer_cb(self):
         if self._cur_pose is None:
             self.get_logger().warn('waiting for odometry...', throttle_duration_sec=5.0)
@@ -517,67 +690,147 @@ class RavenNavNode(Node):
         self._behavior_manager.ray_behavior.ray_groups = ray_groups
         self._publish_ray_groups_viz(ray_groups)
 
-        # Run the auction first so an assigned_target (or None) is available
-        # to mode_select / behavior_execute. Once a robot has won a target it
-        # holds it until the target is marked completed — we broadcast a
-        # sentinel-high bid so no peer can steal it mid-pursuit.
-        my_bids = bid_manager.compute_my_bids(ray_groups)
+        if self._debug_ray_table:
+            self._debug_print_ray_table()
+            self._debug_print_groups_table(ray_groups)
 
+        # New auction protocol — broadcast best-seen bid, resolve on competition:
+        #   1. See target  → record best bid (running max). Provisionally claim.
+        #      Broadcast that fixed bid every tick (NOT per-tick distance).
+        #   2. Receive a competing peer bid for the same target:
+        #        peer better → drop the claim
+        #        peer worse  → lock (broadcast LOCKED_BID)
+        #   3. Locked claim only de-locked by a lower-id peer also locked
+        #      (collision tiebreak) or by the target being completed.
+        per_tick_bids = bid_manager.compute_my_bids(ray_groups)
+
+        # Update running max — broadcast bid only ever improves.
         completed = self._behavior_manager.completed_queries
+        for label, b in per_tick_bids.items():
+            if label in completed:
+                continue
+            prev = self._best_seen_bids.get(label)
+            if prev is None or b > prev:
+                self._best_seen_bids[label] = b
+
+        # Drop completed targets entirely.
+        for done in list(self._best_seen_bids.keys()):
+            if done in completed:
+                del self._best_seen_bids[done]
         if (self._assigned_target is not None
                 and self._assigned_target in completed):
             self._assigned_target = None
             self._committed_to_assigned = False
+            self._committed_target_last_dir = None
+            self._committed_target_last_origin = None
 
-        # Commit promotion: if we've reached the first waypoint of our
-        # current target, switch from raw-bid to LOCKED_BID broadcast.
-        if (self._assigned_target is not None
-                and not self._committed_to_assigned
-                and self._target_waypoint is not None):
-            d = float(np.linalg.norm(
-                self._cur_pose[:3] - np.asarray(self._target_waypoint[:3])))
-            if d <= self._commit_radius_m:
-                self._committed_to_assigned = True
+        def _best_peer_bid_for(label):
+            """Return (best_bid, owner_id) over peers for `label`, or (None, None)."""
+            best_b, best_id = None, None
+            for pname, pbids in self._peer_state.peer_bids.items():
+                pb = pbids.get(label)
+                if pb is None:
+                    continue
+                pid = self._peer_state.peer_ids.get(pname)
+                if pid is None:
+                    continue
+                if (best_b is None
+                        or pb > best_b
+                        or (pb == best_b and pid < (best_id or self._my_id + 1))):
+                    best_b, best_id = pb, pid
+            return best_b, best_id
+
+        # Provisional claim: among targets we've seen, pick the highest-bid
+        # one where we'd actually win against the current peer field. (If a
+        # peer is already broadcasting a better bid, don't claim that target —
+        # otherwise we'd just claim-then-drop on every tick.)
+        if self._assigned_target is None and self._best_seen_bids:
+            candidates = []
+            for label, my_bid in self._best_seen_bids.items():
+                peer_bid, peer_id = _best_peer_bid_for(label)
+                if peer_bid is None:
+                    candidates.append((label, my_bid))
+                else:
+                    peer_wins = (peer_bid > my_bid
+                                 or (peer_bid == my_bid
+                                     and peer_id is not None
+                                     and peer_id < self._my_id))
+                    if not peer_wins:
+                        candidates.append((label, my_bid))
+            if candidates:
+                best_label, best_bid = max(candidates, key=lambda t: t[1])
+                self._assigned_target = best_label
+                self._committed_to_assigned = False
                 if self._debug_coord:
                     self.get_logger().info(
-                        f'[coord] committed to {self._assigned_target} '
-                        f'(reached waypoint, d={d:.1f}m)')
+                        f'[coord] provisional claim on {best_label} '
+                        f'(my_bid={best_bid:.2f}) — broadcasting until peer '
+                        f'competition arrives')
 
-        if self._assigned_target is not None:
-            if self._committed_to_assigned:
-                # Locked: broadcast LOCKED_BID, run collision tiebreak.
-                my_bids[self._assigned_target] = bid_manager.LOCKED_BID
-                for peer_name, bids in self._peer_state.peer_bids.items():
-                    if bids.get(self._assigned_target) == bid_manager.LOCKED_BID:
-                        pid = self._peer_state.peer_ids.get(peer_name)
-                        if pid is not None and pid < self._my_id:
-                            del my_bids[self._assigned_target]
-                            self._assigned_target = None
-                            self._committed_to_assigned = False
-                            break
-            else:
-                # Tentative: raw bid stays in my_bids. Re-run the auction —
-                # if a peer is now closer (or has committed), drop the claim.
-                winner = bid_manager.assign(
-                    self._my_id, my_bids,
-                    self._peer_state.peer_bids, self._peer_state.peer_ids)
-                if winner != self._assigned_target:
+        # Resolve competition.
+        if (self._assigned_target is not None
+                and not self._committed_to_assigned):
+            my_bid = self._best_seen_bids.get(self._assigned_target)
+            peer_bid, peer_id = _best_peer_bid_for(self._assigned_target)
+            if my_bid is not None and peer_bid is not None:
+                # Tie → lower id wins.
+                peer_wins = (peer_bid > my_bid
+                             or (peer_bid == my_bid
+                                 and peer_id is not None
+                                 and peer_id < self._my_id))
+                if peer_wins:
+                    if self._debug_coord:
+                        self.get_logger().info(
+                            f'[coord] DROPPING {self._assigned_target} — '
+                            f'peer (id={peer_id}) bid {peer_bid:.2f} '
+                            f'beats mine {my_bid:.2f}')
                     self._assigned_target = None
+                    self._committed_to_assigned = False
+                    self._committed_target_last_dir = None
+                    self._committed_target_last_origin = None
+                else:
+                    self._committed_to_assigned = True
+                    if self._debug_coord:
+                        self.get_logger().info(
+                            f'[coord] LOCKED {self._assigned_target} — '
+                            f'my bid {my_bid:.2f} beats peer (id={peer_id}) '
+                            f'{peer_bid:.2f}')
 
-        if self._assigned_target is None:
-            # Don't claim a fresh target until we've heard from at least one
-            # peer this session (or run for a few ticks alone). Prevents the
-            # race where two robots simultaneously lock on the same target
-            # before either has seen the other's bid.
-            seen_peers = bool(self._peer_state.peer_bids) or self._solo_ticks > 5
-            if seen_peers:
-                self._assigned_target = bid_manager.assign(
-                    self._my_id, my_bids,
-                    self._peer_state.peer_bids, self._peer_state.peer_ids)
-                # New claim is tentative — raw bid stays in my_bids.
-                self._committed_to_assigned = False
-            else:
-                self._solo_ticks += 1
+        # Build broadcast bids: best-seen for every label, LOCKED_BID for the
+        # committed claim. (Provisional claim still broadcasts the raw bid.)
+        my_bids = dict(self._best_seen_bids)
+        if (self._assigned_target is not None and self._committed_to_assigned):
+            my_bids[self._assigned_target] = bid_manager.LOCKED_BID
+
+        # Collision tiebreak: if locked but a lower-id peer has also locked
+        # the same target, defer to them.
+        if (self._assigned_target is not None and self._committed_to_assigned):
+            for pname, pbids in self._peer_state.peer_bids.items():
+                if pbids.get(self._assigned_target) == bid_manager.LOCKED_BID:
+                    pid = self._peer_state.peer_ids.get(pname)
+                    if pid is not None and pid < self._my_id:
+                        if self._debug_coord:
+                            self.get_logger().info(
+                                f'[coord] LOCK collision on '
+                                f'{self._assigned_target}: peer {pname} '
+                                f'(id={pid}) < me ({self._my_id}) — yielding')
+                        my_bids.pop(self._assigned_target, None)
+                        self._assigned_target = None
+                        self._committed_to_assigned = False
+                        self._committed_target_last_dir = None
+                        self._committed_target_last_origin = None
+                        break
+
+        # Cache last-seen direction/origin for the committed target so frontier
+        # mode (next time it activates) can prefer the direction we last saw it.
+        if self._assigned_target is not None and ray_groups:
+            for g in ray_groups:
+                if g.label == self._assigned_target and g.num_rays > 0:
+                    self._committed_target_last_dir = np.asarray(
+                        g.avg_dir, dtype=np.float64).copy()
+                    self._committed_target_last_origin = np.asarray(
+                        g.avg_origin, dtype=np.float64).copy()
+                    break
 
         # Make the auction outcome visible to mode_select / execute.
         self._behavior_manager.ray_behavior.assigned_target = self._assigned_target
@@ -587,11 +840,64 @@ class RavenNavNode(Node):
         bv.labels = list(my_bids.keys())
         bv.values = list(my_bids.values())
         self._my_bids_pub.publish(bv)
+
+        # Pretty-printed bids panel for the view_ray_tables script.
+        bids_lines = [f'assigned: {self._assigned_target} '
+                      f'(committed={self._committed_to_assigned})',
+                      '',
+                      f'my_bids ({self._robot_name}, id={self._my_id}):']
+        if my_bids:
+            w = max(len(k) for k in my_bids.keys())
+            for k in sorted(my_bids.keys()):
+                bids_lines.append(f'  {k.ljust(w)}  {my_bids[k]:>10.3f}')
+        else:
+            bids_lines.append('  (none)')
+        bids_lines.append('')
+        bids_lines.append(f'peer_bids ({len(self._peer_state.peer_bids)} peers):')
+        if self._peer_state.peer_bids:
+            for peer_name in sorted(self._peer_state.peer_bids.keys()):
+                pb = self._peer_state.peer_bids[peer_name]
+                pid = self._peer_state.peer_ids.get(peer_name, '?')
+                bids_lines.append(f'  {peer_name} (id={pid}):')
+                if pb:
+                    w = max(len(k) for k in pb.keys())
+                    for k in sorted(pb.keys()):
+                        bids_lines.append(f'    {k.ljust(w)}  {pb[k]:>10.3f}')
+                else:
+                    bids_lines.append('    (empty)')
+        else:
+            bids_lines.append('  (none — no peers heard yet)')
+        self._bids_table_pub.publish(String(data='\n'.join(bids_lines)))
         if self._debug_coord:
+            def _fmt_bid(v):
+                # LOCKED_BID is 1e9 — show as "L" for readability.
+                return 'L' if v >= bid_manager.LOCKED_BID * 0.5 else f'{v:.1f}'
+
+            def _fmt_bid_dict(d):
+                if not d:
+                    return '{}'
+                return '{' + ', '.join(f'{k}:{_fmt_bid(v)}' for k, v in d.items()) + '}'
+
+            # Derive each peer's locked target (their bid that equals LOCKED_BID).
+            peer_locks = {}
+            for pname, pb in self._peer_state.peer_bids.items():
+                for label, val in pb.items():
+                    if val >= bid_manager.LOCKED_BID * 0.5:
+                        peer_locks[pname] = label
+                        break
+
+            peer_str = ', '.join(
+                f'{n}={_fmt_bid_dict(b)}'
+                + (f' lock={peer_locks[n]}' if n in peer_locks else '')
+                for n, b in self._peer_state.peer_bids.items()
+            ) or '(none)'
+
             self.get_logger().info(
-                f'[coord] my_bids={ {k: round(v, 2) for k, v in my_bids.items()} } '
-                f'peer_bids={ {n: {k: round(v, 2) for k, v in b.items()} for n, b in self._peer_state.peer_bids.items()} } '
-                f'assigned={self._assigned_target}',
+                f'[coord] mode={self._behavior_mode} '
+                f'assigned={self._assigned_target} '
+                f'committed={self._committed_to_assigned} | '
+                f'my_bids={_fmt_bid_dict(my_bids)} | '
+                f'peer_bids={peer_str}',
                 throttle_duration_sec=2.0)
 
         prev_mode = self._behavior_mode
@@ -626,6 +932,8 @@ class RavenNavNode(Node):
                 search_area_xy=self._search_area_xy,
                 debug_logger=(self.get_logger() if self._debug_coord else None),
                 assigned_target=self._assigned_target,
+                committed_target_dir=self._committed_target_last_dir,
+                committed_target_origin=self._committed_target_last_origin,
             )
 
         self._nav_mode_pub.publish(
@@ -636,26 +944,16 @@ class RavenNavNode(Node):
             self._completed_targets_pub.publish(String(data=json.dumps(completed)))
             self._last_completed = completed
 
-        n_frontiers = len(self._frontiers) if self._frontiers is not None else 0
-        n_rays = len(self._ray_origins) if self._ray_origins is not None else 0
-        n_peer_rays = sum(
-            len(pr.origins) for pr in self._peer_state.peer_rays.values())
-        n_voxels = len(self._vox_xyz) if self._vox_xyz is not None else 0
+        # Compact mode-tagged status line. Verbose ray/voxel/wp counts are in
+        # the debug topics now; this line drives action feedback so keep it
+        # short.
         ray_beh = self._behavior_manager.ray_behavior
-        n_filtered = sum(g.num_rays for g in ray_beh.ray_groups)
-        wp = (f'({self._target_waypoint[0]:.1f}, {self._target_waypoint[1]:.1f}, '
-              f'{self._target_waypoint[2]:.1f})'
-              if self._target_waypoint is not None else 'none')
-        self.get_logger().info(
-            f'[{self._behavior_mode}] '
-            f'frontiers={n_frontiers} rays={n_rays} peer_rays={n_peer_rays} '
-            f'merged_rays={n_rays + n_peer_rays} filtered={n_filtered} '
-            f'voxels={n_voxels} | '
-            f'target={ray_beh.current_target} | '
-            f'assigned={self._assigned_target} | '
-            f'completed={completed} | wp={wp}',
-            throttle_duration_sec=2.0,
-        )
+        parts = [f'[{self._behavior_mode}]']
+        if ray_beh.current_target:
+            parts.append(f'target={ray_beh.current_target}')
+        if completed:
+            parts.append(f'completed={completed}')
+        self.get_logger().info(' '.join(parts), throttle_duration_sec=2.0)
 
 
 def main(args=None):
