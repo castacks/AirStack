@@ -208,7 +208,7 @@ class PegasusApp:
 
         # Add an RTX OmniLidar subgraph to the drone (config + variant via alias)
         add_rtx_lidar_subgraph(
-            parent_graph_handle=graph_handle,
+            parent_graph_handle=graph_handle1,
             drone_prim="/World/base_link",
             robot_name="robot_1",
             lidar_config="ouster_os1",

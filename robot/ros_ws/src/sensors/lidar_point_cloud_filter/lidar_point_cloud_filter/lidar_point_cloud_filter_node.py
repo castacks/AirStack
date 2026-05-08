@@ -18,6 +18,43 @@ except ImportError:  # pragma: no cover
     from sensor_msgs_py.numpy_compat import structured_to_unstructured
 
 
+def _read_pointcloud_xyz_nx3(msg: PointCloud2) -> np.ndarray:
+    """Return ``(N, 3)`` float32 xyz rows; ``N == 0`` if empty.
+
+    ``read_points`` may return a structured ``ndarray`` (buffer-backed) or a
+    Python iterator depending on ``sensor_msgs_py`` / distro. Prefer
+    ``read_points_numpy`` when present and compatible; otherwise normalize to a
+    dense ``(N, 3)`` array before filtering.
+    """
+    read_numpy = getattr(point_cloud2, 'read_points_numpy', None)
+    if read_numpy is not None:
+        print("Using read_points_numpy")
+        try:
+            arr = read_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)
+        except (AssertionError, TypeError, ValueError):
+            arr = None
+        if arr is not None:
+            arr = np.asarray(arr, dtype=np.float32, order='C')
+            if arr.size == 0:
+                return np.zeros((0, 3), dtype=np.float32)
+            if arr.ndim != 2 or arr.shape[1] != 3:
+                arr = arr.reshape(-1, 3)
+            return arr
+
+    pts = point_cloud2.read_points(
+        msg, field_names=('x', 'y', 'z'), skip_nans=True
+    )
+    if isinstance(pts, np.ndarray):
+        if pts.size == 0:
+            return np.zeros((0, 3), dtype=np.float32)
+        return structured_to_unstructured(pts).astype(np.float32, copy=False)
+
+    rows = list(pts)
+    if not rows:
+        return np.zeros((0, 3), dtype=np.float32)
+    return np.asarray(rows, dtype=np.float32)
+
+
 def _point_cloud_qos(depth: int, reliable: bool) -> QoSProfile:
     """QoS aligned with common bridges (e.g. Isaac Replicator: RELIABLE) and RViz."""
     return QoSProfile(
@@ -87,15 +124,11 @@ class LidarPointCloudFilterNode(Node):
                 self._warned_missing_xyz = True
             return
 
-        # Buffer-backed structured array (skip_nans=True); Nx3 without Python tuples.
-        pts_struct = point_cloud2.read_points(
-            msg, field_names=('x', 'y', 'z'), skip_nans=True
-        )
-        if pts_struct.size == 0:
+        arr = _read_pointcloud_xyz_nx3(msg)
+        if arr.shape[0] == 0:
             self._pub.publish(point_cloud2.create_cloud(msg.header, self._fields, []))
             return
 
-        arr = structured_to_unstructured(pts_struct)
         finite = np.isfinite(arr).all(axis=1)
         r2 = np.sum(arr.astype(np.float64, copy=False) ** 2, axis=1)
         if self._near_range_m <= 0.0:
