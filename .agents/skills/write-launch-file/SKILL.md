@@ -274,13 +274,13 @@ This list also appears in AGENTS.md → "Critical Pitfalls #5"; this is the expa
   - Bad: `<remap from="odometry" to="/drone1/odometry"/>`
   - Good: `<remap from="odometry" to="/$(env ROBOT_NAME)/odometry"/>`
 - **Forgetting `allow_substs="true"` on a `<param from=...>`.** YAML substitutions silently fail to expand. Symptom: parameters look like literal `$(env ROBOT_NAME)` strings at runtime.
-- **`ROBOT_NAME` env var not set.** All `$(env ROBOT_NAME)` substitutions become an empty string, producing topic names like `//odometry`. Set `ROBOT_NAME` in the container env (`robot/docker/.env`) or pass through compose.
+- **`ROBOT_NAME` env var not set.** All `$(env ROBOT_NAME)` substitutions become an empty string, producing topic names like `//odometry`. `ROBOT_NAME` is normally resolved at container shell startup by `robot/docker/.bashrc` via `robot/docker/robot_name_map/resolve_robot_name.py` — see [configure-multi-robot](../configure-multi-robot). For ad-hoc overrides, pass `-e ROBOT_NAME=robot_X` to `docker exec`.
 - **`<arg>` name collisions across layers.** Two child launch files that both define `<arg name="odometry_topic">` will silently fight. Always prefix: `local_odometry_in_topic`, `global_odometry_in_topic`, etc.
 - **Missing `install(DIRECTORY launch …)` in CMakeLists.txt.** The launch file builds fine but `ros2 launch` cannot find it. Run `ls install/<pkg>/share/<pkg>/launch/` to verify after build.
 - **Editing a launch file but not rebuilding.** Launch files are *installed* by `colcon build`. The source `launch/` directory is NOT what `ros2 launch` reads. Always rebuild after editing.
 - **Forgetting `output="screen"`.** The node runs but its logs go to a file you have to hunt for. Use `output="screen"` on every node during development.
 - **Wrong `<remap from/to>` direction.** `from` is what the *node's source code* calls the topic; `to` is what it should resolve to at runtime. Swapping these is one of the most common silent failures.
-- **Using `~/topic` without understanding it.** `~/foo` resolves to `<node_name>/foo`. Useful for action server private namespaces (see `random_walk_planner` and `takeoff_landing_planner` examples) but confusing if you don't expect it.
+- **Using `~/topic` without understanding it.** `~/foo` resolves to `<node_name>/foo`. Useful for action server private namespaces (see `random_walk` and `takeoff_landing_planner` examples) but confusing if you don't expect it.
 - **Pushing a namespace and then absolute-path remapping anyway.** `<push-ros-namespace>` only affects *relative* topic names. `<remap from="odometry" to="/drone1/odometry">` ignores the pushed namespace entirely. That's usually what you want, but be aware of the interaction.
 
 ## Verification

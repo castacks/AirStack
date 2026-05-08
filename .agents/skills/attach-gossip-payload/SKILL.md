@@ -14,7 +14,7 @@ carries structured fields (GPS, heading, waypoint) plus an open-ended
 **Key files:**
 | File | Purpose |
 |------|---------|
-| `robot/ros_ws/src/coordination/coordination_bringup/config/gossip_payloads.yaml` | Lists topics to attach as payloads — **edit this to add payloads** |
+| `common/ros_packages/coordination/coordination_bringup/config/gossip_payloads.yaml` | Lists topics to attach as payloads — **edit this to add payloads** |
 | `coordination_bringup/coordination_bringup/gossip_node.py` | Reads config, subscribes, attaches payloads on each publish tick |
 | `coordination_bringup/coordination_bringup/peer_profile.py` | `PeerProfile` helper class with `add_payload` / `get_payload` API |
 | `coordination_msgs/msg/PeerProfile.msg` | Wire format — `payloads` is `PeerProfilePayload[]` |
@@ -93,7 +93,7 @@ marker type, etc.) for each payload independently.
 
 ### 4a — Read the payload type from `gossip_payloads.yaml`
 
-Open `robot/ros_ws/src/coordination/coordination_bringup/config/gossip_payloads.yaml`
+Open `common/ros_packages/coordination/coordination_bringup/config/gossip_payloads.yaml`
 and note the `type:` field for your new entry. This determines how to deserialize it.
 
 If your type is **unique** (not already in `PAYLOAD_HANDLERS`), go to step 4b.
@@ -108,8 +108,9 @@ Add a handler and register it:
 ```python
 PAYLOAD_HANDLERS = {
     'filtered_rays':       ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
-    'frontier_viewpoints': ('sensor_msgs/msg/PointCloud2',        _handle_frontier_viewpoints),
-    'rgb_voxels':          ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
+    'raw_frontiers':       ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
+    'voxel_rgb':           ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
+    'navigation_mode':     ('std_msgs/msg/String',                _handle_navigation_mode),
     'your_name':           ('your_msgs/msg/YourType',             _handle_your_payload),  # ← add
 }
 ```
@@ -183,8 +184,9 @@ docker exec airstack-gcs-1 bash -c "ros2 topic list | grep /gcs/payload"
 | Topic in `gossip_payloads.yaml` | Type | GCS topic | Foxglove controls |
 |--------------------------------|------|-----------|-------------------|
 | `/{robot_name}/filtered_rays` | `visualization_msgs/msg/MarkerArray` | `/gcs/payload/{robot}/filtered_rays` | Fixed (MarkerArray) |
-| `/{robot_name}/frontier_viewpoints` | `sensor_msgs/msg/PointCloud2` | `/gcs/payload/{robot}/frontier_viewpoints` | Full (raw PointCloud2) |
+| `/{robot_name}/raw_frontiers` | `sensor_msgs/msg/PointCloud2` | `/gcs/payload/{robot}/raw_frontiers` | Full (raw PointCloud2) |
 | `/{robot_name}/rayfronts/voxel_rgb` | `sensor_msgs/msg/PointCloud2` | `/gcs/payload/{robot}/voxel_rgb` | Fixed (CUBE_LIST MarkerArray, 0.5 m) |
+| `/{robot_name}/navigation_mode` | `std_msgs/msg/String` | `/gcs/payload/{robot}/navigation_mode` | Status string |
 
 ## Architecture notes
 

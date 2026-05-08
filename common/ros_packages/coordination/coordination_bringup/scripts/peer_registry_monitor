@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+from coordination_bringup.peer_registry_monitor import main
+main()

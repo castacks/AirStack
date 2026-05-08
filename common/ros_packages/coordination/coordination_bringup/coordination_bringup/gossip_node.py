@@ -12,7 +12,7 @@ from collections import OrderedDict
 
 import rclpy
 from rclpy.node import Node
-from rclpy.clock import ROSClock
+from rclpy.clock import Clock, ClockType
 from rclpy.qos import (
     QoSDurabilityPolicy,
     QoSHistoryPolicy,
@@ -124,9 +124,13 @@ class GossipNode(Node):
             REGISTRY_QOS,
         )
 
+        # Use a steady (monotonic) wall clock for these timers so gossip publish
+        # and inbox drain keep ticking even when /clock is paused (use_sim_time=true
+        # is set globally in robot.launch.xml for sim runs).
         period = 1.0 / max(publish_rate, 0.01)
-        self._publish_timer = self.create_timer(period, self._publish_tick, clock=ROSClock())
-        self._drain_timer = self.create_timer(0.2, self._drain_peer_inbox, clock=ROSClock())
+        steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
+        self._publish_timer = self.create_timer(period, self._publish_tick, clock=steady_clock)
+        self._drain_timer = self.create_timer(0.2, self._drain_peer_inbox, clock=steady_clock)
 
         self.get_logger().info(
             f"GossipNode started for '{self._robot_name}' "

@@ -33,10 +33,12 @@ Examples: coverage survey, object search, object counting, semantic search, fixe
 |-------------|---------|
 | `ExplorationTask.action` | Random or systematic area exploration |
 | `CoverageTask.action` | Systematic lawnmower-pattern coverage survey |
-| `ObjectSearchTask.action` | Finding instances of a named object class |
-| `ObjectCountingTask.action` | Counting all instances of an object class in an area |
+| `NavigateTask.action` | Navigating to a target pose |
+| `TakeoffTask.action` | Vertical takeoff to a target altitude |
+| `LandTask.action` | Controlled landing |
 | `FixedTrajectoryTask.action` | Following a pre-defined waypoint trajectory |
 | `SemanticSearchTask.action` | Finding a location described in natural language |
+| `ChatTask.action` | Natural-language chat-driven task |
 
 If none of these fits, add a new `.action` file to `task_msgs` following the same pattern (see Step 0 below).
 

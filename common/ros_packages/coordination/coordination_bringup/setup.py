@@ -12,7 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/gossip.launch.xml', 'launch/gcs_gossip_bridge.launch.py']),
         ('share/' + package_name + '/config', ['config/gossip_dds_router.yaml', 'config/gossip_payloads.yaml', 'config/gcs_gossip_dds_router.yaml']),
-        ('lib/' + package_name, ['scripts/gossip_node', 'scripts/peer_registry_monitor.py']),
+        ('lib/' + package_name, ['scripts/gossip_node', 'scripts/peer_registry_monitor']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'gossip_node = coordination_bringup.gossip_node:main',
+            'peer_registry_monitor = coordination_bringup.peer_registry_monitor:main',
         ],
     },
 )

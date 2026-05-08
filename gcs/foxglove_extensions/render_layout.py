@@ -16,6 +16,10 @@ import re
 
 PANEL_ID_RE = re.compile(r'^([A-Za-z0-9_.\- ]+)!(\w+)$')
 ROBOT_KEY_RE = re.compile(r'^(.*?)robot_(\d+)(.*)$')
+# Trailing `_r<digits>` is the per-robot suffix this script appends. Strip it
+# before re-minting so re-running over its own output doesn't stack suffixes
+# (e.g. `_r1_r1`) — gcs startup runs render_layout.py on every container start.
+PANEL_SUFFIX_RE = re.compile(r'_r\d+$')
 
 
 def replace_robot_n(obj, src_n: int, dst_n: int):
@@ -70,7 +74,8 @@ def _mint_id(pid: str, n: int) -> str:
     m = PANEL_ID_RE.fullmatch(pid)
     if not m:
         return pid
-    return f'{m.group(1)}!{m.group(2)}_r{n}'
+    base = PANEL_SUFFIX_RE.sub('', m.group(2))
+    return f'{m.group(1)}!{base}_r{n}'
 
 
 def _expand_per_robot(obj, num_robots: int) -> None:

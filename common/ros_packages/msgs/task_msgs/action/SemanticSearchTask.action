@@ -1,8 +1,8 @@
 # Search an area for a location or object described in natural language.
 # query: natural-language description of the target (e.g. "red car", "person waving")
 # confidence_threshold: minimum match confidence to report a result (0.0-1.0, default 0.95)
-# background_queries: comma-separated contrast classes for softmax normalization
-#   (e.g. "building,tree,ground"). Required — softmax over a single query is degenerate.
+# background_queries: optional comma-separated contrast classes for softmax
+#   normalization (e.g. "building,tree,ground"). Empty means no contrast set.
 
 # Goal
 string query

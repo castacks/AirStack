@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
 """
 peer_registry_monitor.py — CLI diagnostic tool for the gossip peer registry.
 
 Run on any robot or from a machine joined to domain 99:
-    ROS_DOMAIN_ID=99 python3 peer_registry_monitor.py
+    ROS_DOMAIN_ID=99 ros2 run coordination_bringup peer_registry_monitor
 
 Or on a specific robot's domain to see what that robot receives:
-    ROS_DOMAIN_ID=1 python3 peer_registry_monitor.py
+    ROS_DOMAIN_ID=1 ros2 run coordination_bringup peer_registry_monitor
 
 Options:
   --robot   Only show entries for this robot name (partial match)

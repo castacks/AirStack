@@ -112,12 +112,12 @@ airstack status
 airstack logs robot-desktop
 airstack logs isaac-sim
 
-# Stop services but keep containers around
-airstack stop
-airstack stop robot-desktop
-
-# Stop and remove all containers (clean slate)
+# Stop and remove containers (clean slate)
 airstack down
+airstack down robot-desktop
+
+# Stop, remove containers, and prune volumes/networks
+airstack clean
 ```
 
 ### Container naming convention
@@ -285,11 +285,10 @@ airstack format
 
 ```bash
 airstack images          # List AirStack images
-airstack image build     # Build images locally
-airstack image push      # Push to registry
-airstack image pull      # Pull from registry
-airstack image delete    # Remove a tagged image
-airstack rmi             # Remove all AirStack images
+airstack image-build     # Build images locally
+airstack image-push      # Push to registry
+airstack image-pull      # Pull from registry
+airstack image-delete    # Remove all matching images
 ```
 
 ### Configuration helpers
@@ -355,8 +354,8 @@ airstack up robot-desktop                        # Start one service
 AUTOLAUNCH=false airstack up robot-desktop       # Start idle (for development) — IMPORTANT
 NUM_ROBOTS=2 AUTOLAUNCH=false airstack up        # Multi-robot, idle
 airstack status                                  # List running containers
-airstack stop                                    # Stop services
 airstack down                                    # Stop and remove containers
+airstack clean                                   # Stop, remove containers, prune volumes/networks
 airstack logs robot-desktop                      # Tail logs (partial name OK)
 
 # ---- Exec inside container (NEVER use -it) ----

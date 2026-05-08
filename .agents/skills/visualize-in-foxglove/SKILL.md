@@ -1,6 +1,6 @@
 ---
 name: visualize-in-foxglove
-description: Add visualization of a ROS 2 topic to Foxglove/GCS. Use when you want a new topic (path, markers, odometry, etc.) to appear in the Foxglove dashboard on the GCS. Covers DDS router bridging, robot_marker_node integration, and coordinate frame translation.
+description: Add visualization of a ROS 2 topic to Foxglove/GCS. Use when you want a new topic (path, markers, odometry, etc.) to appear in the Foxglove dashboard on the GCS. Covers DDS router bridging, foxglove_visualizer_node integration, and coordinate frame translation.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -25,7 +25,7 @@ DDS Router (onboard_all)
 
 GCS container (domain: 0)
   ├─ Foxglove bridge → streams to browser
-  └─ robot_marker_node → transforms & republishes as /gcs/robot_markers MarkerArray
+  └─ foxglove_visualizer_node → transforms & republishes as /gcs/robot_markers MarkerArray
 ```
 
 **Key insight:** A topic must appear in the DDS router allowlist AND be subscribed to
@@ -71,13 +71,17 @@ a panel in Foxglove pointing at the topic. No extra GCS code needed.
 drone boot position). If you need it georeferenced (aligned with GPS/ENU), you must
 translate it — see Path B.
 
-### Path B — Translate and republish via robot_marker_node
+### Path B — Translate and republish via foxglove_visualizer_node
 
-**File:** `gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/robot_marker_node.py`
+**File:** `gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/foxglove_visualizer_node.py`
 
 This node auto-discovers robot topics, applies a GPS boot offset to convert from the
 robot's local odom frame to ENU (map frame), and republishes everything as a single
 `/gcs/robot_markers` MarkerArray.
+
+Sibling visualizer nodes in the same package, useful as additional reference points:
+`payload_visualizer_node.py` (gossip payload rendering), `polygon_collector_node.py`,
+`waypoint_collector_node.py`. Shared frame/color helpers live in `gcs_utils.py`.
 
 **Coordinate frame context:**
 - Robot odometry uses a local `map` frame whose origin is the drone's position at boot.
@@ -167,7 +171,7 @@ docker exec airstack-gcs-1 bash -c "ros2 topic echo /gcs/robot_markers --once"
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Topic visible on robot, not on GCS | Not in dds_router allowlist | Add `rt/$(env ROBOT_NAME)/topic` to allowlist |
-| Topic on GCS but not in Foxglove | Not subscribed in robot_marker_node or Foxglove panel missing | Add subscription or add panel |
+| Topic on GCS but not in Foxglove | Not subscribed in foxglove_visualizer_node or Foxglove panel missing | Add subscription or add panel |
 | Marker appears at wrong position | Missing boot GPS offset | Apply `bx, by, bz` from `_gps_boot` to all points |
 | Marker double-offset | Added boot to both `pose.position` AND `points` | Only offset `points` for LINE_STRIP/ARROW markers |
 | Planning topic missed after late publish | Using BEST_EFFORT QoS | Use `10` (RELIABLE) for planning topics |
