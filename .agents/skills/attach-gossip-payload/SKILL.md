@@ -14,7 +14,7 @@ carries structured fields (GPS, heading, waypoint) plus an open-ended
 **Key files:**
 | File | Purpose |
 |------|---------|
-| `robot/ros_ws/src/coordination/coordination_bringup/config/gossip_payloads.yaml` | Lists topics to attach as payloads — **edit this to add payloads** |
+| `common/ros_packages/coordination/coordination_bringup/config/gossip_payloads.yaml` | Lists topics to attach as payloads — **edit this to add payloads** |
 | `coordination_bringup/coordination_bringup/gossip_node.py` | Reads config, subscribes, attaches payloads on each publish tick |
 | `coordination_bringup/coordination_bringup/peer_profile.py` | `PeerProfile` helper class with `add_payload` / `get_payload` API |
 | `coordination_msgs/msg/PeerProfile.msg` | Wire format — `payloads` is `PeerProfilePayload[]` |
