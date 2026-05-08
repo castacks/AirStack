@@ -4,8 +4,10 @@
 # Identity
 string robot_name
 
-# Current GPS position from interface/mavros/global_position/raw/fix
-# gps_fix.header.stamp carries the NavSatFix timestamp
+# Current GPS position from interface/mavros/global_position/raw/fix.
+# gps_fix.header.stamp is overwritten by gossip_node at publish time
+# (ROS clock, not the original NavSatFix sensor stamp) so receivers can
+# enforce monotonic dedup / ordering across gossip ticks.
 sensor_msgs/NavSatFix gps_fix
 
 # Heading in degrees clockwise from North (0-360), from compass_hdg

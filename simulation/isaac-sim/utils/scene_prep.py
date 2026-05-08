@@ -428,7 +428,7 @@ def save_scene_as_contained_usd(source_usd_url: str, output_dir: str) -> bool:
         usd_path=source_usd_url,
         collect_dir=output_dir,
         usd_only=False,        # include textures, MDLs, etc.
-        flat_collection=True, # preserve source folder hierarchy
+        flat_collection=True, # flatten asset references into one directory
         skip_existing=False,
     )
 

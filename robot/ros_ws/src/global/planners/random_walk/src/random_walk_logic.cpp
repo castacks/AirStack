@@ -226,7 +226,7 @@ bool RandomWalkPlanner::check_if_collided(const std::tuple<float, float, float>&
 
     // Reject points outside the goal's search_bounds polygon (XY footprint
     // in robot-local map). Empty polygon → no-op.
-    if (!point_in_search_bounds(std::get<0>(point), std::get<1>(point)))
+    if (!is_inside_search_bounds(std::get<0>(point), std::get<1>(point)))
     {
         return true;
     }

@@ -750,6 +750,22 @@ function activate(extensionContext) {
           panelContext.advertise(cancelTopic, "std_msgs/msg/String");
           panelContext.publish(cancelTopic, { data: "cancel" });
           appendFeedback("Cancel requested");
+          t.statusCode = GOAL_STATUS.CANCELING;
+          if (t.cancelTimeoutId) clearTimeout(t.cancelTimeoutId);
+          const myTimer = setTimeout(() => {
+            if (t.cancelTimeoutId !== myTimer) return;
+            t.cancelTimeoutId = null;
+            if (t.statusCode !== GOAL_STATUS.CANCELING) return;
+            t.statusCode = GOAL_STATUS.ABORTED;
+            t.statusText = "Cancel timeout";
+            t.resultText = "Cancel timed out — server unresponsive (forced local close)";
+            t.active = false;
+            appendFeedback(t.resultText);
+            rebuildSubscriptions();
+            renderStatus();
+            renderFeedback();
+          }, 5000);
+          t.cancelTimeoutId = myTimer;
         } catch (err) {
           appendFeedback(`Cancel failed: ${err?.message ?? err}`);
         }
