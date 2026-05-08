@@ -17,7 +17,7 @@ services:
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
         if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then
-          tmux send-keys -t isaac 'run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
+          tmux send-keys -t isaac 'PYTHONPATH="$$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
         else
           tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
         fi
@@ -91,6 +91,6 @@ services:
       - isaac-sim-gui
     command: >
       bash -c "tmux new -d -s isaac; 
-        tmux send-keys -t isaac '/isaac-sim/runapp.sh' ENTER; 
+        tmux send-keys -t isaac '/isaac-sim/runapp.sh' ENTER;  
       sleep infinity"
     networks: !reset null
