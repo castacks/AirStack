@@ -6,6 +6,23 @@ This page describes what the node visualizes today, the topic naming convention,
 
 ![Full GCS Foxglove view — overhead-textured 3D panel on top, Robot Tasks panel and per-robot camera + depth feeds along the bottom](foxglove_full_screen.png)
 
+## Connecting to Foxglove and loading the custom layout
+
+The GCS container regenerates `gcs/foxglove_extensions/airstack_layout_custom.json` on every startup for `NUM_ROBOTS` (see `gcs/foxglove_extensions/render_layout.py`).
+
+To use the locally-rendered, `NUM_ROBOTS`-matched layout:
+
+1. In the Foxglove dashboard, click **Layouts** → **Import from file...**.
+2. Navigate to the rendered layout file:
+    - Inside the GCS container: `/root/AirStack/gcs/foxglove_extensions/airstack_layout_custom.json`
+    - On the host: `gcs/foxglove_extensions/airstack_layout_custom.json`
+3. Back on the dashboard, click **Open connection** and enter:
+    - `ws://localhost:8765` if Foxglove is running inside the GCS container
+    - `ws://localhost:8766` if Foxglove is running on the host
+4. In the top-right corner, click the current layout name and select the imported layout from the dropdown.
+
+Foxglove keeps the imported layout in its IndexedDB and re-activates it on subsequent launches — re-import only when you change `NUM_ROBOTS` or edit the template.
+
 ## What gets visualized
 
 The visualizer auto-discovers any robot whose topics match the AirStack convention (default prefix: `robot`). For each discovered robot it subscribes to a fixed set of suffixes:
@@ -19,12 +36,6 @@ The visualizer auto-discovers any robot whose topics match the AirStack conventi
 | `/vdb_mapping/vdb_map_visualization` | `Marker` | Per-robot VDB occupancy mesh |
 
 All of these are published by individual robots in their **local `map` frame** (origin = drone boot position). The visualizer translates them into a single global `map` frame on the GCS using each robot's GPS boot offset, and merges everything into one `MarkerArray`.
-
-## Loading the dynamic layout
-
-The GCS container regenerates `gcs/foxglove_extensions/airstack_default.json` on every startup, replicating the `robot 1` tab once per robot up to `NUM_ROBOTS` (see `gcs/foxglove_extensions/render_layout.py`). Foxglove Studio Desktop has no way to deep-link a local file, so the org's cloud layout is what auto-loads via the `foxglove://open?...&layoutId=...` URL in `common/ros_packages/desktop_bringup/launch/gcs.launch.xml`.
-
-To use the locally-rendered, NUM_ROBOTS-matched layout instead: open Foxglove → **Layouts** menu → **Import from file...** → pick `/root/AirStack/gcs/foxglove_extensions/airstack_default.json`. Foxglove keeps the imported layout in its IndexedDB and re-activates it on subsequent launches — re-import only when you change `NUM_ROBOTS` or edit the template.
 
 ## Output topics
 

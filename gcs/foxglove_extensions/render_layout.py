@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render airstack_default.json with NUM_ROBOTS tabs from a single-robot template.
+"""Render airstack_layout_custom.json with NUM_ROBOTS tabs from a single-robot template.
 
 Foxglove layout JSON has no native templating, so we generate it at GCS startup
 based on the NUM_ROBOTS env var. Tab[0] of the input file is treated as the
@@ -166,11 +166,11 @@ def main():
     ap.add_argument('--input', help='Source template JSON (LAYOUT_TEMPLATE env)',
                     default=os.environ.get(
                         'LAYOUT_TEMPLATE',
-                        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
+                        '/root/AirStack/gcs/foxglove_extensions/airstack_layout_custom.json'))
     ap.add_argument('--output', help='Rendered output (LAYOUT_OUTPUT env). Default writes back to --input.',
                     default=os.environ.get(
                         'LAYOUT_OUTPUT',
-                        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
+                        '/root/AirStack/gcs/foxglove_extensions/airstack_layout_custom.json'))
     ap.add_argument('--num-robots', type=int,
                     default=int(os.environ.get('NUM_ROBOTS', '1')))
     args = ap.parse_args()
