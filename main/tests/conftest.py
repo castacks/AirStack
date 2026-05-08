@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -35,6 +36,9 @@ SIM_CONFIG = {
             "ISAAC_SIM_USE_STANDALONE": "true",
             "ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_launch_script.py",
             "PLAY_SIM_ON_START": "true",
+            # Multi script gates RTX LiDAR on this flag; example_one always spawns it.
+            # `sensors` tests expect ouster topics + lidar_point_cloud_filter path.
+            "ENABLE_LIDAR": "true",
         },
     },
 }
@@ -149,11 +153,13 @@ def pytest_generate_tests(metafunc):
 
 
 # Run cheap/fast-fail tests first so real problems surface early:
-# docker image builds → colcon workspace builds → liveliness → autonomy.
+# docker image builds → colcon workspace builds → liveliness (infra) → sensors
+# (ROS topic streams) → autonomy flight tests.
 _MODULE_ORDER = [
     "test_build_docker",
     "test_build_packages",
     "test_liveliness",
+    "test_sensors",
     "test_takeoff_hover_land",
 ]
 
@@ -510,7 +516,7 @@ def current_test_id():
     return _nodeid_dotted(_CURRENT_ITEM.nodeid)
 
 
-# ── shared sim test infrastructure (liveliness, comms, takeoff all reuse) ──
+# ── shared sim test infrastructure (liveliness, sensors, comms, takeoff reuse) ──
 
 def wait_for_first_message(container, topic, domain_id, setup_bash, timeout=60):
     """Wait up to `timeout` seconds for one message on `topic`. Returns seconds
@@ -596,6 +602,66 @@ def parallel_sample_hz(container, topic_domain_pairs, setup_bash, duration=5, wi
             if topic:
                 rates[topic] = _parse_hz(content)
     for topic, _ in topic_domain_pairs:
+        rates.setdefault(topic, None)
+    return rates
+
+
+def _echo_once_received_message(result):
+    """True if ``ros2 topic echo --once`` printed a full message (trailing ``---``)."""
+    out = (result.stdout or "").rstrip()
+    return out.endswith("---")
+
+
+def parallel_echo_once_robot_topics(
+    probes, setup_bash, per_topic_timeout,
+):
+    """Liveliness for heavy topics (e.g. PointCloud2): ``echo --once`` per probe in parallel.
+
+    ``ros2 topic hz`` often never reports a rate on large point clouds (decode backlog).
+
+    Parameters
+    ----------
+    probes : list[tuple[str, str, int]]
+        ``(container_name, topic, ros_domain_id)`` — use the **robot container** that
+        hosts that domain's graph (replica ``n`` for ``robot_n``).
+    setup_bash : str
+        Workspace ``setup.bash`` path inside the container.
+    per_topic_timeout : int
+        Wall seconds per ``timeout … ros2 topic echo --once``.
+
+    Returns
+    -------
+    dict[str, float | None]
+        ``{topic: 1.0}`` if a message arrived, else ``{topic: None}`` (metrics use 1.0
+        as a nonzero "alive" placeholder, not a measured Hz).
+    """
+    rates = {}
+
+    def _one(container, topic, domain_id):
+        cmd = f"timeout {per_topic_timeout} ros2 topic echo --once {topic}"
+        return topic, ros2_exec(
+            container,
+            cmd,
+            domain_id=domain_id,
+            setup_bash=setup_bash,
+            timeout=per_topic_timeout + 15,
+        )
+
+    with ThreadPoolExecutor(max_workers=max(1, len(probes))) as pool:
+        futures = {
+            pool.submit(_one, container, topic, domain_id): topic
+            for container, topic, domain_id in probes
+        }
+        for fut in as_completed(futures):
+            topic = futures[fut]
+            try:
+                _, result = fut.result()
+            except Exception as e:
+                logger.warning("echo-once probe failed for %s: %s", topic, e)
+                rates[topic] = None
+                continue
+            rates[topic] = 1.0 if _echo_once_received_message(result) else None
+    for _, topic, _ in probes:
         rates.setdefault(topic, None)
     return rates
 

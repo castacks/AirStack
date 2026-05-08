@@ -25,7 +25,7 @@
     
     
       
-        <title>Index - AirStack</title>
+        <title>Sensor Packages - AirStack</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#launch" class="md-skip">
+        <a href="#sensor-packages" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Index
+              Sensor Packages
             
           </span>
         </div>
@@ -5096,12 +5096,60 @@
   
 
 
-  <h1>Index</h1>
-
-<p>We'll fill this with different things like the ZED-X package, LiDAR, etc</p>
+<h1 id="sensor-packages">Sensor Packages<a class="headerlink" href="#sensor-packages" title="Permanent link">&para;</a></h1>
+<p>The <strong>sensors</strong> layer holds ROS 2 nodes that sit next to hardware or simulation bridges: light preprocessing, remapping, and calibration helpers so <strong>perception</strong> and downstream layers see stable topics.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The sensors layer is responsible for:</p>
+<ul>
+<li><strong>Bridged sensor topics</strong>: Normalizing names and QoS for data coming from Isaac Sim, MAVROS, or onboard drivers</li>
+<li><strong>Preprocessing</strong>: Near-range LiDAR cleanup and similar filters that should run on the robot graph, not only in simulation</li>
+<li><strong>Supporting documentation</strong>: Patterns for optional tools such as the gimbal extension in simulation</li>
+</ul>
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<p>Launch files are under <code>src/robot/autonomy/sensors/sensors_bringup/launch</code>.</p>
-<p>The main launch command is <code>ros2 launch sensors_bringup sensors.launch.xml</code>.</p>
+<p>Launch files are located under <code>robot/ros_ws/src/sensors/sensors_bringup/launch/</code>.</p>
+<p>The main launch command is:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ros2<span class="w"> </span>launch<span class="w"> </span>sensors_bringup<span class="w"> </span>sensors.launch.xml
+</span></code></pre></div>
+<p>The bringup group uses the <code>sensors</code> namespace under each robot; see that package for which nodes are started.</p>
+<h2 id="key-topics">Key Topics<a class="headerlink" href="#key-topics" title="Permanent link">&para;</a></h2>
+<h3 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>/{robot_name}/sensors/ouster/point_cloud</code> — Filtered <code>sensor_msgs/msg/PointCloud2</code> (xyz) after <code>lidar_point_cloud_filter</code>, when using the default Ouster-style names in config</li>
+</ul>
+<h3 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>/{robot_name}/sensors/ouster/point_cloud_raw</code> — Raw cloud from the simulator or driver (typical input to the LiDAR filter)</li>
+<li>Other hardware- or bridge-specific topics as wired in <code>sensors_bringup</code></li>
+</ul>
+<p>Topic strings are parameterized with <code>$(env ROBOT_NAME)</code> in YAML; override <code>input_topic</code> / <code>output_topic</code> in the filter config if your stack uses different names.</p>
+<h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#lidar-point-cloud-filter"><strong>LiDAR point cloud filter</strong></a> (<code>lidar_point_cloud_filter</code>) — near-range sphere filter for <code>PointCloud2</code></li>
+<li><a href="gimbal/"><strong>Gimbal stabilizer</strong></a> — gimbal extension usage in simulation</li>
+</ul>
+<h2 id="lidar-point-cloud-filter-lidar_point_cloud_filterlidar-point-cloud-filter">LiDAR point cloud filter (<code>lidar_point_cloud_filter</code>){#lidar-point-cloud-filter}<a class="headerlink" href="#lidar-point-cloud-filter-lidar_point_cloud_filterlidar-point-cloud-filter" title="Permanent link">&para;</a></h2>
+<p><strong>Package:</strong> <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter</code></p>
+<p><strong>Role:</strong> Subscribe to a <strong>raw</strong> <code>sensor_msgs/msg/PointCloud2</code>, drop points whose distance from the cloud origin is below <code>near_range_m</code> (typical self-hit / multipath noise near the sensor), and republish a <strong>clean xyz float32</strong> cloud for mapping, exploration, RViz, and VDB.</p>
+<p><strong>Why it exists:</strong> Isaac Sim’s RTX OmniLidar path exposes a <strong><code>min_range</code> / <code>nearRangeM</code></strong> hook in Pegasus (<code>spawn_rtx_lidar.py</code>), but applying near range <strong>inside the simulator is unreliable</strong> across Kit builds (attribute missing or ineffective). That behavior is documented as a <strong>known limitation</strong> in <a href="../../../simulation/isaac_sim/pegasus_scene_setup/#rtx-lidar-near-range">Pegasus / Isaac Sim setup</a>. <strong>AirStack’s supported approach</strong> is to run this <strong>robot-side</strong> filter so the stack always sees a consistent filtered topic.</p>
+<p><strong>Defaults (configurable):</strong></p>
+<ul>
+<li>Parameters and defaults: <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/config/lidar_point_cloud_filter.yaml</code></li>
+<li>Typical topics: <code>/{robot_name}/sensors/ouster/point_cloud_raw</code> → <code>/{robot_name}/sensors/ouster/point_cloud</code> (override <code>input_topic</code> / <code>output_topic</code> if your bridge uses different names, for example under <code>sensors/lidar/...</code>)</li>
+<li>QoS: <code>qos_reliable</code> defaults to <strong>true</strong> to match common Isaac bridges and RViz; see the package README</li>
+</ul>
+<p><strong>Further detail:</strong> <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/README.md</code></p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Bringup:</strong> <code>robot/ros_ws/src/sensors/sensors_bringup/config/</code> and launch XML under <code>sensors_bringup/launch/</code></li>
+<li><strong>LiDAR filter:</strong> <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/config/lidar_point_cloud_filter.yaml</code> (<code>near_range_m</code>, topics, QoS)</li>
+</ul>
+<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../system_architecture/">System Architecture</a> — overall autonomy stack architecture</li>
+<li><a href="../perception/">Perception</a> — downstream consumers of filtered sensor data</li>
+<li><a href="../integration_checklist/">Integration Checklist</a> — adding new sensor-layer packages</li>
+<li><a href="../../../simulation/isaac_sim/pegasus_scene_setup/#rtx-lidar-near-range">Pegasus / Isaac Sim — RTX LiDAR and near range</a> — simulation-side <code>min_range</code> limitation and why the filter runs on the robot</li>
+</ul>
 
 
 

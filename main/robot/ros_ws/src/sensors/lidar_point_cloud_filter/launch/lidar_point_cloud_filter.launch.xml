@@ -1,0 +1,9 @@
+<launch>
+  <node
+    pkg="lidar_point_cloud_filter"
+    exec="lidar_point_cloud_filter_node"
+    name="lidar_point_cloud_filter"
+    output="screen">
+    <param from="$(find-pkg-share lidar_point_cloud_filter)/config/lidar_point_cloud_filter.yaml" allow_substs="true"/>
+  </node>
+</launch>

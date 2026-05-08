@@ -5006,6 +5006,43 @@
 
 
 <h1 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h1>
+<p>AirStack uses several test layers: ROS 2 package tests (<code>colcon test</code>), and <strong>system tests</strong> under <a href="../../../../tests/"><code>tests/</code></a> at the repo root (pytest, full Docker stack).</p>
+<h2 id="system-tests-tests">System tests (<code>tests/</code>)<a class="headerlink" href="#system-tests-tests" title="Permanent link">&para;</a></h2>
+<p>The canonical reference is <strong><a href="../../../../tests/"><code>tests/README.md</code></a></strong> (also included in the MkDocs site). In short:</p>
+<table>
+<thead>
+<tr>
+<th>Mark</th>
+<th>Module</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>liveliness</code></td>
+<td><code>test_liveliness.py</code></td>
+<td>Containers, <code>/clock</code> readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll</td>
+</tr>
+<tr>
+<td><code>sensors</code></td>
+<td><code>test_sensors.py</code></td>
+<td>Sim + robot stereo/depth Hz, filtered LiDAR (<code>echo --once</code> + validation script on Isaac), sim RTF, sensor stability time-series</td>
+</tr>
+<tr>
+<td><code>takeoff_hover_land</code></td>
+<td><code>test_takeoff_hover_land.py</code></td>
+<td>Four-phase flight chain per configuration</td>
+</tr>
+</tbody>
+</table>
+<p>Collection order is defined in <code>tests/conftest.py</code> (<code>liveliness</code> before <code>sensors</code> before <code>takeoff_hover_land</code>). Each mark’s test <strong>class</strong> uses <strong>class-scoped</strong> <code>airstack_env</code>, so combining marks with <strong><code>and</code></strong> runs multiple full stack bring-ups per <code>(sim, num_robots, iteration)</code> — see <em>Bring-up scope</em> in <code>tests/README.md</code>.</p>
+<p><strong>Isaac Sim:</strong> the <code>sensors</code> implementation batches <code>ros2 topic hz</code> on sim and robot paths and avoids <code>hz</code> on filtered <code>PointCloud2</code>; pytest enables <code>ENABLE_LIDAR</code> for the multi-drone Pegasus script. Details: <strong><code>tests/README.md</code></strong> → <em>Isaac Sim and the sensors mark</em>.</p>
+<h2 id="other-testing-docs">Other testing docs<a class="headerlink" href="#other-testing-docs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="testing_frameworks/">Testing frameworks</a> — <code>colcon test</code>, rostest patterns</li>
+<li><a href="integration_testing/">Integration testing</a></li>
+<li><a href="ci_cd/">CI/CD</a> — pipeline overview</li>
+</ul>
 
 
 

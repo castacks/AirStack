@@ -5282,7 +5282,7 @@
 <li>Implemented in <a href="tests/"><code>tests/</code></a> — see below</li>
 </ol>
 <h3 id="system-test-suite-tests">System Test Suite (<code>tests/</code>)<a class="headerlink" href="#system-test-suite-tests" title="Permanent link">&para;</a></h3>
-<p>Pytest-based system tests live at the repo root in <a href="tests/"><code>tests/</code></a>. They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, sensor publishing rates, compute usage, and end-to-end flight behavior.</p>
+<p>Pytest-based system tests live at the repo root in <a href="tests/"><code>tests/</code></a>. They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, compute usage, sensor topic streams (<code>sensors</code> mark), and end-to-end flight behavior.</p>
 <table>
 <thead>
 <tr>
@@ -5308,7 +5308,13 @@
 <tr>
 <td><a href="../tests/test_liveliness.py"><code>tests/test_liveliness.py</code></a></td>
 <td><code>liveliness</code></td>
-<td>Full-stack health: containers, tmux, ROS 2 nodes, topic Hz, compute, sustained stability</td>
+<td>Stack bring-up: containers, <code>/clock</code> readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll</td>
+<td>Docker, GPU, sim license</td>
+</tr>
+<tr>
+<td><a href="../tests/test_sensors.py"><code>tests/test_sensors.py</code></a></td>
+<td><code>sensors</code></td>
+<td>Topic Hz (Isaac: batched sim + robot <code>ros2 topic hz</code>; filtered LiDAR <code>echo-once</code> + validation script), RTF, sensor stability time-series</td>
 <td>Docker, GPU, sim license</td>
 </tr>
 <tr>
@@ -5323,9 +5329,13 @@
 <p><strong>Run via the CLI</strong> (containerized runner — no local Python needed):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span>-v
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span>-v
 </span></code></pre></div>
-<p>Full reference: <a href="../tests/"><code>tests/README.md</code></a>.</p>
+<p>Full reference: <a href="../tests/"><code>tests/README.md</code></a> — including <strong>liveliness vs
+sensors</strong> (infra vs topic streams), <strong>class-scoped <code>airstack_env</code></strong> (two bring-ups
+when you select both marks with <code>and</code>), and <strong>Isaac Sim</strong> batching of
+<code>ros2 topic hz</code> plus LiDAR <code>echo-once</code> / <code>ENABLE_LIDAR</code> for pytest.</p>
 <h3 id="autonomous-debugging-approach">Autonomous Debugging Approach<a class="headerlink" href="#autonomous-debugging-approach" title="Permanent link">&para;</a></h3>
 <p>When a module doesn't work:
 1. Verify module is running (<code>ros2 node list</code>)

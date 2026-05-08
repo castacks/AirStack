@@ -31,6 +31,7 @@ AGGS = ("mean", "start_mean", "end_mean", "min", "max")
 # declares the display unit + regression direction for the derived aggregates.
 SAMPLE_TYPES = {
     "hz": {"unit": "Hz", "direction": "higher_is_better"},
+    "received": {"unit": "", "direction": "higher_is_better"},
     "cpu_pct": {"unit": "%", "direction": "lower_is_better"},
     "mem_mb": {"unit": "MB", "direction": "lower_is_better"},
     "disk_io_mb": {"unit": "MB", "direction": "lower_is_better"},
@@ -52,7 +53,7 @@ COMPUTE_METRIC_RE = re.compile(
 def _split_test_name(name):
     """`test_liveliness.TestLiveliness.test_foo[id]` →
     (module="test_liveliness", display="test_foo[id]"). Drops the Class segment
-    for display since there's one class per module."""
+    for display since there's one class per module (same for ``test_sensors``)."""
     parts = name.split(".", 2)
     if len(parts) == 3:
         return parts[0], parts[2]

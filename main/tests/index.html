@@ -5099,7 +5099,7 @@
 
 
 <h1 id="system-testing">System Testing<a class="headerlink" href="#system-testing" title="Permanent link">&para;</a></h1>
-<p>AirStack's system tests bring up the full Docker-based stack — simulator, robot containers, and GCS — and verify end-to-end behavior: container health, ROS 2 node presence, sensor publishing rates, and compute resource usage. Tests are written in Python with pytest and live under <code>tests/</code> at the repo root.</p>
+<p>AirStack's system tests bring up the full Docker-based stack — simulator, robot containers, and GCS — and verify end-to-end behavior: container health, ROS 2 node presence, sensor publishing rates (in the <code>sensors</code> mark), and compute resource usage. Tests are written in Python with pytest and live under <code>tests/</code> at the repo root.</p>
 <iframe width="1120" height="630" src="https://www.youtube.com/embed/EzgGHnYDI_k?si=vpqER-TXud5XEMUX" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 <hr />
@@ -5129,7 +5129,13 @@
 <tr>
 <td><a href="../../../../tests/test_liveliness.py"><code>test_liveliness.py</code></a></td>
 <td><code>liveliness</code></td>
-<td>Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability</td>
+<td>Stack bring-up: container Running state, <code>/clock</code> readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only <code>test_stable</code> (tmux + nodes + compute)</td>
+<td>Docker daemon, GPU, sim license</td>
+</tr>
+<tr>
+<td><a href="../../../../tests/test_sensors.py"><code>test_sensors.py</code></a></td>
+<td><code>sensors</code></td>
+<td>After liveliness in collection order: sim + robot stereo/depth Hz (<strong>Isaac:</strong> batched <code>ros2 topic hz</code> to avoid bridge overload; <strong>ms-airsim:</strong> single batch), filtered LiDAR via <code>echo --once</code> + cloud sanity (isaacsim), sim RTF, <code>test_sensor_streams_stable</code></td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
 <tr>
@@ -5141,7 +5147,9 @@
 </tbody>
 </table>
 <p>Marks can be combined with pytest logic:
-<code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m takeoff_hover_land</code>.</p>
+<code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
+<h3 id="bring-up-scope-airstack_env">Bring-up scope (<code>airstack_env</code>)<a class="headerlink" href="#bring-up-scope-airstack_env" title="Permanent link">&para;</a></h3>
+<p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized per <code>(sim, num_robots, iteration)</code>. Each test <strong>class</strong> that uses it (<code>TestLiveliness</code>, <code>TestSensors</code>, <code>TestTakeoffHoverLand</code>, …) performs its <strong>own</strong> <code>airstack up</code> / <code>airstack down</code> for that parametrization. Selecting both classes (for example, <code>-m "liveliness or sensors"</code>) runs <strong>two</strong> full stack cycles per tuple (liveliness class, then sensors class). Collection order (see <code>conftest.py</code>) runs <strong>liveliness before sensors</strong> when both are selected. To save wall time, run <code>-m liveliness</code> or <code>-m sensors</code> alone when one suite is enough.</p>
 <hr />
 <h2 id="test-infrastructure">Test Infrastructure<a class="headerlink" href="#test-infrastructure" title="Permanent link">&para;</a></h2>
 <p>All shared fixtures, helpers, and configuration live in <a href="../../../../tests/conftest.py"><code>tests/conftest.py</code></a>.</p>
@@ -5150,21 +5158,79 @@
 <ol>
 <li>Calls <code>airstack up</code> with the appropriate <code>COMPOSE_PROFILES</code>, <code>NUM_ROBOTS</code>, and headless flags</li>
 <li>Records <code>airstack_up_duration_s</code> to <code>metrics.json</code></li>
-<li>Yields an <code>env</code> dict used by every <code>TestLiveliness</code> test</li>
+<li>Yields an <code>env</code> dict used by liveliness and sensor tests</li>
 <li>Tears down with <code>airstack down</code> and records <code>airstack_down_duration_s</code></li>
 </ol>
+<h3 id="isaac-sim-and-the-sensors-mark">Isaac Sim and the <code>sensors</code> mark<a class="headerlink" href="#isaac-sim-and-the-sensors-mark" title="Permanent link">&para;</a></h3>
+<p><strong>LiDAR in pytest:</strong> <a href="../../../../tests/conftest.py"><code>tests/conftest.py</code></a> sets
+<code>ENABLE_LIDAR=true</code> in <code>SIM_CONFIG["isaacsim"]["extra_env"]</code> so the multi-drone
+Pegasus script (<code>example_multi_px4_pegasus_launch_script.py</code>) attaches RTX LiDAR
+the same way the single-drone script always does. Without that flag the multi
+script would not spawn LiDAR OmniGraphs.</p>
+<p><strong>Topic checks</strong> live in <a href="../../../../tests/sensor_probes.py"><code>tests/sensor_probes.py</code></a>
+and are driven by <a href="../../../../tests/test_sensors.py"><code>tests/test_sensors.py</code></a>:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What we measure</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sim → <code>/clock</code>, stereo images, stereo depth</td>
+<td>Publish rate</td>
+<td><code>ros2 topic hz</code> on the sim container: <code>/clock</code> alone, then <strong>chunks of two</strong> <code>image_rect</code> topics, then <strong>chunks of two</strong> depth topics (<code>ISAACSIM_HZ_CHUNK_SIZE</code> in <code>sensor_probes.py</code>).</td>
+</tr>
+<tr>
+<td>Robot → same topic names (bridge)</td>
+<td>Publish rate</td>
+<td>Same <strong>two-at-a-time</strong> chunking on the robot container for Isaac. ms-airsim: one batch of four topics.</td>
+</tr>
+<tr>
+<td>Robot → filtered <code>.../ouster/point_cloud</code></td>
+<td>Stream alive</td>
+<td><code>ros2 topic echo --once</code> per robot (not Hz — large <code>PointCloud2</code>).</td>
+</tr>
+<tr>
+<td>LiDAR geometry</td>
+<td>Near-range vs <code>near_range_m</code></td>
+<td><code>lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py</code> (raw vs filtered).</td>
+</tr>
+</tbody>
+</table>
+<p>Sim <strong>RTF</strong> (real-time factor from <code>/clock</code>) is also in the <code>sensors</code> suite.
+<strong><code>test_sensor_streams_stable</code></strong> repeats sim + robot stereo + LiDAR probes every
+<code>--stable-interval</code> for <code>--stable-duration</code> and records time-series to
+<code>metrics.json</code> (stereo/depth as <code>*.hz_samples</code>; LiDAR echo-once as <code>*.received_samples</code>).</p>
 <h3 id="metricsrecorder"><code>MetricsRecorder</code><a class="headerlink" href="#metricsrecorder" title="Permanent link">&para;</a></h3>
 <p>Writes custom metrics to <code>tests/results/&lt;timestamp&gt;/metrics.json</code> after each <code>record()</code> call. Keys follow the pattern <code>test_node_id → metric_key → {value, unit, direction}</code>. Time-series data (Hz samples, compute snapshots) are stored as <code>{key}_samples</code> lists and expanded into scalar aggregates (mean, min, max, start_mean, end_mean) by <code>parse_metrics.py</code>.</p>
 <h3 id="output-files">Output files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h3>
-<p>Every test run produces a timestamped directory:</p>
+<p>Every test run produces a timestamped directory. <strong>Per-test logs</strong> — for each
+pytest function, <code>pytest_runtest_setup</code> in <code>conftest.py</code> attaches the shared
+logger to <code>logs/test_&lt;module&gt;.&lt;Class&gt;.&lt;test&gt;[&lt;param-id&gt;].log</code> (param ids are
+rewritten for readability, e.g. <code>msairsim-rob#1-iter0</code>; see
+<code>pytest_collection_modifyitems</code>).</p>
+<p><strong><code>airstack_env.&lt;…&gt;.log</code></strong> — the class-scoped <code>airstack_env</code> fixture wraps
+<code>airstack up</code> / <code>airstack down</code> in <code>logger_to("airstack_env." + &lt;current nodeid&gt;)</code>
+(see <code>conftest.py</code>). So you get an extra file whose name is the word
+<code>airstack_env.</code> plus the <strong>node id of whichever test was running when the
+fixture first ran</strong> for that class. For <code>TestLiveliness</code> that is almost always
+<code>test_robot_containers_running</code> (first test in the class), not <code>test_stable</code>.
+That file holds compose / <code>airstack</code> subprocess output; each test still has its
+own log for assertions and <code>docker exec</code> / <code>ros2</code> lines.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tests/results/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── 2025-04-21_14-30-00/
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── results.xml        # JUnit XML — test durations and pass/fail status
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    └── logs/
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ├── test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ├── test_liveliness.TestLiveliness.test_stable[msairsim-1-iter0].log
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        └── ...            # One log file per test execution
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ├── airstack_env.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ├── test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ├── test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        └── ...            # More per-test logs; another airstack_env.* per class using the fixture
 </span></code></pre></div>
 <hr />
 <h2 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h2>
@@ -5193,15 +5259,23 @@ arguments directly to pytest. No local Python environment needed.</p>
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span>-v
 </span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Show GUI windows (for local visual inspection)</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--gui<span class="w"> </span>-v
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Sensor topic rates + LiDAR</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">  </span>-v
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="c1"># Show GUI windows (for local visual inspection)</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--gui<span class="w"> </span>-v
 </span></code></pre></div>
 <p><code>airstack test</code> calls <code>xhost +</code> automatically so GUI-mode sim containers
 can reach the host X server; it is a no-op when <code>DISPLAY</code> is not set.</p>
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Docker daemon running with your user in the <code>docker</code> group</li>
-<li>NVIDIA drivers + <code>nvidia-container-toolkit</code> for liveliness/takeoff_hover_land tests</li>
+<li>NVIDIA drivers + <code>nvidia-container-toolkit</code> for liveliness, sensors, and takeoff_hover_land tests</li>
 <li><code>airstack setup</code> completed (adds <code>airstack</code> to <code>PATH</code>)</li>
 </ul>
 <h3 id="direct-pytest-for-development-debugging">Direct pytest (for development / debugging)<a class="headerlink" href="#direct-pytest-for-development-debugging" title="Permanent link">&para;</a></h3>
@@ -5220,6 +5294,13 @@ want to attach a debugger. Requires a local Python environment.</p>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span>-v
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="c1"># Sensor streams (after liveliness in default collection order)</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">  </span>-v
 </span></code></pre></div>
 <h3 id="cli-option-reference">CLI option reference<a class="headerlink" href="#cli-option-reference" title="Permanent link">&para;</a></h3>
 <table>
@@ -5249,12 +5330,12 @@ want to attach a debugger. Requires a local Python environment.</p>
 <tr>
 <td><code>--stable-duration</code></td>
 <td><code>120</code></td>
-<td>Seconds <code>test_stable</code> polls for</td>
+<td>Seconds <code>test_stable</code> / <code>test_sensor_streams_stable</code> poll for</td>
 </tr>
 <tr>
 <td><code>--stable-interval</code></td>
 <td><code>10</code></td>
-<td>Seconds between polls in <code>test_stable</code></td>
+<td>Seconds between polls in those stability tests</td>
 </tr>
 <tr>
 <td><code>--gui</code></td>
@@ -5419,7 +5500,7 @@ returns to the ground.</p>
 <p>The report has three sections per test module:</p>
 <ul>
 <li><strong>Metrics</strong> — flat table of scalar metrics (test name, metric key, value/baseline, change%)</li>
-<li><strong>Sim publishing rates</strong> — pivot table of topic Hz aggregates (mean, start_mean, end_mean, min, max)</li>
+<li><strong>Sim publishing rates</strong> — pivot table of topic Hz aggregates from the <code>sensors</code> mark (<code>mean</code>, <code>start_mean</code>, <code>end_mean</code>, <code>min</code>, <code>max</code>; sim + robot topics)</li>
 <li><strong>Compute usage</strong> — pivot table of CPU/memory/GPU metrics per container</li>
 </ul>
 <p>Regressions are flagged with :red_circle:, improvements with :green_circle:.</p>

@@ -5638,7 +5638,7 @@
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="no">tmux new -d -s isaac;</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="no">if [ $$AUTOLAUNCH = &#39;true&#39; ]; then</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="no">if [ \&quot;${ISAAC_SIM_USE_STANDALONE}\&quot; = &#39;true&#39; ]; then</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac &#39;run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}&#39; ENTER</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac &#39;PYTHONPATH=&quot;$$ISAAC_SIM_PYTHONPATH&quot; /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts&#39; ENTER</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="no">else</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac &#39;ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\&quot;${ISAAC_SIM_GUI}\&quot; play_sim_on_start:=\&quot;${PLAY_SIM_ON_START}\&quot;&#39; ENTER</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="no">fi</span>
@@ -5927,6 +5927,11 @@
 <li>Check ROS 2 domain IDs match</li>
 <li>Inspect DDS: <code>fastdds.xml</code> configuration</li>
 <li>Test connection: <code>ros2 topic list</code> in Isaac Sim container</li>
+</ul>
+<p><strong><code>rclpy</code> / <code>_rclpy_pybind11</code> warnings when starting Kit with <code>python.sh</code>:</strong></p>
+<ul>
+<li>Jazzy’s <code>setup.bash</code> puts <strong>Python 3.12</strong> ROS packages on <code>PYTHONPATH</code>. Isaac’s <code>python.sh</code> uses <strong>Kit Python (~3.10)</strong>. Importing system <code>rclpy</code> from the wrong interpreter causes ABI errors in the log (topics from Omnigraph may still work).</li>
+<li>Standalone launch uses <code>PYTHONPATH="$ISAAC_SIM_PYTHONPATH"</code> in the <strong>tmux</strong> command (<code>$$ISAAC_SIM_PYTHONPATH</code> in <code>docker-compose.yaml</code> so Compose does not treat it as a host variable). See container <code>.bashrc</code> and <code>docker-compose.yaml</code>: it drops <code>lib/python3.12/site-packages</code> and appends the bridge’s internal <code>rclpy</code> path.</li>
 </ul>
 <p><strong>Performance issues:</strong></p>
 <ul>

@@ -1838,6 +1838,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rtx-lidar-near-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RTX OmniLidar and near range (min_range) — known limitation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RTX OmniLidar and near range (min_range) — known limitation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#min_range-nearrangem-in-simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        min_range → nearRangeM in simulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#known-bugs-and-workarounds-for-scripted-scene-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5417,6 +5445,11 @@ Users can drop the same Pegasus node into different environments or swap robots 
 </tr>
 </tbody>
 </table>
+<h2 id="rtx-lidar-near-range">RTX OmniLidar and near range (<code>min_range</code>) — known limitation<a class="headerlink" href="#rtx-lidar-near-range" title="Permanent link">&para;</a></h2>
+<p>AirStack’s Pegasus fork (Isaac Sim <strong>5.1+</strong>) wires <strong>RTX OmniLidar</strong> through OmniGraph helpers such as <code>add_rtx_lidar_subgraph</code> in <code>pegasus.simulator.ogn.api.spawn_rtx_lidar</code> (used from <code>simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py</code>, <code>example_multi_px4_pegasus_launch_script.py</code>, etc.). Recent work in this repo switched those scripts from the legacy Ouster graph path to this <strong>RTX</strong> API and reconciled ROS topic names (e.g. raw cloud on <code>…/sensors/ouster/point_cloud_raw</code>, filtered consumer topic <code>…/sensors/ouster/point_cloud</code>).</p>
+<h3 id="min_range-nearrangem-in-simulation"><code>min_range</code> → <code>nearRangeM</code> in simulation<a class="headerlink" href="#min_range-nearrangem-in-simulation" title="Permanent link">&para;</a></h3>
+<p>The spawn code maps the Python argument <strong><code>min_range</code></strong> to the OmniLidar prim attribute <strong><code>omni:sensor:Core:nearRangeM</code></strong> when it exists, and logs a warning when it does not. The module docstring in <code>spawn_rtx_lidar.py</code> states the reality: some Kit builds only express echo spacing in the <strong>vendor lidar JSON profile</strong>, not as a writable <strong>Core</strong> prim attribute, so <strong>setting near range in Isaac does not consistently remove short-range returns</strong>.</p>
+<p><strong>Known bug / policy:</strong> Do <strong>not</strong> rely on Isaac-only <code>min_range</code> / <code>nearRangeM</code> as your primary near-field cleanup. Use the <strong>robot-side</strong> package <strong><code>lidar_point_cloud_filter</code></strong> (see <a href="../../../robot/autonomy/sensors/index.md#lidar-point-cloud-filter">Sensors — LiDAR filter</a>), which applies a configurable <strong><code>near_range_m</code></strong> sphere filter in the ROS graph and publishes a stable cloud for VDB, exploration, and RViz.</p>
 <h2 id="known-bugs-and-workarounds-for-scripted-scene-generation">Known bugs and workarounds for Scripted Scene Generation<a class="headerlink" href="#known-bugs-and-workarounds-for-scripted-scene-generation" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
