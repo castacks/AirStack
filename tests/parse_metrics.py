@@ -31,6 +31,7 @@ AGGS = ("mean", "start_mean", "end_mean", "min", "max")
 # declares the display unit + regression direction for the derived aggregates.
 SAMPLE_TYPES = {
     "hz": {"unit": "Hz", "direction": "higher_is_better"},
+    "received": {"unit": "", "direction": "higher_is_better"},
     "cpu_pct": {"unit": "%", "direction": "lower_is_better"},
     "mem_mb": {"unit": "MB", "direction": "lower_is_better"},
     "disk_io_mb": {"unit": "MB", "direction": "lower_is_better"},

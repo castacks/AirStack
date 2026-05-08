@@ -115,7 +115,7 @@ class TestSensors:
         ]
     )
     def test_sensor_streams_stable(self, airstack_env, request):
-        """Poll sensor topic rates over ``--stable-duration`` (Hz time-series to metrics)."""
+        """Poll sensors over ``--stable-duration``: stereo/depth as Hz series, LiDAR as ``.received``."""
         duration = request.config.getoption("--stable-duration")
         interval = request.config.getoption("--stable-interval")
         m = get_metrics()
@@ -146,7 +146,6 @@ class TestSensors:
                 for prefix, rates_dict in (
                     ("sim", rates_sim),
                     ("robot", rates_rsd),
-                    ("lidar", rates_lidar),
                 ):
                     for topic, hz in rates_dict.items():
                         tail = topic.lstrip("/").replace("/", ".") + ".hz"
@@ -154,6 +153,13 @@ class TestSensors:
                         series.setdefault(key, []).append(
                             {"t": elapsed, "value": hz or 0.0}
                         )
+                # LiDAR uses echo-once (placeholder 1.0); record as .received not .hz.
+                for topic, got in rates_lidar.items():
+                    tail = topic.lstrip("/").replace("/", ".") + ".received"
+                    key = f"lidar.{tail}"
+                    series.setdefault(key, []).append(
+                        {"t": elapsed, "value": 1.0 if got else 0.0}
+                    )
                 if not (ok_sim and ok_rsd and ok_lidar):
                     pytest.fail(
                         f"sensor instability at t={elapsed}s: sim_hz={msg_sim} | "

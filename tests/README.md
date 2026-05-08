@@ -58,8 +58,8 @@ and are driven by [`tests/test_sensors.py`](../../../../tests/test_sensors.py):
 
 Sim **RTF** (real-time factor from ``/clock``) is also in the `sensors` suite.
 **`test_sensor_streams_stable`** repeats sim + robot stereo + LiDAR probes every
-`--stable-interval` for `--stable-duration` and records Hz time-series to
-`metrics.json`.
+`--stable-interval` for `--stable-duration` and records time-series to
+`metrics.json` (stereo/depth as ``*.hz_samples``; LiDAR echo-once as ``*.received_samples``).
 
 ### `MetricsRecorder`
 
