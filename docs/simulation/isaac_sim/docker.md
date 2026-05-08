@@ -87,7 +87,7 @@ command: >
   tmux new -d -s isaac;
   if [ $$AUTOLAUNCH = 'true' ]; then
     if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then
-      tmux send-keys -t isaac 'run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME}' ENTER
+      tmux send-keys -t isaac 'PYTHONPATH="$$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
     else
       tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\"' ENTER
     fi
@@ -393,6 +393,11 @@ docker compose -f simulation/isaac-sim/docker/docker-compose.yaml build --no-cac
 - Check ROS 2 domain IDs match
 - Inspect DDS: `fastdds.xml` configuration
 - Test connection: `ros2 topic list` in Isaac Sim container
+
+**`rclpy` / `_rclpy_pybind11` warnings when starting Kit with `python.sh`:**
+
+- Jazzy’s `setup.bash` puts **Python 3.12** ROS packages on `PYTHONPATH`. Isaac’s `python.sh` uses **Kit Python (~3.10)**. Importing system `rclpy` from the wrong interpreter causes ABI errors in the log (topics from Omnigraph may still work).
+- Standalone launch uses `PYTHONPATH="$ISAAC_SIM_PYTHONPATH"` in the **tmux** command (`$$ISAAC_SIM_PYTHONPATH` in `docker-compose.yaml` so Compose does not treat it as a host variable). See container `.bashrc` and `docker-compose.yaml`: it drops `lib/python3.12/site-packages` and appends the bridge’s internal `rclpy` path.
 
 **Performance issues:**
 

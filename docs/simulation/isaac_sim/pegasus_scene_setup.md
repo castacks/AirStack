@@ -110,6 +110,15 @@ Scripts must live in `simulation/isaac-sim/launch_scripts/`. Set `ISAAC_SIM_SCRI
 | `scene_prep` not found / `ModuleNotFoundError` | `utils/` not on `sys.path` in Isaac Sim's Python | Use `sys.path.insert` to add the `utils/` directory before importing `scene_prep` |
 | Drone spawns at wrong height in cm-scale scene | Spawn coordinates not converted to stage space | Multiply metric `init_pos` values by `scene_scale` from `get_stage_meters_per_unit` |
 
+## RTX OmniLidar and near range (`min_range`) — known limitation {#rtx-lidar-near-range}
+
+AirStack’s Pegasus fork (Isaac Sim **5.1+**) wires **RTX OmniLidar** through OmniGraph helpers such as `add_rtx_lidar_subgraph` in `pegasus.simulator.ogn.api.spawn_rtx_lidar` (used from `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`, `example_multi_px4_pegasus_launch_script.py`, etc.). Recent work in this repo switched those scripts from the legacy Ouster graph path to this **RTX** API and reconciled ROS topic names (e.g. raw cloud on `…/sensors/ouster/point_cloud_raw`, filtered consumer topic `…/sensors/ouster/point_cloud`).
+
+### `min_range` → `nearRangeM` in simulation
+
+The spawn code maps the Python argument **`min_range`** to the OmniLidar prim attribute **`omni:sensor:Core:nearRangeM`** when it exists, and logs a warning when it does not. The module docstring in `spawn_rtx_lidar.py` states the reality: some Kit builds only express echo spacing in the **vendor lidar JSON profile**, not as a writable **Core** prim attribute, so **setting near range in Isaac does not consistently remove short-range returns**.
+
+**Known bug / policy:** Do **not** rely on Isaac-only `min_range` / `nearRangeM` as your primary near-field cleanup. Use the **robot-side** package **`lidar_point_cloud_filter`** (see [Sensors — LiDAR filter](../../../robot/autonomy/sensors/index.md#lidar-point-cloud-filter)), which applies a configurable **`near_range_m`** sphere filter in the ROS graph and publishes a stable cloud for VDB, exploration, and RViz.
 
 ## Known bugs and workarounds for Scripted Scene Generation
 

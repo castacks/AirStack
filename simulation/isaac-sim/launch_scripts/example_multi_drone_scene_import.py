@@ -27,7 +27,7 @@ from omni.isaac.core.world import World
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 # gps_utils lives in the same directory as this script
 _LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -261,14 +261,15 @@ class PegasusApp:
                 camera_rotation_offset=[0.0, 0.0, 0.0],
             )
 
-            add_ouster_lidar_subgraph(
+            add_rtx_lidar_subgraph(
                 parent_graph_handle=graph_handle,
                 drone_prim=f"/World/drone{i}/base_link",
                 robot_name=f"robot_{i}",
-                lidar_name="OS1_REV6_128_10hz___512_resolution",
+                lidar_config="ouster_os1",
+                lidar_topic_name="point_cloud_raw",
                 lidar_offset=[0.0, 0.0, 0.025],
                 lidar_rotation_offset=[0.0, 0.0, 0.0],
-                lidar_min_range=cfg["lidar_min_range"],
+                min_range=cfg["lidar_min_range"],
             )
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"

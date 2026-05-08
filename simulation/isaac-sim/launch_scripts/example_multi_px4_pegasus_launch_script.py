@@ -4,7 +4,10 @@ Multi-drone PX4 Pegasus launcher, parametrized by NUM_ROBOTS.
 
 Env:
  - NUM_ROBOTS (default 1): how many drones to spawn
- - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone
+ - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone (``add_rtx_lidar_subgraph``;
+   publishes ``point_cloud_raw`` under ``/robot_<i>/sensors/ouster/`` via OmniGraph). The
+   single-drone example script always enables LiDAR; AirStack pytest ``isaacsim`` liveliness
+   sets ``ENABLE_LIDAR=true`` so behavior matches.
  - PLAY_SIM_ON_START (default true): autoplay timeline
 """
 
@@ -31,7 +34,7 @@ from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
@@ -108,14 +111,15 @@ def spawn_drone(index: int):
     )
 
     if ENABLE_LIDAR:
-        add_ouster_lidar_subgraph(
+        add_rtx_lidar_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim=drone_prim,
             robot_name=robot_name,
-            lidar_name="OS1_REV6_128_10hz___512_resolution",
-            lidar_offset=[0.0, 0.0, 0.025],
+            lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
+            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
             lidar_rotation_offset=[0.0, 0.0, 0.0],
-            lidar_min_range=0.75,
+            min_range=0.75,
         )
 
 
