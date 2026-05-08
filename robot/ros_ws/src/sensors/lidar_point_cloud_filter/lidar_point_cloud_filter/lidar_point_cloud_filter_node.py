@@ -28,7 +28,6 @@ def _read_pointcloud_xyz_nx3(msg: PointCloud2) -> np.ndarray:
     """
     read_numpy = getattr(point_cloud2, 'read_points_numpy', None)
     if read_numpy is not None:
-        print("Using read_points_numpy")
         try:
             arr = read_numpy(msg, field_names=('x', 'y', 'z'), skip_nans=True)
         except (AssertionError, TypeError, ValueError):
