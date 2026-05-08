@@ -16,10 +16,9 @@ import re
 
 PANEL_ID_RE = re.compile(r'^([A-Za-z0-9_.\- ]+)!(\w+)$')
 ROBOT_KEY_RE = re.compile(r'^(.*?)robot_(\d+)(.*)$')
-# Trailing `_r<digits>` is the per-robot suffix this script appends. Strip it
-# before re-minting so re-running over its own output doesn't stack suffixes
-# (e.g. `_r1_r1`) — gcs startup runs render_layout.py on every container start.
-PANEL_SUFFIX_RE = re.compile(r'_r\d+$')
+# Strip every trailing `_r<digits>` suffix this script previously appended so
+# re-running over its own output doesn't stack (e.g. `_r1_r1_r1...`).
+PANEL_SUFFIX_RE = re.compile(r'(_r\d+)+$')
 
 
 def replace_robot_n(obj, src_n: int, dst_n: int):
@@ -164,12 +163,14 @@ def expand_layout(template_json: dict, num_robots: int) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--input', default=os.environ.get(
-        'LAYOUT_TEMPLATE',
-        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
-    ap.add_argument('--output', default=os.environ.get(
-        'LAYOUT_OUTPUT',
-        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
+    ap.add_argument('--input', help='Source template JSON (LAYOUT_TEMPLATE env)',
+                    default=os.environ.get(
+                        'LAYOUT_TEMPLATE',
+                        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
+    ap.add_argument('--output', help='Rendered output (LAYOUT_OUTPUT env). Default writes back to --input.',
+                    default=os.environ.get(
+                        'LAYOUT_OUTPUT',
+                        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
     ap.add_argument('--num-robots', type=int,
                     default=int(os.environ.get('NUM_ROBOTS', '1')))
     args = ap.parse_args()
@@ -179,8 +180,10 @@ def main():
     rendered = expand_layout(template, args.num_robots)
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    with open(args.output, 'w') as f:
+    tmp = args.output + '.tmp'
+    with open(tmp, 'w') as f:
         json.dump(rendered, f, indent=2)
+    os.replace(tmp, args.output)
     print(f'rendered {args.num_robots}-robot layout → {args.output}')
 
 

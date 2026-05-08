@@ -12,7 +12,7 @@ services:
     command: >
       bash -c "
       ssh service restart;
-      python3 /root/AirStack/gcs/foxglove_extensions/install.sh;
+      python3 /root/AirStack/gcs/foxglove_extensions/install.py;
       python3 /root/AirStack/gcs/foxglove_extensions/render_layout.py || true;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH = 'true' ]; then
