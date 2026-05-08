@@ -19,7 +19,7 @@
     output="screen" respawn="true" respawn_delay="1" />
   ?>
 
-  <!-- launch foxglove-studio -no-standbox -->
+  <!-- launch foxglove-studio --no-sandbox -->
 
   <executable
     cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=lay_0eLycKBK1l9dAtoR&quot;'"
