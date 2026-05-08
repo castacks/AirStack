@@ -129,7 +129,7 @@ class LidarPointCloudFilterNode(Node):
             return
 
         finite = np.isfinite(arr).all(axis=1)
-        r2 = np.sum(arr.astype(np.float64, copy=False) ** 2, axis=1)
+        r2 = np.sum(arr * arr, axis=1)
         if self._near_range_m <= 0.0:
             near_ok = np.ones(arr.shape[0], dtype=bool)
         else:
