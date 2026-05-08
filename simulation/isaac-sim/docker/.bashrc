@@ -130,9 +130,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # for local development, prevent conflict with other desktops
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 
-# Isaac python.sh uses Kit Python (~3.10). Jazzy's setup adds Python 3.12 site-packages to
-# PYTHONPATH; using that rclpy from Isaac's interpreter causes _rclpy_pybind11 / ABI errors.
-# Use this when launching Kit scripts (e.g. standalone tmux line in docker-compose).
+# Use python from Isaac Sim interpreter (Kit Python ~3.10) to avoid conflicts with ROS2 Python (Jazzy Python ~3.12).
 export ISAAC_SIM_PYTHONPATH=$(echo "${PYTHONPATH:-}" | tr ':' '\n' | grep -v 'lib/python3.12/site-packages' | paste -sd ':' -):/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
 
 # --- Isaac Setup ---
