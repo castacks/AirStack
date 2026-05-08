@@ -19,7 +19,7 @@ Isaac Sim provides a wide range of high-fidelity, GPU-accelerated virtual sensor
 
 - Stereo and fisheye cameras
 
-- LiDARs and Radars
+- LiDARs and Radars (see [Pegasus scene setup](pegasus_scene_setup.md#rtx-lidar-near-range) for RTX OmniLidar in AirStack and near-range filtering on the robot stack)
 
 - IMUs, GPS, and odometry sensors
 

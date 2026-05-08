@@ -2,7 +2,7 @@
 <launch>
     <group>
         <push-ros-namespace namespace="sensors"/>
-        <!-- nothing right now -->
+        <include file="$(find-pkg-share lidar_point_cloud_filter)/launch/lidar_point_cloud_filter.launch.xml"/>
     </group>
     <!-- should we put this under the sensors namespace above? -->
     <!-- <node
