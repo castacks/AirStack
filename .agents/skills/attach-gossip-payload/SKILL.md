@@ -147,7 +147,7 @@ def _handle_your_payload(self, robot_name, msg, i, now):
         stamp=now,
         lifetime=Duration(sec=2, nanosec=0),
         fallback_color=None,  # uses per-point rgb field; set to (r, g, b, a) for a solid color
-        scale=0.5,   # cube size in metres
+        scale=0.5,   # cube size in meters
     )
     if marker is not None:
         out = MarkerArray()
@@ -212,7 +212,7 @@ The stamp is set **at publish time** by the originating robot. Each receiver
 maintains a seen-set (size 50, FIFO eviction) and drops any message whose ID
 has already been processed.
 
-**Expected behaviour:** every drone will forward/receive a message at least
+**Expected behavior:** every drone will forward/receive a message at least
 once — this is intentional. The seen-set prevents infinite re-processing but
 does not prevent the initial fan-out that comes from all robots being on the
 same shared DDS domain.
@@ -225,7 +225,7 @@ These fields exist in the wire format and Python API but relay logic is not
 yet implemented. The seen-set deduplication is already wired to handle it
 correctly when relay is activated.
 
-## Registry behaviour
+## Registry behavior
 
 - Each robot keeps a **per-robot inbox** (latest message per peer, drained at
   5 Hz) and a **global registry** (latest-wins, monotonic per robot timestamp)

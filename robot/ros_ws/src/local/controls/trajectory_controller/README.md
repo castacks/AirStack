@@ -154,7 +154,7 @@ flowchart LR
 | `min_virtual_tracking_velocity` | `0.1` | Velocity threshold (m/s) below which the controller switches from sphere-intersection mode to time-advancement mode. Also suppresses output velocity/acceleration when the trajectory is effectively stopped. |
 | `sphere_radius` | `1.0` | Radius (m) of the sphere used to advance the tracking point in sphere-intersection mode. Larger values push the tracking point further ahead, increasing effective look-ahead distance. |
 | `velocity_sphere_radius_multiplier` | `-1.0` | If positive, overrides `sphere_radius` with `velocity × this_value`, giving a velocity-proportional look-ahead. Set ≤ 0 to use fixed `sphere_radius`. |
-| `search_ahead_factor` | `1.5` | The algorithm searches `sphere_radius × search_ahead_factor` metres ahead from the projected point to find the sphere intersection. Increase only if the trajectory zigzags sharply relative to `sphere_radius`. |
+| `search_ahead_factor` | `1.5` | The algorithm searches `sphere_radius × search_ahead_factor` meters ahead from the projected point to find the sphere intersection. Increase only if the trajectory zigzags sharply relative to `sphere_radius`. |
 | `tracking_point_distance_limit` | `10.5` | (Declared but not currently used in main logic; reserved for future clamping.) |
 | `velocity_look_ahead_time` | `0.9` | Time offset used when computing the velocity look-ahead. |
 | `ff_min_velocity` | `0.0` | Feed-forward minimum velocity threshold. |

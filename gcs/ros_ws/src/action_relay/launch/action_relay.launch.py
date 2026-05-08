@@ -2,7 +2,7 @@
 
 Defaults to robot_1..robot_N with domain IDs 1..N (NUM_ROBOTS env, default 1).
 Override with ROBOT_RELAY_MAP="robot_1:1,robot_2:2,..." when the
-robot_name -> domain mapping in default_robot_name_map.yaml has been customised.
+robot_name -> domain mapping in default_robot_name_map.yaml has been customized.
 """
 
 import os

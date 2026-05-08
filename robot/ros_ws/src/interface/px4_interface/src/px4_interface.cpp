@@ -206,7 +206,7 @@ public:
             std::chrono::milliseconds(100),
             std::bind(&PX4Interface::publish_offboard_heartbeat, this));
 
-        RCLCPP_INFO(this->get_logger(), "PX4Interface initialised (uXRCE-DDS)");
+        RCLCPP_INFO(this->get_logger(), "PX4Interface initialized (uXRCE-DDS)");
     }
 
     virtual ~PX4Interface() = default;
@@ -288,7 +288,7 @@ public:
      *   q_px4 = q_NED_ENU ⊗ q_ros ⊗ q_FLU_FRD
      *
      * Thrust convention:
-     *   mav_msgs thrust.z is normalised [0,1] (positive = up in FLU).
+     *   mav_msgs thrust.z is normalized [0,1] (positive = up in FLU).
      *   PX4 thrust_body[2] is negative-FRD (negative = up/thrust direction).
      *   So thrust_body[2] = −thrust.z.
      */

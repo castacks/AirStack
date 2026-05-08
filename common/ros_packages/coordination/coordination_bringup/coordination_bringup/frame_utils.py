@@ -14,7 +14,7 @@ def gps_to_enu(lat, lon, alt,
                origin_lat=DEFAULT_ORIGIN_LAT,
                origin_lon=DEFAULT_ORIGIN_LON,
                origin_alt=DEFAULT_ORIGIN_ALT):
-    """Convert GPS lat/lon/alt to ENU metres relative to the world origin."""
+    """Convert GPS lat/lon/alt to ENU meters relative to the world origin."""
     x = (lon - origin_lon) * 111320.0 * math.cos(math.radians(origin_lat))
     y = (lat - origin_lat) * 111320.0
     z = alt - origin_alt

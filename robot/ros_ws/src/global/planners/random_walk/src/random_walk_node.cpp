@@ -299,7 +299,7 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                             navigate_client_->async_cancel_goal(navigate_goal_handle_);
                         auto result = std::make_shared<ExplorationTask::Result>();
                         result->success = false;
-                        result->message = "Task cancelled while approaching polygon";
+                        result->message = "Task canceled while approaching polygon";
                         task_active_ = false;
                         goal_handle->canceled(result);
                         return;
@@ -325,10 +325,10 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                 navigate_client_->async_cancel_goal(navigate_goal_handle_);
             auto result = std::make_shared<ExplorationTask::Result>();
             result->success = false;
-            result->message = "Task cancelled";
+            result->message = "Task canceled";
             task_active_ = false;
             goal_handle->canceled(result);
-            RCLCPP_INFO(this->get_logger(), "ExplorationTask cancelled");
+            RCLCPP_INFO(this->get_logger(), "ExplorationTask canceled");
             return;
         }
 

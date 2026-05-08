@@ -25,7 +25,7 @@ DRONE_CONFIGS = [
 | Field | Purpose |
 |---|---|
 | `domain_id` | ROS domain id and PX4 vehicle id. The robot container with `ROS_DOMAIN_ID=1` will see this drone. |
-| `x_m`, `y_m`, `z_m` | World-frame spawn position in metres. Convention: `+X = East`, `+Y = North`, `+Z = Up`. |
+| `x_m`, `y_m`, `z_m` | World-frame spawn position in meters. Convention: `+X = East`, `+Y = North`, `+Z = Up`. |
 | `orient` | Spawn orientation quaternion `[x, y, z, w]`. |
 
 To add another drone, append an entry with a fresh `domain_id` and a non-overlapping spawn position. Make sure the corresponding robot container is launched with the same `ROS_DOMAIN_ID` (`NUM_ROBOTS=N airstack up robot-desktop`).
@@ -42,7 +42,7 @@ set_gps_origins(DRONE_CONFIGS)   # call once before spawning vehicles
 
 `set_gps_origins` does two things per drone:
 
-1. Calls `compute_gps_origin(x_m, y_m, z_m, world_origin)` to convert the spawn offset into `(lat, lon, alt)`. The conversion is a flat-Earth approximation — accurate at scene scales (a few hundred metres), not at continental scale.
+1. Calls `compute_gps_origin(x_m, y_m, z_m, world_origin)` to convert the spawn offset into `(lat, lon, alt)`. The conversion is a flat-Earth approximation — accurate at scene scales (a few hundred meters), not at continental scale.
 2. Writes `PX4_HOME_LAT_<domain_id>`, `PX4_HOME_LON_<domain_id>`, `PX4_HOME_ALT_<domain_id>` into the process environment. The Pegasus PX4 OmniGraph node reads these when building each drone's `PX4MavlinkBackendConfig`, which passes them to the PX4 SITL subprocess as `PX4_HOME_LAT/LON/ALT`.
 
 ### World anchor

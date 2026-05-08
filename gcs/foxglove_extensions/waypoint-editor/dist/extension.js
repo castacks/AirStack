@@ -91,11 +91,10 @@ function activate(extensionContext) {
         "flex:1;overflow-y:auto;border:1px solid #444;border-radius:4px;min-height:60px;");
       root.appendChild(listContainer);
 
-      // Add waypoint manually row
+      // Add waypoint manually row — Z always tracks the Altitude input above.
       const addRow = el("div", "display:flex;align-items:center;gap:4px;flex-shrink:0;");
       const addXIn = numInput("X", "0");
       const addYIn = numInput("Y", "0");
-      const addZIn = numInput("Z", String(state.defaultZ));
       const addBtn = el("button",
         "padding:6px 14px;border-radius:5px;border:none;background:#10b981;color:white;cursor:pointer;font-size:14px;");
       addBtn.textContent = "+ Add";
@@ -104,12 +103,11 @@ function activate(extensionContext) {
           action: "add",
           x: Number(addXIn.input.value) || 0,
           y: Number(addYIn.input.value) || 0,
-          z: Number(addZIn.input.value) || state.defaultZ,
+          z: state.defaultZ,
         });
       });
       addRow.appendChild(addXIn.wrap);
       addRow.appendChild(addYIn.wrap);
-      addRow.appendChild(addZIn.wrap);
       addRow.appendChild(addBtn);
       root.appendChild(addRow);
 

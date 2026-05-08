@@ -13,9 +13,9 @@ DEFAULT_WORLD_ORIGIN = (38.736832, -9.137977, 90.0)
 
 
 def compute_gps_origin(x_m, y_m, z_m, world_origin=DEFAULT_WORLD_ORIGIN):
-    """Convert a world-frame spawn (+X=East, +Y=North, +Z=Up, metres) to (lat, lon, alt).
+    """Convert a world-frame spawn (+X=East, +Y=North, +Z=Up, meters) to (lat, lon, alt).
 
-    Flat-Earth approximation; accurate at scene scales (a few hundred metres).
+    Flat-Earth approximation; accurate at scene scales (a few hundred meters).
     """
     base_lat, base_lon, base_alt = world_origin
     delta_lat = y_m / 111320.0

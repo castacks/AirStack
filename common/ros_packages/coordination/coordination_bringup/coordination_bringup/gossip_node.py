@@ -75,7 +75,7 @@ class GossipNode(Node):
 
         # Boot pose: set on first valid GPS fix + first heading.
         # Used to transform payload data from local odom → global ENU before broadcast.
-        self._boot_pos: tuple | None = None   # (bx, by, bz) ENU metres
+        self._boot_pos: tuple | None = None   # (bx, by, bz) ENU meters
         self._boot_quat: tuple | None = None  # (qx, qy, qz, qw)
 
         self._registry: dict[str, PeerProfileMsg] = {}

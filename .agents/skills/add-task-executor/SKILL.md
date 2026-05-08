@@ -60,7 +60,7 @@ float32 max_flight_speed
 float32 time_limit_sec           # 0 = no limit
 # ... task-specific fields
 ---
-# Result — returned when task completes or is cancelled
+# Result — returned when task completes or is canceled
 bool success
 string message
 # ... task-specific result fields
@@ -183,7 +183,7 @@ void execute(std::shared_ptr<GoalHandle> goal_handle)
         if (cancel_requested_) {
             auto result = std::make_shared<YourTask::Result>();
             result->success = false;
-            result->message = "Task cancelled";
+            result->message = "Task canceled";
             task_active_ = false;
             goal_handle->canceled(result);
             return;

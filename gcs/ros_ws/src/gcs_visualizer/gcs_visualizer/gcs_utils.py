@@ -32,7 +32,7 @@ ROBOT_COLORS = [
 
 
 def gps_to_enu(lat, lon, alt, alt_ground):
-    """Convert GPS lat/lon/alt to ENU metres. z is relative to alt_ground."""
+    """Convert GPS lat/lon/alt to ENU meters. z is relative to alt_ground."""
     x = (lon - ORIGIN_LON) * 111320.0 * math.cos(math.radians(ORIGIN_LAT))
     y = (lat - ORIGIN_LAT) * 111320.0
     z = alt - alt_ground
