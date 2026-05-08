@@ -25,7 +25,7 @@ topics:
     from_domain: $(env ROS_DOMAIN_ID)
     to_domain: $(var gcs_domain)
 
-  interface/mavros/global_position/raw/fix:
+  interface/mavros/global_position/global:
     type: sensor_msgs/msg/NavSatFix
     from_domain: $(env ROS_DOMAIN_ID)
     to_domain: $(var gcs_domain)

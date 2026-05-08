@@ -22,18 +22,15 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
-from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import Float64, String
-from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
 
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_bringup.peer_profile import PeerProfile
-from visualization_msgs.msg import Marker
 
 from gcs_visualizer.gcs_utils import (
-    transform_marker_array, transform_point_cloud2, point_cloud2_to_cube_marker,
-    ROBOT_COLORS,
+    transform_marker_array, point_cloud2_to_cube_marker, ROBOT_COLORS,
 )
 
 # Must match frame_utils.DEFAULT_ORIGIN_ALT — used to compute the z-offset between
