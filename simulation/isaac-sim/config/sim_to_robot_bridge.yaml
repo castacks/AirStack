@@ -2,10 +2,6 @@
 # This bridges topics from simulation domain (100) to robot domain (1)
 # 
 # Simulation topics (domain 100) - namespaced for Isaac Sim:
-#   /robot_1/left/color/camera_info
-#   /robot_1/left/color/image_raw
-#   /robot_1/right/color/camera_info
-#   /robot_1/right/color/image_raw
 #   /robot_1/sensors/gps
 #   /robot_1/sensors/gps_twist
 #   /robot_1/sensors/imu
@@ -14,7 +10,6 @@
 #   /robot_1/state/pose
 #   /robot_1/state/twist
 #   /robot_1/state/twist_inertial
-#   /robot_1/sensors/ouster/point_cloud
 #   /clock
 #   /tf
 #   /tf_static
