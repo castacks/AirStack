@@ -12,7 +12,7 @@ with live feedback and result display.
 ## Overview
 
 The Tasks Panel replaces CLI-based action goal dispatch with a
-graphical interface for all 9 AirStack task types. Each task type
+graphical interface for all 8 AirStack task types. Each task type
 gets its own tab with auto-generated parameter widgets, an
 executor selector, and a feedback/result view.
 
@@ -41,7 +41,7 @@ separate waypoint panel needed.
 
 ## Features
 
-- **9 task tabs** with auto-generated goal parameter widgets
+- **8 task tabs** with auto-generated goal parameter widgets
 - **Executor discovery** -- scans ROS 2 topics every 5 seconds
   to find running action servers
 - **Robot namespace selector** -- auto-populated from discovered
@@ -80,7 +80,7 @@ in the air.
 | Navigate | `NavigateTask` | `global_plan` (Path), `goal_tolerance_m` | ✓ |
 | Exploration | `ExplorationTask` | `search_bounds` (Polygon), altitude/speed, `time_limit_sec` | ✓ |
 | Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg` | ✓ |
-| Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold`, `target_count` | ✓ |
+| Semantic Search | `SemanticSearchTask` | `query`, `background_queries`, `search_area`, `confidence_threshold` | ✓ |
 | Chat | `ChatTask` | `text`, `images` (file upload) | |
 | Fixed Trajectory | `FixedTrajectoryTask` | `trajectory_spec`, `loop` | ✓ |
 
@@ -101,7 +101,7 @@ in the air.
 - `rviz_common` -- RViz2 panel base class
 - `pluginlib` -- plugin loading
 - `rclcpp` / `rclcpp_action` -- ROS 2 node and action client
-- `task_msgs` -- action definitions for all 9 task types
+- `task_msgs` -- action definitions for all 8 task types
 - `airstack_msgs` -- `FixedTrajectory` message
 - `geometry_msgs` / `nav_msgs` / `std_msgs` -- standard message types
 - `diagnostic_msgs` / `action_msgs` -- status introspection

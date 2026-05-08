@@ -395,6 +395,55 @@
         "maxValue": 100
       }
     },
+    "Image!35kacl0_r1": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/robot_1/sensors/front_stereo/right/image_rect",
+        "rectifyImage": true,
+        "flipHorizontal": false,
+        "rotation": 0,
+        "calibrationTopic": "/robot_1/sensors/front_stereo/right/camera_info"
+      },
+      "synchronize": false
+    },
     "robot-commands.Robot Tasks!2mqrmqp_r1": {
       "robot": "robot_1",
       "activeTab": "takeoff",
@@ -496,55 +545,6 @@
         "use_editor": true,
         "_search_area_open": true
       }
-    },
-    "Image!35kacl0_r1": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 60,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "imageMode": {
-        "imageTopic": "/robot_1/sensors/front_stereo/right/image_rect",
-        "rectifyImage": true,
-        "flipHorizontal": false,
-        "rotation": 0,
-        "calibrationTopic": "/robot_1/sensors/front_stereo/right/camera_info"
-      },
-      "synchronize": false
     }
   },
   "globalVariables": {},

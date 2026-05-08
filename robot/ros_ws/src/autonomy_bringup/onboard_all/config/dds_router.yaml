@@ -38,10 +38,6 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/trajectory_controller/trajectory_vis"
   - name: "rt/$(env ROBOT_NAME)/global_plan"
 
-  # behavior tree
-  - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
-  - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_graphviz"
-
   # # allow all services
   # - name: "rq/*"
   #   type: "*"
@@ -64,9 +60,6 @@ allowlist:
   # bag recording status
   - name: "rt/$(env ROBOT_NAME)/bag_record/bag_recording_status"
   - name: "rt/$(env ROBOT_NAME)/bag_record/set_recording_status"
-
-  # control commands
-  - name: "rt/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command"
 
   # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
   # NOT here — having it in both routers causes message flooding/amplification.
