@@ -12,11 +12,11 @@ Robot (domain N)                      Shared gossip domain (99)
 │  │  ├─ GPS/heading  │               │                        │
 │  │  ├─ waypoint     │               └────────────────────────┘
 │  │  └─ payloads[]   │
-│  └─ peer_registry   │◀── drains inbox, publishes snapshot
+│  └─ /<robot>/coordination/peer_registry  ◀── per-robot snapshot
 └─────────────────────┘
 ```
 
-Every robot publishes its own `PeerProfile` at 1 Hz (wall-clock) and receives profiles from all peers via the shared domain.
+Every robot publishes its own `PeerProfile` at 1 Hz on a steady (monotonic) clock and receives profiles from all peers via the shared domain.
 
 ## Packages
 

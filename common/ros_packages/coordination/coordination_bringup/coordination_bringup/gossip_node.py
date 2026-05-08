@@ -1,8 +1,8 @@
 """
 gossip_node.py — ROS 2 gossip-protocol coordination layer.
 
-Each robot publishes its PeerProfile to /gossip/peers at 1 Hz (wall-clock,
-unaffected by sim time). A new waypoint triggers an immediate extra publish.
+Each robot publishes its PeerProfile to /gossip/peers at 1 Hz on a steady
+(monotonic) clock so the bus keeps ticking when sim time pauses.
 """
 
 import os
@@ -94,7 +94,7 @@ class GossipNode(Node):
 
         self._navsat_sub = self.create_subscription(
             NavSatFix,
-            f"/{self._robot_name}/interface/mavros/global_position/raw/fix",
+            f"/{self._robot_name}/interface/mavros/global_position/global",
             self._on_navsat,
             SENSOR_QOS,
         )
@@ -124,17 +124,15 @@ class GossipNode(Node):
             REGISTRY_QOS,
         )
 
-        # Use a steady (monotonic) wall clock for these timers so gossip publish
-        # and inbox drain keep ticking even when /clock is paused (use_sim_time=true
-        # is set globally in robot.launch.xml for sim runs).
+        # Steady clock so gossip keeps ticking when /clock is paused under use_sim_time.
         period = 1.0 / max(publish_rate, 0.01)
-        steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
-        self._publish_timer = self.create_timer(period, self._publish_tick, clock=steady_clock)
-        self._drain_timer = self.create_timer(0.2, self._drain_peer_inbox, clock=steady_clock)
+        self._steady_clock = Clock(clock_type=ClockType.STEADY_TIME)
+        self._publish_timer = self.create_timer(period, self._publish_tick, clock=self._steady_clock)
+        self._drain_timer = self.create_timer(0.2, self._drain_peer_inbox, clock=self._steady_clock)
 
         self.get_logger().info(
             f"GossipNode started for '{self._robot_name}' "
-            f"(publish_rate={publish_rate:.1f} Hz wall-clock, "
+            f"(publish_rate={publish_rate:.1f} Hz steady, "
             f"{len(self._payload_cache)} payload topic(s))"
         )
 
@@ -244,9 +242,8 @@ class GossipNode(Node):
                     transformed = self._transform_to_global(msg, bx, by, bz, q)
                     self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
 
-        # Stamp with current ROS clock (not MAVROS GPS stamp) so receivers can
-        # enforce monotonic ordering across ticks.
-        self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
+        # Steady clock so the dedup-by-stamp invariant on receivers survives /clock pauses.
+        self._profile.gps_fix.header.stamp = self._steady_clock.now().to_msg()
         self._gossip_pub.publish(self._profile.to_ros_msg())
 
     def _transform_to_global(self, msg, bx, by, bz, q):

@@ -13,6 +13,8 @@
   <depend>sensor_msgs</depend>
   <depend>coordination_msgs</depend>
 
+  <exec_depend>autonomy_bringup</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
