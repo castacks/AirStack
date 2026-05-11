@@ -25,6 +25,9 @@
 
 #include <atomic>
 #include <cmath>
+#include <mutex>
+#include <utility>
+#include <vector>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -100,6 +103,12 @@ class RandomWalkNode : public rclcpp::Node {
     std::atomic<bool> cancel_requested_{false};
     rclcpp::Time task_start_time_;
     float task_time_limit_sec_ = 0.0f;
+
+    // Latest requested search bounds (XY polygon in robot-local map). Stored
+    // here so we can apply them either when execute() begins or, if the
+    // planner doesn't exist yet, the moment it's constructed in mapCallback.
+    std::vector<std::pair<float, float>> pending_bounds_;
+    std::mutex pending_bounds_mutex_;
 
     // Subscriber callbacks
     void mapCallback(const visualization_msgs::msg::Marker::SharedPtr msg);

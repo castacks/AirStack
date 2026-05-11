@@ -521,7 +521,7 @@ Four reusable helpers that cover the most common environment setup tasks. Import
 
 | Function | When to use |
 |----------|-------------|
-| `scale_stage_prim(stage, prim_path, scale)` | Nucleus assets authored in centimetres need `STAGE_SCALE=0.01`; assets already in metres use `1.0`. |
+| `scale_stage_prim(stage, prim_path, scale)` | Nucleus assets authored in centimeters need `STAGE_SCALE=0.01`; assets already in meters use `1.0`. |
 | `add_colliders(stage_prim)` | **Must** be called for physics to interact with environment meshes. Without it drones fall through the floor. Call after scaling. |
 | `add_dome_light(stage, **kwargs)` | Adds uniform hemisphere lighting. Defaults: `intensity=3500`, `exposure=-3`. Pass kwargs to override, e.g. `add_dome_light(stage, intensity=5000)`. |
 | `save_scene_as_contained_usd(src_url, output_dir)` | Copies a Nucleus-hosted stage (and all its textures/MDLs) to a local directory using `omni.kit.usd.collect.Collector`. Useful for archiving or offline replay. |

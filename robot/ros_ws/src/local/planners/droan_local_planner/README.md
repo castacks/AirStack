@@ -98,8 +98,8 @@ random_walk_planner  →  NavigateTask  →  droan_local_planner
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if goal pose reached within tolerance; false if cancelled or error |
-| `message` | string | `"Goal reached"`, `"Cancelled"`, or `"Node shutting down"` |
+| `success` | bool | True if goal pose reached within tolerance; false if canceled or error |
+| `message` | string | `"Goal reached"`, `"Canceled"`, or `"Node shutting down"` |
 
 ### Trajectory controller mode
 

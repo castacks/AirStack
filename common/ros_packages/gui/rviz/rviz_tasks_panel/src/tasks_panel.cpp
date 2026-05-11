@@ -58,14 +58,13 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
     }, true},
     {"Semantic Search", "tasks/semantic_search", {
       {"query", "string", 0, 0, 0},
+      {"background_queries", "string", 0, 0, 0},
       {"search_area", "geometry_msgs/Polygon", 0, 0, 0},
       {"min_altitude_agl", "float32", 3.0, 0.0, 500.0},
-      {"max_altitude_agl", "float32", 10.0, 0.0, 500.0},
+      {"max_altitude_agl", "float32", 15.0, 0.0, 500.0},
       {"min_flight_speed", "float32", 1.0, 0.0, 50.0},
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
-      {"time_limit_sec", "float32", 120.0, 0.0, 86400.0},
-      {"confidence_threshold", "float32", 0.5, 0.0, 1.0},
-      {"target_count", "int32", 1, 0, 10000},
+      {"confidence_threshold", "float32", 0.95, 0.0, 1.0},
     }, true},
     {"Chat", "tasks/chat", {
       {"text", "text", 0, 0, 0},
@@ -1102,31 +1101,22 @@ void TasksPanel::onExecuteClicked()
     case 6: {  // Semantic Search
       task_msgs::action::SemanticSearchTask::Goal goal;
       goal.query = getString(6, "query");
+      goal.background_queries = getString(6, "background_queries");
       goal.search_area = getPolygon(6, "search_area");
       goal.min_altitude_agl = getFloat(6, "min_altitude_agl");
       goal.max_altitude_agl = getFloat(6, "max_altitude_agl");
       goal.min_flight_speed = getFloat(6, "min_flight_speed");
       goal.max_flight_speed = getFloat(6, "max_flight_speed");
-      goal.time_limit_sec = getFloat(6, "time_limit_sec");
       goal.confidence_threshold = getFloat(6, "confidence_threshold");
-      goal.target_count = getInt(6, "target_count");
       doSendGoal<task_msgs::action::SemanticSearchTask>(6, goal,
         [](const auto & fb) {
-          return QString("status: %1 | progress: %2 | best_conf: %3 | found: %4 | pos: (%5, %6, %7)")
-            .arg(QString::fromStdString(fb.status))
-            .arg(fb.progress, 0, 'f', 2)
-            .arg(fb.best_confidence_so_far, 0, 'f', 3)
-            .arg(fb.objects_found_so_far)
-            .arg(fb.current_position.x, 0, 'f', 1)
-            .arg(fb.current_position.y, 0, 'f', 1)
-            .arg(fb.current_position.z, 0, 'f', 1);
+          return QString::fromStdString(fb.status);
         },
         [](const auto & r) {
-          return QString("success: %1\nmessage: %2\nconfidence: %3\nobjects_found: %4")
+          return QString("success: %1\nmessage: %2\nconfidence: %3")
             .arg(r->success ? "true" : "false")
             .arg(QString::fromStdString(r->message))
-            .arg(r->confidence, 0, 'f', 3)
-            .arg(r->objects_found);
+            .arg(r->confidence, 0, 'f', 3);
         });
       break;
     }

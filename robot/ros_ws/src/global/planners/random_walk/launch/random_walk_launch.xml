@@ -1,11 +1,14 @@
 <launch>
-  <node 
-    pkg="random_walk_planner" 
-    exec="random_walk_planner" 
-    name="random_walk_planner">
-    <param 
-      from="$(find random_walk_planner)/config/random_walk_config.yaml" />
-    <param
-      from="$(find global_planner_bringup)/config/global_planner_config.yaml" />
+  <node pkg="random_walk_planner" exec="random_walk_planner"
+        name="random_walk_planner" output="screen">
+    <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
+    <remap from="~/exploration_task"
+           to="/$(env ROBOT_NAME)/tasks/exploration" />
+    <remap from="navigate_task"
+           to="/$(env ROBOT_NAME)/tasks/navigate" />
+    <remap from="vdb_map_visualization"
+           to="/$(env ROBOT_NAME)/vdb_mapping/vdb_map_visualization" />
+    <remap from="odometry"
+           to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
   </node>
 </launch>
