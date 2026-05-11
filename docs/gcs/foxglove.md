@@ -8,12 +8,12 @@ This page describes what the node visualizes today, the topic naming convention,
 
 ## Connecting to Foxglove and loading the custom layout
 
-The GCS container regenerates `/root/airstack_layout_custom.json` on every startup for `NUM_ROBOTS`, using `gcs/foxglove_extensions/airstack_layout_custom.json` as the single-robot template (see `gcs/foxglove_extensions/render_layout.py`).
+The GCS container regenerates `/root/airstack_layout_num_robots_<N>.json` on every startup, where `<N>` is the current `NUM_ROBOTS`, using `gcs/foxglove_extensions/airstack_default.json` as the single-robot template (see `gcs/foxglove_extensions/render_layout.py`). The file lives only in the container — it's regenerated on startup and disappears on removal.
 
 To use the locally-rendered, `NUM_ROBOTS`-matched layout:
 
 1. In the Foxglove dashboard, click **Layouts** → **Import from file...**.
-2. The file browser opens in `/root/` by default — select `airstack_layout_custom.json`.
+2. The file browser opens in `/root/` by default — select the `airstack_layout_num_robots_<N>.json` matching your `NUM_ROBOTS`.
 3. Back on the dashboard, click **Open connection** and enter:
     - `ws://localhost:8765` if Foxglove is running inside the GCS container
     - `ws://localhost:8766` if Foxglove is running on the host

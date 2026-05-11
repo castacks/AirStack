@@ -167,14 +167,15 @@ def main():
                     default=os.environ.get(
                         'LAYOUT_TEMPLATE',
                         '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
-    ap.add_argument('--output', help='Rendered output (LAYOUT_OUTPUT env). Defaults to /root/ so the '
-                    'file appears in Foxglove\'s "Import Layout" file browser.',
-                    default=os.environ.get(
-                        'LAYOUT_OUTPUT',
-                        '/root/airstack_layout_custom.json'))
+    ap.add_argument('--output', help='Rendered output (LAYOUT_OUTPUT env). Defaults to '
+                    '/root/airstack_layout_num_robots_<N>.json so the file appears in '
+                    'Foxglove\'s "Import Layout" file browser.',
+                    default=os.environ.get('LAYOUT_OUTPUT'))
     ap.add_argument('--num-robots', type=int,
                     default=int(os.environ.get('NUM_ROBOTS', '1')))
     args = ap.parse_args()
+    if args.output is None:
+        args.output = f'/root/airstack_layout_num_robots_{args.num_robots}.json'
 
     with open(args.input) as f:
         template = json.load(f)
