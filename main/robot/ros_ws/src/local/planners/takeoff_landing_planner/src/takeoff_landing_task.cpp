@@ -321,7 +321,7 @@ void TakeoffLandingTaskNode::takeoff_execute(std::shared_ptr<TakeoffGoalHandle> 
     if (cancel_requested_) {
       set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       result->success = false;
-      result->message = "cancelled";
+      result->message = "canceled";
       goal_handle->canceled(result);
       task_active_ = false;
       return;
@@ -452,7 +452,7 @@ void TakeoffLandingTaskNode::land_execute(std::shared_ptr<LandGoalHandle> goal_h
     if (cancel_requested_) {
       set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       result->success = false;
-      result->message = "cancelled";
+      result->message = "canceled";
       goal_handle->canceled(result);
       task_active_ = false;
       return;

@@ -250,6 +250,12 @@ def launch_dds_router(context, *args, **kwargs):
         LogInfo(msg=f"[dds_router] Final interpolated config:\n{content}"),
         ExecuteProcess(
             cmd=['ddsrouter', '-c', tmp.name],
+            env={
+                **os.environ,
+                # ddsrouter is installed under /usr/local and needs its runtime libs.
+                # Scope this path to ddsrouter only to avoid perturbing ROS 2 RMW loading.
+                'LD_LIBRARY_PATH': '/usr/local/lib:' + os.environ.get('LD_LIBRARY_PATH', ''),
+            },
             output='screen',
         ),
     ]

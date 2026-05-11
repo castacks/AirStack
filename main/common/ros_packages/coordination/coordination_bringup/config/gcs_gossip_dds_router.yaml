@@ -1,0 +1,17 @@
+# GCS-side gossip DDS Router configuration
+# Bridges /gossip/peers between the GCS domain (0) and the shared gossip
+# domain (99) so the GCS can receive PeerProfile broadcasts from all robots.
+#
+# This runs in the GCS container.  Each robot runs its own gossip_dds_router
+# (robot domain ↔ domain 99).  This is the GCS counterpart.
+
+participants:
+  - name: "gcs"
+    kind: "local"
+    domain: 0    # GCS ROS_DOMAIN_ID
+  - name: "gossip_bus"
+    kind: "local"
+    domain: 99   # shared gossip domain
+
+allowlist:
+  - name: "rt/gossip/peers"

@@ -49,9 +49,9 @@ def launch_setup(context, *args, **kwargs):
                 relative_path
             ])
         else:
-            # Use relative path within robot_bringup package
             urdf_file = PathJoinSubstitution([
-                FindPackageShare('robot_bringup'),
+                FindPackageShare('robot_descriptions'),
+                'iris',
                 'urdf',
                 urdf_file_path
             ])
@@ -94,8 +94,8 @@ def generate_launch_description():
     
     urdf_file_path_arg = DeclareLaunchArgument(
         'urdf_file_path',
-        default_value='robot.urdf.xacro',
-        description='Path to the URDF/xacro file. Can be relative to robot_bringup/urdf/ or an absolute path'
+        default_value='iris_with_sensors.pegasus.robot.urdf',
+        description='Path to the URDF/xacro file. Bare filename → robot_descriptions/iris/urdf/.'
     )
     
     publish_frequency_arg = DeclareLaunchArgument(
