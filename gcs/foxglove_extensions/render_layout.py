@@ -166,11 +166,12 @@ def main():
     ap.add_argument('--input', help='Source template JSON (LAYOUT_TEMPLATE env)',
                     default=os.environ.get(
                         'LAYOUT_TEMPLATE',
-                        '/root/AirStack/gcs/foxglove_extensions/airstack_layout_custom.json'))
-    ap.add_argument('--output', help='Rendered output (LAYOUT_OUTPUT env). Default writes back to --input.',
+                        '/root/AirStack/gcs/foxglove_extensions/airstack_default.json'))
+    ap.add_argument('--output', help='Rendered output (LAYOUT_OUTPUT env). Defaults to /root/ so the '
+                    'file appears in Foxglove\'s "Import Layout" file browser.',
                     default=os.environ.get(
                         'LAYOUT_OUTPUT',
-                        '/root/AirStack/gcs/foxglove_extensions/airstack_layout_custom.json'))
+                        '/root/airstack_layout_custom.json'))
     ap.add_argument('--num-robots', type=int,
                     default=int(os.environ.get('NUM_ROBOTS', '1')))
     args = ap.parse_args()
