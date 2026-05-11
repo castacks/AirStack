@@ -347,7 +347,7 @@ function find_container {
         read -p "Your selection: " selection <&2
         
         if [ "$selection" = "q" ]; then
-            log_info "Operation cancelled" >&2
+            log_info "Operation canceled" >&2
             return 1
         elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -gt 0 ] && [ "$selection" -le "$match_count" ]; then
             # Extract just the container name from the selected line
@@ -365,7 +365,7 @@ function find_container {
             read -p "Try again (or 'q' to quit): " selection <&2
             
             if [ "$selection" = "q" ]; then
-                log_info "Operation cancelled" >&2
+                log_info "Operation canceled" >&2
                 return 1
             elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -gt 0 ] && [ "$selection" -le "$match_count" ]; then
                 container_name=$(echo "$matches" | sed -n "${selection}p" | awk '{print $1}')

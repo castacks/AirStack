@@ -376,7 +376,6 @@ docker exec -e ROS_DOMAIN_ID=1 airstack-robot-desktop-1 bash -c \
 
 - [`docs/robot/docker/robot_identity.md`](../../../docs/robot/docker/robot_identity.md) — canonical reference for the resolution mechanism
 - [`docs/robot/autonomy_modes.md`](../../../docs/robot/autonomy_modes.md) — profile matrix (`desktop`, `desktop_split`, `voxl`, `l4t`, `offboard`)
-- [`docs/tutorials/multi_robot_simulation.md`](../../../docs/tutorials/multi_robot_simulation.md) — hands-on walkthrough
 - [`robot/docker/robot_name_map/`](../../../robot/docker/robot_name_map/) — mapping YAMLs and `resolve_robot_name.py`
 - [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](../../../robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml) — top-level `push_ros_namespace`
 - [`robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml) — cross-domain allowlist pattern

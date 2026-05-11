@@ -17,3 +17,4 @@
 [submodule "common/ros_packages/gui/rviz/rviz_polygon_selection_tool"]
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
+

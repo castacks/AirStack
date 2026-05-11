@@ -31,10 +31,6 @@ Panels:
     Name: Time
     SyncMode: 0
     SyncSource: Foreground Background Cloud
-  - Class: rviz_behavior_tree_panel::BehaviorTreePanel
-    Name: BehaviorTreePanel
-    topic: /robot_1/behavior/behavior_tree_graphviz
-    zoom_factor: 0.1919851303100586
   - Class: rviz_tasks_panel::TasksPanel
     Name: TasksPanel
     executor_0: tasks/takeoff
@@ -857,8 +853,6 @@ Visualization Manager:
       Yaw: 2.878566026687622
     Saved: ~
 Window Geometry:
-  BehaviorTreePanel:
-    collapsed: false
   Displays:
     collapsed: false
   Front Right Depth:

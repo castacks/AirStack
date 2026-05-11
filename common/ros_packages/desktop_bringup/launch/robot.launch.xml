@@ -2,7 +2,8 @@
 <launch>
   <arg name="sim" default="true" />
   <arg name="role" default="$(env AUTONOMY_ROLE full)" />
-  <arg name="urdf_file" default="$(env URDF_FILE)" />
+  <arg name="urdf_file" default="$(env URDF_FILE iris_with_sensors.pegasus.robot.urdf)" />
+  <arg name="debug_rviz" default="$(env DEBUG_RVIZ false)" />
 
   <!-- Core robot launch (state publisher, static TFs, autonomy modules) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml">
@@ -11,8 +12,7 @@
     <arg name="urdf_file" value="$(var urdf_file)" />
   </include>
 
-  <!-- Visualization: only in sim/desktop environments -->
-  <group if="$(var sim)">
+  <group if="$(var debug_rviz)">
     <node pkg="rviz2" exec="rviz2"
       args="-d $(find-pkg-share desktop_bringup)/rviz/robot.rviz --ros-args --log-level INFO"
       output="screen" respawn="true" respawn_delay="1" />

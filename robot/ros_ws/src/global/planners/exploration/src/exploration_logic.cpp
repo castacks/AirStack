@@ -521,7 +521,7 @@ double ExplorationPlanner::angleBetweenHeadingAndMomentum(const ViewPoint &point
         return 0.0;
     }
 
-    // normalise
+    // normalize
     diff_x /= diff_norm;
     diff_y /= diff_norm;
     diff_z /= diff_norm;
@@ -537,7 +537,7 @@ double ExplorationPlanner::angleBetweenHeadingAndMomentum(const ViewPoint &point
 bool ExplorationPlanner::computeMomentumVector(double &momentum_direction_x, double &momentum_direction_y, double &momentum_direction_z)
 {
     // return false if no momentum computed
-    // momentum returned as a normalised (x,y) vector
+    // momentum returned as a normalized (x,y) vector
     // for now, assume z direction is 0, to encourage staying at same z level
 
     // Need at least two points to estimate momentum
@@ -562,7 +562,7 @@ bool ExplorationPlanner::computeMomentumVector(double &momentum_direction_x, dou
     momentum_direction_y = current_point.y - previous_point.y;
     momentum_direction_z = 0.0;
 
-    // Normalise
+    // Normalize
     double norm = std::sqrt(momentum_direction_x * momentum_direction_x + momentum_direction_y * momentum_direction_y + momentum_direction_z * momentum_direction_z);
 
     // avoid singularity (might happen since the above two distance measures are slightly different)
@@ -571,7 +571,7 @@ bool ExplorationPlanner::computeMomentumVector(double &momentum_direction_x, dou
         return false;
     }
 
-    // normalise
+    // normalize
     momentum_direction_x /= norm;
     momentum_direction_y /= norm;
     momentum_direction_z /= norm;

@@ -69,7 +69,7 @@ behavior_executive  →  ExplorationTask  →  random_walk_planner
 ### Result
 | Field | Type | Description |
 |-------|------|-------------|
-| `success` | bool | True if time limit reached normally; false if cancelled or error |
+| `success` | bool | True if time limit reached normally; false if canceled or error |
 | `message` | string | Human-readable completion reason |
 
 ### CLI test
@@ -79,7 +79,7 @@ ros2 action send_goal /robot_1/tasks/exploration task_msgs/action/ExplorationTas
   '{min_altitude_agl: 3.0, max_altitude_agl: 8.0, min_flight_speed: 1.0, max_flight_speed: 3.0, time_limit_sec: 30.0}' \
   --feedback
 
-# Ctrl-C cancels the goal; the node returns success=false, message="Task cancelled"
+# Ctrl-C cancels the goal; the node returns success=false, message="Task canceled"
 ```
 
 ## Subscriptions

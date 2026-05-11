@@ -58,7 +58,7 @@ Example scripts are provided in `simulation/isaac-sim/launch_scripts/`.
 
 | Function | Purpose |
 |----------|---------|
-| `scale_stage_prim(stage, prim_path, scale_factor)` | Applies a uniform XYZ scale transform to the prim at `prim_path`, clearing any existing xform ops first. Use `0.01` for Nucleus assets authored in centimetres; use `1.0` for assets already in metres. |
+| `scale_stage_prim(stage, prim_path, scale_factor)` | Applies a uniform XYZ scale transform to the prim at `prim_path`, clearing any existing xform ops first. Use `0.01` for Nucleus assets authored in centimeters; use `1.0` for assets already in meters. |
 | `add_colliders(stage_prim)` | Recursively walks every child of `stage_prim` and applies `UsdPhysics.CollisionAPI` to each `UsdGeom.Mesh`. **Must be called or drones fall through the floor.** Skips prims that already have the API. |
 | `add_dome_light(stage, intensity=3500, exposure=-3)` | Adds a hemisphere light at `/World/DomeLight` (or updates it if it already exists). Pass `intensity` / `exposure` keyword arguments to override the defaults. |
 | `save_scene_as_contained_usd(source_usd_url, output_dir)` | Copies the stage and all its dependencies (textures, MDL materials) from a Nucleus `omniverse://` URL into a local directory via `omni.kit.usd.collect.Collector`. Set `SAVE_SCENE_TO = None` in your script to skip this step. |
