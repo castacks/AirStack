@@ -13,6 +13,12 @@ ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
 
+ARG PIP_VERSION=24.0
+ARG PYTHON_VERSION=3.12
+
+ARG ROS_DISTRO=jazzy
+ENV ROS_DISTRO=${ROS_DISTRO}
+
 # from https://github.com/athackst/dockerfiles/blob/main/ros2/jazzy.Dockerfile
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -53,16 +59,15 @@ RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-  ros-jazzy-desktop \
+  ros-${ROS_DISTRO}-desktop \
   python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
-ENV ROS_DISTRO=jazzy
-ENV AMENT_PREFIX_PATH=/opt/ros/jazzy
-ENV COLCON_PREFIX_PATH=/opt/ros/jazzy
-ENV LD_LIBRARY_PATH=/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/lib
-ENV PATH=/opt/ros/jazzy/bin:$PATH
-ENV PYTHONPATH=/opt/ros/jazzy/local/lib/python3.12/dist-packages:/opt/ros/jazzy/lib/python3.12/site-packages
+ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib/x86_64-linux-gnu:/opt/ros/${ROS_DISTRO}/lib
+ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/local/lib/python${PYTHON_VERSION}/dist-packages:/opt/ros/${ROS_DISTRO}/lib/python${PYTHON_VERSION}/site-packages
 ENV ROS_PYTHON_VERSION=3
 ENV ROS_VERSION=2
 ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
@@ -80,24 +85,31 @@ RUN apt update && apt install -y --no-install-recommends \
   gdb \
   && rm -rf /var/lib/apt/lists/*
 
+# Freeze pip and setuptools versions.
+RUN python3 -m pip install --no-cache-dir --upgrade \
+  "pip==${PIP_VERSION}" \
+  "setuptools==79.0.1" \
+  wheel
+
 # Install any additional ROS2 packages
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
-  ros-jazzy-mavros \
-  ros-jazzy-tf2* \
-  ros-jazzy-stereo-image-proc \
-  ros-jazzy-image-view \
-  ros-jazzy-topic-tools \
-  ros-jazzy-grid-map \
-  ros-jazzy-domain-bridge \
-  ros-jazzy-rosbag2-storage-mcap \
-  ros-jazzy-xacro \
-  ros-jazzy-foxglove-bridge \
+  ros-${ROS_DISTRO}-mavros \
+  ros-${ROS_DISTRO}-tf2* \
+  ros-${ROS_DISTRO}-stereo-image-proc \
+  ros-${ROS_DISTRO}-image-view \
+  ros-${ROS_DISTRO}-topic-tools \
+  ros-${ROS_DISTRO}-grid-map \
+  ros-${ROS_DISTRO}-domain-bridge \
+  ros-${ROS_DISTRO}-rosbag2-storage-mcap \
+  ros-${ROS_DISTRO}-xacro \
+  ros-${ROS_DISTRO}-ament-package \
+  ros-${ROS_DISTRO}-foxglove-bridge \
   libcgal-dev \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
-RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
+RUN /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh
 
 # Install TensorRT (NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
 # Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
@@ -181,6 +193,25 @@ RUN if [ "${SKIP_MACVO}" != "true" ]; then \
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
+# Diagnostic: Check Python environment before DDS Router build
+RUN echo "=== Python version ===" && \
+    python3 --version && \
+    echo "" && \
+    echo "=== PYTHONPATH ===" && \
+    echo "$PYTHONPATH" && \
+    echo "" && \
+    echo "=== sys.path ===" && \
+    python3 -c "import sys; print('\n'.join(sys.path))" && \
+    echo "" && \
+    echo "=== Checking ament_package ===" && \
+    python3 -c "import ament_package; print('✓ ament_package found at:', ament_package.__file__)" || echo "✗ ament_package NOT found" && \
+    echo "" && \
+    echo "=== Checking dpkg for ament packages ===" && \
+    dpkg -l | grep -i ament || echo "No ament packages found in dpkg" && \
+    echo "" && \
+    echo "=== ROS Python packages ===" && \
+    ls -la /opt/ros/humble/lib/python*/dist-packages/ 2>/dev/null | head -20 || echo "No ROS python packages found"
+
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
 RUN apt update && apt install -y --no-install-recommends \
@@ -213,6 +244,12 @@ ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDo
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
+
+ARG PIP_VERSION=24.0
+ARG PYTHON_VERSION=3.12
+
+ARG ROS_DISTRO
+ENV ROS_DISTRO=${ROS_DISTRO}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -253,17 +290,15 @@ RUN sudo add-apt-repository universe \
   && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && apt-get ${UPDATE_FLAGS} update -y && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-  ros-jazzy-desktop \
+  ros-${ROS_DISTRO}-desktop \
   python3-argcomplete \
   && rm -rf /var/lib/apt/lists/*
 
-# Carry over all ROS2 ENV vars from the builder stage
-ENV ROS_DISTRO=jazzy
-ENV AMENT_PREFIX_PATH=/opt/ros/jazzy
-ENV COLCON_PREFIX_PATH=/opt/ros/jazzy
-ENV LD_LIBRARY_PATH=/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/lib
-ENV PATH=/opt/ros/jazzy/bin:$PATH
-ENV PYTHONPATH=/opt/ros/jazzy/local/lib/python3.12/dist-packages:/opt/ros/jazzy/lib/python3.12/site-packages
+ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib/x86_64-linux-gnu:/opt/ros/${ROS_DISTRO}/lib
+ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/local/lib/python${PYTHON_VERSION}/dist-packages:/opt/ros/${ROS_DISTRO}/lib/python${PYTHON_VERSION}/site-packages
 ENV ROS_PYTHON_VERSION=3
 ENV ROS_VERSION=2
 ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
@@ -279,21 +314,30 @@ RUN apt update && apt install -y --no-install-recommends \
   tmux \
   && rm -rf /var/lib/apt/lists/*
 
+# Freeze pip and setuptools versions.
+RUN python3 -m pip install --no-cache-dir --upgrade \
+  "pip==${PIP_VERSION}" \
+  "setuptools==79.0.1" \
+  wheel
+
 # Install runtime ROS2 packages (no libcgal-dev)
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
-  ros-jazzy-mavros \
-  ros-jazzy-tf2* \
-  ros-jazzy-stereo-image-proc \
-  ros-jazzy-image-view \
-  ros-jazzy-topic-tools \
-  ros-jazzy-grid-map \
-  ros-jazzy-domain-bridge \
-  ros-jazzy-rosbag2-storage-mcap \
-  ros-jazzy-xacro \
-  ros-jazzy-foxglove-bridge \
+  ros-${ROS_DISTRO}-mavros \
+  ros-${ROS_DISTRO}-tf2* \
+  ros-${ROS_DISTRO}-stereo-image-proc \
+  ros-${ROS_DISTRO}-image-view \
+  ros-${ROS_DISTRO}-topic-tools \
+  ros-${ROS_DISTRO}-grid-map \
+  ros-${ROS_DISTRO}-domain-bridge \
+  ros-${ROS_DISTRO}-rosbag2-storage-mcap \
+  ros-${ROS_DISTRO}-xacro \
+  ros-${ROS_DISTRO}-ament-package \
+  ros-${ROS_DISTRO}-foxglove-bridge \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
+
+# TODO: consider splitting this into a separate "desktop-plus" image, since foxglove-bridge is a large install and not strictly necessary for most robot use cases
 
 # Install emoji font support and refresh font cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -302,7 +346,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && fc-cache -f -v \
   && rm -rf /var/lib/apt/lists/*
 
-RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
+RUN /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh
 
 # Install DDS Router runtime library dependencies + OpenVDB
 RUN apt update && apt install -y --no-install-recommends \
@@ -324,12 +368,16 @@ RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "
   && rm -rf /var/lib/apt/lists/*; \
   fi
 
-# Install Foxglove Studio desktop app
-RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
-  && apt-get ${UPDATE_FLAGS} update \
-  && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends /tmp/foxglove-studio.deb \
-  && rm /tmp/foxglove-studio.deb \
-  && rm -rf /var/lib/apt/lists/*
+# Install Foxglove Studio desktop app only for non-real-robot images
+RUN if [ "${REAL_ROBOT}" != "true" ] && [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+      wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb && \
+      apt-get ${UPDATE_FLAGS} update && \
+      apt-get ${INSTALL_FLAGS} install -y --no-install-recommends /tmp/foxglove-studio.deb && \
+      rm /tmp/foxglove-studio.deb; \
+    else \
+      echo "Skipping Foxglove Studio install (REAL_ROBOT=${REAL_ROBOT}, arch=$(dpkg --print-architecture))"; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
 
 # Add ability to SSH (libglfw3-dev and libglm-dev kept per spec)
 RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \

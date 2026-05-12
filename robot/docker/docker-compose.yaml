@@ -14,6 +14,7 @@ services:
       dockerfile: ./Dockerfile.robot
       args:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
+        ROS_DISTRO: jazzy
       tags:
         - *desktop_image
       cache_from:
@@ -115,6 +116,7 @@ services:
         REAL_ROBOT: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
+        ROS_DISTRO: jazzy
       tags:
         - *voxl_image
       cache_from:
@@ -147,9 +149,13 @@ services:
     image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
+      network: host
       args:
         BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
         REAL_ROBOT: true
+        SKIP_MACVO: true
+        ROS_DISTRO: humble
+        PYTHON_VERSION: "3.10"
       tags:
         - *l4t_image
       cache_from:
