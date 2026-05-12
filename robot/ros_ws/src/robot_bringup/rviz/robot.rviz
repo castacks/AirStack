@@ -21,6 +21,7 @@ Panels:
         - /RGB Voxels (RayFronts)1
         - /PointCloud21
         - /Mode Description1
+        - /MarkerArray1
       Splitter Ratio: 0.43288591504096985
     Tree Height: 269
   - Class: rviz_common/Selection
@@ -900,6 +901,53 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /rayfronts/semantic_ray_frontiers
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Annotations
+      Namespaces:
+        billboard: true
+        billboard_fill: true
+        billboard_label: true
+        blue container: true
+        blue container_fill: true
+        blue container_label: true
+        bus stop: true
+        bus stop_fill: true
+        bus stop_label: true
+        chimney: true
+        chimney_fill: true
+        chimney_label: true
+        fountain: true
+        fountain_fill: true
+        fountain_label: true
+        house: true
+        house_fill: true
+        house_label: true
+        porch: true
+        porch_fill: true
+        porch_label: true
+        red car: true
+        red car_fill: true
+        red car_label: true
+        red container: true
+        red container_fill: true
+        red container_label: true
+        tree: true
+        tree_fill: true
+        tree_label: true
+        tunnel: true
+        tunnel_fill: true
+        tunnel_label: true
+        yellow car: true
+        yellow car_fill: true
+        yellow car_label: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /annotation_bboxes_all
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -946,25 +994,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 170.5213165283203
+      Distance: 265.47320556640625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -6.453560829162598
-        Y: -7.836468696594238
-        Z: -1.8400647640228271
+        X: -21.339441299438477
+        Y: -86.60624694824219
+        Z: 8.936756134033203
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.505399763584137
+      Pitch: 0.7147963643074036
       Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.1372213512659073
+      Yaw: 2.841776132583618
     Saved: ~
 Window Geometry:
   BehaviorTreePanel:
