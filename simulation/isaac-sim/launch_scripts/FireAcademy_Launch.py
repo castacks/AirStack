@@ -24,16 +24,13 @@ from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgra
 # --------------------- CONFIGURATION ---------------------
 ENV_URL = os.path.expanduser("~/AirStack/scenes/FireAcademy/FireAcademy_Export.usd")
 
-DRONE_X = 25.7
-DRONE_Y = 11.5
-#DRONE_X = 0.0
-#DRONE_Y = 0.0
-DRONE_Z = 0.07
-
-DRONE_QX = 0.0
-DRONE_QY = 0.0
-DRONE_QZ = -0.93
-DRONE_QW = 0.366
+DRONE_X  = float(os.environ.get('DRONE_X')  or '25.7')
+DRONE_Y  = float(os.environ.get('DRONE_Y')  or '11.5')
+DRONE_Z  = float(os.environ.get('DRONE_Z')  or '0.07')
+DRONE_QX = float(os.environ.get('DRONE_QX') or '0.0')
+DRONE_QY = float(os.environ.get('DRONE_QY') or '0.0')
+DRONE_QZ = float(os.environ.get('DRONE_QZ') or '-0.93')
+DRONE_QW = float(os.environ.get('DRONE_QW') or '0.366')
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 # ---------------------------------------------------------

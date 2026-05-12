@@ -38,6 +38,14 @@ services:
       - QT_X11_NO_MITSHM=1
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
+      # Drone spawn config (set via ./launch_raven.sh --env <name> --x ... --y ...)
+      - DRONE_X=${DRONE_X}
+      - DRONE_Y=${DRONE_Y}
+      - DRONE_Z=${DRONE_Z}
+      - DRONE_QX=${DRONE_QX}
+      - DRONE_QY=${DRONE_QY}
+      - DRONE_QZ=${DRONE_QZ}
+      - DRONE_QW=${DRONE_QW}
     deploy:
       # let it use the GPU
       resources:
