@@ -26,7 +26,12 @@ ENV_URL = os.path.expanduser("~/AirStack/scenes/AbandonedFactory/AbandonedFactor
 
 DRONE_X = 7.57
 DRONE_Y = -5.5
-DRONE_HEIGHT = 0.71
+DRONE_Z = 0.71
+
+DRONE_QX = 0.0
+DRONE_QY = 0.0
+DRONE_QZ = 0.0
+DRONE_QW = 1.0
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 # ---------------------------------------------------------
@@ -93,8 +98,8 @@ class PegasusApp:
             vehicle_id=1,
             domain_id=1,
             usd_file=DRONE_USD,
-            init_pos=[DRONE_X, DRONE_Y, DRONE_HEIGHT],
-            init_orient=[0.0, 0.0, 0.0, 1.0],
+            init_pos=[DRONE_X, DRONE_Y, DRONE_Z],
+            init_orient=[DRONE_QX, DRONE_QY, DRONE_QZ, DRONE_QW],
         )
 
         add_zed_stereo_camera_subgraph(

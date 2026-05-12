@@ -26,7 +26,14 @@ ENV_URL = os.path.expanduser("~/AirStack/scenes/FireAcademy/FireAcademy_Export.u
 
 DRONE_X = 25.7
 DRONE_Y = 11.5
-DRONE_HEIGHT = 0.07
+#DRONE_X = 0.0
+#DRONE_Y = 0.0
+DRONE_Z = 0.07
+
+DRONE_QX = 0.0
+DRONE_QY = 0.0
+DRONE_QZ = -0.93
+DRONE_QW = 0.366
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 # ---------------------------------------------------------
@@ -93,8 +100,8 @@ class PegasusApp:
             vehicle_id=1,
             domain_id=1,
             usd_file=DRONE_USD,
-            init_pos=[DRONE_X, DRONE_Y, DRONE_HEIGHT],
-            init_orient=[0.0, 0.0, -0.93, 0.366],
+            init_pos=[DRONE_X, DRONE_Y, DRONE_Z],
+            init_orient=[DRONE_QX, DRONE_QY, DRONE_QZ, DRONE_QW],
         )
 
         add_zed_stereo_camera_subgraph(
