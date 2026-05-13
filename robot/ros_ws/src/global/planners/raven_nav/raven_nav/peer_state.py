@@ -6,9 +6,10 @@ frame_utils.global_enu_to_local[_batch].
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 import numpy as np
 from sensor_msgs_py import point_cloud2
@@ -53,6 +54,8 @@ class PeerState:
     peer_frontiers:  Dict[str, np.ndarray] = field(default_factory=dict)  # (N,3)
     peer_rays:       Dict[str, 'PeerRays']  = field(default_factory=dict)
     peer_bids:       Dict[str, Dict[str, float]] = field(default_factory=dict)
+    peer_completed:  Dict[str, Set[str]]   = field(default_factory=dict)
+    peer_committed_target: Dict[str, str]  = field(default_factory=dict)  # "" if uncommitted
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -89,9 +92,24 @@ class PeerState:
         # comparisons meaningless. Each gossip tick overwrites the previous
         # value, so consumers can rely on peer_last_seen (wall-clock, set
         # below) for liveness, and on the most-recent message for content.
-        nav_msg, _ = profile.get_payload_with_stamp("std_msgs/msg/String")
+        # Two separate String payloads exist (navigation_mode + completed_targets);
+        # use by-name lookups so we don't grab the wrong one.
+        nav_msg, _ = profile.get_payload_by_name_with_stamp("navigation_mode")
         if nav_msg is not None:
             self.peer_nav_modes[name] = str(nav_msg.data)
+
+        comp_msg, _ = profile.get_payload_by_name_with_stamp("completed_targets")
+        if comp_msg is not None:
+            try:
+                lst = json.loads(comp_msg.data)
+                if isinstance(lst, list):
+                    self.peer_completed[name] = {str(x) for x in lst}
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        ct_msg, _ = profile.get_payload_by_name_with_stamp("committed_target")
+        if ct_msg is not None:
+            self.peer_committed_target[name] = str(ct_msg.data)
 
         front_msg, _ = profile.get_payload_by_name_with_stamp("raw_frontiers")
         if front_msg is not None:

@@ -353,14 +353,27 @@ class SemanticSearchTaskNode(Node):
 
     def _execute(self, goal_handle):
         goal = goal_handle.request
-        # TEMP: hardcoded queries — ignore goal.query / goal.background_queries
-        # so the action input boxes don't matter while we debug the bid system.
-        queries = ['water tower', 'red building']
-        bg_raw = ['sky', 'ground', 'grass', 'road']
-        self.get_logger().warn(
-            f'Using HARDCODED queries: targets={queries} background={bg_raw} '
-            f'(ignoring goal.query={goal.query!r}, '
-            f'goal.background_queries={goal.background_queries!r})')
+        queries = [q.strip() for q in goal.query.split(',') if q.strip()]
+        if not queries:
+            self._task_active = False
+            goal_handle.abort()
+            result = SemanticSearchTask.Result()
+            result.success = False
+            result.message = 'Empty query'
+            return result
+
+        bg_raw = [bq.strip() for bq in goal.background_queries.split(',')
+                  if bq.strip()]
+        if not bg_raw:
+            self._task_active = False
+            goal_handle.abort()
+            result = SemanticSearchTask.Result()
+            result.success = False
+            result.message = (
+                'background_queries is required but was not provided. '
+                'Softmax normalization needs contrast classes (e.g. '
+                '"building,tree,ground") to produce meaningful scores.')
+            return result
 
         # Build the full query list: target queries + background contrast queries.
         # Softmax normalization across queries requires N >= 2 to produce
@@ -435,7 +448,7 @@ class SemanticSearchTaskNode(Node):
             ], log_name='rayfronts')
 
             mapping_batches_seen = 0
-            required_batches = 3
+            required_batches = 8
             self.get_logger().info(
                 f'Waiting for {required_batches} rayfronts mapping batches')
             while mapping_batches_seen < required_batches and rclpy.ok():

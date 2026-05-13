@@ -53,6 +53,17 @@ payload_topics:
   - topic: "/{robot_name}/bids"
     type: "airstack_msgs/msg/BidVector"
 
+  # JSON-encoded list of target labels this robot has marked complete. Peers
+  # use this to permanently exclude those targets from their own claim pool.
+  - topic: "/{robot_name}/completed_targets"
+    type: "std_msgs/msg/String"
+
+  # Label this robot is currently committed to ("" if uncommitted). Peers
+  # use this together with raw bids to resolve double-commit collisions
+  # (the farther-away robot releases).
+  - topic: "/{robot_name}/committed_target"
+    type: "std_msgs/msg/String"
+
   # Shared rays (raven_nav) — FLU local-frame rays so peer drones can bid on
   # the same target the publisher saw. gossip translates x,y,z to global ENU;
   # dx,dy,dz directions and sim_* scores pass through unchanged.

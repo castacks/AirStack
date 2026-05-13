@@ -1,0 +1,107 @@
+[
+  {
+    "class": "obelisk",
+    "bbox_world": {
+      "center_xyz_m": [
+        8.5,
+        -35.0,
+        7.0
+      ],
+      "size_xyz_m": [
+        3.0,
+        3.0,
+        14.0
+      ]
+    }
+  },
+  {
+    "class": "yellow truck",
+    "bbox_world": {
+      "center_xyz_m": [
+        -22.0,
+        -10.0,
+        2.5
+      ],
+      "size_xyz_m": [
+        8.5,
+        4.0,
+        5.0
+      ]
+    }
+  },
+  {
+    "class": "cafe table",
+    "bbox_world": {
+      "center_xyz_m": [
+        -3.0,
+        -73.5,
+        1.5
+      ],
+      "size_xyz_m": [
+        8.5,
+        7.0,
+        3.0
+      ]
+    }
+  },
+  {
+    "class": "cafe table",
+    "bbox_world": {
+      "center_xyz_m": [
+        9.0,
+        -73.5,
+        1.5
+      ],
+      "size_xyz_m": [
+        8.5,
+        7.0,
+        3.0
+      ]
+    }
+  },
+  {
+    "class": "bankomat",
+    "bbox_world": {
+      "center_xyz_m": [
+        42.0,
+        -39.0,
+        1.8
+      ],
+      "size_xyz_m": [
+        2.0,
+        6.0,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "bankomat",
+    "bbox_world": {
+      "center_xyz_m": [
+        24.5,
+        -50.0,
+        1.8
+      ],
+      "size_xyz_m": [
+        2.0,
+        6.0,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "bankomat",
+    "bbox_world": {
+      "center_xyz_m": [
+        -25.5,
+        -75.0,
+        1.8
+      ],
+      "size_xyz_m": [
+        2.0,
+        6.0,
+        3.5
+      ]
+    }
+  }
+]

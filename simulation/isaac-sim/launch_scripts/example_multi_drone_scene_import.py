@@ -48,21 +48,18 @@ from scene_prep import (
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-#ENV_URL = "file:///isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/RetroNeighborhood/RetroNeighborhood_Export.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
-STAGE_SCALE = 0.01
-
-# pg.load_environment already mounts the whole source USD under /World.
-# reference_root_prims_under_world() opens the *same* USD again and
-# re-references its non-World root prims at /World/<name>. That's harmless
-# for *.scene.usd assets whose root prims are small (Sky/Sun/Environment),
-# but for *.stage.usd assets whose root prim *is* the geometry, it spawns a
-# second full-scale copy of the entire scene next to the one Pegasus
-# already loaded ("inception"). Leave False unless you know the source USD
-# keeps lights/sky as separate root prims you actually need pulled in.
-REFERENCE_ROOT_PRIMS = True
+STAGE_SCALE = 1.0 #0.01
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -84,26 +81,34 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd:
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
-DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-    {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
-    ]
 
-
+SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
 # DRONE_CONFIGS = [
-#     {"domain_id": 1, "x_m": 7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
-#     {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
-#     {"domain_id": 3, "x_m": -7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+#     {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
 #     ]
 
-# Top-down "map" camera over (0, 0). Captures one aerial of the static scene
-# that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.
+
+DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 3, "x_m": -7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    ]
+
+# Top-down "map" camera. Captures one aerial of the static scene that the
+# GCS visualizer turns into a textured ground in Foxglove's 3D panel. The
+# camera centers on (OVERHEAD_CENTER_X_M, OVERHEAD_CENTER_Y_M) in world
+# meters — leave both 0.0 for the legacy origin-centered behavior.
 OVERHEAD_ALTITUDE_M    = 165.0
-OVERHEAD_COVERAGE_M    = 225.0   # per-map knob: world meters per side.
-OVERHEAD_PX_PER_METER  = 12.0     # Source-image density. Bump for sharper texture.
+OVERHEAD_COVERAGE_M    = 225  # per-map knob: world meters per side.
+OVERHEAD_CENTER_X_M    = 0.0 #-152     # world-X of camera center / texture center.
+OVERHEAD_CENTER_Y_M    = 0.0 #-80     # world-Y of camera center / texture center.
+OVERHEAD_PX_PER_METER  = 10.0     # Source-image density. Bump for sharper texture.
 OVERHEAD_TOPIC         = "/sim/overhead/image"
 OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"
+OVERHEAD_CENTER_X_TOPIC = "/sim/overhead/center_x"
+OVERHEAD_CENTER_Y_TOPIC = "/sim/overhead/center_y"
 OVERHEAD_FRAME_ID      = "map"
 OVERHEAD_DOMAIN_ID     = 0
 # ---------------------------------------------------------
@@ -183,9 +188,11 @@ class PegasusApp:
         dedupe_physics_scenes(stage)
 
         # ----- Scene preparation -----
-        # Bring in sky/sun/environment prims that sit outside /World in the source USD
-        if REFERENCE_ROOT_PRIMS:
-            reference_root_prims_under_world(stage, ENV_URL)
+        # Bring in sky/sun/environment prims that sit at root level in the
+        # source USD next to the defaultPrim that pg.load_environment already
+        # loaded into /World/stage. reference_root_prims_under_world skips
+        # the defaultPrim, so this can't duplicate geometry.
+        reference_root_prims_under_world(stage, ENV_URL)
 
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
@@ -211,14 +218,20 @@ class PegasusApp:
             altitude_m=OVERHEAD_ALTITUDE_M,
             coverage_m=OVERHEAD_COVERAGE_M,
             scene_scale_factor=s,
+            center_x_m=OVERHEAD_CENTER_X_M,
+            center_y_m=OVERHEAD_CENTER_Y_M,
         )
         add_overhead_camera_publisher(
             parent_graph_path="/World/MapCameraGraph",
             camera_prim_path=cam_path,
             topic=OVERHEAD_TOPIC,
             spec_topic=OVERHEAD_SPEC_TOPIC,
+            center_x_topic=OVERHEAD_CENTER_X_TOPIC,
+            center_y_topic=OVERHEAD_CENTER_Y_TOPIC,
             frame_id=OVERHEAD_FRAME_ID,
             coverage_m=OVERHEAD_COVERAGE_M,
+            center_x_m=OVERHEAD_CENTER_X_M,
+            center_y_m=OVERHEAD_CENTER_Y_M,
             pixels_per_meter=OVERHEAD_PX_PER_METER,
             domain_id=OVERHEAD_DOMAIN_ID,
         )

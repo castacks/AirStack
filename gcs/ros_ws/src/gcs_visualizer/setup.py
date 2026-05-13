@@ -12,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.xml')),
+        (os.path.join('share', package_name, 'annotations'), glob('annotations/*.json')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -26,6 +27,8 @@ setup(
             'payload_visualizer_node = gcs_visualizer.payload_visualizer_node:main',
             'waypoint_collector_node = gcs_visualizer.waypoint_collector_node:main',
             'polygon_collector_node = gcs_visualizer.polygon_collector_node:main',
+            'annotation_viz_node = gcs_visualizer.annotation_viz_node:main',
+            'annotation_tuner = gcs_visualizer.annotation_tuner:main',
         ],
     },
 )

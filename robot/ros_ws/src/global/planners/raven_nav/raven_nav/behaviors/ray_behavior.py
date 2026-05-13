@@ -7,7 +7,7 @@ from std_msgs.msg import String
 
 class RayBehavior:
     def __init__(self, get_clock, current_target_publisher=None,
-                 score_threshold=0.95,
+                 score_threshold=0.68,
                  min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
         self.name = 'Ray-based'

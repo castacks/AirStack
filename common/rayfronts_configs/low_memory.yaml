@@ -15,21 +15,21 @@ encoder:
   lang_model: siglip
 
 dataset:
-  rgb_resolution: [448, 448] #[480, 304]
-  depth_resolution: [448, 448] #[480, 304]
+  rgb_resolution: [480, 480] #[480, 304]
+  depth_resolution: [480, 480] #[480, 304]
   frame_skip: 5
 
 mapping:
   vox_size: 0.50
   #max_pts_per_frame: 300 #-1
   #max_empty_pts_per_frame: 20000
-  max_rays_per_frame: 50 #500
+  max_rays_per_frame: 100 #500
   #fronti_subsampling: 8
   #fronti_subsampling_min_fronti: 20
   #ray_tracing: False
-  vox_accum_period: 2 #4
-  ray_accum_period: 4 #4
-  ray_accum_phase: 2 #2
+  vox_accum_period: 4 #4
+  ray_accum_period: 8 #4
+  ray_accum_phase: 4 #2
   #ray_erosion: 0
   #global_encoding: True
 

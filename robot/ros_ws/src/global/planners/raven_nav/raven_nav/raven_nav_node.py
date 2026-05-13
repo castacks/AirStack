@@ -89,7 +89,7 @@ class RavenNavNode(Node):
         self._search_area_xy: 'np.ndarray | None' = None
         self._warned_polygon_degenerate = False
 
-        self._score_threshold = self.declare_parameter('score_threshold', 0.65).value
+        self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
@@ -100,6 +100,10 @@ class RavenNavNode(Node):
 
         self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
+        self._voxel_score_threshold = float(self.declare_parameter(
+            'voxel_score_threshold', 0.7).value)
+        self._voxel_min_cluster_size = int(self.declare_parameter(
+            'voxel_min_cluster_size', 30).value)
 
         timer_period = self.declare_parameter('timer_period', 0.5).value
         # Coordination debug lines are tagged "[coord]".
@@ -129,6 +133,8 @@ class RavenNavNode(Node):
             MarkerArray, f'{self._prefix}/voxel_clusters', 10)
         self._completed_targets_pub = self.create_publisher(
             String, f'{self._prefix}/completed_targets', 10)
+        self._committed_target_pub = self.create_publisher(
+            String, f'{self._prefix}/committed_target', 10)
         self._nav_mode_pub = self.create_publisher(
             String, f'{self._prefix}/navigation_mode', 10)
         self._my_bids_pub = self.create_publisher(
@@ -140,6 +146,8 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/debug/groups_table', 10)
         self._bids_table_pub = self.create_publisher(
             String, f'{self._prefix}/debug/bids_table', 10)
+        self._voxel_table_pub = self.create_publisher(
+            String, f'{self._prefix}/debug/voxel_table', 10)
         self._shared_rays_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/shared_rays', 10)
         self._ray_groups_viz_pub = self.create_publisher(
@@ -179,6 +187,8 @@ class RavenNavNode(Node):
             score_threshold=self._score_threshold,
             min_altitude=self._min_altitude,
             max_altitude=self._max_altitude,
+            voxel_score_threshold=self._voxel_score_threshold,
+            voxel_min_cluster_size=self._voxel_min_cluster_size,
         )
 
         # rayfronts publishes _sim/all topics only when something subscribes.
@@ -669,6 +679,83 @@ class RavenNavNode(Node):
                 + '\n'.join(lines))
         self._groups_table_pub.publish(String(data=body))
 
+    def _debug_print_voxel_table(self):
+        """Per-target voxel summary so the user can tune voxel-mode thresholds.
+
+        Columns: target | total | >0.5 | >0.7 | >0.85 | >0.95 | largest_cc
+        ('largest_cc' = size of biggest connected high-conf component using
+        the current voxel-mode threshold of 0.85.)"""
+        vox_xyz = self._vox_xyz
+        vox_scores = self._vox_scores
+        if vox_xyz is None or vox_scores is None or len(vox_xyz) == 0:
+            self._voxel_table_pub.publish(String(data='(no voxels yet)'))
+            return
+        labels = self._column_labels()
+        K = vox_scores.shape[1]
+        col_labels = [labels[i] if i < len(labels) else f'col_{i}' for i in range(K)]
+        target_set = set(self._target_objects or [])
+        target_idxs = [j for j, lbl in enumerate(col_labels) if lbl in target_set]
+        if not target_idxs:
+            self._voxel_table_pub.publish(String(data='(no targets configured)'))
+            return
+
+        n_total = int(len(vox_xyz))
+        thresholds = [0.3, 0.5, 0.7, 0.85]
+        # Mirror the live voxel-mode params so cc counts reflect what mode
+        # selection is actually doing this tick.
+        cc_threshold = self._voxel_score_threshold
+        min_samples_default = self._voxel_min_cluster_size
+
+        header_cells = (['target'.ljust(18), 'total'.rjust(7)]
+                        + [f'>{t}'.rjust(7) for t in thresholds]
+                        + ['cc_max'.rjust(7),
+                           f'cc_n>={min_samples_default}'.rjust(9)])
+        lines = ['  '.join(header_cells)]
+
+        # Connected-component count per target above cc_threshold (mirrors
+        # voxel_behavior.condition_check). Only do this when there's data.
+        try:
+            import scipy.ndimage  # noqa: F401
+            have_scipy = True
+        except ImportError:
+            have_scipy = False
+
+        for j in target_idxs:
+            col = vox_scores[:, j]
+            counts = [int((col > t).sum()) for t in thresholds]
+            cc_max = 0
+            cc_n_big = 0
+            mask = col > cc_threshold
+            if have_scipy and mask.any():
+                import scipy.ndimage as sn
+                pts = vox_xyz[mask]
+                vox_size = 0.5
+                pts_round = np.round(pts, 3)
+                min_c = pts_round.min(axis=0)
+                norm = ((pts_round - min_c) / vox_size).astype(int)
+                max_c = norm.max(axis=0) + 1
+                occ = np.zeros(tuple(max_c.tolist()), dtype=np.uint8)
+                for x, y, z in norm:
+                    occ[x, y, z] = 1
+                lab, ncomp = sn.label(occ, structure=np.ones((3, 3, 3), dtype=np.uint8))
+                comp_sizes = []
+                for c in range(1, ncomp + 1):
+                    comp_sizes.append(int((lab == c).sum()))
+                if comp_sizes:
+                    cc_max = max(comp_sizes)
+                    cc_n_big = sum(1 for s in comp_sizes if s >= min_samples_default)
+            cells = ([col_labels[j].ljust(18), str(n_total).rjust(7)]
+                     + [str(c).rjust(7) for c in counts]
+                     + [str(cc_max).rjust(7), str(cc_n_big).rjust(9)])
+            lines.append('  '.join(cells))
+        lines.append(
+            f'  cc_threshold={cc_threshold}  min_cluster_size={min_samples_default}'
+            f'  → voxel-mode fires when any target has '
+            f'cc_n>={min_samples_default} ≥ 1'
+        )
+        body = f'{n_total} voxels  |  targets={[col_labels[j] for j in target_idxs]}\n' + '\n'.join(lines)
+        self._voxel_table_pub.publish(String(data=body))
+
     def _timer_cb(self):
         if self._cur_pose is None:
             self.get_logger().warn('waiting for odometry...', throttle_duration_sec=5.0)
@@ -693,21 +780,31 @@ class RavenNavNode(Node):
         if self._debug_ray_table:
             self._debug_print_ray_table()
             self._debug_print_groups_table(ray_groups)
+            self._debug_print_voxel_table()
 
-        # New auction protocol — broadcast best-seen bid, resolve on competition:
+        # New auction protocol — always broadcast best-seen raw bid;
+        # commitment lives in a separate /committed_target string:
         #   1. See target  → record best bid (running max). Provisionally claim.
-        #      Broadcast that fixed bid every tick (NOT per-tick distance).
-        #   2. Receive a competing peer bid for the same target:
+        #      Broadcast bid every tick (NOT per-tick distance).
+        #   2. Receive competing peer raw bid (peer not yet committed):
         #        peer better → drop the claim
-        #        peer worse  → lock (broadcast LOCKED_BID)
-        #   3. Locked claim only de-locked by a lower-id peer also locked
-        #      (collision tiebreak) or by the target being completed.
+        #        peer worse  → commit (broadcast committed_target=label)
+        #   3. Once committed: keep broadcasting raw bid + committed_target.
+        #      Released by (a) target completion (own or any peer), or
+        #      (b) double-commit collision: another peer also committed to
+        #      this label AND has a better raw bid (closer) → I yield.
         per_tick_bids = bid_manager.compute_my_bids(ray_groups)
 
+        # Aggregate completed: own + every peer we've heard from. Once a target
+        # is in here it's permanently retired from this robot's claim pool.
+        own_completed = set(self._behavior_manager.completed_queries)
+        all_completed = set(own_completed)
+        for peer_done in self._peer_state.peer_completed.values():
+            all_completed |= peer_done
+
         # Update running max — broadcast bid only ever improves.
-        completed = self._behavior_manager.completed_queries
         for label, b in per_tick_bids.items():
-            if label in completed:
+            if label in all_completed:
                 continue
             prev = self._best_seen_bids.get(label)
             if prev is None or b > prev:
@@ -715,19 +812,57 @@ class RavenNavNode(Node):
 
         # Drop completed targets entirely.
         for done in list(self._best_seen_bids.keys()):
-            if done in completed:
+            if done in all_completed:
                 del self._best_seen_bids[done]
         if (self._assigned_target is not None
-                and self._assigned_target in completed):
+                and self._assigned_target in all_completed):
+            if self._debug_coord:
+                self.get_logger().info(
+                    f'[coord] dropping {self._assigned_target}: '
+                    f'completed by self or peer')
             self._assigned_target = None
             self._committed_to_assigned = False
             self._committed_target_last_dir = None
             self._committed_target_last_origin = None
 
+        # Build map of peer-committed targets (peer_name -> label) and the
+        # set of all such labels. Source of truth: the per-peer
+        # /committed_target gossip string, NOT a sentinel-bid-value heuristic.
+        peer_commits = {  # only non-empty entries
+            n: t for n, t in self._peer_state.peer_committed_target.items() if t
+        }
+        peer_committed_labels = set(peer_commits.values())
+        # If we're still provisional and a peer is now committed to our
+        # target, drop — they win by virtue of having committed first.
+        if (self._assigned_target is not None
+                and self._assigned_target in peer_committed_labels
+                and not self._committed_to_assigned):
+            if self._debug_coord:
+                self.get_logger().info(
+                    f'[coord] dropping {self._assigned_target}: peer committed first')
+            self._assigned_target = None
+            self._committed_target_last_dir = None
+            self._committed_target_last_origin = None
+
+        def _peer_locked_label(pname):
+            """Return the label this peer is currently committed to, or None.
+            A peer can only pursue one target at a time; their raw bids on
+            other targets are informational only."""
+            t = self._peer_state.peer_committed_target.get(pname, '')
+            return t if t else None
+
         def _best_peer_bid_for(label):
-            """Return (best_bid, owner_id) over peers for `label`, or (None, None)."""
+            """Return (best_bid, owner_id) over peers for `label`, or (None, None).
+
+            Peers committed to a DIFFERENT target are skipped — they can't
+            pursue this one, so their raw bid here doesn't compete with us.
+            Peers committed to `label` itself are kept (their raw bid is
+            their actual distance and will be compared)."""
             best_b, best_id = None, None
             for pname, pbids in self._peer_state.peer_bids.items():
+                plock = _peer_locked_label(pname)
+                if plock is not None and plock != label:
+                    continue
                 pb = pbids.get(label)
                 if pb is None:
                     continue
@@ -741,12 +876,13 @@ class RavenNavNode(Node):
             return best_b, best_id
 
         # Provisional claim: among targets we've seen, pick the highest-bid
-        # one where we'd actually win against the current peer field. (If a
-        # peer is already broadcasting a better bid, don't claim that target —
-        # otherwise we'd just claim-then-drop on every tick.)
+        # one that's (a) not locked by a peer, (b) not already completed, and
+        # (c) one we'd actually win on a raw-bid comparison.
         if self._assigned_target is None and self._best_seen_bids:
             candidates = []
             for label, my_bid in self._best_seen_bids.items():
+                if label in all_completed or label in peer_committed_labels:
+                    continue
                 peer_bid, peer_id = _best_peer_bid_for(label)
                 if peer_bid is None:
                     candidates.append((label, my_bid))
@@ -796,30 +932,36 @@ class RavenNavNode(Node):
                             f'my bid {my_bid:.2f} beats peer (id={peer_id}) '
                             f'{peer_bid:.2f}')
 
-        # Build broadcast bids: best-seen for every label, LOCKED_BID for the
-        # committed claim. (Provisional claim still broadcasts the raw bid.)
+        # Broadcast raw best-seen bids (no LOCKED_BID substitution). Committed
+        # state is conveyed separately via /committed_target so peers can
+        # compare actual distances even during a both-committed collision.
         my_bids = dict(self._best_seen_bids)
-        if (self._assigned_target is not None and self._committed_to_assigned):
-            my_bids[self._assigned_target] = bid_manager.LOCKED_BID
 
-        # Collision tiebreak: if locked but a lower-id peer has also locked
-        # the same target, defer to them.
-        if (self._assigned_target is not None and self._committed_to_assigned):
-            for pname, pbids in self._peer_state.peer_bids.items():
-                if pbids.get(self._assigned_target) == bid_manager.LOCKED_BID:
-                    pid = self._peer_state.peer_ids.get(pname)
-                    if pid is not None and pid < self._my_id:
-                        if self._debug_coord:
-                            self.get_logger().info(
-                                f'[coord] LOCK collision on '
-                                f'{self._assigned_target}: peer {pname} '
-                                f'(id={pid}) < me ({self._my_id}) — yielding')
-                        my_bids.pop(self._assigned_target, None)
-                        self._assigned_target = None
-                        self._committed_to_assigned = False
-                        self._committed_target_last_dir = None
-                        self._committed_target_last_origin = None
-                        break
+        # Double-commit collision: if I'm committed AND a peer is also
+        # committed to the same target, the FARTHER one yields. Compare raw
+        # bids (higher = closer wins). Tie → lower id wins.
+        if self._assigned_target is not None and self._committed_to_assigned:
+            my_bid = self._best_seen_bids.get(self._assigned_target)
+            for pname, plabel in peer_commits.items():
+                if plabel != self._assigned_target:
+                    continue
+                pbid = self._peer_state.peer_bids.get(pname, {}).get(plabel)
+                pid = self._peer_state.peer_ids.get(pname)
+                if pbid is None or pid is None or my_bid is None:
+                    continue
+                peer_wins = (pbid > my_bid
+                             or (pbid == my_bid and pid < self._my_id))
+                if peer_wins:
+                    if self._debug_coord:
+                        self.get_logger().info(
+                            f'[coord] double-commit on {self._assigned_target}: '
+                            f'peer {pname} (id={pid}) bid {pbid:.2f} '
+                            f'>= mine {my_bid:.2f} — yielding')
+                    self._assigned_target = None
+                    self._committed_to_assigned = False
+                    self._committed_target_last_dir = None
+                    self._committed_target_last_origin = None
+                    break
 
         # Cache last-seen direction/origin for the committed target so frontier
         # mode (next time it activates) can prefer the direction we last saw it.
@@ -840,12 +982,33 @@ class RavenNavNode(Node):
         bv.labels = list(my_bids.keys())
         bv.values = list(my_bids.values())
         self._my_bids_pub.publish(bv)
+        # Broadcast our currently committed target so peers can resolve
+        # double-commit collisions by distance comparison.
+        committed_str = (self._assigned_target
+                         if (self._assigned_target is not None
+                             and self._committed_to_assigned)
+                         else '')
+        self._committed_target_pub.publish(String(data=committed_str))
 
         # Pretty-printed bids panel for the view_ray_tables script.
+        own_done = sorted(self._behavior_manager.completed_queries)
+        peer_done_lines = []
+        for pname in sorted(self._peer_state.peer_completed.keys()):
+            pdone = sorted(self._peer_state.peer_completed[pname])
+            if pdone:
+                peer_done_lines.append(f'  {pname}: {pdone}')
         bids_lines = [f'assigned: {self._assigned_target} '
                       f'(committed={self._committed_to_assigned})',
-                      '',
-                      f'my_bids ({self._robot_name}, id={self._my_id}):']
+                      f'completed (own): {own_done if own_done else "none"}']
+        if peer_done_lines:
+            bids_lines.append('completed (peers):')
+            bids_lines.extend(peer_done_lines)
+        else:
+            bids_lines.append('completed (peers): none')
+        bids_lines.extend([
+            '',
+            f'my_bids ({self._robot_name}, id={self._my_id}):',
+        ])
         if my_bids:
             w = max(len(k) for k in my_bids.keys())
             for k in sorted(my_bids.keys()):
@@ -869,26 +1032,14 @@ class RavenNavNode(Node):
             bids_lines.append('  (none — no peers heard yet)')
         self._bids_table_pub.publish(String(data='\n'.join(bids_lines)))
         if self._debug_coord:
-            def _fmt_bid(v):
-                # LOCKED_BID is 1e9 — show as "L" for readability.
-                return 'L' if v >= bid_manager.LOCKED_BID * 0.5 else f'{v:.1f}'
-
             def _fmt_bid_dict(d):
                 if not d:
                     return '{}'
-                return '{' + ', '.join(f'{k}:{_fmt_bid(v)}' for k, v in d.items()) + '}'
-
-            # Derive each peer's locked target (their bid that equals LOCKED_BID).
-            peer_locks = {}
-            for pname, pb in self._peer_state.peer_bids.items():
-                for label, val in pb.items():
-                    if val >= bid_manager.LOCKED_BID * 0.5:
-                        peer_locks[pname] = label
-                        break
+                return '{' + ', '.join(f'{k}:{v:.1f}' for k, v in d.items()) + '}'
 
             peer_str = ', '.join(
                 f'{n}={_fmt_bid_dict(b)}'
-                + (f' lock={peer_locks[n]}' if n in peer_locks else '')
+                + (f' commit={peer_commits[n]}' if n in peer_commits else '')
                 for n, b in self._peer_state.peer_bids.items()
             ) or '(none)'
 
@@ -901,9 +1052,13 @@ class RavenNavNode(Node):
                 throttle_duration_sec=2.0)
 
         prev_mode = self._behavior_mode
+        # Voxel-mode (fine approach + 3m arrival detection) only fires on the
+        # CURRENTLY ASSIGNED target — otherwise an incidental fly-by of any
+        # cluster would mark unrelated targets complete and break the auction.
+        voxel_targets = [self._assigned_target] if self._assigned_target else []
         self._behavior_manager.mode_select(
             query_labels=self._query_labels,
-            target_objects=self._target_objects,
+            target_objects=voxel_targets,
             vox_xyz=self._vox_xyz,
             vox_scores=self._vox_scores,
         )
@@ -940,9 +1095,10 @@ class RavenNavNode(Node):
             String(data=_NAV_MODE_TAG.get(self._behavior_mode, 'idle')))
 
         completed = sorted(self._behavior_manager.completed_queries)
-        if completed != self._last_completed:
-            self._completed_targets_pub.publish(String(data=json.dumps(completed)))
-            self._last_completed = completed
+        # Publish every tick (not just on change) so peers and any restarted
+        # gossip_node always see the latest list of completed targets.
+        self._completed_targets_pub.publish(String(data=json.dumps(completed)))
+        self._last_completed = completed
 
         # Compact mode-tagged status line. Verbose ray/voxel/wp counts are in
         # the debug topics now; this line drives action feedback so keep it

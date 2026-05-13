@@ -9,9 +9,11 @@ from std_msgs.msg import ColorRGBA
 
 
 class VoxelBehavior:
-    def __init__(self, get_clock):
+    def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30):
         self.get_clock = get_clock
         self.name = 'Voxel-based'
+        self.score_threshold = score_threshold
+        self.min_cluster_size = min_cluster_size
         # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
         # {cluster_id: query_label}
@@ -29,10 +31,16 @@ class VoxelBehavior:
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
 
-    def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects):
-        """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols."""
-        # TODO(re-enable): soft-disabled while validating frontier-only multi-robot.
-        return False
+    def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
+                        threshold=None):
+        if threshold is None:
+            threshold = self.score_threshold
+        """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols.
+
+        Returns True iff there is at least one unvisited high-confidence voxel
+        cluster for one of the target_objects. When True, voxel-mode takes
+        over for fine approach + 3m arrival detection.
+        """
         if vox_xyz is None or vox_scores is None or not target_objects:
             return False
         if len(vox_xyz) == 0:
@@ -44,8 +52,6 @@ class VoxelBehavior:
         ]
         if not label_indices:
             return False
-
-        threshold = 0.98
         relevant_scores = vox_scores[:, label_indices]   # (N, len(label_indices))
         mask = (relevant_scores > threshold).any(axis=1)
         indices = np.where(mask)[0]
@@ -75,7 +81,7 @@ class VoxelBehavior:
 
         for label_val in range(1, num_components + 1):
             idx = np.where(label_ids == label_val)[0]
-            if len(idx) < 30:
+            if len(idx) < self.min_cluster_size:
                 continue
 
             coords = norm_coords[idx]

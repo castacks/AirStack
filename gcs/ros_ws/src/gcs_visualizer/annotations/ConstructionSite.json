@@ -1,0 +1,590 @@
+[
+  {
+    "class": "asphalt roller",
+    "bbox_world": {
+      "center_xyz_m": [
+        -48.3,
+        5.1,
+        1.9
+      ],
+      "size_xyz_m": [
+        6.2,
+        5.0,
+        3.3
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "asphalt roller",
+    "bbox_world": {
+      "center_xyz_m": [
+        -30.3,
+        22.5,
+        2.3
+      ],
+      "size_xyz_m": [
+        6.3,
+        5.1,
+        3.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        -30.1,
+        -10.8,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.5,
+        1.5,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        -32.3,
+        -13.2,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.4,
+        1.4,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        -34.1,
+        -13.2,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.3,
+        1.3,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        46.6,
+        5.8999999999999995,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.7,
+        1.7,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        45.9,
+        4.6,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.4,
+        1.4,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        48.8,
+        6.6,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.2,
+        1.2,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "biotoilet",
+    "bbox_world": {
+      "center_xyz_m": [
+        52.3,
+        6.299999999999999,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.5,
+        1.5,
+        2.5
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "cabling winches",
+    "bbox_world": {
+      "center_xyz_m": [
+        63.2,
+        4.8999999999999995,
+        1.3
+      ],
+      "size_xyz_m": [
+        3.1,
+        3.6,
+        2.2
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        -30.2,
+        9.399999999999999,
+        4.1
+      ],
+      "size_xyz_m": [
+        2.7,
+        6.2,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        2.2,
+        -47.7,
+        4.1
+      ],
+      "size_xyz_m": [
+        3.6,
+        6.5,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        -1.1,
+        -48.900000000000006,
+        4.1
+      ],
+      "size_xyz_m": [
+        2.8,
+        6.2,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        43.9,
+        3.8999999999999995,
+        1.5
+      ],
+      "size_xyz_m": [
+        2.5,
+        6.1,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        41.4,
+        3.8999999999999995,
+        1.5
+      ],
+      "size_xyz_m": [
+        2.5,
+        6.1,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        39.0,
+        3.8999999999999995,
+        1.5
+      ],
+      "size_xyz_m": [
+        2.5,
+        6.1,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        41.4,
+        3.8999999999999995,
+        4.1
+      ],
+      "size_xyz_m": [
+        2.5,
+        6.1,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        38.9,
+        3.8999999999999995,
+        4.1
+      ],
+      "size_xyz_m": [
+        2.5,
+        6.1,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        36.5,
+        3.8999999999999995,
+        1.5
+      ],
+      "size_xyz_m": [
+        2.5,
+        6.1,
+        2.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "forklift",
+    "bbox_world": {
+      "center_xyz_m": [
+        30.7,
+        -10.2,
+        2.5
+      ],
+      "size_xyz_m": [
+        10.9,
+        6.6,
+        4.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "forklift",
+    "bbox_world": {
+      "center_xyz_m": [
+        43.4,
+        -36.900000000000006,
+        2.5
+      ],
+      "size_xyz_m": [
+        5.7,
+        10.7,
+        4.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "forklift",
+    "bbox_world": {
+      "center_xyz_m": [
+        -9.0,
+        -40.599999999999994,
+        2.5
+      ],
+      "size_xyz_m": [
+        10.9,
+        7.9,
+        4.6
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "yellow towercrane",
+    "bbox_world": {
+      "center_xyz_m": [
+        -3.0,
+        21.2,
+        25.0
+      ],
+      "size_xyz_m": [
+        5.0,
+        4.0,
+        50.0
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "orange towercrane",
+    "bbox_world": {
+      "center_xyz_m": [
+        58.5,
+        -32.8,
+        40.0
+      ],
+      "size_xyz_m": [
+        6.0,
+        4.0,
+        80.0
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "construction lift",
+    "bbox_world": {
+      "center_xyz_m": [
+        66.0,
+        -25.8,
+        16.0
+      ],
+      "size_xyz_m": [
+        5.0,
+        5.0,
+        32.0
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "blue tarp",
+    "bbox_world": {
+      "center_xyz_m": [
+        66.0,
+        -8.8,
+        16.0
+      ],
+      "size_xyz_m": [
+        3.0,
+        20.0,
+        32.0
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "blue tarp",
+    "bbox_world": {
+      "center_xyz_m": [
+        25.0,
+        -38.8,
+        8.0
+      ],
+      "size_xyz_m": [
+        10.0,
+        3.0,
+        16.0
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "class": "orange tarp",
+    "bbox_world": {
+      "center_xyz_m": [
+        -20.0,
+        31.2,
+        10.0
+      ],
+      "size_xyz_m": [
+        20.0,
+        3.0,
+        20.0
+      ],
+      "quat_xyzw": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  }
+]

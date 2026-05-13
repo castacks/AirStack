@@ -167,8 +167,11 @@ def add_orthographic_camera(stage,
                             prim_path: str = "/World/MapCamera",
                             altitude_m: float = 80.0,
                             coverage_m: float = 80.0,
-                            scene_scale_factor: float = 1.0):
-    """Create a static orthographic camera straight over (0, 0) looking down.
+                            scene_scale_factor: float = 1.0,
+                            center_x_m: float = 0.0,
+                            center_y_m: float = 0.0):
+    """Create a static orthographic camera straight over a configurable XY
+    point looking down.
 
     Args:
         stage:               Active USD stage.
@@ -178,18 +181,21 @@ def add_orthographic_camera(stage,
         scene_scale_factor:  1 / meters_per_unit. Pass the value returned by
                              ``get_stage_meters_per_unit`` so metric inputs
                              land in the right stage-space units.
+        center_x_m:          World-X of the camera center (metric). Default 0.
+        center_y_m:          World-Y of the camera center (metric). Default 0.
 
     Returns:
         The string prim path (handy for callers that pass it to the OG helper).
     """
     cam = UsdGeom.Camera.Define(stage, Sdf.Path(prim_path))
 
-    # Place the camera over (0, 0). USD cameras look along -Z by default,
-    # which is already straight down — no rotation needed.
+    # USD cameras look along -Z by default — already straight down, no rotation.
     xform = UsdGeom.Xformable(cam.GetPrim())
     xform.ClearXformOpOrder()
     xform.AddTranslateOp().Set(
-        Gf.Vec3d(0.0, 0.0, float(altitude_m) * float(scene_scale_factor)))
+        Gf.Vec3d(float(center_x_m) * float(scene_scale_factor),
+                 float(center_y_m) * float(scene_scale_factor),
+                 float(altitude_m) * float(scene_scale_factor)))
 
     # Orthographic projection. USD aperture is in tenths of a stage unit, so
     # for a 1 m stage `coverage_m * 10` puts a coverage_m × coverage_m square
@@ -202,7 +208,8 @@ def add_orthographic_camera(stage,
         Gf.Vec2f(0.1, max(2.0, float(altitude_m) * 2.0) * float(scene_scale_factor)))
 
     print(f"[scene_prep] Orthographic map camera at '{prim_path}' "
-          f"(alt={altitude_m} m, coverage={coverage_m} m)")
+          f"(alt={altitude_m} m, coverage={coverage_m} m, "
+          f"center=({center_x_m}, {center_y_m}) m)")
     return prim_path
 
 
@@ -210,14 +217,19 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                                   camera_prim_path: str,
                                   topic: str = "/sim/overhead/image",
                                   spec_topic: str = "/sim/overhead/spec",
+                                  center_x_topic: str = "/sim/overhead/center_x",
+                                  center_y_topic: str = "/sim/overhead/center_y",
                                   frame_id: str = "map",
                                   coverage_m: float = 80.0,
+                                  center_x_m: float = 0.0,
+                                  center_y_m: float = 0.0,
                                   pixels_per_meter: float = 4.0,
                                   max_resolution: int = 2048,
                                   domain_id: int = 0):
     """Wire an orthographic camera to a raw ``sensor_msgs/Image`` topic, plus
-    a spec ``std_msgs/Float32`` topic carrying ``coverage_m`` so consumers
-    can size the ground texture without manual configuration.
+    three spec ``std_msgs/Float32`` topics carrying ``coverage_m``,
+    ``center_x_m``, ``center_y_m`` so consumers can size **and place** the
+    ground texture without manual configuration.
 
     The image resolution is auto-derived from ``coverage_m × pixels_per_meter``
     and capped at ``max_resolution`` so a typo can't blow up bandwidth. Sim
@@ -247,11 +259,18 @@ def add_overhead_camera_publisher(parent_graph_path: str,
         "rgb":          f"{g}/MapCameraRGBHelper",
         "frame":        f"{g}/MapCameraFrameId",
         "topic":        f"{g}/MapCameraTopic",
-        # Spec branch: publishes coverage_m once per tick on a separate topic
-        # so the GCS visualizer auto-discovers FOV.
+        # Spec branches: publish coverage_m / center_x_m / center_y_m once per
+        # tick on separate Float32 topics so the GCS visualizer auto-discovers
+        # both FOV and world placement.
         "spec_value":   f"{g}/MapCameraSpecValue",
         "spec_topic":   f"{g}/MapCameraSpecTopic",
         "spec_pub":     f"{g}/MapCameraSpecPublisher",
+        "cx_value":     f"{g}/MapCameraCenterXValue",
+        "cx_topic":     f"{g}/MapCameraCenterXTopic",
+        "cx_pub":       f"{g}/MapCameraCenterXPublisher",
+        "cy_value":     f"{g}/MapCameraCenterYValue",
+        "cy_topic":     f"{g}/MapCameraCenterYTopic",
+        "cy_pub":       f"{g}/MapCameraCenterYPublisher",
     }
 
     controller.edit(
@@ -267,6 +286,12 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                 (nodes["spec_value"], "omni.graph.nodes.ConstantFloat"),
                 (nodes["spec_topic"], "omni.graph.nodes.ConstantString"),
                 (nodes["spec_pub"],   "isaacsim.ros2.bridge.ROS2Publisher"),
+                (nodes["cx_value"],   "omni.graph.nodes.ConstantFloat"),
+                (nodes["cx_topic"],   "omni.graph.nodes.ConstantString"),
+                (nodes["cx_pub"],     "isaacsim.ros2.bridge.ROS2Publisher"),
+                (nodes["cy_value"],   "omni.graph.nodes.ConstantFloat"),
+                (nodes["cy_topic"],   "omni.graph.nodes.ConstantString"),
+                (nodes["cy_pub"],     "isaacsim.ros2.bridge.ROS2Publisher"),
             ],
             og.Controller.Keys.CONNECT: [
                 # Image branch
@@ -277,10 +302,18 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                 (f"{nodes['context']}.outputs:context",   f"{nodes['rgb']}.inputs:context"),
                 (f"{nodes['frame']}.inputs:value",        f"{nodes['rgb']}.inputs:frameId"),
                 (f"{nodes['topic']}.inputs:value",        f"{nodes['rgb']}.inputs:topicName"),
-                # Spec branch
+                # Spec (coverage) branch
                 (f"{nodes['playback']}.outputs:tick",     f"{nodes['spec_pub']}.inputs:execIn"),
                 (f"{nodes['context']}.outputs:context",   f"{nodes['spec_pub']}.inputs:context"),
                 (f"{nodes['spec_topic']}.inputs:value",   f"{nodes['spec_pub']}.inputs:topicName"),
+                # Center-X branch
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['cx_pub']}.inputs:execIn"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['cx_pub']}.inputs:context"),
+                (f"{nodes['cx_topic']}.inputs:value",     f"{nodes['cx_pub']}.inputs:topicName"),
+                # Center-Y branch
+                (f"{nodes['playback']}.outputs:tick",     f"{nodes['cy_pub']}.inputs:execIn"),
+                (f"{nodes['context']}.outputs:context",   f"{nodes['cy_pub']}.inputs:context"),
+                (f"{nodes['cy_topic']}.inputs:value",     f"{nodes['cy_pub']}.inputs:topicName"),
             ],
             og.Controller.Keys.SET_VALUES: [
                 (("inputs:domain_id",         nodes["context"]),  int(domain_id)),
@@ -295,24 +328,40 @@ def add_overhead_camera_publisher(parent_graph_path: str,
                 (("inputs:messageName",       nodes["spec_pub"]), "Float32"),
                 (("inputs:messagePackage",    nodes["spec_pub"]), "std_msgs"),
                 (("inputs:messageSubfolder",  nodes["spec_pub"]), "msg"),
+                (("inputs:value",             nodes["cx_value"]), float(center_x_m)),
+                (("inputs:value",             nodes["cx_topic"]), str(center_x_topic)),
+                (("inputs:messageName",       nodes["cx_pub"]), "Float32"),
+                (("inputs:messagePackage",    nodes["cx_pub"]), "std_msgs"),
+                (("inputs:messageSubfolder",  nodes["cx_pub"]), "msg"),
+                (("inputs:value",             nodes["cy_value"]), float(center_y_m)),
+                (("inputs:value",             nodes["cy_topic"]), str(center_y_topic)),
+                (("inputs:messageName",       nodes["cy_pub"]), "Float32"),
+                (("inputs:messagePackage",    nodes["cy_pub"]), "std_msgs"),
+                (("inputs:messageSubfolder",  nodes["cy_pub"]), "msg"),
             ],
         },
     )
 
     # The ROS2Publisher's value input is dynamically typed — created on the
-    # node after the message type is set. Connect ConstantFloat → publisher.
+    # node after the message type is set. Connect ConstantFloat → publisher
+    # for each of the three spec topics.
     controller.edit(
         graph_id=g,
         edit_commands={
             og.Controller.Keys.CONNECT: [
                 (f"{nodes['spec_value']}.inputs:value",
                  f"{nodes['spec_pub']}.inputs:data"),
+                (f"{nodes['cx_value']}.inputs:value",
+                 f"{nodes['cx_pub']}.inputs:data"),
+                (f"{nodes['cy_value']}.inputs:value",
+                 f"{nodes['cy_pub']}.inputs:data"),
             ],
         },
     )
 
     print(f"[scene_prep] Overhead camera publisher wired: "
           f"{topic} ({res}x{res} raw Image), {spec_topic} ({coverage_m} m), "
+          f"{center_x_topic}={center_x_m} m, {center_y_topic}={center_y_m} m, "
           f"domain_id={domain_id}")
 
 
@@ -321,12 +370,16 @@ def add_overhead_camera_publisher(parent_graph_path: str,
 # ---------------------------------------------------------------------------
 
 def reference_root_prims_under_world(stage, source_usd_url: str) -> list:
-    """Reference non-/World root prims from *source_usd_url* under /World.
+    """Reference sibling root prims from *source_usd_url* under /World/<name>.
 
-    When a USD is loaded via pg.load_environment (reference scoped to /World),
-    root-level prims like /Sky, /Sun, /Environment are excluded. This function
-    opens the source layer, finds those prims, and adds them as individual
-    references under /World — without touching the geometry already loaded.
+    pg.load_environment references the source USD's defaultPrim into
+    /World/stage — anything outside that defaultPrim (sky, sun, environment
+    sitting at root level) gets dropped. This function pulls those siblings
+    in as individual references.
+
+    Skips the defaultPrim itself, since re-referencing it would create a
+    second independent copy of the same geometry next to /World/stage.
+    Also skips a literal /World prim if one exists in the source.
 
     Args:
         stage:          Active USD stage.
@@ -340,18 +393,25 @@ def reference_root_prims_under_world(stage, source_usd_url: str) -> list:
         print(f"[scene_prep] reference_root_prims_under_world: could not open {source_usd_url}", flush=True)
         return []
 
-    non_world = [spec.name for spec in source_layer.rootPrims if spec.name != 'World']
-    if not non_world:
-        print("[scene_prep] reference_root_prims_under_world: no non-World root prims found", flush=True)
+    default_prim = source_layer.defaultPrim  # name only, e.g. "Stage"
+    skip = {'World'}
+    if default_prim:
+        skip.add(default_prim)
+
+    siblings = [spec.name for spec in source_layer.rootPrims if spec.name not in skip]
+    if not siblings:
+        print(f"[scene_prep] reference_root_prims_under_world: no sibling root prims to pull in "
+              f"(defaultPrim={default_prim!r}, all roots={[s.name for s in source_layer.rootPrims]})",
+              flush=True)
         return []
 
-    for name in non_world:
+    for name in siblings:
         dest_path = f"/World/{name}"
         dest_prim = stage.DefinePrim(dest_path)
         dest_prim.GetReferences().AddReference(source_usd_url, f"/{name}")
         print(f"[scene_prep] Referenced /{name} at {dest_path}", flush=True)
 
-    return non_world
+    return siblings
 
 
 def move_root_prims_to_world_live(stage) -> list:

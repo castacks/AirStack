@@ -119,15 +119,22 @@ class FoxgloveVisualizerNode(Node):
         self.create_timer(1.0, self._publish_map_origin)
 
         # Sim-mode "textured ground" pipeline. The simulator publishes a
-        # raw overhead Image of its static scene plus a coverage_m spec on a
-        # separate Float32 topic so the GCS doesn't need to be configured
-        # manually. We wait until both have been received, then build a
-        # TRIANGLE_LIST marker with per-vertex colors and publish it once on
-        # a latched topic for Foxglove's 3D panel. Subscriptions are torn
-        # down after the first build to free up bandwidth.
+        # raw overhead Image of its static scene plus three Float32 specs
+        # (coverage_m, center_x_m, center_y_m) on separate topics so the
+        # GCS doesn't need to be configured manually. We wait until image +
+        # all three specs have been received, then build a TRIANGLE_LIST
+        # marker with per-vertex colors and publish it once on a latched
+        # topic for Foxglove's 3D panel. Subscriptions are torn down after
+        # the first build to free up bandwidth.
         self.declare_parameter('overhead_image_topic', '/sim/overhead/image')
         self.declare_parameter('overhead_spec_topic', '/sim/overhead/spec')
+        self.declare_parameter('overhead_center_x_topic', '/sim/overhead/center_x')
+        self.declare_parameter('overhead_center_y_topic', '/sim/overhead/center_y')
         self.declare_parameter('overhead_coverage_m', 0.0)        # 0 → wait for spec topic
+        # Center overrides: NaN sentinel ("nan") → wait for sim topic; any
+        # finite value → use directly and ignore the topic.
+        self.declare_parameter('overhead_center_x_m', float('nan'))
+        self.declare_parameter('overhead_center_y_m', float('nan'))
         self.declare_parameter('overhead_grid_resolution', 0)     # 0 → derive from coverage
         self.declare_parameter('overhead_grid_per_m', 0.8)
         self.declare_parameter('overhead_max_grid_resolution', 384)
@@ -135,9 +142,18 @@ class FoxgloveVisualizerNode(Node):
             'overhead_image_topic').value
         self._overhead_spec_topic = self.get_parameter(
             'overhead_spec_topic').value
+        self._overhead_cx_topic = self.get_parameter(
+            'overhead_center_x_topic').value
+        self._overhead_cy_topic = self.get_parameter(
+            'overhead_center_y_topic').value
         # 0 → unknown / wait for spec; >0 → manual override.
         cov_param = float(self.get_parameter('overhead_coverage_m').value)
         self._overhead_coverage_m = cov_param if cov_param > 0 else None
+        cx_param = float(self.get_parameter('overhead_center_x_m').value)
+        cy_param = float(self.get_parameter('overhead_center_y_m').value)
+        # math.isnan-safe via != self comparison (NaN != NaN).
+        self._overhead_center_x_m = None if cx_param != cx_param else cx_param
+        self._overhead_center_y_m = None if cy_param != cy_param else cy_param
         grid_param = int(self.get_parameter('overhead_grid_resolution').value)
         self._overhead_grid_n_override = grid_param if grid_param > 0 else None
         self._overhead_grid_per_m = float(self.get_parameter(
@@ -145,7 +161,7 @@ class FoxgloveVisualizerNode(Node):
         self._overhead_max_grid_n = int(self.get_parameter(
             'overhead_max_grid_resolution').value)
         self._ground_published = False
-        self._pending_image = None    # cache image until spec arrives (or vice versa)
+        self._pending_image = None    # cache image until all specs arrive
         self._ground_pub = self.create_publisher(
             Marker, '/gcs/sim_ground', LATCHED_QOS)
         self._overhead_sub = self.create_subscription(
@@ -154,6 +170,12 @@ class FoxgloveVisualizerNode(Node):
         self._overhead_spec_sub = self.create_subscription(
             Float32, self._overhead_spec_topic,
             self._on_overhead_spec, SENSOR_QOS)
+        self._overhead_cx_sub = self.create_subscription(
+            Float32, self._overhead_cx_topic,
+            self._on_overhead_center_x, SENSOR_QOS)
+        self._overhead_cy_sub = self.create_subscription(
+            Float32, self._overhead_cy_topic,
+            self._on_overhead_center_y, SENSOR_QOS)
         self._subscribed_vdb  = set()
         self._subscribed_ray_groups = set()
         self._ray_groups_pubs: dict = {}
@@ -374,26 +396,59 @@ class FoxgloveVisualizerNode(Node):
         m.altitude = 0.0
         self._origin_pub.publish(m)
 
+    def _specs_ready(self) -> bool:
+        """All three sim-published specs (coverage, center_x, center_y) have
+        been received or set explicitly."""
+        return (self._overhead_coverage_m is not None
+                and self._overhead_center_x_m is not None
+                and self._overhead_center_y_m is not None)
+
+    def _try_build_pending(self):
+        """If we have a pending image and all specs, finish the build."""
+        if self._ground_published or self._pending_image is None:
+            return
+        if not self._specs_ready():
+            return
+        img = self._pending_image
+        self._pending_image = None
+        self._build_sim_ground_marker(img)
+
     def _on_overhead_spec(self, msg: Float32):
-        """Cache the sim-published coverage_m. We may have already received
-        an image — if so, finish the build now."""
+        """Cache the sim-published coverage_m."""
         if self._ground_published:
             return
         if self._overhead_coverage_m is None and float(msg.data) > 0:
             self._overhead_coverage_m = float(msg.data)
             self.get_logger().info(
                 f'Sim overhead spec: coverage_m = {self._overhead_coverage_m:.1f}')
-        if self._pending_image is not None:
-            img = self._pending_image
-            self._pending_image = None
-            self._build_sim_ground_marker(img)
+        self._try_build_pending()
+
+    def _on_overhead_center_x(self, msg: Float32):
+        """Cache the sim-published camera center X (world meters)."""
+        if self._ground_published:
+            return
+        if self._overhead_center_x_m is None:
+            self._overhead_center_x_m = float(msg.data)
+            self.get_logger().info(
+                f'Sim overhead spec: center_x_m = {self._overhead_center_x_m:.1f}')
+        self._try_build_pending()
+
+    def _on_overhead_center_y(self, msg: Float32):
+        """Cache the sim-published camera center Y (world meters)."""
+        if self._ground_published:
+            return
+        if self._overhead_center_y_m is None:
+            self._overhead_center_y_m = float(msg.data)
+            self.get_logger().info(
+                f'Sim overhead spec: center_y_m = {self._overhead_center_y_m:.1f}')
+        self._try_build_pending()
 
     def _on_overhead_image(self, msg: Image):
         """Cache or process the first valid sim-overhead Image."""
         if self._ground_published:
             return
-        if self._overhead_coverage_m is None:
-            # Hold onto the image until the spec arrives.
+        if not self._specs_ready():
+            # Hold onto the image until all specs arrive.
             self._pending_image = msg
             return
         self._build_sim_ground_marker(msg)
@@ -423,6 +478,8 @@ class FoxgloveVisualizerNode(Node):
             return
 
         coverage = float(self._overhead_coverage_m)
+        cx = float(self._overhead_center_x_m or 0.0)
+        cy = float(self._overhead_center_y_m or 0.0)
         # Grid resolution: explicit override > coverage × density (capped).
         if self._overhead_grid_n_override is not None:
             N = self._overhead_grid_n_override
@@ -452,12 +509,13 @@ class FoxgloveVisualizerNode(Node):
         marker.color.a = 1.0  # per-vertex colors override .color, but a must be set
 
         # Build the grid. Image row 0 is the +Y edge (image-up = world-north).
-        # World x = (col / N - 0.5) * coverage; world y = (0.5 - row / N) * coverage.
+        # World x = cx + (col / N - 0.5) * coverage;
+        # world y = cy + (0.5 - row / N) * coverage.
         for row in range(N):
-            y_top = (0.5 - row / N) * coverage
+            y_top = cy + (0.5 - row / N) * coverage
             y_bot = y_top - cell
             for col in range(N):
-                x_left = (col / N - 0.5) * coverage
+                x_left = cx + (col / N - 0.5) * coverage
                 x_right = x_left + cell
                 r, g, b = pixels[row, col]
                 color = ColorRGBA(r=r/255.0, g=g/255.0, b=b/255.0, a=0.7)
@@ -475,15 +533,17 @@ class FoxgloveVisualizerNode(Node):
 
         self._ground_pub.publish(marker)
         self._ground_published = True
-        # Stop pulling raw image bytes (and the now-redundant spec) off the wire.
-        for sub_attr in ('_overhead_sub', '_overhead_spec_sub'):
+        # Stop pulling raw image bytes (and the now-redundant specs) off the wire.
+        for sub_attr in ('_overhead_sub', '_overhead_spec_sub',
+                         '_overhead_cx_sub', '_overhead_cy_sub'):
             try:
                 self.destroy_subscription(getattr(self, sub_attr))
             except Exception:
                 pass
         self.get_logger().info(
             f'Published sim_ground marker: {N}x{N} cells, '
-            f'{len(marker.points)} verts, coverage {coverage:.1f} m')
+            f'{len(marker.points)} verts, coverage {coverage:.1f} m, '
+            f'center ({cx:.1f}, {cy:.1f}) m')
 
     def _publish_markers(self):
         if not self._gps_positions:

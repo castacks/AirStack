@@ -1,0 +1,2477 @@
+[
+  {
+    "class": "billboard",
+    "bbox_world": {
+      "center_xyz_m": [
+        -8.3,
+        -76.1,
+        9.7
+      ],
+      "size_xyz_m": [
+        5.9,
+        3.5,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "billboard",
+    "bbox_world": {
+      "center_xyz_m": [
+        -9.0,
+        -74.9,
+        9.7
+      ],
+      "size_xyz_m": [
+        5.9,
+        3.5,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "billboard",
+    "bbox_world": {
+      "center_xyz_m": [
+        -16.4,
+        7.6,
+        9.7
+      ],
+      "size_xyz_m": [
+        5.2,
+        4.4,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "billboard",
+    "bbox_world": {
+      "center_xyz_m": [
+        -17.3,
+        8.7,
+        9.7
+      ],
+      "size_xyz_m": [
+        5.2,
+        4.4,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "bus stop",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.8,
+        -3.6,
+        1.4
+      ],
+      "size_xyz_m": [
+        1.8,
+        6.0,
+        2.7
+      ]
+    }
+  },
+  {
+    "class": "bus stop",
+    "bbox_world": {
+      "center_xyz_m": [
+        -5.4,
+        -28.1,
+        1.4
+      ],
+      "size_xyz_m": [
+        6.0,
+        1.8,
+        2.7
+      ]
+    }
+  },
+  {
+    "class": "bus stop",
+    "bbox_world": {
+      "center_xyz_m": [
+        -27.5,
+        -13.6,
+        1.4
+      ],
+      "size_xyz_m": [
+        6.0,
+        1.8,
+        2.7
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        47.5,
+        18.4,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        23.8,
+        18.4,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        35.7,
+        17.8,
+        3.2
+      ],
+      "size_xyz_m": [
+        6.1,
+        6.1,
+        5.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        29.7,
+        17.4,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.8,
+        8.5,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        40.9,
+        17.9,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.8,
+        8.5,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -117.0,
+        -66.6,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -93.1,
+        -66.6,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -105.1,
+        -66.1,
+        3.2
+      ],
+      "size_xyz_m": [
+        6.2,
+        6.1,
+        5.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -99.0,
+        -65.6,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.9,
+        8.5,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -110.4,
+        -65.6,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.9,
+        8.5,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        152.6,
+        -51.8,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        152.6,
+        -75.7,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        152.6,
+        -63.7,
+        3.2
+      ],
+      "size_xyz_m": [
+        6.1,
+        6.2,
+        5.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        153.6,
+        -69.8,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.5,
+        8.9,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        153.6,
+        -58.4,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.5,
+        8.9,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        157.8,
+        19.4,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        133.8,
+        19.4,
+        2.8
+      ],
+      "size_xyz_m": [
+        5.2,
+        5.2,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        145.8,
+        19.3,
+        3.2
+      ],
+      "size_xyz_m": [
+        6.2,
+        6.1,
+        5.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        139.8,
+        18.4,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.9,
+        8.5,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        151.1,
+        18.4,
+        5.4
+      ],
+      "size_xyz_m": [
+        8.9,
+        8.5,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        -36.1,
+        1.2,
+        4.3
+      ],
+      "size_xyz_m": [
+        21.2,
+        11.5,
+        8.6
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        148.4,
+        3.1,
+        2.9
+      ],
+      "size_xyz_m": [
+        20.5,
+        16.6,
+        5.8
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        149.1,
+        -2.8,
+        1.7
+      ],
+      "size_xyz_m": [
+        8.9,
+        3.9,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        -59.7,
+        -1.7,
+        5.7
+      ],
+      "size_xyz_m": [
+        15.1,
+        14.3,
+        11.5
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        -52.3,
+        0.6,
+        6.3
+      ],
+      "size_xyz_m": [
+        1.0,
+        1.6,
+        12.7
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        -62.2,
+        7.3,
+        2.3
+      ],
+      "size_xyz_m": [
+        7.1,
+        4.4,
+        4.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        34.1,
+        -40.9,
+        2.9
+      ],
+      "size_xyz_m": [
+        20.5,
+        16.6,
+        5.8
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        33.4,
+        -35.1,
+        1.7
+      ],
+      "size_xyz_m": [
+        8.9,
+        3.9,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        29.8,
+        -50.8,
+        1.7
+      ],
+      "size_xyz_m": [
+        8.9,
+        3.9,
+        3.5
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        -37.6,
+        -41.0,
+        3.9
+      ],
+      "size_xyz_m": [
+        13.1,
+        16.2,
+        7.8
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        -42.0,
+        -39.0,
+        1.9
+      ],
+      "size_xyz_m": [
+        9.3,
+        13.7,
+        3.8
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        -37.8,
+        -48.9,
+        4.9
+      ],
+      "size_xyz_m": [
+        2.6,
+        1.0,
+        9.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        -107.4,
+        -44.8,
+        6.6
+      ],
+      "size_xyz_m": [
+        23.4,
+        24.1,
+        13.3
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        -118.9,
+        -47.2,
+        4.9
+      ],
+      "size_xyz_m": [
+        1.0,
+        2.6,
+        9.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        33.6,
+        3.5,
+        4.2
+      ],
+      "size_xyz_m": [
+        20.7,
+        17.7,
+        8.4
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        27.2,
+        -5.4,
+        4.8
+      ],
+      "size_xyz_m": [
+        1.6,
+        1.0,
+        9.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        137.6,
+        -38.2,
+        5.7
+      ],
+      "size_xyz_m": [
+        14.3,
+        15.1,
+        11.5
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        139.9,
+        -45.7,
+        6.3
+      ],
+      "size_xyz_m": [
+        1.6,
+        1.0,
+        12.7
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        146.6,
+        -35.8,
+        2.3
+      ],
+      "size_xyz_m": [
+        4.4,
+        7.1,
+        4.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        65.3,
+        4.2,
+        5.7
+      ],
+      "size_xyz_m": [
+        15.1,
+        14.3,
+        11.5
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        72.7,
+        6.5,
+        6.3
+      ],
+      "size_xyz_m": [
+        1.0,
+        1.6,
+        12.7
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        62.8,
+        13.2,
+        2.3
+      ],
+      "size_xyz_m": [
+        7.1,
+        4.4,
+        4.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        93.8,
+        2.0,
+        5.5
+      ],
+      "size_xyz_m": [
+        15.9,
+        11.3,
+        10.9
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        93.7,
+        10.6,
+        2.1
+      ],
+      "size_xyz_m": [
+        13.9,
+        7.2,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        101.6,
+        1.9,
+        5.9
+      ],
+      "size_xyz_m": [
+        1.0,
+        1.6,
+        11.8
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        64.8,
+        -44.8,
+        3.5
+      ],
+      "size_xyz_m": [
+        15.8,
+        19.3,
+        6.9
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        -59.1,
+        -41.1,
+        3.5
+      ],
+      "size_xyz_m": [
+        15.8,
+        19.3,
+        6.9
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        96.2,
+        -41.8,
+        4.3
+      ],
+      "size_xyz_m": [
+        21.2,
+        11.5,
+        8.6
+      ]
+    }
+  },
+  {
+    "class": "porch",
+    "bbox_world": {
+      "center_xyz_m": [
+        94.6,
+        -50.0,
+        2.1
+      ],
+      "size_xyz_m": [
+        13.9,
+        7.2,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "chimney",
+    "bbox_world": {
+      "center_xyz_m": [
+        103.9,
+        -47.4,
+        4.8
+      ],
+      "size_xyz_m": [
+        1.6,
+        1.0,
+        9.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        -97.7,
+        8.4,
+        4.8
+      ],
+      "size_xyz_m": [
+        10.8,
+        24.7,
+        9.5
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        138.2,
+        -67.4,
+        4.8
+      ],
+      "size_xyz_m": [
+        10.8,
+        24.7,
+        9.5
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        100.9,
+        -74.4,
+        4.8
+      ],
+      "size_xyz_m": [
+        10.8,
+        24.7,
+        9.5
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        101.6,
+        36.5,
+        2.8
+      ],
+      "size_xyz_m": [
+        13.0,
+        13.0,
+        5.7
+      ]
+    }
+  },
+  {
+    "class": "house",
+    "bbox_world": {
+      "center_xyz_m": [
+        161.9,
+        -37.4,
+        2.8
+      ],
+      "size_xyz_m": [
+        13.0,
+        13.0,
+        5.7
+      ]
+    }
+  },
+  {
+    "class": "tunnel",
+    "bbox_world": {
+      "center_xyz_m": [
+        -19.7,
+        -118.9,
+        7.3
+      ],
+      "size_xyz_m": [
+        20.0,
+        20.0,
+        15.0
+      ]
+    }
+  },
+  {
+    "class": "fountain",
+    "bbox_world": {
+      "center_xyz_m": [
+        51.9,
+        6.2,
+        1.0
+      ],
+      "size_xyz_m": [
+        2.1,
+        2.0,
+        2.0
+      ]
+    }
+  },
+  {
+    "class": "blue container",
+    "bbox_world": {
+      "center_xyz_m": [
+        9.0,
+        11.9,
+        3.9
+      ],
+      "size_xyz_m": [
+        6.4,
+        3.7,
+        2.6
+      ]
+    }
+  },
+  {
+    "class": "blue container",
+    "bbox_world": {
+      "center_xyz_m": [
+        -8.9,
+        11.3,
+        3.9
+      ],
+      "size_xyz_m": [
+        6.4,
+        3.7,
+        2.6
+      ]
+    }
+  },
+  {
+    "class": "red container",
+    "bbox_world": {
+      "center_xyz_m": [
+        -34.2,
+        28.7,
+        1.3
+      ],
+      "size_xyz_m": [
+        6.4,
+        3.7,
+        2.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        25.2,
+        -6.9,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        29.2,
+        -6.9,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.9,
+        3.1,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        48.5,
+        -1.4,
+        4.7
+      ],
+      "size_xyz_m": [
+        6.9,
+        8.0,
+        9.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        48.2,
+        -6.3,
+        2.3
+      ],
+      "size_xyz_m": [
+        6.7,
+        6.7,
+        4.6
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        55.4,
+        -7.7,
+        3.2
+      ],
+      "size_xyz_m": [
+        3.4,
+        3.5,
+        6.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        78.8,
+        -7.4,
+        3.2
+      ],
+      "size_xyz_m": [
+        4.5,
+        4.4,
+        6.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        78.6,
+        18.7,
+        8.7
+      ],
+      "size_xyz_m": [
+        14.1,
+        13.9,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        11.4,
+        40.6,
+        8.7
+      ],
+      "size_xyz_m": [
+        17.9,
+        18.0,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        7.8,
+        -33.1,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        12.5,
+        -30.6,
+        4.7
+      ],
+      "size_xyz_m": [
+        9.8,
+        9.6,
+        9.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -6.3,
+        -52.5,
+        8.7
+      ],
+      "size_xyz_m": [
+        17.9,
+        18.0,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -6.7,
+        -36.2,
+        4.7
+      ],
+      "size_xyz_m": [
+        9.8,
+        9.6,
+        9.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        34.7,
+        -24.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        11.7,
+        -24.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        20.7,
+        -13.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -11.1,
+        46.1,
+        8.2
+      ],
+      "size_xyz_m": [
+        19.4,
+        19.2,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        9.1,
+        -54.6,
+        8.2
+      ],
+      "size_xyz_m": [
+        14.5,
+        13.8,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        41.0,
+        -72.2,
+        8.2
+      ],
+      "size_xyz_m": [
+        14.5,
+        13.8,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        51.6,
+        -13.7,
+        2.4
+      ],
+      "size_xyz_m": [
+        1.7,
+        1.8,
+        4.8
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        45.5,
+        -55.1,
+        5.7
+      ],
+      "size_xyz_m": [
+        10.4,
+        10.6,
+        11.3
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        100.4,
+        -13.7,
+        2.4
+      ],
+      "size_xyz_m": [
+        1.7,
+        1.8,
+        4.8
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        108.5,
+        15.3,
+        8.2
+      ],
+      "size_xyz_m": [
+        14.5,
+        13.8,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        108.0,
+        -5.4,
+        8.2
+      ],
+      "size_xyz_m": [
+        16.1,
+        16.7,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        75.1,
+        -57.0,
+        5.1
+      ],
+      "size_xyz_m": [
+        12.2,
+        12.3,
+        10.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.7,
+        -37.2,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        76.6,
+        -13.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        173.7,
+        2.7,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        135.5,
+        34.8,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        164.7,
+        -60.2,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        131.0,
+        -13.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        136.4,
+        -24.4,
+        2.4
+      ],
+      "size_xyz_m": [
+        1.7,
+        1.8,
+        4.8
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        157.9,
+        -24.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        206.8,
+        -42.3,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        209.2,
+        53.2,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        128.8,
+        -93.4,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        169.4,
+        -93.9,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.5,
+        19.5,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        125.6,
+        -46.5,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        125.6,
+        -71.7,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.9,
+        -83.9,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.9,
+        -56.1,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        121.9,
+        64.1,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        125.6,
+        -1.0,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        125.6,
+        34.7,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.9,
+        42.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.9,
+        19.9,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        114.9,
+        1.4,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -13.6,
+        -13.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -38.0,
+        -13.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -57.1,
+        -13.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -56.3,
+        -24.1,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -43.3,
+        -24.1,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -33.0,
+        -24.7,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -132.0,
+        -32.5,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -91.9,
+        -74.2,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -121.2,
+        20.8,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -156.7,
+        2.9,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -143.3,
+        -92.5,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -125.9,
+        54.5,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.5,
+        19.5,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -78.4,
+        -103.4,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -69.6,
+        52.3,
+        8.8
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -80.1,
+        34.3,
+        8.2
+      ],
+      "size_xyz_m": [
+        19.4,
+        19.2,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -38.7,
+        -76.0,
+        8.2
+      ],
+      "size_xyz_m": [
+        19.4,
+        19.2,
+        16.5
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -74.3,
+        23.2,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -85.0,
+        14.5,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -85.0,
+        -4.1,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -91.0,
+        -13.9,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -104.1,
+        -24.5,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -136.8,
+        -24.5,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -127.7,
+        -13.9,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -74.2,
+        -30.3,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -74.2,
+        -44.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -74.2,
+        -62.1,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -85.3,
+        -53.5,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -85.3,
+        -37.7,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -25.0,
+        -31.2,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -25.0,
+        -97.7,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -25.0,
+        -55.4,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -13.9,
+        -42.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -13.9,
+        -93.0,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -74.2,
+        -0.3,
+        8.8
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -25.0,
+        -71.3,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -13.9,
+        -66.6,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        77.1,
+        -24.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        53.1,
+        -24.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        90.4,
+        -24.8,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        115.0,
+        -33.0,
+        2.0
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.0,
+        4.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        125.5,
+        17.8,
+        2.4
+      ],
+      "size_xyz_m": [
+        1.7,
+        1.8,
+        4.8
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        125.4,
+        -61.6,
+        2.4
+      ],
+      "size_xyz_m": [
+        1.7,
+        1.8,
+        4.8
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        163.5,
+        -24.0,
+        8.7
+      ],
+      "size_xyz_m": [
+        19.7,
+        19.7,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        75.5,
+        -30.5,
+        3.2
+      ],
+      "size_xyz_m": [
+        4.5,
+        4.4,
+        6.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        55.4,
+        19.6,
+        3.2
+      ],
+      "size_xyz_m": [
+        3.4,
+        3.5,
+        6.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        131.5,
+        11.5,
+        3.2
+      ],
+      "size_xyz_m": [
+        3.4,
+        3.5,
+        6.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        82.1,
+        -7.4,
+        2.5
+      ],
+      "size_xyz_m": [
+        3.3,
+        3.4,
+        5.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        105.5,
+        -7.4,
+        2.5
+      ],
+      "size_xyz_m": [
+        3.3,
+        3.4,
+        5.1
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        -91.5,
+        -31.5,
+        3.2
+      ],
+      "size_xyz_m": [
+        3.4,
+        3.5,
+        6.4
+      ]
+    }
+  },
+  {
+    "class": "tree",
+    "bbox_world": {
+      "center_xyz_m": [
+        22.3,
+        -94.6,
+        8.7
+      ],
+      "size_xyz_m": [
+        17.9,
+        18.0,
+        17.4
+      ]
+    }
+  },
+  {
+    "class": "red car",
+    "bbox_world": {
+      "center_xyz_m": [
+        90.5,
+        -29.5,
+        0.5
+      ],
+      "size_xyz_m": [
+        3.0,
+        4.0,
+        2.0
+      ]
+    }
+  },
+  {
+    "class": "yellow car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -1.0,
+        30.0,
+        0.5
+      ],
+      "size_xyz_m": [
+        5.0,
+        4.0,
+        2.0
+      ]
+    }
+  }
+]
