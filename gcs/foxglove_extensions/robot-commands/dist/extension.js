@@ -405,21 +405,36 @@ function statusLabel(code) {
   switch (code) {
     case GOAL_STATUS.ACCEPTED:  return "Accepted";
     case GOAL_STATUS.EXECUTING: return "Running";
-    case GOAL_STATUS.CANCELING: return "Cancelling";
+    case GOAL_STATUS.CANCELING: return "Canceling";
     case GOAL_STATUS.SUCCEEDED: return "Succeeded";
     case GOAL_STATUS.CANCELED:  return "Canceled";
-    case GOAL_STATUS.ABORTED:   return "Aborted";
+    case GOAL_STATUS.ABORTED:   return "Failed";
     default:                    return "Unknown";
   }
 }
 
 function statusColor(code) {
   switch (code) {
-    case GOAL_STATUS.SUCCEEDED: return "#16a34a";
-    case GOAL_STATUS.ABORTED:   return "#dc2626";
-    case GOAL_STATUS.CANCELED:  return "#ea580c";
-    case GOAL_STATUS.CANCELING: return "#ea580c";
-    default:                    return "#2563eb";
+    case GOAL_STATUS.SUCCEEDED: return "#16a34a";  // green
+    case GOAL_STATUS.ABORTED:   return "#dc2626";  // red
+    case GOAL_STATUS.CANCELED:  return "#ea580c";  // orange
+    case GOAL_STATUS.CANCELING: return "#ea580c";  // orange
+    case GOAL_STATUS.ACCEPTED:
+    case GOAL_STATUS.EXECUTING: return "#eab308";  // yellow — in progress
+    default:                    return "inherit";
+  }
+}
+
+// Colorblind-friendly emoji per terminal/in-progress status, prefixed onto the
+// tab label so the indicator survives mono-color rendering.
+function statusEmoji(code, active) {
+  if (active) return "⏳";
+  switch (code) {
+    case GOAL_STATUS.SUCCEEDED: return "✅";
+    case GOAL_STATUS.ABORTED:   return "❌";
+    case GOAL_STATUS.CANCELED:  return "🚫";
+    case GOAL_STATUS.CANCELING: return "⏳";
+    default: return "";
   }
 }
 
@@ -599,19 +614,10 @@ function activate(extensionContext) {
           tabBodies[tab.id].style.display = isActive ? "flex" : "none";
           tabButtons[tab.id].style.borderBottomColor = isActive ? "#10b981" : "transparent";
           tabButtons[tab.id].style.fontWeight = isActive ? "bold" : "normal";
-          // Tab text color: yellow while running, green on success, yellow on
-          // failure/cancel, inherit otherwise.
           const pt = perTab[tab.id];
-          let color = "inherit";
-          if (pt.active) {
-            color = "#eab308";  // yellow — running
-          } else if (pt.statusCode === GOAL_STATUS.SUCCEEDED) {
-            color = "#10b981";  // green — succeeded
-          } else if (pt.statusCode === GOAL_STATUS.ABORTED ||
-                     pt.statusCode === GOAL_STATUS.CANCELED) {
-            color = "#eab308";  // yellow — failed / canceled
-          }
-          tabButtons[tab.id].style.color = color;
+          tabButtons[tab.id].style.color = statusColor(pt.active ? GOAL_STATUS.EXECUTING : pt.statusCode);
+          const emoji = statusEmoji(pt.statusCode, pt.active);
+          tabButtons[tab.id].textContent = emoji ? `${emoji} ${tab.label}` : tab.label;
         }
         renderStatus();
         renderFeedback();
@@ -650,6 +656,16 @@ function activate(extensionContext) {
       }
 
       function resetRuntimeForNewGoal() {
+        // Clear stale terminal colors/emojis on every other tab for this robot
+        // so the panel doesn't carry state from the previous task forward.
+        for (const tab of TASK_TABS) {
+          if (tab.id === state.activeTab) continue;
+          const other = perTab[tab.id];
+          if (!other.active) {
+            other.statusCode = GOAL_STATUS.UNKNOWN;
+            other.statusText = "Idle";
+          }
+        }
         const t = curTab();
         t.feedbackLines = [];
         t.resultText = "";
@@ -746,6 +762,22 @@ function activate(extensionContext) {
           panelContext.advertise(cancelTopic, "std_msgs/msg/String");
           panelContext.publish(cancelTopic, { data: "cancel" });
           appendFeedback("Cancel requested");
+          t.statusCode = GOAL_STATUS.CANCELING;
+          if (t.cancelTimeoutId) clearTimeout(t.cancelTimeoutId);
+          const myTimer = setTimeout(() => {
+            if (t.cancelTimeoutId !== myTimer) return;
+            t.cancelTimeoutId = null;
+            if (t.statusCode !== GOAL_STATUS.CANCELING) return;
+            t.statusCode = GOAL_STATUS.ABORTED;
+            t.statusText = "Cancel timeout";
+            t.resultText = "Cancel timed out — server unresponsive (forced local close)";
+            t.active = false;
+            appendFeedback(t.resultText);
+            rebuildSubscriptions();
+            renderStatus();
+            renderFeedback();
+          }, 5000);
+          t.cancelTimeoutId = myTimer;
         } catch (err) {
           appendFeedback(`Cancel failed: ${err?.message ?? err}`);
         }
@@ -812,9 +844,24 @@ function activate(extensionContext) {
         if (!data) return;
         try {
           const result = JSON.parse(data);
-          t.resultText = `success: ${result.success}\nmessage: ${result.message ?? ""}`;
-          t.statusText = result.success ? "Succeeded" : "Failed";
-          t.statusCode = result.success ? GOAL_STATUS.SUCCEEDED : GOAL_STATUS.ABORTED;
+          const message = String(result.message ?? "");
+          t.resultText = `success: ${result.success}\nmessage: ${message}`;
+          // Treat as canceled if either the panel had a prior cancel transition
+          // or the message text starts with "cancel" (any spelling/case) — the
+          // relay sends success=false for both failures and cancels.
+          const wasCanceled = t.statusCode === GOAL_STATUS.CANCELED ||
+                              t.statusCode === GOAL_STATUS.CANCELING;
+          const messageSaysCanceled = /^cancel/i.test(message.trim());
+          if (result.success) {
+            t.statusText = "Succeeded";
+            t.statusCode = GOAL_STATUS.SUCCEEDED;
+          } else if (wasCanceled || messageSaysCanceled) {
+            t.statusText = "Canceled";
+            t.statusCode = GOAL_STATUS.CANCELED;
+          } else {
+            t.statusText = "Failed";
+            t.statusCode = GOAL_STATUS.ABORTED;
+          }
         } catch {
           t.resultText = data;
           t.statusText = "Done";
@@ -867,6 +914,7 @@ function activate(extensionContext) {
             if (message) t.resultText = `success: false\nmessage: ${message}`;
             break;
           case "canceled":
+          case "cancelled":
             t.active = false;
             t.statusText = "Canceled";
             t.statusCode = GOAL_STATUS.CANCELED;
