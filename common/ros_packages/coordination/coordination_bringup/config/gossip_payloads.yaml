@@ -70,6 +70,18 @@ payload_topics:
   - topic: "/{robot_name}/shared_rays"
     type: "sensor_msgs/msg/PointCloud2"
 
+  # Completed-frontier zones (raven_nav) — XY centers of regions a robot has
+  # cleared. Peers union their own zones with these to skip nearby frontiers
+  # and to feed the novelty cost in frontier selection.
+  - topic: "/{robot_name}/raven_nav/completed_frontier_zones"
+    type: "sensor_msgs/msg/PointCloud2"
+
+  # Confirmed target AABBs (raven_nav, fed from voxel_behavior) — JSON list of
+  # [{label, cx, cy, cz, sx, sy, sz, status, confidence, ts}]. Peers anchor ray
+  # triangulation onto these and dedupe discoveries by AABB overlap.
+  - topic: "/{robot_name}/raven_nav/confirmed_targets"
+    type: "std_msgs/msg/String"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

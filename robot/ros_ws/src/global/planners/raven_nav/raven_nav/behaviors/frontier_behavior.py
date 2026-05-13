@@ -64,6 +64,27 @@ def _peer_penalty(viewpoints, peer_state, my_id,
     return pen, breakdown
 
 
+# Completed-frontier-zone coverage tracker. Each "zone" is an XY center —
+# any frontier within ZONE_RADIUS_M of any zone is treated as resolved and
+# dropped before clustering. The novelty cost in scoring also penalizes
+# candidates near zones so drones drift toward fresh areas.
+ZONE_RADIUS_M = 10.0     # frontiers within this of any zone are filtered out
+NOVELTY_SCALE_M = 20.0   # exp(-d/scale) decay
+NOVELTY_WEIGHT = 25.0    # weight on the closeness-to-explored penalty
+
+
+def _nearest_zone_dist(pts_xy: np.ndarray, zones_xy: np.ndarray) -> np.ndarray:
+    """For each point return distance to the nearest zone center. inf if no zones."""
+    if pts_xy.size == 0:
+        return np.zeros(0, dtype=np.float64)
+    if zones_xy is None or zones_xy.size == 0:
+        return np.full(pts_xy.shape[0], np.inf, dtype=np.float64)
+    # Pairwise: (N, K) — manageable for small K and a few hundred N.
+    diff = pts_xy[:, None, :] - zones_xy[None, :, :]
+    d2 = np.sum(diff * diff, axis=2)
+    return np.sqrt(d2.min(axis=1))
+
+
 class FrontierBehavior:
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
@@ -79,7 +100,8 @@ class FrontierBehavior:
                 peer_state=None, my_id=0, search_area_xy=None,
                 debug_logger=None,
                 committed_target_dir=None,
-                committed_target_origin=None):
+                committed_target_origin=None,
+                completed_zones_xy=None):
         viewpoint_publisher = publisher_dict['viewpoint']
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
         path_publisher = publisher_dict['path']
@@ -110,6 +132,20 @@ class FrontierBehavior:
             polygon_dropped_own = int((~in_poly).sum())
             own_frontiers = own_frontiers[in_poly]
 
+        # Coverage filter: drop frontiers near already-cleared zones.
+        # Replaces "fly to every frontier" — visiting one frontier marks the
+        # whole 10m neighborhood as resolved (own + gossiped peer zones).
+        zone_dropped_own = 0
+        if (completed_zones_xy is not None
+                and isinstance(completed_zones_xy, np.ndarray)
+                and completed_zones_xy.shape[0] > 0
+                and own_frontiers.shape[0] > 0):
+            d_to_zone = _nearest_zone_dist(
+                own_frontiers[:, :2], completed_zones_xy)
+            keep_mask = d_to_zone > ZONE_RADIUS_M
+            zone_dropped_own = int((~keep_mask).sum())
+            own_frontiers = own_frontiers[keep_mask]
+
         # Published viewpoints come from own-only clustering.
         own_viewpoints = self._cluster_to_viewpoints(own_frontiers)
         if own_viewpoints.shape[0] > 0:
@@ -133,7 +169,16 @@ class FrontierBehavior:
                     pf_filt = pf_filt[_points_in_polygon(pf_filt[:, :2], search_area_xy)]
                 peer_count_summary[_name] = int(pf_filt.shape[0])
                 if pf_filt.shape[0] > 0:
-                    peer_chunks.append(pf_filt.astype(own_frontiers.dtype, copy=False))
+                    # Same zone filter on peer frontiers — peers don't
+                    # pre-apply it because they don't know our zone state.
+                    if (completed_zones_xy is not None
+                            and isinstance(completed_zones_xy, np.ndarray)
+                            and completed_zones_xy.shape[0] > 0):
+                        d_peer = _nearest_zone_dist(
+                            pf_filt[:, :2], completed_zones_xy)
+                        pf_filt = pf_filt[d_peer > ZONE_RADIUS_M]
+                    if pf_filt.shape[0] > 0:
+                        peer_chunks.append(pf_filt.astype(own_frontiers.dtype, copy=False))
             if peer_chunks:
                 candidate_input = np.vstack([own_frontiers] + peer_chunks)
 
@@ -150,9 +195,14 @@ class FrontierBehavior:
                 peer_str = ', '.join(peer_parts)
             else:
                 peer_str = 'none'
+            zones_n = (int(completed_zones_xy.shape[0])
+                       if isinstance(completed_zones_xy, np.ndarray)
+                       else 0)
             debug_logger.info(
                 f'[coord] frontiers: own={own_count} peer=[{peer_str}] '
-                f'merged={merged_count} (polygon_dropped_own={polygon_dropped_own})',
+                f'merged={merged_count} '
+                f'(polygon_dropped_own={polygon_dropped_own} '
+                f'zone_dropped_own={zone_dropped_own} zones={zones_n})',
                 throttle_duration_sec=2.0)
 
         if candidate_input.shape[0] == 0:
@@ -191,6 +241,19 @@ class FrontierBehavior:
         peer_pen, peer_breakdown = _peer_penalty(viewpoints, peer_state, my_id)
         scores = scores + peer_pen
 
+        # Novelty cost: penalize candidates near already-cleared zones so
+        # drones drift to unexplored regions. exp(-d/scale) decay matches the
+        # peer-repulsion shape, but it's keyed to the *coverage* state rather
+        # than to peer waypoints.
+        novelty_pen = np.zeros(viewpoints.shape[0], dtype=np.float64)
+        if (completed_zones_xy is not None
+                and isinstance(completed_zones_xy, np.ndarray)
+                and completed_zones_xy.shape[0] > 0
+                and viewpoints.shape[0] > 0):
+            d_vp = _nearest_zone_dist(viewpoints[:, :2], completed_zones_xy)
+            novelty_pen = NOVELTY_WEIGHT * np.exp(-d_vp / NOVELTY_SCALE_M)
+            scores = scores + novelty_pen
+
         # Strong bias toward viewpoints aligned with the last-seen direction of
         # the currently committed ray-mode target. Activates when raven has
         # committed to a target but ray-mode lost sight (so we fell back to
@@ -221,6 +284,34 @@ class FrontierBehavior:
         top_indices = np.argsort(scores)[:num_candidates]
         best_idx = top_indices[np.random.randint(0, num_candidates)]
         best_cent = viewpoints[best_idx]
+
+        # Compact summary: own frontier count, peer counts, zones, dropped.
+        frontier_table_pub = publisher_dict.get('frontier_table')
+        if frontier_table_pub is not None:
+            peer_zones_pairs = []
+            if peer_state is not None:
+                for pname, pz in peer_state.peer_completed_zones.items():
+                    n = int(pz.shape[0]) if pz is not None else 0
+                    peer_zones_pairs.append((pname, n))
+            total_zones = (int(completed_zones_xy.shape[0])
+                           if isinstance(completed_zones_xy, np.ndarray)
+                           else 0)
+            own_zones_n = total_zones - sum(n for _, n in peer_zones_pairs)
+
+            peer_f = (', '.join(f'{n}={c}' for n, c in peer_count_summary.items())
+                      if peer_count_summary else 'none')
+            peer_z = (', '.join(f'{n}={c}' for n, c in peer_zones_pairs
+                                if c > 0)
+                      or 'none')
+            lines = [
+                f'own={own_count} (kept={own_frontiers.shape[0]}, '
+                f'polygon_dropped={polygon_dropped_own}, '
+                f'zone_dropped={zone_dropped_own})',
+                f'peers: {peer_f}',
+                f'zones: total={total_zones} (own={own_zones_n}; peers: {peer_z})',
+            ]
+            from std_msgs.msg import String as _String
+            frontier_table_pub.publish(_String(data='\n'.join(lines)))
 
         if debug_logger is not None:
             known_peers = list(peer_state.peer_waypoints.items()) if peer_state else []
@@ -262,6 +353,7 @@ class FrontierBehavior:
                     f'    {marker} #{rank}: ({vp[0]:.1f},{vp[1]:.1f},{vp[2]:.1f}) '
                     f'base={base_scores[idx]:.2f} peer_pen={peer_pen[idx]:.2f} '
                     f'cmt_bias={committed_bias[idx]:.2f} '
+                    f'novelty={novelty_pen[idx]:.2f} '
                     f'total={scores[idx]:.2f}')
             header = (f'[coord] frontier pick (id={my_id}, '
                       f'{len(viewpoints)} candidates, peers_repelled='

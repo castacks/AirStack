@@ -47,7 +47,8 @@ class BehaviorManager:
                          peer_state=None, my_id=0, search_area_xy=None,
                          debug_logger=None, assigned_target=None,
                          committed_target_dir=None,
-                         committed_target_origin=None):
+                         committed_target_origin=None,
+                         completed_zones_xy=None):
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
@@ -65,4 +66,5 @@ class BehaviorManager:
                 search_area_xy=search_area_xy,
                 debug_logger=debug_logger,
                 committed_target_dir=committed_target_dir,
-                committed_target_origin=committed_target_origin)
+                committed_target_origin=committed_target_origin,
+                completed_zones_xy=completed_zones_xy)

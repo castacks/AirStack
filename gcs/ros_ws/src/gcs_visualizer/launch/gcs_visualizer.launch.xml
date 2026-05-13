@@ -20,6 +20,6 @@
 
   <!-- Annotation viz: per-scene ground-truth bboxes from annotations/<scene>.json -->
   <node pkg="gcs_visualizer" exec="annotation_viz_node" name="annotation_viz_node" output="screen">
-    <param name="scene_name" value="ModernCityDowntown" />
+    <param name="scene_name" value="RetroNeighborhood" />
   </node>
 </launch>

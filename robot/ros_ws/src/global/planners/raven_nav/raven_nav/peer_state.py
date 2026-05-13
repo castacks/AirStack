@@ -47,15 +47,31 @@ class PeerRays:
 
 
 @dataclass
+class PeerConfirmedTarget:
+    """One AABB a peer is observing or has visited. Coords already in local frame."""
+    label: str
+    center: np.ndarray  # (3,) [cx, cy, cz]
+    size:   np.ndarray  # (3,) [sx, sy, sz]
+    status: str         # 'observing' | 'visited'
+    confidence: float
+    ts: float
+
+
+@dataclass
 class PeerState:
     peer_positions:  Dict[str, np.ndarray] = field(default_factory=dict)  # (3,)
     peer_waypoints:  Dict[str, np.ndarray] = field(default_factory=dict)  # (3,)
     peer_nav_modes:  Dict[str, str]        = field(default_factory=dict)
     peer_frontiers:  Dict[str, np.ndarray] = field(default_factory=dict)  # (N,3)
     peer_rays:       Dict[str, 'PeerRays']  = field(default_factory=dict)
-    peer_bids:       Dict[str, Dict[str, float]] = field(default_factory=dict)
+    # Per-group bids (one BidEntry per ray group). Imported lazily in update()
+    # to avoid a hard dependency from this module on bid_manager.
+    peer_bids:       Dict[str, list] = field(default_factory=dict)
     peer_completed:  Dict[str, Set[str]]   = field(default_factory=dict)
     peer_committed_target: Dict[str, str]  = field(default_factory=dict)  # "" if uncommitted
+    # XY centers (N,2) of frontier zones this peer has cleared (in our local frame).
+    peer_completed_zones: Dict[str, np.ndarray] = field(default_factory=dict)
+    peer_confirmed_targets: Dict[str, list]  = field(default_factory=dict)  # list[PeerConfirmedTarget]
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -130,6 +146,27 @@ class PeerState:
             self.peer_rays[name] = self._parse_shared_rays(
                 rays_msg, my_boot_enu, my_alt_ground)
 
+        zones_msg, _ = profile.get_payload_by_name_with_stamp(
+            "completed_frontier_zones")
+        if zones_msg is not None:
+            pts = list(point_cloud2.read_points(
+                zones_msg, field_names=("x", "y"), skip_nans=True))
+            if pts:
+                arr_global = np.array(
+                    [[p[0], p[1], 0.0] for p in pts], dtype=np.float64)
+                local = global_enu_to_local_batch(
+                    arr_global, my_boot_enu, local_alt_ground=my_alt_ground)
+                self.peer_completed_zones[name] = local[:, :2]
+            else:
+                self.peer_completed_zones[name] = np.zeros((0, 2),
+                                                           dtype=np.float64)
+
+        ct_targets_msg, _ = profile.get_payload_by_name_with_stamp(
+            "confirmed_targets")
+        if ct_targets_msg is not None:
+            self.peer_confirmed_targets[name] = self._parse_confirmed_targets(
+                ct_targets_msg, my_boot_enu, my_alt_ground)
+
         # Look up the bid payload by name (gossip auto-derives "bids" from
         # the topic /<robot>/bids). By-name avoids type-import issues if
         # airstack_msgs isn't loadable for some reason — get_payload_with_stamp
@@ -149,18 +186,78 @@ class PeerState:
             # comparisons meaningless. Gossip refresh is implicit — the most
             # recent PeerProfile overwrites the previous bid each tick, so a
             # truly stale peer just stops updating peer_bids[name].
-            self.peer_bids[name] = {
-                lbl: float(val)
-                for lbl, val in zip(bid_msg.labels, bid_msg.values)
-            }
-            print(f'[peer_state] applied bids for {name}: '
-                  f'{ {k: round(v, 2) for k, v in self.peer_bids[name].items()} }')
+            # Per-group bids: parallel arrays produce one BidEntry per row.
+            # Origins arrive in global ENU (gossip translates origin_x/y/z);
+            # convert back into our local frame for the auction.
+            from raven_nav.bid_manager import BidEntry
+            n_rows = len(bid_msg.labels)
+            entries: list = []
+            if n_rows > 0:
+                origins_global = np.array(
+                    list(zip(bid_msg.origin_x, bid_msg.origin_y,
+                             bid_msg.origin_z)),
+                    dtype=np.float64,
+                )
+                origins_local = global_enu_to_local_batch(
+                    origins_global, my_boot_enu,
+                    local_alt_ground=my_alt_ground,
+                )
+                for i in range(n_rows):
+                    entries.append(BidEntry(
+                        label=str(bid_msg.labels[i]),
+                        value=float(bid_msg.values[i]),
+                        avg_origin=origins_local[i],
+                        avg_dir=np.array([
+                            float(bid_msg.dir_x[i]),
+                            float(bid_msg.dir_y[i]),
+                            float(bid_msg.dir_z[i]),
+                        ], dtype=np.float64),
+                        num_rays=int(bid_msg.num_rays[i]),
+                        avg_score=float(bid_msg.avg_score[i]),
+                    ))
+            self.peer_bids[name] = entries
+            summary = [(e.label, round(e.value, 2)) for e in entries]
+            print(f'[peer_state] applied bids for {name}: {summary}')
 
         peer_id = _extract_robot_id(name)
         if peer_id is not None:
             self.peer_ids[name] = peer_id
 
         self.peer_last_seen[name] = now_sec
+
+    def compute_peer_ray_groups(
+        self, name: str, query_labels: list, target_objects: list,
+        score_threshold: float,
+        min_altitude: float = 1.5, max_altitude: float = 100.0,
+        angle_thresh_deg: float = 45.0,
+    ):
+        """Rebuild a peer's ray groups locally from its gossiped raw rays.
+
+        Avoids a separate gossip payload — `compute_ray_groups` is
+        deterministic, so applying it to the peer's rays (already transformed
+        into this robot's local map) yields the same groups the peer would
+        compute itself. The peer's own position is used as `cur_pose` so the
+        derived avg_dist_to_robot stays anchored to the observer.
+        """
+        from raven_nav.ray_groups import compute_ray_groups
+        rays = self.peer_rays.get(name)
+        if rays is None or len(rays.origins) == 0:
+            return []
+        peer_pos = self.peer_positions.get(name)
+        if peer_pos is None:
+            peer_pos = rays.origins.mean(axis=0)
+        return compute_ray_groups(
+            ray_origins=rays.origins,
+            ray_dirs=rays.dirs,
+            ray_scores=rays.scores,
+            query_labels=query_labels,
+            target_objects=target_objects,
+            score_threshold=score_threshold,
+            cur_pose=np.asarray(peer_pos),
+            min_altitude=min_altitude,
+            max_altitude=max_altitude,
+            angle_thresh_deg=angle_thresh_deg,
+        )
 
     def _parse_shared_rays(self, msg, my_boot_enu, my_alt_ground) -> 'PeerRays':
         """Decode x,y,z,dx,dy,dz,sim_* PointCloud2 into PeerRays in local frame."""
@@ -182,6 +279,40 @@ class PeerState:
         origins_local = global_enu_to_local_batch(
             origins_global, my_boot_enu, local_alt_ground=my_alt_ground)
         return PeerRays(origins=origins_local, dirs=dirs, scores=scores)
+
+    def _parse_confirmed_targets(
+        self, msg, my_boot_enu, my_alt_ground,
+    ) -> list:
+        """Decode JSON list of {label, cx, cy, cz, sx, sy, sz, status, confidence, ts}.
+
+        Centers are gossiped in global ENU and converted to local frame.
+        Sizes pass through unchanged (frame-invariant).
+        """
+        try:
+            lst = json.loads(msg.data)
+        except (json.JSONDecodeError, TypeError):
+            return []
+        if not isinstance(lst, list) or not lst:
+            return []
+        out: list = []
+        centers_global = np.array(
+            [[float(d['cx']), float(d['cy']), float(d['cz'])] for d in lst],
+            dtype=np.float64,
+        )
+        centers_local = global_enu_to_local_batch(
+            centers_global, my_boot_enu, local_alt_ground=my_alt_ground)
+        for i, d in enumerate(lst):
+            out.append(PeerConfirmedTarget(
+                label=str(d.get('label', '')),
+                center=centers_local[i],
+                size=np.array([float(d.get('sx', 0.0)),
+                               float(d.get('sy', 0.0)),
+                               float(d.get('sz', 0.0))]),
+                status=str(d.get('status', 'observing')),
+                confidence=float(d.get('confidence', 0.0)),
+                ts=float(d.get('ts', 0.0)),
+            ))
+        return out
 
     def _payload_fresh(self, stamp, now_sec: float) -> bool:
         # Zero stamp = no stamp set; treat as fresh.

@@ -47,10 +47,12 @@ class TableViewer(Node):
         self._groups_table = "(waiting...)"
         self._bids_table = "(waiting...)"
         self._voxel_table = "(waiting...)"
+        self._frontier_table = "(waiting...)"
         self._ray_recv: float | None = None
         self._groups_recv: float | None = None
         self._bids_recv: float | None = None
         self._voxel_recv: float | None = None
+        self._frontier_recv: float | None = None
         # Map robot_name -> (nav_mode, recv_time). Includes self.
         self._nav_modes: dict[str, tuple[str, float]] = {}
         self._nav_subs: dict[str, object] = {}
@@ -64,6 +66,8 @@ class TableViewer(Node):
             String, f"/{robot}/debug/bids_table", self._on_bids, 10)
         self.create_subscription(
             String, f"/{robot}/debug/voxel_table", self._on_voxel, 10)
+        self.create_subscription(
+            String, f"/{robot}/debug/frontier_table", self._on_frontier, 10)
 
         # Discover navigation_mode topics for self + peers and subscribe to
         # each one. Re-scan periodically so peers that come up after we start
@@ -112,12 +116,18 @@ class TableViewer(Node):
             self._voxel_table = msg.data
             self._voxel_recv = time.time()
 
+    def _on_frontier(self, msg: String) -> None:
+        with self._lock:
+            self._frontier_table = msg.data
+            self._frontier_recv = time.time()
+
     def render(self) -> None:
         with self._lock:
             ray = self._ray_table
             groups = self._groups_table
             bids = self._bids_table
             voxels = self._voxel_table
+            frontier = self._frontier_table
             ray_age = (time.time() - self._ray_recv
                        if self._ray_recv is not None else None)
             grp_age = (time.time() - self._groups_recv
@@ -126,6 +136,8 @@ class TableViewer(Node):
                        if self._bids_recv is not None else None)
             vox_age = (time.time() - self._voxel_recv
                        if self._voxel_recv is not None else None)
+            front_age = (time.time() - self._frontier_recv
+                         if self._frontier_recv is not None else None)
             nav_modes_snapshot = dict(self._nav_modes)
         _clear()
         now = time.strftime("%H:%M:%S")
@@ -133,6 +145,8 @@ class TableViewer(Node):
         grp_age_s = f"{grp_age:.1f}s ago" if grp_age is not None else "never"
         bid_age_s = f"{bid_age:.1f}s ago" if bid_age is not None else "never"
         vox_age_s = f"{vox_age:.1f}s ago" if vox_age is not None else "never"
+        front_age_s = (f"{front_age:.1f}s ago"
+                       if front_age is not None else "never")
         print(f"{BOLD}raven_nav debug tables{RESET}  "
               f"{DIM}[robot={self._robot}  {now}]{RESET}")
         print("─" * 100)
@@ -163,6 +177,10 @@ class TableViewer(Node):
         print(f"\033[35m{BOLD}[voxels]{RESET} "
               f"{DIM}(updated {vox_age_s}){RESET}")
         print(voxels)
+        print()
+        print(f"\033[36m{BOLD}[frontiers]{RESET} "
+              f"{DIM}(updated {front_age_s}){RESET}")
+        print(frontier)
         print()
         print(f"{DIM}Ctrl+C to quit{RESET}")
 
