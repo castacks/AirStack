@@ -8,7 +8,7 @@ lite, desktop_split sim)
 <launch>
   <arg name="sim" default="true" />
   <arg name="role" default="$(env AUTONOMY_ROLE full)" />
-  <arg name="urdf_file" default="$(env URDF_FILE)" />
+  <arg name="urdf_file" default="$(env URDF_FILE iris_with_sensors.pegasus.robot.urdf)" />
   <arg name="gcs_domain" default="0" />
   <arg name="gossip_domain" default="99" />
   <arg name="gossip_publish_rate" default="1.0" />

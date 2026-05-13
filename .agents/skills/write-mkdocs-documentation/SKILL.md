@@ -528,7 +528,7 @@ nav:
       - docs/development/index.md
       - Beginner Tutorials:
           - docs/development/beginner/key_concepts.md
-          - docs/development/beginner/environment_setup.md
+          - docs/development/beginner/development_environment.md
       - Intermediate Tutorials:
           - docs/development/intermediate/testing/index.md
 ```

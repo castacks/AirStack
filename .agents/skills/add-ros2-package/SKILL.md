@@ -28,7 +28,7 @@ Determine where the package should live based on its function:
 
 **Local Layer:**
 - Local planner: `robot/ros_ws/src/local/planners/<package_name>`
-- Local controller: `robot/ros_ws/src/local/c_controls/<package_name>`
+- Local controller: `robot/ros_ws/src/local/controls/<package_name>`
 - Local world model: `robot/ros_ws/src/local/world_models/<package_name>`
 
 **Global Layer:**
@@ -508,7 +508,7 @@ After creating the package:
   
 - **AirStack Examples:**
   - Reference planner: `robot/ros_ws/src/local/planners/droan_local_planner`
-  - Reference controller: `robot/ros_ws/src/local/c_controls/trajectory_controller`
+  - Reference controller: `robot/ros_ws/src/local/controls/trajectory_controller`
   - Package template: `assets/package_template/`
 
 - **Next Skills:**

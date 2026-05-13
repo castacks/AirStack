@@ -102,7 +102,7 @@ def _handle_my_payload(self, robot_name, msg, i, now):
         stamp=now,
         lifetime=Duration(sec=2, nanosec=0),
         fallback_color=None,  # uses per-point rgb field; set to (r, g, b, a) for a solid color
-        scale=0.5,   # cube size in metres
+        scale=0.5,   # cube size in meters
     )
     if marker is not None:
         out = MarkerArray()

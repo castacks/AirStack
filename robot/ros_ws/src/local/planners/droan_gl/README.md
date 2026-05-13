@@ -10,7 +10,7 @@ DROAN GL is a GPU-accelerated local planner for obstacle avoidance using stereo 
 
 ![trajectories](images/trajectories.png)
 
-*Green = collision-free trajectories, red = in collision, grey = entering unseen space. Cyan/blue lines = global plan used for scoring. Green arrows = camera poses stored in the disparity graph.*
+*Green = collision-free trajectories, red = in collision, gray = entering unseen space. Cyan/blue lines = global plan used for scoring. Green arrows = camera poses stored in the disparity graph.*
 
 ## How It Works
 
@@ -94,8 +94,8 @@ random_walk_planner  →  NavigateTask  →  droan_gl
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if goal pose reached within tolerance; false if cancelled or error |
-| `message` | string | `"Goal reached"`, `"Cancelled"`, or `"Node shutting down"` |
+| `success` | bool | True if goal pose reached within tolerance; false if canceled or error |
+| `message` | string | `"Goal reached"`, `"Canceled"`, or `"Node shutting down"` |
 
 ### Trajectory controller mode
 
