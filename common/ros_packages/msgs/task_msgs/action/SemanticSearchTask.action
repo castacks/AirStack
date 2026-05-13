@@ -13,12 +13,16 @@ float32 max_altitude_agl 15.0
 float32 min_flight_speed
 float32 max_flight_speed
 float32 confidence_threshold 0.95
+# Optional cap on accumulated instances. 0 = unlimited; task completes only on
+# coverage criterion or operator cancel.
+int32 max_instances 0
 ---
 # Result
 bool success
 string message
 geometry_msgs/PoseArray found_poses
-float32 confidence
+string[] found_labels        # parallel to found_poses
+float32 confidence            # max confidence across found instances
 int32 objects_found
 ---
 # Feedback
@@ -27,3 +31,7 @@ float32 progress
 float32 best_confidence_so_far
 int32 objects_found_so_far
 geometry_msgs/Point current_position
+# Live running list of discoveries — refreshed each feedback tick so GCS
+# can render markers as they accumulate.
+geometry_msgs/PoseArray current_found_poses
+string[] current_found_labels

@@ -27,7 +27,8 @@ class RayBehavior:
             g.label == self.assigned_target for g in self.ray_groups)
 
     def execute(self, cur_pose_np, waypoint_locked, target_waypoint1,
-                target_waypoint2, publisher_dict, assigned_target=None):
+                target_waypoint2, publisher_dict, assigned_target=None,
+                assigned_origin=None, assigned_dir=None):
         path_publisher = publisher_dict['path']
 
         target = assigned_target if assigned_target is not None else self.assigned_target
@@ -52,9 +53,28 @@ class RayBehavior:
         if self.current_target_pub is not None:
             self.current_target_pub.publish(String(data=target))
 
-        # Score = distance - 5 * density. Lower wins.
-        k = 5.0
-        best = min(candidates, key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
+        # Auction may have picked a SPECIFIC group hypothesis (per-group bids).
+        # If so, lock onto the candidate whose (avg_origin, avg_dir) is
+        # closest to it — keeps us pursuing the same physical target across
+        # ticks rather than thrashing to whichever ray group is densest now.
+        if (assigned_origin is not None and assigned_dir is not None):
+            ao = np.asarray(assigned_origin, dtype=float)
+            ad = np.asarray(assigned_dir, dtype=float)
+            ad_n = ad / (np.linalg.norm(ad) + 1e-6)
+            def _affinity(g):
+                # Combine origin proximity (m) and direction alignment (deg-ish).
+                origin_d = float(np.linalg.norm(g.avg_origin - ao))
+                gd = np.asarray(g.avg_dir, dtype=float)
+                gd_n = gd / (np.linalg.norm(gd) + 1e-6)
+                dot = float(np.clip(np.dot(gd_n, ad_n), -1.0, 1.0))
+                # Lower = better. 1.0 - cos goes 0..2; scale to roughly match m.
+                return origin_d + 20.0 * (1.0 - dot)
+            best = min(candidates, key=_affinity)
+        else:
+            # Fallback: pick closest dense group (old behavior).
+            k = 5.0
+            best = min(candidates,
+                       key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
 
         target_waypoint1 = best.avg_origin + best.avg_dir * 6.0
         target_waypoint2 = best.avg_origin + best.avg_dir * 12.0

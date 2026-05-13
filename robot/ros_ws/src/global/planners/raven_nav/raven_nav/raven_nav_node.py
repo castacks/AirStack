@@ -23,6 +23,14 @@ from raven_nav.behavior_manager import BehaviorManager
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import compute_ray_groups
+from raven_nav.ray_targets import build_targets
+from raven_nav.discoveries import (
+    ConfirmedTarget,
+    build_discoveries,
+    confirmed_targets_to_json,
+    discoveries_to_json,
+    merge_confirmed_targets,
+)
 
 
 GOSSIP_QOS = QoSProfile(
@@ -89,14 +97,15 @@ class RavenNavNode(Node):
         self._search_area_xy: 'np.ndarray | None' = None
         self._warned_polygon_degenerate = False
 
-        # Coverage tracking: XY centers (Nx2) of frontier zones this robot
-        # has cleared. A zone is added when the drone reaches within
-        # _zone_visit_radius_m of a frontier waypoint while in frontier mode.
+        # Coverage tracking: XY centers (Nx2) of cleared disks. Every tick
+        # the drone stamps its current position as a new zone IF it's outside
+        # the dedup radius of every existing zone. Mode-agnostic — drone is
+        # observing in ray/voxel mode too, not just at frontier waypoints.
         # Gossiped to peers so the whole fleet stops chasing nearby frontiers.
         self._completed_zones: 'np.ndarray' = np.zeros((0, 2), dtype=np.float64)
-        self._zone_visit_radius_m: float = float(self.declare_parameter(
-            'zone_visit_radius_m', 5.0).value)
-        # If a new candidate zone is within this of an existing zone, dedupe.
+        # Default 5m: a new zone is placed whenever the drone is at least 5m
+        # from every existing zone — matches ZONE_RADIUS_M in frontier_behavior
+        # so consecutive disks just barely touch and there are no gaps.
         self._zone_dedupe_radius_m: float = float(self.declare_parameter(
             'zone_dedupe_radius_m', 5.0).value)
 
@@ -161,6 +170,8 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/debug/voxel_table', 10)
         self._frontier_table_pub = self.create_publisher(
             String, f'{self._prefix}/debug/frontier_table', 10)
+        self._discoveries_table_pub = self.create_publisher(
+            String, f'{self._prefix}/debug/discoveries_table', 10)
         self._shared_rays_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/shared_rays', 10)
         self._ray_groups_viz_pub = self.create_publisher(
@@ -393,6 +404,156 @@ class RavenNavNode(Node):
             if float(d.min()) < self._zone_dedupe_radius_m:
                 return
         self._completed_zones = np.vstack([self._completed_zones, xy[None, :]])
+
+    def _own_confirmed_targets(self) -> list:
+        """Convert voxel_behavior's current AABBs into ConfirmedTarget records.
+
+        Voxel-side keeps clusters as [cx,cy,cz,sx,sy,sz] in target_voxel_clusters
+        and labels in cluster_query_map. 'visited' status is sticky for any
+        cluster whose label is in completed_queries.
+        """
+        vb = self._behavior_manager.voxel_behavior
+        out: list = []
+        now_ts = float(self.get_clock().now().nanoseconds) * 1e-9
+        for cid, bb in vb.target_voxel_clusters.items():
+            label = vb.cluster_query_map.get(cid, '')
+            if not label:
+                continue
+            status = ('visited'
+                      if label in vb.completed_queries else 'observing')
+            out.append(ConfirmedTarget(
+                label=label,
+                center=np.array(bb[:3], dtype=float),
+                size=np.array(bb[3:6], dtype=float),
+                status=status,
+                confidence=1.0,
+                ts=now_ts,
+            ))
+        return out
+
+    def _peer_confirmed_targets_flat(self) -> list:
+        """Flatten peer_confirmed_targets into a ConfirmedTarget list."""
+        out: list = []
+        for entries in self._peer_state.peer_confirmed_targets.values():
+            for pct in entries:
+                out.append(ConfirmedTarget(
+                    label=pct.label,
+                    center=np.asarray(pct.center, dtype=float),
+                    size=np.asarray(pct.size, dtype=float),
+                    status=pct.status,
+                    confidence=pct.confidence,
+                    ts=pct.ts,
+                ))
+        return out
+
+    def _update_discoveries(self, ray_groups) -> None:
+        """Build RayTargets + ConfirmedTargets → Discoveries, publish 2 topics.
+
+        Publishes:
+          /<robot>/raven_nav/confirmed_targets   (JSON for gossip)
+          /<robot>/raven_nav/discoveries         (JSON for semantic_search_task
+                                                  + GCS viz)
+        """
+        now_ts = float(self.get_clock().now().nanoseconds) * 1e-9
+
+        # Merge own + peer ConfirmedTargets, dedupe by AABB overlap.
+        own_cts = self._own_confirmed_targets()
+        peer_cts = self._peer_confirmed_targets_flat()
+        merged_cts = merge_confirmed_targets(own_cts + peer_cts)
+
+        # Always publish OWN confirmed_targets unmerged — peers do their own
+        # merging when they receive (this is the gossip-symmetric pattern).
+        self._confirmed_targets_pub.publish(
+            String(data=confirmed_targets_to_json(own_cts)))
+
+        # Triangulation pre-filter: ray groups that pierce a known BB get
+        # absorbed onto that BB.
+        known_bbs = []
+        for i, ct in enumerate(merged_cts):
+            bb = np.concatenate([ct.center, ct.size])  # [cx,cy,cz,sx,sy,sz]
+            known_bbs.append((i, ct.label, bb))
+
+        polygon_xy = (self._search_area_xy
+                      if isinstance(self._search_area_xy, np.ndarray)
+                      and len(self._search_area_xy) >= 3 else None)
+
+        ray_targets = build_targets(
+            own_groups=ray_groups,
+            peer_groups=[],   # peer rays already merged into ray_groups
+            known_bbs=known_bbs,
+            polygon_xy=polygon_xy,
+            now_ts=now_ts,
+        )
+
+        # Peers who contributed via gossip — annotate so the discoveries list
+        # shows who saw what.
+        peer_names = list(self._peer_state.peer_confirmed_targets.keys())
+
+        discoveries = build_discoveries(
+            ray_targets=ray_targets,
+            confirmed_targets=merged_cts,
+            contributing_robot=self._robot_name,
+            peer_contributions=peer_names,
+            now_ts=now_ts,
+        )
+
+        self._discoveries_pub.publish(
+            String(data=discoveries_to_json(discoveries)))
+
+        # Pretty-printed table for view_ray_tables — same data, easier to
+        # read than the gossiped JSON.
+        self._publish_discoveries_table(discoveries)
+
+    def _publish_discoveries_table(self, discoveries) -> None:
+        """Render the merged Discovery list as a compact text table.
+
+        Groups by status (visited / observing / unconfirmed) so the operator
+        can see at a glance which targets are completed, which are being
+        pursued, and which are single-drone bearings still waiting for a
+        second viewpoint to triangulate.
+        """
+        lines = []
+        lines.append(f'total={len(discoveries)}  '
+                     f'assigned={self._assigned_target or "-"}  '
+                     f'committed={self._committed_to_assigned}')
+        lines.append('')
+
+        if not discoveries:
+            lines.append('(no targets discovered yet)')
+        else:
+            by_status = {'visited': [], 'observing': [], 'unconfirmed': []}
+            for d in discoveries:
+                by_status.setdefault(d.status, []).append(d)
+            section_order = [
+                ('visited',    'completed'),
+                ('observing',  'pursuing'),
+                ('unconfirmed','unconfirmed bearings'),
+            ]
+            for key, header in section_order:
+                lst = by_status.get(key, [])
+                if not lst:
+                    continue
+                lines.append(f'[{header}] ({len(lst)})')
+                lines.append('   label          pos                size              '
+                             'conf  contributors')
+                # Sort by confidence desc within section.
+                for d in sorted(lst, key=lambda x: -x.confidence):
+                    pos = f'({d.position[0]:>6.1f},{d.position[1]:>6.1f},'\
+                          f'{d.position[2]:>5.1f})'
+                    if d.size is not None:
+                        sz = f'({d.size[0]:>4.1f},{d.size[1]:>4.1f},'\
+                             f'{d.size[2]:>4.1f})'
+                    else:
+                        sz = '   (no AABB)   '
+                    contrib = ','.join(d.contributing_robots)
+                    pursued = '*' if (d.label == self._assigned_target) else ' '
+                    lines.append(
+                        f' {pursued} {d.label:<14} {pos}  {sz}  '
+                        f'{d.confidence:>4.2f}  {contrib}')
+                lines.append('')
+
+        self._discoveries_table_pub.publish(
+            String(data='\n'.join(lines).rstrip()))
 
     def _publish_completed_zones(self) -> None:
         """Gossip our completed-zone bitmap as a PointCloud2 (x,y only).
@@ -843,6 +1004,11 @@ class RavenNavNode(Node):
         self._behavior_manager.ray_behavior.ray_groups = ray_groups
         self._publish_ray_groups_viz(ray_groups)
 
+        # Multi-target discoveries: triangulate ray groups, anchor onto
+        # voxel-confirmed AABBs, merge across own + peer, publish so
+        # semantic_search_task and GCS viz can consume.
+        self._update_discoveries(ray_groups)
+
         if self._debug_ray_table:
             self._debug_print_ray_table()
             self._debug_print_groups_table(ray_groups)
@@ -1113,18 +1279,13 @@ class RavenNavNode(Node):
             self._target_waypoint = None
             self._target_waypoint2 = None
 
-        # Record a completed-frontier zone when we arrive at a frontier
-        # waypoint. We only do this in Frontier-based mode — voxel/ray
-        # arrivals are tracked separately (completed_queries / visited
-        # clusters) and don't represent "this patch of the polygon is now
-        # observed".
-        if (self._behavior_mode == 'Frontier-based'
-                and self._target_waypoint is not None
-                and self._cur_pose is not None):
-            dist_to_wp = float(np.linalg.norm(
-                self._cur_pose[:2] - self._target_waypoint[:2]))
-            if dist_to_wp < self._zone_visit_radius_m:
-                self._add_completed_zone(self._target_waypoint[:2])
+        # Disk-coverage stamp: every tick, drop a 5m disk at the drone's
+        # current position if we're outside every existing zone's dedup
+        # radius. Runs in all modes — the drone is observing the world
+        # whether it's pursuing a frontier, ray, or voxel waypoint, and
+        # peers should not re-explore that area.
+        if self._cur_pose is not None:
+            self._add_completed_zone(self._cur_pose[:2])
 
         # Build the union of completed zones (own + peers) in our local frame.
         zone_chunks = [self._completed_zones]

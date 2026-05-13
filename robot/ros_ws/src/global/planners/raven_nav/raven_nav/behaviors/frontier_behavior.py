@@ -68,8 +68,11 @@ def _peer_penalty(viewpoints, peer_state, my_id,
 # any frontier within ZONE_RADIUS_M of any zone is treated as resolved and
 # dropped before clustering. The novelty cost in scoring also penalizes
 # candidates near zones so drones drift toward fresh areas.
-ZONE_RADIUS_M = 10.0     # frontiers within this of any zone are filtered out
-NOVELTY_SCALE_M = 20.0   # exp(-d/scale) decay
+# Disk model: every drone position stamps a 5m disk regardless of behavior
+# mode — drone is observing in ray/voxel mode too, not just at frontier
+# waypoints. Dedup keeps the zone list sparse (one zone per disk).
+ZONE_RADIUS_M = 5.0      # frontiers within this of any zone are filtered out
+NOVELTY_SCALE_M = 15.0   # exp(-d/scale) decay
 NOVELTY_WEIGHT = 25.0    # weight on the closeness-to-explored penalty
 
 

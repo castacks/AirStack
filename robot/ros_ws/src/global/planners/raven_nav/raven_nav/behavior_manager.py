@@ -57,7 +57,9 @@ class BehaviorManager:
             return self.ray_behavior.execute(
                 cur_pose_np, waypoint_locked,
                 target_waypoint, target_waypoint2, publisher_dict,
-                assigned_target=assigned_target)
+                assigned_target=assigned_target,
+                assigned_origin=committed_target_origin,
+                assigned_dir=committed_target_dir)
         else:
             return self.frontier_behavior.execute(
                 frontiers, cur_pose_np, waypoint_locked,

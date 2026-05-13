@@ -494,6 +494,24 @@ class SemanticSearchTaskNode(Node):
             raven_published_waypoint = False
             completed_targets: set = set()
 
+            # Multi-target accumulator: keep every Discovery raven publishes,
+            # deduped by instance_id (stable across ticks via raven's
+            # _stable_id hash). Filtered to the requested query labels.
+            queries_lower = {q.lower() for q in queries}
+            max_instances = int(getattr(goal, 'max_instances', 0) or 0)
+            discoveries_by_id: dict = {}
+
+            # Coverage criterion: count remaining own frontiers post-zone
+            # filter from the debug/frontier_table text. When it stays at or
+            # below FRONTIER_DONE_COUNT for FRONTIER_DONE_TIME_S, the polygon
+            # is considered explored.
+            FRONTIER_DONE_COUNT = 3
+            FRONTIER_DONE_TIME_S = 5.0
+            frontier_kept = None    # None until first frontier_table msg
+            frontier_done_since: 'float | None' = None
+            import re as _re
+            _kept_re = _re.compile(r'kept=(\d+)')
+
             # Subscribe to raven's global_plan to detect first waypoint.
             # Use BEST_EFFORT QoS to match raven's publisher (some robots in
             # the stack publish global_plan as BEST_EFFORT for low-latency,
@@ -526,6 +544,43 @@ class SemanticSearchTaskNode(Node):
                 String, f'/{robot_name}/completed_targets',
                 _completed_targets_cb, 10, callback_group=self._cbg)
 
+            # Subscribe to raven's merged discoveries list. Accumulate every
+            # entry matching one of our query labels — this is the canonical
+            # multi-target output the task will return.
+            def _discoveries_cb(msg):
+                import json
+                try:
+                    items = json.loads(msg.data)
+                except Exception:
+                    return
+                if not isinstance(items, list):
+                    return
+                for d in items:
+                    lbl = str(d.get('label', '')).lower()
+                    if queries_lower and lbl not in queries_lower:
+                        continue
+                    inst_id = str(d.get('instance_id', ''))
+                    if not inst_id:
+                        continue
+                    discoveries_by_id[inst_id] = d
+            self.create_subscription(
+                String, f'/{robot_name}/raven_nav/discoveries',
+                _discoveries_cb, 10, callback_group=self._cbg)
+
+            # Subscribe to raven's frontier debug table — read kept= count to
+            # detect when the polygon has been exhausted.
+            def _frontier_table_cb(msg):
+                nonlocal frontier_kept
+                m = _kept_re.search(msg.data or '')
+                if m:
+                    try:
+                        frontier_kept = int(m.group(1))
+                    except ValueError:
+                        pass
+            self.create_subscription(
+                String, f'/{robot_name}/debug/frontier_table',
+                _frontier_table_cb, 10, callback_group=self._cbg)
+
             # Subscribe to voxels_sim/all for best-confidence tracking
             def _vox_all_cb(msg):
                 nonlocal best_conf, mapping_started
@@ -549,10 +604,31 @@ class SemanticSearchTaskNode(Node):
 
             while rclpy.ok():
                 if goal_handle.is_cancel_requested:
+                    # Return whatever we've accumulated so the operator still
+                    # sees partial discoveries even on cancel.
+                    from geometry_msgs.msg import Pose, PoseArray
+                    cp = PoseArray()
+                    cl: list = []
+                    cbc = 0.0
+                    for d in discoveries_by_id.values():
+                        p = Pose()
+                        p.position.x = float(d.get('cx', 0.0))
+                        p.position.y = float(d.get('cy', 0.0))
+                        p.position.z = float(d.get('cz', 0.0))
+                        p.orientation.w = 1.0
+                        cp.poses.append(p)
+                        cl.append(str(d.get('label', '')))
+                        cbc = max(cbc, float(d.get('confidence', 0.0)))
                     goal_handle.canceled()
                     result = SemanticSearchTask.Result()
                     result.success = False
-                    result.message = 'Cancelled'
+                    result.found_poses = cp
+                    result.found_labels = cl
+                    result.confidence = max(best_conf, cbc)
+                    result.objects_found = len(discoveries_by_id)
+                    result.message = (
+                        f'Cancelled — partial: {len(discoveries_by_id)} '
+                        f'instance(s) found')
                     return result
 
                 # Drain and filter rayfronts output
@@ -632,16 +708,59 @@ class SemanticSearchTaskNode(Node):
                     self.get_logger().info('rayfronts subscriber lost — will resend on reconnect')
                 prev_rf_sub_count = rf_sub_count
 
-                # Success: raven visited a cluster for every query
-                queries_set = set(q.lower() for q in queries)
-                completed_lower = set(c.lower() for c in completed_targets)
-                if queries_set and queries_set.issubset(completed_lower):
+                # Build a current snapshot of accumulated discoveries.
+                from geometry_msgs.msg import Pose, PoseArray
+                cur_poses = PoseArray()
+                cur_labels: list = []
+                cur_best_conf = 0.0
+                for d in discoveries_by_id.values():
+                    p = Pose()
+                    p.position.x = float(d.get('cx', 0.0))
+                    p.position.y = float(d.get('cy', 0.0))
+                    p.position.z = float(d.get('cz', 0.0))
+                    p.orientation.w = 1.0
+                    cur_poses.poses.append(p)
+                    cur_labels.append(str(d.get('label', '')))
+                    c = float(d.get('confidence', 0.0))
+                    if c > cur_best_conf:
+                        cur_best_conf = c
+
+                # Track "no frontiers left" duration. Only counts if we've
+                # actually heard at least one frontier_table message AND raven
+                # has started moving (random_walk_started) — otherwise the
+                # initial zero would fire before raven is online.
+                now_ts = time.time()
+                if (random_walk_started and frontier_kept is not None
+                        and frontier_kept <= FRONTIER_DONE_COUNT):
+                    if frontier_done_since is None:
+                        frontier_done_since = now_ts
+                else:
+                    frontier_done_since = None
+                polygon_done = (frontier_done_since is not None
+                                and (now_ts - frontier_done_since)
+                                >= FRONTIER_DONE_TIME_S)
+
+                # Termination conditions:
+                #   (1) max_instances cap reached (if set > 0)
+                #   (2) polygon coverage criterion met
+                hit_max = (max_instances > 0
+                           and len(discoveries_by_id) >= max_instances)
+                if hit_max or polygon_done:
                     goal_handle.succeed()
                     result = SemanticSearchTask.Result()
                     result.success = True
-                    result.message = (
-                        f'All targets visited: {", ".join(sorted(queries_set))}')
-                    result.confidence = best_conf
+                    result.found_poses = cur_poses
+                    result.found_labels = cur_labels
+                    result.confidence = max(best_conf, cur_best_conf)
+                    result.objects_found = len(discoveries_by_id)
+                    if hit_max:
+                        result.message = (
+                            f'Reached max_instances={max_instances}: '
+                            f'{len(discoveries_by_id)} instance(s) found')
+                    else:
+                        result.message = (
+                            f'Polygon explored — {len(discoveries_by_id)} '
+                            f'instance(s) found: {", ".join(sorted(set(cur_labels)))}')
                     return result
 
                 if not rayfronts_ready:
@@ -654,6 +773,10 @@ class SemanticSearchTaskNode(Node):
 
                 fb = SemanticSearchTask.Feedback()
                 fb.status = status
+                fb.objects_found_so_far = len(discoveries_by_id)
+                fb.best_confidence_so_far = max(best_conf, cur_best_conf)
+                fb.current_found_poses = cur_poses
+                fb.current_found_labels = cur_labels
                 goal_handle.publish_feedback(fb)
 
                 if self._interruptible_sleep(goal_handle, 1.0):
