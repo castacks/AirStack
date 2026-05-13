@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<launch>
+  <!--
+    Vision Pose Converter Launch File
+
+    Optional bridge that re-publishes NatNet pose_cov data on the MAVROS
+    vision_pose topics so PX4 can fuse external pose estimates.
+
+    Input  (from NatNet node):
+      /{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov
+
+    Output (consumed by MAVROS):
+      /{ROBOT_NAME}/mavros/vision_pose/pose
+      /{ROBOT_NAME}/mavros/vision_pose/pose_cov
+  -->
+
+  <arg name="body_name"    default="robot_1"
+       description="Body name matching the NatNet node configuration"/>
+  <arg name="use_sim_time" default="false"
+       description="Use /clock for simulation time"/>
+
+  <node pkg="natnet_ros2" exec="vision_pose_converter_node.py"
+        name="vision_pose_converter" output="screen">
+    <!-- Remap input to the NatNet pose_cov topic for the tracked body -->
+    <remap from="input_pose"
+           to="/$(env ROBOT_NAME robot_1)/perception/optitrack/$(var body_name)/pose_cov"/>
+
+    <!-- Remap outputs to MAVROS vision_pose topics -->
+    <remap from="output_pose"
+           to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose"/>
+    <remap from="output_pose_cov"
+           to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose_cov"/>
+
+    <param name="frame_id"       value="world"/>
+    <param name="child_frame_id" value="$(env ROBOT_NAME robot_1)/base_link"/>
+    <param name="use_sim_time"   value="$(var use_sim_time)"/>
+  </node>
+
+</launch>

@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<launch>
+  <!--
+    NatNet ROS 2 Wrapper Launch File
+
+    Launches the NatNet client node to receive motion capture data from
+    an external Motive PC and publish pose data to the perception layer.
+
+    Supports multi-robot via $(env ROBOT_NAME) — each robot container
+    resolves its own ROBOT_NAME at startup.
+
+    Topics published (robot_name resolved at runtime):
+      /{ROBOT_NAME}/perception/optitrack/{body_name}        [PoseStamped]
+      /{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov [PoseWithCovarianceStamped]
+  -->
+
+  <!-- Network arguments -->
+  <arg name="natnet_server_ip"   default="192.168.1.1"
+       description="IP address of the Motive PC"/>
+  <arg name="natnet_command_port" default="1510"
+       description="NatNet command port (Motive default: 1510)"/>
+  <arg name="natnet_data_port"   default="1511"
+       description="NatNet data UDP port (Motive default: 1511)"/>
+
+  <!-- Rigid body tracking -->
+  <arg name="body_name" default="robot_1"
+       description="Label used in topic names for the tracked rigid body"/>
+  <arg name="body_id"   default="-1"
+       description="Motive rigid body ID to track; -1 = publish all bodies"/>
+
+  <!-- Publishing behaviour -->
+  <arg name="publish_direct_optitrack" default="true"
+       description="Publish per-body PoseStamped topics"/>
+  <arg name="publish_to_mavros"        default="false"
+       description="Launch the MAVROS vision_pose bridge node"/>
+
+  <!-- Misc -->
+  <arg name="config_file" default="$(find-pkg-share natnet_ros2)/config/natnet_config.yaml"
+       description="Path to natnet_config.yaml"/>
+  <arg name="use_sim_time" default="false"
+       description="Use /clock for simulation time"/>
+
+  <!-- Main NatNet ROS 2 Node -->
+  <node pkg="natnet_ros2" exec="natnet_ros2_node.py"
+        name="natnet_ros2_node" output="screen">
+    <!-- Load YAML defaults first; individual params below override them -->
+    <param from="$(var config_file)" allow_substs="true"/>
+
+    <param name="server_ip"                value="$(var natnet_server_ip)"/>
+    <param name="command_port"             value="$(var natnet_command_port)"/>
+    <param name="data_port"                value="$(var natnet_data_port)"/>
+    <param name="body_name"                value="$(var body_name)"/>
+    <param name="body_id"                  value="$(var body_id)"/>
+    <param name="publish_direct_optitrack" value="$(var publish_direct_optitrack)"/>
+    <param name="publish_to_mavros"        value="$(var publish_to_mavros)"/>
+    <param name="use_sim_time"             value="$(var use_sim_time)"/>
+  </node>
+
+  <!-- Optional MAVROS Vision Pose Converter -->
+  <include if="$(var publish_to_mavros)"
+           file="$(find-pkg-share natnet_ros2)/launch/vision_pose_converter.launch.xml">
+    <arg name="body_name"    value="$(var body_name)"/>
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+  </include>
+
+</launch>

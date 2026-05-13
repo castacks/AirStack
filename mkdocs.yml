@@ -111,6 +111,7 @@ nav:
           - Perception:
               - docs/robot/autonomy/perception/index.md
               - State Estimation: docs/robot/autonomy/perception/state_estimation.md
+              - NatNet (OptiTrack): robot/ros_ws/src/perception/natnet_ros2/README.md
           - Local:
               - docs/robot/autonomy/local/index.md
               - World Model:

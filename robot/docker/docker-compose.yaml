@@ -177,6 +177,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    runtime: nvidia
     environment: !override
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
@@ -234,6 +235,7 @@ services:
     privileged: true
     ipc: host
     pid: host
+    runtime: nvidia
     environment:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY

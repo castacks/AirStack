@@ -2,6 +2,8 @@
 <launch>
     <arg name="launch_macvo" default="false" />
     <arg name="launch_stereo_image_proc" default="true" />
+    <arg name="launch_natnet" default="false"/>
+
     <group>
         <push-ros-namespace namespace="perception" />
         <!-- State and depth estimation -->
@@ -68,8 +70,14 @@
                 <remap from="points2" to="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
             </node>
 
+        <group if="$(var launch_natnet)">
+            <node pkg="natnet_ros2" exec="natnet_ros2_node.py"
+                name="natnet_ros2_node" output="screen">
+                <param name="natnet_config"
+                    value="$(find-pkg-share natnet_ros2)/config/natnet_config.yaml" />
+                <param from="$(find-pkg-share natnet_ros2)/config/interface_config.yaml" />
+            </node>
         </group>
-
     </group>
 
     <node pkg="perception_bringup" exec="topic_keepalive_node.py"

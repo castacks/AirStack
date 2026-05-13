@@ -1,0 +1,27 @@
+# Ignore proprietary NatNetSDK (downloaded at setup time)
+lib/libNatNet.so
+include/natnet/
+
+# Python runtime and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ROS build artifacts
+devel/
+install/
