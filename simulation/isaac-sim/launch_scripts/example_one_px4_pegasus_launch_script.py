@@ -32,6 +32,30 @@ if _LIVESTREAM:
     from isaacsim.core.utils.extensions import enable_extension
     simulation_app.set_setting("/app/window/drawMouse", True)
     simulation_app.set_setting("/app/livestream/enabled", True)
+
+    # Pin the UDP media port so it stays inside the narrow set of ports we
+    # publish from this container and that `airstack osmo:webrtc` forwards.
+    #
+    # Kit 107's WebRTC livestream picks a UDP media port dynamically. The
+    # documented `omni.services.livestream.nvcf` defaults were
+    # minHostPort=47998 / maxHostPort=48020 / fixedHostPort=0, but the
+    # actual Kit binary ignored that range on airstack-dev-13 and bound to
+    # UDP 49042 — outside both the Compose-published port range AND the
+    # default osmo `--udp` forward (47995-48012,49000-49007). Result:
+    # signaling worked (TCP 49100), the WebRTC Streaming Client window
+    # opened, but every media packet was dropped → black viewport +
+    # the `NVST_CCE_DISCONNECTED when m_connectionCount 0 != 1` underflow
+    # storm in the Kit log.
+    #
+    # Set all three settings so whichever code path the plugin reads, it
+    # lands on UDP 49099. The value of 49099 is picked as one-off from the
+    # 49100 signaling port — same range, easy to remember, and TCP/UDP can
+    # coexist on the same number if anyone later wants a single port.
+    LIVESTREAM_UDP_PORT = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
+    simulation_app.set_setting("/app/livestream/fixedHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/minHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/maxHostPort", LIVESTREAM_UDP_PORT)
+
     enable_extension("omni.kit.livestream.webrtc")
 
 import omni.kit.app

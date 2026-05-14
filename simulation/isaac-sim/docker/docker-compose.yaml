@@ -98,10 +98,13 @@ services:
   # ===================================================================================================================
   # WebRTC livestream variant for OSMO / remote dev. Headless: no X server,
   # no display, no GUI window. Kit's `omni.kit.livestream.webrtc` extension
-  # serves the rendered viewport on the standard NVIDIA livestream ports
-  # (47995-48012, 49000-49007 TCP+UDP and 49100 TCP). Those ports are
-  # published into the host (the OSMO workspace pod's network namespace) so
-  # `osmo workflow port-forward` can reach them.
+  # serves WebSocket signaling on TCP 49100 and SRTP media on UDP 49099 (the
+  # latter pinned by `app.livestream.fixedHostPort/minHostPort/maxHostPort=49099`
+  # in the Pegasus launch script — see example_one_px4_pegasus_launch_script.py).
+  # Those two ports are published into the host (the OSMO workspace pod's
+  # network namespace) so `osmo workflow port-forward` can reach them. Kit
+  # 107's default media-port range is wider and dynamic, so pinning to a
+  # known value is the only way to keep the forward surface to two ports.
   #
   # Selected via COMPOSE_PROFILES (e.g. `desktop,isaac-sim-livestream`) in
   # osmo/workspace/entrypoint.sh, or by setting ISAAC_SIM_LIVESTREAM=true.
@@ -128,11 +131,8 @@ services:
     # publish (the conservative choice) keeps the rest of the stack on
     # airstack_network for DDS multicast.
     ports:
-      - "47995-48012:47995-48012/tcp"
-      - "47995-48012:47995-48012/udp"
-      - "49000-49007:49000-49007/tcp"
-      - "49000-49007:49000-49007/udp"
-      - "49100:49100/tcp"
+      - "49100:49100/tcp"      # WebSocket signaling (omni.kit.livestream.webrtc, app.livestream.port=49100)
+      - "49099:49099/udp"      # SRTP media (pinned via app.livestream.fixedHostPort=49099 in the launch script)
     # Drop X11-specific volume mounts inherited from the isaac-sim service —
     # there is no X server in an OSMO pod.
     volumes: !override
