@@ -159,9 +159,30 @@ fi
 : "${OMNI_PASS:=guest}"
 : "${OMNI_SERVER:=omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1}"
 
-log "writing $OMNI_PASS_FILE (omni_user=${OMNI_USER}, omni_server=${OMNI_SERVER})"
+# If OMNI_PASS looks like a Nucleus API JWT (header starts with `eyJ`),
+# switch to API-token auth: omniclient expects the literal sentinel
+# username `$omni-api-token` paired with the JWT as the password.
+# Setting OMNI_USER to the actual Andrew ID would route the JWT through
+# the password-verification path instead and Nucleus would silently
+# DENY (visible only in the auth-service log as
+# `InternalCredentials.auth … 'username': '<andrew>' … status: DENIED`).
+#
+# docker-compose v2 interpolates env_file values, so the literal `$`
+# must be doubled to `$$` to survive Compose's parser. The container
+# ultimately sees `OMNI_USER=$omni-api-token`.
+case "$OMNI_PASS" in
+  eyJ*.*.*)
+    log "OMNI_PASS looks like a JWT — using API-token auth (OMNI_USER=\$omni-api-token)"
+    OMNI_USER_LINE='OMNI_USER=$$omni-api-token'
+    ;;
+  *)
+    OMNI_USER_LINE="OMNI_USER=${OMNI_USER}"
+    ;;
+esac
+
+log "writing $OMNI_PASS_FILE (${OMNI_USER_LINE}, omni_server=${OMNI_SERVER})"
 cat > "$OMNI_PASS_FILE" <<EOF
-OMNI_USER=${OMNI_USER}
+${OMNI_USER_LINE}
 OMNI_PASS=${OMNI_PASS}
 OMNI_SERVER=${OMNI_SERVER}
 ACCEPT_EULA=Y
