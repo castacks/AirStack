@@ -24,6 +24,21 @@ set -uo pipefail
 log() { echo "[entrypoint] $*"; }
 fail() { echo "[entrypoint] ERROR: $*" >&2; exit 1; }
 
+# ─── 0. Stale-state cleanup ────────────────────────────────────────────────
+#
+# Cursor / VS Code Remote-SSH guards its server install with a file lock
+# at /tmp/cursor-remote-lock.* (and a sibling .target file naming the PIDs
+# that hold it). If a previous connect attempt crashed mid-install
+# (e.g. the port-forward died while the install was in flight, as
+# happened on airstack-dev-13 / 2026-05-14), the lock file outlives the
+# dead PIDs and every subsequent IDE retry bails out *silently* at the
+# lock check — leaving an empty bin/<sha>/ dir and the user staring at
+# a "Connecting to remote host (attempt 1)..." spinner forever.
+#
+# A fresh pod has nothing to preserve here, so clearing these on startup
+# is always safe.
+rm -f /tmp/cursor-remote-lock.* /tmp/vscode-remote-lock.* 2>/dev/null || true
+
 # ─── 1. SSHD ───────────────────────────────────────────────────────────────
 
 log "configuring sshd"

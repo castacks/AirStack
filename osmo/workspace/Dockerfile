@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tmux \
     tzdata \
     vim-tiny \
+    wget \
     && locale-gen C.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 

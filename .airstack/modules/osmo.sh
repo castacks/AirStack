@@ -346,6 +346,43 @@ function cmd_osmo_ide {
 
     log_info "Make sure ~/.ssh/config has a 'Host airstack-osmo' entry pointing at localhost:2200, User root."
 
+    # Local TCP port the user's IDE will connect to (the local side of the
+    # `--port LOCAL:REMOTE` mapping).
+    local local_port="${OSMO_SSH_PORT%%:*}"
+
+    # Reuse an existing forward if one is already listening (the user might
+    # have run this from a second terminal, or osmo:foxglove already opened
+    # a multi-port forward). Otherwise spawn one in the background and wait
+    # for it to bind before launching the IDE — this avoids the race where
+    # Cursor/VS Code tries to SSH before the tunnel exists and dies with
+    # "connect to host localhost port 2200: Connection refused".
+    local pf_pid=""
+    if nc -z localhost "$local_port" 2>/dev/null; then
+        log_info "Port ${local_port} is already listening; reusing existing port-forward."
+    else
+        log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_SSH_PORT} --connect-timeout ${OSMO_PF_TIMEOUT}"
+        osmo workflow port-forward "$wf" workspace --port "$OSMO_SSH_PORT" --connect-timeout "$OSMO_PF_TIMEOUT" \
+            > "${OSMO_STATE_DIR}/ssh-pf.log" 2>&1 &
+        pf_pid=$!
+        # Wait up to 30s for the tunnel to start accepting connections.
+        local waited=0
+        until nc -z localhost "$local_port" 2>/dev/null; do
+            sleep 1; waited=$((waited+1))
+            if [ "$waited" -ge 30 ]; then
+                log_error "Timed out waiting for port-forward on :${local_port} after ${waited}s."
+                log_error "  port-forward log: ${OSMO_STATE_DIR}/ssh-pf.log"
+                kill "$pf_pid" 2>/dev/null
+                return 1
+            fi
+            if ! kill -0 "$pf_pid" 2>/dev/null; then
+                log_error "port-forward exited early. Tail:"
+                tail -10 "${OSMO_STATE_DIR}/ssh-pf.log" >&2
+                return 1
+            fi
+        done
+        log_info "Port-forward established on localhost:${local_port} (pid ${pf_pid})."
+    fi
+
     if [ "$open_ide" = true ]; then
         # vscode-remote URI launches the IDE pre-attached to the remote host.
         local uri="vscode-remote://ssh-remote+airstack-osmo/root/AirStack"
@@ -355,9 +392,15 @@ function cmd_osmo_ide {
           log_warn "Could not launch ${ide_cmd} automatically; open it and pick airstack-osmo from Remote-SSH manually." ) &
     fi
 
-    log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_SSH_PORT} --connect-timeout ${OSMO_PF_TIMEOUT}"
-    log_info "Leave this terminal running for the length of your session."
-    osmo workflow port-forward "$wf" workspace --port "$OSMO_SSH_PORT" --connect-timeout "$OSMO_PF_TIMEOUT"
+    if [ -n "$pf_pid" ]; then
+        log_info "Leave this terminal running for the length of your session (Ctrl+C to disconnect)."
+        # Forward Ctrl+C to the port-forward and clean up.
+        trap 'kill "$pf_pid" 2>/dev/null; exit 0' INT TERM
+        wait "$pf_pid"
+    else
+        log_info "Existing port-forward owns the tunnel; this command will exit immediately."
+        log_info "Stop the tunnel with: pkill -f 'osmo workflow port-forward'  or  airstack osmo:down"
+    fi
 }
 
 # osmo:webrtc — forward both Isaac Sim WebRTC port ranges (TCP in this
