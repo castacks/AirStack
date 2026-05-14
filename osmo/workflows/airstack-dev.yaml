@@ -1,0 +1,100 @@
+# AirStack remote developer workflow on OSMO.
+#
+# Submits a single privileged GPU task ("workspace") that runs Docker-in-Docker
+# (DinD) and brings up the regular AirStack three-container stack (Isaac Sim
+# with WebRTC livestream, robot-desktop, GCS) on the inner Docker daemon. The
+# task also runs sshd so a student can attach VS Code or Cursor over Remote-SSH
+# from their laptop (Mac, Windows, or Linux — no local Docker / NVIDIA driver
+# required).
+#
+# To submit (replace <gpu-pool> and substitute your actual pubkey):
+#
+#   osmo workflow submit osmo/workflows/airstack-dev.yaml \
+#     --pool <gpu-pool> \
+#     --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+#
+# To stream the IDE, Isaac Sim, and Foxglove back to the laptop:
+#
+#   # SSH so VS Code / Cursor Remote-SSH can attach (1 terminal):
+#   osmo workflow port-forward <wf-id> workspace --port 2200:22 --connect-timeout 86400
+#
+#   # Isaac Sim WebRTC (2 terminals — TCP + UDP):
+#   osmo workflow port-forward <wf-id> workspace \
+#     --port 47995-48012,49000-49007,49100 --connect-timeout 86400
+#   osmo workflow port-forward <wf-id> workspace \
+#     --port 47995-48012,49000-49007 --udp --connect-timeout 86400
+#
+#   # GCS Foxglove websocket (1 terminal):
+#   osmo workflow port-forward <wf-id> workspace --port 8766:8766 --connect-timeout 86400
+#
+# See docs/tutorials/airstack_on_osmo.md for the full walkthrough and
+# osmo/README.md for the lab-admin setup (pool prerequisites, OSMO credential
+# registration, workspace image build).
+
+workflow:
+  name: airstack-dev
+  groups:                              # `groups:` keeps room to add a separate
+                                       # dind sidecar or split out isaac-sim /
+                                       # robot-desktop / gcs as their own
+                                       # tasks later. For now, one lead task.
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      # privileged is non-negotiable for DinD: cgroups, overlayfs, bridge,
+      # iptables, GPU device passthrough. hostNetwork is intentionally NOT
+      # set — osmo workflow port-forward reaches the pod NS, where the inner
+      # dockerd publishes ports via standard NAT.
+      privileged: true
+      command: ["bash"]
+      args: ["/usr/local/bin/entrypoint.sh"]
+      environment:
+        # Behaviour switches consumed by entrypoint.sh and airstack.sh:
+        AUTOLAUNCH: "true"             # boot AirStack on startup
+        ISAAC_SIM_LIVESTREAM: "true"   # use the isaac-sim-livestream profile
+        NUM_ROBOTS: "1"
+        AIRSTACK_BRANCH: "main"        # branch entrypoint.sh clones
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # SSH_PUB_KEY is supplied at submit time:
+        #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+      credentials:
+        # Each student registers these in their own OSMO profile once.
+        # See docs/tutorials/airstack_on_osmo.md "Step 0".
+        #
+        # airlab-nucleus (GENERIC) — materialized into omni_pass.env by
+        # entrypoint.sh so Compose env_files it into the Isaac Sim ctnr.
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        # airlab-docker-login (GENERIC) — exposed as env vars so the
+        # inner dockerd can authenticate to airlab-docker.andrew.cmu.edu
+        # when `airstack up` triggers an AirStack image-pull. (The
+        # *outer* pod's image-pull of airstack-osmo-workspace is handled
+        # automatically by a sibling REGISTRY-type credential which does
+        # not need a reference here — OSMO auto-attaches it on submit.)
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+
+  resources:
+    default:
+      cpu: 16
+      gpu: 1
+      memory: 64Gi
+      # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
+      # 100Gi container ephemeral cap during inner Compose's first image
+      # extract, before the second image even started downloading. So the
+      # full set of inner images alone exceeds 100Gi extracted. Going to
+      # 500Gi to comfortably hold isaac-sim + robot-desktop + gcs images,
+      # plus the AirStack source clone, colcon build output, and bag
+      # recordings. The airstack pool's workers have 4.2Ti of ephemeral
+      # capacity each (root disks resized 2026-05-14), so this leaves
+      # plenty of room for other tenants on the shared workers.
+      storage: 500Gi
+
+  timeout:
+    # 8h covers a normal dev session. Bump for longer runs; cancel manually
+    # before the timeout if you want to free the GPU early.
+    exec_timeout: 8h

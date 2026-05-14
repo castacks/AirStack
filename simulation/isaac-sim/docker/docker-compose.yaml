@@ -94,3 +94,61 @@ services:
         tmux send-keys -t isaac '/isaac-sim/runapp.sh' ENTER;  
       sleep infinity"
     networks: !reset null
+
+  # ===================================================================================================================
+  # WebRTC livestream variant for OSMO / remote dev. Headless: no X server,
+  # no display, no GUI window. Kit's `omni.kit.livestream.webrtc` extension
+  # serves the rendered viewport on the standard NVIDIA livestream ports
+  # (47995-48012, 49000-49007 TCP+UDP and 49100 TCP). Those ports are
+  # published into the host (the OSMO workspace pod's network namespace) so
+  # `osmo workflow port-forward` can reach them.
+  #
+  # Selected via COMPOSE_PROFILES (e.g. `desktop,isaac-sim-livestream`) in
+  # osmo/workspace/entrypoint.sh, or by setting ISAAC_SIM_LIVESTREAM=true.
+  isaac-sim-livestream:
+    extends:
+      service: isaac-sim
+    container_name: isaac-sim-livestream
+    profiles: !override
+      - isaac-sim-livestream
+    # Always run the Pegasus standalone path; the livestream branch in the
+    # script is gated on ISAAC_SIM_LIVESTREAM=true (env-driven, additive
+    # to the existing script behavior).
+    command: >
+      bash -c "
+      tmux new -d -s isaac;
+      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true' ENTER;
+      sleep infinity"
+    environment:
+      # Inherit everything from isaac-sim and append:
+      - ISAAC_SIM_LIVESTREAM=true
+      - ISAAC_SIM_USE_STANDALONE=true
+      - ISAAC_SIM_HEADLESS=true
+    # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
+    # publish (the conservative choice) keeps the rest of the stack on
+    # airstack_network for DDS multicast.
+    ports:
+      - "47995-48012:47995-48012/tcp"
+      - "47995-48012:47995-48012/udp"
+      - "49000-49007:49000-49007/tcp"
+      - "49000-49007:49000-49007/udp"
+      - "49100:49100/tcp"
+    # Drop X11-specific volume mounts inherited from the isaac-sim service —
+    # there is no X server in an OSMO pod.
+    volumes: !override
+      - $HOME/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw
+      - $HOME/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw
+      - $HOME/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw
+      - $HOME/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw
+      - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw
+      - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw
+      - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
+      - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
+      - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
+      - .dev:/isaac-sim/.dev:rw
+      - .bashrc:/isaac-sim/.bashrc:rw
+      - ../../../common/inputrc:/etc/inputrc:rw
+      - ../../../common/.tmux.conf:/isaac-sim/.tmux.conf:rw
+      - ../../..:/isaac-sim/AirStack:rw
+      - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
+      - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw

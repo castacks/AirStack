@@ -10,16 +10,29 @@ Demonstrates:
  - Optionally saving the prepared scene as a self-contained USD
 """
 
-import carb
-from isaacsim import SimulationApp
-
-# Must be created before any omni imports
-simulation_app = SimulationApp({"headless": False})
-
 import os
 import sys
 import time
 import asyncio
+
+import carb
+from isaacsim import SimulationApp
+
+_LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
+
+# Must be created before any omni imports
+simulation_app = SimulationApp({"headless": True if _LIVESTREAM else False})
+
+if _LIVESTREAM:
+    # Headless + WebRTC livestream when ISAAC_SIM_LIVESTREAM=true (set by the
+    # OSMO airstack-osmo-workspace entrypoint and the isaac-sim-livestream
+    # Compose profile). Local desktop dev keeps the original windowed behavior.
+    # Mirrors AirStack's standalone livestream reference at
+    # simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
+    from isaacsim.core.utils.extensions import enable_extension
+    simulation_app.set_setting("/app/window/drawMouse", True)
+    simulation_app.set_setting("/app/livestream/enabled", True)
+    enable_extension("omni.kit.livestream.webrtc")
 
 import omni.kit.app
 import omni.timeline
