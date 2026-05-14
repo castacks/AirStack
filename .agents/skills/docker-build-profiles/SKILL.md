@@ -48,6 +48,7 @@ Guidance for agents when editing the repo
 Troubleshooting notes
 - YAML quirk: unquoted `3.10` may be parsed as float `3.1` — this changes path strings and breaks imports (e.g., `python3.1` instead of `python3.10`).
 - Jetson/L4T builds may require `network: host` during the build to avoid kernel iptables/raw table missing-module errors.
+- Jetson **`robot-l4t`** builds from **`robot-l4t-stack-base`** (`robot/docker/Dockerfile.l4t-stack-base`), not raw dustynv, so **`Dockerfile.robot` stays Ubuntu-shaped.** `airstack image-build --profile l4t robot-l4t` triggers **`robot-l4t-stack-base`** first (`airstack.sh`); bare `compose build robot-l4t` can still parallelize badly, so list stack-base explicitly if not using AirStack CLI.
 
 Examples of agent prompts
 - "Check `robot/docker/docker-compose.yaml` for `PYTHON_VERSION` entries and quote any unquoted numeric values; open a PR with the fixes and include a test log from a builder-stage build."

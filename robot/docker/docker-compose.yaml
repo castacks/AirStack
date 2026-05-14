@@ -137,6 +137,23 @@ services:
     deploy: !reset {}  # remove nvidia driver for voxl
 
   # ===================================================================================================================
+  # Intermediate Jetson stack: dusty Jazzy + ROS keyring / pip / OpenCV shim for Dockerfile.robot (same recipe as Ubuntu).
+  # `airstack image-build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
+  robot-l4t-stack-base:
+    profiles:
+      - l4t
+    image: &l4t_stack_base_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.l4t-stack-base
+      network: host
+      args:
+        DUSTYNV_IMAGE: dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04
+      tags:
+        - *l4t_stack_base_image
+      cache_from:
+        - *l4t_stack_base_image
+
+  # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
   robot-l4t:
     profiles:
@@ -151,15 +168,16 @@ services:
       dockerfile: ./Dockerfile.robot
       network: host
       args:
-        BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
+        BASE_IMAGE: *l4t_stack_base_image
         REAL_ROBOT: true
         SKIP_MACVO: true
-        ROS_DISTRO: humble
-        PYTHON_VERSION: "3.10"
+        SKIP_TENSORRT: true
+        ROS_DISTRO: jazzy
       tags:
         - *l4t_image
       cache_from:
         - *l4t_image
+        - *l4t_stack_base_image
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
@@ -178,8 +196,8 @@ services:
               count: 1
               capabilities: [gpu]
     runtime: nvidia
-    environment: !override
-      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+    environment:
+      - ROBOT_NAME_SOURCE=hostname
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
@@ -212,10 +230,12 @@ services:
     build:
       context: ./
       dockerfile: zed/Dockerfile.zed-l4t
+      network: host
       args:
         L4T_MAJOR: 36
         L4T_MINOR: 4
         L4T_PATCH: 0
+        IMAGE_NAME: dustynv/ros:jazzy-desktop-r36.4.0-cu128-24.04
       cache_from:
         - *zed_l4t_image
     command: >

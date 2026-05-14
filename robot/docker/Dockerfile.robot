@@ -1,4 +1,4 @@
-# either ubuntu:24.04 or l4t. ubuntu:24.04 is default
+# either ubuntu:24.04 / nvidia CUDA, or Jetson intermediary from Dockerfile.l4t-stack-base (see robot-l4t in compose).
 ARG BASE_IMAGE
 # ============================================================
 # Stage 1 — builder: compile/download everything
@@ -85,8 +85,8 @@ RUN apt update && apt install -y --no-install-recommends \
   gdb \
   && rm -rf /var/lib/apt/lists/*
 
-# Freeze pip and setuptools versions.
-RUN python3 -m pip install --no-cache-dir --upgrade \
+# Freeze pip and setuptools versions (ignore-installed: apt-shipped wheel/setuptools have no pip RECORD).
+RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-installed --upgrade \
   "pip==${PIP_VERSION}" \
   "setuptools==79.0.1" \
   wheel
@@ -210,7 +210,7 @@ RUN echo "=== Python version ===" && \
     dpkg -l | grep -i ament || echo "No ament packages found in dpkg" && \
     echo "" && \
     echo "=== ROS Python packages ===" && \
-    ls -la /opt/ros/humble/lib/python*/dist-packages/ 2>/dev/null | head -20 || echo "No ROS python packages found"
+    ls -la /opt/ros/${ROS_DISTRO}/lib/python*/dist-packages/ 2>/dev/null | head -20 || echo "No ROS python packages found"
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
@@ -310,12 +310,14 @@ RUN apt update && apt install -y --no-install-recommends \
   vim nano tree \
   less htop jq \
   python3-pip \
+  python3-yaml \
+  python3-empy \
   python3-rosdep \
   tmux \
   && rm -rf /var/lib/apt/lists/*
 
-# Freeze pip and setuptools versions.
-RUN python3 -m pip install --no-cache-dir --upgrade \
+# Freeze pip and setuptools versions (ignore-installed: apt-shipped wheel/setuptools have no pip RECORD).
+RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-installed --upgrade \
   "pip==${PIP_VERSION}" \
   "setuptools==79.0.1" \
   wheel

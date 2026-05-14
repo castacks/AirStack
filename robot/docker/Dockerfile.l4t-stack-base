@@ -1,0 +1,50 @@
+# Thin intermediary for Jetson: dustynv Jazzy (Noble) + quirks so Dockerfile.robot matches Ubuntu/desktop flow.
+#
+# Builds: PROJECT_DOCKER_REGISTRY/...:_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}
+# Build before robot-l4t: compose build robot-l4t-stack-base robot-l4t
+#
+# - Refreshes ROS apt keyring (dusty snapshots can carry expired signatures).
+# - Sets pip defaults to PyPI and clears dusty PIP_CONSTRAINT / PIP_EXTRA_INDEX_URL (mirror hash/index surprises during build).
+# - Reconciles OpenCV CUDA overlay vs Ubuntu libopencv*-dev pulls from ROS stacks.
+# - Rewrites prebuilt /opt/ros to use /usr/bin/python3 instead of dusty /opt/venv, then removes the venv
+#   so colcon/rosidl use the same system Python path as Dockerfile.robot Ubuntu images.
+
+ARG DUSTYNV_IMAGE=dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04
+ARG ROS_DISTRO=jazzy
+FROM ${DUSTYNV_IMAGE}
+
+ARG ROS_DISTRO=jazzy
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg \
+  && chmod 644 /usr/share/keyrings/ros-archive-keyring.gpg
+
+ENV PIP_INDEX_URL=https://pypi.org/simple \
+    PIP_CONSTRAINT= \
+    PIP_EXTRA_INDEX_URL=
+
+RUN apt-get update \
+  && apt-get install -y -o Dpkg::Options::=--force-overwrite --no-install-recommends \
+    libopencv-dev \
+    python3-empy \
+    python3-yaml \
+  && rm -rf /var/lib/apt/lists/*
+
+# Point all dusty /opt/venv/python references at system Python (matches Ubuntu rosidl behavior).
+RUN ros="/opt/ros/${ROS_DISTRO}"; \
+  if [ -d "$ros" ]; then \
+    ( grep -rlIZ '/opt/venv' "$ros" 2>/dev/null || true ) \
+      | xargs -0 -r sed -i \
+          -e 's#/opt/venv/bin/python3#/usr/bin/python3#g' \
+          -e 's#/opt/venv/bin:##g' \
+          -e 's#:/opt/venv/bin##g'; \
+  fi; \
+  rm -rf /opt/venv
+
+ENV AMENT_PYTHON_EXECUTABLE=/usr/bin/python3
+ENV PYTHON_EXECUTABLE=/usr/bin/python3
+
+# Prefer system/cuda tooling over any removed venv prefix (CUDA symlink is usually /usr/local/cuda).
+ENV PATH="/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

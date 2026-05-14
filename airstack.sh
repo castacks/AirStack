@@ -728,6 +728,35 @@ function classify_compose_args {
     done
 }
 
+# robot-l4t uses Dockerfile.robot with BASE_IMAGE=robot-l4t-stack-base. Compose v2+ may schedule
+# service builds in parallel, so BUILD FROM that tag can race before stack-base finishes. Ensure
+# the intermediary image exists first (still requires --profile l4t like the robot-l4t build).
+function ensure_robot_l4t_stack_base() {
+    local -n _ga="$1"
+    local -n _sc="$2"
+    local wants_l4t=false
+    local has_stack=false
+    for arg in "${_sc[@]}"; do
+        if [[ "$arg" == robot-l4t ]]; then
+            wants_l4t=true
+        fi
+        if [[ "$arg" == robot-l4t-stack-base ]]; then
+            has_stack=true
+        fi
+    done
+    if [[ "$wants_l4t" != true ]] || [[ "$has_stack" == true ]]; then
+        return 0
+    fi
+    log_info "Building robot-l4t-stack-base before robot-l4t..."
+    local build_opts=()
+    for arg in "${_sc[@]}"; do
+        if [[ "$arg" == -* ]]; then
+            build_opts+=("$arg")
+        fi
+    done
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_ga[@]}" build "${build_opts[@]}" robot-l4t-stack-base
+}
+
 function cmd_up {
     check_docker
 
@@ -771,6 +800,13 @@ function cmd_image_build {
     local global_args=()
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "$@"
+    # Jetson only: building robot-l4t needs robot-l4t-stack-base first
+    for arg in "${subcmd_args[@]}"; do
+        if [[ "$arg" == robot-l4t ]]; then
+            ensure_robot_l4t_stack_base global_args subcmd_args
+            break
+        fi
+    done
 
     # Registry-cache mode (CI / opt-in): pre-pull existing images to seed the
     # local cache, build with BUILDKIT_INLINE_CACHE=1 so the resulting image
