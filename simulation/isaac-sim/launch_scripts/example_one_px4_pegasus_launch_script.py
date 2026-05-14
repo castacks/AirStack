@@ -20,8 +20,31 @@ from isaacsim import SimulationApp
 
 _LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
 
-# Must be created before any omni imports
-simulation_app = SimulationApp({"headless": True if _LIVESTREAM else False})
+# Must be created before any omni imports.
+#
+# When livestreaming, mirror the NVIDIA reference config from
+# simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
+# so the Kit GUI (menu bar, toolbar, viewport, status bar) actually gets
+# rendered into the WebRTC stream instead of just the bare 3D viewport.
+# Key field: `hide_ui: False` — SimulationApp's default when `headless=True`
+# is to also hide the UI; the livestream reference opts back into showing
+# it. `display_options=3286` is the same bitmask the reference uses to keep
+# the default grid + axes visible at scene start.
+if _LIVESTREAM:
+    _SIM_APP_CONFIG = {
+        "width": 1280,
+        "height": 720,
+        "window_width": 1920,
+        "window_height": 1080,
+        "headless": True,
+        "hide_ui": False,
+        "renderer": "RaytracedLighting",
+        "display_options": 3286,
+    }
+else:
+    _SIM_APP_CONFIG = {"headless": False}
+
+simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
 
 if _LIVESTREAM:
     # Headless + WebRTC livestream when ISAAC_SIM_LIVESTREAM=true (set by the

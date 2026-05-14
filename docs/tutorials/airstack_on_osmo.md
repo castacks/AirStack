@@ -247,10 +247,27 @@ Host airstack-osmo
   Port 2200
   User root
   StrictHostKeyChecking accept-new
+  # SSH agent forwarding so `git push` from inside the pod uses your
+  # local laptop's SSH key (the pod's sshd has AllowAgentForwarding yes
+  # baked in by osmo/workspace/sshd_config). Without this, the pod has
+  # no key to push to github.com with — its ~/.ssh/ only holds the
+  # authorized_keys file for inbound connections.
+  ForwardAgent yes
+  # macOS Keychain integration — first push from the pod auto-loads
+  # your key into the local ssh-agent and unlocks it via the system
+  # keychain (no passphrase prompts). Harmless on Linux: those clients
+  # ignore the option. AddKeysToAgent works on both OSes.
+  AddKeysToAgent yes
+  UseKeychain yes
 EOF
 ```
 
 The `localhost:2200` is what we'll port-forward to in step 4.
+
+> **Smoke-test the agent forward** once the pod is up: SSH in and run
+> `ssh-add -l` — you should see your local key listed. If you see "The
+> agent has no identities", run `ssh-add ~/.ssh/id_ed25519` on your
+> laptop and reconnect.
 
 ## Step 2 — Submit the workflow
 
@@ -264,7 +281,7 @@ takes a path and uploads the YAML.
 curl -fsSL -o airstack-dev.yaml \
   https://raw.githubusercontent.com/castacks/AirStack/main/osmo/workflows/airstack-dev.yaml
 
-# Submit (replace airstack with whatever pool your admin enabled privileged on):
+# Submit:
 osmo workflow submit airstack-dev.yaml \
   --pool airstack \
   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
