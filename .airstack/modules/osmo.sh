@@ -49,6 +49,30 @@ function _osmo_check_cli {
     fi
 }
 
+# Helper: strip leading/trailing whitespace + CR/NUL bytes from the
+# variable named in $1.
+#
+# Why this exists: bracket-paste mode and cross-OS clipboards (RDP, VNC,
+# Windows-side note apps) routinely smuggle invisible bytes around long
+# pastes — Nucleus API tokens (JWT, ~1 KB) and SSH keys are the usual
+# victims. Nucleus's auth endpoint silently `DENIES` a token that has
+# one extra trailing byte, with no actionable error from the client side.
+# Stripping defensively at prompt time saves an entire round-trip of
+# "regenerate token → still denied → check auth-service log" debugging.
+function _osmo_trim {
+    local var_name="$1"
+    local val="${!var_name}"
+    local original_len="${#val}"
+    val="${val//$'\r'/}"
+    val="${val//$'\0'/}"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    if [ "${#val}" -ne "$original_len" ]; then
+        log_warn "Stripped $((original_len - ${#val})) whitespace/control byte(s) from ${var_name}."
+    fi
+    printf -v "$var_name" '%s' "$val"
+}
+
 # Helper: read a value with prompt; supports -s for silent (passwords).
 #
 # Visible prompts switch the TTY out of canonical mode for the duration of
@@ -61,6 +85,8 @@ function _osmo_check_cli {
 #
 # We use a trap to guarantee the saved stty is restored if the user Ctrl-Cs
 # mid-paste — otherwise the shell would be left in raw mode.
+#
+# After reading we always run _osmo_trim — see comment there.
 function _osmo_prompt {
     local var_name="$1"
     local prompt_text="$2"
@@ -85,6 +111,8 @@ function _osmo_prompt {
             trap - INT
         fi
     fi
+
+    _osmo_trim "$var_name"
 
     if [ -z "${!var_name}" ]; then
         log_error "Empty input for ${var_name}; aborting."
@@ -122,10 +150,34 @@ EOF
     _osmo_prompt andrew_password  "AirLab Docker password (hidden)" true  || return 1
     _osmo_prompt nucleus_token    "Nucleus API token"               false || return 1
 
+    # Sanity-check the Nucleus token shape. Nucleus issues RS256 JWTs:
+    # base64url(header).base64url(payload).base64url(signature), with the
+    # header always starting `eyJ` (base64url of `{"`). Catching a wrong
+    # paste here (e.g. Andrew password, or token without the trailing
+    # signature segment) saves the user from a silent `InternalCredentials
+    # .auth: DENIED` round-trip later on. We do not validate the signature.
+    case "$nucleus_token" in
+        eyJ*.*.*) ;;  # looks like a 3-segment JWT
+        *)
+            log_error "That doesn't look like a Nucleus API token."
+            log_error "  - Expected: a JWT of the form eyJ…<dot>…<dot>… (~1 KB long)"
+            log_error "  - Got:      ${#nucleus_token} chars, prefix '$(printf '%s' "$nucleus_token" | head -c 8)…'"
+            log_error "  Generate one at https://airlab-nucleus.andrew.cmu.edu/omni/web3/"
+            log_error "  → right-click cloud icon → API Tokens → Create."
+            return 1
+            ;;
+    esac
+
     local omni_server="${OMNI_SERVER:-omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1}"
     local airlab_registry="${AIRLAB_REGISTRY:-airlab-docker.andrew.cmu.edu}"
 
-    log_info "Registering airlab-docker-registry (REGISTRY)..."
+    # `osmo credential set` is NOT an upsert for GENERIC credentials — re-setting
+    # one that already exists fails with `400 duplicate key value violates unique
+    # constraint "credential_pkey"`. Delete first so re-running osmo:setup
+    # (e.g. to rotate a Nucleus token) is idempotent. The `|| true` swallows the
+    # "credential not found" case on a first-time run.
+    log_info "Refreshing airlab-docker-registry (REGISTRY)..."
+    osmo credential delete airlab-docker-registry >/dev/null 2>&1 || true
     osmo credential set airlab-docker-registry \
         --type REGISTRY \
         --payload "registry=${airlab_registry}" \
@@ -133,14 +185,16 @@ EOF
                   "auth=${andrew_password}" \
         || { log_error "osmo credential set airlab-docker-registry failed"; return 1; }
 
-    log_info "Registering airlab-docker-login (GENERIC)..."
+    log_info "Refreshing airlab-docker-login (GENERIC)..."
+    osmo credential delete airlab-docker-login >/dev/null 2>&1 || true
     osmo credential set airlab-docker-login \
         --type GENERIC \
         --payload "username=${andrew_id}" \
                   "password=${andrew_password}" \
         || { log_error "osmo credential set airlab-docker-login failed"; return 1; }
 
-    log_info "Registering airlab-nucleus (GENERIC)..."
+    log_info "Refreshing airlab-nucleus (GENERIC)..."
+    osmo credential delete airlab-nucleus >/dev/null 2>&1 || true
     osmo credential set airlab-nucleus \
         --type GENERIC \
         --payload "omni_user=${andrew_id}" \

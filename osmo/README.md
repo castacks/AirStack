@@ -235,6 +235,38 @@ The wider Foxglove layout / panel-import flow is documented in
 [`docs/gcs/foxglove.md`](../docs/gcs/foxglove.md); the only OSMO-specific
 piece is the `port-forward` line in front of it.
 
+## Nucleus connectivity from OSMO
+
+`airlab-nucleus.andrew.cmu.edu` runs the standard Omniverse Enterprise
+Nucleus stack with TLS termination at its Ingress Router (NGINX) on **port
+443**. Per [NVIDIA's TLS doc](https://docs.omniverse.nvidia.com/nucleus/latest/enterprise/installation/tls.html),
+clients only need outbound TCP **443** — the Ingress Router path-based-
+routes requests (`/omni/api`, `/omni/auth`, `/omni/lft`, `/omni/conn`,
+`/omni/web3/...`) to the internal service ports (3009, 3100, 3030, 3019,
+3400). Omniclient detects SSL/TLS and prefers it, so the OSMO pod (whose
+egress allows 80/443/22) reaches Nucleus over the same single 443 the
+Web3 navigator uses. **The native protocol ports 3009–3180 do NOT need to
+be open from OSMO** as long as TLS is configured on the Nucleus side.
+
+If you see Isaac Sim's "Login Required" popup at startup:
+
+1. **Check the auth-service log on the Nucleus host** (`ssh
+   ubuntu@<nucleus-host>; sudo docker logs --tail 200
+   base_stack-nucleus-auth-1`). Look for `InternalCredentials.auth:
+   {... 'username': '<your_andrew_id>'} → status: 'DENIED'` lines. That
+   means the API token in your `airlab-nucleus` OSMO credential is
+   revoked, expired, or has whitespace/quoting damage.
+2. **Regenerate the token** at
+   <https://airlab-nucleus.andrew.cmu.edu/omni/web3/> → right-click the
+   cloud icon → **API Tokens** → create a new one.
+3. **Update the OSMO credential** with `airstack osmo:setup` (or the
+   raw `osmo credential set airlab-nucleus ...` command from the
+   tutorial Step 0) and **resubmit the workflow** so the new token
+   lands in `omni_pass.env` on pod boot. To live-patch a running pod
+   instead, edit `simulation/isaac-sim/docker/omni_pass.env` inside
+   the workspace and `docker compose --profile isaac-sim-livestream
+   restart isaac-sim-livestream`.
+
 ## Out of scope (followups)
 
 - **OSMO-native split** — three separate OSMO tasks for `isaac-sim` /
