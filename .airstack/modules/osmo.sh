@@ -307,11 +307,61 @@ function cmd_osmo_up {
 }
 
 # osmo:logs — follow the workspace task logs.
+#
+# The osmo CLI's `workflow logs` command has no --follow flag (and the task
+# is selected with `-t TASK`, not positionally). To get a tail -f experience
+# we re-fetch the last N lines on a short interval and print only the lines
+# that appeared since the previous poll. The "find last seen line, print
+# what follows" trick degrades gracefully: if the cursor outruns -n during
+# a particularly loud burst, we simply re-print the whole tail with a
+# warning rather than dropping output silently.
 function cmd_osmo_logs {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
-    log_info "osmo workflow logs ${wf} workspace --follow"
-    osmo workflow logs "$wf" workspace --follow
+
+    local task="${OSMO_LOGS_TASK:-workspace}"
+    local lines="${OSMO_LOGS_TAIL:-500}"
+    local interval="${OSMO_LOGS_INTERVAL:-3}"
+
+    log_info "Following ${task} logs for ${wf} (polling every ${interval}s, last ${lines} lines per fetch; Ctrl+C to stop)"
+
+    local prev=""
+    trap 'echo; log_info "stopped following ${wf}"; trap - INT TERM; return 0' INT TERM
+    while true; do
+        local out
+        out="$(osmo workflow logs "${wf}" -t "${task}" -n "${lines}" 2>/dev/null)"
+        if [ -n "${out}" ] && [ "${out}" != "${prev}" ]; then
+            if [ -z "${prev}" ]; then
+                printf '%s\n' "${out}"
+            else
+                local last_line; last_line="$(printf '%s' "${prev}" | tail -1)"
+                local suffix
+                suffix="$(printf '%s\n' "${out}" | awk -v L="${last_line}" '
+                    matched { print; next }
+                    $0 == L { matched=1 }
+                ')"
+                if [ -n "${suffix}" ]; then
+                    printf '%s\n' "${suffix}"
+                else
+                    log_warn "log cursor outran -n ${lines}; reprinting tail"
+                    printf '%s\n' "${out}"
+                fi
+            fi
+            prev="${out}"
+        fi
+
+        # Exit cleanly once the workflow reaches a terminal state.
+        local status
+        status="$(osmo workflow query "${wf}" 2>/dev/null | awk -F': +' '/^Status/ {print $2; exit}' | tr -d ' \r\n')"
+        case "${status}" in
+            SUCCEEDED|FAILED|FAILED_*|CANCELED)
+                log_info "workflow ${wf} is ${status}; exiting follow"
+                break
+                ;;
+        esac
+        sleep "${interval}"
+    done
+    trap - INT TERM
 }
 
 # osmo:ide — port-forward sshd + (optionally) launch VS Code/Cursor on the
@@ -423,14 +473,44 @@ function cmd_osmo_webrtc {
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }
 
-# osmo:foxglove — forward the GCS Foxglove websocket.
+# osmo:foxglove — install the AirStack Foxglove extensions into the local
+# Foxglove Desktop user-extensions dir, then forward the GCS Foxglove
+# websocket.
+#
+# The extension install is the same script the GCS container runs on
+# startup — gcs/foxglove_extensions/install.py — invoked with env-var
+# overrides that point at the local laptop dirs. Default destination on
+# Linux/macOS is ~/.foxglove-studio/extensions (Foxglove's canonical user
+# extensions path; the macOS rebrand still reads from here). Override
+# with OSMO_FOXGLOVE_EXT_DIR, or skip the install entirely with
+# OSMO_FOXGLOVE_SKIP_EXTENSIONS=1 (e.g. when using app.foxglove.dev
+# which doesn't load local extensions anyway).
 function cmd_osmo_foxglove {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
 
+    local ext_src="${PROJECT_ROOT}/gcs/foxglove_extensions"
+    local ext_dst="${OSMO_FOXGLOVE_EXT_DIR:-${HOME}/.foxglove-studio/extensions}"
+
+    if [ "${OSMO_FOXGLOVE_SKIP_EXTENSIONS:-0}" != "1" ] && [ -d "${ext_src}" ]; then
+        if command -v python3 >/dev/null 2>&1; then
+            log_info "Installing Foxglove extensions to ${ext_dst}"
+            FOXGLOVE_EXT_SRC="${ext_src}" FOXGLOVE_EXT_DST="${ext_dst}" \
+                python3 "${ext_src}/install.py" \
+                || log_warn "Foxglove extension install failed; panels like 'Robot Tasks' may show as 'Unknown panel type' in Foxglove"
+        else
+            log_warn "python3 not found on PATH — skipping Foxglove extension install."
+            log_warn "  Custom panels (Robot Tasks, Waypoint Editor, Polygon Editor) will show as 'Unknown panel type'."
+            log_warn "  Install python3 (e.g. 'brew install python') or copy ${ext_src}/* manually to ${ext_dst}."
+        fi
+    elif [ "${OSMO_FOXGLOVE_SKIP_EXTENSIONS:-0}" = "1" ]; then
+        log_info "Skipping Foxglove extension install (OSMO_FOXGLOVE_SKIP_EXTENSIONS=1)."
+    fi
+
     log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_FOXGLOVE_PORT} --connect-timeout ${OSMO_PF_TIMEOUT}"
-    log_info "Then open https://app.foxglove.dev → Open connection → ws://localhost:8766"
-    log_info "Then Layouts → Import from file → gcs/foxglove_extensions/airstack_default.json"
+    log_info "Then in Foxglove Desktop: Open connection → ws://localhost:8766"
+    log_info "  Layouts → Import from file → ${ext_src}/airstack_default.json"
+    log_info "  (Restart Foxglove Desktop once if newly-installed panels still show as 'Unknown panel type'.)"
     osmo workflow port-forward "$wf" workspace \
         --port "$OSMO_FOXGLOVE_PORT" \
         --connect-timeout "$OSMO_PF_TIMEOUT"
@@ -461,9 +541,9 @@ function register_osmo_commands {
 
     COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus)"
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
-    COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> workspace --follow)"
+    COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (polls osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL / OSMO_LOGS_INTERVAL override)"
     COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
     COMMAND_HELP["osmo:webrtc"]="Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background)"
-    COMMAND_HELP["osmo:foxglove"]="Port-forward GCS Foxglove websocket (8766:8766)"
+    COMMAND_HELP["osmo:foxglove"]="Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766). Override target dir with OSMO_FOXGLOVE_EXT_DIR; skip install with OSMO_FOXGLOVE_SKIP_EXTENSIONS=1."
     COMMAND_HELP["osmo:down"]="Cancel the active workflow (push to git before running this)"
 }
