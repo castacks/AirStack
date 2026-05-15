@@ -99,3 +99,5 @@ common/rayfronts/
 
 # Docker build cache (root-owned subdirs cause permission warnings on `git add`)
 robot/docker/cache/
+.DS_Store
+gcs/.DS_Store

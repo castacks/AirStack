@@ -1,0 +1,41 @@
+# sshd_config baked into airstack-osmo-workspace.
+#
+# Permanently disables password auth — the only way in is via a pubkey
+# installed by entrypoint.sh from the SSH_PUB_KEY env var (passed at submit
+# time with `osmo workflow submit ... --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"`).
+
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+ListenAddress ::
+
+# Pubkey only.
+PasswordAuthentication no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+
+# Single-user dev pod; the IDE attaches as root because /root/AirStack and
+# the existing AirStack ergonomics expect it. PermitRootLogin
+# prohibit-password forbids password root login but allows pubkey root login.
+PermitRootLogin prohibit-password
+
+# Standard auth path.
+AuthorizedKeysFile .ssh/authorized_keys
+
+UsePAM yes
+
+# Performance / VS Code-Remote-SSH friendliness:
+# - AcceptEnv lets the IDE forward LANG, ENV, etc.
+# - X11 forwarding off (no display in the pod).
+# - Allow forwarding so port-forwards through SSH are permitted if students
+#   want to layer their own.
+AcceptEnv LANG LC_*
+X11Forwarding no
+AllowAgentForwarding yes
+AllowTcpForwarding yes
+PrintMotd no
+
+# Subsystems VS Code Remote needs for sftp/file ops.
+Subsystem sftp /usr/lib/openssh/sftp-server
