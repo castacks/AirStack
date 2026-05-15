@@ -96,19 +96,48 @@ all three `osmo credential set` commands.
 The workspace image is built once and pushed to the AirLab registry; students
 never build it themselves.
 
+> **Always use `docker buildx build --platform linux/amd64 --push`.**
+> OSMO pool workers are linux/amd64. Building with plain `docker build` on
+> an Apple Silicon Mac silently produces a `linux/arm64` image and the
+> resulting `latest` tag will fail every workflow with
+> `no match for platform in manifest ...: not found` (the outer pod's
+> image-pull bails before the entrypoint even runs). Forcing `--platform
+> linux/amd64` cross-compiles for amd64 even on an arm64 host. `--push`
+> is required because buildx cross-platform builds can't be loaded into a
+> local Docker daemon — they live only in the build cache or the
+> registry. Linux/amd64 admins can use plain `docker build && docker push`.
+
 ```bash
 cd osmo/workspace
-docker build -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest .
-docker push   airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+
+# One-time builder setup (skip if `docker buildx ls` already shows a builder):
+docker buildx create --use --name airstack-builder
+
+docker buildx build \
+  --platform linux/amd64 \
+  -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest \
+  --push \
+  .
+```
+
+Verify the manifest has `linux/amd64` after pushing:
+
+```bash
+docker manifest inspect airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest \
+  | grep -A2 architecture
+# → "architecture": "amd64"
 ```
 
 Tag a versioned release alongside `latest` if you change anything in
 `Dockerfile`, `sshd_config`, or `entrypoint.sh`:
 
 ```bash
-docker tag  airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest \
-            airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:v0.1.0
-docker push airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:v0.1.0
+docker buildx build \
+  --platform linux/amd64 \
+  -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest \
+  -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:v0.1.0 \
+  --push \
+  .
 ```
 
 Then update the `image:` field in

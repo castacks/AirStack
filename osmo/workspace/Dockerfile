@@ -6,10 +6,17 @@
 # Sim, robot-desktop, GCS) on the GPU forwarded into the pod.
 #
 # Built and pushed by the lab admin (see osmo/README.md):
-#   docker build -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest .
-#   docker push   airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
 #
-# Students never build this image.
+#   cd osmo/workspace
+#   docker buildx build --platform linux/amd64 \
+#     -t airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest \
+#     --push .
+#
+# Use `docker buildx build --platform linux/amd64 --push` (not plain
+# `docker build && docker push`) so an Apple Silicon Mac doesn't silently
+# push an arm64 image; OSMO workers are amd64 and would fail every
+# workflow with "no match for platform in manifest". Students never
+# build this image.
 
 FROM ubuntu:24.04
 
