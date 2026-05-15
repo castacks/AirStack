@@ -194,7 +194,16 @@ Host airstack-osmo
   HostName localhost
   Port 2200
   User root
-  StrictHostKeyChecking accept-new
+  # Every OSMO workflow boots a fresh pod with a fresh sshd host key, so
+  # any saved fingerprint for [localhost]:2200 will be wrong on the next
+  # `airstack osmo:up`. Skip the host-key check here: this alias only
+  # connects via the local port-forward, so the security boundary is
+  # OSMO's authenticated control-plane tunnel — not the SSH fingerprint.
+  # /dev/null keeps known_hosts clean (no stale entries pile up); LogLevel
+  # ERROR silences the "Permanently added [localhost]:2200" banner.
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
   # SSH agent forwarding so `git push` from inside the pod uses your
   # local laptop's SSH key (the pod's sshd has AllowAgentForwarding yes
   # baked in by osmo/workspace/sshd_config). Without this, the pod has
@@ -211,6 +220,18 @@ EOF
 ```
 
 The `localhost:2200` is what we'll port-forward to in step 4.
+
+> **Already added the old block?** If your `~/.ssh/config` still has
+> `StrictHostKeyChecking accept-new` for `airstack-osmo` from an earlier
+> setup, replace it with the three lines above. As a one-time cleanup of
+> the stale fingerprint left behind by previous pods, also run:
+>
+> ```bash
+> ssh-keygen -R "[localhost]:2200"
+> ```
+>
+> `airstack osmo:ide` does this scrub for you on every run, so you only
+> need it once when migrating.
 
 > **Smoke-test the agent forward** once the pod is up: SSH in and run
 > `ssh-add -l` — you should see your local key listed. If you see "The
@@ -282,15 +303,17 @@ spinning up — the bring-up will continue in the background.
 
 `airstack osmo:logs` (defined in
 [`.airstack/modules/osmo.sh`](https://github.com/castacks/AirStack/blob/main/.airstack/modules/osmo.sh)
-as `cmd_osmo_logs`) polls the equivalent of:
+as `cmd_osmo_logs`) just exec's:
 
 ```bash
 osmo workflow logs $WF -t workspace -n 500
 ```
 
-every few seconds and prints only the new lines (the `osmo` CLI has no
-native `--follow`). Override the task / tail length / poll interval with
-`OSMO_LOGS_TASK`, `OSMO_LOGS_TAIL`, `OSMO_LOGS_INTERVAL` env vars.
+The `osmo` CLI's `workflow logs` command prints the last N lines and then
+keeps the stream open as new lines arrive (it already behaves like `tail
+-f`, even though `--help` only documents `-n LAST_N_LINES`). Ctrl+C to
+stop. Override the task / tail length with `OSMO_LOGS_TASK` /
+`OSMO_LOGS_TAIL` env vars.
 
 </details>
 

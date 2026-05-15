@@ -138,7 +138,12 @@ osmo workflow submit osmo/workflows/airstack-dev.yaml \
 # → record <wf-id>
 
 osmo workflow port-forward <wf-id> workspace --port 2200:22 --connect-timeout 86400 &
-ssh -p 2200 -o StrictHostKeyChecking=accept-new root@localhost 'echo ok && whoami'
+# StrictHostKeyChecking=no + UserKnownHostsFile=/dev/null because every
+# fresh pod has a different sshd host key — the previous workflow's
+# fingerprint will always look like a "host key changed" attack
+# otherwise.
+ssh -p 2200 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    root@localhost 'echo ok && whoami'
 # → "ok\nroot"
 ```
 
@@ -154,7 +159,13 @@ Host airstack-osmo
   HostName localhost
   Port 2200
   User root
-  StrictHostKeyChecking accept-new
+  # Each fresh pod has a new sshd host key, so accept-new doesn't help
+  # — the second workflow always trips the "host key changed" check.
+  # Bypass host-key checks for this loopback alias only; the security
+  # boundary is OSMO's authenticated port-forward, not the local key.
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
 ```
 
 Then in VS Code: Command Palette → **Remote-SSH: Connect to Host…** →

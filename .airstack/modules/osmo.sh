@@ -354,60 +354,23 @@ function cmd_osmo_up {
 
 # osmo:logs — follow the workspace task logs.
 #
-# The osmo CLI's `workflow logs` command has no --follow flag (and the task
-# is selected with `-t TASK`, not positionally). To get a tail -f experience
-# we re-fetch the last N lines on a short interval and print only the lines
-# that appeared since the previous poll. The "find last seen line, print
-# what follows" trick degrades gracefully: if the cursor outruns -n during
-# a particularly loud burst, we simply re-print the whole tail with a
-# warning rather than dropping output silently.
+# Despite the `osmo workflow logs --help` output advertising only `-n
+# LAST_N_LINES` (no `--follow`), the CLI in fact streams the tail and keeps
+# the connection open as new lines arrive — i.e. it already behaves like
+# `tail -f`. We just exec it in the foreground so the user sees output
+# immediately and can Ctrl+C to stop. (An earlier implementation wrapped
+# this in `out=$(osmo workflow logs ...)`; command substitution waits for
+# the process to exit, which never happened, so nothing was ever printed.)
 function cmd_osmo_logs {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
 
     local task="${OSMO_LOGS_TASK:-workspace}"
     local lines="${OSMO_LOGS_TAIL:-500}"
-    local interval="${OSMO_LOGS_INTERVAL:-3}"
 
-    log_info "Following ${task} logs for ${wf} (polling every ${interval}s, last ${lines} lines per fetch; Ctrl+C to stop)"
+    log_info "Following ${task} logs for ${wf} (last ${lines} lines, then live; Ctrl+C to stop)"
 
-    local prev=""
-    trap 'echo; log_info "stopped following ${wf}"; trap - INT TERM; return 0' INT TERM
-    while true; do
-        local out
-        out="$(osmo workflow logs "${wf}" -t "${task}" -n "${lines}" 2>/dev/null)"
-        if [ -n "${out}" ] && [ "${out}" != "${prev}" ]; then
-            if [ -z "${prev}" ]; then
-                printf '%s\n' "${out}"
-            else
-                local last_line; last_line="$(printf '%s' "${prev}" | tail -1)"
-                local suffix
-                suffix="$(printf '%s\n' "${out}" | awk -v L="${last_line}" '
-                    matched { print; next }
-                    $0 == L { matched=1 }
-                ')"
-                if [ -n "${suffix}" ]; then
-                    printf '%s\n' "${suffix}"
-                else
-                    log_warn "log cursor outran -n ${lines}; reprinting tail"
-                    printf '%s\n' "${out}"
-                fi
-            fi
-            prev="${out}"
-        fi
-
-        # Exit cleanly once the workflow reaches a terminal state.
-        local status
-        status="$(osmo workflow query "${wf}" 2>/dev/null | awk -F': +' '/^Status/ {print $2; exit}' | tr -d ' \r\n')"
-        case "${status}" in
-            SUCCEEDED|FAILED|FAILED_*|CANCELED)
-                log_info "workflow ${wf} is ${status}; exiting follow"
-                break
-                ;;
-        esac
-        sleep "${interval}"
-    done
-    trap - INT TERM
+    osmo workflow logs "${wf}" -t "${task}" -n "${lines}"
 }
 
 # osmo:ide — port-forward sshd + (optionally) launch VS Code/Cursor on the
@@ -445,6 +408,21 @@ function cmd_osmo_ide {
     # Local TCP port the user's IDE will connect to (the local side of the
     # `--port LOCAL:REMOTE` mapping).
     local local_port="${OSMO_SSH_PORT%%:*}"
+
+    # Every fresh OSMO pod ships a new sshd host key. If the user's
+    # ~/.ssh/known_hosts still has an entry for [localhost]:${local_port}
+    # from a previous workflow, ssh aborts with "Host key for [localhost]
+    # :${local_port} has changed and you have requested strict checking",
+    # which the IDE surfaces as a generic "could not connect" error.
+    #
+    # The recommended ~/.ssh/config block for `airstack-osmo` uses
+    # `UserKnownHostsFile /dev/null`, which sidesteps this entirely — but
+    # users who set up before that change still have a stale entry on
+    # disk. Scrub it defensively on every osmo:ide invocation. ssh-keygen
+    # -R is idempotent: a no-op if the entry doesn't exist.
+    if command -v ssh-keygen >/dev/null 2>&1; then
+        ssh-keygen -R "[localhost]:${local_port}" >/dev/null 2>&1 || true
+    fi
 
     # Reuse an existing forward if one is already listening (the user might
     # have run this from a second terminal, or osmo:foxglove already opened
@@ -587,7 +565,7 @@ function register_osmo_commands {
 
     COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus)"
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
-    COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (polls osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL / OSMO_LOGS_INTERVAL override)"
+    COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"
     COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
     COMMAND_HELP["osmo:webrtc"]="Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background)"
     COMMAND_HELP["osmo:foxglove"]="Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766). Override target dir with OSMO_FOXGLOVE_EXT_DIR; skip install with OSMO_FOXGLOVE_SKIP_EXTENSIONS=1."
