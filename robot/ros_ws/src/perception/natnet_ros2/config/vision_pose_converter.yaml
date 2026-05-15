@@ -6,4 +6,7 @@
   ros__parameters:
     frame_id: "world"
     child_frame_id: "$(env ROBOT_NAME robot_1)/base_link"
-    use_sim_time: false
+    # Normalise quaternion to canonical form (qw >= 0) before publishing.
+    # Recommended for ArduPilot EKF3 and any consumer sensitive to sign flips.
+    # PX4 EKF2 handles either sign internally, so this is optional for PX4.
+    canonical_quaternion: true

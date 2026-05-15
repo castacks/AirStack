@@ -108,6 +108,7 @@ function print_command_help {
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
             echo "  --no-config   Skip configuration tasks (Isaac Sim, Nucleus, Git hooks)"
+            echo "  --no-natnet   Skip NatNet SDK installation for OptiTrack motion capture support"
             echo ""
             echo "This command adds an 'airstack' function to your shell profile that will"
             echo "automatically find and use the airstack.sh script from the current directory"
@@ -577,18 +578,33 @@ function cmd_install {
     log_info "Installation complete!"
 }
 
+function cmd_setup_natnet_sdk {
+    local sdk_script="$PROJECT_ROOT/robot/ros_ws/src/perception/natnet_ros2/scripts/download-natnet-sdk.sh"
+
+    if [ ! -f "$sdk_script" ]; then
+        log_warn "NatNet SDK installer not found at $sdk_script"
+        return 0
+    fi
+
+    log_info "Checking NatNet SDK installation..."
+    bash "$sdk_script"
+}
+
 function cmd_setup {
     log_info "Setting up AirStack environment..."
     
     # Check for --no-shell flag
     local modify_shell=true
     local skip_config=false
+    local skip_natnet=false
     
     for arg in "$@"; do
         if [ "$arg" == "--no-shell" ]; then
             modify_shell=false
         elif [ "$arg" == "--no-config" ]; then
             skip_config=true
+        elif [ "$arg" == "--no-natnet" ]; then
+            skip_natnet=true
         fi
     done
     
@@ -653,6 +669,15 @@ function cmd_setup {
         fi
     fi
     
+    # Install NatNet SDK unless explicitly skipped.
+    if [ "$skip_natnet" = false ]; then
+        if declare -f "cmd_setup_natnet_sdk" > /dev/null; then
+            cmd_setup_natnet_sdk
+        else
+            log_warn "NatNet SDK setup helper not loaded. Skipping NatNet SDK installation."
+        fi
+    fi
+
     # Run configuration tasks if not skipped
     if [ "$skip_config" = false ]; then
         # Check if the config module is available

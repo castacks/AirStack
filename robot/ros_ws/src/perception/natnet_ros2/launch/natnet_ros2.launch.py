@@ -54,7 +54,7 @@ def generate_launch_description() -> LaunchDescription:
         actions = [
             Node(
                 package='natnet_ros2',
-                executable='natnet_ros2_node.py',
+                executable='natnet_ros2_node',
                 name='natnet_ros2_node',
                 output='screen',
                 parameters=[ParameterFile(config_file, allow_substs=True)],

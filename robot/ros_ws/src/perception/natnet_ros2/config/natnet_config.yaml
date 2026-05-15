@@ -13,13 +13,26 @@
 
     command_port: 1510
     data_port: 1511
-    negotiation_enabled: true
+
+    # "unicast"   — point-to-point; Motive streams directly to this machine's IP.
+    #               Requires Motive unicast streaming enabled and client_ip set
+    #               to the correct NIC when multiple interfaces are present.
+    # "multicast" — Motive broadcasts to a multicast group; any machine on the
+    #               subnet that joins the group receives all body data.
+    #               Use for multi-robot setups where every robot receives the
+    #               full frame and filters by body_id.
+    connection_type: "unicast"
+
+    # Only used when connection_type = "multicast".
+    # Must match Motive > Edit > Preferences > Data Streaming > Multicast Interface.
+    # OptiTrack default is 239.255.42.99.
+    multicast_address: "239.255.42.99"
 
     body_name: "HummingbirdDrone"
     body_id: 3
 
     publish_direct_optitrack: true
-    publish_to_mavros: false
+    publish_to_mavros: true
 
     frame_id: "world"
     debug: false

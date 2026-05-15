@@ -5,20 +5,22 @@
   <version>0.1.0</version>
   <description>
     NatNet ROS 2 wrapper for OptiTrack Motive motion capture integration.
-    Receives NatNet UDP packets from external Motive PC and publishes
-    pose data into the AirStack perception layer.
+    Receives NatNet data from external Motive PC via the official NatNet SDK
+    and publishes pose data into the AirStack perception layer.
   </description>
 
   <maintainer email="airlab@cmu.edu">AirLab CMU</maintainer>
   <license>Apache-2.0</license>
 
-  <!-- Dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- Runtime Dependencies -->
-  <depend>rclpy</depend>
+  <!-- C++ NatNet node -->
+  <depend>rclcpp</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+
+  <!-- Python vision_pose_converter node -->
+  <depend>rclpy</depend>
   <depend>tf_transformations</depend>
   <depend>airstack_msgs</depend>
 
