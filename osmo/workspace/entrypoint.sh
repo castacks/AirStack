@@ -81,6 +81,28 @@ log "diagnostics: /var/lib/docker fs=$(stat -fc %T /var/lib/docker 2>/dev/null |
 # overlay-on-overlay failure that bites DinD on some kernel/storage
 # combinations.
 #
+# data-root: the OSMO pod's `/` is itself an overlay (containerd's
+# snapshot), and Linux refuses to stack a second overlayfs on top of an
+# overlay rootfs — that's exactly why dockerd here used to fall through
+# to fuse-overlayfs. fuse-overlayfs is a userspace FUSE driver, and every
+# `creat()` during layer extraction pays a kernel↔userspace round-trip,
+# which crushes throughput on the apt/pip/ROS layers (observed: ~30-50
+# MB/s vs. ~480 MB/s on layers with few large files). Pointing data-root
+# at /osmo/run/docker (the kubelet emptyDir bind-mount, backed by ext4 on
+# /dev/vda3) lets us use kernel overlay2 instead, restoring the 10×
+# extraction speed-up. emptyDir lives for the workflow's lifetime, which
+# is exactly the docker-cache lifetime we want anyway.
+DOCKERD_DATA_ROOT="${DOCKERD_DATA_ROOT:-}"
+if [ -z "$DOCKERD_DATA_ROOT" ]; then
+  if [ -d /osmo/run ] && [ -w /osmo/run ]; then
+    DOCKERD_DATA_ROOT=/osmo/run/docker
+  else
+    DOCKERD_DATA_ROOT=/var/lib/docker
+  fi
+fi
+mkdir -p "$DOCKERD_DATA_ROOT"
+log "dockerd data-root: $DOCKERD_DATA_ROOT (fs=$(stat -fc %T "$DOCKERD_DATA_ROOT" 2>/dev/null))"
+
 # Concurrency: dockerd's defaults are --max-concurrent-downloads=3 and
 # --max-concurrent-uploads=5. With 2 GB+ AirStack image blobs on a 10 GbE
 # pool, a single TLS pull stream tops out around 300-500 MiB/s (CPU-bound
@@ -96,17 +118,15 @@ DOCKERD_MAX_UPLOADS="${DOCKERD_MAX_UPLOADS:-10}"
 _start_dockerd() {
   local driver="$1"
   : > /var/log/dockerd.log
-  # We rely on /var/lib/docker being a bind-mount of /mnt/airstack-data
-  # (200Gi Cinder volume) so during-pull disk peaks aren't constrained by
-  # node ephemeral-storage.
   nohup dockerd \
     --host=unix:///var/run/docker.sock \
+    --data-root="$DOCKERD_DATA_ROOT" \
     --storage-driver="$driver" \
     --max-concurrent-downloads="$DOCKERD_MAX_DOWNLOADS" \
     --max-concurrent-uploads="$DOCKERD_MAX_UPLOADS" \
     > /var/log/dockerd.log 2>&1 &
   DOCKERD_PID=$!
-  log "dockerd started (pid=$DOCKERD_PID, storage-driver=$driver); waiting for socket"
+  log "dockerd started (pid=$DOCKERD_PID, data-root=$DOCKERD_DATA_ROOT, storage-driver=$driver); waiting for socket"
   for i in $(seq 1 30); do
     if docker info >/dev/null 2>&1; then
       log "dockerd ready (storage-driver=$driver)"
