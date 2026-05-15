@@ -80,15 +80,30 @@ log "diagnostics: /var/lib/docker fs=$(stat -fc %T /var/lib/docker 2>/dev/null |
 # present) → vfs (always works, slowest). Falling back avoids the
 # overlay-on-overlay failure that bites DinD on some kernel/storage
 # combinations.
+#
+# Concurrency: dockerd's defaults are --max-concurrent-downloads=3 and
+# --max-concurrent-uploads=5. With 2 GB+ AirStack image blobs on a 10 GbE
+# pool, a single TLS pull stream tops out around 300-500 MiB/s (CPU-bound
+# on the registry-side TLS encryption), so 3 parallel streams cap the
+# whole bring-up around the 300 MiB/s mark seen empirically against the
+# airlab-backup-10g registry — even though Ceph + 10 GbE can do far more.
+# Bumping to 10 streams overlaps blob downloads enough to saturate the
+# pipe without overwhelming the registry. Override with DOCKERD_MAX_*
+# env vars at submit time if a particular pool needs different tuning.
+DOCKERD_MAX_DOWNLOADS="${DOCKERD_MAX_DOWNLOADS:-10}"
+DOCKERD_MAX_UPLOADS="${DOCKERD_MAX_UPLOADS:-10}"
+
 _start_dockerd() {
   local driver="$1"
   : > /var/log/dockerd.log
   # We rely on /var/lib/docker being a bind-mount of /mnt/airstack-data
   # (200Gi Cinder volume) so during-pull disk peaks aren't constrained by
-  # node ephemeral-storage. Default --max-concurrent-downloads=3 is fine.
+  # node ephemeral-storage.
   nohup dockerd \
     --host=unix:///var/run/docker.sock \
     --storage-driver="$driver" \
+    --max-concurrent-downloads="$DOCKERD_MAX_DOWNLOADS" \
+    --max-concurrent-uploads="$DOCKERD_MAX_UPLOADS" \
     > /var/log/dockerd.log 2>&1 &
   DOCKERD_PID=$!
   log "dockerd started (pid=$DOCKERD_PID, storage-driver=$driver); waiting for socket"
