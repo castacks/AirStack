@@ -27,7 +27,7 @@ from omni.isaac.core.world import World
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
+from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 # gps_utils lives in the same directory as this script
 _LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath
 import scene_prep
 from scene_prep import (
     scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit,
-    reference_root_prims_under_world,
+    reference_root_prims_under_world, dedupe_physics_scenes,
     add_orthographic_camera, add_overhead_camera_publisher,
 )
 
@@ -48,10 +48,17 @@ from scene_prep import (
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Library/Assets/FireAcademyFaro/fire_academy_faro.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/RayFronts-Planner/FireAcademy.scene.usd"
-#f"omniverse://{NUCLEUS_SERVER}/Library/Assets/Fire_Academy_Digital_Twin/fire_academy.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+
 STAGE_SCALE = 0.01
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
@@ -60,7 +67,7 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
-DOME_LIGHT_EXPOSURE = -3.0
+DOME_LIGHT_EXPOSURE = -5.0
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
@@ -74,21 +81,34 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # spawn location for /Assets/Fire_Academy_Digital_Twin/fire_academy.usd:
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
-DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 27.0, "y_m": 7.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-    {"domain_id": 2, "x_m": 23.0, "y_m": 9.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-    {"domain_id": 3, "x_m": 27.0, "y_m": 12.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
-    {"domain_id": 4, "x_m": 23.0, "y_m": 14.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
-]
 
-# Top-down "map" camera over (0, 0). Captures one aerial of the static scene
-# that the GCS visualizer turns into a textured ground in Foxglove's 3D panel.
-OVERHEAD_ALTITUDE_M    = 150.0
-OVERHEAD_COVERAGE_M    = 200.0   # per-map knob: world meters per side.
-OVERHEAD_PX_PER_METER  = 12.0     # Source-image density. Bump for sharper texture.
+SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
+# DRONE_CONFIGS = [
+#     {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
+#     {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0}
+#     ]
+
+
+DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    {"domain_id": 3, "x_m": -7.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 4.0},
+    ]
+
+# Top-down "map" camera. Captures one aerial of the static scene that the
+# GCS visualizer turns into a textured ground in Foxglove's 3D panel. The
+# camera centers on (OVERHEAD_CENTER_X_M, OVERHEAD_CENTER_Y_M) in world
+# meters — leave both 0.0 for the legacy origin-centered behavior.
+OVERHEAD_ALTITUDE_M    = 165.0
+OVERHEAD_COVERAGE_M    = 225  # per-map knob: world meters per side.
+OVERHEAD_CENTER_X_M    = 0.0 #-152     # world-X of camera center / texture center.
+OVERHEAD_CENTER_Y_M    = 0.0 #-80     # world-Y of camera center / texture center.
+OVERHEAD_PX_PER_METER  = 10.0     # Source-image density. Bump for sharper texture.
 OVERHEAD_TOPIC         = "/sim/overhead/image"
 OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"
+OVERHEAD_CENTER_X_TOPIC = "/sim/overhead/center_x"
+OVERHEAD_CENTER_Y_TOPIC = "/sim/overhead/center_y"
 OVERHEAD_FRAME_ID      = "map"
 OVERHEAD_DOMAIN_ID     = 0
 # ---------------------------------------------------------
@@ -165,8 +185,13 @@ class PegasusApp:
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
 
+        dedupe_physics_scenes(stage)
+
         # ----- Scene preparation -----
-        # Bring in sky/sun/environment prims that sit outside /World in the source USD
+        # Bring in sky/sun/environment prims that sit at root level in the
+        # source USD next to the defaultPrim that pg.load_environment already
+        # loaded into /World/stage. reference_root_prims_under_world skips
+        # the defaultPrim, so this can't duplicate geometry.
         reference_root_prims_under_world(stage, ENV_URL)
 
         stage_prim = stage.GetPrimAtPath("/World/stage")
@@ -193,14 +218,20 @@ class PegasusApp:
             altitude_m=OVERHEAD_ALTITUDE_M,
             coverage_m=OVERHEAD_COVERAGE_M,
             scene_scale_factor=s,
+            center_x_m=OVERHEAD_CENTER_X_M,
+            center_y_m=OVERHEAD_CENTER_Y_M,
         )
         add_overhead_camera_publisher(
             parent_graph_path="/World/MapCameraGraph",
             camera_prim_path=cam_path,
             topic=OVERHEAD_TOPIC,
             spec_topic=OVERHEAD_SPEC_TOPIC,
+            center_x_topic=OVERHEAD_CENTER_X_TOPIC,
+            center_y_topic=OVERHEAD_CENTER_Y_TOPIC,
             frame_id=OVERHEAD_FRAME_ID,
             coverage_m=OVERHEAD_COVERAGE_M,
+            center_x_m=OVERHEAD_CENTER_X_M,
+            center_y_m=OVERHEAD_CENTER_Y_M,
             pixels_per_meter=OVERHEAD_PX_PER_METER,
             domain_id=OVERHEAD_DOMAIN_ID,
         )
@@ -230,14 +261,15 @@ class PegasusApp:
                 camera_rotation_offset=[0.0, 0.0, 0.0],
             )
 
-            add_ouster_lidar_subgraph(
+            add_rtx_lidar_subgraph(
                 parent_graph_handle=graph_handle,
                 drone_prim=f"/World/drone{i}/base_link",
                 robot_name=f"robot_{i}",
-                lidar_name="OS1_REV6_128_10hz___512_resolution",
+                lidar_config="ouster_os1",
+                lidar_topic_name="point_cloud_raw",
                 lidar_offset=[0.0, 0.0, 0.025],
                 lidar_rotation_offset=[0.0, 0.0, 0.0],
-                lidar_min_range=cfg["lidar_min_range"],
+                min_range=cfg["lidar_min_range"],
             )
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
