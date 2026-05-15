@@ -1,6 +1,6 @@
 # AirStack remote developer workflow on OSMO.
 #
-# Submits a single privileged GPU task ("workspace") that runs Docker-in-Docker
+# Submits a single GPU task ("workspace") that runs Docker-in-Docker
 # (DinD) and brings up the regular AirStack three-container stack (Isaac Sim
 # with WebRTC livestream, robot-desktop, GCS) on the inner Docker daemon. The
 # task also runs sshd so a student can attach VS Code or Cursor over Remote-SSH
@@ -42,10 +42,9 @@ workflow:
     - name: workspace
       lead: true
       image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
-      # privileged is non-negotiable for DinD: cgroups, overlayfs, bridge,
-      # iptables, GPU device passthrough. hostNetwork is intentionally NOT
-      # set — osmo workflow port-forward reaches the pod NS, where the inner
-      # dockerd publishes ports via standard NAT.
+      # Required so the inner dockerd can run. hostNetwork is intentionally
+      # NOT set — osmo workflow port-forward reaches the pod NS, where the
+      # inner dockerd publishes ports via standard NAT.
       privileged: true
       command: ["bash"]
       args: ["/usr/local/bin/entrypoint.sh"]

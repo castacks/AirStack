@@ -328,21 +328,6 @@ function cmd_osmo_up {
     if ! output="$("${cmd[@]}" 2>&1)"; then
         echo "$output" >&2
         log_error "osmo workflow submit failed."
-        if echo "$output" | grep -q "privileged flag enabled"; then
-            log_error "The selected pool does not allow privileged tasks. AirStack-on-OSMO needs"
-            log_error "privileged: true on the workspace task (DinD)."
-            log_error ""
-            log_error "Audit available pools with:"
-            log_error "  osmo pool list -t json | python3 -c \"import json,sys"
-            log_error "  for ns in json.load(sys.stdin)['node_sets']:"
-            log_error "      for p in ns['pools']:"
-            log_error "          for n,plat in p['platforms'].items():"
-            log_error "              print(f\\\"{p['name']:25} priv={plat['privileged_allowed']}\\\")\""
-            log_error ""
-            log_error "If none allow privileged, ask your OSMO pool admin to flip"
-            log_error "platforms.default.privileged_allowed: true on the airstack pool."
-            log_error "Full template: docs/tutorials/airstack_on_osmo.md → 'One-time pool setup (admin)'."
-        fi
         return 1
     fi
     echo "$output"

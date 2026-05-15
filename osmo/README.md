@@ -27,15 +27,15 @@ for context.
 
 ## Architecture in one minute
 
-A student submits one OSMO task that runs a privileged Docker-in-Docker (DinD)
-pod with sshd. Inside that pod, `airstack.sh up` brings up the regular
+A student submits one OSMO task that runs a Docker-in-Docker (DinD) pod with
+sshd. Inside that pod, `airstack.sh up` brings up the regular
 three-container AirStack stack (Isaac Sim, robot-desktop, GCS) on the inner
 Docker daemon. The student attaches VS Code or Cursor over Remote-SSH and
 streams Isaac Sim (WebRTC) and the GCS Foxglove bridge (websocket) back to
 their laptop via `osmo workflow port-forward`.
 
 ```
-Student laptop                       OSMO workspace pod (privileged, GPU)
+Student laptop                       OSMO workspace pod (GPU)
 ─────────────────                    ─────────────────────────────────────
 VS Code / Cursor   ── ssh ──►  port-forward 2200:22 ──► sshd
 Isaac Sim WebRTC   ── webrtc ►  port-forward 47995… ──► inner isaac-sim ctnr
@@ -49,28 +49,10 @@ app.foxglove.dev   ── ws ────►  port-forward 8766 ────► 
 
 ## Pool requirements
 
-> **⚠️ Most common blocker:** if `osmo workflow submit` returns `Task with
-> platform: <name> does not have privileged flag enabled`, the pool you
-> selected has `privileged_allowed: false`. As of the AirLab `airlab-share-01`
-> deployment audit (May 2026), **every pool defaults to `privileged_allowed:
-> false`**. Ask the pool admin to flip it to `true` on the `airstack` pool (or
-> create a dedicated pool) — see the message template in
-> [`docs/tutorials/airstack_on_osmo.md`](../docs/tutorials/airstack_on_osmo.md#one-time-pool-setup-admin).
-> You can audit which pools allow privileged with:
-> ```bash
-> osmo pool list -t json | python3 -c "
-> import json, sys
-> for ns in json.load(sys.stdin)['node_sets']:
->     for p in ns['pools']:
->         for n, plat in p['platforms'].items():
->             print(f\"{p['name']:25} {n:10} priv={plat['privileged_allowed']}\")"
-> ```
-
 The OSMO pool the workflow runs on must satisfy:
 
 | Requirement | Why |
 |---|---|
-| `privileged_allowed: true` | Required for DinD inside the workspace task. The inner `dockerd` needs cgroup manipulation, overlayfs, bridge/veth/iptables for `airstack_network`, and GPU device passthrough. There is no non-privileged path. Mounting the host's `/var/run/docker.sock` is not used — it would let the pod escape to the cluster node. |
 | GPU pool with NVIDIA driver + `nvidia-container-toolkit` on each node | Isaac Sim needs the GPU. The toolkit must be on the node so the inner `dockerd` (configured with `--add-runtime nvidia=...`, `default-runtime: nvidia`) can hand the device to the inner Isaac Sim container. |
 | No NetworkPolicy blocking pod-namespace ports `47995–48012/tcp+udp`, `49000–49007/tcp+udp`, `49100/tcp`, `8766/tcp`, `22/tcp` | These are the ports `osmo workflow port-forward` reaches inside the pod NS for Isaac Sim WebRTC, GCS Foxglove websocket, and sshd. |
 | Resource limits ≥ `cpu: 16`, `memory: 64Gi`, `storage: 200Gi`, `gpu: 1` | Isaac Sim + AirStack images + `colcon build` working tree. Adjust upward if running multiple robots or heavy bag recording. |
@@ -161,8 +143,7 @@ ssh -p 2200 -o StrictHostKeyChecking=accept-new root@localhost 'echo ok && whoam
 ```
 
 If SSH fails: check `osmo workflow logs <wf-id> workspace` for the
-`SSH_PUB_KEY not set` error or for `sshd` failing to start. Make sure the
-pool actually allowed the privileged task to run.
+`SSH_PUB_KEY not set` error or for `sshd` failing to start.
 
 ### (b) VS Code / Cursor Remote-SSH attaches and opens `/root/AirStack`
 
