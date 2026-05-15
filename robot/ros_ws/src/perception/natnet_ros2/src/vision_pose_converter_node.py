@@ -25,11 +25,10 @@ class VisionPoseConverterNode(Node):
     def __init__(self):
         super().__init__('vision_pose_converter')
 
-        # Declare parameters
         self.declare_parameter('frame_id', 'world')
         self.declare_parameter('child_frame_id', 'base_link')
+        self.declare_parameter('use_sim_time', False)
 
-        # Get parameters
         self.frame_id = self.get_parameter('frame_id').value
         self.child_frame_id = self.get_parameter('child_frame_id').value
 
@@ -53,7 +52,10 @@ class VisionPoseConverterNode(Node):
             10
         )
 
-        self.get_logger().info("Vision pose converter node started")
+        self.get_logger().info(
+            f'Vision pose converter started '
+            f'(frame_id={self.frame_id!r}, child_frame_id={self.child_frame_id!r})'
+        )
 
     def _on_pose(self, msg: PoseWithCovarianceStamped):
         """

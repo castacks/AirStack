@@ -1,0 +1,9 @@
+# Vision pose converter → MAVROS bridge parameters.
+# Loaded by vision_pose_converter.launch.xml via <param from="..." allow_substs="true"/>.
+# $(env ROBOT_NAME ...) is expanded by launch substitution.
+
+/**:
+  ros__parameters:
+    frame_id: "world"
+    child_frame_id: "$(env ROBOT_NAME robot_1)/base_link"
+    use_sim_time: false

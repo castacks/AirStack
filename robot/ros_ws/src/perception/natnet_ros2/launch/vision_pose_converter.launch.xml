@@ -6,6 +6,9 @@
     Optional bridge that re-publishes NatNet pose_cov data on the MAVROS
     vision_pose topics so PX4 can fuse external pose estimates.
 
+    Static params (frame_id, child_frame_id, default use_sim_time): config/vision_pose_converter.yaml
+    Topic wiring still uses body_name + ROBOT_NAME below.
+
     Input  (from NatNet node):
       /{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov
 
@@ -14,26 +17,29 @@
       /{ROBOT_NAME}/mavros/vision_pose/pose_cov
   -->
 
-  <arg name="body_name"    default="robot_1"
-       description="Body name matching the NatNet node configuration"/>
+  <arg name="config_file"
+       default="$(find-pkg-share natnet_ros2)/config/vision_pose_converter.yaml"
+       description="ROS 2 parameter YAML (/** ros__parameters block)"/>
+
+  <arg name="body_name" default="robot_1"
+       description="Body name matching NatNet topic suffix (must match natnet_config.yaml)"/>
+
+  <!-- Overrides vision_pose_converter.yaml use_sim_time when launching from sim -->
   <arg name="use_sim_time" default="false"
-       description="Use /clock for simulation time"/>
+       description="Forwarded after YAML so sim stacks can force true"/>
 
   <node pkg="natnet_ros2" exec="vision_pose_converter_node.py"
         name="vision_pose_converter" output="screen">
-    <!-- Remap input to the NatNet pose_cov topic for the tracked body -->
+    <param from="$(var config_file)" allow_substs="true"/>
+
     <remap from="input_pose"
            to="/$(env ROBOT_NAME robot_1)/perception/optitrack/$(var body_name)/pose_cov"/>
-
-    <!-- Remap outputs to MAVROS vision_pose topics -->
     <remap from="output_pose"
            to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose"/>
     <remap from="output_pose_cov"
            to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose_cov"/>
 
-    <param name="frame_id"       value="world"/>
-    <param name="child_frame_id" value="$(env ROBOT_NAME robot_1)/base_link"/>
-    <param name="use_sim_time"   value="$(var use_sim_time)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
 
 </launch>

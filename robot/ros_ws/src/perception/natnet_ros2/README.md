@@ -62,7 +62,7 @@ Edit `config/natnet_config.yaml`:
 natnet:
   # Motive PC network settings
   server_ip: "192.168.1.1"        # IP of Motive PC
-  server_port: 1511                # NatNet UDP port
+  data_port: 1511                # Local UDP port bound for NatNet data stream
   
   # Rigid body tracking
   body_names:
@@ -84,28 +84,24 @@ natnet:
 
 ## Launch
 
-### Basic Launch (Direct OptiTrack)
+### Basic launch
+
+Parameters come from `config/natnet_config.yaml` (network, body, covariance). Optional overrides:
+
 ```bash
-ros2 launch natnet_ros2 natnet_ros2.launch.xml \
-  natnet_server_ip:=192.168.1.1 \
-  natnet_server_port:=1511 \
-  publish_direct_optitrack:=true
+ros2 launch natnet_ros2 natnet_ros2.launch.py \
+  config_file:=/path/to/custom_natnet.yaml \
+  vision_pose_config_file:=/path/to/custom_vision_pose.yaml \
+  use_sim_time:=true
 ```
 
-### With MAVROS Bridge
-```bash
-ros2 launch natnet_ros2 natnet_ros2.launch.xml \
-  natnet_server_ip:=192.168.1.1 \
-  publish_to_mavros:=true
-```
+### MAVROS bridge
 
-### From Sensors Bringup
-The sensor layer orchestrator can include this module conditionally:
-```bash
-ros2 launch sensors_bringup sensors_bringup.launch.xml \
-  enable_natnet:=true \
-  natnet_server_ip:=192.168.1.1
-```
+Set `publish_to_mavros: true` in `natnet_config.yaml`. The launch file reads `publish_to_mavros` and `body_name` from that YAML to decide whether to include `vision_pose_converter.launch.xml`.
+
+### From perception bringup
+
+With `LAUNCH_NATNET=true` in `.env`, `perception.launch.xml` includes `natnet_ros2.launch.py`.
 
 ## Dependencies
 
@@ -150,7 +146,7 @@ Each container instance gets its own `ROBOT_NAME` and `ROS_DOMAIN_ID`:
 2. Configure server IP in `natnet_config.yaml`
 3. Launch the node:
    ```bash
-   ros2 launch natnet_ros2 natnet_ros2.launch.xml
+   ros2 launch natnet_ros2 natnet_ros2.launch.py
    ```
 4. Verify topics:
    ```bash

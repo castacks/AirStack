@@ -1,41 +1,35 @@
-# NatNet ROS 2 Configuration
+# NatNet ROS 2 parameters — loaded by natnet_ros2.launch.py (NatNet node + MAVROS gate).
+# publish_to_mavros / body_name are read by the launch file to decide vision_pose_converter include.
+#
+# Use /** so parameters apply regardless of namespace (e.g. /robot_1/perception/natnet_ros2_node).
+# See: https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html
 
-natnet:
-  # Motive PC network settings
-  server_ip: "192.168.1.1"        # IP of machine running Motive
-  client_ip: "192.168.1.100"      # IP of this machine
-  server_type: "unicast"          # "multicast" not currently supported
-  command_port: 1510              # NatNet command port (default 1510)
-  data_port: 1511                 # NatNet data port (default 1511)
-  natnet_versions: # Try these versions in order
-    - [4, 4, 0, 0]
-    - [4, 3, 0, 0]
-    - [4, 2, 0, 0]
-    - [4, 1, 0, 0]
-    - [4, 0, 0, 0]
+/**:
+  ros__parameters:
+    server_ip: "192.168.0.77"
+    # Motive learns unicast destination from outbound UDP source IP — bind explicitly when you have
+    # multiple NICs (e.g. Docker 172.17.* vs LAN).
+    client_ip: "0.0.0.0"
 
-  # Rigid body tracking
-  body_name: "robot_1"            # Label used in topic names for the tracked body
-  body_id: -1                     # Motive rigid body ID to track; -1 = publish all bodies
+    command_port: 1510
+    data_port: 1511
+    negotiation_enabled: true
 
-  # Publishing behavior
-  publish_direct_optitrack: true    # Publish /perception/optitrack/{body_name}
-  publish_to_mavros: false          # Publish to /mavros/vision_pose/ for PX4 fusion
-  
-  # Frame IDs
-  frame_id: "world"                 # Reference frame for poses
-  child_frame_id: "base_link"       # Child frame (when publishing odometry)
+    body_name: "HummingbirdDrone"
+    body_id: 3
 
-  # Covariance (default values for uncertainty)
-  position_covariance:
-    [0.1, 0.0, 0.0,
-     0.0, 0.1, 0.0,
-     0.0, 0.0, 0.1]                # 3x3 matrix (flattened)
+    publish_direct_optitrack: true
+    publish_to_mavros: false
 
-  orientation_covariance:
-    [0.01, 0.0, 0.0,
-     0.0, 0.01, 0.0,
-     0.0, 0.0, 0.01]               # 3x3 matrix (flattened)
+    frame_id: "world"
+    debug: false
 
-  # Logging
-  debug: false                       # Enable debug messages
+    position_covariance:
+      [0.1, 0.0, 0.0,
+       0.0, 0.1, 0.0,
+       0.0, 0.0, 0.1]
+
+    orientation_covariance:
+      [0.01, 0.0, 0.0,
+       0.0, 0.01, 0.0,
+       0.0, 0.0, 0.01]

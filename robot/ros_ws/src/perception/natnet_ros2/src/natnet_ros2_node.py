@@ -34,10 +34,16 @@ class NatNetROS2Node(Node):
     def __init__(self):
         super().__init__('natnet_ros2_node')
 
+        self.get_logger().info("########################################################")
+        self.get_logger().info("Began NatNet ROS 2 Node")
+        self.get_logger().info("########################################################")
+        
         # Declare parameters
         self.declare_parameter('server_ip', '192.168.1.1')
         self.declare_parameter('command_port', 1510)
         self.declare_parameter('data_port', 1511)
+        # Local NIC for UDP bind (NatNet SDK localAddress). 0.0.0.0 = OS chooses.
+        self.declare_parameter('client_ip', '0.0.0.0')
         self.declare_parameter('body_name', 'robot_1')
         # body_id: rigid body ID from Motive to track; -1 = track all bodies
         self.declare_parameter('body_id', -1)
@@ -45,6 +51,7 @@ class NatNetROS2Node(Node):
         self.declare_parameter('publish_to_mavros', False)
         self.declare_parameter('frame_id', 'world')
         self.declare_parameter('debug', False)
+        self.declare_parameter('negotiation_enabled', True)
         # Covariance: 3x3 flattened (9 values each)
         self.declare_parameter(
             'position_covariance',
@@ -61,13 +68,16 @@ class NatNetROS2Node(Node):
 
         # Get parameters
         server_ip = self.get_parameter('server_ip').value
+        command_port = self.get_parameter('command_port').value
         data_port = self.get_parameter('data_port').value
+        client_ip = self.get_parameter('client_ip').value
         self.body_name = self.get_parameter('body_name').value
         self.body_id = self.get_parameter('body_id').value
         self.publish_direct = self.get_parameter('publish_direct_optitrack').value
         self.publish_mavros = self.get_parameter('publish_to_mavros').value
         self.frame_id = self.get_parameter('frame_id').value
         self.debug = self.get_parameter('debug').value
+        negotiation_enabled = self.get_parameter('negotiation_enabled').value
 
         # Build 6x6 covariance matrix from 3x3 position and orientation blocks
         pos_cov = self.get_parameter('position_covariance').value
@@ -81,8 +91,29 @@ class NatNetROS2Node(Node):
         self.pose_publishers: dict = {}
         self.pose_cov_publishers: dict = {}
 
+        self.get_logger().info("########################################################")
+        self.get_logger().info("NatNet ROS 2 Node Parameters:")
+        self.get_logger().info("########################################################")
+        self.get_logger().info(f'Server IP: {server_ip}')
+        self.get_logger().info(f'Client IP: {client_ip}')
+        self.get_logger().info(f'Command port: {command_port}')
+        self.get_logger().info(f'Data port: {data_port}')
+        self.get_logger().info(f'Body name: {self.body_name}')
+        self.get_logger().info(f'Body id: {self.body_id}')
+        self.get_logger().info(f'Publish direct: {self.publish_direct}')
+        self.get_logger().info(f'Publish to mavros: {self.publish_mavros}')
+        self.get_logger().info(f'Frame id: {self.frame_id}')
+        self.get_logger().info(f'Debug: {self.debug}')
+        self.get_logger().info(f'Negotiation enabled: {negotiation_enabled}')
+
         # Initialize NatNet client
-        self.natnet_client = NatNetClient(server_ip, data_port)
+        self.natnet_client = NatNetClient(
+            server_ip,
+            data_port,
+            command_port=command_port,
+            local_ip=client_ip,
+            negotiation_enabled=negotiation_enabled,
+        )
         self.natnet_client.set_frame_callback(self._on_frame_received)
 
         if not self.natnet_client.start():
@@ -101,6 +132,7 @@ class NatNetROS2Node(Node):
             )
         else:
             self.get_logger().info('Tracking all bodies (body_id = -1)')
+            self.get_logger().info("########################################################")
 
     def _build_6x6_covariance(
         self, pos_cov_3x3: list, ori_cov_3x3: list
@@ -127,7 +159,7 @@ class NatNetROS2Node(Node):
         """Callback invoked when a complete NatNet frame is received."""
         try:
             if self.debug:
-                self.get_logger().debug(
+                self.get_logger().info(
                     f'Frame {frame.frame_number}: '
                     f'{len(frame.rigid_bodies)} rigid bodies'
                 )
@@ -208,13 +240,20 @@ class NatNetROS2Node(Node):
 
 def main(args=None):
     rclpy.init(args=args)
+    node = None
     try:
         node = NatNetROS2Node()
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            try:
+                rclpy.shutdown()
+            except Exception:
+                pass
 
 
 if __name__ == '__main__':
