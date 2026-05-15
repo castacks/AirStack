@@ -195,6 +195,11 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - Verify module behavior in isolation
    - Test with synthetic data
    - Located in module's `test/` directory
+   - **Run in the robot container** with `colcon test` (after `bws`), not via `airstack test -m unit`. The root [`tests/`](tests/) suite does **not** register a `unit` pytest mark; `airstack test -m <mark>` only selects marks declared in [`tests/pytest.ini`](tests/pytest.ini) (`build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`).
+
+   ```bash
+   docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
+   ```
 
 2. **System Level:** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing
