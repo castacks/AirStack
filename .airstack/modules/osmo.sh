@@ -270,22 +270,95 @@ function _osmo_save_wf_id {
     log_info "Saved workflow id '$1' to ${OSMO_STATE_FILE}"
 }
 
+# Helper: best-effort detection of the user's current AirStack branch so
+# `airstack osmo:up` can default --branch to whatever the user is editing
+# locally. Returns the branch name on stdout, or empty if we shouldn't
+# auto-pin (detached HEAD, not a git repo, etc.).
+#
+# Why default to the local branch: the pod's entrypoint clones AirStack
+# fresh from GitHub on every workflow start (the pod fs is ephemeral, so
+# nothing else makes sense). If we don't tell it which branch, it
+# defaults to `main` — and any developer testing branch-only OSMO
+# changes (compose services, entrypoint tweaks, workflow yaml edits)
+# silently runs against stale `main` code instead of their work.
+# Defaulting to the local branch makes "edit on laptop, push, osmo:up"
+# the natural workflow.
+function _osmo_local_branch {
+    if ! command -v git >/dev/null 2>&1; then
+        return 0
+    fi
+    local b
+    b="$(git -C "${PROJECT_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
+    case "$b" in
+        ""|HEAD) return 0 ;;  # detached HEAD or empty
+    esac
+    echo "$b"
+}
+
+# Helper: warn if the about-to-submit branch isn't safely pushed. The
+# pod clones from GitHub, so unpushed commits / dirty working tree don't
+# make it into the pod even if the user thinks they did. Catching this
+# before submit avoids a 60-90s "wait for pod, then realize" round trip.
+function _osmo_check_branch_pushed {
+    local branch="$1"
+    command -v git >/dev/null 2>&1 || return 0
+    local repo="${PROJECT_ROOT}"
+    [ -d "${repo}/.git" ] || return 0
+
+    local local_sha upstream_sha
+    local_sha="$(git -C "$repo" rev-parse "${branch}" 2>/dev/null)" || return 0
+
+    # Look for a remote-tracking branch first (the explicit upstream
+    # set by `git push -u`); fall back to origin/<branch>.
+    upstream_sha="$(git -C "$repo" rev-parse "${branch}@{upstream}" 2>/dev/null)"
+    if [ -z "$upstream_sha" ]; then
+        upstream_sha="$(git -C "$repo" rev-parse "origin/${branch}" 2>/dev/null)"
+    fi
+
+    if [ -z "$upstream_sha" ]; then
+        log_warn "Branch '${branch}' has no upstream on origin — the pod's clone will fail. Run: git push -u origin ${branch}"
+        return 0
+    fi
+
+    if [ "$local_sha" != "$upstream_sha" ]; then
+        local ahead behind
+        ahead="$(git -C "$repo" rev-list --count "${upstream_sha}..${local_sha}" 2>/dev/null)"
+        behind="$(git -C "$repo" rev-list --count "${local_sha}..${upstream_sha}" 2>/dev/null)"
+        if [ "${ahead:-0}" -gt 0 ]; then
+            log_warn "Local '${branch}' is ${ahead} commit(s) ahead of origin/${branch} — the pod will clone the older origin tip. Run: git push"
+        fi
+        if [ "${behind:-0}" -gt 0 ]; then
+            log_info "Local '${branch}' is ${behind} commit(s) behind origin/${branch} (pod will clone the newer origin tip)."
+        fi
+    fi
+
+    if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+        log_warn "Working tree has uncommitted changes — the pod will not see them. Commit + push first if you want the pod to pick them up."
+    fi
+}
+
 # osmo:up — submit airstack-dev.yaml with the local pubkey injected.
 #
 # Usage: airstack osmo:up [--pool POOL] [--key PATH] [--branch BRANCH]
+#
+# --branch defaults to the local repo's current branch (or `main` if we
+# can't detect one), and is passed through as AIRSTACK_BRANCH so the
+# pod's entrypoint clones the matching code. Pass `--branch main`
+# explicitly to override.
 function cmd_osmo_up {
     _osmo_check_cli || return 1
 
     local pool="${OSMO_POOL:-}"
     local pubkey_file=""
     local branch=""
+    local branch_explicit=false
     local extra_args=()
 
     while [ $# -gt 0 ]; do
         case "$1" in
             --pool)   pool="$2"; shift 2 ;;
             --key)    pubkey_file="$2"; shift 2 ;;
-            --branch) branch="$2"; shift 2 ;;
+            --branch) branch="$2"; branch_explicit=true; shift 2 ;;
             *)        extra_args+=("$1"); shift ;;
         esac
     done
@@ -302,6 +375,19 @@ function cmd_osmo_up {
     if [ ! -f "$workflow_yaml" ]; then
         log_error "Workflow file not found: ${workflow_yaml}"
         return 1
+    fi
+
+    # Auto-pin --branch to the local checkout if the user didn't pass one.
+    if [ "$branch_explicit" = false ] && [ -z "$branch" ]; then
+        branch="$(_osmo_local_branch)"
+        if [ -n "$branch" ]; then
+            log_info "Auto-detected local branch '${branch}'; pod will clone from origin/${branch} (override with --branch main)."
+        else
+            log_info "Could not detect local branch (detached HEAD?); pod will clone from origin/main."
+        fi
+    fi
+    if [ -n "$branch" ]; then
+        _osmo_check_branch_pushed "$branch"
     fi
 
     local cmd=(osmo workflow submit "$workflow_yaml")
@@ -370,7 +456,12 @@ function cmd_osmo_logs {
 
     log_info "Following ${task} logs for ${wf} (last ${lines} lines, then live; Ctrl+C to stop)"
 
-    osmo workflow logs "${wf}" -t "${task}" -n "${lines}"
+    # Filter stderr for the same OSMOUserError-when-workflow-dies case
+    # the port-forward path hits — same noisy asyncio Traceback +
+    # "Task exception was never retrieved" header. _osmo_pf_filter
+    # collapses it into one clean log line.
+    osmo workflow logs "${wf}" -t "${task}" -n "${lines}" \
+        2> >(_osmo_pf_filter "${wf}")
 }
 
 # osmo:ide — port-forward sshd + (optionally) launch VS Code/Cursor on the
@@ -477,8 +568,49 @@ function cmd_osmo_ide {
     fi
 }
 
+# Helper: filter `osmo workflow port-forward` stderr through awk to
+# suppress the asyncio traceback that erupts whenever the workflow gets
+# canceled mid-flight (e.g. via osmo:down in another shell, or because
+# OSMO timed it out). The CLI raises OSMOUserError("Workflow X is not
+# running!") from inside an asyncio Task, which then prints "Task
+# exception was never retrieved" + a multi-line Traceback that obscures
+# the actual one-line cause. We translate that into a single clean log
+# line and drop everything else.
+function _osmo_pf_filter {
+    local wf="$1"
+    awk -v WF="$wf" '
+        /^Task exception was never retrieved/        { skipping=1; next }
+        /^future:/                                    { skipping=1; next }
+        /^Traceback \(most recent call last\):/      { skipping=1; next }
+        /^  File "/                                   { next }
+        /^src\.lib\.utils\.osmo_errors\.OSMOUserError/ {
+            sub(/^src\.lib\.utils\.osmo_errors\.OSMOUserError: */, "")
+            printf "\033[0;31m[ERROR]\033[0m %s (run `airstack osmo:up` to start a new workflow)\n", $0
+            next
+        }
+        /OSMOUserError: Workflow .* is not running!/ {
+            printf "\033[0;31m[ERROR]\033[0m Workflow %s is no longer running (run `airstack osmo:up` to start a new one).\n", WF
+            next
+        }
+        skipping && /^$/                              { skipping=0; next }
+        skipping                                      { next }
+        { print }
+    ' >&2
+}
+
+# Helper: run `osmo workflow port-forward` with the noise filter
+# attached. Returns the underlying exit code so callers can decide
+# whether to retry / fail. Args after the helper name are passed to
+# `osmo workflow port-forward` verbatim.
+function _osmo_run_port_forward {
+    osmo workflow port-forward "$@" 2> >(_osmo_pf_filter "$1")
+}
+
 # osmo:webrtc — forward both Isaac Sim WebRTC port ranges (TCP in this
-# terminal, spawn UDP in the background).
+# terminal, spawn UDP in the background). Cleans up the UDP child on
+# exit (Ctrl+C, foreground TCP failure, or the workflow disappearing
+# mid-stream) so we don't leak a port-forward into the user's process
+# table.
 function cmd_osmo_webrtc {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
@@ -488,11 +620,25 @@ function cmd_osmo_webrtc {
         --port "$OSMO_WEBRTC_UDP" --udp \
         --connect-timeout "$OSMO_PF_TIMEOUT" \
         > "${OSMO_STATE_DIR}/webrtc-udp.log" 2>&1 &
-    log_info "  UDP log: ${OSMO_STATE_DIR}/webrtc-udp.log (pid $!)"
+    local udp_pid=$!
+    log_info "  UDP log: ${OSMO_STATE_DIR}/webrtc-udp.log (pid ${udp_pid})"
+
+    # Tear the UDP fork down when this function exits, by any path.
+    # Without this, hitting Ctrl+C on the TCP foreground (or the
+    # workflow being canceled, which surfaces as the foreground exiting
+    # non-zero) leaves the UDP `osmo workflow port-forward` running
+    # against a dead workflow until the user notices and pkill's it.
+    trap '
+        if kill -0 "'"${udp_pid}"'" 2>/dev/null; then
+            kill "'"${udp_pid}"'" 2>/dev/null
+            wait "'"${udp_pid}"'" 2>/dev/null
+        fi
+        trap - EXIT INT TERM
+    ' EXIT INT TERM
 
     log_info "Foreground TCP port-forward: ${OSMO_WEBRTC_TCP}"
     log_info "Open the Omniverse Streaming Client / WebRTC client at http://localhost"
-    osmo workflow port-forward "$wf" workspace \
+    _osmo_run_port_forward "$wf" workspace \
         --port "$OSMO_WEBRTC_TCP" \
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }
@@ -535,7 +681,7 @@ function cmd_osmo_foxglove {
     log_info "Then in Foxglove Desktop: Open connection → ws://localhost:8766"
     log_info "  Layouts → Import from file → ${ext_src}/airstack_default.json"
     log_info "  (Restart Foxglove Desktop once if newly-installed panels still show as 'Unknown panel type'.)"
-    osmo workflow port-forward "$wf" workspace \
+    _osmo_run_port_forward "$wf" workspace \
         --port "$OSMO_FOXGLOVE_PORT" \
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }

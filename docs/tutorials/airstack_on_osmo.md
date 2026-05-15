@@ -248,10 +248,24 @@ From the AirStack clone:
 
 This submits
 [`osmo/workflows/airstack-dev.yaml`](https://github.com/castacks/AirStack/blob/main/osmo/workflows/airstack-dev.yaml)
-with your local SSH pubkey injected as `SSH_PUB_KEY` — that's what
-authorises **your** key on **this** workflow (each student passes their
-own at submit time; the lab admin doesn't manage a global
-`authorized_keys` file).
+with two things injected:
+
+- your local SSH pubkey as `SSH_PUB_KEY` — that's what authorises
+  **your** key on **this** workflow (each student passes their own at
+  submit time; the lab admin doesn't manage a global `authorized_keys`
+  file).
+- `AIRSTACK_BRANCH` set to your local repo's current branch — the pod
+  ignores your laptop's working tree (it's ephemeral and runs in a
+  different machine room) and clones AirStack fresh from GitHub on
+  every workflow start, so this is how it knows which branch to use.
+  Override with `--branch main` if you want the pod to track main even
+  while you're on a feature branch.
+
+> **The pod clones from GitHub, not your laptop.** Local edits (and
+> commits you haven't pushed) won't make it into the pod. `airstack
+> osmo:up` warns you up-front if your branch is ahead of origin or has
+> uncommitted changes — `git push` first if you want the pod to pick
+> them up.
 
 `airstack osmo:up` prints a workflow id like `airstack-dev-1` and stores
 it in `~/.airstack/osmo-state`, so the rest of the `airstack osmo:*`
