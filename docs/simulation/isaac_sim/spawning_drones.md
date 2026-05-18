@@ -55,6 +55,98 @@ set_gps_origins(DRONE_CONFIGS, world_origin=(40.4433, -79.9436, 280.0))  # Pitts
 
 The anchor only affects the geographic location reported via GPS; nothing in the scene moves. Pick something close to where you want the drones to "be" — Foxglove's Map panel will center on it, and any GPS-referenced inputs to your stack will be relative to it.
 
+## Scene prep helpers — `scene_prep.py`
+
+`simulation/isaac-sim/utils/scene_prep.py` is the small toolbox of stage preparation helpers `example_multi_drone_scene_import.py` uses inside its post-load callback (after the stage is loaded, before drones spawn). The full file has more — what's documented here is what you'll reach for in 95% of scenes.
+
+```python
+from utils.scene_prep import (
+    get_stage_meters_per_unit, scale_stage_prim, add_colliders,
+    add_dome_light, save_scene_as_contained_usd,
+    add_orthographic_camera, add_overhead_camera_publisher,
+)
+
+mpu, scene_scale_factor = get_stage_meters_per_unit(stage)
+```
+
+### Scaling — `scale_stage_prim`
+
+USD scenes are authored at all sorts of stage units. To apply a uniform scale to the imported stage root once, before drones spawn:
+
+```python
+STAGE_SCALE = 0.01   # cm → m
+scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
+```
+
+### Colliders — `add_colliders`
+
+Recursively applies `UsdPhysics.CollisionAPI` to every `UsdGeom.Mesh` under the given prim. Imported environment USDs are usually visual-only; without this, drones fall through buildings.
+
+```python
+stage_prim = stage.GetPrimAtPath("/World/stage")
+add_colliders(stage_prim)
+```
+
+Skips prims that already have the API applied. Run it on the stage root after `scale_stage_prim` returns.
+
+### Lighting — `add_dome_light`
+
+Incase the scene is missing any lights, this adds a dome light that can act like an overhead 'sun'.
+
+```python
+add_dome_light(
+    stage,
+    prim_path="/World/DomeLight",
+    intensity=3500.0,
+    exposure=-5.0,   # negative = darker; tune per scene
+)
+```
+
+### Overhead camera — `add_orthographic_camera` + `add_overhead_camera_publisher`
+
+Used as a pair: one drops an orthographic camera over the scene, the other wires an OmniGraph to publish its frame plus three Float32 spec topics (`coverage_m`, `center_x_m`, `center_y_m`) the GCS uses to texture a ground plane in Foxglove's 3D panel.
+
+```python
+cam_path = add_orthographic_camera(
+    stage,
+    prim_path="/World/MapCamera",
+    altitude_m=165.0,
+    coverage_m=225.0,
+    scene_scale_factor=scene_scale_factor,
+    center_x_m=0.0,   # set if your area of interest isn't at world origin
+    center_y_m=0.0,
+)
+add_overhead_camera_publisher(
+    parent_graph_path="/World/MapCameraGraph",
+    camera_prim_path=cam_path,
+    topic="/sim/overhead/image",
+    spec_topic="/sim/overhead/spec",
+    center_x_topic="/sim/overhead/center_x",
+    center_y_topic="/sim/overhead/center_y",
+    frame_id="map",
+    coverage_m=225.0,
+    center_x_m=0.0,
+    center_y_m=0.0,
+    pixels_per_meter=10.0,
+    domain_id=0,
+)
+```
+
+Full setup, GCS-side rendering, and tuning knobs are on the **[Overhead Camera](overhead_camera.md)** page.
+
+### Saving a self-contained copy — `save_scene_as_contained_usd`
+
+For scenes you'd like to keep working with offline (no Nucleus connection), or for sharing a scene with collaborators, collect the root USD plus every referenced asset (textures, MDLs, sublayers) into a local directory:
+
+```python
+save_scene_as_contained_usd(
+    source_usd_url=ENV_URL,
+    output_dir="/tmp/collected_scene",
+)
+```
+
+The collected folder contains a standalone root USD with relative references — load it directly via `omniverse://localhost/...` or a local file path. The collected scene will include modifications for scale, colliders, etc applied before saving. 
+
 ## Common issues
 
 | Symptom | Likely cause | Fix |
