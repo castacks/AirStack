@@ -91,7 +91,7 @@ Skips prims that already have the API applied. Run it on the stage root after `s
 
 ### Lighting — `add_dome_light`
 
-Incase the scene is missing any lights, this adds a dome light that can act like an overhead 'sun'.
+In case the scene is missing any lights, this adds a dome light that can act like an overhead 'sun'.
 
 ```python
 add_dome_light(
@@ -145,7 +145,7 @@ save_scene_as_contained_usd(
 )
 ```
 
-The collected folder contains a standalone root USD with relative references — load it directly via `omniverse://localhost/...` or a local file path. The collected scene will include modifications for scale, colliders, etc applied before saving. 
+The collected folder contains a standalone root USD with relative references — load it directly via `omniverse://localhost/...` or a local file path. Note that this collects the **source USD as-is**: scale, colliders, dome light, and any other stage edits applied in this post-load callback are *not* baked into the saved copy. To capture the live stage with your modifications, first export the in-memory stage to a USD on disk (e.g. via `stage.GetRootLayer().Export(...)`) and pass that exported path as `source_usd_url`.
 
 ## Common issues
 
