@@ -233,6 +233,10 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
     # Tasks exempt from the "must be airborne" precondition.
     AIRBORNE_EXEMPT = {'takeoff', 'land'}
     MIN_AIRBORNE_Z_M = 5.0
+    # Per-task overrides for the minimum airborne altitude.
+    MIN_AIRBORNE_Z_OVERRIDES = {
+        'fixed_trajectory': 1.0,
+    }
 
     def on_goal_str(msg):
         """Receive JSON goal from Foxglove, parse, forward as action."""
@@ -244,8 +248,9 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             return
 
         # Airborne precondition: every task except takeoff/land requires the
-        # drone to be at least MIN_AIRBORNE_Z_M above its takeoff altitude.
+        # drone to be at least min_z above its takeoff altitude.
         if suffix not in AIRBORNE_EXEMPT:
+            min_z = MIN_AIRBORNE_Z_OVERRIDES.get(suffix, MIN_AIRBORNE_Z_M)
             cur_z = transform_state.get('current_z')
             if cur_z is None:
                 node0.get_logger().warn(
@@ -254,14 +259,14 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
                     False,
                     'Robot altitude unknown (no GPS fix yet) — takeoff first.')
                 return
-            if cur_z < MIN_AIRBORNE_Z_M:
+            if cur_z < min_z:
                 node0.get_logger().warn(
                     f'[relay] {topic}: rejected — drone at {cur_z:.2f}m AGL, '
-                    f'need >= {MIN_AIRBORNE_Z_M}m')
+                    f'need >= {min_z}m')
                 _publish_result(
                     False,
                     f'Takeoff first — drone is at {cur_z:.2f}m AGL '
-                    f'(need >= {MIN_AIRBORNE_Z_M:.0f}m).')
+                    f'(need >= {min_z:.0f}m).')
                 return
 
         try:
