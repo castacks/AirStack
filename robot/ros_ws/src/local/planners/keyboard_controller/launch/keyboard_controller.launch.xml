@@ -1,0 +1,13 @@
+<launch>
+    <arg name="robot_name" default="$(env ROBOT_NAME robot_1)" />
+    <arg name="odometry_topic" default="/$(var robot_name)/odometry_conversion/odometry" />
+
+    <node pkg="keyboard_controller" exec="keyboard_controller_node"
+          name="keyboard_controller" namespace="keyboard_controller" output="screen">
+        <remap from="odometry"               to="$(var odometry_topic)" />
+        <remap from="trajectory_override"    to="/$(var robot_name)/trajectory_controller/trajectory_override" />
+        <remap from="tracking_point_vis"     to="/$(var robot_name)/keyboard_controller/tracking_point_vis" />
+        <remap from="keyboard_input"         to="/$(var robot_name)/keyboard_controller/keyboard_input" />
+        <remap from="keyboard_control_enable" to="/$(var robot_name)/keyboard_controller/keyboard_control_enable" />
+    </node>
+</launch>

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>keyboard_controller</name>
+  <version>0.0.1</version>
+  <description>Keyboard-based drone teleop controller. Subscribes to keyboard_input (std_msgs/String) and keyboard_control_enable (std_msgs/Bool) for Foxglove/GUI integration, and publishes trajectory_override commands.</description>
+
+  <maintainer email="yunwool@andrew.cmu.edu">AirLab CMU</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>airstack_msgs</depend>
+  <depend>airstack_common</depend>
+  <depend>eigen3_cmake_module</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

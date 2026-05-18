@@ -61,5 +61,9 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/bag_record/bag_recording_status"
   - name: "rt/$(env ROBOT_NAME)/bag_record/set_recording_status"
 
+  # keyboard teleop — GCS Foxglove panel → robot (bidirectional by default)
+  - name: "rt/$(env ROBOT_NAME)/keyboard_controller/keyboard_input"
+  - name: "rt/$(env ROBOT_NAME)/keyboard_controller/keyboard_control_enable"
+
   # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
   # NOT here — having it in both routers causes message flooding/amplification.

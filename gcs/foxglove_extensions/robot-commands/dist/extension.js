@@ -332,6 +332,32 @@ const TASK_TABS = [
     }),
     formatFeedback: genericAreaFeedback,
   },
+  {
+    id: "keyboard_control",
+    label: "Keyboard",
+    actionSuffix: null,   // not a task executor — no relay topics
+    goalSchema: null,
+    fields: [],           // custom renderer
+    defaultState: () => ({}),
+    buildGoal: () => ({}),
+    formatFeedback: () => "",
+  },
+];
+
+// Key definitions for keyboard teleop — must match keyboard_controller.cpp ProcessKey().
+const KB_KEYS = [
+  { key: "w", label: "W", action: "Forward (+X)" },
+  { key: "s", label: "S", action: "Backward (−X)" },
+  { key: "a", label: "A", action: "Left (+Y)" },
+  { key: "d", label: "D", action: "Right (−Y)" },
+  { key: "c", label: "C", action: "Up (+Z)" },
+  { key: "z", label: "Z", action: "Down (−Z)" },
+  { key: "q", label: "Q", action: "Yaw Left" },
+  { key: "e", label: "E", action: "Yaw Right" },
+  { key: "o", label: "O", action: "Step −0.1 m" },
+  { key: "p", label: "P", action: "Step +0.1 m" },
+  { key: "k", label: "K", action: "Yaw step −" },
+  { key: "l", label: "L", action: "Yaw step +" },
 ];
 
 function tabById(id) {
@@ -497,6 +523,7 @@ function activate(extensionContext) {
 
       // ── DOM ───────────────────────────────────────────────────────────────
       const root = panelContext.panelElement;
+      root.tabIndex = 0;  // allow panel to receive keydown events for keyboard teleop
       root.style.cssText =
         "display:flex;flex-direction:column;height:100%;box-sizing:border-box;padding:8px;gap:8px;font-family:sans-serif;color:inherit;overflow-y:auto;overflow-x:hidden;";
 
@@ -548,6 +575,79 @@ function activate(extensionContext) {
 
         if (tab.id === "fixed_trajectory") {
           body.appendChild(buildFixedTrajectoryForm(state.fixed_trajectory, persist));
+        } else if (tab.id === "keyboard_control") {
+          // ── Keyboard teleop body ──────────────────────────────────────────
+          let kbEnabled = false;
+
+          const enableBtn = document.createElement("button");
+          enableBtn.style.cssText =
+            "padding:10px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:bold;";
+
+          const kbStatusEl = document.createElement("div");
+          kbStatusEl.style.cssText = "font-size:12px;text-align:center;color:#888;";
+
+          const activeKeyEl = document.createElement("div");
+          activeKeyEl.style.cssText =
+            "font-size:18px;font-weight:bold;text-align:center;min-height:28px;";
+
+          function applyKbEnabled() {
+            if (kbEnabled) {
+              enableBtn.textContent = "ENABLED — Click to Disable";
+              enableBtn.style.background = "#2e7d32";
+              enableBtn.style.color = "#fff";
+              kbStatusEl.textContent = "Click panel then press keys to fly.";
+              kbStatusEl.style.color = "#4caf50";
+              root.focus();
+            } else {
+              enableBtn.textContent = "DISABLED — Click to Enable";
+              enableBtn.style.background = "#444";
+              enableBtn.style.color = "#aaa";
+              kbStatusEl.textContent = "Enable before flying.";
+              kbStatusEl.style.color = "#888";
+            }
+          }
+
+          enableBtn.addEventListener("click", () => {
+            kbEnabled = !kbEnabled;
+            panelContext.advertise(
+              `/${state.robot}/keyboard_controller/keyboard_control_enable`,
+              "std_msgs/msg/Bool");
+            panelContext.publish(
+              `/${state.robot}/keyboard_controller/keyboard_control_enable`,
+              { data: kbEnabled });
+            applyKbEnabled();
+          });
+
+          const keyGrid = document.createElement("div");
+          keyGrid.style.cssText =
+            "display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px;";
+          const kbKeyEls = {};
+          for (const k of KB_KEYS) {
+            const cell = document.createElement("div");
+            cell.style.cssText =
+              "border:1px solid #555;border-radius:4px;padding:5px 2px;text-align:center;";
+            cell.innerHTML =
+              `<div style="font-weight:bold;font-size:14px;">${k.label}</div>` +
+              `<div style="color:#888;font-size:10px;line-height:1.2;">${k.action}</div>`;
+            kbKeyEls[k.key] = cell;
+            keyGrid.appendChild(cell);
+          }
+
+          const kbHint = document.createElement("div");
+          kbHint.style.cssText = "font-size:10px;color:#666;text-align:center;";
+          kbHint.textContent = "Disable before typing in other fields.";
+
+          body.appendChild(enableBtn);
+          body.appendChild(kbStatusEl);
+          body.appendChild(activeKeyEl);
+          body.appendChild(keyGrid);
+          body.appendChild(kbHint);
+          applyKbEnabled();
+
+          // Store refs on body for the root keydown handler to access
+          body._kbEnabled = () => kbEnabled;
+          body._kbKeyEls  = kbKeyEls;
+          body._activeKeyEl = activeKeyEl;
         } else {
           // Render simple fields first, then polygon/path (collapsible) at the bottom.
           const isCollapsible = (f) => f.kind === "polygon" || f.kind === "path";
@@ -575,6 +675,40 @@ function activate(extensionContext) {
         tabBodies[tab.id] = body;
         root.appendChild(body);
       }
+
+      // ── Root-level keydown handler for keyboard teleop tab ─────────────────
+      let kbFlashTimeout = null;
+      root.addEventListener("keydown", (e) => {
+        if (state.activeTab !== "keyboard_control") return;
+        const kbBody = tabBodies["keyboard_control"];
+        if (!kbBody._kbEnabled || !kbBody._kbEnabled()) return;
+        const k = e.key.toLowerCase();
+        const info = KB_KEYS.find((x) => x.key === k);
+        if (!info) return;
+        e.preventDefault();
+        panelContext.advertise(
+          `/${state.robot}/keyboard_controller/keyboard_input`, "std_msgs/msg/String");
+        panelContext.publish(
+          `/${state.robot}/keyboard_controller/keyboard_input`, { data: k });
+        // Visual flash
+        const activeKeyEl = kbBody._activeKeyEl;
+        const kbKeyEls    = kbBody._kbKeyEls;
+        if (activeKeyEl) activeKeyEl.textContent = `[ ${k.toUpperCase()} ]  ${info.action}`;
+        if (kbKeyEls?.[k]) {
+          kbKeyEls[k].style.background = "#1565c0";
+          kbKeyEls[k].style.color = "#fff";
+        }
+        clearTimeout(kbFlashTimeout);
+        kbFlashTimeout = setTimeout(() => {
+          if (activeKeyEl) activeKeyEl.textContent = "";
+          if (kbKeyEls) {
+            for (const el of Object.values(kbKeyEls)) {
+              el.style.background = "";
+              el.style.color = "";
+            }
+          }
+        }, 400);
+      });
 
       // Feedback area
       const feedbackLabel = document.createElement("div");
@@ -613,18 +747,34 @@ function activate(extensionContext) {
       function persist() { panelContext.saveState(state); }
 
       function renderTabs() {
+        const isKbTab = state.activeTab === "keyboard_control";
+        // Hide task-executor footer elements when keyboard tab is active
+        const footerDisplay = isKbTab ? "none" : "";
+        feedbackLabel.style.display = footerDisplay;
+        feedbackBox.style.display   = footerDisplay;
+        resultLabel.style.display   = footerDisplay;
+        resultBox.style.display     = footerDisplay;
+        statusRow.style.display     = isKbTab ? "none" : "flex";
+
         for (const tab of TASK_TABS) {
           const isActive = tab.id === state.activeTab;
           tabBodies[tab.id].style.display = isActive ? "flex" : "none";
           tabButtons[tab.id].style.borderBottomColor = isActive ? "#10b981" : "transparent";
           tabButtons[tab.id].style.fontWeight = isActive ? "bold" : "normal";
+          if (tab.id === "keyboard_control") {
+            tabButtons[tab.id].style.color = "inherit";
+            tabButtons[tab.id].textContent = tab.label;
+            continue;
+          }
           const pt = perTab[tab.id];
           tabButtons[tab.id].style.color = statusColor(pt.active ? GOAL_STATUS.EXECUTING : pt.statusCode);
           const emoji = statusEmoji(pt.statusCode, pt.active);
           tabButtons[tab.id].textContent = emoji ? `${emoji} ${tab.label}` : tab.label;
         }
-        renderStatus();
-        renderFeedback();
+        if (!isKbTab) {
+          renderStatus();
+          renderFeedback();
+        }
       }
 
       function renderStatus() {
@@ -698,6 +848,7 @@ function activate(extensionContext) {
         ]);
         for (const robot of knownRobots) {
           for (const tab of TASK_TABS) {
+            if (!tab.actionSuffix) continue;  // skip non-executor tabs (e.g. keyboard_control)
             // Always subscribed (latched) — canonical state machine.
             topics.add(`/${robot}/${tab.actionSuffix}/relay_status`);
             // Always subscribed (latched) — terminal result for this goal.
@@ -718,6 +869,7 @@ function activate(extensionContext) {
 
       // ── execute / cancel ─────────────────────────────────────────────────
       executeBtn.addEventListener("click", async () => {
+        if (state.activeTab === "keyboard_control") return;
         // Block if ANY tab has an active goal
         if (anyActive()) return;
         const tab = tabById(state.activeTab);
@@ -758,6 +910,7 @@ function activate(extensionContext) {
       });
 
       cancelBtn.addEventListener("click", async () => {
+        if (state.activeTab === "keyboard_control") return;
         const t = curTab();
         if (!t.active) return;
         const tab = tabById(state.activeTab);

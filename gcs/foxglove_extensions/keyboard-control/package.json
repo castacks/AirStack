@@ -1,0 +1,9 @@
+{
+  "name": "keyboard-control",
+  "displayName": "Keyboard Control",
+  "description": "Teleop panel: press keys to move the drone. Publishes to keyboard_input and keyboard_control_enable topics.",
+  "publisher": "AirLab CMU",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js"
+}
