@@ -30,8 +30,7 @@ services:
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
       bash -c "
-      if [ -z \"$$DISPLAY\" ]; then
-        command -v Xvfb >/dev/null 2>&1 || (apt-get update && apt-get install -y --no-install-recommends xvfb);
+      if [ -z \"$$DISPLAY\" ] && command -v Xvfb >/dev/null 2>&1; then
         Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset >/tmp/xvfb.log 2>&1 &
         export DISPLAY=:99;
       fi;
