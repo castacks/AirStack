@@ -191,7 +191,8 @@ class PegasusApp:
         if self.play_on_start:
             self.timeline.play()
         else:
-            self.timeline.stop()
+            # self.timeline.stop()
+            pass
 
         app = omni.kit.app.get_app()
         while simulation_app.is_running():

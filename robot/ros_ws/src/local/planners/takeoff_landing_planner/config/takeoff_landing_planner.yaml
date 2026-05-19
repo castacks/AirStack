@@ -12,4 +12,4 @@
 
     takeoff_path_roll: 0.  # in degrees
     takeoff_path_pitch: 0.  # in degrees
-    takeoff_path_relative_to_orientation: false
+    takeoff_path_relative_to_orientation: true

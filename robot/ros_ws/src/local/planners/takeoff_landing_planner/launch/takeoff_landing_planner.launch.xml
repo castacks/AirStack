@@ -12,7 +12,7 @@
 
     <param name="takeoff_path_roll" value="0." /> <!-- degrees -->
     <param name="takeoff_path_pitch" value="20." /> <!-- degrees -->
-    <param name="takeoff_path_relative_to_orientation" value="false" />
+    <param name="takeoff_path_relative_to_orientation" value="true" />
 
   </node>
 </launch>

@@ -48,6 +48,7 @@ import omni.timeline
 import omni.usd
 import numpy as np
 from isaacsim.core.api.materials.omni_pbr import OmniPBR
+from isaacsim.core.utils.semantics import add_update_semantics
 from isaacsim.core.utils.extensions import enable_extension
 from isaacsim.core.utils.viewports import set_camera_view
 from omni.isaac.core.world import World
@@ -76,6 +77,7 @@ HARDCODED_PERSON_START = [-9.0, -10.5, 0.0]
 HARDCODED_PERSON_TARGET = [-4.4, -10.5, 0.0]
 HARDCODED_PERSON_YAW = 1.5708
 HARDCODED_PERSON_WALK_SPEED = 1.0
+HARDCODED_PERSON_START_DELAY = 15.0
 
 HARDCODED_CAMERA_EYE = [8.0, 8.0, 5.0]
 HARDCODED_CAMERA_TARGET = HARDCODED_PERSON_START
@@ -138,16 +140,22 @@ PEOPLE_EXTENSIONS = [
 
 
 class StraightLinePersonController:
-    def __init__(self, target, walk_speed):
+    def __init__(self, target, walk_speed, start_delay=0.0):
         self._person = None
         self._target = list(target)
         self._walk_speed = walk_speed
+        self._start_delay = max(0.0, float(start_delay))
+        self._elapsed = 0.0
 
     def initialize(self, person):
         self._person = person
 
     def update(self, dt):
         if self._person is not None:
+            self._elapsed += dt
+            if self._elapsed < self._start_delay:
+                self._person.update_target_position(self._person.state.position, 0.0)
+                return
             self._person.update_target_position(self._target, self._walk_speed)
 
     def update_state(self, state):
@@ -328,6 +336,9 @@ class CyLabHallwayEvalScene:
         self.person_walk_speed = float(
             os.environ.get("PERSON_WALK_SPEED", str(HARDCODED_PERSON_WALK_SPEED))
         )
+        self.person_start_delay = float(
+            os.environ.get("PERSON_START_DELAY", str(HARDCODED_PERSON_START_DELAY))
+        )
 
         for extension in PEOPLE_EXTENSIONS:
             enable_extension(extension)
@@ -372,7 +383,7 @@ class CyLabHallwayEvalScene:
                 f"Creating mesh plane '{HARDCODED_MESH_PLANE_PATH}' with OmniPBR "
                 f"albedo map: {albedo_path or '<none>'}"
             )
-            create_textured_mesh_plane(
+            mesh_plane = create_textured_mesh_plane(
                 self.stage,
                 HARDCODED_MESH_PLANE_PATH,
                 HARDCODED_MESH_PLANE_MATERIAL_PATH,
@@ -382,6 +393,7 @@ class CyLabHallwayEvalScene:
                 albedo_path,
                 HARDCODED_MESH_PLANE_TEXTURE_SCALE,
             )
+            add_update_semantics(mesh_plane.GetPrim(), "patch_plane")
 
         self.timeline = omni.timeline.get_timeline_interface()
         self.timeline.stop()
@@ -468,6 +480,7 @@ class CyLabHallwayEvalScene:
         self.person_controller = StraightLinePersonController(
             self.person_target,
             self.person_walk_speed,
+            self.person_start_delay,
         )
         self.person = Person(
             self.person_name,
@@ -476,29 +489,54 @@ class CyLabHallwayEvalScene:
             init_yaw=self.person_yaw,
             controller=self.person_controller,
         )
-        self.person.update_target_position(self.person_target, self.person_walk_speed)
+        add_update_semantics(self.person.character_skel_root, "person")
+        self.person.update_target_position(self.person_start, 0.0)
         set_camera_view(eye=HARDCODED_CAMERA_EYE, target=HARDCODED_CAMERA_TARGET)
 
-        self.world.reset()
-        self.person.update_target_position(self.person_target, self.person_walk_speed)
+        # self.world.reset()
+        self.person.update_target_position(self.person_start, 0.0)
+        # self.world_reset_by_play = False
+        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "false").lower() == "true"
 
     def run(self):
-        self.timeline.play()
-        self.person.update_target_position(self.person_target, self.person_walk_speed)
+        if self.play_on_start:
+            self.timeline.play()
 
         app = omni.kit.app.get_app()
         while simulation_app.is_running():
-            world = World.instance()
-            if world is not None and hasattr(world, "_scene"):
-                world.step(render=True)
-                if world is not self.world:
-                    self.world = world
-                    self.pg._world = world
+            if self.timeline.is_playing():
+
+                # if not self.world_reset_by_play:
+                #     self.world.reset()
+                #     self.person.update_target_position(self.person_start, 0.0)
+
+                world = World.instance()
+                if world is not None and hasattr(world, "_scene"):
+                    world.step(render=True)
+                    if world is not self.world:
+                        self.world = world
+                        self.pg._world = world
+                else:
+                    app.update()
             else:
                 app.update()
 
-        self.timeline.stop()
-        simulation_app.close()
+    # def run(self):
+    #     self.timeline.play()
+
+    #     app = omni.kit.app.get_app()
+    #     while simulation_app.is_running():
+    #         world = World.instance()
+    #         if world is not None and hasattr(world, "_scene"):
+    #             world.step(render=True)
+    #             if world is not self.world:
+    #                 self.world = world
+    #                 self.pg._world = world
+    #         else:
+    #             app.update()
+
+    #     self.timeline.stop()
+    #     simulation_app.close()
 
 
 def main():

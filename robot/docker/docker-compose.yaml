@@ -16,8 +16,8 @@ services:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
       tags:
         - *desktop_image
-      cache_from:
-        - *desktop_image
+      # cache_from:
+      #   - *desktop_image
     # we use tmux sd-keys so that the session stays alive
     environment:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc

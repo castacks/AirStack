@@ -293,6 +293,7 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-jazzy-rosbag2-storage-mcap \
   ros-jazzy-xacro \
   ros-jazzy-foxglove-bridge \
+  ros-jazzy-vision-msgs \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
