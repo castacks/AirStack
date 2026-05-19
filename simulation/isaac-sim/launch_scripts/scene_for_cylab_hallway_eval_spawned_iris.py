@@ -21,6 +21,8 @@ Optional:
     DRONE_VEHICLE_ID=1
     DRONE_DOMAIN_ID=1
     DRONE_ENABLE_ZED=true
+    DRONE_ENABLE_ZED_INSTANCE_SEGMENTATION=true
+    DRONE_ENABLE_ZED_BBOX_2D=true
     DRONE_ENABLE_OUSTER=true
     MESH_PLANE_ALBEDO_PATH=/path/to/albedo.png
 
@@ -101,6 +103,8 @@ HARDCODED_DRONE_INIT_POS = [-6.8, -6.3, 0.07]
 # yaw = -90 deg
 HARDCODED_DRONE_INIT_ORIENT = [0.0, 0.0, -0.7071, 0.7071]
 HARDCODED_DRONE_ENABLE_ZED = True
+HARDCODED_DRONE_ENABLE_ZED_INSTANCE_SEGMENTATION = True
+HARDCODED_DRONE_ENABLE_ZED_BBOX_2D = True
 HARDCODED_DRONE_ENABLE_OUSTER = True
 
 
@@ -415,6 +419,14 @@ class CyLabHallwayEvalScene:
                 str(HARDCODED_DRONE_ENABLE_ZED),
             ).lower() == "true"
             if enable_zed:
+                enable_instance_segmentation = os.environ.get(
+                    "DRONE_ENABLE_ZED_INSTANCE_SEGMENTATION",
+                    str(HARDCODED_DRONE_ENABLE_ZED_INSTANCE_SEGMENTATION),
+                ).lower() == "true"
+                enable_bbox_2d = os.environ.get(
+                    "DRONE_ENABLE_ZED_BBOX_2D",
+                    str(HARDCODED_DRONE_ENABLE_ZED_BBOX_2D),
+                ).lower() == "true"
                 add_zed_stereo_camera_subgraph(
                     parent_graph_handle=graph_handle,
                     drone_prim=drone_prim,
@@ -422,6 +434,8 @@ class CyLabHallwayEvalScene:
                     camera_name="ZEDCamera",
                     camera_offset=[0.2, 0.0, -0.05],
                     camera_rotation_offset=[0.0, 0.0, 0.0],
+                    enable_instance_segmentation=enable_instance_segmentation,
+                    enable_bbox_2d=enable_bbox_2d,
                 )
 
             enable_ouster = os.environ.get(
