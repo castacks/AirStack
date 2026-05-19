@@ -4,6 +4,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -44,6 +45,12 @@ SIM_CONFIG = {
 }
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
+# LiDAR filter ``validation_core`` lives under ``tests/`` (not in ``robot/ros_ws/src``).
+_lidar_vc = Path(AIRSTACK_ROOT) / "tests/robot/sensors/lidar_point_cloud_filter"
+if _lidar_vc.is_dir():
+    _p = str(_lidar_vc)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 RUN_DIR = None
 LOGS_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
@@ -156,11 +163,11 @@ def pytest_generate_tests(metafunc):
 # docker image builds → colcon workspace builds → liveliness (infra) → sensors
 # (ROS topic streams) → autonomy flight tests.
 _MODULE_ORDER = [
-    "test_build_docker",
-    "test_build_packages",
-    "test_liveliness",
-    "test_sensors",
-    "test_takeoff_hover_land",
+    "system.test_build_docker",
+    "system.test_build_packages",
+    "system.test_liveliness",
+    "system.test_sensors",
+    "system.test_takeoff_hover_land",
 ]
 
 # Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.
@@ -186,7 +193,7 @@ def pytest_collection_modifyitems(items):
     #    (sim, robots, iter) env brings up the stack once and the drone goes
     #    ground→air→ground per velocity.
     def phase(item):
-        if getattr(item.module, "__name__", "") != "test_takeoff_hover_land":
+        if getattr(item.module, "__name__", "") != "system.test_takeoff_hover_land":
             return None
         name = item.originalname or item.name.split("[", 1)[0]
         return _rank(name, _AUTONOMY_PHASE_ORDER)

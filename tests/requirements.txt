@@ -4,3 +4,4 @@ pytest-dependency
 tabulate
 psutil
 pandas
+numpy

@@ -1,6 +1,12 @@
-# System Testing
+# Testing (`tests/`)
 
-AirStack's system tests bring up the full Docker-based stack — simulator, robot containers, and GCS — and verify end-to-end behavior: container health, ROS 2 node presence, sensor publishing rates (in the `sensors` mark), and compute resource usage. Tests are written in Python with pytest and live under `tests/` at the repo root.
+AirStack's **pytest** tree under `tests/` has three roles:
+
+1. **`tests/system/`** — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.
+2. **`tests/robot/`** — Fast **unit** tests that mirror `robot/ros_ws/src/` (`behavior`, `global`, `interface`, `local`, `perception`, `sensors`). Mark: `unit`.
+3. **`tests/sim/`** — Unit tests for simulation-side helpers (e.g. Motive / NatNet emulator). Mark: `unit`.
+
+Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for hermetic tests only, or the marks below for the full stack.
 
 <iframe width="1120" height="630" src="https://www.youtube.com/embed/EzgGHnYDI_k?si=vpqER-TXud5XEMUX" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -8,16 +14,22 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 
 ## Test Suite Structure
 
+### System tests (`tests/system/`)
+
 | Module | Mark | What it tests | Hardware required |
 |--------|------|---------------|-------------------|
-| [`test_build_docker.py`](../../../../tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
-| [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
-| [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Stack bring-up: container Running state, ``/clock`` readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only ``test_stable`` (tmux + nodes + compute) | Docker daemon, GPU, sim license |
-| [`test_sensors.py`](../../../../tests/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
-| [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+| [`system/test_build_docker.py`](system/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
+| [`system/test_build_packages.py`](system/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
+| [`system/test_liveliness.py`](system/test_liveliness.py) | `liveliness` | Stack bring-up: container Running state, ``/clock`` readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only ``test_stable`` (tmux + nodes + compute) | Docker daemon, GPU, sim license |
+| [`system/test_sensors.py`](system/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
+| [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+
+### Unit tests (`tests/robot/`, `tests/sim/`)
+
+Hermetic tests use `@pytest.mark.unit` (see [`pytest.ini`](pytest.ini)). Example: [`robot/sensors/lidar_point_cloud_filter/validation_core.py`](robot/sensors/lidar_point_cloud_filter/validation_core.py) + [`test_validation_core.py`](robot/sensors/lidar_point_cloud_filter/test_validation_core.py) (numpy-only rules also used by `validate_lidar_filter_clouds.py`, which is a sibling in the same directory).
 
 Marks can be combined with pytest logic:
-`-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+`-m unit`, `-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
 
 ### Bring-up scope (`airstack_env`)
 
@@ -27,7 +39,7 @@ Marks can be combined with pytest logic:
 
 ## Test Infrastructure
 
-All shared fixtures, helpers, and configuration live in [`tests/conftest.py`](../../../../tests/conftest.py).
+All shared fixtures, helpers, and configuration live in [`conftest.py`](conftest.py).
 
 ### `airstack_env` fixture
 
@@ -40,21 +52,21 @@ Parametrized over `(sim, num_robots, iteration)` tuples derived from CLI flags. 
 
 ### Isaac Sim and the `sensors` mark
 
-**LiDAR in pytest:** [`tests/conftest.py`](../../../../tests/conftest.py) sets
+**LiDAR in pytest:** [`conftest.py`](conftest.py) sets
 `ENABLE_LIDAR=true` in `SIM_CONFIG["isaacsim"]["extra_env"]` so the multi-drone
 Pegasus script (`example_multi_px4_pegasus_launch_script.py`) attaches RTX LiDAR
 the same way the single-drone script always does. Without that flag the multi
 script would not spawn LiDAR OmniGraphs.
 
-**Topic checks** live in [`tests/sensor_probes.py`](../../../../tests/sensor_probes.py)
-and are driven by [`tests/test_sensors.py`](../../../../tests/test_sensors.py):
+**Topic checks** live in [`sensor_probes.py`](sensor_probes.py)
+and are driven by [`system/test_sensors.py`](system/test_sensors.py):
 
 | Path | What we measure | How |
 |------|-----------------|-----|
 | Sim → `/clock`, stereo images, stereo depth | Publish rate | ``ros2 topic hz`` on the sim container: ``/clock`` alone, then **chunks of two** ``image_rect`` topics, then **chunks of two** depth topics (``ISAACSIM_HZ_CHUNK_SIZE`` in ``sensor_probes.py``). |
 | Robot → same topic names (bridge) | Publish rate | Same **two-at-a-time** chunking on the robot container for Isaac. ms-airsim: one batch of four topics. |
 | Robot → filtered ``.../ouster/point_cloud`` | Stream alive | ``ros2 topic echo --once`` per robot (not Hz — large ``PointCloud2``). |
-| LiDAR geometry | Near-range vs ``near_range_m`` | ``lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py`` (raw vs filtered). |
+| LiDAR geometry | Near-range vs ``near_range_m`` | ``tests/robot/sensors/lidar_point_cloud_filter/validate_lidar_filter_clouds.py`` (raw vs filtered). |
 
 Sim **RTF** (real-time factor from ``/clock``) is also in the `sensors` suite.
 **`test_sensor_streams_stable`** repeats sim + robot stereo + LiDAR probes every
@@ -88,11 +100,11 @@ tests/results/
     ├── results.xml        # JUnit XML — test durations and pass/fail status
     ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
     └── logs/
-        ├── test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-        ├── airstack_env.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-        ├── test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-        ├── test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
-        ├── test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
+        ├── system.test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
+        ├── airstack_env.system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
+        ├── system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
+        ├── system.test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
+        ├── system.test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
         └── ...            # More per-test logs; another airstack_env.* per class using the fixture
 ```
 
@@ -108,6 +120,9 @@ arguments directly to pytest. No local Python environment needed.
 
 ```bash
 # From the repo root (AirStack must be set up: airstack setup):
+
+# Unit tests only — no GPU, no full Docker stack (numpy-only + pure Python)
+airstack test -m unit -v
 
 # Build tests only — fast, no GPU needed
 airstack test -m "build_docker or build_packages" -v
@@ -191,7 +206,7 @@ pytest tests/ -m sensors \
 
 ---
 
-## Autonomy Tests (`test_takeoff_hover_land.py`)
+## Autonomy Tests (`system/test_takeoff_hover_land.py`)
 
 `TestTakeoffHoverLand` runs a **4-phase flight chain** for every combination of
 `(sim, num_robots, iteration, velocity)`. The drone returns to the ground after
@@ -255,7 +270,7 @@ airstack test -m takeoff_hover_land \
 
 ## Metrics Reporting (`parse_metrics.py`)
 
-[`tests/parse_metrics.py`](../../../../tests/parse_metrics.py) reads `results.xml` and `metrics.json` from a run directory and produces a markdown report. It has two modes:
+[`parse_metrics.py`](parse_metrics.py) reads `results.xml` and `metrics.json` from a run directory and produces a markdown report. It has two modes:
 
 ### Single-run report
 

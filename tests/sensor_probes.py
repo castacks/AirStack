@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """ROS 2 sensor stream checks (sim + robot) for system tests.
 
-Used by ``test_sensors.py``. Liveliness (``test_liveliness.py``) stays limited to
+Used by ``system/test_sensors.py``. Liveliness (``system/test_liveliness.py``) stays limited to
 containers, tmux, and sentinel nodes; sensor Hz / LiDAR validation lives here.
 
 **Isaac Sim (`env["sim"] == "isaacsim"`)** — Pegasus / OmniGraph ROS bridges are
@@ -50,7 +50,7 @@ ROBOT_LIDAR_TOPIC_TEMPLATES = [
 ]
 
 LIDAR_CLOUD_VALIDATE_SCRIPT = (
-    "/root/AirStack/robot/ros_ws/src/sensors/lidar_point_cloud_filter/scripts/"
+    "/root/AirStack/tests/robot/sensors/lidar_point_cloud_filter/"
     "validate_lidar_filter_clouds.py"
 )
 
