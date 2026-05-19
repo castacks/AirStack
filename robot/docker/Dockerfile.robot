@@ -78,6 +78,7 @@ RUN apt update && apt install -y --no-install-recommends \
   python3-rosdep \
   tmux \
   gdb \
+  xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # Install any additional ROS2 packages
