@@ -29,7 +29,13 @@ import numpy as np
 from raven_nav.ray_targets import RayTarget
 
 
-DEDUP_MARGIN_M = 1.0
+DEDUP_MARGIN_M = 8.0
+# Distance buffer added on top of (half_diag_a + half_diag_b) when deciding
+# whether two same-label ConfirmedTargets refer to the same physical instance.
+# 8 m glues together typical voxel-fragment AABBs of a single house even when
+# the fragments are small (~2-3 m half-diag each). Tighten if you observe two
+# genuinely distinct objects merging; loosen if a single object keeps splitting
+# into multiple discoveries.
 
 
 @dataclass

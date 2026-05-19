@@ -26,10 +26,10 @@ def _points_in_polygon(pts_xy: np.ndarray, poly_xy: np.ndarray) -> np.ndarray:
 
 
 def _peer_penalty(viewpoints, peer_state, my_id,
-                  repulsion_weight=30.0,
+                  repulsion_weight=15.0,
                   repulsion_scale=30.0,
                   tie_distance=5.0,
-                  tie_surcharge_mul=2.0):
+                  tie_surcharge_mul=1.0):
     """Returns (penalty(M,), breakdown). Lower penalty = better.
 
     Soft repulsion = weight * exp(-d / scale), applied around every peer
@@ -71,9 +71,12 @@ def _peer_penalty(viewpoints, peer_state, my_id,
 # Disk model: every drone position stamps a 5m disk regardless of behavior
 # mode — drone is observing in ray/voxel mode too, not just at frontier
 # waypoints. Dedup keeps the zone list sparse (one zone per disk).
-ZONE_RADIUS_M = 5.0      # frontiers within this of any zone are filtered out
-NOVELTY_SCALE_M = 15.0   # exp(-d/scale) decay
-NOVELTY_WEIGHT = 25.0    # weight on the closeness-to-explored penalty
+ZONE_RADIUS_M = 10.0     # frontiers within this of any zone are filtered out
+NOVELTY_SCALE_M = 25.0   # exp(-d/scale) decay
+NOVELTY_WEIGHT = 60.0    # weight on the closeness-to-explored penalty
+                         # — novelty is the primary signal; peer repulsion (15)
+                         # is secondary so the drone will accept being near a
+                         # peer if doing so finds genuinely unexplored ground.
 
 
 def _nearest_zone_dist(pts_xy: np.ndarray, zones_xy: np.ndarray) -> np.ndarray:
@@ -107,6 +110,7 @@ class FrontierBehavior:
                 completed_zones_xy=None):
         viewpoint_publisher = publisher_dict['viewpoint']
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
+        kept_frontier_publisher = publisher_dict.get('kept_frontiers')
         path_publisher = publisher_dict['path']
 
         if frontiers_raw is None or len(frontiers_raw) == 0:
@@ -148,6 +152,14 @@ class FrontierBehavior:
             keep_mask = d_to_zone > ZONE_RADIUS_M
             zone_dropped_own = int((~keep_mask).sum())
             own_frontiers = own_frontiers[keep_mask]
+
+        # Publish the kept set (post altitude+polygon+zone filter) so an
+        # operator can watch it shrink in real time in Foxglove. Always
+        # publish — even an empty cloud — so the topic shows "0 points"
+        # rather than going stale when there's nothing left.
+        if kept_frontier_publisher is not None:
+            kept_frontier_publisher.publish(
+                self._create_pointcloud2_msg(own_frontiers))
 
         # Published viewpoints come from own-only clustering.
         own_viewpoints = self._cluster_to_viewpoints(own_frontiers)

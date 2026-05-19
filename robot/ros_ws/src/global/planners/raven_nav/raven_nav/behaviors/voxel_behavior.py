@@ -7,6 +7,14 @@ from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 
+from raven_nav.ray_targets import ray_aabb_hits
+
+# Relaxed fallback: cluster center is accepted if it sits within this many
+# metres of the committed ray's line, AND is in front of the drone. Tolerates
+# minor mis-alignment between the auctioned ray triangulation and where the
+# voxel cluster actually consolidates (sensor noise, mapper smoothing).
+RAY_TO_CLUSTER_RELAXED_M = 8.0
+
 
 class VoxelBehavior:
     def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30):
@@ -31,8 +39,52 @@ class VoxelBehavior:
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
 
+    def _cluster_matches_committed_ray(self, cluster, committed_origin,
+                                       committed_dir) -> bool:
+        """Strict-then-relaxed: voxel cluster belongs to the drone's
+        committed ray if either
+          (a) the ray's slab intersects the cluster AABB, OR
+          (b) the cluster center is within RAY_TO_CLUSTER_RELAXED_M of the
+              ray line AND in front of the drone.
+        """
+        bb = np.asarray(cluster, dtype=float)   # [cx,cy,cz,sx,sy,sz]
+        d = np.asarray(committed_dir, dtype=float)
+        d_norm = np.linalg.norm(d)
+        if d_norm < 1e-6:
+            return False
+        d = d / d_norm
+        o = np.asarray(committed_origin, dtype=float)
+        # (a) strict ray-AABB
+        hit, _ = ray_aabb_hits(o, d, bb)
+        if hit:
+            return True
+        # (b) relaxed: perpendicular distance from cluster center to ray line,
+        # only counting points that are in front of the drone (t > 0).
+        center = bb[:3]
+        v = center - o
+        t = float(np.dot(v, d))
+        if t <= 0.0:
+            return False
+        closest = o + t * d
+        perp = float(np.linalg.norm(center - closest))
+        return perp <= RAY_TO_CLUSTER_RELAXED_M
+
+    def _filter_to_committed_ray(self, clusters_dict, committed_origin,
+                                 committed_dir):
+        """Return only clusters whose AABB matches the committed ray (strict
+        or relaxed). If no commitment exists, return empty — voxel-mode must
+        not activate without a specific instance to chase."""
+        if committed_origin is None or committed_dir is None:
+            return {}
+        return {
+            i: c for i, c in clusters_dict.items()
+            if self._cluster_matches_committed_ray(
+                c, committed_origin, committed_dir)
+        }
+
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
-                        threshold=None):
+                        threshold=None, committed_origin=None,
+                        committed_dir=None):
         if threshold is None:
             threshold = self.score_threshold
         """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols.
@@ -103,8 +155,14 @@ class VoxelBehavior:
             self.cluster_query_map[vox_cluster_count] = best_label
             vox_cluster_count += 1
 
+        # Per-instance filter: only consider clusters that geometrically
+        # match the drone's auctioned ray commitment. Without this, voxel-mode
+        # would happily steal House_B when the drone was assigned House_A.
+        ray_filtered = self._filter_to_committed_ray(
+            self.target_voxel_clusters, committed_origin, committed_dir)
+
         self.unvisited_clusters = [
-            (idx, cluster) for idx, cluster in self.target_voxel_clusters.items()
+            (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
         ]
@@ -112,18 +170,28 @@ class VoxelBehavior:
         return len(self.unvisited_clusters) > 0
 
     def execute(self, vox_xyz, vox_scores, query_labels, cur_pose_np,
-                waypoint_locked, target_waypoint, target_waypoint2, publisher_dict):
+                waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
+                committed_origin=None, committed_dir=None):
         voxel_bbox_pub = publisher_dict.get('voxel_bbox')
         if voxel_bbox_pub:
             self._visualize_clusters(voxel_bbox_pub)
 
         path_pub = publisher_dict['path']
 
+        # Same per-instance ray filter as in condition_check — keep the
+        # candidate pool tied to the drone's committed target.
+        ray_filtered = self._filter_to_committed_ray(
+            self.target_voxel_clusters, committed_origin, committed_dir)
         self.unvisited_clusters = [
-            (idx, cluster) for idx, cluster in self.target_voxel_clusters.items()
+            (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
         ]
+        # If the drone's commitment moved off this cluster bucket (peer
+        # outbid, target completed, etc.) we'd have no candidates — fall back
+        # gracefully without crashing the path publish below.
+        if not self.unvisited_clusters:
+            return waypoint_locked, target_waypoint, target_waypoint2
 
         sorted_clusters = sorted(
             self.unvisited_clusters,
@@ -183,14 +251,18 @@ class VoxelBehavior:
         path_pub.publish(path)
 
         # Mark cluster visited only on a previously-locked waypoint within 3m.
+        # NOTE: tracking is per-INSTANCE (the cluster's AABB) via visited_clusters
+        # + the 10 m _is_near_visited spatial filter. We deliberately do NOT add
+        # the label to completed_queries here — the label set would retire the
+        # whole class fleet-wide after a single instance, so a "find all houses"
+        # task would stop after one house. Per-instance dedup is enough; the
+        # task-level instance_id system handles cross-drone deduplication of
+        # the discovery output.
         if waypoint_was_locked and target_waypoint2 is not None and \
                 np.linalg.norm(cur_pose_np - target_waypoint2) < 3.0:
             if sorted_clusters:
                 arrived_idx, arrived_cluster = sorted_clusters[0]
                 self.visited_clusters.append(arrived_cluster)
-                completed_label = self.cluster_query_map.get(arrived_idx)
-                if completed_label:
-                    self.completed_queries.add(completed_label)
             waypoint_locked = False
 
         return waypoint_locked, target_waypoint, target_waypoint2

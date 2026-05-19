@@ -28,11 +28,14 @@ class BehaviorManager:
         return self.voxel_behavior.completed_queries
 
     def mode_select(self, query_labels, target_objects,
-                    vox_xyz=None, vox_scores=None):
+                    vox_xyz=None, vox_scores=None,
+                    committed_origin=None, committed_dir=None):
         for behavior in self.behaviors:
             if behavior.name == 'Voxel-based':
-                if behavior.condition_check(vox_xyz, vox_scores,
-                                            query_labels, target_objects):
+                if behavior.condition_check(
+                        vox_xyz, vox_scores, query_labels, target_objects,
+                        committed_origin=committed_origin,
+                        committed_dir=committed_dir):
                     self.behavior_mode = behavior.name
                     return
             else:
@@ -52,14 +55,17 @@ class BehaviorManager:
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
-                waypoint_locked, target_waypoint, target_waypoint2, publisher_dict)
+                waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
+                committed_origin=committed_target_origin,
+                committed_dir=committed_target_dir)
         elif behavior_mode == 'Ray-based':
             return self.ray_behavior.execute(
                 cur_pose_np, waypoint_locked,
                 target_waypoint, target_waypoint2, publisher_dict,
                 assigned_target=assigned_target,
                 assigned_origin=committed_target_origin,
-                assigned_dir=committed_target_dir)
+                assigned_dir=committed_target_dir,
+                search_area_xy=search_area_xy)
         else:
             return self.frontier_behavior.execute(
                 frontiers, cur_pose_np, waypoint_locked,

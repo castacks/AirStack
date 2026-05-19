@@ -303,10 +303,13 @@ class SemanticSearchTaskNode(Node):
             except ProcessLookupError:
                 pass
 
-    def _send_exploration_task(self, robot_name: str):
+    def _send_exploration_task(self, robot_name: str, parent_goal):
         """Send an unbounded ExplorationTask goal to random_walk_planner to
-        activate droan_gl. Returns (client, send_future) so the caller can
-        cancel the upstream goal when the semantic_search task ends."""
+        activate droan_gl. Altitude and speed bounds are forwarded from the
+        parent SemanticSearchTask goal so the operator's limits flow through
+        to the actual flight executor. Returns (client, send_future) so the
+        caller can cancel the upstream goal when the semantic_search task
+        ends."""
         client = ActionClient(
             self,
             ExplorationTask,
@@ -316,12 +319,15 @@ class SemanticSearchTaskNode(Node):
             self.get_logger().warn('ExplorationTask server not available after 10s')
             return None, None
         goal = ExplorationTask.Goal()
-        goal.min_altitude_agl = 2.0
-        goal.max_altitude_agl = 15.0
-        goal.min_flight_speed = 1.0
-        goal.max_flight_speed = 3.0
+        goal.min_altitude_agl = parent_goal.min_altitude_agl
+        goal.max_altitude_agl = parent_goal.max_altitude_agl
+        goal.min_flight_speed = parent_goal.min_flight_speed
+        goal.max_flight_speed = parent_goal.max_flight_speed
         send_future = client.send_goal_async(goal)
-        self.get_logger().info('ExplorationTask sent to random_walk_planner')
+        self.get_logger().info(
+            f'ExplorationTask sent to random_walk_planner '
+            f'(alt {goal.min_altitude_agl:.1f}-{goal.max_altitude_agl:.1f} m AGL, '
+            f'speed {goal.min_flight_speed:.1f}-{goal.max_flight_speed:.1f} m/s)')
         return client, send_future
 
     def _cancel_exploration_task(self, send_future):
@@ -414,6 +420,8 @@ class SemanticSearchTaskNode(Node):
         STUCK_DISTANCE_M = 0.3
         last_motion_pos = None
         last_motion_time = None
+        exploration_restarts = 0
+        last_restart_time: 'float | None' = None
 
         # Track last meaningful line from each process for feedback
         last_rf_status = 'Starting rayfronts...'
@@ -654,7 +662,7 @@ class SemanticSearchTaskNode(Node):
                         'Raven published first waypoint — sending ExplorationTask '
                         'to existing random_walk_planner')
                     _, exploration_send_future = self._send_exploration_task(
-                        robot_name)
+                        robot_name, goal)
                     last_motion_pos = list(self._cur_pos) if self._cur_pos else None
                     last_motion_time = time.time()
 
@@ -680,7 +688,9 @@ class SemanticSearchTaskNode(Node):
                             self._cancel_active_navigation(robot_name)
                             time.sleep(0.5)
                             _, exploration_send_future = self._send_exploration_task(
-                                robot_name)
+                                robot_name, goal)
+                            exploration_restarts += 1
+                            last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = time.time()
 
@@ -770,6 +780,19 @@ class SemanticSearchTaskNode(Node):
                               f'[raven] {last_rv_status}')
                 else:
                     status = f'[raven] {last_rv_status}'
+
+                # Surface exploration restarts in feedback. Show a transient
+                # "just restarted" banner for 3s after a restart, plus a
+                # running count so the operator knows the drone has been
+                # getting stuck even after the banner clears.
+                if last_restart_time is not None and (
+                        time.time() - last_restart_time) < 3.0:
+                    status = (
+                        f'[failsafe] Restarted ExplorationTask — drone stuck '
+                        f'(<{STUCK_DISTANCE_M:.1f} m in {STUCK_TIMEOUT_S:.1f}s)\n'
+                        + status)
+                if exploration_restarts > 0:
+                    status += f'\n[exploration restarts: {exploration_restarts}]'
 
                 fb = SemanticSearchTask.Feedback()
                 fb.status = status

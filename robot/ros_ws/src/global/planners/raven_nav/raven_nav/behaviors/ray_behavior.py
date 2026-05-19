@@ -4,6 +4,8 @@ from geometry_msgs.msg import PoseStamped, Point
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import String
 
+from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+
 
 class RayBehavior:
     def __init__(self, get_clock, current_target_publisher=None,
@@ -28,7 +30,8 @@ class RayBehavior:
 
     def execute(self, cur_pose_np, waypoint_locked, target_waypoint1,
                 target_waypoint2, publisher_dict, assigned_target=None,
-                assigned_origin=None, assigned_dir=None):
+                assigned_origin=None, assigned_dir=None,
+                search_area_xy=None):
         path_publisher = publisher_dict['path']
 
         target = assigned_target if assigned_target is not None else self.assigned_target
@@ -38,6 +41,26 @@ class RayBehavior:
         groups = [g for g in self.ray_groups if g.label == target]
         if not groups:
             return waypoint_locked, target_waypoint1, target_waypoint2
+
+        # Polygon constraint: reject any ray group whose origin OR investigation
+        # waypoint (origin + dir*6 m) falls outside the search area. Without
+        # this, the drone will happily fly across the polygon edge to chase a
+        # ray pointing outward — operator drew the polygon for a reason.
+        if search_area_xy is not None and search_area_xy.shape[0] >= 3:
+            pts_xy = np.array([
+                [g.avg_origin[0], g.avg_origin[1]] for g in groups
+            ] + [
+                [g.avg_origin[0] + g.avg_dir[0] * 6.0,
+                 g.avg_origin[1] + g.avg_dir[1] * 6.0] for g in groups
+            ], dtype=np.float64)
+            inside = _points_in_polygon(pts_xy, search_area_xy)
+            n = len(groups)
+            origin_in = inside[:n]
+            wp_in = inside[n:]
+            groups = [g for g, oi, wi in zip(groups, origin_in, wp_in)
+                      if oi and wi]
+            if not groups:
+                return waypoint_locked, target_waypoint1, target_waypoint2
 
         # Prefer forward groups when any exist — avoid backtracking toward
         # an already-passed cluster. If the assigned target's rays are all

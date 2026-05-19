@@ -39,6 +39,13 @@ payload_topics:
   - topic: "/{robot_name}/raw_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
+  # Kept frontiers (raven_nav) — post altitude + polygon + zone filter.
+  # Debug/visualization only: peers don't consume these (each computes its
+  # own kept set from raw_frontiers). Gossiped so the GCS can render the
+  # shrinking explorable area per drone in Foxglove.
+  - topic: "/{robot_name}/kept_frontiers"
+    type: "sensor_msgs/msg/PointCloud2"
+
   # RGB voxel map (rayfronts) — semantic 3D map for GCS visualization.
   - topic: "/{robot_name}/rayfronts/voxel_rgb"
     type: "sensor_msgs/msg/PointCloud2"

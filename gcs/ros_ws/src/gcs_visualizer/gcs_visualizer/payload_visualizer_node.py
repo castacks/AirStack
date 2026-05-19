@@ -30,6 +30,9 @@ from builtin_interfaces.msg import Duration
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_bringup.peer_profile import PeerProfile
 from visualization_msgs.msg import Marker
+from std_msgs.msg import ColorRGBA
+from geometry_msgs.msg import Point as GPoint
+import json
 
 from gcs_visualizer.gcs_utils import (
     transform_marker_array, transform_point_cloud2, point_cloud2_to_cube_marker,
@@ -184,6 +187,161 @@ class PayloadVisualizerNode(Node):
         self._pub_for(
             f'/gcs/payload/{robot_name}/navigation_mode', String).publish(msg)
 
+    def _handle_kept_frontiers(self, robot_name, msg, i, now):
+        """Post-filter own frontiers (altitude + polygon + zone). Renders as a
+        sphere list so the shrinking explorable area is obvious in Foxglove.
+        Color is the robot's accent color at full opacity."""
+        color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
+        marker = point_cloud2_to_cube_marker(
+            msg, 0.0, 0.0, self._display_z_offset(),
+            ns=f'{robot_name}_kept_frontiers',
+            marker_id=i * 100000 + 200,
+            stamp=now,
+            lifetime=Duration(sec=2, nanosec=0),
+            fallback_color=(color[0], color[1], color[2], 1.0),
+            scale=0.5,
+        )
+        if marker is None:
+            return
+        marker.type = Marker.SPHERE_LIST
+        marker.colors = []
+        out = MarkerArray()
+        out.markers.append(marker)
+        self._pub_for(
+            f'/gcs/payload/{robot_name}/kept_frontiers', MarkerArray).publish(out)
+
+    def _handle_completed_zones(self, robot_name, msg, i, now):
+        """5/10 m cleared disks gossiped by raven_nav. Renders each as a flat
+        cylinder marker so the operator sees the fleet's coverage footprint
+        building up in Foxglove.
+
+        Z note: the source cloud has only x,y fields (no z), so
+        transform_point_cloud2() on the gossip side bails out and the
+        payload arrives in the sender's local 'map' frame. The drone's
+        odom origin (z=0) is the ground, which already matches the GCS
+        display map's z=0 ground reference — so we render at a small
+        positive z directly, NO _display_z_offset addition. Adding it would
+        push the disks far below ground when actual terrain MSL > 90 m.
+        """
+        from sensor_msgs_py import point_cloud2 as pc2
+        color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
+        try:
+            pts = list(pc2.read_points(msg, field_names=('x', 'y'),
+                                       skip_nans=True))
+        except Exception:
+            return
+        out = MarkerArray()
+        # Clear any prior markers for this robot — zone count shrinks rarely
+        # but new zones come in continuously; lifetime on the cylinders
+        # handles staleness, the DELETEALL is only on namespace switch.
+        for j, p in enumerate(pts):
+            m = Marker()
+            m.header.frame_id = 'map'
+            m.header.stamp = now
+            m.ns = f'{robot_name}_completed_zones'
+            m.id = i * 100000 + j
+            m.type = Marker.CYLINDER
+            m.action = Marker.ADD
+            m.pose.position.x = float(p[0])
+            m.pose.position.y = float(p[1])
+            m.pose.position.z = 0.1
+            m.pose.orientation.w = 1.0
+            # Diameter 20 m to match the 10 m zone radius (default).
+            m.scale.x = 20.0
+            m.scale.y = 20.0
+            m.scale.z = 0.2
+            m.color.r = color[0]
+            m.color.g = color[1]
+            m.color.b = color[2]
+            m.color.a = 0.18
+            m.lifetime = Duration(sec=3, nanosec=0)
+            out.markers.append(m)
+        self._pub_for(
+            f'/gcs/payload/{robot_name}/completed_zones', MarkerArray).publish(out)
+
+    def _handle_confirmed_targets(self, robot_name, msg, i, now):
+        """JSON-encoded list of confirmed-target AABBs from raven_nav. Each
+        becomes a translucent box (or wireframe) so the operator sees the
+        spatial extent of every found house/tower/etc. Status drives color:
+        green=visited, yellow=observing, gray=other.
+
+        Z note: gossip passes String payloads through untransformed (see
+        gossip_node._transform_to_global — only PointCloud2 and MarkerArray
+        get rewritten to global ENU). So the JSON's cx,cy,cz are still in
+        the sender's local 'map' frame, where z=0 is the drone's odom
+        origin (≈ ground). The GCS display map shares that z=0 ground
+        reference, so we use cz directly — adding _display_z_offset would
+        sink the boxes below ground when terrain MSL > 90 m (Lisbon, etc).
+        """
+        try:
+            items = json.loads(msg.data) if msg.data else []
+        except (ValueError, AttributeError):
+            return
+        if not isinstance(items, list):
+            return
+        out = MarkerArray()
+        for j, it in enumerate(items):
+            try:
+                cx = float(it.get('cx', 0.0))
+                cy = float(it.get('cy', 0.0))
+                cz = float(it.get('cz', 0.0))
+                sx = float(it.get('sx', 1.0))
+                sy = float(it.get('sy', 1.0))
+                sz = float(it.get('sz', 1.0))
+            except (TypeError, ValueError):
+                continue
+            status = str(it.get('status', '')).lower()
+            label = str(it.get('label', '?'))
+            if status == 'visited':
+                rgb = (0.1, 0.85, 0.2)
+            elif status == 'observing':
+                rgb = (0.95, 0.8, 0.15)
+            else:
+                rgb = (0.65, 0.65, 0.65)
+            # Translucent solid box for the AABB extent.
+            box = Marker()
+            box.header.frame_id = 'map'
+            box.header.stamp = now
+            box.ns = f'{robot_name}_confirmed_targets'
+            box.id = i * 100000 + j * 2
+            box.type = Marker.CUBE
+            box.action = Marker.ADD
+            box.pose.position.x = cx
+            box.pose.position.y = cy
+            box.pose.position.z = cz
+            box.pose.orientation.w = 1.0
+            box.scale.x = max(sx, 0.1)
+            box.scale.y = max(sy, 0.1)
+            box.scale.z = max(sz, 0.1)
+            box.color.r = rgb[0]
+            box.color.g = rgb[1]
+            box.color.b = rgb[2]
+            box.color.a = 0.25
+            box.lifetime = Duration(sec=3, nanosec=0)
+            out.markers.append(box)
+            # Label above the box.
+            txt = Marker()
+            txt.header.frame_id = 'map'
+            txt.header.stamp = now
+            txt.ns = f'{robot_name}_confirmed_targets_labels'
+            txt.id = i * 100000 + j * 2 + 1
+            txt.type = Marker.TEXT_VIEW_FACING
+            txt.action = Marker.ADD
+            txt.pose.position.x = cx
+            txt.pose.position.y = cy
+            txt.pose.position.z = cz + max(sz, 0.1) / 2.0 + 1.0
+            txt.pose.orientation.w = 1.0
+            txt.scale.z = 1.2
+            txt.color.r = 1.0
+            txt.color.g = 1.0
+            txt.color.b = 1.0
+            txt.color.a = 1.0
+            txt.text = f'{label} [{status or "?"}]'
+            txt.lifetime = Duration(sec=3, nanosec=0)
+            out.markers.append(txt)
+        self._pub_for(
+            f'/gcs/payload/{robot_name}/confirmed_targets', MarkerArray).publish(out)
+
     def _handle_rgb_voxels(self, robot_name, msg, i, now):
         size = 0.5
         cubes = point_cloud2_to_cube_marker(
@@ -249,10 +407,13 @@ class PayloadVisualizerNode(Node):
         return m
 
     PAYLOAD_HANDLERS = {
-        'filtered_rays':       ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
-        'raw_frontiers':       ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
-        'voxel_rgb':           ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
-        'navigation_mode':     ('std_msgs/msg/String',                _handle_navigation_mode),
+        'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
+        'raw_frontiers':              ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
+        'kept_frontiers':             ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
+        'completed_frontier_zones':   ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
+        'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
+        'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
+        'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),
     }
 
 

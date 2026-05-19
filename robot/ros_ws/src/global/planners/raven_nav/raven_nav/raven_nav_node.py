@@ -103,11 +103,11 @@ class RavenNavNode(Node):
         # observing in ray/voxel mode too, not just at frontier waypoints.
         # Gossiped to peers so the whole fleet stops chasing nearby frontiers.
         self._completed_zones: 'np.ndarray' = np.zeros((0, 2), dtype=np.float64)
-        # Default 5m: a new zone is placed whenever the drone is at least 5m
+        # Default 10m: a new zone is placed whenever the drone is at least 10m
         # from every existing zone — matches ZONE_RADIUS_M in frontier_behavior
         # so consecutive disks just barely touch and there are no gaps.
         self._zone_dedupe_radius_m: float = float(self.declare_parameter(
-            'zone_dedupe_radius_m', 5.0).value)
+            'zone_dedupe_radius_m', 10.0).value)
 
         self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
         query_labels_param = self.declare_parameter(
@@ -147,6 +147,12 @@ class RavenNavNode(Node):
         # Shared with peers via gossip; receivers apply their own filters.
         self._raw_frontiers_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/raw_frontiers', 10)
+        # Local-only: post-filter (altitude + polygon + zone) own frontiers —
+        # the "kept" set whose count drives the polygon-done check.
+        # Visualizing this in Foxglove shows the explorable area shrinking
+        # in real time as zones fill in.
+        self._kept_frontiers_pub = self.create_publisher(
+            PointCloud2, f'{self._prefix}/kept_frontiers', 10)
         self._current_target_pub = self.create_publisher(
             String, f'{self._prefix}/current_target', 10)
         self._voxel_bbox_pub = self.create_publisher(
@@ -213,6 +219,7 @@ class RavenNavNode(Node):
             'filtered_rays': self._filtered_rays_pub,
             'viewpoint': self._viewpoint_pub,
             'raw_frontiers': self._raw_frontiers_pub,
+            'kept_frontiers': self._kept_frontiers_pub,
             'current_target': self._current_target_pub,
             'voxel_bbox': self._voxel_bbox_pub,
             'frontier_table': self._frontier_table_pub,
@@ -512,10 +519,83 @@ class RavenNavNode(Node):
         pursued, and which are single-drone bearings still waiting for a
         second viewpoint to triangulate.
         """
+        # Assign a stable per-label index to each instance so the operator
+        # can distinguish "house#1" from "house#2" in the table. Sorted by
+        # instance_id (hash), so the numbering is deterministic across ticks
+        # and across drones — both robots will agree on which house is #1.
+        per_label_idx: dict = {}
+        for label in sorted({d.label for d in discoveries}):
+            same_label = sorted(
+                [d for d in discoveries if d.label == label],
+                key=lambda x: x.instance_id)
+            for i, d in enumerate(same_label, start=1):
+                per_label_idx[d.instance_id] = i
+
+        def _pretty(d) -> str:
+            idx = per_label_idx.get(d.instance_id)
+            return f'{d.label}#{idx}' if idx is not None else d.label
+
+        # Identify which specific instance this drone is committed to: the
+        # Discovery of the assigned label whose position is closest to the
+        # forward-projected committed ray (origin + dir * 8m). Unambiguous
+        # when triangulation has occurred; falls back to None on uncommitted.
+        committed_instance = None
+        if (self._assigned_target is not None
+                and self._committed_target_last_origin is not None
+                and self._committed_target_last_dir is not None
+                and discoveries):
+            d_origin = np.asarray(self._committed_target_last_origin)
+            d_dir = np.asarray(self._committed_target_last_dir)
+            d_norm = float(np.linalg.norm(d_dir))
+            if d_norm > 1e-6:
+                proj = d_origin + (d_dir / d_norm) * 8.0
+                same_label = [d for d in discoveries
+                              if d.label == self._assigned_target]
+                if same_label:
+                    committed_instance = min(
+                        same_label,
+                        key=lambda d: float(
+                            np.linalg.norm(np.asarray(d.position) - proj)))
+
+        assigned_str = self._assigned_target or '-'
+        if committed_instance is not None:
+            assigned_str = _pretty(committed_instance)
+
+        # AABB count = discoveries that came from a voxel ConfirmedTarget
+        # (these are the ones with a size). Pure ray-only bearings have
+        # size=None and don't have a bounding box yet.
+        aabb_total = sum(1 for d in discoveries if d.size is not None)
+
         lines = []
         lines.append(f'total={len(discoveries)}  '
-                     f'assigned={self._assigned_target or "-"}  '
+                     f'AABBs={aabb_total}  '
+                     f'assigned={assigned_str}  '
                      f'committed={self._committed_to_assigned}')
+
+        # Per-label instance counter: how many distinct houses, towers, etc.
+        # have been found, broken down by status, plus how many of them have
+        # an AABB attached. Each Discovery is one instance (deduped by AABB /
+        # position via discoveries._should_merge and _stable_id), so per-label
+        # row counts ARE the unique-instance counts for that class.
+        if discoveries:
+            by_label: dict = {}
+            for d in discoveries:
+                bucket = by_label.setdefault(
+                    d.label, {'visited': 0, 'observing': 0,
+                              'unconfirmed': 0, 'aabb': 0})
+                bucket[d.status] = bucket.get(d.status, 0) + 1
+                if d.size is not None:
+                    bucket['aabb'] += 1
+            lines.append('[per-label instance count]')
+            for label in sorted(by_label):
+                b = by_label[label]
+                total = b['visited'] + b['observing'] + b['unconfirmed']
+                lines.append(
+                    f'  {label:<14} total={total}  '
+                    f'AABBs={b["aabb"]}  '
+                    f'visited={b["visited"]}  '
+                    f'observing={b["observing"]}  '
+                    f'unconfirmed={b["unconfirmed"]}')
         lines.append('')
 
         if not discoveries:
@@ -534,9 +614,13 @@ class RavenNavNode(Node):
                 if not lst:
                     continue
                 lines.append(f'[{header}] ({len(lst)})')
-                lines.append('   label          pos                size              '
+                lines.append('   instance         pos                size              '
                              'conf  contributors')
-                # Sort by confidence desc within section.
+                # Sort by confidence desc within section. The '*' marker now
+                # picks the SPECIFIC committed instance (not just label),
+                # so two drones pursuing different houses each show their own.
+                committed_id = (committed_instance.instance_id
+                                if committed_instance is not None else None)
                 for d in sorted(lst, key=lambda x: -x.confidence):
                     pos = f'({d.position[0]:>6.1f},{d.position[1]:>6.1f},'\
                           f'{d.position[2]:>5.1f})'
@@ -546,9 +630,9 @@ class RavenNavNode(Node):
                     else:
                         sz = '   (no AABB)   '
                     contrib = ','.join(d.contributing_robots)
-                    pursued = '*' if (d.label == self._assigned_target) else ' '
+                    pursued = '*' if d.instance_id == committed_id else ' '
                     lines.append(
-                        f' {pursued} {d.label:<14} {pos}  {sz}  '
+                        f' {pursued} {_pretty(d):<16} {pos}  {sz}  '
                         f'{d.confidence:>4.2f}  {contrib}')
                 lines.append('')
 
@@ -933,11 +1017,23 @@ class RavenNavNode(Node):
         cc_threshold = self._voxel_score_threshold
         min_samples_default = self._voxel_min_cluster_size
 
-        header_cells = (['target'.ljust(18), 'total'.rjust(7)]
+        # Column meanings:
+        #   map_total   — total voxels in the whole map (NOT label-specific)
+        #   >0.3..>0.85 — count of voxels where this label's score exceeds T
+        #   cc_max      — size of the single largest connected component
+        #                 above cc_threshold (this is ONE cluster, not the
+        #                 total above-threshold voxel count)
+        #   cc_n>=N     — number of distinct clusters at least N voxels in
+        #                 size — this is how many instances the system thinks
+        #                 it sees of this label
+        header_cells = (['target'.ljust(18), 'map_total'.rjust(9)]
                         + [f'>{t}'.rjust(7) for t in thresholds]
                         + ['cc_max'.rjust(7),
                            f'cc_n>={min_samples_default}'.rjust(9)])
         lines = ['  '.join(header_cells)]
+        # Per-target cluster size list (filled in below). Surfaced after the
+        # main table so the operator sees the size distribution at a glance.
+        cluster_size_lines: list = []
 
         # Connected-component count per target above cc_threshold (mirrors
         # voxel_behavior.condition_check). Only do this when there's data.
@@ -971,16 +1067,35 @@ class RavenNavNode(Node):
                 if comp_sizes:
                     cc_max = max(comp_sizes)
                     cc_n_big = sum(1 for s in comp_sizes if s >= min_samples_default)
-            cells = ([col_labels[j].ljust(18), str(n_total).rjust(7)]
+                    # Per-cluster breakdown: only the ones that pass the
+                    # min_cluster_size gate (i.e., real instances, not noise).
+                    big_sizes = sorted(
+                        (s for s in comp_sizes if s >= min_samples_default),
+                        reverse=True)
+                    if big_sizes:
+                        sizes_str = ', '.join(str(s) for s in big_sizes[:20])
+                        if len(big_sizes) > 20:
+                            sizes_str += f', ... ({len(big_sizes) - 20} more)'
+                        cluster_size_lines.append(
+                            f'  {col_labels[j]}: {len(big_sizes)} cluster(s) '
+                            f'sizes=[{sizes_str}]')
+            cells = ([col_labels[j].ljust(18), str(n_total).rjust(9)]
                      + [str(c).rjust(7) for c in counts]
                      + [str(cc_max).rjust(7), str(cc_n_big).rjust(9)])
             lines.append('  '.join(cells))
         lines.append(
             f'  cc_threshold={cc_threshold}  min_cluster_size={min_samples_default}'
-            f'  → voxel-mode fires when any target has '
-            f'cc_n>={min_samples_default} ≥ 1'
+            f'  → voxel-mode fires when the drone is committed to a ray AND '
+            f'a cluster geometrically matches that ray'
         )
-        body = f'{n_total} voxels  |  targets={[col_labels[j] for j in target_idxs]}\n' + '\n'.join(lines)
+        if cluster_size_lines:
+            lines.append('')
+            lines.append('per-target cluster sizes (each cluster = one detected instance):')
+            lines.extend(cluster_size_lines)
+        body = (f'{n_total} voxels in map  |  '
+                f'targets={[col_labels[j] for j in target_idxs]}\n'
+                f'(map_total counts ALL voxels regardless of label; '
+                f'cc_n column is the per-instance count)\n' + '\n'.join(lines))
         self._voxel_table_pub.publish(String(data=body))
 
     def _timer_cb(self):
@@ -1077,6 +1192,37 @@ class RavenNavNode(Node):
             peer_ids=self._peer_state.peer_ids,
             polygon_xy=polygon_xy,
         )
+
+        # Count of my ray-group bids that I lost to a peer's same-target
+        # bid this tick — these are rays I "avoided" because another robot
+        # has a better (closer) bid on the same physical target. Surface
+        # this in the bids debug table so the operator can see the auction
+        # actually pushing drones apart per-instance.
+        from raven_nav.bid_manager import _GroupView   # adapter for is_same_target
+        from raven_nav.ray_targets import is_same_target as _is_same_target
+        rays_avoided = 0
+        avoided_breakdown: list = []   # [(label, peer_name)] for the table
+        for mine in my_bid_entries:
+            best_peer = None
+            best_peer_value = mine.value
+            for peer_name, p_entries in peer_bid_entries.items():
+                pid = self._peer_state.peer_ids.get(peer_name)
+                if pid is None:
+                    continue
+                for p in p_entries:
+                    if p.label != mine.label:
+                        continue
+                    same, _, _ = _is_same_target(
+                        _GroupView(mine), _GroupView(p), polygon_xy)
+                    if not same:
+                        continue
+                    if p.value > best_peer_value or (
+                            p.value == best_peer_value and pid < self._my_id):
+                        best_peer_value = p.value
+                        best_peer = peer_name
+            if best_peer is not None:
+                rays_avoided += 1
+                avoided_breakdown.append((mine.label, best_peer))
 
         if self._assigned_target is None and won is not None:
             label, entry = won
@@ -1208,6 +1354,21 @@ class RavenNavNode(Node):
             bids_lines.extend(peer_done_lines)
         else:
             bids_lines.append('completed (peers): none')
+
+        # Rays this drone gave up to peers on the same physical target.
+        # Per-peer breakdown so the operator sees who is contesting.
+        if rays_avoided > 0:
+            by_peer: dict = {}
+            for lbl, pname in avoided_breakdown:
+                by_peer.setdefault(pname, []).append(lbl)
+            parts = []
+            for pname in sorted(by_peer):
+                lbls = by_peer[pname]
+                parts.append(f'{pname}:{len(lbls)} ({",".join(sorted(set(lbls)))})')
+            bids_lines.append(
+                f'rays_avoided={rays_avoided} (lost to peers — {"; ".join(parts)})')
+        else:
+            bids_lines.append('rays_avoided=0')
         bids_lines.extend([
             '',
             f'my_bids ({self._robot_name}, id={self._my_id}):',
@@ -1261,15 +1422,22 @@ class RavenNavNode(Node):
                 throttle_duration_sec=2.0)
 
         prev_mode = self._behavior_mode
-        # Voxel-mode (fine approach + 3m arrival detection) only fires on the
-        # CURRENTLY ASSIGNED target — otherwise an incidental fly-by of any
-        # cluster would mark unrelated targets complete and break the auction.
-        voxel_targets = [self._assigned_target] if self._assigned_target else []
+        # Always run voxel clustering over EVERY configured target label so
+        # confirmed_targets / AABBs publish from tick 1 — the operator needs
+        # to see the boxes form before the auction has assigned anything.
+        # The ray-filter inside voxel_behavior (committed_origin/dir) still
+        # gates voxel-MODE activation per-instance — clusters are detected
+        # always, but the drone only switches to voxel-mode when one
+        # geometrically matches its committed ray. So no risk of grabbing
+        # the wrong house: that's already handled by _filter_to_committed_ray.
+        voxel_targets = list(self._target_objects or [])
         self._behavior_manager.mode_select(
             query_labels=self._query_labels,
             target_objects=voxel_targets,
             vox_xyz=self._vox_xyz,
             vox_scores=self._vox_scores,
+            committed_origin=self._committed_target_last_origin,
+            committed_dir=self._committed_target_last_dir,
         )
         self._behavior_mode = self._behavior_manager.behavior_mode
 
