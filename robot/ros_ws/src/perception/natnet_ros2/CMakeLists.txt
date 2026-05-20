@@ -12,38 +12,56 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 
 # ---------------------------------------------------------------------------
-# NatNet SDK — pre-built shared library bundled in this package.
+# NatNet SDK — pre-built shared library downloaded via `airstack setup`.
 # Headers: include/natnet/   Library: lib/libNatNet.so
+#
+# The SDK is proprietary and is NOT committed to the repository.
+# Run `airstack setup` (or `airstack setup --natnet`) to download and place
+# the SDK files before building this package.
+#
+# If the SDK is absent the C++ node is skipped with a warning; the Python
+# vision_pose_converter_node.py and all launch/config files are still installed
+# so the rest of the autonomy stack builds cleanly.
 # ---------------------------------------------------------------------------
-add_library(NatNet SHARED IMPORTED)
-set_target_properties(NatNet PROPERTIES
-  IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/lib/libNatNet.so"
-  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include/natnet"
-)
+set(_NATNET_LIB "${CMAKE_CURRENT_SOURCE_DIR}/lib/libNatNet.so")
+set(_NATNET_INC "${CMAKE_CURRENT_SOURCE_DIR}/include/natnet")
 
-# ---------------------------------------------------------------------------
-# C++ NatNet ROS 2 node
-# ---------------------------------------------------------------------------
-add_executable(natnet_ros2_node src/natnet_ros2_node.cpp)
-target_include_directories(natnet_ros2_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-ament_target_dependencies(natnet_ros2_node rclcpp geometry_msgs nav_msgs)
-target_link_libraries(natnet_ros2_node NatNet)
+if(EXISTS "${_NATNET_LIB}" AND EXISTS "${_NATNET_INC}")
+  add_library(NatNet SHARED IMPORTED)
+  set_target_properties(NatNet PROPERTIES
+    IMPORTED_LOCATION "${_NATNET_LIB}"
+    INTERFACE_INCLUDE_DIRECTORIES "${_NATNET_INC}"
+  )
 
-# $ORIGIN RPATH so the node finds libNatNet.so in the same install directory
-# without needing LD_LIBRARY_PATH at runtime.
-set_target_properties(natnet_ros2_node PROPERTIES
-  INSTALL_RPATH "$ORIGIN"
-  BUILD_WITH_INSTALL_RPATH TRUE
-)
+  # C++ NatNet ROS 2 node
+  add_executable(natnet_ros2_node
+    src/natnet_ros2_node.cpp
+    src/natnet_client_adapter.cpp)
+  target_include_directories(natnet_ros2_node PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  ament_target_dependencies(natnet_ros2_node rclcpp geometry_msgs nav_msgs)
+  target_link_libraries(natnet_ros2_node NatNet)
 
-install(TARGETS natnet_ros2_node
-  DESTINATION lib/${PROJECT_NAME})
+  # $ORIGIN RPATH so the node finds libNatNet.so in the install directory
+  # without needing LD_LIBRARY_PATH at runtime.
+  set_target_properties(natnet_ros2_node PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE
+  )
 
-# Install the bundled NatNet .so alongside the executable
-install(FILES lib/libNatNet.so
-  DESTINATION lib/${PROJECT_NAME})
+  install(TARGETS natnet_ros2_node
+    DESTINATION lib/${PROJECT_NAME})
+
+  install(FILES "${_NATNET_LIB}"
+    DESTINATION lib/${PROJECT_NAME})
+else()
+  message(WARNING
+    "[natnet_ros2] NatNet SDK not found — skipping natnet_ros2_node build.\n"
+    "  Expected: ${_NATNET_LIB}\n"
+    "            ${_NATNET_INC}/\n"
+    "  Run 'airstack setup' to download the OptiTrack NatNet SDK.")
+endif()
 
 # ---------------------------------------------------------------------------
 # Python nodes (vision_pose_converter remains Python)
@@ -70,13 +88,11 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   # --- gtest: pure-logic unit tests (no NatNet SDK, no rclcpp) ---
-  # Source lives under tests/ (repo root) to keep test files out of robot/ros_ws/src.
-  # From this package directory, 5 levels up reaches the repo root.
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_natnet_logic
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../tests/robot/perception/natnet_ros2/test_natnet_logic.cpp")
+  ament_add_gtest(test_natnet_logic test/test_natnet_logic.cpp)
   target_include_directories(test_natnet_logic PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/test>)
 endif()
 
 ament_package()

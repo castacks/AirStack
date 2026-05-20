@@ -10,7 +10,7 @@
   </description>
 
   <maintainer email="airlab@cmu.edu">AirLab CMU</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

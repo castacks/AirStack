@@ -45,15 +45,10 @@ SIM_CONFIG = {
 }
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
-# Unit-test helpers live under tests/ (not in robot/ros_ws/src).
-# Add each directory that contains importable test helpers (e.g. validation_core.py).
-_UNIT_TEST_DIRS = [
-    "tests/robot/sensors/lidar_point_cloud_filter",
-]
-for _d in _UNIT_TEST_DIRS:
-    _p = str(Path(AIRSTACK_ROOT) / _d)
-    if Path(_p).is_dir() and _p not in sys.path:
-        sys.path.insert(0, _p)
+# Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
+# Thin proxy files under tests/robot/ re-export those tests so that
+# `pytest tests/` and `airstack test -m unit` discover them without any
+# sys.path manipulation here.  Each proxy file sets up its own paths.
 RUN_DIR = None
 LOGS_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"

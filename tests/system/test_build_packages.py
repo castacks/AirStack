@@ -41,6 +41,39 @@ class TestColconBuilds:
         finally:
             airstack_cmd("down")
 
+    def test_colcon_test_robot(self):
+        """Build with BUILD_TESTING=ON then run colcon test inside the robot container.
+
+        Kept separate from test_colcon_build_robot so that a test failure does
+        not block the build-only health check, and so the test step can be
+        re-run independently without a full rebuild.
+        """
+        try:
+            result = airstack_cmd("up", "robot-desktop",
+                                  env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
+                                  timeout=120)
+            assert result.returncode == 0, f"airstack up failed:\n{read_log_tail()}"
+
+            container = wait_for_container("robot.*desktop", timeout=60)
+            assert container, "Robot container not found"
+
+            build = docker_exec(
+                container,
+                "bash -ic \"bws --cmake-args '-DBUILD_TESTING=ON'\"",
+                timeout=600,
+            )
+            assert build.returncode == 0, f"colcon build (with testing) failed:\n{read_log_tail()}"
+
+            test = docker_exec(
+                container,
+                "bash -ic 'colcon test --event-handlers console_direct+ "
+                "--return-code-on-test-failure'",
+                timeout=300,
+            )
+            assert test.returncode == 0, f"colcon test failed:\n{read_log_tail()}"
+        finally:
+            airstack_cmd("down")
+
     def test_colcon_build_gcs(self):
         _warn_if_prebuilt("gcs/ros_ws")
         try:

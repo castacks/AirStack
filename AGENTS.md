@@ -93,6 +93,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
 | [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing of a module |
+| [add-unit-tests](.agents/skills/add-unit-tests) | Adding Python or C++ unit tests to a ROS 2 package (co-location + proxy pattern, CI workflow, extending to sim/GCS) |
 | [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
 | [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
@@ -201,7 +202,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
    ```
 
-2. **Repo-root unit tests (`pytest`, `unit` mark):** Fast, hermetic checks under [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/), mirroring `robot/ros_ws/src/` layers and sim-side tools. Declared in [`tests/pytest.ini`](tests/pytest.ini). Example: `airstack test -m unit -v` (no full Docker stack).
+2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). Thin **proxy** files in [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/) re-export those tests so `pytest tests/` (the CI command) discovers them. A dedicated CI workflow (`.github/workflows/unit-tests.yml`) runs these on every push and PR on a GitHub-hosted runner — no Docker or GPU needed. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
 
 3. **System Level (`tests/system/`):** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing
@@ -256,7 +257,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [`system-tests.yml`](.github/workflows/system-tests.yml) | PR opened, `/pytest` PR comment (write-access only), or `workflow_dispatch` | Runs the `tests/` suite on an ephemeral GPU runner; posts metrics report (with regression diff vs base branch / `main`) as a PR comment and to the job summary |
+| [`system-tests.yml`](.github/workflows/system-tests.yml) | Push to `main`, PR opened, PR approved by reviewer, `/pytest` PR comment (write-access only), or `workflow_dispatch` | Runs the `tests/` suite on an ephemeral GPU runner; posts metrics report (with regression diff vs base branch / `main`) as a PR comment and to the job summary |
 | [`docker-build.yml`](.github/workflows/docker-build.yml) | Push to `main`/`develop` that changes `.env` (`VERSION=`), or manual dispatch | Builds, pushes, and cosign-signs all compose images on the ephemeral runner |
 | [`check-version-increment.yml`](.github/workflows/check-version-increment.yml) | Pull request | Validates `.env` `VERSION=` is valid semver and strictly greater than the base branch |
 | `deploy_docs_from_{main,develop,release}.yaml` | Push to the matching branch (`docs/**`, `mkdocs.yml`, `*.md`) | Publishes versioned MkDocs site via `mike` |

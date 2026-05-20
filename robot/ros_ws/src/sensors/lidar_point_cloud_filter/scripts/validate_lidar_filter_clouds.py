@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-# Copyright 2026 AirLab CMU
-# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024 Carnegie Mellon University
+# MIT License - see LICENSE in the repository root for full text.
 """One-shot ROS 2 check for liveliness: filtered LiDAR cloud vs raw (Isaac / Pegasus).
 
 Run inside the robot container with workspace sourced and ROS_DOMAIN_ID set::
 
-  python3 /root/AirStack/tests/robot/sensors/lidar_point_cloud_filter/validate_lidar_filter_clouds.py --robot-num 1
+  python3 /root/AirStack/robot/ros_ws/src/sensors/lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py --robot-num 1
 
 Checks (after receiving a non-empty filtered cloud):
   * Filtered ``.../point_cloud``: all coordinates finite; **minimum range** must be at
     least ``near_range_m`` from the running filter node (minus tolerance). The
     tolerance is ``max(0.05 m, 5% of near_range_m)`` — the ``0.05`` is **slack
-    around the configured near range**, not a standalone “no points within 5 cm”
+    around the configured near range**, not a standalone "no points within 5 cm"
     rule. At least one return beyond 2 m so long-range points are not stripped.
   * Raw ``.../point_cloud_raw`` (optional): if present and contains near-field
     returns below ``near_range_m``, the filtered cloud must still respect the
@@ -37,12 +37,13 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 
-# ``validation_core`` is a sibling of this file under ``tests/robot/sensors/lidar_point_cloud_filter/``.
-_here = Path(__file__).resolve().parent
-if str(_here) not in sys.path:
-    sys.path.insert(0, str(_here))
+# validation_core lives in the package module (installed by colcon, or importable
+# by adding the package root to sys.path for development use).
+_pkg_root = Path(__file__).resolve().parent.parent
+if str(_pkg_root) not in sys.path:
+    sys.path.insert(0, str(_pkg_root))
 
-from validation_core import (
+from lidar_point_cloud_filter.validation_core import (  # noqa: E402
     near_range_tolerance,
     ranges_xyz_from_points_xyz,
     raw_filtered_near_range_ok,

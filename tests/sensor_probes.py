@@ -50,8 +50,8 @@ ROBOT_LIDAR_TOPIC_TEMPLATES = [
 ]
 
 LIDAR_CLOUD_VALIDATE_SCRIPT = (
-    "/root/AirStack/tests/robot/sensors/lidar_point_cloud_filter/"
-    "validate_lidar_filter_clouds.py"
+    "/root/AirStack/robot/ros_ws/src/sensors/lidar_point_cloud_filter/"
+    "scripts/validate_lidar_filter_clouds.py"
 )
 
 # Shorter Hz sample during sensor stability polling.

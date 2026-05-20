@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Bring up NatNet node; optionally MAVROS bridge per natnet_config.yaml."""
+"""Bring up NatNet node; optionally MAVROS bridge per natnet_config.yaml.
+
+natnet_ros2_node is a C++ executable that requires the OptiTrack NatNet SDK.
+If the SDK was not installed (``airstack setup`` not run), the executable will
+be absent and this launch file skips it with a warning rather than crashing.
+"""
 
 from __future__ import annotations
 
@@ -50,6 +55,18 @@ def generate_launch_description() -> LaunchDescription:
         ros_params = _ros_params_from_file(cfg_path)
         publish_mavros = bool(ros_params.get('publish_to_mavros', False))
         body_name = str(ros_params.get('body_name', 'robot_1'))
+
+        # natnet_ros2_node is only built when the NatNet SDK is present.
+        # Skip gracefully rather than crashing if the SDK was not installed.
+        pkg_share = get_package_share_directory('natnet_ros2')
+        node_path = Path(pkg_share).parent / 'natnet_ros2' / 'natnet_ros2_node'
+        if not node_path.exists():
+            import logging
+            logging.getLogger('natnet_ros2.launch').warning(
+                'natnet_ros2_node executable not found — NatNet SDK not installed. '
+                "Run 'airstack setup' to enable OptiTrack support."
+            )
+            return []
 
         actions = [
             Node(

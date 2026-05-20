@@ -1,10 +1,10 @@
-# Copyright 2026 AirLab CMU
-# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024 Carnegie Mellon University
+# MIT License - see LICENSE in the repository root for full text.
 """Pure-numeric LiDAR filter validation helpers (no ROS imports).
 
-Lives under ``tests/`` only. Shared by ``scripts/validate_lidar_filter_clouds.py``
-(runtime checks in the robot container, adds this directory to ``sys.path``)
-and ``test_validation_core.py`` (``pytest -m unit``).
+Shared by:
+  scripts/validate_lidar_filter_clouds.py  — runtime echo-based cloud check (robot container)
+  test/test_validation_core.py             — pytest unit tests (``pytest -m unit``)
 """
 
 from __future__ import annotations

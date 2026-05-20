@@ -25,7 +25,28 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`.
 
 - **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`.
-- **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`) that mirror `robot/ros_ws/src/` layers and sim-side code.
+- **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`). These are **thin proxy files** that re-export tests from each ROS 2 package's own `test/` directory (co-located with the source, the ROS 2 / colcon convention). The proxy pattern keeps test source next to the code it tests while making tests discoverable by `pytest tests/`.
+
+### Unit tests vs system tests
+
+| Concern | Unit (`-m unit`) | System (`-m liveliness` etc.) |
+|---|---|---|
+| Hardware required | None — pure Python | Docker daemon, NVIDIA GPU, sim license |
+| CI workflow | `unit-tests.yml` (`ubuntu-latest`, ~10 s) | `system-tests.yml` (GPU OpenStack VM) |
+| Trigger | Every push + PR (automatic) | PR opened, `/pytest` comment, `workflow_dispatch` |
+| Source location | `<pkg>/test/test_*.py` (proxied via `tests/robot/`) | `tests/system/` |
+| How to add | See `add-unit-tests` skill | See *Adding a New System Test* below |
+
+Run unit tests without any Docker stack:
+
+```bash
+airstack test -m unit -v
+# or
+pytest tests/ -m unit -v   # AIRSTACK_ROOT=$(pwd) for direct pytest
+```
+
+For details on the proxy pattern and adding new unit tests, see the
+`add-unit-tests` skill.
 
 | File | Mark | What it tests | Hardware required |
 |------|------|---------------|-------------------|
@@ -154,11 +175,12 @@ Total parametrize cardinality for sim tests = `len(sims) × len(num_robots) × s
 
 ## Running Tests via PR Comment
 
-The `system-tests.yml` workflow accepts three trigger paths:
+The `system-tests.yml` workflow accepts four trigger paths:
 
 1. **PR opened** (same-repo only) — auto-runs pytest with conftest defaults. Fork PRs are skipped to keep arbitrary code off the self-hosted runner.
-2. **`/pytest` issue comment** on a PR — only honored from users with `OWNER`, `MEMBER`, or `COLLABORATOR` author association. Fork PRs are explicitly rejected by the `Resolve PR head` step (the PR's head repo must equal `${context.repo.owner}/${context.repo.repo}`).
-3. **`workflow_dispatch`** — manual run from the Actions tab with form inputs (`marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `baseline_run_id`).
+2. **PR approved by a reviewer** (same-repo only) — re-runs the full suite on the approved state of the branch, giving a final validation pass before merge.
+3. **`/pytest` issue comment** on a PR — only honored from users with `OWNER`, `MEMBER`, or `COLLABORATOR` author association. Fork PRs are explicitly rejected by the `Resolve PR head` step (the PR's head repo must equal `${context.repo.owner}/${context.repo.repo}`).
+4. **`workflow_dispatch`** — manual run from the Actions tab with form inputs (`marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `baseline_run_id`).
 
 ### `/pytest` comment grammar
 

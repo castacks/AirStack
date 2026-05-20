@@ -69,7 +69,7 @@ It is only required if you intend to use OptiTrack with AirStack.
 
 The SDK is proprietary and AirStack does not redistribute it.
 Please review the OptiTrack terms before continuing:
-https://optitrack.com/legal/software-license-agreement
+https://optitrack.com/about/legal/eula
 
 This installer will download the SDK into the natnet_ros2 module tree:
   - lib/libNatNet.so
@@ -125,6 +125,15 @@ install_files() {
 }
 
 main() {
+    # Non-interactive / CI mode: set NATNET_ACCEPT_LICENSE=1 or pass --accept-license.
+    # By using this flag you confirm that you have read and accept the OptiTrack
+    # Software License Agreement (https://optitrack.com/about/legal/eula).
+    local auto_accept=false
+    for arg in "$@"; do
+        [[ "$arg" == "--accept-license" ]] && auto_accept=true
+    done
+    [[ "${NATNET_ACCEPT_LICENSE:-0}" == "1" ]] && auto_accept=true
+
     if sdk_is_installed; then
         info "NatNet SDK already installed"
         info "Library: ${sdk_lib_dir}/libNatNet.so"
@@ -135,12 +144,15 @@ main() {
     choose_archive
     show_license_notice
 
-    read -r -p "Accept the OptiTrack NatNet SDK license and download the SDK now? [Y/n] " reply
-    reply="${reply:-y}"
-
-    if ! [[ "${reply}" =~ ^[Yy]$ ]]; then
-        warn "NatNet SDK installation skipped"
-        exit 1
+    if [[ "$auto_accept" == "true" ]]; then
+        info "NATNET_ACCEPT_LICENSE=1 / --accept-license set — accepting license non-interactively"
+    else
+        read -r -p "Accept the OptiTrack NatNet SDK license and download the SDK now? [Y/n] " reply
+        reply="${reply:-y}"
+        if ! [[ "${reply}" =~ ^[Yy]$ ]]; then
+            warn "NatNet SDK installation skipped"
+            exit 1
+        fi
     fi
 
     temp_dir="$(mktemp -d "/tmp/natnet-sdk.XXXXXX")"

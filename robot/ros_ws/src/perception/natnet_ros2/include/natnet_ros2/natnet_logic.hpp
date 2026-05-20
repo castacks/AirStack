@@ -1,20 +1,42 @@
+// Copyright (c) 2024 Carnegie Mellon University
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 // natnet_logic.hpp — pure C++ helpers for natnet_ros2 (no ROS, no NatNet SDK).
 //
-// Four responsibility areas:
+// Five responsibility areas:
 //
 //  1. Covariance assembly
 //  2. Topic names
 //  3. Connection-configuration helpers (SDK-independent)
-//  4. Rigid-body frame helpers (SDK-independent, for unit-testing frame logic)
+//  4. Rigid-body frame helpers (SDK-independent)
+//  5. Abstraction seam: INatNetClient interface + negotiation logic
 //
-// The NatNet SDK types (sNatNetClientConnectParams, sRigidBodyData, …) are only
-// used inside natnet_ros2_node.cpp.  All logic operated on here uses plain C++
-// types so that test/test_natnet_logic.cpp compiles with only gtest.
+// NatNet SDK types (sNatNetClientConnectParams, sRigidBodyData, …) are only
+// used inside natnet_ros2_node.cpp and natnet_client_adapter.cpp.
+// All logic here uses plain C++ so test_natnet_logic.cpp compiles with only gtest.
 
 #pragma once
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -209,6 +231,124 @@ inline PoseData rb_to_pose(const RigidBodySample & rb)
 inline std::array<double, 36> cov6x6_to_array(const std::array<double, 36> & src)
 {
     return src;
+}
+
+// ===========================================================================
+// 5. Abstraction seam: INatNetClient + negotiation logic
+// ===========================================================================
+
+/// SDK-independent result codes for connection attempts.
+enum class NatNetResult
+{
+    OK,
+    NetworkError,
+    InvalidAddress,
+    Timeout,
+    InternalError,
+};
+
+inline const char * natnet_result_str(NatNetResult r)
+{
+    switch (r) {
+        case NatNetResult::OK:             return "OK";
+        case NatNetResult::NetworkError:   return "NetworkError";
+        case NatNetResult::InvalidAddress: return "InvalidAddress";
+        case NatNetResult::Timeout:        return "Timeout";
+        case NatNetResult::InternalError:  return "InternalError";
+    }
+    return "Unknown";
+}
+
+/// Server identity returned after a successful connection.
+struct ServerInfo
+{
+    bool        host_present        = false;
+    std::string host_app_name;
+    int         host_app_version[4] = {};  ///< major.minor.build.revision
+    int         natnet_version[4]   = {};  ///< major.minor.build.revision
+};
+
+/// SDK-independent description of one rigid-body asset.
+struct BodyDescriptor
+{
+    int32_t     id        = 0;
+    std::string name;
+    int32_t     parent_id = -1;  ///< >= 0 → skeleton bone; skip for top-level publishing
+};
+
+/// Result of the connect + GetServerDescription handshake.
+struct NegotiationResult
+{
+    bool         ok           = false;
+    ServerInfo   server_info;
+    std::string  log_message;  ///< human-readable outcome for the ROS logger
+};
+
+/// Pure-virtual client interface — implemented by NatNetClientAdapter (production)
+/// and FakeNatNetClient (unit tests).
+///
+/// Depends only on natnet_logic.hpp types; never includes NatNet SDK headers.
+class INatNetClient
+{
+public:
+    virtual ~INatNetClient() = default;
+
+    /// Attempt to connect to a Motive server.
+    virtual NatNetResult connect(const ConnectConfig & cfg) = 0;
+
+    /// Populate \p out with server identity.  Returns false when host info is
+    /// unavailable (HostPresent == false in the SDK's sServerDescription).
+    virtual bool get_server_info(ServerInfo & out) = 0;
+
+    /// Return descriptions of all rigid-body assets currently known to Motive.
+    /// Returns empty on failure; callers should retry on model-list-changed.
+    virtual std::vector<BodyDescriptor> get_body_descriptors() = 0;
+
+    /// Register a callback invoked on every incoming frame.
+    /// The callback is called from the SDK receive thread.
+    virtual void set_frame_callback(std::function<void(const FrameSample &)> cb) = 0;
+
+    /// Disconnect from the server and release SDK resources.
+    virtual void disconnect() = 0;
+};
+
+/// Execute the connect + GetServerDescription handshake and return a structured
+/// result.  Pure logic: no ROS calls, no SDK types — fully testable with a fake.
+inline NegotiationResult negotiate(INatNetClient & client, const ConnectConfig & cfg)
+{
+    NegotiationResult result;
+
+    const NatNetResult err = client.connect(cfg);
+    if (err != NatNetResult::OK) {
+        result.ok          = false;
+        result.log_message = std::string("NatNetClient::Connect failed (")
+                           + natnet_result_str(err)
+                           + ") — server=" + cfg.server_ip
+                           + " port=" + std::to_string(cfg.command_port)
+                           + " type=" + cfg.connection_type;
+        return result;
+    }
+
+    result.ok = true;
+
+    const bool host_ok = client.get_server_info(result.server_info);
+    if (!host_ok || !result.server_info.host_present) {
+        result.log_message = "Connected to " + cfg.server_ip
+                           + " but GetServerDescription returned no host info.";
+    } else {
+        result.log_message = "Connected to Motive '"
+                           + result.server_info.host_app_name
+                           + "' v"
+                           + std::to_string(result.server_info.host_app_version[0])
+                           + "."
+                           + std::to_string(result.server_info.host_app_version[1])
+                           + " (NatNet "
+                           + std::to_string(result.server_info.natnet_version[0])
+                           + "."
+                           + std::to_string(result.server_info.natnet_version[1])
+                           + ") at " + cfg.server_ip;
+    }
+    return result;
 }
 
 }  // namespace natnet_ros2
