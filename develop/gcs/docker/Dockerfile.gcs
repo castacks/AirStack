@@ -1,0 +1,85 @@
+FROM osrf/ros:jazzy-desktop-full
+
+SHELL ["/bin/bash", "-c"]
+
+# Install system dependencies
+RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt-get -o APT::Get::AllowUnauthenticated=true install -y \
+    vim nano emacs wget curl tree sshpass \
+    iperf3 iftop iputils-ping net-tools htop \
+    cmake build-essential less jq python3-pip tmux gdb \
+    ros-dev-tools ros-jazzy-mavros ros-jazzy-tf2* ros-jazzy-stereo-image-proc \
+    ros-jazzy-image-view ros-jazzy-topic-tools ros-jazzy-grid-map \
+    ros-jazzy-domain-bridge ros-jazzy-ros2cli python3-colcon-common-extensions \
+    libglib2.0-dev libcgal-dev mosquitto mosquitto-clients \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools \
+    gstreamer1.0-x gstreamer1.0-alsa openssh-server \
+    xterm gnome-terminal libcanberra-gtk-module libcanberra-gtk3-module dbus-x11 \
+    ros-jazzy-rosbag2-storage-mcap ros-jazzy-plotjuggler \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install --break-system-packages \
+    empy \
+    future \
+    lxml \
+    matplotlib \
+    numpy \
+    pkgconfig \
+    psutil \
+    pygments \
+    wheel \
+    pymavlink \
+    pyyaml \
+    requests \
+    # setup tools must be <80 for Jazzy https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
+    setuptools==79.0.1 \
+    six \
+    toml \
+    scipy \
+    pytak \
+    paho-mqtt \
+    sphinx \
+    utm
+
+# Configure SSH
+RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+# open port 22 for ssh
+EXPOSE 22
+
+# TMux config
+RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
+    (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
+
+# install FoxGloveStudio and ros-jazzy-foxglove-bridge
+RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
+    && apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update \
+    && apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends /tmp/foxglove-studio.deb ros-jazzy-foxglove-bridge \
+    && rm /tmp/foxglove-studio.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install eProsima DDS Router
+# System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
+RUN apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends \
+    libasio-dev libtinyxml2-dev libssl-dev libyaml-cpp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone sources and build + install globally into /usr/local
+RUN mkdir -p /tmp/DDS-Router/src \
+    && cd /tmp/DDS-Router \
+    && wget https://raw.githubusercontent.com/eProsima/DDS-Router/main/ddsrouter.repos \
+    && vcs import src < ddsrouter.repos \
+    && colcon build --merge-install --install-base /usr/local \
+    && rm -rf /tmp/DDS-Router
+
+# Cleanup. Prevent people accidentally doing git commits from within Docker
+RUN apt purge git -y && apt autoremove -y && apt clean -y && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /root/AirStack/gcs/ros_ws

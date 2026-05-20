@@ -1,0 +1,5 @@
+<library path="behavior_tree_panel">
+  <class type="rviz_behavior_tree_panel::BehaviorTreePanel" base_class_type="rviz_common::Panel">
+    <description>A panel for visualizing behavior trees from graphviz xdot data</description>
+  </class>
+</library>

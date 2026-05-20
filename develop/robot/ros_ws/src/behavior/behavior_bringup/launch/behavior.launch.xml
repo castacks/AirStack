@@ -1,0 +1,15 @@
+<launch>
+    <group>
+        <push-ros-namespace namespace="behavior" />
+
+        <!-- Safety Monitor: state estimate watchdog + pause/resume/rewind commands -->
+        <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+              namespace="drone_safety_monitor" output="screen">
+            <param name="state_estimate_timeout" value="1.0" />
+            <remap from="state_estimate"
+                   to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+            <remap from="set_trajectory_mode"
+                   to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
+        </node>
+    </group>
+</launch>

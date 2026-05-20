@@ -1,0 +1,45 @@
+name: onboard_all_bridge
+topics:
+  # ============= Outgoing from Robot ================
+  # state information
+  odometry_conversion/odometry:
+    type: nav_msgs/msg/Odometry
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
+  # ground-truth depth from sim — bridged to GCS for visualization
+  sensors/front_stereo/right/depth_ground_truth:
+    type: sensor_msgs/msg/Image
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
+  # camera intrinsics — needed alongside depth for any depth-aware viewer
+  sensors/front_stereo/right/camera_info:
+    type: sensor_msgs/msg/CameraInfo
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
+  # local trajectory markers for foxglove_visualizer rendering
+  trajectory_controller/trajectory_vis:
+    type: visualization_msgs/msg/MarkerArray
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
+  interface/mavros/global_position/global:
+    type: sensor_msgs/msg/NavSatFix
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
+
+  # bag recording status
+  bag_record/bag_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: $(var gcs_domain)
+    to_domain: $(env ROS_DOMAIN_ID)
+
+
+  # ============= Incoming to Robot ================
+  # bag recording status
+  bag_record/set_recording_status:
+    type: std_msgs/msg/Bool
+    from_domain: $(var gcs_domain)
+    to_domain: $(env ROS_DOMAIN_ID)

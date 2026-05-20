@@ -1,0 +1,18 @@
+<!-- -->
+<launch>
+    <node pkg="disparity_expansion" exec="disparity_pcd" name="disparity_pcd_real">
+	<remap from="/disparity" to="/nerian_sp1/disparity_map_32F"/>
+	<remap from="/pcd" to="/pcd_real"/>
+        <param name="downsample_scale" value="1.0" />
+    </node>
+    <node pkg="disparity_expansion" exec="disparity_pcd" name="disparity_pcd_fg">
+	<remap from="/disparity" to="/ceye/left/expanded_disparity_fg"/>
+	<remap from="/pcd" to="/pcd_fg"/>
+        <param name="downsample_scale" value="2.0" />
+    </node>
+    <node pkg="disparity_expansion" exec="disparity_pcd" name="disparity_pcd_bg">
+	<remap from="/disparity" to="/ceye/left/expanded_disparity_bg"/>
+	<remap from="/pcd" to="/pcd_bg"/>
+        <param name="downsample_scale" value="2.0" />
+    </node>
+</launch>

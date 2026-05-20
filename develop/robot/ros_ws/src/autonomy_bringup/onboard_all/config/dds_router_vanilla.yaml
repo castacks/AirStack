@@ -1,0 +1,19 @@
+# dds_router.yaml
+# Define which domains to connect
+participants:
+  - name: "robot"
+    kind: "local"
+    domain: 0
+  - name: "gcs"
+    kind: "local"
+    domain: 1
+
+# Define specific services to bridge
+allowlist:
+  # To bridge a specific service named "/add_two_ints"
+  - name: "rq/add_two_intsRequest"
+  - name: "rr/add_two_intsReply"
+  
+  # You can also use wildcards to bridge ALL services
+  - name: "rq/*"
+  - name: "rr/*"

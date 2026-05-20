@@ -1,0 +1,25 @@
+# this is good for debugging
+##################################
+# PARTICIPANTS
+participants:
+
+##################################
+# SIMPLE PARTICIPANT
+# This participant will subscribe to topics in allowlist in specific domain and listen every message published there
+
+  - name: SimpleParticipant                                           # 3
+    kind: local                                                       # 4
+    domain: 1                                                         # 5
+
+##################################
+# ECHO PARTICIPANT
+# This Participant will print in stdout every message received by the other Participants, as well as discovery information
+
+  - name: EchoParticipant                                             # 6
+    kind: echo                                                        # 7
+    discovery: true                                                   # 8
+    data: true                                                        # 9
+    verbose: true                                                     # 10
+
+allowlist:
+  - name: "*"

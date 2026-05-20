@@ -1,0 +1,566 @@
+{
+  "configById": {
+    "Image!2cny33f": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/robot_1/sensors/front_stereo/left/image_rect",
+        "calibrationTopic": "/robot_1/sensors/front_stereo/left/camera_info"
+      }
+    },
+    "3D!1devslg": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 120.42143843441657,
+        "phi": 64.70051812782563,
+        "thetaOffset": 176.95010009206052,
+        "targetOffset": [
+          0.41991308990838777,
+          -1.4979048639096184,
+          -0.186377634467115
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "scene": {
+        "transforms": {
+          "visible": true,
+          "editable": true,
+          "showLabel": true,
+          "enablePreloading": true,
+          "offsetReferenceFrame": "fixed-frame"
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": true
+        },
+        "frame:enu_origin": {
+          "visible": true
+        },
+        "frame:camera_left": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": true
+        },
+        "frame:base_link_body_body_link": {
+          "visible": false
+        },
+        "frame:base_link_ZED_X": {
+          "visible": false
+        },
+        "frame:camera_right": {
+          "visible": false
+        },
+        "frame:imu": {
+          "visible": false
+        },
+        "frame:OS1_REV6_128_10hz___512_resolution": {
+          "visible": false
+        },
+        "frame:lidar": {
+          "visible": false
+        },
+        "frame:rotor0": {
+          "visible": false
+        },
+        "frame:rotor1": {
+          "visible": false
+        },
+        "frame:rotor2": {
+          "visible": false
+        },
+        "frame:rotor3": {
+          "visible": false
+        },
+        "frame:base_link_frd": {
+          "visible": false
+        },
+        "frame:map_ned": {
+          "visible": false
+        },
+        "frame:world": {
+          "visible": false
+        },
+        "frame:robot_1/base_link": {
+          "visible": true
+        },
+        "frame:robot_1/robot_pose": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/gcs/robot_markers": {
+          "visible": true,
+          "showOutlines": false,
+          "namespaces": {
+            "robot_labels": {
+              "visible": true
+            },
+            "robot_positions": {
+              "visible": false
+            },
+            "robot_meshes": {
+              "visible": true
+            },
+            "robot_1_axes": {
+              "visible": true
+            },
+            "robot_1_traj": {
+              "visible": true
+            },
+            "robot_1_vdb": {
+              "visible": true
+            },
+            "robot_1_global_plan": {
+              "visible": true
+            }
+          }
+        },
+        "/initialpose": {
+          "visible": false
+        },
+        "/move_base_simple/goal": {
+          "visible": false
+        },
+        "/gcs/payload_markers": {
+          "visible": true,
+          "namespaces": {
+            "robot_1_filtered_rays": {
+              "visible": true
+            }
+          },
+          "showOutlines": true
+        },
+        "/gcs/waypoints/path": {
+          "visible": true,
+          "gradient": [
+            "#6bffbaff",
+            "#6bff95ff"
+          ],
+          "lineWidth": 0.2,
+          "type": "axis",
+          "axisScale": 0.8
+        },
+        "/gcs/polygon/markers": {
+          "visible": true,
+          "color": "#fc0000ff"
+        },
+        "/gcs/waypoints/save_markers": {
+          "visible": true
+        },
+        "/gcs/polygon/save_markers": {
+          "visible": true
+        },
+        "/gcs/sim_ground": {
+          "visible": true,
+          "showOutlines": true
+        },
+        "/gcs/waypoints/markers": {
+          "visible": true
+        },
+        "/robot_1/trajectory_controller/trajectory_vis": {
+          "visible": false
+        },
+        "/robot_1/vdb_mapping/vdb_map_visualization": {
+          "visible": false
+        },
+        "/robot_1/perception/stereo_image_proc/point_cloud": {
+          "visible": false
+        },
+        "/robot_1/sensors/front_stereo/left/image_rect": {
+          "visible": false
+        },
+        "/robot_1/sensors/front_stereo/right/image_rect": {
+          "visible": false
+        },
+        "/robot_1/global_plan": {
+          "visible": false
+        },
+        "/gcs/robot_1/frontier_viewpoints": {
+          "visible": true,
+          "pointSize": 23.19,
+          "pointShape": "circle",
+          "stixelsEnabled": false,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "cubeSize": 0.455,
+          "flatColor": "#ffffffff"
+        },
+        "/gcs/payload/robot_1/filtered_rays": {
+          "visible": true
+        },
+        "/gcs/payload/robot_1/frontier_viewpoints": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 13.67,
+          "flatColor": "#ff0000ff",
+          "pointShape": "circle"
+        },
+        "/gcs/payload/robot_1/rgb_voxels": {
+          "visible": true,
+          "colorField": "rgb",
+          "colorMode": "rgb",
+          "colorMap": "turbo",
+          "pointShape": "cube",
+          "cubeSize": 0.5
+        },
+        "/gcs/payload/robot_1/voxel_rgb": {
+          "visible": true,
+          "showOutlines": true,
+          "colorField": "rgb",
+          "colorMode": "rgb",
+          "colorMap": "turbo",
+          "pointSize": 10
+        },
+        "/robot_1/filtered_rays": {
+          "visible": false
+        },
+        "/gcs/payload/robot_1/raw_frontiers": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 9,
+          "flatColor": "#fd0000ff"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": false,
+          "drawBehind": false,
+          "label": "Grid",
+          "instanceId": "274158a6-8bbc-401d-8a37-c80da88ac0bc",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "3dd9f120-6d9b-43cd-a7c7-d1ff6e1263d8": {
+          "visible": false,
+          "serverConfig": "satellite",
+          "instanceId": "3dd9f120-6d9b-43cd-a7c7-d1ff6e1263d8",
+          "layerId": "foxglove.TiledMap",
+          "opacity": 1,
+          "drawBehind": false,
+          "order": 1,
+          "zPosition": -1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "synchronize": false,
+      "followTf": "map",
+      "locationFixTopic": "/gcs/map_origin/location"
+    },
+    "Tab!3utzhs8": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "robot 1",
+          "layout": {
+            "first": {
+              "first": "robot-commands.Robot Tasks!2mqrmqp_r1",
+              "second": "Image!35kacl0_r1",
+              "direction": "row",
+              "splitPercentage": 50.27943253700179
+            },
+            "second": "Image!2lvzh2s_r1",
+            "direction": "row",
+            "splitPercentage": 67.05514145698636
+          }
+        }
+      ]
+    },
+    "Image!35kacl0_r1": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/robot_1/sensors/front_stereo/right/image_rect",
+        "rectifyImage": true,
+        "flipHorizontal": false,
+        "rotation": 0,
+        "calibrationTopic": "/robot_1/sensors/front_stereo/right/camera_info"
+      },
+      "synchronize": false
+    },
+    "robot-commands.Robot Tasks!2mqrmqp_r1": {
+      "robot": "robot_1",
+      "activeTab": "takeoff",
+      "takeoff": {
+        "target_altitude_m": 10,
+        "velocity_m_s": 1
+      },
+      "fixed_trajectory": {
+        "type": "Figure8",
+        "attributes": [
+          [
+            "frame_id",
+            "base_link"
+          ],
+          [
+            "length",
+            "4"
+          ],
+          [
+            "width",
+            "2"
+          ],
+          [
+            "height",
+            "0.0"
+          ],
+          [
+            "velocity",
+            "2.0"
+          ],
+          [
+            "max_acceleration",
+            "1.0"
+          ]
+        ],
+        "loop": false
+      },
+      "land": {
+        "velocity_m_s": 0.3
+      },
+      "navigate": {
+        "frame_id": "map",
+        "waypoints": "[[-7.59,5.71,10],[-14.63,-1.25,10]]",
+        "goal_tolerance_m": 1.5,
+        "use_editor": true,
+        "_waypoints_open": true
+      },
+      "exploration": {
+        "search_bounds": "[[29.75,-134.55,0],[18.06,-49.89,0],[-50.63,-69.34,0],[-33.74,-124.81,0]]",
+        "min_altitude_agl": 8,
+        "max_altitude_agl": 16,
+        "min_flight_speed": 2.5,
+        "max_flight_speed": 4,
+        "time_limit_sec": 180,
+        "use_editor": true,
+        "_search_bounds_open": true
+      },
+      "coverage": {
+        "coverage_area": "[]",
+        "min_altitude_agl": 10,
+        "max_altitude_agl": 16,
+        "min_flight_speed": 1,
+        "max_flight_speed": 3,
+        "line_spacing_m": 5,
+        "heading_deg": 0,
+        "use_editor": true
+      },
+      "object_search": {
+        "object_class": "",
+        "search_area": "[[15.32,20.76,0],[15.25,-0.93,0],[31,-1.23,0],[31.29,19.46,0]]",
+        "min_altitude_agl": 3,
+        "max_altitude_agl": 10,
+        "min_flight_speed": 1,
+        "max_flight_speed": 3,
+        "time_limit_sec": 120,
+        "target_count": 1,
+        "use_editor": true,
+        "_search_area_open": true
+      },
+      "object_counting": {
+        "object_class": "",
+        "count_area": "[[15.32,20.76,0],[15.25,-0.93,0],[31,-1.23,0],[31.29,19.46,0]]",
+        "min_altitude_agl": 3,
+        "max_altitude_agl": 10,
+        "min_flight_speed": 1,
+        "max_flight_speed": 3,
+        "use_editor": true,
+        "_count_area_open": true
+      },
+      "semantic_search": {
+        "query": "radio tower, water tower",
+        "background_queries": "sky, ground, grass, road",
+        "search_area": "[[100.84,99.33,0],[100.25,-169.11,0],[-105.63,-203.46,0],[-99,99.07,0]]",
+        "min_altitude_agl": 3,
+        "max_altitude_agl": 15,
+        "min_flight_speed": 0.2,
+        "max_flight_speed": 0.5,
+        "confidence_threshold": 0.95,
+        "use_editor": true,
+        "_search_area_open": true
+      }
+    },
+    "Image!2lvzh2s_r1": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {
+        "imageTopic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+        "calibrationTopic": "/robot_1/sensors/front_stereo/right/camera_info",
+        "colorMode": "gradient",
+        "minValue": 0,
+        "maxValue": 100
+      }
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "Image!2cny33f",
+    "second": {
+      "first": "3D!1devslg",
+      "second": "Tab!3utzhs8",
+      "direction": "column",
+      "splitPercentage": 53.09235777097605
+    },
+    "splitPercentage": 0
+  }
+}

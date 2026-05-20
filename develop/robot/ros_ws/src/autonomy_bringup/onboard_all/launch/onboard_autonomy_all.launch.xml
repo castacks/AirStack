@@ -1,0 +1,60 @@
+<!-- ROBOT -->
+<launch>
+
+  <!-- Package args -->
+  <arg name="interface_package" default="interface_bringup" />
+  <arg name="sensors_package" default="sensors_bringup" />
+  <arg name="perception_package" default="perception_bringup" />
+  <arg name="local_package" default="local_bringup" />
+  <arg name="global_package" default="global_bringup" />
+  <arg name="behavior_package" default="behavior_bringup" />
+  <arg name="logging_package" default="logging_bringup" />
+
+  <!-- Launch file args -->
+  <arg name="interface_launch_file" default="interface.launch.py" />
+  <arg name="sensors_launch_file" default="sensors.launch.xml" />
+  <arg name="perception_launch_file" default="perception.launch.xml" />
+  <arg name="local_launch_file" default="local.launch.xml" />
+  <arg name="global_launch_file" default="global.launch.xml" />
+  <arg name="behavior_launch_file" default="behavior.launch.xml" />
+  <arg name="logging_launch_file" default="logging.launch.xml" />
+
+  <!-- Autonomy Stack - Module Bringups -->
+  <!-- Interface -->
+   <!-- check args are not empty string. if empty string, don't launch -->
+  <group if="$(eval '&quot;$(var interface_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var interface_package))/launch/$(var interface_launch_file)" />
+  </group>
+
+  <!-- Sensors -->
+  <group if="$(eval '&quot;$(var sensors_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var sensors_package))/launch/$(var sensors_launch_file)" />
+  </group>
+
+  <!-- Perception -->
+  <group if="$(eval '&quot;$(var perception_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var perception_package))/launch/$(var perception_launch_file)" />
+  </group>
+
+  <!-- Local -->
+  <group if="$(eval '&quot;$(var local_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var local_package))/launch/$(var local_launch_file)" />
+  </group>
+
+  <!-- Global -->
+  <group if="$(eval '&quot;$(var global_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var global_package))/launch/$(var global_launch_file)" />
+  </group>
+
+  <!-- Behavior -->
+  <group if="$(eval '&quot;$(var behavior_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var behavior_package))/launch/$(var behavior_launch_file)" />
+  </group>
+
+  <!-- Logging -->
+  <group if="$(eval '&quot;$(var logging_package)&quot; != &quot;&quot;')">
+    <include file="$(find-pkg-share $(var logging_package))/launch/$(var logging_launch_file)" />
+  </group>
+
+
+</launch>

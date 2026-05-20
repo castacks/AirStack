@@ -1,0 +1,78 @@
+launch_config:
+  renderer: RaytracedLighting
+  headless: false
+env_url: ''
+working_area_size:
+- 4
+- 4
+- 3
+rt_subframes: 4
+num_frames: 10
+num_cameras: 2
+disable_render_products_between_captures: false
+simulation_duration_between_captures: 0.0
+resolution:
+- 640
+- 480
+camera_look_at_target_offset: 0.15
+camera_distance_to_target_min_max:
+  - 0.25
+  - 0.75
+writer_type: BasicWriter
+writer_kwargs:
+  output_dir: _out_obj_based_sdg_basic_writer
+  rgb: true
+  semantic_segmentation: true
+  use_common_output_dir: true
+labeled_assets_and_properties:
+- url: /Isaac/Props/YCB/Axis_Aligned/008_pudding_box.usd
+  label: pudding_box
+  count: 5
+  floating: true
+  scale_min_max:
+    - 0.85
+    - 1.25
+- url: /Isaac/Props/YCB/Axis_Aligned/011_banana.usd
+  label: banana
+  count: 10
+  floating: false
+  scale_min_max:
+    - 0.85
+    - 1.25
+- url: /Isaac/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd
+  label: mustard_bottle
+  count: 7
+  floating: true
+  scale_min_max:
+    - 0.85
+    - 1.25
+shape_distractors_types:
+- capsule
+- cone
+- cylinder
+- sphere
+- cube
+shape_distractors_scale_min_max:
+  - 0.015
+  - 0.15
+shape_distractors_num: 350
+mesh_distractors_urls:
+- /Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxD_04_1847.usd
+- /Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01_414.usd
+- /Isaac/Environments/Simple_Warehouse/Props/S_TrafficCone.usd
+- /Isaac/Environments/Simple_Warehouse/Props/S_WetFloorSign.usd
+- /Isaac/Environments/Simple_Warehouse/Props/SM_BarelPlastic_B_03.usd
+- /Isaac/Environments/Office/Props/SM_Board.usd
+- /Isaac/Environments/Office/Props/SM_Book_03.usd
+- /Isaac/Environments/Office/Props/SM_Book_34.usd
+- /Isaac/Environments/Office/Props/SM_BookOpen_01.usd
+- /Isaac/Environments/Office/Props/SM_Briefcase.usd
+- /Isaac/Environments/Office/Props/SM_Extinguisher.usd
+- /Isaac/Environments/Hospital/Props/SM_GasCart_01b.usd
+- /Isaac/Environments/Hospital/Props/SM_MedicalBag_01a.usd
+- /Isaac/Environments/Hospital/Props/SM_MedicalBox_01g.usd
+- /Isaac/Environments/Hospital/Props/SM_Toweldispenser_01a.usd
+mesh_distractors_scale_min_max:
+  - 0.35
+  - 1.35
+mesh_distractors_num: 75

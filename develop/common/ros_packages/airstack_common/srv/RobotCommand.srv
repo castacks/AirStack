@@ -1,0 +1,9 @@
+uint8 REQUEST_CONTROL=0
+uint8 ARM=1
+uint8 DISARM=2
+uint8 SET_LOW_THRUST_MODE=3
+uint8 UNSET_LOW_THRUST_MODE=4
+
+uint8 command
+---
+bool success

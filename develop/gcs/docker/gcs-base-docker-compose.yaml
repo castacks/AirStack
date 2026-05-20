@@ -1,0 +1,68 @@
+---
+# docker compose file
+services:
+  gcs-base:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.gcs
+      tags:
+        - &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+      cache_from:
+        - *gcs_image
+    command: >
+      bash -c "
+      ssh service restart;
+      python3 /root/AirStack/gcs/foxglove_extensions/install.py;
+      python3 /root/AirStack/gcs/foxglove_extensions/render_layout.py;
+      tmux new -d -s bringup;
+      if [ $$AUTOLAUNCH = 'true' ]; then
+        tmux send-keys -t bringup:0.0 'bws &&  sws; ros2 launch desktop_bringup gcs.launch.xml' ENTER;
+      fi;
+      sleep infinity"
+    # Interactive shell
+    deploy:
+      # let it use the GPU
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: 1
+              driver: nvidia
+    entrypoint: ''
+    environment:
+      - AUTOLAUNCH=${AUTOLAUNCH:-false}
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # Number of robots (used by action_relay to spawn per-robot relays)
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      # Record bags
+      - RECORD_BAGS=${RECORD_BAGS}
+    image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+    # Needed to display graphical applications
+    # ipc: host
+    privileged: true
+    stdin_open: true
+    tty: true
+    volumes:
+      # display stuff
+      - $HOME/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # developer stuff
+      - ../../common/.bash_profile:/root/.bash_profile:rw
+      - .bashrc:/root/.bashrc:rw
+      - ../../common/.tmux.conf:/root/.tmux.conf:rw
+      - ../../common/inputrc:/etc/inputrc:rw
+      - ../../.devcontainer/gcs/launch.json:/root/AirStack/.vscode/launch.json:rw
+      - ../../.devcontainer/gcs/tasks.json:/root/AirStack/.vscode/tasks.json:rw
+      - ./Foxglove:/root/.config/Foxglove:rw
+      # waypoint/polygon editor saves (so they survive container restarts)
+      - ../saves:/root/.airstack:rw
+      # foxglove extensions
+      - ../foxglove_extensions:/root/AirStack/gcs/foxglove_extensions:rw
+      # autonomy stack stuff
+      - ../../common/ros_packages:/root/AirStack/gcs/ros_ws/src/common:rw
+      - ../../common/fastdds.xml:/root/AirStack/gcs/ros_ws/src/fastdds.xml
+      - ../ros_ws:/root/AirStack/gcs/ros_ws:rw
+      # bags
+      - ../bags:/bags:rw

@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    camera_name: "front_stereo"
+    # camera_param_server_client_topic: "sensors/camera_param_server/get_parameters"
+    camera_info_sub_topic: "camera_info"
+    coordinate_frame: "macvo_ned"
+    imageL_sub_topic: "left/image_rect"
+    imageR_sub_topic: "right/image_rect"
+    pose_pub_topic: "pose"
+    odom_pub_topic: "odometry"
+    point_pub_topic: "point_cloud"
+    disp_pub_topic: "disparity"
+    img_pub_topic: "image_features"
+    inference_dim_u: 420
+    inference_dim_v: 420

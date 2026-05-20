@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mav_msgs</name>
+  <version>3.3.3</version>
+  <description>Package containing messages for communicating with rotary wing MAVs</description>
+
+  <maintainer email="brik@ethz.ch">Rik Bähnemann</maintainer>
+
+  <author>Simon Lynen</author>
+  <author>Markus Achtelik</author>
+  <author>Pascal Gohl</author>
+  <author>Sammy Omari</author>
+  <author>Michael Burri</author>
+  <author>Fadri Furrer</author>
+  <author>Helen Oleynikova</author>
+  <author>Mina Kamel</author>
+  <author>Karen Bodie</author>
+  <author>Rik Bähnemann</author>
+
+  <license>ASL 2.0</license>
+
+  <url type="website">https://github.com/ethz-asl/mav_comm</url>
+  <url type="bugtracker">https://github.com/ethz-asl/mav_comm/issues</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+
+  <depend>eigen</depend>
+  <depend>rclcpp</depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>trajectory_msgs</depend>
+
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
