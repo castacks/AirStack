@@ -1,0 +1,119 @@
+name: Sync main → develop
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+          token: ${{ secrets.SYNC_PAT }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge main into develop
+        run: |
+          git fetch origin main
+
+          # Merge main. If the only conflict is .env (VERSION line), keep
+          # develop's side — we overwrite it in the next step anyway. Any
+          # other conflict means a human needs to resolve manually.
+          if ! git merge origin/main --no-edit; then
+            CONFLICTS=$(git diff --name-only --diff-filter=U)
+            OTHER=$(echo "$CONFLICTS" | grep -v '^\.env$' || true)
+            if [ -n "$OTHER" ]; then
+              echo "::error::Non-.env merge conflicts; resolve sync manually."
+              echo "$CONFLICTS"
+              exit 1
+            fi
+            git checkout --ours .env
+            git add .env
+            git -c core.editor=true commit --no-edit
+          fi
+
+          # If develop already contained everything main has, nothing to do.
+          if git diff --quiet origin/develop..HEAD; then
+            echo "develop already up to date with main; nothing to sync."
+            echo "SKIP=true" >> $GITHUB_ENV
+          fi
+
+      - name: Bump develop VERSION
+        if: env.SKIP != 'true'
+        run: |
+          python3 << 'PYEOF'
+          import os, re, subprocess, sys
+
+          SEMVER_RE = re.compile(r'^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$')
+
+          def parse(v):
+              m = SEMVER_RE.fullmatch(v)
+              if not m:
+                  sys.exit(f"::error::Invalid VERSION format: {v!r}")
+              return int(m[1]), int(m[2]), int(m[3]), m[4], int(m[5]) if m[5] else None
+
+          def extract(content):
+              for line in content.splitlines():
+                  m = re.match(r'^VERSION\s*=\s*["\']?([^"\'#\s]+)', line)
+                  if m:
+                      return m.group(1)
+              return None
+
+          main_env = subprocess.check_output(['git', 'show', 'origin/main:.env'], text=True)
+          main_ver = extract(main_env)
+          with open('.env') as f:
+              dev_ver = extract(f.read())
+
+          mM, mm, mp, _, _ = parse(main_ver)
+          dM, dn, dp, dpre, dpn = parse(dev_ver)
+
+          # If main's x.y.z has caught up to (or passed) develop's base,
+          # develop just released — roll forward to the next minor's alpha.0.
+          # Otherwise main is a hotfix behind develop; preserve develop's
+          # pre-release channel and bump the counter.
+          if (mM, mm, mp) >= (dM, dn, dp):
+              new_ver = f"{mM}.{mm + 1}.0-alpha.0"
+              reason = "main caught up to develop's base — rolling to next minor"
+          else:
+              if dpre is None:
+                  sys.exit(
+                      f"::error::develop VERSION {dev_ver!r} has no pre-release "
+                      "tag; cannot auto-bump. Bump develop manually."
+                  )
+              new_ver = f"{dM}.{dn}.{dp}-{dpre}.{dpn + 1}"
+              reason = f"hotfix sync — bumping {dpre} counter"
+
+          print(f"main:    {main_ver}")
+          print(f"develop: {dev_ver}")
+          print(f"new:     {new_ver}  ({reason})")
+
+          with open('.env') as f:
+              content = f.read()
+          new_content = re.sub(
+              r'^(VERSION\s*=\s*["\']?)[^"\'#\s]+',
+              lambda m: m.group(1) + new_ver,
+              content, count=1, flags=re.MULTILINE,
+          )
+          with open('.env', 'w') as f:
+              f.write(new_content)
+
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f"NEW_VERSION={new_ver}\n")
+          PYEOF
+
+          git add .env
+          git commit -m "Bump VERSION to ${NEW_VERSION} after sync from main"
+
+      - name: Push to develop
+        if: env.SKIP != 'true'
+        run: git push origin develop

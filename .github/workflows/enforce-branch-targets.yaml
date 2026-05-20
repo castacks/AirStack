@@ -1,0 +1,30 @@
+name: Enforce Branch Targets
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  check-target:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce PR target rules
+        run: |
+          BASE="${{ github.base_ref }}"
+          HEAD="${{ github.head_ref }}"
+
+          if [[ "$BASE" == "main" ]]; then
+            if [[ "$HEAD" != hotfix/* && "$HEAD" != "develop" ]]; then
+              echo "❌ Only hotfix/* branches or develop can be PR'd to main. Got: $HEAD"
+              exit 1
+            fi
+          fi
+
+          if [[ "$BASE" == "develop" ]]; then
+            if [[ "$HEAD" == hotfix/* ]]; then
+              echo "❌ Hotfix branches should target main, not develop. Got: $HEAD"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Branch target looks good."
