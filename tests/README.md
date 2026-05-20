@@ -26,7 +26,21 @@ Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for 
 
 ### Unit tests (`tests/robot/`, `tests/sim/`)
 
-Hermetic tests use `@pytest.mark.unit` (see [`pytest.ini`](pytest.ini)). Example: [`robot/sensors/lidar_point_cloud_filter/validation_core.py`](robot/sensors/lidar_point_cloud_filter/validation_core.py) + [`test_validation_core.py`](robot/sensors/lidar_point_cloud_filter/test_validation_core.py) (numpy-only rules also used by `validate_lidar_filter_clouds.py`, which is a sibling in the same directory).
+Hermetic tests use `@pytest.mark.unit` (see [`pytest.ini`](pytest.ini)).
+
+**Co-location + proxy pattern:** test source lives alongside its ROS 2 package at
+`robot/ros_ws/src/<layer>/<package>/test/test_*.py` (the ROS 2 / colcon convention).
+Files in `tests/robot/` are thin proxies that re-export those tests so that
+`pytest tests/` discovers them. Both `airstack test -m unit` and
+`colcon test --packages-select <pkg>` run the same test source.
+
+Example: `robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py`
+tests the numpy-only range validation rules in
+`robot/ros_ws/src/sensors/lidar_point_cloud_filter/lidar_point_cloud_filter/validation_core.py`
+(also used by `scripts/validate_lidar_filter_clouds.py` inside the robot container).
+
+See [Unit Testing Guide](../docs/development/intermediate/testing/unit_testing.md)
+and the `add-unit-tests` agent skill for full details.
 
 Marks can be combined with pytest logic:
 `-m unit`, `-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
@@ -66,7 +80,7 @@ and are driven by [`system/test_sensors.py`](system/test_sensors.py):
 | Sim → `/clock`, stereo images, stereo depth | Publish rate | ``ros2 topic hz`` on the sim container: ``/clock`` alone, then **chunks of two** ``image_rect`` topics, then **chunks of two** depth topics (``ISAACSIM_HZ_CHUNK_SIZE`` in ``sensor_probes.py``). |
 | Robot → same topic names (bridge) | Publish rate | Same **two-at-a-time** chunking on the robot container for Isaac. ms-airsim: one batch of four topics. |
 | Robot → filtered ``.../ouster/point_cloud`` | Stream alive | ``ros2 topic echo --once`` per robot (not Hz — large ``PointCloud2``). |
-| LiDAR geometry | Near-range vs ``near_range_m`` | ``tests/robot/sensors/lidar_point_cloud_filter/validate_lidar_filter_clouds.py`` (raw vs filtered). |
+| LiDAR geometry | Near-range vs ``near_range_m`` | ``robot/ros_ws/src/sensors/lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py`` (raw vs filtered). |
 
 Sim **RTF** (real-time factor from ``/clock``) is also in the `sensors` suite.
 **`test_sensor_streams_stable`** repeats sim + robot stereo + LiDAR probes every

@@ -175,12 +175,11 @@ Total parametrize cardinality for sim tests = `len(sims) × len(num_robots) × s
 
 ## Running Tests via PR Comment
 
-The `system-tests.yml` workflow accepts four trigger paths:
+The `system-tests.yml` workflow accepts three trigger paths:
 
 1. **PR opened** (same-repo only) — auto-runs pytest with conftest defaults. Fork PRs are skipped to keep arbitrary code off the self-hosted runner.
-2. **PR approved by a reviewer** (same-repo only) — re-runs the full suite on the approved state of the branch, giving a final validation pass before merge.
-3. **`/pytest` issue comment** on a PR — only honored from users with `OWNER`, `MEMBER`, or `COLLABORATOR` author association. Fork PRs are explicitly rejected by the `Resolve PR head` step (the PR's head repo must equal `${context.repo.owner}/${context.repo.repo}`).
-4. **`workflow_dispatch`** — manual run from the Actions tab with form inputs (`marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `baseline_run_id`).
+2. **`/pytest` issue comment** on a PR — only honored from users with `OWNER`, `MEMBER`, or `COLLABORATOR` author association. Fork PRs are explicitly rejected by the `Resolve PR head` step (the PR's head repo must equal `${context.repo.owner}/${context.repo.repo}`).
+3. **`workflow_dispatch`** — manual run from the Actions tab with form inputs (`marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `baseline_run_id`).
 
 ### `/pytest` comment grammar
 

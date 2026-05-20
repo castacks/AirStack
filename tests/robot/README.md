@@ -1,4 +1,4 @@
-# Robot-side unit tests
+# Robot-side unit test proxies
 
 Layout mirrors [`robot/ros_ws/src/`](../../robot/ros_ws/src/) autonomy layers:
 
@@ -11,6 +11,27 @@ Layout mirrors [`robot/ros_ws/src/`](../../robot/ros_ws/src/) autonomy layers:
 | `perception/` | `robot/ros_ws/src/perception/` |
 | `sensors/` | `robot/ros_ws/src/sensors/` |
 
-Tests here are marked `@pytest.mark.unit` unless they need Docker or a live sim (use `tests/system/` or `tests/sim/` instead).
+## Design: co-location + proxy
 
-Keep **test-only** Python (fixtures, pure numeric checks, protocol stubs) under `tests/` — for example `tests/robot/sensors/lidar_point_cloud_filter/validation_core.py`. `tests/conftest.py` extends `sys.path` where needed so `pytest` can import those modules.
+**Test source** lives co-located with each ROS 2 package (the standard colcon
+convention):
+
+```
+robot/ros_ws/src/<layer>/<package>/test/test_<name>.py   ← source of truth
+```
+
+**This directory** contains thin proxy files that load the real test module via
+`importlib` and re-export its `test_*` functions, making them discoverable by
+`pytest tests/` and `airstack test -m unit` without any changes to the CI
+workflow. Each proxy is ~15 lines.
+
+```
+tests/robot/<layer>/<package>/test_<name>.py             ← proxy (re-exports above)
+```
+
+Both `airstack test -m unit` (pytest path via proxy) and
+`colcon test --packages-select <pkg>` (direct path to source) run the same
+test functions from the same file.
+
+All test functions must carry `@pytest.mark.unit`. For adding new tests see the
+`add-unit-tests` agent skill.
