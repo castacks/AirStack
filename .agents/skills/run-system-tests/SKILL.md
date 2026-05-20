@@ -32,7 +32,7 @@ The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration
 | Concern | Unit (`-m unit`) | System (`-m liveliness` etc.) |
 |---|---|---|
 | Hardware required | None — pure Python | Docker daemon, NVIDIA GPU, sim license |
-| CI workflow | `unit-tests.yml` (`ubuntu-latest`, ~10 s) | `system-tests.yml` (GPU OpenStack VM) |
+| CI workflow | `system-tests.yml` (included in `pytest tests/`) | `system-tests.yml` (GPU OpenStack VM) |
 | Trigger | Every push + PR (automatic) | PR opened, `/pytest` comment, `workflow_dispatch` |
 | Source location | `<pkg>/test/test_*.py` (proxied via `tests/robot/`) | `tests/system/` |
 | How to add | See `add-unit-tests` skill | See *Adding a New System Test* below |

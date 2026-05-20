@@ -1,6 +1,6 @@
 ---
 name: add-unit-tests
-description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), the thin proxy that makes tests discoverable by pytest tests/ and airstack test -m unit, the CI workflow that gates every push, and how to extend the pattern to sim and GCS modules.
+description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), the thin proxy that makes tests discoverable by pytest tests/ and airstack test -m unit, and how to extend the pattern to sim and GCS modules.
 license: MIT
 metadata:
   author: AirLab CMU
@@ -45,7 +45,7 @@ and re-exports every `test_*` function. This means:
 |---|---|
 | `pytest tests/ -m unit` | Proxy in `tests/robot/` → loads real test from package |
 | `airstack test -m unit` | Same path |
-| CI `unit-tests.yml` push/PR check | Same path — fast, no Docker |
+| CI `system-tests.yml` (PR open / approved) | Same path via `pytest tests/` |
 | `colcon test --packages-select <pkg>` | Real test in `package/test/` directly |
 
 ## Step-by-Step: Adding a Python Unit Test
@@ -187,8 +187,8 @@ robot/<layer>/<package>/test_<name>.py::test_my_function_basic
 
 ### 6. CI picks it up automatically
 
-`unit-tests.yml` (`.github/workflows/unit-tests.yml`) runs `pytest tests/ -m unit`
-on every push and PR — no changes to CI needed.
+Unit tests are discovered by `pytest tests/` and run as part of `system-tests.yml`
+(triggered on PR open) — no changes to CI needed.
 
 ---
 
@@ -279,8 +279,8 @@ pytest.ini or CI changes needed.
 | Where does pytest discover tests? | `tests/robot/` (or `tests/sim/`, `tests/gcs/`) via thin proxy |
 | How does the proxy avoid circular import? | `importlib.util.spec_from_file_location` with a unique module name |
 | What mark do all unit tests use? | `@pytest.mark.unit` |
-| What CI workflow runs them? | `.github/workflows/unit-tests.yml` — `ubuntu-latest`, ~10 s cold start |
-| When does that workflow trigger? | Every push and every PR |
+| What CI workflow runs them? | `system-tests.yml` — runs `pytest tests/` which includes unit tests |
+| When does that workflow trigger? | PR opened, `/pytest` comment, `workflow_dispatch` |
 | Do system tests (`liveliness`, etc.) run too? | No — `-m unit` filters to hermetic tests only |
 | Does `colcon test` also run these? | Yes — Python tests in `package/test/` are discovered by colcon's pytest runner |
 | Can I add pure C++ gtests? | Yes — `ament_add_gtest` in CMakeLists.txt, no proxy needed |
@@ -298,7 +298,7 @@ Corresponding proxies: `tests/robot/perception/natnet_ros2/test_natnet_ros2.py`,
 
 ## Files to Know
 
-- `.github/workflows/unit-tests.yml` — CI gate on every push/PR
+- `.github/workflows/system-tests.yml` — CI workflow (runs `pytest tests/` including unit tests)
 - `tests/pytest.ini` — mark registration (`unit`, `build_docker`, etc.)
 - `tests/robot/` — proxy layer mirroring `robot/ros_ws/src/`
 - `tests/sim/` — proxy layer for sim-side code (future)

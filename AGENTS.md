@@ -202,7 +202,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
    ```
 
-2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). Thin **proxy** files in [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/) re-export those tests so `pytest tests/` (the CI command) discovers them. A dedicated CI workflow (`.github/workflows/unit-tests.yml`) runs these on every push and PR on a GitHub-hosted runner — no Docker or GPU needed. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
+2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). Thin **proxy** files in [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/) re-export those tests so `pytest tests/` discovers them. Unit tests run as part of the `system-tests.yml` suite. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
 
 3. **System Level (`tests/system/`):** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing

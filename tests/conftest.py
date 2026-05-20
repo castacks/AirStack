@@ -161,6 +161,11 @@ def pytest_generate_tests(metafunc):
 # docker image builds → colcon workspace builds → liveliness (infra) → sensors
 # (ROS topic streams) → autonomy flight tests.
 _MODULE_ORDER = [
+    # Unit tests first — fast, hermetic, no Docker.  Any module whose dotted
+    # name starts with "robot." or "sim." is a proxy for a package-level unit
+    # test and sorts into this leading slot via the prefix check below.
+    "__unit__",
+    # System tests follow in dependency order.
     "system.test_build_docker",
     "system.test_build_packages",
     "system.test_liveliness",
@@ -182,10 +187,22 @@ def _rank(name, order):
     return order.index(name) if name in order else len(order)
 
 
+def _module_key(item):
+    """Return the ordering key for an item.
+
+    Unit-test proxies live under ``robot/``, ``sim/``, or ``gcs/`` and are
+    identified by their nodeid prefix.  Everything else uses the dotted module
+    ``__name__`` looked up against ``_MODULE_ORDER``.
+    """
+    if item.nodeid.startswith(("robot/", "sim/", "gcs/")):
+        return _rank("__unit__", _MODULE_ORDER)
+    return _rank(getattr(item.module, "__name__", ""), _MODULE_ORDER)
+
+
 def pytest_collection_modifyitems(items):
     # 1. Cross-module: enforce `_MODULE_ORDER`. Stable sort keeps within-module
     #    order intact, so pytest's default file/class order survives.
-    items.sort(key=lambda it: _rank(getattr(it.module, "__name__", ""), _MODULE_ORDER))
+    items.sort(key=_module_key)
 
     # 2. Within test_takeoff_hover_land: sort by (airstack_env, velocity, phase) so each
     #    (sim, robots, iter) env brings up the stack once and the drone goes

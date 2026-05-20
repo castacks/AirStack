@@ -21,9 +21,8 @@ airstack test -m unit -v
 pytest tests/ -m unit -v
 ```
 
-A dedicated CI workflow (`.github/workflows/unit-tests.yml`) runs these on every
-push and PR on a GitHub-hosted `ubuntu-latest` runner — fast mandatory feedback
-before the heavier GPU-based system tests are needed.
+Unit tests run as part of `system-tests.yml` via `pytest tests/` and can also be
+run locally with no Docker or GPU needed.
 
 → **[Unit Testing Guide](unit_testing.md)** — patterns, proxy layout, CI workflow,
   how to add tests for new packages (Python and C++ gtest).

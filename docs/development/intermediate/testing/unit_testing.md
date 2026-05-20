@@ -49,19 +49,17 @@ pytest tests/ -m unit -v
 
 Unit tests complete in under one second for the current suite.
 
-## CI workflow
+## CI
 
-`.github/workflows/unit-tests.yml` runs on **every push and every pull request** on a GitHub-hosted `ubuntu-latest` runner. Cold-start time is ~10 seconds; the test run itself is under 1 second. This provides fast mandatory feedback before the heavier GPU-based system tests are needed.
+Unit tests are collected and run as part of `system-tests.yml` via `pytest tests/`
+(no marks specified on PR open = all tests including `unit`). Run them locally at
+any time with no infrastructure required:
 
-```yaml
-# Simplified — see .github/workflows/unit-tests.yml for the full file
-- run: pip install pytest numpy
-- run: pytest tests/ -m unit -v
-  env:
-    AIRSTACK_ROOT: ${{ github.workspace }}
+```bash
+airstack test -m unit -v
+# or directly (requires tests/requirements.txt installed):
+AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 ```
-
-Results are uploaded as artifacts (`unit-test-results-<sha>`) with 30-day retention.
 
 ## Current test coverage
 
@@ -198,7 +196,7 @@ tests/gcs/<pkg>/test_<name>.py             ← proxy
 ```
 
 `pytest tests/ -m unit` discovers them automatically — no changes to `pytest.ini`
-or `unit-tests.yml` needed.
+or CI changes needed.
 
 ## See also
 
