@@ -1333,6 +1333,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#branching-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branching Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Branching Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#feature-branches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature branches
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hotfix-branches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hotfix branches
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#branch-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch Enforcement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automatic-sync-main-develop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Sync: main → develop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#merge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5457,8 +5518,68 @@ docs/
     index.md  # The documentation homepage.
     ...       # Other markdown pages, images and other files.
 </code></pre></div>
+<h2 id="branching-strategy">Branching Strategy<a class="headerlink" href="#branching-strategy" title="Permanent link">&para;</a></h2>
+<p>This project follows a <a href="https://nvie.com/posts/a-successful-git-branching-model/">Gitflow</a>-inspired branching model with two long-lived branches:</p>
+<ul>
+<li><strong><code>main</code></strong> — always reflects production-ready code. Only receives merges from <code>develop</code> (releases) and <code>hotfix/*</code> branches (urgent fixes).</li>
+<li><strong><code>develop</code></strong> — the integration branch where all new features and non-urgent fixes are merged.</li>
+</ul>
+<h3 id="feature-branches">Feature branches<a class="headerlink" href="#feature-branches" title="Permanent link">&para;</a></h3>
+<p>For new features and non-urgent bug fixes, branch off <code>develop</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>develop
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>feature/my-feature
+</span></code></pre></div>
+<p>Open your pull request targeting <code>develop</code>. PRs targeting <code>main</code> from non-hotfix branches will be automatically rejected (see <a href="#branch-enforcement">Branch Enforcement</a> below).</p>
+<h3 id="hotfix-branches">Hotfix branches<a class="headerlink" href="#hotfix-branches" title="Permanent link">&para;</a></h3>
+<p>For urgent fixes that must go directly to production, branch off <code>main</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>main
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>hotfix/my-fix
+</span></code></pre></div>
+<p>Open your pull request targeting <code>main</code>. After it merges, the fix is automatically synced back to <code>develop</code> (see <a href="#automatic-sync-main--develop">Automatic Sync</a> below).</p>
+<h2 id="branch-enforcement">Branch Enforcement<a class="headerlink" href="#branch-enforcement" title="Permanent link">&para;</a></h2>
+<p>A GitHub Actions workflow (<code>.github/workflows/enforce-branch-targets.yml</code>) runs on every pull request and enforces the following rules:</p>
+<table>
+<thead>
+<tr>
+<th>Source branch</th>
+<th>Allowed target</th>
+<th>Blocked target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feature/*</code>, <code>fix/*</code>, or any non-hotfix branch</td>
+<td><code>develop</code></td>
+<td><code>main</code></td>
+</tr>
+<tr>
+<td><code>hotfix/*</code></td>
+<td><code>main</code></td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>develop</code></td>
+<td><code>main</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>main</code></td>
+<td><code>develop</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>If your PR targets the wrong base branch, the check will fail with a message explaining the violation. To fix it, close the PR and reopen it against the correct base branch.</p>
+<h2 id="automatic-sync-main-develop">Automatic Sync: main → develop<a class="headerlink" href="#automatic-sync-main-develop" title="Permanent link">&para;</a></h2>
+<p>To keep the git histories of <code>main</code> and <code>develop</code> related, a GitHub Actions workflow (<code>.github/workflows/sync-develop.yml</code>) automatically merges <code>main</code> back into <code>develop</code> after every push to <code>main</code>. This ensures that release merge commits and hotfixes are always present in <code>develop</code>'s history, preventing divergence and conflicts in future releases.</p>
+<p>If the automatic sync fails due to a merge conflict, it will need to be resolved manually:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>develop
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>git<span class="w"> </span>merge<span class="w"> </span>origin/main
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># resolve conflicts</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>develop
+</span></code></pre></div>
 <h2 id="merge">Merge<a class="headerlink" href="#merge" title="Permanent link">&para;</a></h2>
-<p>Submit a pull request.</p>
+<p>Submit a pull request to the appropriate base branch per the <a href="#branching-strategy">Branching Strategy</a> above.</p>
 <p>All tests must pass before merging.</p>
 <p>Regression tests are run so that we don't break anything.</p>
 
