@@ -25,6 +25,9 @@ set_target_properties(NatNet PROPERTIES
 # C++ NatNet ROS 2 node
 # ---------------------------------------------------------------------------
 add_executable(natnet_ros2_node src/natnet_ros2_node.cpp)
+target_include_directories(natnet_ros2_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(natnet_ros2_node rclcpp geometry_msgs nav_msgs)
 target_link_libraries(natnet_ros2_node NatNet)
 
@@ -58,10 +61,22 @@ install(DIRECTORY launch/
 install(DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config)
 
+install(DIRECTORY include/
+  DESTINATION include)
+
 # ---------------------------------------------------------------------------
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  # --- gtest: pure-logic unit tests (no NatNet SDK, no rclcpp) ---
+  # Source lives under tests/ (repo root) to keep test files out of robot/ros_ws/src.
+  # From this package directory, 5 levels up reaches the repo root.
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_natnet_logic
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../tests/robot/perception/natnet_ros2/test_natnet_logic.cpp")
+  target_include_directories(test_natnet_logic PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 endif()
 
 ament_package()

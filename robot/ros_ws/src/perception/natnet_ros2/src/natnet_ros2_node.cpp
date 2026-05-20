@@ -33,6 +33,9 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 
+// Pure logic helpers (no SDK, no ROS — testable without either)
+#include "natnet_ros2/natnet_logic.hpp"
+
 
 // Forward declaration
 class NatNetROS2Node;
@@ -103,17 +106,18 @@ public:
         frame_id_          = this->get_parameter("frame_id").as_string();
         debug_             = this->get_parameter("debug").as_bool();
 
-        // Validate connection_type
-        if (connection_type_ != "unicast" && connection_type_ != "multicast") {
+        // Validate connection_type (falls back to "unicast" for unknown values)
+        const std::string requested_ct = connection_type_;
+        connection_type_ = natnet_ros2::validate_connection_type(connection_type_);
+        if (connection_type_ != requested_ct) {
             RCLCPP_WARN(get_logger(),
                 "Unknown connection_type '%s' — falling back to 'unicast'.",
-                connection_type_.c_str());
-            connection_type_ = "unicast";
+                requested_ct.c_str());
         }
 
         const auto pos_cov = this->get_parameter("position_covariance").as_double_array();
         const auto ori_cov = this->get_parameter("orientation_covariance").as_double_array();
-        build_covariance_6x6(pos_cov, ori_cov);
+        covariance_6x6_ = natnet_ros2::build_covariance_6x6(pos_cov, ori_cov);
 
         // ROBOT_NAME: set by AirStack's robot_name_map resolver at container startup.
         const char* rn = std::getenv("ROBOT_NAME");
@@ -169,7 +173,7 @@ public:
         if (!data) return;
 
         // Bit 1 = model list changed; schedule a re-fetch on the spin thread.
-        if (data->params & 0x02) {
+        if (natnet_ros2::model_list_changed(data->params)) {
             needs_description_refresh_.store(true, std::memory_order_relaxed);
         }
 
@@ -184,7 +188,7 @@ public:
             const sRigidBodyData& rb = data->RigidBodies[i];
 
             // Bit 0 of params = tracking valid
-            if (!(rb.params & 0x01)) {
+            if (!natnet_ros2::is_tracking_valid(rb.params)) {
                 if (debug_) {
                     RCLCPP_DEBUG(get_logger(), "  RB id=%d: tracking invalid, skipping", rb.ID);
                 }
@@ -192,7 +196,7 @@ public:
             }
 
             // Filter by configured body_id when not tracking all bodies
-            if (body_id_ >= 0 && rb.ID != body_id_) continue;
+            if (!natnet_ros2::should_publish_body(body_id_, rb.ID)) continue;
 
             std::lock_guard<std::mutex> lock(pub_mutex_);
 
@@ -206,32 +210,36 @@ public:
 
             const BodyPublishers& bp = pub_it->second;
 
+            const natnet_ros2::PoseData pose = natnet_ros2::rb_to_pose(
+                natnet_ros2::RigidBodySample{
+                    rb.ID, rb.x, rb.y, rb.z, rb.qx, rb.qy, rb.qz, rb.qw, rb.params});
+
             if (publish_direct_ && bp.pose_pub) {
                 PoseStamped msg;
-                msg.header.frame_id     = frame_id_;
-                msg.header.stamp        = stamp;
-                msg.pose.position.x     = static_cast<double>(rb.x);
-                msg.pose.position.y     = static_cast<double>(rb.y);
-                msg.pose.position.z     = static_cast<double>(rb.z);
-                msg.pose.orientation.x  = static_cast<double>(rb.qx);
-                msg.pose.orientation.y  = static_cast<double>(rb.qy);
-                msg.pose.orientation.z  = static_cast<double>(rb.qz);
-                msg.pose.orientation.w  = static_cast<double>(rb.qw);
+                msg.header.frame_id    = frame_id_;
+                msg.header.stamp       = stamp;
+                msg.pose.position.x    = pose.x;
+                msg.pose.position.y    = pose.y;
+                msg.pose.position.z    = pose.z;
+                msg.pose.orientation.x = pose.qx;
+                msg.pose.orientation.y = pose.qy;
+                msg.pose.orientation.z = pose.qz;
+                msg.pose.orientation.w = pose.qw;
                 bp.pose_pub->publish(msg);
             }
 
             if (bp.pose_cov_pub) {
                 PoseWithCovarianceStamped cov_msg;
-                cov_msg.header.frame_id             = frame_id_;
-                cov_msg.header.stamp                = stamp;
-                cov_msg.pose.pose.position.x        = static_cast<double>(rb.x);
-                cov_msg.pose.pose.position.y        = static_cast<double>(rb.y);
-                cov_msg.pose.pose.position.z        = static_cast<double>(rb.z);
-                cov_msg.pose.pose.orientation.x     = static_cast<double>(rb.qx);
-                cov_msg.pose.pose.orientation.y     = static_cast<double>(rb.qy);
-                cov_msg.pose.pose.orientation.z     = static_cast<double>(rb.qz);
-                cov_msg.pose.pose.orientation.w     = static_cast<double>(rb.qw);
-                cov_msg.pose.covariance             = covariance_6x6_;
+                cov_msg.header.frame_id         = frame_id_;
+                cov_msg.header.stamp            = stamp;
+                cov_msg.pose.pose.position.x    = pose.x;
+                cov_msg.pose.pose.position.y    = pose.y;
+                cov_msg.pose.pose.position.z    = pose.z;
+                cov_msg.pose.pose.orientation.x = pose.qx;
+                cov_msg.pose.pose.orientation.y = pose.qy;
+                cov_msg.pose.pose.orientation.z = pose.qz;
+                cov_msg.pose.pose.orientation.w = pose.qw;
+                cov_msg.pose.covariance         = covariance_6x6_;
                 bp.pose_cov_pub->publish(cov_msg);
             }
         }
@@ -243,15 +251,19 @@ private:
     {
         client_ = std::make_unique<NatNetClient>();
 
-        sNatNetClientConnectParams params;
-        params.serverAddress     = server_ip_.c_str();
-        params.localAddress      = client_ip_.c_str();
-        params.serverCommandPort = command_port_;
-        params.serverDataPort    = data_port_;
+        const natnet_ros2::ConnectConfig cfg = natnet_ros2::make_connect_config(
+            server_ip_, client_ip_, command_port_, data_port_,
+            connection_type_, multicast_address_);
 
-        if (connection_type_ == "multicast") {
+        sNatNetClientConnectParams params;
+        params.serverAddress     = cfg.server_ip.c_str();
+        params.localAddress      = cfg.client_ip.c_str();
+        params.serverCommandPort = cfg.command_port;
+        params.serverDataPort    = cfg.data_port;
+
+        if (natnet_ros2::is_multicast(cfg)) {
             params.connectionType   = ConnectionType_Multicast;
-            params.multicastAddress = multicast_address_.c_str();
+            params.multicastAddress = cfg.multicast_address.c_str();
         } else {
             params.connectionType   = ConnectionType_Unicast;
             params.multicastAddress = nullptr;
@@ -358,14 +370,14 @@ private:
         if (publishers_.count(id)) return false;
 
         const std::string topic_base =
-            "/" + robot_name_ + "/perception/optitrack/" + name;
+            natnet_ros2::optitrack_topic_base(robot_name_, name);
 
         BodyPublishers bp;
         if (publish_direct_) {
             bp.pose_pub = this->create_publisher<PoseStamped>(topic_base, 10);
         }
         bp.pose_cov_pub = this->create_publisher<PoseWithCovarianceStamped>(
-            topic_base + "/pose_cov", 10);
+            natnet_ros2::optitrack_pose_cov_topic(robot_name_, name), 10);
 
         publishers_.emplace(id, std::move(bp));
 
@@ -385,24 +397,6 @@ private:
         }
         RCLCPP_INFO(get_logger(), "Model list change detected — refreshing data descriptions.");
         fetch_descriptions_and_create_publishers();
-    }
-
-    // -----------------------------------------------------------------------
-    void build_covariance_6x6(
-        const std::vector<double>& pos_cov,
-        const std::vector<double>& ori_cov)
-    {
-        covariance_6x6_.fill(0.0);
-        const int np = static_cast<int>(pos_cov.size());
-        const int no = static_cast<int>(ori_cov.size());
-        for (int r = 0; r < 3; ++r) {
-            for (int c = 0; c < 3; ++c) {
-                if (r * 3 + c < np)
-                    covariance_6x6_[r * 6 + c] = pos_cov[r * 3 + c];
-                if (r * 3 + c < no)
-                    covariance_6x6_[(r + 3) * 6 + (c + 3)] = ori_cov[r * 3 + c];
-            }
-        }
     }
 
     // -----------------------------------------------------------------------

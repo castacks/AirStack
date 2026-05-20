@@ -45,11 +45,14 @@ SIM_CONFIG = {
 }
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
-# LiDAR filter ``validation_core`` lives under ``tests/`` (not in ``robot/ros_ws/src``).
-_lidar_vc = Path(AIRSTACK_ROOT) / "tests/robot/sensors/lidar_point_cloud_filter"
-if _lidar_vc.is_dir():
-    _p = str(_lidar_vc)
-    if _p not in sys.path:
+# Unit-test helpers live under tests/ (not in robot/ros_ws/src).
+# Add each directory that contains importable test helpers (e.g. validation_core.py).
+_UNIT_TEST_DIRS = [
+    "tests/robot/sensors/lidar_point_cloud_filter",
+]
+for _d in _UNIT_TEST_DIRS:
+    _p = str(Path(AIRSTACK_ROOT) / _d)
+    if Path(_p).is_dir() and _p not in sys.path:
         sys.path.insert(0, _p)
 RUN_DIR = None
 LOGS_DIR = None
