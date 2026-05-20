@@ -77,15 +77,27 @@ If your PR targets the wrong base branch, the check will fail with a message exp
 
 ## Automatic Sync: main → develop
 
-To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop.yml`) automatically merges `main` back into `develop` after every push to `main`. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases.
+To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop-from-main.yaml`) merges `main` back into `develop` and pushes directly after every push to `main`. The workflow bypasses `develop`'s ruleset using a `SYNC_PAT` secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases.
 
-If the automatic sync fails due to a merge conflict, it will need to be resolved manually:
+### VERSION handling on develop
+
+`develop` always carries a pre-release VERSION (e.g. `0.19.0-alpha.3`) so that it stays strictly greater than `main` and satisfies the `Verify VERSION is valid and incremented` check (`.github/workflows/check-version-increment.yml`), which requires every PR to bump `.env`'s `VERSION` above its base branch. The sync workflow bumps `develop`'s VERSION as part of the merge using two rules:
+
+| Condition | Action | Example |
+|---|---|---|
+| `main`'s `x.y.z` ≥ `develop`'s base `x.y.z` (a release just landed on main) | Roll `develop` to the next minor's `alpha.0` | main `0.19.0`, develop `0.19.0-alpha.7` → develop `0.20.0-alpha.0` |
+| `main`'s `x.y.z` < `develop`'s base (a hotfix landed on main) | Preserve `develop`'s pre-release channel and bump the counter | main `0.19.1`, develop `0.20.0-alpha.0` → develop `0.20.0-alpha.1` |
+
+The workflow auto-resolves conflicts on the `VERSION=` line of `.env` (keeps `develop`'s side, then applies the bump). Any other merge conflict aborts the sync and must be resolved manually:
 
 ```bash
-git checkout develop
+git checkout -B sync/main-to-develop origin/develop
 git merge origin/main
 # resolve conflicts
-git push origin develop
+# manually bump VERSION in .env per the rules above
+git commit
+git push --force-with-lease origin sync/main-to-develop
+# then open / update the PR targeting develop
 ```
 
 ## Merge
