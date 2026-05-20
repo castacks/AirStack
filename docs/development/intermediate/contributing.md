@@ -77,7 +77,7 @@ If your PR targets the wrong base branch, the check will fail with a message exp
 
 ## Automatic Sync: main → develop
 
-To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop-from-main.yaml`) merges `main` back into `develop` and pushes directly after every push to `main`. The workflow bypasses `develop`'s ruleset using a `SYNC_PAT` secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases.
+To keep the git histories of `main` and `develop` related, a GitHub Actions workflow (`.github/workflows/sync-develop-from-main.yaml`) merges `main` back into `develop` and pushes directly after every push to `main` using the workflow's `GITHUB_TOKEN` with `contents: write` permission. This ensures that release merge commits and hotfixes are always present in `develop`'s history, preventing divergence and conflicts in future releases.
 
 ### VERSION handling on develop
 
