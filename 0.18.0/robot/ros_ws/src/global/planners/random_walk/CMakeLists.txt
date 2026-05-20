@@ -1,0 +1,65 @@
+cmake_minimum_required(VERSION 3.5)
+project(random_walk_planner)
+
+# Default to C++14
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+# Find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(task_msgs REQUIRED)
+
+###########
+## Build ##
+###########
+
+add_executable(random_walk_planner src/random_walk_node.cpp src/random_walk_logic.cpp)
+
+ament_target_dependencies(random_walk_planner
+  rclcpp
+  rclcpp_action
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  tf2
+  task_msgs
+)
+
+# Install executable
+install(TARGETS
+  random_walk_planner
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME})
+
+install(DIRECTORY
+  config
+  DESTINATION share/${PROJECT_NAME})
+
+install(DIRECTORY
+  src
+  DESTINATION share/${PROJECT_NAME})
+
+
+#############
+## Testing ##
+#############
+
+# ament_add_gtest(${PROJECT_NAME}-test test/test_random_walk_planner.cpp)
+# if(TARGET ${PROJECT_NAME}-test)
+#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_node)
+# endif()
+
+ament_package()

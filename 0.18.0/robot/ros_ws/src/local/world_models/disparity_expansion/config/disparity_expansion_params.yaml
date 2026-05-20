@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    # parameters
+    metric_depth_scale: 1.0  # units size of a meter. depth value corresponds to this many meters
+    downsample_scale: 1.0  # the ratio to scale down the disparity image before processing. DROAN expects 960x600. So if the incoming image is 480x300, set this to 0.5 so that it scales up
+    baseline_fallback: 0.12 # if the baseline is 0 from the camera_info, use this value instead
+    lut_max_disparity: 180  # maximum disparity value in the disparity image
+    # expansion_radius: 0.325  # 0.325 is the spirit drone blade to blade
+    expansion_radius: 2.0
+    bg_multiplier: 1.0
+    # sensor_pixel_error: 0.5 # what is this? and why was it 0.5?
+    sensor_pixel_error: 0.0
+    ignore_left_pixels: 0
+    padding: -2.

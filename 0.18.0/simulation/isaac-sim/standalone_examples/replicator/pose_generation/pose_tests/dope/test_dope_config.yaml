@@ -1,0 +1,66 @@
+# DO NOT MODIFY OR TESTS WILL FAIL 
+---
+CONFIG:
+  renderer: RaytracedLighting
+  headless: false
+  width: 512
+  height: 512
+CLASS_NAME_TO_INDEX:
+  _03_cracker_box: 1
+OBJECTS_TO_GENERATE:
+- { part_name: 003_cracker_box, num: 1, prim_type: _03_cracker_box }
+FORCE_RANGE: 30
+WIDTH: 512
+HEIGHT: 512
+F_X: 768.1605834960938
+F_Y: 768.1605834960938
+pixel_size: 0.003
+
+HORIZONTAL_APERTURE: 20.955
+NUM_LIGHTS: 6
+MIN_DISTANCE: 1.0
+MAX_DISTANCE: 1.0
+CAMERA_RIG_ROTATION:
+- 0
+- 0
+- 0
+CAMERA_ROTATION:
+- 180
+- 0
+- 0
+MIN_ROTATION_RANGE:
+- 100
+- 100
+- 100
+MAX_ROTATION_RANGE:
+- 100
+- 100
+- 100
+FRACTION_TO_SCREEN_EDGE: 0.0
+SHAPE_SCALE:
+- 0.05
+- 0.05
+- 0.05
+SHAPE_MASS: 1
+OBJECT_SCALE:
+- 1
+- 1
+- 1
+TRAIN_PART_SCALE: # Scale for the training objects 
+- 1
+- 1
+- 1
+OBJECT_MASS: 1
+NUM_MESH_SHAPES: 0
+NUM_MESH_OBJECTS: 0
+MESH_FRACTION_GLASS: 0.15
+NUM_DOME_SHAPES: 0
+NUM_DOME_OBJECTS: 0
+DOME_FRACTION_GLASS: 0.2
+DOME_TEXTURES: []
+MESH_FILENAMES: []
+
+# Asset paths 
+DISTRACTOR_ASSET_PATH: '' # Can leave empty, distactors not used in tests
+TRAIN_ASSET_PATH: /Isaac/Props/YCB/Axis_Aligned/
+DOME_TEXTURE_PATH: '' # Can leave empty, textures not used in tests 

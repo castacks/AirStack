@@ -1,0 +1,15 @@
+<library path="src">
+  <class name="FixedTrajectorySelectorPlugin" type="rqt_fixed_trajectory_selector.rqt_fixed_trajectory_selector.FixedTrajectorySelectorPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      An interface for choosing fixed trajectories.
+    </description>
+    <qtgui>
+      <group>
+        <label>Fixed Trajectory Selector</label>
+      </group>
+      <label>Fixed Trajectory Selector</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Fixed Trajectory Selector.</statustip>
+    </qtgui>
+  </class>
+</library>

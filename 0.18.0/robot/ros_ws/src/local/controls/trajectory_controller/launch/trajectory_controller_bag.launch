@@ -1,0 +1,11 @@
+<launch>
+  
+  <node name="trajectory_controller" pkg="trajectory_controller" type="trajectory_controller" output="screen">
+    <param name="execute_target" type="double" value="50." />
+    
+    <param name="target_frame" type="string" value="world" />
+
+    <remap from="/look_ahead" to="/look_ahead_bag" />
+  </node>
+  
+</launch>

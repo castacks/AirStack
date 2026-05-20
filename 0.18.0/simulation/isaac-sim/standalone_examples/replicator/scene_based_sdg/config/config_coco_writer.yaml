@@ -1,0 +1,22 @@
+launch_config:
+  renderer: RaytracedLighting
+  headless: true
+resolution: [512, 512]
+num_frames: 5
+clear_previous_semantics: true
+writer: CocoWriter
+writer_config:
+  output_dir: _out_coco
+  coco_categories:
+    forklift:
+      name: forklift
+      id: 333
+      supercategory: warehouse
+      color: [211, 111, 211]
+      isthing: 1
+    pallet:
+      name: pallet
+      id: 313
+      supercategory: warehouse
+      color: [141, 111, 131]
+      isthing: 1

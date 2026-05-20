@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+from coordination_bringup.gossip_node import main
+main()

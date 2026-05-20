@@ -1,0 +1,9 @@
+<library path="px4_interface">
+  <class type="px4_interface::PX4Interface" base_class_type="robot_interface::RobotInterface">
+    <description>
+      RobotInterface plugin for PX4 via uXRCE-DDS.
+      Handles ENU/FLU ↔ NED/FRD frame conversions and publishes directly to
+      /fmu/in/* topics without MAVROS.
+    </description>
+  </class>
+</library>
