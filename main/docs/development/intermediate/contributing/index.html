@@ -1391,6 +1391,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Automatic Sync: main → develop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-handling-on-develop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VERSION handling on develop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5571,12 +5588,38 @@ docs/
 </table>
 <p>If your PR targets the wrong base branch, the check will fail with a message explaining the violation. To fix it, close the PR and reopen it against the correct base branch.</p>
 <h2 id="automatic-sync-main-develop">Automatic Sync: main → develop<a class="headerlink" href="#automatic-sync-main-develop" title="Permanent link">&para;</a></h2>
-<p>To keep the git histories of <code>main</code> and <code>develop</code> related, a GitHub Actions workflow (<code>.github/workflows/sync-develop.yml</code>) automatically merges <code>main</code> back into <code>develop</code> after every push to <code>main</code>. This ensures that release merge commits and hotfixes are always present in <code>develop</code>'s history, preventing divergence and conflicts in future releases.</p>
-<p>If the automatic sync fails due to a merge conflict, it will need to be resolved manually:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>develop
+<p>To keep the git histories of <code>main</code> and <code>develop</code> related, a GitHub Actions workflow (<code>.github/workflows/sync-develop-from-main.yaml</code>) merges <code>main</code> back into <code>develop</code> and pushes directly after every push to <code>main</code>. The workflow bypasses <code>develop</code>'s ruleset using a <code>SYNC_PAT</code> secret owned by a Repository admin. This ensures that release merge commits and hotfixes are always present in <code>develop</code>'s history, preventing divergence and conflicts in future releases.</p>
+<h3 id="version-handling-on-develop">VERSION handling on develop<a class="headerlink" href="#version-handling-on-develop" title="Permanent link">&para;</a></h3>
+<p><code>develop</code> always carries a pre-release VERSION (e.g. <code>0.19.0-alpha.3</code>) so that it stays strictly greater than <code>main</code> and satisfies the <code>Verify VERSION is valid and incremented</code> check (<code>.github/workflows/check-version-increment.yml</code>), which requires every PR to bump <code>.env</code>'s <code>VERSION</code> above its base branch. The sync workflow bumps <code>develop</code>'s VERSION as part of the merge using two rules:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Action</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>main</code>'s <code>x.y.z</code> ≥ <code>develop</code>'s base <code>x.y.z</code> (a release just landed on main)</td>
+<td>Roll <code>develop</code> to the next minor's <code>alpha.0</code></td>
+<td>main <code>0.19.0</code>, develop <code>0.19.0-alpha.7</code> → develop <code>0.20.0-alpha.0</code></td>
+</tr>
+<tr>
+<td><code>main</code>'s <code>x.y.z</code> &lt; <code>develop</code>'s base (a hotfix landed on main)</td>
+<td>Preserve <code>develop</code>'s pre-release channel and bump the counter</td>
+<td>main <code>0.19.1</code>, develop <code>0.20.0-alpha.0</code> → develop <code>0.20.0-alpha.1</code></td>
+</tr>
+</tbody>
+</table>
+<p>The workflow auto-resolves conflicts on the <code>VERSION=</code> line of <code>.env</code> (keeps <code>develop</code>'s side, then applies the bump). Any other merge conflict aborts the sync and must be resolved manually:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>-B<span class="w"> </span>sync/main-to-develop<span class="w"> </span>origin/develop
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>git<span class="w"> </span>merge<span class="w"> </span>origin/main
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># resolve conflicts</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>develop
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># manually bump VERSION in .env per the rules above</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>git<span class="w"> </span>commit
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>git<span class="w"> </span>push<span class="w"> </span>--force-with-lease<span class="w"> </span>origin<span class="w"> </span>sync/main-to-develop
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># then open / update the PR targeting develop</span>
 </span></code></pre></div>
 <h2 id="merge">Merge<a class="headerlink" href="#merge" title="Permanent link">&para;</a></h2>
 <p>Submit a pull request to the appropriate base branch per the <a href="#branching-strategy">Branching Strategy</a> above.</p>
