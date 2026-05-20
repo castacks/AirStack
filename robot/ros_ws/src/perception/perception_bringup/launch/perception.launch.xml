@@ -3,7 +3,7 @@
     <arg name="launch_macvo" default="false" />
     <arg name="launch_stereo_image_proc" default="true" />
     <!-- Toggle from top-level .env → LAUNCH_NATNET (passed into container via robot-base-docker-compose.yaml) -->
-    <arg name="launch_natnet" default="$(env LAUNCH_NATNET true)"/>
+    <arg name="launch_natnet" default="$(env LAUNCH_NATNET false)"/>
 
     <group>
         <push-ros-namespace namespace="perception" />

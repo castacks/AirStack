@@ -6,7 +6,9 @@
 
 /**:
   ros__parameters:
-    server_ip: "192.168.0.77"
+    # IP address of the PC running Motive (OptiTrack server).
+    # Change this to match your local network before launching NatNet.
+    server_ip: "192.168.1.100"
     # Motive learns unicast destination from outbound UDP source IP — bind explicitly when you have
     # multiple NICs (e.g. Docker 172.17.* vs LAN).
     client_ip: "0.0.0.0"
@@ -28,8 +30,9 @@
     # OptiTrack default is 239.255.42.99.
     multicast_address: "239.255.42.99"
 
-    body_name: "HummingbirdDrone"
-    body_id: 3
+    # Name of the rigid body as defined in Motive. Must match exactly (case-sensitive).
+    body_name: "Drone"
+    body_id: -1
 
     publish_direct_optitrack: true
     publish_to_mavros: true
