@@ -1839,6 +1839,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Enabling it in a sim launch script">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#re-centering-or-transforming-the-camera" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-centering or transforming the camera
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5505,20 +5522,33 @@
 </tr>
 </tbody>
 </table>
-<p>The camera is positioned at world origin <code>(0, 0)</code>. If your scene's points of interest are off-origin, shift the camera's <code>prim_path</code> xform after <code>add_orthographic_camera</code> returns:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pxr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gf</span><span class="p">,</span> <span class="n">UsdGeom</span>
+<h3 id="re-centering-or-transforming-the-camera">Re-centering or transforming the camera<a class="headerlink" href="#re-centering-or-transforming-the-camera" title="Permanent link">&para;</a></h3>
+<p>By default the camera sits over world origin <code>(0, 0)</code>. For an off-origin area of interest, pass <code>center_x_m</code> / <code>center_y_m</code> to both helpers — they take care of the camera xform and the spec topics the GCS reads:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">CENTER_X_M</span><span class="p">,</span> <span class="n">CENTER_Y_M</span> <span class="o">=</span> <span class="mf">50.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">25.0</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">cam_path</span> <span class="o">=</span> <span class="n">add_orthographic_camera</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;/World/MapCamera&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Re-center the camera over (CENTER_X_M, CENTER_Y_M) instead of world origin.</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">CENTER_X_M</span><span class="p">,</span> <span class="n">CENTER_Y_M</span> <span class="o">=</span> <span class="mf">50.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">25.0</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">xform</span> <span class="o">=</span> <span class="n">UsdGeom</span><span class="o">.</span><span class="n">Xformable</span><span class="p">(</span><span class="n">stage</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="n">cam_path</span><span class="p">))</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">xform</span><span class="o">.</span><span class="n">ClearXformOpOrder</span><span class="p">()</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">xform</span><span class="o">.</span><span class="n">AddTranslateOp</span><span class="p">()</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">Gf</span><span class="o">.</span><span class="n">Vec3d</span><span class="p">(</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">CENTER_X_M</span>     <span class="o">*</span> <span class="n">scene_scale_factor</span><span class="p">,</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">CENTER_Y_M</span>     <span class="o">*</span> <span class="n">scene_scale_factor</span><span class="p">,</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">OVERHEAD_ALTITUDE_M</span> <span class="o">*</span> <span class="n">scene_scale_factor</span><span class="p">,</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">))</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">cam_path</span> <span class="o">=</span> <span class="n">add_orthographic_camera</span><span class="p">(</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">stage</span><span class="p">,</span> <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;/World/MapCamera&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">altitude_m</span><span class="o">=</span><span class="n">OVERHEAD_ALTITUDE_M</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="n">OVERHEAD_COVERAGE_M</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">scene_scale_factor</span><span class="o">=</span><span class="n">scene_scale_factor</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="n">CENTER_X_M</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="n">CENTER_Y_M</span><span class="p">,</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">add_overhead_camera_publisher</span><span class="p">(</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">parent_graph_path</span><span class="o">=</span><span class="s2">&quot;/World/MapCameraGraph&quot;</span><span class="p">,</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">camera_prim_path</span><span class="o">=</span><span class="n">cam_path</span><span class="p">,</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/image&quot;</span><span class="p">,</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">spec_topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/spec&quot;</span><span class="p">,</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">center_x_topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/center_x&quot;</span><span class="p">,</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">center_y_topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/center_y&quot;</span><span class="p">,</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">frame_id</span><span class="o">=</span><span class="s2">&quot;map&quot;</span><span class="p">,</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="n">OVERHEAD_COVERAGE_M</span><span class="p">,</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="n">CENTER_X_M</span><span class="p">,</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="n">CENTER_Y_M</span><span class="p">,</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">pixels_per_meter</span><span class="o">=</span><span class="n">OVERHEAD_PX_PER_METER</span><span class="p">,</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">domain_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="gcs-side">GCS side<a class="headerlink" href="#gcs-side" title="Permanent link">&para;</a></h2>
 <p>The GCS rendering is handled by <code>_build_sim_ground_marker</code> in <code>gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/foxglove_visualizer_node.py</code>. It:</p>
@@ -5538,7 +5568,6 @@
 <div class="language-xml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">&lt;param</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;overhead_grid_per_m&quot;</span><span class="w">           </span><span class="na">value=</span><span class="s">&quot;3.0&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">&lt;param</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;overhead_max_grid_resolution&quot;</span><span class="w">  </span><span class="na">value=</span><span class="s">&quot;1024&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span></code></pre></div>
-<p><code>1024</code> over a 200 m scene gives ~5 cells/m. If the 3D panel slows down, drop back toward <code>768</code>. Any change here also requires bumping <code>OVERHEAD_PX_PER_METER</code> on the sim side (otherwise you're sampling a low-resolution source more densely).</p>
 <p>To change other rendering behavior (alpha, lighting), edit <code>_build_sim_ground_marker</code> directly. To force a re-render, restart the GCS visualizer.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>

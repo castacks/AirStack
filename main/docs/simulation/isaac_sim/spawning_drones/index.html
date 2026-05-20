@@ -1820,6 +1820,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scene-prep-helpers-scene_preppy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scene prep helpers — scene_prep.py
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scene prep helpers — scene_prep.py">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scaling-scale_stage_prim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling — scale_stage_prim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#colliders-add_colliders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Colliders — add_colliders
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lighting-add_dome_light" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lighting — add_dome_light
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overhead-camera-add_orthographic_camera-add_overhead_camera_publisher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overhead camera — add_orthographic_camera + add_overhead_camera_publisher
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#saving-a-self-contained-copy-save_scene_as_contained_usd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saving a self-contained copy — save_scene_as_contained_usd
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#common-issues" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5479,6 +5551,71 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">set_gps_origins</span><span class="p">(</span><span class="n">DRONE_CONFIGS</span><span class="p">,</span> <span class="n">world_origin</span><span class="o">=</span><span class="p">(</span><span class="mf">40.4433</span><span class="p">,</span> <span class="o">-</span><span class="mf">79.9436</span><span class="p">,</span> <span class="mf">280.0</span><span class="p">))</span>  <span class="c1"># Pittsburgh</span>
 </span></code></pre></div>
 <p>The anchor only affects the geographic location reported via GPS; nothing in the scene moves. Pick something close to where you want the drones to "be" — Foxglove's Map panel will center on it, and any GPS-referenced inputs to your stack will be relative to it.</p>
+<h2 id="scene-prep-helpers-scene_preppy">Scene prep helpers — <code>scene_prep.py</code><a class="headerlink" href="#scene-prep-helpers-scene_preppy" title="Permanent link">&para;</a></h2>
+<p><code>simulation/isaac-sim/utils/scene_prep.py</code> is the small toolbox of stage preparation helpers <code>example_multi_drone_scene_import.py</code> uses inside its post-load callback (after the stage is loaded, before drones spawn). The full file has more — what's documented here is what you'll reach for in 95% of scenes.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">utils.scene_prep</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">get_stage_meters_per_unit</span><span class="p">,</span> <span class="n">scale_stage_prim</span><span class="p">,</span> <span class="n">add_colliders</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">add_dome_light</span><span class="p">,</span> <span class="n">save_scene_as_contained_usd</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">add_orthographic_camera</span><span class="p">,</span> <span class="n">add_overhead_camera_publisher</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">mpu</span><span class="p">,</span> <span class="n">scene_scale_factor</span> <span class="o">=</span> <span class="n">get_stage_meters_per_unit</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="scaling-scale_stage_prim">Scaling — <code>scale_stage_prim</code><a class="headerlink" href="#scaling-scale_stage_prim" title="Permanent link">&para;</a></h3>
+<p>USD scenes are authored at all sorts of stage units. To apply a uniform scale to the imported stage root once, before drones spawn:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">STAGE_SCALE</span> <span class="o">=</span> <span class="mf">0.01</span>   <span class="c1"># cm → m</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">scale_stage_prim</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="s2">&quot;/World/stage&quot;</span><span class="p">,</span> <span class="n">STAGE_SCALE</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="colliders-add_colliders">Colliders — <code>add_colliders</code><a class="headerlink" href="#colliders-add_colliders" title="Permanent link">&para;</a></h3>
+<p>Recursively applies <code>UsdPhysics.CollisionAPI</code> to every <code>UsdGeom.Mesh</code> under the given prim. Imported environment USDs are usually visual-only; without this, drones fall through buildings.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">stage_prim</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="s2">&quot;/World/stage&quot;</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">add_colliders</span><span class="p">(</span><span class="n">stage_prim</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Skips prims that already have the API applied. Run it on the stage root after <code>scale_stage_prim</code> returns.</p>
+<h3 id="lighting-add_dome_light">Lighting — <code>add_dome_light</code><a class="headerlink" href="#lighting-add_dome_light" title="Permanent link">&para;</a></h3>
+<p>In case the scene is missing any lights, this adds a dome light that can act like an overhead 'sun'.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">add_dome_light</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">stage</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;/World/DomeLight&quot;</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">intensity</span><span class="o">=</span><span class="mf">3500.0</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">exposure</span><span class="o">=-</span><span class="mf">5.0</span><span class="p">,</span>   <span class="c1"># negative = darker; tune per scene</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="overhead-camera-add_orthographic_camera-add_overhead_camera_publisher">Overhead camera — <code>add_orthographic_camera</code> + <code>add_overhead_camera_publisher</code><a class="headerlink" href="#overhead-camera-add_orthographic_camera-add_overhead_camera_publisher" title="Permanent link">&para;</a></h3>
+<p>Used as a pair: one drops an orthographic camera over the scene, the other wires an OmniGraph to publish its frame plus three Float32 spec topics (<code>coverage_m</code>, <code>center_x_m</code>, <code>center_y_m</code>) the GCS uses to texture a ground plane in Foxglove's 3D panel.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">cam_path</span> <span class="o">=</span> <span class="n">add_orthographic_camera</span><span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">stage</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">prim_path</span><span class="o">=</span><span class="s2">&quot;/World/MapCamera&quot;</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">altitude_m</span><span class="o">=</span><span class="mf">165.0</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="mf">225.0</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">scene_scale_factor</span><span class="o">=</span><span class="n">scene_scale_factor</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>   <span class="c1"># set if your area of interest isn&#39;t at world origin</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">)</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">add_overhead_camera_publisher</span><span class="p">(</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">parent_graph_path</span><span class="o">=</span><span class="s2">&quot;/World/MapCameraGraph&quot;</span><span class="p">,</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">camera_prim_path</span><span class="o">=</span><span class="n">cam_path</span><span class="p">,</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/image&quot;</span><span class="p">,</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">spec_topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/spec&quot;</span><span class="p">,</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">center_x_topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/center_x&quot;</span><span class="p">,</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="n">center_y_topic</span><span class="o">=</span><span class="s2">&quot;/sim/overhead/center_y&quot;</span><span class="p">,</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">frame_id</span><span class="o">=</span><span class="s2">&quot;map&quot;</span><span class="p">,</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="mf">225.0</span><span class="p">,</span>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="n">pixels_per_meter</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="n">domain_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Full setup, GCS-side rendering, and tuning knobs are on the <strong><a href="../overhead_camera/">Overhead Camera</a></strong> page.</p>
+<h3 id="saving-a-self-contained-copy-save_scene_as_contained_usd">Saving a self-contained copy — <code>save_scene_as_contained_usd</code><a class="headerlink" href="#saving-a-self-contained-copy-save_scene_as_contained_usd" title="Permanent link">&para;</a></h3>
+<p>For scenes you'd like to keep working with offline (no Nucleus connection), or for sharing a scene with collaborators, collect the root USD plus every referenced asset (textures, MDLs, sublayers) into a local directory:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">save_scene_as_contained_usd</span><span class="p">(</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">source_usd_url</span><span class="o">=</span><span class="n">ENV_URL</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">&quot;/tmp/collected_scene&quot;</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>The collected folder contains a standalone root USD with relative references — load it directly via <code>omniverse://localhost/...</code> or a local file path. Note that this collects the <strong>source USD as-is</strong>: scale, colliders, dome light, and any other stage edits applied in this post-load callback are <em>not</em> baked into the saved copy. To capture the live stage with your modifications, first export the in-memory stage to a USD on disk (e.g. via <code>stage.GetRootLayer().Export(...)</code>) and pass that exported path as <code>source_usd_url</code>.</p>
 <h2 id="common-issues">Common issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
