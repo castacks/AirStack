@@ -43,18 +43,19 @@ if(EXISTS "${_NATNET_LIB}" AND EXISTS "${_NATNET_INC}")
   ament_target_dependencies(natnet_ros2_node rclcpp geometry_msgs nav_msgs)
   target_link_libraries(natnet_ros2_node NatNet)
 
-  # $ORIGIN RPATH so the node finds libNatNet.so in the install directory
-  # without needing LD_LIBRARY_PATH at runtime.
-  set_target_properties(natnet_ros2_node PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
-    BUILD_WITH_INSTALL_RPATH TRUE
-  )
-
   install(TARGETS natnet_ros2_node
     DESTINATION lib/${PROJECT_NAME})
 
-  install(FILES "${_NATNET_LIB}"
+  # Install libNatNet.so alongside the node and register an environment hook so
+  # that sourcing the workspace adds lib/natnet_ros2/ to LD_LIBRARY_PATH.
+  # Use PROGRAMS (not FILES) to preserve the execute bit — shared libraries
+  # must be executable for the dynamic linker to map them.
+  install(PROGRAMS "${_NATNET_LIB}"
     DESTINATION lib/${PROJECT_NAME})
+
+  ament_environment_hooks(
+    "${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/natnet_library_path.dsv.in"
+  )
 else()
   message(WARNING
     "[natnet_ros2] NatNet SDK not found — skipping natnet_ros2_node build.\n"

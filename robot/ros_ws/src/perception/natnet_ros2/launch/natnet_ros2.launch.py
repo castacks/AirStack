@@ -2,8 +2,9 @@
 """Bring up NatNet node; optionally MAVROS bridge per natnet_config.yaml.
 
 natnet_ros2_node is a C++ executable that requires the OptiTrack NatNet SDK.
-If the SDK was not installed (``airstack setup`` not run), the executable will
-be absent and this launch file skips it with a warning rather than crashing.
+If the SDK was not installed (``airstack setup`` not run) and the workspace
+has not been rebuilt, launching this file will raise a RuntimeError with
+instructions. Set LAUNCH_NATNET=false in .env to disable OptiTrack entirely.
 """
 
 from __future__ import annotations
@@ -56,17 +57,17 @@ def generate_launch_description() -> LaunchDescription:
         publish_mavros = bool(ros_params.get('publish_to_mavros', False))
         body_name = str(ros_params.get('body_name', 'robot_1'))
 
-        # natnet_ros2_node is only built when the NatNet SDK is present.
-        # Skip gracefully rather than crashing if the SDK was not installed.
+        # pkg_share = <prefix>/share/natnet_ros2 → go up two levels to reach <prefix>,
+        # then down into lib/natnet_ros2/ where colcon installs executables.
         pkg_share = get_package_share_directory('natnet_ros2')
-        node_path = Path(pkg_share).parent / 'natnet_ros2' / 'natnet_ros2_node'
+        node_path = Path(pkg_share).parent.parent / 'lib' / 'natnet_ros2' / 'natnet_ros2_node'
         if not node_path.exists():
-            import logging
-            logging.getLogger('natnet_ros2.launch').warning(
-                'natnet_ros2_node executable not found — NatNet SDK not installed. '
-                "Run 'airstack setup' to enable OptiTrack support."
+            raise RuntimeError(
+                'natnet_ros2_node executable not found — NatNet SDK is not installed.\n'
+                "Run 'airstack setup' to download and install the OptiTrack NatNet SDK,\n"
+                'then rebuild the workspace: bws --packages-select natnet_ros2\n'
+                'Or set LAUNCH_NATNET=false in .env to disable OptiTrack.'
             )
-            return []
 
         actions = [
             Node(
