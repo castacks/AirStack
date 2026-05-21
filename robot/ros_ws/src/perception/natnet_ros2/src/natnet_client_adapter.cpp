@@ -71,13 +71,14 @@ void NATNET_CALLCONV sdk_frame_callback(sFrameOfMocapData * data, void * /*ctx*/
 }
 
 /// Map NatNet SDK ErrorCode to our NatNetResult.
+/// Note: ErrorCode_Timeout was added in NatNet SDK >= 4.5 and is absent in 4.4.
+/// If upgrading the SDK, add: case ErrorCode_Timeout: return NatNetResult::Timeout;
 NatNetResult from_sdk_error(ErrorCode ec)
 {
     switch (ec) {
         case ErrorCode_OK:              return NatNetResult::OK;
         case ErrorCode_Network:         return NatNetResult::NetworkError;
         case ErrorCode_InvalidArgument: return NatNetResult::InvalidAddress;
-        case ErrorCode_Timeout:         return NatNetResult::Timeout;
         default:                        return NatNetResult::InternalError;
     }
 }
