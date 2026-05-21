@@ -94,7 +94,7 @@ class GossipNode(Node):
 
         self._navsat_sub = self.create_subscription(
             NavSatFix,
-            f"/{self._robot_name}/interface/mavros/global_position/global",
+            f"/{self._robot_name}/interface/mavros/global_position/raw/fix",
             self._on_navsat,
             SENSOR_QOS,
         )
@@ -148,7 +148,7 @@ class GossipNode(Node):
             self.get_logger().warn(f"Could not load payload config '{config_path}': {e}")
             return
 
-        for entry in cfg.get("payload_topics", []):
+        for entry in cfg.get("payload_topics") or []:
             topic_template = entry.get("topic", "")
             type_str = entry.get("type", "")
             if not topic_template or not type_str:
