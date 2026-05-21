@@ -119,7 +119,6 @@ OVERHEAD_DOMAIN_ID     = 0
 
 ext_manager = omni.kit.app.get_app().get_extension_manager()
 for ext in [
-    "omni.physx.forcefields",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
@@ -129,7 +128,6 @@ for ext in [
     "omni.graph.window.action",         # Action Graph editor window
     "omni.graph.window.generic",        # Generic graph UI tools
     "omni.graph.ui_nodes",              # UI node building helpers
-    "airlab.pegasus",                   # Airlab extension Pegasus core extension
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):

@@ -63,7 +63,9 @@ function cmd_config_nucleus {
         local escaped_api_token="${API_TOKEN//\\/\\\\}"
         escaped_api_token="${escaped_api_token//&/\\&}"
         escaped_api_token="${escaped_api_token//\//\\/}"
-        sed "s/PASTE-YOUR-API-TOKEN/$escaped_api_token/g" "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
+        sed -e "s/^OMNI_USER=.*$/OMNI_USER='\$omni-api-token'/" \
+            -e "s/^OMNI_PASS=.*$/OMNI_PASS=$escaped_api_token/" \
+            "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
         log_info "Nucleus login configuration complete"
     else
         cp "$OMNI_PASS_SOURCE" "$OMNI_PASS_DESTINATION"

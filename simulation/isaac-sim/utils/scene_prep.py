@@ -90,12 +90,17 @@ def scale_stage_prim(stage, prim_path: str, scale_factor: float):
 # ---------------------------------------------------------------------------
 
 def dedupe_physics_scenes(stage) -> str | None:
-    """Keep the first UsdPhysics.Scene found in the stage; delete the rest.
+    """Keep the first UsdPhysics.Scene found in the stage; deactivate the rest.
 
     Isaac's World autocreates a PhysicsScene on init, and Kit-saved USDs
     often bake one in too. PhysX can only step a single scene coherently,
     so duplicates trigger "Physics scenes stepping is not the same" and
-    desynced sensors. Returns the kept prim path (or None if no scene).
+    desynced sensors. Duplicates are deactivated via SetActive(False) — not
+    removed — because prims defined in a referenced sublayer have no spec
+    in the live root layer for RemovePrim to delete. Deactivation writes
+    an `active = false` override on the root layer so USD ignores the prim
+    entirely without touching the source asset. Returns the kept prim path
+    (or None if no scene).
     """
     scenes = [p for p in stage.Traverse() if p.IsA(UsdPhysics.Scene)]
     if not scenes:

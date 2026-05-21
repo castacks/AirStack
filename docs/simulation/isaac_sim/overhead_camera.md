@@ -70,24 +70,37 @@ The three constants (`OVERHEAD_ALTITUDE_M`, `OVERHEAD_COVERAGE_M`, `OVERHEAD_PX_
 | `OVERHEAD_COVERAGE_M` | `200.0` | Side length of the captured square (m). |
 | `OVERHEAD_PX_PER_METER` | `4.0` | Texture density. Increase for sharper text/markings; capped at `max_resolution=2048`. |
 
-The camera is positioned at world origin `(0, 0)`. If your scene's points of interest are off-origin, shift the camera's `prim_path` xform after `add_orthographic_camera` returns:
+### Re-centering or transforming the camera
+
+By default the camera sits over world origin `(0, 0)`. For an off-origin area of interest, pass `center_x_m` / `center_y_m` to both helpers — they take care of the camera xform and the spec topics the GCS reads:
 
 ```python
-from pxr import Gf, UsdGeom
-
-cam_path = add_orthographic_camera(stage, prim_path="/World/MapCamera", ...)
-
-# Re-center the camera over (CENTER_X_M, CENTER_Y_M) instead of world origin.
 CENTER_X_M, CENTER_Y_M = 50.0, -25.0
-xform = UsdGeom.Xformable(stage.GetPrimAtPath(cam_path))
-xform.ClearXformOpOrder()
-xform.AddTranslateOp().Set(Gf.Vec3d(
-    CENTER_X_M     * scene_scale_factor,
-    CENTER_Y_M     * scene_scale_factor,
-    OVERHEAD_ALTITUDE_M * scene_scale_factor,
-))
-```
 
+cam_path = add_orthographic_camera(
+    stage, prim_path="/World/MapCamera",
+    altitude_m=OVERHEAD_ALTITUDE_M,
+    coverage_m=OVERHEAD_COVERAGE_M,
+    scene_scale_factor=scene_scale_factor,
+    center_x_m=CENTER_X_M,
+    center_y_m=CENTER_Y_M,
+)
+
+add_overhead_camera_publisher(
+    parent_graph_path="/World/MapCameraGraph",
+    camera_prim_path=cam_path,
+    topic="/sim/overhead/image",
+    spec_topic="/sim/overhead/spec",
+    center_x_topic="/sim/overhead/center_x",
+    center_y_topic="/sim/overhead/center_y",
+    frame_id="map",
+    coverage_m=OVERHEAD_COVERAGE_M,
+    center_x_m=CENTER_X_M,
+    center_y_m=CENTER_Y_M,
+    pixels_per_meter=OVERHEAD_PX_PER_METER,
+    domain_id=0,
+)
+```
 
 ## GCS side
 
@@ -112,8 +125,6 @@ The default downsample (0.8 cells/m, cap 384) is conservative. To raise the rend
 <param name="overhead_grid_per_m"           value="3.0" />
 <param name="overhead_max_grid_resolution"  value="1024" />
 ```
-
-`1024` over a 200 m scene gives ~5 cells/m. If the 3D panel slows down, drop back toward `768`. Any change here also requires bumping `OVERHEAD_PX_PER_METER` on the sim side (otherwise you're sampling a low-resolution source more densely).
 
 To change other rendering behavior (alpha, lighting), edit `_build_sim_ground_marker` directly. To force a re-render, restart the GCS visualizer.
 
