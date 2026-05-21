@@ -246,7 +246,10 @@ docker exec airstack-robot-desktop-1 bash -c \
 ```
 
 The `build_packages` system test in CI (`tests/system/test_build_packages.py`) also
-runs `colcon test` with `BUILD_TESTING=ON` for the robot container.
+runs `colcon test` with `BUILD_TESTING=ON` for the robot container. Packages gated
+there are listed in [`tests/colcon_unit_test_packages.yaml`](../../../tests/colcon_unit_test_packages.yaml)
+— add your package under `robot.packages` when it has gtests or pytest tests in
+`package/test/`.
 
 ---
 

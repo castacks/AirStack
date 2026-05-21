@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+import yaml
 
 SIM_CONFIG = {
     "msairsim": {
@@ -45,6 +46,43 @@ SIM_CONFIG = {
 }
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
+COLCON_UNIT_TEST_PACKAGES_YAML = (
+    Path(AIRSTACK_ROOT) / "tests" / "colcon_unit_test_packages.yaml"
+)
+
+
+def load_colcon_unit_test_config(workspace="robot"):
+    """Load colcon test package list and pytest args from tests/colcon_unit_test_packages.yaml."""
+    if not COLCON_UNIT_TEST_PACKAGES_YAML.is_file():
+        raise FileNotFoundError(
+            f"Missing {COLCON_UNIT_TEST_PACKAGES_YAML} — add packages to gate in colcon test."
+        )
+    with COLCON_UNIT_TEST_PACKAGES_YAML.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if workspace not in data:
+        raise KeyError(
+            f"No '{workspace}' entry in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
+        )
+    cfg = data[workspace] or {}
+    packages = cfg.get("packages") or []
+    if not packages:
+        raise ValueError(
+            f"'{workspace}.packages' is empty in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
+        )
+    return packages, cfg.get("pytest_args", "")
+
+
+def colcon_test_robot_command(workspace="robot"):
+    """Shell command for colcon test over unit-test packages (robot workspace)."""
+    packages, pytest_args = load_colcon_unit_test_config(workspace)
+    pkg_list = " ".join(packages)
+    cmd = (
+        f"colcon test --packages-select {pkg_list} "
+        "--event-handlers console_direct+ --return-code-on-test-failure"
+    )
+    if pytest_args:
+        cmd += f' --pytest-args "{pytest_args}"'
+    return cmd
 # Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
 # Thin proxy files under tests/robot/ re-export those tests so that
 # `pytest tests/` and `airstack test -m unit` discover them without any

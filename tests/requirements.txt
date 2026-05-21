@@ -1,6 +1,7 @@
 pytest
 pytest-timeout
 pytest-dependency
+pyyaml
 tabulate
 psutil
 pandas

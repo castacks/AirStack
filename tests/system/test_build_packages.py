@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from conftest import (AIRSTACK_ROOT, airstack_cmd, docker_exec, logger,
+from conftest import (AIRSTACK_ROOT, airstack_cmd, colcon_test_robot_command,
+                      docker_exec, load_colcon_unit_test_config, logger,
                       read_log_tail, wait_for_container)
 
 
@@ -47,7 +48,11 @@ class TestColconBuilds:
         Kept separate from test_colcon_build_robot so that a test failure does
         not block the build-only health check, and so the test step can be
         re-run independently without a full rebuild.
+
+        Package list and pytest args come from tests/colcon_unit_test_packages.yaml.
+        Workspace-wide ament linter tests are not gated here.
         """
+        packages, _ = load_colcon_unit_test_config("robot")
         try:
             result = airstack_cmd("up", "robot-desktop",
                                   env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
@@ -66,11 +71,12 @@ class TestColconBuilds:
 
             test = docker_exec(
                 container,
-                "bash -ic 'colcon test --event-handlers console_direct+ "
-                "--return-code-on-test-failure'",
+                f"bash -ic '{colcon_test_robot_command('robot')}'",
                 timeout=300,
             )
-            assert test.returncode == 0, f"colcon test failed:\n{read_log_tail()}"
+            assert test.returncode == 0, (
+                f"colcon test failed (packages: {', '.join(packages)}):\n{read_log_tail()}"
+            )
         finally:
             airstack_cmd("down")
 
