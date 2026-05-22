@@ -22,7 +22,7 @@
 #   osmo workflow port-forward <wf-id> workspace \
 #     --port 47995-48012,49000-49007,49100 --connect-timeout 86400
 #   osmo workflow port-forward <wf-id> workspace \
-#     --port 47995-48012,49000-49007 --udp --connect-timeout 86400
+#     --port 49099 --udp --connect-timeout 86400
 #
 #   # GCS Foxglove websocket (1 terminal):
 #   osmo workflow port-forward <wf-id> workspace --port 8766:8766 --connect-timeout 86400
