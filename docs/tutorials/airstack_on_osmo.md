@@ -305,7 +305,7 @@ Expected milestones, in order (each is one line in the log):
 2. `[entrypoint] dockerd ready` — the inner Docker daemon is up.
 3. `Successfully built airstack_isaac-sim` *(or `Pulled` if pre-built)* —
    the image set is in place.
-4. `airstack-isaac-sim-livestream-1 ... started`
+4. `isaac-sim-livestream ... started`
 5. `airstack-robot-desktop-1 ... started`
 6. `airstack-gcs-1 ... started`
 
