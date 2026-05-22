@@ -104,3 +104,5 @@ bags/
 # Local-only: uXRCE agent build clone and ModalAI LED reference workspace
 robot/ros_ws/Micro-XRCE-DDS-Agent/
 robot/ros_ws/src/svg_ground_control/led_ws/
+.DS_Store
+gcs/.DS_Store

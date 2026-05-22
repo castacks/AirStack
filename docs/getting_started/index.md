@@ -1,5 +1,12 @@
 # Getting Started
 
+!!! tip "On Mac, Windows, or no GPU?"
+
+    This page assumes a Linux desktop with an NVIDIA GPU. If that's not you,
+    use [AirStack on OSMO](../tutorials/airstack_on_osmo.md) instead — you
+    only need an SSH key, the `osmo` CLI, and VS Code or Cursor. No local
+    Docker, no NVIDIA drivers, no `airstack install`.
+
 !!! warning ""
 
     AirStack is currently in ALPHA and only meant for internal usage. 
