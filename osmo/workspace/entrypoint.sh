@@ -270,7 +270,12 @@ fi
 # ─── 7. Sleep ──────────────────────────────────────────────────────────────
 
 log "entrypoint complete; sleeping forever so port-forwards keep working"
+if [ "$ISAAC_SIM_LIVESTREAM" = "true" ]; then
+  isaac_sim_log_container="isaac-sim-livestream"
+else
+  isaac_sim_log_container="airstack-isaac-sim-1"
+fi
 log "pod-side log paths:"
 log "  - dockerd:    /var/log/dockerd.log"
-log "  - airstack:   docker logs airstack-isaac-sim-1 / airstack-robot-desktop-1 / airstack-gcs-1"
+log "  - airstack:   docker logs ${isaac_sim_log_container} / airstack-robot-desktop-1 / airstack-gcs-1"
 exec sleep infinity
