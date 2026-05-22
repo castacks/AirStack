@@ -299,7 +299,10 @@ void TakeoffLandingPlanner::set_takeoff_landing_command(
     RCLCPP_INFO_STREAM(get_logger(), "takeofflanding 1");
 
     airstack_msgs::msg::Odometry takeoff_starting_point = tracking_point_odom;
-    if (got_robot_odom && takeoff_path_relative_to_orientation) {
+    // Preserve the drone's actual heading on takeoff; the tracking point may be
+    // published at identity orientation pre-takeoff, which would otherwise force
+    // the drone to twist to yaw=0.
+    if (got_robot_odom) {
       takeoff_starting_point.pose.orientation = robot_odom.pose.pose.orientation;
     }
 
