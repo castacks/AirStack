@@ -54,7 +54,7 @@ The OSMO pool the workflow runs on must satisfy:
 | Requirement | Why |
 |---|---|
 | GPU pool with NVIDIA driver + `nvidia-container-toolkit` on each node | Isaac Sim needs the GPU. The toolkit must be on the node so the inner `dockerd` (configured with `--add-runtime nvidia=...`, `default-runtime: nvidia`) can hand the device to the inner Isaac Sim container. |
-| No NetworkPolicy blocking pod-namespace ports `47995–48012/tcp+udp`, `49000–49007/tcp+udp`, `49100/tcp`, `8766/tcp`, `22/tcp` | These are the ports `osmo workflow port-forward` reaches inside the pod NS for Isaac Sim WebRTC, GCS Foxglove websocket, and sshd. |
+| No NetworkPolicy blocking pod-namespace ports `47995–48012/tcp+udp`, `49099/udp`, `49100/tcp`, `8766/tcp`, `22/tcp` | These are the ports `osmo workflow port-forward` reaches inside the pod NS for Isaac Sim WebRTC, GCS Foxglove websocket, and sshd. |
 | Resource limits ≥ `cpu: 16`, `memory: 64Gi`, `storage: 200Gi`, `gpu: 1` | Isaac Sim + AirStack images + `colcon build` working tree. Adjust upward if running multiple robots or heavy bag recording. |
 
 `hostNetwork: true` is **not** required. `osmo workflow port-forward` reaches
