@@ -20,19 +20,19 @@ from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
 from pegasus.simulator.ogn.api.spawn_ouster_lidar import add_ouster_lidar_subgraph
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
-import scene_prep
-from scene_prep import (
-    scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit,
-    reference_root_prims_under_world, dedupe_physics_scenes,
-    add_orthographic_camera, add_overhead_camera_publisher,
-)
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
+# import scene_prep
+# from scene_prep import (
+#     scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit,
+#     reference_root_prims_under_world, dedupe_physics_scenes,
+#     add_orthographic_camera, add_overhead_camera_publisher,
+# )
 
 # --------------------- CONFIGURATION ---------------------
 ENV_URL = os.path.expanduser("~/AirStack/scenes/ConstructionSite/ConstructionSite_Export.usd")
 
-DRONE_X  = float(os.environ.get('DRONE_X')  or '13.7')
-DRONE_Y  = float(os.environ.get('DRONE_Y')  or '-1.2')
+DRONE_X  = float(os.environ.get('DRONE_X')  or '-30.0')
+DRONE_Y  = float(os.environ.get('DRONE_Y')  or '-1.5')
 DRONE_Z  = float(os.environ.get('DRONE_Z')  or '0.07')
 DRONE_QX = float(os.environ.get('DRONE_QX') or '0.0')
 DRONE_QY = float(os.environ.get('DRONE_QY') or '0.0')
@@ -88,8 +88,6 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        self.timeline.stop()
-
         self.pg.load_environment(ENV_URL)
 
         stage = omni.usd.get_context().get_stage()
@@ -98,18 +96,6 @@ class PegasusApp:
 
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
-        
-        dedupe_physics_scenes(stage)
-        reference_root_prims_under_world(stage, ENV_URL)
-
-        stage_prim = stage.GetPrimAtPath("/World/stage")
-        if stage_prim.IsValid():
-            add_colliders(stage_prim)
-            for _ in range(10):
-                omni.kit.app.get_app().update()
-        else:
-            carb.log_warn("/World/stage not found — skipping scale and collision.")
-
 
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
