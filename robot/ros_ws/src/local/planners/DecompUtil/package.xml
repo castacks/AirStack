@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>decomp_util</name>
+  <version>1.0.0</version>
+  <description>Convex decomposition utility library (header-only)</description>
+  <maintainer email="sikang@seas.upenn.edu">sikang</maintainer>
+  <license>BSD 3-Clause</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>eigen3_cmake_module</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

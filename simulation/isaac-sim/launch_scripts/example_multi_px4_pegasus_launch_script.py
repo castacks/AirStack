@@ -87,8 +87,9 @@ def spawn_drone(index: int):
     """Spawn drone with vehicle_id=index (1-based), plus camera and optional lidar."""
     robot_name = f"robot_{index}"
     drone_prim = f"/World/drone{index}/base_link"
-    # Spread drones along X: -2, 0, 2, 4, ... centered near origin for small counts
-    init_x = 2.0 * (index - 1) - 2.0 * (NUM_ROBOTS - 1) / 2.0
+    # Spread drones along X, centered near origin
+    DRONE_SPACING = 20.0  # meters between drones
+    init_x = DRONE_SPACING * (index - 1) - DRONE_SPACING * (NUM_ROBOTS - 1) / 2.0
 
     graph_handle = spawn_px4_multirotor_node(
         pegasus_node_name=f"PX4Multirotor_{index}",

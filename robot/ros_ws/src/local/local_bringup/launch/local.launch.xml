@@ -110,6 +110,13 @@
         <remap from="keyboard_control_enable" to="/$(env ROBOT_NAME)/keyboard_controller/keyboard_control_enable" />
     </node>
 
+    <!-- BPMP Launcher: starts/stops tracker nodes when Target Tracking button is toggled -->
+    <node pkg="bpmp_tracker" exec="bpmp_launcher_node.py"
+          name="bpmp_launcher" namespace="bpmp_tracker" output="screen">
+        <param name="odometry_topic" value="$(var local_odometry_in_topic)" />
+        <remap from="target_tracking_enable" to="/$(env ROBOT_NAME)/bpmp/target_tracking_enable" />
+    </node>
+
     <!-- Control -->
     <!-- customize trajectory_controller.launch.xml -->
     <node pkg="trajectory_controller" exec="trajectory_controller"

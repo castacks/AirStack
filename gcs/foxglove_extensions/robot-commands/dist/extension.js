@@ -342,6 +342,16 @@ const TASK_TABS = [
     buildGoal: () => ({}),
     formatFeedback: () => "",
   },
+  {
+    id: "tracking_mode",
+    label: "Tracking",
+    actionSuffix: null,   // not a task executor — no relay topics
+    goalSchema: null,
+    fields: [],           // custom renderer
+    defaultState: () => ({}),
+    buildGoal: () => ({}),
+    formatFeedback: () => "",
+  },
 ];
 
 // Key definitions for keyboard teleop — must match keyboard_controller.cpp ProcessKey().
@@ -648,6 +658,52 @@ function activate(extensionContext) {
           body._kbEnabled = () => kbEnabled;
           body._kbKeyEls  = kbKeyEls;
           body._activeKeyEl = activeKeyEl;
+        } else if (tab.id === "tracking_mode") {
+          // ── Target tracking toggle body ───────────────────────────────────────
+          let trackingEnabled = false;
+
+          const trackingBtn = document.createElement("button");
+          trackingBtn.style.cssText =
+            "padding:10px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:bold;";
+
+          const trackingStatusEl = document.createElement("div");
+          trackingStatusEl.style.cssText = "font-size:12px;text-align:center;";
+
+          function applyTrackingEnabled() {
+            if (trackingEnabled) {
+              trackingBtn.textContent = "TRACKING — Click to Stop";
+              trackingBtn.style.background = "#1565c0";
+              trackingBtn.style.color = "#fff";
+              trackingStatusEl.textContent = "Drone is tracking the target.";
+              trackingStatusEl.style.color = "#42a5f5";
+            } else {
+              trackingBtn.textContent = "STOPPED — Click to Track";
+              trackingBtn.style.background = "#444";
+              trackingBtn.style.color = "#aaa";
+              trackingStatusEl.textContent = "Enable to begin target tracking.";
+              trackingStatusEl.style.color = "#888";
+            }
+          }
+
+          trackingBtn.addEventListener("click", () => {
+            trackingEnabled = !trackingEnabled;
+            panelContext.advertise(
+              `/${state.robot}/bpmp/target_tracking_enable`,
+              "std_msgs/msg/Bool");
+            panelContext.publish(
+              `/${state.robot}/bpmp/target_tracking_enable`,
+              { data: trackingEnabled });
+            applyTrackingEnabled();
+          });
+
+          const trackingHint = document.createElement("div");
+          trackingHint.style.cssText = "font-size:10px;color:#666;text-align:center;margin-top:4px;";
+          trackingHint.textContent = "Requires 3D bbox detections and VDB map topics.";
+
+          body.appendChild(trackingBtn);
+          body.appendChild(trackingStatusEl);
+          body.appendChild(trackingHint);
+          applyTrackingEnabled();
         } else {
           // Render simple fields first, then polygon/path (collapsible) at the bottom.
           const isCollapsible = (f) => f.kind === "polygon" || f.kind === "path";
@@ -747,21 +803,21 @@ function activate(extensionContext) {
       function persist() { panelContext.saveState(state); }
 
       function renderTabs() {
-        const isKbTab = state.activeTab === "keyboard_control";
-        // Hide task-executor footer elements when keyboard tab is active
-        const footerDisplay = isKbTab ? "none" : "";
+        const isNonExecutorTab = state.activeTab === "keyboard_control" || state.activeTab === "tracking_mode";
+        // Hide task-executor footer elements when a non-executor tab is active
+        const footerDisplay = isNonExecutorTab ? "none" : "";
         feedbackLabel.style.display = footerDisplay;
         feedbackBox.style.display   = footerDisplay;
         resultLabel.style.display   = footerDisplay;
         resultBox.style.display     = footerDisplay;
-        statusRow.style.display     = isKbTab ? "none" : "flex";
+        statusRow.style.display     = isNonExecutorTab ? "none" : "flex";
 
         for (const tab of TASK_TABS) {
           const isActive = tab.id === state.activeTab;
           tabBodies[tab.id].style.display = isActive ? "flex" : "none";
           tabButtons[tab.id].style.borderBottomColor = isActive ? "#10b981" : "transparent";
           tabButtons[tab.id].style.fontWeight = isActive ? "bold" : "normal";
-          if (tab.id === "keyboard_control") {
+          if (tab.id === "keyboard_control" || tab.id === "tracking_mode") {
             tabButtons[tab.id].style.color = "inherit";
             tabButtons[tab.id].textContent = tab.label;
             continue;
@@ -771,7 +827,7 @@ function activate(extensionContext) {
           const emoji = statusEmoji(pt.statusCode, pt.active);
           tabButtons[tab.id].textContent = emoji ? `${emoji} ${tab.label}` : tab.label;
         }
-        if (!isKbTab) {
+        if (!isNonExecutorTab) {
           renderStatus();
           renderFeedback();
         }
@@ -869,7 +925,7 @@ function activate(extensionContext) {
 
       // ── execute / cancel ─────────────────────────────────────────────────
       executeBtn.addEventListener("click", async () => {
-        if (state.activeTab === "keyboard_control") return;
+        if (state.activeTab === "keyboard_control" || state.activeTab === "tracking_mode") return;
         // Block if ANY tab has an active goal
         if (anyActive()) return;
         const tab = tabById(state.activeTab);
@@ -910,7 +966,7 @@ function activate(extensionContext) {
       });
 
       cancelBtn.addEventListener("click", async () => {
-        if (state.activeTab === "keyboard_control") return;
+        if (state.activeTab === "keyboard_control" || state.activeTab === "tracking_mode") return;
         const t = curTab();
         if (!t.active) return;
         const tab = tabById(state.activeTab);

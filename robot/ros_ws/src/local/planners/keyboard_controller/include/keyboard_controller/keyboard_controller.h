@@ -55,7 +55,7 @@ private:
     geometry_msgs::msg::PoseStamped des_pose_vis_;
     nav_msgs::msg::Odometry current_pose_;
 
-    double increment_step_xyz_{0.5};
+    double increment_step_xyz_{0.1};
     double increment_step_yaw_{M_PI / 12.0};
 
     bool is_drone_pose_received_{false};

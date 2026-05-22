@@ -1,0 +1,28 @@
+<launch>
+    <arg name="robot_name" default="$(env ROBOT_NAME robot_1)" />
+    <arg name="odometry_topic" default="/$(var robot_name)/odometry_conversion/odometry" />
+
+    <!-- BPMP Predictor: converts 3D bbox detections → target pose in map frame -->
+    <node pkg="bpmp_tracker" exec="bpmp_predictor_node"
+          name="bpmp_predictor" namespace="bpmp_tracker" output="screen">
+        <param from="$(find-pkg-share bpmp_tracker)/config/Predictor.yaml" allow_substs="true" />
+        <remap from="semantic_bbox"   to="/$(var robot_name)/sensors/front_stereo/left/semantic_bbox" />
+        <remap from="vdb_map"         to="/$(var robot_name)/vdb_mapping/vdb_map_visualization" />
+        <remap from="target_info"     to="/$(var robot_name)/bpmp/target_info" />
+        <remap from="filtered_vdb_map" to="/$(var robot_name)/bpmp/filtered_vdb_map" />
+    </node>
+
+    <!-- BPMP Tracker: Bezier-primitive planner that tracks the target -->
+    <node pkg="bpmp_tracker" exec="bpmp_tracker_node"
+          name="bpmp_tracker" namespace="bpmp_tracker" output="screen">
+        <param from="$(find-pkg-share bpmp_tracker)/config/VisualizationParam.yaml" allow_substs="true" />
+        <param from="$(find-pkg-share bpmp_tracker)/config/PlanningParam.yaml" allow_substs="true" />
+        <remap from="odometry"             to="$(var odometry_topic)" />
+        <remap from="target_info"          to="/$(var robot_name)/bpmp/target_info" />
+        <remap from="filtered_vdb_map"     to="/$(var robot_name)/bpmp/filtered_vdb_map" />
+        <remap from="trajectory_override"  to="/$(var robot_name)/trajectory_controller/trajectory_override" />
+        <remap from="set_trajectory_mode"  to="/$(var robot_name)/trajectory_controller/set_trajectory_mode" />
+        <remap from="target_tracking_enable"  to="/$(var robot_name)/bpmp/target_tracking_enable" />
+        <remap from="target_tracking_toggle"  to="/$(var robot_name)/bpmp/target_tracking_toggle" />
+    </node>
+</launch>
