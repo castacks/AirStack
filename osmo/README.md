@@ -230,7 +230,7 @@ Two port-forwards (TCP + UDP):
 osmo workflow port-forward <wf-id> workspace \
   --port 47995-48012,49000-49007,49100 --connect-timeout 86400 &
 osmo workflow port-forward <wf-id> workspace \
-  --port 47995-48012,49000-49007 --udp --connect-timeout 86400 &
+  --port 47995-48012,49000-49007,49099 --udp --connect-timeout 86400 &
 ```
 
 Open the Omniverse Streaming Client (or a browser WebRTC client) at
