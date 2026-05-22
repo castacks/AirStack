@@ -259,9 +259,13 @@ else
   export COMPOSE_PROFILES="${COMPOSE_PROFILES:-desktop,isaac-sim}"
 fi
 
-log "airstack up (COMPOSE_PROFILES=$COMPOSE_PROFILES, NUM_ROBOTS=$NUM_ROBOTS, livestream=$ISAAC_SIM_LIVESTREAM)"
 cd "$AIRSTACK_ROOT"
-./airstack.sh up || log "WARN: airstack up exited non-zero — pod stays alive for debugging via SSH"
+if [ "${OSMO_AIRSTACK_UP:-true}" = "true" ]; then
+  log "airstack up (COMPOSE_PROFILES=$COMPOSE_PROFILES, NUM_ROBOTS=$NUM_ROBOTS, livestream=$ISAAC_SIM_LIVESTREAM)"
+  ./airstack.sh up || log "WARN: airstack up exited non-zero — pod stays alive for debugging via SSH"
+else
+  log "OSMO_AIRSTACK_UP=false — skipping airstack up; SSH in and run ./airstack.sh up manually"
+fi
 
 # ─── 7. Sleep ──────────────────────────────────────────────────────────────
 
