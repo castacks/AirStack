@@ -92,14 +92,144 @@ def _nearest_zone_dist(pts_xy: np.ndarray, zones_xy: np.ndarray) -> np.ndarray:
 
 
 class FrontierBehavior:
+    # Match semantic_search_task's stuck heuristic so a frontier that triggers
+    # an ExplorationTask restart there also counts as one strike here.
+    STUCK_DISTANCE_M = 0.3
+    STUCK_TIMEOUT_S = 5.0
+    MAX_STRIKES = 3
+    BLACKLIST_RADIUS_M = ZONE_RADIUS_M
+
+    MOMENTUM_WEIGHT = 20.0
+    REVERSE_SURCHARGE = 40.0
+    VELOCITY_EMA_ALPHA = 0.3
+    MIN_HEADING_SPEED_M = 0.05
+    UNLOCK_RADIUS_M = 2.0
+    SWAP_IMPROVEMENT_FRAC = 0.15
+    TIE_BREAK_FRAC = 0.05
+
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
         self.name = 'Frontier-based'
         self.min_altitude = min_altitude
         self.max_altitude = max_altitude
 
+        # Stuck-detection state for the currently locked target. Reset whenever
+        # the drone moves >STUCK_DISTANCE_M or the locked target changes.
+        self._last_motion_xy = None
+        self._last_motion_time_s = None
+        self._tracked_target_xy = None
+
+        self._strikes = []
+        self._blacklist_xy = []
+
+        self._prev_pose_xy = None
+        self._prev_pose_time_s = None
+        self._vel_xy = np.zeros(2, dtype=np.float64)
+
     def condition_check(self):
         return True
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _update_heading(self, cur_pose_np):
+        cur_xy = np.asarray(cur_pose_np[:2], dtype=np.float64)
+        now = self._now_s()
+        if self._prev_pose_xy is None or self._prev_pose_time_s is None:
+            self._prev_pose_xy = cur_xy.copy()
+            self._prev_pose_time_s = now
+            return
+        dt = now - self._prev_pose_time_s
+        if dt <= 1e-3:
+            return
+        inst_vel = (cur_xy - self._prev_pose_xy) / dt
+        a = self.VELOCITY_EMA_ALPHA
+        self._vel_xy = a * inst_vel + (1.0 - a) * self._vel_xy
+        self._prev_pose_xy = cur_xy.copy()
+        self._prev_pose_time_s = now
+
+    def _heading_xy(self, cur_pose_np, target_waypoint):
+        speed = float(np.linalg.norm(self._vel_xy))
+        if speed >= self.MIN_HEADING_SPEED_M:
+            return self._vel_xy / speed
+        if target_waypoint is not None:
+            v = np.asarray(target_waypoint[:2], dtype=np.float64) - np.asarray(
+                cur_pose_np[:2], dtype=np.float64)
+            n = float(np.linalg.norm(v))
+            if n > 1e-6:
+                return v / n
+        return None
+
+    def _blacklist_array(self) -> np.ndarray:
+        if not self._blacklist_xy:
+            return np.zeros((0, 2), dtype=np.float64)
+        return np.stack(self._blacklist_xy)
+
+    def _register_strike(self, target_xy: np.ndarray, debug_logger) -> None:
+        """Increment strike count for target_xy; blacklist after MAX_STRIKES."""
+        for s in self._strikes:
+            if np.linalg.norm(target_xy - s['xy']) <= self.BLACKLIST_RADIUS_M:
+                s['count'] += 1
+                if debug_logger is not None:
+                    debug_logger.warn(
+                        f'[stuck] strike {s["count"]}/{self.MAX_STRIKES} at '
+                        f'({s["xy"][0]:.1f},{s["xy"][1]:.1f})')
+                if s['count'] >= self.MAX_STRIKES:
+                    self._blacklist_xy.append(s['xy'].copy())
+                    self._strikes.remove(s)
+                    if debug_logger is not None:
+                        debug_logger.warn(
+                            f'[stuck] blacklisting frontier near '
+                            f'({s["xy"][0]:.1f},{s["xy"][1]:.1f}) — '
+                            f'unreachable after {self.MAX_STRIKES} restarts')
+                return
+        self._strikes.append({'xy': target_xy.copy(), 'count': 1})
+        if debug_logger is not None:
+            debug_logger.warn(
+                f'[stuck] strike 1/{self.MAX_STRIKES} at '
+                f'({target_xy[0]:.1f},{target_xy[1]:.1f})')
+
+    def _update_stuck(self, cur_pose_np, target_waypoint, waypoint_locked,
+                      debug_logger) -> bool:
+        """Return True if a strike just fired and the caller should force-unlock."""
+        if (not waypoint_locked) or target_waypoint is None:
+            self._last_motion_xy = None
+            self._last_motion_time_s = None
+            self._tracked_target_xy = None
+            return False
+
+        now = self._now_s()
+        target_xy = np.asarray(target_waypoint[:2], dtype=np.float64)
+
+        if (self._tracked_target_xy is None
+                or np.linalg.norm(target_xy - self._tracked_target_xy)
+                > self.BLACKLIST_RADIUS_M):
+            self._tracked_target_xy = target_xy.copy()
+            self._last_motion_xy = np.asarray(cur_pose_np[:2], dtype=np.float64).copy()
+            self._last_motion_time_s = now
+            return False
+
+        if self._last_motion_xy is None or self._last_motion_time_s is None:
+            self._last_motion_xy = np.asarray(cur_pose_np[:2], dtype=np.float64).copy()
+            self._last_motion_time_s = now
+            return False
+
+        moved = float(np.linalg.norm(
+            np.asarray(cur_pose_np[:2], dtype=np.float64) - self._last_motion_xy))
+        if moved > self.STUCK_DISTANCE_M:
+            self._last_motion_xy = np.asarray(cur_pose_np[:2], dtype=np.float64).copy()
+            self._last_motion_time_s = now
+            return False
+
+        if now - self._last_motion_time_s > self.STUCK_TIMEOUT_S:
+            self._register_strike(target_xy, debug_logger)
+            # Reset so a single stuck episode counts once, not every tick.
+            self._last_motion_xy = np.asarray(cur_pose_np[:2], dtype=np.float64).copy()
+            self._last_motion_time_s = now
+            self._tracked_target_xy = None
+            return True
+
+        return False
 
     def execute(self, frontiers_raw, cur_pose_np, waypoint_locked, target_waypoint,
                 target_waypoint2, publisher_dict,
@@ -112,6 +242,12 @@ class FrontierBehavior:
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
         kept_frontier_publisher = publisher_dict.get('kept_frontiers')
         path_publisher = publisher_dict['path']
+
+        self._update_heading(cur_pose_np)
+
+        if self._update_stuck(cur_pose_np, target_waypoint, waypoint_locked,
+                              debug_logger):
+            waypoint_locked = False
 
         if frontiers_raw is None or len(frontiers_raw) == 0:
             return waypoint_locked, target_waypoint, target_waypoint2
@@ -153,6 +289,16 @@ class FrontierBehavior:
             zone_dropped_own = int((~keep_mask).sum())
             own_frontiers = own_frontiers[keep_mask]
 
+        # Blacklist filter: drop frontiers near XYs that hit MAX_STRIKES —
+        # they're unreachable, the drone got stuck there 3 times.
+        blacklist_xy = self._blacklist_array()
+        blacklist_dropped_own = 0
+        if blacklist_xy.shape[0] > 0 and own_frontiers.shape[0] > 0:
+            d_bl = _nearest_zone_dist(own_frontiers[:, :2], blacklist_xy)
+            keep_mask = d_bl > self.BLACKLIST_RADIUS_M
+            blacklist_dropped_own = int((~keep_mask).sum())
+            own_frontiers = own_frontiers[keep_mask]
+
         # Publish the kept set (post altitude+polygon+zone filter) so an
         # operator can watch it shrink in real time in Foxglove. Always
         # publish — even an empty cloud — so the topic shows "0 points"
@@ -192,6 +338,12 @@ class FrontierBehavior:
                         d_peer = _nearest_zone_dist(
                             pf_filt[:, :2], completed_zones_xy)
                         pf_filt = pf_filt[d_peer > ZONE_RADIUS_M]
+                    # Same blacklist filter — strikes are local to this drone
+                    # (peers haven't tried this region) so we apply our own.
+                    if pf_filt.shape[0] > 0 and blacklist_xy.shape[0] > 0:
+                        d_peer_bl = _nearest_zone_dist(
+                            pf_filt[:, :2], blacklist_xy)
+                        pf_filt = pf_filt[d_peer_bl > self.BLACKLIST_RADIUS_M]
                     if pf_filt.shape[0] > 0:
                         peer_chunks.append(pf_filt.astype(own_frontiers.dtype, copy=False))
             if peer_chunks:
@@ -217,7 +369,10 @@ class FrontierBehavior:
                 f'[coord] frontiers: own={own_count} peer=[{peer_str}] '
                 f'merged={merged_count} '
                 f'(polygon_dropped_own={polygon_dropped_own} '
-                f'zone_dropped_own={zone_dropped_own} zones={zones_n})',
+                f'zone_dropped_own={zone_dropped_own} zones={zones_n} '
+                f'blacklist_dropped_own={blacklist_dropped_own} '
+                f'strikes={len(self._strikes)} '
+                f'blacklisted={len(self._blacklist_xy)})',
                 throttle_duration_sec=2.0)
 
         if candidate_input.shape[0] == 0:
@@ -237,20 +392,27 @@ class FrontierBehavior:
             if viewpoints.shape[0] == 0:
                 return waypoint_locked, target_waypoint, target_waypoint2
 
+        # Centroid recheck against the blacklist — DBSCAN can produce a
+        # centroid back inside a blacklisted region even after the raw points
+        # were filtered (e.g., when neighboring frontiers cluster across it).
+        if blacklist_xy.shape[0] > 0 and viewpoints.shape[0] > 0:
+            d_cent = _nearest_zone_dist(viewpoints[:, :2], blacklist_xy)
+            viewpoints = viewpoints[d_cent > self.BLACKLIST_RADIUS_M]
+            if viewpoints.shape[0] == 0:
+                return waypoint_locked, target_waypoint, target_waypoint2
+
         robot_pos = cur_pose_np
         distances = np.linalg.norm(viewpoints - robot_pos, axis=1)
 
-        if target_waypoint is not None:
-            cur_motion_vec = target_waypoint - robot_pos
-            cur_motion_vec = cur_motion_vec / (np.linalg.norm(cur_motion_vec) + 1e-6)
-            candidate_vecs = viewpoints - robot_pos
-            norms = np.linalg.norm(candidate_vecs, axis=1, keepdims=True)
-            candidate_vecs = candidate_vecs / (norms + 1e-6)
-            cos_sim = candidate_vecs @ cur_motion_vec
-            momentum_weight = 5.0
-            scores = distances + momentum_weight * (1.0 - cos_sim)
-        else:
-            scores = distances
+        heading_xy = self._heading_xy(cur_pose_np, target_waypoint)
+        scores = distances.copy()
+        if heading_xy is not None:
+            cand_xy = viewpoints[:, :2] - robot_pos[:2]
+            cand_norms = np.linalg.norm(cand_xy, axis=1, keepdims=True)
+            cand_unit = cand_xy / (cand_norms + 1e-6)
+            cos_sim = cand_unit @ heading_xy
+            scores = scores + self.MOMENTUM_WEIGHT * (1.0 - cos_sim)
+            scores = scores + self.REVERSE_SURCHARGE * np.clip(-cos_sim, 0.0, 1.0)
 
         base_scores = scores.copy()
         peer_pen, peer_breakdown = _peer_penalty(viewpoints, peer_state, my_id)
@@ -297,7 +459,11 @@ class FrontierBehavior:
             return waypoint_locked, target_waypoint, target_waypoint2
 
         top_indices = np.argsort(scores)[:num_candidates]
-        best_idx = top_indices[np.random.randint(0, num_candidates)]
+        best_score = float(scores[top_indices[0]])
+        gap = self.TIE_BREAK_FRAC * (abs(best_score) + 1e-6)
+        tied = [i for i in top_indices if abs(scores[i] - best_score) <= gap]
+        best_idx = (tied[np.random.randint(0, len(tied))]
+                    if len(tied) > 1 else int(top_indices[0]))
         best_cent = viewpoints[best_idx]
 
         # Compact summary: own frontier count, peer counts, zones, dropped.
@@ -318,12 +484,18 @@ class FrontierBehavior:
             peer_z = (', '.join(f'{n}={c}' for n, c in peer_zones_pairs
                                 if c > 0)
                       or 'none')
+            strike_summary = (
+                ', '.join(f'({s["xy"][0]:.0f},{s["xy"][1]:.0f})={s["count"]}'
+                          for s in self._strikes)
+                or 'none')
             lines = [
                 f'own={own_count} (kept={own_frontiers.shape[0]}, '
                 f'polygon_dropped={polygon_dropped_own}, '
-                f'zone_dropped={zone_dropped_own})',
+                f'zone_dropped={zone_dropped_own}, '
+                f'blacklist_dropped={blacklist_dropped_own})',
                 f'peers: {peer_f}',
                 f'zones: total={total_zones} (own={own_zones_n}; peers: {peer_z})',
+                f'strikes: {strike_summary}  blacklisted={len(self._blacklist_xy)}',
             ]
             from std_msgs.msg import String as _String
             frontier_table_pub.publish(_String(data='\n'.join(lines)))
@@ -388,7 +560,20 @@ class FrontierBehavior:
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = 'map'
 
-        if not waypoint_locked:
+        swap = not waypoint_locked or target_waypoint is None
+        if not swap:
+            cur_xy = np.asarray(target_waypoint[:2], dtype=np.float64)
+            d_cur = np.linalg.norm(viewpoints[:, :2] - cur_xy, axis=1)
+            cur_match = int(np.argmin(d_cur))
+            if d_cur[cur_match] > self.BLACKLIST_RADIUS_M:
+                swap = True
+            else:
+                cur_score = float(scores[cur_match])
+                margin = self.SWAP_IMPROVEMENT_FRAC * (abs(cur_score) + 1e-6)
+                if best_score < cur_score - margin:
+                    swap = True
+
+        if swap:
             target_waypoint = best_cent
             direction = target_waypoint - cur_pose_np
             dir_norm = np.linalg.norm(direction)
@@ -419,7 +604,7 @@ class FrontierBehavior:
 
         path_publisher.publish(path)
 
-        if np.linalg.norm(cur_pose_np - target_waypoint) < 5.0:
+        if np.linalg.norm(cur_pose_np - target_waypoint) < self.UNLOCK_RADIUS_M:
             waypoint_locked = False
 
         return waypoint_locked, target_waypoint, target_waypoint2
