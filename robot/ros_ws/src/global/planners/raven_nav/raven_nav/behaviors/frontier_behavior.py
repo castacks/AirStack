@@ -209,7 +209,7 @@ class FrontierBehavior:
                         f'({s["xy"][0]:.1f},{s["xy"][1]:.1f})')
                 if s['count'] >= self.MAX_STRIKES:
                     self._blacklist_xy.append(s['xy'].copy())
-                    self._strikes.remove(s)
+                    self._strikes = [x for x in self._strikes if x is not s]
                     if debug_logger is not None:
                         debug_logger.warn(
                             f'[stuck] blacklisting frontier near '
