@@ -48,11 +48,11 @@ NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 
 #env/stage path and scale
 _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "assets", "scenes"))
-ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
+#ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/Shipyard.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
@@ -94,9 +94,9 @@ SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
 
 
 DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 7.0, "y_m": -10.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
-    {"domain_id": 2, "x_m": 0.0, "y_m": -10.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
-    {"domain_id": 3, "x_m": -7.0, "y_m": -10.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+    {"domain_id": 1, "x_m": 3.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+    {"domain_id": 3, "x_m": -3.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
     ]
 
 # Top-down "map" camera. Captures one aerial of the static scene that the
