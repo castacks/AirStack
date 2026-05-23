@@ -104,8 +104,9 @@ class FrontierBehavior:
     VELOCITY_EMA_ALPHA = 0.3
     MIN_HEADING_SPEED_M = 0.05
     UNLOCK_RADIUS_M = 2.0
-    SWAP_IMPROVEMENT_FRAC = 0.15
+    SWAP_IMPROVEMENT_FRAC = 0.35
     TIE_BREAK_FRAC = 0.05
+    MIN_LOCK_DURATION_S = 6.0
 
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
@@ -125,6 +126,8 @@ class FrontierBehavior:
         self._prev_pose_xy = None
         self._prev_pose_time_s = None
         self._vel_xy = np.zeros(2, dtype=np.float64)
+
+        self._lock_time_s = None
 
     def condition_check(self):
         return True
@@ -147,6 +150,36 @@ class FrontierBehavior:
         self._vel_xy = a * inst_vel + (1.0 - a) * self._vel_xy
         self._prev_pose_xy = cur_xy.copy()
         self._prev_pose_time_s = now
+
+    def _score_point(self, pt, robot_pos, heading_xy, peer_state, my_id,
+                     completed_zones_xy, committed_target_dir):
+        pt = np.asarray(pt, dtype=np.float64).reshape(1, 3)
+        d = float(np.linalg.norm(pt[0] - robot_pos))
+        s = d
+        if heading_xy is not None:
+            v = pt[0, :2] - robot_pos[:2]
+            n = float(np.linalg.norm(v))
+            if n > 1e-6:
+                cs = float(v @ heading_xy) / n
+                s += self.MOMENTUM_WEIGHT * (1.0 - cs)
+                s += self.REVERSE_SURCHARGE * max(-cs, 0.0)
+        pen, _ = _peer_penalty(pt, peer_state, my_id)
+        s += float(pen[0])
+        if (completed_zones_xy is not None
+                and isinstance(completed_zones_xy, np.ndarray)
+                and completed_zones_xy.shape[0] > 0):
+            d_pt = _nearest_zone_dist(pt[:, :2], completed_zones_xy)
+            s += float(NOVELTY_WEIGHT * np.exp(-d_pt[0] / NOVELTY_SCALE_M))
+        if committed_target_dir is not None:
+            cd = np.asarray(committed_target_dir, dtype=np.float64)[:2]
+            cd_n = float(np.linalg.norm(cd))
+            if cd_n > 1e-6:
+                cd = cd / cd_n
+                v = pt[0, :2] - robot_pos[:2]
+                vn = float(np.linalg.norm(v))
+                if vn > 1e-6:
+                    s += 50.0 * (1.0 - float(v @ cd) / vn)
+        return s
 
     def _heading_xy(self, cur_pose_np, target_waypoint):
         speed = float(np.linalg.norm(self._vel_xy))
@@ -248,6 +281,7 @@ class FrontierBehavior:
         if self._update_stuck(cur_pose_np, target_waypoint, waypoint_locked,
                               debug_logger):
             waypoint_locked = False
+            self._lock_time_s = None
 
         if frontiers_raw is None or len(frontiers_raw) == 0:
             return waypoint_locked, target_waypoint, target_waypoint2
@@ -561,17 +595,29 @@ class FrontierBehavior:
         path.header.frame_id = 'map'
 
         swap = not waypoint_locked or target_waypoint is None
+        now_s = self._now_s()
+        locked_for_s = (now_s - self._lock_time_s
+                        if self._lock_time_s is not None else float('inf'))
+
         if not swap:
-            cur_xy = np.asarray(target_waypoint[:2], dtype=np.float64)
-            d_cur = np.linalg.norm(viewpoints[:, :2] - cur_xy, axis=1)
-            cur_match = int(np.argmin(d_cur))
-            if d_cur[cur_match] > self.BLACKLIST_RADIUS_M:
+            cur_score = self._score_point(
+                target_waypoint, robot_pos, heading_xy, peer_state, my_id,
+                completed_zones_xy, committed_target_dir)
+            margin = self.SWAP_IMPROVEMENT_FRAC * (abs(cur_score) + 1e-6)
+            beats = best_score < cur_score - margin
+            if beats and locked_for_s >= self.MIN_LOCK_DURATION_S:
                 swap = True
-            else:
-                cur_score = float(scores[cur_match])
-                margin = self.SWAP_IMPROVEMENT_FRAC * (abs(cur_score) + 1e-6)
-                if best_score < cur_score - margin:
-                    swap = True
+                if debug_logger is not None:
+                    debug_logger.info(
+                        f'[coord] swap: best={best_score:.2f} cur={cur_score:.2f} '
+                        f'margin={margin:.2f} locked_for={locked_for_s:.1f}s',
+                        throttle_duration_sec=2.0)
+            elif beats and debug_logger is not None:
+                debug_logger.info(
+                    f'[coord] hold: best beats cur by {cur_score - best_score:.2f} '
+                    f'but locked_for={locked_for_s:.1f}s < '
+                    f'{self.MIN_LOCK_DURATION_S:.1f}s',
+                    throttle_duration_sec=2.0)
 
         if swap:
             target_waypoint = best_cent
@@ -583,6 +629,7 @@ class FrontierBehavior:
             else:
                 target_waypoint2 = target_waypoint.copy()
             waypoint_locked = True
+            self._lock_time_s = now_s
 
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
@@ -606,6 +653,7 @@ class FrontierBehavior:
 
         if np.linalg.norm(cur_pose_np - target_waypoint) < self.UNLOCK_RADIUS_M:
             waypoint_locked = False
+            self._lock_time_s = None
 
         return waypoint_locked, target_waypoint, target_waypoint2
 
