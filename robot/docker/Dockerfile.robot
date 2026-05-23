@@ -81,6 +81,7 @@ RUN apt update && apt install -y --no-install-recommends \
   python3-rosdep \
   tmux \
   gdb \
+  xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # Install any additional ROS2 packages
@@ -319,6 +320,7 @@ RUN apt update && apt install -y --no-install-recommends \
   python3-pip \
   python3-rosdep \
   tmux \
+  xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # Install runtime ROS2 packages (no libcgal-dev)
