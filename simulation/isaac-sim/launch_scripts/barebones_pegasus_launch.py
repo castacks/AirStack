@@ -28,7 +28,6 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 ext_manager = omni.kit.app.get_app().get_extension_manager()
 for ext in [
     # "airlab.airstack",
-    "omni.physx.forcefields",
     "omni.graph.core",                  # Core runtime for OmniGraph engine
     "omni.graph.action",                # Action Graph framework
     "omni.graph.action_nodes",          # Built-in Action Graph node library
@@ -38,7 +37,6 @@ for ext in [
     "omni.graph.window.action",         # Action Graph editor window
     "omni.graph.window.generic",        # Generic graph UI tools
     "omni.graph.ui_nodes",              # UI node building helpers
-    "airlab.pegasus",                   # Airlab extension Pegasus core extension
     "pegasus.simulator",
 ]:
     if not ext_manager.is_extension_enabled(ext):
@@ -81,11 +79,14 @@ class PegasusApp:
         # Reset so physics/articulations are ready
         self.world.reset()
 
+        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
         self.stop_sim = False
 
     def run(self):
-        # Start sim timeline
-        self.timeline.play()
+        if self.play_on_start:
+            self.timeline.play()
+        else:
+            self.timeline.stop()
 
         # Main loop
         while simulation_app.is_running() and not self.stop_sim:

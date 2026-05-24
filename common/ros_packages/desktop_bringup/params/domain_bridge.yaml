@@ -97,6 +97,8 @@ topics:
     type: sensor_msgs/msg/BatteryState
     from_domain: 3
     to_domain: 0
+  
+
 
   # Bridge "/clock" topic from doman ID 2 to domain ID 3,
   # Override durability to be 'volatile' and override depth to be 1

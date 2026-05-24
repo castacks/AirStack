@@ -69,7 +69,7 @@ bool RRT_Planner::RRT_Init( // const float        robot_model_cube_dim,
 
 void RRT_Planner::addRegionVertices(Tree &tree)
 {
-    // Assumes edges has been initialised with one node
+    // Assumes edges has been initialized with one node
     // Add new nodes, without collision checking, around this point
     // These node form a cylinder
 

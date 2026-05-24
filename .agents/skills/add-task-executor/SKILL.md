@@ -33,10 +33,12 @@ Examples: coverage survey, object search, object counting, semantic search, fixe
 |-------------|---------|
 | `ExplorationTask.action` | Random or systematic area exploration |
 | `CoverageTask.action` | Systematic lawnmower-pattern coverage survey |
-| `ObjectSearchTask.action` | Finding instances of a named object class |
-| `ObjectCountingTask.action` | Counting all instances of an object class in an area |
+| `NavigateTask.action` | Navigating to a target pose |
+| `TakeoffTask.action` | Vertical takeoff to a target altitude |
+| `LandTask.action` | Controlled landing |
 | `FixedTrajectoryTask.action` | Following a pre-defined waypoint trajectory |
 | `SemanticSearchTask.action` | Finding a location described in natural language |
+| `ChatTask.action` | Natural-language chat-driven task |
 
 If none of these fits, add a new `.action` file to `task_msgs` following the same pattern (see Step 0 below).
 
@@ -58,7 +60,7 @@ float32 max_flight_speed
 float32 time_limit_sec           # 0 = no limit
 # ... task-specific fields
 ---
-# Result — returned when task completes or is cancelled
+# Result — returned when task completes or is canceled
 bool success
 string message
 # ... task-specific result fields
@@ -181,7 +183,7 @@ void execute(std::shared_ptr<GoalHandle> goal_handle)
         if (cancel_requested_) {
             auto result = std::make_shared<YourTask::Result>();
             result->success = false;
-            result->message = "Task cancelled";
+            result->message = "Task canceled";
             task_active_ = false;
             goal_handle->canceled(result);
             return;

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Task executors are ROS 2 action servers that carry out discrete, goal-directed missions for the drone. Unlike perpetual nodes (state estimation, controllers, world models) that run continuously from launch to shutdown, a task executor only does work when an action client sends it a goal. The caller receives streaming feedback while the task runs, and a final result when it completes or is cancelled.
+Task executors are ROS 2 action servers that carry out discrete, goal-directed missions for the drone. Unlike perpetual nodes (state estimation, controllers, world models) that run continuously from launch to shutdown, a task executor only does work when an action client sends it a goal. The caller receives streaming feedback while the task runs, and a final result when it completes or is canceled.
 
 See [System Architecture — Node Types](system_architecture.md#node-types-perpetual-vs-task-executor) for the broader context.
 
@@ -47,20 +47,20 @@ geometry_msgs/Point current_position
 **Action server:** `/{robot_name}/tasks/fixed_trajectory`
 **Implemented by:** *(not yet implemented)*
 
-Follow a pre-defined trajectory specified by shape type and parameters. With `loop: true`, the trajectory repeats until the task is cancelled.
+Follow a pre-defined trajectory specified by shape type and parameters. With `loop: true`, the trajectory repeats until the task is canceled.
 
 #### Goal
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `trajectory_spec` | airstack_msgs/FixedTrajectory | Trajectory type (e.g. `Circle`, `Figure8`, `Lawnmower`) and key-value attributes |
-| `loop` | bool | If true, repeat trajectory indefinitely until cancelled |
+| `loop` | bool | If true, repeat trajectory indefinitely until canceled |
 
 #### Result
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if trajectory completed (or cancelled normally when looping); false on error |
+| `success` | bool | True if trajectory completed (or canceled normally when looping); false on error |
 | `message` | string | Completion reason |
 
 #### Feedback
@@ -92,8 +92,8 @@ Navigate along a global plan path using local obstacle avoidance. This is the lo
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if the drone reached the goal; false if cancelled or error |
-| `message` | string | `"Goal reached"`, `"Cancelled"`, or `"Node shutting down"` |
+| `success` | bool | True if the drone reached the goal; false if canceled or error |
+| `message` | string | `"Goal reached"`, `"Canceled"`, or `"Node shutting down"` |
 
 #### Feedback
 
@@ -111,7 +111,7 @@ Navigate along a global plan path using local obstacle avoidance. This is the lo
 **Action server:** `/{robot_name}/tasks/exploration`
 **Implemented by:** `random_walk_planner`
 
-Explore an area using random or systematic flight patterns. The task runs until the time limit is reached or it is cancelled; there is no natural spatial completion condition.
+Explore an area using random or systematic flight patterns. The task runs until the time limit is reached or it is canceled; there is no natural spatial completion condition.
 
 #### Goal
 
@@ -128,8 +128,8 @@ Explore an area using random or systematic flight patterns. The task runs until 
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if time limit reached normally; false if cancelled or error |
-| `message` | string | `"Time limit reached"`, `"Task cancelled"`, or error description |
+| `success` | bool | True if time limit reached normally; false if canceled or error |
+| `message` | string | `"Time limit reached"`, `"Task canceled"`, or error description |
 
 #### Feedback
 
@@ -173,7 +173,7 @@ Perform a systematic lawnmower-pattern coverage survey of a polygonal area. Comp
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if area fully covered; false if cancelled |
+| `success` | bool | True if area fully covered; false if canceled |
 | `message` | string | Completion reason |
 | `coverage_percentage` | float32 | Fraction of area covered at task end (0–100) |
 
@@ -214,7 +214,7 @@ Search an area for a target described in natural language. Uses a vision-languag
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True if at least one match above threshold was found; false if cancelled or not found |
+| `success` | bool | True if at least one match above threshold was found; false if canceled or not found |
 | `message` | string | Completion reason |
 | `found_poses` | geometry_msgs/PoseArray | Poses of all matches found |
 | `confidence` | float32 | Confidence of the best match (0.0–1.0) |

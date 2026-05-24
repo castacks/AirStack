@@ -1,5 +1,5 @@
 # Follow a fixed trajectory specified by type and parameters.
-# loop: if true, repeat the trajectory indefinitely until cancelled
+# loop: if true, repeat the trajectory indefinitely until canceled
 
 # Goal
 airstack_msgs/FixedTrajectory trajectory_spec

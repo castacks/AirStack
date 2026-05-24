@@ -962,7 +962,7 @@ public:
                 restore_track_mode();
                 auto result = std::make_shared<NavigateTask::Result>();
                 result->success = false;
-                result->message = "Cancelled";
+                result->message = "Canceled";
                 task_active_ = false;
                 goal_handle->canceled(result);
                 return;

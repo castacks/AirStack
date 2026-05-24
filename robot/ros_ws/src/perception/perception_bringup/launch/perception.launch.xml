@@ -72,4 +72,7 @@
 
     </group>
 
+    <node pkg="perception_bringup" exec="topic_keepalive_node.py"
+          name="topic_keepalive" output="screen" />
+
 </launch>
