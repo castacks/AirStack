@@ -79,6 +79,8 @@
             <param name="downsample_scale" value="2" />
             <param name="graph_distance_threshold" value="1." />
             <param name="graph_angle_threshold" value="30." />
+            <param name="deviation_from_global_plan_weight" value="2.0" />
+            <param name="forward_progress_forgiveness_weight" value="0.25" />
             <param name="all_in_collision_duration_threshold" value="2." />
             <param name="all_in_collision_rewind_duration" value="6." />
             <param name="stationary_distance_threshold" value="0.5" />

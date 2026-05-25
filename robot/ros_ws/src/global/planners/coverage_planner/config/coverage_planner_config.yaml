@@ -18,5 +18,5 @@
     # direct: send the lawnmower path to the trajectory controller as the actual reference
     # auto: use NavigateTask when available, otherwise fall back to direct
     # navigate: require the downstream local planner NavigateTask action
-    execution_mode: "direct"
+    execution_mode: "navigate"
     publish_visualizations: true      # publish RViz markers for the generated path

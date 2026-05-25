@@ -94,6 +94,8 @@ private:
   GLInterface *gl_interface;
   GlobalPlan *global_plan;
   RewindMonitor *rewind_monitor;
+  double deviation_from_global_plan_weight;
+  double forward_progress_forgiveness_weight;
 
 public:
   DisparityExpanderNode()
@@ -138,6 +140,8 @@ public:
     look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point_stabilized"));
     rewind_info_frame = airstack::get_param(this, "rewind_info_frame", std::string("base_link_stabilized"));
     visualize = airstack::get_param(this, "visualize", true);
+    deviation_from_global_plan_weight = airstack::get_param(this, "deviation_from_global_plan_weight", 1.0);
+    forward_progress_forgiveness_weight = airstack::get_param(this, "forward_progress_forgiveness_weight", 1.0);
 
     look_ahead_valid = false;
 
@@ -311,8 +315,8 @@ private:
         // RCLCPP_INFO_STREAM(get_logger(), i << " " << traj_status_log << " " << deviation << " " <<  path_distance);
         if (deviation >= 0 && path_distance >= 0)
         {
-          // TODO add weights as ros parameters
-          float cost = deviation - path_distance;
+          float cost = deviation_from_global_plan_weight * deviation -
+                       forward_progress_forgiveness_weight * path_distance;
           if (cost < best_traj_cost)
           {
             best_traj_cost = cost;
