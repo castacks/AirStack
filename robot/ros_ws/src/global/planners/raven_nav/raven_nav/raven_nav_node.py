@@ -311,12 +311,15 @@ class RavenNavNode(Node):
         msg_field_names = [f.name for f in msg.fields]
         sim_fields = sorted([f for f in msg_field_names if f.startswith('sim_')],
                             key=lambda s: int(s.split('_', 1)[1]))
-        # Detect canonical column labels once. Warn loudly if the configured
-        # query_labels don't match — the column→label mapping would be wrong.
-        if self._detected_query_labels is None:
+        cached_n = (len(self._detected_query_labels)
+                    if self._detected_query_labels is not None else 0)
+        if cached_n != len(sim_fields):
             detected = self._detect_rayfronts_labels()
-            if detected is not None:
+            if detected is not None and detected != self._detected_query_labels:
+                prev = self._detected_query_labels
                 self._detected_query_labels = detected
+                self.get_logger().info(
+                    f'[ray_table] column labels refreshed: {prev} -> {detected}')
                 if detected != self._query_labels:
                     self.get_logger().warn(
                         f'[ray_table] query_labels MISMATCH — using rayfronts '
