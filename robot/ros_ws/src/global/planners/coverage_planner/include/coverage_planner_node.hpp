@@ -76,7 +76,7 @@ private:
   double waypoint_tolerance_m_{2.0};
   double direct_cruise_speed_mps_{2.0};
   double direct_sequence_tolerance_m_{0.5};
-  double direct_sequence_republish_period_s_{2.0};
+  double direct_sequence_republish_period_s_{0.0};
   std::string execution_mode_{"direct"};
   bool publish_visualizations_{true};
 

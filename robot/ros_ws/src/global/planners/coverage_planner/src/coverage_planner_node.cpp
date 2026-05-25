@@ -47,7 +47,7 @@ CoveragePlannerNode::CoveragePlannerNode()
   direct_sequence_tolerance_m_ =
       this->declare_parameter<double>("direct_sequence_tolerance_m", 0.5);
   direct_sequence_republish_period_s_ = this->declare_parameter<double>(
-      "direct_sequence_republish_period_s", 2.0);
+      "direct_sequence_republish_period_s", 0.0);
   execution_mode_ =
       this->declare_parameter<std::string>("execution_mode", "direct");
   publish_visualizations_ =
@@ -281,6 +281,8 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
   std::size_t direct_sequence_target_index = 0;
   const double sequence_tolerance =
       std::max(0.1, direct_sequence_tolerance_m_);
+  const bool republish_direct_sequence =
+      direct_sequence_republish_period_s_ > 0.0;
   const auto republish_period = rclcpp::Duration::from_seconds(
       std::max(0.1, direct_sequence_republish_period_s_));
   rclcpp::Time last_direct_sequence_publish = this->now();
@@ -427,8 +429,9 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
           return;
         }
         publish_direct_sequence_segment();
-      } else if ((this->now() - last_direct_sequence_publish).seconds() >
-                 republish_period.seconds()) {
+      } else if (republish_direct_sequence &&
+                 (this->now() - last_direct_sequence_publish).seconds() >
+                     republish_period.seconds()) {
         publish_direct_sequence_segment();
       }
     } else if (direct_mode_) {
