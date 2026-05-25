@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <future>
 #include <thread>
 
 #include <tf2/LinearMath/Quaternion.h>
@@ -41,6 +42,10 @@ CoveragePlannerNode::CoveragePlannerNode()
       this->declare_parameter<double>("default_boundary_inset_m", 0.0);
   waypoint_tolerance_m_ =
       this->declare_parameter<double>("waypoint_tolerance_m", 2.0);
+  direct_cruise_speed_mps_ =
+      this->declare_parameter<double>("direct_cruise_speed_mps", 2.0);
+  execution_mode_ =
+      this->declare_parameter<std::string>("execution_mode", "direct");
   publish_visualizations_ =
       this->declare_parameter<bool>("publish_visualizations", true);
 
@@ -123,13 +128,20 @@ rclcpp_action::GoalResponse CoveragePlannerNode::handle_goal(
                 "Rejecting CoverageTask goal: line_spacing_m must be > 0");
     return rclcpp_action::GoalResponse::REJECT;
   }
+  if (goal->orientation_mode > CoverageParams::kOrientFixed) {
+    RCLCPP_WARN(this->get_logger(),
+                "Rejecting CoverageTask goal: orientation_mode must be 0 "
+                "(face path), 1 (aligned to sweep), or 2 (fixed); got %u",
+                goal->orientation_mode);
+    return rclcpp_action::GoalResponse::REJECT;
+  }
   task_active_ = true;
   RCLCPP_INFO(this->get_logger(),
               "Accepted CoverageTask: %zu-vertex polygon, spacing=%.2fm, "
-              "heading=%.1fdeg, alt=[%.1f,%.1f]m AGL",
+              "heading=%.1fdeg, orient_mode=%u, alt=[%.1f,%.1f]m AGL",
               goal->coverage_area.points.size(), line_spacing,
-              goal->heading_deg, goal->min_altitude_agl,
-              goal->max_altitude_agl);
+              goal->heading_deg, goal->orientation_mode,
+              goal->min_altitude_agl, goal->max_altitude_agl);
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -211,18 +223,40 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
               "Generated coverage path: %zu waypoints, %.1fm total length",
               waypoints.size(), path_len_m);
 
-  // ---- Try local planner first, fall back to direct mode -----------
-  direct_mode_ = false;
-  if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
-    RCLCPP_WARN(this->get_logger(), "NavigateTask action server not available; "
-                                    "using direct trajectory override");
-    direct_mode_ = true;
+  // ---- Execute path -------------------------------------------------
+  const std::string mode = execution_mode_;
+  const bool force_direct = mode == "direct" || mode == "trajectory_override";
+  const bool force_navigate = mode == "navigate" || mode == "local_planner";
+  if (!force_direct && !force_navigate && mode != "auto") {
+    RCLCPP_WARN(this->get_logger(),
+                "Unknown execution_mode='%s'; using 'auto'", mode.c_str());
+  }
+
+  direct_mode_ = force_direct;
+  if (!force_direct) {
+    const bool navigate_available =
+        navigate_client_->wait_for_action_server(std::chrono::seconds(2));
+    if (!navigate_available) {
+      if (force_navigate) {
+        RCLCPP_WARN(this->get_logger(),
+                    "NavigateTask action server not available; cannot execute "
+                    "coverage path in execution_mode='%s'",
+                    execution_mode_.c_str());
+        finalize(false, "NavigateTask action server not available", 0.0f);
+        return;
+      }
+      RCLCPP_WARN(this->get_logger(), "NavigateTask action server not available; "
+                                      "using direct trajectory override");
+      direct_mode_ = true;
+    }
   }
 
   if (direct_mode_) {
-    // Bypass local planner: publish trajectory override directly
-    const double velocity = 2.0; // m/s cruise speed
-    set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::TRACK);
+    const double velocity = select_cruise_speed(*goal);
+    if (!set_trajectory_mode(airstack_msgs::srv::TrajectoryMode::Request::TRACK)) {
+      finalize(false, "set_trajectory_mode(TRACK) failed", 0.0f);
+      return;
+    }
     send_trajectory_override(waypoints, velocity);
   } else {
     send_navigate_goal(ros_path, waypoint_tolerance_m_);
@@ -330,6 +364,8 @@ CoveragePlannerNode::plan_coverage(const CoverageTask::Goal &goal) const {
   params.line_spacing_m = goal.line_spacing_m > 0.0f ? goal.line_spacing_m
                                                      : default_line_spacing_m_;
   params.heading_deg = goal.heading_deg;
+  params.orientation_mode = goal.orientation_mode;
+  params.orientation_deg = goal.orientation_deg;
   params.boundary_inset_m = default_boundary_inset_m_;
 
   // Pick the midpoint of the requested altitude band. CoverageTask
@@ -457,8 +493,25 @@ bool CoveragePlannerNode::set_trajectory_mode(int32_t mode) {
       std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
   request->mode = mode;
   auto future = traj_mode_client_->async_send_request(request);
-  future.wait();
+  if (future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+    RCLCPP_ERROR(this->get_logger(),
+                 "set_trajectory_mode service did not respond");
+    return false;
+  }
   return future.get()->success;
+}
+
+double CoveragePlannerNode::select_cruise_speed(
+    const CoverageTask::Goal &goal) const {
+  const double min_speed = static_cast<double>(goal.min_flight_speed);
+  const double max_speed = static_cast<double>(goal.max_flight_speed);
+  if (min_speed > 0.0 && max_speed >= min_speed) {
+    return 0.5 * (min_speed + max_speed);
+  }
+  if (max_speed > 0.0) {
+    return max_speed;
+  }
+  return std::max(0.1, direct_cruise_speed_mps_);
 }
 
 // ---------------------------------------------------------------------------
@@ -471,7 +524,6 @@ void CoveragePlannerNode::send_trajectory_override(
   traj.header.stamp = this->now();
   traj.header.frame_id = world_frame_id_;
 
-  // Time between waypoints based on spacing and velocity
   for (std::size_t i = 0; i < waypoints.size(); ++i) {
     airstack_msgs::msg::WaypointXYZVYaw wp;
     wp.position.x = waypoints[i].x;
@@ -485,7 +537,7 @@ void CoveragePlannerNode::send_trajectory_override(
   pub_traj_override_->publish(traj);
   RCLCPP_INFO(this->get_logger(),
               "Published trajectory override with %zu waypoints at %.1f m/s",
-              waypoints.size(), velocity);
+              traj.waypoints.size(), velocity);
 }
 
 } // namespace coverage_planner

@@ -153,7 +153,7 @@ ros2 action send_goal /robot_1/tasks/exploration task_msgs/action/ExplorationTas
 
 **File:** `action/CoverageTask.action`
 **Action server:** `/{robot_name}/tasks/coverage`
-**Implemented by:** *(not yet implemented)*
+**Implemented by:** `coverage_planner`
 
 Perform a systematic lawnmower-pattern coverage survey of a polygonal area. Completes when the entire area has been overflown.
 
@@ -164,10 +164,12 @@ Perform a systematic lawnmower-pattern coverage survey of a polygonal area. Comp
 | `coverage_area` | geometry_msgs/Polygon | Polygon defining the area to cover |
 | `min_altitude_agl` | float32 | Minimum flight altitude above ground (m) |
 | `max_altitude_agl` | float32 | Maximum flight altitude above ground (m) |
-| `min_flight_speed` | float32 | Minimum flight speed (m/s) |
-| `max_flight_speed` | float32 | Maximum flight speed (m/s) |
+| `min_flight_speed` | float32 | Minimum flight speed (m/s); direct coverage execution uses the midpoint of min/max when both are set |
+| `max_flight_speed` | float32 | Maximum flight speed (m/s); direct coverage execution uses this if min is unset |
 | `line_spacing_m` | float32 | Distance between parallel coverage passes (m) |
-| `heading_deg` | float32 | Direction of coverage passes in degrees (0 = north) |
+| `heading_deg` | float32 | Direction of coverage passes in degrees, CCW from +X / east |
+| `orientation_mode` | uint8 | Yaw policy: `0` face path, `1` aligned to sweep direction, `2` fixed |
+| `orientation_deg` | float32 | Fixed yaw angle in degrees, CCW from +X / east, used when `orientation_mode=2` |
 
 #### Result
 

@@ -59,6 +59,7 @@ private:
   void send_trajectory_override(const std::vector<Waypoint> &waypoints,
                                 double velocity);
   bool set_trajectory_mode(int32_t mode);
+  double select_cruise_speed(const CoverageTask::Goal &goal) const;
   void
   tracking_point_callback(const airstack_msgs::msg::Odometry::SharedPtr msg);
 
@@ -73,6 +74,8 @@ private:
   double default_line_spacing_m_{5.0};
   double default_boundary_inset_m_{0.0};
   double waypoint_tolerance_m_{2.0};
+  double direct_cruise_speed_mps_{2.0};
+  std::string execution_mode_{"direct"};
   bool publish_visualizations_{true};
 
   // ---- Runtime state ------------------------------------------------

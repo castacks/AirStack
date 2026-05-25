@@ -11,6 +11,7 @@
 #include <QMetaObject>
 #include <QTabBar>
 #include <QTime>
+#include <algorithm>
 #include <pluginlib/class_list_macros.hpp>
 #include <rviz_common/display_context.hpp>
 #include <set>
@@ -55,6 +56,9 @@ std::vector<TaskTypeDef> TasksPanel::getTaskDefs()
       {"max_flight_speed", "float32", 3.0, 0.0, 50.0},
       {"line_spacing_m", "float32", 5.0, 0.1, 1000.0},
       {"heading_deg", "float32", 0.0, 0.0, 360.0},
+      // 0=tangent along path; 1=parallel to sweep (heading_deg); 2=fixed orientation_deg
+      {"orientation_mode", "int32", 0, 0, 2},
+      {"orientation_deg", "float32", 0.0, -360.0, 360.0},
     }, true},
     {"Semantic Search", "tasks/semantic_search", {
       {"query", "string", 0, 0, 0},
@@ -1079,6 +1083,9 @@ void TasksPanel::onExecuteClicked()
       goal.max_flight_speed = getFloat(5, "max_flight_speed");
       goal.line_spacing_m = getFloat(5, "line_spacing_m");
       goal.heading_deg = getFloat(5, "heading_deg");
+      goal.orientation_mode =
+          static_cast<uint8_t>(std::clamp(getInt(5, "orientation_mode"), 0, 2));
+      goal.orientation_deg = getFloat(5, "orientation_deg");
       doSendGoal<task_msgs::action::CoverageTask>(5, goal,
         [](const auto & fb) {
           return QString("status: %1 | progress: %2 | coverage: %3% | pos: (%4, %5, %6)")

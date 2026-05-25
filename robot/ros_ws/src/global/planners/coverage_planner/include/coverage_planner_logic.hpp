@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -51,6 +52,16 @@ struct CoverageParams {
     // Direction of the sweep lines (degrees, CCW from +X / east).
     // Successive passes are perpendicular to this direction.
     double heading_deg{0.0};
+
+    // Waypoint yaw policy (matches task_msgs CoverageTask.orientation_mode).
+    static constexpr uint8_t kOrientFacePath = 0;
+    static constexpr uint8_t kOrientAlignedToSweep = 1;
+    static constexpr uint8_t kOrientFixed = 2;
+
+    uint8_t orientation_mode{0};
+
+    // World yaw for kOrientFixed (degrees), same convention as heading_deg.
+    double orientation_deg{0.0};
 
     // If true, the first waypoint is the polygon entry point closest
     // to the start pose (reduces deadhead flight). If false, the

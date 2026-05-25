@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <queue>
+#include <utility>
 
 namespace coverage_planner {
 
@@ -15,7 +17,51 @@ namespace {
 
 constexpr double kEps = 1e-9;
 
-// Rotate a polygon by angle_rad about the origin.
+constexpr double kCoordEpsRel = 1e-12;
+constexpr double kCoordEpsAbs = 1e-10;
+
+inline double hypot2(const Point2D& u, const Point2D& v) {
+    const double dx = u.x - v.x;
+    const double dy = u.y - v.y;
+    return dx * dx + dy * dy;
+}
+
+inline double hypot_len(const Point2D& u, const Point2D& v) {
+    return std::hypot(u.x - v.x, u.y - v.y);
+}
+
+double point_segment_distance_squared(const Point2D& p, const Point2D& a,
+                                      const Point2D& b) {
+    const double vx = b.x - a.x;
+    const double vy = b.y - a.y;
+    const double wx = p.x - a.x;
+    const double wy = p.y - a.y;
+    const double vv = vx * vx + vy * vy;
+    if (vv < kCoordEpsAbs * kCoordEpsAbs)
+        return hypot2(p, a);
+    double t = (wx * vx + wy * vy) / vv;
+    t = std::clamp(t, 0.0, 1.0);
+    const double sx = a.x + t * vx - p.x;
+    const double sy = a.y + t * vy - p.y;
+    return sx * sx + sy * sy;
+}
+
+// True if closed segment ab contains p within tolerance (for boundary tests).
+bool point_on_closed_segment_tol(const Point2D& p, const Point2D& a,
+                                 const Point2D& b) {
+    // Cross product ~= 0 AND projection within [min,max].
+    const double cross = std::fabs((p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x));
+    const double lx = std::max(std::fabs(b.x - a.x), std::fabs(b.y - a.y));
+    const double tol_cross = std::max(kCoordEpsAbs * std::max(1.0, lx), lx * kCoordEpsRel);
+    if (cross > tol_cross)
+        return false;
+    const double minx = std::min(a.x, b.x) - kCoordEpsAbs;
+    const double maxx = std::max(a.x, b.x) + kCoordEpsAbs;
+    const double miny = std::min(a.y, b.y) - kCoordEpsAbs;
+    const double maxy = std::max(a.y, b.y) + kCoordEpsAbs;
+    return p.x >= minx && p.x <= maxx && p.y >= miny && p.y <= maxy;
+}
+
 Polygon2D rotate_polygon(const Polygon2D& polygon, double angle_rad) {
     Polygon2D out;
     out.reserve(polygon.size());
@@ -131,6 +177,245 @@ Polygon2D inset_polygon(const Polygon2D& polygon, double inset) {
     return out;
 }
 
+double boundary_tol_squared_threshold(const Polygon2D& poly) {
+    const BBox box = bbox(poly);
+    const double span =
+        std::max(box.x_max - box.x_min, box.y_max - box.y_min);
+    return std::max(
+        100.0 * kCoordEpsAbs * kCoordEpsAbs * std::max(1.0, span), 1e-12);
+}
+
+bool point_in_polygon_closed(const Point2D& p, const Polygon2D& poly) {
+    const std::size_t n = poly.size();
+    if (n < 3) return false;
+
+    const BBox box = bbox(poly);
+    const double span = std::max(box.x_max - box.x_min, box.y_max - box.y_min);
+    const double boundary_tol =
+        std::max(5.0 * kCoordEpsAbs * std::max(1.0, span / 1024.0), 5e-7);
+    const double boundary_tol_sq = boundary_tol * boundary_tol;
+
+    for (std::size_t i = 0; i < n; ++i) {
+        const Point2D& a = poly[i];
+        const Point2D& b = poly[(i + 1) % n];
+        if (point_on_closed_segment_tol(p, a, b)) return true;
+        if (point_segment_distance_squared(p, a, b) <= boundary_tol_sq) return true;
+    }
+
+    bool inside = false;
+    for (std::size_t i = 0, j = n - 1; i < n; j = i++) {
+        const Point2D& pi = poly[i];
+        const Point2D& pj = poly[j];
+        if (std::abs(pi.y - pj.y) < kCoordEpsAbs &&
+            std::abs(p.y - pi.y) < kCoordEpsAbs) {
+            continue;  // ignore almost-horizontal grazing at this latitude
+        }
+        const bool intersect = ((pi.y > p.y) != (pj.y > p.y)) &&
+                               (p.x < (pj.x - pi.x) * (double(p.y) - pi.y) /
+                                                 ((pj.y - pi.y) + kCoordEpsAbs) +
+                                    pi.x);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+bool chord_fully_inside_polygon(const Point2D& a, const Point2D& b,
+                                const Polygon2D& poly, double sample_spacing) {
+    if (!point_in_polygon_closed(a, poly) || !point_in_polygon_closed(b, poly))
+        return false;
+    const double len = hypot_len(a, b);
+    if (len < boundary_tol_squared_threshold(poly))
+        return point_in_polygon_closed({(a.x + b.x) * 0.5, (a.y + b.y) * 0.5},
+                                       poly);
+
+    const int divisions =
+        static_cast<int>(std::ceil(len / std::max(sample_spacing, 1e-6))) + 1;
+    const int steps = std::clamp(divisions, 8, 2048);
+    for (int i = 1; i < steps; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(steps);
+        Point2D q{a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)};
+        if (!point_in_polygon_closed(q, poly)) return false;
+    }
+    return true;
+}
+
+// Shortest 2D path inside a simple polygon using a visibility graph over
+// polygon vertices plus the two endpoints. Used to replace inter-row
+// shortcuts that would leave a concave polygon.
+std::optional<std::vector<Point2D>> shortest_path_in_polygon(
+    const Point2D& from,
+    const Point2D& to,
+    const Polygon2D& poly,
+    double sample_spacing) {
+    if (!point_in_polygon_closed(from, poly) ||
+        !point_in_polygon_closed(to, poly))
+        return std::nullopt;
+    if (hypot2(from, to) < boundary_tol_squared_threshold(poly))
+        return std::vector<Point2D>{from, to};
+    if (chord_fully_inside_polygon(from, to, poly, sample_spacing))
+        return std::vector<Point2D>{from, to};
+
+    std::vector<Point2D> nodes;
+    nodes.reserve(poly.size() + 2);
+    for (const auto& v : poly) nodes.push_back(v);
+    nodes.push_back(from);
+    nodes.push_back(to);
+    const std::size_t nv = nodes.size();
+    const std::size_t i_from = nv - 2;
+    const std::size_t i_to = nv - 1;
+
+    const double INF = std::numeric_limits<double>::infinity();
+    std::vector<double> dist(nv, INF);
+    std::vector<int> prev(static_cast<int>(nv), -1);
+    using QItem = std::pair<double, std::size_t>;
+    std::priority_queue<QItem, std::vector<QItem>, std::greater<QItem>> pq;
+    dist[i_from] = 0.0;
+    pq.push({0.0, i_from});
+
+    auto try_relax = [&](std::size_t u, std::size_t v) {
+        const double du = hypot_len(nodes[u], nodes[v]);
+        if (!chord_fully_inside_polygon(nodes[u], nodes[v], poly,
+                                         sample_spacing))
+            return;
+        const double cand = dist[u] + du;
+        if (cand + kEps < dist[v]) {
+            dist[v] = cand;
+            prev[v] = static_cast<int>(u);
+            pq.push({cand, v});
+        }
+    };
+
+    while (!pq.empty()) {
+        auto [du, u] = pq.top();
+        pq.pop();
+        if (du > dist[u] + kEps) continue;
+        if (u == i_to) break;
+        for (std::size_t v = 0; v < nv; ++v) {
+            if (v == u) continue;
+            try_relax(u, v);
+        }
+    }
+
+    if (!(dist[i_to] < INF)) {
+        // Sampling-based visibility occasionally misses portals; fall back to
+        // chains through polygon vertices before giving up entirely.
+        double best_one = INF;
+        std::size_t best_k_one = poly.size();
+        for (std::size_t k = 0; k < poly.size(); ++k) {
+            const Point2D& vk = poly[k];
+            if (!chord_fully_inside_polygon(from, vk, poly, sample_spacing))
+                continue;
+            if (!chord_fully_inside_polygon(vk, to, poly, sample_spacing))
+                continue;
+            const double cost = hypot_len(from, vk) + hypot_len(vk, to);
+            if (cost < best_one) {
+                best_one = cost;
+                best_k_one = k;
+            }
+        }
+
+        double best_two = INF;
+        std::size_t best_k2 = poly.size();
+        std::size_t best_m2 = poly.size();
+        for (std::size_t k = 0; k < poly.size(); ++k) {
+            for (std::size_t m = 0; m < poly.size(); ++m) {
+                const Point2D& vk = poly[k];
+                const Point2D& vm = poly[m];
+                if (!chord_fully_inside_polygon(from, vk, poly,
+                                                sample_spacing) ||
+                    !chord_fully_inside_polygon(vk, vm, poly, sample_spacing) ||
+                    !chord_fully_inside_polygon(vm, to, poly, sample_spacing))
+                    continue;
+                const double cost = hypot_len(from, vk) + hypot_len(vk, vm) +
+                                      hypot_len(vm, to);
+                if (cost < best_two) {
+                    best_two = cost;
+                    best_k2 = k;
+                    best_m2 = m;
+                }
+            }
+        }
+
+        if (best_one < INF &&
+            (best_two >= INF || best_one <= best_two + kEps)) {
+            return std::vector<Point2D>{from, poly[best_k_one], to};
+        }
+        if (best_two < INF) {
+            return std::vector<Point2D>{from, poly[best_k2], poly[best_m2], to};
+        }
+        return std::nullopt;
+    }
+
+    std::vector<Point2D> out_rev;
+    for (std::size_t cur = i_to;;) {
+        out_rev.push_back(nodes[cur]);
+        const int pv = prev[cur];
+        if (pv < 0) break;
+        cur = static_cast<std::size_t>(pv);
+    }
+    std::reverse(out_rev.begin(), out_rev.end());
+    // Remove duplicate successive points (epsilon).
+    std::vector<Point2D> cleaned;
+    cleaned.reserve(out_rev.size());
+    for (const auto& q : out_rev) {
+        if (cleaned.empty() ||
+            hypot2(cleaned.back(), q) > boundary_tol_squared_threshold(poly))
+            cleaned.push_back(q);
+    }
+    return cleaned;
+}
+
+bool append_bridged(std::vector<Point2D>* path_ptr,
+                    const Point2D& next,
+                    const Polygon2D& poly,
+                    double sample_spacing) {
+    auto& path = *path_ptr;
+    if (path.empty()) {
+        path.push_back(next);
+        return point_in_polygon_closed(next, poly);
+    }
+    const Point2D& prev = path.back();
+    if (hypot2(prev, next) < boundary_tol_squared_threshold(poly))
+        return true;
+    std::optional<std::vector<Point2D>> seg;
+    if (chord_fully_inside_polygon(prev, next, poly, sample_spacing))
+        seg = std::vector<Point2D>{prev, next};
+    else
+        seg = shortest_path_in_polygon(prev, next, poly, sample_spacing);
+    if (!seg || seg->size() < 2) return false;
+    const double dedupe2 = boundary_tol_squared_threshold(poly);
+    for (std::size_t i = 1; i < seg->size(); ++i) {
+        if (hypot2(path.back(), (*seg)[i]) > dedupe2) path.push_back((*seg)[i]);
+    }
+    return true;
+}
+
+// Yaw for travelling prev→p under orientation_mode (REP-103 yaw about +Z).
+double segment_yaw_rad(double tangent_rad,
+                       uint8_t orientation_mode,
+                       double heading_rad,
+                       double fixed_rad) {
+    switch (orientation_mode) {
+        case CoverageParams::kOrientAlignedToSweep: {
+            const double ctx = std::cos(tangent_rad);
+            const double sty = std::sin(tangent_rad);
+            const double ch = std::cos(heading_rad);
+            const double sh = std::sin(heading_rad);
+            const bool forward = ch * ctx + sh * sty >= 0.0;
+            double y = forward ? heading_rad : heading_rad + M_PI;
+            if (y > M_PI)
+                y -= 2.0 * M_PI;
+            else if (y < -M_PI)
+                y += 2.0 * M_PI;
+            return y;
+        }
+        case CoverageParams::kOrientFixed:
+            return fixed_rad;
+        default:
+            return tangent_rad;
+    }
+}
+
 }  // namespace
 
 Point2D rotate(const Point2D& p, double angle_rad) {
@@ -228,26 +513,42 @@ std::optional<std::vector<Waypoint>> generate_coverage_path(
         }
     }
 
-    // Step 5: rotate back to world frame, compute yaw from each segment
-    // direction, and emit waypoints.
+    // Step 5: stitch sweep rows inside the rotated polygon (concave-safe
+    // row-to-row bridging), rotate to world, and apply orientation policy.
+    const double bx = b.x_max - b.x_min;
+    const double by = b.y_max - b.y_min;
+    const double diag_bbox =
+        std::hypot(std::max(bx, kEps), std::max(by, kEps));
+    const double chord_spacing = std::clamp(
+        std::min(params.line_spacing_m * 0.2, diag_bbox / 500.0), 0.05, 2.0);
+
+    std::vector<Point2D> rot_path;
+    rot_path.reserve(rows.size() * 8);
+    for (const auto& row : rows) {
+        for (const auto& pr : row) {
+            if (!append_bridged(&rot_path, pr, rotated, chord_spacing))
+                return std::nullopt;
+        }
+    }
+
     std::vector<Waypoint> path;
-    path.reserve(rows.size() * 2);
+    path.reserve(rot_path.size());
     Point2D prev{0.0, 0.0};
     bool has_prev = false;
-    for (const auto& row : rows) {
-        for (const auto& p_rot : row) {
-            const Point2D p = rotate(p_rot, heading_rad);
-            double yaw = 0.0;
-            if (has_prev) {
-                yaw = std::atan2(p.y - prev.y, p.x - prev.x);
-                // Fix up the yaw of the previously pushed waypoint so
-                // it points toward the current one.
-                path.back().yaw = yaw;
-            }
-            path.push_back({p.x, p.y, params.altitude_m, yaw});
-            prev = p;
-            has_prev = true;
+    const double fixed_rad = params.orientation_deg * M_PI / 180.0;
+    for (const auto& p_rot : rot_path) {
+        const Point2D p = rotate(p_rot, heading_rad);
+        double yaw = 0.0;
+        if (has_prev) {
+            const double tangent_rad =
+                std::atan2(p.y - prev.y, p.x - prev.x);
+            yaw = segment_yaw_rad(tangent_rad, params.orientation_mode,
+                                  heading_rad, fixed_rad);
+            path.back().yaw = yaw;
         }
+        path.push_back({p.x, p.y, params.altitude_m, yaw});
+        prev = p;
+        has_prev = true;
     }
     return path;
 }

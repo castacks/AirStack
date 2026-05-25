@@ -1,6 +1,6 @@
 # Coverage Planner
 
-A 2D boustrophedon ("lawn-mower") global planner for systematic area surveys. Given a polygonal coverage area, a line spacing, and a heading direction, the planner generates a waypoint path that sweeps the polygon in back-and-forth passes and delegates execution to the local planner via `NavigateTask`.
+A 2D boustrophedon ("lawn-mower") global planner for systematic area surveys. Given a polygonal coverage area, a line spacing, and a heading direction, the planner generates a waypoint path that sweeps the polygon in back-and-forth passes and executes it either as a direct trajectory-controller override or through the local planner via `NavigateTask`.
 
 ## Overview
 
@@ -17,9 +17,12 @@ flowchart LR
     A[CoverageTask goal<br/>polygon, spacing, heading] --> B[coverage_planner_logic<br/>boustrophedon sweep]
     B --> C[nav_msgs/Path]
     C --> D[publish ~/global_plan]
-    C --> E[NavigateTask action<br/>to local planner]
-    E --> F[droan_local_planner]
-    F --> G[trajectory_controller]
+    C --> E{execution_mode}
+    E -->|direct| F[trajectory_override<br/>TRACK mode]
+    E -->|navigate/auto| G[NavigateTask action<br/>to local planner]
+    G --> H[droan_local_planner]
+    F --> I[trajectory_controller]
+    H --> I
 ```
 
 ## Algorithm Details
@@ -61,9 +64,9 @@ This node is a **task executor**: it runs as a ROS 2 action server and is activa
 ```text
 behavior_executive  →  CoverageTask  →  coverage_planner
                                             ↓
-                                  NavigateTask (/{robot_name}/tasks/navigate)
-                                            ↓
-                                     droan_local_planner
+                                  trajectory_override (direct, default)
+                                            │
+                                            └─ or NavigateTask → local planner
                                             ↓
                                     trajectory_controller
 ```
@@ -75,8 +78,8 @@ behavior_executive  →  CoverageTask  →  coverage_planner
 | `coverage_area` | `geometry_msgs/Polygon` | Polygon to cover (≥ 3 vertices, x/y used) |
 | `min_altitude_agl` | float32 | Minimum flight altitude (m AGL) |
 | `max_altitude_agl` | float32 | Maximum flight altitude (m AGL) — midpoint is used |
-| `min_flight_speed` | float32 | Minimum flight speed (m/s) — passed through for future use |
-| `max_flight_speed` | float32 | Maximum flight speed (m/s) — passed through for future use |
+| `min_flight_speed` | float32 | Minimum flight speed (m/s); direct mode uses the midpoint of min/max when both are set |
+| `max_flight_speed` | float32 | Maximum flight speed (m/s); direct mode uses this if min is unset |
 | `line_spacing_m` | float32 | Perpendicular distance between sweep lines (m); ≤ 0 falls back to the config default |
 | `heading_deg` | float32 | Direction of sweep passes (degrees, CCW from +X) |
 
@@ -84,7 +87,7 @@ behavior_executive  →  CoverageTask  →  coverage_planner
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `status` | string | `"surveying"` while the local planner is active, `"complete"` otherwise |
+| `status` | string | `"surveying (direct)"` in direct mode, `"surveying"` while NavigateTask is active, `"complete"` otherwise |
 | `progress` | float32 | Fraction of waypoints passed (0.0–1.0) |
 | `coverage_percentage` | float32 | `progress * 100` |
 | `current_position` | `geometry_msgs/Point` | Latest odometry position |
@@ -93,7 +96,7 @@ behavior_executive  →  CoverageTask  →  coverage_planner
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `success` | bool | True when the local planner reports the final waypoint reached |
+| `success` | bool | True when the direct trajectory reaches the final waypoint or the local planner reports success |
 | `message` | string | Human-readable status (`"Coverage complete"`, `"Task cancelled"`, …) |
 | `coverage_percentage` | float32 | Coverage at termination |
 
@@ -132,6 +135,8 @@ All defaults live in `config/coverage_planner_config.yaml`.
 | `default_line_spacing_m` | `5.0` | Fallback line spacing when goal's `line_spacing_m ≤ 0` |
 | `default_boundary_inset_m` | `0.0` | Safety inset applied to the polygon before sweeping (m) |
 | `waypoint_tolerance_m` | `2.0` | `goal_tolerance_m` passed to the downstream `NavigateTask` |
+| `direct_cruise_speed_mps` | `2.0` | Fallback direct trajectory speed when the goal does not provide usable speed bounds |
+| `execution_mode` | `direct` | `direct` sends the lawnmower path to `trajectory_override`; `auto` tries `NavigateTask` then direct; `navigate` requires the local planner |
 | `publish_visualizations` | `true` | Publish RViz markers for the generated path |
 
 ## Subscriptions
@@ -144,25 +149,26 @@ All defaults live in `config/coverage_planner_config.yaml`.
 
 | Topic | Type | Description |
 | ----- | ---- | ----------- |
-| `~/global_plan` | `nav_msgs/Path` | Generated coverage path (also sent as a `NavigateTask` goal) |
+| `~/global_plan` | `nav_msgs/Path` | Generated coverage path for visualization and optional local-planner execution |
 | `~/coverage_path_viz` | `visualization_msgs/Marker` | RViz line strip of the path |
 | `~/coverage_area_viz` | `visualization_msgs/Marker` | RViz polygon marker for the coverage area |
+| `trajectory_override` | `airstack_msgs/TrajectoryXYZVYaw` | Direct controller trajectory used when `execution_mode=direct` or direct fallback is selected |
 
 ## Actions
 
 | Name | Direction | Type | Purpose |
 | ---- | --------- | ---- | ------- |
 | `~/coverage_task` | server | `task_msgs/action/CoverageTask` | Accepts survey goals from behavior layer |
-| `navigate_task` | client | `task_msgs/action/NavigateTask` | Delegates waypoint tracking to local planner |
+| `navigate_task` | client | `task_msgs/action/NavigateTask` | Delegates waypoint tracking to local planner when `execution_mode=auto` or `navigate` |
 
 ---
 
 ## Limitations & Future Work
 
-- **Obstacle awareness:** the current implementation does not consult the occupancy map when generating the sweep path. Collision avoidance along the coverage path is delegated entirely to the local planner (`droan_local_planner`). An optional VDB-map collision check can be added analogous to `random_walk_planner` for ensuring waypoint validity up-front.
+- **Obstacle awareness:** the current implementation does not consult the occupancy map when generating the sweep path. In `direct` mode the planned path is tracked as-is; use `execution_mode=auto` or `navigate` when local-planner obstacle avoidance is required.
 - **Non-convex polygons:** simple non-convex polygons are handled via the pair-intersection fallback, but the result may not be optimal. A full boustrophedon cell decomposition (BCD) would produce better coverage for complex polygons.
 - **Altitude AGL conversion:** the CoverageTask action specifies altitude relative to ground; this planner currently treats it as world-z. Terrain-aware altitude is a TODO once a ground-height source is plumbed into the global layer.
-- **Speed limits:** `min_flight_speed` / `max_flight_speed` from the goal are accepted but not yet applied to the trajectory. The local planner / trajectory controller determines speed.
+- **Speed limits:** `min_flight_speed` / `max_flight_speed` are applied in direct mode. In NavigateTask mode, the local planner / trajectory controller determines segment speeds.
 
 ## Reference
 

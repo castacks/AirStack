@@ -79,7 +79,7 @@ in the air.
 | Land | `LandTask` | `velocity_m_s` | ✓ |
 | Navigate | `NavigateTask` | `global_plan` (Path), `goal_tolerance_m` | ✓ |
 | Exploration | `ExplorationTask` | `search_bounds` (Polygon), altitude/speed, `time_limit_sec` | ✓ |
-| Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg` | ✓ |
+| Coverage | `CoverageTask` | `coverage_area` (Polygon), `line_spacing_m`, `heading_deg`, `orientation_mode`, `orientation_deg` | ✓ |
 | Semantic Search | `SemanticSearchTask` | `query`, `search_area`, `confidence_threshold`, `target_count` | ✓ |
 | Chat | `ChatTask` | `text`, `images` (file upload) | |
 | Fixed Trajectory | `FixedTrajectoryTask` | `trajectory_spec`, `loop` | ✓ |

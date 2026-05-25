@@ -1,5 +1,6 @@
 # Perform a systematic coverage survey of a polygonal area.
-# heading_deg: direction of coverage passes (degrees, 0 = north)
+# heading_deg / orientation_deg: degrees about +Z (REP-103 yaw), CCW from +X ("east").
+# orientation_mode selects how waypoint yaw is set along the planned path.
 
 # Goal
 geometry_msgs/Polygon coverage_area
@@ -9,6 +10,11 @@ float32 min_flight_speed
 float32 max_flight_speed
 float32 line_spacing_m
 float32 heading_deg
+uint8 COVERAGE_ORIENTATION_FACE_PATH=0
+uint8 COVERAGE_ORIENTATION_ALIGNED_TO_SWEEP=1
+uint8 COVERAGE_ORIENTATION_FIXED=2
+uint8 orientation_mode
+float32 orientation_deg
 ---
 # Result
 bool success
