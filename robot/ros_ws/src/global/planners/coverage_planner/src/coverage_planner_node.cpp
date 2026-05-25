@@ -44,8 +44,6 @@ CoveragePlannerNode::CoveragePlannerNode()
       this->declare_parameter<double>("waypoint_tolerance_m", 2.0);
   direct_cruise_speed_mps_ =
       this->declare_parameter<double>("direct_cruise_speed_mps", 2.0);
-  direct_sequence_spacing_m_ =
-      this->declare_parameter<double>("direct_sequence_spacing_m", 0.75);
   direct_sequence_tolerance_m_ =
       this->declare_parameter<double>("direct_sequence_tolerance_m", 0.5);
   direct_sequence_republish_period_s_ = this->declare_parameter<double>(
@@ -281,8 +279,6 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
   std::size_t navigate_target_index = 0;
   std::vector<Waypoint> direct_sequence_targets;
   std::size_t direct_sequence_target_index = 0;
-  const double sequence_spacing =
-      std::max(0.1, direct_sequence_spacing_m_);
   const double sequence_tolerance =
       std::max(0.1, direct_sequence_tolerance_m_);
   const auto republish_period = rclcpp::Duration::from_seconds(
@@ -304,7 +300,7 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     std::vector<Waypoint> segment;
     segment.push_back(current_pose_waypoint());
     segment.push_back(direct_sequence_targets[direct_sequence_target_index]);
-    send_trajectory_override(segment, select_cruise_speed(*goal));
+    send_trajectory_override(segment, select_cruise_speed(*goal), false);
     last_direct_sequence_publish = this->now();
     RCLCPP_INFO(this->get_logger(),
                 "Dispatched direct coverage subgoal %zu/%zu",
@@ -316,26 +312,7 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     if (waypoints.empty()) {
       return;
     }
-    direct_sequence_targets.push_back(waypoints.front());
-    for (std::size_t i = 1; i < waypoints.size(); ++i) {
-      const auto &prev = waypoints[i - 1];
-      const auto &next = waypoints[i];
-      const double dx = next.x - prev.x;
-      const double dy = next.y - prev.y;
-      const double dz = next.z - prev.z;
-      const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-      const int steps =
-          std::max(1, static_cast<int>(std::ceil(dist / sequence_spacing)));
-      for (int step = 1; step <= steps; ++step) {
-        const double t = static_cast<double>(step) / static_cast<double>(steps);
-        Waypoint target;
-        target.x = prev.x + t * dx;
-        target.y = prev.y + t * dy;
-        target.z = prev.z + t * dz;
-        target.yaw = prev.yaw + t * (next.yaw - prev.yaw);
-        direct_sequence_targets.push_back(target);
-      }
-    }
+    direct_sequence_targets = waypoints;
   };
 
   auto build_segment_path = [&](std::size_t target_index) {
@@ -684,7 +661,7 @@ double CoveragePlannerNode::select_cruise_speed(
 // ---------------------------------------------------------------------------
 
 void CoveragePlannerNode::send_trajectory_override(
-    const std::vector<Waypoint> &waypoints, double velocity) {
+    const std::vector<Waypoint> &waypoints, double velocity, bool densify) {
   airstack_msgs::msg::TrajectoryXYZVYaw traj;
   traj.header.stamp = this->now();
   traj.header.frame_id = world_frame_id_;
@@ -699,36 +676,44 @@ void CoveragePlannerNode::send_trajectory_override(
     traj.waypoints.push_back(wp);
   };
 
-  constexpr double kMaxDirectSegmentLengthM = 0.75;
-  if (!waypoints.empty()) {
-    append_waypoint(waypoints.front());
-  }
+  if (densify) {
+    constexpr double kMaxDirectSegmentLengthM = 0.75;
+    if (!waypoints.empty()) {
+      append_waypoint(waypoints.front());
+    }
 
-  for (std::size_t i = 1; i < waypoints.size(); ++i) {
-    const auto &prev = waypoints[i - 1];
-    const auto &next = waypoints[i];
-    const double dx = next.x - prev.x;
-    const double dy = next.y - prev.y;
-    const double dz = next.z - prev.z;
-    const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-    const int steps =
-        std::max(1, static_cast<int>(std::ceil(dist / kMaxDirectSegmentLengthM)));
+    for (std::size_t i = 1; i < waypoints.size(); ++i) {
+      const auto &prev = waypoints[i - 1];
+      const auto &next = waypoints[i];
+      const double dx = next.x - prev.x;
+      const double dy = next.y - prev.y;
+      const double dz = next.z - prev.z;
+      const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+      const int steps = std::max(
+          1, static_cast<int>(std::ceil(dist / kMaxDirectSegmentLengthM)));
 
-    for (int step = 1; step <= steps; ++step) {
-      const double t = static_cast<double>(step) / static_cast<double>(steps);
-      Waypoint dense_wp;
-      dense_wp.x = prev.x + t * dx;
-      dense_wp.y = prev.y + t * dy;
-      dense_wp.z = prev.z + t * dz;
-      dense_wp.yaw = prev.yaw + t * (next.yaw - prev.yaw);
-      append_waypoint(dense_wp);
+      for (int step = 1; step <= steps; ++step) {
+        const double t =
+            static_cast<double>(step) / static_cast<double>(steps);
+        Waypoint dense_wp;
+        dense_wp.x = prev.x + t * dx;
+        dense_wp.y = prev.y + t * dy;
+        dense_wp.z = prev.z + t * dz;
+        dense_wp.yaw = prev.yaw + t * (next.yaw - prev.yaw);
+        append_waypoint(dense_wp);
+      }
+    }
+  } else {
+    for (const auto &waypoint : waypoints) {
+      append_waypoint(waypoint);
     }
   }
 
   pub_traj_override_->publish(traj);
   RCLCPP_INFO(this->get_logger(),
-              "Published densified trajectory override with %zu waypoints "
+              "Published %strajectory override with %zu waypoints "
               "from %zu coverage waypoints at %.1f m/s",
+              densify ? "densified " : "",
               traj.waypoints.size(), waypoints.size(), velocity);
 }
 

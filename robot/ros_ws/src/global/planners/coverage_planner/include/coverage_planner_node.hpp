@@ -57,7 +57,7 @@ private:
   void send_navigate_goal(const nav_msgs::msg::Path &path,
                           double goal_tolerance_m);
   void send_trajectory_override(const std::vector<Waypoint> &waypoints,
-                                double velocity);
+                                double velocity, bool densify = true);
   bool set_trajectory_mode(int32_t mode);
   double select_cruise_speed(const CoverageTask::Goal &goal) const;
   void
@@ -75,7 +75,6 @@ private:
   double default_boundary_inset_m_{0.0};
   double waypoint_tolerance_m_{2.0};
   double direct_cruise_speed_mps_{2.0};
-  double direct_sequence_spacing_m_{0.75};
   double direct_sequence_tolerance_m_{0.5};
   double direct_sequence_republish_period_s_{2.0};
   std::string execution_mode_{"direct"};
