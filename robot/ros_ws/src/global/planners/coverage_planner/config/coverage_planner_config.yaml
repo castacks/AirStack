@@ -13,10 +13,14 @@
     default_boundary_inset_m: 0.0     # shrink the polygon by this much before sweeping (m)
     waypoint_tolerance_m: 2.0         # goal_tolerance_m passed to the local planner (m)
     direct_cruise_speed_mps: 2.0      # fallback speed for direct trajectory override (m/s)
+    direct_sequence_spacing_m: 0.75    # spacing between direct sequential subgoals (m)
+    direct_sequence_tolerance_m: 0.5   # distance threshold for advancing subgoals (m)
+    direct_sequence_republish_period_s: 2.0  # refresh current subgoal if still active
 
     # ---- Behaviour ----------------------------------------------------
     # direct: send the lawnmower path to the trajectory controller as the actual reference
+    # direct_sequential: send short trajectory overrides one subgoal at a time
     # auto: use NavigateTask when available, otherwise fall back to direct
     # navigate: require the downstream local planner NavigateTask action
-    execution_mode: "navigate"
+    execution_mode: "direct_sequential"
     publish_visualizations: true      # publish RViz markers for the generated path

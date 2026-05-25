@@ -44,6 +44,12 @@ CoveragePlannerNode::CoveragePlannerNode()
       this->declare_parameter<double>("waypoint_tolerance_m", 2.0);
   direct_cruise_speed_mps_ =
       this->declare_parameter<double>("direct_cruise_speed_mps", 2.0);
+  direct_sequence_spacing_m_ =
+      this->declare_parameter<double>("direct_sequence_spacing_m", 0.75);
+  direct_sequence_tolerance_m_ =
+      this->declare_parameter<double>("direct_sequence_tolerance_m", 0.5);
+  direct_sequence_republish_period_s_ = this->declare_parameter<double>(
+      "direct_sequence_republish_period_s", 2.0);
   execution_mode_ =
       this->declare_parameter<std::string>("execution_mode", "direct");
   publish_visualizations_ =
@@ -226,14 +232,19 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
   // ---- Execute path -------------------------------------------------
   const std::string mode = execution_mode_;
   const bool force_direct = mode == "direct" || mode == "trajectory_override";
+  const bool force_direct_sequential =
+      mode == "direct_sequential" || mode == "direct_sequence" ||
+      mode == "sequential";
   const bool force_navigate = mode == "navigate" || mode == "local_planner";
-  if (!force_direct && !force_navigate && mode != "auto") {
+  if (!force_direct && !force_direct_sequential && !force_navigate &&
+      mode != "auto") {
     RCLCPP_WARN(this->get_logger(),
                 "Unknown execution_mode='%s'; using 'auto'", mode.c_str());
   }
 
-  direct_mode_ = force_direct;
-  if (!force_direct) {
+  direct_sequential_mode_ = force_direct_sequential;
+  direct_mode_ = force_direct || force_direct_sequential;
+  if (!direct_mode_) {
     const bool navigate_available =
         navigate_client_->wait_for_action_server(std::chrono::seconds(2));
     if (!navigate_available) {
@@ -257,13 +268,118 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
       finalize(false, "set_trajectory_mode(TRACK) failed", 0.0f);
       return;
     }
-    send_trajectory_override(waypoints, velocity);
+    if (!direct_sequential_mode_) {
+      send_trajectory_override(waypoints, velocity);
+    }
   } else {
-    send_navigate_goal(ros_path, waypoint_tolerance_m_);
+    navigate_goal_done_ = true;
+    navigate_goal_succeeded_ = true;
   }
 
   // ---- Monitor loop (publish feedback ~1 Hz) -----------------------
   rclcpp::Rate rate(1.0);
+  std::size_t navigate_target_index = 0;
+  std::vector<Waypoint> direct_sequence_targets;
+  std::size_t direct_sequence_target_index = 0;
+  const double sequence_spacing =
+      std::max(0.1, direct_sequence_spacing_m_);
+  const double sequence_tolerance =
+      std::max(0.1, direct_sequence_tolerance_m_);
+  const auto republish_period = rclcpp::Duration::from_seconds(
+      std::max(0.1, direct_sequence_republish_period_s_));
+  rclcpp::Time last_direct_sequence_publish = this->now();
+
+  auto current_pose_waypoint = [&]() {
+    Waypoint wp;
+    wp.x = current_pose_.position.x;
+    wp.y = current_pose_.position.y;
+    wp.z = current_pose_.position.z;
+    return wp;
+  };
+
+  auto publish_direct_sequence_segment = [&]() {
+    if (direct_sequence_target_index >= direct_sequence_targets.size()) {
+      return;
+    }
+    std::vector<Waypoint> segment;
+    segment.push_back(current_pose_waypoint());
+    segment.push_back(direct_sequence_targets[direct_sequence_target_index]);
+    send_trajectory_override(segment, select_cruise_speed(*goal));
+    last_direct_sequence_publish = this->now();
+    RCLCPP_INFO(this->get_logger(),
+                "Dispatched direct coverage subgoal %zu/%zu",
+                direct_sequence_target_index + 1,
+                direct_sequence_targets.size());
+  };
+
+  auto append_direct_sequence_targets = [&]() {
+    if (waypoints.empty()) {
+      return;
+    }
+    direct_sequence_targets.push_back(waypoints.front());
+    for (std::size_t i = 1; i < waypoints.size(); ++i) {
+      const auto &prev = waypoints[i - 1];
+      const auto &next = waypoints[i];
+      const double dx = next.x - prev.x;
+      const double dy = next.y - prev.y;
+      const double dz = next.z - prev.z;
+      const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+      const int steps =
+          std::max(1, static_cast<int>(std::ceil(dist / sequence_spacing)));
+      for (int step = 1; step <= steps; ++step) {
+        const double t = static_cast<double>(step) / static_cast<double>(steps);
+        Waypoint target;
+        target.x = prev.x + t * dx;
+        target.y = prev.y + t * dy;
+        target.z = prev.z + t * dz;
+        target.yaw = prev.yaw + t * (next.yaw - prev.yaw);
+        direct_sequence_targets.push_back(target);
+      }
+    }
+  };
+
+  auto build_segment_path = [&](std::size_t target_index) {
+    nav_msgs::msg::Path segment;
+    segment.header.stamp = this->now();
+    segment.header.frame_id = world_frame_id_;
+
+    geometry_msgs::msg::PoseStamped start;
+    start.header = segment.header;
+    start.pose = current_pose_;
+    segment.poses.push_back(start);
+
+    geometry_msgs::msg::PoseStamped target;
+    target.header = segment.header;
+    target.pose.position.x = waypoints[target_index].x;
+    target.pose.position.y = waypoints[target_index].y;
+    target.pose.position.z = waypoints[target_index].z;
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, waypoints[target_index].yaw);
+    target.pose.orientation.x = q.x();
+    target.pose.orientation.y = q.y();
+    target.pose.orientation.z = q.z();
+    target.pose.orientation.w = q.w();
+    segment.poses.push_back(target);
+    return segment;
+  };
+
+  if (!direct_mode_) {
+    if (waypoints.size() < 2) {
+      finalize(true, "Coverage complete", 100.0f);
+      return;
+    }
+    navigate_target_index = 1;
+    send_navigate_goal(build_segment_path(navigate_target_index),
+                       waypoint_tolerance_m_);
+  } else if (direct_sequential_mode_) {
+    append_direct_sequence_targets();
+    if (direct_sequence_targets.empty()) {
+      finalize(true, "Coverage complete (direct sequential mode)", 100.0f);
+      return;
+    }
+    publish_direct_sequence_segment();
+  }
+
   while (rclcpp::ok()) {
     if (cancel_requested_) {
       if (direct_mode_) {
@@ -299,7 +415,46 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     feedback->progress = std::clamp(frac, 0.0f, 1.0f);
     feedback->coverage_percentage = feedback->progress * 100.0f;
 
-    if (direct_mode_) {
+    if (direct_sequential_mode_) {
+      feedback->status = "surveying (direct sequential)";
+      if (direct_sequence_target_index >= direct_sequence_targets.size()) {
+        set_trajectory_mode(
+            airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+        finalize(true, "Coverage complete (direct sequential mode)", 100.0f);
+        RCLCPP_INFO(this->get_logger(),
+                    "CoverageTask succeeded (direct sequential mode)");
+        return;
+      }
+
+      const auto &target = direct_sequence_targets[direct_sequence_target_index];
+      const double dx = current_pose_.position.x - target.x;
+      const double dy = current_pose_.position.y - target.y;
+      const double dz = current_pose_.position.z - target.z;
+      const double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+      feedback->progress =
+          direct_sequence_targets.empty()
+              ? 0.0f
+              : static_cast<float>(direct_sequence_target_index) /
+                    static_cast<float>(direct_sequence_targets.size());
+      feedback->coverage_percentage = feedback->progress * 100.0f;
+
+      if (dist < sequence_tolerance) {
+        ++direct_sequence_target_index;
+        if (direct_sequence_target_index >= direct_sequence_targets.size()) {
+          set_trajectory_mode(
+              airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
+          finalize(true, "Coverage complete (direct sequential mode)", 100.0f);
+          RCLCPP_INFO(this->get_logger(),
+                      "CoverageTask succeeded (direct sequential mode)");
+          return;
+        }
+        publish_direct_sequence_segment();
+      } else if ((this->now() - last_direct_sequence_publish).seconds() >
+                 republish_period.seconds()) {
+        publish_direct_sequence_segment();
+      }
+    } else if (direct_mode_) {
       // In direct mode, check if tracking point is near the last waypoint
       feedback->status = "surveying (direct)";
       if (got_tracking_point_ && !waypoints.empty()) {
@@ -323,16 +478,26 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
       feedback->status = navigate_goal_done_ ? "complete" : "surveying";
       // Completion via NavigateTask
       if (navigate_goal_done_) {
-        if (navigate_goal_succeeded_) {
-          finalize(true, "Coverage complete", 100.0f);
-          RCLCPP_INFO(this->get_logger(), "CoverageTask succeeded");
-        } else {
-          finalize(false, "Local planner failed to complete coverage path",
+        if (!navigate_goal_succeeded_) {
+          finalize(false, "Local planner failed to complete coverage segment",
                    feedback->coverage_percentage);
           RCLCPP_WARN(this->get_logger(),
                       "CoverageTask aborted: NavigateTask did not succeed");
+          return;
         }
-        return;
+
+        if (navigate_target_index + 1 < waypoints.size()) {
+          ++navigate_target_index;
+          send_navigate_goal(build_segment_path(navigate_target_index),
+                             waypoint_tolerance_m_);
+          RCLCPP_INFO(this->get_logger(),
+                      "Dispatched coverage segment %zu/%zu",
+                      navigate_target_index, waypoints.size() - 1);
+        } else {
+          finalize(true, "Coverage complete", 100.0f);
+          RCLCPP_INFO(this->get_logger(), "CoverageTask succeeded");
+          return;
+        }
       }
     }
 

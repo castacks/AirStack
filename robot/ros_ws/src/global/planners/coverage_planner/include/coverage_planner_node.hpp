@@ -75,6 +75,9 @@ private:
   double default_boundary_inset_m_{0.0};
   double waypoint_tolerance_m_{2.0};
   double direct_cruise_speed_mps_{2.0};
+  double direct_sequence_spacing_m_{0.75};
+  double direct_sequence_tolerance_m_{0.5};
+  double direct_sequence_republish_period_s_{2.0};
   std::string execution_mode_{"direct"};
   bool publish_visualizations_{true};
 
@@ -102,6 +105,7 @@ private:
   airstack_msgs::msg::Odometry tracking_point_odom_;
   std::atomic<bool> got_tracking_point_{false};
   bool direct_mode_{false};
+  bool direct_sequential_mode_{false};
 
   geometry_msgs::msg::Pose current_pose_;
   bool received_odometry_{false};
