@@ -62,7 +62,7 @@ ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroN
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
-STAGE_SCALE = 1.0#0.01
+STAGE_SCALE = 0.01
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -94,9 +94,9 @@ SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
 
 
 DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 3.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+    {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
     {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
-    {"domain_id": 3, "x_m": -3.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
     ]
 
 # Top-down "map" camera. Captures one aerial of the static scene that the
@@ -154,7 +154,6 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
                 return True
         time.sleep(0.1)
     return False
-
 
 class PegasusApp:
 
@@ -272,6 +271,17 @@ class PegasusApp:
                 lidar_rotation_offset=[0.0, 0.0, 0.0],
                 min_range=cfg["lidar_min_range"],
             )
+
+        # Toggle /World/stage off and on to clear a post-scale visual artifact
+        # that lingers until the prim is deactivated/reactivated.
+        stage_prim = stage.GetPrimAtPath("/World/stage")
+        if stage_prim.IsValid():
+            stage_prim.SetActive(False)
+            app = omni.kit.app.get_app()
+            wait_end = time.time() + 8.0
+            while time.time() < wait_end:
+                app.update()
+            stage_prim.SetActive(True)
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
         self.stop_sim = False
