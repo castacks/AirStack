@@ -42,14 +42,10 @@ namespace natnet_ros2
 namespace
 {
 
-// We store the user callback per-adapter instance in a thread-local to avoid
-// a global.  Limitation: only one adapter instance per thread (sufficient for
-// the single-node use case).
-thread_local std::function<void(const FrameSample &)> * tl_frame_cb = nullptr;
-
-void NATNET_CALLCONV sdk_frame_callback(sFrameOfMocapData * data, void * /*ctx*/)
+void NATNET_CALLCONV sdk_frame_callback(sFrameOfMocapData * data, void * ctx)
 {
-    if (!data || !tl_frame_cb || !*tl_frame_cb) { return; }
+    auto * frame_cb = static_cast<std::function<void(const FrameSample &)> *>(ctx);
+    if (!data || !frame_cb || !*frame_cb) { return; }
 
     FrameSample fs;
     fs.frame_num = data->iFrame;
@@ -67,7 +63,7 @@ void NATNET_CALLCONV sdk_frame_callback(sFrameOfMocapData * data, void * /*ctx*/
         fs.bodies.push_back(s);
     }
 
-    (*tl_frame_cb)(fs);
+    (*frame_cb)(fs);
 }
 
 /// Map NatNet SDK ErrorCode to our NatNetResult.
@@ -163,18 +159,18 @@ std::vector<BodyDescriptor> NatNetClientAdapter::get_body_descriptors()
 void NatNetClientAdapter::set_frame_callback(
     std::function<void(const FrameSample &)> cb)
 {
-    user_cb_     = std::move(cb);
-    tl_frame_cb  = &user_cb_;
-    client_->SetFrameReceivedCallback(sdk_frame_callback, nullptr);
+    user_cb_ = std::move(cb);
+    client_->SetFrameReceivedCallback(sdk_frame_callback, &user_cb_);
 }
 
 // ---------------------------------------------------------------------------
 void NatNetClientAdapter::disconnect()
 {
     if (client_) {
+        client_->SetFrameReceivedCallback(sdk_frame_callback, nullptr);
         client_->Disconnect();
     }
-    tl_frame_cb = nullptr;
+    user_cb_ = nullptr;
 }
 
 }  // namespace natnet_ros2
