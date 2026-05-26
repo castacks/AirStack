@@ -46,6 +46,8 @@ CoveragePlannerNode::CoveragePlannerNode()
       this->declare_parameter<double>("direct_cruise_speed_mps", 2.0);
   direct_sequence_tolerance_m_ =
       this->declare_parameter<double>("direct_sequence_tolerance_m", 0.35);
+  direct_sequence_advance_speed_mps_ = this->declare_parameter<double>(
+      "direct_sequence_advance_speed_mps", 0.35);
   direct_sequence_republish_period_s_ = this->declare_parameter<double>(
       "direct_sequence_republish_period_s", 0.0);
   execution_mode_ =
@@ -99,6 +101,10 @@ CoveragePlannerNode::CoveragePlannerNode()
 void CoveragePlannerNode::odometry_callback(
     const nav_msgs::msg::Odometry::SharedPtr msg) {
   current_pose_ = msg->pose.pose;
+  const auto &linear = msg->twist.twist.linear;
+  current_speed_mps_ =
+      std::sqrt(linear.x * linear.x + linear.y * linear.y +
+                linear.z * linear.z);
   if (!received_odometry_) {
     received_odometry_ = true;
     RCLCPP_INFO(this->get_logger(), "Received first odometry message");
@@ -281,6 +287,8 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
   std::size_t direct_sequence_target_index = 0;
   const double sequence_tolerance =
       std::max(0.1, direct_sequence_tolerance_m_);
+  const double sequence_advance_speed =
+      std::max(0.0, direct_sequence_advance_speed_mps_);
   const bool republish_direct_sequence =
       direct_sequence_republish_period_s_ > 0.0;
   const auto republish_period = rclcpp::Duration::from_seconds(
@@ -418,7 +426,8 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
                     static_cast<float>(direct_sequence_targets.size());
       feedback->coverage_percentage = feedback->progress * 100.0f;
 
-      if (dist < sequence_tolerance) {
+      if (dist < sequence_tolerance &&
+          current_speed_mps_ < sequence_advance_speed) {
         ++direct_sequence_target_index;
         if (direct_sequence_target_index >= direct_sequence_targets.size()) {
           set_trajectory_mode(

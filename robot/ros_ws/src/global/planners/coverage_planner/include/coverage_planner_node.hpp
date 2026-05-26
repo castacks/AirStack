@@ -76,6 +76,7 @@ private:
   double waypoint_tolerance_m_{2.0};
   double direct_cruise_speed_mps_{2.0};
   double direct_sequence_tolerance_m_{0.35};
+  double direct_sequence_advance_speed_mps_{0.35};
   double direct_sequence_republish_period_s_{0.0};
   std::string execution_mode_{"direct"};
   bool publish_visualizations_{true};
@@ -107,6 +108,7 @@ private:
   bool direct_sequential_mode_{false};
 
   geometry_msgs::msg::Pose current_pose_;
+  double current_speed_mps_{0.0};
   bool received_odometry_{false};
 
   std::atomic<bool> task_active_{false};

@@ -14,6 +14,7 @@
     waypoint_tolerance_m: 2.0         # goal_tolerance_m passed to the local planner (m)
     direct_cruise_speed_mps: 2.0      # fallback speed for direct trajectory override (m/s)
     direct_sequence_tolerance_m: 0.35  # distance threshold for advancing subgoals (m)
+    direct_sequence_advance_speed_mps: 0.35  # require slowing before advancing at corners
     direct_sequence_republish_period_s: 0.0  # 0 disables refreshing the active subgoal
 
     # ---- Behaviour ----------------------------------------------------
