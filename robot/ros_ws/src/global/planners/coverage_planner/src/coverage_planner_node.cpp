@@ -308,7 +308,11 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
       return;
     }
     std::vector<Waypoint> segment;
-    segment.push_back(current_pose_waypoint());
+    if (direct_sequence_target_index == 0) {
+      segment.push_back(current_pose_waypoint());
+    } else {
+      segment.push_back(direct_sequence_targets[direct_sequence_target_index - 1]);
+    }
     segment.push_back(direct_sequence_targets[direct_sequence_target_index]);
     send_trajectory_override(segment, select_cruise_speed(*goal), false);
     last_direct_sequence_publish = this->now();
