@@ -211,58 +211,36 @@ class PayloadVisualizerNode(Node):
             f'/gcs/payload/{robot_name}/kept_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
-        """Coverage cones (payload v2: x,y,yaw,range) or disks (v1: x,y) gossiped
-        by raven_nav. Renders each cone as a flat triangular wedge."""
+        """5/10 m cleared disks gossiped by raven_nav. Renders each as a flat
+        cylinder marker."""
         from sensor_msgs_py import point_cloud2 as pc2
-        import math
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-        field_names = {f.name for f in msg.fields}
-        has_cone = {'yaw', 'range'}.issubset(field_names)
-        req = ('x', 'y', 'yaw', 'range') if has_cone else ('x', 'y')
         try:
-            pts = list(pc2.read_points(msg, field_names=req, skip_nans=True))
+            pts = list(pc2.read_points(msg, field_names=('x', 'y'),
+                                       skip_nans=True))
         except Exception:
             return
         out = MarkerArray()
-        half_hfov = math.radians(90.0) * 0.5
         for j, p in enumerate(pts):
             m = Marker()
             m.header.frame_id = 'map'
             m.header.stamp = now
             m.ns = f'{robot_name}_completed_zones'
             m.id = i * 100000 + j
+            m.type = Marker.CYLINDER
+            m.action = Marker.ADD
+            m.pose.position.x = float(p[0])
+            m.pose.position.y = float(p[1])
+            m.pose.position.z = 0.1
+            m.pose.orientation.w = 1.0
+            m.scale.x = 20.0
+            m.scale.y = 20.0
+            m.scale.z = 0.2
             m.color.r = color[0]
             m.color.g = color[1]
             m.color.b = color[2]
             m.color.a = 0.18
             m.lifetime = Duration(sec=3, nanosec=0)
-            m.pose.orientation.w = 1.0
-            if has_cone:
-                x, y, yaw, rng = float(p[0]), float(p[1]), float(p[2]), float(p[3])
-                m.type = Marker.TRIANGLE_LIST
-                m.action = Marker.ADD
-                m.pose.position.x = 0.0
-                m.pose.position.y = 0.0
-                m.pose.position.z = 0.1
-                m.scale.x = 1.0
-                m.scale.y = 1.0
-                m.scale.z = 1.0
-                left_x  = x + rng * math.cos(yaw + half_hfov)
-                left_y  = y + rng * math.sin(yaw + half_hfov)
-                right_x = x + rng * math.cos(yaw - half_hfov)
-                right_y = y + rng * math.sin(yaw - half_hfov)
-                for px, py in ((x, y), (left_x, left_y), (right_x, right_y)):
-                    pt = GPoint(); pt.x = px; pt.y = py; pt.z = 0.0
-                    m.points.append(pt)
-            else:
-                m.type = Marker.CYLINDER
-                m.action = Marker.ADD
-                m.pose.position.x = float(p[0])
-                m.pose.position.y = float(p[1])
-                m.pose.position.z = 0.1
-                m.scale.x = 20.0
-                m.scale.y = 20.0
-                m.scale.z = 0.2
             out.markers.append(m)
         self._pub_for(
             f'/gcs/payload/{robot_name}/completed_zones', MarkerArray).publish(out)

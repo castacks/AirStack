@@ -85,25 +85,9 @@ def _nearest_zone_dist(pts_xy: np.ndarray, zones_xy: np.ndarray) -> np.ndarray:
         return np.zeros(0, dtype=np.float64)
     if zones_xy is None or zones_xy.size == 0:
         return np.full(pts_xy.shape[0], np.inf, dtype=np.float64)
-    zxy = zones_xy[:, :2] if zones_xy.ndim == 2 and zones_xy.shape[1] >= 2 else zones_xy
-    diff = pts_xy[:, None, :] - zxy[None, :, :]
+    diff = pts_xy[:, None, :] - zones_xy[None, :, :]
     d2 = np.sum(diff * diff, axis=2)
     return np.sqrt(d2.min(axis=1))
-
-
-def _points_outside_all_cones(pts_xy: np.ndarray, cones: np.ndarray,
-                              half_hfov_rad: float) -> np.ndarray:
-    """Keep-mask: True for points NOT inside any (xy, yaw, range) cone."""
-    if pts_xy.size == 0:
-        return np.zeros(0, dtype=bool)
-    if cones is None or cones.shape[0] == 0:
-        return np.ones(pts_xy.shape[0], dtype=bool)
-    rel = pts_xy[:, None, :] - cones[None, :, :2]
-    d = np.linalg.norm(rel, axis=2)
-    ang = np.arctan2(rel[..., 1], rel[..., 0]) - cones[None, :, 2]
-    ang = np.arctan2(np.sin(ang), np.cos(ang))
-    inside = (d <= cones[None, :, 3]) & (np.abs(ang) <= half_hfov_rad)
-    return ~inside.any(axis=1)
 
 
 class FrontierBehavior:
@@ -123,7 +107,6 @@ class FrontierBehavior:
     TIE_BREAK_FRAC = 0.05
     MIN_LOCK_DURATION_S = 6.0
 
-    COVERAGE_CONE_HFOV_DEG = 90.0
     INFO_GAIN_WEIGHT = 8.0
 
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0):
@@ -331,13 +314,13 @@ class FrontierBehavior:
         # Replaces "fly to every frontier" — visiting one frontier marks the
         # whole 10m neighborhood as resolved (own + gossiped peer zones).
         zone_dropped_own = 0
-        half_hfov_rad = np.deg2rad(self.COVERAGE_CONE_HFOV_DEG) * 0.5
         if (completed_zones_xy is not None
                 and isinstance(completed_zones_xy, np.ndarray)
                 and completed_zones_xy.shape[0] > 0
                 and own_frontiers.shape[0] > 0):
-            keep_mask = _points_outside_all_cones(
-                own_frontiers[:, :2], completed_zones_xy, half_hfov_rad)
+            d_to_zone = _nearest_zone_dist(
+                own_frontiers[:, :2], completed_zones_xy)
+            keep_mask = d_to_zone > ZONE_RADIUS_M
             zone_dropped_own = int((~keep_mask).sum())
             own_frontiers = own_frontiers[keep_mask]
 
@@ -385,9 +368,9 @@ class FrontierBehavior:
                     if (completed_zones_xy is not None
                             and isinstance(completed_zones_xy, np.ndarray)
                             and completed_zones_xy.shape[0] > 0):
-                        keep_peer = _points_outside_all_cones(
-                            pf_filt[:, :2], completed_zones_xy, half_hfov_rad)
-                        pf_filt = pf_filt[keep_peer]
+                        d_peer = _nearest_zone_dist(
+                            pf_filt[:, :2], completed_zones_xy)
+                        pf_filt = pf_filt[d_peer > ZONE_RADIUS_M]
                     # Same blacklist filter — strikes are local to this drone
                     # (peers haven't tried this region) so we apply our own.
                     if pf_filt.shape[0] > 0 and blacklist_xy.shape[0] > 0:
@@ -447,17 +430,6 @@ class FrontierBehavior:
             bl_keep = d_cent > self.BLACKLIST_RADIUS_M
             viewpoints = viewpoints[bl_keep]
             cluster_sizes = cluster_sizes[bl_keep]
-            if viewpoints.shape[0] == 0:
-                return waypoint_locked, target_waypoint, target_waypoint2
-
-        if (completed_zones_xy is not None
-                and isinstance(completed_zones_xy, np.ndarray)
-                and completed_zones_xy.shape[0] > 0
-                and viewpoints.shape[0] > 0):
-            cone_keep = _points_outside_all_cones(
-                viewpoints[:, :2], completed_zones_xy, half_hfov_rad)
-            viewpoints = viewpoints[cone_keep]
-            cluster_sizes = cluster_sizes[cone_keep]
             if viewpoints.shape[0] == 0:
                 return waypoint_locked, target_waypoint, target_waypoint2
 
