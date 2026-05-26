@@ -81,6 +81,7 @@ class RavenNavNode(Node):
 
         self._frontiers = None
         self._cur_pose = None
+        self._cur_yaw: float = 0.0
 
         self._waypoint_locked = False
         self._target_waypoint = None
@@ -102,12 +103,17 @@ class RavenNavNode(Node):
         # the dedup radius of every existing zone. Mode-agnostic — drone is
         # observing in ray/voxel mode too, not just at frontier waypoints.
         # Gossiped to peers so the whole fleet stops chasing nearby frontiers.
-        self._completed_zones: 'np.ndarray' = np.zeros((0, 2), dtype=np.float64)
-        # Default 10m: a new zone is placed whenever the drone is at least 10m
-        # from every existing zone — matches ZONE_RADIUS_M in frontier_behavior
-        # so consecutive disks just barely touch and there are no gaps.
+        self._completed_zones: 'np.ndarray' = np.zeros((0, 4), dtype=np.float64)
         self._zone_dedupe_radius_m: float = float(self.declare_parameter(
             'zone_dedupe_radius_m', 10.0).value)
+        self._zone_dedupe_yaw_deg: float = float(self.declare_parameter(
+            'zone_dedupe_yaw_deg', 30.0).value)
+        self._coverage_cone_hfov_deg: float = float(self.declare_parameter(
+            'coverage_cone_hfov_deg', 90.0).value)
+        self._coverage_cone_max_range_m: float = float(self.declare_parameter(
+            'coverage_cone_max_range_m', 15.0).value)
+        self._coverage_cone_safety_m: float = float(self.declare_parameter(
+            'coverage_cone_safety_m', 1.5).value)
 
         self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
         query_labels_param = self.declare_parameter(
@@ -401,19 +407,49 @@ class RavenNavNode(Node):
         out.data = flat.tobytes()
         self._shared_rays_pub.publish(out)
 
-    def _add_completed_zone(self, xy: np.ndarray) -> None:
-        """Record an XY center as a 'visited' frontier zone.
+    def _cone_clip_range(self, xy: np.ndarray, yaw: float) -> float:
+        """Clip the coverage cone to the nearest own-frontier in its sector.
 
-        Deduplicates: if the new point is within zone_dedupe_radius_m of any
-        existing zone, skip — the zone-coverage filter treats the whole
-        ZONE_RADIUS_M neighborhood as resolved already.
+        Uses self._frontiers (RDF axis order from rayfronts in the map frame —
+        FLU map XY = (raw.z, -raw.x)). Falls back to coverage_cone_max_range_m
+        when no frontier sits inside the angular sweep.
         """
+        if self._frontiers is None or len(self._frontiers) == 0:
+            return self._coverage_cone_max_range_m
+        raw = self._frontiers
+        flu_xy = np.stack([raw[:, 2], -raw[:, 0]], axis=1).astype(np.float64)
+        rel = flu_xy - xy[None, :]
+        d = np.linalg.norm(rel, axis=1)
+        in_range = d > 0.1
+        if not in_range.any():
+            return self._coverage_cone_max_range_m
+        ang = np.arctan2(rel[:, 1], rel[:, 0]) - yaw
+        ang = np.arctan2(np.sin(ang), np.cos(ang))
+        half = np.deg2rad(self._coverage_cone_hfov_deg) * 0.5
+        in_cone = in_range & (np.abs(ang) <= half)
+        if not in_cone.any():
+            return self._coverage_cone_max_range_m
+        nearest = float(d[in_cone].min())
+        return float(max(0.5, min(nearest - self._coverage_cone_safety_m,
+                                  self._coverage_cone_max_range_m)))
+
+    def _add_completed_zone(self, xy: np.ndarray, yaw: float,
+                            cone_range: float) -> None:
+        """Record a forward-facing coverage cone (xy apex, yaw axis, range)."""
         xy = np.asarray(xy, dtype=np.float64)[:2]
         if self._completed_zones.shape[0] > 0:
-            d = np.linalg.norm(self._completed_zones - xy[None, :], axis=1)
-            if float(d.min()) < self._zone_dedupe_radius_m:
+            d = np.linalg.norm(
+                self._completed_zones[:, :2] - xy[None, :], axis=1)
+            dyaw = np.abs(np.arctan2(
+                np.sin(self._completed_zones[:, 2] - yaw),
+                np.cos(self._completed_zones[:, 2] - yaw)))
+            close = (d < self._zone_dedupe_radius_m) & (
+                dyaw < np.deg2rad(self._zone_dedupe_yaw_deg))
+            if close.any():
                 return
-        self._completed_zones = np.vstack([self._completed_zones, xy[None, :]])
+        new_row = np.array([[xy[0], xy[1], float(yaw), float(cone_range)]],
+                           dtype=np.float64)
+        self._completed_zones = np.vstack([self._completed_zones, new_row])
 
     def _own_confirmed_targets(self) -> list:
         """Convert voxel_behavior's current AABBs into ConfirmedTarget records.
@@ -642,11 +678,13 @@ class RavenNavNode(Node):
         self._discoveries_table_pub.publish(
             String(data='\n'.join(lines).rstrip()))
 
-    def _publish_completed_zones(self) -> None:
-        """Gossip our completed-zone bitmap as a PointCloud2 (x,y only).
+    COMPLETED_ZONES_PAYLOAD_VERSION = 2
 
-        Peers union this with their own zones via peer_completed_zones in
-        the receiver-side filter and novelty cost.
+    def _publish_completed_zones(self) -> None:
+        """Gossip completed coverage cones as a 4-field PointCloud2.
+
+        Schema (payload v2): x, y, yaw, range — peers reconstruct the cone
+        locally using their own coverage_cone_hfov_deg param.
         """
         from sensor_msgs.msg import PointField
         n = int(self._completed_zones.shape[0])
@@ -658,10 +696,12 @@ class RavenNavNode(Node):
         out.is_bigendian = False
         out.is_dense = True
         out.fields = [
-            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='x',     offset=0,  datatype=PointField.FLOAT32, count=1),
+            PointField(name='y',     offset=4,  datatype=PointField.FLOAT32, count=1),
+            PointField(name='yaw',   offset=8,  datatype=PointField.FLOAT32, count=1),
+            PointField(name='range', offset=12, datatype=PointField.FLOAT32, count=1),
         ]
-        out.point_step = 8
+        out.point_step = 16
         out.row_step = out.point_step * n
         if n > 0:
             flat = self._completed_zones.astype(np.float32)
@@ -704,6 +744,10 @@ class RavenNavNode(Node):
     def _odometry_cb(self, msg: Odometry):
         p = msg.pose.pose.position
         self._cur_pose = np.array([p.x, p.y, p.z], dtype=np.float64)
+        q = msg.pose.pose.orientation
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        self._cur_yaw = float(np.arctan2(siny_cosp, cosy_cosp))
 
     def _input_prompt_cb(self, msg: String):
         targets = [t.strip() for t in msg.data.split(',') if t.strip()]
@@ -1456,7 +1500,8 @@ class RavenNavNode(Node):
         # whether it's pursuing a frontier, ray, or voxel waypoint, and
         # peers should not re-explore that area.
         if self._cur_pose is not None:
-            self._add_completed_zone(self._cur_pose[:2])
+            cone_r = self._cone_clip_range(self._cur_pose[:2], self._cur_yaw)
+            self._add_completed_zone(self._cur_pose[:2], self._cur_yaw, cone_r)
 
         # Build the union of completed zones (own + peers) in our local frame.
         zone_chunks = [self._completed_zones]

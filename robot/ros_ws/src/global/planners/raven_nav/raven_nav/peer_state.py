@@ -149,16 +149,29 @@ class PeerState:
         zones_msg, _ = profile.get_payload_by_name_with_stamp(
             "completed_frontier_zones")
         if zones_msg is not None:
+            field_names = {f.name for f in zones_msg.fields}
+            has_cone = {"yaw", "range"}.issubset(field_names)
+            req = ("x", "y", "yaw", "range") if has_cone else ("x", "y")
             pts = list(point_cloud2.read_points(
-                zones_msg, field_names=("x", "y"), skip_nans=True))
+                zones_msg, field_names=req, skip_nans=True))
             if pts:
-                arr_global = np.array(
+                arr_xy_global = np.array(
                     [[p[0], p[1], 0.0] for p in pts], dtype=np.float64)
-                local = global_enu_to_local_batch(
-                    arr_global, my_boot_enu, local_alt_ground=my_alt_ground)
-                self.peer_completed_zones[name] = local[:, :2]
+                local_xy = global_enu_to_local_batch(
+                    arr_xy_global, my_boot_enu,
+                    local_alt_ground=my_alt_ground)[:, :2]
+                if has_cone:
+                    yaw_rng = np.array(
+                        [[p[2], p[3]] for p in pts], dtype=np.float64)
+                    self.peer_completed_zones[name] = np.hstack(
+                        [local_xy, yaw_rng])
+                else:
+                    pad = np.zeros((local_xy.shape[0], 2), dtype=np.float64)
+                    pad[:, 1] = 1e9
+                    self.peer_completed_zones[name] = np.hstack(
+                        [local_xy, pad])
             else:
-                self.peer_completed_zones[name] = np.zeros((0, 2),
+                self.peer_completed_zones[name] = np.zeros((0, 4),
                                                            dtype=np.float64)
 
         ct_targets_msg, _ = profile.get_payload_by_name_with_stamp(
