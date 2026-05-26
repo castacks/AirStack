@@ -48,10 +48,18 @@ install(DIRECTORY launch config
 )
 
 if(BUILD_TESTING)
+  enable_testing()
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  add_executable(coverage_smoke
+    src/coverage_smoke.cpp
+    src/coverage_planner_logic.cpp
+  )
+  target_include_directories(coverage_smoke PRIVATE include)
+  add_test(NAME coverage_smoke COMMAND coverage_smoke)
 endif()
 
 ament_package()

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <limits>
 #include <queue>
+#include <sstream>
 #include <utility>
 
 namespace coverage_planner {
@@ -217,6 +218,94 @@ bool point_in_polygon_closed(const Point2D& p, const Polygon2D& poly) {
         if (intersect) inside = !inside;
     }
     return inside;
+}
+
+std::string format_xy(const Point2D& point) {
+    std::ostringstream out;
+    out << "(" << point.x << ", " << point.y << ")";
+    return out.str();
+}
+
+Point2D waypoint_xy(const Waypoint& waypoint) {
+    return {waypoint.x, waypoint.y};
+}
+
+void add_boundary_intersection_params(const Point2D& start, const Point2D& end,
+                                      const Point2D& edge_start,
+                                      const Point2D& edge_end,
+                                      std::vector<double>& params) {
+    const Point2D r{end.x - start.x, end.y - start.y};
+    const Point2D s{edge_end.x - edge_start.x, edge_end.y - edge_start.y};
+    const Point2D edge_delta{edge_start.x - start.x,
+                             edge_start.y - start.y};
+    const double denominator = r.x * s.y - r.y * s.x;
+
+    auto add_if_on_segment = [&](double t) {
+        if (t >= -kCoordEpsAbs && t <= 1.0 + kCoordEpsAbs) {
+            params.push_back(std::clamp(t, 0.0, 1.0));
+        }
+    };
+
+    if (std::fabs(denominator) > kCoordEpsAbs) {
+        const double t =
+            (edge_delta.x * s.y - edge_delta.y * s.x) / denominator;
+        const double u =
+            (edge_delta.x * r.y - edge_delta.y * r.x) / denominator;
+        if (t >= -kCoordEpsAbs && t <= 1.0 + kCoordEpsAbs &&
+            u >= -kCoordEpsAbs && u <= 1.0 + kCoordEpsAbs) {
+            add_if_on_segment(t);
+        }
+        return;
+    }
+
+    if (std::fabs(edge_delta.x * r.y - edge_delta.y * r.x) > kCoordEpsAbs)
+        return;
+
+    const double r_len_sq = r.x * r.x + r.y * r.y;
+    if (r_len_sq < kCoordEpsAbs) return;
+
+    const Point2D from_edge_start{edge_start.x - start.x,
+                                  edge_start.y - start.y};
+    const Point2D from_edge_end{edge_end.x - start.x,
+                                edge_end.y - start.y};
+    add_if_on_segment((from_edge_start.x * r.x + from_edge_start.y * r.y) /
+                      r_len_sq);
+    add_if_on_segment((from_edge_end.x * r.x + from_edge_end.y * r.y) /
+                      r_len_sq);
+}
+
+std::string segment_containment_error(const Point2D& start,
+                                      const Point2D& end,
+                                      const Polygon2D& polygon,
+                                      std::size_t segment_index) {
+    std::vector<double> params{0.0, 1.0};
+    for (std::size_t i = 0; i < polygon.size(); ++i) {
+        add_boundary_intersection_params(start, end, polygon[i],
+                                         polygon[(i + 1) % polygon.size()],
+                                         params);
+    }
+
+    std::sort(params.begin(), params.end());
+    params.erase(
+        std::unique(params.begin(), params.end(),
+                    [](double a, double b) {
+                        return std::fabs(a - b) < kCoordEpsAbs;
+                    }),
+        params.end());
+
+    for (std::size_t i = 1; i < params.size(); ++i) {
+        if (params[i] - params[i - 1] < kCoordEpsAbs) continue;
+        const double t = 0.5 * (params[i - 1] + params[i]);
+        const Point2D midpoint{start.x + t * (end.x - start.x),
+                               start.y + t * (end.y - start.y)};
+        if (!point_in_polygon_closed(midpoint, polygon)) {
+            return "segment " + std::to_string(segment_index - 1) + "->" +
+                   std::to_string(segment_index) + " leaves polygon near " +
+                   format_xy(midpoint);
+        }
+    }
+
+    return "";
 }
 
 bool chord_fully_inside_polygon(const Point2D& a, const Point2D& b,
@@ -445,6 +534,29 @@ double path_length(const std::vector<Waypoint>& path) {
         len += std::sqrt(dx * dx + dy * dy + dz * dz);
     }
     return len;
+}
+
+std::string path_containment_error(const std::vector<Waypoint>& path,
+                                   const Polygon2D& polygon) {
+    if (polygon.size() < 3) {
+        return "coverage polygon has fewer than 3 vertices";
+    }
+
+    for (std::size_t i = 0; i < path.size(); ++i) {
+        const Point2D point = waypoint_xy(path[i]);
+        if (!point_in_polygon_closed(point, polygon)) {
+            return "waypoint " + std::to_string(i) +
+                   " is outside polygon at " + format_xy(point);
+        }
+    }
+
+    for (std::size_t i = 1; i < path.size(); ++i) {
+        const std::string error = segment_containment_error(
+            waypoint_xy(path[i - 1]), waypoint_xy(path[i]), polygon, i);
+        if (!error.empty()) return error;
+    }
+
+    return "";
 }
 
 std::optional<std::vector<Waypoint>> generate_coverage_path(

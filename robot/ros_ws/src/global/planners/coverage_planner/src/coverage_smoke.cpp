@@ -16,6 +16,10 @@ bool fail(const std::string &message) {
   return false;
 }
 
+bool contains(const std::string &text, const std::string &pattern) {
+  return text.find(pattern) != std::string::npos;
+}
+
 bool path_stays_in_box(const std::vector<coverage_planner::Waypoint> &path,
                        double x_min, double x_max, double y_min,
                        double y_max) {
@@ -37,6 +41,36 @@ bool path_stays_in_box(const std::vector<coverage_planner::Waypoint> &path,
       }
     }
   }
+  return true;
+}
+
+bool check_containment_validator() {
+  const coverage_planner::Polygon2D concave = {
+      {0.0, 0.0}, {6.0, 0.0}, {6.0, 6.0}, {4.0, 6.0},
+      {4.0, 2.0}, {2.0, 2.0}, {2.0, 6.0}, {0.0, 6.0}};
+
+  const std::vector<coverage_planner::Waypoint> valid_path = {
+      {1.0, 1.0, 5.0, 0.0}, {5.0, 1.0, 5.0, 0.0},
+      {5.0, 5.0, 5.0, 0.0}};
+  if (!coverage_planner::path_containment_error(valid_path, concave).empty()) {
+    return fail("valid concave-polygon path was reported outside");
+  }
+
+  const std::vector<coverage_planner::Waypoint> outside_waypoint = {
+      {1.0, 1.0, 5.0, 0.0}, {7.0, 1.0, 5.0, 0.0}};
+  std::string error =
+      coverage_planner::path_containment_error(outside_waypoint, concave);
+  if (!contains(error, "waypoint 1")) {
+    return fail("outside waypoint was not reported");
+  }
+
+  const std::vector<coverage_planner::Waypoint> crossing_segment = {
+      {1.0, 4.0, 5.0, 0.0}, {5.0, 4.0, 5.0, 0.0}};
+  error = coverage_planner::path_containment_error(crossing_segment, concave);
+  if (!contains(error, "segment 0->1")) {
+    return fail("out-of-polygon segment was not reported");
+  }
+
   return true;
 }
 
@@ -98,7 +132,11 @@ int main() {
   }
   if (!path_stays_in_box(*path, -20.0, 20.0, -20.0, 20.0))
     return 1;
+  if (!coverage_planner::path_containment_error(*path, poly).empty())
+    return 1;
   if (!check_face_path_yaw(*path))
+    return 1;
+  if (!check_containment_validator())
     return 1;
 
   p.orientation_mode = coverage_planner::CoverageParams::kOrientAlignedToSweep;
@@ -116,12 +154,14 @@ int main() {
   p.orientation_mode = coverage_planner::CoverageParams::kOrientFacePath;
   path = coverage_planner::generate_coverage_path(poly, start, p);
   if (!path || !path_stays_in_box(*path, -20.0, 20.0, -20.0, 20.0) ||
+      !coverage_planner::path_containment_error(*path, poly).empty() ||
       !check_face_path_yaw(*path))
     return 1;
 
   p.orientation_mode = coverage_planner::CoverageParams::kOrientAlignedToSweep;
   path = coverage_planner::generate_coverage_path(poly, start, p);
   if (!path || !path_stays_in_box(*path, -20.0, 20.0, -20.0, 20.0) ||
+      !coverage_planner::path_containment_error(*path, poly).empty() ||
       !check_aligned_to_sweep_yaw(*path, M_PI / 4.0))
     return 1;
 

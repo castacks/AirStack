@@ -10,6 +10,7 @@
 #include <cmath>
 #include <functional>
 #include <future>
+#include <limits>
 #include <thread>
 
 #include <tf2/LinearMath/Quaternion.h>
@@ -18,6 +19,21 @@ namespace coverage_planner {
 
 using std::placeholders::_1;
 using std::placeholders::_2;
+
+namespace {
+
+Polygon2D coverage_polygon_from_goal(
+    const CoveragePlannerNode::CoverageTask::Goal &goal) {
+  Polygon2D polygon;
+  polygon.reserve(goal.coverage_area.points.size());
+  for (const auto &point : goal.coverage_area.points) {
+    polygon.push_back(
+        {static_cast<double>(point.x), static_cast<double>(point.y)});
+  }
+  return polygon;
+}
+
+} // namespace
 
 CoveragePlannerNode::CoveragePlannerNode()
     : rclcpp::Node("coverage_planner_node") {
@@ -180,7 +196,7 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
   navigate_goal_succeeded_ = false;
 
   auto finalize = [&](bool success, const std::string &msg,
-                      float coverage_pct) {
+                      float coverage_pct, bool canceled = false) {
     if (navigate_goal_handle_ && !navigate_goal_done_) {
       navigate_client_->async_cancel_goal(navigate_goal_handle_);
     }
@@ -191,8 +207,10 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     task_active_ = false;
     if (success) {
       goal_handle->succeed(result);
-    } else {
+    } else if (canceled) {
       goal_handle->canceled(result);
+    } else {
+      goal_handle->abort(result);
     }
   };
 
@@ -202,7 +220,7 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
     const auto deadline = this->now() + rclcpp::Duration::from_seconds(5.0);
     while (rclcpp::ok() && !received_odometry_ && this->now() < deadline) {
       if (cancel_requested_) {
-        finalize(false, "Cancelled before planning", 0.0f);
+        finalize(false, "Cancelled before planning", 0.0f, true);
         return;
       }
       wait_rate.sleep();
@@ -222,6 +240,17 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
   }
   const auto &waypoints = *waypoints_opt;
   total_waypoints_ = waypoints.size();
+
+  const Polygon2D coverage_polygon = coverage_polygon_from_goal(*goal);
+  const std::string containment_error =
+      path_containment_error(waypoints, coverage_polygon);
+  if (!containment_error.empty()) {
+    const std::string msg =
+        "Generated coverage path leaves polygon: " + containment_error;
+    RCLCPP_ERROR(this->get_logger(), "%s", msg.c_str());
+    finalize(false, msg, 0.0f);
+    return;
+  }
 
   const auto ros_path = build_ros_path(waypoints, this->now());
   pub_global_plan_->publish(ros_path);
@@ -377,7 +406,7 @@ void CoveragePlannerNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
         set_trajectory_mode(
             airstack_msgs::srv::TrajectoryMode::Request::ROBOT_POSE);
       }
-      finalize(false, "Task cancelled", 0.0f);
+      finalize(false, "Task cancelled", 0.0f, true);
       return;
     }
 

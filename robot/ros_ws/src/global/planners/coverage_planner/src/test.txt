@@ -1,3 +1,4 @@
+# Baseline: face along path (orientation_mode 0).
 ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
   '{coverage_area: {points: [
       {x: 0.0, y: 0.0, z: 0.0},
@@ -6,5 +7,76 @@ ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
       {x: 0.0, y: 10.0, z: 0.0}]},
     min_altitude_agl: 10.0, max_altitude_agl: 10.0,
     min_flight_speed: 1.0, max_flight_speed: 2.0,
-    line_spacing_m: 2.0, heading_deg: 0.0}' \
+    line_spacing_m: 2.0, heading_deg: 0.0,
+    orientation_mode: 0, orientation_deg: 0.0}' \
+  --feedback
+
+# Orientation: align yaw to sweep direction (orientation_mode 1).
+ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
+  '{coverage_area: {points: [
+      {x: 0.0, y: 0.0, z: 0.0},
+      {x: 10.0, y: 0.0, z: 0.0},
+      {x: 10.0, y: 10.0, z: 0.0},
+      {x: 0.0, y: 10.0, z: 0.0}]},
+    min_altitude_agl: 10.0, max_altitude_agl: 10.0,
+    min_flight_speed: 1.0, max_flight_speed: 2.0,
+    line_spacing_m: 2.0, heading_deg: 45.0,
+    orientation_mode: 1, orientation_deg: 0.0}' \
+  --feedback
+
+# Orientation: fixed yaw at 90 deg regardless of path direction (orientation_mode 2).
+ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
+  '{coverage_area: {points: [
+      {x: 0.0, y: 0.0, z: 0.0},
+      {x: 10.0, y: 0.0, z: 0.0},
+      {x: 10.0, y: 10.0, z: 0.0},
+      {x: 0.0, y: 10.0, z: 0.0}]},
+    min_altitude_agl: 10.0, max_altitude_agl: 10.0,
+    min_flight_speed: 1.0, max_flight_speed: 2.0,
+    line_spacing_m: 2.0, heading_deg: 0.0,
+    orientation_mode: 2, orientation_deg: 90.0}' \
+  --feedback
+
+# Bounds regression: rotated sweep should remain inside the polygon in RViz/global_plan.
+ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
+  '{coverage_area: {points: [
+      {x: -6.0, y: -4.0, z: 0.0},
+      {x:  8.0, y: -4.0, z: 0.0},
+      {x:  8.0, y:  6.0, z: 0.0},
+      {x: -6.0, y:  6.0, z: 0.0}]},
+    min_altitude_agl: 10.0, max_altitude_agl: 10.0,
+    min_flight_speed: 1.0, max_flight_speed: 2.0,
+    line_spacing_m: 2.0, heading_deg: 45.0,
+    orientation_mode: 0, orientation_deg: 0.0}' \
+  --feedback
+
+# Bounds preflight: concave U shape should only start if every generated
+# waypoint and turn segment stays inside the polygon.
+ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
+  '{coverage_area: {points: [
+      {x: 0.0, y: 0.0, z: 0.0},
+      {x: 6.0, y: 0.0, z: 0.0},
+      {x: 6.0, y: 6.0, z: 0.0},
+      {x: 4.0, y: 6.0, z: 0.0},
+      {x: 4.0, y: 2.0, z: 0.0},
+      {x: 2.0, y: 2.0, z: 0.0},
+      {x: 2.0, y: 6.0, z: 0.0},
+      {x: 0.0, y: 6.0, z: 0.0}]},
+    min_altitude_agl: 10.0, max_altitude_agl: 10.0,
+    min_flight_speed: 1.0, max_flight_speed: 2.0,
+    line_spacing_m: 1.0, heading_deg: 0.0,
+    orientation_mode: 0, orientation_deg: 0.0}' \
+  --feedback
+
+# Invalid orientation: should be rejected by the action server.
+ros2 action send_goal /robot_1/tasks/coverage task_msgs/action/CoverageTask \
+  '{coverage_area: {points: [
+      {x: 0.0, y: 0.0, z: 0.0},
+      {x: 10.0, y: 0.0, z: 0.0},
+      {x: 10.0, y: 10.0, z: 0.0},
+      {x: 0.0, y: 10.0, z: 0.0}]},
+    min_altitude_agl: 10.0, max_altitude_agl: 10.0,
+    min_flight_speed: 1.0, max_flight_speed: 2.0,
+    line_spacing_m: 2.0, heading_deg: 0.0,
+    orientation_mode: 3, orientation_deg: 0.0}' \
   --feedback

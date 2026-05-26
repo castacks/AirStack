@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace coverage_planner {
@@ -92,6 +93,11 @@ double polygon_signed_area(const Polygon2D& polygon);
 
 // Total path length (sum of consecutive Euclidean distances).
 double path_length(const std::vector<Waypoint>& path);
+
+// Return an empty string if the whole path is inside or on the polygon
+// boundary. Otherwise returns a concise error describing the first violation.
+std::string path_containment_error(const std::vector<Waypoint>& path,
+                                   const Polygon2D& polygon);
 
 // Rotate `p` by `angle_rad` about the origin.
 Point2D rotate(const Point2D& p, double angle_rad);
