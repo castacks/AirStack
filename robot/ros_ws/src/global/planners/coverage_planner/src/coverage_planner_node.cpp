@@ -45,7 +45,7 @@ CoveragePlannerNode::CoveragePlannerNode()
   direct_cruise_speed_mps_ =
       this->declare_parameter<double>("direct_cruise_speed_mps", 2.0);
   direct_sequence_tolerance_m_ =
-      this->declare_parameter<double>("direct_sequence_tolerance_m", 0.5);
+      this->declare_parameter<double>("direct_sequence_tolerance_m", 0.35);
   direct_sequence_republish_period_s_ = this->declare_parameter<double>(
       "direct_sequence_republish_period_s", 0.0);
   execution_mode_ =
@@ -669,12 +669,12 @@ void CoveragePlannerNode::send_trajectory_override(
   traj.header.stamp = this->now();
   traj.header.frame_id = world_frame_id_;
 
-  auto append_waypoint = [&](const Waypoint &src) {
+  auto append_waypoint = [&](const Waypoint &src, double waypoint_velocity) {
     airstack_msgs::msg::WaypointXYZVYaw wp;
     wp.position.x = src.x;
     wp.position.y = src.y;
     wp.position.z = src.z;
-    wp.velocity = velocity;
+    wp.velocity = waypoint_velocity;
     wp.yaw = src.yaw;
     traj.waypoints.push_back(wp);
   };
@@ -682,7 +682,7 @@ void CoveragePlannerNode::send_trajectory_override(
   if (densify) {
     constexpr double kMaxDirectSegmentLengthM = 0.75;
     if (!waypoints.empty()) {
-      append_waypoint(waypoints.front());
+      append_waypoint(waypoints.front(), velocity);
     }
 
     for (std::size_t i = 1; i < waypoints.size(); ++i) {
@@ -703,12 +703,13 @@ void CoveragePlannerNode::send_trajectory_override(
         dense_wp.y = prev.y + t * dy;
         dense_wp.z = prev.z + t * dz;
         dense_wp.yaw = prev.yaw + t * (next.yaw - prev.yaw);
-        append_waypoint(dense_wp);
+        append_waypoint(dense_wp, velocity);
       }
     }
   } else {
-    for (const auto &waypoint : waypoints) {
-      append_waypoint(waypoint);
+    for (std::size_t i = 0; i < waypoints.size(); ++i) {
+      const double waypoint_velocity = i + 1 == waypoints.size() ? 0.0 : velocity;
+      append_waypoint(waypoints[i], waypoint_velocity);
     }
   }
 
