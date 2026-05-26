@@ -13,7 +13,8 @@
          The parent launch pushes a $(env ROBOT_NAME) namespace, so we use
          RELATIVE remap sources here so they resolve to the namespaced
          topics at runtime. -->
-    <node pkg="random_walk_planner" exec="random_walk_planner" output="screen">
+    <node pkg="random_walk_planner" exec="random_walk_planner" output="screen"
+          respawn="true" respawn_delay="2.0">
         <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
         <remap from="vdb_map_visualization" to="vdb_mapping/vdb_map_visualization" />
         <remap from="odometry" to="odometry_conversion/odometry" />

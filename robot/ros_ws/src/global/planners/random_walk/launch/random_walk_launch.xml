@@ -1,6 +1,7 @@
 <launch>
   <node pkg="random_walk_planner" exec="random_walk_planner"
-        name="random_walk_planner" output="screen">
+        name="random_walk_planner" output="screen"
+        respawn="true" respawn_delay="2.0">
     <param from="$(find-pkg-share random_walk_planner)/config/random_walk_config.yaml" />
     <remap from="~/exploration_task"
            to="/$(env ROBOT_NAME)/tasks/exploration" />

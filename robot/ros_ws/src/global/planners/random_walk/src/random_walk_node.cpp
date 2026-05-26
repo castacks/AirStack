@@ -367,10 +367,19 @@ void RandomWalkNode::execute(std::shared_ptr<GoalHandle> goal_handle) {
             if (received_first_map && received_first_robot_tf) {
                 generated_paths.clear();
                 for (int i = 0; i < num_paths_to_generate_; i++) {
+                    if (cancel_requested_) break;
                     generate_plan();
                 }
-                send_navigate_goal();
-                is_path_executing = true;
+                if (cancel_requested_) {
+                    continue;
+                }
+                if (generated_paths.empty()) {
+                    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                         "All plan attempts failed this tick; retrying");
+                } else {
+                    send_navigate_goal();
+                    is_path_executing = true;
+                }
             } else {
                 RCLCPP_INFO_ONCE(this->get_logger(),
                                  "Waiting for map and odometry before planning...");
@@ -462,6 +471,10 @@ void RandomWalkNode::generate_plan() {
 }
 
 void RandomWalkNode::send_navigate_goal() {
+    if (cancel_requested_ || generated_paths.empty()) {
+        is_path_executing = false;
+        return;
+    }
     if (!navigate_client_->wait_for_action_server(std::chrono::seconds(2))) {
         RCLCPP_WARN(this->get_logger(), "NavigateTask action server not available");
         is_path_executing = false;
