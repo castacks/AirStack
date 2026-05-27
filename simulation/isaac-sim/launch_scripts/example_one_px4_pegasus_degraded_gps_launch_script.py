@@ -2,20 +2,18 @@
 """
 GPS Degradation SITL Launcher for AirStack.
 
-Runs the full realistic GPS degradation pipeline:
-  Walker-delta(24:6:1) constellation → PhysX raycasting LOS/NLOS
-  → signal quality / fading → DOP → pseudorange WLS
-  → hysteretic state machine → ramp-rate-limited output
+Full realistic GPS pipeline (always active, no fallback):
+  Walker-delta(24:6:1) constellation → PhysX per-satellite raycasting
+  → LOS/NLOS classification → C/N0 + lognormal fading filter
+  → geometry matrix DOP → pseudorange WLS multipath bias
+  → OU (Gauss-Markov) position drift scaled by HDOP/VDOP
+  → hysteretic state machine → ramp-rate-limited EKF2 output
 
-Tier structure (command-line flags):
-  Tier 1 (always active): PhysX raycasting against scene geometry drives
-      satellite visibility, DOP, and pseudorange errors. This is inherent
-      in GpsDegradationModel — no flag needed.
-  Tier 2 (--tier2): Raises multipath sensitivity by reducing the elevation
-      mask so lower-elevation, more multipath-prone satellites are included.
-  Tier 3 (--tier3): Activates a spatial jamming zone around the origin.
-      DENIAL and NOISE modes are supported; SPOOFING/MEACONING are treated
-      as DENIAL pending model extension.
+Flags:
+  --tier2      Lower elevation mask 5° → 2°: admits more multipath-prone
+               low-elevation satellites, stresses the signal model.
+  --tier3      Activate a spatial jamming zone. DENIAL and NOISE supported;
+               SPOOFING/MEACONING handled as DENIAL pending model extension.
 
 Usage:
     isaacsim_python example_one_px4_pegasus_degraded_gps_launch_script.py
@@ -72,17 +70,18 @@ SAVE_SCENE_TO = None
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 GPS_DEGRADATION_CONFIG = {
-    # Receiver baseline accuracy (maps to uere_base_m in GpsDegradationConfig)
-    "base_h_accuracy": 0.3,       # metres, 1σ
-    "base_v_accuracy": 0.5,       # metres, 1σ
+    # Receiver thermal noise floor — maps to uere_base_m in GpsDegradationConfig.
+    # Atmospheric delay variability is handled by the OU process (not here).
+    "base_h_accuracy": 0.3,       # metres, 1σ (C/A thermal noise, narrow correlator)
 
-    # Tier 2: broader elevation mask — more low-elevation (high multipath) sats
-    # Normal mask is 5°; lowering to 2° admits more multipath-prone geometry.
+    # --tier2: admit satellites down to 2° elevation (default mask is 5°).
+    # Lower-elevation sats have higher multipath probability; enabling this
+    # exercises the full signal_model + pseudorange WLS for marginal geometry.
     "tier2_elevation_mask_deg": 2.0,
 
-    # Tier 3: spatial jamming zone (world-frame metres, X=East Y=North Z=Up)
+    # --tier3: spatial jamming zone (world-frame metres, X=East Y=North Z=Up)
     "jamming_enabled": False,
-    "jamming_mode": "DENIAL",     # DENIAL | NOISE | SPOOFING* | MEACONING*
+    "jamming_mode": "DENIAL",     # DENIAL | NOISE  (SPOOFING/MEACONING = DENIAL)
     "jamming_zone": {
         "center": [0.0, 0.0, 0.0],   # world-frame metres
         "radius": 50.0,              # metres
@@ -97,15 +96,15 @@ GPS_DEGRADATION_CONFIG = {
 
 
 def build_gps_config(args) -> GpsDegradationConfig:
-    """Construct GpsDegradationConfig from GPS_DEGRADATION_CONFIG + CLI args."""
+    """Build GpsDegradationConfig from GPS_DEGRADATION_CONFIG + CLI args."""
     cfg = GpsDegradationConfig()
     cfg.scenario = "urban"
     cfg.uere_base_m = GPS_DEGRADATION_CONFIG["base_h_accuracy"]
 
     if args.tier2:
-        # Admit lower-elevation satellites — more specular multipath geometry.
+        # Admit satellites down to 2° — exercises more multipath-prone geometry.
         cfg.gps_elevation_mask_deg = GPS_DEGRADATION_CONFIG["tier2_elevation_mask_deg"]
-        carb.log_info(f"Tier 2: elevation mask lowered to {cfg.gps_elevation_mask_deg}°")
+        carb.log_info(f"Elevation mask lowered to {cfg.gps_elevation_mask_deg}° (tier2)")
 
     return cfg
 
@@ -362,10 +361,9 @@ def main() -> None:
 
     enable_required_extensions()
 
-    carb.log_info("GPS Degradation SITL Launcher")
-    carb.log_info(f"  Tier 1 (constellation + PhysX LOS): ALWAYS ACTIVE")
-    carb.log_info(f"  Tier 2 (low elevation mask):        {'ENABLED' if args.tier2 else 'disabled'}")
-    carb.log_info(f"  Tier 3 (jamming zone):              {'ENABLED' if args.tier3 else 'disabled'}")
+    carb.log_info("GPS Degradation SITL Launcher (Walker-delta constellation + PhysX raycasting)")
+    carb.log_info(f"  Low elevation mask (--tier2):  {'ENABLED' if args.tier2 else 'disabled'}")
+    carb.log_info(f"  Spatial jamming zone (--tier3): {'ENABLED' if args.tier3 else 'disabled'}")
 
     app = PegasusAppWithDegradedGPS(args)
     app.run()

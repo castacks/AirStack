@@ -5,6 +5,24 @@ Create one instance per drone. Call step() every physics step.
 Only runs the full pipeline every gps_update_every_n_steps steps; returns
 the cached output on non-GPS steps.
 
+Position error is the sum of two physically distinct components:
+
+  1. WLS multipath bias  — instantaneous, geometry-driven.
+     The pseudorange WLS solve projects NLOS reflected-signal path offsets
+     into ENU position space. This changes as satellites move in/out of LOS.
+
+  2. OU temporal drift  — slow, correlated.
+     An Ornstein-Uhlenbeck (Gauss-Markov) process that models ionospheric
+     and tropospheric delay variability plus receiver clock drift. The
+     diffusion coefficient is scaled by HDOP/VDOP so that good geometry
+     keeps drift small, and urban canyons (high DOP) produce large drift.
+
+     Steady-state RMS = ou_base_noise × HDOP × sqrt(ou_correlation_time_s/2)
+
+     The base noise values are saved once at __init__ and multiplied by the
+     current HDOP/VDOP at each GPS step. Never scale from an already-scaled
+     value — doing so would compound the geometry factor across time steps.
+
 Usage in px4_mavlink_backend.py
 --------------------------------
 See GPS_DEGRADATION_VM_BRIDGE.md Part 3 for the exact hook location.
@@ -38,6 +56,7 @@ Once variable names are known from the VM, the hook pattern is:
     <fix_var>  = _deg.fix_type
 """
 
+import math
 from typing import Optional, Tuple
 
 import numpy as np
@@ -72,14 +91,21 @@ class GpsDegradationModel:
         self._state_machine = DegradationStateMachine(self._cfg)
         self._rng = np.random.default_rng(seed=vehicle_id)
 
-        # IIR low-pass filter on position error.
-        # alpha = 1/(tau+1): higher tau = slower response = smoother output.
-        tau = self._cfg.position_error_tau_steps
-        self._iir_alpha = 1.0 / (tau + 1.0)
-        self._smooth_enu = np.zeros(3)
+        # ------------------------------------------------------------------ #
+        # OU (Gauss-Markov) process for temporal position drift.              #
+        # Save base noise values ONCE — scaled by HDOP/VDOP per step.        #
+        # Scaling from an already-scaled value would compound the geometry    #
+        # factor and grow unboundedly; always multiply from the true baseline. #
+        # ------------------------------------------------------------------ #
+        self._base_xy_noise = self._cfg.ou_base_xy_noise_m_sqrts
+        self._base_z_noise  = self._cfg.ou_base_z_noise_m_sqrts
+        self._ou_theta      = 1.0 / self._cfg.ou_correlation_time_s
+        # GPS update interval in seconds (assumes 100 Hz physics rate).
+        self._ou_dt         = self._cfg.gps_update_every_n_steps / 100.0
+        # OU state: [east, north, up] drift in metres.
+        self._ou_enu        = np.zeros(3)
 
         # Constellation refresh interval in seconds.
-        # Assumes physics at 100 Hz; adjust if PX4_PHYSICS_HZ differs.
         self._const_refresh_s = self._cfg.constellation_refresh_steps / 100.0
 
         # ROS 2 publisher — optional, silently skipped if unavailable.
@@ -126,50 +152,103 @@ class GpsDegradationModel:
         if step_count % self._cfg.gps_update_every_n_steps != 0:
             if self._last_output is not None:
                 return self._last_output
-            # First step before any output exists: return a benign open-sky default.
+            # First step before any output: return benign open-sky default.
             return self._state_machine.update(12, 1.0, 1.5, 0.0, 0.0, 0.0,
                                               lat_deg, lon_deg)
 
-        # Step 1: refresh satellite positions if interval has elapsed
+        # ------------------------------------------------------------------
+        # Step 1: refresh satellite constellation if interval elapsed
+        # ------------------------------------------------------------------
         if self._constellation.needs_refresh(sim_time_s, self._const_refresh_s):
             self._constellation.update(sim_time_s)
 
-        # Step 2: visible satellites (above elevation mask)
+        # ------------------------------------------------------------------
+        # Step 2: satellites above the elevation mask
+        # ------------------------------------------------------------------
         sats = self._constellation.get_visible_satellites(lat_deg, lon_deg, alt_m)
 
-        # Step 3: LOS/NLOS classification via PhysX raycasting
+        # ------------------------------------------------------------------
+        # Step 3: per-satellite LOS/NLOS classification via PhysX raycasting
+        # ------------------------------------------------------------------
         visibility = self._visibility.classify(world_pos, sats)
 
-        # Step 4: signal quality filtering (drops blocked + faded satellites)
+        # ------------------------------------------------------------------
+        # Step 4: signal quality filter
+        #   - Fully blocked sats (is_los=False, multipath_extra_m=0) dropped
+        #   - Sats below cn0_floor_dbhz after elevation + fading model dropped
+        # ------------------------------------------------------------------
         visibility = apply_signal_quality(visibility, self._cfg, self._rng)
 
-        # Step 5: DOP from surviving LOS satellites
+        # ------------------------------------------------------------------
+        # Step 5: DOP from LOS-only geometry matrix
+        # ------------------------------------------------------------------
         hdop, vdop, _ = compute_dop(visibility)
         n_los = sum(1 for sv in visibility if sv.is_los)
 
-        # Step 6: pseudorange WLS → raw position error
-        de, dn, du = compute_position_error(visibility, self._cfg, self._rng)
+        # ------------------------------------------------------------------
+        # Step 6: WLS pseudorange solve → instantaneous multipath bias
+        # ------------------------------------------------------------------
+        de_wls, dn_wls, du_wls = compute_position_error(
+            visibility, self._cfg, self._rng)
 
-        # Step 7: IIR smoothing on position error
-        raw = np.array([de, dn, du])
-        self._smooth_enu = (
-            (1.0 - self._iir_alpha) * self._smooth_enu
-            + self._iir_alpha * raw
-        )
+        # ------------------------------------------------------------------
+        # Step 7: OU drift — scale diffusion by HDOP/VDOP from step 5.
+        #
+        # sigma_xy = base_xy_noise × HDOP  (scale from saved baseline)
+        # sigma_z  = base_z_noise  × VDOP
+        #
+        # Exact discrete-time OU (avoids drift for large dt):
+        #   x(t+dt) = x(t) × exp(-θ dt) + σ × sqrt((1−exp(−2θ dt))/(2θ)) × N(0,1)
+        #
+        # The OU term captures atmospheric delay variability and clock drift.
+        # The WLS term captures multipath geometry bias.
+        # Neither should be filtered again after this point.
+        # ------------------------------------------------------------------
+        theta = self._ou_theta
+        dt    = self._ou_dt
 
-        # Step 8: state machine + ramp-rate limiting
+        # Scale diffusion by geometry — always from the saved baseline.
+        sigma_xy = self._base_xy_noise * hdop
+        sigma_z  = self._base_z_noise  * vdop
+
+        e_decay     = math.exp(-theta * dt)
+        # sqrt((1 − e²) / (2θ)) is the exact noise std of the OU increment.
+        ou_noise_factor = math.sqrt((1.0 - e_decay * e_decay) / (2.0 * theta))
+        noise = self._rng.standard_normal(3)
+
+        self._ou_enu[0] = self._ou_enu[0] * e_decay + sigma_xy * ou_noise_factor * noise[0]
+        self._ou_enu[1] = self._ou_enu[1] * e_decay + sigma_xy * ou_noise_factor * noise[1]
+        self._ou_enu[2] = self._ou_enu[2] * e_decay + sigma_z  * ou_noise_factor * noise[2]
+
+        # ------------------------------------------------------------------
+        # Step 8: combine OU drift with WLS multipath bias
+        #
+        # total = WLS_multipath_bias + OU_drift
+        #   WLS: changes with satellite-building geometry (seconds timescale)
+        #   OU:  changes with atmospheric variability (minutes timescale)
+        # No additional noise added here — the OU process already carries it.
+        # ------------------------------------------------------------------
+        total_east  = float(self._ou_enu[0]) + de_wls
+        total_north = float(self._ou_enu[1]) + dn_wls
+        total_up    = float(self._ou_enu[2]) + du_wls
+
+        # ------------------------------------------------------------------
+        # Step 9: state machine + ramp-rate limiting on eph/epv and position
+        # ------------------------------------------------------------------
         output = self._state_machine.update(
             n_los=n_los,
             hdop=hdop,
             vdop=vdop,
-            delta_east_m=float(self._smooth_enu[0]),
-            delta_north_m=float(self._smooth_enu[1]),
-            delta_up_m=float(self._smooth_enu[2]),
+            delta_east_m=total_east,
+            delta_north_m=total_north,
+            delta_up_m=total_up,
             lat_deg=lat_deg,
             lon_deg=lon_deg,
         )
 
-        # Step 9: publish ROS 2 status
+        # ------------------------------------------------------------------
+        # Step 10: publish ROS 2 status (optional)
+        # ------------------------------------------------------------------
         if self._publisher is not None:
             self._publisher.publish(output, n_los)
 

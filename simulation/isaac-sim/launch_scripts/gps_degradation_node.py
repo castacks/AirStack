@@ -238,19 +238,3 @@ class GPSDegradationNode(Node):
 
         self._pub_twist.publish(msg)
 
-
-def main(args=None):
-    """
-    Standalone entry point — only valid inside ISAACSIM_PYTHON.
-    Prefer launching via outdoor_urban_canyon_launch.py which also drives
-    physics_step() from the simulation loop.
-    """
-    rclpy.init(args=args)
-    node = GPSDegradationNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == "__main__":
-    main()

@@ -28,12 +28,16 @@ class GpsDegradationConfig:
     # Cap on reflected extra path length. Real multipath rarely exceeds ~300 m.
     multipath_max_extra_m: float = 300.0
 
-    # --- Signal quality / multipath ---
-    # Base pseudorange noise sigma for a C/A-code receiver (metres).
-    uere_base_m: float = 0.8
-    # Elevation-dependent noise: sigma(theta) = uere_base / sin(theta).
+    # --- Pseudorange thermal noise ---
+    # Represents C/A-code receiver thermal noise only (~0.3 m for a narrow
+    # correlator DLL at typical tracking loop bandwidth). Atmospheric delay
+    # variability is handled by the OU process below — do NOT include it here.
+    uere_base_m: float = 0.3
+    # Elevation-dependent noise floor: sigma(theta) = uere_base / sin(theta).
     low_elevation_threshold_deg: float = 15.0
     low_elevation_noise_factor: float = 2.5
+
+    # --- Signal quality / shadow fading ---
     # Lognormal shadow fading std dev (dB) by scenario type.
     shadow_fading_sigma_db: Dict[str, float] = field(default_factory=lambda: {
         "open_sky":    1.5,
@@ -44,15 +48,26 @@ class GpsDegradationConfig:
     # C/N0 acquisition floor (dB·Hz). Satellites below this are dropped.
     cn0_floor_dbhz: float = 30.0
     # Nominal C/N0 for a satellite at zenith (dB·Hz).
+    # Elevation dependence: cn0(el) = cn0_zenith + 10*log10(sin(el))
     cn0_zenith_dbhz: float = 45.0
 
-    # --- Position error smoothing ---
-    # IIR time constant in GPS updates (~3 s at 5 Hz).
-    position_error_tau_steps: int = 15
-    # Maximum position change per GPS update — prevents EKF2 innovation rejection.
-    max_position_step_m: float = 0.3
-    # Maximum eph change per GPS update.
-    max_eph_step_m: float = 0.5
+    # --- OU (Gauss-Markov) position drift process ---
+    # Models temporal GPS position drift from ionospheric and tropospheric delay
+    # variability and receiver clock drift. The OU noise is HDOP/VDOP-scaled so
+    # that poor constellation geometry → larger drift amplitude.
+    #
+    # Steady-state RMS = ou_base_noise × sqrt(ou_correlation_time_s / 2)
+    # Examples at HDOP=1:
+    #   horiz RMS = 0.08 × sqrt(150) ≈ 0.98 m   (open sky, L1 single-frequency)
+    #   vert  RMS = 0.12 × sqrt(150) ≈ 1.47 m
+    # At HDOP=3 (urban):
+    #   horiz RMS ≈ 2.9 m (before adding WLS multipath bias)
+    #
+    # Save these at __init__ time in GpsDegradationModel and scale by HDOP/VDOP
+    # per GPS step. Never scale from an already-scaled value.
+    ou_correlation_time_s: float = 300.0        # ~5-minute ionospheric drift timescale
+    ou_base_xy_noise_m_sqrts: float = 0.08      # horizontal diffusion  [m/sqrt(s)]
+    ou_base_z_noise_m_sqrts: float = 0.12       # vertical diffusion    [m/sqrt(s)]
 
     # --- State machine thresholds (hysteresis) ---
     state_thresholds: Dict = field(default_factory=lambda: {
@@ -65,6 +80,11 @@ class GpsDegradationConfig:
     })
     # GPS updates to ramp from DENIED back to MARGINAL (~5 s at 5 Hz).
     recovery_steps: int = 25
+
+    # Ramp-rate limiting on eph/epv and position to prevent EKF2 innovation
+    # gate rejection (fires when position jumps more than ~sqrt(eph²+noise²)).
+    max_position_step_m: float = 0.3
+    max_eph_step_m: float = 0.5
 
     # --- Jamming override ---
     jamming_fix_type: int = 0

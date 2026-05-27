@@ -50,8 +50,10 @@ def apply_signal_quality(
         el_deg = sv.sat.elevation_deg
         az_deg = sv.sat.azimuth_deg
 
-        # Elevation-dependent nominal C/N0
-        cn0_nominal = cfg.cn0_zenith_dbhz - 10.0 * math.log10(
+        # Elevation-dependent nominal C/N0.
+        # log10(sin(el)) is negative for el < 90° so this correctly
+        # reduces C/N0 at low elevation (e.g. 10° → −7.6 dB below zenith).
+        cn0_nominal = cfg.cn0_zenith_dbhz + 10.0 * math.log10(
             max(math.sin(math.radians(el_deg)), 0.05))
 
         # Individual (independent) fading component per satellite
