@@ -70,6 +70,7 @@ nav:
               - System Tests: tests/README.md
               - CI/CD Orchestrator: tests/ci-cd-orchestrator.md
           - Frame Conventions: docs/development/intermediate/frame_conventions.md
+          - Docker Build Profiles: docs/development/intermediate/docker-build-profiles.md
           - Contributing: 
               - docs/development/intermediate/contributing.md
               - docs/development/intermediate/documentation.md
@@ -112,7 +113,6 @@ nav:
               - Gimbal: docs/robot/autonomy/sensors/gimbal.md
           - Perception:
               - docs/robot/autonomy/perception/index.md
-              - State Estimation: docs/robot/autonomy/perception/state_estimation.md
               - NatNet (OptiTrack): robot/ros_ws/src/perception/natnet_ros2/README.md
           - Local:
               - docs/robot/autonomy/local/index.md

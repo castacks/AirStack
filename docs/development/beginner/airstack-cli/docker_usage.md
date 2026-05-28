@@ -38,6 +38,8 @@ The available image tags are listed [here](https://airlab-docker.andrew.cmu.edu/
 
 ## Build Images
 
+For an overview of build-time options (`BASE_IMAGE`, `ROS_DISTRO`, platform profiles), see [Docker Build Profiles](../../intermediate/docker-build-profiles.md). For runtime container operations, continue below.
+
 ```bash
 # Build all images from scratch
 docker compose build

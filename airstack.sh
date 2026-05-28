@@ -597,7 +597,7 @@ function cmd_setup {
     # Check for --no-shell flag
     local modify_shell=true
     local skip_config=false
-    local skip_natnet=false
+    local skip_natnet=false # initially set to false so that the --no-natnet flag can determine whether to skip the NatNet SDK installation
     
     for arg in "$@"; do
         if [ "$arg" == "--no-shell" ]; then

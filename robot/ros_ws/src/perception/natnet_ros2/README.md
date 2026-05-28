@@ -4,6 +4,10 @@ OptiTrack NatNet ROS 2 wrapper for motion capture integration in AirStack (optio
 
 **Note:** This module is only required if you intend to use OptiTrack Motive motion capture systems. If you do not plan to use OptiTrack, you can skip the NatNet SDK setup with `airstack setup --no-natnet`.
 
+### Optitrack Room Calibration
+
+If rigid bodies are jumping around or not tracking well, consider re-calibrating the Optitrack room in Motive. See the [OptiTrack Motive calibration guide](https://docs.optitrack.com/motive/calibration)
+
 ## Overview
 
 This module provides a bridge between OptiTrack Motive motion capture systems and the AirStack autonomy stack. It:
