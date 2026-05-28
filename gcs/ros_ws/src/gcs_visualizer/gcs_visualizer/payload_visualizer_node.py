@@ -73,6 +73,12 @@ class PayloadVisualizerNode(Node):
         self._pubs          = {}
         self._seen: OrderedDict = OrderedDict()
 
+        # Side length of each observed-cell cube in /completed_zones.
+        # Keep in sync with raven_nav_node's coverage_cell_size_m.
+        self.declare_parameter('completed_cell_size_m', 0.5)
+        self._completed_cell_size_m = float(
+            self.get_parameter('completed_cell_size_m').value)
+
         self.create_subscription(
             PeerProfileMsg, '/gossip/peers',
             self._on_peer_profile, GOSSIP_QOS)
@@ -211,8 +217,9 @@ class PayloadVisualizerNode(Node):
             f'/gcs/payload/{robot_name}/kept_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
-        """5/10 m cleared disks gossiped by raven_nav. Renders each as a flat
-        cylinder marker."""
+        """Observed-cell grid gossiped by raven_nav (one (x,y) per cell, cells
+        are coverage_cell_size_m on a side). Renders as a single CUBE_LIST so
+        N cells = 1 marker, not N translucent cylinders."""
         from sensor_msgs_py import point_cloud2 as pc2
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         try:
@@ -220,28 +227,28 @@ class PayloadVisualizerNode(Node):
                                        skip_nans=True))
         except Exception:
             return
+        bz = self._display_z_offset()
+        m = Marker()
+        m.header.frame_id = 'map'
+        m.header.stamp = now
+        m.ns = f'{robot_name}_completed_zones'
+        m.id = i * 100000
+        m.type = Marker.CUBE_LIST
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        s = self._completed_cell_size_m
+        m.scale.x = s
+        m.scale.y = s
+        m.scale.z = 0.05
+        m.color.r = color[0]
+        m.color.g = color[1]
+        m.color.b = color[2]
+        m.color.a = 0.35
+        m.lifetime = Duration(sec=3, nanosec=0)
+        for p in pts:
+            m.points.append(GPoint(x=float(p[0]), y=float(p[1]), z=bz))
         out = MarkerArray()
-        for j, p in enumerate(pts):
-            m = Marker()
-            m.header.frame_id = 'map'
-            m.header.stamp = now
-            m.ns = f'{robot_name}_completed_zones'
-            m.id = i * 100000 + j
-            m.type = Marker.CYLINDER
-            m.action = Marker.ADD
-            m.pose.position.x = float(p[0])
-            m.pose.position.y = float(p[1])
-            m.pose.position.z = 0.1
-            m.pose.orientation.w = 1.0
-            m.scale.x = 20.0
-            m.scale.y = 20.0
-            m.scale.z = 0.2
-            m.color.r = color[0]
-            m.color.g = color[1]
-            m.color.b = color[2]
-            m.color.a = 0.18
-            m.lifetime = Duration(sec=3, nanosec=0)
-            out.markers.append(m)
+        out.markers.append(m)
         self._pub_for(
             f'/gcs/payload/{robot_name}/completed_zones', MarkerArray).publish(out)
 
