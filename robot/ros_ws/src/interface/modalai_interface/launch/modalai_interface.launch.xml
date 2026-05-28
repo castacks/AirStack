@@ -1,0 +1,97 @@
+<launch>
+    <!-- ===================================================================
+         modalai_interface bringup
+         ===================================================================
+         Launches the ModalAI VOXL2 RobotInterface plugin.
+
+         The VOXL2 runs PX4 and exposes it via the MicroDDS bridge, so all
+         /fmu/in/* and /fmu/out/* topics are the same as px4_interface.
+         The difference is that odometry comes from VOXL's qvio topic
+         (geometry_msgs/PoseStamped) rather than PX4's VehicleOdometry.
+
+         /fmu namespace:
+           Push this namespace from a parent launch file:
+
+             <group>
+               <push-ros-namespace namespace="fmu" />
+               <include file="$(find-pkg-share modalai_interface)/launch/modalai_interface.launch.xml" />
+             </group>
+
+         qvio topic:
+           By default "qvio" is remapped to the VOXL topic below.
+           Adjust voxl_qvio_topic to match your voxl-mpa-to-ros2 config.
+         =================================================================== -->
+
+    <arg name="interface_odometry_out_topic"
+         default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+
+    <!-- Actual topic published by voxl-mpa-to-ros2 for visual-inertial odometry.
+         Common values: /qvio  or  /voxl/qvio  depending on ROS namespace config. -->
+    <arg name="voxl_qvio_topic" default="/qvio" />
+
+    <!-- Set to true when running in Isaac Sim. Starts sim_qvio_bridge which
+         converts PX4's out/vehicle_odometry → qvio so modalai_interface gets
+         odometry in the same format as real VOXL2 hardware. -->
+    <arg name="use_sim_qvio_bridge" default="false" />
+
+    <!-- ── Main interface node ─────────────────────────────────────────── -->
+    <group>
+        <push-ros-namespace namespace="fmu" />
+
+        <node pkg="robot_interface" exec="robot_interface_node"
+              name="modalai_interface" output="screen">
+            <param name="interface" value="modalai_interface::ModalAIInterface" />
+
+            <!-- Odometry output to AirStack -->
+            <remap from="odometry"
+                   to="/$(env ROBOT_NAME)/interface/odometry" />
+
+            <!-- Remap the qvio subscription to the actual VOXL topic -->
+            <remap from="qvio"
+                   to="$(var voxl_qvio_topic)" />
+
+            <!-- Optional: forward AirStack VIO estimate back to PX4 EKF.
+                 Uncomment and remap to your VIO source if needed.
+            <remap from="visual_odometry_in"
+                   to="/$(env ROBOT_NAME)/vio/odometry" /> -->
+        </node>
+    </group>
+
+    <!-- ── Odometry conversion ─────────────────────────────────────────── -->
+    <node pkg="robot_interface" namespace="odometry_conversion"
+          exec="odometry_conversion" output="screen">
+        <remap from="odometry_in"
+               to="/$(env ROBOT_NAME)/interface/odometry" />
+        <remap from="odometry_out"
+               to="odometry" />
+
+        <param name="odom_input_qos_is_best_effort" value="false" />
+        <param name="new_frame_id"                  value="map" />
+        <param name="new_child_frame_id"            value="base_link" />
+        <param name="odometry_output_type"          value="2" />
+
+        <param name="convert_odometry_to_transform"            value="true" />
+        <param name="convert_odometry_to_stabilized_transform" value="true" />
+        <param name="restamp_now_post"                         value="false" />
+    </node>
+
+    <!-- ── Sim qvio bridge (simulation only) ─────────────────────────── -->
+    <!-- Converts PX4's out/vehicle_odometry → geometry_msgs/PoseStamped on
+         qvio, mimicking what voxl-mpa-to-ros2 does on real hardware. -->
+    <group if="$(var use_sim_qvio_bridge)">
+        <push-ros-namespace namespace="fmu" />
+        <node pkg="modalai_interface" exec="sim_qvio_bridge.py"
+              name="sim_qvio_bridge" output="screen">
+            <remap from="qvio" to="$(var voxl_qvio_topic)" />
+        </node>
+    </group>
+
+    <!-- ── Safety monitor ──────────────────────────────────────────────── -->
+    <node pkg="drone_safety_monitor" exec="drone_safety_monitor"
+          namespace="drone_safety_monitor" output="screen">
+        <param name="state_estimate_timeout" value="1.0" />
+        <remap from="state_estimate"
+               to="$(var interface_odometry_out_topic)" />
+    </node>
+
+</launch>

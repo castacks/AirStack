@@ -1,0 +1,9 @@
+<library path="modalai_interface">
+  <class type="modalai_interface::ModalAIInterface" base_class_type="robot_interface::RobotInterface">
+    <description>
+      RobotInterface plugin for ModalAI VOXL2.
+      Sends commands via PX4 MicroDDS (/fmu/in/* topics) and sources odometry
+      from VOXL's qvio topic, converting NED/FRD to ENU/FLU.
+    </description>
+  </class>
+</library>
