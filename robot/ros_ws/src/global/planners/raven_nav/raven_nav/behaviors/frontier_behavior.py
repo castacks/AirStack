@@ -64,30 +64,69 @@ def _peer_penalty(viewpoints, peer_state, my_id,
     return pen, breakdown
 
 
-# Completed-frontier-zone coverage tracker. Each "zone" is an XY center —
-# any frontier within ZONE_RADIUS_M of any zone is treated as resolved and
-# dropped before clustering. The novelty cost in scoring also penalizes
-# candidates near zones so drones drift toward fresh areas.
-# Disk model: every drone position stamps a 5m disk regardless of behavior
-# mode — drone is observing in ray/voxel mode too, not just at frontier
-# waypoints. Dedup keeps the zone list sparse (one zone per disk).
-ZONE_RADIUS_M = 10.0     # frontiers within this of any zone are filtered out
-NOVELTY_SCALE_M = 25.0   # exp(-d/scale) decay
-NOVELTY_WEIGHT = 60.0    # weight on the closeness-to-explored penalty
-                         # — novelty is the primary signal; peer repulsion (15)
-                         # is secondary so the drone will accept being near a
-                         # peer if doing so finds genuinely unexplored ground.
+NOVELTY_WEIGHT = 60.0
+NOVELTY_NEIGHBORHOOD_CELLS = 5
+BLACKLIST_RADIUS_M = 10.0
 
 
-def _nearest_zone_dist(pts_xy: np.ndarray, zones_xy: np.ndarray) -> np.ndarray:
-    """For each point return distance to the nearest zone center. inf if no zones."""
+def _nearest_dist(pts_xy: np.ndarray, centers_xy: np.ndarray) -> np.ndarray:
+    """For each point, distance to the nearest center. inf if no centers."""
     if pts_xy.size == 0:
         return np.zeros(0, dtype=np.float64)
-    if zones_xy is None or zones_xy.size == 0:
+    if centers_xy is None or centers_xy.size == 0:
         return np.full(pts_xy.shape[0], np.inf, dtype=np.float64)
-    diff = pts_xy[:, None, :] - zones_xy[None, :, :]
-    d2 = np.sum(diff * diff, axis=2)
-    return np.sqrt(d2.min(axis=1))
+    diff = pts_xy[:, None, :] - centers_xy[None, :, :]
+    return np.sqrt(np.sum(diff * diff, axis=2).min(axis=1))
+
+
+def _xy_to_cells(pts_xy: np.ndarray, cell_size_m: float) -> np.ndarray:
+    """(N,2) float XY -> (N,2) int64 cell indices."""
+    if pts_xy.size == 0:
+        return np.zeros((0, 2), dtype=np.int64)
+    return np.floor(pts_xy / cell_size_m).astype(np.int64)
+
+
+def _cells_set_from_xys(zones_xy: np.ndarray, cell_size_m: float) -> set:
+    """Quantize gossiped cell-center XYs into a set of (ix, iy) tuples."""
+    if zones_xy is None or zones_xy.size == 0:
+        return set()
+    cells = _xy_to_cells(np.asarray(zones_xy, dtype=np.float64), cell_size_m)
+    return set(map(tuple, cells.tolist()))
+
+
+def _cells_observed_mask(pts_xy: np.ndarray, cells: set,
+                         cell_size_m: float) -> np.ndarray:
+    """True where the point's cell is in `cells`."""
+    if pts_xy.size == 0 or not cells:
+        return np.zeros(pts_xy.shape[0], dtype=bool)
+    ix = np.floor(pts_xy[:, 0] / cell_size_m).astype(np.int64)
+    iy = np.floor(pts_xy[:, 1] / cell_size_m).astype(np.int64)
+    return np.fromiter(
+        ((int(a), int(b)) in cells for a, b in zip(ix.tolist(), iy.tolist())),
+        bool, count=pts_xy.shape[0])
+
+
+def _neighborhood_density(pts_xy: np.ndarray, cells: set,
+                          cell_size_m: float, k: int) -> np.ndarray:
+    """Fraction of cells in a (2k+1)x(2k+1) window around each point that
+    are in `cells`. 0 in fully novel areas, 1 fully observed."""
+    n = pts_xy.shape[0]
+    if n == 0 or not cells:
+        return np.zeros(n, dtype=np.float64)
+    cx = np.floor(pts_xy[:, 0] / cell_size_m).astype(np.int64)
+    cy = np.floor(pts_xy[:, 1] / cell_size_m).astype(np.int64)
+    side = 2 * k + 1
+    total = float(side * side)
+    out = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        c = 0
+        x0, y0 = int(cx[i]), int(cy[i])
+        for dx in range(-k, k + 1):
+            for dy in range(-k, k + 1):
+                if (x0 + dx, y0 + dy) in cells:
+                    c += 1
+        out[i] = c / total
+    return out
 
 
 class FrontierBehavior:
@@ -96,7 +135,7 @@ class FrontierBehavior:
     STUCK_DISTANCE_M = 0.3
     STUCK_TIMEOUT_S = 5.0
     MAX_STRIKES = 3
-    BLACKLIST_RADIUS_M = ZONE_RADIUS_M
+    BLACKLIST_RADIUS_M = BLACKLIST_RADIUS_M
 
     MOMENTUM_WEIGHT = 20.0
     REVERSE_SURCHARGE = 40.0
@@ -133,6 +172,16 @@ class FrontierBehavior:
     def condition_check(self):
         return True
 
+    def clear_blacklist(self) -> int:
+        """Wipe strike book + blacklist. Returns count of blacklisted XYs dropped."""
+        n = len(self._blacklist_xy)
+        self._strikes = []
+        self._blacklist_xy = []
+        self._last_motion_xy = None
+        self._last_motion_time_s = None
+        self._tracked_target_xy = None
+        return n
+
     def _now_s(self) -> float:
         return self.get_clock().now().nanoseconds * 1e-9
 
@@ -153,7 +202,7 @@ class FrontierBehavior:
         self._prev_pose_time_s = now
 
     def _score_point(self, pt, robot_pos, heading_xy, peer_state, my_id,
-                     completed_zones_xy, committed_target_dir):
+                     completed_cells, cell_size_m, committed_target_dir):
         pt = np.asarray(pt, dtype=np.float64).reshape(1, 3)
         d = float(np.linalg.norm(pt[0] - robot_pos))
         s = d - self.INFO_GAIN_WEIGHT * float(np.log1p(1.0))
@@ -166,11 +215,11 @@ class FrontierBehavior:
                 s += self.REVERSE_SURCHARGE * max(-cs, 0.0)
         pen, _ = _peer_penalty(pt, peer_state, my_id)
         s += float(pen[0])
-        if (completed_zones_xy is not None
-                and isinstance(completed_zones_xy, np.ndarray)
-                and completed_zones_xy.shape[0] > 0):
-            d_pt = _nearest_zone_dist(pt[:, :2], completed_zones_xy)
-            s += float(NOVELTY_WEIGHT * np.exp(-d_pt[0] / NOVELTY_SCALE_M))
+        if completed_cells:
+            density = _neighborhood_density(
+                pt[:, :2], completed_cells, cell_size_m,
+                NOVELTY_NEIGHBORHOOD_CELLS)
+            s += float(NOVELTY_WEIGHT * density[0])
         if committed_target_dir is not None:
             cd = np.asarray(committed_target_dir, dtype=np.float64)[:2]
             cd_n = float(np.linalg.norm(cd))
@@ -271,7 +320,9 @@ class FrontierBehavior:
                 debug_logger=None,
                 committed_target_dir=None,
                 committed_target_origin=None,
-                completed_zones_xy=None):
+                completed_zones_xy=None,
+                cell_size_m=0.5):
+        completed_cells = _cells_set_from_xys(completed_zones_xy, cell_size_m)
         viewpoint_publisher = publisher_dict['viewpoint']
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
         kept_frontier_publisher = publisher_dict.get('kept_frontiers')
@@ -287,18 +338,23 @@ class FrontierBehavior:
         if frontiers_raw is None or len(frontiers_raw) == 0:
             return waypoint_locked, target_waypoint, target_waypoint2
 
-        # RDF -> FLU.
-        frontiers_flu = np.stack([
+        # frontiers_raw: (N,6) RDF xyz + [empty, unobs, occ]. Swap xyz to FLU,
+        # pass counts through unchanged.
+        has_cnts = frontiers_raw.shape[1] >= 6
+        xyz_flu = np.stack([
             frontiers_raw[:, 2],
             -frontiers_raw[:, 0],
             -frontiers_raw[:, 1],
         ], axis=1)
+        if has_cnts:
+            frontiers_flu = np.concatenate([xyz_flu, frontiers_raw[:, 3:6]], axis=1)
+        else:
+            frontiers_flu = xyz_flu
 
-        # Publish OWN raw frontiers UNFILTERED. Each receiver applies its own
-        # altitude/polygon filter. Never publish the merged set — that would
-        # create a feedback loop where each tick rebroadcasts peer points.
+        # Gossip own frontiers as xyz-only — peers don't need counts.
         if raw_frontier_publisher is not None and frontiers_flu.shape[0] > 0:
-            raw_frontier_publisher.publish(self._create_pointcloud2_msg(frontiers_flu))
+            raw_frontier_publisher.publish(
+                self._create_pointcloud2_msg(frontiers_flu[:, :3]))
 
         alt_mask = (frontiers_flu[:, 2] >= self.min_altitude) & (frontiers_flu[:, 2] <= self.max_altitude)
         own_frontiers = frontiers_flu[alt_mask]
@@ -310,26 +366,14 @@ class FrontierBehavior:
             polygon_dropped_own = int((~in_poly).sum())
             own_frontiers = own_frontiers[in_poly]
 
-        # Coverage filter: drop frontiers near already-cleared zones.
-        # Replaces "fly to every frontier" — visiting one frontier marks the
-        # whole 10m neighborhood as resolved (own + gossiped peer zones).
+        # Own frontiers are not filtered against own observed cells — rayfronts
+        # already produces a self-consistent frontier set.
         zone_dropped_own = 0
-        if (completed_zones_xy is not None
-                and isinstance(completed_zones_xy, np.ndarray)
-                and completed_zones_xy.shape[0] > 0
-                and own_frontiers.shape[0] > 0):
-            d_to_zone = _nearest_zone_dist(
-                own_frontiers[:, :2], completed_zones_xy)
-            keep_mask = d_to_zone > ZONE_RADIUS_M
-            zone_dropped_own = int((~keep_mask).sum())
-            own_frontiers = own_frontiers[keep_mask]
 
-        # Blacklist filter: drop frontiers near XYs that hit MAX_STRIKES —
-        # they're unreachable, the drone got stuck there 3 times.
         blacklist_xy = self._blacklist_array()
         blacklist_dropped_own = 0
         if blacklist_xy.shape[0] > 0 and own_frontiers.shape[0] > 0:
-            d_bl = _nearest_zone_dist(own_frontiers[:, :2], blacklist_xy)
+            d_bl = _nearest_dist(own_frontiers[:, :2], blacklist_xy)
             keep_mask = d_bl > self.BLACKLIST_RADIUS_M
             blacklist_dropped_own = int((~keep_mask).sum())
             own_frontiers = own_frontiers[keep_mask]
@@ -340,18 +384,18 @@ class FrontierBehavior:
         # rather than going stale when there's nothing left.
         if kept_frontier_publisher is not None:
             kept_frontier_publisher.publish(
-                self._create_pointcloud2_msg(own_frontiers))
+                self._create_pointcloud2_msg(own_frontiers[:, :3]))
 
-        # Published viewpoints come from own-only clustering.
         own_viewpoints, _own_sizes = self._cluster_to_viewpoints(own_frontiers)
         if own_viewpoints.shape[0] > 0:
-            viewpoint_publisher.publish(self._create_pointcloud2_msg(own_viewpoints))
+            viewpoint_publisher.publish(
+                self._create_pointcloud2_msg(own_viewpoints[:, :3]))
 
-        # Candidate pool for picking = own + peer raw frontiers, re-clustered.
         peer_count_summary = {}
         peer_raw_summary = {}
         peer_z_range = {}
         candidate_input = own_frontiers
+        n_cols = own_frontiers.shape[1]
         if peer_state is not None and peer_state.peer_frontiers:
             peer_chunks = []
             for _name, pf in peer_state.peer_frontiers.items():
@@ -365,20 +409,24 @@ class FrontierBehavior:
                     pf_filt = pf_filt[_points_in_polygon(pf_filt[:, :2], search_area_xy)]
                 peer_count_summary[_name] = int(pf_filt.shape[0])
                 if pf_filt.shape[0] > 0:
-                    if (completed_zones_xy is not None
-                            and isinstance(completed_zones_xy, np.ndarray)
-                            and completed_zones_xy.shape[0] > 0):
-                        d_peer = _nearest_zone_dist(
-                            pf_filt[:, :2], completed_zones_xy)
-                        pf_filt = pf_filt[d_peer > ZONE_RADIUS_M]
-                    # Same blacklist filter — strikes are local to this drone
-                    # (peers haven't tried this region) so we apply our own.
+                    # Cell-membership filter against the merged observed cells.
+                    if completed_cells:
+                        in_observed = _cells_observed_mask(
+                            pf_filt[:, :2], completed_cells, cell_size_m)
+                        pf_filt = pf_filt[~in_observed]
                     if pf_filt.shape[0] > 0 and blacklist_xy.shape[0] > 0:
-                        d_peer_bl = _nearest_zone_dist(
+                        d_peer_bl = _nearest_dist(
                             pf_filt[:, :2], blacklist_xy)
                         pf_filt = pf_filt[d_peer_bl > self.BLACKLIST_RADIUS_M]
                     if pf_filt.shape[0] > 0:
-                        peer_chunks.append(pf_filt.astype(own_frontiers.dtype, copy=False))
+                        # Pad peer xyz with zero counts to match own (N,6).
+                        if n_cols > pf_filt.shape[1]:
+                            pad = np.zeros(
+                                (pf_filt.shape[0], n_cols - pf_filt.shape[1]),
+                                dtype=pf_filt.dtype)
+                            pf_filt = np.concatenate([pf_filt, pad], axis=1)
+                        peer_chunks.append(
+                            pf_filt.astype(own_frontiers.dtype, copy=False))
             if peer_chunks:
                 candidate_input = np.vstack([own_frontiers] + peer_chunks)
 
@@ -395,14 +443,12 @@ class FrontierBehavior:
                 peer_str = ', '.join(peer_parts)
             else:
                 peer_str = 'none'
-            zones_n = (int(completed_zones_xy.shape[0])
-                       if isinstance(completed_zones_xy, np.ndarray)
-                       else 0)
+            zones_n = len(completed_cells)
             debug_logger.info(
                 f'[coord] frontiers: own={own_count} peer=[{peer_str}] '
                 f'merged={merged_count} '
                 f'(polygon_dropped_own={polygon_dropped_own} '
-                f'zone_dropped_own={zone_dropped_own} zones={zones_n} '
+                f'zone_dropped_own={zone_dropped_own} cells={zones_n} '
                 f'blacklist_dropped_own={blacklist_dropped_own} '
                 f'strikes={len(self._strikes)} '
                 f'blacklisted={len(self._blacklist_xy)})',
@@ -426,7 +472,7 @@ class FrontierBehavior:
                 return waypoint_locked, target_waypoint, target_waypoint2
 
         if blacklist_xy.shape[0] > 0 and viewpoints.shape[0] > 0:
-            d_cent = _nearest_zone_dist(viewpoints[:, :2], blacklist_xy)
+            d_cent = _nearest_dist(viewpoints[:, :2], blacklist_xy)
             bl_keep = d_cent > self.BLACKLIST_RADIUS_M
             viewpoints = viewpoints[bl_keep]
             cluster_sizes = cluster_sizes[bl_keep]
@@ -453,17 +499,14 @@ class FrontierBehavior:
         peer_pen, peer_breakdown = _peer_penalty(viewpoints, peer_state, my_id)
         scores = scores + peer_pen
 
-        # Novelty cost: penalize candidates near already-cleared zones so
-        # drones drift to unexplored regions. exp(-d/scale) decay matches the
-        # peer-repulsion shape, but it's keyed to the *coverage* state rather
-        # than to peer waypoints.
+        # Novelty: fraction of cells in a (2k+1)^2 window around each viewpoint
+        # that are already observed.
         novelty_pen = np.zeros(viewpoints.shape[0], dtype=np.float64)
-        if (completed_zones_xy is not None
-                and isinstance(completed_zones_xy, np.ndarray)
-                and completed_zones_xy.shape[0] > 0
-                and viewpoints.shape[0] > 0):
-            d_vp = _nearest_zone_dist(viewpoints[:, :2], completed_zones_xy)
-            novelty_pen = NOVELTY_WEIGHT * np.exp(-d_vp / NOVELTY_SCALE_M)
+        if completed_cells and viewpoints.shape[0] > 0:
+            density = _neighborhood_density(
+                viewpoints[:, :2], completed_cells, cell_size_m,
+                NOVELTY_NEIGHBORHOOD_CELLS)
+            novelty_pen = NOVELTY_WEIGHT * density
             scores = scores + novelty_pen
 
         # Strong bias toward viewpoints aligned with the last-seen direction of
@@ -509,9 +552,7 @@ class FrontierBehavior:
                 for pname, pz in peer_state.peer_completed_zones.items():
                     n = int(pz.shape[0]) if pz is not None else 0
                     peer_zones_pairs.append((pname, n))
-            total_zones = (int(completed_zones_xy.shape[0])
-                           if isinstance(completed_zones_xy, np.ndarray)
-                           else 0)
+            total_zones = len(completed_cells)
             own_zones_n = total_zones - sum(n for _, n in peer_zones_pairs)
 
             peer_f = (', '.join(f'{n}={c}' for n, c in peer_count_summary.items())
@@ -604,7 +645,7 @@ class FrontierBehavior:
         if not swap:
             cur_score = self._score_point(
                 target_waypoint, robot_pos, heading_xy, peer_state, my_id,
-                completed_zones_xy, committed_target_dir)
+                completed_cells, cell_size_m, committed_target_dir)
             margin = self.SWAP_IMPROVEMENT_FRAC * (abs(cur_score) + 1e-6)
             beats = best_score < cur_score - margin
             if beats and locked_for_s >= self.MIN_LOCK_DURATION_S:
@@ -660,23 +701,33 @@ class FrontierBehavior:
         return waypoint_locked, target_waypoint, target_waypoint2
 
     def _cluster_to_viewpoints(self, points: np.ndarray):
-        """DBSCAN(eps=2.7, min_samples=3) -> ((M,3) centroids, (M,) sizes)."""
+        """DBSCAN over XYZ. Returns ((M,3) centroids, (M,) info_gain).
+        info_gain = summed unobserved_cnt when col 4 is present, else cluster
+        point count."""
         empty = (np.zeros((0, 3), dtype=points.dtype),
-                 np.zeros((0,), dtype=np.int64))
+                 np.zeros((0,), dtype=np.float64))
         if points.shape[0] == 0:
             return empty
-        labels = DBSCAN(eps=2.7, min_samples=3).fit(points).labels_
+        xyz = points[:, :3]
+        unobs = points[:, 4] if points.shape[1] >= 6 else None
+        labels = DBSCAN(eps=2.7, min_samples=3).fit(xyz).labels_
         centroids = []
-        sizes = []
+        gains = []
         for l in (l for l in set(labels) if l != -1):
             mask = labels == l
-            c = points[mask].mean(axis=0)
+            c = xyz[mask].mean(axis=0)
             if self.min_altitude <= c[2] <= self.max_altitude:
                 centroids.append(c)
-                sizes.append(int(mask.sum()))
+                if unobs is not None:
+                    g = float(unobs[mask].sum())
+                    if g <= 0.0:
+                        g = float(mask.sum())
+                    gains.append(g)
+                else:
+                    gains.append(float(mask.sum()))
         if not centroids:
             return empty
-        return np.stack(centroids), np.asarray(sizes, dtype=np.int64)
+        return np.stack(centroids), np.asarray(gains, dtype=np.float64)
 
     def _create_pointcloud2_msg(self, xyz):
         if isinstance(xyz, np.ndarray):

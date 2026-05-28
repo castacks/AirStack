@@ -20,6 +20,6 @@
 
 [submodule "common/rayfronts"]
 	path = common/rayfronts
-	url = https://github.com/RayFronts/RayFronts.git
+	url = https://github.com/krrishj18/RayFronts.git
 	branch = modalai
 

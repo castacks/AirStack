@@ -11,7 +11,7 @@ from geometry_msgs.msg import PolygonStamped
 from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import NavSatFix, PointCloud2
 from sensor_msgs_py import point_cloud2
-from std_msgs.msg import String
+from std_msgs.msg import String, Empty
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -98,14 +98,12 @@ class RavenNavNode(Node):
         self._search_area_xy: 'np.ndarray | None' = None
         self._warned_polygon_degenerate = False
 
-        # Coverage tracking: XY centers (Nx2) of cleared disks. Every tick
-        # the drone stamps its current position as a new zone IF it's outside
-        # the dedup radius of every existing zone. Mode-agnostic — drone is
-        # observing in ray/voxel mode too, not just at frontier waypoints.
-        # Gossiped to peers so the whole fleet stops chasing nearby frontiers.
-        self._completed_zones: 'np.ndarray' = np.zeros((0, 2), dtype=np.float64)
-        self._zone_dedupe_radius_m: float = float(self.declare_parameter(
-            'zone_dedupe_radius_m', 10.0).value)
+        # 2D observed-cells grid. Cell size matches rayfronts vox_size.
+        self._cell_size_m: float = float(self.declare_parameter(
+            'coverage_cell_size_m', 0.5).value)
+        self._max_raycast_range_m: float = float(self.declare_parameter(
+            'coverage_raycast_range_m', 30.0).value)
+        self._observed_cells: set = set()
 
         self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
         query_labels_param = self.declare_parameter(
@@ -255,6 +253,10 @@ class RavenNavNode(Node):
             String,
             '/input_prompt',
             self._input_prompt_cb, 10)
+        self.create_subscription(
+            Empty,
+            f'{self._prefix}/raven_nav/clear_blacklist',
+            self._clear_blacklist_cb, 10)
 
         # mavros publishes raw/fix as BEST_EFFORT; matching it here is required.
         navsat_qos = QoSProfile(
@@ -399,14 +401,55 @@ class RavenNavNode(Node):
         out.data = flat.tobytes()
         self._shared_rays_pub.publish(out)
 
-    def _add_completed_zone(self, xy: np.ndarray) -> None:
-        """Record an XY center as a 'visited' frontier zone (dedup by radius)."""
-        xy = np.asarray(xy, dtype=np.float64)[:2]
-        if self._completed_zones.shape[0] > 0:
-            d = np.linalg.norm(self._completed_zones - xy[None, :], axis=1)
-            if float(d.min()) < self._zone_dedupe_radius_m:
-                return
-        self._completed_zones = np.vstack([self._completed_zones, xy[None, :]])
+    def _xy_to_cells(self, xys: np.ndarray) -> np.ndarray:
+        """(N,2) float XYs -> (N,2) int32 cell indices."""
+        if xys.size == 0:
+            return np.zeros((0, 2), dtype=np.int32)
+        return np.floor(np.asarray(xys, dtype=np.float64)
+                        / self._cell_size_m).astype(np.int32)
+
+    def _stamp_cells_xy(self, xys: np.ndarray) -> None:
+        """Mark every cell touching any point in `xys` (FLU local frame)."""
+        cells = self._xy_to_cells(xys)
+        if cells.shape[0] == 0:
+            return
+        self._observed_cells.update(map(tuple, cells.tolist()))
+
+    def _stamp_raycast_cells(self, origin_xy: np.ndarray,
+                             targets_xy: np.ndarray) -> None:
+        """Stamp every cell on the 2D line from origin to each target,
+        clamped to _max_raycast_range_m."""
+        if targets_xy is None or targets_xy.shape[0] == 0:
+            return
+        origin = np.asarray(origin_xy, dtype=np.float64).reshape(2)
+        tgt = np.asarray(targets_xy, dtype=np.float64).reshape(-1, 2)
+        delta = tgt - origin[None, :]
+        dist = np.linalg.norm(delta, axis=1)
+        nonzero = dist > 1e-6
+        if not np.any(nonzero):
+            return
+        delta = delta[nonzero]
+        dist = dist[nonzero]
+        clamp = np.minimum(dist, self._max_raycast_range_m)
+        unit = delta / dist[:, None]
+        end = origin[None, :] + unit * clamp[:, None]
+        # Half-cell step ensures diagonal lines don't skip cells.
+        step = max(self._cell_size_m * 0.5, 0.05)
+        n_steps = int(np.ceil(float(clamp.max()) / step)) + 1
+        ts = np.linspace(0.0, 1.0, n_steps)[None, :, None]
+        starts = origin[None, None, :]
+        ends = end[:, None, :]
+        pts = starts + (ends - starts) * ts
+        cells = self._xy_to_cells(pts.reshape(-1, 2))
+        cells_unique = np.unique(cells, axis=0)
+        self._observed_cells.update(map(tuple, cells_unique.tolist()))
+
+    def _own_cell_centers_xy(self) -> np.ndarray:
+        """Observed cells as (M,2) float64 cell-center XYs."""
+        if not self._observed_cells:
+            return np.zeros((0, 2), dtype=np.float64)
+        arr = np.array(list(self._observed_cells), dtype=np.float64)
+        return (arr + 0.5) * self._cell_size_m
 
     def _own_confirmed_targets(self) -> list:
         """Convert voxel_behavior's current AABBs into ConfirmedTarget records.
@@ -636,9 +679,10 @@ class RavenNavNode(Node):
             String(data='\n'.join(lines).rstrip()))
 
     def _publish_completed_zones(self) -> None:
-        """Gossip completed-zone bitmap as a PointCloud2 (x,y only)."""
+        """Gossip observed cells as a PointCloud2 of cell-center XYs."""
         from sensor_msgs.msg import PointField
-        n = int(self._completed_zones.shape[0])
+        centers = self._own_cell_centers_xy()
+        n = int(centers.shape[0])
         out = PointCloud2()
         out.header.stamp = self.get_clock().now().to_msg()
         out.header.frame_id = 'map'
@@ -653,7 +697,7 @@ class RavenNavNode(Node):
         out.point_step = 8
         out.row_step = out.point_step * n
         if n > 0:
-            flat = self._completed_zones.astype(np.float32)
+            flat = centers.astype(np.float32)
             out.data = flat.tobytes()
         self._completed_zones_pub.publish(out)
 
@@ -684,11 +728,24 @@ class RavenNavNode(Node):
         self._vox_scores = sim_all
 
     def _frontiers_cb(self, msg: PointCloud2):
-        pts = list(point_cloud2.read_points(msg, field_names=('x', 'y', 'z'),
-                                            skip_nans=True))
-        self._frontiers = (
-            np.array([[p[0], p[1], p[2]] for p in pts], dtype=np.float32)
-            if pts else None)
+        """(N, 6) float32: [x, y, z, empty_cnt, unobserved_cnt, occupied_cnt].
+        Counts are 0-filled when the message lacks them."""
+        field_names = {f.name for f in msg.fields}
+        has_cnts = ({'empty_cnt', 'unobserved_cnt', 'occupied_cnt'}
+                    .issubset(field_names))
+        cols = (('x', 'y', 'z', 'empty_cnt', 'unobserved_cnt', 'occupied_cnt')
+                if has_cnts else ('x', 'y', 'z'))
+        pts = list(point_cloud2.read_points(msg, field_names=cols, skip_nans=True))
+        if not pts:
+            self._frontiers = None
+            return
+        arr = np.array([list(p) for p in pts], dtype=np.float32)
+        if has_cnts:
+            self._frontiers = arr  # (N, 6)
+        else:
+            padded = np.zeros((arr.shape[0], 6), dtype=np.float32)
+            padded[:, :3] = arr
+            self._frontiers = padded
 
     def _odometry_cb(self, msg: Odometry):
         p = msg.pose.pose.position
@@ -697,6 +754,11 @@ class RavenNavNode(Node):
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         self._cur_yaw = float(np.arctan2(siny_cosp, cosy_cosp))
+
+    def _clear_blacklist_cb(self, _msg: Empty) -> None:
+        n = self._behavior_manager.frontier_behavior.clear_blacklist()
+        self.get_logger().warn(
+            f'[escalation] clear_blacklist requested — dropped {n} blacklisted XY(s)')
 
     def _input_prompt_cb(self, msg: String):
         targets = [t.strip() for t in msg.data.split(',') if t.strip()]
@@ -1443,22 +1505,24 @@ class RavenNavNode(Node):
             self._target_waypoint = None
             self._target_waypoint2 = None
 
-        # Disk-coverage stamp: every tick, drop a 5m disk at the drone's
-        # current position if we're outside every existing zone's dedup
-        # radius. Runs in all modes — the drone is observing the world
-        # whether it's pursuing a frontier, ray, or voxel waypoint, and
-        # peers should not re-explore that area.
+        # Stamp coverage from drone XY + semantic voxels + raycast to frontiers.
         if self._cur_pose is not None:
-            self._add_completed_zone(self._cur_pose[:2])
+            self._stamp_cells_xy(self._cur_pose[:2].reshape(1, 2))
+            if self._vox_xyz is not None and self._vox_xyz.shape[0] > 0:
+                self._stamp_cells_xy(self._vox_xyz[:, :2])
+            if self._frontiers is not None and self._frontiers.shape[0] > 0:
+                # frontiers cols 0:3 are RDF; convert to FLU XY for raycast.
+                fr_rdf = self._frontiers[:, :3]
+                fr_flu_xy = np.stack([fr_rdf[:, 2], -fr_rdf[:, 0]], axis=1)
+                self._stamp_raycast_cells(self._cur_pose[:2], fr_flu_xy)
 
-        # Build the union of completed zones (own + peers) in our local frame.
-        zone_chunks = [self._completed_zones]
+        own_centers = self._own_cell_centers_xy()
+        zone_chunks = [own_centers] if own_centers.shape[0] > 0 else []
         for pz in self._peer_state.peer_completed_zones.values():
             if pz is not None and pz.shape[0] > 0:
                 zone_chunks.append(pz)
         completed_zones_xy = np.vstack(zone_chunks) if zone_chunks else None
 
-        # Gossip our own zones (PointCloud2 with x,y fields).
         self._publish_completed_zones()
 
         self._waypoint_locked, self._target_waypoint, self._target_waypoint2 = \
@@ -1475,6 +1539,7 @@ class RavenNavNode(Node):
                 query_labels=self._query_labels,
                 peer_state=self._peer_state,
                 completed_zones_xy=completed_zones_xy,
+                cell_size_m=self._cell_size_m,
                 my_id=self._my_id,
                 search_area_xy=self._search_area_xy,
                 debug_logger=(self.get_logger() if self._debug_coord else None),

@@ -18,7 +18,7 @@ from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
-from std_msgs.msg import String
+from std_msgs.msg import String, Empty
 from action_msgs.srv import CancelGoal
 from task_msgs.action import SemanticSearchTask, ExplorationTask
 
@@ -174,6 +174,8 @@ class SemanticSearchTaskNode(Node):
         self._search_area_pub = self.create_publisher(
             PolygonStamped, f'{self._robot_prefix}/raven_nav/search_area',
             latched_qos)
+        self._clear_blacklist_pub = self.create_publisher(
+            Empty, f'{self._robot_prefix}/raven_nav/clear_blacklist', 10)
 
         self.create_subscription(
             Odometry, f'{self._robot_prefix}/odometry',
@@ -418,6 +420,7 @@ class SemanticSearchTaskNode(Node):
 
         STUCK_TIMEOUT_S = 5.0
         STUCK_DISTANCE_M = 0.3
+        ESCALATE_AFTER_RESTARTS = 10
         last_motion_pos = None
         last_motion_time = None
         exploration_restarts = 0
@@ -693,6 +696,21 @@ class SemanticSearchTaskNode(Node):
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = time.time()
+
+                            if exploration_restarts >= ESCALATE_AFTER_RESTARTS:
+                                self.get_logger().error(
+                                    f'[escalation] {exploration_restarts} exploration '
+                                    f'restarts — clearing raven blacklist + restarting '
+                                    f'random_walk_planner')
+                                self._clear_blacklist_pub.publish(Empty())
+                                try:
+                                    subprocess.run(
+                                        ['pkill', '-f', 'random_walk_planner'],
+                                        check=False, timeout=2.0)
+                                except Exception as e:
+                                    self.get_logger().warn(
+                                        f'[escalation] pkill failed: {e}')
+                                exploration_restarts = 0
 
                 # Send queries to rayfronts whenever its subscriber appears (or reappears).
                 # This handles the initial load AND any rayfronts restart mid-task.
