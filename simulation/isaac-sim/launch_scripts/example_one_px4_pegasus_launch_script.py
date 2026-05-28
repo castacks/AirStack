@@ -10,16 +10,76 @@ Demonstrates:
  - Optionally saving the prepared scene as a self-contained USD
 """
 
-import carb
-from isaacsim import SimulationApp
-
-# Must be created before any omni imports
-simulation_app = SimulationApp({"headless": False})
-
 import os
 import sys
 import time
 import asyncio
+
+import carb
+from isaacsim import SimulationApp
+
+_LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
+
+# Must be created before any omni imports.
+#
+# When livestreaming, mirror the NVIDIA reference config from
+# simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
+# so the Kit GUI (menu bar, toolbar, viewport, status bar) actually gets
+# rendered into the WebRTC stream instead of just the bare 3D viewport.
+# Key field: `hide_ui: False` — SimulationApp's default when `headless=True`
+# is to also hide the UI; the livestream reference opts back into showing
+# it. `display_options=3286` is the same bitmask the reference uses to keep
+# the default grid + axes visible at scene start.
+if _LIVESTREAM:
+    _SIM_APP_CONFIG = {
+        "width": 1280,
+        "height": 720,
+        "window_width": 1920,
+        "window_height": 1080,
+        "headless": True,
+        "hide_ui": False,
+        "renderer": "RaytracedLighting",
+        "display_options": 3286,
+    }
+else:
+    _SIM_APP_CONFIG = {"headless": False}
+
+simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
+
+if _LIVESTREAM:
+    # Headless + WebRTC livestream when ISAAC_SIM_LIVESTREAM=true (set by the
+    # OSMO airstack-osmo-workspace entrypoint and the isaac-sim-livestream
+    # Compose profile). Local desktop dev keeps the original windowed behavior.
+    # Mirrors AirStack's standalone livestream reference at
+    # simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
+    from isaacsim.core.utils.extensions import enable_extension
+    simulation_app.set_setting("/app/window/drawMouse", True)
+    simulation_app.set_setting("/app/livestream/enabled", True)
+
+    # Pin the UDP media port so it stays inside the narrow set of ports we
+    # publish from this container and that `airstack osmo:webrtc` forwards.
+    #
+    # Kit 107's WebRTC livestream picks a UDP media port dynamically. The
+    # documented `omni.services.livestream.nvcf` defaults were
+    # minHostPort=47998 / maxHostPort=48020 / fixedHostPort=0, but the
+    # actual Kit binary ignored that range on airstack-dev-13 and bound to
+    # UDP 49042 — outside both the Compose-published port range AND the
+    # default osmo `--udp` forward (47995-48012,49000-49007). Result:
+    # signaling worked (TCP 49100), the WebRTC Streaming Client window
+    # opened, but every media packet was dropped → black viewport +
+    # the `NVST_CCE_DISCONNECTED when m_connectionCount 0 != 1` underflow
+    # storm in the Kit log.
+    #
+    # Set all three settings so whichever code path the plugin reads, it
+    # lands on UDP 49099. The value of 49099 is picked as one-off from the
+    # 49100 signaling port — same range, easy to remember, and TCP/UDP can
+    # coexist on the same number if anyone later wants a single port.
+    LIVESTREAM_UDP_PORT = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
+    simulation_app.set_setting("/app/livestream/fixedHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/minHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/maxHostPort", LIVESTREAM_UDP_PORT)
+
+    enable_extension("omni.kit.livestream.webrtc")
 
 import omni.kit.app
 import omni.timeline

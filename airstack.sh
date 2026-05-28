@@ -5,6 +5,47 @@
 # This script provides a unified interface for common development tasks
 # in the AirStack project, including setup, installation, and container management.
 
+# Re-exec under bash 4+ if necessary. macOS ships bash 3.2 which can't handle
+# `declare -A` (associative arrays) used throughout this script. Searches for
+# a newer bash via $AIRSTACK_BASH, then common Homebrew install paths, then
+# any `bash` on PATH that reports version >= 4. Sets AIRSTACK_REEXEC_BASH=1
+# to guard against infinite re-exec loops.
+if [ -z "${AIRSTACK_REEXEC_BASH:-}" ] && [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then
+    _airstack_candidates=(
+        "${AIRSTACK_BASH:-}"
+        /opt/homebrew/bin/bash      # Apple Silicon Homebrew
+        /usr/local/bin/bash         # Intel Homebrew
+        /opt/local/bin/bash         # MacPorts
+    )
+    if command -v bash5 >/dev/null 2>&1; then
+        _airstack_candidates+=("$(command -v bash5)")
+    fi
+    # Add any `bash` on PATH whose version is >= 4 (other than the one we just
+    # got here from, which is < 4 by the if-check above).
+    for _alt in $(command -v -a bash 2>/dev/null); do
+        _airstack_candidates+=("$_alt")
+    done
+
+    for _airstack_alt_bash in "${_airstack_candidates[@]}"; do
+        [ -z "$_airstack_alt_bash" ] && continue
+        [ -x "$_airstack_alt_bash" ] || continue
+        # Probe BASH_VERSINFO[0] without sourcing the script.
+        if "$_airstack_alt_bash" -c '[ "${BASH_VERSINFO[0]:-0}" -ge 4 ]' 2>/dev/null; then
+            export AIRSTACK_REEXEC_BASH=1
+            exec "$_airstack_alt_bash" "$0" "$@"
+        fi
+    done
+
+    cat >&2 <<'EOF'
+[ERROR] airstack.sh requires bash 4 or newer (your bash is 3.x).
+        macOS ships bash 3.2 by default; install a modern bash with:
+            brew install bash
+        Or set AIRSTACK_BASH=/path/to/bash >= 4 before invoking this script.
+EOF
+    exit 1
+fi
+unset AIRSTACK_REEXEC_BASH
+
 set -e
 
 # Script directory

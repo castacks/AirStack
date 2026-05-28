@@ -52,6 +52,7 @@ nav:
   - Home: docs/index.md
   - Getting Started:
     - docs/getting_started/index.md
+    - docs/tutorials/airstack_on_osmo.md
     - docs/getting_started/tutorials_reference.md
   - Development:
       - docs/development/index.md

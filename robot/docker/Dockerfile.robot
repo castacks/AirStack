@@ -83,6 +83,7 @@ RUN apt update && apt install -y --no-install-recommends \
   python3-rosdep \
   tmux \
   gdb \
+  xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # Freeze pip and setuptools versions (ignore-installed: apt-shipped wheel/setuptools have no pip RECORD).
@@ -314,6 +315,7 @@ RUN apt update && apt install -y --no-install-recommends \
   python3-empy \
   python3-rosdep \
   tmux \
+  xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # Freeze pip and setuptools versions (ignore-installed: apt-shipped wheel/setuptools have no pip RECORD).
