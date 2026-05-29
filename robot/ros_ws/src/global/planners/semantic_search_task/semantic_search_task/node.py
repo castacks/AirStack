@@ -71,12 +71,8 @@ def _filter_raven(line: str) -> str | None:
     if not line:
         return None
     low = line.lower()
-    # Pass through multi-robot coordination debug lines verbatim — these are
-    # gated behind raven's debug_coordination param and tagged "[coord]" so
-    # we don't have to re-parse the format.
     if '[coord]' in line:
         return line
-    # Surface startup, waiting, and error messages
     if 'raven_nav started' in low:
         return 'raven_nav started'
     if 'waiting for odometry' in low:
@@ -85,8 +81,6 @@ def _filter_raven(line: str) -> str | None:
         return line
     if 'error' in low or 'exception' in low or 'traceback' in low:
         return f'ERROR: {line}'
-    # Pass through the compact mode-tagged status line verbatim. The [coord]
-    # branch above already handles bids / peer_bids / assigned.
     if re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line):
         return line
     return None
@@ -161,10 +155,9 @@ class SemanticSearchTaskNode(Node):
         self._text_query_pub = self.create_publisher(
             String, f'{self._rf_prefix}/new_text_query', 10)
 
-        # Latched polygon constraint for raven_nav. raven_nav joins after this
-        # node spawns it, so TRANSIENT_LOCAL ensures it gets the most recent
-        # polygon on subscribe. We publish at task start and clear at task end
-        # so a stale polygon never carries over to the next task.
+        # TRANSIENT_LOCAL so raven_nav (spawned after this node) gets the
+        # most recent polygon on subscribe. Cleared at task end to avoid
+        # carrying a stale polygon into the next task.
         latched_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
@@ -383,9 +376,8 @@ class SemanticSearchTaskNode(Node):
                 '"building,tree,ground") to produce meaningful scores.')
             return result
 
-        # Build the full query list: target queries + background contrast queries.
-        # Softmax normalization across queries requires N >= 2 to produce
-        # meaningful discriminative scores; with N=1 every score is 1.0.
+        # Softmax across queries needs N >= 2 to produce discriminative
+        # scores; with N=1 every score is 1.0.
         bg = [bq for bq in bg_raw if bq not in queries]
         all_queries = queries + bg
 
@@ -403,8 +395,8 @@ class SemanticSearchTaskNode(Node):
         self.get_logger().info(
             f'SemanticSearchTask | targets={queries} all_queries={all_queries}')
 
-        # Push the search area to raven_nav before spawning it. action_relay has
-        # already transformed vertices into the robot's local 'map' frame.
+        # action_relay has already transformed vertices into the robot's
+        # local 'map' frame.
         self._publish_search_area(goal.search_area)
         n_pts = len(goal.search_area.points)
         if n_pts >= 3:
@@ -426,17 +418,15 @@ class SemanticSearchTaskNode(Node):
         exploration_restarts = 0
         last_restart_time: 'float | None' = None
 
-        # Track last meaningful line from each process for feedback
         last_rf_status = 'Starting rayfronts...'
         last_rv_status = 'Starting raven...'
 
         try:
-            # Kill any leftover processes from a previous run
             self._cleanup_existing()
 
             robot_name = os.getenv('ROBOT_NAME', 'robot_1')
 
-            # Wait for old rayfronts DDS subscription to fully unregister
+            # Wait for old rayfronts DDS subscription to fully unregister.
             deadline = time.time() + 10.0
             while time.time() < deadline:
                 if goal_handle.is_cancel_requested:
@@ -505,24 +495,16 @@ class SemanticSearchTaskNode(Node):
             raven_published_waypoint = False
             completed_targets: set = set()
 
-            # Multi-target accumulator: keep every Discovery raven publishes,
-            # deduped by instance_id (stable across ticks via raven's
-            # _stable_id hash). Filtered to the requested query labels.
+            # Discoveries deduped by instance_id (stable across ticks via
+            # raven's _stable_id hash) and filtered to requested labels.
             queries_lower = {q.lower() for q in queries}
             max_instances = int(getattr(goal, 'max_instances', 0) or 0)
             discoveries_by_id: dict = {}
 
-            # Coverage criterion: raven publishes navigation_mode='complete'
-            # once its observed-cells grid covers ≥ coverage_complete_threshold
-            # of the search polygon. That's the canonical "polygon explored"
-            # signal — frontier counts can spuriously drop to zero (e.g. a
-            # stale rayfronts frame) and used to falsely trip success.
             nav_mode_complete = False
 
-            # Subscribe to raven's global_plan to detect first waypoint.
-            # Use BEST_EFFORT QoS to match raven's publisher (some robots in
-            # the stack publish global_plan as BEST_EFFORT for low-latency,
-            # others as RELIABLE; subscribing BEST_EFFORT accepts both).
+            # BEST_EFFORT QoS to match raven's publisher (some robots publish
+            # global_plan as BEST_EFFORT, others RELIABLE; BEST_EFFORT accepts both).
             from nav_msgs.msg import Path
             from rclpy.qos import QoSProfile, ReliabilityPolicy
             global_plan_qos = QoSProfile(
@@ -539,7 +521,6 @@ class SemanticSearchTaskNode(Node):
                 Path, f'/{robot_name}/global_plan',
                 _global_plan_cb, global_plan_qos, callback_group=self._cbg)
 
-            # Subscribe to raven's completed_targets
             def _completed_targets_cb(msg):
                 nonlocal completed_targets
                 import json
@@ -551,9 +532,6 @@ class SemanticSearchTaskNode(Node):
                 String, f'/{robot_name}/completed_targets',
                 _completed_targets_cb, 10, callback_group=self._cbg)
 
-            # Subscribe to raven's merged discoveries list. Accumulate every
-            # entry matching one of our query labels — this is the canonical
-            # multi-target output the task will return.
             def _discoveries_cb(msg):
                 import json
                 try:
@@ -574,9 +552,7 @@ class SemanticSearchTaskNode(Node):
                 String, f'/{robot_name}/raven_nav/discoveries',
                 _discoveries_cb, 10, callback_group=self._cbg)
 
-            # Subscribe to raven's navigation_mode — flips to 'complete' once
-            # the area-coverage gate trips. This is the single source of
-            # truth for "polygon explored".
+            # Single source of truth for "polygon explored".
             def _nav_mode_cb(msg):
                 nonlocal nav_mode_complete
                 if (msg.data or '').strip() == 'complete':
@@ -585,7 +561,6 @@ class SemanticSearchTaskNode(Node):
                 String, f'/{robot_name}/navigation_mode',
                 _nav_mode_cb, 10, callback_group=self._cbg)
 
-            # Subscribe to voxels_sim/all for best-confidence tracking
             def _vox_all_cb(msg):
                 nonlocal best_conf, mapping_started
                 msg_field_names = [f.name for f in msg.fields]
@@ -635,22 +610,18 @@ class SemanticSearchTaskNode(Node):
                         f'instance(s) found')
                     return result
 
-                # Drain and filter rayfronts output
                 for raw in _drain(rayfronts_q):
                     msg = _filter_rayfronts(raw)
                     if msg:
                         last_rf_status = msg
 
-                # Drain and filter raven output
                 for raw in _drain(raven_q):
                     msg = _filter_raven(raw)
                     if msg:
                         last_rv_status = msg
 
-                # Start random_walk once raven publishes its first waypoint.
-                # The drone must NOT start moving until raven is ready to
-                # provide semantic targets — random_walk would otherwise drift
-                # the robot around before raven has computed where to look.
+                # Wait for raven's first waypoint before starting random_walk —
+                # otherwise the drone drifts before raven has any semantic targets.
                 if raven_published_waypoint and not random_walk_started:
                     random_walk_started = True
                     self._cancel_active_navigation(robot_name)
@@ -705,18 +676,16 @@ class SemanticSearchTaskNode(Node):
                                         f'[escalation] pkill failed: {e}')
                                 exploration_restarts = 0
 
-                # Send queries to rayfronts whenever its subscriber appears (or reappears).
-                # This handles the initial load AND any rayfronts restart mid-task.
-                # Send ALL queries (target + background) so softmax is meaningful.
+                # Resend queries whenever rayfronts' subscriber appears (initial
+                # load AND any restart mid-task). All queries (target + background)
+                # so softmax stays meaningful.
                 rf_sub_count = self.count_subscribers(f'{self._rf_prefix}/new_text_query')
                 if rf_sub_count > 0 and prev_rf_sub_count == 0:
                     rayfronts_ready = True
-                    # DDS discovery race: count_subscribers returns >0 as soon
-                    # as the subscriber is discovered, but the pub/sub match
-                    # may not be fully wired yet — the first publish after
-                    # this transition can silently drop. Sleep briefly to let
-                    # the match settle, then pace publishes so rayfronts can
-                    # process each query before the next arrives.
+                    # DDS discovery race: count_subscribers flips to >0 before
+                    # the pub/sub match is fully wired — the first publish can
+                    # silently drop. Sleep, then pace publishes so rayfronts
+                    # processes each query before the next arrives.
                     time.sleep(0.3)
                     for q in all_queries:
                         self._text_query_pub.publish(String(data=q))
@@ -729,7 +698,6 @@ class SemanticSearchTaskNode(Node):
                     self.get_logger().info('rayfronts subscriber lost — will resend on reconnect')
                 prev_rf_sub_count = rf_sub_count
 
-                # Build a current snapshot of accumulated discoveries.
                 from geometry_msgs.msg import Pose, PoseArray
                 cur_poses = PoseArray()
                 cur_labels: list = []
@@ -746,15 +714,10 @@ class SemanticSearchTaskNode(Node):
                     if c > cur_best_conf:
                         cur_best_conf = c
 
-                # Polygon-complete signal comes from raven's area-coverage
-                # gate (navigation_mode == 'complete'). Gated on
-                # random_walk_started so we don't trip before raven is online.
+                # Gated on random_walk_started so we don't trip before raven is online.
                 now_ts = time.time()
                 polygon_done = random_walk_started and nav_mode_complete
 
-                # Termination conditions:
-                #   (1) max_instances cap reached (if set > 0)
-                #   (2) polygon coverage criterion met
                 hit_max = (max_instances > 0
                            and len(discoveries_by_id) >= max_instances)
                 if hit_max or polygon_done:
@@ -783,10 +746,8 @@ class SemanticSearchTaskNode(Node):
                 else:
                     status = f'[raven] {last_rv_status}'
 
-                # Surface exploration restarts in feedback. Show a transient
-                # "just restarted" banner for 3s after a restart, plus a
-                # running count so the operator knows the drone has been
-                # getting stuck even after the banner clears.
+                # Transient "just restarted" banner for 3s after a restart,
+                # plus a running count once the banner clears.
                 if last_restart_time is not None and (
                         time.time() - last_restart_time) < 3.0:
                     status = (
@@ -808,13 +769,12 @@ class SemanticSearchTaskNode(Node):
                     continue   # cancel was requested, loop back to check it
 
         finally:
-            # Cancel the upstream ExplorationTask so the bringup-launched
-            # random_walk_planner stops wandering when this task ends.
+            # Stop the bringup-launched random_walk_planner from wandering.
             self._cancel_exploration_task(exploration_send_future)
             self._kill('rayfronts', rayfronts_proc)
             self._kill('raven', raven_proc)
-            # Clear the latched polygon so the next task starts unconstrained
-            # by default unless it provides its own search_area.
+            # Clear the latched polygon so the next task isn't constrained
+            # by this one's search_area.
             self._publish_search_area(Polygon())
             self._task_active = False
 

@@ -117,19 +117,16 @@ class RavenNavNode(Node):
             'coverage_raycast_range_m', 30.0).value)
         self._observed_cells: set = set()
 
-        # Polygon-area completion gate: once observed cells cover at least
-        # this fraction of the search polygon, the drone stops re-planning
-        # and holds position. Sticky — never re-arms within a single run.
+        # Sticky once tripped — never re-arms within a single run.
         self._coverage_threshold: float = float(self.declare_parameter(
             'coverage_complete_threshold', 0.90).value)
         self._search_complete: bool = False
         self._last_coverage_frac: float = 0.0
-        # Highest 10% milestone already logged (0..10). -1 means none yet.
+        # Highest 10% milestone already logged (0..10); -1 means none yet.
         self._coverage_milestone: int = -1
 
-        # Raycast stamping is expensive (O(frontiers × ray_length / cell)) and
-        # produces redundant cells at hover. Only re-run when the drone has
-        # moved at least this far from where it last raycast.
+        # Rate-limit raycast stamping — it's O(frontiers × ray_length / cell)
+        # and at hover repaints the same starburst every tick.
         self._raycast_min_step_m: float = float(self.declare_parameter(
             'coverage_raycast_min_step_m', 5.0).value)
         self._last_raycast_xy: 'np.ndarray | None' = None
@@ -172,10 +169,8 @@ class RavenNavNode(Node):
         # Shared with peers via gossip; receivers apply their own filters.
         self._raw_frontiers_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/raw_frontiers', 10)
-        # Local-only: post-filter (altitude + polygon + zone) own frontiers —
-        # the "kept" set whose count drives the polygon-done check.
-        # Visualizing this in Foxglove shows the explorable area shrinking
-        # in real time as zones fill in.
+        # Post-filter own frontiers (altitude + polygon + zone). Visualizing
+        # this in Foxglove shows the explorable area shrinking in real time.
         self._kept_frontiers_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/kept_frontiers', 10)
         self._current_target_pub = self.create_publisher(
@@ -190,7 +185,6 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/navigation_mode', 10)
         self._my_bids_pub = self.create_publisher(
             BidVector, f'{self._prefix}/bids', 10)
-        # Pretty-printed debug tables. Use the view_ray_tables script to render.
         self._ray_table_pub = self.create_publisher(
             String, f'{self._prefix}/debug/ray_table', 10)
         self._groups_table_pub = self.create_publisher(
@@ -211,31 +205,21 @@ class RavenNavNode(Node):
         # Shared via gossip so peers stop chasing the same areas.
         self._completed_zones_pub = self.create_publisher(
             PointCloud2, f'{self._prefix}/raven_nav/completed_frontier_zones', 10)
-        # Confirmed-target AABBs fed from voxel_behavior. JSON; gossip-shared
-        # so peers can anchor ray triangulation onto these and dedupe.
+        # Gossip-shared so peers can anchor ray triangulation onto these and dedupe.
         self._confirmed_targets_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/confirmed_targets', 10)
-        # Per-robot merged discoveries list (local consumption by
-        # semantic_search_task and GCS visualizer).
         self._discoveries_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/discoveries', 10)
         self._prev_ray_group_marker_count = 0
         self._assigned_target: 'str | None' = None
         self._committed_to_assigned = False
         self._solo_ticks = 0
-        # Running-max bid was a single-target stability hack — dropped now
-        # that bids are per-RayGroup and the auction is triangulation-aware.
-        # Per-tick per-group bids drive the auction; stability comes from the
-        # commit state machine instead.
-        # Cached direction/origin (in local map frame) of the last ray group
-        # we observed for the currently committed target. Used by frontier
-        # behavior to bias toward the last-seen direction when ray-mode loses
-        # sight of the target temporarily.
+        # Last ray group observed for the committed target, in local map frame.
+        # Frontier behavior biases toward this direction when ray-mode loses sight.
         self._committed_target_last_dir: 'np.ndarray | None' = None
         self._committed_target_last_origin: 'np.ndarray | None' = None
-        # Drone is "committed" once it reaches within this distance of its
-        # first ray waypoint. Until then, it broadcasts its raw distance bid
-        # so a closer peer can still take over.
+        # Within this distance of the first ray waypoint, the drone is "committed"
+        # and stops broadcasting raw distance bids that would let peers take over.
         self._commit_radius_m = self.declare_parameter(
             'commit_radius_m', 3.0).value
 
@@ -569,13 +553,12 @@ class RavenNavNode(Node):
         peer_cts = self._peer_confirmed_targets_flat()
         merged_cts = merge_confirmed_targets(own_cts + peer_cts)
 
-        # Always publish OWN confirmed_targets unmerged — peers do their own
-        # merging when they receive (this is the gossip-symmetric pattern).
+        # Publish OWN unmerged — peers do their own merging on receive
+        # (gossip-symmetric pattern).
         self._confirmed_targets_pub.publish(
             String(data=confirmed_targets_to_json(own_cts)))
 
-        # Triangulation pre-filter: ray groups that pierce a known BB get
-        # absorbed onto that BB.
+        # Ray groups that pierce a known BB get absorbed onto that BB.
         known_bbs = []
         for i, ct in enumerate(merged_cts):
             bb = np.concatenate([ct.center, ct.size])  # [cx,cy,cz,sx,sy,sz]
@@ -593,8 +576,6 @@ class RavenNavNode(Node):
             now_ts=now_ts,
         )
 
-        # Peers who contributed via gossip — annotate so the discoveries list
-        # shows who saw what.
         peer_names = list(self._peer_state.peer_confirmed_targets.keys())
 
         discoveries = build_discoveries(
@@ -608,8 +589,6 @@ class RavenNavNode(Node):
         self._discoveries_pub.publish(
             String(data=discoveries_to_json(discoveries)))
 
-        # Pretty-printed table for view_ray_tables — same data, easier to
-        # read than the gossiped JSON.
         self._publish_discoveries_table(discoveries)
 
     def _publish_discoveries_table(self, discoveries) -> None:
@@ -636,10 +615,8 @@ class RavenNavNode(Node):
             idx = per_label_idx.get(d.instance_id)
             return f'{d.label}#{idx}' if idx is not None else d.label
 
-        # Identify which specific instance this drone is committed to: the
         # Discovery of the assigned label whose position is closest to the
-        # forward-projected committed ray (origin + dir * 8m). Unambiguous
-        # when triangulation has occurred; falls back to None on uncommitted.
+        # forward-projected committed ray (origin + dir * 8m).
         committed_instance = None
         if (self._assigned_target is not None
                 and self._committed_target_last_origin is not None
@@ -662,9 +639,7 @@ class RavenNavNode(Node):
         if committed_instance is not None:
             assigned_str = _pretty(committed_instance)
 
-        # AABB count = discoveries that came from a voxel ConfirmedTarget
-        # (these are the ones with a size). Pure ray-only bearings have
-        # size=None and don't have a bounding box yet.
+        # Ray-only bearings have size=None; voxel-confirmed ones carry an AABB.
         aabb_total = sum(1 for d in discoveries if d.size is not None)
 
         lines = []
@@ -673,11 +648,9 @@ class RavenNavNode(Node):
                      f'assigned={assigned_str}  '
                      f'committed={self._committed_to_assigned}')
 
-        # Per-label instance counter: how many distinct houses, towers, etc.
-        # have been found, broken down by status, plus how many of them have
-        # an AABB attached. Each Discovery is one instance (deduped by AABB /
-        # position via discoveries._should_merge and _stable_id), so per-label
-        # row counts ARE the unique-instance counts for that class.
+        # Each Discovery is one instance (deduped by AABB / position via
+        # discoveries._should_merge and _stable_id), so per-label row counts
+        # are the unique-instance counts for that class.
         if discoveries:
             by_label: dict = {}
             for d in discoveries:
@@ -717,9 +690,8 @@ class RavenNavNode(Node):
                 lines.append(f'[{header}] ({len(lst)})')
                 lines.append('   instance         pos                size              '
                              'conf  contributors')
-                # Sort by confidence desc within section. The '*' marker now
-                # picks the SPECIFIC committed instance (not just label),
-                # so two drones pursuing different houses each show their own.
+                # Sort by confidence desc. '*' marks the specific committed
+                # instance so two drones on different houses each show their own.
                 committed_id = (committed_instance.instance_id
                                 if committed_instance is not None else None)
                 for d in sorted(lst, key=lambda x: -x.confidence):
@@ -1034,8 +1006,8 @@ class RavenNavNode(Node):
             ax = int(np.argmax(row))
             ax_label = f'[{col_kinds[ax]}]{col_labels[ax]}'
             mx = float(row[ax])
-            # New filter (matches ray_groups.py): argmax must land on a target
-            # column AND that score must exceed threshold.
+            # Matches ray_groups.py: argmax must land on a target column AND
+            # exceed threshold.
             passes = bool(target_idxs
                           and ax in target_idxs
                           and mx > self._score_threshold)
@@ -1231,12 +1203,10 @@ class RavenNavNode(Node):
             self._nav_mode_pub.publish(String(data='idle'))
             return
 
-        # Merge own rays with peer rays so the auction sees the same ray pool
-        # all robots see. Peer rays already converted to local frame in PeerState.
+        # Peer rays already converted to local frame in PeerState.
         merged_origins, merged_dirs, merged_scores = self._merge_own_and_peer_rays()
 
-        # Compute ray groups once: shared between the bid auction and
-        # ray_behavior waypoint selection.
+        # Shared between the bid auction and ray_behavior waypoint selection.
         ray_groups = compute_ray_groups(
             merged_origins, merged_dirs, merged_scores,
             self._query_labels, self._target_objects,
@@ -1246,9 +1216,6 @@ class RavenNavNode(Node):
         self._behavior_manager.ray_behavior.ray_groups = ray_groups
         self._publish_ray_groups_viz(ray_groups)
 
-        # Multi-target discoveries: triangulate ray groups, anchor onto
-        # voxel-confirmed AABBs, merge across own + peer, publish so
-        # semantic_search_task and GCS viz can consume.
         self._update_discoveries(ray_groups)
 
         if self._debug_ray_table:
@@ -1256,17 +1223,17 @@ class RavenNavNode(Node):
             self._debug_print_groups_table(ray_groups)
             self._debug_print_voxel_table()
 
-        # New auction protocol — always broadcast best-seen raw bid;
-        # commitment lives in a separate /committed_target string:
-        #   1. See target  → record best bid (running max). Provisionally claim.
-        #      Broadcast bid every tick (NOT per-tick distance).
+        # Auction protocol — always broadcast best-seen raw bid; commitment
+        # lives in a separate /committed_target string:
+        #   1. See target → record best bid. Provisionally claim. Broadcast
+        #      bid every tick (NOT per-tick distance).
         #   2. Receive competing peer raw bid (peer not yet committed):
         #        peer better → drop the claim
         #        peer worse  → commit (broadcast committed_target=label)
         #   3. Once committed: keep broadcasting raw bid + committed_target.
         #      Released by (a) target completion (own or any peer), or
         #      (b) double-commit collision: another peer also committed to
-        #      this label AND has a better raw bid (closer) → I yield.
+        #      this label AND has a better raw bid → I yield.
         # Per-group bids: one BidEntry per RayGroup. Triangulation in
         # bid_manager.assign() decides which (own, peer) pairs are actually
         # competing for the same target — different-target bids don't contest.
@@ -1279,17 +1246,13 @@ class RavenNavNode(Node):
         for peer_done in self._peer_state.peer_completed.values():
             all_completed |= peer_done
 
-        # Drop bids for completed labels.
         my_bid_entries = [b for b in per_tick_bids
                           if b.label not in all_completed]
-
-        # Same filter on peers — exclude bids whose label is in all_completed.
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()
         }
 
-        # Drop the current commitment if its label was completed by anyone.
         if (self._assigned_target is not None
                 and self._assigned_target in all_completed):
             if self._debug_coord:
@@ -1306,9 +1269,8 @@ class RavenNavNode(Node):
         }
         peer_committed_labels = set(peer_commits.values())
 
-        # Run the triangulation-aware auction. Returns (label, BidEntry) or
-        # None. The returned BidEntry is the local group we won (so we can
-        # cache its origin/direction for frontier fallback).
+        # Triangulation-aware auction; returned BidEntry is the local group
+        # we won, so its origin/direction can feed frontier fallback.
         polygon_xy = (self._search_area_xy
                       if isinstance(self._search_area_xy, np.ndarray)
                       and len(self._search_area_xy) >= 3 else None)
@@ -1320,15 +1282,12 @@ class RavenNavNode(Node):
             polygon_xy=polygon_xy,
         )
 
-        # Count of my ray-group bids that I lost to a peer's same-target
-        # bid this tick — these are rays I "avoided" because another robot
-        # has a better (closer) bid on the same physical target. Surface
-        # this in the bids debug table so the operator can see the auction
-        # actually pushing drones apart per-instance.
+        # Ray-group bids I lost to a peer's same-target bid this tick — surfaced
+        # in the bids debug table to show the auction pushing drones apart.
         from raven_nav.bid_manager import _GroupView   # adapter for is_same_target
         from raven_nav.ray_targets import is_same_target as _is_same_target
         rays_avoided = 0
-        avoided_breakdown: list = []   # [(label, peer_name)] for the table
+        avoided_breakdown: list = []   # [(label, peer_name)]
         for mine in my_bid_entries:
             best_peer = None
             best_peer_value = mine.value
@@ -1432,7 +1391,6 @@ class RavenNavNode(Node):
                     if yielded:
                         break
 
-        # Cache last-seen direction/origin for the committed target.
         if self._assigned_target is not None and ray_groups:
             for g in ray_groups:
                 if g.label == self._assigned_target and g.num_rays > 0:
@@ -1444,7 +1402,6 @@ class RavenNavNode(Node):
 
         self._behavior_manager.ray_behavior.assigned_target = self._assigned_target
 
-        # Publish per-group BidVector — one row per ray-group bid entry.
         bv = BidVector()
         bv.robot_name = self._robot_name
         bv.labels = [e.label for e in my_bid_entries]
@@ -1466,7 +1423,6 @@ class RavenNavNode(Node):
                          else '')
         self._committed_target_pub.publish(String(data=committed_str))
 
-        # Pretty-printed bids panel for the view_ray_tables script.
         own_done = sorted(self._behavior_manager.completed_queries)
         peer_done_lines = []
         for pname in sorted(self._peer_state.peer_completed.keys()):
@@ -1482,8 +1438,6 @@ class RavenNavNode(Node):
         else:
             bids_lines.append('completed (peers): none')
 
-        # Rays this drone gave up to peers on the same physical target.
-        # Per-peer breakdown so the operator sees who is contesting.
         if rays_avoided > 0:
             by_peer: dict = {}
             for lbl, pname in avoided_breakdown:
@@ -1549,14 +1503,10 @@ class RavenNavNode(Node):
                 throttle_duration_sec=2.0)
 
         prev_mode = self._behavior_mode
-        # Always run voxel clustering over EVERY configured target label so
-        # confirmed_targets / AABBs publish from tick 1 — the operator needs
-        # to see the boxes form before the auction has assigned anything.
-        # The ray-filter inside voxel_behavior (committed_origin/dir) still
-        # gates voxel-MODE activation per-instance — clusters are detected
-        # always, but the drone only switches to voxel-mode when one
-        # geometrically matches its committed ray. So no risk of grabbing
-        # the wrong house: that's already handled by _filter_to_committed_ray.
+        # Cluster over EVERY configured target label so confirmed_targets /
+        # AABBs publish from tick 1. Voxel-MODE activation is still gated
+        # per-instance by _filter_to_committed_ray downstream, so this
+        # doesn't risk switching to the wrong house.
         voxel_targets = list(self._target_objects or [])
         self._behavior_manager.mode_select(
             query_labels=self._query_labels,
@@ -1574,7 +1524,6 @@ class RavenNavNode(Node):
             self._target_waypoint = None
             self._target_waypoint2 = None
 
-        # Stamp coverage from drone XY + semantic voxels + raycast to frontiers.
         if self._cur_pose is not None:
             self._stamp_cells_xy(self._cur_pose[:2].reshape(1, 2))
             if self._vox_xyz is not None and self._vox_xyz.shape[0] > 0:
