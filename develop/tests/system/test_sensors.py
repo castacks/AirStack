@@ -1,4 +1,4 @@
-"""Sensor stream and LiDAR validation — runs after ``test_liveliness`` (see ``_MODULE_ORDER``).
+"""Sensor stream and LiDAR validation — runs after ``system.test_liveliness`` (see ``_MODULE_ORDER``).
 
 Uses the same ``airstack_env`` parametrization as liveliness. With ``class``-scoped
 fixtures this module performs its **own** stack bring-up when selected; combined
@@ -20,7 +20,7 @@ from sensor_probes import (
     check_robot_stereo_hz,
     check_sim_publishing,
 )
-from test_liveliness import _check_sentinel_nodes, _poll_until
+from system.test_liveliness import _check_sentinel_nodes, _poll_until
 
 
 @pytest.mark.sensors

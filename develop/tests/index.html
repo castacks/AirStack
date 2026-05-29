@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/develop/tests/">
       
       
-        <link rel="prev" href="../docs/development/beginner/fork_your_own_project/">
+        <link rel="prev" href="../docs/development/intermediate/testing/unit_testing/">
       
       
         <link rel="next" href="ci-cd-orchestrator/">
@@ -25,7 +25,7 @@
     
     
       
-        <title>System Testing - AirStack</title>
+        <title>System Tests - AirStack</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system-testing" class="md-skip">
+        <a href="#testing-tests" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              System Testing
+              System Tests
             
           </span>
         </div>
@@ -1005,6 +1005,8 @@
       
         
       
+        
+      
     
     
     
@@ -1070,6 +1072,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1087,7 +1093,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../docs/development/intermediate/testing/" class="md-nav__link ">
               
   
   
@@ -1105,7 +1111,7 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1131,6 +1137,498 @@
   
   
     <li class="md-nav__item">
+      <a href="../docs/development/intermediate/testing/unit_testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unit Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Tests
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#test-suite-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Suite Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Suite Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-tests-testssystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System tests (tests/system/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unit-tests-testsrobot-testssim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit tests (tests/robot/, tests/sim/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bring-up-scope-airstack_env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bring-up scope (airstack_env)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Infrastructure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Infrastructure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#airstack_env-fixture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        airstack_env fixture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#isaac-sim-and-the-sensors-mark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Isaac Sim and the sensors mark
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metricsrecorder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MetricsRecorder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#airstack-test-primary-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        airstack test (primary interface)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#direct-pytest-for-development-debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct pytest (for development / debugging)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-option-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI option reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autonomy-tests-systemtest_takeoff_hover_landpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Autonomy Tests (system/test_takeoff_hover_land.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Autonomy Tests (system/test_takeoff_hover_land.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase order
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recorded-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recorded metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-takeoff_hover_land-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running takeoff_hover_land tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metrics-reporting-parse_metricspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics Reporting (parse_metrics.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metrics Reporting (parse_metrics.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#single-run-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-run report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diff-regression-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diff / regression check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cicd-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI/CD Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#workflow-system-testsyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow: system-tests.yml
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow: system-tests.yml">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-dispatch-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual dispatch inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-third-party-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required third-party action
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cicd-orchestrator-openstack-backed-ephemeral-runners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD Orchestrator (OpenStack-backed ephemeral runners)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI/CD Orchestrator (OpenStack-backed ephemeral runners)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-this-instead-of-a-long-lived-self-hosted-runner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this instead of a long-lived self-hosted runner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runner-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runner labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="ci-cd-orchestrator/" class="md-nav__link">
         
   
@@ -1138,7 +1636,7 @@
   <span class="md-ellipsis">
     
   
-    AirStack CI Orchestrator
+    CI/CD Orchestrator
   
 
     
@@ -1194,6 +1692,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/docker-build-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Build Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1214,10 +1740,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_3_3" id="__nav_3_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3_4" id="__nav_3_3_4_label" tabindex="0">
             
   
   
@@ -1235,8 +1761,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_3_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2739,14 +3265,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../docs/robot/autonomy/perception/state_estimation.md" class="md-nav__link">
+      <a href="../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    State Estimation
+    NatNet (OptiTrack)
   
 
     
@@ -5308,7 +5834,7 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../docs/development/intermediate/testing/" class="md-path__link">
           
   <span class="md-ellipsis">
     Intermediate Tutorials
@@ -5329,7 +5855,7 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../docs/development/intermediate/testing/" class="md-path__link">
           
   <span class="md-ellipsis">
     Testing
@@ -5354,12 +5880,19 @@
   
 
 
-<h1 id="system-testing">System Testing<a class="headerlink" href="#system-testing" title="Permanent link">&para;</a></h1>
-<p>AirStack's system tests bring up the full Docker-based stack — simulator, robot containers, and GCS — and verify end-to-end behavior: container health, ROS 2 node presence, sensor publishing rates (in the <code>sensors</code> mark), and compute resource usage. Tests are written in Python with pytest and live under <code>tests/</code> at the repo root.</p>
+<h1 id="testing-tests">Testing (<code>tests/</code>)<a class="headerlink" href="#testing-tests" title="Permanent link">&para;</a></h1>
+<p>AirStack's <strong>pytest</strong> tree under <code>tests/</code> has three roles:</p>
+<ol>
+<li><strong><code>tests/system/</code></strong> — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.</li>
+<li><strong><code>tests/robot/</code></strong> — Fast <strong>unit</strong> tests that mirror <code>robot/ros_ws/src/</code> (<code>behavior</code>, <code>global</code>, <code>interface</code>, <code>local</code>, <code>perception</code>, <code>sensors</code>). Mark: <code>unit</code>.</li>
+<li><strong><code>tests/sim/</code></strong> — Unit tests for simulation-side helpers (e.g. Motive / NatNet emulator). Mark: <code>unit</code>.</li>
+</ol>
+<p>Shared fixtures live in <code>tests/conftest.py</code>. Use <code>airstack test -m unit -v</code> for hermetic tests only, or the marks below for the full stack.</p>
 <iframe width="1120" height="630" src="https://www.youtube.com/embed/EzgGHnYDI_k?si=vpqER-TXud5XEMUX" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 <hr />
 <h2 id="test-suite-structure">Test Suite Structure<a class="headerlink" href="#test-suite-structure" title="Permanent link">&para;</a></h2>
+<h3 id="system-tests-testssystem">System tests (<code>tests/system/</code>)<a class="headerlink" href="#system-tests-testssystem" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -5371,44 +5904,57 @@
 </thead>
 <tbody>
 <tr>
-<td><a href="../../../../tests/test_build_docker.py"><code>test_build_docker.py</code></a></td>
+<td><a href="system/test_build_docker.py"><code>system/test_build_docker.py</code></a></td>
 <td><code>build_docker</code></td>
 <td>Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes</td>
 <td>Docker daemon</td>
 </tr>
 <tr>
-<td><a href="../../../../tests/test_build_packages.py"><code>test_build_packages.py</code></a></td>
+<td><a href="system/test_build_packages.py"><code>system/test_build_packages.py</code></a></td>
 <td><code>build_packages</code></td>
 <td><code>colcon build</code> inside each container (robot, GCS, ms-airsim ROS workspace)</td>
 <td>Docker daemon</td>
 </tr>
 <tr>
-<td><a href="../../../../tests/test_liveliness.py"><code>test_liveliness.py</code></a></td>
+<td><a href="system/test_liveliness.py"><code>system/test_liveliness.py</code></a></td>
 <td><code>liveliness</code></td>
 <td>Stack bring-up: container Running state, <code>/clock</code> readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only <code>test_stable</code> (tmux + nodes + compute)</td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
 <tr>
-<td><a href="../../../../tests/test_sensors.py"><code>test_sensors.py</code></a></td>
+<td><a href="system/test_sensors.py"><code>system/test_sensors.py</code></a></td>
 <td><code>sensors</code></td>
 <td>After liveliness in collection order: sim + robot stereo/depth Hz (<strong>Isaac:</strong> batched <code>ros2 topic hz</code> to avoid bridge overload; <strong>ms-airsim:</strong> single batch), filtered LiDAR via <code>echo --once</code> + cloud sanity (isaacsim), sim RTF, <code>test_sensor_streams_stable</code></td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
 <tr>
-<td><a href="../../../../tests/test_takeoff_hover_land.py"><code>test_takeoff_hover_land.py</code></a></td>
+<td><a href="system/test_takeoff_hover_land.py"><code>system/test_takeoff_hover_land.py</code></a></td>
 <td><code>takeoff_hover_land</code></td>
 <td>End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity)</td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
 </tbody>
 </table>
+<h3 id="unit-tests-testsrobot-testssim">Unit tests (<code>tests/robot/</code>, <code>tests/sim/</code>)<a class="headerlink" href="#unit-tests-testsrobot-testssim" title="Permanent link">&para;</a></h3>
+<p>Hermetic tests use <code>@pytest.mark.unit</code> (see <a href="pytest.ini"><code>pytest.ini</code></a>).</p>
+<p><strong>Co-location + proxy pattern:</strong> test source lives alongside its ROS 2 package at
+<code>robot/ros_ws/src/&lt;layer&gt;/&lt;package&gt;/test/test_*.py</code> (the ROS 2 / colcon convention).
+Files in <code>tests/robot/</code> are thin proxies that re-export those tests so that
+<code>pytest tests/</code> discovers them. Both <code>airstack test -m unit</code> and
+<code>colcon test --packages-select &lt;pkg&gt;</code> run the same test source.</p>
+<p>Example: <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py</code>
+tests the numpy-only range validation rules in
+<code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/lidar_point_cloud_filter/validation_core.py</code>
+(also used by <code>scripts/validate_lidar_filter_clouds.py</code> inside the robot container).</p>
+<p>See <a href="../docs/development/intermediate/testing/unit_testing/">Unit Testing Guide</a>
+and the <code>add-unit-tests</code> agent skill for full details.</p>
 <p>Marks can be combined with pytest logic:
-<code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
+<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
 <h3 id="bring-up-scope-airstack_env">Bring-up scope (<code>airstack_env</code>)<a class="headerlink" href="#bring-up-scope-airstack_env" title="Permanent link">&para;</a></h3>
 <p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized per <code>(sim, num_robots, iteration)</code>. Each test <strong>class</strong> that uses it (<code>TestLiveliness</code>, <code>TestSensors</code>, <code>TestTakeoffHoverLand</code>, …) performs its <strong>own</strong> <code>airstack up</code> / <code>airstack down</code> for that parametrization. Selecting both classes (for example, <code>-m "liveliness or sensors"</code>) runs <strong>two</strong> full stack cycles per tuple (liveliness class, then sensors class). Collection order (see <code>conftest.py</code>) runs <strong>liveliness before sensors</strong> when both are selected. To save wall time, run <code>-m liveliness</code> or <code>-m sensors</code> alone when one suite is enough.</p>
 <hr />
 <h2 id="test-infrastructure">Test Infrastructure<a class="headerlink" href="#test-infrastructure" title="Permanent link">&para;</a></h2>
-<p>All shared fixtures, helpers, and configuration live in <a href="../../../../tests/conftest.py"><code>tests/conftest.py</code></a>.</p>
+<p>All shared fixtures, helpers, and configuration live in <a href="conftest.py"><code>conftest.py</code></a>.</p>
 <h3 id="airstack_env-fixture"><code>airstack_env</code> fixture<a class="headerlink" href="#airstack_env-fixture" title="Permanent link">&para;</a></h3>
 <p>Parametrized over <code>(sim, num_robots, iteration)</code> tuples derived from CLI flags. For each combination it:</p>
 <ol>
@@ -5418,13 +5964,13 @@
 <li>Tears down with <code>airstack down</code> and records <code>airstack_down_duration_s</code></li>
 </ol>
 <h3 id="isaac-sim-and-the-sensors-mark">Isaac Sim and the <code>sensors</code> mark<a class="headerlink" href="#isaac-sim-and-the-sensors-mark" title="Permanent link">&para;</a></h3>
-<p><strong>LiDAR in pytest:</strong> <a href="../../../../tests/conftest.py"><code>tests/conftest.py</code></a> sets
+<p><strong>LiDAR in pytest:</strong> <a href="conftest.py"><code>conftest.py</code></a> sets
 <code>ENABLE_LIDAR=true</code> in <code>SIM_CONFIG["isaacsim"]["extra_env"]</code> so the multi-drone
 Pegasus script (<code>example_multi_px4_pegasus_launch_script.py</code>) attaches RTX LiDAR
 the same way the single-drone script always does. Without that flag the multi
 script would not spawn LiDAR OmniGraphs.</p>
-<p><strong>Topic checks</strong> live in <a href="../../../../tests/sensor_probes.py"><code>tests/sensor_probes.py</code></a>
-and are driven by <a href="../../../../tests/test_sensors.py"><code>tests/test_sensors.py</code></a>:</p>
+<p><strong>Topic checks</strong> live in <a href="sensor_probes.py"><code>sensor_probes.py</code></a>
+and are driven by <a href="system/test_sensors.py"><code>system/test_sensors.py</code></a>:</p>
 <table>
 <thead>
 <tr>
@@ -5452,7 +5998,7 @@ and are driven by <a href="../../../../tests/test_sensors.py"><code>tests/test_s
 <tr>
 <td>LiDAR geometry</td>
 <td>Near-range vs <code>near_range_m</code></td>
-<td><code>lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py</code> (raw vs filtered).</td>
+<td><code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py</code> (raw vs filtered).</td>
 </tr>
 </tbody>
 </table>
@@ -5481,11 +6027,11 @@ own log for assertions and <code>docker exec</code> / <code>ros2</code> lines.</
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── results.xml        # JUnit XML — test durations and pass/fail status
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    └── logs/
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ├── test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ├── airstack_env.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ├── test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ├── test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ├── system.test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ├── airstack_env.system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ├── system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── system.test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ├── system.test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        └── ...            # More per-test logs; another airstack_env.* per class using the fixture
 </span></code></pre></div>
 <hr />
@@ -5496,35 +6042,38 @@ test runner from <code>tests/docker/</code>, mounts the repo read-only, and forw
 arguments directly to pytest. No local Python environment needed.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># From the repo root (AirStack must be set up: airstack setup):</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Build tests only — fast, no GPU needed</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Unit tests only — no GPU, no full Docker stack (numpy-only + pure Python)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Liveliness run — ms-airsim, 1 robot, 1 iteration, 60 s stability window</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>-v
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># Takeoff/hover/land run — three velocities</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span>-v
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Sensor topic rates + LiDAR</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">  </span>-v
-</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
-</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="c1"># Show GUI windows (for local visual inspection)</span>
-</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--gui<span class="w"> </span>-v
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Build tests only — fast, no GPU needed</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Liveliness run — ms-airsim, 1 robot, 1 iteration, 60 s stability window</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span>-v
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="c1"># Takeoff/hover/land run — three velocities</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">  </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">  </span>-v
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="c1"># Sensor topic rates + LiDAR</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">  </span>--stable-duration<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">  </span>-v
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="c1"># Show GUI windows (for local visual inspection)</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--gui<span class="w"> </span>-v
 </span></code></pre></div>
 <p><code>airstack test</code> calls <code>xhost +</code> automatically so GUI-mode sim containers
 can reach the host X server; it is a no-op when <code>DISPLAY</code> is not set.</p>
@@ -5606,7 +6155,7 @@ want to attach a debugger. Requires a local Python environment.</p>
 </tbody>
 </table>
 <hr />
-<h2 id="autonomy-tests-test_takeoff_hover_landpy">Autonomy Tests (<code>test_takeoff_hover_land.py</code>)<a class="headerlink" href="#autonomy-tests-test_takeoff_hover_landpy" title="Permanent link">&para;</a></h2>
+<h2 id="autonomy-tests-systemtest_takeoff_hover_landpy">Autonomy Tests (<code>system/test_takeoff_hover_land.py</code>)<a class="headerlink" href="#autonomy-tests-systemtest_takeoff_hover_landpy" title="Permanent link">&para;</a></h2>
 <p><code>TestTakeoffHoverLand</code> runs a <strong>4-phase flight chain</strong> for every combination of
 <code>(sim, num_robots, iteration, velocity)</code>. The drone returns to the ground after
 each velocity so the next velocity starts from a clean state.</p>
@@ -5739,7 +6288,7 @@ returns to the ground.</p>
 </span></code></pre></div>
 <hr />
 <h2 id="metrics-reporting-parse_metricspy">Metrics Reporting (<code>parse_metrics.py</code>)<a class="headerlink" href="#metrics-reporting-parse_metricspy" title="Permanent link">&para;</a></h2>
-<p><a href="../../../../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a> reads <code>results.xml</code> and <code>metrics.json</code> from a run directory and produces a markdown report. It has two modes:</p>
+<p><a href="parse_metrics.py"><code>parse_metrics.py</code></a> reads <code>results.xml</code> and <code>metrics.json</code> from a run directory and produces a markdown report. It has two modes:</p>
 <h3 id="single-run-report">Single-run report<a class="headerlink" href="#single-run-report" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--current<span class="w"> </span>tests/results/2025-04-21_14-30-00/
@@ -5926,7 +6475,7 @@ returns to the ground.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../docs/development/beginner/fork_your_own_project/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Fork AirStack Into Your Own Repository">
+          <a href="../docs/development/intermediate/testing/unit_testing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Unit Testing">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -5936,20 +6485,20 @@ returns to the ground.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Fork AirStack Into Your Own Repository
+                Unit Testing
               </div>
             </div>
           </a>
         
         
           
-          <a href="ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: AirStack CI Orchestrator">
+          <a href="ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: CI/CD Orchestrator">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                AirStack CI Orchestrator
+                CI/CD Orchestrator
               </div>
             </div>
             <div class="md-footer__button md-icon">

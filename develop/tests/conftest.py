@@ -4,6 +4,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+import yaml
 
 SIM_CONFIG = {
     "msairsim": {
@@ -44,6 +46,47 @@ SIM_CONFIG = {
 }
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
+COLCON_UNIT_TEST_PACKAGES_YAML = (
+    Path(AIRSTACK_ROOT) / "tests" / "colcon_unit_test_packages.yaml"
+)
+
+
+def load_colcon_unit_test_config(workspace="robot"):
+    """Load colcon test package list and pytest args from tests/colcon_unit_test_packages.yaml."""
+    if not COLCON_UNIT_TEST_PACKAGES_YAML.is_file():
+        raise FileNotFoundError(
+            f"Missing {COLCON_UNIT_TEST_PACKAGES_YAML} — add packages to gate in colcon test."
+        )
+    with COLCON_UNIT_TEST_PACKAGES_YAML.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if workspace not in data:
+        raise KeyError(
+            f"No '{workspace}' entry in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
+        )
+    cfg = data[workspace] or {}
+    packages = cfg.get("packages") or []
+    if not packages:
+        raise ValueError(
+            f"'{workspace}.packages' is empty in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
+        )
+    return packages, cfg.get("pytest_args", "")
+
+
+def colcon_test_robot_command(workspace="robot"):
+    """Shell command for colcon test over unit-test packages (robot workspace)."""
+    packages, pytest_args = load_colcon_unit_test_config(workspace)
+    pkg_list = " ".join(packages)
+    cmd = (
+        f"colcon test --packages-select {pkg_list} "
+        "--event-handlers console_direct+ --return-code-on-test-failure"
+    )
+    if pytest_args:
+        cmd += f' --pytest-args "{pytest_args}"'
+    return cmd
+# Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
+# Thin proxy files under tests/robot/ re-export those tests so that
+# `pytest tests/` and `airstack test -m unit` discover them without any
+# sys.path manipulation here.  Each proxy file sets up its own paths.
 RUN_DIR = None
 LOGS_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
@@ -156,11 +199,16 @@ def pytest_generate_tests(metafunc):
 # docker image builds → colcon workspace builds → liveliness (infra) → sensors
 # (ROS topic streams) → autonomy flight tests.
 _MODULE_ORDER = [
-    "test_build_docker",
-    "test_build_packages",
-    "test_liveliness",
-    "test_sensors",
-    "test_takeoff_hover_land",
+    # Unit tests first — fast, hermetic, no Docker.  Any module whose dotted
+    # name starts with "robot." or "sim." is a proxy for a package-level unit
+    # test and sorts into this leading slot via the prefix check below.
+    "__unit__",
+    # System tests follow in dependency order.
+    "system.test_build_docker",
+    "system.test_build_packages",
+    "system.test_liveliness",
+    "system.test_sensors",
+    "system.test_takeoff_hover_land",
 ]
 
 # Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.
@@ -177,16 +225,28 @@ def _rank(name, order):
     return order.index(name) if name in order else len(order)
 
 
+def _module_key(item):
+    """Return the ordering key for an item.
+
+    Unit-test proxies live under ``robot/``, ``sim/``, or ``gcs/`` and are
+    identified by their nodeid prefix.  Everything else uses the dotted module
+    ``__name__`` looked up against ``_MODULE_ORDER``.
+    """
+    if item.nodeid.startswith(("robot/", "sim/", "gcs/")):
+        return _rank("__unit__", _MODULE_ORDER)
+    return _rank(getattr(item.module, "__name__", ""), _MODULE_ORDER)
+
+
 def pytest_collection_modifyitems(items):
     # 1. Cross-module: enforce `_MODULE_ORDER`. Stable sort keeps within-module
     #    order intact, so pytest's default file/class order survives.
-    items.sort(key=lambda it: _rank(getattr(it.module, "__name__", ""), _MODULE_ORDER))
+    items.sort(key=_module_key)
 
     # 2. Within test_takeoff_hover_land: sort by (airstack_env, velocity, phase) so each
     #    (sim, robots, iter) env brings up the stack once and the drone goes
     #    ground→air→ground per velocity.
     def phase(item):
-        if getattr(item.module, "__name__", "") != "test_takeoff_hover_land":
+        if getattr(item.module, "__name__", "") != "system.test_takeoff_hover_land":
             return None
         name = item.originalname or item.name.split("[", 1)[0]
         return _rank(name, _AUTONOMY_PHASE_ORDER)

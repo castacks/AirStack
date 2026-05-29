@@ -51,9 +51,15 @@ COMPUTE_METRIC_RE = re.compile(
 
 
 def _split_test_name(name):
-    """`test_liveliness.TestLiveliness.test_foo[id]` →
-    (module="test_liveliness", display="test_foo[id]"). Drops the Class segment
-    for display since there's one class per module (same for ``test_sensors``)."""
+    """Dotted pytest node id → (module_prefix, display_without_class).
+
+    Supports legacy ``test_liveliness.TestLiveliness.test_foo[id]`` and nested
+    ``system.test_liveliness.TestLiveliness.test_foo[id]``.
+    """
+    m = re.match(r"^(.*)\.(Test\w+)\.(test\w+)(\[.*\])?$", name)
+    if m:
+        mod, _cls, test, bracket = m.groups()
+        return mod, f"{test}{bracket or ''}"
     parts = name.split(".", 2)
     if len(parts) == 3:
         return parts[0], parts[2]

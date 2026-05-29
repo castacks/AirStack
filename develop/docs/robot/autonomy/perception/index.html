@@ -14,7 +14,7 @@
         <link rel="prev" href="../sensors/gimbal/">
       
       
-        <link rel="next" href="../local/">
+        <link rel="next" href="../../../../robot/ros_ws/src/perception/natnet_ros2/">
       
       
         
@@ -995,6 +995,8 @@
       
         
       
+        
+      
     
     
     
@@ -1055,6 +1057,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1072,7 +1078,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../tests/" class="md-nav__link ">
+            <a href="../../../development/intermediate/testing/" class="md-nav__link ">
               
   
   
@@ -1116,6 +1122,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../development/intermediate/testing/unit_testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unit Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../../tests/ci-cd-orchestrator/" class="md-nav__link">
         
   
@@ -1123,7 +1185,7 @@
   <span class="md-ellipsis">
     
   
-    AirStack CI Orchestrator
+    CI/CD Orchestrator
   
 
     
@@ -1179,6 +1241,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../development/intermediate/docker-build-profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Build Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1199,10 +1289,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_3_3" id="__nav_3_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3_4" id="__nav_3_3_4_label" tabindex="0">
             
   
   
@@ -1220,8 +1310,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_3_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2739,14 +2829,14 @@
   
   
     <li class="md-nav__item">
-      <a href="state_estimation.md" class="md-nav__link">
+      <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    State Estimation
+    NatNet (OptiTrack)
   
 
     
@@ -5378,8 +5468,10 @@
 <li>Raw sensor data from sensors layer (cameras, IMU, GPS, depth sensors)</li>
 </ul>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
+<p>State estimation and related perception packages live under <code>robot/ros_ws/src/perception/</code>. Only external motion capture is documented below today; other approaches (onboard sensor fusion, visual-inertial odometry, etc.) will be added here in future releases.</p>
+<h3 id="external-pose-motion-capture">External pose (motion capture)<a class="headerlink" href="#external-pose-motion-capture" title="Permanent link">&para;</a></h3>
 <ul>
-<li><a href="state_estimation.md"><strong>State Estimation</strong></a> - Overview of state estimation approaches and implementations</li>
+<li><a href="../../../../robot/ros_ws/src/perception/natnet_ros2/"><strong>NatNet (OptiTrack)</strong></a> — Receives rigid-body poses from an external Motive PC over NatNet UDP and publishes <code>/{robot_name}/perception/optitrack/...</code> topics. Optional MAVROS bridge for PX4 vision pose. Enabled with <code>LAUNCH_NATNET=true</code> in <code>.env</code> (off by default).</li>
 </ul>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>Perception parameters are configured in <code>perception_bringup/config/</code> directory. Common parameters include:</p>
@@ -5447,13 +5539,13 @@
         
         
           
-          <a href="../local/" class="md-footer__link md-footer__link--next" aria-label="Next: Local Packages">
+          <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-footer__link md-footer__link--next" aria-label="Next: NatNet (OptiTrack)">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Local Packages
+                NatNet (OptiTrack)
               </div>
             </div>
             <div class="md-footer__button md-icon">
