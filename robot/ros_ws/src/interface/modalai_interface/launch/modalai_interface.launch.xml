@@ -58,7 +58,7 @@
     </group>
 
     <!-- ── Odometry conversion ─────────────────────────────────────────── -->
-    <node pkg="robot_interface" namespace="odometry_conversion"
+    <node pkg="robot_interface" namespace="$(env ROBOT_NAME)/odometry_conversion"
           exec="odometry_conversion" output="screen">
         <remap from="odometry_in"
                to="/$(env ROBOT_NAME)/interface/odometry" />
@@ -78,10 +78,14 @@
     <!-- ── Sim qvio bridge (simulation only) ─────────────────────────── -->
     <!-- Converts PX4's out/vehicle_odometry → geometry_msgs/PoseStamped on
          qvio, mimicking what voxl-mpa-to-ros2 does on real hardware. -->
+    <!-- PX4 SITL publishes under /px4_<vehicle_id>/fmu/... (default px4_1). -->
+    <arg name="px4_namespace" default="px4_1" />
     <group if="$(var use_sim_qvio_bridge)">
         <push-ros-namespace namespace="fmu" />
         <node pkg="modalai_interface" exec="sim_qvio_bridge.py"
               name="sim_qvio_bridge" output="screen">
+            <remap from="out/vehicle_odometry"
+                   to="/$(var px4_namespace)/fmu/out/vehicle_odometry" />
             <remap from="qvio" to="$(var voxl_qvio_topic)" />
         </node>
     </group>

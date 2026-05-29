@@ -29,5 +29,6 @@
 
   <export>
     <build_type>ament_cmake</build_type>
+    <robot_interface plugin="${prefix}/share/modalai_interface/plugins.xml"/>
   </export>
 </package>

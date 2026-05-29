@@ -70,6 +70,9 @@ nucleus_token.txt
 # mkdocs
 mkdocs.log
 
+# Claude Code internal files
+.claude/scheduled_tasks.lock
+
 prompts/
 simulation/isaac-sim/launch_scripts/prepare_scene.py
 

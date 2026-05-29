@@ -1,0 +1,9 @@
+<launch>
+    <!-- ModalAI interface for Isaac Sim.
+         Run Isaac Sim first with modalai_voxl2_pegasus_launch_script.py,
+         then launch this file. -->
+    <include file="$(find-pkg-share modalai_interface)/launch/modalai_interface.launch.xml">
+        <arg name="use_sim_qvio_bridge" value="true" />
+        <arg name="voxl_qvio_topic"     value="/qvio" />
+    </include>
+</launch>

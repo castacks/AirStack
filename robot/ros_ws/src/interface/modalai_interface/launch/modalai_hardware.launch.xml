@@ -1,0 +1,9 @@
+<launch>
+    <!-- ModalAI interface for real VOXL2 hardware.
+         Requires voxl-mpa-to-ros2 to be running on the VOXL2
+         and publishing on /qvio. -->
+    <include file="$(find-pkg-share modalai_interface)/launch/modalai_interface.launch.xml">
+        <arg name="use_sim_qvio_bridge" value="false" />
+        <arg name="voxl_qvio_topic"     value="/qvio" />
+    </include>
+</launch>
