@@ -650,7 +650,7 @@ class FoxgloveVisualizerNode(Node):
                     m.color.a = 1.0
                     m.colors = []
                     if m.type in (Marker.LINE_STRIP, Marker.LINE_LIST):
-                        m.scale.x = 0.15
+                        m.scale.x = 0.30
                     needs_points = m.type in (Marker.LINE_STRIP, Marker.LINE_LIST,
                                               Marker.POINTS, Marker.ARROW)
                     if needs_points and len(m.points) == 0:
@@ -678,7 +678,7 @@ class FoxgloveVisualizerNode(Node):
                     line.type = Marker.LINE_STRIP
                     line.action = Marker.ADD
                     line.pose.orientation.w = 1.0
-                    line.scale.x = 0.15
+                    line.scale.x = 0.30
                     line.color.r = float(np.sqrt(color[0]))
                     line.color.g = float(np.sqrt(color[1]))
                     line.color.b = float(np.sqrt(color[2]))

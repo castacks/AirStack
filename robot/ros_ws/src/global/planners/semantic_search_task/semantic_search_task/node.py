@@ -512,16 +512,12 @@ class SemanticSearchTaskNode(Node):
             max_instances = int(getattr(goal, 'max_instances', 0) or 0)
             discoveries_by_id: dict = {}
 
-            # Coverage criterion: count remaining own frontiers post-zone
-            # filter from the debug/frontier_table text. When it stays at or
-            # below FRONTIER_DONE_COUNT for FRONTIER_DONE_TIME_S, the polygon
-            # is considered explored.
-            FRONTIER_DONE_COUNT = 3
-            FRONTIER_DONE_TIME_S = 5.0
-            frontier_kept = None    # None until first frontier_table msg
-            frontier_done_since: 'float | None' = None
-            import re as _re
-            _kept_re = _re.compile(r'kept=(\d+)')
+            # Coverage criterion: raven publishes navigation_mode='complete'
+            # once its observed-cells grid covers ≥ coverage_complete_threshold
+            # of the search polygon. That's the canonical "polygon explored"
+            # signal — frontier counts can spuriously drop to zero (e.g. a
+            # stale rayfronts frame) and used to falsely trip success.
+            nav_mode_complete = False
 
             # Subscribe to raven's global_plan to detect first waypoint.
             # Use BEST_EFFORT QoS to match raven's publisher (some robots in
@@ -578,19 +574,16 @@ class SemanticSearchTaskNode(Node):
                 String, f'/{robot_name}/raven_nav/discoveries',
                 _discoveries_cb, 10, callback_group=self._cbg)
 
-            # Subscribe to raven's frontier debug table — read kept= count to
-            # detect when the polygon has been exhausted.
-            def _frontier_table_cb(msg):
-                nonlocal frontier_kept
-                m = _kept_re.search(msg.data or '')
-                if m:
-                    try:
-                        frontier_kept = int(m.group(1))
-                    except ValueError:
-                        pass
+            # Subscribe to raven's navigation_mode — flips to 'complete' once
+            # the area-coverage gate trips. This is the single source of
+            # truth for "polygon explored".
+            def _nav_mode_cb(msg):
+                nonlocal nav_mode_complete
+                if (msg.data or '').strip() == 'complete':
+                    nav_mode_complete = True
             self.create_subscription(
-                String, f'/{robot_name}/debug/frontier_table',
-                _frontier_table_cb, 10, callback_group=self._cbg)
+                String, f'/{robot_name}/navigation_mode',
+                _nav_mode_cb, 10, callback_group=self._cbg)
 
             # Subscribe to voxels_sim/all for best-confidence tracking
             def _vox_all_cb(msg):
@@ -753,20 +746,11 @@ class SemanticSearchTaskNode(Node):
                     if c > cur_best_conf:
                         cur_best_conf = c
 
-                # Track "no frontiers left" duration. Only counts if we've
-                # actually heard at least one frontier_table message AND raven
-                # has started moving (random_walk_started) — otherwise the
-                # initial zero would fire before raven is online.
+                # Polygon-complete signal comes from raven's area-coverage
+                # gate (navigation_mode == 'complete'). Gated on
+                # random_walk_started so we don't trip before raven is online.
                 now_ts = time.time()
-                if (random_walk_started and frontier_kept is not None
-                        and frontier_kept <= FRONTIER_DONE_COUNT):
-                    if frontier_done_since is None:
-                        frontier_done_since = now_ts
-                else:
-                    frontier_done_since = None
-                polygon_done = (frontier_done_since is not None
-                                and (now_ts - frontier_done_since)
-                                >= FRONTIER_DONE_TIME_S)
+                polygon_done = random_walk_started and nav_mode_complete
 
                 # Termination conditions:
                 #   (1) max_instances cap reached (if set > 0)

@@ -40,6 +40,10 @@ struct init_params {
     float collision_padding_m;
     float path_end_threshold_m;
     float max_yaw_change_degrees;
+    // Absolute altitude bounds for generated goal points (drone-local frame).
+    // Goal samples outside [min_z_m, max_z_m] are treated as collisions.
+    float min_z_m;
+    float max_z_m;
     std::tuple<float, float, float> voxel_size_m;
 };
 
@@ -81,6 +85,8 @@ class RandomWalkPlanner {
     float max_z_change_m_;
     float collision_padding_m;
     float max_yaw_change_degrees;
+    float min_z_m_;
+    float max_z_m_;
 
     // Variables
     std::tuple<float, float, float> voxel_size_m;

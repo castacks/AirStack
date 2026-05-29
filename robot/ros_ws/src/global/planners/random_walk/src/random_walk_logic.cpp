@@ -32,6 +32,8 @@ RandomWalkPlanner::RandomWalkPlanner(init_params params)
     this->collision_padding_m = params.collision_padding_m;
     this->path_end_threshold_m = params.path_end_threshold_m;
     this->max_yaw_change_degrees = params.max_yaw_change_degrees;
+    this->min_z_m_ = params.min_z_m;
+    this->max_z_m_ = params.max_z_m;
 }
 
 std::optional<Path> RandomWalkPlanner::generate_straight_rand_path(
@@ -217,15 +219,12 @@ std::pair<float, float> RandomWalkPlanner::nearest_inside_point(float x, float y
 
 bool RandomWalkPlanner::check_if_collided(const std::tuple<float, float, float>& point)
 {
-    // make sure the point is within the bounds -30 to 30
-    if (std::get<0>(point) > 30 || std::get<0>(point) < -30 || std::get<1>(point) > 30 ||
-        std::get<1>(point) < -30 || std::get<2>(point) > 30 || std::get<2>(point) < -30)
+    // Absolute altitude clamp. XY is bounded by the search polygon (below).
+    if (std::get<2>(point) < this->min_z_m_ || std::get<2>(point) > this->max_z_m_)
     {
         return true;
     }
 
-    // Reject points outside the goal's search_bounds polygon (XY footprint
-    // in robot-local map). Empty polygon → no-op.
     if (!is_inside_search_bounds(std::get<0>(point), std::get<1>(point)))
     {
         return true;

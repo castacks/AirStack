@@ -48,7 +48,7 @@ _LINE_COLOR = ColorRGBA(r=1.0, g=0.15, b=0.15, a=1.0)
 _VERTEX_COLOR = ColorRGBA(r=1.0, g=0.15, b=0.15, a=1.0)
 _TEXT_COLOR = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
 _VERTEX_RADIUS = 0.35
-_LINE_WIDTH = 0.15
+_LINE_WIDTH = 0.35
 _SAVE_NUMBER_SCALE = 0.8
 
 _SAVES_PATH = os.path.expanduser('~/.airstack/gcs_polygon_saves.json')

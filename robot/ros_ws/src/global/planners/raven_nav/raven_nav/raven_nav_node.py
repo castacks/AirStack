@@ -12,7 +12,7 @@ from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import NavSatFix, PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String, Empty
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from coordination_bringup.frame_utils import gps_to_enu
@@ -20,6 +20,7 @@ from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
+from raven_nav.behaviors.frontier_behavior import _points_in_polygon
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import compute_ray_groups
@@ -52,7 +53,18 @@ _NAV_MODE_TAG = {
     'Frontier-based': 'frontier',
     'Ray-based':      'ray',
     'Voxel-based':    'voxel',
+    'Complete':       'complete',
 }
+
+
+def _polygon_area_xy(poly_xy: np.ndarray) -> float:
+    """Shoelace area of a 2D polygon. Returns 0 for degenerate input."""
+    if poly_xy is None or poly_xy.shape[0] < 3:
+        return 0.0
+    x = poly_xy[:, 0]
+    y = poly_xy[:, 1]
+    return 0.5 * float(np.abs(
+        np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
 
 
 class RavenNavNode(Node):
@@ -104,6 +116,23 @@ class RavenNavNode(Node):
         self._max_raycast_range_m: float = float(self.declare_parameter(
             'coverage_raycast_range_m', 30.0).value)
         self._observed_cells: set = set()
+
+        # Polygon-area completion gate: once observed cells cover at least
+        # this fraction of the search polygon, the drone stops re-planning
+        # and holds position. Sticky — never re-arms within a single run.
+        self._coverage_threshold: float = float(self.declare_parameter(
+            'coverage_complete_threshold', 0.90).value)
+        self._search_complete: bool = False
+        self._last_coverage_frac: float = 0.0
+        # Highest 10% milestone already logged (0..10). -1 means none yet.
+        self._coverage_milestone: int = -1
+
+        # Raycast stamping is expensive (O(frontiers × ray_length / cell)) and
+        # produces redundant cells at hover. Only re-run when the drone has
+        # moved at least this far from where it last raycast.
+        self._raycast_min_step_m: float = float(self.declare_parameter(
+            'coverage_raycast_min_step_m', 5.0).value)
+        self._last_raycast_xy: 'np.ndarray | None' = None
 
         self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
         query_labels_param = self.declare_parameter(
@@ -417,8 +446,11 @@ class RavenNavNode(Node):
 
     def _stamp_raycast_cells(self, origin_xy: np.ndarray,
                              targets_xy: np.ndarray) -> None:
-        """Stamp every cell on the 2D line from origin to each target,
-        clamped to _max_raycast_range_m."""
+        """Stamp every cell on the 2D line from origin toward each target,
+        stopping ~1.5 cells SHORT of the frontier endpoint so the frontier
+        cell itself stays unobserved. Otherwise we'd mark the frontier as
+        explored, drop it on the next tick's cell filter, and falsely report
+        the polygon as cleared."""
         if targets_xy is None or targets_xy.shape[0] == 0:
             return
         origin = np.asarray(origin_xy, dtype=np.float64).reshape(2)
@@ -430,7 +462,15 @@ class RavenNavNode(Node):
             return
         delta = delta[nonzero]
         dist = dist[nonzero]
-        clamp = np.minimum(dist, self._max_raycast_range_m)
+        # Pull back from the frontier point
+        pullback = 15.0 * self._cell_size_m
+        clamp = np.minimum(dist, self._max_raycast_range_m) - pullback
+        keep = clamp > 0.0
+        if not np.any(keep):
+            return
+        delta = delta[keep]
+        dist = dist[keep]
+        clamp = clamp[keep]
         unit = delta / dist[:, None]
         end = origin[None, :] + unit * clamp[:, None]
         # Half-cell step ensures diagonal lines don't skip cells.
@@ -450,6 +490,28 @@ class RavenNavNode(Node):
             return np.zeros((0, 2), dtype=np.float64)
         arr = np.array(list(self._observed_cells), dtype=np.float64)
         return (arr + 0.5) * self._cell_size_m
+
+    def _coverage_fraction(self, polygon_xy: np.ndarray,
+                           observed_centers_xy: np.ndarray) -> float:
+        """Fraction of search polygon area covered by observed cells.
+        `observed_centers_xy` should be the merged own+peer cell centers so
+        peers' coverage counts toward the gate too."""
+        if polygon_xy is None or polygon_xy.shape[0] < 3:
+            return 0.0
+        poly_area = _polygon_area_xy(polygon_xy)
+        if poly_area <= 0.0 or observed_centers_xy is None \
+                or observed_centers_xy.shape[0] == 0:
+            return 0.0
+        in_poly = _points_in_polygon(observed_centers_xy[:, :2], polygon_xy)
+        # Cells coming from peers may use a different grid origin, so
+        # quantize merged centers onto our grid before counting unique cells.
+        cells = np.floor(observed_centers_xy[in_poly]
+                         / self._cell_size_m).astype(np.int64)
+        if cells.shape[0] == 0:
+            return 0.0
+        unique = np.unique(cells, axis=0)
+        covered_area = unique.shape[0] * (self._cell_size_m ** 2)
+        return float(min(covered_area / poly_area, 1.0))
 
     def _own_confirmed_targets(self) -> list:
         """Convert voxel_behavior's current AABBs into ConfirmedTarget records.
@@ -679,7 +741,12 @@ class RavenNavNode(Node):
             String(data='\n'.join(lines).rstrip()))
 
     def _publish_completed_zones(self) -> None:
-        """Gossip observed cells as a PointCloud2 of cell-center XYs."""
+        """Gossip observed cells as a PointCloud2 of cell-center XYs.
+        z is fixed at 0 — included only so gossip_node's transform_point_cloud2
+        runs (it bails on clouds missing any of x/y/z) and applies the sender's
+        boot offset (bx, by, bz). Without z, cells stayed in the sender's local
+        odom frame but were labeled 'map', so every robot's grid rendered
+        anchored at the GCS origin instead of its own takeoff position."""
         from sensor_msgs.msg import PointField
         centers = self._own_cell_centers_xy()
         n = int(centers.shape[0])
@@ -693,12 +760,14 @@ class RavenNavNode(Node):
         out.fields = [
             PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
             PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
         ]
-        out.point_step = 8
+        out.point_step = 12
         out.row_step = out.point_step * n
         if n > 0:
-            flat = centers.astype(np.float32)
-            out.data = flat.tobytes()
+            xyz = np.zeros((n, 3), dtype=np.float32)
+            xyz[:, :2] = centers.astype(np.float32)
+            out.data = xyz.tobytes()
         self._completed_zones_pub.publish(out)
 
     def _vox_all_cb(self, msg: PointCloud2):
@@ -1511,10 +1580,21 @@ class RavenNavNode(Node):
             if self._vox_xyz is not None and self._vox_xyz.shape[0] > 0:
                 self._stamp_cells_xy(self._vox_xyz[:, :2])
             if self._frontiers is not None and self._frontiers.shape[0] > 0:
-                # frontiers cols 0:3 are RDF; convert to FLU XY for raycast.
-                fr_rdf = self._frontiers[:, :3]
-                fr_flu_xy = np.stack([fr_rdf[:, 2], -fr_rdf[:, 0]], axis=1)
-                self._stamp_raycast_cells(self._cur_pose[:2], fr_flu_xy)
+                # Skip raycast stamping unless the drone has moved at least
+                # coverage_raycast_min_step_m since the last stamp. Hover
+                # otherwise re-paints the same starburst every tick.
+                cur_xy = self._cur_pose[:2]
+                moved_enough = (
+                    self._last_raycast_xy is None
+                    or float(np.linalg.norm(cur_xy - self._last_raycast_xy))
+                       >= self._raycast_min_step_m)
+                if moved_enough:
+                    # frontiers cols 0:3 are RDF; convert to FLU XY for raycast.
+                    fr_rdf = self._frontiers[:, :3]
+                    fr_flu_xy = np.stack(
+                        [fr_rdf[:, 2], -fr_rdf[:, 0]], axis=1)
+                    self._stamp_raycast_cells(cur_xy, fr_flu_xy)
+                    self._last_raycast_xy = cur_xy.copy()
 
         own_centers = self._own_cell_centers_xy()
         zone_chunks = [own_centers] if own_centers.shape[0] > 0 else []
@@ -1524,6 +1604,58 @@ class RavenNavNode(Node):
         completed_zones_xy = np.vstack(zone_chunks) if zone_chunks else None
 
         self._publish_completed_zones()
+
+        # Polygon-area completion gate. Uses merged own+peer cells so a swarm
+        # can finish together. Once tripped, stays tripped for the run.
+        if self._search_area_xy is not None and completed_zones_xy is not None:
+            frac = self._coverage_fraction(
+                self._search_area_xy, completed_zones_xy)
+            self._last_coverage_frac = frac
+            # Log every new 10% bucket crossed, once each.
+            bucket = min(int(frac * 10), 10)
+            while self._coverage_milestone < bucket:
+                self._coverage_milestone += 1
+                pct = self._coverage_milestone * 10
+                if pct > 0:
+                    self.get_logger().info(
+                        f'[coverage] reached {pct}% of polygon '
+                        f'(actual {frac * 100:.1f}%)')
+            if not self._search_complete and frac >= self._coverage_threshold:
+                self._search_complete = True
+                self.get_logger().info(
+                    f'search complete: coverage {frac * 100:.1f}% '
+                    f'>= {self._coverage_threshold * 100:.1f}% '
+                    f'of polygon area — hovering in place')
+            elif self._debug_coord:
+                self.get_logger().info(
+                    f'[coverage] {frac * 100:.1f}% '
+                    f'(threshold {self._coverage_threshold * 100:.1f}%)',
+                    throttle_duration_sec=2.0)
+
+        if self._search_complete:
+            if self._cur_pose is not None:
+                hover = Path()
+                hover.header.stamp = self.get_clock().now().to_msg()
+                hover.header.frame_id = 'map'
+                ps = PoseStamped()
+                ps.header = hover.header
+                ps.pose.position.x = float(self._cur_pose[0])
+                ps.pose.position.y = float(self._cur_pose[1])
+                ps.pose.position.z = float(self._cur_pose[2])
+                ps.pose.orientation.w = 1.0
+                hover.poses.append(ps)
+                self._path_pub.publish(hover)
+            self._waypoint_locked = True
+            self._target_waypoint = (self._cur_pose.copy()
+                                     if self._cur_pose is not None else None)
+            self._target_waypoint2 = self._target_waypoint
+            self._nav_mode_pub.publish(
+                String(data=_NAV_MODE_TAG['Complete']))
+            completed = sorted(self._behavior_manager.completed_queries)
+            self._completed_targets_pub.publish(
+                String(data=json.dumps(completed)))
+            self._last_completed = completed
+            return
 
         self._waypoint_locked, self._target_waypoint, self._target_waypoint2 = \
             self._behavior_manager.behavior_execute(

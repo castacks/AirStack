@@ -217,9 +217,11 @@ class PayloadVisualizerNode(Node):
             f'/gcs/payload/{robot_name}/kept_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
-        """Observed-cell grid gossiped by raven_nav (one (x,y) per cell, cells
-        are coverage_cell_size_m on a side). Renders as a single CUBE_LIST so
-        N cells = 1 marker, not N translucent cylinders."""
+        """Observed-cell grid gossiped by raven_nav (one (x,y) per cell).
+        Renders as a single TRIANGLE_LIST marker — two triangles per cell
+        form a flat square lying on the ground (z=0.05). One marker for N
+        cells, so render cost stays linear and Foxglove only has one entry
+        to toggle per robot."""
         from sensor_msgs_py import point_cloud2 as pc2
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         try:
@@ -227,26 +229,33 @@ class PayloadVisualizerNode(Node):
                                        skip_nans=True))
         except Exception:
             return
-        bz = self._display_z_offset()
         m = Marker()
         m.header.frame_id = 'map'
         m.header.stamp = now
         m.ns = f'{robot_name}_completed_zones'
         m.id = i * 100000
-        m.type = Marker.CUBE_LIST
+        m.type = Marker.TRIANGLE_LIST
         m.action = Marker.ADD
         m.pose.orientation.w = 1.0
-        s = self._completed_cell_size_m
-        m.scale.x = s
-        m.scale.y = s
-        m.scale.z = 0.05
+        m.scale.x = 1.0
+        m.scale.y = 1.0
+        m.scale.z = 1.0
         m.color.r = color[0]
         m.color.g = color[1]
         m.color.b = color[2]
-        m.color.a = 0.35
+        m.color.a = 0.45
         m.lifetime = Duration(sec=3, nanosec=0)
+        half = 0.5 * self._completed_cell_size_m
+        z = 0.05
         for p in pts:
-            m.points.append(GPoint(x=float(p[0]), y=float(p[1]), z=bz))
+            cx = float(p[0])
+            cy = float(p[1])
+            # Two triangles forming the cell's flat square (CCW from above).
+            v00 = GPoint(x=cx - half, y=cy - half, z=z)
+            v10 = GPoint(x=cx + half, y=cy - half, z=z)
+            v11 = GPoint(x=cx + half, y=cy + half, z=z)
+            v01 = GPoint(x=cx - half, y=cy + half, z=z)
+            m.points.extend([v00, v10, v11, v00, v11, v01])
         out = MarkerArray()
         out.markers.append(m)
         self._pub_for(

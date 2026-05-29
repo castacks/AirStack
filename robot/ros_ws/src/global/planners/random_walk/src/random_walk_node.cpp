@@ -94,6 +94,16 @@ std::optional<init_params> RandomWalkNode::readParameters() {
         RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_yaw_change_degrees");
         return std::optional<init_params>{};
     }
+    this->declare_parameter<float>("min_z_m");
+    if (!this->get_parameter("min_z_m", params.min_z_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: min_z_m");
+        return std::optional<init_params>{};
+    }
+    this->declare_parameter<float>("max_z_m");
+    if (!this->get_parameter("max_z_m", params.max_z_m)) {
+        RCLCPP_ERROR(this->get_logger(), "Cannot read parameter: max_z_m");
+        return std::optional<init_params>{};
+    }
     return params;
 }
 

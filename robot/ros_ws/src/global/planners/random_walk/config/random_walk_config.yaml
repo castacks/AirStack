@@ -19,3 +19,5 @@
     collision_padding_m: 1.0 # how much space should the path have to any obstacles
     path_end_threshold_m: 3.0 # how close to the goal will the path be considered complete
     max_yaw_change_degrees: 180.0 # how much the goal can deviate from the current orientation
+    min_z_m: 1.0 # absolute floor for goal points (drone-local map frame)
+    max_z_m: 30.0 # absolute ceiling for goal points (drone-local map frame)

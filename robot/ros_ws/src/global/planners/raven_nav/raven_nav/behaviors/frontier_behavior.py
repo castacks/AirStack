@@ -26,16 +26,22 @@ def _points_in_polygon(pts_xy: np.ndarray, poly_xy: np.ndarray) -> np.ndarray:
 
 
 def _peer_penalty(viewpoints, peer_state, my_id,
-                  repulsion_weight=15.0,
-                  repulsion_scale=30.0,
-                  tie_distance=5.0,
-                  tie_surcharge_mul=1.0):
+                  repulsion_weight=30.0,
+                  repulsion_scale=15.0,
+                  tie_distance=10.0,
+                  tie_surcharge_mul=2.0):
     """Returns (penalty(M,), breakdown). Lower penalty = better.
 
     Soft repulsion = weight * exp(-d / scale), applied around every peer
     waypoint. Higher-id robot also pays tie_surcharge for candidates within
     tie_distance of any peer waypoint — asymmetric so two robots eyeing the
     same frontier can't both defer (lower id wins).
+
+    Tuned to bias hard against frontiers near peer waypoints: weight is
+    doubled (15→30) and scale halved (30→15) so the penalty concentrates
+    in the close-range zone (~0–20 m) instead of decaying gently out to
+    60 m+. tie_distance widened to 10 m so the asymmetric surcharge fires
+    over a meaningful neighborhood, not just kissing-distance.
     """
     M = viewpoints.shape[0]
     pen = np.zeros(M, dtype=np.float64)
@@ -366,9 +372,16 @@ class FrontierBehavior:
             polygon_dropped_own = int((~in_poly).sum())
             own_frontiers = own_frontiers[in_poly]
 
-        # Own frontiers are not filtered against own observed cells — rayfronts
-        # already produces a self-consistent frontier set.
+        # Drop own frontiers whose cell is already in the observed grid.
+        # Rayfronts can keep emitting frontier voxels in regions we've
+        # covered (slow retraction, occlusion-edge artifacts), so without
+        # this filter the drone re-explores ground it's already seen.
         zone_dropped_own = 0
+        if completed_cells and own_frontiers.shape[0] > 0:
+            in_observed = _cells_observed_mask(
+                own_frontiers[:, :2], completed_cells, cell_size_m)
+            zone_dropped_own = int(in_observed.sum())
+            own_frontiers = own_frontiers[~in_observed]
 
         blacklist_xy = self._blacklist_array()
         blacklist_dropped_own = 0
