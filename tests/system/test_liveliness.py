@@ -5,7 +5,7 @@ tmux panes host expected processes, sentinel ROS 2 nodes exist, compute
 snapshots, and a short stability window (infra only — no camera/LiDAR Hz here).
 
 Sensor topic rates, bridge stereo Hz, LiDAR echo/sanity, and sim RTF live in
-``test_sensors.py`` (``@pytest.mark.sensors``), ordered after this module.
+``system/test_sensors.py`` (``@pytest.mark.sensors``), ordered after this module.
 """
 import time
 

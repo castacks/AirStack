@@ -26,7 +26,9 @@ setup(
     maintainer_email='your.email@example.com',  # TODO: Update
     description='Brief description of your module',  # TODO: Update
     license='Apache-2.0',
-    tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest'],
+    },
     entry_points={
         'console_scripts': [
             # TODO: Add your node executables here

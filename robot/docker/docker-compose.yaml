@@ -14,6 +14,7 @@ services:
       dockerfile: ./Dockerfile.robot
       args:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
+        ROS_DISTRO: jazzy
       tags:
         - *desktop_image
       cache_from:
@@ -26,6 +27,7 @@ services:
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
       - SIM_IP=${SIM_IP:-172.31.0.200}
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
@@ -120,6 +122,7 @@ services:
         REAL_ROBOT: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
+        ROS_DISTRO: jazzy
       tags:
         - *voxl_image
       cache_from:
@@ -129,6 +132,7 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
     command: >
       bash -c "
       tmux new -d -s bringup;
@@ -138,6 +142,23 @@ services:
       sleep infinity"
     network_mode: host
     deploy: !reset {}  # remove nvidia driver for voxl
+
+  # ===================================================================================================================
+  # Intermediate Jetson stack: dusty Jazzy + ROS keyring / pip / OpenCV shim for Dockerfile.robot (same recipe as Ubuntu).
+  # `airstack image-build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
+  robot-l4t-stack-base:
+    profiles:
+      - l4t
+    image: &l4t_stack_base_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.l4t-stack-base
+      network: host
+      args:
+        DUSTYNV_IMAGE: dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04
+      tags:
+        - *l4t_stack_base_image
+      cache_from:
+        - *l4t_stack_base_image
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
@@ -152,13 +173,18 @@ services:
     image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
+      network: host
       args:
-        BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
+        BASE_IMAGE: *l4t_stack_base_image
         REAL_ROBOT: true
+        SKIP_MACVO: true
+        SKIP_TENSORRT: true
+        ROS_DISTRO: jazzy
       tags:
         - *l4t_image
       cache_from:
         - *l4t_image
+        - *l4t_stack_base_image
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
@@ -176,11 +202,13 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    environment: !override
-      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+    runtime: nvidia
+    environment:
+      - ROBOT_NAME_SOURCE=hostname
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # mavros mavlink settings
       - FCU_URL="/dev/ttyTHS4:115200"
       - TGT_SYSTEM=1
@@ -210,10 +238,12 @@ services:
     build:
       context: ./
       dockerfile: zed/Dockerfile.zed-l4t
+      network: host
       args:
         L4T_MAJOR: 36
         L4T_MINOR: 4
         L4T_PATCH: 0
+        IMAGE_NAME: dustynv/ros:jazzy-desktop-r36.4.0-cu128-24.04
       cache_from:
         - *zed_l4t_image
     command: >
@@ -233,6 +263,7 @@ services:
     privileged: true
     ipc: host
     pid: host
+    runtime: nvidia
     environment:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY

@@ -31,6 +31,7 @@ Welcome to AirStack development! This guide will help you extend and customize t
   - [System Testing](intermediate/testing/system_testing.md)
   - [CI/CD](intermediate/testing/ci_cd.md)
 - **[Frame Conventions](intermediate/frame_conventions.md)** - Coordinate frame standards
+- **[Docker Build Profiles](intermediate/docker-build-profiles.md)** - Robot image build args and platform profiles (`robot-desktop`, `robot-l4t`, etc.)
 - **[Contributing](intermediate/contributing.md)** - Contribute to AirStack
 - **[Documentation Guide](intermediate/documentation.md)** - Write great documentation
 
@@ -52,6 +53,7 @@ Welcome to AirStack development! This guide will help you extend and customize t
 | Add a world model | [Integration Checklist](../robot/autonomy/integration_checklist.md) |
 | Create simulation scene | [Isaac Sim Setup](../simulation/isaac_sim/pegasus_scene_setup.md) |
 | Debug a module | [VSCode Debugging](beginner/vscode/vscode_debug.md) |
+| Build robot images for a platform | [Docker Build Profiles](intermediate/docker-build-profiles.md) |
 | Write tests | [Testing Guide](intermediate/testing/index.md) |
 
 ### Essential Commands
