@@ -107,7 +107,8 @@ RUN mkdir -p /isaac-sim/.local/share/ov/pkg/ && \
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir --upgrade pip && \
     /isaac-sim/python.sh -m pip install --no-cache-dir git+https://github.com/dronekit/dronekit-python#egg=dronekit && \
     /isaac-sim/python.sh -m pip install --no-cache-dir PyYAML mavproxy tmuxp scipy \
-    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future
+    kconfiglib jinja2 empy==3.3.4 jsonschema pyros-genmsg packaging toml numpy future \
+    pymap3d sgp4
 
 ARG isaac_dir_name="IsaacSim-ros_workspaces-IsaacSim-${ISAAC_VERSION}"
 # Install Isaac Sim ROS2 workspace so that we can run the isaacsim ROS package
@@ -167,7 +168,7 @@ RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
 
 # copy FastDDS config
-COPY docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
+COPY simulation/isaac-sim/docker/fastdds.xml /isaac-sim/.ros/fastdds.xml
 ENV OMNI_KIT_ALLOW_ROOT=1
 ENV PRIVACY_CONSENT=Y
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp

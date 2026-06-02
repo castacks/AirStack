@@ -21,8 +21,17 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     ros-jazzy-rosbag2-storage-mcap ros-jazzy-plotjuggler \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# setuptools must be <80 for Jazzy: https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
+# Pin it first so subsequent installs see the right version.
+RUN pip3 install --break-system-packages --force-reinstall "setuptools==79.0.1"
+
+# Install Python dependencies.
+# --prefer-binary avoids source compilation failures (lxml, scipy).
+# --timeout / --retries guard against transient network issues.
 RUN pip3 install --break-system-packages \
+    --prefer-binary \
+    --timeout 120 \
+    --retries 5 \
     empy \
     future \
     lxml \
@@ -35,8 +44,6 @@ RUN pip3 install --break-system-packages \
     pymavlink \
     pyyaml \
     requests \
-    # setup tools must be <80 for Jazzy https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
-    setuptools==79.0.1 \
     six \
     toml \
     scipy \

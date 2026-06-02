@@ -131,7 +131,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 
 # Use python from Isaac Sim interpreter (Kit Python ~3.10) to avoid conflicts with ROS2 Python (Jazzy Python ~3.12).
-export ISAAC_SIM_PYTHONPATH=$(echo "${PYTHONPATH:-}" | tr ':' '\n' | grep -v 'lib/python3.12/site-packages' | paste -sd ':' -):/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
+export ISAAC_SIM_PYTHONPATH=/opt/gps_packages/sgp4-2.25-py3-none-any:/opt/gps_packages/pymap3d-3.2.0-py3-none-any:/isaac-sim/AirStack/simulation/isaac-sim:$(echo "${PYTHONPATH:-}" | tr ':' '\n' | grep -v 'lib/python3.12/site-packages' | paste -sd ':' -):/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
 
 # --- Isaac Setup ---
 alias runapp="/isaac-sim/runapp.sh --path omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Ascent_Aerosystems/Spirit_UAV/spirit_uav_red_yellow.prop.usd"

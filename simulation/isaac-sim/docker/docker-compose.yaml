@@ -42,6 +42,9 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      - USE_DEGRADED_GPS=${USE_DEGRADED_GPS:-false}
+      - GPS_DEGRADATION_SCENARIO=${GPS_DEGRADATION_SCENARIO:-urban}
+      - ISAAC_SIM_PYTHONPATH=/opt/gps_packages/sgp4-2.25-py3-none-any:/opt/gps_packages/pymap3d-3.2.0-py3-none-any:/isaac-sim/AirStack/simulation/isaac-sim:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -78,6 +81,7 @@ services:
       - ../../../common/.tmux.conf:/isaac-sim/.tmux.conf:rw
       # airstack code
       - ../../..:/isaac-sim/AirStack:rw
+      - ${GPS_PACKAGES_DIR:-/home/ubuntu/Downloads/gps_packages}:/opt/gps_packages:ro
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
 

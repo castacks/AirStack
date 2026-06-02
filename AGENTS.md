@@ -337,6 +337,7 @@ Each major component has its own Docker container:
 - Main compose file: `docker-compose.yaml` (includes all component compose files)
 - Environment variables: top-level [`.env`](.env) (image tags, `VERSION`, `NUM_ROBOTS`, `ROBOT_NAME_MAP_CONFIG_FILE`, `ISAAC_SIM_SCRIPT_NAME`, `AUTONOMY_ROLE`, etc.)
 - Per-container shell init: [`robot/docker/.bashrc`](robot/docker/.bashrc) — resolves `ROBOT_NAME` and `ROS_DOMAIN_ID` at startup (see Multi-Robot Configuration below)
+- Isaac Sim standalone scripts run inside a tmux shell, so Python dependency paths must also survive the [`simulation/isaac-sim/docker/.bashrc`](simulation/isaac-sim/docker/.bashrc) recomputation of `ISAAC_SIM_PYTHONPATH`; setting the Compose environment alone is insufficient.
 
 **Networking:** Custom bridge network (172.31.0.0/24) for inter-container communication.
 
