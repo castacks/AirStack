@@ -1,0 +1,15 @@
+[package]
+version = "0.1.0"
+title = "OptiTrack NatNet Emulator"
+description = "NatNet UDP server emulator for Isaac Sim integration with natnet_ros2"
+category = "Simulation"
+keywords = ["optitrack", "natnet", "mocap", "simulation"]
+
+[dependencies]
+"omni.isaac.core" = {}
+
+[[python.module]]
+name = "optitrack.natnet.emulator"
+
+[python.build-system]
+requires = ["setuptools"]
