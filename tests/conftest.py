@@ -124,13 +124,25 @@ def pytest_addoption(parser):
                           "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
 
 
+def _chmod_world_writable(path: Path) -> None:
+    """Best-effort: allow Docker and host users to share tests/results."""
+    try:
+        path.chmod(0o777)
+    except OSError:
+        pass
+
+
 def pytest_configure(config):
     global RUN_DIR, LOGS_DIR
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     results_root = Path(AIRSTACK_ROOT) / "tests" / "results"
+    results_root.mkdir(parents=True, exist_ok=True)
+    _chmod_world_writable(results_root)
     RUN_DIR = results_root / timestamp
     LOGS_DIR = RUN_DIR / "logs"
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    _chmod_world_writable(RUN_DIR)
+    _chmod_world_writable(LOGS_DIR)
     config.option.xmlpath = str(RUN_DIR / "results.xml")
 
 
