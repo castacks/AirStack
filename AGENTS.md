@@ -89,6 +89,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [write-launch-file](.agents/skills/write-launch-file) | Authoring ROS 2 launch files with AirStack conventions (ROBOT_NAME namespacing, topic remapping, allow_substs) |
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
 | [visualize-in-foxglove](.agents/skills/visualize-in-foxglove) | Adding topic visualization to Foxglove/GCS |
+| [optitrack-development](.agents/skills/optitrack-development) | OptiTrack NatNet emulator, natnet_ros2, wire-protocol handshake, connect-packet sniff |
 | [attach-gossip-payload](.agents/skills/attach-gossip-payload) | Broadcasting custom ROS messages to peers via PeerProfile gossip payloads |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
