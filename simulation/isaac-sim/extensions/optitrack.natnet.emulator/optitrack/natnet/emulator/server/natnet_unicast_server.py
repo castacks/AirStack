@@ -27,19 +27,23 @@ class NatNetUnicastServer(NatNetServer):
     def _data_update_loop(self):
         # Loop to update mocap data and send packets at regular intervals
         while not self.shutdown_event.is_set():
-            time.sleep(1/self.publish_rate) # Sleep for the duration of one publish cycle
+            time.sleep(1 / self.publish_rate)
+
+            with self.clients_lock:
+                clients = list(self.connected_clients)
+            if not clients:
+                continue
 
             data_messages = self._get_latest_mocap_packet()
             if not data_messages:
                 continue
 
-            with self.clients_lock:
-                for client in self.connected_clients:
-                    try:
-                        self._send_data_packet(client, data_messages) # Thread-safely sends data packet to all connected clients
-                    except ValueError as e:
-                        print(str(e))
-                        continue
+            for client in clients:
+                try:
+                    self._send_data_packet(client, data_messages)
+                except ValueError as e:
+                    print(str(e))
+                    continue
 
     def _command_listener_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
         # Listens on UDP command socket for incoming command requests from clients.
@@ -88,17 +92,16 @@ class NatNetUnicastServer(NatNetServer):
                 print(f"[Command Handler] Error adding client {new_client.ip}:{new_client.port} to connected clients list: {e}")
                 return
 
-            # Send the server description to the client
-            server_description = self.server_description.pack()
-            response_header = ServerTypes.sPacketHeader(iMessage=int(ServerTypes.MessageId.NAT_SERVERINFO), nDataBytes=len(server_description))
-            
-            # Pack and send the server description to the client
-            response_packet = response_header.pack() + server_description
             try:
-                with new_client.socket_lock:
-                    self.command_socket.sendto(response_packet, client_address)
-            except Exception as e:
-                raise ValueError(f"[Command Handler] Error sending server description to client {client_address}: {e}")
+                self._send_packet_to_client(
+                    new_client,
+                    ServerTypes.MessageId.NAT_SERVERINFO,
+                    self.server_description.pack(),
+                )
+            except ValueError as e:
+                raise ValueError(
+                    f"[Command Handler] Error sending server description to client {client_address}: {e}"
+                ) from e
             print(f"[Command Handler] Sent server description to client address through its port {client_address}.")
         
 

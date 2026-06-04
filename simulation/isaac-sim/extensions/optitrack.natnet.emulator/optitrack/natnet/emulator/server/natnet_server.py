@@ -1,13 +1,9 @@
-from typing import Any
-
-
 from . import natnet_data_types as DataMessages
 from . import natnet_server_types as ServerMessages
 from enum import Enum
 import socket
 import threading
 import queue
-import time
 import signal
 import ctypes
 import typing
@@ -208,57 +204,93 @@ class NatNetServer:
         if self.high_res_clock_freq <= 0:
             raise ValueError(f"Invalid high resolution clock frequency: {self.high_res_clock_freq}. Must be a positive integer representing the frequency in Hz.")
 
-    def _get_latest_mocap_packet(self) -> DataMessages.sFrameOfMocapData:
+    def _get_latest_mocap_packet(self) -> DataMessages.sFrameOfMocapData | None:
         # Thread-safe method to retrieve the latest mocap data to be sent
         try:
             return self.mocap_data_queue.get_nowait()
         except queue.Empty:
             return None
 
+    @staticmethod
+    def _pad_fixed_string(value: bytes) -> bytes:
+        """Null-pad a byte string to MAX_NAMELENGTH for fixed-size NatNet name fields."""
+        truncated = value[: ServerMessages.MAX_NAMELENGTH - 1]
+        return truncated + b"\x00" * (ServerMessages.MAX_NAMELENGTH - len(truncated))
+
+    @staticmethod
+    def _assign_version_bytes(field: ctypes.Array, version: typing.Tuple[int, int, int, int]) -> None:
+        for index, component in enumerate(version):
+            field[index] = component
+
+    @staticmethod
+    def _assign_ipv4_bytes(field: ctypes.Array, address: str | bytes) -> None:
+        octets = socket.inet_aton(address) if isinstance(address, str) else address
+        for index, octet in enumerate(octets):
+            field[index] = octet
+
     def _build_server_description(self) -> ServerMessages.sServerDescription:
         # Helper to build the server description struct with current server info (e.g. on startup or in response to command request)
         description = ServerMessages.sServerDescription()
         description.HostPresent = True
-        description.szHostComputerName = socket.gethostname().encode('utf-8')[:ServerMessages.MAX_NAMELENGTH-1] + b'\x00'
-        description.HostComputerAddress = socket.inet_aton(self.local_interface)
-        description.szHostApp = b'Motive'
-        description.HostAppVersion = self.motive_app_version
-        description.NatNetVersion = self.natnet_version
+        description.szHostComputerName = self._pad_fixed_string(
+            socket.gethostname().encode("utf-8")
+        )
+        self._assign_ipv4_bytes(description.HostComputerAddress, self.local_interface)
+        description.szHostApp = self._pad_fixed_string(b"Motive")
+        self._assign_version_bytes(description.HostAppVersion, self.motive_app_version)
+        self._assign_version_bytes(description.NatNetVersion, self.natnet_version)
         description.HighResClockFrequency = self.high_res_clock_freq
         description.bConnectionInfoValid = True
         description.ConnectionDataPort = self.data_port
         description.ConnectionMulticast = self.transmission_type == TransmissionType.MULTICAST
-        
+
         if self.transmission_type == TransmissionType.MULTICAST:
-            description.ConnectionMulticastAddress = socket.inet_aton(self.multicast_address)
+            self._assign_ipv4_bytes(description.ConnectionMulticastAddress, self.multicast_address)
         else:
-            description.ConnectionMulticastAddress = b'\x00\x00\x00\x00' # Setting to 0 explicitly for unicast case
-        
+            self._assign_ipv4_bytes(description.ConnectionMulticastAddress, b"\x00\x00\x00\x00")
+
         return description
+
+    def _send_packet_to_client(
+        self,
+        client: Client,
+        message_id: ServerMessages.MessageId | int,
+        payload: bytes,
+    ) -> None:
+        """Send a NatNet packet to a unicast client on the command socket (libNatNet 4.4)."""
+        if not self.command_socket:
+            raise ValueError("[NatNetServer] Command socket not initialized. Cannot send packet.")
+
+        header = ServerMessages.sPacketHeader(
+            iMessage=int(message_id),
+            nDataBytes=len(payload),
+        )
+        packet = header.pack() + payload
+        try:
+            with client.socket_lock:
+                self.command_socket.sendto(packet, (client.ip, client.port))
+        except OSError as e:
+            raise ValueError(
+                f"[NatNetServer] Error sending message {int(message_id)} to "
+                f"client {client.ip}:{client.port}: {e}"
+            ) from e
 
     def _data_update_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
         # Loop to update mocap data and send packets at regular intervals (e.g. 100Hz)
         pass
 
     def _send_data_packet(self, client: Client, data_message: DataMessages.sFrameOfMocapData):
-        # Serialize data_messages and send as UDP packet to client or multicast group
-        
-        if not self.data_socket:
-            raise ValueError("[NatNetServer] Data socket not initialized. Cannot send data packet.")
-
-        # Serialize the data message into bytes
+        # Serialize frame payload and send via command socket (unicast libNatNet 4.4).
         try:
             packet_bytes = data_message.pack()
-            header = ServerMessages.sPacketHeader(iMessage=ServerMessages.MessageId.NAT_FRAMEOFDATA, nDataBytes=len(packet_bytes))
-            full_packet = header.pack() + packet_bytes
         except Exception as e:
-            raise ValueError(f"[NatNetServer] Error serializing data message: {e}")
-        
-        try:
-            with client.socket_lock:
-                self.data_socket.sendto(full_packet, (client.ip, client.port))
-        except Exception as e:
-            raise ValueError(f"[NatNetServer] Error sending data packet to client {client.ip}:{client.port}: {e}")
+            raise ValueError(f"[NatNetServer] Error serializing data message: {e}") from e
+
+        self._send_packet_to_client(
+            client,
+            ServerMessages.MessageId.NAT_FRAMEOFDATA,
+            packet_bytes,
+        )
 
     def _command_listener_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
         # Loop to listen for and handle incoming command requests (e.g. from client apps)
