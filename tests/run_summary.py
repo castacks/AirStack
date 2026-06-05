@@ -10,10 +10,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import statistics
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 PARAM_RE = re.compile(r"\[(.+)\]$")
+ITER_RE = re.compile(r"-iter\d+(?=\])")
 ROBOT_METRIC_RE = re.compile(r"^robot_\d+\.(.+)$")
 
 # Ordered (metric_key, label) groups per test module. Only scalar metrics with
@@ -102,20 +104,43 @@ def _phase_name(test_name: str) -> str:
     return test_name
 
 
-def _format_value(key: str, entry: dict) -> str:
-    value = entry.get("value")
-    unit = UNIT_OVERRIDES.get(key, entry.get("unit", ""))
+def _base_param_id(param: str) -> str:
+    """isaacsim-rob#1-trajCircle-iter3 -> isaacsim-rob#1-trajCircle"""
+    return ITER_RE.sub("", param)
+
+
+def _format_scalar(key: str, value: float | int, unit: str) -> str:
     if key == "trajectory_success":
         if value == 1.0:
             return "yes"
         if value == 0.0:
             return "no"
+    text = f"{value:g}"
+    return f"{text} {unit}".strip() if unit else text
+
+
+def _format_value(key: str, entry: dict) -> str:
+    value = entry.get("value")
+    unit = UNIT_OVERRIDES.get(key, entry.get("unit", ""))
     if isinstance(value, (int, float)):
-        text = f"{value:g}"
-        return f"{text} {unit}".strip() if unit else text
+        return _format_scalar(key, value, unit)
     if value is None:
         return "n/a"
     return str(value)
+
+
+def _format_aggregated(key: str, values: list[float], unit: str) -> str:
+    if not values:
+        return "n/a"
+    if key == "trajectory_success":
+        passed = sum(1 for v in values if v >= 1.0)
+        return f"{passed}/{len(values)} passed"
+    mean = statistics.mean(values)
+    if len(values) == 1:
+        return _format_scalar(key, round(mean, 3), unit)
+    std = statistics.pstdev(values)
+    base = _format_scalar(key, round(mean, 3), unit)
+    return f"{base} ± {std:.3g} {unit}".strip() if unit else f"{base} ± {std:.3g} (n={len(values)})"
 
 
 def _collect_scalar_metrics(metrics_blob: dict) -> dict[str, dict]:
@@ -128,6 +153,23 @@ def _collect_scalar_metrics(metrics_blob: dict) -> dict[str, dict]:
         metric_key = m.group(1) if m else key
         out[metric_key] = entry
     return out
+
+
+def _aggregate_metrics(
+    test_names: list[str],
+    metrics: dict,
+    schema: list[tuple[str, str]],
+) -> dict[str, list[float]]:
+    """Collect numeric metric values across all test phases / iterations."""
+    buckets: dict[str, list[float]] = {key: [] for key, _ in schema}
+    for name in test_names:
+        for metric_key, entry in _collect_scalar_metrics(metrics.get(name, {})).items():
+            if metric_key not in buckets:
+                continue
+            value = entry.get("value")
+            if isinstance(value, (int, float)):
+                buckets[metric_key].append(float(value))
+    return buckets
 
 
 def _chain_title(module: str, param: str) -> str:
@@ -164,19 +206,39 @@ def _group_tests(
     statuses: dict[str, str],
     durations: dict[str, float],
 ) -> dict[tuple[str, str], list[str]]:
-    """Group full test names by (module, param_id)."""
+    """Group full test names by (module, base_param_id) across stress iterations."""
     groups: dict[tuple[str, str], list[str]] = {}
     all_names = set(metrics) | set(statuses)
     for name in sorted(all_names):
         module = _module_name(name)
-        param = _param_id(name)
+        param = _base_param_id(_param_id(name))
         groups.setdefault((module, param), []).append(name)
     for names in groups.values():
-        names.sort(key=lambda n: PHASE_ORDER.get(_phase_name(n), 99))
+        names.sort(key=lambda n: (
+            int(ITER_RE.search(_param_id(n)).group(0).replace("-iter", ""))
+            if ITER_RE.search(_param_id(n)) else 0,
+            PHASE_ORDER.get(_phase_name(n), 99),
+        ))
     return groups
 
 
+def _iteration_count(test_names: list[str]) -> int:
+    iters = set()
+    for name in test_names:
+        m = ITER_RE.search(_param_id(name))
+        if m:
+            iters.add(m.group(0))
+    return len(iters) or 1
+
+
 def _chain_status(test_names: list[str], statuses: dict[str, str]) -> str:
+    n_iter = _iteration_count(test_names)
+    if n_iter > 1:
+        landing_phases = [n for n in test_names if _phase_name(n) in ("test_landing", "test_land")]
+        check = landing_phases or test_names
+        passed = sum(1 for n in check if statuses.get(n) == "PASSED")
+        total = len(check)
+        return f"{passed}/{total} flight cycles passed ({n_iter} iterations)"
     if any(statuses.get(n) == "FAILED" for n in test_names):
         return "FAILED"
     if test_names and all(statuses.get(n) == "PASSED" for n in test_names):
@@ -216,34 +278,58 @@ def build_summary_lines(run_dir: Path) -> list[str]:
         lines.append(f"Result: {chain_status}")
         lines.append("")
 
-        combined: dict[str, dict] = {}
-        for name in test_names:
-            combined.update(_collect_scalar_metrics(metrics.get(name, {})))
-
         schema = _metric_schema(module)
+        aggregated = _aggregate_metrics(test_names, metrics, schema)
+        n_iter = _iteration_count(test_names)
         emitted = False
         for metric_key, label in schema:
-            entry = combined.get(metric_key)
-            if entry is None:
+            values = aggregated.get(metric_key, [])
+            if not values:
                 continue
-            lines.append(f"{label}: {_format_value(metric_key, entry)}")
+            unit = UNIT_OVERRIDES.get(
+                metric_key,
+                next(
+                    (e.get("unit", "") for name in test_names
+                     for k, e in _collect_scalar_metrics(metrics.get(name, {})).items()
+                     if k == metric_key and isinstance(e, dict)),
+                    "",
+                ),
+            )
+            if n_iter > 1:
+                lines.append(f"{label}: {_format_aggregated(metric_key, values, unit)}")
+            else:
+                entry = {"value": values[-1], "unit": unit}
+                lines.append(f"{label}: {_format_value(metric_key, entry)}")
             emitted = True
 
         if not emitted:
             lines.append("(no key metrics recorded)")
 
+        if n_iter > 1:
+            lines.append("")
+            lines.append(f"Aggregated over {n_iter} stress iterations (mean ± stddev).")
+
         # Phase wall times help debugging without opening results.xml.
-        phase_times = []
+        phase_wall: dict[str, list[float]] = {}
         for name in test_names:
             phase = _phase_name(name)
             wall = durations.get(name)
-            status = statuses.get(name, "?")
             if wall is not None:
-                phase_times.append(f"  {phase}: {wall:.1f}s ({status})")
-        if phase_times:
+                phase_wall.setdefault(phase, []).append(wall)
+        if phase_wall:
             lines.append("")
             lines.append("Phase wall times:")
-            lines.extend(phase_times)
+            for phase, walls in sorted(phase_wall.items(), key=lambda x: PHASE_ORDER.get(x[0], 99)):
+                if n_iter > 1 and len(walls) > 1:
+                    mean = statistics.mean(walls)
+                    std = statistics.pstdev(walls)
+                    lines.append(f"  {phase}: {mean:.1f}s ± {std:.1f}s (n={len(walls)})")
+                else:
+                    status = statuses.get(
+                        next((n for n in test_names if _phase_name(n) == phase), ""),
+                        "?",
+                    )
+                    lines.append(f"  {phase}: {walls[0]:.1f}s ({status})")
 
         lines.append("")
 

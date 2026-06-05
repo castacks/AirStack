@@ -185,7 +185,7 @@ pytest tests/ -m sensors \
 |--------|---------|-------------|
 | `--sim` | `msairsim,isaacsim` | Comma-separated sim targets |
 | `--num-robots` | `1,3` | Comma-separated robot counts |
-| `--stress-iterations` | `3` | Up/down cycles per (sim, num_robots) config |
+| `--stress-iterations` | `3` | Full stack up/down + flight cycles per (sim, num_robots); use `10` for repeated Circle runs with aggregated means in `summary.txt` |
 | `--stable-duration` | `120` | Seconds ``test_stable`` / ``test_sensor_streams_stable`` poll for |
 | `--stable-interval` | `10` | Seconds between polls in those stability tests |
 | `--gui` | off | Show simulator GUI (disables headless mode) |
@@ -336,6 +336,15 @@ airstack test -m autonomy \
   --num-robots 1 \
   --stress-iterations 1 \
   --trajectory-types Circle \
+  -v
+
+# Circle × 10 full flight cycles — summary.txt reports mean ± stddev
+airstack test -m autonomy \
+  --sim isaacsim \
+  --num-robots 1 \
+  --stress-iterations 10 \
+  --trajectory-types Circle \
+  --gui \
   -v
 ```
 
