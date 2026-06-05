@@ -86,6 +86,7 @@ own log for assertions and `docker exec` / `ros2` lines.
 ```
 tests/results/
 └── 2025-04-21_14-30-00/
+    ├── summary.txt        # Human-readable key metrics — open this first
     ├── results.xml        # JUnit XML — test durations and pass/fail status
     ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
     └── logs/
@@ -304,6 +305,19 @@ completing the full flight cycle.
 | Figure8 | length=15 m, width=8 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s² |
 | Racetrack | length=30 m, width=10 m, height=0 m, velocity=3 m/s, turn_velocity=1.5 m/s, max_acceleration=1 m/s² |
 | Line | length=20 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s² |
+
+### Run summary (`summary.txt`)
+
+Every run writes `tests/results/<timestamp>/summary.txt` automatically at the
+end of the pytest session. It lists the key scalar metrics (ready time, trajectory
+duration, cross-track error, landing altitude, etc.) with values on one line each —
+no need to open `metrics.json` or individual logs for a quick read.
+
+Regenerate manually:
+
+```bash
+python3 tests/run_summary.py tests/results/<timestamp>/
+```
 
 ### Running fixed trajectory tests
 

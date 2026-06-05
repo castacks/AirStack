@@ -112,6 +112,18 @@ def pytest_runtest_teardown(item):
     _CURRENT_ITEM = None
 
 
+def pytest_sessionfinish(session, exitstatus):
+    """Write summary.txt with key metrics so users don't need to dig through logs."""
+    if RUN_DIR is None:
+        return
+    try:
+        from run_summary import write_summary
+        summary_path = write_summary(RUN_DIR)
+        logger.info("Wrote run summary to %s", summary_path)
+    except Exception as exc:
+        logger.warning("Failed to write run summary: %s", exc)
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """Attach phase reports to the item so fixtures can inspect pass/fail."""

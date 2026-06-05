@@ -62,6 +62,7 @@ ODOM_SCHEMA = (
 )
 
 METRIC_UNITS = {
+    "ready_duration_sys_s": "s",
     "trajectory_execution_time_sim_s": "s",
     "takeoff_duration_sim_s": "s",
     "land_duration_sim_s": "s",
