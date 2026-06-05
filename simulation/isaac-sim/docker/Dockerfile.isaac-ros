@@ -87,6 +87,14 @@ RUN echo 'Etc/UTC' > /etc/timezone && \
 # setup mavros dependencies
 RUN /opt/ros/jazzy/lib/mavros/install_geographiclib_datasets.sh
 
+# MicroXRCE-DDS agent dependencies: bundled binary needs libfmt8 (Ubuntu 24 ships libfmt9)
+# and libspdlog.so.1 (Ubuntu 24 ships libspdlog.so.1.12)
+RUN wget -q http://archive.ubuntu.com/ubuntu/pool/universe/f/fmtlib/libfmt8_8.1.1+ds1-2_amd64.deb -O /tmp/libfmt8.deb && \
+    dpkg -i /tmp/libfmt8.deb && \
+    rm /tmp/libfmt8.deb && \
+    ln -sf /usr/lib/x86_64-linux-gnu/libspdlog.so.1.12 /usr/lib/x86_64-linux-gnu/libspdlog.so.1 && \
+    ldconfig
+
 # Update LD_LIBRARY_PATH to include ROS2 libraries (Fixes internal rclpy import).
 # The isaacsim.ros2.bridge extension ships its own jazzy-built DDS/rmw libs at
 # /isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib; /jazzy/lib does not exist.
@@ -160,6 +168,15 @@ RUN cd PX4-Autopilot && \
 # build px4
 RUN cd PX4-Autopilot && \
     make px4_sitl
+
+# Build and install MicroXRCE-DDS Agent so it's always available without rebuilding
+RUN cd /tmp && \
+    git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git && \
+    cd Micro-XRCE-DDS-Agent && mkdir build && cd build && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release && \
+    make -j4 && \
+    cp MicroXRCEAgent /usr/local/bin/MicroXRCEAgent && \
+    rm -rf /tmp/Micro-XRCE-DDS-Agent
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 

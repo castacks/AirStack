@@ -27,11 +27,15 @@
          AirStack command topics (cmd_velocity, cmd_pose, …) come from the
          broader robot namespace and are remapped below.                     -->
     <group>
-        <push-ros-namespace namespace="fmu" />
+        <!-- PX4 SITL v1.14+ namespaces topics as /px4_1/fmu/... -->
+        <push-ros-namespace namespace="px4_1/fmu" />
 
         <node pkg="robot_interface" exec="robot_interface_node"
               name="px4_interface" output="screen">
             <param name="interface" value="px4_interface::PX4Interface" />
+
+            <!-- PX4 v1.15+ renamed vehicle_status → vehicle_status_v1 -->
+            <remap from="out/vehicle_status" to="out/vehicle_status_v1" />
 
             <!-- Expose the odometry output so other nodes can remap it -->
             <remap from="odometry"

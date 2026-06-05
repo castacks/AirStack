@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
-ModalAI VOXL2 simulation launcher.
+PX4 prop-spin verification launcher.
 
-Spawns a single drone in Isaac Sim using the Pegasus PX4 backend.
-The Iris USD is used as a visual placeholder until a VOXL2-specific
-USD model is available.
-
-On the ROS side, run modalai_interface.launch.xml (not px4_interface).
-In simulation, also run the sim_qvio_bridge node so that modalai_interface
-receives odometry on the /qvio topic just like real VOXL2 hardware would
-publish it via voxl-mpa-to-ros2.
+Spawns an Iris drone (local USD, no Nucleus dependency) in Isaac Sim.
+Run alongside px4_interface/scripts/run_sim.sh which handles the actual
+PropSpinTest from the robot container.
 """
 
 import carb
@@ -38,15 +33,9 @@ from scene_prep import scale_stage_prim, add_colliders, add_dome_light
 
 
 # --------------------- CONFIGURATION ---------------------
-ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
-
+ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
 STAGE_SCALE = 1.0
-
-# Available ModalAI drone models on the AirLab Nucleus server.
-STARLING2_MAX = "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Assets/ModalAI/starling_2_max/starling2max_preliminary.usd"
-STARLING2     = "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Assets/ModalAI/starling_2_max/starling2_preliminary.usd"
-
-DRONE_USD = STARLING2_MAX
+DRONE_USD   = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 ROBOT_NAME = os.environ.get("ROBOT_NAME", "robot_1")
 VEHICLE_ID = int(os.environ.get("VEHICLE_ID", "1"))
@@ -113,9 +102,8 @@ class PegasusApp:
 
         add_dome_light(stage)
 
-        # Spawn the VOXL2 drone (Iris as visual placeholder).
         graph_handle = spawn_px4_multirotor_node(
-            pegasus_node_name="VOXL2Multirotor",
+            pegasus_node_name="PX4Multirotor",
             drone_prim="/World/base_link",
             robot_name=ROBOT_NAME,
             vehicle_id=VEHICLE_ID,
@@ -145,8 +133,6 @@ class PegasusApp:
         )
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
-
-        # Initialize physics scene so world.step() works in run()
         self.world.reset()
 
     def run(self):

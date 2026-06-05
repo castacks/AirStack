@@ -53,71 +53,69 @@ AirStack autonomy stack
 
 ### Simulation
 
-Verifies the ModalAI interface against a simulated VOXL2 drone in Isaac Sim. The sim spawns a drone using the Pegasus PX4 backend — you should see the drone sitting in the Isaac Sim scene. A `sim_qvio_bridge` node replaces the real VOXL2's qvio output, feeding simulated odometry into the interface so it behaves identically to hardware. The interface is working correctly when odometry is flowing on `/robot_1/odometry`.
+Verifies the ModalAI interface against a simulated VOXL2 drone in Isaac Sim. The sim spawns a drone using the Pegasus PX4 backend — you should see the drone sitting in the Isaac Sim scene. A `sim_qvio_bridge` node replaces the real VOXL2's qvio output, feeding simulated odometry into the interface so it behaves identically to hardware. The interface is working correctly when you see the props spin.
 
-**Terminal 1 — Build and launch the ROS interface:**
+#### Step 1 — Run the launch script
 
-> All ROS commands run inside the robot container — **not on your host machine**. Your host uses ROS Humble; the container uses ROS Jazzy.
-
-```bash
-# Start the robot container
-AUTOLAUNCH=false airstack up robot-desktop
-
-# Build (only needed once, or after code changes)
-docker exec airstack-robot-desktop-1 bash -c \
-  "source /opt/ros/jazzy/setup.bash && \
-   cd /root/AirStack/robot/ros_ws && \
-   colcon build --packages-select modalai_interface"
-
-# Launch the ROS interface
-docker exec airstack-robot-desktop-1 bash -c \
-  "export ROBOT_NAME=robot_1 && \
-   source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   ros2 launch modalai_interface modalai_sim.launch.xml"
-```
-
-You should see all 4 nodes start:
-```
-[INFO] [robot_interface_node-1]: process started with pid [...]
-[INFO] [odometry_conversion-2]: process started with pid [...]
-[INFO] [sim_qvio_bridge.py-3]: process started with pid [...]
-[INFO] [drone_safety_monitor-4]: process started with pid [...]
-[INFO] [fmu.sim_qvio_bridge]: sim_qvio_bridge started
-```
-
-**Terminal 2 — Launch Isaac Sim:**
-
-> Isaac Sim runs in its own container. Pass the env vars inline so they don't get saved to `.env`.
-> If Isaac Sim is already running from a previous session, kill it first with `docker rm -f isaac-sim`.
+From the AirStack repo root:
 
 ```bash
-ISAAC_SIM_USE_STANDALONE=true ISAAC_SIM_SCRIPT_NAME=modalai_voxl2_pegasus_launch_script.py AUTOLAUNCH=true airstack up isaac-sim
+cd robot/ros_ws/src/interface/modalai_interface
+./scripts/run_sim.sh
 ```
 
-Isaac Sim takes **3-5 minutes** to fully load. The GUI will appear and the drone will be visible in the scene. To check for errors:
+The script does the following automatically:
+1. Kills any existing `isaac-sim` and `airstack-robot-desktop-1` containers from previous sessions
+2. Starts the robot container and launches the ROS interface (AirStack side) in the background
+3. Starts the Isaac Sim container with the VOXL2 drone scene
+4. Starts the MicroXRCE-DDS agent, which bridges PX4's internal topics to ROS 2
+
+If you've made code changes and need to rebuild first:
 ```bash
-docker exec isaac-sim bash -c "tmux capture-pane -t isaac -p"
+REBUILD=true ./scripts/run_sim.sh
 ```
 
-**Terminal 3 — Once the drone is visible in the scene, start the MicroXRCE-DDS agent:**
+#### Step 2 — Wait for Isaac Sim to load (3-5 minutes)
 
-> This bridges PX4's internal DDS topics to ROS 2. Without it, no `/fmu/out/*` topics will appear.
+The Isaac Sim GUI will appear on your screen with the drone sitting in the scene. Once fully loaded, the launch script automatically hits Play, arms the drone, and spins the props for 15 seconds to verify the full communication chain is working end-to-end.
+
+#### Step 3 — Confirm the props spun
 
 ```bash
-docker exec -d isaac-sim bash -c \
-  "cd /tmp/Micro-XRCE-DDS-Agent/build && \
-   ./MicroXRCEAgent udp4 -p 8888 > /tmp/uxrce.log 2>&1"
+docker exec isaac-sim bash -c "tmux capture-pane -t isaac:0.0 -p | tail -30"
 ```
 
-Then hit **Play** in the Isaac Sim GUI.
+Look for this line in the output:
+```
+PropSpinTest: props spinning for 15s — interface verified!
+```
 
-**Verify the interface is working** — after hitting play, run:
+If you see it, the interface is working correctly. If you don't, see Troubleshooting below.
+
+- To skip the prop spin test: set `PROP_SPIN_TEST=false`
+- To change the duration: set `PROP_SPIN_DURATION=<seconds>`
+
+---
+
+**Troubleshooting**
+
+Watch the ROS interface logs:
+```bash
+docker exec airstack-robot-desktop-1 bash -c "tail -f /tmp/modalai_interface.log"
+```
+
+Check Isaac Sim for errors:
+```bash
+docker exec isaac-sim bash -c "tmux capture-pane -t isaac:0.0 -p | tail -30"
+```
+
+Manually verify odometry is flowing:
 ```bash
 docker exec airstack-robot-desktop-1 bash -c \
-  "source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   ros2 topic echo /robot_1/odometry_conversion/odometry --once"
+  "source /root/AirStack/robot/ros_ws/install/setup.bash && ros2 topic echo /robot_1/odometry_conversion/odometry --once"
 ```
-Expected output (drone sitting at origin before takeoff):
+
+Expected output (drone sitting at origin):
 ```
 A message was lost!!!
         total count change:1
@@ -158,7 +156,7 @@ twist:
 ---
 ```
 
-The `A message was lost` warning is normal — it just means the subscriber connected mid-stream. If the command hangs with no output, the interface is not receiving qvio data — check that the sim is playing and no errors appear in `tmux capture-pane -t isaac -p`.
+The `A message was lost` warning is normal — it just means the subscriber connected mid-stream. If the command hangs with no output, confirm the sim is playing and check `tmux capture-pane -t isaac -p` for errors.
 
 See [modalai_sim.launch.xml](launch/modalai_sim.launch.xml) and [sim_qvio_bridge.py](scripts/sim_qvio_bridge.py).
 
@@ -217,6 +215,18 @@ Position conversion: `N=ENU_y, E=ENU_x, D=-ENU_z`
 
 ## USD Model Note
 
-The simulation launch script uses the Iris quadrotor as a visual placeholder. To swap in a different drone model, update `DRONE_USD` in [modalai_voxl2_pegasus_launch_script.py](../../../../simulation/isaac-sim/launch_scripts/modalai_voxl2_pegasus_launch_script.py) to point to your USD file.
+Two ModalAI models are defined in [modalai_voxl2_pegasus_launch_script.py](../../../../simulation/isaac-sim/launch_scripts/modalai_voxl2_pegasus_launch_script.py):
+
+| Constant | Model |
+|----------|-------|
+| `STARLING2_MAX` | Starling 2 Max (default) |
+| `STARLING2` | Starling 2 |
+
+To switch models, change the `DRONE_USD` line at the top of the script:
+```python
+DRONE_USD = STARLING2      # or STARLING2_MAX
+```
+
+Both are loaded from the AirLab Nucleus server (`airlab-nucleus.andrew.cmu.edu`) — Isaac Sim must be connected to Nucleus for the USD to load.
 
 The workspace is mounted into the container at `/root/AirStack/robot/ros_ws`, so any edits you make on the host are immediately reflected inside — no need to restart the container. See [modalai_interface.cpp](src/modalai_interface.cpp) for the main implementation.

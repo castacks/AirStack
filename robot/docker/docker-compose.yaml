@@ -31,9 +31,10 @@ services:
     command: >
       bash -c "
       service ssh restart;
-      tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
+        tmux new -d -s bringup 'bash -c \"source /root/.bashrc && bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE; exec bash\"';
+      else
+        tmux new -d -s bringup;
       fi;
       sleep infinity"
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
