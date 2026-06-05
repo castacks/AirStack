@@ -102,6 +102,31 @@ class NatNetUnicastServer(NatNetServer):
                 raise ValueError(
                     f"[Command Handler] Error sending server description to client {client_address}: {e}"
                 ) from e
-            print(f"[Command Handler] Sent server description to client address through its port {client_address}.")
-        
+            print(
+                f"[Command Handler] Sent server description to client address "
+                f"through its port {client_address}."
+            )
+            return
 
+        # Non-handshake commands require a prior NAT_CONNECT from this endpoint.
+        client_ip, client_port = client_address
+        client = self._find_client(client_ip, client_port)
+        if client is None:
+            print(
+                f"[Command Handler] Ignoring message {header.iMessage} from "
+                f"unregistered client {client_address}."
+            )
+            return
+
+        print(
+            f"[Command Handler] Unhandled message id {header.iMessage} from "
+            f"registered client {client_address}."
+        )
+
+    def _find_client(self, ip: str, port: int) -> Client | None:
+        target = Client(ip, port)
+        with self.clients_lock:
+            for client in self.connected_clients:
+                if client == target:
+                    return client
+        return None

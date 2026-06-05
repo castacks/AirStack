@@ -48,10 +48,27 @@ class NatNetTestClient:
             iMessage=int(message_id),
             nDataBytes=len(payload),
         )
-        self._sock.sendto(
-            header.pack() + payload,
-            (server_host or self._host, server_port),
-        )
+        self.send_raw(header.pack() + payload, server_port, server_host)
+
+    def send_raw(
+        self,
+        data: bytes,
+        server_port: int,
+        server_host: str | None = None,
+    ) -> None:
+        """Send a raw UDP datagram (for malformed / malicious packet tests)."""
+        self._sock.sendto(data, (server_host or self._host, server_port))
+
+    def send_header_only(
+        self,
+        server_port: int,
+        message_id: st.MessageId | int,
+        declared_payload_len: int,
+        server_host: str | None = None,
+    ) -> None:
+        """Send a header whose nDataBytes does not match any trailing payload."""
+        header = struct.pack("<HH", int(message_id), declared_payload_len)
+        self.send_raw(header, server_port, server_host)
 
     def recv_message(self) -> tuple[int, bytes, tuple[str, int]]:
         data, addr = self._sock.recvfrom(65535)

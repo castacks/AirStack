@@ -23,16 +23,6 @@ class MessageId(IntEnum):
     NAT_DISCOVERY               = 14
     NAT_UNRECOGNIZED_REQUEST    = 100
 
-# NatNet data types / Descriptors
-class DataDescriptors(IntEnum):
-    Descriptor_MarkerSet = 0
-    Descriptor_RigidBody = 1
-    Descriptor_Skeleton = 2
-    Descriptor_ForcePlate = 3
-    Descriptor_Device = 4
-    Descriptor_Camera = 5
-    Descriptor_Asset = 6
-
 # Server/Sender configuration and info
 class sSender(ctypes.Structure):
     _pack_ = 1
