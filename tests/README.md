@@ -1,10 +1,11 @@
 # Testing (`tests/`)
 
-AirStack's **pytest** tree under `tests/` has three roles:
+AirStack's **pytest** tree under `tests/` has four roles:
 
 1. **`tests/system/`** — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.
-2. **`tests/robot/`** — Fast **unit** tests that mirror `robot/ros_ws/src/` (`behavior`, `global`, `interface`, `local`, `perception`, `sensors`). Mark: `unit`.
-3. **`tests/sim/`** — Unit tests for simulation-side helpers (e.g. Motive / NatNet emulator). Mark: `unit`.
+2. **`tests/integration/`** — Cross-component tests that need the robot container plus a host-side component, but **no sim/GPU** (e.g. the NatNet emulator). Mark: `integration`.
+3. **`tests/robot/`** — Fast **unit** tests that mirror `robot/ros_ws/src/` (`behavior`, `global`, `interface`, `local`, `perception`, `sensors`). Mark: `unit`.
+4. **`tests/sim/`** — Unit tests for simulation-side helpers (e.g. NatNet emulator). Mark: `unit`.
 
 Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for hermetic tests only, or the marks below for the full stack.
 
@@ -23,6 +24,27 @@ Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for 
 | [`system/test_liveliness.py`](system/test_liveliness.py) | `liveliness` | Stack bring-up: container Running state, ``/clock`` readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only ``test_stable`` (tmux + nodes + compute) | Docker daemon, GPU, sim license |
 | [`system/test_sensors.py`](system/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+
+### Integration tests (`tests/integration/`)
+
+The **integration** tier wires a few real components together — typically the
+robot autonomy container plus a host-side component — without a simulator or GPU.
+See [`integration/README.md`](integration/README.md).
+
+| Scenario | Mark(s) | What it tests | Hardware required |
+|----------|---------|---------------|-------------------|
+| [`integration/natnet/`](integration/natnet/) | `integration`, `natnet` | Host NatNet emulator → `natnet_ros2` → `/{ROBOT_NAME}/perception/optitrack/Drone` Hz | Docker daemon (no GPU/sim) |
+
+The shared `robot_autonomy_stack` fixture (in [`conftest.py`](conftest.py))
+reuses a running `robot-desktop` container, or brings one up only when
+`--run-integration` is passed (otherwise the test skips). So a plain
+`pytest tests/` never spins up Docker for this tier.
+
+```bash
+# Reuse a running container, or bring one up on demand:
+pytest tests/integration/ -m integration -v                    # reuse-or-skip
+pytest tests/integration/ -m integration --run-integration -v  # bring up / tear down
+```
 
 ### Unit tests (`tests/robot/`, `tests/sim/`)
 
@@ -217,6 +239,7 @@ pytest tests/ -m sensors \
 | `--stable-interval` | `10` | Seconds between polls in those stability tests |
 | `--gui` | off | Show simulator GUI (disables headless mode) |
 | `--takeoff-velocities` | `0.5,1,2` | Takeoff/land speeds in m/s |
+| `--run-integration` | off | Let `tests/integration/` tests bring up the robot container themselves (else reuse-or-skip) |
 
 ---
 

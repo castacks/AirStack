@@ -184,8 +184,8 @@ The `build_packages` CI job (`tests/system/test_build_packages.py`) also runs
 ## Extending to sim and GCS
 
 The proxy pattern extends to other components. As sim-side Python logic (e.g. the
-[Motive emulator](../../../../tests/sim/motive_emulator/README.md)) and GCS modules
-acquire unit-testable code, follow the same layout:
+[NatNet emulator](../../../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/README.md))
+and GCS modules acquire unit-testable code, follow the same layout:
 
 ```
 simulation/.../<tool>/test/test_<name>.py   ← source

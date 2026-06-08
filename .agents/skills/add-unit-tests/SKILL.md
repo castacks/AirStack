@@ -114,7 +114,11 @@ For `rclpy.node.Node` subclasses use a real dummy base class instead of a
 
 ### 3. Write the thin proxy in tests/robot/
 
-Create `tests/robot/<layer>/<package>/test_<name>.py`:
+Create `tests/robot/<layer>/<package>/test_<name>.py`. Use the shared
+`reexport_unit_tests` + `repo_path` helpers from `tests/conftest.py` so the proxy
+stays a two-call shim and the cross-tree path is anchored on `AIRSTACK_ROOT`
+(exported by CI, defaults to the repo root locally) — **never** count
+`Path(__file__).parents[N]` or hardcode `sys.path` walks in the proxy:
 
 ```python
 # Copyright (c) 2024 Carnegie Mellon University
@@ -127,37 +131,27 @@ Unit test logic lives co-located with the package source (ROS 2 / colcon convent
 This file makes those tests discoverable by ``pytest tests/`` (CI) and
 ``airstack test -m unit`` without any changes to the CI workflow.
 """
-import importlib.util
-import sys
-from pathlib import Path
+from conftest import reexport_unit_tests, repo_path
 
-_repo_root = Path(__file__).resolve().parents[N]   # adjust N so this resolves to repo root
-_pkg_test = _repo_root / "robot/ros_ws/src/<layer>/<package>/test"
-_real_file = _pkg_test / "test_<name>.py"
-
-# If the test imports from a package module, ensure the package root is on sys.path.
-# Example: _pkg_root = _pkg_test.parent; sys.path.insert(0, str(_pkg_root))
-
-# Load the real module under a unique name to avoid the circular import that
-# would occur if we used `from test_<name> import *` (this file has the same
-# name, and pytest adds its directory to sys.path at collection time).
-_spec = importlib.util.spec_from_file_location("_<package>_unit_tests", _real_file)
-_real = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_real)
-
-# Re-export every test_* symbol so pytest collects them from this proxy.
-for _name in dir(_real):
-    if _name.startswith("test_"):
-        globals()[_name] = getattr(_real, _name)
+reexport_unit_tests(
+    globals(),
+    repo_path("robot/ros_ws/src/<layer>/<package>/test"),
+    "test_<name>.py",   # pass several filenames to fold multiple modules into one proxy
+)
 ```
 
-**Counting `parents[N]` to reach the repo root:**
+`reexport_unit_tests` (in `tests/conftest.py`) execs each co-located module with
+`importlib` under a unique name (avoiding the same-filename circular import), puts
+both the test dir and its parent (the package root) on `sys.path` so the source
+can import its package and sibling helpers, and tags every re-exported `test_*`
+with `pytest.mark.unit`. Because the root `conftest` is imported before any proxy
+is collected, `from conftest import ...` resolves in both CI and local runs.
 
-| Proxy location | `parents[N]` for repo root |
-|---|---|
-| `tests/robot/<layer>/<package>/` | `parents[4]` |
-| `tests/sim/<tool>/` | `parents[3]` |
-| `tests/gcs/<package>/` | `parents[3]` |
+For a **direct** `pytest <package>/test/` (or `colcon test`) run — which bypasses
+the proxies — add a tiny `conftest.py` in the package `test/` dir that puts the
+package/extension root on `sys.path` (see
+`simulation/.../optitrack.natnet.emulator/test/conftest.py`). The test source
+then stays free of `sys.path` boilerplate.
 
 ### 4. Ensure the tests/ directory structure exists
 
