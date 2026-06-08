@@ -18,3 +18,7 @@
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
 
+[submodule "humanflow"]
+	path = humanflow
+	url = git@github.com:CyAirCMU/HumanFlow.git
+	branch = yunwool/adv-ai-0608
