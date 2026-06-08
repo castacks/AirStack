@@ -176,42 +176,77 @@ class sFrameOfMocapData(ctypes.Structure):
         ("params", ctypes.c_int16)
     ]
 
-    def pack(self) -> bytes:
+    @staticmethod
+    def _pack_counted_section(count: int, data: bytes, *, natnet_major: int, natnet_minor: int) -> bytes:
+        """NatNet 4.1+ prefixes each collection with a 4-byte byte count (PacketClient UnpackDataSize)."""
+        payload = bytearray(struct.pack('<i', count))
+        if (natnet_major == 4 and natnet_minor > 0) or natnet_major > 4:
+            payload += struct.pack('<i', len(data))
+        payload += data
+        return bytes(payload)
+
+    def pack(self, natnet_major: int = 4, natnet_minor: int = 4) -> bytes:
         payload = bytearray()
-        
+
         payload += struct.pack('<i', self.iFrame)
 
-        payload += struct.pack('<i', self.nMarkerSets)
+        markerset_data = bytearray()
         for i in range(self.nMarkerSets):
-            payload += self.MocapData[i].pack()
+            markerset_data += self.MocapData[i].pack()
+        payload += self._pack_counted_section(
+            self.nMarkerSets, bytes(markerset_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nOtherMarkers)
+        other_marker_data = bytearray()
         for i in range(self.nOtherMarkers):
-            payload += struct.pack('<3f', self.OtherMarkers[i][0], self.OtherMarkers[i][1], self.OtherMarkers[i][2])
+            other_marker_data += struct.pack(
+                '<3f', self.OtherMarkers[i][0], self.OtherMarkers[i][1], self.OtherMarkers[i][2]
+            )
+        payload += self._pack_counted_section(
+            self.nOtherMarkers, bytes(other_marker_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nRigidBodies)
+        rigid_body_data = bytearray()
         for i in range(self.nRigidBodies):
-            payload += self.RigidBodies[i].pack()
+            rigid_body_data += self.RigidBodies[i].pack()
+        payload += self._pack_counted_section(
+            self.nRigidBodies, bytes(rigid_body_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nSkeletons)
+        skeleton_data = bytearray()
         for i in range(self.nSkeletons):
-            payload += self.Skeletons[i].pack()
+            skeleton_data += self.Skeletons[i].pack()
+        payload += self._pack_counted_section(
+            self.nSkeletons, bytes(skeleton_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nAssets)
+        asset_data = bytearray()
         for i in range(self.nAssets):
-            payload += self.Assets[i].pack()
+            asset_data += self.Assets[i].pack()
+        payload += self._pack_counted_section(
+            self.nAssets, bytes(asset_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nLabeledMarkers)
+        labeled_marker_data = bytearray()
         for i in range(self.nLabeledMarkers):
-            payload += self.LabeledMarkers[i].pack()
+            labeled_marker_data += self.LabeledMarkers[i].pack()
+        payload += self._pack_counted_section(
+            self.nLabeledMarkers, bytes(labeled_marker_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nForcePlates)
+        force_plate_data = bytearray()
         for i in range(self.nForcePlates):
-            payload += self.ForcePlates[i].pack()
+            force_plate_data += self.ForcePlates[i].pack()
+        payload += self._pack_counted_section(
+            self.nForcePlates, bytes(force_plate_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
-        payload += struct.pack('<i', self.nDevices)
+        device_data = bytearray()
         for i in range(self.nDevices):
-            payload += self.Devices[i].pack()
+            device_data += self.Devices[i].pack()
+        payload += self._pack_counted_section(
+            self.nDevices, bytes(device_data), natnet_major=natnet_major, natnet_minor=natnet_minor
+        )
 
         # NatNet 3.0+ Timecodes & stamps
         payload += struct.pack('<II', self.Timecode, self.TimecodeSubframe)
@@ -220,4 +255,9 @@ class sFrameOfMocapData(ctypes.Structure):
         payload += struct.pack('<II', self.PrecisionTimestampSecs, self.PrecisionTimestampFractionalSecs)
         payload += struct.pack('<h', self.params)
 
-        return bytes(payload)   
+        # End-of-data tag. libNatNet's frame unpacker reads a trailing 4-byte
+        # tag after params; without it the unpacked size mismatches nDataBytes
+        # and the SDK silently drops the whole frame (no frame callback fires).
+        payload += struct.pack('<i', 0)
+
+        return bytes(payload)

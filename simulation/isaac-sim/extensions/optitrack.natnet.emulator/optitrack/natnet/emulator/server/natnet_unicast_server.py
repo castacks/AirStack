@@ -1,12 +1,7 @@
-from . import natnet_data_types as DataTypes
-from . import natnet_server_types as ServerTypes
-from enum import Enum
-import socket
-import threading
-import queue
-import time
-import signal
 import ctypes
+import time
+
+from . import natnet_server_types as ServerTypes
 from .natnet_server import TransmissionType, Client, NatNetServer
 
 
@@ -35,7 +30,9 @@ class NatNetUnicastServer(NatNetServer):
                 continue
 
             data_messages = self._get_latest_mocap_packet()
-            if not data_messages:
+            if data_messages is None:
+                data_messages = self._get_last_mocap_frame()
+            if data_messages is None:
                 continue
 
             for client in clients:
@@ -45,7 +42,7 @@ class NatNetUnicastServer(NatNetServer):
                     print(str(e))
                     continue
 
-    def _command_listener_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
+    def _command_listener_loop(self):
         # Listens on UDP command socket for incoming command requests from clients.
         # Handles incoming client handshakes and teardown.
 
@@ -64,7 +61,7 @@ class NatNetUnicastServer(NatNetServer):
                 print(f"[Command Listener] Error receiving command request: {e}")
                 time.sleep(0.1) # Sleep briefly to avoid tight loop on errors
     
-    def _handle_command_request(self, request_data: bytes, client_address: tuple): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
+    def _handle_command_request(self, request_data: bytes, client_address: tuple):
         """
         Processes standard binary headers and registers unicast endpoints.
         """
@@ -96,7 +93,7 @@ class NatNetUnicastServer(NatNetServer):
                 self._send_packet_to_client(
                     new_client,
                     ServerTypes.MessageId.NAT_SERVERINFO,
-                    self.server_description.pack(),
+                    self._build_connect_response_payload(),
                 )
             except ValueError as e:
                 raise ValueError(
@@ -116,6 +113,43 @@ class NatNetUnicastServer(NatNetServer):
                 f"[Command Handler] Ignoring message {header.iMessage} from "
                 f"unregistered client {client_address}."
             )
+            return
+
+        if header.iMessage == int(ServerTypes.MessageId.NAT_REQUEST_MODELDEF):
+            try:
+                self._send_packet_to_client(
+                    client,
+                    ServerTypes.MessageId.NAT_MODELDEF,
+                    self._get_model_def_payload(),
+                )
+            except ValueError as e:
+                print(
+                    f"[Command Handler] Error sending MODELDEF to client "
+                    f"{client_address}: {e}"
+                )
+            return
+
+        if header.iMessage == int(ServerTypes.MessageId.NAT_KEEPALIVE):
+            # Keep-alive is client -> server only; real Motive sends no reply.
+            # Receiving it refreshes the client's liveness; nothing to send back.
+            return
+
+        if header.iMessage == int(ServerTypes.MessageId.NAT_ECHOREQUEST):
+            echo_payload = request_data[header_size : header_size + header.nDataBytes]
+            # libNatNet expects clientRequestTimestamp + hostReceivedTimestamp (8 + 8 bytes).
+            host_ts = int(time.time() * 1_000_000_000).to_bytes(8, "little", signed=False)
+            response_payload = echo_payload[:8].ljust(8, b"\x00") + host_ts
+            try:
+                self._send_packet_to_client(
+                    client,
+                    ServerTypes.MessageId.NAT_ECHORESPONSE,
+                    response_payload,
+                )
+            except ValueError as e:
+                print(
+                    f"[Command Handler] Error sending ECHORESPONSE to client "
+                    f"{client_address}: {e}"
+                )
             return
 
         print(

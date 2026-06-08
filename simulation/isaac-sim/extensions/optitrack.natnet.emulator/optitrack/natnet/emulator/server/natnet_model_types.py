@@ -119,3 +119,18 @@ class sDataDescriptions(ctypes.Structure):
         for i in range(self.nDataDescriptions):
             payload += self.arrDataDescriptions[i].pack()
         return bytes(payload)
+
+
+def make_default_drone_catalog() -> sDataDescriptions:
+    """Build the default single-body catalog (Drone id=1) for natnet_ros2."""
+    descriptions = sDataDescriptions()
+    descriptions.nDataDescriptions = 1
+    desc = descriptions.arrDataDescriptions[0]
+    desc.type = int(DataDescriptors.Descriptor_RigidBody)
+    rb = desc.RigidBodyDescription
+    rb.szName = b"Drone"
+    rb.ID = 1
+    rb.parentID = -1
+    rb.offsetqw = 1.0
+    rb.nMarkers = 0
+    return descriptions

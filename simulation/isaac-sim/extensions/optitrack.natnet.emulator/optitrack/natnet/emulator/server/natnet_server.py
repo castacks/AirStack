@@ -1,5 +1,6 @@
 from . import natnet_data_types as DataMessages
 from . import natnet_server_types as ServerMessages
+from . import natnet_model_types as ModelTypes
 from enum import Enum
 import socket
 import threading
@@ -63,6 +64,8 @@ class NatNetServer:
 
         # Thread-safe queue for Mocp frames
         self.mocap_data_queue = queue.Queue(maxsize=100)
+        self._last_mocap_frame: DataMessages.sFrameOfMocapData | None = None
+        self._last_mocap_lock = threading.Lock()
         
         # Thread list and shutdown event
         self.threads = []
@@ -72,36 +75,19 @@ class NatNetServer:
         self.connected_clients : typing.Set[Client] = set()
         self.clients_lock : threading.Lock = threading.Lock()
 
+        # MODELDEF wire cache (Isaac wrapper updates via set_model_def_payload)
+        self._model_def_lock = threading.Lock()
+        self._model_def_payload: bytes = ModelTypes.make_default_drone_catalog().pack()
+
         # Sockets
         self.command_socket : socket.socket | None = None
         self.data_socket : socket.socket | None = None
 
         self.running = False
 
-        # Start up process with threads
-        # # One thread to listen and manage command requests (TCP/UDP)
-        # # One thread to send data packets (UDP)
-        # # One thread to manage server state and data updates (mocap system or other source)
-
-        # Overall design:
-        # - On initialization, validate parameters and set up server description
-        # - Start threads for command listening and data sending
-        # - Perhaps separate into Unicast and Multicast server classes that inherit from a common base, or handle both in one class with conditional logic based on transmission type
-        # - Multicast server will need to join multicast group and manage socket options accordingly, while unicast server will send directly to client IPs
-        # - General helper functions will break packets down into appropriate sizes, serialize data messages, and manage client connections for unicast case
-        # - General main loop will manage server lifecycle and clean shutdown, while threads will handle their respective tasks for command listening and data sending
-        # - General main data management function will take in new mocap data (e.g. from mocap system or other source), update the latest data state, and trigger packet sending to clients at regular intervals (e.g. 100Hz)
-        # - Unicast:
-        # - On command request, respond with server description and data packets sent directly to requesting client's IP
-        # - Have a synchronously safe list of connected clients to manage multiple unicast recipients
-        # - General main data structure or queue to hold the latest mocap data that will be sent in packets to clients, with thread-safe access for updates and retrievals
-        # - Have a function to continously send packets at regular intervals (e.g. 100Hz) with the latest mocap data to unicast clients.
-        # - - Use the general helper function to take in new mocap data (e.g. from mocap system or other source). The server will break the message down into packets 
-        # - Multicast:
-        # - On command request, respond with server description but data packets will be sent to the multicast group address rather than directly to client IPs
-        # - General main data structure or queue to hold the latest mocap data that will be sent in packets to clients, with thread-safe access for updates and retrievals
-        # - Have a function to continously send packets at regular intervals (e.g. 100Hz) with the latest mocap data to the multicast group address.
-        # - - Use the general helper function to take in new mocap data (e.g. from mocap system or other source). The server will break the message down into packets and send to the multicast group address.
+        # start() launches two daemon threads: a command listener (handshake /
+        # MODELDEF / keepalive) and a data loop that streams mocap frames. The
+        # transmission-specific behavior lives in the unicast/multicast subclass.
 
     def _signal_handler(self, signum, frame):
         print(f"\n[NatNetServer] Received interrupt signal {signum}. Initiating shutdown...")
@@ -116,6 +102,28 @@ class NatNetServer:
             except queue.Empty:
                 pass
         self.mocap_data_queue.put(new_data)
+        with self._last_mocap_lock:
+            self._last_mocap_frame = new_data
+
+    def _get_last_mocap_frame(self) -> DataMessages.sFrameOfMocapData | None:
+        with self._last_mocap_lock:
+            return self._last_mocap_frame
+
+    def set_model_def_payload(self, payload: bytes) -> None:
+        """Replace MODELDEF body served on NAT_REQUEST_MODELDEF (Isaac wrapper calls this)."""
+        with self._model_def_lock:
+            self._model_def_payload = payload
+
+    def set_model_def_from_descriptions(
+        self, descriptions: ModelTypes.sDataDescriptions
+    ) -> None:
+        """Pack descriptions once and store as the MODELDEF wire cache."""
+        self.set_model_def_payload(descriptions.pack())
+
+    def _get_model_def_payload(self) -> bytes:
+        """Return cached MODELDEF bytes (command thread only)."""
+        with self._model_def_lock:
+            return self._model_def_payload
 
     def start(self):
         # Bind sockets and launch worker threads automatically on init
@@ -132,11 +140,15 @@ class NatNetServer:
         self.command_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.command_socket.bind(('', self.command_port))
 
-        # 2. Setup Data Socket (Sends outward Mocap frames)
+        # 2. Setup Data Socket (Sends outward Mocap frames).
+        # Bind to the data port so frames leave with source port == data_port.
+        # libNatNet routes unicast NAT_FRAMEOFDATA by the server's data port; frames
+        # arriving from the command port are treated as command traffic and dropped.
         self.data_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        # Note: Data socket doesn't need to bind to the multicast explicitly if it's only sending.
-        # It just routes via the local interface.
-        self.data_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.local_interface))
+        self.data_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.data_socket.bind(('', self.data_port))
+        if self.transmission_type == TransmissionType.MULTICAST:
+            self.data_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(self.local_interface))
 
         # 3. Launch Threads
         cmd_thread = threading.Thread(target=self._command_listener_loop, daemon=True)
@@ -251,15 +263,38 @@ class NatNetServer:
 
         return description
 
+    def _build_connect_response_payload(self) -> bytes:
+        """NAT_CONNECT reply: libNatNet parses NAT_SERVERINFO payload as sSender_Server."""
+        sender = ServerMessages.sSender_Server()
+        sender.Common.szName = self._pad_fixed_string(b"Motive")
+        self._assign_version_bytes(sender.Common.Version, self.motive_app_version)
+        self._assign_version_bytes(sender.Common.NatNetVersion, self.natnet_version)
+        sender.HighResClockFrequency = self.high_res_clock_freq
+        sender.DataPort = self.data_port
+        sender.IsMulticast = self.transmission_type == TransmissionType.MULTICAST
+        if self.transmission_type == TransmissionType.MULTICAST:
+            self._assign_ipv4_bytes(sender.MulticastGroupAddress, self.multicast_address)
+        else:
+            self._assign_ipv4_bytes(sender.MulticastGroupAddress, b"\x00\x00\x00\x00")
+        return sender.pack()
+
     def _send_packet_to_client(
         self,
         client: Client,
         message_id: ServerMessages.MessageId | int,
         payload: bytes,
+        sock: socket.socket | None = None,
     ) -> None:
-        """Send a NatNet packet to a unicast client on the command socket (libNatNet 4.4)."""
-        if not self.command_socket:
-            raise ValueError("[NatNetServer] Command socket not initialized. Cannot send packet.")
+        """Send a NatNet packet to a unicast client (libNatNet 4.4).
+
+        Command replies go out the command socket; mocap frames go out the data
+        socket so their source port matches the advertised data port.
+        """
+        if self.shutdown_event.is_set():
+            return
+        sock = sock or self.command_socket
+        if not sock:
+            raise ValueError("[NatNetServer] Socket not initialized. Cannot send packet.")
 
         header = ServerMessages.sPacketHeader(
             iMessage=int(message_id),
@@ -268,7 +303,7 @@ class NatNetServer:
         packet = header.pack() + payload
         try:
             with client.socket_lock:
-                self.command_socket.sendto(packet, (client.ip, client.port))
+                sock.sendto(packet, (client.ip, client.port))
         except OSError as e:
             raise ValueError(
                 f"[NatNetServer] Error sending message {int(message_id)} to "
@@ -280,7 +315,7 @@ class NatNetServer:
         pass
 
     def _send_data_packet(self, client: Client, data_message: DataMessages.sFrameOfMocapData):
-        # Serialize frame payload and send via command socket (unicast libNatNet 4.4).
+        # Serialize frame payload and send via the data socket (unicast libNatNet 4.4).
         try:
             packet_bytes = data_message.pack()
         except Exception as e:
@@ -290,6 +325,7 @@ class NatNetServer:
             client,
             ServerMessages.MessageId.NAT_FRAMEOFDATA,
             packet_bytes,
+            sock=self.data_socket,
         )
 
     def _command_listener_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)

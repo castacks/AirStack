@@ -1,8 +1,14 @@
 import ctypes
+import struct
 from enum import IntEnum
 
 MAX_NAMELENGTH = 256
 MAX_PACKETSIZE = 65503
+
+# NatNet SDK sServerDescription uses default struct alignment (#pragma pack(pop)), not pack(1).
+SERVER_DESCRIPTION_WIRE_SIZE = 552
+# NAT_CONNECT / NAT_SERVERINFO reply uses packed sSender_Server (#pragma pack(1) in NatNetTypes.h).
+SENDER_SERVER_WIRE_SIZE = 256 + 4 + 4 + 8 + 2 + 1 + 4  # 279
 
 # Client/server message ids
 class MessageId(IntEnum):
@@ -24,6 +30,13 @@ class MessageId(IntEnum):
     NAT_UNRECOGNIZED_REQUEST    = 100
 
 # Server/Sender configuration and info
+def _fixed_name(field: ctypes.Array) -> bytes:
+    raw = bytes(field).split(b"\x00", 1)[0] + b"\x00"
+    if len(raw) > MAX_NAMELENGTH:
+        raw = raw[: MAX_NAMELENGTH - 1] + b"\x00"
+    return raw + b"\x00" * (MAX_NAMELENGTH - len(raw))
+
+
 class sSender(ctypes.Structure):
     _pack_ = 1
     _fields_ = [
@@ -33,7 +46,11 @@ class sSender(ctypes.Structure):
     ]
 
     def pack(self) -> bytes:
-        return bytes(self)
+        payload = bytearray()
+        payload += _fixed_name(self.szName)
+        payload += bytes(self.Version)
+        payload += bytes(self.NatNetVersion)
+        return bytes(payload)
 
 class sSender_Server(ctypes.Structure):
     _pack_ = 1
@@ -46,7 +63,15 @@ class sSender_Server(ctypes.Structure):
     ]
 
     def pack(self) -> bytes:
-        return bytes(self)
+        payload = bytearray(self.Common.pack())
+        payload += struct.pack("<QH", self.HighResClockFrequency, self.DataPort)
+        payload.append(1 if self.IsMulticast else 0)
+        payload += bytes(self.MulticastGroupAddress)
+        if len(payload) != SENDER_SERVER_WIRE_SIZE:
+            raise ValueError(
+                f"sSender_Server wire size {len(payload)} != expected {SENDER_SERVER_WIRE_SIZE}"
+            )
+        return bytes(payload)
 
 # Mocap server application description
 class sServerDescription(ctypes.Structure):
@@ -66,7 +91,30 @@ class sServerDescription(ctypes.Structure):
     ]
 
     def pack(self) -> bytes:
-        return bytes(self)
+        # Wire layout matches NatNet SDK on x86-64 (3 pad bytes before HighResClockFrequency).
+        payload = bytearray()
+        payload.append(1 if self.HostPresent else 0)
+        payload += _fixed_name(self.szHostComputerName)
+        payload += bytes(self.HostComputerAddress)
+        payload += _fixed_name(self.szHostApp)
+        payload += bytes(self.HostAppVersion)
+        payload += bytes(self.NatNetVersion)
+        while len(payload) % 8:
+            payload.append(0)
+        payload += struct.pack("<Q", self.HighResClockFrequency)
+        payload.append(1 if self.bConnectionInfoValid else 0)
+        payload.append(0)  # pad before ConnectionDataPort (offset 537)
+        payload += struct.pack("<H", self.ConnectionDataPort)
+        payload.append(1 if self.ConnectionMulticast else 0)
+        payload += bytes(self.ConnectionMulticastAddress)
+        while len(payload) < SERVER_DESCRIPTION_WIRE_SIZE:
+            payload.append(0)
+        if len(payload) != SERVER_DESCRIPTION_WIRE_SIZE:
+            raise ValueError(
+                f"sServerDescription wire size {len(payload)} != "
+                f"expected {SERVER_DESCRIPTION_WIRE_SIZE}"
+            )
+        return bytes(payload)
 
 # Base packet layout
 class sPacketHeader(ctypes.Structure):
