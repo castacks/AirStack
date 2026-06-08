@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import logging
 import os
@@ -49,6 +50,43 @@ AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent
 COLCON_UNIT_TEST_PACKAGES_YAML = (
     Path(AIRSTACK_ROOT) / "tests" / "colcon_unit_test_packages.yaml"
 )
+
+
+def repo_path(*parts: str) -> Path:
+    """Resolve a path relative to the repository root.
+
+    ``AIRSTACK_ROOT`` is exported by CI and defaults to the repo root locally,
+    so this is the single source of truth for cross-tree paths — no test or
+    proxy file should hardcode ``Path(__file__).parents[N]`` walks.
+    """
+    return Path(AIRSTACK_ROOT).joinpath(*parts)
+
+
+def reexport_unit_tests(target_globals: dict, test_dir: Path, *module_files: str) -> None:
+    """Exec co-located unit-test modules and re-export their ``test_*`` callables.
+
+    Lets the thin proxy files under ``tests/`` expose package-co-located unit
+    tests to ``pytest tests/`` (CI) and ``airstack test -m unit`` without
+    per-file ``sys.path`` boilerplate. The package root (``test_dir.parent``)
+    and the test dir are placed on ``sys.path`` so the exec'd modules can import
+    the package under test and any sibling helper modules. Every re-exported
+    test is tagged ``unit`` so selection works regardless of whether the source
+    used a module-level ``pytestmark`` or per-function marks.
+    """
+    for path in (test_dir, test_dir.parent):
+        entry = str(path)
+        if entry not in sys.path:
+            sys.path.insert(0, entry)
+    prefix = re.sub(r"\W", "_", test_dir.parent.name)
+    for module_file in module_files:
+        real_file = test_dir / module_file
+        module_name = f"_unit_{prefix}_{Path(module_file).stem}"
+        spec = importlib.util.spec_from_file_location(module_name, real_file)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for name in dir(module):
+            if name.startswith("test_"):
+                target_globals[name] = pytest.mark.unit(getattr(module, name))
 
 
 def load_colcon_unit_test_config(workspace="robot"):
@@ -122,6 +160,11 @@ def pytest_addoption(parser):
     parser.addoption("--takeoff-velocities", default="0.5",
                      help="Comma-separated takeoff/land velocities (m/s) to "
                           "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
+    parser.addoption("--run-integration", action="store_true", default=False,
+                     help="Let integration tests (tests/integration/) bring up "
+                          "the robot container themselves. Without it they reuse "
+                          "an already-running container or skip. Keeps a plain "
+                          "`pytest tests/` from spinning up Docker.")
 
 
 def _chmod_world_writable(path: Path) -> None:
@@ -815,3 +858,56 @@ def airstack_env(request):
             down_duration_s = round(time.time() - t3, 2)
             logger.info("Teardown finished in %.2fs", down_duration_s)
         m.record(tid, "airstack_down_duration_s", down_duration_s, unit="s")
+
+
+# ── integration tier (tests/integration/) ─────────────────────────────────
+
+_INTEGRATION_ROBOT_PATTERN = "robot.*desktop"
+# Robot-only bring-up: autonomy stack on, no sim profile, single robot.
+_INTEGRATION_ENV = {
+    "AUTOLAUNCH": "true",
+    "NUM_ROBOTS": "1",
+    "COMPOSE_PROFILES": "desktop",
+}
+
+
+@pytest.fixture(scope="module")
+def robot_autonomy_stack(request):
+    """Robot-desktop container for integration tests (no sim, no GPU).
+
+    Yields ``{"container": <name>, "brought_up": bool}``. Reuses an already
+    running container (fast local iteration, left running afterward); otherwise
+    runs ``airstack up robot-desktop`` only when ``--run-integration`` is passed
+    (and tears it down). Without the flag and with nothing running, the test is
+    skipped, so a plain ``pytest tests/`` never spins up Docker for this tier.
+    """
+    existing = find_container(_INTEGRATION_ROBOT_PATTERN)
+    if existing and container_running(existing):
+        yield {"container": existing, "brought_up": False}
+        return
+
+    if not request.config.getoption("--run-integration"):
+        pytest.skip(
+            "No running robot-desktop container. Start one "
+            "(`AUTOLAUNCH=false airstack up robot-desktop`) or pass "
+            "`--run-integration` to let the harness bring it up."
+        )
+
+    log = "robot_autonomy_stack"
+    with logger_to(log):
+        missing = missing_images(env=_INTEGRATION_ENV)
+        if missing:
+            pytest.skip("robot-desktop image not built locally: " + ", ".join(missing))
+        airstack_cmd("down", timeout=120, log_name=log)
+        result = airstack_cmd("up", "robot-desktop",
+                              env_overrides=_INTEGRATION_ENV, timeout=180, log_name=log)
+        assert result.returncode == 0, \
+            f"`airstack up robot-desktop` failed:\n{read_log_tail(log)}"
+
+    container = wait_for_container(_INTEGRATION_ROBOT_PATTERN, timeout=120)
+    assert container, "robot-desktop container not Running after 120s"
+    try:
+        yield {"container": container, "brought_up": True}
+    finally:
+        with logger_to(log):
+            airstack_cmd("down", timeout=120, log_name=log)
