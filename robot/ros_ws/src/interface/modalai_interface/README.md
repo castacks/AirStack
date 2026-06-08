@@ -49,158 +49,351 @@ AirStack autonomy stack
 | `/fmu/in/vehicle_command` | `px4_msgs/VehicleCommand` |
 | `/fmu/in/offboard_control_mode` | `px4_msgs/OffboardControlMode` |
 
-## Usage
+## Simulation Test
 
-### Simulation
+This test verifies that the full command path through the interface works end-to-end in Isaac Sim. The flow is: the AirStack `robot_command` service sends arm and offboard mode requests to `modalai_interface`, which translates them into PX4 uXRCE-DDS messages and forwards them to PX4 SITL running inside Isaac Sim. We first confirm that odometry is flowing back correctly through the interface (PX4 vehicle odometry converted by `sim_qvio_bridge` into the `/qvio` format that the real VOXL2 hardware produces, then converted by `modalai_interface` into AirStack's standard odometry topic). We then run [prop_spin_test.py](scripts/prop_spin_test.py), which arms the drone through the interface and confirms the props visibly spin in the Isaac Sim GUI.
 
-Verifies the ModalAI interface against a simulated VOXL2 drone in Isaac Sim. The sim spawns a drone using the Pegasus PX4 backend — you should see the drone sitting in the Isaac Sim scene. A `sim_qvio_bridge` node replaces the real VOXL2's qvio output, feeding simulated odometry into the interface so it behaves identically to hardware. The interface is working correctly when you see the props spin.
+### Step 1 — Clean up any existing containers
 
-#### Step 1 — Run the launch script
-
-From the AirStack repo root:
+Kill stale containers so there are no leftover ROS graphs or PX4 instances.
 
 ```bash
-cd robot/ros_ws/src/interface/modalai_interface
-./scripts/run_sim.sh
+docker rm -f isaac-sim airstack-robot-desktop-1 2>/dev/null || true
 ```
 
-The script does the following automatically:
-1. Kills any existing `isaac-sim` and `airstack-robot-desktop-1` containers from previous sessions
-2. Starts the robot container and launches the ROS interface (AirStack side) in the background
-3. Starts the Isaac Sim container with the VOXL2 drone scene
-4. Starts the MicroXRCE-DDS agent, which bridges PX4's internal topics to ROS 2
+### Step 2 — Start robot container and build
 
-If you've made code changes and need to rebuild first:
-```bash
-REBUILD=true ./scripts/run_sim.sh
-```
-
-#### Step 2 — Wait for Isaac Sim to load (3-5 minutes)
-
-The Isaac Sim GUI will appear on your screen with the drone sitting in the scene. Once fully loaded, the launch script automatically hits Play, arms the drone, and spins the props for 15 seconds to verify the full communication chain is working end-to-end.
-
-#### Step 3 — Confirm the props spun
+Start the robot container without auto-launching the autonomy stack, then build `px4_msgs` and `modalai_interface`. `px4_msgs` must exactly match PX4 v1.16.1 — the message files in `robot/ros_ws/src/local/controls/px4_msgs/msg/` are pinned to the upstream `release/1.16` branch.
 
 ```bash
-docker exec isaac-sim bash -c "tmux capture-pane -t isaac:0.0 -p | tail -30"
-```
-
-Look for this line in the output:
-```
-PropSpinTest: props spinning for 15s — interface verified!
-```
-
-If you see it, the interface is working correctly. If you don't, see Troubleshooting below.
-
-- To skip the prop spin test: set `PROP_SPIN_TEST=false`
-- To change the duration: set `PROP_SPIN_DURATION=<seconds>`
-
----
-
-**Troubleshooting**
-
-Watch the ROS interface logs:
-```bash
-docker exec airstack-robot-desktop-1 bash -c "tail -f /tmp/modalai_interface.log"
-```
-
-Check Isaac Sim for errors:
-```bash
-docker exec isaac-sim bash -c "tmux capture-pane -t isaac:0.0 -p | tail -30"
-```
-
-Manually verify odometry is flowing:
-```bash
-docker exec airstack-robot-desktop-1 bash -c \
-  "source /root/AirStack/robot/ros_ws/install/setup.bash && ros2 topic echo /robot_1/odometry_conversion/odometry --once"
-```
-
-Expected output (drone sitting at origin):
-```
-A message was lost!!!
-        total count change:1
-        total count: 1---
-header:
-  stamp:
-    sec: 1780080965
-    nanosec: 920918910
-  frame_id: map
-child_frame_id: base_link
-pose:
-  pose:
-    position:
-      x: 0.0009052683017216623
-      y: -0.00046574819134548306
-      z: 0.00101470947265625
-    orientation:
-      x: 0.0006589159270852206
-      y: -0.029113688983817186
-      z: -0.0007315428496036391
-      w: 0.9995756062680728
-  covariance:
-  - 0.0
-  ...
-twist:
-  twist:
-    linear:
-      x: 0.0
-      y: 0.0
-      z: 0.0
-    angular:
-      x: 0.0
-      y: 0.0
-      z: 0.0
-  covariance:
-  - 0.0
-  ...
----
-```
-
-The `A message was lost` warning is normal — it just means the subscriber connected mid-stream. If the command hangs with no output, confirm the sim is playing and check `tmux capture-pane -t isaac -p` for errors.
-
-See [modalai_sim.launch.xml](launch/modalai_sim.launch.xml) and [sim_qvio_bridge.py](scripts/sim_qvio_bridge.py).
-
----
-
-### Hardware (VOXL2)
-
-Runs the ModalAI interface against a real VOXL2 flight computer. The VOXL2 publishes visual-inertial odometry on `/qvio` via `voxl-mpa-to-ros2`, which the interface converts from NED/FRD to ENU/FLU and publishes as `/robot_1/odometry` for the rest of the autonomy stack. The interface is working correctly when odometry is flowing on `/robot_1/odometry`.
-
-**Step 1 — Build the package** (once, or after any code changes):
-
-```bash
-# Start the robot container if it isn't already running
 AUTOLAUNCH=false airstack up robot-desktop
 
-# Build
 docker exec airstack-robot-desktop-1 bash -c \
-  "source /opt/ros/jazzy/setup.bash && \
-   cd /root/AirStack/robot/ros_ws && \
-   colcon build --packages-select modalai_interface"
+  "source ~/.bashrc && bws --packages-select px4_msgs modalai_interface"
 ```
 
-**Step 2 — On the VOXL2, make sure `voxl-mpa-to-ros2` is running** and publishing on `/qvio`.
+### Step 3 — Start Isaac Sim container and patch the airframe
 
-**Step 3 — Launch the ROS interface:**
-
-> All ROS commands run inside the robot container — **not on your host machine**.
+Start the Isaac Sim container, then add `COM_RCL_EXCEPT 4` to the Iris airframe file if it isn't already there. This parameter exempts offboard mode from the RC-loss failsafe, which otherwise blocks arming without a physical RC transmitter.
 
 ```bash
-docker exec airstack-robot-desktop-1 bash -c \
-  "export ROBOT_NAME=robot_1 && \
-   source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   ros2 launch modalai_interface modalai_hardware.launch.xml"
+AUTOLAUNCH=false airstack up isaac-sim
+
+docker exec isaac-sim bash -c "
+  grep -q 'COM_RCL_EXCEPT' /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/airframes/10015_gazebo-classic_iris || \
+  echo 'param set-default COM_RCL_EXCEPT 4' >> /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/airframes/10015_gazebo-classic_iris"
 ```
 
-If your VOXL2 uses a different topic namespace (e.g. `/voxl/qvio`), edit `voxl_qvio_topic` in [modalai_hardware.launch.xml](launch/modalai_hardware.launch.xml).
+### Step 4 — Start MicroXRCE-DDS Agent
 
-**Verify the interface is working:**
+Start the agent in the background. It bridges PX4's uXRCE-DDS client to ROS 2 DDS on domain 0.
+
+> **Note:** If this is the first run on a fresh container and `MicroXRCEAgent` isn't on PATH, build it first:
+> ```bash
+> docker exec isaac-sim bash -c "
+>   cd /tmp && git clone --depth=1 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git && \
+>   cd Micro-XRCE-DDS-Agent && mkdir build && cd build && \
+>   cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
+>   make -j\$(nproc) && make install && ldconfig"
+> ```
+> The `ldconfig` step is required — a bare binary copy without registering the shared library causes a `libmicroxrcedds_agent.so` error at runtime.
+
+```bash
+docker exec isaac-sim bash -c "rm -f /tmp/uxrce.log"
+docker exec -d isaac-sim bash -c \
+  "ROS_DOMAIN_ID=0 MicroXRCEAgent udp4 -p 8888 -d 0 > /tmp/uxrce.log 2>&1"
+```
+
+### Step 5 — Launch Isaac Sim + PX4 SITL
+
+Send the command to the `isaac` tmux session to start Isaac Sim with the prop-spin test scene. This spawns the Iris drone and starts PX4 SITL.
+
+```bash
+docker exec isaac-sim bash -c \
+  "tmux send-keys -t isaac 'source /isaac-sim/.bashrc && ROS_DOMAIN_ID=0 \
+   run_isaac_python /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/modalai_voxl2_pegasus_launch_script.py \
+   --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER"
+```
+
+### Step 6 — Wait for PX4 to connect (1–3 min)
+
+Poll the MicroXRCEAgent log for `establish_session` — the line it prints when PX4 successfully opens a DDS session. Then give PX4 15 s to finish EKF initialisation.
+
+```bash
+until docker exec isaac-sim bash -c "grep -q 'establish_session' /tmp/uxrce.log 2>/dev/null"; do
+  sleep 3; echo "  waiting for PX4..."
+done
+echo "PX4 connected."
+sleep 15
+```
+
+### Step 7 — Configure FastDDS UDP-only in robot container
+
+The robot container defaults to FastDDS shared-memory transport, which cannot reach the Isaac Sim container. Switching to UDP-only fixes cross-container DDS discovery.
+
+```bash
+docker exec airstack-robot-desktop-1 bash -c 'mkdir -p /root/.ros && cat > /root/.ros/fastdds.xml << EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <transport_descriptors>
+        <transport_descriptor>
+            <transport_id>UdpTransport</transport_id>
+            <type>UDPv4</type>
+        </transport_descriptor>
+    </transport_descriptors>
+    <participant profile_name="udp_transport_profile" is_default_profile="true">
+        <rtps>
+            <userTransports>
+                <transport_id>UdpTransport</transport_id>
+            </userTransports>
+            <useBuiltinTransports>false</useBuiltinTransports>
+        </rtps>
+    </participant>
+</profiles>
+EOF'
+```
+
+### Step 8 — Launch modalai_interface (sim mode)
+
+Start the interface using `modalai_sim.launch.xml` with `ROS_DOMAIN_ID=0` and the UDP-only FastDDS profile. This launch file sets `fmu_namespace=px4_1/fmu` and starts the `sim_qvio_bridge` node, which converts PX4's `VehicleOdometry` → `PoseStamped` on `/qvio`, feeding odometry into the interface exactly as real VOXL2 hardware would.
+
+```bash
+docker exec -d airstack-robot-desktop-1 bash -c \
+  "export ROBOT_NAME=robot_1 ROS_DOMAIN_ID=0 FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml && \
+   source /root/AirStack/robot/ros_ws/install/setup.bash && \
+   ros2 launch modalai_interface modalai_sim.launch.xml > /tmp/modalai_interface.log 2>&1"
+
+sleep 10
+```
+
+### Step 9 — Verify interface odometry
+
+Confirm the full inbound data path is working: PX4 SITL → MicroXRCEAgent → domain 0 → sim_qvio_bridge → `/qvio` (PoseStamped, NED/FRD) → modalai_interface `on_qvio()` → ENU/FLU conversion → AirStack topic.
+
+If nothing is published here, check `/tmp/modalai_interface.log` — the most common cause is `sim_qvio_bridge` not receiving `vehicle_odometry` (usually a `px4_msgs` version mismatch).
+
 ```bash
 docker exec airstack-robot-desktop-1 bash -c \
   "source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   ros2 topic echo /robot_1/odometry_conversion/odometry --once"
+   ROS_DOMAIN_ID=0 timeout 5 ros2 topic echo /robot_1/interface/odometry --once"
 ```
-You should see an odometry message with position and orientation data. If it hangs, confirm `voxl-mpa-to-ros2` is running on the VOXL2 and publishing on `/qvio`.
+
+### Step 10 — Run PropSpinTest
+
+Run the test script. Watch the Isaac Sim GUI — props should begin spinning when PX4 arms (~20 s after the script starts).
+
+```bash
+docker exec airstack-robot-desktop-1 bash -c \
+  "source /root/AirStack/robot/ros_ws/install/setup.bash && \
+   FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml \
+   ROS_DOMAIN_ID=0 PX4_NAMESPACE=px4_1 ROBOT_NAME=robot_1 \
+   python3 /root/AirStack/robot/ros_ws/src/interface/modalai_interface/scripts/prop_spin_test.py 15"
+```
+
+**What the test verifies (full interface path):**
+1. `robot_command` service reachable → modalai_interface is up
+2. `REQUEST_CONTROL` → modalai_interface calls `DO_SET_MODE (OFFBOARD)` → PX4
+3. `ARM` → modalai_interface calls `COMPONENT_ARM_DISARM (1)` → PX4
+4. Zero-velocity `TwistStamped` on `cmd_velocity` → modalai_interface converts to NED `trajectory_setpoint` → keeps offboard heartbeat alive
+5. `vehicle_control_mode.flag_armed = true` (read directly from PX4 DDS for ground-truth confirmation)
+
+### Step 11 — Tear down
+
+```bash
+airstack down
+```
+
+---
+
+## Verified Issues and Their Fixes
+
+| Issue | Symptom | Fix |
+|-------|---------|-----|
+| `px4_msgs` version mismatch | Odometry never flows; payload 207 vs 220 bytes | Replace all msg files from `PX4/px4_msgs release/1.16` |
+| `target_system = 1` | All vehicle_commands silently ignored | Changed to `0` (broadcast); PX4 SITL sets `MAV_SYS_ID = vehicle_id+1 = 2` |
+| No `trajectory_setpoint` with heartbeat | PX4 rejects offboard mode switch | `publish_offboard_heartbeat()` now publishes both `offboard_control_mode` and `trajectory_setpoint` |
+| FastDDS shared-memory in robot container | Cross-container DDS discovery fails | UDP-only FastDDS profile injected before launching modalai_interface |
+| Wrong FMU namespace (`fmu` vs `px4_1/fmu`) | Interface publishes/subscribes to wrong topics in sim | Added `fmu_namespace` arg to launch file; `modalai_sim.launch.xml` sets `px4_1/fmu` |
+| Missing `vehicle_status_v1` remap | Interface never receives arm/mode state from PX4 | Added remap `out/vehicle_status` → `out/vehicle_status_v1` (PX4 v1.15+ rename) |
+
+---
+
+## Hardware Test (VOXL2)
+
+This test does the same thing as the simulation test — arms the drone through the interface and confirms the props spin — but against the real VOXL2 hardware instead of Isaac Sim. The robot container still runs on your workstation. The VOXL2 just needs to be reachable over the network so that DDS topics flow between them.
+
+---
+
+### Step 1 — Physical setup
+
+Power on the drone and make sure it is sitting on a flat surface. **Remove the propellers** before running any arming test for the first time. You can always reattach them once you have confirmed the arm command works.
+
+Connect the VOXL2 to the same network as your workstation. The easiest way is a direct Ethernet cable between the drone and your router, or connecting it to the same WiFi network your workstation is on. DDS (the ROS 2 communication layer) uses UDP multicast, which only works if both machines are on the same network segment — it will not work over ADB USB alone.
+
+---
+
+### Step 2 — Connect via ADB and verify the drone's internal services
+
+Plug a USB cable from the VOXL2 into your workstation. ADB lets you open a shell directly on the drone without needing SSH or a password.
+
+```bash
+# Confirm the VOXL2 is visible
+adb devices
+```
+
+You should see one device listed. If you see nothing, check the USB cable and that ADB is installed (`sudo apt install adb`).
+
+```bash
+# Open a shell on the drone
+adb shell
+```
+
+Once inside, check that the two services the interface depends on are running:
+
+```bash
+# voxl-mpa-to-ros2 publishes /qvio — the visual-inertial odometry the interface reads
+voxl-inspect-services | grep mpa-to-ros
+
+# The MicroXRCE-DDS bridge publishes PX4's internal topics over ROS 2
+voxl-inspect-services | grep px4
+```
+
+Both should show as running. If either is not running, start it:
+
+```bash
+voxl-start-services voxl-mpa-to-ros2
+voxl-start-services voxl-px4-to-ros   # name may vary — check voxl-inspect-services
+```
+
+While still in the ADB shell, find the VOXL2's IP address on the shared network and its ROS domain ID:
+
+```bash
+ip addr show wlan0   # or eth0 depending on connection type
+printenv ROS_DOMAIN_ID
+```
+
+Write down the IP and domain ID. You will need them on the workstation side. Then exit the ADB shell:
+
+```bash
+exit
+```
+
+---
+
+### Step 3 — Confirm network connectivity from your workstation
+
+```bash
+ping <VOXL2_IP>
+```
+
+You should get replies. If not, the drone and workstation are not on the same network segment and DDS will not work.
+
+---
+
+### Step 4 — Set COM_RCL_EXCEPT on the drone
+
+This PX4 parameter allows arming in offboard mode without a physical RC transmitter connected. Set it via QGroundControl (Parameters tab, search `COM_RCL_EXCEPT`, set to `4`), or from the ADB shell:
+
+```bash
+adb shell
+# Once inside:
+param set COM_RCL_EXCEPT 4
+exit
+```
+
+---
+
+### Step 5 — Build modalai_interface on your workstation
+
+Only needed once, or after any code changes.
+
+```bash
+AUTOLAUNCH=false airstack up robot-desktop
+
+docker exec airstack-robot-desktop-1 bash -c \
+  "source ~/.bashrc && bws --packages-select px4_msgs modalai_interface"
+```
+
+---
+
+### Step 6 — Configure FastDDS UDP-only in the robot container
+
+The robot container defaults to shared-memory DDS transport, which only works within the same machine. Switching to UDP-only allows it to discover the VOXL2's topics over the network.
+
+```bash
+docker exec airstack-robot-desktop-1 bash -c 'mkdir -p /root/.ros && cat > /root/.ros/fastdds.xml << EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <transport_descriptors>
+        <transport_descriptor>
+            <transport_id>UdpTransport</transport_id>
+            <type>UDPv4</type>
+        </transport_descriptor>
+    </transport_descriptors>
+    <participant profile_name="udp_transport_profile" is_default_profile="true">
+        <rtps>
+            <userTransports>
+                <transport_id>UdpTransport</transport_id>
+            </userTransports>
+            <useBuiltinTransports>false</useBuiltinTransports>
+        </rtps>
+    </participant>
+</profiles>
+EOF'
+```
+
+---
+
+### Step 7 — Launch modalai_interface
+
+Use `modalai_hardware.launch.xml`. This is the same as the sim launch except it does not start `sim_qvio_bridge` — the real VOXL2 publishes `/qvio` directly. Replace `<VOXL_DOMAIN>` with the domain ID you found in Step 2.
+
+```bash
+docker exec -d airstack-robot-desktop-1 bash -c \
+  "export ROBOT_NAME=robot_1 ROS_DOMAIN_ID=<VOXL_DOMAIN> FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml && \
+   source /root/AirStack/robot/ros_ws/install/setup.bash && \
+   ros2 launch modalai_interface modalai_hardware.launch.xml > /tmp/modalai_interface.log 2>&1"
+
+sleep 10
+```
+
+---
+
+### Step 8 — Verify odometry is flowing from the drone
+
+This confirms the full path: VOXL2 publishes `/qvio` → modalai_interface converts NED/FRD to ENU/FLU → `/robot_1/interface/odometry`. If the drone is sitting still you should see near-zero position values.
+
+```bash
+docker exec airstack-robot-desktop-1 bash -c \
+  "source /root/AirStack/robot/ros_ws/install/setup.bash && \
+   ROS_DOMAIN_ID=<VOXL_DOMAIN> timeout 5 ros2 topic echo /robot_1/interface/odometry --once"
+```
+
+If nothing comes back, check `/tmp/modalai_interface.log` and confirm `voxl-mpa-to-ros2` is publishing `/qvio` on the drone (re-run Step 2).
+
+---
+
+### Step 9 — Run the prop spin test
+
+This is identical to the simulation test. The interface receives the arm command, forwards it to PX4 on the VOXL2, and PX4 arms. If you left propellers on, they will spin.
+
+```bash
+docker exec airstack-robot-desktop-1 bash -c \
+  "source /root/AirStack/robot/ros_ws/install/setup.bash && \
+   FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml \
+   ROS_DOMAIN_ID=<VOXL_DOMAIN> PX4_NAMESPACE=px4_1 ROBOT_NAME=robot_1 \
+   python3 /root/AirStack/robot/ros_ws/src/interface/modalai_interface/scripts/prop_spin_test.py 15"
+```
+
+The script will print `interface verified` if PX4 armed successfully, then disarm after 15 seconds.
+
+---
+
+### Step 10 — Tear down
+
+```bash
+airstack down
+```
 
 ---
 

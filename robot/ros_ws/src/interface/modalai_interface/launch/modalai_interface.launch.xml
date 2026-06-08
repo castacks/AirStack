@@ -25,6 +25,10 @@
     <arg name="interface_odometry_out_topic"
          default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
 
+    <!-- In simulation PX4 SITL namespaces all FMU topics under px4_<id>/fmu.
+         Set to "px4_1/fmu" for sim, leave as "fmu" for real VOXL2 hardware. -->
+    <arg name="fmu_namespace" default="fmu" />
+
     <!-- Actual topic published by voxl-mpa-to-ros2 for visual-inertial odometry.
          Common values: /qvio  or  /voxl/qvio  depending on ROS namespace config. -->
     <arg name="voxl_qvio_topic" default="/qvio" />
@@ -36,7 +40,7 @@
 
     <!-- ── Main interface node ─────────────────────────────────────────── -->
     <group>
-        <push-ros-namespace namespace="fmu" />
+        <push-ros-namespace namespace="$(var fmu_namespace)" />
 
         <node pkg="robot_interface" exec="robot_interface_node"
               name="modalai_interface" output="screen">
@@ -49,6 +53,9 @@
             <!-- Remap the qvio subscription to the actual VOXL topic -->
             <remap from="qvio"
                    to="$(var voxl_qvio_topic)" />
+
+            <!-- PX4 v1.15+ renamed vehicle_status → vehicle_status_v1 -->
+            <remap from="out/vehicle_status" to="out/vehicle_status_v1" />
 
             <!-- Optional: forward AirStack VIO estimate back to PX4 EKF.
                  Uncomment and remap to your VIO source if needed.

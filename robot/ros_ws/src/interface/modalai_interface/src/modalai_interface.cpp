@@ -421,6 +421,16 @@ private:
         msg.attitude     = (control_mode_ == ControlMode::ATTITUDE);
         msg.body_rate    = (control_mode_ == ControlMode::BODY_RATE);
         offboard_mode_pub_->publish(msg);
+
+        // PX4 also requires a matching trajectory_setpoint stream.
+        px4_msgs::msg::TrajectorySetpoint sp{};
+        sp.timestamp = now_us();
+        sp.position[0] = sp.position[1] = sp.position[2] = NAN;
+        sp.velocity[0] = sp.velocity[1] = sp.velocity[2] = 0.0f;
+        sp.acceleration[0] = sp.acceleration[1] = sp.acceleration[2] = NAN;
+        sp.yaw      = NAN;
+        sp.yawspeed = 0.0f;
+        trajectory_sp_pub_->publish(sp);
     }
 
     void send_vehicle_command(uint32_t command,
@@ -439,8 +449,8 @@ private:
         cmd.param5           = p5;
         cmd.param6           = p6;
         cmd.param7           = p7;
-        cmd.target_system    = 1;
-        cmd.target_component = 1;
+        cmd.target_system    = 0;  // broadcast: PX4 sets MAV_SYS_ID = vehicle_id+1
+        cmd.target_component = 0;
         cmd.source_system    = 1;
         cmd.source_component = 1;
         cmd.from_external    = true;

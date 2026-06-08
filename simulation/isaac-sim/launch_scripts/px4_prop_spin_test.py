@@ -39,7 +39,7 @@ DRONE_USD   = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulato
 
 ROBOT_NAME = os.environ.get("ROBOT_NAME", "robot_1")
 VEHICLE_ID = int(os.environ.get("VEHICLE_ID", "1"))
-DOMAIN_ID  = int(os.environ.get("ROS_DOMAIN_ID", str(VEHICLE_ID)))
+DOMAIN_ID  = int(os.environ.get("ROS_DOMAIN_ID", "0"))
 # ---------------------------------------------------------
 
 

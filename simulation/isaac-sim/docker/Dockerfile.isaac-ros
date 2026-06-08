@@ -169,13 +169,18 @@ RUN cd PX4-Autopilot && \
 RUN cd PX4-Autopilot && \
     make px4_sitl
 
+# Allow arming in offboard mode without RC (required for uXRCE-DDS offboard control)
+RUN echo 'param set-default COM_RCL_EXCEPT 4' >> \
+    /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/airframes/10015_gazebo-classic_iris
+
 # Build and install MicroXRCE-DDS Agent so it's always available without rebuilding
 RUN cd /tmp && \
     git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git && \
     cd Micro-XRCE-DDS-Agent && mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local && \
     make -j4 && \
-    cp MicroXRCEAgent /usr/local/bin/MicroXRCEAgent && \
+    make install && \
+    ldconfig && \
     rm -rf /tmp/Micro-XRCE-DDS-Agent
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser

@@ -18,15 +18,18 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from geometry_msgs.msg import TwistStamped
-from std_msgs.msg import Bool
+from nav_msgs.msg import Odometry
+from px4_msgs.msg import VehicleControlMode
 from airstack_msgs.srv import RobotCommand
 
-DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 15
-NS = os.environ.get("PX4_NAMESPACE", "px4_1")
-SERVICE  = f"/{NS}/fmu/robot_command"
-VEL_CMD  = f"/{NS}/fmu/velocity_command"
-IS_ARMED = f"/{NS}/fmu/is_armed"
+DURATION    = int(sys.argv[1]) if len(sys.argv) > 1 else 15
+NS          = os.environ.get("PX4_NAMESPACE", "px4_1")
+ROBOT_NAME  = os.environ.get("ROBOT_NAME", "robot_1")
+SERVICE     = f"/{NS}/fmu/robot_command"
+VEL_CMD     = f"/{NS}/fmu/cmd_velocity"
+IFACE_ODOM  = f"/{ROBOT_NAME}/interface/odometry"
 
 
 def main():
@@ -36,8 +39,15 @@ def main():
     vel_pub = node.create_publisher(TwistStamped, VEL_CMD, 1)
     client  = node.create_client(RobotCommand, SERVICE)
 
-    armed = [False]
-    node.create_subscription(Bool, IS_ARMED, lambda m: armed.__setitem__(0, m.data), 1)
+    # Watch PX4's actual arm state directly (BEST_EFFORT+VOLATILE works for vehicle_control_mode)
+    qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT, durability=DurabilityPolicy.VOLATILE)
+    px4_armed = [False]
+    node.create_subscription(VehicleControlMode, f"/{NS}/fmu/out/vehicle_control_mode",
+                              lambda m: px4_armed.__setitem__(0, m.flag_armed), qos)
+
+    odom_received = [False]
+    node.create_subscription(Odometry, IFACE_ODOM,
+                              lambda m: odom_received.__setitem__(0, True), 10)
 
     def send_cmd(command):
         req = RobotCommand.Request()
@@ -65,13 +75,25 @@ def main():
         rclpy.spin_once(node, timeout_sec=0.1)
         time.sleep(0.1)
 
+    odom_status = "FLOWING" if odom_received[0] else "NOT RECEIVED"
+    print(f"PropSpinTest: interface odometry ({IFACE_ODOM}): {odom_status}", flush=True)
+
     print("PropSpinTest: requesting offboard control...", flush=True)
     send_cmd(RobotCommand.Request.REQUEST_CONTROL)
     time.sleep(0.5)
 
-    print("PropSpinTest: arming...", flush=True)
+    print("PropSpinTest: arm command sent — waiting for PX4 confirmation...", flush=True)
     send_cmd(RobotCommand.Request.ARM)
-    time.sleep(0.5)
+
+    t0 = time.time()
+    while not px4_armed[0] and time.time() - t0 < 20:
+        heartbeat()
+        rclpy.spin_once(node, timeout_sec=0.1)
+        time.sleep(0.1)
+
+    if not px4_armed[0]:
+        print("PropSpinTest: FAIL — PX4 did not arm within 20s.", flush=True)
+        sys.exit(1)
 
     print(f"PropSpinTest: props spinning for {DURATION}s — interface verified!", flush=True)
     t0 = time.time()
