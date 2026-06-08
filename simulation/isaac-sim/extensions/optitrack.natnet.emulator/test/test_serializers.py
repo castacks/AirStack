@@ -6,14 +6,8 @@ from __future__ import annotations
 
 import ctypes
 import struct
-import sys
-from pathlib import Path
 
 import pytest
-
-_EXT_ROOT = Path(__file__).resolve().parents[1]
-if str(_EXT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_EXT_ROOT))
 
 from optitrack.natnet.emulator import NatNetUnicastServer, TransmissionType
 from optitrack.natnet.emulator.server import natnet_data_types as dt
@@ -66,8 +60,9 @@ def test_empty_frame_pack_length_is_stable():
 
     packed = frame.pack()
 
-    # 9 count fields + timestamps + params; all collections empty.
-    assert len(packed) == 86
+    # count fields + byte-count fields (NatNet 4.4) + timestamps + params + 4-byte
+    # end-of-data tag (libNatNet's frame unpacker requires the trailing tag).
+    assert len(packed) == 122
     assert packed == frame.pack()
 
 
@@ -83,8 +78,9 @@ def test_single_rigid_body_frame_contains_id_and_params():
 
     packed = frame.pack()
 
-    assert len(packed) == 86 + 38
-    body_offset = 4 + 4 + 4 + 4  # iFrame, nMarkerSets, nOtherMarkers, nRigidBodies
+    assert len(packed) == 122 + 38
+    # iFrame + markersets + other markers (count+size each), then rigid-body count+size.
+    body_offset = 4 + 2 * 8 + 4 + 4
     body_id, = struct.unpack_from("<i", packed, body_offset)
     params_offset = body_offset + 4 + 8 * 4  # id + 8 floats (incl. MeanError)
     params, = struct.unpack_from("<h", packed, params_offset)
@@ -107,13 +103,29 @@ def test_frame_pack_negative_collection_counts_encode_without_validation():
 
     packed = frame.pack()
 
-    n_rigid_bodies, = struct.unpack_from("<i", packed, 12)
+    n_rigid_bodies, = struct.unpack_from("<i", packed, 20)
     assert n_rigid_bodies == -1
 
 
 # =============================================================================
 # natnet_server_types — server description (NAT_SERVERINFO payload)
 # =============================================================================
+
+
+def test_connect_response_uses_sender_server_wire_format():
+    server = NatNetUnicastServer(
+        local_interface="127.0.0.1",
+        transmission_type=TransmissionType.UNICAST,
+        multicast_address=None,
+        command_port=1510,
+        data_port=1511,
+    )
+    packed = server._build_connect_response_payload()
+
+    assert len(packed) == st.SENDER_SERVER_WIRE_SIZE
+    assert packed[256:260] == bytes([3, 1, 0, 0])
+    assert packed[260:264] == bytes([4, 4, 0, 0])
+    assert packed.startswith(b"Motive")
 
 
 def test_server_description_pack_includes_connection_fields():
@@ -127,7 +139,8 @@ def test_server_description_pack_includes_connection_fields():
     description = server.server_description
     packed = description.pack()
 
-    assert len(packed) == ctypes.sizeof(st.sServerDescription)
+    assert len(packed) == st.SERVER_DESCRIPTION_WIRE_SIZE
+    assert packed[521:525] == bytes([4, 4, 0, 0])
     assert description.HostPresent is True
     assert description.bConnectionInfoValid is True
     assert description.ConnectionDataPort == 1511

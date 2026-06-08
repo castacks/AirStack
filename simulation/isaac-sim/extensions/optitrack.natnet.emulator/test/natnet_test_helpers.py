@@ -4,14 +4,8 @@ from __future__ import annotations
 
 import socket
 import struct
-import sys
 import time
 from contextlib import contextmanager
-from pathlib import Path
-
-_EXT_ROOT = Path(__file__).resolve().parents[1]
-if str(_EXT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_EXT_ROOT))
 
 from optitrack.natnet.emulator import NatNetUnicastServer, TransmissionType
 from optitrack.natnet.emulator.server import natnet_server_types as st
@@ -86,13 +80,21 @@ def running_unicast_server(
     local_interface: str = "127.0.0.1",
     publish_rate: int = 100,
 ):
-    """Start NatNetUnicastServer on an ephemeral or fixed command port."""
+    """Start NatNetUnicastServer on ephemeral (or fixed) command + data ports.
+
+    Both ports are ephemeral by default so concurrent/sequential tests never
+    collide on the well-known 1510/1511 pair.
+    """
     port = command_port if command_port is not None else ephemeral_udp_port(local_interface)
+    data_port = ephemeral_udp_port(local_interface)
+    while data_port == port:
+        data_port = ephemeral_udp_port(local_interface)
     server = NatNetUnicastServer(
         local_interface=local_interface,
         transmission_type=TransmissionType.UNICAST,
         multicast_address=None,
         command_port=port,
+        data_port=data_port,
     )
     server.publish_rate = publish_rate
     server.start()

@@ -7,15 +7,9 @@ from __future__ import annotations
 import ctypes
 import socket
 import struct
-import sys
 import time
-from pathlib import Path
 
 import pytest
-
-_TEST_DIR = Path(__file__).resolve().parent
-if str(_TEST_DIR) not in sys.path:
-    sys.path.insert(0, str(_TEST_DIR))
 
 from natnet_test_helpers import NatNetTestClient, running_unicast_server
 
@@ -43,19 +37,21 @@ def test_nat_connect_receives_serverinfo_on_command_port():
 
         assert addr[1] == command_port
         assert message_id == int(st.MessageId.NAT_SERVERINFO)
-        assert len(payload) == ctypes.sizeof(st.sServerDescription)
-
-        description = st.sServerDescription.from_buffer_copy(payload)
-        assert description.HostPresent is True
-        assert description.ConnectionDataPort == server.data_port
+        assert len(payload) == st.SENDER_SERVER_WIRE_SIZE
+        assert payload[256:260] == bytes([3, 1, 0, 0])
+        assert payload[260:264] == bytes([4, 4, 0, 0])
+        assert b"Motive" in payload
 
 
 # =============================================================================
-# Frame streaming — NAT_FRAMEOFDATA on command socket (libNatNet 4.4 unicast)
+# Frame streaming — NAT_FRAMEOFDATA on the data port (libNatNet 4.4 unicast)
 # =============================================================================
 
 
-def test_enqueued_frame_arrives_on_command_port():
+def test_enqueued_frame_arrives_on_data_port():
+    # libNatNet routes unicast frames by the server's data port, so frames must
+    # be sent from the data socket (source port == data_port), not the command
+    # socket. Frames sent from the command port are silently dropped by the SDK.
     with running_unicast_server(publish_rate=200) as (_server, command_port):
         client = NatNetTestClient(timeout=3.0)
         try:
@@ -74,13 +70,14 @@ def test_enqueued_frame_arrives_on_command_port():
                 except socket.timeout:
                     break
                 if message_id == int(st.MessageId.NAT_FRAMEOFDATA):
-                    assert addr[1] == command_port
+                    assert addr[1] == _server.data_port
+                    assert addr[1] != command_port
                     got_frame = True
                     break
         finally:
             client.close()
 
-        assert got_frame, "Expected NAT_FRAMEOFDATA on the command socket"
+        assert got_frame, "Expected NAT_FRAMEOFDATA from the data port"
 
 
 # =============================================================================
@@ -203,7 +200,49 @@ def test_lie_about_payload_length_in_header_still_handshake_on_connect():
 
         assert addr[1] == command_port
         assert message_id == int(st.MessageId.NAT_SERVERINFO)
-        assert len(payload) == ctypes.sizeof(st.sServerDescription)
+        assert len(payload) == st.SENDER_SERVER_WIRE_SIZE
+
+
+# =============================================================================
+# MODELDEF + KEEPALIVE — registered client happy path
+# =============================================================================
+
+
+def test_request_modeldef_after_connect_returns_drone_payload():
+    with running_unicast_server() as (_server, command_port):
+        client = NatNetTestClient(timeout=2.0)
+        try:
+            client.send_message(command_port, st.MessageId.NAT_CONNECT)
+            client.recv_message()
+
+            client.send_message(command_port, st.MessageId.NAT_REQUEST_MODELDEF)
+            message_id, payload, addr = client.recv_message()
+        finally:
+            client.close()
+
+        assert addr[1] == command_port
+        assert message_id == int(st.MessageId.NAT_MODELDEF)
+        assert payload.startswith(struct.pack("<i", 1))
+        assert b"Drone\x00" in payload
+
+
+def test_keepalive_after_connect_gets_no_reply():
+    # Keep-alive is client -> server only; real Motive sends no reply. An echo
+    # reply makes libNatNet log "Received unrecognized message Message=10".
+    with running_unicast_server() as (server, command_port):
+        client = NatNetTestClient(timeout=0.5)
+        try:
+            client.send_message(command_port, st.MessageId.NAT_CONNECT)
+            client.recv_message()
+
+            client.send_message(command_port, st.MessageId.NAT_KEEPALIVE)
+            with pytest.raises(socket.timeout):
+                client.recv_message()
+
+            # Client stays registered and keeps receiving frames.
+            assert len(server.connected_clients) == 1
+        finally:
+            client.close()
 
 
 # =============================================================================
