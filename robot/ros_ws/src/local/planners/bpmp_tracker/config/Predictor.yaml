@@ -1,4 +1,5 @@
 /**:
   ros__parameters:
-    mode: 0
     target_frame: "map"
+    initial_mode: 2       # 0=3D Bbox, 1=2D Bbox+Depth, 2=2D Bbox(HumanFlow)+Depth
+    initial_target_id: 0  # ReID global group ID to track

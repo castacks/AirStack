@@ -662,6 +662,10 @@ function activate(extensionContext) {
           // ── Target tracking toggle body ───────────────────────────────────────
           let trackingEnabled = false;
 
+          // Advertise at tab-init so DDS discovery completes before first button click
+          const trackingEnableTopic = `/${state.robot}/bpmp/target_tracking_enable`;
+          panelContext.advertise(trackingEnableTopic, "std_msgs/msg/Bool");
+
           const trackingBtn = document.createElement("button");
           trackingBtn.style.cssText =
             "padding:10px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:bold;";
@@ -687,12 +691,11 @@ function activate(extensionContext) {
 
           trackingBtn.addEventListener("click", () => {
             trackingEnabled = !trackingEnabled;
-            panelContext.advertise(
-              `/${state.robot}/bpmp/target_tracking_enable`,
-              "std_msgs/msg/Bool");
-            panelContext.publish(
-              `/${state.robot}/bpmp/target_tracking_enable`,
-              { data: trackingEnabled });
+            // Publish immediately; also retry after 1s and 2.5s in case
+            // DDS subscriber hasn't finished discovery on first send.
+            panelContext.publish(trackingEnableTopic, { data: trackingEnabled });
+            setTimeout(() => panelContext.publish(trackingEnableTopic, { data: trackingEnabled }), 1000);
+            setTimeout(() => panelContext.publish(trackingEnableTopic, { data: trackingEnabled }), 2500);
             applyTrackingEnabled();
           });
 

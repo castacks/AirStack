@@ -11,10 +11,15 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!-- Build dependencies -->
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
   <build_depend>rclcpp</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>std_srvs</build_depend>
   <build_depend>nav_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_filters</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>visualization_msgs</build_depend>
   <build_depend>vision_msgs</build_depend>
@@ -25,6 +30,7 @@
   <build_depend>airstack_msgs</build_depend>
   <build_depend>airstack_common</build_depend>
   <build_depend>decomp_util</build_depend>  <!-- (Yunwoo) DecompUtil dependency -->
+  <build_depend>humanflow_msgs</build_depend>
 
   <!-- Exec (runtime) dependencies -->
   <exec_depend>rclpy</exec_depend>
@@ -32,6 +38,8 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>std_srvs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>message_filters</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>vision_msgs</exec_depend>
@@ -42,6 +50,7 @@
   <exec_depend>airstack_msgs</exec_depend>
   <exec_depend>airstack_common</exec_depend>
   <exec_depend>decomp_util</exec_depend>
+  <exec_depend>humanflow_msgs</exec_depend>
 
   <build_depend>eigen3_cmake_module</build_depend>
   <exec_depend>eigen3_cmake_module</exec_depend>

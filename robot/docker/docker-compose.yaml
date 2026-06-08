@@ -248,6 +248,56 @@ services:
       - /media/airlab/Storage/zed_svo/:/zed_svo/
       
 # ===================================================================================================================
+# HumanFlow perception container (target detection/tracking for BPMP Mode 2)
+  humanflow:
+    profiles:
+      - desktop
+    image: theairlab/humanflow:x86
+    build:
+      context: ../../humanflow/docker
+      dockerfile: humanflow-dev-jazzy.Dockerfile
+      args:
+        BASE_IMAGE: nvidia/cuda:12.6.3-base-ubuntu24.04
+        ROS_BUILD_FROM_SOURCE: false
+        ROS_WS_DIR: /root/ros_ws
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - airstack_network
+    privileged: true
+    environment:
+      - ROBOT_NAME=${ROBOT_NAME:-robot_1}
+      - ROS_DOMAIN_ID=1
+      - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
+      - DEVICE_TYPE="x86"
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/root/fastdds.xml
+      - AUTOLAUNCH=${AUTOLAUNCH:-true}
+    volumes:
+      - ../../humanflow/ros_ws:/root/ros_ws:rw
+      - ../../humanflow/scripts:/root/scripts:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ../../humanflow/docker/.bashrc:/root/.bashrc:rw
+      - ../../humanflow/docker/.bash_history:/root/.bash_history:rw
+      - ../../common/fastdds.xml:/root/fastdds.xml:ro
+    stdin_open: true
+    tty: true
+    command: >
+      bash -c "
+      tmux new -d -s humanflow;
+      if [ $$AUTOLAUNCH == 'true' ]; then
+        tmux send-keys -t humanflow 'source /opt/ros/jazzy/setup.bash && cd /root/ros_ws && colcon build --packages-ignore PayloadSDK && source /root/ros_ws/install/setup.bash && ros2 launch humanflow_bringup rgb_airstack.launch.py' ENTER;
+      fi;
+      sleep infinity"
+
+# ===================================================================================================================
 # for running tests on the robot
   robot-test:
     profiles: !override

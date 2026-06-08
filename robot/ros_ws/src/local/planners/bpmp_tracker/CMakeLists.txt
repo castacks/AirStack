@@ -7,7 +7,10 @@ endif()
 
 # --- dependencies ---
 find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -22,6 +25,14 @@ find_package(tf2_eigen REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(decomp_util REQUIRED)
+find_package(humanflow_msgs REQUIRED)
+
+# --- service interfaces ---
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/SetTargetId.srv"
+  "srv/SetMode.srv"
+)
+rosidl_get_typesupport_target(bpmp_typesupport_target ${PROJECT_NAME} rosidl_typesupport_cpp)
 
 # --- node executable ---
 add_executable(bpmp_tracker_node
@@ -65,9 +76,12 @@ add_executable(bpmp_predictor_node
 ament_target_dependencies(bpmp_predictor_node
   rclcpp
   std_msgs
+  sensor_msgs
+  message_filters
   geometry_msgs
   visualization_msgs
   vision_msgs
+  humanflow_msgs
   tf2
   tf2_ros
   tf2_geometry_msgs
@@ -81,6 +95,7 @@ target_include_directories(bpmp_predictor_node PUBLIC
 )
 
 target_compile_features(bpmp_predictor_node PUBLIC cxx_std_17)
+target_link_libraries(bpmp_predictor_node "${bpmp_typesupport_target}")
 
 # --- install ---
 install(TARGETS

@@ -24,7 +24,7 @@
 #       # use rays as a visualization_msgs/msg/MarkerArray
 # ─────────────────────────────────────────────────────────────────────────────
 
-payload_topics:
+payload_topics: []
 
   # ── Add payloads below ─────────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"

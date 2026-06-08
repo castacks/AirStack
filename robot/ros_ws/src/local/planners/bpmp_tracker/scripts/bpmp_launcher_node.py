@@ -10,6 +10,7 @@ import subprocess
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool
 
 
@@ -20,7 +21,12 @@ class BPMPLauncherNode(Node):
 
         self.declare_parameter('odometry_topic', '')
 
-        self.create_subscription(Bool, 'target_tracking_enable', self._on_enable, 10)
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.VOLATILE,
+            depth=1
+        )
+        self.create_subscription(Bool, 'target_tracking_enable', self._on_enable, qos)
         self.get_logger().info('BPMP Launcher ready — waiting for target_tracking_enable')
 
     def _on_enable(self, msg: Bool):

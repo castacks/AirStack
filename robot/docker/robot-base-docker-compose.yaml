@@ -20,6 +20,7 @@ services:
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
+      - HUMANFLOW_HOST_COMPOSE_DIR=${HOME}/AirStack/humanflow/docker
     volumes:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
@@ -39,4 +40,11 @@ services:
       - ../ros_ws:/root/AirStack/robot/ros_ws:rw
       # bags
       - ../bags:/bags:rw
+      # Docker socket + CLI for container management (HumanFlow auto-start)
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins:ro
+      # humanflow for bpmp_tracker Mode 2
+      - ../../humanflow/ros_ws/src/humanflow_msgs:/root/AirStack/robot/ros_ws/src/humanflow_msgs:ro
+      - ../../humanflow/docker:/root/AirStack/humanflow/docker:ro
 

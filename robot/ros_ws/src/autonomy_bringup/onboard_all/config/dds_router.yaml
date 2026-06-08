@@ -65,5 +65,11 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/keyboard_controller/keyboard_input"
   - name: "rt/$(env ROBOT_NAME)/keyboard_controller/keyboard_control_enable"
 
+  # humanflow reid overlay — visual tracking output
+  - name: "rt/$(env ROBOT_NAME)/reid_overlay"
+
+  # bpmp target tracking toggle — GCS Foxglove button → robot
+  - name: "rt/$(env ROBOT_NAME)/bpmp/target_tracking_enable"
+
   # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
   # NOT here — having it in both routers causes message flooding/amplification.

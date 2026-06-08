@@ -8,8 +8,17 @@
         <param from="$(find-pkg-share bpmp_tracker)/config/Predictor.yaml" allow_substs="true" />
         <remap from="semantic_bbox"   to="/$(var robot_name)/sensors/front_stereo/left/semantic_bbox" />
         <remap from="vdb_map"         to="/$(var robot_name)/vdb_mapping/vdb_map_visualization" />
-        <remap from="target_info"     to="/$(var robot_name)/bpmp/target_info" />
+        <remap from="target_info"      to="/$(var robot_name)/bpmp/target_info" />
         <remap from="filtered_vdb_map" to="/$(var robot_name)/bpmp/filtered_vdb_map" />
+        <remap from="set_target_id"    to="/$(var robot_name)/bpmp/set_target_id" />
+        <remap from="set_mode"         to="/$(var robot_name)/bpmp/set_mode" />
+        <!-- MODE 1 topics -->
+        <remap from="detection2d"  to="/$(var robot_name)/sensors/front_stereo/left/detection2d" />
+        <remap from="depth_image"  to="/$(var robot_name)/sensors/front_stereo/left/depth_ground_truth" />
+        <remap from="camera_info"  to="/$(var robot_name)/sensors/front_stereo/left/camera_info" />
+        <!-- MODE 2 topics (HumanFlow) -->
+        <remap from="humanflow"    to="/$(var robot_name)/demo/humanflow" />
+        <remap from="reid_groups"  to="/$(var robot_name)/demo/reid_groups" />
     </node>
 
     <!-- BPMP Tracker: Bezier-primitive planner that tracks the target -->
