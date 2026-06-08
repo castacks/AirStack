@@ -1,0 +1,13 @@
+/**:
+  ros__parameters:
+    # 'hold'      — latch to first received pose and stay there
+    # 'waypoints' — visit each (x, y, z, yaw) in order, hold at the last one
+    mode: "hold"
+
+    publish_rate: 10.0      # Hz
+    velocity: 0.5           # m/s (waypoints mode only)
+    acceptance_radius: 0.15 # m — how close counts as "reached" a waypoint
+
+    # Flat list of waypoints: x y z yaw  x y z yaw  ...  (yaw in radians)
+    # Only used when mode = "waypoints"
+    waypoints: [0.0, 0.0, 1.0, 0.0]

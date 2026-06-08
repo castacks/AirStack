@@ -1,0 +1,12 @@
+<launch>
+  <node pkg="mocap_planner" exec="mocap_planner_node" output="screen">
+    <param from="$(find-pkg-share mocap_planner)/config/mocap_planner.yaml"
+           allow_substs="true" />
+
+    <!-- Remap standard AirStack topics to robot namespace -->
+    <remap from="odometry"
+           to="/$(env ROBOT_NAME robot_1)/odometry" />
+    <remap from="trajectory_override"
+           to="/$(env ROBOT_NAME robot_1)/trajectory_controller/trajectory_override" />
+  </node>
+</launch>
