@@ -6,9 +6,11 @@ AirSim bridge utilities).
 
 Mark fast, hermetic checks with `@pytest.mark.unit`. Tests that require a GPU,
 full sim, or Docker belong in [`tests/system/`](../system/) instead.
+Cross-component tests that need the robot container (but not a sim) belong in
+[`tests/integration/`](../integration/) (mark: `integration`).
 
 Suggested layout:
 
 | Directory | Purpose |
 |-----------|---------|
-| `motive_emulator/` | Motive / NatNet protocol emulation / parsing |
+| `optitrack_natnet_emulator/` | NatNet emulator unit tests (proxy; mark: `unit`) |
