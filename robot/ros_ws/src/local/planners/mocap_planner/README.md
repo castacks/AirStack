@@ -44,11 +44,17 @@ waypoints: [0.0, 0.0, 1.0, 0.0,
 In two separate terminals:
 
 ```bash
-# Terminal 1 — robot stack (no autolaunch so you can control what runs)
+# Terminal 1 — robot stack
 AUTOLAUNCH=false airstack up robot-desktop
 
 # Terminal 2 — Isaac Sim
-airstack up isaac-sim
+AUTOLAUNCH=false airstack up isaac-sim
+```
+
+Then attach to the Isaac Sim tmux session to launch it manually:
+
+```bash
+docker exec -it isaac-sim tmux attach -t isaac
 ```
 
 Wait for Isaac Sim to fully load, then spawn a drone using the Pegasus extension UI.
