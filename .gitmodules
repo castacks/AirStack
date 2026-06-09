@@ -22,3 +22,6 @@
 	path = humanflow
 	url = git@github.com:CyAirCMU/HumanFlow.git
 	branch = yunwool/adv-ai-0608
+[submodule "robot/ros_ws/src/humanflow_msgs"]
+	path = robot/ros_ws/src/humanflow_msgs
+	url = git@github.com:CyAirCMU/humanflow_msgs.git
