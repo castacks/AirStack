@@ -45,8 +45,9 @@ SIM_CONFIG = {
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
 RUN_DIR = None
-LOGS_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
+_LAST_CMD_OUTPUT: dict[str, str] = {}
+_DEFAULT_LOG_KEY = "_last"
 
 # Track the currently-running pytest item so current_log() and current_test_id()
 # can pick up the parametrize id without tests having to pass `request` around.
@@ -56,8 +57,6 @@ METRICS = None
 
 logger = logging.getLogger("airstack")
 logger.setLevel(logging.INFO)
-_LOG_FORMAT = logging.Formatter("[%(asctime)s] %(levelname)s %(message)s", "%H:%M:%S")
-_test_log_handler = None
 
 
 # ── pytest config / hooks ──────────────────────────────────────────────────
@@ -85,30 +84,21 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    global RUN_DIR, LOGS_DIR
+    global RUN_DIR
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     results_root = Path(AIRSTACK_ROOT) / "tests" / "results"
     RUN_DIR = results_root / timestamp
-    LOGS_DIR = RUN_DIR / "logs"
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
     config.option.xmlpath = str(RUN_DIR / "results.xml")
 
 
 def pytest_runtest_setup(item):
-    global _CURRENT_ITEM, _test_log_handler
+    global _CURRENT_ITEM
     _CURRENT_ITEM = item
-    log_path = LOGS_DIR / f"{current_log()}.log"
-    _test_log_handler = logging.FileHandler(log_path)
-    _test_log_handler.setFormatter(_LOG_FORMAT)
-    logger.addHandler(_test_log_handler)
 
 
 def pytest_runtest_teardown(item):
-    global _CURRENT_ITEM, _test_log_handler
-    if _test_log_handler is not None:
-        logger.removeHandler(_test_log_handler)
-        _test_log_handler.close()
-        _test_log_handler = None
+    global _CURRENT_ITEM
     _CURRENT_ITEM = None
 
 
@@ -134,21 +124,8 @@ def pytest_runtest_makereport(item, call):
 
 @contextmanager
 def logger_to(log_name):
-    """Temporarily route `logger` to a different file. Suspends any handlers
-    already attached so narration isn't duplicated across files."""
-    existing = list(logger.handlers)
-    for h in existing:
-        logger.removeHandler(h)
-    fh = logging.FileHandler(LOGS_DIR / f"{log_name}.log")
-    fh.setFormatter(_LOG_FORMAT)
-    logger.addHandler(fh)
-    try:
-        yield
-    finally:
-        logger.removeHandler(fh)
-        fh.close()
-        for h in existing:
-            logger.addHandler(h)
+    """No-op kept for fixture call sites; output goes to pytest log_cli only."""
+    yield
 
 
 def pytest_generate_tests(metafunc):
@@ -284,31 +261,26 @@ def current_log():
 
 
 def read_log_tail(log_name=None, lines=50):
-    log_name = log_name or current_log()
-    if not log_name:
+    """Return the tail of the most recent subprocess output for this context."""
+    key = log_name or _DEFAULT_LOG_KEY
+    text = _LAST_CMD_OUTPUT.get(key) or _LAST_CMD_OUTPUT.get(_DEFAULT_LOG_KEY, "")
+    if not text:
         return ""
-    log_path = LOGS_DIR / f"{log_name}.log"
-    if log_path.exists():
-        all_lines = log_path.read_text().splitlines()
-        return "\n".join(all_lines[-lines:])
-    return ""
+    return "\n".join(text.splitlines()[-lines:])
 
 
 def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
-    """Run a subprocess, teeing stdout+stderr live to the log file and
-    capturing them for parsing."""
-    log_name = log_name or current_log()
-    if not log_name:
-        return subprocess.run(cmd_list, capture_output=True, text=True,
-                              timeout=timeout, env=env, cwd=cwd)
-    log_path = LOGS_DIR / f"{log_name}.log"
+    """Run a subprocess and capture stdout+stderr for parsing and failure messages."""
     quoted = " ".join(shlex.quote(a) for a in cmd_list)
-    with open(log_path, "a") as f:
-        f.write(f"\n$ {quoted}\n")
-    shell_cmd = f"set -o pipefail; {quoted} 2>&1 | tee -a {shlex.quote(str(log_path))}"
-    return subprocess.run(["bash", "-c", shell_cmd],
-                          capture_output=True, text=True,
-                          timeout=timeout, env=env, cwd=cwd)
+    logger.info("$ %s", quoted)
+    result = subprocess.run(
+        cmd_list, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd,
+    )
+    combined = (result.stdout or "") + (result.stderr or "")
+    key = log_name or _DEFAULT_LOG_KEY
+    _LAST_CMD_OUTPUT[key] = combined
+    _LAST_CMD_OUTPUT[_DEFAULT_LOG_KEY] = combined
+    return result
 
 
 def docker_exec(container, cmd, timeout=60, log_name=None):

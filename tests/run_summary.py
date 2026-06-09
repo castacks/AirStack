@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 PARAM_RE = re.compile(r"\[(.+)\]$")
-ITER_RE = re.compile(r"-iter\d+(?=\])")
+ITER_RE = re.compile(r"-iter\d+$")
 ROBOT_METRIC_RE = re.compile(r"^robot_\d+\.(.+)$")
 
 # Ordered (metric_key, label) groups per test module. Only scalar metrics with

@@ -195,17 +195,13 @@ Every run (local or CI) produces a fresh timestamped directory under `tests/resu
 
 ```
 tests/results/2025-04-21_14-30-00/
+├── summary.txt        # Human-readable key metrics — open this first
 ├── results.xml        # JUnit XML — durations + pass/fail per test
-├── metrics.json       # Custom metrics keyed by test_node_id → metric_key
-└── logs/
-    ├── test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-        ├── test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
-        ├── test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
-    ├── airstack_env.test_liveliness.TestLiveliness.test_robot_containers_running[...].log
-    └── ...
+└── metrics.json       # Custom metrics keyed by test_node_id → metric_key
 ```
 
-**One log file per test execution**, plus separate `airstack_env.*.log` files for fixture narration (the `up`/`down` of each parametrize tuple). The fixture log file is named to track the rewritten test ID so it lands next to the triggering test.
+Live output goes to the terminal during the run. Failed assertions include the
+tail of the last subprocess output inline — there is no `logs/` subdirectory.
 
 ### `metrics.json` structure
 
