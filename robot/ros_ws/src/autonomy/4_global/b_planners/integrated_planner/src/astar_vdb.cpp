@@ -242,6 +242,15 @@ int Astar::search(const openvdb::Coord &start_ijk,
                     //     continue;
                     // }
 
+                    // modal ai demo bound at RIC mocap
+                    if (nbr_xyz.x() > 4.5 || nbr_xyz.x() < -4.5 ||
+                        nbr_xyz.y() > 4.5 || nbr_xyz.y() < -4.5 ||
+                        nbr_xyz.z() > -0.5 || nbr_xyz.z() < -2.5)
+                    {
+                        close_set_.insert(nbr_ijk);
+                        continue;
+                    }
+
                     /////////////////////////////////////////////
                     // Distance Field no data (unknown) -> not free to explore
 

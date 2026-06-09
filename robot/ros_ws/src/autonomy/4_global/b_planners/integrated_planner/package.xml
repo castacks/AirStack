@@ -43,6 +43,8 @@
   <depend>message_filters</depend>
   <depend>vdb_edt</depend>
   <depend>px4_msgs</depend>
+
+  <exec_depend>rclpy</exec_depend>
   
   <export>
     <build_type>ament_cmake</build_type>

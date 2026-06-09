@@ -23,13 +23,10 @@ public:
     }
 
 private:
-    void cb(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
+    void cb(sensor_msgs::msg::PointCloud2::UniquePtr msg)
     {
-        auto out = sensor_msgs::msg::PointCloud2(*msg);
-
-        std::string ff = fixed_frame_;
-        out.header.frame_id = ff;
-        pub_->publish(out);
+        msg->header.frame_id = fixed_frame_;
+        pub_->publish(std::move(msg));
     }
 
     std::string input_topic_, output_topic_, fixed_frame_;

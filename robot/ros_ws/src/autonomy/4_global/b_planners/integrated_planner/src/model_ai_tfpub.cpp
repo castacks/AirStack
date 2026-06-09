@@ -26,7 +26,11 @@ public:
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
         odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/mocap_odom_processed", 10);
-        px4_odom_pub_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>("/fmu/in/vehicle_visual_odometry", 10);
+
+        // PX4 uXRCE-DDS subscribers use best_effort; must match for reliable delivery
+        auto px4_qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
+        px4_odom_pub_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>(
+            "/fmu/in/vehicle_visual_odometry", px4_qos);
 
         pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>("/modalai/pose",
                                                                                rclcpp::QoS(rclcpp::KeepLast(50)).reliable(),
@@ -36,11 +40,17 @@ public:
         //                                                                rclcpp::QoS(rclcpp::KeepLast(50)).best_effort(),
         //                                                                std::bind(&OdomToTfNode::odomCallback, this, std::placeholders::_1));
 
+        // Eigen::Matrix4d mat;
+        // mat << 0.99923, 0.03749, -0.01151, 0.00900,
+        //     -0.03744, 0.99929, 0.00403, 0.00115,
+        //     0.01166, -0.00360, 0.99993, 0.01700,
+        //     0.00000, 0.00000, 0.00000, 1.00000;
+        
         Eigen::Matrix4d mat;
-        mat << 0.99923, 0.03749, -0.01151, 0.00900,
-            -0.03744, 0.99929, 0.00403, 0.00115,
-            0.01166, -0.00360, 0.99993, 0.01700,
-            0.00000, 0.00000, 0.00000, 1.00000;
+        mat << 1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0;
         Eigen::Isometry3d T_mocap_rigidbody_to_imu_flu = Eigen::Isometry3d(mat);
 
         mat << 1.0, 0.0, 0.0, 0.0,
@@ -117,10 +127,9 @@ private:
         ////////////////////////////////////////////////////////////////
         px4_msgs::msg::VehicleOdometry px4_odom;
 
-        // ROS(s/ns) to PX4(us)
-        uint64_t timestamp_us = msg->header.stamp.sec * 1000000ULL + msg->header.stamp.nanosec / 1000;
-        px4_odom.timestamp = timestamp_us;
-        px4_odom.timestamp_sample = timestamp_us;
+        // Leave timestamps at 0: uXRCE-DDS client stamps with PX4 HRT on receive
+        px4_odom.timestamp = 0;
+        px4_odom.timestamp_sample = 0;
 
         px4_odom.pose_frame = px4_msgs::msg::VehicleOdometry::POSE_FRAME_FRD;
 

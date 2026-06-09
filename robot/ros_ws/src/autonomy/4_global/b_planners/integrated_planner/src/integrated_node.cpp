@@ -254,6 +254,14 @@ void PlannerNode::generate_plan()
         //     vp.pos_.y() > 2.0 || vp.pos_.y() < -2.0 ||
         //     vp.pos_.z() > -0.5 || vp.pos_.z() < -1.7)
 
+        // modal ai demo bound at RIC
+        if (vp.pos_.x() > 4.5 || vp.pos_.x() < -4.5 ||
+            vp.pos_.y() > 4.5 || vp.pos_.y() < -4.5 ||
+            vp.pos_.z() > -0.5 || vp.pos_.z() < -2.5)
+        {
+            continue;
+        }
+
         // exploration bound for site B usd
         // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||
         //     vp.pos_.y() < 0.0 || vp.pos_.y() > 25.0 ||
@@ -293,6 +301,14 @@ void PlannerNode::generate_plan()
         // if (vp.pos_.x() > 0.0 || vp.pos_.x() < -3.0 ||
         //     vp.pos_.y() > 2.0 || vp.pos_.y() < -2.0 ||
         //     vp.pos_.z() > -0.5 || vp.pos_.z() < -1.7)
+
+        // modal ai demo bound at RIC
+        if (vp.pos_.x() > 4.5 || vp.pos_.x() < -4.5 ||
+            vp.pos_.y() > 4.5 || vp.pos_.y() < -4.5 ||
+            vp.pos_.z() > -0.5 || vp.pos_.z() < -2.5)
+        {
+            continue;
+        }
 
         // exploration bound for site B usd
         // if (vp.pos_.z() < 0.0 || vp.pos_.z() > 8.0 ||

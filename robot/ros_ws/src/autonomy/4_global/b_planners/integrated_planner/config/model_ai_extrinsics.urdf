@@ -20,6 +20,13 @@
     <origin xyz="0.0303 -0.0057 -0.0116" rpy="0 0 0"/>
   </joint>
 
+  <link name="livox"/>
+  <joint name="imu_to_livox" type="fixed">
+    <parent link="imu_apps"/>
+    <child link="livox"/>
+    <origin xyz="0.01315 -0.01100 0.01047" rpy="-0.5148722 0 -1.5707963"/>
+  </joint>
+
   <link name="imu_px4"/>
   <joint name="body_to_imu_px4" type="fixed">
     <parent link="body"/>

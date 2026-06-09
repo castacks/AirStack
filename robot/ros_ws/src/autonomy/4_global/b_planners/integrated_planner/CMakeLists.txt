@@ -293,6 +293,10 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(PROGRAMS
+  scripts/straight_line_planner_node.py
+  DESTINATION lib/${PROJECT_NAME})
+
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME})

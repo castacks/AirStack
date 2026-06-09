@@ -74,11 +74,7 @@ Visualization Manager:
           Value: false
         lepton0_raw:
           Value: false
-        link7:
-          Value: false
-        link_base:
-          Value: false
-        link_eef:
+        livox:
           Value: false
         map:
           Value: true
@@ -91,8 +87,6 @@ Visualization Manager:
         tracking_front:
           Value: false
         tracking_rear:
-          Value: false
-        world:
           Value: false
       Marker Scale: 1
       Name: TF
@@ -112,6 +106,8 @@ Visualization Manager:
                   {}
                 lepton0_raw:
                   {}
+                livox:
+                  {}
                 tracking_down:
                   {}
                 tracking_front:
@@ -122,6 +118,8 @@ Visualization Manager:
                 {}
               tof:
                 {}
+          modalai:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -214,8 +212,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0.15000000596046448
-        Min Value: -4.800000190734863
+        Max Value: -9999
+        Min Value: 9999
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -358,6 +356,32 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /smoothed_plan_vis
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Straight Line Plan
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /global_plan_viz
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Trajectory Viz
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /traj_viz
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -404,25 +428,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 9.41159439086914
+      Distance: 4.966798305511475
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.5199316740036011
-        Y: 0.6300174593925476
-        Z: -0.6153649687767029
+        X: 0.14252839982509613
+        Y: 0.43699800968170166
+        Z: -0.5099543929100037
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: true
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.42479467391967773
+      Pitch: 0.32479482889175415
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.5353965759277344
+      Yaw: 4.420411586761475
     Saved: ~
 Window Geometry:
   Displays:
@@ -443,4 +467,4 @@ Window Geometry:
     collapsed: true
   Width: 1848
   X: 72
-  Y: 27
+  Y: 32
