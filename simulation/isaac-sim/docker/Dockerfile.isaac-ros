@@ -145,6 +145,10 @@ ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
+# OptiTrack NatNet emulator extension (in-repo; compose mount overrides at runtime)
+COPY extensions/optitrack.natnet.emulator /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
+
 # Install PX4 things
 RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
 

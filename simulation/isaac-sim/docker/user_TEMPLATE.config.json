@@ -544,7 +544,8 @@
             },
             "exts": {
                 "enabled": {
-                    "0": "pegasus.simulator-5.1.0"
+                    "0": "pegasus.simulator-5.1.0",
+                    "1": "optitrack.natnet.emulator-0.1.0"
                 }
             },
             "window": {

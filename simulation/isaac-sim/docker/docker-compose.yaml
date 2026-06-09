@@ -68,9 +68,11 @@ services:
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
       # pegasus integration
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
+      # optitrack natnet emulator
+      - ../extensions/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
-      - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
+      - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus + optitrack extensions; IMPORTANT: set the version number without the trailing .0
       # developer stuff
       - .dev:/isaac-sim/.dev:rw # developer config
       - .bashrc:/isaac-sim/.bashrc:rw # bash config
@@ -143,6 +145,7 @@ services:
       - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
+      - ../extensions/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
       - .dev:/isaac-sim/.dev:rw
