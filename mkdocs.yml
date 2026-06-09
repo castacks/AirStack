@@ -67,6 +67,7 @@ nav:
       - Intermediate Tutorials:
           - Testing:
               - tests/README.md
+              - Fixed-Trajectory Benchmark: docs/development/intermediate/testing/fixed_trajectory_testing.md
               - tests/ci-cd-orchestrator.md
           - Frame Conventions: docs/development/intermediate/frame_conventions.md
           - Contributing: 

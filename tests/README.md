@@ -13,11 +13,11 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 | [`test_build_docker.py`](../../../../tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
 | [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
 | [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability | Docker daemon, GPU, sim license |
-| [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `autonomy` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+| [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`test_fixed_trajectory.py`](../../../../tests/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
 
 Marks can be combined with pytest logic:
-`-m "build_docker or build_packages"`, `-m liveliness`, `-m takeoff_hover_land`.
+`-m "build_docker or build_packages"`, `-m liveliness`, `-m takeoff_hover_land`, `-m autonomy`.
 
 ---
 
@@ -198,6 +198,9 @@ airstack test -m takeoff_hover_land \
 
 ## Fixed Trajectory Tests (`test_fixed_trajectory.py`)
 
+!!! note "Detailed guide"
+    For the full path-tracker benchmark documentation — architecture, metrics, CLI reference, comparing trackers, bug fixes, and baselines — see **[Fixed-Trajectory Path-Tracker Benchmark](../docs/development/intermediate/testing/fixed_trajectory_testing.md)**.
+
 `TestFixedTrajectory` runs a **4-phase flight chain** for every combination of
 `(sim, num_robots, iteration, trajectory_type)`. For each trajectory type the drone
 takes off, executes the pattern, then lands — regardless of whether the trajectory
@@ -234,9 +237,8 @@ runs so the drone returns to the ground before the next trajectory type starts.
 | `final_altitude_m` | m | Altitude at landing action completion |
 | `land_duration_sim_s` | s | Sim-time from 80 % peak descent to < 0.5 m |
 
-Cross-track error tolerance is set to **5.0 m** — deliberately loose because the circle
-trajectory is known to fail. The test documents the current deviation while still
-completing the full flight cycle.
+
+Metrics reported in one .txt file called summary.txt which automatically populates once your run completes 
 
 ### Default trajectory parameters
 
