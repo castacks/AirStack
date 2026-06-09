@@ -251,28 +251,47 @@ adb shell
 Once inside, check that the two services the interface depends on are running:
 
 ```bash
-# voxl-mpa-to-ros2 publishes /qvio — the visual-inertial odometry the interface reads
-voxl-inspect-services | grep mpa-to-ros
+# The MicroXRCE-DDS bridge — bridges PX4's internal topics to ROS 2
+systemctl status voxl-microdds-agent
 
-# The MicroXRCE-DDS bridge publishes PX4's internal topics over ROS 2
-voxl-inspect-services | grep px4
+# PX4 flight controller
+systemctl status voxl-px4
 ```
 
-Both should show as running. If either is not running, start it:
+Both should show `active (running)`. If either is not:
 
 ```bash
-voxl-start-services voxl-mpa-to-ros2
-voxl-start-services voxl-px4-to-ros   # name may vary — check voxl-inspect-services
+systemctl start voxl-microdds-agent
+systemctl start voxl-px4
 ```
 
-While still in the ADB shell, find the VOXL2's IP address on the shared network and its ROS domain ID:
+> **Note:** On Starling 2 Max firmware, `voxl-inspect-services` and `voxl-start-services` do not exist — use `systemctl` instead. The commands below are kept for reference on older firmware only.
+>
+> ```bash
+> # (older firmware only — may not work)
+> # voxl-inspect-services | grep mpa-to-ros
+> # voxl-inspect-services | grep px4
+> # voxl-start-services voxl-mpa-to-ros2
+> # voxl-start-services voxl-px4-to-ros
+> ```
+
+Next, start `voxl-mpa-to-ros2`. On Starling 2 Max firmware it is not a systemd service — run it manually:
 
 ```bash
-ip addr show wlan0   # or eth0 depending on connection type
-printenv ROS_DOMAIN_ID
+source /opt/ros/foxy/mpa_to_ros2/install/setup.bash
+nohup ros2 run voxl_mpa_to_ros2 voxl_mpa_to_ros2_node > /tmp/mpa_to_ros2.log 2>&1 &
 ```
 
-Write down the IP and domain ID. You will need them on the workstation side. Then exit the ADB shell:
+> **Note:** On this firmware VIO is published on `/vvhub_body_wrt_fixed/pose` instead of `/qvio`. `modalai_hardware.launch.xml` has been updated accordingly. If you are on firmware that does publish `/qvio`, revert the `voxl_qvio_topic` arg in that launch file.
+
+Find the VOXL2's IP address and ROS domain ID:
+
+```bash
+ip addr show eth0   # or wlan0
+printenv ROS_DOMAIN_ID   # empty means domain 0
+```
+
+Write down the IP and domain ID. Then exit the ADB shell:
 
 ```bash
 exit
@@ -292,11 +311,11 @@ You should get replies. If not, the drone and workstation are not on the same ne
 
 ### Step 4 — Set COM_RCL_EXCEPT on the drone
 
-This PX4 parameter allows arming in offboard mode without a physical RC transmitter connected. Set it via QGroundControl (Parameters tab, search `COM_RCL_EXCEPT`, set to `4`), or from the ADB shell:
+This PX4 parameter allows arming in offboard mode without a physical RC transmitter connected. From the ADB shell, open the PX4 console and set it:
 
 ```bash
-adb shell
-# Once inside:
+voxl-px4-shell
+# Now at the PX4 prompt (pxh>):
 param set COM_RCL_EXCEPT 4
 exit
 ```
@@ -346,7 +365,7 @@ EOF'
 
 ### Step 7 — Launch modalai_interface
 
-Use `modalai_hardware.launch.xml`. This is the same as the sim launch except it does not start `sim_qvio_bridge` — the real VOXL2 publishes `/qvio` directly. Replace `<VOXL_DOMAIN>` with the domain ID you found in Step 2.
+Use `modalai_hardware.launch.xml`. This is the same as the sim launch except it does not start `sim_qvio_bridge` — the real VOXL2 publishes VIO directly. Replace `<VOXL_DOMAIN>` with the domain ID you found in Step 2 (use `0` if `ROS_DOMAIN_ID` was empty).
 
 ```bash
 docker exec -d airstack-robot-desktop-1 bash -c \
@@ -361,7 +380,7 @@ sleep 10
 
 ### Step 8 — Verify odometry is flowing from the drone
 
-This confirms the full path: VOXL2 publishes `/qvio` → modalai_interface converts NED/FRD to ENU/FLU → `/robot_1/interface/odometry`. If the drone is sitting still you should see near-zero position values.
+This confirms the full path: VOXL2 publishes VIO (`/vvhub_body_wrt_fixed/pose` on Starling 2 Max firmware) → modalai_interface converts NED/FRD to ENU/FLU → `/robot_1/interface/odometry`. If the drone is sitting still you should see near-zero position values.
 
 ```bash
 docker exec airstack-robot-desktop-1 bash -c \
@@ -381,7 +400,7 @@ This is identical to the simulation test. The interface receives the arm command
 docker exec airstack-robot-desktop-1 bash -c \
   "source /root/AirStack/robot/ros_ws/install/setup.bash && \
    FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml \
-   ROS_DOMAIN_ID=<VOXL_DOMAIN> PX4_NAMESPACE=px4_1 ROBOT_NAME=robot_1 \
+   ROS_DOMAIN_ID=<VOXL_DOMAIN> ROBOT_NAME=robot_1 \
    python3 /root/AirStack/robot/ros_ws/src/interface/modalai_interface/scripts/prop_spin_test.py 15"
 ```
 
@@ -394,6 +413,18 @@ The script will print `interface verified` if PX4 armed successfully, then disar
 ```bash
 airstack down
 ```
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `voxl-open-vins-server` repeatedly logs `In init too long, timeout, retry RESET` | IMU overheated or needs recalibration | Power off the drone for 10 minutes to cool, then retry. If it persists, recalibrate IMU/accelerometer via QGroundControl (Sensors tab). |
+| `voxl-open-vins-server` logs `Cannot initialize FRD to IMU transform--too much drift` | Same as above — IMU bias too high for VIO to initialize | Same fix: cool down + recalibrate. |
+| `voxl-camera-server` logs `preview buffer pool has 0 free, skipping request` | Too many consumers of the tracking camera stream | Kill any extra `voxl_mpa_to_ros2_node` instances (`pkill -f voxl_mpa_to_ros2_node`) and restart camera/VIO services. |
+| `ros2 topic hz /vvhub_body_wrt_fixed/pose` returns nothing | `voxl_mpa_to_ros2_node` not running or died after shell exit | Re-run the `nohup ros2 run ...` command from Step 2 in a new ADB shell. |
+| Prop spin test times out waiting for PX4 to arm | VIO not initialized → PX4 EKF unhealthy | Ensure `voxl-open-vins-server` is running cleanly and `/vvhub_body_wrt_fixed/pose` is publishing before running the test. |
 
 ---
 

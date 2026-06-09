@@ -25,10 +25,11 @@ from px4_msgs.msg import VehicleControlMode
 from airstack_msgs.srv import RobotCommand
 
 DURATION    = int(sys.argv[1]) if len(sys.argv) > 1 else 15
-NS          = os.environ.get("PX4_NAMESPACE", "px4_1")
+NS          = os.environ.get("PX4_NAMESPACE", "")
 ROBOT_NAME  = os.environ.get("ROBOT_NAME", "robot_1")
-SERVICE     = f"/{NS}/fmu/robot_command"
-VEL_CMD     = f"/{NS}/fmu/cmd_velocity"
+FMU_PREFIX  = f"/{NS}/fmu" if NS else "/fmu"
+SERVICE     = f"{FMU_PREFIX}/robot_command"
+VEL_CMD     = f"{FMU_PREFIX}/cmd_velocity"
 IFACE_ODOM  = f"/{ROBOT_NAME}/interface/odometry"
 
 
@@ -41,7 +42,7 @@ def main():
 
     qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT, durability=DurabilityPolicy.VOLATILE)
     px4_armed = [False]
-    node.create_subscription(VehicleControlMode, f"/{NS}/fmu/out/vehicle_control_mode",
+    node.create_subscription(VehicleControlMode, f"{FMU_PREFIX}/out/vehicle_control_mode",
                               lambda m: px4_armed.__setitem__(0, m.flag_armed), qos)
 
     odom_received = [False]

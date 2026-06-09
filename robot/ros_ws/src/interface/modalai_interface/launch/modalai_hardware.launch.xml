@@ -4,6 +4,6 @@
          and publishing on /qvio. -->
     <include file="$(find-pkg-share modalai_interface)/launch/modalai_interface.launch.xml">
         <arg name="use_sim_qvio_bridge" value="false" />
-        <arg name="voxl_qvio_topic"     value="/qvio" />
+        <arg name="voxl_qvio_topic"     value="/vvhub_body_wrt_fixed/pose" />
     </include>
 </launch>
