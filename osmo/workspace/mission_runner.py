@@ -52,22 +52,38 @@ DEFAULT_ROBOT_SETUP_BASH = "/root/AirStack/robot/ros_ws/install/setup.bash"
 GCS_SETUP_BASH = "/root/AirStack/gcs/ros_ws/install/setup.bash"
 ROBOT_CONTAINER_PATTERN = "robot.*desktop"
 
-# Topics recorded when the mission spec doesn't list its own. {robot}
-# expands to robot_<n> per robot. /tf + /tf_static are what let a Foxglove
-# 3D panel pose anything at all during replay.
-DEFAULT_RECORD_TOPICS = [
+# Default topics for `record.scope: gcs` — one recorder in the GCS container
+# on domain 0, where each robot's domain_bridge (autonomy_bringup
+# onboard_all/config/domain_bridge.yaml) forwards its state topics. All
+# robots land in ONE mcap, and replaying it in Foxglove reproduces the live
+# GCS view (gcs_visualizer markers are already in the global 'map' frame).
+# {robot} expands to robot_1..robot_N and the result is unioned.
+DEFAULT_GCS_RECORD_TOPICS = [
     "/tf",
     "/tf_static",
-    "/{robot}/odometry",
-    "/{robot}/interface/mavros/local_position/odom",
-    "/{robot}/odom_ground_truth",
+    "/{robot}/odometry_conversion/odometry",
+    "/{robot}/interface/mavros/global_position/global",
+    "/{robot}/trajectory_controller/trajectory_vis",
+    "/{robot}/global_plan",
+    "/gcs/robot_markers",
+    "/gcs/map_origin/location",
+    "/gcs/map_origin/ground_msl",
+    "/gcs/{robot}/location",
+]
+
+# Default topics for `record.scope: robot` — one recorder (and one mcap) per
+# robot on its own DDS domain. Use this scope for topics that are NOT
+# bridged to the GCS (raw sensors, high-rate local topics).
+DEFAULT_ROBOT_RECORD_TOPICS = [
+    "/tf",
+    "/tf_static",
+    "/{robot}/odometry_conversion/odometry",
+    "/{robot}/interface/mavros/global_position/global",
     "/{robot}/global_plan",
 ]
 
 # In-container staging dir for bag recordings (docker cp'd out before the
-# stack goes down). Lives in robot container 1 regardless of robot count —
-# all replicas share the bridge network, so any container reaches any
-# robot's DDS domain by exporting that robot's ROS_DOMAIN_ID.
+# stack goes down).
 BAG_STAGING_DIR = "/tmp/osmo_bags"
 
 # Tasks the GCS action_relay bridges (gcs/ros_ws/src/action_relay). Goals for
@@ -80,7 +96,10 @@ MISSION_DEFAULTS = {
     "iterations": 1,
     "on_step_failure": "abort_iteration",  # continue | abort_iteration | abort_mission
     "ready": {"timeout_s": 600, "poll_interval_s": 5},
-    "record": {"enabled": True},
+    # scope "gcs": one recorder on GCS domain 0 → one mcap with every robot's
+    # bridged topics (default). scope "robot": one recorder + one mcap per
+    # robot on its own domain (for unbridged/high-rate topics).
+    "record": {"enabled": True, "scope": "gcs"},
     # How the stack is brought up. Either (or both):
     #   services: [isaac-sim, robot-desktop, gcs]  → ./airstack.sh up <services>
     #     (compose auto-enables a named service's profile)
@@ -186,6 +205,9 @@ def load_mission(path):
                          f"got {merged['on_step_failure']!r}")
     if merged["command_route"] not in ("gcs", "robot"):
         raise ValueError(f"command_route must be gcs|robot, got {merged['command_route']!r}")
+    if merged["record"].get("scope", "gcs") not in ("gcs", "robot"):
+        raise ValueError(f"record.scope must be gcs|robot, "
+                         f"got {merged['record'].get('scope')!r}")
     for step in merged["steps"]:
         action = step.get("action") if isinstance(step, dict) else None
         if action:
@@ -216,6 +238,15 @@ def step_robots(step_spec, num_robots):
     if robots == "all":
         return list(range(1, num_robots + 1))
     return [int(r) for r in robots]
+
+
+def uses_gcs_route(mission):
+    """True if any action step routes through the GCS action_relay."""
+    for step in mission["steps"]:
+        action = step.get("action") if isinstance(step, dict) else None
+        if action and action.get("via", mission["command_route"]) == "gcs":
+            return True
+    return False
 
 
 # ── stack lifecycle ────────────────────────────────────────────────────────
@@ -307,13 +338,46 @@ class Stack:
             raise RuntimeError(f"robots {pending} not ready within {cfg['timeout_s']}s "
                                f"(connected so far: {sorted(connected)})")
         log(f"PX4 ready: {ready_at}")
+
+        # Gate 3 (only when actions route via the GCS): the per-robot
+        # action_relay nodes must be up on the GCS before goals are sent —
+        # the relay's goal subscription is volatile, so a goal published
+        # before the relay exists is silently lost.
+        if uses_gcs_route(self.mission):
+            while time.time() < deadline:
+                gcs = gcs_container()
+                if gcs:
+                    r = ros2_exec(gcs, "timeout 10 ros2 node list",
+                                  domain_id=0, setup_bash=GCS_SETUP_BASH, timeout=20)
+                    missing = [n for n in range(1, self.num_robots + 1)
+                               if f"action_relay_robot_{n}" not in r.stdout]
+                    if not missing:
+                        ready_at["gcs_relay"] = round(time.time() - started, 2)
+                        log(f"GCS action_relay ready ({ready_at['gcs_relay']}s)")
+                        break
+                    log(f"waiting for GCS action_relay: missing robots {missing}")
+                else:
+                    log("waiting for gcs container")
+                time.sleep(cfg["poll_interval_s"])
+            if "gcs_relay" not in ready_at:
+                raise RuntimeError(
+                    f"GCS action_relay not ready within {cfg['timeout_s']}s — "
+                    f"is the gcs service in stack.services/profiles and "
+                    f"AUTOLAUNCH=true? (or set command_route: robot)")
         return ready_at
 
 
 # ── bag recording ──────────────────────────────────────────────────────────
 
 class Recorder:
-    """One `ros2 bag record -s mcap` per robot, all inside robot container 1.
+    """`ros2 bag record -s mcap` per the mission's record.scope.
+
+    scope "gcs" (default): a single recorder in the GCS container on domain
+    0, where every robot's domain_bridge forwards its state topics — one
+    mcap holds all robots, and Foxglove replay matches the live GCS view.
+
+    scope "robot": one recorder per robot inside robot container 1, each on
+    that robot's DDS domain — for topics that aren't bridged to the GCS.
 
     Each recorder is started detached with its PID dropped to a file, and
     stopped with SIGTERM so rosbag2 finalizes the mcap cleanly. (Not SIGINT:
@@ -321,47 +385,75 @@ class Recorder:
     SIG_IGN, so it would never be delivered; rosbag2 handles SIGTERM the
     same way.) Bags are docker cp'd to the host before the stack goes down."""
 
-    def __init__(self, container, mission, num_robots, setup_bash):
-        self.container = container
+    def __init__(self, robot_container, mission, num_robots, setup_bash):
+        self.robot_container = robot_container
         self.cfg = mission["record"]
+        self.scope = self.cfg.get("scope", "gcs")
         self.num_robots = num_robots
         self.setup_bash = setup_bash
+        # (container, domain_id, tag) per active recorder.
         self.active = []
+
+    def _topic_selection(self, robots):
+        """Build the `ros2 bag record` topic args; `robots` is the list of
+        robot indices whose {robot}/{n} placeholders to expand (unioned,
+        order-preserving, deduplicated)."""
+        if self.cfg.get("all"):
+            return "-a"
+        default = (DEFAULT_GCS_RECORD_TOPICS if self.scope == "gcs"
+                   else DEFAULT_ROBOT_RECORD_TOPICS)
+        topics = []
+        for t in self.cfg.get("topics", default):
+            if "{robot}" in t or "{n}" in t:
+                topics.extend(expand(t, n) for n in robots)
+            else:
+                topics.append(t)
+        seen = set()
+        unique = [t for t in topics if not (t in seen or seen.add(t))]
+        return " ".join(shlex.quote(t) for t in unique)
+
+    def _start_one(self, container, domain_id, tag, selection, setup_bash):
+        out_dir = f"{BAG_STAGING_DIR}/{tag}"
+        inner = (
+            f"{ros2_env_prefix(setup_bash, domain_id)} && "
+            f"mkdir -p {BAG_STAGING_DIR} && rm -rf {out_dir} && "
+            # nohup + pidfile: the record process must outlive this docker
+            # exec; topics that don't exist yet are fine (record waits).
+            f"nohup ros2 bag record -s mcap -o {out_dir} {selection} "
+            f"> {BAG_STAGING_DIR}/record_{tag}.log 2>&1 & "
+            f"echo $! > {BAG_STAGING_DIR}/record_{tag}.pid"
+        )
+        r = docker_exec(container, inner, timeout=30)
+        if r.returncode == 0:
+            self.active.append((container, tag))
+            n_topics = "all topics" if selection == "-a" else f"{len(selection.split())} topics"
+            log(f"recording [{tag}] in {container} (domain {domain_id}) "
+                f"→ {out_dir} ({n_topics})")
+        else:
+            log(f"WARN: failed to start recorder [{tag}]: {r.stderr.strip()[:200]}")
 
     def start(self):
         if not self.cfg.get("enabled", True):
             log("recording disabled by mission spec")
             return
-        docker_exec(self.container,
-                    f"rm -rf {BAG_STAGING_DIR} && mkdir -p {BAG_STAGING_DIR}", timeout=15)
-        for n in range(1, self.num_robots + 1):
-            if self.cfg.get("all"):
-                selection = "-a"
-            else:
-                topics = [expand(t, n) for t in self.cfg.get("topics", DEFAULT_RECORD_TOPICS)]
-                selection = " ".join(shlex.quote(t) for t in topics)
-            out_dir = f"{BAG_STAGING_DIR}/robot_{n}"
-            inner = (
-                f"{ros2_env_prefix(self.setup_bash, n)} && "
-                # nohup + pidfile: the record process must outlive this
-                # docker exec; --include-hidden-topics is not needed, and
-                # unknown listed topics are fine (record waits for them).
-                f"nohup ros2 bag record -s mcap -o {out_dir} {selection} "
-                f"> {BAG_STAGING_DIR}/record_{n}.log 2>&1 & "
-                f"echo $! > {BAG_STAGING_DIR}/record_{n}.pid"
-            )
-            r = docker_exec(self.container, inner, timeout=30)
-            if r.returncode == 0:
-                self.active.append(n)
-                log(f"recording robot_{n} → {out_dir} "
-                    f"({'all topics' if self.cfg.get('all') else f'{len(selection.split())} topics'})")
-            else:
-                log(f"WARN: failed to start recorder for robot_{n}: {r.stderr.strip()[:200]}")
+        robots = list(range(1, self.num_robots + 1))
+        if self.scope == "gcs":
+            gcs = gcs_container()
+            if not gcs:
+                log("WARN: record.scope is 'gcs' but no gcs container is running — "
+                    "recording skipped (bring up the gcs service or use scope: robot)")
+                return
+            self._start_one(gcs, 0, "gcs", self._topic_selection(robots),
+                            GCS_SETUP_BASH)
+        else:
+            for n in robots:
+                self._start_one(self.robot_container, n, f"robot_{n}",
+                                self._topic_selection([n]), self.setup_bash)
 
     def stop(self):
-        for n in self.active:
-            docker_exec(self.container, f"""
-                pid=$(cat {BAG_STAGING_DIR}/record_{n}.pid 2>/dev/null) || exit 0
+        for container, tag in self.active:
+            docker_exec(container, f"""
+                pid=$(cat {BAG_STAGING_DIR}/record_{tag}.pid 2>/dev/null) || exit 0
                 kill -TERM "$pid" 2>/dev/null || exit 0
                 for i in $(seq 1 20); do
                     kill -0 "$pid" 2>/dev/null || exit 0
@@ -370,20 +462,21 @@ class Recorder:
                 kill -9 "$pid" 2>/dev/null || true
             """, timeout=40)
         if self.active:
-            log(f"recorders stopped for robots {self.active}")
-        self.active = []
+            log(f"recorders stopped: {[tag for _, tag in self.active]}")
 
     def collect(self, dest_dir):
-        if not self.cfg.get("enabled", True):
+        if not self.active:
             return
         dest_dir.mkdir(parents=True, exist_ok=True)
-        r = sh(["docker", "cp", f"{self.container}:{BAG_STAGING_DIR}/.", str(dest_dir)],
-               timeout=1800)
-        if r.returncode != 0:
-            log(f"WARN: docker cp of bags failed: {r.stderr.strip()[:200]}")
-        else:
-            mcaps = list(dest_dir.rglob("*.mcap"))
-            log(f"collected {len(mcaps)} mcap file(s) → {dest_dir}")
+        for container in {c for c, _ in self.active}:
+            r = sh(["docker", "cp", f"{container}:{BAG_STAGING_DIR}/.", str(dest_dir)],
+                   timeout=1800)
+            if r.returncode != 0:
+                log(f"WARN: docker cp of bags from {container} failed: "
+                    f"{r.stderr.strip()[:200]}")
+        self.active = []
+        mcaps = list(dest_dir.rglob("*.mcap"))
+        log(f"collected {len(mcaps)} mcap file(s) → {dest_dir}")
 
 
 # ── step execution ─────────────────────────────────────────────────────────
