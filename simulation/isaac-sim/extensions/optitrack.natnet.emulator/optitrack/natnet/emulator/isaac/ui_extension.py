@@ -26,6 +26,7 @@ from __future__ import annotations
 import omni.ext
 
 from .config import VALID_MODES, BodyBinding, NatNetInterfaceConfig
+from .manager import NatNetServerManager
 from .usd_bindings import author_interface, find_interfaces, read_interface
 
 _DEFAULT_PRIM_PATH = "/World/NatNetInterface"
@@ -39,10 +40,15 @@ class NatNetEmulatorExtension(omni.ext.IExt):
         self._window = None
         self._bodies_frame = None
         self._cfg = NatNetInterfaceConfig()
+        self._manager = NatNetServerManager()
+        self._manager.on_startup()
         self._add_menu()
 
     def on_shutdown(self):
         self._remove_menu()
+        if self._manager is not None:
+            self._manager.on_shutdown()
+            self._manager = None
         if self._window is not None:
             self._window.destroy()
             self._window = None
@@ -98,6 +104,7 @@ class NatNetEmulatorExtension(omni.ext.IExt):
                     ui.Button("Create Server", clicked_fn=self._create_server)
                     ui.Button("Save", clicked_fn=self._save)
                     ui.Button("Load from Stage", clicked_fn=self._load_from_stage)
+                    ui.Button("Print config", clicked_fn=self._print_config)
 
                 ui.Label(
                     "\u26a0  Remember to save after each edit",
@@ -323,6 +330,11 @@ class NatNetEmulatorExtension(omni.ext.IExt):
             self._cfg = read_interface(prim)
             carb.log_info(f"[natnet] Loaded interface from {prim.GetPath().pathString}.")
         self._refresh()
+
+    def _print_config(self):
+        # Print whatever is authored on the stage (the source of truth).
+        if self._manager is not None:
+            self._manager.scan_and_print()
 
     def _create_server(self):
         import carb

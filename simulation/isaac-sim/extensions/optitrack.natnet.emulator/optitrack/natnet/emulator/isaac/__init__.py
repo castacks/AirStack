@@ -13,6 +13,7 @@ from .config import (
     body_attr_name,
     make_instance_key,
 )
+from .manager import NatNetServerManager, format_interface
 from .usd_bindings import (
     author_interface,
     find_interfaces,
@@ -23,9 +24,11 @@ from .usd_bindings import (
 __all__ = [
     "BodyBinding",
     "NatNetInterfaceConfig",
+    "NatNetServerManager",
     "author_interface",
     "body_attr_name",
     "find_interfaces",
+    "format_interface",
     "is_interface",
     "make_instance_key",
     "read_interface",
