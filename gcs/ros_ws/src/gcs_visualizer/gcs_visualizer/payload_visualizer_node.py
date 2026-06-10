@@ -408,6 +408,74 @@ class PayloadVisualizerNode(Node):
         m.points = pts
         return m
 
+    # DWN → ENU: rotate 90° clockwise about Y, then 90° clockwise about Z.
+    # R = Rz(-90°) @ Ry(-90°)  →  (x, y, z) → (y, z, x)
+    _RAYS_DWN_TO_ENU = (
+        (0.0, 0.0, 1.0),
+        (1.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0),
+    )
+
+    def _handle_rays_sim_all(self, robot_name, msg, i, now):
+        """All rayfronts rays as a LINE_LIST. The cloud arrives in the rayfronts
+        global DWN frame; a single rotation matrix maps both ray origins and
+        directions into ENU for display."""
+        import math
+        from sensor_msgs_py import point_cloud2 as pc2
+
+        bz = self._display_z_offset()
+        arrow_len = 2.0
+        color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
+        R = self._RAYS_DWN_TO_ENU
+
+        try:
+            pts = list(pc2.read_points(msg, field_names=('x', 'y', 'z', 'theta', 'phi'),
+                                       skip_nans=True))
+        except Exception:
+            return
+        if not pts:
+            return
+
+        m = Marker()
+        m.header.frame_id = 'map'
+        m.header.stamp = now
+        m.ns = f'{robot_name}_rays_sim_all'
+        m.id = i * 100000
+        m.type = Marker.LINE_LIST
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = 0.08
+        m.color.r = color[0]
+        m.color.g = color[1]
+        m.color.b = color[2]
+        m.color.a = 0.5
+        m.lifetime = Duration(sec=2, nanosec=0)
+
+        def rot(v):
+            return (R[0][0] * v[0] + R[0][1] * v[1] + R[0][2] * v[2],
+                    R[1][0] * v[0] + R[1][1] * v[1] + R[1][2] * v[2],
+                    R[2][0] * v[0] + R[2][1] * v[1] + R[2][2] * v[2])
+
+        for p in pts:
+            px, py, pz = rot((float(p[0]), float(p[1]), float(p[2])))
+            theta = math.radians(float(p[3]))
+            phi = math.radians(float(p[4]))
+            # Direction from spherical angles in the source frame, then the
+            # same rotation as the origins (theta=azimuth, phi=polar from Z —
+            # matches raven_nav's decode of this cloud).
+            d = (math.cos(theta) * math.sin(phi),
+                 math.sin(theta) * math.sin(phi),
+                 math.cos(phi))
+            dx, dy, dz = rot(d)
+            m.points.append(GPoint(x=px, y=py, z=pz + bz))
+            m.points.append(GPoint(x=px + arrow_len * dx,
+                                   y=py + arrow_len * dy,
+                                   z=pz + bz + arrow_len * dz))
+
+        out = MarkerArray()
+        out.markers.append(m)
+        self._pub_for(f'/gcs/payload/{robot_name}/rays_sim_all', MarkerArray).publish(out)
+
     PAYLOAD_HANDLERS = {
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
         'raw_frontiers':              ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
@@ -416,6 +484,7 @@ class PayloadVisualizerNode(Node):
         'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),
+        'all':                        ('sensor_msgs/msg/PointCloud2',        _handle_rays_sim_all),
     }
 
 
