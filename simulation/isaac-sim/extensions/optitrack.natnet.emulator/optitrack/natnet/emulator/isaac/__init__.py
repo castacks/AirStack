@@ -13,12 +13,14 @@ from .config import (
     body_attr_name,
     make_instance_key,
 )
-from .manager import NatNetServerManager, format_interface
+from .catalog import build_catalog, find_duplicate_targets
+from .manager import NatNetServerManager, default_server_factory, format_interface
 from .usd_bindings import (
     author_interface,
     find_interfaces,
     is_interface,
     read_interface,
+    resolve_targets,
 )
 
 __all__ = [
@@ -27,9 +29,13 @@ __all__ = [
     "NatNetServerManager",
     "author_interface",
     "body_attr_name",
+    "build_catalog",
+    "default_server_factory",
+    "find_duplicate_targets",
     "find_interfaces",
     "format_interface",
     "is_interface",
     "make_instance_key",
     "read_interface",
+    "resolve_targets",
 ]

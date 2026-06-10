@@ -101,10 +101,22 @@ class NatNetEmulatorExtension(omni.ext.IExt):
                 ui.Label("NatNet interface", height=0, style={"font_size": 16})
 
                 with ui.HStack(height=28, spacing=6):
-                    ui.Button("Create Server", clicked_fn=self._create_server)
+                    ui.Button("Create Interface", clicked_fn=self._create_server)
                     ui.Button("Save", clicked_fn=self._save)
                     ui.Button("Load from Stage", clicked_fn=self._load_from_stage)
                     ui.Button("Print config", clicked_fn=self._print_config)
+
+                running = self._manager is not None and self._manager.is_running
+                with ui.HStack(height=28, spacing=6):
+                    ui.Button(
+                        "Stop Server" if running else "Start Server",
+                        clicked_fn=self._toggle_server,
+                    )
+                    ui.Label(
+                        f"Server: {'RUNNING' if running else 'stopped'}",
+                        width=0,
+                        style={"color": 0xFF33CC33 if running else 0xFF888888},
+                    )
 
                 ui.Label(
                     "\u26a0  Remember to save after each edit",
@@ -335,6 +347,28 @@ class NatNetEmulatorExtension(omni.ext.IExt):
         # Print whatever is authored on the stage (the source of truth).
         if self._manager is not None:
             self._manager.scan_and_print()
+
+    def _toggle_server(self):
+        # Start/stop the live server at the click of this button, regardless of the
+        # serverEnabled attribute. Builds from the prim that's actually on the stage.
+        import carb
+
+        if self._manager is None:
+            return
+        if not self._manager.is_running:
+            prim = self._find_interface()
+            if prim is None:
+                carb.log_warn("[natnet] No interface on stage — Create/Save one first.")
+                return
+            cfg = read_interface(prim)
+            self._manager.log_target_diagnostics(cfg)
+            try:
+                self._manager.start_server(cfg)
+            except Exception as exc:  # noqa: BLE001 - surface to the user
+                carb.log_error(f"[natnet] Could not start server: {exc}")
+        else:
+            self._manager.stop_server()
+        self._refresh()
 
     def _create_server(self):
         import carb

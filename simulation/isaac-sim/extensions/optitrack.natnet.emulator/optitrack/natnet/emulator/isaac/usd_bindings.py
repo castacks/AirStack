@@ -113,6 +113,23 @@ def is_interface(prim) -> bool:
     return bool(attr and attr.HasAuthoredValue() and bool(attr.Get()))
 
 
+def resolve_targets(stage, config):
+    """Split a config's bodies into (existing, missing) by target prim presence.
+
+    A body whose ``target_prim`` is empty or points at a non-existent prim lands in
+    ``missing``. Returns two lists of :class:`BodyBinding`.
+    """
+    existing = []
+    missing = []
+    for body in config.bodies:
+        prim = stage.GetPrimAtPath(body.target_prim) if body.target_prim else None
+        if prim is not None and prim.IsValid():
+            existing.append(body)
+        else:
+            missing.append(body)
+    return existing, missing
+
+
 # --- internal helpers ----------------------------------------------------------
 
 
