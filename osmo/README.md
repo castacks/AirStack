@@ -7,11 +7,17 @@ through [NVIDIA OSMO](https://github.com/NVIDIA/OSMO):
 osmo/
 ├── README.md                     # This file (admin / operator reference)
 ├── workflows/
-│   └── airstack-dev.yaml         # The OSMO workflow students submit
+│   ├── airstack-dev.yaml         # Interactive dev workflow (IDE over Remote-SSH)
+│   └── airstack-mission.yaml     # Batch mission workflow (unattended flights)
+├── missions/
+│   ├── README.md                 # Mission spec schema reference
+│   └── example_takeoff_land.yaml # Reference mission: takeoff → hover → land ×3
 └── workspace/
     ├── Dockerfile                # The airstack-osmo-workspace image
     ├── sshd_config               # Pubkey-only sshd config baked into the image
-    └── entrypoint.sh             # Pod startup: sshd, dockerd, clone, airstack up
+    ├── entrypoint.sh             # Pod startup: sshd, dockerd, clone, then
+    │                             #   dev mode (airstack up) or mission mode
+    └── mission_runner.py         # Batch executor (run from the clone, not the image)
 ```
 
 The student-facing walkthrough lives in
@@ -21,9 +27,9 @@ README is the **lab admin / operator** reference: pool requirements,
 workspace image build & push, validation stages, plus a credential summary
 for context.
 
-> **Scope:** developer workflow only. CI/CD on OSMO is **not** part of this
-> integration — the existing `system-tests.yml` + OpenStack orchestrator path
-> is unchanged.
+> **Scope:** developer workflow + batch missions. CI/CD on OSMO is **not**
+> part of this integration — the existing `system-tests.yml` + OpenStack
+> orchestrator path is unchanged.
 
 ## Architecture in one minute
 
@@ -46,6 +52,49 @@ app.foxglove.dev   ── ws ────►  port-forward 8766 ────► 
                                                        │
                                             airstack.sh up brings these 3 up
 ```
+
+## Mission mode (batch runs)
+
+`airstack-mission.yaml` reuses the same workspace image and DinD pod, but
+instead of one interactive `airstack up`, the entrypoint hands off to
+[`workspace/mission_runner.py`](workspace/mission_runner.py), which executes
+a declarative mission spec from [`missions/`](missions/) — repeated cycles of:
+
+```
+airstack down → airstack up → wait for PX4 ready → record mcap bags
+→ run steps (takeoff / land / navigate / semantic search / any ros2 command)
+→ collect bags + container logs → airstack down
+```
+
+Submit, monitor, and download:
+
+```bash
+airstack osmo:mission osmo/missions/example_takeoff_land.yaml --pool <gpu-pool>
+airstack osmo:logs                 # follow mission progress
+airstack osmo:fetch ./results/     # rsync bags/logs/summaries to the laptop
+airstack osmo:down                 # cancel (fetch first — results die with the pod)
+```
+
+Key behaviors:
+
+- **The mission spec and runner come from the clone**, not the image — what
+  you push on your branch is what runs. The workspace image only needs a
+  rebuild when `Dockerfile`, `sshd_config`, or `entrypoint.sh` change.
+- **Bags are mcap** (`ros2 bag record -s mcap`) — open the `.mcap` files
+  directly in Foxglove, no conversion or local ROS install.
+- **Results location:** `/osmo/output/airstack-mission-results/<mission>/<stamp>/`
+  with a symlink at `/root/AirStack/osmo/results` (the path `osmo:fetch`
+  pulls). Artifacts are collected even for failed iterations.
+- **`OSMO_MISSION_KEEP_ALIVE`** (default `true`): the pod sleeps after the
+  mission so you can fetch over ssh. Set `false` (or submit with
+  `osmo:mission --no-keep-alive`) for fire-and-forget: the task exits
+  cleanly when the mission ends, freeing the GPU — and if the workflow's
+  `outputs:` block is configured with a destination bucket, OSMO uploads
+  `/osmo/output` automatically on that exit. A **canceled** workflow does
+  not upload outputs, so in keep-alive mode `osmo:fetch` is the retrieval
+  path.
+
+Mission spec schema and step types: [`missions/README.md`](missions/README.md).
 
 ## Pool requirements
 

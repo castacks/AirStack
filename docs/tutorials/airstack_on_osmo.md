@@ -547,6 +547,45 @@ osmo workflow cancel $WF
 
 </details>
 
+## Batch missions (unattended runs)
+
+Everything above is the *interactive* workflow. The same pod can instead run
+**missions**: declarative YAML files (in
+[`osmo/missions/`](https://github.com/castacks/AirStack/blob/main/osmo/missions/))
+that script repeated cycles of bring-up → fly → record → tear-down with no
+human attached. Each iteration restarts the containers, records mcap bag
+files (Foxglove's native format — open the `.mcap` directly, no conversion),
+and snapshots container logs and per-step results.
+
+```bash
+# Submit a mission (auto-pins your current branch, like osmo:up):
+./airstack.sh osmo:mission osmo/missions/example_takeoff_land.yaml --pool airstack
+
+# Watch it fly:
+./airstack.sh osmo:logs
+
+# Pull bags + logs + summaries to your laptop — incremental, safe to run
+# mid-mission and again later to top up:
+./airstack.sh osmo:fetch ./results/
+
+# When you have everything (results die with the pod!):
+./airstack.sh osmo:down
+```
+
+A mission step can be any robot task action (`takeoff`, `land`, `navigate`,
+`semantic_search`, `exploration`, `coverage`, …), a timed wait, a topic pub,
+a service call, or an arbitrary `ros2`/shell command. Spec schema and step
+reference:
+[`osmo/missions/README.md`](https://github.com/castacks/AirStack/blob/main/osmo/missions/README.md).
+
+By default the pod **stays alive after the mission ends** so you can
+`osmo:fetch` whenever you're ready (mind the workflow's 24h `exec_timeout`).
+For fire-and-forget batches, submit with `--no-keep-alive`: the pod exits
+cleanly when the mission ends, freeing the GPU — and uploading the results
+directory to object storage automatically if the workflow's `outputs:`
+block is configured (lab-admin setup; see
+[`osmo/README.md`](https://github.com/castacks/AirStack/blob/main/osmo/README.md)).
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -572,7 +611,8 @@ osmo workflow cancel $WF
 | Uncommitted edits in the IDE | Pod-local working tree | **No** |
 | `colcon build` outputs (`build/`, `install/`, `log/`) | `/root/AirStack/**/ros_ws/...` | **No** (gitignored Linux x86_64 binaries; rebuild trivially) |
 | Inner-dockerd image cache | Pod-local Docker layer cache | **No** |
-| Bag files, sim recordings, debug screenshots | `/root/AirStack/bags/`, etc. | **No** — pull selectively via `osmo workflow rsync download "$(cat ~/.airstack/osmo-state)" <pod-path>:<local-path>` *before* tearing down |
+| Mission results (mcap bags, logs, summaries) | `/root/AirStack/osmo/results/` | **No** — run `./airstack.sh osmo:fetch` *before* tearing down |
+| Other bag files, sim recordings, debug screenshots | `/root/AirStack/bags/`, etc. | **No** — pull selectively via `osmo workflow rsync download "$(cat ~/.airstack/osmo-state)" <pod-path>:<local-path>` *before* tearing down |
 
 The rule of thumb: **commit + push every time you'd save a file in a
 git-tracked sense.** The Source Control panel is the persistence boundary.

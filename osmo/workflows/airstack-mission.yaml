@@ -1,0 +1,92 @@
+# AirStack batch mission workflow on OSMO.
+#
+# Same workspace image and pod layout as airstack-dev.yaml, but instead of a
+# single `airstack up` for an interactive session, the entrypoint hands off
+# to osmo/workspace/mission_runner.py, which executes the mission spec named
+# by OSMO_MISSION_FILE: repeated cycles of
+#
+#   airstack down → airstack up → wait for PX4 ready → record mcap bags
+#   → run steps (takeoff / land / navigate / any ros2 command) → collect
+#   bags + logs → airstack down
+#
+# Mission specs live in osmo/missions/ (cloned with the branch, so what you
+# push is what runs). Schema: osmo/missions/README.md.
+#
+# To submit (or use the wrapper: airstack osmo:mission <mission.yaml>):
+#
+#   osmo workflow submit osmo/workflows/airstack-mission.yaml \
+#     --pool <gpu-pool> \
+#     --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
+#                "OSMO_MISSION_FILE=osmo/missions/example_takeoff_land.yaml" \
+#                "AIRSTACK_BRANCH=<your-branch>"
+#
+# Results land in /osmo/output/airstack-mission-results (symlinked from
+# /root/AirStack/osmo/results). With the default OSMO_MISSION_KEEP_ALIVE=true
+# the pod stays alive after the mission so you can pull artifacts from your
+# laptop:
+#
+#   airstack osmo:fetch ./results/
+#
+# Set OSMO_MISSION_KEEP_ALIVE=false for fire-and-forget runs: the task exits
+# cleanly when the mission ends, which frees the GPU and triggers the
+# `outputs:` upload below (if a destination bucket is configured).
+
+workflow:
+  name: airstack-mission
+  groups:
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      # Required so the inner dockerd can run (same DinD setup as airstack-dev).
+      privileged: true
+      command: ["bash"]
+      args: ["/usr/local/bin/entrypoint.sh"]
+      environment:
+        # Mission selection — repo-relative path into the clone. Override at
+        # submit time to run a different mission.
+        OSMO_MISSION_FILE: "osmo/missions/example_takeoff_land.yaml"
+        # true  → pod sleeps after the mission; fetch results over ssh, then
+        #         `airstack osmo:down` (results die with the pod!).
+        # false → task exits when the mission ends: GPU freed, /osmo/output
+        #         uploaded to `outputs:` destinations.
+        OSMO_MISSION_KEEP_ALIVE: "true"
+        AIRSTACK_BRANCH: "main"        # branch entrypoint.sh clones
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # SSH_PUB_KEY is supplied at submit time (needed for osmo:fetch):
+        #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+      # Uncomment and point at a bucket the OSMO deployment can write to, to
+      # have /osmo/output uploaded automatically when the task exits (only
+      # meaningful with OSMO_MISSION_KEEP_ALIVE=false — a canceled workflow
+      # does not upload outputs):
+      #
+      # outputs:
+      #   - url: s3://<bucket>/airstack-missions/{{workflow_id}}/
+      credentials:
+        # Same per-user credentials as airstack-dev.yaml — see
+        # docs/tutorials/airstack_on_osmo.md "Step 0" / `airstack osmo:setup`.
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+
+  resources:
+    default:
+      cpu: 16
+      gpu: 1
+      memory: 64Gi
+      # Same sizing rationale as airstack-dev.yaml (inner image set alone
+      # exceeds 100Gi extracted), plus headroom for per-iteration mcap
+      # recordings — bump if a mission records camera/LiDAR over many
+      # iterations.
+      storage: 500Gi
+
+  timeout:
+    # Missions run unattended and multi-iteration; 24h leaves room for long
+    # batches plus result download time in keep-alive mode. The pod is gone
+    # when this expires — fetch results first.
+    exec_timeout: 24h

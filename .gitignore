@@ -94,6 +94,9 @@ simulation/ms-airsim/assets/scenes/*
 # Test results
 tests/results/
 
+# OSMO mission results (local runs of osmo/workspace/mission_runner.py)
+osmo/results/
+
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/
 
