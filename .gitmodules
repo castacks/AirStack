@@ -25,3 +25,4 @@
 [submodule "robot/ros_ws/src/humanflow_msgs"]
 	path = robot/ros_ws/src/humanflow_msgs
 	url = git@github.com:CyAirCMU/humanflow_msgs.git
+	branch = main
