@@ -1,0 +1,68 @@
+# Example mission: takeoff → hover 30s → land, 3 times, Isaac Sim headless.
+#
+# Run on OSMO:
+#   airstack osmo:mission osmo/missions/example_takeoff_land.yaml --pool <gpu-pool>
+#
+# Or locally against a machine that can run `airstack up` (no OSMO needed):
+#   python3 osmo/workspace/mission_runner.py osmo/missions/example_takeoff_land.yaml \
+#     --airstack-root "$(pwd)"
+#
+# Schema reference: osmo/missions/README.md
+
+name: example_takeoff_land
+
+# Exported before every `airstack up`. Anything the compose stack reads from
+# the environment can go here (.env values, ISAAC_SIM_SCRIPT_NAME, etc.).
+env:
+  NUM_ROBOTS: 1
+  COMPOSE_PROFILES: desktop,isaac-sim
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  # The default script only spawns one drone; for NUM_ROBOTS > 1 switch to
+  # example_multi_px4_pegasus_launch_script.py.
+  ISAAC_SIM_SCRIPT_NAME: example_one_px4_pegasus_launch_script.py
+  # Missions are unattended — the sim must start playing without a GUI click.
+  PLAY_SIM_ON_START: "true"
+
+# Full up → fly → collect → down cycles.
+iterations: 3
+
+# Gate before any steps run: per robot, MAVROS connected, then
+# local_position/odom publishing (PX4 EKF converged = ready to arm).
+ready:
+  timeout_s: 600
+
+# One mcap per robot per iteration; open the .mcap directly in Foxglove.
+# {robot} expands to robot_1, robot_2, ... per robot.
+record:
+  enabled: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry
+    - /{robot}/interface/mavros/local_position/odom
+    - /{robot}/odom_ground_truth
+  # Or record everything (large — includes camera/LiDAR if running):
+  # all: true
+
+# continue | abort_iteration (default) | abort_mission
+on_step_failure: abort_iteration
+
+steps:
+  - action:
+      task: takeoff                      # → /robot_N/tasks/takeoff (TakeoffTask)
+      goal: {target_altitude_m: 10.0, velocity_m_s: 1.0}
+      timeout_s: 120
+      robots: all                        # or e.g. [1, 3]
+
+  - wait: 30                             # hover
+
+  - run:                                 # arbitrary command escape hatch
+      container: robot_1                 # robot_N = exec on robot N's DDS domain
+      cmd: ros2 topic echo --once /robot_1/odometry
+      timeout_s: 20
+
+  - action:
+      task: land                         # → /robot_N/tasks/land (LandTask)
+      goal: {velocity_m_s: 0.5}
+      timeout_s: 120
