@@ -287,7 +287,7 @@ nohup ros2 run voxl_mpa_to_ros2 voxl_mpa_to_ros2_node > /tmp/mpa_to_ros2.log 2>&
 Find the VOXL2's IP address and ROS domain ID:
 
 ```bash
-ip addr show eth0   # or wlan0
+ip addr show wlan0   # use eth0 if ethernet-connected
 printenv ROS_DOMAIN_ID   # empty means domain 0
 ```
 
@@ -295,6 +295,14 @@ Write down the IP and domain ID. Then exit the ADB shell:
 
 ```bash
 exit
+```
+
+**Optional — VOXL Portal (web UI):** Forward the portal port over ADB, then open it in your browser:
+
+```bash
+# On your workstation:
+adb forward tcp:8080 tcp:80
+# Then open: http://localhost:8080
 ```
 
 ---
