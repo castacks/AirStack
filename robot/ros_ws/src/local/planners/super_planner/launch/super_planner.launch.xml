@@ -1,0 +1,14 @@
+<launch>
+    <node pkg="super_planner" exec="super_planner" name="super_planner" output="screen">
+        <param from="$(find-pkg-share super_planner)/config/super_planner.yaml"
+            allow_substs="true" />
+        <remap from="odometry"
+            to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+        <remap from="global_plan"
+            to="/$(env ROBOT_NAME)/global_plan" />
+        <remap from="trajectory_override"
+            to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_override" />
+        <remap from="point_cloud"
+            to="/$(env ROBOT_NAME)/sensors/ouster/point_cloud" />
+    </node>
+</launch>

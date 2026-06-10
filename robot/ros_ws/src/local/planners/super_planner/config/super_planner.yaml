@@ -1,0 +1,14 @@
+super_planner:
+  ros__parameters:
+    # SUPER sidecar TCP address — must match SAFE_SUPER_PORT in super.sh
+    sidecar_host: "127.0.0.1"
+    sidecar_port: 8768
+
+    # Maximum speed sent to the trajectory controller (m/s)
+    max_speed: 2.0
+
+    # How often to poll the sidecar and publish a trajectory (Hz)
+    step_hz: 10.0
+
+    # Max lidar points sent per step (downsampled from raw cloud)
+    max_lidar_points: 512
