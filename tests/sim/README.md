@@ -13,4 +13,4 @@ Suggested layout:
 
 | Directory | Purpose |
 |-----------|---------|
-| `optitrack_natnet_emulator/` | NatNet emulator unit tests (proxy; mark: `unit`) |
+| `optitrack_natnet_emulator/` | NatNet emulator unit tests (proxy; mark: `unit`). Includes pure protocol/serializer/config-model checks plus `pxr`-guarded USD interface-authoring tests (skip without `usd-core`). |
