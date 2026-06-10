@@ -233,6 +233,11 @@ def expand(text, n):
     return text.replace("{robot}", f"robot_{n}").replace("{n}", str(n))
 
 
+def has_placeholder(*strings):
+    """True if any string contains a per-robot placeholder ({robot} or {n})."""
+    return any(s and ("{robot}" in s or "{n}" in s) for s in strings)
+
+
 def step_robots(step_spec, num_robots):
     robots = step_spec.get("robots", "all")
     if robots == "all":
@@ -491,6 +496,34 @@ def tail(text, lines=15):
     return "\n".join((text or "").strip().splitlines()[-lines:])
 
 
+def _run_one(stack, robot_container, target, cmd, timeout, expect_success):
+    """Run one resolved `run` command. `target` is already robot-expanded:
+      pod          → on the pod itself (cwd = AirStack root)
+      gcs          → in the gcs container on domain 0
+      robot_<n>    → in robot container 1 on robot N's DDS domain
+      <other>      → literal container name (domain 0)
+    """
+    if target == "pod":
+        r = sh(["bash", "-c", cmd], timeout=timeout, cwd=stack.root)
+    elif target == "gcs":
+        g = gcs_container()
+        if g:
+            r = ros2_exec(g, cmd, domain_id=0, setup_bash=GCS_SETUP_BASH,
+                          timeout=timeout + 15)
+        else:
+            r = subprocess.CompletedProcess(cmd, returncode=1, stdout="",
+                                            stderr="no gcs container running")
+    elif target.startswith("robot_") and target[6:].isdigit():
+        n = int(target[6:])
+        r = ros2_exec(robot_container, cmd, domain_id=n,
+                      setup_bash=stack.setup_bash, timeout=timeout + 15)
+    else:
+        r = docker_exec(target, cmd, timeout=timeout + 15)
+    ok = (r.returncode == 0) if expect_success else True
+    return {"target": target, "exit": r.returncode, "ok": ok,
+            "output_tail": tail(r.stdout + r.stderr)}
+
+
 def run_step(stack, container, step_spec, step_index):
     """Execute one step; returns a result dict with ok: bool."""
     record = {"index": step_index, "spec": step_spec,
@@ -574,32 +607,25 @@ def run_step(stack, container, step_spec, step_index):
         spec = step_spec["run"]
         cmd = spec["cmd"]
         timeout = float(spec.get("timeout_s", 60))
-        target = spec.get("container", "robot_1")
-        log(f"step {step_index}: run [{target}] {cmd}")
-        if target == "pod":
-            r = sh(["bash", "-c", cmd], timeout=timeout, cwd=stack.root)
-        elif target == "gcs":
-            g = gcs_container()
-            if g:
-                r = ros2_exec(g, cmd, domain_id=0, setup_bash=GCS_SETUP_BASH,
-                              timeout=timeout + 15)
-            else:
-                r = subprocess.CompletedProcess(
-                    cmd, returncode=1, stdout="",
-                    stderr="no gcs container running")
+        expect = spec.get("expect_success", True)
+        # `container` may reference {n}/{robot} to fan out over robots. If it's
+        # omitted, default to robot_{n} when the command is per-robot (has a
+        # placeholder) and robot_1 otherwise. A step fans out over `robots`
+        # (default all) iff its command or container references {n}/{robot}.
+        target = spec.get("container") or ("robot_{n}" if has_placeholder(cmd) else "robot_1")
+        if has_placeholder(cmd, target):
+            robots = step_robots(spec, stack.num_robots)
+            log(f"step {step_index}: run [{target}] {cmd} → robots {robots}")
+            results = {}
+            for n in robots:
+                results[n] = _run_one(stack, container, expand(target, n),
+                                      expand(cmd, n), timeout, expect)
+            record.update(type="run", per_robot=results,
+                          ok=all(v["ok"] for v in results.values()))
         else:
-            # robot_N targets exec into robot container 1 on robot N's DDS
-            # domain (the containers share one bridge network); any other
-            # value is taken as a literal container name on domain 0.
-            if target.startswith("robot_") and target[6:].isdigit():
-                n = int(target[6:])
-                r = ros2_exec(container, expand(cmd, n), domain_id=n,
-                              setup_bash=stack.setup_bash, timeout=timeout + 15)
-            else:
-                r = docker_exec(target, cmd, timeout=timeout + 15)
-        ok = r.returncode == 0 if spec.get("expect_success", True) else True
-        record.update(type="run", exit=r.returncode, ok=ok,
-                      output_tail=tail(r.stdout + r.stderr))
+            log(f"step {step_index}: run [{target}] {cmd}")
+            res = _run_one(stack, container, target, cmd, timeout, expect)
+            record.update(type="run", **res)
 
     elif "topic_pub" in step_spec:
         spec = step_spec["topic_pub"]
