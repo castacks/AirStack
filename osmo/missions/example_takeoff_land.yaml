@@ -74,23 +74,26 @@ record:
 # continue | abort_iteration (default) | abort_mission
 on_step_failure: abort_iteration
 
+# Steps run top to bottom. Every step that addresses a robot fans out over a
+# robot selection — `robots:` (default `all` = robots 1..NUM_ROBOTS, or a
+# list like [1, 3]) — and {robot} → robot_N / {n} → N expand per robot.
+# Per-step knobs (all optional, shown here with their defaults):
+#   action: robots=all  via=<command_route>  timeout_s=120
+#           via: gcs (through the GCS action_relay) | robot (direct send_goal)
+#   run:    robots=all  container=robot_{n} (per-robot) or robot_1 | gcs | pod |
+#           <name>;  fans out when cmd/container references {robot}/{n}
+#   wait:   <seconds>   (runs once)
 steps:
   - action:
-      task: takeoff                      # → /robot_N/tasks/takeoff (TakeoffTask)
+      task: takeoff                      # → /<robot>/tasks/takeoff (TakeoffTask)
       goal: {target_altitude_m: 10.0, velocity_m_s: 1.0}
-      timeout_s: 120
-      robots: all                        # or e.g. [1, 3]
 
   - wait: 30                             # hover
 
-  - run:                                 # arbitrary command escape hatch
-      container: robot_1                 # robot_N = exec on robot N's DDS domain;
-                                         # also: gcs | pod | <literal container name>
-      cmd: ros2 topic echo --once /robot_1/odometry
+  - run:                                 # arbitrary command, fanned out per robot
+      cmd: ros2 topic echo --once /{robot}/odometry_conversion/odometry
       timeout_s: 20
 
   - action:
-      task: land                         # → /robot_N/tasks/land (LandTask)
+      task: land                         # → /<robot>/tasks/land (LandTask)
       goal: {velocity_m_s: 0.5}
-      timeout_s: 120
-      # via: robot                       # bypass the GCS relay for this step
