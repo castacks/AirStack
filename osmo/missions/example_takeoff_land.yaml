@@ -49,17 +49,26 @@ iterations: 3
 ready:
   timeout_s: 600
 
-# One mcap per robot per iteration; open the .mcap directly in Foxglove.
-# {robot} expands to robot_1, robot_2, ... per robot.
+# One mcap per iteration with ALL robots' data, recorded on the GCS
+# (domain 0) where each robot's domain_bridge forwards its state topics —
+# replaying the .mcap in Foxglove reproduces the live GCS view.
+# {robot} expands to robot_1..robot_N and the list is unioned.
 record:
   enabled: true
+  scope: gcs               # or `robot`: one mcap per robot on its own
+                           # domain, for topics not bridged to the GCS
   topics:
     - /tf
     - /tf_static
-    - /{robot}/odometry
-    - /{robot}/interface/mavros/local_position/odom
-    - /{robot}/odom_ground_truth
-  # Or record everything (large — includes camera/LiDAR if running):
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/trajectory_controller/trajectory_vis
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    - /gcs/map_origin/location
+    - /gcs/map_origin/ground_msl
+    - /gcs/{robot}/location
+  # Or record everything visible on the recording domain (large):
   # all: true
 
 # continue | abort_iteration (default) | abort_mission
