@@ -11,11 +11,20 @@
 
 name: example_takeoff_land
 
+# How to bring the stack up. `services` are passed straight through:
+#   ./airstack.sh up isaac-sim robot-desktop gcs
+# (docker compose auto-enables a named service's profile, so no
+# COMPOSE_PROFILES needed). On OSMO swap isaac-sim → isaac-sim-livestream to
+# watch the run over WebRTC. Alternatively use `profiles:` to export
+# COMPOSE_PROFILES and run a plain `airstack up`.
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+  # profiles: [desktop, isaac-sim]
+
 # Exported before every `airstack up`. Anything the compose stack reads from
 # the environment can go here (.env values, ISAAC_SIM_SCRIPT_NAME, etc.).
 env:
   NUM_ROBOTS: 1
-  COMPOSE_PROFILES: desktop,isaac-sim
   ISAAC_SIM_HEADLESS: "true"
   ISAAC_SIM_USE_STANDALONE: "true"
   # The default script only spawns one drone; for NUM_ROBOTS > 1 switch to
@@ -23,6 +32,14 @@ env:
   ISAAC_SIM_SCRIPT_NAME: example_one_px4_pegasus_launch_script.py
   # Missions are unattended — the sim must start playing without a GUI click.
   PLAY_SIM_ON_START: "true"
+
+# Where `action` steps are sent by default:
+#   gcs   — through the GCS action_relay, the same String-JSON → typed-goal
+#           path Foxglove and the GCS panels use (exercises the full
+#           GCS→robot chain, including the relay's airborne preconditions)
+#   robot — `ros2 action send_goal` directly on the robot's DDS domain
+# Override per step with `via:`.
+command_route: gcs
 
 # Full up → fly → collect → down cycles.
 iterations: 3
@@ -58,7 +75,8 @@ steps:
   - wait: 30                             # hover
 
   - run:                                 # arbitrary command escape hatch
-      container: robot_1                 # robot_N = exec on robot N's DDS domain
+      container: robot_1                 # robot_N = exec on robot N's DDS domain;
+                                         # also: gcs | pod | <literal container name>
       cmd: ros2 topic echo --once /robot_1/odometry
       timeout_s: 20
 
@@ -66,3 +84,4 @@ steps:
       task: land                         # → /robot_N/tasks/land (LandTask)
       goal: {velocity_m_s: 0.5}
       timeout_s: 120
+      # via: robot                       # bypass the GCS relay for this step

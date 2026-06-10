@@ -49,6 +49,7 @@ import yaml
 
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
 DEFAULT_ROBOT_SETUP_BASH = "/root/AirStack/robot/ros_ws/install/setup.bash"
+GCS_SETUP_BASH = "/root/AirStack/gcs/ros_ws/install/setup.bash"
 ROBOT_CONTAINER_PATTERN = "robot.*desktop"
 
 # Topics recorded when the mission spec doesn't list its own. {robot}
@@ -484,6 +485,15 @@ def run_step(stack, container, step_spec, step_index):
         log(f"step {step_index}: run [{target}] {cmd}")
         if target == "pod":
             r = sh(["bash", "-c", cmd], timeout=timeout, cwd=stack.root)
+        elif target == "gcs":
+            g = gcs_container()
+            if g:
+                r = ros2_exec(g, cmd, domain_id=0, setup_bash=GCS_SETUP_BASH,
+                              timeout=timeout + 15)
+            else:
+                r = subprocess.CompletedProcess(
+                    cmd, returncode=1, stdout="",
+                    stderr="no gcs container running")
         else:
             # robot_N targets exec into robot container 1 on robot N's DDS
             # domain (the containers share one bridge network); any other
