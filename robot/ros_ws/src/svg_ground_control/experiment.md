@@ -27,6 +27,21 @@ command — a mismatch shows up as "service unavailable" / missing topics.
 CBF-exempt drones; empty string = fully autonomous swarm.
 `squeeze` needs `drone_names` ordered `[holder, holder, intruder]`.
 
+## Single-terminal workflow (tmux)
+
+Instead of one host terminal per step, attach once (`./airstack.sh connect
+robot`, no `--command=bash`) and use tmux windows — prefix is `Ctrl-b`
+(press Ctrl+b, release, then the key):
+
+- `Ctrl-b c` new window (tab) · `Ctrl-b n`/`p` or `Ctrl-b 0..9` switch
+- `Ctrl-b ,` rename window · `Ctrl-b %`/`"` split panes · `Ctrl-b arrows` move
+- `Ctrl-b [` scroll logs (`q` exits) · `Ctrl-b d` detach (everything keeps running)
+
+One window each for A3 (interfaces), A4 (commander), A5 (teleop), A6
+(service calls). Every new window is a fresh shell: repeat
+`cd ~/AirStack/robot/ros_ws && sws`. Detach with `Ctrl-b d`, never `exit`,
+to keep the session alive.
+
 ---
 
 # Part A — Simulation
