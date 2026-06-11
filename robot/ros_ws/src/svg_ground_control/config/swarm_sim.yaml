@@ -28,10 +28,10 @@ swarm_commander:
     # Isaac default environment / your lab space.
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]
-    # squeeze: holder posts are gap_factor * cbf_safety_radius_m apart;
-    # the intruder shuttles run_length meters through the midpoint.
-    squeeze_gap_factor: 2.5
-    squeeze_run_length_m: 3.0
+    # squeeze geometry (only used by scenario: squeeze — see
+    # squeeze_3drone.yaml for the documented profile)
+    squeeze_holder_positions: [0.0, -0.69, 1.2, 0.0, 0.69, 1.2]
+    squeeze_intruder_waypoints: [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2]
     # hover scenario only — flat x,y,z (ENU, meters) per drone. Teleop
     # drones use theirs as the takeoff target before operator control.
     hover_positions: [-1.5, 0.0, 1.2,

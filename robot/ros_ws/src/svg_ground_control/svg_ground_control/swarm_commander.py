@@ -105,8 +105,14 @@ class SwarmCommander(Node):
         self.declare_parameter('scenario_seed', 7)
         self.declare_parameter('arena_low', [-2.0, -2.0, 0.8])
         self.declare_parameter('arena_high', [2.0, 2.0, 2.0])
-        self.declare_parameter('squeeze_gap_factor', 2.5)
-        self.declare_parameter('squeeze_run_length_m', 3.0)
+        # squeeze scenario geometry (ENU, meters), set both explicitly:
+        # the two holder posts as flat [x1,y1,z1, x2,y2,z2] ...
+        self.declare_parameter('squeeze_holder_positions',
+                               [0.0, -0.69, 1.2, 0.0, 0.69, 1.2])
+        # ... and the two waypoints the intruder shuttles between, flat
+        # [ax,ay,az, bx,by,bz]; it starts at A and flies toward B first.
+        self.declare_parameter('squeeze_intruder_waypoints',
+                               [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2])
         # Used by the 'hover' scenario only: flat [x1,y1,z1, ...] per drone.
         self.declare_parameter('hover_positions',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2, 0.0, -1.5, 1.2])
@@ -167,10 +173,10 @@ class SwarmCommander(Node):
             scenario_kwargs['hover_positions'] = np.array(
                 self.get_parameter('hover_positions').value)
         elif scenario_name == 'squeeze':
-            scenario_kwargs['gap_factor'] = float(
-                self.get_parameter('squeeze_gap_factor').value)
-            scenario_kwargs['run_length'] = float(
-                self.get_parameter('squeeze_run_length_m').value)
+            scenario_kwargs['holder_positions'] = np.array(
+                self.get_parameter('squeeze_holder_positions').value)
+            scenario_kwargs['intruder_waypoints'] = np.array(
+                self.get_parameter('squeeze_intruder_waypoints').value)
         self.scenario = make_scenario(
             scenario_name,
             num_drones=len(names),
@@ -183,6 +189,14 @@ class SwarmCommander(Node):
             **scenario_kwargs)
         self.scenario_name = scenario_name
         self.mission_active = False
+        if scenario_name == 'squeeze':
+            posts = self.scenario.holder_posts
+            gap = float(np.linalg.norm(posts[0] - posts[1]))
+            self.get_logger().info(
+                f'squeeze geometry: posts {gap:.2f} m apart '
+                f'(2r keep-out = {2 * self.cbf_safety_radius:.2f} m), '
+                f'intruder A={self.scenario.intruder_waypoints[0]} '
+                f'B={self.scenario.intruder_waypoints[1]}')
 
         state_tmpl = str(self.get_parameter('state_topic_template').value)
         cmd_tmpl = str(self.get_parameter('velocity_command_topic_template').value)

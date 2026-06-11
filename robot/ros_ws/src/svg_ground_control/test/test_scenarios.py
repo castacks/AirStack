@@ -40,17 +40,36 @@ def test_hover_scenario_seeks_targets() -> None:
     np.testing.assert_allclose(nominal[1], 0.0, atol=1e-9)
 
 
+HOLDER_POSTS = [0.0, -0.69, 1.2, 0.0, 0.69, 1.2]
+INTRUDER_WAYPOINTS = [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2]
+
+
+def make_squeeze():
+    return make('squeeze', 3, holder_positions=HOLDER_POSTS,
+                intruder_waypoints=INTRUDER_WAYPOINTS)
+
+
 def test_squeeze_geometry() -> None:
-    scenario = make('squeeze', 3, gap_factor=2.5, run_length=3.0)
+    scenario = make_squeeze()
     initial = scenario.initial_positions()
-    # Holder posts separated by exactly 2.5 r along y.
-    assert abs(np.linalg.norm(initial[0] - initial[1]) - 2.5 * 0.55) < 1e-9
-    # Intruder starts on the perpendicular axis, run_length/2 from center.
-    center = ARENA.center
-    np.testing.assert_allclose(initial[2], [center[0] - 1.5, center[1], center[2]])
-    # Intruder nominal points through the gap (+x).
+    # Holders take off exactly at their configured posts.
+    np.testing.assert_allclose(initial[0], HOLDER_POSTS[:3])
+    np.testing.assert_allclose(initial[1], HOLDER_POSTS[3:])
+    # Intruder takes off at waypoint A and its nominal points toward B (+x).
+    np.testing.assert_allclose(initial[2], INTRUDER_WAYPOINTS[:3])
     nominal = scenario.nominal_velocity(initial)
     assert nominal[2, 0] > 0.0
+
+
+def test_squeeze_rejects_overlapping_posts() -> None:
+    try:
+        make('squeeze', 3,
+             holder_positions=[0.0, -0.3, 1.2, 0.0, 0.3, 1.2],  # 0.6 m < 2r
+             intruder_waypoints=INTRUDER_WAYPOINTS)
+    except ValueError as e:
+        assert 'keep-out' in str(e)
+    else:
+        raise AssertionError('overlapping posts were not rejected')
 
 
 def test_squeeze_kinematic_rollout_holders_yield_and_return() -> None:
@@ -58,7 +77,7 @@ def test_squeeze_kinematic_rollout_holders_yield_and_return() -> None:
     safety_radius = 0.55
     max_speed = 1.2
     dt = 0.05
-    scenario = make('squeeze', 3, gap_factor=2.5, run_length=3.0)
+    scenario = make_squeeze()
     positions = scenario.initial_positions().copy()
     posts = positions[:2].copy()
 

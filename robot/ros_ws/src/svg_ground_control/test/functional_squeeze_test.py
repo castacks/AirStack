@@ -31,7 +31,9 @@ GROUND = {'drone_1': [0.0, -0.7, 0.05],
           'drone_2': [0.0, 0.7, 0.05],
           'drone_3': [-1.5, 0.0, 0.05]}
 SAFETY_RADIUS = 0.55
-ARENA_CENTER = np.array([0.0, 0.0, 1.4])
+# Must match squeeze_3drone.yaml
+HOLDER_POSTS = np.array([[0.0, -0.69, 1.2], [0.0, 0.69, 1.2]])
+INTRUDER_START = np.array([-1.5, 0.0, 1.2])
 DT = 0.02
 
 
@@ -101,10 +103,8 @@ def main():
 
     time.sleep(3.0)  # discovery
 
-    half_gap = 0.5 * 2.5 * SAFETY_RADIUS
-    posts = np.array([ARENA_CENTER + [0, -half_gap, 0],
-                      ARENA_CENTER + [0, half_gap, 0]])
-    intruder_start = ARENA_CENTER + np.array([-1.5, 0.0, 0.0])
+    posts = HOLDER_POSTS
+    intruder_start = INTRUDER_START
 
     print('TEST 1: takeoff -> all drones reach the squeeze layout')
     res = call_trigger('/swarm_commander/takeoff')
@@ -114,7 +114,8 @@ def main():
                  and np.linalg.norm(drones['drone_2'].position - posts[1]) < 0.25
                  and np.linalg.norm(drones['drone_3'].position - intruder_start) < 0.25),
         25.0, 'drones at squeeze initial positions')
-    print(f'  -> holders at posts (gap = {2 * half_gap:.2f} m), intruder staged')
+    gap = float(np.linalg.norm(posts[0] - posts[1]))
+    print(f'  -> holders at posts (gap = {gap:.2f} m), intruder staged')
 
     print('TEST 2: start -> intruder crosses, holders yield, barrier holds')
     # The commander flips ASCEND->ACTIVE at a tighter threshold than the

@@ -315,40 +315,47 @@ class AntipodalScenario(Scenario):
 class SqueezeScenario(Scenario):
     """3-drone CBF showcase: an intruder squeezes between two holders.
 
-    Drones 0 and 1 ("holders") goal-track posts placed ``gap_factor *
-    safety_radius`` apart along y at the arena center -- close enough that
-    the intruder cannot pass between them without the CBF displacing them.
-    Drone 2 (the "intruder") flies straight along x through the midpoint of
-    the gap, turning around at each end of its run so the conflict repeats.
+    Drones 0 and 1 ("holders") goal-track two explicitly configured posts.
+    Drone 2 (the "intruder") shuttles back and forth between two explicitly
+    configured waypoints; place the segment so it passes between the posts.
 
     The expected behavior: as the intruder approaches, the holders' filtered
     velocities push them apart (their nominal keeps pulling them back to
     their posts), the intruder passes through, and the holders settle back
-    onto their posts.
+    onto their posts. For the gap to be impassable without yielding, the
+    intruder's path must come closer than ``2 * safety_radius`` to a post.
 
     To hand-fly the intruder instead, list it in ``teleop_drones`` -- its
     scenario row is then ignored in favor of operator input.
     """
 
-    def __init__(self, *args, gap_factor: float = 2.5,
-                 run_length: float = 3.0, **kwargs) -> None:
+    def __init__(self, *args, holder_positions: np.ndarray,
+                 intruder_waypoints: np.ndarray, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         if self.num_drones != 3:
             raise ValueError(
                 f'squeeze scenario requires exactly 3 drones, got {self.num_drones}')
-        center = self.bounds.center
-        half_gap = 0.5 * gap_factor * self.safety_radius
-        self._holder_posts = np.array([
-            [center[0], center[1] - half_gap, center[2]],
-            [center[0], center[1] + half_gap, center[2]],
-        ])
-        half_run = 0.5 * run_length
-        self._intruder_ends = np.array([
-            [center[0] - half_run, center[1], center[2]],
-            [center[0] + half_run, center[1], center[2]],
-        ])
-        self._intruder_goal_index = 1  # start by flying toward +x
+        self._holder_posts = np.asarray(
+            holder_positions, dtype=float).reshape(2, 3)
+        self._intruder_ends = np.asarray(
+            intruder_waypoints, dtype=float).reshape(2, 3)
+        post_gap = float(np.linalg.norm(
+            self._holder_posts[0] - self._holder_posts[1]))
+        if post_gap < 2.0 * self.safety_radius:
+            raise ValueError(
+                f'holder posts are {post_gap:.2f} m apart, inside their own '
+                f'2r keep-out ({2 * self.safety_radius:.2f} m) — the holders '
+                'could never both reach their posts')
+        self._intruder_goal_index = 1  # start by flying toward waypoint B
         self._arrival_radius = 0.3
+
+    @property
+    def holder_posts(self) -> np.ndarray:
+        return self._holder_posts.copy()
+
+    @property
+    def intruder_waypoints(self) -> np.ndarray:
+        return self._intruder_ends.copy()
 
     def initial_positions(self) -> np.ndarray:
         return np.vstack([self._holder_posts, self._intruder_ends[0]])

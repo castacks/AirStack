@@ -129,10 +129,20 @@ ros2 launch svg_ground_control ground_control.launch.py scenario:=head_on
 ros2 launch svg_ground_control ground_control.launch.py scenario:=random_goals
 ros2 launch svg_ground_control ground_control.launch.py scenario:=random_walk
 
-# Squeeze profile (3 drones: 2 holders 2.5r apart + autonomous intruder):
+# Squeeze profile (3 drones: 2 steady holders + intruder through the gap):
 ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_3drone.yaml
 ```
+
+Squeeze geometry is fully explicit in `squeeze_3drone.yaml`:
+`squeeze_holder_positions` (flat `[x1,y1,z1, x2,y2,z2]`) sets the two steady
+drones' posts; `squeeze_intruder_waypoints` (flat `[ax,ay,az, bx,by,bz]`)
+sets the two endpoints the moving drone shuttles between (takes off at A,
+flies A→B→A→…). Rules: posts must be > 2r apart (the commander refuses
+otherwise), and the A→B line should pass within 2r of a post or nothing
+interesting happens. NOTE: edits to config YAMLs need a rebuild (`bws`) to
+reach the installed copy — or pass `config:=` pointing at the source file
+under `src/svg_ground_control/config/`.
 
 To hand-fly the squeeze intruder instead, edit `teleop_drones: "drone_3"` in
 `squeeze_3drone.yaml` (or your own copy) and drive it per A5.

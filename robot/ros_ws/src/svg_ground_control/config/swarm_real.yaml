@@ -21,8 +21,8 @@ swarm_commander:
     # Fit to the mocap capture volume!
     arena_low: [-1.5, -1.5, 0.8]
     arena_high: [1.5, 1.5, 1.8]
-    squeeze_gap_factor: 2.5
-    squeeze_run_length_m: 2.5
+    squeeze_holder_positions: [0.0, -0.69, 1.2, 0.0, 0.69, 1.2]
+    squeeze_intruder_waypoints: [-1.2, 0.0, 1.2, 1.2, 0.0, 1.2]
     hover_positions: [-1.2, 0.0, 1.2,
                        1.2, 0.0, 1.2,
                        0.0, -1.2, 1.2]

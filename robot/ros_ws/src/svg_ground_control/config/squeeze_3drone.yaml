@@ -3,17 +3,24 @@
 #   ros2 launch svg_ground_control ground_control.launch.py \
 #       config:=<share>/config/squeeze_3drone.yaml
 #
-# Setup: drone_1 and drone_2 ("holders") goal-track posts separated by
-# 2.5 * r along y at the arena center (r = CBF safety radius). The posts are
-# mutually safe (2.5r > 2r), but the midpoint is only 1.25r from each holder
-# — far inside the 2r keep-out — so the gap is impassable unless the holders
-# yield. drone_3 (the "intruder") shuttles along x straight through the
-# midpoint. Expected: as the intruder approaches, the CBF pushes the holders
-# apart; the intruder passes; the holders' nominal pulls them back to their
-# posts. With teleop_drones: ["drone_3"] you squeeze by hand instead.
+# Setup: drone_1 and drone_2 ("holders") goal-track the two
+# squeeze_holder_positions. drone_3 (the "intruder") shuttles back and forth
+# between squeeze_intruder_waypoints A and B (starts at A, flies toward B).
+#
+# Geometry rules of thumb (r = cbf_safety_radius_m):
+#   - holder posts must be > 2r apart, or they can't both reach their posts
+#     (the commander refuses such configs at startup);
+#   - for the demo to show yielding, the intruder's A->B line must pass
+#     closer than 2r to a post — e.g. through the midpoint of the gap.
+# Defaults: posts 1.38 m apart (2.5r) along y, intruder crossing along x
+# through the midpoint at the same altitude.
+#
+# Expected: as the intruder approaches, the CBF pushes the holders apart;
+# the intruder passes; the holders' nominal pulls them back to their posts.
+# Set teleop_drones: "drone_3" to squeeze by hand instead.
 #
 # For hardware, change the three topic templates to the /{name}/fmu/... ones
-# (see swarm_real.yaml) and shrink the arena to your capture volume.
+# (see swarm_real.yaml) and fit all coordinates to your capture volume.
 
 swarm_commander:
   ros__parameters:
@@ -27,8 +34,15 @@ swarm_commander:
     scenario_seed: 7
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]
-    squeeze_gap_factor: 2.5    # holder post separation = 2.5 * r
-    squeeze_run_length_m: 3.0  # intruder shuttle distance through the gap
+
+    # The two steady drones' posts: flat [x1,y1,z1,  x2,y2,z2] (ENU, m).
+    squeeze_holder_positions: [0.0, -0.69, 1.2,
+                               0.0,  0.69, 1.2]
+    # The moving drone's two endpoints: flat [ax,ay,az,  bx,by,bz].
+    # It takes off at A and shuttles A -> B -> A -> ...
+    squeeze_intruder_waypoints: [-1.5, 0.0, 1.2,
+                                  1.5, 0.0, 1.2]
+
     hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by squeeze
 
     state_topic_template: "/{name}/odometry_conversion/odometry"
