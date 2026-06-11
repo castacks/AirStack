@@ -95,7 +95,8 @@ SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
 
 DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
-    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75}
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
     ]
 
 # Top-down "map" camera. Captures one aerial of the static scene that the

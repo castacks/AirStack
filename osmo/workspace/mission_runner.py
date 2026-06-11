@@ -98,7 +98,8 @@ MISSION_DEFAULTS = {
     "ready": {"timeout_s": 600, "poll_interval_s": 5},
     # scope "gcs": one recorder on GCS domain 0 → one mcap with every robot's
     # bridged topics (default). scope "robot": one recorder + one mcap per
-    # robot on its own domain (for unbridged/high-rate topics).
+    # robot on its own domain (for unbridged/high-rate topics). scope "both":
+    # the GCS recorder AND the per-robot recorders together.
     "record": {"enabled": True, "scope": "gcs"},
     # How the stack is brought up. Either (or both):
     #   services: [isaac-sim, robot-desktop, gcs]  → ./airstack.sh up <services>
@@ -212,8 +213,8 @@ def load_mission(path):
                          f"got {merged['on_step_failure']!r}")
     if merged["command_route"] not in ("gcs", "robot"):
         raise ValueError(f"command_route must be gcs|robot, got {merged['command_route']!r}")
-    if merged["record"].get("scope", "gcs") not in ("gcs", "robot"):
-        raise ValueError(f"record.scope must be gcs|robot, "
+    if merged["record"].get("scope", "gcs") not in ("gcs", "robot", "both"):
+        raise ValueError(f"record.scope must be gcs|robot|both, "
                          f"got {merged['record'].get('scope')!r}")
     for step in merged["steps"]:
         action = step.get("action") if isinstance(step, dict) else None
@@ -417,6 +418,10 @@ class Recorder:
     scope "robot": one recorder per robot inside robot container 1, each on
     that robot's DDS domain — for topics that aren't bridged to the GCS.
 
+    scope "both": the GCS recorder and the per-robot recorders together —
+    one mcap with the fleet view from domain 0 plus one raw-data mcap per
+    robot domain.
+
     Each recorder is started detached with its PID dropped to a file, and
     stopped with SIGTERM so rosbag2 finalizes the mcap cleanly. (Not SIGINT:
     jobs backgrounded from a non-interactive shell have SIGINT set to
@@ -432,13 +437,14 @@ class Recorder:
         # (container, domain_id, tag) per active recorder.
         self.active = []
 
-    def _topic_selection(self, robots):
+    def _topic_selection(self, robots, scope):
         """Build the `ros2 bag record` topic args; `robots` is the list of
         robot indices whose {robot}/{n} placeholders to expand (unioned,
-        order-preserving, deduplicated)."""
+        order-preserving, deduplicated). `scope` picks the default topic set
+        for the recorder being started ("gcs" or "robot")."""
         if self.cfg.get("all"):
             return "-a"
-        default = (DEFAULT_GCS_RECORD_TOPICS if self.scope == "gcs"
+        default = (DEFAULT_GCS_RECORD_TOPICS if scope == "gcs"
                    else DEFAULT_ROBOT_RECORD_TOPICS)
         topics = []
         for t in self.cfg.get("topics", default):
@@ -488,18 +494,23 @@ class Recorder:
             log("recording disabled by mission spec")
             return
         robots = list(range(1, self.num_robots + 1))
-        if self.scope == "gcs":
+        if self.scope in ("gcs", "both"):
             gcs = gcs_container()
-            if not gcs:
-                log("WARN: record.scope is 'gcs' but no gcs container is running — "
-                    "recording skipped (bring up the gcs service or use scope: robot)")
-                return
-            self._start_one(gcs, 0, "gcs", self._topic_selection(robots),
-                            GCS_SETUP_BASH)
-        else:
+            if gcs:
+                self._start_one(gcs, 0, "gcs",
+                                self._topic_selection(robots, "gcs"),
+                                GCS_SETUP_BASH)
+            else:
+                log("WARN: record.scope includes 'gcs' but no gcs container is "
+                    "running — GCS recording skipped (bring up the gcs service "
+                    "or use scope: robot)")
+                if self.scope == "gcs":
+                    return
+        if self.scope in ("robot", "both"):
             for n in robots:
                 self._start_one(self.robot_container, n, f"robot_{n}",
-                                self._topic_selection([n]), self.setup_bash)
+                                self._topic_selection([n], "robot"),
+                                self.setup_bash)
 
     def stop(self):
         for container, tag in self.active:

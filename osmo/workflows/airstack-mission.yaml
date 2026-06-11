@@ -107,9 +107,11 @@ workflow:
 
   resources:
     default:
-      cpu: 16
-      gpu: 1
-      memory: 64Gi
+      # Sized for 3-robot missions (frontier_exploration): Isaac Sim + 3
+      # robot containers each running rayfronts need a GPU apiece.
+      cpu: 24
+      gpu: 3
+      memory: 96Gi
       # Same sizing rationale as airstack-dev.yaml (inner image set alone
       # exceeds 100Gi extracted), plus headroom for per-iteration mcap
       # recordings — bump if a mission records camera/LiDAR over many

@@ -61,6 +61,7 @@ Top-level keys (everything except `steps` is optional):
 | `ready.timeout_s` | `600` | Max seconds to wait for PX4 readiness per iteration |
 | `ready.poll_interval_s` | `5` | Seconds between readiness polls |
 | `record.enabled` | `true` | Record an mcap per robot per iteration |
+| `record.scope` | `gcs` | `gcs` (one mcap on GCS domain 0) \| `robot` (one mcap per robot domain) \| `both` |
 | `record.topics` | tf + odom set | Topics to record; `{robot}` → `robot_N` |
 | `record.all` | `false` | Record **all** topics (`ros2 bag record -a`) — large |
 | `on_step_failure` | `abort_iteration` | `continue` \| `abort_iteration` \| `abort_mission` |

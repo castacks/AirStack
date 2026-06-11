@@ -1,0 +1,100 @@
+# frontier_exploration — 3-robot frontier-only semantic-search BASELINE in
+# the RetroNeighborhood scene.
+#
+# semantic_search_task spawns raven_nav with frontier_only_baseline:=true
+# (see semantic_search_task/node.py): navigation is pure frontier
+# exploration with no semantic cues; target tracking still runs.
+#
+# Run on OSMO (workflow resources are sized for this mission: 3 GPU / 24 CPU
+# / 96Gi / 500Gi):
+#   airstack osmo:mission osmo/missions/frontier_exploration.yaml --pool <gpu-pool>
+#
+# Or locally:
+#   python3 osmo/workspace/mission_runner.py osmo/missions/frontier_exploration.yaml \
+#     --airstack-root "$(pwd)"
+#
+# Schema reference: osmo/missions/README.md
+
+name: frontier_exploration
+
+stack:
+  services: [isaac-sim-livestream, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  # Loads RetroNeighborhood (ENV_URL inside the script) and spawns one drone
+  # per DRONE_CONFIGS entry — must list 3 drones for NUM_ROBOTS=3.
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+
+# Send goals through the GCS action_relay — the exact path Foxglove uses.
+# The relay transforms the global-ENU search polygon into each robot's local
+# 'map' frame (subtracting that robot's GPS boot pose) before forwarding,
+# identical to what happens when the polygon is entered in Foxglove.
+command_route: gcs
+
+# Baseline test run: a single up → fly → collect → down cycle.
+iterations: 1
+
+ready:
+  timeout_s: 600
+
+# Record EVERYTHING, both places:
+#   - gcs:   one mcap on domain 0 — gossip/payload topics, robot_markers,
+#            polygon markers, map origin, every bridged robot topic.
+#   - robot: one mcap per robot on its own DDS domain — raw camera, depth,
+#            lidar, odom, rayfronts topics… enough to re-run rayfronts
+#            offline on the bag.
+# `all: true` = `ros2 bag record -a` per recorder, so nothing is missed.
+# DISK WARNING: raw RGB + depth for 3 robots is multiple-100s of GB/hour;
+# the pod has 500Gi total (images + bags + a 2nd copy during collection).
+# If a run risks filling the disk, replace `all: true` with a topic list
+# that drops the raw image topics.
+record:
+  enabled: true
+  scope: both
+  all: true
+
+on_step_failure: abort_iteration
+
+steps:
+  # Take off all 3 drones to the search floor (min_altitude_agl below).
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  # Let the relay/GPS state settle before the polygon transform.
+  - wait: 5
+
+  # Start the semantic search on all robots in parallel. Each robot gets the
+  # same global-ENU polygon (the relay localizes it per robot). The polygon
+  # below is exactly what was entered in the Foxglove polygon field:
+  #   [[-150,-110,0],[-150,70,0],[170,70,0],[170,-110,0]]
+  # The step completes when each robot reports the polygon explored
+  # (coverage >= raven's coverage_complete_threshold) — the baseline has no
+  # early exit from finding the target.
+  - action:
+      task: semantic_search
+      timeout_s: 7200
+      goal:
+        query: "house"
+        background_queries: "sky, ground, grass, road"
+        search_area:
+          points:
+            - {x: -150.0, y: -110.0, z: 0.0}
+            - {x: -150.0, y: 70.0, z: 0.0}
+            - {x: 170.0, y: 70.0, z: 0.0}
+            - {x: 170.0, y: -110.0, z: 0.0}
+        min_altitude_agl: 12.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+
+  - action:
+      task: land
+      goal: {velocity_m_s: 0.5}
+      timeout_s: 180

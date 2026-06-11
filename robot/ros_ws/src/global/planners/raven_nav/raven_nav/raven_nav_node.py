@@ -147,6 +147,16 @@ class RavenNavNode(Node):
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 30).value)
 
+        # Run the frontier-only baseline: navigation ignores all semantic
+        # cues (no Ray-/Voxel-based pursuit, no committed-target bias);
+        # tracking still runs.
+        self._frontier_only_baseline = bool(self.declare_parameter(
+            'frontier_only_baseline', False).value)
+        if self._frontier_only_baseline:
+            self.get_logger().info(
+                'frontier_only_baseline=true — navigation is pure frontier '
+                'exploration (semantic tracking still on)')
+
         timer_period = self.declare_parameter('timer_period', 0.5).value
         # Coordination debug lines are tagged "[coord]".
         self._debug_coord = self.declare_parameter('debug_coordination', True).value
@@ -1508,14 +1518,17 @@ class RavenNavNode(Node):
         # per-instance by _filter_to_committed_ray downstream, so this
         # doesn't risk switching to the wrong house.
         voxel_targets = list(self._target_objects or [])
-        self._behavior_manager.mode_select(
-            query_labels=self._query_labels,
-            target_objects=voxel_targets,
-            vox_xyz=self._vox_xyz,
-            vox_scores=self._vox_scores,
-            committed_origin=self._committed_target_last_origin,
-            committed_dir=self._committed_target_last_dir,
-        )
+        if self._frontier_only_baseline:
+            self._behavior_manager.behavior_mode = 'Frontier-based'
+        else:
+            self._behavior_manager.mode_select(
+                query_labels=self._query_labels,
+                target_objects=voxel_targets,
+                vox_xyz=self._vox_xyz,
+                vox_scores=self._vox_scores,
+                committed_origin=self._committed_target_last_origin,
+                committed_dir=self._committed_target_last_dir,
+            )
         self._behavior_mode = self._behavior_manager.behavior_mode
 
         if self._behavior_mode != prev_mode:
@@ -1625,8 +1638,12 @@ class RavenNavNode(Node):
                 search_area_xy=self._search_area_xy,
                 debug_logger=(self.get_logger() if self._debug_coord else None),
                 assigned_target=self._assigned_target,
-                committed_target_dir=self._committed_target_last_dir,
-                committed_target_origin=self._committed_target_last_origin,
+                committed_target_dir=(
+                    None if self._frontier_only_baseline
+                    else self._committed_target_last_dir),
+                committed_target_origin=(
+                    None if self._frontier_only_baseline
+                    else self._committed_target_last_origin),
             )
 
         self._nav_mode_pub.publish(

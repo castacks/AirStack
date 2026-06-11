@@ -482,6 +482,8 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'target_labels:={target_labels_yaml}',
                 '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
                 '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
+                # Run the frontier-only baseline (no semantic navigation).
+                '-p', 'frontier_only_baseline:=true',
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
             ], log_name='raven')
