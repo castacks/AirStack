@@ -191,6 +191,18 @@ Watch the commander terminal: `CBF active on: drone_1, drone_2 (...)` lines
 show the filter intervening; `CBF emergency push-apart engaged` means the QP
 went infeasible (drones too close — investigate before continuing).
 
+## Monitoring positions
+
+```bash
+# live position of one drone (ENU meters):
+ros2 topic echo /drone_1/odometry_conversion/odometry --field pose.pose.position
+# snapshot: add --once · velocity: --field twist.twist.linear
+
+# RViz top-down view: fixed frame "map", one Odometry display per
+# /drone_N/odometry_conversion/odometry topic (TF is also published).
+rviz2
+```
+
 ---
 
 # Part B — Real Starlings + OptiTrack mocap
