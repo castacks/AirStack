@@ -1,0 +1,17 @@
+<launch>
+  <!-- ====================================================================
+       Per-drone MAVROS interface stack for SIMULATION.
+
+       Wraps interface_bringup/launch/interface.launch.py with a namespace
+       push so N instances coexist on one ROS domain. interface.launch.py
+       reads ROBOT_NAME / FCU_URL / TGT_SYSTEM from the environment, so this
+       file is meant to be started via scripts/launch_sim_interfaces.sh,
+       which exports them per drone before launching.
+       ==================================================================== -->
+  <arg name="drone_name" />
+
+  <group>
+    <push-ros-namespace namespace="$(var drone_name)" />
+    <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+  </group>
+</launch>

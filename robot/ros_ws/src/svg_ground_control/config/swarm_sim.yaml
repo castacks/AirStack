@@ -1,0 +1,42 @@
+# SVG ground control — SIMULATION configuration.
+#
+# Drones are PX4 SITL instances spawned by
+# simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py and
+# bridged via MAVROS (scripts/launch_sim_interfaces.sh). All drones share one
+# ROS_DOMAIN_ID; isolation is by namespace (/drone_1, /drone_2, ...).
+#
+# No mocap in sim — PX4 SITL fuses its own simulated sensors, and the state
+# topic below is produced by each drone's odometry_conversion node.
+
+swarm_commander:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    # one role per drone: hover | teleop | external
+    drone_roles: ["hover", "hover", "teleop"]
+    # flat x,y,z (ENU, meters) per drone. Hover drones hold this position;
+    # the teleop drone uses it as its takeoff target before operator control;
+    # external entries are ignored.
+    hover_positions: [-1.5, 0.0, 1.2,
+                       1.5, 0.0, 1.2,
+                       0.0, -1.5, 1.2]
+
+    # MAVROS robot_interface topic layout (see interface_bringup)
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    velocity_command_topic_template: "/{name}/interface/velocity_command"
+    robot_command_service_template: "/{name}/interface/robot_command"
+    teleop_topic: "/svg/teleop_command"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+    teleop_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+
+    # CBF safety filter (placeholder until drone_soccer filter is dropped in)
+    cbf_safety_radius_m: 0.55
+    cbf_max_speed_mps: 1.2
+    cbf_alpha: 2.5
+    teleop_max_speed_mps: 1.2

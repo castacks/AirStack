@@ -1,0 +1,50 @@
+<launch>
+  <!-- ====================================================================
+       Per-drone px4_interface stack for HARDWARE (uXRCE-DDS, no MAVROS).
+
+         ros2 launch svg_ground_control drone_interface.launch.xml drone_name:=drone_1
+
+       Mirrors px4_interface/launch/px4_interface.launch.xml but takes the
+       robot namespace from the drone_name argument instead of $ROBOT_NAME,
+       so N instances can run side by side in one container.
+
+       Requires the drone's uXRCE-DDS client to be namespaced to match:
+         uxrce_dds_client start -n <drone_name>   (on the VOXL)
+       so PX4 topics appear as /<drone_name>/fmu/in|out/...
+
+       Resulting interface (consumed by swarm_commander / mocap_bridge):
+         /<drone_name>/fmu/velocity_command        TwistStamped in
+         /<drone_name>/fmu/robot_command           RobotCommand srv
+         /<drone_name>/fmu/visual_odometry_in      Odometry in (mocap)
+         /<drone_name>/odometry_conversion/odometry  Odometry out (ENU)
+       ==================================================================== -->
+  <arg name="drone_name" />
+
+  <group>
+    <push-ros-namespace namespace="$(var drone_name)" />
+
+    <group>
+      <push-ros-namespace namespace="fmu" />
+      <node pkg="robot_interface" exec="robot_interface_node"
+            name="px4_interface" output="screen">
+        <param name="interface" value="px4_interface::PX4Interface" />
+        <remap from="odometry" to="/$(var drone_name)/interface/odometry" />
+      </node>
+    </group>
+
+    <node pkg="robot_interface" exec="odometry_conversion"
+          namespace="odometry_conversion" output="screen">
+      <remap from="odometry_in" to="/$(var drone_name)/interface/odometry" />
+      <remap from="odometry_out" to="odometry" />
+
+      <param name="odom_input_qos_is_best_effort" value="true" />
+      <param name="new_frame_id"                  value="map" />
+      <param name="new_child_frame_id"            value="$(var drone_name)/base_link" />
+      <param name="odometry_output_type"          value="2" />
+
+      <param name="convert_odometry_to_transform"            value="true" />
+      <param name="convert_odometry_to_stabilized_transform" value="false" />
+      <param name="restamp_now_post"                         value="false" />
+    </node>
+  </group>
+</launch>
