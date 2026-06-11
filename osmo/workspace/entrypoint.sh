@@ -241,70 +241,41 @@ else
   log "WARN:     --payload username=<andrew_id> password=<andrew_password>"
 fi
 
-# ─── 6. airstack up / mission mode ─────────────────────────────────────────
+# ─── 6. airstack up ────────────────────────────────────────────────────────
 
-cd "$AIRSTACK_ROOT"
+# Honor optional overrides passed in via OSMO env. Defaults match a "single
+# robot, Isaac Sim with WebRTC livestream" dev session.
+export AUTOLAUNCH="${AUTOLAUNCH:-true}"
+export NUM_ROBOTS="${NUM_ROBOTS:-1}"
+export ISAAC_SIM_LIVESTREAM="${ISAAC_SIM_LIVESTREAM:-true}"
 
-if [ -n "${OSMO_MISSION_FILE:-}" ]; then
-  # Mission mode (airstack-mission.yaml): mission_runner.py owns the full
-  # stack lifecycle — repeated `airstack down/up` per iteration, PX4
-  # readiness gating, mcap recording, and artifact collection into
-  # /osmo/output. Stack env (NUM_ROBOTS, COMPOSE_PROFILES,
-  # ISAAC_SIM_SCRIPT_NAME, ...) comes from the mission spec's `env:` block,
-  # so none of the dev-session defaults below are exported here.
-  #
-  # The runner is taken from the clone, not baked into the image, so the
-  # mission spec and the code executing it always come from the same branch.
-  MISSION_PATH="$AIRSTACK_ROOT/$OSMO_MISSION_FILE"
-  [ -f "$MISSION_PATH" ] || MISSION_PATH="$OSMO_MISSION_FILE"  # allow absolute paths
-  if [ ! -f "$MISSION_PATH" ]; then
-    log "ERROR: mission file not found: $OSMO_MISSION_FILE — pod stays alive for debugging via SSH"
-  else
-    log "mission mode: python3 osmo/workspace/mission_runner.py $MISSION_PATH"
-    if python3 "$AIRSTACK_ROOT/osmo/workspace/mission_runner.py" "$MISSION_PATH" \
-         --airstack-root "$AIRSTACK_ROOT"; then
-      log "mission runner finished: all iterations passed"
-    else
-      log "WARN: mission runner exited non-zero — see summary.json / steps.json in the results dir"
-    fi
-  fi
-  if [ "${OSMO_MISSION_KEEP_ALIVE:-true}" != "true" ]; then
-    log "OSMO_MISSION_KEEP_ALIVE=false — exiting so OSMO uploads /osmo/output and frees the GPU"
-    # Exit 0 regardless of mission status: a clean task exit is what
-    # triggers the `outputs:` upload; mission pass/fail lives in summary.json.
-    exit 0
-  fi
-  log "OSMO_MISSION_KEEP_ALIVE=true — pod stays alive; download results with 'airstack osmo:fetch'"
+# COMPOSE_PROFILES selection: the default `desktop,isaac-sim` from .env runs
+# the standard isaac-sim service. If the student wants livestream, they (or
+# we) swap to the isaac-sim-livestream profile, which is the OSMO-friendly
+# variant defined in simulation/isaac-sim/docker/docker-compose.yaml.
+if [ "$ISAAC_SIM_LIVESTREAM" = "true" ]; then
+  export COMPOSE_PROFILES="${COMPOSE_PROFILES:-desktop,isaac-sim-livestream}"
 else
-  # Dev mode (airstack-dev.yaml): single bring-up, then the student drives.
-  # Honor optional overrides passed in via OSMO env. Defaults match a
-  # "single robot, Isaac Sim with WebRTC livestream" dev session.
-  export AUTOLAUNCH="${AUTOLAUNCH:-true}"
-  export NUM_ROBOTS="${NUM_ROBOTS:-1}"
-  export ISAAC_SIM_LIVESTREAM="${ISAAC_SIM_LIVESTREAM:-true}"
+  export COMPOSE_PROFILES="${COMPOSE_PROFILES:-desktop,isaac-sim}"
+fi
 
-  # COMPOSE_PROFILES selection: the default `desktop,isaac-sim` from .env runs
-  # the standard isaac-sim service. If the student wants livestream, they (or
-  # we) swap to the isaac-sim-livestream profile, which is the OSMO-friendly
-  # variant defined in simulation/isaac-sim/docker/docker-compose.yaml.
-  if [ "$ISAAC_SIM_LIVESTREAM" = "true" ]; then
-    export COMPOSE_PROFILES="${COMPOSE_PROFILES:-desktop,isaac-sim-livestream}"
-  else
-    export COMPOSE_PROFILES="${COMPOSE_PROFILES:-desktop,isaac-sim}"
-  fi
-
-  if [ "${OSMO_AIRSTACK_UP:-true}" = "true" ]; then
-    log "airstack up (COMPOSE_PROFILES=$COMPOSE_PROFILES, NUM_ROBOTS=$NUM_ROBOTS, livestream=$ISAAC_SIM_LIVESTREAM)"
-    ./airstack.sh up || log "WARN: airstack up exited non-zero — pod stays alive for debugging via SSH"
-  else
-    log "OSMO_AIRSTACK_UP=false — skipping airstack up; SSH in and run ./airstack.sh up manually"
-  fi
+# OSMO_AIRSTACK_UP=false skips `airstack up` and goes straight to sleep — the
+# pod is fully set up (sshd, dockerd, clone, creds) for the caller to drive.
+# The airstack-mission.yaml workflow uses this hook: it runs this entrypoint
+# for setup only, then hands off to osmo/workspace/mission_launcher.sh (from
+# the clone, so the mission engine ships with the branch — no image rebuild).
+cd "$AIRSTACK_ROOT"
+if [ "${OSMO_AIRSTACK_UP:-true}" = "true" ]; then
+  log "airstack up (COMPOSE_PROFILES=$COMPOSE_PROFILES, NUM_ROBOTS=$NUM_ROBOTS, livestream=$ISAAC_SIM_LIVESTREAM)"
+  ./airstack.sh up || log "WARN: airstack up exited non-zero — pod stays alive for debugging via SSH"
+else
+  log "OSMO_AIRSTACK_UP=false — skipping airstack up; caller drives the stack"
 fi
 
 # ─── 7. Sleep ──────────────────────────────────────────────────────────────
 
 log "entrypoint complete; sleeping forever so port-forwards keep working"
-if [ "${ISAAC_SIM_LIVESTREAM:-false}" = "true" ]; then
+if [ "$ISAAC_SIM_LIVESTREAM" = "true" ]; then
   isaac_sim_log_container="isaac-sim-livestream"
 else
   isaac_sim_log_container="airstack-isaac-sim-1"

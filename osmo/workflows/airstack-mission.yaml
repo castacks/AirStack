@@ -1,13 +1,21 @@
 # AirStack batch mission workflow on OSMO.
 #
 # Same workspace image and pod layout as airstack-dev.yaml, but instead of a
-# single `airstack up` for an interactive session, the entrypoint hands off
-# to osmo/workspace/mission_runner.py, which executes the mission spec named
-# by OSMO_MISSION_FILE: repeated cycles of
+# single `airstack up` for an interactive session, this runs a batch mission:
+# osmo/workspace/mission_runner.py executes the mission spec named by
+# OSMO_MISSION_FILE — repeated cycles of
 #
 #   airstack down → airstack up → wait for PX4 ready → record mcap bags
 #   → run steps (takeoff / land / navigate / any ros2 command) → collect
 #   bags + logs → airstack down
+#
+# NO IMAGE REBUILD NEEDED. The mission engine is NOT baked into the image:
+# the command below reuses the baked entrypoint for pod setup only
+# (OSMO_AIRSTACK_UP=false → sshd, inner dockerd, branch clone, creds, registry
+# login — no `airstack up`), then hands off to mission_launcher.sh FROM THE
+# CLONE. So `git push` your branch and resubmit; the launcher + runner + spec
+# all come from the branch. (The launcher pip-installs PyYAML at runtime if
+# the image predates it.)
 #
 # Mission specs live in osmo/missions/ (cloned with the branch, so what you
 # push is what runs). Schema: osmo/missions/README.md.
@@ -41,8 +49,26 @@ workflow:
       image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
       # Required so the inner dockerd can run (same DinD setup as airstack-dev).
       privileged: true
-      command: ["bash"]
-      args: ["/usr/local/bin/entrypoint.sh"]
+      # Bootstrap: run the baked entrypoint for pod setup ONLY
+      # (OSMO_AIRSTACK_UP=false), backgrounded, then hand off to the launcher
+      # that ships in the freshly-cloned branch. This is what makes the
+      # mission engine rebuild-free — see the header comment.
+      command: ["bash", "-c"]
+      args:
+      - |
+        set -uo pipefail
+        log() { echo "[mission-bootstrap] $*"; }
+        log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh &
+        LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
+        log "waiting for branch clone to provide $LAUNCHER"
+        for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
+        if [ ! -f "$LAUNCHER" ]; then
+          log "ERROR: $LAUNCHER not found after clone wait; sleeping for SSH debug"
+          exec sleep infinity
+        fi
+        log "handing off to mission_launcher.sh"
+        exec bash "$LAUNCHER"
       environment:
         # Mission selection — repo-relative path into the clone. Override at
         # submit time to run a different mission.

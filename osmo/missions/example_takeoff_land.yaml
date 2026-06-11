@@ -18,7 +18,7 @@ name: example_takeoff_land
 # watch the run over WebRTC. Alternatively use `profiles:` to export
 # COMPOSE_PROFILES and run a plain `airstack up`.
 stack:
-  services: [isaac-sim, robot-desktop, gcs]
+  services: [isaac-sim-livestream, robot-desktop, gcs]
   # profiles: [desktop, isaac-sim]
 
 # Exported before every `airstack up`. Anything the compose stack reads from
@@ -87,12 +87,23 @@ steps:
   - action:
       task: takeoff                      # → /<robot>/tasks/takeoff (TakeoffTask)
       goal: {target_altitude_m: 10.0, velocity_m_s: 1.0}
+      #to specify robot(s)   
+      #robots: [1]   (1st robot)
+      #robots: [1, 3]   (1st and 3rd robot)
+      #robots: all   (all robots)
 
   - wait: 30                             # hover
 
-  - run:                                 # arbitrary command, fanned out per robot
+  - run:                                 # arbitrary command, that runs per robot
       cmd: ros2 topic echo --once /{robot}/odometry_conversion/odometry
       timeout_s: 20
+      #to specify robot(s):   
+      #robots: [1]   (1st robot)
+      #robots: [1, 3]   (1st and 3rd robot)
+
+      #To specify the container:
+      #container: gcs   (GCS container)
+      #container: <container name> 
 
   - action:
       task: land                         # → /<robot>/tasks/land (LandTask)
