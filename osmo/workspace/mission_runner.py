@@ -184,6 +184,13 @@ def gcs_container():
     return names[0] if names else None
 
 
+def stack_containers():
+    """Running containers belonging to the AirStack compose stack (robot, gcs,
+    and any sim variant — isaac-sim / isaac-sim-livestream / ms-airsim)."""
+    pats = ("airstack", "isaac-sim", "ms-airsim")
+    return [n for n in list_containers() if any(p in n for p in pats)]
+
+
 # ── mission spec ───────────────────────────────────────────────────────────
 
 def load_mission(path):
@@ -304,6 +311,32 @@ class Stack:
         if result.returncode != 0:
             log(f"WARN: airstack down exited {result.returncode}")
 
+    def ensure_down(self):
+        """`airstack status`; if any stack containers exist, `airstack down`
+        and BLOCK until they're actually gone before returning.
+
+        This is the pre-`up` guard: a fresh `airstack up` must not race a
+        previous bring-up's containers/network (the baked entrypoint leaves a
+        stack up on a stale image; the prior iteration leaves one too).
+        Starting `up` while those still exist causes duplicate-network and
+        container-name conflicts."""
+        self._airstack("status", 60)
+        existing = stack_containers()
+        if not existing:
+            return
+        log(f"existing stack containers found {existing} — bringing them down first")
+        self.down()
+        deadline = time.time() + self.mission["down_timeout_s"]
+        while time.time() < deadline:
+            remaining = stack_containers()
+            if not remaining:
+                log("stack fully down; safe to bring up")
+                return
+            log(f"waiting for teardown: {remaining}")
+            time.sleep(2)
+        log(f"WARN: containers still present after down: {stack_containers()} "
+            f"— proceeding, `up` may conflict")
+
     def wait_ready(self, container):
         """Two sequential gates per robot (same as the system tests):
         1. mavros/state reports connected=True (MAVROS ↔ PX4 heartbeat);
@@ -419,23 +452,36 @@ class Recorder:
 
     def _start_one(self, container, domain_id, tag, selection, setup_bash):
         out_dir = f"{BAG_STAGING_DIR}/{tag}"
+        log_file = f"{BAG_STAGING_DIR}/record_{tag}.log"
+        pid_file = f"{BAG_STAGING_DIR}/record_{tag}.pid"
+        # Create the staging dir in the FOREGROUND, THEN background only the
+        # recorder. Folding `mkdir` into the same `... &` chain backgrounds the
+        # mkdir too, so the foreground pidfile write races ahead of the dir
+        # existing ("record_<tag>.pid: No such file or directory"). nohup +
+        # pidfile lets the recorder outlive this docker exec; topics that
+        # don't exist yet are fine (rosbag2 waits for them).
         inner = (
-            f"{ros2_env_prefix(setup_bash, domain_id)} && "
-            f"mkdir -p {BAG_STAGING_DIR} && rm -rf {out_dir} && "
-            # nohup + pidfile: the record process must outlive this docker
-            # exec; topics that don't exist yet are fine (record waits).
+            f"mkdir -p {BAG_STAGING_DIR} && rm -rf {out_dir}\n"
+            f"{ros2_env_prefix(setup_bash, domain_id)}\n"
             f"nohup ros2 bag record -s mcap -o {out_dir} {selection} "
-            f"> {BAG_STAGING_DIR}/record_{tag}.log 2>&1 & "
-            f"echo $! > {BAG_STAGING_DIR}/record_{tag}.pid"
+            f"> {log_file} 2>&1 &\n"
+            f"echo $! > {pid_file}\n"
+            # Confirm the recorder is actually alive — a bad topic name or a
+            # missing mcap plugin would make it exit immediately, and a silent
+            # recording failure is the worst outcome for a mission.
+            f"sleep 2\n"
+            f"if kill -0 \"$(cat {pid_file})\" 2>/dev/null; then echo RECORDER_ALIVE; "
+            f"else echo RECORDER_DEAD; tail -n 5 {log_file} 2>/dev/null; fi"
         )
         r = docker_exec(container, inner, timeout=30)
-        if r.returncode == 0:
+        if "RECORDER_ALIVE" in r.stdout:
             self.active.append((container, tag))
             n_topics = "all topics" if selection == "-a" else f"{len(selection.split())} topics"
             log(f"recording [{tag}] in {container} (domain {domain_id}) "
                 f"→ {out_dir} ({n_topics})")
         else:
-            log(f"WARN: failed to start recorder [{tag}]: {r.stderr.strip()[:200]}")
+            log(f"WARN: recorder [{tag}] failed to start / exited immediately: "
+                f"{tail(r.stdout + r.stderr, 6)}")
 
     def start(self):
         if not self.cfg.get("enabled", True):
@@ -719,7 +765,11 @@ def run_iteration(stack, mission, iter_dir):
     container = None
     t0 = time.time()
     try:
-        stack.down()
+        # `airstack status`; if a stack is already up (baked entrypoint on a
+        # stale image, or the previous iteration), down it and wait for the
+        # containers to fully disappear before bringing up — otherwise the
+        # `up` races leftover containers/network.
+        stack.ensure_down()
         containers = stack.up()
         container = containers[0]
         summary["up_duration_s"] = round(time.time() - t0, 2)

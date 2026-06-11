@@ -62,6 +62,24 @@ if [ -n "${AIRLAB_REGISTRY_USER:-}" ]; then
     || log "WARN: registry login not detected — image pulls may fail"
 fi
 
+# The deployed :latest image's baked entrypoint runs its OWN `airstack up`
+# (that image predates the OSMO_AIRSTACK_UP=false hook, so it ignores the
+# request to skip it). If the mission started its own bring-up concurrently,
+# the two compose runs collide — duplicate network, container-name conflicts,
+# "network not found" mid-teardown — and the first iteration fails. So wait
+# for the baked entrypoint to FINISH its bring-up (which also warms the inner
+# image cache the mission then reuses) before handing off. Detect completion
+# by its terminal `sleep infinity`. On a rebuilt image where the hook works,
+# the entrypoint skips `up` and reaches that sleep almost immediately, so this
+# is a fast no-op — correct either way.
+log "waiting for the baked entrypoint to finish its own bring-up (avoids a concurrent 'airstack up')"
+sleep 10   # let the baked entrypoint actually reach its `airstack up`
+if wait_for "baked entrypoint idle" 2400 pgrep -f "sleep infinity"; then
+  sleep 5  # let compose fully release the network before the mission's first down/up
+else
+  log "WARN: baked entrypoint still busy after 40m — proceeding; first iteration may race its bring-up"
+fi
+
 # ── 2. PyYAML (mission_runner imports yaml) ────────────────────────────────
 if ! python3 -c "import yaml" >/dev/null 2>&1; then
   log "installing PyYAML (image predates python3-yaml)"

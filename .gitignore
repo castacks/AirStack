@@ -94,8 +94,10 @@ simulation/ms-airsim/assets/scenes/*
 # Test results
 tests/results/
 
-# OSMO mission results (local runs of osmo/workspace/mission_runner.py)
+# OSMO mission results: local runs of osmo/workspace/mission_runner.py write
+# to osmo/results/; `airstack osmo:fetch` downloads to ./osmo-results/.
 osmo/results/
+osmo-results/
 
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/
