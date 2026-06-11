@@ -34,7 +34,7 @@ robot`, no `--command=bash`) and use tmux windows — prefix is `Ctrl-b`
 (press Ctrl+b, release, then the key):
 
 - `Ctrl-b c` new window (tab) · `Ctrl-b n`/`p` or `Ctrl-b 0..9` switch
-- `Ctrl-b ,` rename window · `Ctrl-b %`/`"` split panes · `Ctrl-b arrows` move
+- `Ctrl-b ,` rename window · `Ctrl-b %`/`"` split panes · `Ctrl-b arrows` move · `Ctrl-b x` close focused pane
 - `Ctrl-b [` scroll logs (`q` exits) · `Ctrl-b d` detach (everything keeps running)
 
 One window each for A3 (interfaces), A4 (commander), A5 (teleop), A6
