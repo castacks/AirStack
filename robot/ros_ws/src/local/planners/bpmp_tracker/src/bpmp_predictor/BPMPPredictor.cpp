@@ -291,19 +291,21 @@ namespace bpmp_tracker{
             return;
         }
 
-        // Find the humanflow entry whose global ReID group_id matches target_id_
+        // Track the human with the smallest currently observed global ReID ID.
+        // target_id_ (0) is naturally prioritized as the minimum when present.
         const humanflow_msgs::msg::HumanFlow* target_human = nullptr;
+        int active_id = -1;
         for (const auto& human : hf_msg->humanflows) {
             auto it = reid_id_mapping_.find(human.tracking_id);
-            if (it != reid_id_mapping_.end() && it->second == target_id_) {
+            if (it == reid_id_mapping_.end()) continue;
+            if (active_id == -1 || it->second < active_id) {
+                active_id = it->second;
                 target_human = &human;
-                break;
             }
         }
         if (target_human == nullptr) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                "Target global ID %d not found in ReID mapping (mapping size: %zu)",
-                target_id_, reid_id_mapping_.size());
+                "No mapped human found (reid_id_mapping size: %zu)", reid_id_mapping_.size());
             return;
         }
 

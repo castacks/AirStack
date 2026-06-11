@@ -1,7 +1,8 @@
 <!-- LOGGING -->
 <launch>
   <arg name="record_bag" default="false" />
-  
+  <arg name="record_target_tracking_bag" default="$(env RECORD_TARGET_TRACKING_BAG false)" />
+
   <group if="$(var record_bag)">
     <node name="bag_record" pkg="bag_record_pid" exec="bag_record_node">
       <param name="cfg_path" value="$(find-pkg-share logging_bringup)/config/log.yaml" />
@@ -9,5 +10,16 @@
       <param name="mcap_qos_dir" value="$(find-pkg-share bag_record_pid)/config" />
     </node>
   </group>
-  
+
+  <!-- Auto-records when target_tracking_enable becomes True; stops on False or container shutdown.
+       Namespace is inherited from push_ros_namespace in the parent robot.launch.xml. -->
+  <group if="$(var record_target_tracking_bag)">
+    <node name="target_tracking_bag_record" pkg="bag_record_pid"
+          exec="target_tracking_bag_recorder_node" output="screen">
+      <param name="cfg_path" value="$(find-pkg-share logging_bringup)/config/target_tracking_log.yaml" />
+      <param name="output_dir" value="/bags" />
+      <param name="mcap_qos_dir" value="$(find-pkg-share bag_record_pid)/config" />
+    </node>
+  </group>
+
 </launch>
