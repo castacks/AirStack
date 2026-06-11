@@ -59,7 +59,12 @@ workflow:
         set -uo pipefail
         log() { echo "[mission-bootstrap] $*"; }
         log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
-        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh &
+        # Tee the baked entrypoint's output so the launcher can wait for its
+        # terminal "sleeping forever" line (= setup + its own `airstack up`
+        # finished) before starting the mission — see mission_launcher.sh.
+        # The pipe keeps its logs in `osmo workflow logs` too.
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
+          | tee /tmp/baked-entrypoint.log &
         LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
         log "waiting for branch clone to provide $LAUNCHER"
         for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
