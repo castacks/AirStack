@@ -35,18 +35,24 @@ never commanded — e.g. RC-flown).
 
 ## Quick start — simulation (3 drones, 1 teleop)
 
+All terminals must share ONE ROS domain. The robot container's .bashrc
+auto-derives ROS_DOMAIN_ID=1 from the container name (airstack-robot-desktop-1),
+so the convention here is domain 1 — verify with `echo $ROS_DOMAIN_ID` in every
+shell, and pass SVG_DOMAIN_ID=1 to the sim script.
+
 Terminal 1 — Isaac Sim (inside the isaac-sim container):
 
 ```bash
-NUM_ROBOTS=3 ./python.sh /isaac-sim/launch_scripts/svg_multi_drone_single_domain.py
+NUM_ROBOTS=3 SVG_DOMAIN_ID=1 PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
+  /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py \
+  --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
 ```
 
 Terminal 2 — robot container, MAVROS interfaces (one per drone, single domain):
 
 ```bash
-airstack connect robot   # then inside:
+airstack connect robot   # then inside (ROS_DOMAIN_ID auto-derives to 1):
 bws && sws
-export ROS_DOMAIN_ID=0   # must match SVG_DOMAIN_ID of the sim script
 ./src/svg_ground_control/scripts/launch_sim_interfaces.sh 3
 ```
 
@@ -72,10 +78,13 @@ ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 
 Per drone (once): namespace the uXRCE-DDS client on the VOXL —
 `uxrce_dds_client start -n drone_i` — so PX4 topics appear as
-`/drone_i/fmu/...`; set EKF2 to fuse external vision (`EKF2_EV_CTRL`), and
-configure RC kill switch + offboard-loss failsafe.
+`/drone_i/fmu/...`; set the DDS domain to match the ground station
+(`UXRCE_DDS_DOM_ID=1`); set EKF2 to fuse external vision (`EKF2_EV_CTRL`),
+and configure RC kill switch + offboard-loss failsafe.
 
-Ground PC (one container/shell on the shared domain, workspace sourced):
+Ground PC (one container/shell, workspace sourced; manually-started
+containers do NOT auto-derive the domain, so `export ROS_DOMAIN_ID=1`
+in every shell — the mocap publisher too):
 
 ```bash
 # one interface stack per drone
