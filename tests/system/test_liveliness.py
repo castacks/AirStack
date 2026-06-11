@@ -7,6 +7,7 @@ snapshots, and a short stability window (infra only — no camera/LiDAR Hz here)
 Sensor topic rates, bridge stereo Hz, LiDAR echo/sanity, and sim RTF live in
 ``system/test_sensors.py`` (``@pytest.mark.sensors``), ordered after this module.
 """
+import os
 import time
 
 import pytest
@@ -21,6 +22,7 @@ from conftest import (
     logger,
     ros2_exec,
     sample_compute_usage,
+    sample_hz,
     wait_for_first_message,
 )
 
@@ -30,6 +32,19 @@ SENTINEL_NODE_TEMPLATES = [
     "/robot_{N}/robot_state_publisher",
     "/robot_{N}/trajectory_controller/trajectory_control_node",
 ]
+
+# Optional OptiTrack/NatNet liveliness sentinel — only meaningful when the robot
+# launches natnet_ros2 (LAUNCH_NATNET=true) and the sim streams NatNet frames
+# (Isaac emulator wrapper). Off by default, so normal runs skip it cleanly.
+_NATNET_ENABLED = os.environ.get("LAUNCH_NATNET", "").strip().lower() in ("1", "true", "yes", "on")
+_NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
+_NATNET_MIN_HZ = 5.0
+# Generous first-message budget: on a cold Isaac boot the standalone Pegasus
+# script must finish loading, start Play (physics steps drive the emulator's
+# synchronous frame pump), and the robot natnet_ros2 client must connect over
+# UDP before pose frames appear. 60s was too tight vs the 600s /clock and 300s
+# sentinel-node budgets.
+_NATNET_FIRST_MSG_TIMEOUT = 120
 
 
 def _parse_panes(raw):
@@ -250,6 +265,51 @@ class TestLiveliness:
             interval=5,
             fail_msg=lambda: f"sentinel nodes not ready after 300s: {last_msg[0]}",
         )
+
+    @pytest.mark.skipif(
+        not _NATNET_ENABLED,
+        reason="LAUNCH_NATNET not enabled — OptiTrack/NatNet pose sentinel skipped",
+    )
+    @pytest.mark.dependency(depends=["sim_ready", "nodes"])
+    def test_natnet_pose_alive(self, airstack_env):
+        """When NatNet is enabled, the OptiTrack pose topic must publish per robot.
+
+        Closes the loop the integration tier opens host-side: with the Isaac
+        emulator wrapper streaming in-sim and ``natnet_ros2`` running on each robot
+        (LAUNCH_NATNET=true), ``/{robot}/perception/optitrack/<body>/pose_cov`` must
+        be live. We probe ``/pose_cov`` (PoseWithCovarianceStamped) because it is
+        published unconditionally for every body, whereas the bare ``<body>``
+        PoseStamped is gated on the ``publish_direct_optitrack`` param.
+        """
+        cfg = airstack_env["cfg"]
+        robot_containers = get_robot_containers(airstack_env["robot_pattern"])
+        m = get_metrics()
+        tid = current_test_id()
+
+        failures = []
+        for n in range(1, airstack_env["num_robots"] + 1):
+            container = robot_containers[n - 1]
+            topic = f"/robot_{n}/perception/optitrack/{_NATNET_BODY_NAME}/pose_cov"
+            first = wait_for_first_message(
+                container,
+                topic,
+                domain_id=n,
+                setup_bash=cfg["robot_setup_bash"],
+                timeout=_NATNET_FIRST_MSG_TIMEOUT,
+            )
+            if first is None:
+                failures.append(
+                    f"robot_{n}: no message on {topic} within {_NATNET_FIRST_MSG_TIMEOUT}s"
+                )
+                continue
+            hz = sample_hz(
+                container, topic, domain_id=n, setup_bash=cfg["robot_setup_bash"], duration=5, window=20
+            )
+            m.record(tid, f"natnet_pose_hz_robot_{n}", hz if hz is not None else "none", unit="Hz")
+            if hz is None or hz < _NATNET_MIN_HZ:
+                failures.append(f"robot_{n}: {topic} at {hz} Hz (< {_NATNET_MIN_HZ})")
+
+        assert not failures, "NatNet pose sentinel failed: " + "; ".join(failures)
 
     @pytest.mark.dependency(depends=["sim_ready", "nodes", "tmux"])
     def test_stable(self, airstack_env, request):

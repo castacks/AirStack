@@ -117,7 +117,18 @@ public:
 
         // Production client — NatNetClientAdapter wraps the SDK
         client_ = std::make_unique<natnet_ros2::NatNetClientAdapter>();
-        connect_and_setup(connect_cfg);
+        connect_cfg_ = connect_cfg;
+
+        // Try to connect now; if the server is not up yet keep retrying. The
+        // NatNet server may legitimately start *after* the robot — e.g. the Isaac
+        // Sim emulator only binds ~100 s into sim boot, and a real Motive PC may be
+        // powered on after the drone. A one-shot connect would leave us dead for
+        // the whole session, so retry on a timer until the first handshake lands.
+        if (!connect_and_setup(connect_cfg_)) {
+            connect_timer_ = this->create_wall_timer(
+                std::chrono::seconds(2),
+                std::bind(&NatNetROS2Node::retry_connect, this));
+        }
 
         refresh_timer_ = this->create_wall_timer(
             std::chrono::seconds(1),
@@ -200,14 +211,16 @@ public:
 
 private:
     // -----------------------------------------------------------------------
-    void connect_and_setup(const natnet_ros2::ConnectConfig & cfg)
+    // Returns true once the handshake succeeds and the frame callback is live.
+    // On failure it logs (WARN) and returns false so the caller can retry.
+    bool connect_and_setup(const natnet_ros2::ConnectConfig & cfg)
     {
         const natnet_ros2::NegotiationResult neg =
             natnet_ros2::negotiate(*client_, cfg);
 
         if (!neg.ok) {
-            RCLCPP_ERROR(get_logger(), "%s", neg.log_message.c_str());
-            return;
+            RCLCPP_WARN(get_logger(), "%s", neg.log_message.c_str());
+            return false;
         }
 
         if (neg.server_info.host_present) {
@@ -221,6 +234,26 @@ private:
         client_->set_frame_callback(
             [this](const natnet_ros2::FrameSample & f) { on_frame(f); });
         RCLCPP_INFO(get_logger(), "Frame callback registered — receiving mocap data.");
+        connected_ = true;
+        return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Timer-driven reconnect: fires every 2 s until the first handshake lands,
+    // then cancels itself. Runs on the node's executor thread (same as the
+    // refresh timer), so no extra locking versus single-threaded init.
+    void retry_connect()
+    {
+        if (connected_) {
+            if (connect_timer_) { connect_timer_->cancel(); }
+            return;
+        }
+        RCLCPP_INFO(get_logger(),
+            "NatNet not connected — retrying handshake to %s ...",
+            connect_cfg_.server_ip.c_str());
+        if (connect_and_setup(connect_cfg_) && connect_timer_) {
+            connect_timer_->cancel();
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -304,6 +337,8 @@ private:
     std::array<double, 36> covariance_6x6_{};
 
     std::unique_ptr<natnet_ros2::INatNetClient> client_;
+    natnet_ros2::ConnectConfig connect_cfg_;
+    bool connected_ = false;
 
     std::mutex pub_mutex_;
     std::unordered_map<int32_t, std::string>    body_names_;
@@ -311,6 +346,7 @@ private:
 
     std::atomic<bool> needs_description_refresh_{false};
     rclcpp::TimerBase::SharedPtr refresh_timer_;
+    rclcpp::TimerBase::SharedPtr connect_timer_;
 };
 
 

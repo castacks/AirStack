@@ -43,6 +43,8 @@ flowchart LR
 
 **Enable on robot:** `LAUNCH_NATNET=true` in `.env` → [`perception.launch.xml`](../../../robot/ros_ws/src/perception/perception_bringup/launch/perception.launch.xml) includes `natnet_ros2.launch.py`.
 
+**Enable in sim:** the same `LAUNCH_NATNET=true` (passed into the isaac-sim container via [`docker-compose.yaml`](../../../simulation/isaac-sim/docker/docker-compose.yaml)) makes the Pegasus example launch scripts author a `/World/NatNetInterface` prim with one rigid body per drone `base_link` and **auto-start the emulator on load** (no UI). Helper: [`isaac/scene_setup.py`](../../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/optitrack/natnet/emulator/isaac/scene_setup.py) (`start_drone_natnet_server`). Body name: single = `Drone`; multi = `Drone<i>` (id `i`). Override the name prefix with `NATNET_BODY_NAME`.
+
 **Default client config:** unicast, `server_ip` → Motive/emulator (use `172.31.0.200` for Isaac container), ports 1510/1511 — see [`natnet_config.yaml`](../../../robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml).
 
 ## NatNet: Two UDP Channels

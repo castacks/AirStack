@@ -104,8 +104,67 @@ def _frame_publisher(server: NatNetUnicastServer, stop_event: threading.Event) -
         time.sleep(interval)
 
 
+def _launch_natnet_node(container, host_ip, command_port, domain_id):
+    """Start natnet_ros2_node in the container pointed at the host emulator."""
+    launch_cmd = (
+        f"bash -lc '{ros2_env(_ROBOT_SETUP, domain_id)} && "
+        f"exec {_NATNET_NODE} --ros-args "
+        f"-p server_ip:={host_ip} "
+        f"-p command_port:={command_port} "
+        f"-p body_name:=Drone "
+        f"-p body_id:=1 "
+        f"-p publish_to_mavros:=false "
+        f"-p publish_direct_optitrack:=true'"
+    )
+    return subprocess.Popen(
+        ["docker", "exec", container, "bash", "-c", launch_cmd],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+
+def _assert_pose_stream(container, robot_name, domain_id):
+    """Wait for the pose topic then assert a sustained rate >= _MIN_HZ."""
+    pose_topic = f"/{robot_name}/perception/optitrack/Drone"
+    pose_cov_topic = f"{pose_topic}/pose_cov"
+
+    time.sleep(_WARMUP_S)
+    first_msg_s = wait_for_first_message(
+        container, pose_cov_topic, domain_id, _ROBOT_SETUP, timeout=int(_STREAM_HOLD_S)
+    )
+    assert first_msg_s is not None, (
+        f"No messages on {pose_cov_topic} within {_STREAM_HOLD_S}s "
+        "(NatNet connect or frame stream failed)"
+    )
+    hz = sample_hz(
+        container,
+        pose_topic,
+        domain_id,
+        _ROBOT_SETUP,
+        duration=min(8, int(_STREAM_HOLD_S - first_msg_s)),
+        window=20,
+    )
+    assert hz is not None, f"No sustained stream on {pose_topic}"
+    assert hz >= _MIN_HZ, f"Expected >= {_MIN_HZ} Hz on {pose_topic}, got {hz}"
+
+
+def _terminate(proc) -> None:
+    if proc is None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
 def test_natnet_ros2_receives_drone_pose_hz(robot_autonomy_stack):
-    """Emulator on host streams dummy Drone frames while natnet_ros2_node publishes."""
+    """Emulator on host streams dummy Drone frames while natnet_ros2_node publishes.
+
+    Raw-server variant: hand-built frames via ``NatNetUnicastServer`` (no Isaac
+    wrapper, no USD) — the minimal end-to-end wire check.
+    """
     container = robot_autonomy_stack["container"]
 
     if not _natnet_node_available(container):
@@ -120,8 +179,6 @@ def test_natnet_ros2_receives_drone_pose_hz(robot_autonomy_stack):
     command_port = ephemeral_udp_port(host_ip)
     robot_name = _container_env(container, "ROBOT_NAME", "robot_1")
     domain_id = int(_container_env(container, "ROS_DOMAIN_ID", "0"))
-    pose_topic = f"/{robot_name}/perception/optitrack/Drone"
-    pose_cov_topic = f"{pose_topic}/pose_cov"
 
     server = NatNetUnicastServer(
         local_interface=host_ip,
@@ -133,66 +190,98 @@ def test_natnet_ros2_receives_drone_pose_hz(robot_autonomy_stack):
 
     stop_event = threading.Event()
     publisher = threading.Thread(
-        target=_frame_publisher,
-        args=(server, stop_event),
-        daemon=True,
+        target=_frame_publisher, args=(server, stop_event), daemon=True
     )
 
     node_proc: subprocess.Popen[str] | None = None
     try:
-        # Seed dummy frames before the client connects; keep streaming for the full hold window.
+        # Seed dummy frames before the client connects; keep streaming the whole window.
         publisher.start()
         time.sleep(0.1)
         server.start()
-
-        launch_cmd = (
-            f"bash -lc '{ros2_env(_ROBOT_SETUP, domain_id)} && "
-            f"exec {_NATNET_NODE} --ros-args "
-            f"-p server_ip:={host_ip} "
-            f"-p command_port:={command_port} "
-            f"-p body_name:=Drone "
-            f"-p body_id:=1 "
-            f"-p publish_to_mavros:=false "
-            f"-p publish_direct_optitrack:=true'"
-        )
-        node_proc = subprocess.Popen(
-            ["docker", "exec", container, "bash", "-c", launch_cmd],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-
-        time.sleep(_WARMUP_S)
-        first_msg_s = wait_for_first_message(
-            container,
-            pose_cov_topic,
-            domain_id,
-            _ROBOT_SETUP,
-            timeout=int(_STREAM_HOLD_S),
-        )
-        assert first_msg_s is not None, (
-            f"No messages on {pose_cov_topic} within {_STREAM_HOLD_S}s "
-            "(NatNet connect or frame stream failed)"
-        )
-
-        # Server still streaming — measure sustained rate over the remaining hold window.
-        hz = sample_hz(
-            container,
-            pose_topic,
-            domain_id,
-            _ROBOT_SETUP,
-            duration=min(8, int(_STREAM_HOLD_S - first_msg_s)),
-            window=20,
-        )
-        assert hz is not None, f"No sustained stream on {pose_topic}"
-        assert hz >= _MIN_HZ, f"Expected >= {_MIN_HZ} Hz on {pose_topic}, got {hz}"
+        node_proc = _launch_natnet_node(container, host_ip, command_port, domain_id)
+        _assert_pose_stream(container, robot_name, domain_id)
     finally:
         stop_event.set()
         publisher.join(timeout=2.0)
-        if node_proc is not None:
-            node_proc.terminate()
-            try:
-                node_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                node_proc.kill()
+        _terminate(node_proc)
         server.shutdown()
+
+
+def test_natnet_ros2_receives_isaac_wrapper_pose_hz(robot_autonomy_stack):
+    """Isaac-wrapper variant: the full new data path drives natnet_ros2.
+
+    ``NatNetServerManager`` builds the catalog from a ``NatNetInterfaceConfig``,
+    samples a (moving) prim's world pose off an in-memory USD stage via
+    ``sample_once`` — exactly what the physics-step callback does in-sim — and
+    streams real frames. We assert ``natnet_ros2`` connects and publishes the pose
+    at a stable rate. (Exact pose-value fidelity is covered hermetically by the
+    package's ``test_pose_streaming.py`` loopback; here we prove the wrapper feeds
+    the *real* robot client end to end without a sim/GPU.)
+    """
+    pytest.importorskip("pxr")
+    import math
+
+    from pxr import Gf, Usd, UsdGeom
+
+    from optitrack.natnet.emulator.isaac import (
+        BodyBinding,
+        NatNetInterfaceConfig,
+        NatNetServerManager,
+        author_interface,
+    )
+
+    container = robot_autonomy_stack["container"]
+    if not _natnet_node_available(container):
+        pytest.skip("natnet_ros2_node not built — run airstack setup (NatNet SDK)")
+
+    _stop_stale_natnet_nodes(container)
+
+    host_ip = _docker_default_gateway(container)
+    command_port = ephemeral_udp_port(host_ip)
+    data_port = ephemeral_udp_port(host_ip)
+    while data_port == command_port:
+        data_port = ephemeral_udp_port(host_ip)
+    robot_name = _container_env(container, "ROBOT_NAME", "robot_1")
+    domain_id = int(_container_env(container, "ROS_DOMAIN_ID", "0"))
+
+    stage = Usd.Stage.CreateInMemory()
+    xform = UsdGeom.Xform.Define(stage, "/World/base_link")
+    translate_op = xform.AddTranslateOp()
+    translate_op.Set(Gf.Vec3d(0.0, 0.0, 1.0))
+    cfg = NatNetInterfaceConfig(
+        server_ip=host_ip,
+        command_port=command_port,
+        data_port=data_port,
+        publish_rate=50.0,
+        bodies=[BodyBinding("Drone", "/World/base_link", streaming_id=1)],
+    )
+    author_interface(stage, "/World/NatNetInterface", cfg)
+
+    manager = NatNetServerManager(server_factory=None)  # real server factory
+    stop_event = threading.Event()
+
+    def _sampler():
+        # Stand in for the in-sim physics-step callback: move the prim and sample.
+        interval = 1.0 / cfg.publish_rate
+        t = 0.0
+        while not stop_event.is_set():
+            translate_op.Set(Gf.Vec3d(math.sin(t), 0.0, 1.0))
+            manager.sample_once(stage)
+            t += interval
+            time.sleep(interval)
+
+    sampler = threading.Thread(target=_sampler, daemon=True)
+
+    node_proc: subprocess.Popen[str] | None = None
+    try:
+        assert manager.start_server(cfg) is True
+        sampler.start()
+        time.sleep(0.1)
+        node_proc = _launch_natnet_node(container, host_ip, command_port, domain_id)
+        _assert_pose_stream(container, robot_name, domain_id)
+    finally:
+        stop_event.set()
+        sampler.join(timeout=2.0)
+        _terminate(node_proc)
+        manager.stop_server()

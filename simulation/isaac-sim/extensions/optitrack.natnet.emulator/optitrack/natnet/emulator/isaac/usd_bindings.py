@@ -113,6 +113,34 @@ def is_interface(prim) -> bool:
     return bool(attr and attr.HasAuthoredValue() and bool(attr.Get()))
 
 
+def read_world_pose(prim):
+    """Return ``((x, y, z), (qx, qy, qz, qw))`` from a prim's USD world transform.
+
+    Reads the position/orientation **stored in the USD stage** (the local-to-world
+    transform), which is what the physics step writes back each frame. Returns
+    ``None`` for an invalid/non-xformable prim so callers can mark the body lost.
+    """
+    from pxr import Usd, UsdGeom
+
+    if prim is None or not prim.IsValid():
+        return None
+    xformable = UsdGeom.Xformable(prim)
+    if not xformable:
+        return None
+    matrix = xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    translation = matrix.ExtractTranslation()
+    quat = matrix.ExtractRotationQuat()  # Gf.Quatd, normalized
+    imaginary = quat.GetImaginary()
+    position = (float(translation[0]), float(translation[1]), float(translation[2]))
+    orientation = (
+        float(imaginary[0]),
+        float(imaginary[1]),
+        float(imaginary[2]),
+        float(quat.GetReal()),
+    )
+    return position, orientation
+
+
 def resolve_targets(stage, config):
     """Split a config's bodies into (existing, missing) by target prim presence.
 

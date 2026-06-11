@@ -42,6 +42,11 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # OptiTrack/NatNet emulator: mirror the robot-side LAUNCH_NATNET gate so the
+      # example launch scripts author a NatNet interface (one rigid body per drone
+      # base_link) and start the server on load when enabled.
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
+      - NATNET_BODY_NAME=${NATNET_BODY_NAME:-Drone}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}

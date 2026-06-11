@@ -147,6 +147,10 @@ Each container instance gets its own `ROBOT_NAME` and `ROS_DOMAIN_ID`:
 - Invalid/malformed packets are skipped with debug logging
 - Lost connectivity logs warnings; gracefully recovers when stream resumes
 - Covariance in config allows tuning uncertainty per deployment
+- **Connect retry:** the initial handshake is retried every 2 s until it
+  succeeds, so the node tolerates the NatNet server starting *after* the robot
+  (e.g. a Motive PC powered on later, or the Isaac Sim NatNet emulator which only
+  binds ~100 s into sim boot). The retry timer cancels itself on first success.
 
 ## Testing
 

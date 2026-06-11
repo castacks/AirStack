@@ -85,6 +85,13 @@ class NatNetServer:
 
         self.running = False
 
+        # When True (default), the background data loop streams frames on its own
+        # timer. Set False when an external driver (the Isaac wrapper's physics-step
+        # callback) pumps frames synchronously via ``pump_once`` — inside the Isaac
+        # Sim process the daemon send thread is starved by the render/physics main
+        # loop holding the GIL, so frames must be sent from the callback thread.
+        self.auto_stream = True
+
         # start() launches two daemon threads: a command listener (handshake /
         # MODELDEF / keepalive) and a data loop that streams mocap frames. The
         # transmission-specific behavior lives in the unicast/multicast subclass.

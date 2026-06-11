@@ -20,27 +20,39 @@ class NatNetUnicastServer(NatNetServer):
         super().__init__(local_interface, transmission_type, multicast_address, command_port, data_port)
 
     def _data_update_loop(self):
-        # Loop to update mocap data and send packets at regular intervals
+        # Loop to update mocap data and send packets at regular intervals. When
+        # auto_stream is False the frames are pumped externally (Isaac physics step),
+        # so this thread only idles — but stays alive for clean shutdown.
         while not self.shutdown_event.is_set():
             time.sleep(1 / self.publish_rate)
-
-            with self.clients_lock:
-                clients = list(self.connected_clients)
-            if not clients:
+            if not self.auto_stream:
                 continue
+            self.pump_once()
 
-            data_messages = self._get_latest_mocap_packet()
-            if data_messages is None:
-                data_messages = self._get_last_mocap_frame()
-            if data_messages is None:
+    def pump_once(self):
+        """Send the latest (or last) mocap frame to every connected client, once.
+
+        Safe to call from any thread; the Isaac wrapper calls this from its
+        physics-step callback so frame delivery does not depend on the background
+        data thread getting scheduled inside the GIL-bound Isaac Sim process.
+        """
+        with self.clients_lock:
+            clients = list(self.connected_clients)
+        if not clients:
+            return
+
+        data_messages = self._get_latest_mocap_packet()
+        if data_messages is None:
+            data_messages = self._get_last_mocap_frame()
+        if data_messages is None:
+            return
+
+        for client in clients:
+            try:
+                self._send_data_packet(client, data_messages)
+            except ValueError as e:
+                print(str(e))
                 continue
-
-            for client in clients:
-                try:
-                    self._send_data_packet(client, data_messages)
-                except ValueError as e:
-                    print(str(e))
-                    continue
 
     def _command_listener_loop(self):
         # Listens on UDP command socket for incoming command requests from clients.

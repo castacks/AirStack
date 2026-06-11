@@ -8,9 +8,17 @@ Marks: `integration` (tier) + `natnet` (scenario).
 
 ## What it verifies
 
-1. Emulator serves the default Drone MODELDEF and streams frames with rigid-body `ID=1`.
-2. `natnet_ros2_node` connects via unicast, parses MODELDEF, and publishes
-   `/{ROBOT_NAME}/perception/optitrack/Drone` at ≥ 5 Hz.
+Two variants, both ending at `/{ROBOT_NAME}/perception/optitrack/Drone` ≥ 5 Hz:
+
+1. **Raw server** (`test_natnet_ros2_receives_drone_pose_hz`) — hand-built frames
+   via `NatNetUnicastServer` (no USD): the minimal end-to-end wire check.
+2. **Isaac wrapper** (`test_natnet_ros2_receives_isaac_wrapper_pose_hz`) — the full
+   new data path: `NatNetServerManager` builds the catalog from a
+   `NatNetInterfaceConfig` and samples a moving prim's world pose off an in-memory
+   USD stage (`sample_once`, exactly what the in-sim physics-step callback does),
+   streaming real frames to the robot client. Skips without `usd-core` (`pxr`).
+   Exact pose-value fidelity is covered hermetically by the package's
+   `test_pose_streaming.py` loopback.
 
 ## Requirements
 
@@ -54,14 +62,21 @@ which calls `set_model_def_payload()`. See
 [`defaults.py`](../../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/optitrack/natnet/emulator/defaults.py)
 for hardcoded Drone reference constants used in tests.
 
-## Future: Isaac-wrapped variant + liveliness
+## Liveliness sentinel (sim end-to-end)
 
-Today the NatNet **server** is the host emulator. Once the Isaac-sim emulator
-wrapper emits NatNet frames from the simulator, an Isaac-wrapped variant will be
-added in this directory, and the gated pose-rate check can additionally surface
-as a conditional sentinel in
-[`../../system/test_liveliness.py`](../../system/test_liveliness.py) (run only
-when `LAUNCH_NATNET=true`).
+The integration tier drives the emulator **host-side** (no sim/GPU). The matching
+in-sim check is a conditional sentinel in
+[`../../system/test_liveliness.py`](../../system/test_liveliness.py):
+`TestLiveliness::test_natnet_pose_alive` asserts
+`/{robot}/perception/optitrack/<body>` is live per robot. It is **gated on
+`LAUNCH_NATNET=true`** (skips otherwise), so normal liveliness runs are unaffected.
+Override the body name with `NATNET_BODY_NAME` (default `Drone`).
+
+> The sentinel passes once the Isaac emulator actually streams in-sim — i.e. a
+> Pegasus launch script authors a `NatNetInterface` prim and calls
+> `NatNetServerManager.start_from_stage()` (the scripting entry point). Until that
+> sim auto-start is wired, run the **integration** variants above for robot-level
+> coverage.
 
 ## libNatNet 4.4 unicast — verified wire contract
 

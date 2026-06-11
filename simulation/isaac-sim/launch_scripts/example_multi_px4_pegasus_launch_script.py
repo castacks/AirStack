@@ -39,6 +39,10 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
+# Make the OptiTrack NatNet emulator package importable without enabling the Kit
+# UI extension (keeps a single, script-owned server manager).
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "extensions", "optitrack.natnet.emulator")))
+
 
 # --------------------- CONFIGURATION ---------------------
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -48,6 +52,14 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "1"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
+
+# OptiTrack/NatNet emulator: when LAUNCH_NATNET=true, author a NatNet interface
+# prim with every drone's base_link as a tracked rigid body and start the server on
+# load. Mirrors the robot-side LAUNCH_NATNET gate. Each drone i is streamed as
+# "<NATNET_BODY_NAME><i>" (streaming id i); with the default natnet_config.yaml
+# (body_id=-1) each robot publishes all bodies, so narrow per robot with body_id.
+LAUNCH_NATNET = os.environ.get("LAUNCH_NATNET", "false").lower() in ("1", "true", "yes", "on")
+NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
 # ---------------------------------------------------------
 
 
@@ -172,7 +184,36 @@ class PegasusApp:
         for i in range(1, NUM_ROBOTS + 1):
             spawn_drone(i)
 
+        # ----- OptiTrack / NatNet emulator -----
+        # Author a NatNet interface prim with every drone's base_link as a tracked
+        # rigid body and start the Motive-compatible server (gated on LAUNCH_NATNET).
+        self.natnet_manager = None
+        if LAUNCH_NATNET:
+            self._setup_natnet(stage)
+
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
+
+    def _setup_natnet(self, stage):
+        """Author the NatNet interface prim (one body per drone) and start the server."""
+        try:
+            from optitrack.natnet.emulator.isaac import start_drone_natnet_server
+
+            # Single agent: stream the bare body name ("Drone") so it matches the
+            # robot natnet_config body_name, the MAVROS vision-pose bridge, and the
+            # liveliness sentinel. Multi-drone uses unique indexed names (future:
+            # narrow each robot to its own body via body_id).
+            def _body_name(i: int) -> str:
+                return NATNET_BODY_NAME if NUM_ROBOTS == 1 else f"{NATNET_BODY_NAME}{i}"
+
+            drones = [
+                (_body_name(i), i, f"/World/drone{i}/base_link")
+                for i in range(1, NUM_ROBOTS + 1)
+            ]
+            self.natnet_manager = start_drone_natnet_server(stage, drones)
+            carb.log_warn(f"[natnet] Emulator started with {len(drones)} body(ies).")
+        except Exception as exc:  # noqa: BLE001 - never let NatNet kill the sim
+            carb.log_error(f"[natnet] Failed to start emulator: {exc}")
+            self.natnet_manager = None
 
     def run(self):
         if self.play_on_start:
@@ -192,6 +233,8 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
+        if self.natnet_manager is not None:
+            self.natnet_manager.on_shutdown()
         self.timeline.stop()
         simulation_app.close()
 

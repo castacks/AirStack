@@ -9,9 +9,14 @@ Sync model is **explicit and user-driven** via the top button row:
 
 * **Load from Stage** — read the prim into the window (or reset to defaults if none).
 * **Save** — write the window's current values to the prim (validate + author).
-* **Create Server** — ensure the interface prim exists (authored from the current
-  values) and select it. (Actually starting the UDP server arrives in a later commit;
-  for now this creates/initializes the interface prim that the server will read.)
+* **Create Interface** — ensure the interface prim exists (authored from the current
+  values) and select it.
+* **Start/Stop Server** — start/stop the live UDP server directly (the button is the
+  authority, independent of ``serverEnabled``). While running, poses are sampled from
+  the USD stage on every physics step and streamed to ``natnet_ros2``.
+
+Each tracked-body row shows a live readout (status dot + world position pulled from
+the USD stage) so you can see at a glance what each body is publishing.
 
 Edits in the window mutate an in-memory working copy only; nothing touches the prim
 until you Save / Create, so you are in charge of keeping things synced.
@@ -27,10 +32,15 @@ import omni.ext
 
 from .config import VALID_MODES, BodyBinding, NatNetInterfaceConfig
 from .manager import NatNetServerManager
-from .usd_bindings import author_interface, find_interfaces, read_interface
+from .usd_bindings import author_interface, find_interfaces, read_interface, read_world_pose
 
 _DEFAULT_PRIM_PATH = "/World/NatNetInterface"
 _LABEL_WIDTH = 140
+_POS_REFRESH_PERIOD = 1.0 / 6.0  # seconds between live USD position reads
+
+_COLOR_LIVE = 0xFF33CC33  # green: prim resolves and server is streaming
+_COLOR_IDLE = 0xFFAAAAAA  # grey: prim resolves but server not running
+_COLOR_LOST = 0xFF3333FF  # red: no prim / NaN
 
 
 class NatNetEmulatorExtension(omni.ext.IExt):
@@ -40,18 +50,71 @@ class NatNetEmulatorExtension(omni.ext.IExt):
         self._window = None
         self._bodies_frame = None
         self._cfg = NatNetInterfaceConfig()
+        self._row_readouts = {}
+        self._pos_refresh_sub = None
+        self._last_pos_refresh = 0.0
         self._manager = NatNetServerManager()
         self._manager.on_startup()
         self._add_menu()
+        self._subscribe_position_refresh()
 
     def on_shutdown(self):
         self._remove_menu()
+        self._pos_refresh_sub = None
+        self._row_readouts = {}
         if self._manager is not None:
             self._manager.on_shutdown()
             self._manager = None
         if self._window is not None:
             self._window.destroy()
             self._window = None
+
+    # --- live position readout -------------------------------------------------
+
+    def _subscribe_position_refresh(self):
+        try:
+            import omni.kit.app
+        except Exception:  # pragma: no cover - Kit only
+            return
+        self._pos_refresh_sub = (
+            omni.kit.app.get_app()
+            .get_update_event_stream()
+            .create_subscription_to_pop(self._on_pos_refresh, name="natnet_ui_pos_refresh")
+        )
+
+    def _on_pos_refresh(self, _event):
+        import time
+
+        if self._window is None or not self._window.visible or not self._row_readouts:
+            return
+        now = time.monotonic()
+        if now - self._last_pos_refresh < _POS_REFRESH_PERIOD:
+            return
+        self._last_pos_refresh = now
+        stage = self._get_stage()
+        running = self._manager is not None and self._manager.is_running
+        for idx, (status_label, pos_label) in list(self._row_readouts.items()):
+            if not (0 <= idx < len(self._cfg.bodies)):
+                continue
+            target = self._cfg.bodies[idx].target_prim
+            symbol, color, text = self._row_readout(stage, target, running)
+            status_label.text = symbol
+            status_label.style = {"color": color}
+            pos_label.text = text
+            pos_label.style = {"color": color}
+
+    def _row_readout(self, stage, target, running):
+        if not target:
+            return "\u25cb", _COLOR_IDLE, "no target prim"
+        prim = stage.GetPrimAtPath(target) if stage is not None else None
+        pose = read_world_pose(prim) if prim is not None else None
+        if pose is None:
+            return "\u2717", _COLOR_LOST, "NaN (prim missing)"
+        (x, y, z), _quat = pose
+        text = f"{x:+.3f}, {y:+.3f}, {z:+.3f}"
+        if running:
+            return "\u25cf", _COLOR_LIVE, text
+        return "\u25cf", _COLOR_IDLE, text
 
     # --- menu ------------------------------------------------------------------
 
@@ -207,7 +270,8 @@ class NatNetEmulatorExtension(omni.ext.IExt):
     def _build_bodies(self):
         import omni.ui as ui
 
-        with ui.VStack(spacing=4, height=0):
+        self._row_readouts = {}
+        with ui.VStack(spacing=6, height=0):
             if not self._cfg.bodies:
                 ui.Label("  (no bodies — select a prim and click Add body)", height=0)
                 return
@@ -221,33 +285,45 @@ class NatNetEmulatorExtension(omni.ext.IExt):
                 self._build_body_row(ui, idx, body)
 
     def _build_body_row(self, ui, idx, body):
-        with ui.HStack(height=0, spacing=4):
-            name = ui.StringField(width=ui.Fraction(1)).model
-            name.set_value(body.rigid_body_name)
-            name.add_value_changed_fn(
-                lambda m, i=idx: self._set_body_field(i, "rigid_body_name", m.get_value_as_string())
-            )
+        with ui.VStack(height=0, spacing=2):
+            with ui.HStack(height=0, spacing=4):
+                name = ui.StringField(width=ui.Fraction(1)).model
+                name.set_value(body.rigid_body_name)
+                name.add_value_changed_fn(
+                    lambda m, i=idx: self._set_body_field(i, "rigid_body_name", m.get_value_as_string())
+                )
 
-            sid = ui.IntField(width=40).model
-            sid.set_value(body.streaming_id)
-            sid.add_value_changed_fn(
-                lambda m, i=idx: self._set_body_field(i, "streaming_id", m.get_value_as_int())
-            )
+                sid = ui.IntField(width=40).model
+                sid.set_value(body.streaming_id)
+                sid.add_value_changed_fn(
+                    lambda m, i=idx: self._set_body_field(i, "streaming_id", m.get_value_as_int())
+                )
 
-            parent = ui.IntField(width=50).model
-            parent.set_value(body.parent_id)
-            parent.add_value_changed_fn(
-                lambda m, i=idx: self._set_body_field(i, "parent_id", m.get_value_as_int())
-            )
+                parent = ui.IntField(width=50).model
+                parent.set_value(body.parent_id)
+                parent.add_value_changed_fn(
+                    lambda m, i=idx: self._set_body_field(i, "parent_id", m.get_value_as_int())
+                )
 
-            target = ui.StringField(width=ui.Fraction(2), tooltip="USD path of the tracked prim").model
-            target.set_value(body.target_prim)
-            target.add_value_changed_fn(
-                lambda m, i=idx: self._set_body_field(i, "target_prim", m.get_value_as_string())
-            )
+                target = ui.StringField(width=ui.Fraction(2), tooltip="USD path of the tracked prim").model
+                target.set_value(body.target_prim)
+                target.add_value_changed_fn(
+                    lambda m, i=idx: self._set_body_field(i, "target_prim", m.get_value_as_string())
+                )
 
-            ui.Button("set target", width=70, clicked_fn=lambda i=idx: self._retarget_body(i))
-            ui.Button("x", width=24, clicked_fn=lambda i=idx: self._remove_body_at(i))
+                ui.Button("set target", width=70, clicked_fn=lambda i=idx: self._retarget_body(i))
+                ui.Button("x", width=24, clicked_fn=lambda i=idx: self._remove_body_at(i))
+
+            # Live readout: status dot + world position pulled from the USD stage.
+            stage = self._get_stage()
+            running = self._manager is not None and self._manager.is_running
+            symbol, color, text = self._row_readout(stage, body.target_prim, running)
+            with ui.HStack(height=0, spacing=6):
+                ui.Spacer(width=4)
+                status_label = ui.Label(symbol, width=14, style={"color": color})
+                ui.Label("pos:", width=30, style={"color": _COLOR_IDLE})
+                pos_label = ui.Label(text, width=ui.Fraction(1), style={"color": color})
+            self._row_readouts[idx] = (status_label, pos_label)
 
     def _set_body_field(self, index, attr, value):
         if 0 <= index < len(self._cfg.bodies):
@@ -356,14 +432,11 @@ class NatNetEmulatorExtension(omni.ext.IExt):
         if self._manager is None:
             return
         if not self._manager.is_running:
-            prim = self._find_interface()
-            if prim is None:
+            if self._find_interface() is None:
                 carb.log_warn("[natnet] No interface on stage — Create/Save one first.")
                 return
-            cfg = read_interface(prim)
-            self._manager.log_target_diagnostics(cfg)
             try:
-                self._manager.start_server(cfg)
+                self._manager.start_from_stage()
             except Exception as exc:  # noqa: BLE001 - surface to the user
                 carb.log_error(f"[natnet] Could not start server: {exc}")
         else:

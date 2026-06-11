@@ -18,7 +18,13 @@ from __future__ import annotations
 
 from .catalog import build_catalog, find_duplicate_targets
 from .config import NatNetInterfaceConfig
-from .usd_bindings import find_interfaces, read_interface, resolve_targets
+from .frames import BodySample, build_frame
+from .usd_bindings import find_interfaces, read_interface, read_world_pose, resolve_targets
+
+
+def _catalog_signature(config: NatNetInterfaceConfig):
+    """Identity of the catalog (body id/name set) — changes trigger a MODELDEF refresh."""
+    return tuple((b.streaming_id, b.rigid_body_name) for b in config.bodies)
 
 
 def _parse_version(version_str: str) -> tuple[int, int, int, int]:
@@ -83,6 +89,15 @@ class NatNetServerManager:
         self._scan_pending = False
         self._server = None
         self._server_factory = server_factory or default_server_factory
+        # Sampling state. ``_needs_resync`` is the "latest config has been read"
+        # flag inverted: a NatNet prim edit sets it True (stale); the next physics
+        # sample re-reads the catalog/targets and clears it. ``_sample_cache`` holds
+        # the resolved (streaming_id, name, prim) tuples sampled every step.
+        self._needs_resync = False
+        self._sample_cache: list = []
+        self._frame_counter = 0
+        self._catalog_signature = None
+        self._physx_sub = None
 
     # --- lifecycle -------------------------------------------------------------
 
@@ -94,15 +109,33 @@ class NatNetServerManager:
             self._on_stage_event, name="natnet_manager_stage_events"
         )
         self._register_usd_listener()
+        self._subscribe_physics()
         print("[natnet] NatNetServerManager initialized")
         self.scan_and_print()
 
     def on_shutdown(self):
         self.stop_server()
+        self._physx_sub = None
         self._stage_event_sub = None
         self._scan_tick_sub = None
         self._scan_pending = False
         self._revoke_usd_listener()
+
+    def _subscribe_physics(self):
+        # Sample + enqueue poses on every physics step (only fires while playing).
+        try:
+            import omni.physx
+
+            self._physx_sub = omni.physx.get_physx_interface().subscribe_physics_step_events(
+                self._on_physics_step
+            )
+        except Exception as exc:  # pragma: no cover - Kit/physx only
+            print(f"[natnet] Physics step subscription unavailable: {exc}")
+            self._physx_sub = None
+
+    def _on_physics_step(self, _dt):
+        if self._server is not None:
+            self.sample_once()
 
     # --- scanning --------------------------------------------------------------
 
@@ -142,8 +175,20 @@ class NatNetServerManager:
         catalog = build_catalog(config)
         server = self._server_factory(config)
         server.set_model_def_payload(catalog.pack())
+        # Pump frames from our sample_once (physics-step) thread rather than the
+        # server's background timer: inside the Isaac Sim process that daemon thread
+        # is starved by the render/physics main loop, so frames never get sent.
+        if hasattr(server, "auto_stream"):
+            server.auto_stream = False
         server.start()
         self._server = server
+        # Force a resync on the first sampled frame so the prim->pose cache is built
+        # from the live stage (and the catalog signature is seeded).
+        self._needs_resync = True
+        self._frame_counter = 0
+        # None so the first resync reports "changed" and the first streamed frame
+        # flags model_list_changed (nudging the client to (re)read MODELDEF).
+        self._catalog_signature = None
         print(
             f"[natnet] Server started on {config.server_ip} "
             f"(cmd {config.command_port} / data {config.data_port}) "
@@ -162,6 +207,8 @@ class NatNetServerManager:
             self._server.shutdown()
         finally:
             self._server = None
+            self._sample_cache = []
+            self._needs_resync = False
         print("[natnet] Server stopped.")
         return True
 
@@ -192,6 +239,98 @@ class NatNetServerManager:
                 )
         for path in find_duplicate_targets(config):
             print(f"[natnet] WARNING: multiple bodies target the same prim: {path}")
+
+    # --- scripting entry point -------------------------------------------------
+
+    def start_from_stage(self) -> bool:
+        """Find the interface prim on the current stage, read it, and start.
+
+        Convenience for scripts/Pegasus launchers: author the prim (see
+        ``author_interface``) then call this. Returns False if nothing to start.
+        """
+        stage = self._get_stage()
+        if stage is None:
+            print("[natnet] start_from_stage: no active stage.")
+            return False
+        interfaces = find_interfaces(stage)
+        if not interfaces:
+            print("[natnet] start_from_stage: no NatNetInterface prim found.")
+            return False
+        config = read_interface(interfaces[0])
+        self.log_target_diagnostics(config)
+        return self.start_server(config)
+
+    # --- pose sampling + dynamic catalog (the data-enqueue path) ---------------
+
+    def mark_dirty(self) -> None:
+        """Flag that the on-stage config changed; next sample re-reads the catalog."""
+        self._needs_resync = True
+
+    def _resync(self, stage) -> bool:
+        """Re-read the interface config, rebuild the catalog, and re-resolve targets.
+
+        Returns True if the catalog (body id/name set) actually changed, so the next
+        frame can flag ``model_list_changed`` and the client re-requests MODELDEF.
+        """
+        interfaces = find_interfaces(stage)
+        if not interfaces:
+            self._sample_cache = []
+            return False
+        config = read_interface(interfaces[0])
+        if self._server is not None:
+            self._server.set_model_def_payload(build_catalog(config).pack())
+        # Cache target *paths* (not prim handles): the prim is re-resolved every
+        # sample so bodies whose target is created *after* the server starts — e.g.
+        # a Pegasus drone base_link spawned on the first Play tick — start streaming
+        # a valid pose as soon as the prim appears (instead of being stuck "lost").
+        self._sample_cache = [
+            (body.streaming_id, body.rigid_body_name, body.target_prim)
+            for body in config.bodies
+        ]
+        signature = _catalog_signature(config)
+        changed = signature != self._catalog_signature
+        self._catalog_signature = signature
+        return changed
+
+    def sample_once(self, stage=None):
+        """Sample every body's USD world pose and enqueue one frame to the server.
+
+        Resyncs the catalog first if the config is dirty (so bodies added/removed
+        live are picked up). Returns the enqueued frame (or None if nothing to do).
+        """
+        if self._server is None:
+            return None
+        if stage is None:
+            stage = self._get_stage()
+        if stage is None:
+            return None
+
+        model_changed = False
+        if self._needs_resync:
+            model_changed = self._resync(stage)
+            self._needs_resync = False
+
+        samples = []
+        for streaming_id, _name, target_path in self._sample_cache:
+            prim = stage.GetPrimAtPath(target_path) if target_path else None
+            pose = read_world_pose(prim) if prim is not None else None
+            if pose is None:
+                samples.append(BodySample.lost(streaming_id))
+            else:
+                position, orientation = pose
+                samples.append(BodySample(streaming_id, position, orientation, valid=True))
+
+        frame = build_frame(
+            self._frame_counter, samples, model_list_changed=model_changed
+        )
+        self._frame_counter += 1
+        self._server.enqueue_mocap_data(frame)
+        # Send synchronously from this (physics-step) thread; the server's background
+        # data thread is unreliable inside the GIL-bound Isaac Sim process.
+        pump = getattr(self._server, "pump_once", None)
+        if callable(pump):
+            pump()
+        return frame
 
     # --- stage / USD notifications --------------------------------------------
 
@@ -231,6 +370,10 @@ class NatNetServerManager:
         except Exception:  # pragma: no cover - defensive
             paths = []
         if any(("NatNetInterface" in str(p)) or ("natnet:" in str(p)) for p in paths):
+            # A NatNet prim changed (e.g. a body added/retargeted while live): mark
+            # the sampler dirty so the next physics step re-reads the catalog and
+            # nudges the client to refresh MODELDEF.
+            self._needs_resync = True
             # A single author_interface() (Create/Save) emits many notices — one per
             # attribute/relationship op. Debounce them into one scan on the next
             # update tick so we print the final state once, not once per op.
