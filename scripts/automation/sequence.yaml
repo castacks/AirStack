@@ -1,0 +1,50 @@
+# Automated sequence configuration for AirStack.
+# All delay_s values are relative to the previous step (or Isaac Sim play detection for the first step).
+
+robot_container: "airstack-robot-desktop-1"
+
+steps:
+  # T+20s after Isaac Sim starts playing
+  - name: "takeoff"
+    delay_s: 20
+    action: "ros2_action"
+    action_server: "/robot_1/tasks/takeoff"
+    action_type: "task_msgs/action/TakeoffTask"
+    goal: "{target_altitude_m: 10.0, velocity_m_s: 0.5}"
+
+  # T+40s
+  - name: "enable_target_tracking"
+    delay_s: 20
+    action: "ros2_publish"
+    topic: "/robot_1/bpmp/target_tracking_enable"
+    msg_type: "std_msgs/msg/Bool"
+    msg: "{data: true}"
+
+  # T+60s — stop Isaac Sim and robot-desktop simultaneously
+  - name: "stop_isaac_and_robot"
+    delay_s: 20
+    action: "parallel"
+    steps:
+      - name: "stop_isaac_sim"
+        action: "airstack_down"
+        args: "isaac-sim"
+      - name: "stop_robot_desktop"
+        action: "airstack_down"
+        args: "robot-desktop"
+
+  # T+70s
+  - name: "restart_robot_desktop"
+    delay_s: 10
+    action: "airstack_up"
+    args: "robot-desktop"
+
+  # T+80s
+  - name: "restart_isaac_sim"
+    delay_s: 10
+    action: "airstack_up"
+    args: "isaac-sim"
+
+  # T+85s
+  - name: "shutdown_all"
+    delay_s: 5
+    action: "airstack_down"
