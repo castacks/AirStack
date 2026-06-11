@@ -1,126 +1,74 @@
 # SVG Ground Control
 
-Central multi-drone ground controller for mocap flight with a CBF
-collision-safety-filter placeholder. N−1 drones hover at configured targets
-while one drone is hand-teleoperated as a moving obstacle; every commanded
-velocity passes through `svg_ground_control/cbf_filter.py`, which is a
-drop-in slot for the velocity-CBF filter from `~/drone_soccer`
-(`drone_soccer/cbf.py` — same signature, copy it over this file).
+Central multi-drone ground controller for mocap flight with a **CBF
+collision safety filter** (velocity-CBF with hybrid Dykstra projection,
+ported from `~/drone_soccer` where it is MuJoCo-validated against the
+Starling 2 Max airframe).
+
+> **Commands:** see [experiment.md](experiment.md) — the maintained,
+> copy-pasteable command reference for sim and hardware.
 
 ## Architecture
 
 ```
-                          ┌────────────────────────────────────────────┐
- mocap /drone_i/pose ──▶  │ mocap_bridge   (hardware only)             │
-                          │   → /drone_i/fmu/visual_odometry_in        │
+ OptiTrack Motive ──▶ natnet_ros2 ──▶ /{name}/pose   (hardware only)
+                                          │
+                          ┌───────────────▼────────────────────────────┐
+                          │ mocap_bridge → /{name}/fmu/visual_odometry │
                           └────────────────────────────────────────────┘
                           ┌────────────────────────────────────────────┐
- /drone_i/odometry_       │ swarm_commander  (20 Hz)                   │
- conversion/odometry ──▶  │  nominal: hover P-ctrl | teleop input      │
- /svg/teleop_command ──▶  │  → cbf_filter.filter_velocities()  [TODO]  │
-                          │  → /drone_i/.../velocity_command           │
-                          │  services: ~/takeoff ~/land ~/hold         │
+ /{name}/odometry_        │ swarm_commander  (20 Hz)                   │
+ conversion/odometry ──▶  │  scenario nominal | per-drone teleop       │
+ /svg/{name}/teleop ───▶  │  → cbf_filter.filter_velocities()  [REAL]  │
+                          │  → /{name}/.../velocity_command            │
+                          │  services: takeoff / start / hold / land   │
                           └────────────────────────────────────────────┘
                                    │ per-drone robot_interface
                           sim: MAVROS          real: px4_interface (uXRCE-DDS)
 ```
 
-The commander talks only to the AirStack `robot_interface` abstraction, so
-sim and hardware differ **only in the topic templates** in the config YAML
+Sim and hardware differ **only in the topic templates** in the config YAML
 (`config/swarm_sim.yaml` vs `config/swarm_real.yaml`).
 
-Drone roles (config): `hover` (CBF-filtered station-keeping), `teleop`
-(operator-driven obstacle, CBF-exempt), `external` (tracked for the filter,
-never commanded — e.g. RC-flown).
+## Scenarios (`scenario:=` launch arg)
 
-## Quick start — simulation (3 drones, 1 teleop)
+Ported from drone_soccer plus one new profile:
 
-All terminals must share ONE ROS domain. The robot container's .bashrc
-auto-derives ROS_DOMAIN_ID=1 from the container name (airstack-robot-desktop-1),
-so the convention here is domain 1 — verify with `echo $ROS_DOMAIN_ID` in every
-shell, and pass SVG_DOMAIN_ID=1 to the sim script.
+- `hover` — hold configured positions (the original N−1 hover demo)
+- `random_walk` — fixed-speed drift with wall bounces
+- `random_goals` — random goal seeking, resampled on arrival
+- `head_on` — two facing groups swap sides repeatedly
+- `antipodal` — sphere-to-antipode crossings through the center
+- `squeeze` — **3-drone CBF showcase** ([config/squeeze_3drone.yaml](config/squeeze_3drone.yaml)):
+  two holders goal-track posts 2.5 r apart; the intruder flies straight
+  through the gap; the holders must yield and return. Drone order:
+  `[holder, holder, intruder]`.
 
-Terminal 1 — Isaac Sim (inside the isaac-sim container):
+`teleop_drones` (comma-separated string) lists operator-driven, **CBF-exempt**
+drones (the moving obstacles) — empty = fully autonomous. `external_drones`
+are tracked for the filter but never commanded (e.g. RC-flown). Drive a
+teleop drone with `ros2 run svg_ground_control keyboard_teleop --ros-args -p
+drone:=drone_3` (one instance per teleop drone).
 
-```bash
-NUM_ROBOTS=3 SVG_DOMAIN_ID=1 PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
-  /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py \
-  --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
-```
+## CBF filter
 
-Terminal 2 — robot container, MAVROS interfaces (one per drone, single domain):
-
-```bash
-airstack connect robot   # then inside (ROS_DOMAIN_ID auto-derives to 1):
-bws && sws
-./src/svg_ground_control/scripts/launch_sim_interfaces.sh 3
-```
-
-Terminal 3 — ground controller:
-
-```bash
-ros2 launch svg_ground_control ground_control.launch.py
-```
-
-Terminal 4 — teleop (own TTY) and flight:
-
-```bash
-ros2 run svg_ground_control keyboard_teleop      # w/s a/d r/f, space=stop
-ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
-# ... fly the obstacle drone into the hover formation ...
-ros2 service call /swarm_commander/land std_srvs/srv/Trigger
-```
-
-`/swarm_commander/hold` freezes every airborne drone at its current position
-(panic button — also converts the teleop drone to hover).
-
-## Quick start — hardware (Starling 2 Max + mocap)
-
-Per drone (once): namespace the uXRCE-DDS client on the VOXL —
-`uxrce_dds_client start -n drone_i` — so PX4 topics appear as
-`/drone_i/fmu/...`; set the DDS domain to match the ground station
-(`UXRCE_DDS_DOM_ID=1`); set EKF2 to fuse external vision (`EKF2_EV_CTRL`),
-and configure RC kill switch + offboard-loss failsafe.
-
-Ground PC (one container/shell, workspace sourced; manually-started
-containers do NOT auto-derive the domain, so `export ROS_DOMAIN_ID=1`
-in every shell — the mocap publisher too):
-
-```bash
-# one interface stack per drone
-ros2 launch svg_ground_control drone_interface.launch.xml drone_name:=drone_1
-ros2 launch svg_ground_control drone_interface.launch.xml drone_name:=drone_2
-ros2 launch svg_ground_control drone_interface.launch.xml drone_name:=drone_3
-
-# commander + mocap bridge
-ros2 launch svg_ground_control ground_control.launch.py \
-    config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/swarm_real.yaml \
-    use_mocap:=true
-```
-
-Preflight: `ros2 topic echo /drone_1/odometry_conversion/odometry` and move
-the drone by hand — position must track the mocap. Then takeoff/land/teleop
-exactly as in sim.
-
-## Dropping in the real CBF
-
-Replace `svg_ground_control/cbf_filter.py` with
-`~/drone_soccer/drone_soccer/cbf.py` (plus its `solve_safe_commands` /
-`build_collision_constraints` internals — the file is self-contained). The
-commander calls
-
-```python
-filter_velocities(nominal, positions, safety_radius, max_speed, alpha)
-```
-
-and uses `result.velocities` / `result.used_emergency_stop`; nothing else
-needs to change. Until then the placeholder only enforces the speed cap —
-**it does not prevent collisions**.
+`svg_ground_control/cbf_filter.py` is a verbatim port of
+`drone_soccer/cbf.py`: pairwise barrier `h = ||p_i−p_j||² − (2r)²`,
+constraint `ḣ + αh ≥ 0` (linear in velocities), least-squares projection via
+parallel Dykstra + Gauss-Seidel polish, constraint pruning, and an emergency
+push-apart fallback when the QP is infeasible. Tests:
+[test/test_cbf.py](test/test_cbf.py) (kinematic suite from drone_soccer),
+[test/test_scenarios.py](test/test_scenarios.py) (includes a kinematic
+squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_test.py)
+(closed-loop ROS test against fake drones — barrier held at exactly 2r).
 
 ## Safety notes
 
+- Teleop drones are CBF-exempt by design — the autonomous drones do the
+  dodging. The operator (you) is the safety authority for the obstacle.
 - This stack bypasses `drone_safety_monitor`; PX4 failsafes and the RC kill
   switch are the safety net. Configure them before flying.
-- Commanded drones with stale odometry (> `state_timeout_s`) are sent zero
-  velocity (offboard position-hold-ish), not left on their last command.
-- Teleop input times out to zero after `teleop_timeout_s`.
+- Stale odometry (> `state_timeout_s`) → zero-velocity command; stale teleop
+  input → zero. `~/hold` is the panic button.
+- `CBF emergency push-apart engaged` in the log means the QP went infeasible
+  (drones inside each other's safety spheres) — land and investigate.

@@ -26,7 +26,10 @@ class KeyboardTeleop(Node):
 
     def __init__(self):
         super().__init__('keyboard_teleop')
-        self.declare_parameter('teleop_topic', '/svg/teleop_command')
+        # Which drone to drive; resolves the topic via teleop_topic_template
+        # (must match the swarm commander's template).
+        self.declare_parameter('drone', 'drone_3')
+        self.declare_parameter('teleop_topic_template', '/svg/{name}/teleop_command')
         self.declare_parameter('publish_rate_hz', 20.0)
         self.declare_parameter('speed_step_mps', 0.4)
 
@@ -35,8 +38,9 @@ class KeyboardTeleop(Node):
         self.lock = threading.Lock()
         self.running = True
 
-        self.publisher = self.create_publisher(
-            TwistStamped, str(self.get_parameter('teleop_topic').value), 10)
+        topic = str(self.get_parameter('teleop_topic_template').value).format(
+            name=str(self.get_parameter('drone').value))
+        self.publisher = self.create_publisher(TwistStamped, topic, 10)
         rate = float(self.get_parameter('publish_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.publish)
 

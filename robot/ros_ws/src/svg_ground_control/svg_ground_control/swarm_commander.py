@@ -1,4 +1,4 @@
-"""Central multi-drone ground commander.
+"""Central multi-drone ground commander with a CBF collision safety filter.
 
 One node commands the whole swarm through the AirStack robot_interface
 abstraction (works unchanged over MAVROS in sim and px4_interface/uXRCE-DDS
@@ -8,24 +8,26 @@ on hardware — only the topic templates in the config YAML differ):
     command out: {velocity_command_topic_template} geometry_msgs/TwistStamped (ENU)
     services:    {robot_command_service_template}  airstack_msgs/srv/RobotCommand
 
-Per-drone roles (config):
-    hover    — flies to and holds its hover_position; velocity is CBF-filtered
-    teleop   — streams operator velocity (the moving obstacle); CBF-exempt
-    external — tracked for CBF state only, never commanded (e.g. RC-flown)
+Nominal commands come from a *scenario* (hover, random_walk, random_goals,
+head_on, antipodal, squeeze — see scenarios.py, ported from ~/drone_soccer).
+Drones listed in ``teleop_drones`` are operator-driven instead (one teleop
+topic per drone); an empty list means every drone follows the scenario.
+Drones in ``external_drones`` are tracked for the safety filter but never
+commanded (e.g. RC-flown).
 
-Control loop (control_rate_hz):
-    nominal velocities (P-controller to hover targets / teleop input)
-        -> cbf_filter.filter_velocities()   [PLACEHOLDER until the
-                                             drone_soccer filter is dropped in]
-        -> TwistStamped per commanded drone
+Every commanded velocity passes through the velocity-CBF filter
+(cbf_filter.filter_velocities, ported from drone_soccer/cbf.py). Teleop
+drones are CBF-EXEMPT by design — they play the moving obstacle; the
+autonomous drones do the dodging.
 
-Operator services (std_srvs/Trigger):
-    ~/takeoff  — arm + offboard + ascend all hover/teleop drones
-    ~/land     — descend all commanded drones, disarm on touchdown
-    ~/hold     — overwrite every hover target with the current position
+Lifecycle (std_srvs/Trigger services):
+    ~/takeoff — arm + offboard + ascend everyone to the scenario's initial
+                positions, then HOLD there
+    ~/start   — begin the scenario (nominal policies go live)
+    ~/hold    — pause: every drone holds its current position (panic button)
+    ~/land    — descend all commanded drones, disarm on touchdown
 """
 
-import math
 from enum import Enum
 
 import numpy as np
@@ -39,18 +41,18 @@ from std_srvs.srv import Trigger
 from airstack_msgs.srv import RobotCommand
 
 from svg_ground_control.cbf_filter import filter_velocities
+from svg_ground_control.scenarios import Bounds, make_scenario
 
 
 class FlightState(Enum):
     IDLE = 0       # on the ground, not commanded
     ARMING = 1     # streaming zero setpoints, requesting offboard + arm
-    ASCEND = 2     # climbing to the hover target
-    ACTIVE = 3     # holding hover target / following teleop
+    ASCEND = 2     # climbing to the takeoff target
+    ACTIVE = 3     # holding / following the scenario or teleop
     LANDING = 4    # descending; disarm at land_complete_altitude
 
 
 # Seconds after entering ARMING at which each step fires.
-ARMING_STREAM_S = 1.0      # stream zero setpoints before requesting offboard
 ARMING_OFFBOARD_S = 1.0    # request offboard (REQUEST_CONTROL)
 ARMING_ARM_S = 1.5         # arm
 ARMING_DONE_S = 2.5        # transition to ASCEND
@@ -59,22 +61,25 @@ ARMING_DONE_S = 2.5        # transition to ASCEND
 class DroneHandle:
     """Book-keeping for one drone."""
 
-    def __init__(self, name: str, role: str, hover_target: np.ndarray):
+    def __init__(self, name: str, role: str):
         self.name = name
-        self.role = role
-        self.hover_target = hover_target
+        self.role = role                  # 'auto' | 'teleop' | 'external'
+        self.takeoff_target = None        # np (3,), set from the scenario
+        self.hold_target = None           # np (3,), position to hold when not in mission
         self.state = FlightState.IDLE
-        self.position = None        # np (3,) ENU, None until first odometry
+        self.position = None              # np (3,) ENU, None until first odometry
         self.velocity = np.zeros(3)
-        self.last_odom_time = None  # rclpy Time
-        self.arming_start = None    # rclpy Time
+        self.last_odom_time = None        # rclpy Time
+        self.arming_start = None          # rclpy Time
         self.arming_steps_done = set()
         self.cmd_pub = None
         self.robot_command_client = None
+        self.teleop_twist = np.zeros(3)
+        self.last_teleop_time = None
 
     @property
     def commanded(self) -> bool:
-        return self.role in ('hover', 'teleop')
+        return self.role in ('auto', 'teleop')
 
 
 class SwarmCommander(Node):
@@ -84,10 +89,25 @@ class SwarmCommander(Node):
 
         # ---- Parameters -------------------------------------------------
         self.declare_parameter('drone_names', ['drone_1', 'drone_2', 'drone_3'])
-        self.declare_parameter('drone_roles', ['hover', 'hover', 'teleop'])
-        # Flat [x1,y1,z1, x2,y2,z2, ...] ENU, one triple per drone_names entry.
-        # Hover drones hold this position; the teleop drone ascends to it on
-        # takeoff before operator control; external entries are ignored.
+        # Comma-separated names of operator-driven drones (CBF-exempt moving
+        # obstacles). Empty string = every drone follows the scenario.
+        # (A string, not a list: an empty YAML list has no type and cannot
+        # override a string-array parameter default.)
+        self.declare_parameter('teleop_drones', '')
+        # Comma-separated names tracked for the safety filter but never
+        # commanded (e.g. RC-flown).
+        self.declare_parameter('external_drones', '')
+
+        # Scenario selection — see scenarios.py. NOTE: for 'squeeze' the
+        # drone_names order matters: [holder, holder, intruder].
+        self.declare_parameter('scenario', 'hover')
+        self.declare_parameter('scenario_speed_mps', 0.6)
+        self.declare_parameter('scenario_seed', 7)
+        self.declare_parameter('arena_low', [-2.0, -2.0, 0.8])
+        self.declare_parameter('arena_high', [2.0, 2.0, 2.0])
+        self.declare_parameter('squeeze_gap_factor', 2.5)
+        self.declare_parameter('squeeze_run_length_m', 3.0)
+        # Used by the 'hover' scenario only: flat [x1,y1,z1, ...] per drone.
         self.declare_parameter('hover_positions',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2, 0.0, -1.5, 1.2])
 
@@ -97,13 +117,13 @@ class SwarmCommander(Node):
                                '/{name}/interface/velocity_command')
         self.declare_parameter('robot_command_service_template',
                                '/{name}/interface/robot_command')
-        self.declare_parameter('teleop_topic', '/svg/teleop_command')
+        self.declare_parameter('teleop_topic_template', '/svg/{name}/teleop_command')
 
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('state_timeout_s', 0.5)
         self.declare_parameter('teleop_timeout_s', 0.5)
 
-        # Hover P-controller
+        # Hold/ascend P-controller
         self.declare_parameter('hover_kp', 1.0)
         self.declare_parameter('arrival_threshold_m', 0.15)
 
@@ -117,19 +137,16 @@ class SwarmCommander(Node):
         self.declare_parameter('cbf_alpha', 2.5)
         self.declare_parameter('teleop_max_speed_mps', 1.2)
 
-        names = list(self.get_parameter('drone_names').value)
-        roles = list(self.get_parameter('drone_roles').value)
-        hover_flat = list(self.get_parameter('hover_positions').value)
+        def name_list(param: str) -> list:
+            raw = str(self.get_parameter(param).value)
+            return [n.strip() for n in raw.split(',') if n.strip()]
 
-        if len(roles) != len(names):
-            raise ValueError(
-                f'drone_roles has {len(roles)} entries for {len(names)} drones')
-        if len(hover_flat) != 3 * len(names):
-            raise ValueError(
-                f'hover_positions needs {3 * len(names)} values, got {len(hover_flat)}')
-        for role in roles:
-            if role not in ('hover', 'teleop', 'external'):
-                raise ValueError(f'unknown drone role "{role}"')
+        names = list(self.get_parameter('drone_names').value)
+        teleop_names = name_list('teleop_drones')
+        external_names = name_list('external_drones')
+        for n in teleop_names + external_names:
+            if n not in names:
+                raise ValueError(f'"{n}" not in drone_names')
 
         self.state_timeout = float(self.get_parameter('state_timeout_s').value)
         self.teleop_timeout = float(self.get_parameter('teleop_timeout_s').value)
@@ -143,44 +160,73 @@ class SwarmCommander(Node):
         self.cbf_alpha = float(self.get_parameter('cbf_alpha').value)
         self.teleop_max_speed = float(self.get_parameter('teleop_max_speed_mps').value)
 
+        # ---- Scenario -----------------------------------------------------
+        scenario_name = str(self.get_parameter('scenario').value)
+        scenario_kwargs = {}
+        if scenario_name == 'hover':
+            scenario_kwargs['hover_positions'] = np.array(
+                self.get_parameter('hover_positions').value)
+        elif scenario_name == 'squeeze':
+            scenario_kwargs['gap_factor'] = float(
+                self.get_parameter('squeeze_gap_factor').value)
+            scenario_kwargs['run_length'] = float(
+                self.get_parameter('squeeze_run_length_m').value)
+        self.scenario = make_scenario(
+            scenario_name,
+            num_drones=len(names),
+            nominal_speed=float(self.get_parameter('scenario_speed_mps').value),
+            bounds=Bounds(
+                low=np.array(self.get_parameter('arena_low').value),
+                high=np.array(self.get_parameter('arena_high').value)),
+            safety_radius=self.cbf_safety_radius,
+            seed=int(self.get_parameter('scenario_seed').value),
+            **scenario_kwargs)
+        self.scenario_name = scenario_name
+        self.mission_active = False
+
         state_tmpl = str(self.get_parameter('state_topic_template').value)
         cmd_tmpl = str(self.get_parameter('velocity_command_topic_template').value)
         srv_tmpl = str(self.get_parameter('robot_command_service_template').value)
+        teleop_tmpl = str(self.get_parameter('teleop_topic_template').value)
 
         # ---- Per-drone wiring --------------------------------------------
+        takeoff_targets = self.scenario.initial_positions()
         self.drones = []
-        for i, (name, role) in enumerate(zip(names, roles)):
-            drone = DroneHandle(name, role, np.array(hover_flat[3 * i:3 * i + 3]))
+        for i, name in enumerate(names):
+            role = ('teleop' if name in teleop_names
+                    else 'external' if name in external_names else 'auto')
+            drone = DroneHandle(name, role)
+            drone.takeoff_target = takeoff_targets[i].copy()
+            drone.hold_target = takeoff_targets[i].copy()
             if drone.commanded:
                 drone.cmd_pub = self.create_publisher(
                     TwistStamped, cmd_tmpl.format(name=name), 10)
                 drone.robot_command_client = self.create_client(
                     RobotCommand, srv_tmpl.format(name=name))
+            if role == 'teleop':
+                self.create_subscription(
+                    TwistStamped, teleop_tmpl.format(name=name),
+                    lambda msg, d=drone: self.teleop_callback(d, msg), 10)
             self.create_subscription(
                 Odometry, state_tmpl.format(name=name),
                 lambda msg, d=drone: self.odometry_callback(d, msg), 10)
             self.drones.append(drone)
 
-        # ---- Teleop input -------------------------------------------------
-        self.teleop_twist = np.zeros(3)
-        self.last_teleop_time = None
-        self.create_subscription(
-            TwistStamped, str(self.get_parameter('teleop_topic').value),
-            self.teleop_callback, 10)
-
         # ---- Operator services ---------------------------------------------
         self.create_service(Trigger, '~/takeoff', self.handle_takeoff)
-        self.create_service(Trigger, '~/land', self.handle_land)
+        self.create_service(Trigger, '~/start', self.handle_start)
         self.create_service(Trigger, '~/hold', self.handle_hold)
+        self.create_service(Trigger, '~/land', self.handle_land)
 
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
+        self._cbf_warn_count = 0
 
         self.get_logger().info(
-            'SwarmCommander up: '
+            f'SwarmCommander up | scenario={scenario_name} | '
             + ', '.join(f'{d.name}({d.role})' for d in self.drones)
-            + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s'
-            + ' | NOTE: cbf_filter is a PLACEHOLDER (speed cap only)')
+            + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
+            + f' alpha={self.cbf_alpha}')
 
     # ------------------------------------------------------------------
     # Inputs
@@ -193,10 +239,10 @@ class SwarmCommander(Node):
         drone.velocity = np.array([v.x, v.y, v.z])
         drone.last_odom_time = self.get_clock().now()
 
-    def teleop_callback(self, msg: TwistStamped):
+    def teleop_callback(self, drone: DroneHandle, msg: TwistStamped):
         l = msg.twist.linear
-        self.teleop_twist = np.array([l.x, l.y, l.z])
-        self.last_teleop_time = self.get_clock().now()
+        drone.teleop_twist = np.array([l.x, l.y, l.z])
+        drone.last_teleop_time = self.get_clock().now()
 
     # ------------------------------------------------------------------
     # Operator services
@@ -215,13 +261,41 @@ class SwarmCommander(Node):
             d.state = FlightState.ARMING
             d.arming_start = now
             d.arming_steps_done = set()
+            d.hold_target = d.takeoff_target.copy()
             started.append(d.name)
         response.success = bool(started)
         response.message = ('takeoff: ' + ', '.join(started)) if started \
             else 'no drone eligible for takeoff (missing odometry or not IDLE)'
         return response
 
+    def handle_start(self, request, response):
+        not_ready = [d.name for d in self.drones
+                     if d.commanded and d.state != FlightState.ACTIVE]
+        if not_ready:
+            response.success = False
+            response.message = 'not all drones holding yet: ' + ', '.join(not_ready)
+            return response
+        self.mission_active = True
+        response.success = True
+        response.message = f'scenario "{self.scenario_name}" running'
+        self.get_logger().info(response.message)
+        return response
+
+    def handle_hold(self, request, response):
+        self.mission_active = False
+        held = []
+        for d in self.drones:
+            if d.commanded and d.position is not None \
+                    and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
+                d.hold_target = d.position.copy()
+                d.state = FlightState.ACTIVE
+                held.append(d.name)
+        response.success = bool(held)
+        response.message = 'holding: ' + ', '.join(held) if held else 'nothing to hold'
+        return response
+
     def handle_land(self, request, response):
+        self.mission_active = False
         landing = []
         for d in self.drones:
             if d.commanded and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
@@ -230,19 +304,6 @@ class SwarmCommander(Node):
         response.success = bool(landing)
         response.message = ('landing: ' + ', '.join(landing)) if landing \
             else 'no airborne drone to land'
-        return response
-
-    def handle_hold(self, request, response):
-        held = []
-        for d in self.drones:
-            if d.commanded and d.position is not None \
-                    and d.state in (FlightState.ASCEND, FlightState.ACTIVE):
-                d.hover_target = d.position.copy()
-                d.role = 'hover'
-                d.state = FlightState.ACTIVE
-                held.append(d.name)
-        response.success = bool(held)
-        response.message = 'holding: ' + ', '.join(held) if held else 'nothing to hold'
         return response
 
     # ------------------------------------------------------------------
@@ -274,6 +335,16 @@ class SwarmCommander(Node):
     # Control loop
     # ------------------------------------------------------------------
 
+    def teleop_command(self, drone: DroneHandle, now) -> np.ndarray:
+        stale = (drone.last_teleop_time is None
+                 or (now - drone.last_teleop_time)
+                 > Duration(seconds=self.teleop_timeout))
+        cmd = np.zeros(3) if stale else drone.teleop_twist.copy()
+        speed = np.linalg.norm(cmd)
+        if speed > self.teleop_max_speed:
+            cmd *= self.teleop_max_speed / speed
+        return cmd
+
     def control_loop(self):
         now = self.get_clock().now()
 
@@ -291,47 +362,51 @@ class SwarmCommander(Node):
                 self.send_robot_command(d, RobotCommand.Request.ARM, 'arm')
             if elapsed >= ARMING_DONE_S:
                 d.state = FlightState.ASCEND
-                self.get_logger().info(f'{d.name}: ascending to {d.hover_target}')
+                self.get_logger().info(f'{d.name}: ascending to {d.hold_target}')
 
-        # Swarm state for the CBF: every drone with fresh odometry, any role.
-        tracked = [d for d in self.drones
-                   if d.position is not None and d.last_odom_time is not None
-                   and (now - d.last_odom_time) < Duration(seconds=self.state_timeout)]
-        index = {d.name: i for i, d in enumerate(tracked)}
-
+        # Swarm state: every drone with a known position (any role) feeds the
+        # CBF; freshness only gates whether a drone gets commands published.
+        tracked = [d for d in self.drones if d.position is not None]
         if not tracked:
             return
-
+        index = {d.name: i for i, d in enumerate(tracked)}
         positions = np.stack([d.position for d in tracked])
+
+        # Scenario nominal velocities — only meaningful (and stateful: goal
+        # resampling, wall bounces) once the mission runs and all drones are
+        # tracked, so it is stepped exactly then.
+        scenario_nominal = None
+        if self.mission_active and len(tracked) == len(self.drones):
+            all_positions = np.stack([d.position for d in self.drones])
+            scenario_nominal = self.scenario.nominal_velocity(all_positions)
+
         nominal = np.zeros((len(tracked), 3))
         teleop_rows = []
-
         for d in tracked:
             i = index[d.name]
             if d.state in (FlightState.IDLE, FlightState.ARMING):
                 nominal[i] = 0.0
             elif d.state == FlightState.LANDING:
                 nominal[i] = np.array([0.0, 0.0, -self.land_speed])
-            elif d.role == 'teleop' and d.state == FlightState.ACTIVE:
-                stale = (self.last_teleop_time is None
-                         or (now - self.last_teleop_time)
-                         > Duration(seconds=self.teleop_timeout))
-                nominal[i] = np.zeros(3) if stale else self.teleop_twist
-                teleop_rows.append(i)
-            else:  # hover role, ASCEND or ACTIVE
-                error = d.hover_target - d.position
+            elif d.state == FlightState.ASCEND:
+                error = d.hold_target - d.position
                 nominal[i] = self.hover_kp * error
-                if d.state == FlightState.ASCEND \
-                        and np.linalg.norm(error) < self.arrival_threshold:
+                if np.linalg.norm(error) < self.arrival_threshold:
                     d.state = FlightState.ACTIVE
-                    self.get_logger().info(f'{d.name}: holding hover target')
+                    self.get_logger().info(f'{d.name}: holding takeoff position')
+            elif d.state == FlightState.ACTIVE:
+                if d.role == 'teleop' and self.mission_active:
+                    nominal[i] = self.teleop_command(d, now)
+                    teleop_rows.append(i)
+                elif self.mission_active and scenario_nominal is not None:
+                    nominal[i] = scenario_nominal[self.drones.index(d)]
+                else:
+                    nominal[i] = self.hover_kp * (d.hold_target - d.position)
 
         # ================= CBF SAFETY FILTER =================
-        # Placeholder until the drone_soccer filter is dropped into
-        # cbf_filter.py — see that file. The teleoperated drone is the
-        # moving obstacle: its row is restored to the (speed-capped)
-        # operator command after filtering, so only the hovering drones
-        # are deflected.
+        # Real velocity-CBF (ported from drone_soccer). Teleop drones are the
+        # moving obstacles: their rows are restored to the (speed-capped)
+        # operator command after filtering, so only autonomous drones dodge.
         result = filter_velocities(
             nominal, positions,
             safety_radius=self.cbf_safety_radius,
@@ -339,22 +414,33 @@ class SwarmCommander(Node):
             alpha=self.cbf_alpha,
         )
         safe = result.velocities
-        for i in teleop_rows:
-            cmd = nominal[i]
-            speed = np.linalg.norm(cmd)
-            if speed > self.teleop_max_speed:
-                cmd = cmd * (self.teleop_max_speed / speed)
-            safe[i] = cmd
+        for d in tracked:
+            i = index[d.name]
+            if i in teleop_rows:
+                safe[i] = self.teleop_command(d, now)
         if result.used_emergency_stop:
-            self.get_logger().warn('CBF emergency push-apart engaged')
+            self.get_logger().warn(
+                'CBF emergency push-apart engaged '
+                f'(infeasible pairs: {result.num_infeasible})',
+                throttle_duration_sec=1.0)
+        elif result.corrected.any():
+            self._cbf_warn_count += 1
+            if self._cbf_warn_count % 20 == 1:  # ~1 Hz at 20 Hz loop
+                active = [tracked[i].name
+                          for i in np.flatnonzero(result.corrected)]
+                self.get_logger().info(
+                    f'CBF active on: {", ".join(active)} '
+                    f'(residual {result.residual:.4f})')
         # ======================================================
 
         # Publish commands; handle landing completion.
         for d in self.drones:
             if not d.commanded or d.state == FlightState.IDLE:
                 continue
-            if d.name not in index:
-                # Commanded drone with stale state: fail safe to zero velocity.
+            fresh = (d.last_odom_time is not None
+                     and (now - d.last_odom_time)
+                     < Duration(seconds=self.state_timeout))
+            if not fresh:
                 self.get_logger().warn(
                     f'{d.name}: odometry stale, commanding zero velocity',
                     throttle_duration_sec=1.0)

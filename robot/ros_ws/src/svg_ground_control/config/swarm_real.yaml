@@ -1,27 +1,37 @@
 # SVG ground control — HARDWARE configuration (ModalAI Starling 2 Max + mocap).
 #
 # Each drone's uXRCE-DDS client must be namespaced (uxrce_dds_client -n drone_i
-# on the VOXL), so its PX4 topics appear as /drone_i/fmu/... on the shared
-# domain. Per-drone px4_interface stacks are started with
-#   ros2 launch svg_ground_control drone_interface.launch.xml drone_name:=drone_i
-# which yields the /{name}/fmu command topics used below.
+# on the VOXL, UXRCE_DDS_DOM_ID matching the ground domain), so its PX4 topics
+# appear as /drone_i/fmu/... . Start all per-drone px4_interface stacks with:
+#   ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
 #
-# The mocap system publishes one PoseStamped per rigid body on /drone_i/pose
-# (configurable via mocap_topic_template).
+# Mocap: launch the natnet_ros2 node (body_id: -1 = all rigid bodies, named
+# drone_1..N in Motive) and point mocap_topic_template below at its output —
+# check the exact prefix with `ros2 topic list | grep optitrack`.
 
 swarm_commander:
   ros__parameters:
     drone_names: ["drone_1", "drone_2", "drone_3"]
-    drone_roles: ["hover", "hover", "teleop"]
-    hover_positions: [-1.5, 0.0, 1.2,
-                       1.5, 0.0, 1.2,
-                       0.0, -1.5, 1.2]
+    teleop_drones: "drone_3"
+    external_drones: ""
+
+    scenario: "hover"
+    scenario_speed_mps: 0.5
+    scenario_seed: 7
+    # Fit to the mocap capture volume!
+    arena_low: [-1.5, -1.5, 0.8]
+    arena_high: [1.5, 1.5, 1.8]
+    squeeze_gap_factor: 2.5
+    squeeze_run_length_m: 2.5
+    hover_positions: [-1.2, 0.0, 1.2,
+                       1.2, 0.0, 1.2,
+                       0.0, -1.2, 1.2]
 
     # px4_interface (uXRCE-DDS) topic layout (see drone_interface.launch.xml)
     state_topic_template: "/{name}/odometry_conversion/odometry"
     velocity_command_topic_template: "/{name}/fmu/velocity_command"
     robot_command_service_template: "/{name}/fmu/robot_command"
-    teleop_topic: "/svg/teleop_command"
+    teleop_topic_template: "/svg/{name}/teleop_command"
 
     control_rate_hz: 20.0
     state_timeout_s: 0.5
@@ -33,13 +43,16 @@ swarm_commander:
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55
-    cbf_max_speed_mps: 1.2
+    cbf_max_speed_mps: 1.0
     cbf_alpha: 2.5
-    teleop_max_speed_mps: 1.2
+    teleop_max_speed_mps: 1.0
 
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_1", "drone_2", "drone_3"]
+    # With natnet_ros2 (body_id: -1, Motive bodies named drone_1..N) the pose
+    # topics are <robot_name>/perception/optitrack/<body>; adjust the prefix
+    # to what `ros2 topic list` shows on your setup.
     mocap_topic_template: "/{name}/pose"
     visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
     mocap_frame: "map"
