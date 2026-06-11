@@ -19,7 +19,6 @@
 set -uo pipefail
 
 AIRSTACK_ROOT="${AIRSTACK_ROOT:-/root/AirStack}"
-AIRLAB_REGISTRY="${AIRLAB_REGISTRY:-airlab-docker.andrew.cmu.edu}"
 
 log()  { echo "[mission-launcher] $*"; }
 fail() { echo "[mission-launcher] ERROR: $*" >&2; }
@@ -53,32 +52,27 @@ if ! wait_for "branch clone" 600 test -f "$AIRSTACK_ROOT/osmo/workspace/mission_
   exit 1
 fi
 
-# Registry login is performed by the baked entrypoint (step 5) only when
-# AIRLAB_REGISTRY_USER is set. Wait for it so `airstack up`'s image pulls
-# don't race the login; warn (don't abort) if it never lands.
-if [ -n "${AIRLAB_REGISTRY_USER:-}" ]; then
-  wait_for "registry login (${AIRLAB_REGISTRY})" 180 \
-    grep -q "$AIRLAB_REGISTRY" /root/.docker/config.json \
-    || log "WARN: registry login not detected — image pulls may fail"
-fi
-
-# The deployed :latest image's baked entrypoint runs its OWN `airstack up`
-# (that image predates the OSMO_AIRSTACK_UP=false hook, so it ignores the
-# request to skip it). If the mission started its own bring-up concurrently,
-# the two compose runs collide — duplicate network, container-name conflicts,
-# "network not found" mid-teardown — and the first iteration fails. So wait
-# for the baked entrypoint to FINISH its bring-up (which also warms the inner
-# image cache the mission then reuses) before handing off. Detect completion
-# by its terminal `sleep infinity`. On a rebuilt image where the hook works,
-# the entrypoint skips `up` and reaches that sleep almost immediately, so this
-# is a fast no-op — correct either way.
+# The deployed :latest image's baked entrypoint ignores OSMO_AIRSTACK_UP and
+# runs its OWN `airstack up`. Running the mission's bring-up concurrently
+# collides (duplicate network, container-name conflicts, "network not found"
+# mid-teardown) and fails the first iteration. So wait for the baked
+# entrypoint to FINISH — the bootstrap tees its output to $BAKED_LOG, and its
+# terminal "sleeping forever" line is printed exactly once, after its
+# `airstack up` completes (success or fail). This also subsumes the clone +
+# registry-login steps it performs, and warms the inner image cache the
+# mission reuses. On a rebuilt image where the hook works, the entrypoint
+# skips `up` and prints that line almost immediately, so this is a fast no-op.
+#
+# We deliberately do NOT detect completion via `pgrep -f "sleep infinity"`:
+# the AirStack containers themselves run `sleep infinity`, so that matches the
+# instant the baked bring-up starts a container — firing the handoff in the
+# middle of its `airstack up`, which is exactly the race we're avoiding.
+BAKED_LOG="${BAKED_ENTRYPOINT_LOG:-/tmp/baked-entrypoint.log}"
 log "waiting for the baked entrypoint to finish its own bring-up (avoids a concurrent 'airstack up')"
-sleep 10   # let the baked entrypoint actually reach its `airstack up`
-if wait_for "baked entrypoint idle" 2400 pgrep -f "sleep infinity"; then
-  sleep 5  # let compose fully release the network before the mission's first down/up
-else
-  log "WARN: baked entrypoint still busy after 40m — proceeding; first iteration may race its bring-up"
+if ! wait_for "baked entrypoint complete" 2400 grep -q "sleeping forever" "$BAKED_LOG"; then
+  log "WARN: baked entrypoint didn't signal completion in 40m — proceeding; first iteration may race its bring-up"
 fi
+sleep 5  # let baked's compose settle before the mission's first ensure_down/up
 
 # ── 2. PyYAML (mission_runner imports yaml) ────────────────────────────────
 if ! python3 -c "import yaml" >/dev/null 2>&1; then
