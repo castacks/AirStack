@@ -84,6 +84,18 @@ def test_reauthoring_removes_stale_bodies():
     assert [b.rigid_body_name for b in cfg.bodies] == ["Drone"]
 
 
+def test_up_axis_authors_and_reads_back():
+    stage = _new_stage()
+    # Default (absent) -> Z.
+    author_interface(stage, "/World/NatNetInterface", _CONFIG)
+    assert read_interface(find_interfaces(stage)[0]).up_axis == "Z"
+
+    # Explicit Y survives the USD round trip.
+    cfg = NatNetInterfaceConfig.from_dict({**_CONFIG, "up_axis": "Y"})
+    author_interface(stage, "/World/NatNetInterface", cfg)
+    assert read_interface(find_interfaces(stage)[0]).up_axis == "Y"
+
+
 def test_empty_target_round_trips():
     # The UI's "Add body" can create a body with no target yet (set later in the
     # Property panel); it must author and read back cleanly with an empty target.

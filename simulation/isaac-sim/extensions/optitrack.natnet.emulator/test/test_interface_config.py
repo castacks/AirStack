@@ -27,7 +27,20 @@ def test_defaults_match_server_expectations():
     assert cfg.mode == "unicast"
     assert cfg.command_port == 1510
     assert cfg.data_port == 1511
+    assert cfg.up_axis == "Z"  # Isaac/USD native; matches the reference Motive setup
     assert cfg.bodies == []
+
+
+def test_up_axis_from_dict_normalizes_case():
+    assert NatNetInterfaceConfig.from_dict({"up_axis": "y"}).up_axis == "Y"
+    assert NatNetInterfaceConfig.from_dict({"up_axis": "z"}).up_axis == "Z"
+    # Absent -> default Z.
+    assert NatNetInterfaceConfig.from_dict({}).up_axis == "Z"
+
+
+def test_up_axis_survives_round_trip():
+    cfg = NatNetInterfaceConfig.from_dict({"up_axis": "Y"})
+    assert NatNetInterfaceConfig.from_dict(cfg.to_dict()).up_axis == "Y"
 
 
 def test_from_dict_with_bodies_as_list():
@@ -111,6 +124,8 @@ def test_assign_instance_keys_are_unique():
         {"data_port": 70000},
         {"command_port": 1510, "data_port": 1510},
         {"publish_rate": 0},
+        {"up_axis": "X"},
+        {"up_axis": "bogus"},
     ],
 )
 def test_validate_rejects_bad_server_config(overrides):

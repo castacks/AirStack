@@ -15,9 +15,32 @@ from optitrack.natnet.emulator.isaac.frames import (
     BodySample,
     build_frame,
     make_rigid_body_data,
+    to_motive_pose,
 )
 
 pytestmark = pytest.mark.unit
+
+
+def test_to_motive_pose_z_is_identity():
+    pos = (1.0, 2.0, 3.0)
+    quat = (0.1, 0.2, 0.3, 0.9)
+    assert to_motive_pose(pos, quat, up_axis="Z") == (pos, quat)
+    # Case-insensitive and default to Z.
+    assert to_motive_pose(pos, quat, up_axis="z") == (pos, quat)
+    assert to_motive_pose(pos, quat) == (pos, quat)
+
+
+def test_to_motive_pose_y_swaps_axes_and_quat():
+    # (x, y, z) -> (x, z, -y); quat vector part takes the same swap, scalar kept.
+    pos, quat = to_motive_pose((1.0, 2.0, 3.0), (0.1, 0.2, 0.3, 0.9), up_axis="Y")
+    assert pos == (1.0, 3.0, -2.0)
+    assert quat == (0.1, 0.3, -0.2, 0.9)
+
+
+def test_to_motive_pose_y_maps_isaac_up_to_motive_up():
+    # Isaac +Z (up) must become Motive +Y (up) under the Y-up emulation.
+    pos, _ = to_motive_pose((0.0, 0.0, 1.0), (0.0, 0.0, 0.0, 1.0), up_axis="y")
+    assert pos == (0.0, 1.0, 0.0)
 
 
 def test_make_rigid_body_data_copies_pose_and_sets_valid_bit():

@@ -137,6 +137,35 @@ def test_moving_prim_updates_streamed_position():
     assert round(frame.RigidBodies[0].x, 3) == 10.0
 
 
+def test_up_axis_z_streams_isaac_pose_as_is():
+    stage = Usd.Stage.CreateInMemory()
+    _xform(stage, "/World/base_link", translate=(1.0, 2.0, 3.0))
+    cfg = NatNetInterfaceConfig(
+        server_ip="127.0.0.1", up_axis="Z", bodies=[BodyBinding("Drone", "/World/base_link", 1)]
+    )
+    author_interface(stage, "/World/NatNetInterface", cfg)
+    mgr, _fake = _manager_with_fake()
+    mgr.start_server(cfg)
+
+    rb = mgr.sample_once(stage).RigidBodies[0]
+    assert (round(rb.x, 3), round(rb.y, 3), round(rb.z, 3)) == (1.0, 2.0, 3.0)
+
+
+def test_up_axis_y_reaxes_streamed_pose():
+    # Y-up Motive emulation: Isaac (x, y, z) streams as (x, z, -y).
+    stage = Usd.Stage.CreateInMemory()
+    _xform(stage, "/World/base_link", translate=(1.0, 2.0, 3.0))
+    cfg = NatNetInterfaceConfig(
+        server_ip="127.0.0.1", up_axis="Y", bodies=[BodyBinding("Drone", "/World/base_link", 1)]
+    )
+    author_interface(stage, "/World/NatNetInterface", cfg)
+    mgr, _fake = _manager_with_fake()
+    mgr.start_server(cfg)
+
+    rb = mgr.sample_once(stage).RigidBodies[0]
+    assert (round(rb.x, 3), round(rb.y, 3), round(rb.z, 3)) == (1.0, 3.0, -2.0)
+
+
 def test_body_added_while_live_is_picked_up_on_resync():
     stage = Usd.Stage.CreateInMemory()
     _xform(stage, "/World/a", translate=(1.0, 0.0, 0.0))

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import omni.ext
 
-from .config import VALID_MODES, BodyBinding, NatNetInterfaceConfig
+from .config import VALID_MODES, VALID_UP_AXES, BodyBinding, NatNetInterfaceConfig
 from .manager import NatNetServerManager
 from .usd_bindings import author_interface, find_interfaces, read_interface, read_world_pose
 
@@ -193,10 +193,11 @@ class NatNetEmulatorExtension(omni.ext.IExt):
                 ui.Separator(height=6)
                 self._bool_row(ui, "Server enabled", "server_enabled", self._cfg.server_enabled)
                 self._str_row(ui, "Server IP", "server_ip", self._cfg.server_ip)
-                self._combo_row(ui, "Mode", "mode", self._cfg.mode)
+                self._combo_row(ui, "Mode", "mode", self._cfg.mode, VALID_MODES)
                 self._int_row(ui, "Command port", "command_port", self._cfg.command_port)
                 self._int_row(ui, "Data port", "data_port", self._cfg.data_port)
                 self._float_row(ui, "Publish rate (Hz)", "publish_rate", self._cfg.publish_rate)
+                self._combo_row(ui, "Up axis", "up_axis", self._cfg.up_axis, VALID_UP_AXES)
 
                 ui.Separator(height=6)
                 ui.Label("Tracked bodies", height=0, style={"font_size": 14})
@@ -249,13 +250,13 @@ class NatNetEmulatorExtension(omni.ext.IExt):
                 lambda m, k=key: self._set_cfg_field(k, m.get_value_as_float())
             )
 
-    def _combo_row(self, ui, label, key, value):
+    def _combo_row(self, ui, label, key, value, choices):
         with ui.HStack(height=0):
             ui.Label(label, width=_LABEL_WIDTH)
-            index = VALID_MODES.index(value) if value in VALID_MODES else 0
-            combo = ui.ComboBox(index, *VALID_MODES)
+            index = choices.index(value) if value in choices else 0
+            combo = ui.ComboBox(index, *choices)
             combo.model.get_item_value_model().add_value_changed_fn(
-                lambda m: self._set_cfg_field("mode", VALID_MODES[m.get_value_as_int()])
+                lambda m, k=key, c=choices: self._set_cfg_field(k, c[m.get_value_as_int()])
             )
 
     def _set_cfg_field(self, attr, value):

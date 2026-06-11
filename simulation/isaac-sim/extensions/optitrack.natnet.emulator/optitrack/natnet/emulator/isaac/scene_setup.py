@@ -22,6 +22,7 @@ from .config import (
     DEFAULT_DATA_PORT,
     DEFAULT_PUBLISH_RATE,
     DEFAULT_SERVER_IP,
+    DEFAULT_UP_AXIS,
     BodyBinding,
     NatNetInterfaceConfig,
 )
@@ -42,6 +43,7 @@ def build_drone_config(
     data_port: int = DEFAULT_DATA_PORT,
     publish_rate: float = DEFAULT_PUBLISH_RATE,
     server_enabled: bool = True,
+    up_axis: str = DEFAULT_UP_AXIS,
 ) -> NatNetInterfaceConfig:
     """Build a validated config with one rigid body per drone.
 
@@ -65,6 +67,7 @@ def build_drone_config(
         command_port=command_port,
         data_port=data_port,
         publish_rate=publish_rate,
+        up_axis=up_axis,
         bodies=bodies,
     )
     cfg.validate()

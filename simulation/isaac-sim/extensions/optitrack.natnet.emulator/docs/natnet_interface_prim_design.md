@@ -253,9 +253,18 @@ world transform (`UsdGeom.Xformable.ComputeLocalToWorldTransform` via a per-fram
 `server.enqueue_mocap_data(frame)`. No schema reads or stage searches happen in the
 hot path — only direct pose pulls off the cached handles, exactly as intended.
 
-**Frame convention caveat:** Isaac is typically Z-up / meters; Motive streams Y-up
-by convention. The sampler must emit the same convention `natnet_ros2` expects on
-the wire — to be pinned down during implementation (not a design blocker).
+**Frame convention (`up_axis` option):** Isaac/USD is Z-up; Motive exposes an
+"Up Axis" setting. The reference `natnet_ros2` driver (and ours) require it set to
+**Z** and do **no** axis conversion — `rb_to_pose` is an identity copy and
+`vision_pose_converter_node` only normalizes quaternion sign. So the interface
+config carries an `up_axis` (default **`"Z"`**) and the sampler streams the USD
+world pose **as-is** by default, matching the rest of the stack. Setting
+`up_axis="Y"` emulates a default Y-up Motive by rotating each streamed pose -90° about
+X (`(x,y,z) -> (x,z,-y)`, quaternion vector part the same, scalar kept) — a proper
+right-handed change of basis. The conversion is the pure, unit-tested
+`frames.to_motive_pose`; the manager re-reads `up_axis` on every resync and applies
+it in `sample_once`. Authored on the prim as `natnet:upAxis`, editable in the UI
+("Up axis" dropdown) and via `build_drone_config(..., up_axis=...)`.
 
 ## Packaging notes
 
@@ -334,7 +343,81 @@ Make the extension *aware* of interfaces without acting on them.
   path and fully parsed config; adding/removing a body or editing a field updates
   the logged readout live.
 
-### Commit 3 — Catalog parse + server start
+### Commit 5 — Data enqueue + dynamic catalog + scripting + UI readouts  ✅ IMPLEMENTED
+
+> Rolled the deferred data path together with live updates, scripting, and UI:
+> - **`isaac/frames.py`** (pure): `BodySample`, `make_rigid_body_data`, `build_frame`.
+>   Sets `params` bit `0x01` (tracking valid — the client *skips* bodies without it)
+>   and frame bit `0x02` (model list changed). **Frame convention resolved: emit the
+>   USD world pose as-is, no Z-up→Y-up swap** — `natnet_ros2`'s `rb_to_pose` is an
+>   identity copy and nothing downstream re-axes, so swapping would desync the pose.
+> - **`usd_bindings.read_world_pose(prim)`** — `ComputeLocalToWorldTransform` →
+>   `((x,y,z),(qx,qy,qz,qw))` (the pose *stored in the USD stage*).
+> - **Manager**: a **dirty flag** (`_needs_resync`) — set on any NatNet prim change
+>   (`_on_objects_changed`) or `mark_dirty()`, cleared by the next sample. The
+>   physics-step subscription (`subscribe_physics_step_events`) calls `sample_once`,
+>   which resyncs the catalog/target cache when dirty (so **bodies added/removed live
+>   are picked up**, refreshing the server MODELDEF and flagging `model_list_changed`),
+>   then samples every body's world pose and `enqueue_mocap_data`s one frame. Missing
+>   prims stream as lost (NaN, valid bit clear).
+> - **Scripting**: `NatNetServerManager.start_from_stage()` (author the prim, then
+>   call it). `start_server` / `apply_enabled` remain the programmatic enable path.
+> - **UI**: each tracked-body row has a live readout — status dot (green=streaming,
+>   grey=idle, red=missing) + world position pulled from USD, refreshed ~6 Hz.
+> - **Tests**: `test_frames.py` (pure: valid bit, NaN-lost, order, model-change bit,
+>   pack decode), `test_pose_sampling.py` (pxr: read_world_pose, sample no/one/missing,
+>   moving prim, **body-added-live resync + model_list_changed**), `test_pose_streaming.py`
+>   (pxr loopback: streamed `NAT_FRAMEOFDATA` carries the sampled USD position). Proxies
+>   added under `tests/sim/optitrack_natnet_emulator/`.
+
+### Commit 6 — Example-script auto-start (load-up integration)  ✅ IMPLEMENTED
+
+> The Pegasus example launch scripts stand the emulator up on scene load — no UI.
+> - **`isaac/scene_setup.py`** — `build_drone_config(drones, ...)` (pure: one
+>   `BodyBinding` per `(rigid_body_name, streaming_id, target_prim)`, validated) and
+>   `start_drone_natnet_server(stage, drones, ...)` (authors the `/World/NatNetInterface`
+>   prim, then creates a physics-subscribed `NatNetServerManager` and starts it).
+>   Exported from `optitrack.natnet.emulator.isaac`.
+> - **Launch scripts** (`launch_scripts/example_one*.py`, `example_multi*.py`): after
+>   spawning drones, if `LAUNCH_NATNET=true` they author one rigid body per drone
+>   `base_link` and start the server. Single: `("Drone", 1, /World/base_link)`.
+>   Multi: `("<NATNET_BODY_NAME><i>", i, /World/drone<i>/base_link)` for each drone.
+>   Failures are caught (never kill the sim); the manager is torn down on close.
+> - **Import path**: scripts add `../extensions/optitrack.natnet.emulator` to
+>   `sys.path` so the package imports without enabling the Kit UI extension (keeps a
+>   single, script-owned manager — no duplicate physics/USD subscriptions).
+> - **Wiring**: `LAUNCH_NATNET` / `NATNET_BODY_NAME` are passed into the isaac-sim
+>   container via `simulation/isaac-sim/docker/docker-compose.yaml`, mirroring the
+>   robot-side `natnet_ros2` gate. Server binds the container IP `172.31.0.200`
+>   (the config default), which the robot `server_ip` already points at.
+> - **Tests**: `test_scene_setup.py` (pure: single/multi mapping, server-param
+>   forwarding, duplicate name/id rejection, empty catalog). Proxy under
+>   `tests/sim/optitrack_natnet_emulator/`.
+
+### Commit 3 — Catalog parse + server start  ✅ IMPLEMENTED
+
+> **Status (combined with Commit 4):** catalog parse + server start/stop lifecycle
+> landed together. What shipped:
+> - `isaac/catalog.py`: `build_catalog(config) → sDataDescriptions` (pure ctypes,
+>   no USD) + `find_duplicate_targets(config)`.
+> - `usd_bindings.resolve_targets(stage, config) → (existing, missing)` diagnostics.
+> - `NatNetServerManager` owns **one** server via an injectable
+>   `server_factory` (default `default_server_factory`, unicast only). Methods:
+>   `start_server` (idempotent — builds catalog, `set_model_def_payload`, `start`),
+>   `stop_server`, `toggle_server`, `apply_enabled` (reconcile to `serverEnabled`),
+>   `is_running`, `log_target_diagnostics`. `on_shutdown` stops the server.
+> - UI: **Create Interface** (prim), plus a live **Start/Stop Server** toggle button
+>   + RUNNING/stopped status. The button starts/stops directly from the on-stage
+>   prim, **regardless** of `serverEnabled` (per request). Auto-reconcile of
+>   `serverEnabled` on scan is intentionally *not* wired (would fight the button);
+>   `apply_enabled` is available + tested for future auto-driving.
+> - Tests: `test_catalog.py` (no/single/multiple bodies, field fidelity, name
+>   truncation, MAX_MODELS guard, duplicate targets), `test_server_lifecycle.py`
+>   (mock factory: create+start exactly once, idempotent, toggle, reconcile,
+>   on_shutdown, multicast rejected), `test_target_resolution.py` (pxr-guarded:
+>   missing/empty/duplicate/mixed), `test_server_from_config.py` (loopback: served
+>   MODELDEF == `build_catalog(config)`, clean restart rebinds ports). Proxies added
+>   under `tests/sim/optitrack_natnet_emulator/`.
 
 Turn a detected config into a running server.
 
@@ -356,7 +439,13 @@ Turn a detected config into a running server.
   at ~`publishRate`; moving the tracked prim moves the published pose. (A Python
   loopback client can stand in for `natnet_ros2` if the SDK isn't built.)
 
-### Commit 4 — Enable/disable lifecycle
+### Commit 4 — Enable/disable lifecycle  ✅ FOLDED INTO COMMIT 3
+
+> The fresh-instance start/stop state machine (`start_server`/`stop_server`/
+> `toggle_server`/`apply_enabled`) and the restart-cleanliness loopback
+> (`test_server_from_config.py::test_stop_frees_port_for_restart`) shipped with
+> Commit 3 above. Remaining for a follow-up: rebuild-on-config-delta while running,
+> and (optionally) auto-reconciling `serverEnabled` edits from the Property panel.
 
 React to `serverEnabled` flipping at runtime.
 
@@ -481,3 +570,64 @@ sequenced; the rest are "note and handle during implementation."
   `target` relationship).
 - Server (`NatNetUnicastServer`) is unchanged — it stays transport-only and
   consumes `set_model_def_payload()` + `enqueue_mocap_data()` exactly as today.
+
+## Debugging discoveries (in-sim end-to-end bring-up)
+
+Hard-won findings from getting the liveliness sentinel green (Isaac emulator →
+`natnet_ros2` on the robot). Captured so the next agent does not re-derive them.
+
+1. **GIL starvation kills the background data thread inside Kit.** The server's
+   `_data_update_loop` daemon (which `time.sleep`s then sends frames) is reliably
+   starved by Kit's render/physics main loop holding the GIL — frames get enqueued
+   but never transmitted, so the client handshakes but receives nothing. Fix:
+   `NatNetServer.auto_stream` (default `True`) gates that loop; the Isaac wrapper
+   sets `auto_stream = False` in `manager.start_server()` and calls
+   `server.pump_once()` **synchronously from the physics-step callback**
+   (`manager.sample_once()`). Outside Kit (host integration tests, sidecar) the
+   default `auto_stream=True` path still works. Don't "optimize" the pump back into
+   the daemon thread.
+
+2. **The liveliness/system path runs the *standalone Pegasus script*, not a saved
+   scene USD.** `tests/conftest.py` sets `ISAAC_SIM_USE_STANDALONE=true` **and
+   `ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py`** — even for
+   `--num-robots 1`. So the NatNet auto-start wiring **must** live in
+   `example_multi_…` (it does); `example_one_…` and the default
+   `airstack up isaac-sim` (which uses `ISAAC_SIM_USE_STANDALONE=false` →
+   `run_isaacsim.launch.py` opening `simple_pegasus.scene.usd`) do **not** exercise
+   it. To reproduce the harness manually you must pass all of
+   `AUTOLAUNCH=true ISAAC_SIM_USE_STANDALONE=true
+   ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py
+   LAUNCH_NATNET=true PLAY_SIM_ON_START=true`.
+
+3. **Single-agent body/prim contract.** For `NUM_ROBOTS=1` the multi script names
+   the body `"Drone"` (bare) → target `/World/drone1/base_link` (the multi script's
+   drone prim path is always `drone{i}`, even for one drone). This matches the robot
+   `natnet_config.yaml` body and the liveliness sentinel topic
+   `/robot_1/perception/optitrack/Drone/pose_cov`.
+
+4. **Target prims appear *after* server start.** The Pegasus `base_link` is created
+   on the first Play tick — after `start_server()`. `_sample_cache` therefore stores
+   target *paths* and re-resolves `stage.GetPrimAtPath()` every `sample_once`, so a
+   body goes from "lost" to valid as soon as its prim exists (no `mark_dirty`).
+
+5. **`ss` is unreliable in the Isaac image; use `/proc/net/udp`.** Confirm the
+   server is bound by looking for ports `1510`/`1511` as hex (`05E6`/`05E7`) in
+   `/proc/net/udp` rather than trusting `ss -ulnp` (returns empty here).
+
+6. **First-message budget.** Cold Isaac boots compile shaders; the NatNet sentinel
+   first-message timeout was raised to 120s (`_NATNET_FIRST_MSG_TIMEOUT`) to match
+   the generous `/clock` (600s) / sentinel-node (300s) budgets. Once streaming, the
+   topic runs at ~98–140 Hz (100 Hz `publishRate`).
+
+7. **The client must retry the connect — the server starts ~100s after the robot.**
+   This was the actual liveliness blocker. `natnet_ros2_node` originally called
+   `connect_and_setup()` **once** in its constructor; on `NetworkError` it logged and
+   gave up. In the standalone path the Isaac emulator only binds 1510/1511 ~100s into
+   sim boot, long after the robot's node starts, so the one-shot connect failed
+   permanently (topic advertised, zero frames). Fix: `connect_and_setup()` returns
+   `bool` and a 2s `connect_timer_` retries the handshake until the first success,
+   then cancels itself (also correct for real Motive powered on after the drone).
+   Verified by starting Isaac and the node together: the node retries for ~90s, then
+   logs "Frame callback registered" the instant the server binds. **To reproduce the
+   race manually, start the robot node first, then Isaac** — bringing the robot up
+   *after* Isaac is ready hides the bug.

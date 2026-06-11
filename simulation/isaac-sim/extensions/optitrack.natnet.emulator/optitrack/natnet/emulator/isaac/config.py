@@ -30,6 +30,7 @@ ATTR_COMMAND_PORT = "natnet:commandPort"
 ATTR_DATA_PORT = "natnet:dataPort"
 ATTR_PUBLISH_RATE = "natnet:publishRate"
 ATTR_NATNET_VERSION = "natnet:natnetVersion"
+ATTR_UP_AXIS = "natnet:upAxis"
 
 BODY_PREFIX = "natnet:body:"
 BODY_FIELD_RIGID_BODY_NAME = "rigidBodyName"
@@ -39,6 +40,13 @@ BODY_FIELD_TARGET = "target"
 
 VALID_MODES = ("unicast", "multicast")
 
+# Streamed up-axis. Motive exposes an "Up Axis" setting; the reference natnet_ros2
+# driver requires it set to Z and passes coordinates through untouched. Isaac Sim /
+# USD is natively Z-up, so "Z" is a pass-through that matches the rest of the
+# AirStack stack (default). "Y" emulates a default (Y-up) Motive by rotating the
+# streamed pose -90deg about X. See ``frames.to_motive_pose``.
+VALID_UP_AXES = ("Y", "Z")
+
 # defaults shared with NatNetUnicastServer
 DEFAULT_SERVER_IP = "172.31.0.200"
 DEFAULT_MULTICAST_ADDR = "239.255.42.99"
@@ -46,6 +54,7 @@ DEFAULT_COMMAND_PORT = 1510
 DEFAULT_DATA_PORT = 1511
 DEFAULT_PUBLISH_RATE = 100.0
 DEFAULT_NATNET_VERSION = "4.4.0.0"
+DEFAULT_UP_AXIS = "Z"
 
 
 def body_attr_name(key: str, field_name: str) -> str:
@@ -137,6 +146,7 @@ class NatNetInterfaceConfig:
     data_port: int = DEFAULT_DATA_PORT
     publish_rate: float = DEFAULT_PUBLISH_RATE
     natnet_version: str = DEFAULT_NATNET_VERSION
+    up_axis: str = DEFAULT_UP_AXIS
     bodies: list[BodyBinding] = field(default_factory=list)
 
     @classmethod
@@ -151,6 +161,7 @@ class NatNetInterfaceConfig:
             data_port=int(d.get("data_port", DEFAULT_DATA_PORT)),
             publish_rate=float(d.get("publish_rate", DEFAULT_PUBLISH_RATE)),
             natnet_version=str(d.get("natnet_version", DEFAULT_NATNET_VERSION)),
+            up_axis=str(d.get("up_axis", DEFAULT_UP_AXIS)).upper(),
             bodies=_normalize_bodies(d.get("bodies")),
         )
 
@@ -164,6 +175,7 @@ class NatNetInterfaceConfig:
             "data_port": self.data_port,
             "publish_rate": self.publish_rate,
             "natnet_version": self.natnet_version,
+            "up_axis": self.up_axis,
             "bodies": [b.to_dict() for b in self.bodies],
         }
 
@@ -172,6 +184,8 @@ class NatNetInterfaceConfig:
         errors: list[str] = []
         if self.mode not in VALID_MODES:
             errors.append(f"mode must be one of {VALID_MODES}, got {self.mode!r}")
+        if str(self.up_axis).upper() not in VALID_UP_AXES:
+            errors.append(f"up_axis must be one of {VALID_UP_AXES}, got {self.up_axis!r}")
         for port_name, port in (("command_port", self.command_port), ("data_port", self.data_port)):
             if not (0 < port < 65536):
                 errors.append(f"{port_name} must be in 1..65535, got {port}")

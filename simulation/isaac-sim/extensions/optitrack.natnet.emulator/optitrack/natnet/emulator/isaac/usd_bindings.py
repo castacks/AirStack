@@ -25,6 +25,7 @@ from .config import (
     ATTR_PUBLISH_RATE,
     ATTR_SERVER_ENABLED,
     ATTR_SERVER_IP,
+    ATTR_UP_AXIS,
     BODY_FIELD_PARENT_ID,
     BODY_FIELD_RIGID_BODY_NAME,
     BODY_FIELD_STREAMING_ID,
@@ -36,6 +37,7 @@ from .config import (
     DEFAULT_NATNET_VERSION,
     DEFAULT_PUBLISH_RATE,
     DEFAULT_SERVER_IP,
+    DEFAULT_UP_AXIS,
     MARKER_ATTR,
     BodyBinding,
     NatNetInterfaceConfig,
@@ -69,6 +71,7 @@ def author_interface(stage, prim_path: str, config: Any) -> Any:
     _set(prim, ATTR_DATA_PORT, Sdf.ValueTypeNames.Int, cfg.data_port)
     _set(prim, ATTR_PUBLISH_RATE, Sdf.ValueTypeNames.Float, cfg.publish_rate)
     _set(prim, ATTR_NATNET_VERSION, Sdf.ValueTypeNames.String, cfg.natnet_version)
+    _set(prim, ATTR_UP_AXIS, Sdf.ValueTypeNames.Token, cfg.up_axis)
 
     for key, body in cfg.assign_instance_keys():
         _set(prim, body_attr_name(key, BODY_FIELD_RIGID_BODY_NAME), Sdf.ValueTypeNames.String, body.rigid_body_name)
@@ -94,6 +97,7 @@ def read_interface(prim) -> NatNetInterfaceConfig:
         data_port=int(_get(prim, ATTR_DATA_PORT, DEFAULT_DATA_PORT)),
         publish_rate=float(_get(prim, ATTR_PUBLISH_RATE, DEFAULT_PUBLISH_RATE)),
         natnet_version=str(_get(prim, ATTR_NATNET_VERSION, DEFAULT_NATNET_VERSION)),
+        up_axis=str(_get(prim, ATTR_UP_AXIS, DEFAULT_UP_AXIS)),
         bodies=_read_bodies(prim),
     )
 
