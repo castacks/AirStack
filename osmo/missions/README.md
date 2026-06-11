@@ -83,10 +83,17 @@ result. The step passes when the action result reports `success: true`.
 - action:
     task: takeoff                 # → /robot_N/tasks/<task>
     goal: {target_altitude_m: 10.0, velocity_m_s: 1.0}
-    timeout_s: 120                # default 120
+    timeout_s: 120                # default 120 (per attempt)
+    attempts: 3                   # per-robot retries on failure (default 3)
+    retry_delay_s: 10             # wait between attempts (default 10)
     robots: all
     # type: task_msgs/action/TakeoffTask   # derived from task name if omitted
 ```
+
+Each robot's goal is logged per attempt and retried independently — a goal
+can be rejected transiently (relay has no GPS fix yet, PX4 position estimate
+not converged, action server still starting), so one robot failing its first
+attempt doesn't fail the step unless it exhausts all attempts.
 
 Available tasks (action type is derived as `task_msgs/action/<CamelCase>Task`):
 `takeoff`, `land`, `fixed_trajectory`, `navigate`, `exploration`, `coverage`,

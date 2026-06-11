@@ -78,7 +78,8 @@ on_step_failure: abort_iteration
 # robot selection — `robots:` (default `all` = robots 1..NUM_ROBOTS, or a
 # list like [1, 3]) — and {robot} → robot_N / {n} → N expand per robot.
 # Per-step knobs (all optional, shown here with their defaults):
-#   action: robots=all  via=<command_route>  timeout_s=120
+#   action: robots=all  via=<command_route>  timeout_s=120 (per attempt)
+#           attempts=3 retry_delay_s=10 (per-robot retries on failure)
 #           via: gcs (through the GCS action_relay) | robot (direct send_goal)
 #   run:    robots=all  container=robot_{n} (per-robot) or robot_1 | gcs | pod |
 #           <name>;  fans out when cmd/container references {robot}/{n}

@@ -605,6 +605,12 @@ def run_step(stack, container, step_spec, step_index):
         goal_obj = yaml.safe_load(goal) if isinstance(goal, str) else goal
         goal_json = json.dumps(goal_obj or {})
         timeout = float(spec.get("timeout_s", 120))
+        # Per-robot retry: a goal can be rejected transiently (e.g. the relay
+        # has no GPS fix yet, or PX4's position estimate hasn't converged),
+        # so each robot's goal is re-sent up to `attempts` times with
+        # `retry_delay_s` between tries.
+        max_attempts = int(spec.get("attempts", 3))
+        retry_delay_s = float(spec.get("retry_delay_s", 10))
         robots = step_robots(spec, stack.num_robots)
         log(f"step {step_index}: action {task} {goal_json} via {via} → robots {robots}")
 
@@ -625,25 +631,40 @@ def run_step(stack, container, step_spec, step_index):
                 # and reports {"success": ..., "message": ...} on
                 # .../relay_result. Subscribe to the result *before*
                 # publishing the goal so a fast result can't be missed.
+                # relay_result is LATCHED (transient local): a fresh
+                # subscriber immediately receives the result of a PREVIOUS
+                # goal (e.g. the attempt being retried). Count message
+                # separators before publishing and wait for a NEW message
+                # to arrive instead of taking the first one.
                 base = f"/robot_{n}/tasks/{task}"
                 result_file = f"/tmp/relay_result_{task}_{n}.out"
                 msg_yaml = json.dumps({"data": expand(goal_json, n)})
                 script = (
                     f"rm -f {result_file}\n"
-                    f"( timeout {int(timeout)} ros2 topic echo --once --field data "
-                    f"{base}/relay_result > {result_file} 2>&1 ) &\n"
+                    f"touch {result_file}\n"
+                    f"( timeout {int(timeout)} ros2 topic echo --field data "
+                    f"{base}/relay_result >> {result_file} 2>&1 ) &\n"
                     f"sub=$!\n"
                     f"sleep 3\n"
+                    f"pre=$(grep -c '^---' {result_file})\n"
                     f"ros2 topic pub --once {base}/goal std_msgs/msg/String "
                     f"{shlex.quote(msg_yaml)} > /dev/null\n"
-                    f"wait $sub\n"
-                    f"cat {result_file}"
+                    f"while kill -0 $sub 2>/dev/null; do\n"
+                    f"  cur=$(grep -c '^---' {result_file})\n"
+                    f"  if [ \"$cur\" -gt \"$pre\" ]; then break; fi\n"
+                    f"  sleep 1\n"
+                    f"done\n"
+                    f"kill $sub 2>/dev/null\n"
+                    f"cur=$(grep -c '^---' {result_file})\n"
+                    f"if [ \"$cur\" -gt \"$pre\" ]; then "
+                    f"grep -v '^---' {result_file} | tail -n 1; "
+                    f"else echo 'no relay_result within {int(timeout)}s'; fi"
                 )
                 r = ros2_exec(gcs, script, domain_id=0, setup_bash=GCS_SETUP_BASH,
                               timeout=int(timeout + 30))
                 ok = '"success": true' in r.stdout
-                return n, {"exit": r.returncode, "ok": ok,
-                           "output_tail": tail(r.stdout + r.stderr)}
+                return {"exit": r.returncode, "ok": ok,
+                        "output_tail": tail(r.stdout + r.stderr)}
         else:
             action_type = spec.get("type", task_action_type(task))
 
@@ -652,11 +673,28 @@ def run_step(stack, container, step_spec, step_index):
                        f"{action_type} {shlex.quote(expand(goal_json, n))}")
                 r = ros2_exec(container, cmd, domain_id=n, setup_bash=stack.setup_bash,
                               timeout=int(timeout + 15))
-                return n, {"exit": r.returncode, "ok": action_ok(r.stdout),
-                           "output_tail": tail(r.stdout + r.stderr)}
+                return {"exit": r.returncode, "ok": action_ok(r.stdout),
+                        "output_tail": tail(r.stdout + r.stderr)}
+
+        def send_with_retry(n):
+            res = None
+            for attempt in range(1, max_attempts + 1):
+                log(f"step {step_index}: sending {task} to robot_{n} "
+                    f"(attempt {attempt}/{max_attempts})")
+                res = send(n)
+                if res["ok"]:
+                    log(f"step {step_index}: {task} robot_{n} succeeded"
+                        + (f" on attempt {attempt}" if attempt > 1 else ""))
+                    break
+                log(f"step {step_index}: {task} robot_{n} attempt {attempt} "
+                    f"FAILED: {tail(res.get('output_tail', ''), 1)}")
+                if attempt < max_attempts:
+                    time.sleep(retry_delay_s)
+            res["attempts"] = attempt
+            return n, res
 
         with ThreadPoolExecutor(max_workers=len(robots)) as pool:
-            results = dict(pool.map(send, robots))
+            results = dict(pool.map(send_with_retry, robots))
         record.update(type="action", task=task, via=via, per_robot=results,
                       ok=all(v["ok"] for v in results.values()))
 
