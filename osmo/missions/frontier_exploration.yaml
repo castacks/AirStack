@@ -60,6 +60,18 @@ record:
 on_step_failure: abort_iteration
 
 steps:
+  # Warm the shared torch-hub cache (./cache is one host dir mounted into
+  # every robot container) before the parallel semantic_search launches.
+  # On a cold cache, 3 rayfronts processes race to download/extract the
+  # RADIO repo into the same directory and crash on a partial tree
+  # (ModuleNotFoundError: radio.forward_intermediates). One warm-up load
+  # from a single container and the others find a complete cache. Args
+  # mirror radseg.py: lang_model siglip2 + sam adaptors, c-radio_v3-b.
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+
   # Take off all 3 drones to the search floor (min_altitude_agl below).
   - action:
       task: takeoff
