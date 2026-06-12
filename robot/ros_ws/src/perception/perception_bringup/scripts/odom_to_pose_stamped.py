@@ -10,6 +10,7 @@ import os
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped
 
@@ -28,7 +29,12 @@ class OdomToPoseStamped(Node):
         in_topic = self.get_parameter('input_topic').value
         out_topic = self.get_parameter('output_topic').value
         self._pub = self.create_publisher(PoseStamped, out_topic, 10)
-        self.create_subscription(Odometry, in_topic, self._cb, 10)
+        # BEST_EFFORT matches both reliable and best-effort odometry
+        # publishers (the topic has both — odometry_conversion and the
+        # multi-robot router); a RELIABLE sub silently drops the latter.
+        odom_qos = QoSProfile(depth=10,
+                              reliability=ReliabilityPolicy.BEST_EFFORT)
+        self.create_subscription(Odometry, in_topic, self._cb, odom_qos)
         self.get_logger().info(f'bridging {in_topic} -> {out_topic}')
 
     def _cb(self, msg: Odometry):
