@@ -116,12 +116,13 @@ def main() -> None:
         cfg = yaml.safe_load(f)
 
     container = cfg.get("robot_container", "airstack-robot-desktop-1")
+    isaac_container = cfg.get("isaac_sim_container", "isaac-sim")
     steps = cfg.get("steps", [])
 
     if args.dry_run:
         log("=== DRY RUN MODE — no commands will be executed ===")
 
-    wait_for_isaac_sim_playing(container)
+    wait_for_isaac_sim_playing(isaac_container)
 
     for i, step in enumerate(steps):
         delay = step.get("delay_s", 0)

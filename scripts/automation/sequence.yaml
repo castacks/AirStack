@@ -2,6 +2,7 @@
 # All delay_s values are relative to the previous step (or Isaac Sim play detection for the first step).
 
 robot_container: "airstack-robot-desktop-1"
+isaac_sim_container: "isaac-sim"
 
 steps:
   # T+20s after Isaac Sim starts playing
@@ -10,7 +11,7 @@ steps:
     action: "ros2_action"
     action_server: "/robot_1/tasks/takeoff"
     action_type: "task_msgs/action/TakeoffTask"
-    goal: "{target_altitude_m: 10.0, velocity_m_s: 0.5}"
+    goal: "{target_altitude_m: 1.0, velocity_m_s: 0.5}"
 
   # T+40s
   - name: "enable_target_tracking"
@@ -44,7 +45,7 @@ steps:
     action: "airstack_up"
     args: "isaac-sim"
 
-  # T+85s
+  # T+205s
   - name: "shutdown_all"
-    delay_s: 5
+    delay_s: 125
     action: "airstack_down"
