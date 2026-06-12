@@ -65,7 +65,6 @@ class NatNetUnicastServer(NatNetServer):
                 data, addr = self.command_socket.recvfrom(1024) # Buffer size of 1024 bytes should be sufficient for command requests
                 if not data:
                     continue
-                print(f"[Command Listener] Received command request from client {addr}.")
                 self._handle_command_request(data, addr)
             except Exception as e:
                 if self.shutdown_event.is_set():

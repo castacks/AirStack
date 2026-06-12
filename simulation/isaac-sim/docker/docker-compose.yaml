@@ -33,6 +33,7 @@ services:
         ipv4_address: 172.31.0.200 # required to not conflict with other default docker networks on the host machine
     env_file:
       - ./omni_pass.env
+      - ./px4-profiles/${PX4_PARAM_PROFILE:-default}.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
       - DISPLAY=${DISPLAY}

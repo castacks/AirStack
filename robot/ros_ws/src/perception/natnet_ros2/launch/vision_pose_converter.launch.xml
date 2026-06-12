@@ -12,9 +12,9 @@
     Input  (from NatNet node):
       /{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov
 
-    Output (consumed by MAVROS):
-      /{ROBOT_NAME}/mavros/vision_pose/pose
-      /{ROBOT_NAME}/mavros/vision_pose/pose_cov
+    Output (consumed by MAVROS under interface bringup namespace):
+      /{ROBOT_NAME}/interface/mavros/vision_pose/pose
+      /{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov
   -->
 
   <arg name="config_file"
@@ -35,9 +35,9 @@
     <remap from="input_pose"
            to="/$(env ROBOT_NAME robot_1)/perception/optitrack/$(var body_name)/pose_cov"/>
     <remap from="output_pose"
-           to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose"/>
+           to="/$(env ROBOT_NAME robot_1)/interface/mavros/vision_pose/pose"/>
     <remap from="output_pose_cov"
-           to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose_cov"/>
+           to="/$(env ROBOT_NAME robot_1)/interface/mavros/vision_pose/pose_cov"/>
 
     <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>

@@ -165,6 +165,22 @@ PX4_RENDERING_HZ="30"
 - **`PX4_PHYSICS_HZ`** — Sets `physics_dt = 1 / PX4_PHYSICS_HZ` in Isaac Sim's physics scene, and automatically syncs PX4's `IMU_INTEG_RATE` parameter to the same value via `PX4LaunchTool` → `px4-rc.simulator`. Patched within the Docker image to read the environment variable and set the IMU_INTEG_RATE parameter.
 - **`PX4_RENDERING_HZ`** — Sets the rendering frame rate independently of physics. 30 Hz rendering has no effect on physics accuracy or PX4 behavior, but does slightly affect performance due to resource usage.
 
+### PX4 parameter profiles (external vision)
+
+Isaac Sim loads a layered PX4 SITL parameter profile from `simulation/isaac-sim/docker/px4-profiles/`. Select the profile with `PX4_PARAM_PROFILE` in the top-level `.env`:
+
+```bash
+# Plain Pegasus SITL
+PX4_PARAM_PROFILE="default"
+
+# NatNet / mocap → MAVROS vision_pose → EKF2 external vision
+PX4_PARAM_PROFILE="vision"
+```
+
+Profiles inject `PX4_PARAM_*` variables into the isaac-sim container; PX4 applies them at boot via `init.d-posix/rcS`. Pair `vision` with robot-side `LAUNCH_NATNET=true` and `publish_to_mavros: true` in `natnet_config.yaml`.
+
+Convenience bundle: `airstack up --env-file overrides/isaac-natnet-vision.env`.
+
 ### Valid values
 
 PX4's documented presets for `IMU_INTEG_RATE` are **100, 200, 250, 400 Hz**. The minimum is **100 Hz** — the EKF2 estimator runs at 100 Hz (10 ms period) and `IMU_INTEG_RATE` must be at least this fast. Values below 100 Hz are accepted by the firmware but cause attitude controller oscillation and are not recommended.

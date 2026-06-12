@@ -36,6 +36,8 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       # Number of robots (used by action_relay to spawn per-robot relays)
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      # Launching NatNet for Optitrack Motion Capture
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
     image: ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs

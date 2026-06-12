@@ -96,6 +96,7 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-${ROS_DISTRO}-mavros \
+  ros-${ROS_DISTRO}-mavros-extras \
   ros-${ROS_DISTRO}-tf2* \
   ros-${ROS_DISTRO}-stereo-image-proc \
   ros-${ROS_DISTRO}-image-view \
@@ -328,6 +329,7 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-${ROS_DISTRO}-mavros \
+  ros-${ROS_DISTRO}-mavros-extras \
   ros-${ROS_DISTRO}-tf2* \
   ros-${ROS_DISTRO}-stereo-image-proc \
   ros-${ROS_DISTRO}-image-view \

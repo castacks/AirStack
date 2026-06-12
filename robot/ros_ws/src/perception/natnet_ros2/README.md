@@ -30,8 +30,8 @@ NatNet ROS 2 Node
     ├→ /robot_1/perception/optitrack/{body_name}/pose_cov  (PoseWithCovarianceStamped, always)
     └→ (Optional, publish_to_mavros: true)
          vision_pose_converter_node
-           ├→ /robot_1/mavros/vision_pose/pose
-           └→ /robot_1/mavros/vision_pose/pose_cov
+           ├→ /robot_1/interface/mavros/vision_pose/pose
+           └→ /robot_1/interface/mavros/vision_pose/pose_cov
 ```
 
 ## Interfaces
@@ -62,9 +62,10 @@ For each tracked rigid body `{body_name}` from Motive:
 
 When `publish_to_mavros: true`, `vision_pose_converter_node` subscribes to `pose_cov` and republishes for PX4:
 
-- **Topic**: `/{ROBOT_NAME}/mavros/vision_pose/pose` — `geometry_msgs/PoseStamped` (pose extracted from the covariance message)
-- **Topic**: `/{ROBOT_NAME}/mavros/vision_pose/pose_cov` — `geometry_msgs/PoseWithCovarianceStamped` (full message, quaternion optionally canonicalized)
+- **Topic**: `/{ROBOT_NAME}/interface/mavros/vision_pose/pose` — `geometry_msgs/PoseStamped` (pose extracted from the covariance message)
+- **Topic**: `/{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov` — `geometry_msgs/PoseWithCovarianceStamped` (full message, quaternion optionally canonicalized)
 - **Enabled by**: `publish_to_mavros: true` in config
+- **PX4 side**: set `PX4_PARAM_PROFILE=vision` in `.env` so Isaac SITL loads EKF2 external-vision params from `simulation/isaac-sim/docker/px4-profiles/vision.env`
 
 ## Configuration
 
