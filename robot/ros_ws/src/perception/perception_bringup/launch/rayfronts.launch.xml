@@ -10,6 +10,7 @@
   -->
   <node pkg="perception_bringup" exec="odom_to_pose_stamped.py"
         name="odom_to_pose_stamped" output="screen">
+    <param name="use_sim_time" value="true"/>
     <param name="input_topic"
            value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/odometry"/>
     <param name="output_topic"
