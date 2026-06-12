@@ -879,6 +879,54 @@ function cmd_osmo_fetch {
     log_info "Done. Open any .mcap under ${dest} directly in Foxglove (Open local file)."
 }
 
+# osmo:stop — gracefully stop the running mission: SIGINT to mission_runner
+# on the pod → current step aborts, recorders finalize their mcaps, bags +
+# logs are collected, stack goes down. The pod itself stays alive
+# (keep-alive), so follow with `airstack osmo:fetch` to download results.
+function cmd_osmo_stop {
+    _osmo_check_cli || return 1
+    local wf; wf="$(_osmo_wf_id)" || return 1
+
+    local local_port="${OSMO_SSH_PORT%%:*}"
+    local ssh_opts=(-p "$local_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+
+    # Reuse an existing ssh port-forward or spawn one for this command —
+    # same pattern as osmo:fetch.
+    local pf_pid=""
+    if ! nc -z localhost "$local_port" 2>/dev/null; then
+        log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_SSH_PORT} (for the stop)"
+        osmo workflow port-forward "$wf" workspace --port "$OSMO_SSH_PORT" --connect-timeout 600 \
+            > "${OSMO_STATE_DIR}/stop-pf.log" 2>&1 &
+        pf_pid=$!
+        local waited=0
+        until nc -z localhost "$local_port" 2>/dev/null; do
+            sleep 1; waited=$((waited+1))
+            if [ "$waited" -ge 30 ]; then
+                log_error "Timed out waiting for port-forward on :${local_port}. Log: ${OSMO_STATE_DIR}/stop-pf.log"
+                [ -n "$pf_pid" ] && kill "$pf_pid" 2>/dev/null
+                return 1
+            fi
+        done
+    fi
+
+    log_info "Sending stop signal to mission_runner on the pod..."
+    ssh "${ssh_opts[@]}" root@localhost \
+        "pkill -INT -f 'osmo/workspace/mission_runner\.py' \
+         && echo 'stop signal delivered' \
+         || echo 'no running mission_runner found (mission already finished?)'"
+    local rc=$?
+
+    if [ -n "$pf_pid" ]; then
+        kill "$pf_pid" 2>/dev/null
+    fi
+    if [ "$rc" -ne 0 ]; then
+        log_error "ssh to pod failed (exit ${rc})."
+        return 1
+    fi
+    log_info "Mission stopping: current step aborts, recordings finalize, bags + logs are collected, stack goes down."
+    log_info "Watch progress: airstack osmo:logs    Download results: airstack osmo:fetch"
+}
+
 # osmo:down — cancel the active workflow. Reminds you to push first.
 function cmd_osmo_down {
     _osmo_check_cli || return 1
@@ -899,6 +947,7 @@ function register_osmo_commands {
     COMMANDS["osmo:up"]="cmd_osmo_up"
     COMMANDS["osmo:mission"]="cmd_osmo_mission"
     COMMANDS["osmo:fetch"]="cmd_osmo_fetch"
+    COMMANDS["osmo:stop"]="cmd_osmo_stop"
     COMMANDS["osmo:logs"]="cmd_osmo_logs"
     COMMANDS["osmo:ide"]="cmd_osmo_ide"
     COMMANDS["osmo:webrtc"]="cmd_osmo_webrtc"
@@ -909,6 +958,7 @@ function register_osmo_commands {
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
     COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive)"
     COMMAND_HELP["osmo:fetch"]="Download mission results (mcap bags, logs, summaries) from the pod over ssh — incremental, safe to run mid-mission (osmo:fetch [dest-dir])"
+    COMMAND_HELP["osmo:stop"]="Gracefully stop the running mission: abort current step, finalize mcaps, collect bags+logs, stack down (pod stays up for osmo:fetch)"
     COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"
     COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
     COMMAND_HELP["osmo:webrtc"]="Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background)"

@@ -38,8 +38,10 @@ import argparse
 import json
 import os
 import shlex
+import signal
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -117,6 +119,22 @@ MISSION_DEFAULTS = {
     "down_timeout_s": 300,
     "robot_setup_bash": DEFAULT_ROBOT_SETUP_BASH,
 }
+
+
+class MissionStop(Exception):
+    """Raised in the main thread on SIGINT/SIGTERM (e.g. `airstack
+    osmo:stop`): aborts the current step, finalizes recordings, collects
+    artifacts, and brings the stack down."""
+
+
+STOP_EVENT = threading.Event()
+
+
+def _stop_handler(signum, frame):
+    if STOP_EVENT.is_set():
+        return  # already stopping — don't interrupt artifact collection
+    STOP_EVENT.set()
+    raise MissionStop(f"stop requested (signal {signum})")
 
 
 def log(msg):
@@ -689,8 +707,12 @@ def run_step(stack, container, step_spec, step_index):
                         "output_tail": tail(r.stdout + r.stderr)}
 
         def send_with_retry(n):
-            res = None
+            res = {"ok": False, "exit": -1,
+                   "output_tail": "not attempted — mission stop requested"}
+            attempt = 0
             for attempt in range(1, max_attempts + 1):
+                if STOP_EVENT.is_set():
+                    break
                 log(f"step {step_index}: sending {task} to robot_{n} "
                     f"(attempt {attempt}/{max_attempts})")
                 res = send(n)
@@ -700,13 +722,19 @@ def run_step(stack, container, step_spec, step_index):
                     break
                 log(f"step {step_index}: {task} robot_{n} attempt {attempt} "
                     f"FAILED: {tail(res.get('output_tail', ''), 1)}")
-                if attempt < max_attempts:
+                if attempt < max_attempts and not STOP_EVENT.is_set():
                     time.sleep(retry_delay_s)
             res["attempts"] = attempt
             return n, res
 
-        with ThreadPoolExecutor(max_workers=len(robots)) as pool:
+        # No context manager: on MissionStop the `with` form would block in
+        # shutdown(wait=True) until the in-flight docker execs hit their
+        # timeouts. The workers die when `airstack down` kills the containers.
+        pool = ThreadPoolExecutor(max_workers=len(robots))
+        try:
             results = dict(pool.map(send_with_retry, robots))
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
         record.update(type="action", task=task, via=via, per_robot=results,
                       ok=all(v["ok"] for v in results.values()))
 
@@ -858,6 +886,11 @@ def run_iteration(stack, mission, iter_dir):
             break
         write_json(iter_dir / "steps.json", steps)
 
+    except MissionStop as e:
+        summary["status"] = "stopped"
+        summary["abort_mission"] = True
+        log(f"STOP: {e} — finalizing recordings and collecting artifacts")
+
     except Exception as e:
         summary["status"] = "error"
         summary["error"] = str(e)
@@ -889,6 +922,12 @@ def main():
     mission = load_mission(args.mission_file)
     stack = Stack(args.airstack_root, mission)
 
+    # Graceful stop: SIGINT/SIGTERM (Ctrl-C locally, `airstack osmo:stop` on
+    # a pod) aborts the current step but still finalizes the mcaps, collects
+    # bags + logs, and brings the stack down.
+    signal.signal(signal.SIGINT, _stop_handler)
+    signal.signal(signal.SIGTERM, _stop_handler)
+
     log(f"mission '{mission['name']}': {mission['iterations']} iteration(s), "
         f"{len(mission['steps'])} step(s), {stack.num_robots} robot(s)")
     if args.dry_run:
@@ -911,7 +950,9 @@ def main():
                    {"mission": mission["name"], "mission_file": args.mission_file,
                     "iterations": iterations})
         if summary.get("abort_mission"):
-            log("on_step_failure=abort_mission — stopping remaining iterations")
+            log("stopping remaining iterations"
+                + (" (manual stop)" if summary["status"] == "stopped" else
+                   " (on_step_failure=abort_mission)"))
             break
 
     passed = sum(1 for s in iterations if s["status"] == "passed")

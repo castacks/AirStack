@@ -100,7 +100,7 @@ steps:
             - {x: -150.0, y: 70.0, z: 0.0}
             - {x: 170.0, y: 70.0, z: 0.0}
             - {x: 170.0, y: -110.0, z: 0.0}
-        min_altitude_agl: 12.0
+        min_altitude_agl: 15.0
         max_altitude_agl: 20.0
         min_flight_speed: 0.5
         max_flight_speed: 1.0

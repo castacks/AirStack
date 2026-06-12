@@ -457,7 +457,7 @@ class RavenNavNode(Node):
         delta = delta[nonzero]
         dist = dist[nonzero]
         # Pull back from the frontier point
-        pullback = 15.0 * self._cell_size_m
+        pullback = 17.5
         clamp = np.minimum(dist, self._max_raycast_range_m) - pullback
         keep = clamp > 0.0
         if not np.any(keep):
