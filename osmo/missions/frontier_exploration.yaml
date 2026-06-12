@@ -18,7 +18,10 @@
 name: frontier_exploration
 
 stack:
-  services: [isaac-sim-livestream, robot-desktop, gcs]
+  # Plain isaac-sim (headless via ISAAC_SIM_HEADLESS below): the livestream
+  # variant encodes a WebRTC viewport every frame, competing with the camera
+  # render products for the same render loop.
+  services: [isaac-sim, robot-desktop, gcs]
 
 env:
   NUM_ROBOTS: 3
@@ -41,24 +44,18 @@ iterations: 3
 ready:
   timeout_s: 600
 
-# Record EVERYTHING, both places:
-#   - gcs:   one mcap on domain 0 — gossip/payload topics, robot_markers,
-#            polygon markers, map origin, every bridged robot topic.
-#   - robot: one mcap per robot on its own DDS domain — raw camera, depth,
-#            lidar, odom, rayfronts topics… enough to re-run rayfronts
-#            offline on the bag.
-# `all: true` = `ros2 bag record -a` per recorder, so nothing is missed.
+# GCS-only recording for now: one mcap on domain 0 — gossip/payload topics,
+# robot_markers, polygon markers, map origin, every bridged robot topic.
+# (scope: both adds per-robot raw-data mcaps; dropped to keep subscriber
+# load off the robot domains while debugging sim throughput.)
 record:
   enabled: true
-  scope: both
+  scope: gcs
   all: true
   # The bags are the experiment deliverable — abort rather than fly unrecorded.
   required: true
-  # Image topics excluded: each extra image subscriber costs Isaac a full
-  # per-frame UDP copy (recorders were throttling the camera rate) and they
-  # dominate bag size. NOTE: without raw rgb/depth the bags can NOT re-run
-  # rayfronts offline — delete this line to record them again.
-  # Keeps camera_info, lidar, and /sim/overhead/image (GCS map texture).
+  # Belt-and-braces: no image topics even if any get bridged to domain 0.
+  # Keeps camera_info and /sim/overhead/image (GCS map texture).
   exclude: "sensors/front_stereo/.*/(image_rect|depth_ground_truth)|rayfronts/pose/img"
 
 on_step_failure: abort_iteration

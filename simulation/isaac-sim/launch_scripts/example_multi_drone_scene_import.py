@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import os
+
 import carb
 from isaacsim import SimulationApp
 
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
-simulation_app = SimulationApp({"headless": False})
+simulation_app = SimulationApp(
+    {"headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true"})
 
 # Set local Nucleus as asset root before importing Pegasus (which resolves it at import time)
 carb.settings.get_settings().set(
