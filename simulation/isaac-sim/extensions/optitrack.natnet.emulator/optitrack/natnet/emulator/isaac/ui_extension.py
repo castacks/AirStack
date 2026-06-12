@@ -192,6 +192,9 @@ class NatNetEmulatorExtension(omni.ext.IExt):
 
                 ui.Separator(height=6)
                 self._bool_row(ui, "Server enabled", "server_enabled", self._cfg.server_enabled)
+                self._bool_row(ui, "Pose noise enabled", "pose_noise_enabled", self._cfg.pose_noise_enabled)
+                self._float_row(ui, "Pose noise std meters", "pose_noise_std_meters", self._cfg.pose_noise_std_meters)
+                self._float_row(ui, "Pose noise rotation deg", "pose_noise_rotation_deg", self._cfg.pose_noise_rotation_deg)
                 self._str_row(ui, "Server IP", "server_ip", self._cfg.server_ip)
                 self._combo_row(ui, "Mode", "mode", self._cfg.mode, VALID_MODES)
                 self._int_row(ui, "Command port", "command_port", self._cfg.command_port)

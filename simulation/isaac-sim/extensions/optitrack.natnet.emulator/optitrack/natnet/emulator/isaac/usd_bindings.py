@@ -22,6 +22,9 @@ from .config import (
     ATTR_MODE,
     ATTR_MULTICAST_ADDR,
     ATTR_NATNET_VERSION,
+    ATTR_POSE_NOISE_ENABLED,
+    ATTR_POSE_NOISE_ROTATION_DEG,
+    ATTR_POSE_NOISE_STD_METERS,
     ATTR_PUBLISH_RATE,
     ATTR_SERVER_ENABLED,
     ATTR_SERVER_IP,
@@ -35,6 +38,9 @@ from .config import (
     DEFAULT_DATA_PORT,
     DEFAULT_MULTICAST_ADDR,
     DEFAULT_NATNET_VERSION,
+    DEFAULT_POSE_NOISE_ENABLED,
+    DEFAULT_POSE_NOISE_ROTATION_DEG,
+    DEFAULT_POSE_NOISE_STD_METERS,
     DEFAULT_PUBLISH_RATE,
     DEFAULT_SERVER_IP,
     DEFAULT_UP_AXIS,
@@ -72,6 +78,9 @@ def author_interface(stage, prim_path: str, config: Any) -> Any:
     _set(prim, ATTR_PUBLISH_RATE, Sdf.ValueTypeNames.Float, cfg.publish_rate)
     _set(prim, ATTR_NATNET_VERSION, Sdf.ValueTypeNames.String, cfg.natnet_version)
     _set(prim, ATTR_UP_AXIS, Sdf.ValueTypeNames.Token, cfg.up_axis)
+    _set(prim, ATTR_POSE_NOISE_ENABLED, Sdf.ValueTypeNames.Bool, cfg.pose_noise_enabled)
+    _set(prim, ATTR_POSE_NOISE_STD_METERS, Sdf.ValueTypeNames.Float, cfg.pose_noise_std_meters)
+    _set(prim, ATTR_POSE_NOISE_ROTATION_DEG, Sdf.ValueTypeNames.Float, cfg.pose_noise_rotation_deg)
 
     for key, body in cfg.assign_instance_keys():
         _set(prim, body_attr_name(key, BODY_FIELD_RIGID_BODY_NAME), Sdf.ValueTypeNames.String, body.rigid_body_name)
@@ -98,6 +107,9 @@ def read_interface(prim) -> NatNetInterfaceConfig:
         publish_rate=float(_get(prim, ATTR_PUBLISH_RATE, DEFAULT_PUBLISH_RATE)),
         natnet_version=str(_get(prim, ATTR_NATNET_VERSION, DEFAULT_NATNET_VERSION)),
         up_axis=str(_get(prim, ATTR_UP_AXIS, DEFAULT_UP_AXIS)),
+        pose_noise_enabled=bool(_get(prim, ATTR_POSE_NOISE_ENABLED, DEFAULT_POSE_NOISE_ENABLED)),
+        pose_noise_std_meters=float(_get(prim, ATTR_POSE_NOISE_STD_METERS, DEFAULT_POSE_NOISE_STD_METERS)),
+        pose_noise_rotation_deg=float(_get(prim, ATTR_POSE_NOISE_ROTATION_DEG, DEFAULT_POSE_NOISE_ROTATION_DEG)),
         bodies=_read_bodies(prim),
     )
 

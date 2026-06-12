@@ -96,6 +96,23 @@ def test_up_axis_authors_and_reads_back():
     assert read_interface(find_interfaces(stage)[0]).up_axis == "Y"
 
 
+def test_pose_noise_authors_and_reads_back():
+    stage = _new_stage()
+    cfg = NatNetInterfaceConfig.from_dict(
+        {
+            **_CONFIG,
+            "pose_noise_enabled": False,
+            "pose_noise_std_meters": 0.001,
+            "pose_noise_rotation_deg": 0.1,
+        }
+    )
+    author_interface(stage, "/World/NatNetInterface", cfg)
+    read = read_interface(find_interfaces(stage)[0])
+    assert read.pose_noise_enabled is False
+    assert read.pose_noise_std_meters == pytest.approx(0.001)
+    assert read.pose_noise_rotation_deg == pytest.approx(0.1)
+
+
 def test_empty_target_round_trips():
     # The UI's "Add body" can create a body with no target yet (set later in the
     # Property panel); it must author and read back cleanly with an empty target.

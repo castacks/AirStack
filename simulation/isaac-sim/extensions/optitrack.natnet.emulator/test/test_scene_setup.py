@@ -85,3 +85,16 @@ def test_duplicate_ids_raise():
         build_drone_config(
             [("DroneA", 1, "/World/a"), ("DroneB", 1, "/World/b")]
         )
+
+
+def test_pose_noise_params_are_forwarded():
+    cfg = build_drone_config(
+        [("Drone", 1, "/World/base_link")],
+        pose_noise_enabled=False,
+        pose_noise_std_meters=0.001,
+        pose_noise_rotation_deg=0.1,
+    )
+    assert cfg.pose_noise_enabled is False
+    assert cfg.pose_noise_std_meters == 0.001
+    assert cfg.pose_noise_rotation_deg == 0.1
+    cfg.validate()

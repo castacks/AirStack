@@ -20,6 +20,9 @@ from typing import Iterable, Sequence, Tuple
 from .config import (
     DEFAULT_COMMAND_PORT,
     DEFAULT_DATA_PORT,
+    DEFAULT_POSE_NOISE_ENABLED,
+    DEFAULT_POSE_NOISE_ROTATION_DEG,
+    DEFAULT_POSE_NOISE_STD_METERS,
     DEFAULT_PUBLISH_RATE,
     DEFAULT_SERVER_IP,
     DEFAULT_UP_AXIS,
@@ -44,6 +47,9 @@ def build_drone_config(
     publish_rate: float = DEFAULT_PUBLISH_RATE,
     server_enabled: bool = True,
     up_axis: str = DEFAULT_UP_AXIS,
+    pose_noise_enabled: bool = DEFAULT_POSE_NOISE_ENABLED,
+    pose_noise_std_meters: float = DEFAULT_POSE_NOISE_STD_METERS,
+    pose_noise_rotation_deg: float = DEFAULT_POSE_NOISE_ROTATION_DEG,
 ) -> NatNetInterfaceConfig:
     """Build a validated config with one rigid body per drone.
 
@@ -68,6 +74,9 @@ def build_drone_config(
         data_port=data_port,
         publish_rate=publish_rate,
         up_axis=up_axis,
+        pose_noise_enabled=pose_noise_enabled,
+        pose_noise_std_meters=pose_noise_std_meters,
+        pose_noise_rotation_deg=pose_noise_rotation_deg,
         bodies=bodies,
     )
     cfg.validate()

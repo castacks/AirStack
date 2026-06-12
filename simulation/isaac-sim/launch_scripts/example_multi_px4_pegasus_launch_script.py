@@ -209,7 +209,15 @@ class PegasusApp:
                 (_body_name(i), i, f"/World/drone{i}/base_link/body")
                 for i in range(1, NUM_ROBOTS + 1)
             ]
-            self.natnet_manager = start_drone_natnet_server(stage, drones)
+            self.natnet_manager = start_drone_natnet_server(
+                stage,
+                drones,
+                **{
+                    "pose_noise_enabled": True,
+                    "pose_noise_std_meters": 0.0005, # 0.5 mm so that 95% of the time the noise is less than 1 mm
+                    "pose_noise_rotation_deg": 0.05, # 0.05 deg so that 95% of the time the noise is less than 0.1 deg
+                }
+            )
             carb.log_warn(f"[natnet] Emulator started with {len(drones)} body(ies).")
         except Exception as exc:  # noqa: BLE001 - never let NatNet kill the sim
             carb.log_error(f"[natnet] Failed to start emulator: {exc}")

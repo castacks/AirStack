@@ -13,6 +13,7 @@ from optitrack.natnet.emulator.isaac.frames import (
     MODEL_LIST_CHANGED,
     TRACKING_VALID,
     BodySample,
+    apply_pose_noise,
     build_frame,
     make_rigid_body_data,
     to_motive_pose,
@@ -65,6 +66,33 @@ def test_build_frame_no_bodies():
     assert frame.iFrame == 0
     assert frame.nRigidBodies == 0
     assert frame.params == 0
+
+
+def test_apply_pose_noise_zero_std_is_identity():
+    position = (1.0, 2.0, 3.0)
+    orientation = (0.0, 0.0, 0.0, 1.0)
+    pos_out, quat_out = apply_pose_noise(position, orientation, 0.0, 0.0)
+    assert pos_out == position
+    assert quat_out == pytest.approx(orientation)
+
+
+def test_apply_pose_noise_preserves_y_position():
+    np = pytest.importorskip("numpy")
+    np.random.seed(0)
+    position = (0.0, 1.5, 0.0)
+    orientation = (0.0, 0.0, 0.0, 1.0)
+    pos_out, _ = apply_pose_noise(position, orientation, 0.001, 0.0)
+    # Before the euler-yaw shadowing bug, y collapsed to ~0 instead of staying near 1.5.
+    assert pos_out[1] == pytest.approx(1.5, abs=0.01)
+
+
+def test_apply_pose_noise_adds_position_jitter():
+    np = pytest.importorskip("numpy")
+    np.random.seed(1)
+    position = (0.0, 0.0, 0.0)
+    orientation = (0.0, 0.0, 0.0, 1.0)
+    pos_out, _ = apply_pose_noise(position, orientation, 0.001, 0.0)
+    assert pos_out != position
 
 
 def test_build_frame_multiple_bodies_preserve_order():

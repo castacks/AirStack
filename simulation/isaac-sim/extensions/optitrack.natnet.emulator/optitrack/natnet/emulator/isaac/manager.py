@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from .catalog import build_catalog, find_duplicate_targets
 from .config import DEFAULT_UP_AXIS, NatNetInterfaceConfig
-from .frames import BodySample, build_frame, to_motive_pose
+from .frames import BodySample, apply_pose_noise, build_frame, to_motive_pose
 from .usd_bindings import find_interfaces, read_interface, read_world_pose, resolve_targets
 
 
@@ -68,6 +68,10 @@ def format_interface(prim_path: str, cfg: NatNetInterfaceConfig) -> str:
     lines.append(f"  publishRate   : {cfg.publish_rate}")
     lines.append(f"  natnetVersion : {cfg.natnet_version}")
     lines.append(f"  upAxis        : {cfg.up_axis}")
+    lines.append(f"  poseNoise     : enabled={cfg.pose_noise_enabled}")
+    lines.append(
+        f"                  std={cfg.pose_noise_std_meters} m, rot={cfg.pose_noise_rotation_deg} deg"
+    )
     if cfg.bodies:
         lines.append(f"  bodies ({len(cfg.bodies)}):")
         for b in cfg.bodies:
@@ -103,6 +107,10 @@ class NatNetServerManager:
         # "Z" (default) streams the Isaac/USD world pose as-is; "Y" re-axes it to
         # emulate a default Y-up Motive. See frames.to_motive_pose.
         self._up_axis = DEFAULT_UP_AXIS
+        # Pose noise.
+        self._pose_noise_enabled = False
+        self._pose_noise_std_meters = 0.0
+        self._pose_noise_rotation_deg = 0.0
 
     # --- lifecycle -------------------------------------------------------------
 
@@ -283,6 +291,9 @@ class NatNetServerManager:
             return False
         config = read_interface(interfaces[0])
         self._up_axis = config.up_axis
+        self._pose_noise_enabled = config.pose_noise_enabled
+        self._pose_noise_std_meters = config.pose_noise_std_meters
+        self._pose_noise_rotation_deg = config.pose_noise_rotation_deg
         if self._server is not None:
             self._server.set_model_def_payload(build_catalog(config).pack())
         # Cache target *paths* (not prim handles): the prim is re-resolved every
@@ -324,6 +335,8 @@ class NatNetServerManager:
                 samples.append(BodySample.lost(streaming_id))
             else:
                 position, orientation = to_motive_pose(*pose, up_axis=self._up_axis)
+                if self._pose_noise_enabled:
+                    position, orientation = apply_pose_noise(position, orientation, self._pose_noise_std_meters, self._pose_noise_rotation_deg)
                 samples.append(BodySample(streaming_id, position, orientation, valid=True))
 
         frame = build_frame(

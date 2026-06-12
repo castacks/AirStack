@@ -11,6 +11,9 @@ from __future__ import annotations
 import pytest
 
 from optitrack.natnet.emulator.isaac.config import (
+    DEFAULT_POSE_NOISE_ENABLED,
+    DEFAULT_POSE_NOISE_ROTATION_DEG,
+    DEFAULT_POSE_NOISE_STD_METERS,
     BodyBinding,
     NatNetInterfaceConfig,
     body_attr_name,
@@ -28,6 +31,9 @@ def test_defaults_match_server_expectations():
     assert cfg.command_port == 1510
     assert cfg.data_port == 1511
     assert cfg.up_axis == "Z"  # Isaac/USD native; matches the reference Motive setup
+    assert cfg.pose_noise_enabled is DEFAULT_POSE_NOISE_ENABLED
+    assert cfg.pose_noise_std_meters == DEFAULT_POSE_NOISE_STD_METERS
+    assert cfg.pose_noise_rotation_deg == DEFAULT_POSE_NOISE_ROTATION_DEG
     assert cfg.bodies == []
 
 
@@ -41,6 +47,20 @@ def test_up_axis_from_dict_normalizes_case():
 def test_up_axis_survives_round_trip():
     cfg = NatNetInterfaceConfig.from_dict({"up_axis": "Y"})
     assert NatNetInterfaceConfig.from_dict(cfg.to_dict()).up_axis == "Y"
+
+
+def test_pose_noise_survives_round_trip():
+    cfg = NatNetInterfaceConfig.from_dict(
+        {
+            "pose_noise_enabled": False,
+            "pose_noise_std_meters": 0.001,
+            "pose_noise_rotation_deg": 0.1,
+        }
+    )
+    restored = NatNetInterfaceConfig.from_dict(cfg.to_dict())
+    assert restored.pose_noise_enabled is False
+    assert restored.pose_noise_std_meters == 0.001
+    assert restored.pose_noise_rotation_deg == 0.1
 
 
 def test_from_dict_with_bodies_as_list():
@@ -126,6 +146,8 @@ def test_assign_instance_keys_are_unique():
         {"publish_rate": 0},
         {"up_axis": "X"},
         {"up_axis": "bogus"},
+        {"pose_noise_std_meters": -0.001},
+        {"pose_noise_rotation_deg": -0.1},
     ],
 )
 def test_validate_rejects_bad_server_config(overrides):

@@ -22,8 +22,9 @@ Motive — see :func:`to_motive_pose`.
 from __future__ import annotations
 
 import math
+import numpy as np
 from dataclasses import dataclass
-
+from scipy.spatial.transform import Rotation
 from ..server.natnet_data_types import sFrameOfMocapData, sRigidBodyData
 
 TRACKING_VALID = 0x01
@@ -46,7 +47,7 @@ class BodySample:
         return cls(streaming_id, (nan, nan, nan), (0.0, 0.0, 0.0, 1.0), valid=False)
 
 
-def to_motive_pose(position, orientation, up_axis: str = "Z"):
+def to_motive_pose(position: tuple[float, float, float], orientation: tuple[float, float, float, float], up_axis: str = "Z"):
     """Re-express an Isaac (Z-up) world pose in Motive's streamed up-axis frame.
 
     Returns ``(position, orientation)`` re-axed for the given ``up_axis``:
@@ -104,3 +105,27 @@ def build_frame(
 def is_finite_pose(sample: BodySample) -> bool:
     """True if all position/orientation components are finite (no NaN/inf)."""
     return all(math.isfinite(v) for v in (*sample.position, *sample.orientation))
+
+
+def apply_pose_noise(
+    position: tuple[float, float, float],
+    orientation: tuple[float, float, float, float],
+    pose_noise_std_meters: float,
+    pose_noise_rotation_deg: float,
+) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
+    """Add independent Gaussian noise to position (m) and orientation (deg, XYZ euler)."""
+
+    x, y, z = position
+    if pose_noise_std_meters > 0.0:
+        x += np.random.normal(0, pose_noise_std_meters)
+        y += np.random.normal(0, pose_noise_std_meters)
+        z += np.random.normal(0, pose_noise_std_meters)
+
+    roll, pitch, yaw = Rotation.from_quat(orientation).as_euler("xyz", degrees=True)
+    if pose_noise_rotation_deg > 0.0:
+        roll += np.random.normal(0, pose_noise_rotation_deg)
+        pitch += np.random.normal(0, pose_noise_rotation_deg)
+        yaw += np.random.normal(0, pose_noise_rotation_deg)
+
+    qx, qy, qz, qw = Rotation.from_euler("xyz", (roll, pitch, yaw), degrees=True).as_quat()
+    return (x, y, z), (float(qx), float(qy), float(qz), float(qw))

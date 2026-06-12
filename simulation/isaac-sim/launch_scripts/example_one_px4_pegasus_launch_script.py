@@ -270,7 +270,15 @@ class PegasusApp:
             from optitrack.natnet.emulator.isaac import start_drone_natnet_server
 
             drones = [(NATNET_BODY_NAME, 1, "/World/base_link/body")]
-            self.natnet_manager = start_drone_natnet_server(stage, drones)
+            self.natnet_manager = start_drone_natnet_server(
+                stage, 
+                drones,
+                **{
+                    "pose_noise_enabled": True,
+                    "pose_noise_std_meters": 0.0005, # 0.5 mm so that 95% of the time the noise is less than 1 mm
+                    "pose_noise_rotation_deg": 0.05, # 0.05 deg so that 95% of the time the noise is less than 0.1 deg
+                }
+            )
             carb.log_warn(
                 f"[natnet] Emulator started with 1 body ('{NATNET_BODY_NAME}' -> /World/base_link)."
             )
