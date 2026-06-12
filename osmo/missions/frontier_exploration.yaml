@@ -52,6 +52,8 @@ record:
   enabled: true
   scope: both
   all: true
+  # The bags are the experiment deliverable — abort rather than fly unrecorded.
+  required: true
   # Image topics excluded: each extra image subscriber costs Isaac a full
   # per-frame UDP copy (recorders were throttling the camera rate) and they
   # dominate bag size. NOTE: without raw rgb/depth the bags can NOT re-run

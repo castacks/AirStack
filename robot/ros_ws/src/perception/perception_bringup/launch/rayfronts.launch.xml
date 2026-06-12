@@ -45,5 +45,6 @@
     <!-- Long mapping runs fragment the CUDA allocator (OOM with tens of GiB
          "reserved but unallocated"); expandable segments avoids that. -->
     <env name="PYTORCH_CUDA_ALLOC_CONF" value="expandable_segments:True"/>
+    <env name="PYTORCH_ALLOC_CONF" value="expandable_segments:True"/>
   </executable>
 </launch>

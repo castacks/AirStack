@@ -462,10 +462,10 @@ class Recorder:
         for the recorder being started ("gcs" or "robot")."""
         if self.cfg.get("all"):
             sel = "-a"
-            # record.exclude: regex of topics to drop from `-a` (rosbag2 -x).
+            # record.exclude: regex of topics to drop from `-a`.
             exclude = self.cfg.get("exclude")
             if exclude:
-                sel += f" -x {shlex.quote(exclude)}"
+                sel += f" --exclude-regex {shlex.quote(exclude)}"
             return sel
         default = (DEFAULT_GCS_RECORD_TOPICS if scope == "gcs"
                    else DEFAULT_ROBOT_RECORD_TOPICS)
@@ -505,35 +505,47 @@ class Recorder:
         r = docker_exec(container, inner, timeout=30)
         if "RECORDER_ALIVE" in r.stdout:
             self.active.append((container, tag))
-            n_topics = "all topics" if selection == "-a" else f"{len(selection.split())} topics"
+            n_topics = ("all topics" if selection.startswith("-a")
+                        else f"{len(selection.split())} topics")
             log(f"recording [{tag}] in {container} (domain {domain_id}) "
                 f"→ {out_dir} ({n_topics})")
-        else:
-            log(f"WARN: recorder [{tag}] failed to start / exited immediately: "
-                f"{tail(r.stdout + r.stderr, 6)}")
+            return True
+        log(f"WARN: recorder [{tag}] failed to start / exited immediately: "
+            f"{tail(r.stdout + r.stderr, 6)}")
+        return False
 
     def start(self):
         if not self.cfg.get("enabled", True):
             log("recording disabled by mission spec")
             return
         robots = list(range(1, self.num_robots + 1))
+        failed = []
         if self.scope in ("gcs", "both"):
             gcs = gcs_container()
             if gcs:
-                self._start_one(gcs, 0, "gcs",
-                                self._topic_selection(robots, "gcs"),
-                                GCS_SETUP_BASH)
+                if not self._start_one(gcs, 0, "gcs",
+                                       self._topic_selection(robots, "gcs"),
+                                       GCS_SETUP_BASH):
+                    failed.append("gcs")
             else:
                 log("WARN: record.scope includes 'gcs' but no gcs container is "
                     "running — GCS recording skipped (bring up the gcs service "
                     "or use scope: robot)")
-                if self.scope == "gcs":
+                failed.append("gcs (no container)")
+                if self.scope == "gcs" and not self.cfg.get("required"):
                     return
         if self.scope in ("robot", "both"):
             for n in robots:
-                self._start_one(self.robot_container, n, f"robot_{n}",
-                                self._topic_selection([n], "robot"),
-                                self.setup_bash)
+                if not self._start_one(self.robot_container, n, f"robot_{n}",
+                                       self._topic_selection([n], "robot"),
+                                       self.setup_bash):
+                    failed.append(f"robot_{n}")
+        # record.required: a mission whose deliverable is the bags shouldn't
+        # silently fly unrecorded.
+        if failed and self.cfg.get("required"):
+            raise RuntimeError(
+                f"record.required is set and recorder(s) failed to start: "
+                f"{failed} — aborting iteration")
 
     def stop(self):
         for container, tag in self.active:
