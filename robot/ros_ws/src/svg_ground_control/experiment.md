@@ -193,9 +193,17 @@ went infeasible (drones too close — investigate before continuing).
 
 ## Recording a rosbag of drone positions
 
+Record INTO the mounted workspace (`~/AirStack/robot/ros_ws/...`) — paths
+outside the bind mounts (e.g. `~/AirStack/bags/` = `/root/AirStack/bags/`
+in-container) stay trapped in the container's overlay filesystem and are
+invisible on the host. Ctrl-C stops the recording AND writes the
+`metadata.yaml` the bag needs to be readable. To rescue a bag recorded to a
+non-mounted path: `docker cp airstack-robot-desktop-1:/root/AirStack/bags/<name> ~/AirStack/bags/`.
+
 ```bash
-# start BEFORE takeoff, Ctrl-C to stop; bags land in ~/AirStack/bags/
-ros2 bag record -o ~/AirStack/bags/squeeze_$(date +%H%M%S) \
+# start BEFORE takeoff, Ctrl-C to stop; appears on the host at
+# ~/AirStack/robot/ros_ws/bags/ (gitignored)
+ros2 bag record -o ~/AirStack/robot/ros_ws/bags/squeeze_$(date +%H%M%S) \
   /drone_1/odometry_conversion/odometry \
   /drone_2/odometry_conversion/odometry \
   /drone_3/odometry_conversion/odometry \
