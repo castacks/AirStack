@@ -86,6 +86,8 @@ result. The step passes when the action result reports `success: true`.
     timeout_s: 120                # default 120 (per attempt)
     attempts: 3                   # per-robot retries on failure (default 3)
     retry_delay_s: 10             # wait between attempts (default 10)
+    feedback_timeout_s: 15        # via gcs: no relay_feedback within this
+                                  # window ⇒ goal presumed lost, retried
     robots: all
     # type: task_msgs/action/TakeoffTask   # derived from task name if omitted
 ```

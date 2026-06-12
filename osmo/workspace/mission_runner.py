@@ -605,12 +605,13 @@ def run_step(stack, container, step_spec, step_index):
         goal_obj = yaml.safe_load(goal) if isinstance(goal, str) else goal
         goal_json = json.dumps(goal_obj or {})
         timeout = float(spec.get("timeout_s", 120))
-        # Per-robot retry: a goal can be rejected transiently (e.g. the relay
-        # has no GPS fix yet, or PX4's position estimate hasn't converged),
-        # so each robot's goal is re-sent up to `attempts` times with
-        # `retry_delay_s` between tries.
+        # Per-robot retries for transient rejections (no GPS fix yet, PX4
+        # position not converged, goal lost on the relay's volatile sub).
         max_attempts = int(spec.get("attempts", 3))
         retry_delay_s = float(spec.get("retry_delay_s", 10))
+        # via: gcs only — no relay_feedback AND no result within this window
+        # after publishing ⇒ the goal is presumed lost; fail fast and retry.
+        feedback_timeout_s = int(spec.get("feedback_timeout_s", 15))
         robots = step_robots(spec, stack.num_robots)
         log(f"step {step_index}: action {task} {goal_json} via {via} → robots {robots}")
 
@@ -625,36 +626,47 @@ def run_step(stack, container, step_spec, step_index):
                 return record
 
             def send(n):
-                # Same path as Foxglove: publish String JSON on
-                # /<robot>/tasks/<task>/goal (GCS domain 0); the per-robot
-                # action_relay forwards it as a typed action goal on domain N
-                # and reports {"success": ..., "message": ...} on
-                # .../relay_result. Subscribe to the result *before*
-                # publishing the goal so a fast result can't be missed.
-                # relay_result is LATCHED (transient local): a fresh
-                # subscriber immediately receives the result of a PREVIOUS
-                # goal (e.g. the attempt being retried). Count message
-                # separators before publishing and wait for a NEW message
-                # to arrive instead of taking the first one.
+                # Foxglove's path: String JSON on /<robot>/tasks/<task>/goal,
+                # result on .../relay_result. relay_result is latched, so a
+                # fresh subscriber gets the PREVIOUS goal's result — count
+                # messages before publishing and only accept a NEW one.
+                # relay_feedback is the liveness signal: nothing there (and
+                # no result) within feedback_timeout_s ⇒ goal lost, bail out
+                # so the retry loop re-sends.
                 base = f"/robot_{n}/tasks/{task}"
                 result_file = f"/tmp/relay_result_{task}_{n}.out"
+                fb_file = f"/tmp/relay_feedback_{task}_{n}.out"
                 msg_yaml = json.dumps({"data": expand(goal_json, n)})
                 script = (
-                    f"rm -f {result_file}\n"
-                    f"touch {result_file}\n"
+                    f"rm -f {result_file} {fb_file}\n"
+                    f"touch {result_file} {fb_file}\n"
                     f"( timeout {int(timeout)} ros2 topic echo --field data "
                     f"{base}/relay_result >> {result_file} 2>&1 ) &\n"
                     f"sub=$!\n"
+                    f"( timeout {int(timeout)} ros2 topic echo --field data "
+                    f"{base}/relay_feedback >> {fb_file} 2>&1 ) &\n"
+                    f"fb_sub=$!\n"
                     f"sleep 3\n"
                     f"pre=$(grep -c '^---' {result_file})\n"
                     f"ros2 topic pub --once {base}/goal std_msgs/msg/String "
                     f"{shlex.quote(msg_yaml)} > /dev/null\n"
+                    f"sent=$(date +%s)\n"
+                    f"fb_seen=0\n"
                     f"while kill -0 $sub 2>/dev/null; do\n"
                     f"  cur=$(grep -c '^---' {result_file})\n"
                     f"  if [ \"$cur\" -gt \"$pre\" ]; then break; fi\n"
+                    f"  if [ \"$fb_seen\" -eq 0 ] && "
+                    f"[ \"$(grep -c '^---' {fb_file})\" -gt 0 ]; then fb_seen=1; fi\n"
+                    f"  if [ \"$fb_seen\" -eq 0 ] && "
+                    f"[ $(( $(date +%s) - sent )) -ge {feedback_timeout_s} ]; then\n"
+                    f"    kill $sub $fb_sub 2>/dev/null\n"
+                    f"    echo 'no relay_feedback within {feedback_timeout_s}s "
+                    f"of goal publish — goal presumed lost'\n"
+                    f"    exit 0\n"
+                    f"  fi\n"
                     f"  sleep 1\n"
                     f"done\n"
-                    f"kill $sub 2>/dev/null\n"
+                    f"kill $sub $fb_sub 2>/dev/null\n"
                     f"cur=$(grep -c '^---' {result_file})\n"
                     f"if [ \"$cur\" -gt \"$pre\" ]; then "
                     f"grep -v '^---' {result_file} | tail -n 1; "
