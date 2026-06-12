@@ -1,0 +1,18 @@
+# Synthetic GPS origin for mocap / no-GNSS flight via MAVROS.
+# Loaded by mavros_gp_origin.launch.xml when publish_to_mavros is enabled.
+
+/**:
+  ros__parameters:
+    # With GNSS disabled, PX4 has no global position, so modes that require one
+    # (e.g. AUTO.LOITER) refuse to arm. Setting an origin lets PX4 derive a
+    # global position from the fused vision estimate. Guarded: skipped if an
+    # origin already exists (e.g. on a GNSS-equipped vehicle).
+    enabled: true
+    # Default matches PX4 SITL's default home (Zurich); shared by all robots so
+    # they share one global datum.
+    latitude: 47.397742
+    longitude: 8.545594
+    altitude: 488.0
+    # Wait this long after MAVROS connects (listening for an existing origin)
+    # before publishing the synthetic one.
+    settle_sec: 5.0

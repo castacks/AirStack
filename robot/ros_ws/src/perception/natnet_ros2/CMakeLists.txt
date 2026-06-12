@@ -69,6 +69,7 @@ endif()
 # ---------------------------------------------------------------------------
 install(PROGRAMS
   src/vision_pose_converter_node.py
+  src/mavros_gp_origin_node.py
   DESTINATION lib/${PROJECT_NAME})
 
 # ---------------------------------------------------------------------------

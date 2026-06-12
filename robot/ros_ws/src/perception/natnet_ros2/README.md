@@ -29,6 +29,8 @@ NatNet ROS 2 Node
     ├→ /robot_1/perception/optitrack/{body_name}           (PoseStamped, optional)
     ├→ /robot_1/perception/optitrack/{body_name}/pose_cov  (PoseWithCovarianceStamped, always)
     └→ (Optional, publish_to_mavros: true)
+         mavros_gp_origin_node
+           └→ /robot_1/interface/mavros/global_position/set_gp_origin  (once, guarded)
          vision_pose_converter_node
            ├→ /robot_1/interface/mavros/vision_pose/pose
            └→ /robot_1/interface/mavros/vision_pose/pose_cov
@@ -66,6 +68,22 @@ When `publish_to_mavros: true`, `vision_pose_converter_node` subscribes to `pose
 - **Topic**: `/{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov` — `geometry_msgs/PoseWithCovarianceStamped` (full message, quaternion optionally canonicalized)
 - **Enabled by**: `publish_to_mavros: true` in config
 - **PX4 side**: set `PX4_PARAM_PROFILE=vision` in `.env` so Isaac SITL loads EKF2 external-vision params from `simulation/isaac-sim/docker/px4-profiles/vision.env`
+
+##### Synthetic GPS origin (mocap / no-GNSS arming)
+
+With GNSS disabled (`EKF2_GPS_CTRL=0`), PX4 fuses vision into a valid *local*
+position but has **no global position**. Modes that require one — such as
+`AUTO.LOITER` — then fail preflight and refuse to arm (`Arming denied: Resolve
+system health failures first`). When `publish_to_mavros: true`,
+`mavros_gp_origin_node` publishes a synthetic origin once at startup:
+
+- **Topic**: `/{ROBOT_NAME}/interface/mavros/global_position/set_gp_origin` — `geographic_msgs/GeoPointStamped`
+- **Guarded**: waits for `mavros/state.connected`, then publishes only if no
+  origin already exists (it watches `…/global_position/gp_origin`), so a
+  GNSS-equipped vehicle is left untouched.
+- **Params** (`config/mavros_gp_origin.yaml`): `enabled` (default `true`),
+  `latitude/longitude/altitude` (default PX4 SITL home, Zurich), `settle_sec`.
+  Set `enabled: false` to rely on real GNSS.
 
 ## Configuration
 

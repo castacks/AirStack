@@ -43,14 +43,17 @@ def generate_launch_description() -> LaunchDescription:
     pkg_share = get_package_share_directory('natnet_ros2')
     default_natnet_yaml = os.path.join(pkg_share, 'config', 'natnet_config.yaml')
     default_vp_yaml = os.path.join(pkg_share, 'config', 'vision_pose_converter.yaml')
+    default_gp_origin_yaml = os.path.join(pkg_share, 'config', 'mavros_gp_origin.yaml')
 
     config_file = LaunchConfiguration('config_file')
     vision_pose_config_file = LaunchConfiguration('vision_pose_config_file')
+    gp_origin_config_file = LaunchConfiguration('gp_origin_config_file')
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     def launch_setup(context, *_args, **_kwargs):
         cfg_path = config_file.perform(context)
         vp_path = vision_pose_config_file.perform(context)
+        gp_path = gp_origin_config_file.perform(context)
         ust = use_sim_time.perform(context)
 
         ros_params = _ros_params_from_file(cfg_path)
@@ -83,6 +86,17 @@ def generate_launch_description() -> LaunchDescription:
             actions.append(
                 IncludeLaunchDescription(
                     FrontendLaunchDescriptionSource(
+                        os.path.join(pkg_share, 'launch', 'mavros_gp_origin.launch.xml'),
+                    ),
+                    launch_arguments=[
+                        ('config_file', gp_path),
+                        ('use_sim_time', ust),
+                    ],
+                ),
+            )
+            actions.append(
+                IncludeLaunchDescription(
+                    FrontendLaunchDescriptionSource(
                         os.path.join(pkg_share, 'launch', 'vision_pose_converter.launch.xml'),
                     ),
                     launch_arguments=[
@@ -108,9 +122,14 @@ def generate_launch_description() -> LaunchDescription:
                 description='vision_pose_converter parameter YAML.',
             ),
             DeclareLaunchArgument(
+                'gp_origin_config_file',
+                default_value=default_gp_origin_yaml,
+                description='mavros_gp_origin parameter YAML.',
+            ),
+            DeclareLaunchArgument(
                 'use_sim_time',
                 default_value='false',
-                description='Forwarded to vision_pose_converter.launch.xml.',
+                description='Forwarded to MAVROS bridge launch files.',
             ),
             OpaqueFunction(function=launch_setup),
         ],
