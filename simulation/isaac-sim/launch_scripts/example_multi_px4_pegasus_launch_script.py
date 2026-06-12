@@ -206,7 +206,7 @@ class PegasusApp:
                 return NATNET_BODY_NAME if NUM_ROBOTS == 1 else f"{NATNET_BODY_NAME}{i}"
 
             drones = [
-                (_body_name(i), i, f"/World/drone{i}/base_link")
+                (_body_name(i), i, f"/World/drone{i}/base_link/body")
                 for i in range(1, NUM_ROBOTS + 1)
             ]
             self.natnet_manager = start_drone_natnet_server(stage, drones)
