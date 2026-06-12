@@ -260,7 +260,24 @@ class SemanticSearchTaskNode(Node):
                 self.get_logger().warn(f'cancel-all on {action} failed: {e}')
             self.destroy_client(client)
 
-    def _spawn(self, cmd: list, log_name: str | None = None) -> tuple:
+    def _pick_rayfronts_gpu(self) -> str | None:
+        """GPU index to pin rayfronts to: robot N → GPU N mod <count>, so
+        with one GPU per robot + sim, GPU 0 stays with Isaac. Containers are
+        privileged, so every robot sees every GPU and torch always defaults
+        to cuda:0 otherwise. Returns None on single-GPU/no-GPU hosts."""
+        try:
+            out = subprocess.run(['nvidia-smi', '-L'], capture_output=True,
+                                 text=True, timeout=10).stdout
+            n_gpus = sum(1 for line in out.splitlines()
+                         if line.startswith('GPU '))
+        except Exception:
+            return None
+        if n_gpus <= 1:
+            return None
+        return str(int(os.getenv('ROS_DOMAIN_ID', '1')) % n_gpus)
+
+    def _spawn(self, cmd: list, log_name: str | None = None,
+               env: dict | None = None) -> tuple:
         """Spawn a subprocess; if log_name is given, tee unfiltered stdout to
         /tmp/<log_name>_<robot>.log for debugging (filter still drives feedback).
         """
@@ -268,6 +285,7 @@ class SemanticSearchTaskNode(Node):
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            env=env,
             start_new_session=True)
         q = queue.Queue()
         log_path = None
@@ -444,9 +462,14 @@ class SemanticSearchTaskNode(Node):
             all_labels_yaml = str(all_queries).replace("'", '"')
             target_labels_yaml = str(queries).replace("'", '"')
 
+            rf_env = None
+            gpu = self._pick_rayfronts_gpu()
+            if gpu is not None:
+                rf_env = {**os.environ, 'CUDA_VISIBLE_DEVICES': gpu}
+                self.get_logger().info(f'rayfronts pinned to GPU {gpu}')
             rayfronts_proc, rayfronts_q = self._spawn([
                 'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
-            ], log_name='rayfronts')
+            ], log_name='rayfronts', env=rf_env)
 
             mapping_batches_seen = 0
             required_batches = 8

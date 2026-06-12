@@ -29,10 +29,7 @@ mapping:
   max_pts_per_frame: 1000 #-1
   max_empty_pts_per_frame: 3000
   max_rays_per_frame: 300 #500
-  # Hard cap on the frustum projection range. -1 (= max depth in frame) lets
-  # Isaac GT depth at altitude blow the frustum voxel grid up to hundreds of
-  # meters → multi-GiB allocations → CUDA OOM.
-  max_depth_sensing: 25.0
+
   fronti_subsampling: 5
   fronti_subsampling_min_fronti: 9
   ray_tracing: False
@@ -55,8 +52,7 @@ mapping:
 
 feat_compressor:
   out_dim: 100
-  # null = fit the PCA basis online on the first frame. (??? is Hydra's
-  # missing-mandatory marker and crashes at startup.) For a better basis,
+  # null = fit the PCA basis online on the first frame. For a better basis,
   # fit offline with scripts/fit_feat_compressor and set the file path.
   path: null
 
