@@ -106,6 +106,12 @@ class Scenario(ABC):
         """Current per-drone goal points (N, 3) for debugging, or None."""
         return None
 
+    @property
+    def cbf_exempt_indices(self) -> list:
+        """Drone indices whose commands bypass the CBF while the scenario
+        runs (deliberate obstacles — everyone else dodges them)."""
+        return []
+
     def _random_positions(self, min_separation: float) -> np.ndarray:
         """Rejection-sample N takeoff positions ``min_separation`` apart."""
         margin = 0.1 * self.bounds.size
@@ -325,13 +331,21 @@ class SqueezeScenario(Scenario):
     onto their posts. For the gap to be impassable without yielding, the
     intruder's path must come closer than ``2 * safety_radius`` to a post.
 
+    The intruder is CBF-EXEMPT by default (``intruder_cbf_exempt``): it is
+    the deliberate obstacle, and filtering it makes the filter push it
+    *backwards* as it approaches the gap (the pair-constraint gradient
+    points away from the holders), so it stalls or retreats instead of
+    squeezing through. Exempt, it presses on and the holders alone yield.
+
     To hand-fly the intruder instead, list it in ``teleop_drones`` -- its
     scenario row is then ignored in favor of operator input.
     """
 
     def __init__(self, *args, holder_positions: np.ndarray,
-                 intruder_waypoints: np.ndarray, **kwargs) -> None:
+                 intruder_waypoints: np.ndarray,
+                 intruder_cbf_exempt: bool = True, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self._intruder_cbf_exempt = bool(intruder_cbf_exempt)
         if self.num_drones != 3:
             raise ValueError(
                 f'squeeze scenario requires exactly 3 drones, got {self.num_drones}')
@@ -356,6 +370,10 @@ class SqueezeScenario(Scenario):
     @property
     def intruder_waypoints(self) -> np.ndarray:
         return self._intruder_ends.copy()
+
+    @property
+    def cbf_exempt_indices(self) -> list:
+        return [2] if self._intruder_cbf_exempt else []
 
     def initial_positions(self) -> np.ndarray:
         return np.vstack([self._holder_posts, self._intruder_ends[0]])

@@ -191,6 +191,22 @@ Watch the commander terminal: `CBF active on: drone_1, drone_2 (...)` lines
 show the filter intervening; `CBF emergency push-apart engaged` means the QP
 went infeasible (drones too close — investigate before continuing).
 
+## Recording a rosbag of drone positions
+
+```bash
+# start BEFORE takeoff, Ctrl-C to stop; bags land in ~/AirStack/bags/
+ros2 bag record -o ~/AirStack/bags/squeeze_$(date +%H%M%S) \
+  /drone_1/odometry_conversion/odometry \
+  /drone_2/odometry_conversion/odometry \
+  /drone_3/odometry_conversion/odometry \
+  /drone_1/interface/velocity_command \
+  /drone_2/interface/velocity_command \
+  /drone_3/interface/velocity_command
+
+ros2 bag info <bag_dir>          # sanity check
+ros2 bag play <bag_dir>          # replay (e.g. into RViz)
+```
+
 ## Monitoring positions
 
 ```bash

@@ -42,6 +42,10 @@ swarm_commander:
     # It takes off at A and shuttles A -> B -> A -> ...
     squeeze_intruder_waypoints: [-1.5, 0.0, 1.2,
                                   1.5, 0.0, 1.2]
+    # Keep true: the intruder is the deliberate obstacle. If false it gets
+    # CBF-filtered like everyone else and the filter pushes it BACK from the
+    # gap (stall/retreat) instead of letting it force the holders to yield.
+    squeeze_intruder_cbf_exempt: true
 
     hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by squeeze
 

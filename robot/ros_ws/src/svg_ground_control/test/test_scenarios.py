@@ -49,6 +49,14 @@ def make_squeeze():
                 intruder_waypoints=INTRUDER_WAYPOINTS)
 
 
+def test_squeeze_intruder_is_cbf_exempt_by_default() -> None:
+    assert make_squeeze().cbf_exempt_indices == [2]
+    filtered = make('squeeze', 3, holder_positions=HOLDER_POSTS,
+                    intruder_waypoints=INTRUDER_WAYPOINTS,
+                    intruder_cbf_exempt=False)
+    assert filtered.cbf_exempt_indices == []
+
+
 def test_squeeze_geometry() -> None:
     scenario = make_squeeze()
     initial = scenario.initial_positions()

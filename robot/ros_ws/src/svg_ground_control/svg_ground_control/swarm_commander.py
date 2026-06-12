@@ -113,6 +113,10 @@ class SwarmCommander(Node):
         # [ax,ay,az, bx,by,bz]; it starts at A and flies toward B first.
         self.declare_parameter('squeeze_intruder_waypoints',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2])
+        # The intruder is the deliberate obstacle: exempt from the CBF so it
+        # presses through and the holders alone yield (filtering it makes
+        # the filter push it backwards as it approaches the gap).
+        self.declare_parameter('squeeze_intruder_cbf_exempt', True)
         # Used by the 'hover' scenario only: flat [x1,y1,z1, ...] per drone.
         self.declare_parameter('hover_positions',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2, 0.0, -1.5, 1.2])
@@ -177,6 +181,8 @@ class SwarmCommander(Node):
                 self.get_parameter('squeeze_holder_positions').value)
             scenario_kwargs['intruder_waypoints'] = np.array(
                 self.get_parameter('squeeze_intruder_waypoints').value)
+            scenario_kwargs['intruder_cbf_exempt'] = bool(
+                self.get_parameter('squeeze_intruder_cbf_exempt').value)
         self.scenario = make_scenario(
             scenario_name,
             num_drones=len(names),
@@ -394,8 +400,11 @@ class SwarmCommander(Node):
             all_positions = np.stack([d.position for d in self.drones])
             scenario_nominal = self.scenario.nominal_velocity(all_positions)
 
+        scenario_exempt = (set(self.scenario.cbf_exempt_indices)
+                           if self.mission_active else set())
+
         nominal = np.zeros((len(tracked), 3))
-        teleop_rows = []
+        exempt_rows = set()   # obstacle rows: restored after filtering
         for d in tracked:
             i = index[d.name]
             if d.state in (FlightState.IDLE, FlightState.ARMING):
@@ -411,16 +420,22 @@ class SwarmCommander(Node):
             elif d.state == FlightState.ACTIVE:
                 if d.role == 'teleop' and self.mission_active:
                     nominal[i] = self.teleop_command(d, now)
-                    teleop_rows.append(i)
+                    exempt_rows.add(i)
                 elif self.mission_active and scenario_nominal is not None:
-                    nominal[i] = scenario_nominal[self.drones.index(d)]
+                    drone_index = self.drones.index(d)
+                    nominal[i] = scenario_nominal[drone_index]
+                    if drone_index in scenario_exempt:
+                        exempt_rows.add(i)
                 else:
                     nominal[i] = self.hover_kp * (d.hold_target - d.position)
 
         # ================= CBF SAFETY FILTER =================
-        # Real velocity-CBF (ported from drone_soccer). Teleop drones are the
-        # moving obstacles: their rows are restored to the (speed-capped)
-        # operator command after filtering, so only autonomous drones dodge.
+        # Real velocity-CBF (ported from drone_soccer). Exempt rows are the
+        # deliberate moving obstacles (teleop drones + scenario-designated
+        # ones like the squeeze intruder): their rows are restored to the
+        # speed-capped nominal after filtering, so only the other drones
+        # dodge — filtering an obstacle would push it back from the
+        # conflict instead of letting it force the others to yield.
         result = filter_velocities(
             nominal, positions,
             safety_radius=self.cbf_safety_radius,
@@ -428,10 +443,12 @@ class SwarmCommander(Node):
             alpha=self.cbf_alpha,
         )
         safe = result.velocities
-        for d in tracked:
-            i = index[d.name]
-            if i in teleop_rows:
-                safe[i] = self.teleop_command(d, now)
+        for i in exempt_rows:
+            cmd = nominal[i].copy()
+            speed = np.linalg.norm(cmd)
+            if speed > self.cbf_max_speed:
+                cmd *= self.cbf_max_speed / speed
+            safe[i] = cmd
         if result.used_emergency_stop:
             self.get_logger().warn(
                 'CBF emergency push-apart engaged '
@@ -441,10 +458,12 @@ class SwarmCommander(Node):
             self._cbf_warn_count += 1
             if self._cbf_warn_count % 20 == 1:  # ~1 Hz at 20 Hz loop
                 active = [tracked[i].name
-                          for i in np.flatnonzero(result.corrected)]
-                self.get_logger().info(
-                    f'CBF active on: {", ".join(active)} '
-                    f'(residual {result.residual:.4f})')
+                          for i in np.flatnonzero(result.corrected)
+                          if i not in exempt_rows]
+                if active:
+                    self.get_logger().info(
+                        f'CBF active on: {", ".join(active)} '
+                        f'(residual {result.residual:.4f})')
         # ======================================================
 
         # Publish commands; handle landing completion.
