@@ -65,6 +65,7 @@ Top-level keys (everything except `steps` is optional):
 | `record.scope` | `gcs` | `gcs` (one mcap on GCS domain 0) \| `robot` (one mcap per robot domain) \| `both` |
 | `record.topics` | tf + odom set | Topics to record; `{robot}` → `robot_N` |
 | `record.all` | `false` | Record **all** topics (`ros2 bag record -a`) — large |
+| `record.exclude` | — | With `all`: regex of topics to drop (`ros2 bag record -a -x <regex>`) |
 | `on_step_failure` | `abort_iteration` | `continue` \| `abort_iteration` \| `abort_mission` |
 | `up_timeout_s` | `3600` | `airstack up` timeout (first up on a fresh pod pulls images) |
 | `down_timeout_s` | `300` | `airstack down` timeout |

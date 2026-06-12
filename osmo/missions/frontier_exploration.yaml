@@ -48,14 +48,16 @@ ready:
 #            lidar, odom, rayfronts topics… enough to re-run rayfronts
 #            offline on the bag.
 # `all: true` = `ros2 bag record -a` per recorder, so nothing is missed.
-# DISK WARNING: raw RGB + depth for 3 robots is multiple-100s of GB/hour;
-# the pod has 500Gi total (images + bags + a 2nd copy during collection).
-# If a run risks filling the disk, replace `all: true` with a topic list
-# that drops the raw image topics.
 record:
   enabled: true
   scope: both
   all: true
+  # Image topics excluded: each extra image subscriber costs Isaac a full
+  # per-frame UDP copy (recorders were throttling the camera rate) and they
+  # dominate bag size. NOTE: without raw rgb/depth the bags can NOT re-run
+  # rayfronts offline — delete this line to record them again.
+  # Keeps camera_info, lidar, and /sim/overhead/image (GCS map texture).
+  exclude: "sensors/front_stereo/.*/(image_rect|depth_ground_truth)|rayfronts/pose/img"
 
 on_step_failure: abort_iteration
 

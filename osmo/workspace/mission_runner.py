@@ -461,7 +461,12 @@ class Recorder:
         order-preserving, deduplicated). `scope` picks the default topic set
         for the recorder being started ("gcs" or "robot")."""
         if self.cfg.get("all"):
-            return "-a"
+            sel = "-a"
+            # record.exclude: regex of topics to drop from `-a` (rosbag2 -x).
+            exclude = self.cfg.get("exclude")
+            if exclude:
+                sel += f" -x {shlex.quote(exclude)}"
+            return sel
         default = (DEFAULT_GCS_RECORD_TOPICS if scope == "gcs"
                    else DEFAULT_ROBOT_RECORD_TOPICS)
         topics = []
