@@ -808,9 +808,28 @@ def run_step(stack, container, step_spec, step_index):
 
 # ── artifacts ──────────────────────────────────────────────────────────────
 
+def snapshot_task_logs(dest_dir):
+    """Copy the raw rayfronts/raven tees (semantic_search_task writes them to
+    /tmp inside each robot container) into <dest_dir>/<container>/."""
+    for name in robot_containers():
+        r = docker_exec(name, "ls /tmp/rayfronts_*.log /tmp/raven_*.log 2>/dev/null",
+                        timeout=15)
+        files = [f for f in r.stdout.split() if f]
+        if not files:
+            continue
+        out = dest_dir / name
+        out.mkdir(parents=True, exist_ok=True)
+        for f in files:
+            sh(["docker", "cp", f"{name}:{f}", str(out)], timeout=120)
+        log(f"collected {len(files)} rayfronts/raven log(s) from {name}")
+
+
 def snapshot_container_logs(dest_dir):
     dest_dir.mkdir(parents=True, exist_ok=True)
-    for name in list_containers(name_pattern="airstack", all_states=True):
+    pats = ("airstack", "isaac-sim", "ms-airsim")
+    names = [n for n in list_containers(all_states=True)
+             if any(p in n for p in pats)]
+    for name in names:
         r = sh(["docker", "logs", name], timeout=120)
         (dest_dir / f"{name}.log").write_text(
             (r.stdout or "") + (("\n--- stderr ---\n" + r.stderr) if r.stderr else ""),
@@ -904,6 +923,7 @@ def run_iteration(stack, mission, iter_dir):
             recorder.collect(iter_dir / "bags")
         if container is not None or list_containers("airstack", all_states=True):
             snapshot_container_logs(iter_dir / "logs")
+            snapshot_task_logs(iter_dir / "logs")
         stack.down()
         summary["duration_s"] = round(time.time() - t0, 2)
         write_json(iter_dir / "iteration.json", summary)

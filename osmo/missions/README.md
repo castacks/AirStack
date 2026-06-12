@@ -36,6 +36,7 @@ osmo/results/<mission-name>/<UTC stamp>/
 └── iter_001/
     ├── bags/robot_1/*.mcap   # open directly in Foxglove (no conversion)
     ├── logs/<container>.log  # docker logs snapshot per container
+    ├── logs/<robot container>/   # raw /tmp/rayfronts_*.log + /tmp/raven_*.log tees
     ├── ready.json            # per-robot seconds-to-PX4-ready
     ├── steps.json            # per-step command, output tail, pass/fail
     └── iteration.json        # iteration summary

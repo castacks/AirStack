@@ -6,9 +6,6 @@ defaults:
   - override messaging_service: ros
   - _self_
 
-compile: False
-amp: True
-depth_limit: 20.0
 
 # encoder:
 #   model_version: radio_v2.5-b
@@ -17,7 +14,7 @@ depth_limit: 20.0
 dataset:
   rgb_resolution: [480, 304] #[480, 304]
   depth_resolution: [480, 304] #[480, 304]
-  frame_skip: 7
+  frame_skip: 3
 
 mapping:
   vox_size: 0.50
