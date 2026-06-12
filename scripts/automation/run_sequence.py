@@ -26,7 +26,9 @@ def run_cmd(cmd: str, dry_run: bool = False) -> subprocess.CompletedProcess:
     log(f"$ {cmd}")
     if dry_run:
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    # Source ~/.bashrc so that shell functions like `airstack` are available
+    wrapped = f'bash -i -c "{cmd}"'
+    result = subprocess.run(wrapped, shell=True, capture_output=True, text=True)
     if result.stdout.strip():
         log(f"  → {result.stdout.strip()}")
     if result.returncode != 0:
