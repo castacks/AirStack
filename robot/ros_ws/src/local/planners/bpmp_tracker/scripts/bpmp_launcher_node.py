@@ -7,6 +7,8 @@ bpmp_tracker.launch.xml as a subprocess; on False, terminates it.
 import os
 import signal
 import subprocess
+import threading
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -27,6 +29,7 @@ class BPMPLauncherNode(Node):
             depth=1
         )
         self.create_subscription(Bool, 'target_tracking_enable', self._on_enable, qos)
+        self._enable_pub = self.create_publisher(Bool, 'target_tracking_enable', qos)
         self.get_logger().info('BPMP Launcher ready — waiting for target_tracking_enable')
 
     def _on_enable(self, msg: Bool):
@@ -46,7 +49,25 @@ class BPMPLauncherNode(Node):
             cmd.append(f'odometry_topic:={odometry_topic}')
 
         self.get_logger().info(f'Starting BPMP tracker nodes: {" ".join(cmd)}')
-        self._proc = subprocess.Popen(cmd, env=os.environ.copy())
+        self._proc = subprocess.Popen(
+            cmd, env=os.environ.copy(),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        threading.Thread(target=self._log_proc_output, daemon=True).start()
+        threading.Thread(target=self._confirm_enable_after_start, daemon=True).start()
+
+    def _confirm_enable_after_start(self):
+        time.sleep(3.0)
+        msg = Bool()
+        msg.data = True
+        self._enable_pub.publish(msg)
+        self.get_logger().info('Re-published tracking enable to newly started tracker node')
+
+    def _log_proc_output(self):
+        for line in self._proc.stdout:
+            self.get_logger().info(f'[bpmp_launch] {line.rstrip()}')
+        rc = self._proc.wait()
+        self.get_logger().warn(f'BPMP launch process exited with code {rc}')
 
     def _stop(self):
         if self._proc is None or self._proc.poll() is not None:

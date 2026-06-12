@@ -13,17 +13,17 @@ steps:
     action_type: "task_msgs/action/TakeoffTask"
     goal: "{target_altitude_m: 1.0, velocity_m_s: 0.5}"
 
-  # T+40s
+  # T+30s
   - name: "enable_target_tracking"
-    delay_s: 20
+    delay_s: 10
     action: "ros2_publish"
     topic: "/robot_1/bpmp/target_tracking_enable"
     msg_type: "std_msgs/msg/Bool"
     msg: "{data: true}"
 
-  # T+60s — stop Isaac Sim and robot-desktop simultaneously
+  # T+330s — stop Isaac Sim and robot-desktop simultaneously
   - name: "stop_isaac_and_robot"
-    delay_s: 20
+    delay_s: 300
     action: "parallel"
     steps:
       - name: "stop_isaac_sim"
@@ -33,19 +33,19 @@ steps:
         action: "airstack_down"
         args: "robot-desktop"
 
-  # T+70s
+  # T+340s
   - name: "restart_robot_desktop"
     delay_s: 10
     action: "airstack_up"
     args: "robot-desktop"
 
-  # T+80s
+  # T+350s
   - name: "restart_isaac_sim"
     delay_s: 10
     action: "airstack_up"
     args: "isaac-sim"
 
-  # T+205s
+  # T+475s
   - name: "shutdown_all"
     delay_s: 125
     action: "airstack_down"

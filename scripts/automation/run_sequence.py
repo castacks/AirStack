@@ -4,18 +4,31 @@
 Waits for Isaac Sim to start playing (detected via /clock topic),
 then executes steps from a YAML config at configured time intervals.
 
+Runs either on the host or inside the sequence-runner Docker service.
+Container lifecycle (airstack_up / airstack_down) is driven via
+docker compose using AIRSTACK_ROOT, COMPOSE_FILE, and COMPOSE_ENV_FILE
+env vars so no airstack shell function is required.
+
 Usage:
     python3 run_sequence.py [--config sequence.yaml] [--dry-run]
 """
 
 import argparse
+import os
 import subprocess
-import sys
 import threading
 import time
 import yaml
 from datetime import datetime
 from pathlib import Path
+
+
+# Resolve compose file and env-file from env vars or sensible defaults.
+# When running in the sequence-runner container these are set explicitly.
+# When running on the host, default to the AirStack repo root.
+_AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent.parent))
+COMPOSE_FILE = os.environ.get("COMPOSE_FILE", str(Path(_AIRSTACK_ROOT) / "docker-compose.yaml"))
+COMPOSE_ENV_FILE = os.environ.get("COMPOSE_ENV_FILE", str(Path(_AIRSTACK_ROOT) / ".env"))
 
 
 def log(msg: str) -> None:
@@ -26,14 +39,17 @@ def run_cmd(cmd: str, dry_run: bool = False) -> subprocess.CompletedProcess:
     log(f"$ {cmd}")
     if dry_run:
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
-    # Source ~/.bashrc so that shell functions like `airstack` are available
-    wrapped = f'bash -i -c "{cmd}"'
-    result = subprocess.run(wrapped, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if result.stdout.strip():
         log(f"  → {result.stdout.strip()}")
     if result.returncode != 0:
         log(f"  ERROR (exit {result.returncode}): {result.stderr.strip()}")
     return result
+
+
+def _compose_cmd(subcmd: str) -> str:
+    """Build a docker compose command using the configured compose file and env-file."""
+    return f"docker compose -f {COMPOSE_FILE} --env-file {COMPOSE_ENV_FILE} {subcmd}"
 
 
 def wait_for_isaac_sim_playing(container: str, poll_interval_s: float = 2.0) -> None:
@@ -62,7 +78,7 @@ def execute_step(step: dict, container: str, dry_run: bool) -> None:
         msg = step["msg"]
         run_cmd(
             f'docker exec {container} bash -c '
-            f'"source /root/.bashrc && ros2 topic pub --once {topic} {msg_type} \'{msg}\'"',
+            f'"source /root/.bashrc && timeout 5 ros2 topic pub -r 2 {topic} {msg_type} \'{msg}\'"',
             dry_run,
         )
 
@@ -78,11 +94,14 @@ def execute_step(step: dict, container: str, dry_run: bool) -> None:
 
     elif action == "airstack_up":
         args = step.get("args", "")
-        run_cmd(f"airstack up {args}".strip(), dry_run)
+        run_cmd(_compose_cmd(f"up -d {args}".strip()), dry_run)
 
     elif action == "airstack_down":
         args = step.get("args", "")
-        run_cmd(f"airstack down {args}".strip(), dry_run)
+        if args:
+            run_cmd(_compose_cmd(f"down {args}"), dry_run)
+        else:
+            run_cmd(_compose_cmd("--profile '*' down"), dry_run)
 
     elif action == "parallel":
         threads = [
@@ -122,7 +141,10 @@ def main() -> None:
     if args.dry_run:
         log("=== DRY RUN MODE — no commands will be executed ===")
 
-    wait_for_isaac_sim_playing(isaac_container)
+    log(f"compose file : {COMPOSE_FILE}")
+    log(f"compose env  : {COMPOSE_ENV_FILE}")
+
+    wait_for_isaac_sim_playing(container)
 
     for i, step in enumerate(steps):
         delay = step.get("delay_s", 0)

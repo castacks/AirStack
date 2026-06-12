@@ -1,6 +1,37 @@
 # desktop build
 services:
   # ===================================================================================================================
+  # Automation sequence runner: polls /clock for Isaac Sim start, then drives
+  # the timed experiment loop (takeoff → tracking → stop/restart cycle).
+  # Runs as a separate container so it can restart robot-desktop without
+  # killing itself.  Enable by adding "sequence-runner" to COMPOSE_PROFILES.
+  sequence-runner:
+    profiles:
+      - sequence-runner
+    image: python:3.11-slim
+    container_name: airstack-sequence-runner
+    restart: unless-stopped
+    environment:
+      # Mount AirStack at the same absolute path as on the host so that
+      # docker compose (running inside this container) resolves volume paths
+      # to real host paths that the Docker daemon can find.
+      - AIRSTACK_ROOT=${HOME}/AirStack
+      - COMPOSE_FILE=${HOME}/AirStack/docker-compose.yaml
+      - COMPOSE_ENV_FILE=${HOME}/AirStack/.env
+      # Pass the host display so restarted containers can open GUI windows.
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ../..:${HOME}/AirStack:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins:ro
+    command: >
+      bash -c "pip install -r $$AIRSTACK_ROOT/scripts/automation/requirements.txt --quiet &&
+               python3 $$AIRSTACK_ROOT/scripts/automation/run_sequence.py"
+    networks:
+      - airstack_network
+
+  # ===================================================================================================================
   # for developing locally on a single machine
   # note, this service name is currently used as the name of the robot
   robot-desktop:
