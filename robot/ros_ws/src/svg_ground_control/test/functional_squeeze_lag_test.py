@@ -28,13 +28,19 @@ from std_srvs.srv import Trigger
 from airstack_msgs.srv import RobotCommand
 
 NAMES = ['drone_1', 'drone_2', 'drone_3']
-GROUND = {'drone_1': [0.0, -0.7, 0.05],
-          'drone_2': [0.0, 0.7, 0.05],
-          'drone_3': [-1.5, 0.0, 0.05]}
+# World spawn points = Isaac layout; odometry published in per-drone local
+# frames (world - offset) to emulate PX4 SITL origins, exercising the
+# commander's drone_position_offsets correction.
+GROUND = {'drone_1': [-2.0, 0.0, 0.05],
+          'drone_2': [0.0, 0.0, 0.05],
+          'drone_3': [2.0, 0.0, 0.05]}
+OFFSETS = {'drone_1': np.array([-2.0, 0.0, 0.0]),
+           'drone_2': np.array([0.0, 0.0, 0.0]),
+           'drone_3': np.array([2.0, 0.0, 0.0])}
 SAFETY_RADIUS = 0.55
-# Must match squeeze_3drone.yaml
+# Must match squeeze_3drone.yaml (world frame; intruder starts on +x side)
 HOLDER_POSTS = np.array([[0.0, -0.69, 1.2], [0.0, 0.69, 1.2]])
-INTRUDER_START = np.array([-1.5, 0.0, 1.2])
+INTRUDER_START = np.array([1.5, 0.0, 1.2])
 DT = 0.02
 # First-order lag of the velocity response; override with VELOCITY_TAU_S env.
 VELOCITY_TAU_S = float(os.environ.get('VELOCITY_TAU_S', '0.8'))
@@ -67,11 +73,12 @@ class FakeDrone:
         self.vel += (self.cmd - self.vel) * (DT / VELOCITY_TAU_S)
         self.position = self.position + self.vel * DT
         self.position[2] = max(self.position[2], 0.0)
+        local = self.position - OFFSETS[self.name]   # publish in local frame
         msg = Odometry()
         msg.header.stamp = node.get_clock().now().to_msg()
         msg.header.frame_id = 'map'
         (msg.pose.pose.position.x, msg.pose.pose.position.y,
-         msg.pose.pose.position.z) = self.position
+         msg.pose.pose.position.z) = local
         msg.pose.pose.orientation.w = 1.0
         (msg.twist.twist.linear.x, msg.twist.twist.linear.y,
          msg.twist.twist.linear.z) = self.vel
@@ -129,7 +136,7 @@ def main():
 
     min_holder_pair = np.inf
     max_holder_disp = 0.0
-    peak_x = -np.inf
+    peak_s = -np.inf   # intruder flies +x -> -x: progress s = -x
     crossed = False
     bounce = 0.0   # how far the intruder retreated from its peak pre-crossing
     t_end = time.monotonic() + 30.0
@@ -140,20 +147,20 @@ def main():
         max_holder_disp = max(
             max_holder_disp,
             float(np.linalg.norm(p[:2] - HOLDER_POSTS, axis=-1).max()))
-        x = float(p[2, 0])
-        peak_x = max(peak_x, x)
-        if x > 1.0:
+        s = float(-p[2, 0])
+        peak_s = max(peak_s, s)
+        if s > 1.0:
             crossed = True
             break
-        bounce = max(bounce, peak_x - x)
+        bounce = max(bounce, peak_s - s)
         time.sleep(0.05)
 
-    print(f'  -> crossed={crossed}, peak x={peak_x:.2f}, '
+    print(f'  -> crossed={crossed}, reached x={-peak_s:.2f}, '
           f'pre-cross retreat={bounce:.2f} m, holders yielded '
           f'{max_holder_disp:.2f} m, holder pair min {min_holder_pair:.2f} m')
     assert bounce < 0.3, \
         f'INTRUDER TURNED BACK before crossing (retreated {bounce:.2f} m)'
-    assert crossed, f'intruder never crossed (peak x = {peak_x:.2f})'
+    assert crossed, f'intruder never crossed (reached x = {-peak_s:.2f})'
     assert max_holder_disp > 0.2, 'holders never yielded'
     assert min_holder_pair >= 2.0 * SAFETY_RADIUS - 0.1, \
         f'holder pair breached barrier: {min_holder_pair:.2f} m'

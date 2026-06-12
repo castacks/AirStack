@@ -35,13 +35,24 @@ swarm_commander:
     arena_low: [-2.0, -2.0, 0.8]
     arena_high: [2.0, 2.0, 2.0]
 
+    # SIM ONLY: each PX4 SITL's local origin is its own spawn point, so the
+    # raw odometries are in different frames. These offsets (= the spawn
+    # positions from svg_multi_drone_single_domain.py: x = 2*(i-1) - 2 for
+    # 3 drones) are ADDED to bring all drones into one world frame.
+    # On hardware with mocap-anchored EKFs set all zeros.
+    drone_position_offsets: [-2.0, 0.0, 0.0,
+                              0.0, 0.0, 0.0,
+                              2.0, 0.0, 0.0]
+
     # The two steady drones' posts: flat [x1,y1,z1,  x2,y2,z2] (ENU, m).
     squeeze_holder_positions: [0.0, -0.69, 1.2,
                                0.0,  0.69, 1.2]
     # The moving drone's two endpoints: flat [ax,ay,az,  bx,by,bz].
     # It takes off at A and shuttles A -> B -> A -> ...
-    squeeze_intruder_waypoints: [-1.5, 0.0, 1.2,
-                                  1.5, 0.0, 1.2]
+    # A is on the +x side: drone_3 spawns at x=+2 in sim, and the takeoff
+    # ascent is NOT CBF-exempt, so A must not require crossing the gap.
+    squeeze_intruder_waypoints: [ 1.5, 0.0, 1.2,
+                                 -1.5, 0.0, 1.2]
     # Keep true: the intruder is the deliberate obstacle. If false it gets
     # CBF-filtered like everyone else and the filter pushes it BACK from the
     # gap (stall/retreat) instead of letting it force the holders to yield.

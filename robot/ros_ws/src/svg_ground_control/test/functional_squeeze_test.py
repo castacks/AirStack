@@ -27,13 +27,20 @@ from std_srvs.srv import Trigger
 from airstack_msgs.srv import RobotCommand
 
 NAMES = ['drone_1', 'drone_2', 'drone_3']
-GROUND = {'drone_1': [0.0, -0.7, 0.05],
-          'drone_2': [0.0, 0.7, 0.05],
-          'drone_3': [-1.5, 0.0, 0.05]}
+# World spawn points = the Isaac script's layout (x = 2*(i-1) - 2). Each
+# fake drone publishes odometry in its OWN local frame (world - offset),
+# emulating PX4 SITL whose EKF origin is the spawn point — so this test
+# also validates the commander's drone_position_offsets correction.
+GROUND = {'drone_1': [-2.0, 0.0, 0.05],
+          'drone_2': [0.0, 0.0, 0.05],
+          'drone_3': [2.0, 0.0, 0.05]}
+OFFSETS = {'drone_1': np.array([-2.0, 0.0, 0.0]),
+           'drone_2': np.array([0.0, 0.0, 0.0]),
+           'drone_3': np.array([2.0, 0.0, 0.0])}
 SAFETY_RADIUS = 0.55
-# Must match squeeze_3drone.yaml
+# Must match squeeze_3drone.yaml (world frame; intruder starts on +x side)
 HOLDER_POSTS = np.array([[0.0, -0.69, 1.2], [0.0, 0.69, 1.2]])
-INTRUDER_START = np.array([-1.5, 0.0, 1.2])
+INTRUDER_START = np.array([1.5, 0.0, 1.2])
 DT = 0.02
 
 
@@ -62,11 +69,12 @@ class FakeDrone:
     def step(self, node):
         self.position = self.position + self.cmd * DT
         self.position[2] = max(self.position[2], 0.0)
+        local = self.position - OFFSETS[self.name]   # publish in local frame
         msg = Odometry()
         msg.header.stamp = node.get_clock().now().to_msg()
         msg.header.frame_id = 'map'
         (msg.pose.pose.position.x, msg.pose.pose.position.y,
-         msg.pose.pose.position.z) = self.position
+         msg.pose.pose.position.z) = local
         msg.pose.pose.orientation.w = 1.0
         (msg.twist.twist.linear.x, msg.twist.twist.linear.y,
          msg.twist.twist.linear.z) = self.cmd
@@ -130,7 +138,7 @@ def main():
 
     min_pair = np.inf
     max_holder_disp = 0.0
-    max_intruder_x = -np.inf
+    max_progress = -np.inf   # intruder flies +x -> -x, so progress = -x
     t_end = time.monotonic() + 25.0
     while time.monotonic() < t_end:
         p = np.stack([drones[n].position for n in NAMES])
@@ -140,16 +148,16 @@ def main():
         max_holder_disp = max(
             max_holder_disp,
             float(np.linalg.norm(p[:2] - posts, axis=-1).max()))
-        max_intruder_x = max(max_intruder_x, float(p[2, 0]))
+        max_progress = max(max_progress, float(-p[2, 0]))
         time.sleep(0.05)
 
-    assert max_intruder_x > 1.0, \
-        f'intruder never crossed (max x = {max_intruder_x:.2f})'
+    assert max_progress > 1.0, \
+        f'intruder never crossed (reached x = {-max_progress:.2f})'
     assert max_holder_disp > 0.2, \
         f'holders never yielded (max displacement = {max_holder_disp:.2f} m)'
     assert min_pair >= 1.5 * SAFETY_RADIUS, \
         f'pair separation dropped to {min_pair:.2f} m'
-    print(f'  -> intruder crossed to x={max_intruder_x:.2f}, holders yielded '
+    print(f'  -> intruder crossed to x={-max_progress:.2f}, holders yielded '
           f'{max_holder_disp:.2f} m, min pair distance {min_pair:.2f} m')
 
     print('TEST 3: hold freezes everyone')

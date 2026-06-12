@@ -366,3 +366,4 @@ python3 test/functional_squeeze_test.py
 | MAVROS `connected: false`, no odometry topics | PX4 SITL not launched: Isaac timeline not playing (`PLAY_SIM_ON_START=true`, or press Play) |
 | `The parameter 'X' is not initialized` | empty YAML list can't override a typed param — `teleop_drones`/`external_drones` are comma-separated STRINGS |
 | `start` answers "not all drones holding yet" | drones still converging to takeoff targets; retry after a few seconds |
+| drones fly the right *shapes* in the wrong *places*; intruder misses the gap entirely | **per-drone local origins**: each PX4 SITL's EKF origin is its own spawn point, so raw odometries are in different frames. `drone_position_offsets` in the config must equal the spawn positions (Isaac script: x = `2*(i-1) - (N-1)`, so `[-2,0,0, 0,0,0, 2,0,0]` for 3). Zeros are correct ONLY with mocap-anchored EKFs (hardware) |

@@ -64,6 +64,7 @@ class DroneHandle:
     def __init__(self, name: str, role: str):
         self.name = name
         self.role = role                  # 'auto' | 'teleop' | 'external'
+        self.position_offset = np.zeros(3)  # local-frame -> world correction
         self.takeoff_target = None        # np (3,), set from the scenario
         self.hold_target = None           # np (3,), position to hold when not in mission
         self.state = FlightState.IDLE
@@ -121,6 +122,14 @@ class SwarmCommander(Node):
         self.declare_parameter('hover_positions',
                                [-1.5, 0.0, 1.2, 1.5, 0.0, 1.2, 0.0, -1.5, 1.2])
 
+        # Per-drone position offset (flat [x1,y1,z1, ...]) ADDED to incoming
+        # odometry to bring every drone into one shared world frame. Needed
+        # in SIM: each PX4 SITL's local origin is its own spawn point, so
+        # raw odometries live in different frames (set each drone's offset
+        # to its spawn position). With mocap-anchored EKFs leave at zeros.
+        self.declare_parameter('drone_position_offsets',
+                               [0.0] * 9)
+
         self.declare_parameter('state_topic_template',
                                '/{name}/odometry_conversion/odometry')
         self.declare_parameter('velocity_command_topic_template',
@@ -157,6 +166,13 @@ class SwarmCommander(Node):
         for n in teleop_names + external_names:
             if n not in names:
                 raise ValueError(f'"{n}" not in drone_names')
+
+        offsets_flat = list(self.get_parameter('drone_position_offsets').value)
+        if len(offsets_flat) != 3 * len(names):
+            raise ValueError(
+                f'drone_position_offsets needs {3 * len(names)} values '
+                f'(3 per drone), got {len(offsets_flat)}')
+        position_offsets = np.array(offsets_flat).reshape(-1, 3)
 
         self.state_timeout = float(self.get_parameter('state_timeout_s').value)
         self.teleop_timeout = float(self.get_parameter('teleop_timeout_s').value)
@@ -216,6 +232,7 @@ class SwarmCommander(Node):
             role = ('teleop' if name in teleop_names
                     else 'external' if name in external_names else 'auto')
             drone = DroneHandle(name, role)
+            drone.position_offset = position_offsets[i].copy()
             drone.takeoff_target = takeoff_targets[i].copy()
             drone.hold_target = takeoff_targets[i].copy()
             if drone.commanded:
@@ -247,6 +264,15 @@ class SwarmCommander(Node):
             + ', '.join(f'{d.name}({d.role})' for d in self.drones)
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
             + f' alpha={self.cbf_alpha}')
+        if np.any(position_offsets):
+            self.get_logger().info(
+                'position offsets (local->world): '
+                + ', '.join(f'{d.name}: {d.position_offset}' for d in self.drones))
+        else:
+            self.get_logger().warn(
+                'drone_position_offsets are all zero — correct for mocap, but '
+                'in SIM each PX4 local origin is its spawn point; set the '
+                'offsets to the spawn positions or all geometry is per-drone!')
 
     # ------------------------------------------------------------------
     # Inputs
@@ -255,7 +281,9 @@ class SwarmCommander(Node):
     def odometry_callback(self, drone: DroneHandle, msg: Odometry):
         p = msg.pose.pose.position
         v = msg.twist.twist.linear
-        drone.position = np.array([p.x, p.y, p.z])
+        # position_offset shifts each drone's local-origin odometry into the
+        # shared world frame (velocities are origin-independent).
+        drone.position = np.array([p.x, p.y, p.z]) + drone.position_offset
         drone.velocity = np.array([v.x, v.y, v.z])
         drone.last_odom_time = self.get_clock().now()
 
