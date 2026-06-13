@@ -244,7 +244,7 @@ class FoxgloveVisualizerNode(Node):
                     self.create_subscription(
                         Path, topic,
                         lambda msg, n=name: self._plan_callback(msg, n),
-                        10,
+                        SENSOR_QOS,
                     )
                     self._subscribed_plan.add(topic)
                     self.get_logger().info(f'Subscribed to global_plan: {topic}')
