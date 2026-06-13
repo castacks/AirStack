@@ -56,6 +56,9 @@ services:
               count: 1
               capabilities: [ gpu ]
     volumes:
+      # shared /dev/shm: required for Fast DDS shared-memory transport
+      # across containers (see common/fastdds.xml)
+      - /dev/shm:/dev/shm
        # display
       - $HOME/.Xauthority:/isaac-sim/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
@@ -139,6 +142,10 @@ services:
     # Drop X11-specific volume mounts inherited from the isaac-sim service —
     # there is no X server in an OSMO pod.
     volumes: !override
+      # shared /dev/shm + DDS profile: same as isaac-sim (this !override
+      # block must repeat them or SHM transport silently breaks here)
+      - /dev/shm:/dev/shm
+      - ./fastdds.xml:/isaac-sim/.ros/fastdds.xml:rw
       - $HOME/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw
       - $HOME/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw
       - $HOME/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw

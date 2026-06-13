@@ -20,16 +20,21 @@ set -uo pipefail
 
 AIRSTACK_ROOT="${AIRSTACK_ROOT:-/root/AirStack}"
 
+log()  { echo "[mission-launcher] $*"; }
+fail() { echo "[mission-launcher] ERROR: $*" >&2; }
+
 # UDP socket buffer limits: fastdds.xml requests 16MB buffers for the large
 # image streams; the kernel caps requests at rmem_max/wmem_max (~212KB
 # default), and overflow drops whole frames crossing the inner docker bridge.
-# Done here (not the baked entrypoint) so it ships with the branch.
+# Done here (not the baked entrypoint) so it ships with the branch. sysctl
+# can fail with exit 0 ("permission denied, ignoring"), so verify by readback.
 sysctl -w net.core.rmem_max=16777216 net.core.wmem_max=16777216 \
-  net.core.rmem_default=4194304 net.core.wmem_default=4194304 \
-  || echo "[mission-launcher] WARN: could not raise UDP buffer limits — image topics may drop frames"
-
-log()  { echo "[mission-launcher] $*"; }
-fail() { echo "[mission-launcher] ERROR: $*" >&2; }
+  net.core.rmem_default=4194304 net.core.wmem_default=4194304 >/dev/null 2>&1
+if [ "$(sysctl -n net.core.rmem_max 2>/dev/null)" = "16777216" ]; then
+  log "UDP socket buffer limits raised: net.core.rmem_max=16777216"
+else
+  log "WARN: UDP buffer limits NOT raised (rmem_max=$(sysctl -n net.core.rmem_max 2>/dev/null)) — image topics may drop frames"
+fi
 
 # wait_for <description> <timeout_s> <command...> — poll until the command
 # succeeds or the timeout elapses. Returns non-zero on timeout.

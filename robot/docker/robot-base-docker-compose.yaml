@@ -21,6 +21,9 @@ services:
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
     volumes:
+      # shared /dev/shm: required for Fast DDS shared-memory transport
+      # across containers (see common/fastdds.xml)
+      - /dev/shm:/dev/shm
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix

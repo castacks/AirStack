@@ -45,6 +45,9 @@ services:
     stdin_open: true
     tty: true
     volumes:
+      # shared /dev/shm: required for Fast DDS shared-memory transport
+      # across containers (see common/fastdds.xml)
+      - /dev/shm:/dev/shm
       # display stuff
       - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
