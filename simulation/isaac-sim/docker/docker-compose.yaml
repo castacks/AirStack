@@ -37,6 +37,9 @@ services:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      # Must match the robot/gcs containers — mixed transport modes across
+      # containers have no common data channel (see common/fastdds.xml)
+      - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}

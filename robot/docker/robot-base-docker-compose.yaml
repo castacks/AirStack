@@ -20,6 +20,10 @@ services:
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
+      # Container-wide so EVERY process (tmux nodes, ddsrouter, docker exec)
+      # uses the same transports; a LARGE_DATA participant and a default
+      # (UDP) participant in different containers share no data channel.
+      - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
     volumes:
       # shared /dev/shm: required for Fast DDS shared-memory transport
       # across containers (see common/fastdds.xml)
