@@ -1,0 +1,149 @@
+{
+  "run_id": "20260612_085055",
+  "timestamp": "20260612_085055",
+  "num_env_domains": 1,
+  "env_domains": [
+    "warehouse"
+  ],
+  "disturbance": {
+    "name": "dynamic_obstacle_speed",
+    "element": "moving obstacles (pedestrians and service robots)",
+    "variable": "obstacle_speed_m_s",
+    "perturb_range": [
+      0.8,
+      1.2
+    ],
+    "description": "Independently moving pedestrians and service robots are the primary collision threat in AirStack's indoor and outdoor scenes. Their speed is resampled each perturbation within \u00b120% of the domain nominal, reflecting realistic crowd-density fluctuations and robot operational speed variance. Faster obstacles reduce time-to-collision from any given clearance distance, raising the tail risk of impacts."
+  },
+  "num_scenarios": 1,
+  "num_perturbations": 1,
+  "max_episodes": 1,
+  "total_episodes_per_agent": 1,
+  "benchmark_seed": 933745113,
+  "benchmark_config": {
+    "p_max": 0.05,
+    "tau_safety": 500.0,
+    "alpha": 0.1,
+    "phi_s": 0.95,
+    "phi_p": 0.8,
+    "eta": 0.1,
+    "gamma": 0.05
+  },
+  "integration": "airstack",
+  "agents": [
+    "conservative"
+  ],
+  "env_name": "AirstackEnv",
+  "domain": "warehouse",
+  "num_dynamic_obstacles_max": 30,
+  "ramp_dynamic_obstacles": true,
+  "physics_dynamic_obstacles": false,
+  "world_size_x": 44.00003617990359,
+  "world_size_y": 26.000035262472455,
+  "num_parallel": 1,
+  "parallel_scenarios": false,
+  "parallel_spawn_count": 1,
+  "taxonomy": {
+    "label": "root",
+    "count": 0,
+    "children": [
+      {
+        "label": "Safe Success",
+        "count": 0,
+        "children": []
+      },
+      {
+        "label": "Risky Success",
+        "count": 0,
+        "children": []
+      },
+      {
+        "label": "Unsafe Success",
+        "count": 0,
+        "children": []
+      },
+      {
+        "label": "Safe Failure",
+        "count": 0,
+        "children": [
+          {
+            "label": "SHP",
+            "count": 0,
+            "children": []
+          },
+          {
+            "label": "SR",
+            "count": 0,
+            "children": []
+          },
+          {
+            "label": "SF-O",
+            "count": 0,
+            "children": []
+          }
+        ]
+      },
+      {
+        "label": "Unsafe Failure",
+        "count": 0,
+        "children": [
+          {
+            "label": "Catastrophic Failure",
+            "count": 0,
+            "children": [
+              {
+                "label": "LVC",
+                "count": 0,
+                "children": []
+              },
+              {
+                "label": "HVC",
+                "count": 0,
+                "children": []
+              },
+              {
+                "label": "AR-LVC",
+                "count": 0,
+                "children": []
+              },
+              {
+                "label": "AR-HVC",
+                "count": 0,
+                "children": []
+              }
+            ]
+          },
+          {
+            "label": "Timeout",
+            "count": 0,
+            "children": [
+              {
+                "label": "TO-US",
+                "count": 0,
+                "children": []
+              },
+              {
+                "label": "TO-RP",
+                "count": 0,
+                "children": []
+              },
+              {
+                "label": "TO-RD",
+                "count": 0,
+                "children": []
+              }
+            ]
+          },
+          {
+            "label": "UF-O",
+            "count": 0,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "RE_max": null,
+  "r_failure": 0.31,
+  "total_seconds": null
+}

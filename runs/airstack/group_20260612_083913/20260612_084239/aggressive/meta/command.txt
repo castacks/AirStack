@@ -1,0 +1,1 @@
+eval/run.py --domains warehouse --num_scenarios 1 --num_perturbations 1 --max_episodes 3 --simple --headless --debug --agent aggressive --benchmark_seed 1737767502 --yes

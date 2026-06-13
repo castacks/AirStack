@@ -1,0 +1,19 @@
+└── root
+    ├── Safe Success *
+    ├── Risky Success *
+    ├── Unsafe Success *
+    ├── Safe Failure
+    │   ├── SHP *
+    │   ├── SR *
+    │   └── SF-O *
+    └── Unsafe Failure
+        ├── Catastrophic Failure
+        │   ├── LVC *
+        │   ├── HVC *
+        │   ├── AR-LVC *
+        │   └── AR-HVC *
+        ├── Timeout
+        │   ├── TO-US *
+        │   ├── TO-RP *
+        │   └── TO-RD *
+        └── UF-O *
