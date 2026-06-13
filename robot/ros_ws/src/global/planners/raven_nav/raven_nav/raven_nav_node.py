@@ -441,9 +441,9 @@ class RavenNavNode(Node):
     def _stamp_raycast_cells(self, origin_xy: np.ndarray,
                              targets_xy: np.ndarray) -> None:
         """Stamp every cell on the 2D line from origin toward each target,
-        stopping ~1.5 cells SHORT of the frontier endpoint so the frontier
-        cell itself stays unobserved. Otherwise we'd mark the frontier as
-        explored, drop it on the next tick's cell filter, and falsely report
+        stopping `pullback` metres SHORT of the frontier endpoint so the
+        frontier cell itself stays unobserved. Otherwise we'd mark the frontier
+        as explored, drop it on the next tick's cell filter, and falsely report
         the polygon as cleared."""
         if targets_xy is None or targets_xy.shape[0] == 0:
             return
@@ -457,7 +457,7 @@ class RavenNavNode(Node):
         delta = delta[nonzero]
         dist = dist[nonzero]
         # Pull back from the frontier point
-        pullback = 17.5
+        pullback = 5
         clamp = np.minimum(dist, self._max_raycast_range_m) - pullback
         keep = clamp > 0.0
         if not np.any(keep):
@@ -1519,6 +1519,19 @@ class RavenNavNode(Node):
         # doesn't risk switching to the wrong house.
         voxel_targets = list(self._target_objects or [])
         if self._frontier_only_baseline:
+            # Baseline = pure-frontier navigation, but we still want PASSIVE
+            # detection: run the voxel clustering so target_voxel_clusters
+            # populates and AABBs / confirmed_targets publish to Foxglove for
+            # anything the drone happens to fly past. Pass no committed ray so
+            # EVERY detected cluster is recorded (not just one tied to an
+            # auction commitment), and ignore the return value — voxel-MODE
+            # must never activate here, so we hard-force Frontier-based.
+            # Detection only: these AABBs stay status='observing' (never
+            # 'visited'/'completed') because baseline never navigates to close
+            # them out via voxel_behavior.execute().
+            self._behavior_manager.voxel_behavior.condition_check(
+                self._vox_xyz, self._vox_scores, self._query_labels,
+                voxel_targets, committed_origin=None, committed_dir=None)
             self._behavior_manager.behavior_mode = 'Frontier-based'
         else:
             self._behavior_manager.mode_select(
