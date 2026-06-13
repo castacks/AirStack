@@ -36,6 +36,13 @@ else
   log "WARN: UDP buffer limits NOT raised (rmem_max=$(sysctl -n net.core.rmem_max 2>/dev/null)) — image topics may drop frames"
 fi
 
+# Fast DDS shared-memory transport (common/fastdds.xml) lives in /dev/shm,
+# which every stack container bind-mounts from the pod. The pod default is
+# 64M — it fills with transport segments immediately and later participants
+# silently fall back to UDP. tmpfs can be regrown in place.
+mount -o remount,size=8G /dev/shm 2>/dev/null
+log "/dev/shm: $(df -h /dev/shm | awk 'NR==2{print $2" total, "$5" used"}')"
+
 # wait_for <description> <timeout_s> <command...> — poll until the command
 # succeeds or the timeout elapses. Returns non-zero on timeout.
 wait_for() {
