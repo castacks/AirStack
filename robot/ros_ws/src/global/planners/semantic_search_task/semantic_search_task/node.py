@@ -20,13 +20,19 @@ from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String, Empty
 from action_msgs.srv import CancelGoal
-from task_msgs.action import SemanticSearchTask, ExplorationTask
+from task_msgs.action import SemanticSearchTask, ExplorationTask, NavigateTask
 
 # ── ANSI / ROS log stripping ──────────────────────────────────────────────────
 
 _ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 _ROS_PREFIX_RE = re.compile(
     r'^\s*\[?(INFO|WARN|ERROR|DEBUG)\]?\s*\[\d+\.\d+\]\s*\[[^\]]+\]:\s*')
+
+# Shared bind-mounted dir (./cache -> /root/.cache in every robot replica), so
+# all robots' raven dumps land where any container can compile them.
+RESULTS_DIR = '/root/.cache/raven_results'
+RESULTS_COVERAGE_THRESHOLD = 0.80  # the "80%" of "15 min OR 80%"
+RESULTS_SCENE = os.getenv('RESULTS_SCENE', 'RetroNeighborhood')  # GT annotations
 
 
 def _clean(line: str) -> str:
@@ -138,6 +144,57 @@ def _sanitize(label: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_]', '_', label)
 
 
+def _point_in_polygon_xy(x: float, y: float, poly: list) -> bool:
+    """Ray-cast point-in-polygon test in the XY plane. poly is a list of (x, y)
+    vertices. Fewer than 3 vertices means 'unbounded' → always inside."""
+    n = len(poly)
+    if n < 3:
+        return True
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if ((yi > y) != (yj > y)) and \
+                (x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-9) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _nearest_point_in_polygon_xy(x: float, y: float, poly: list,
+                                 inset_m: float = 1.0) -> tuple:
+    """Closest point on the polygon boundary to (x, y) (projection onto the
+    nearest edge, mirroring random_walk's nearest_inside_point), nudged inset_m
+    toward the centroid so the result lands clearly inside rather than on the
+    edge. Returns (x, y) unchanged if poly has < 3 vertices."""
+    n = len(poly)
+    if n < 3:
+        return x, y
+    best = (x, y)
+    best_d2 = float('inf')
+    for i in range(n):
+        ax, ay = poly[i - 1]
+        bx, by = poly[i]
+        ex, ey = bx - ax, by - ay
+        seg2 = ex * ex + ey * ey
+        t = 0.0 if seg2 < 1e-9 else ((x - ax) * ex + (y - ay) * ey) / seg2
+        t = max(0.0, min(1.0, t))
+        px, py = ax + t * ex, ay + t * ey
+        d2 = (px - x) ** 2 + (py - y) ** 2
+        if d2 < best_d2:
+            best_d2 = d2
+            best = (px, py)
+    cx = sum(p[0] for p in poly) / n
+    cy = sum(p[1] for p in poly) / n
+    dx, dy = cx - best[0], cy - best[1]
+    d = (dx * dx + dy * dy) ** 0.5
+    if d > 1e-6:
+        f = min(inset_m, d) / d
+        best = (best[0] + dx * f, best[1] + dy * f)
+    return best
+
+
 # ── Node ──────────────────────────────────────────────────────────────────────
 
 class SemanticSearchTaskNode(Node):
@@ -207,6 +264,54 @@ class SemanticSearchTaskNode(Node):
             return GoalResponse.REJECT
         self._task_active = True
         return GoalResponse.ACCEPT
+
+    def _finalize_metrics(self, reason: str) -> str:
+        """Compile all robots' raven dumps + score vs ground truth on exit.
+
+        Runs on cancel and on 80%-coverage success. Returns a compact JSON
+        summary to embed in the action result, or '' on failure."""
+        import json as _json
+        expect = 0
+        try:
+            expect = int(os.getenv('NUM_ROBOTS', '0') or 0)
+        except ValueError:
+            expect = 0
+        try:
+            subprocess.run(
+                ['python3', '-m', 'raven_nav.compile_results',
+                 '--results-dir', RESULTS_DIR,
+                 '--expect', str(expect), '--wait-timeout', '30',
+                 '--reason', reason],
+                check=False, timeout=120, capture_output=True, text=True)
+            compiled = os.path.join(RESULTS_DIR, 'compiled_results.json')
+            subprocess.run(
+                ['python3', '-m', 'raven_nav.compare_to_groundtruth',
+                 '--compiled', compiled, '--scene', RESULTS_SCENE,
+                 '--class-filter', 'house'],
+                check=False, timeout=120, capture_output=True, text=True)
+            summary = {'reason': reason}
+            with open(os.path.join(RESULTS_DIR, 'metrics.json')) as f:
+                m = _json.load(f)
+                summary['detections'] = m.get('detections')
+                summary['path'] = {k: m['path'].get(k) for k in (
+                    'num_robots', 'total_path_length_m', 'mean_path_length_m',
+                    'max_path_length_m', 'path_imbalance', 'makespan_s')}
+            gt_path = os.path.join(RESULTS_DIR, 'groundtruth_comparison.json')
+            if os.path.exists(gt_path):
+                with open(gt_path) as f:
+                    gt = _json.load(f)
+                keys = ('tp', 'fp', 'fn', 'precision', 'recall', 'f1',
+                        'mean_iou_matched', 'mean_center_error_m')
+                summary['groundtruth'] = {
+                    'num_ground_truth': gt.get('num_ground_truth'),
+                    'either': {k: gt['either'].get(k) for k in keys},
+                    'visited': {k: gt['visited'].get(k) for k in keys},
+                }
+            self.get_logger().info(f'[finalize] metrics ({reason}): {summary}')
+            return _json.dumps(summary)
+        except Exception as e:
+            self.get_logger().error(f'[finalize] failed: {e}')
+            return ''
 
     def _cleanup_existing(self) -> None:
         """Kill any leftover rayfronts or raven processes and cancel any
@@ -361,6 +466,60 @@ class SemanticSearchTaskNode(Node):
         except Exception as e:
             self.get_logger().warn(f'Failed to cancel ExplorationTask: {e}')
 
+    def _send_navigate_activator(self, robot_name: str):
+        """Put droan_gl into ADD_SEGMENT mode and let it steer to raven's
+        waypoint. Sends a NavigateTask with an EMPTY plan: droan_gl treats an
+        empty goal as a pure activator and follows the /global_plan topic
+        (raven's published waypoint) until cancelled — so raven is the single
+        steering source and random_walk's random path stays out of the loop.
+        Returns (client, send_future); same shape as _send_exploration_task so
+        the existing cancel/restart handling works unchanged."""
+        client = ActionClient(
+            self, NavigateTask, f'/{robot_name}/tasks/navigate',
+            callback_group=self._cbg)
+        if not client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().warn('NavigateTask server (droan_gl) not available after 10s')
+            return None, None
+        goal = NavigateTask.Goal()
+        goal.goal_tolerance_m = 1.0
+        send_future = client.send_goal_async(goal)
+        self.get_logger().info(
+            'NavigateTask activator sent to droan_gl — following raven /global_plan')
+        return client, send_future
+
+    def _send_navigate_to(self, robot_name: str, x: float, y: float, z: float,
+                          goal_tolerance_m: float = 1.5):
+        """Send droan_gl a single-pose NavigateTask (a concrete plan it follows
+        to completion) to fly to (x, y, z) in the robot's 'map' frame. Used to
+        bring the drone inside the search polygon before exploring. Returns
+        (client, send_future)."""
+        from nav_msgs.msg import Path
+        from geometry_msgs.msg import PoseStamped
+        client = ActionClient(
+            self, NavigateTask, f'/{robot_name}/tasks/navigate',
+            callback_group=self._cbg)
+        if not client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().warn('NavigateTask server (droan_gl) not available after 10s')
+            return None, None
+        plan = Path()
+        plan.header.frame_id = 'map'
+        plan.header.stamp = self.get_clock().now().to_msg()
+        ps = PoseStamped()
+        ps.header = plan.header
+        ps.pose.position.x = float(x)
+        ps.pose.position.y = float(y)
+        ps.pose.position.z = float(z)
+        ps.pose.orientation.w = 1.0
+        plan.poses.append(ps)
+        goal = NavigateTask.Goal()
+        goal.global_plan = plan
+        goal.goal_tolerance_m = float(goal_tolerance_m)
+        send_future = client.send_goal_async(goal)
+        self.get_logger().info(
+            f'NavigateTask (approach) sent to droan_gl → '
+            f'({x:.1f}, {y:.1f}, {z:.1f})')
+        return client, send_future
+
     def _interruptible_sleep(self, goal_handle, secs: float) -> bool:
         """Sleep for secs, waking early if cancel requested. Returns True if cancelled."""
         steps = max(1, int(secs / 0.1))
@@ -436,6 +595,11 @@ class SemanticSearchTaskNode(Node):
         exploration_restarts = 0
         last_restart_time: 'float | None' = None
 
+        # Search polygon (robot-local 'map' frame) for the out-of-bounds guard.
+        # <3 vertices ⇒ unconstrained, so no approach is needed.
+        search_poly = [(p.x, p.y) for p in goal.search_area.points]
+        approached_bounds = len(search_poly) < 3
+
         last_rf_status = 'Starting rayfronts...'
         last_rv_status = 'Starting raven...'
 
@@ -510,6 +674,9 @@ class SemanticSearchTaskNode(Node):
                 '-p', 'use_sim_time:=true',
                 # Run the frontier-only baseline (no semantic navigation).
                 '-p', 'frontier_only_baseline:=true',
+                # End at 80% coverage; osmo enforces the 15-min limit by cancel.
+                '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
+                '-p', f'results_dir:={RESULTS_DIR}',
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
             ], log_name='raven')
@@ -626,6 +793,9 @@ class SemanticSearchTaskNode(Node):
                         cp.poses.append(p)
                         cl.append(str(d.get('label', '')))
                         cbc = max(cbc, float(d.get('confidence', 0.0)))
+                    # Cancel = the 15-min limit (or a manual stop). Finalize
+                    # metrics before returning so they ride out in the result.
+                    metrics_json = self._finalize_metrics('cancelled')
                     goal_handle.canceled()
                     result = SemanticSearchTask.Result()
                     result.success = False
@@ -634,8 +804,8 @@ class SemanticSearchTaskNode(Node):
                     result.confidence = max(best_conf, cbc)
                     result.objects_found = len(discoveries_by_id)
                     result.message = (
-                        f'Cancelled — partial: {len(discoveries_by_id)} '
-                        f'instance(s) found')
+                        f'Cancelled — {len(discoveries_by_id)} instance(s) '
+                        f'found | metrics={metrics_json}')
                     return result
 
                 for raw in _drain(rayfronts_q):
@@ -648,16 +818,56 @@ class SemanticSearchTaskNode(Node):
                     if msg:
                         last_rv_status = msg
 
+                # Out-of-bounds guard: raven only ever picks frontiers inside
+                # the search polygon, so if the drone starts outside it raven has
+                # nothing to steer toward and would never enter on its own. Fly
+                # it to the nearest in-bounds point first (a concrete single-pose
+                # NavigateTask droan_gl follows to completion), then hand off to
+                # raven. Runs once; skipped when already inside or unconstrained.
+                if not approached_bounds and self._cur_pos is not None:
+                    if _point_in_polygon_xy(self._cur_pos[0], self._cur_pos[1],
+                                            search_poly):
+                        approached_bounds = True
+                    else:
+                        tx, ty = _nearest_point_in_polygon_xy(
+                            self._cur_pos[0], self._cur_pos[1], search_poly)
+                        tz = self._cur_pos[2]
+                        self.get_logger().info(
+                            f'Drone outside search polygon — flying to nearest '
+                            f'in-bounds point ({tx:.1f}, {ty:.1f}) before exploring')
+                        self._cancel_active_navigation(robot_name)
+                        approach_client, approach_future = self._send_navigate_to(
+                            robot_name, tx, ty, tz)
+                        deadline = time.time() + 60.0
+                        while time.time() < deadline:
+                            if goal_handle.is_cancel_requested:
+                                break
+                            if self._cur_pos is not None and _point_in_polygon_xy(
+                                    self._cur_pos[0], self._cur_pos[1], search_poly):
+                                self.get_logger().info('Drone reached search polygon')
+                                break
+                            fb = SemanticSearchTask.Feedback()
+                            fb.status = 'Flying to search polygon (out of bounds)'
+                            goal_handle.publish_feedback(fb)
+                            time.sleep(0.5)
+                        else:
+                            self.get_logger().warn(
+                                'Approach to polygon timed out — exploring from '
+                                'current pose anyway')
+                        self._cancel_exploration_task(approach_future)
+                        self._cancel_active_navigation(robot_name)
+                        approached_bounds = True
+
                 # Wait for raven's first waypoint before starting random_walk —
                 # otherwise the drone drifts before raven has any semantic targets.
                 if raven_published_waypoint and not random_walk_started:
                     random_walk_started = True
                     self._cancel_active_navigation(robot_name)
                     self.get_logger().info(
-                        'Raven published first waypoint — sending ExplorationTask '
-                        'to existing random_walk_planner')
-                    _, exploration_send_future = self._send_exploration_task(
-                        robot_name, goal)
+                        'Raven published first waypoint — activating droan_gl '
+                        'to navigate to it')
+                    _, exploration_send_future = self._send_navigate_activator(
+                        robot_name)
                     last_motion_pos = list(self._cur_pos) if self._cur_pos else None
                     last_motion_time = time.time()
 
@@ -677,13 +887,12 @@ class SemanticSearchTaskNode(Node):
                         elif now - last_motion_time > STUCK_TIMEOUT_S:
                             self.get_logger().warn(
                                 f'Robot has not moved >{STUCK_DISTANCE_M:.1f} m in '
-                                f'{STUCK_TIMEOUT_S:.1f}s — cancelling and re-sending '
-                                f'ExplorationTask')
+                                f'{STUCK_TIMEOUT_S:.1f}s — re-activating droan_gl')
                             self._cancel_exploration_task(exploration_send_future)
                             self._cancel_active_navigation(robot_name)
                             time.sleep(0.5)
-                            _, exploration_send_future = self._send_exploration_task(
-                                robot_name, goal)
+                            _, exploration_send_future = self._send_navigate_activator(
+                                robot_name)
                             exploration_restarts += 1
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
@@ -749,6 +958,9 @@ class SemanticSearchTaskNode(Node):
                 hit_max = (max_instances > 0
                            and len(discoveries_by_id) >= max_instances)
                 if hit_max or polygon_done:
+                    # 80% coverage reached — same finalize as the cancel path.
+                    reason = 'max_instances' if hit_max else 'coverage'
+                    metrics_json = self._finalize_metrics(reason)
                     goal_handle.succeed()
                     result = SemanticSearchTask.Result()
                     result.success = True
@@ -759,11 +971,14 @@ class SemanticSearchTaskNode(Node):
                     if hit_max:
                         result.message = (
                             f'Reached max_instances={max_instances}: '
-                            f'{len(discoveries_by_id)} instance(s) found')
+                            f'{len(discoveries_by_id)} instance(s) found '
+                            f'| metrics={metrics_json}')
                     else:
                         result.message = (
                             f'Polygon explored — {len(discoveries_by_id)} '
-                            f'instance(s) found: {", ".join(sorted(set(cur_labels)))}')
+                            f'instance(s) found: '
+                            f'{", ".join(sorted(set(cur_labels)))} '
+                            f'| metrics={metrics_json}')
                     return result
 
                 if not rayfronts_ready:

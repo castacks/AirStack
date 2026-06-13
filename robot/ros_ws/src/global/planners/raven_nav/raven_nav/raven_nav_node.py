@@ -106,6 +106,15 @@ class RavenNavNode(Node):
         self._alt_ground: 'float | None' = None
         self._peer_state = PeerState()
 
+        # Mission metrics + per-target event log (for the result dump).
+        self._mission_start_ts: 'float | None' = None  # first searching tick
+        self._completion_reason: str = ''
+        self._path_length_m: float = 0.0  # cumulative, with hover deadband
+        self._prev_odom_xyz: 'np.ndarray | None' = None
+        self._num_odom_samples: int = 0
+        self._target_events: list = []  # one dict per physical instance
+        self._result_written: bool = False
+
         # Polygon constraint in local 'map' frame. None = unconstrained.
         self._search_area_xy: 'np.ndarray | None' = None
         self._warned_polygon_degenerate = False
@@ -146,6 +155,16 @@ class RavenNavNode(Node):
             'voxel_score_threshold', 0.7).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 30).value)
+
+        # Where to dump this robot's result JSON (AABBs + event log + path
+        # length, in global ENU). '' = don't dump. The mission sets a shared
+        # bind-mounted path so the compile step can read every robot's file.
+        self._results_dir = str(self.declare_parameter(
+            'results_dir', '').value)
+        # Re-dump cadence (s) so a fresh file exists when the task is cancelled.
+        self._results_dump_period_s = float(self.declare_parameter(
+            'results_dump_period_s', 3.0).value)
+        self._last_results_dump_ts: float = 0.0
 
         # Run the frontier-only baseline: navigation ignores all semantic
         # cues (no Ray-/Voxel-based pursuit, no committed-target bias);
@@ -511,8 +530,10 @@ class RavenNavNode(Node):
         """Convert voxel_behavior's current AABBs into ConfirmedTarget records.
 
         Voxel-side keeps clusters as [cx,cy,cz,sx,sy,sz] in target_voxel_clusters
-        and labels in cluster_query_map. 'visited' status is sticky for any
-        cluster whose label is in completed_queries.
+        and labels in cluster_query_map. A cluster reports 'visited' once the
+        drone has passed within range of it (recorded per-instance in
+        visited_instances via voxel_behavior.mark_arrivals); otherwise it is
+        'observing'.
         """
         vb = self._behavior_manager.voxel_behavior
         out: list = []
@@ -522,7 +543,9 @@ class RavenNavNode(Node):
             if not label:
                 continue
             status = ('visited'
-                      if label in vb.completed_queries else 'observing')
+                      if vb.is_visited(np.array(bb[:3], dtype=float),
+                                       np.array(bb[3:6], dtype=float), label)
+                      else 'observing')
             out.append(ConfirmedTarget(
                 label=label,
                 center=np.array(bb[:3], dtype=float),
@@ -599,7 +622,148 @@ class RavenNavNode(Node):
         self._discoveries_pub.publish(
             String(data=discoveries_to_json(discoveries)))
 
+        self._update_target_events(discoveries)
+
         self._publish_discoveries_table(discoveries)
+
+    # Match radius for treating a discovery as an already-logged instance, so a
+    # drifting centroid (which flips _stable_id) isn't logged twice.
+    _EVENT_MATCH_DIST_M = 8.0
+
+    def _match_event(self, label: str, pos_enu: np.ndarray):
+        """Existing event dict for this instance (same label, nearest centroid
+        within _EVENT_MATCH_DIST_M), or None."""
+        best = None
+        best_d = self._EVENT_MATCH_DIST_M
+        for ev in self._target_events:
+            if ev['label'] != label:
+                continue
+            d = float(np.linalg.norm(np.asarray(ev['pos_enu']) - pos_enu))
+            if d <= best_d:
+                best_d = d
+                best = ev
+        return best
+
+    def _update_target_events(self, discoveries) -> None:
+        """Record first discovery/confirmation/visit time per target, once each.
+
+        Milestones: discovered = any Discovery (ray bearing or AABB); confirmed
+        = first AABB (either status); visited = first AABB with status
+        'visited' (never set in the frontier baseline)."""
+        if self._boot_enu is None:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        targets = set(self._target_objects or [])
+        for d in discoveries:
+            if targets and d.label not in targets:
+                continue   # skip background labels
+            pos_enu = np.asarray(d.position, dtype=float) + self._boot_enu
+            has_aabb = d.size is not None
+            is_visited = has_aabb and str(d.status).lower() == 'visited'
+            ev = self._match_event(d.label, pos_enu)
+            if ev is None:
+                ev = {
+                    'label': d.label,
+                    'instance_id': d.instance_id,
+                    'pos_enu': pos_enu.tolist(),
+                    'first_discovered_ts': now,
+                    'first_confirmed_ts': None,
+                    'first_visited_ts': None,
+                }
+                self._target_events.append(ev)
+                self.get_logger().info(
+                    f'[event] DISCOVERED {d.label} '
+                    f'@ENU=({pos_enu[0]:.1f},{pos_enu[1]:.1f},{pos_enu[2]:.1f}) '
+                    f't={now:.2f}')
+            else:
+                # Keep the freshest centroid (AABB centre beats a ray bearing).
+                if has_aabb:
+                    ev['pos_enu'] = pos_enu.tolist()
+                    ev['instance_id'] = d.instance_id
+            if has_aabb and ev['first_confirmed_ts'] is None:
+                ev['first_confirmed_ts'] = now
+                self.get_logger().info(
+                    f'[event] CONFIRMED {d.label} (AABB, status={d.status}) '
+                    f'@ENU=({pos_enu[0]:.1f},{pos_enu[1]:.1f},{pos_enu[2]:.1f}) '
+                    f't={now:.2f}')
+            if is_visited and ev['first_visited_ts'] is None:
+                ev['first_visited_ts'] = now
+                self.get_logger().info(
+                    f'[event] VISITED {d.label} '
+                    f'@ENU=({pos_enu[0]:.1f},{pos_enu[1]:.1f},{pos_enu[2]:.1f}) '
+                    f't={now:.2f}')
+
+    def _maybe_dump_results(self, force: bool = False) -> None:
+        """Write the result JSON, throttled to the dump period unless forced."""
+        if not self._results_dir:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        if not force:
+            if self._results_dump_period_s <= 0.0:
+                return
+            if (now - self._last_results_dump_ts) < self._results_dump_period_s:
+                return
+        self._last_results_dump_ts = now
+        self._write_results()
+
+    def _write_results(self) -> None:
+        """Serialize own AABBs (global ENU) + event log + path length."""
+        if not self._results_dir or self._boot_enu is None:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        boot = self._boot_enu
+        targets = []
+        for ct in self._own_confirmed_targets():
+            center_enu = (np.asarray(ct.center, dtype=float) + boot).tolist()
+            targets.append({
+                'label': ct.label,
+                'center_enu': center_enu,
+                'size': np.asarray(ct.size, dtype=float).tolist(),
+                'status': ct.status,            # 'observing' | 'visited'
+                'confidence': float(ct.confidence),
+            })
+        start = self._mission_start_ts
+        events = []
+        for ev in self._target_events:
+            def _rel(t):
+                return (t - start) if (t is not None and start is not None) else None
+            events.append({
+                'label': ev['label'],
+                'instance_id': ev['instance_id'],
+                'pos_enu': ev['pos_enu'],
+                'first_discovered_ts': ev['first_discovered_ts'],
+                'first_confirmed_ts': ev['first_confirmed_ts'],
+                'first_visited_ts': ev['first_visited_ts'],
+                'first_discovered_rel_s': _rel(ev['first_discovered_ts']),
+                'first_confirmed_rel_s': _rel(ev['first_confirmed_ts']),
+                'first_visited_rel_s': _rel(ev['first_visited_ts']),
+            })
+        out = {
+            'robot': self._robot_name,
+            'boot_enu': boot.tolist(),
+            'alt_ground': self._alt_ground,
+            'mission_start_ts': start,
+            'dump_ts': now,
+            'mission_duration_s': (now - start) if start is not None else None,
+            'completion_reason': self._completion_reason or 'in_progress',
+            'coverage_fraction': self._last_coverage_frac,
+            'coverage_threshold': self._coverage_threshold,
+            'path_length_m': self._path_length_m,
+            'num_odom_samples': self._num_odom_samples,
+            'query_labels': list(self._query_labels),
+            'target_labels': list(self._target_objects or []),
+            'confirmed_targets_enu': targets,
+            'target_events': events,
+        }
+        tmp = os.path.join(self._results_dir, f'.{self._robot_name}.json.tmp')
+        final = os.path.join(self._results_dir, f'{self._robot_name}.json')
+        try:
+            os.makedirs(self._results_dir, exist_ok=True)
+            with open(tmp, 'w') as f:
+                json.dump(out, f, indent=2)
+            os.replace(tmp, final)   # atomic — compile may read concurrently
+        except OSError as e:
+            self.get_logger().error(f'[results] write failed: {e}')
 
     def _publish_discoveries_table(self, discoveries) -> None:
         """Render the merged Discovery list as a compact text table.
@@ -800,7 +964,20 @@ class RavenNavNode(Node):
 
     def _odometry_cb(self, msg: Odometry):
         p = msg.pose.pose.position
-        self._cur_pose = np.array([p.x, p.y, p.z], dtype=np.float64)
+        cur = np.array([p.x, p.y, p.z], dtype=np.float64)
+        # Cumulative path length with a 2 cm deadband: don't advance the anchor
+        # on sub-deadband steps so hover jitter doesn't inflate the total, but
+        # small genuine motion still accumulates once it crosses the threshold.
+        if self._prev_odom_xyz is None:
+            self._prev_odom_xyz = cur
+            self._num_odom_samples += 1
+        else:
+            step = float(np.linalg.norm(cur - self._prev_odom_xyz))
+            if step >= 0.02:
+                self._path_length_m += step
+                self._prev_odom_xyz = cur
+                self._num_odom_samples += 1
+        self._cur_pose = cur
         q = msg.pose.pose.orientation
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
@@ -1213,6 +1390,11 @@ class RavenNavNode(Node):
             self._nav_mode_pub.publish(String(data='idle'))
             return
 
+        # Mission start = first tick with odometry; metrics are reported
+        # relative to it.
+        if self._mission_start_ts is None:
+            self._mission_start_ts = self.get_clock().now().nanoseconds * 1e-9
+
         # Peer rays already converted to local frame in PeerState.
         merged_origins, merged_dirs, merged_scores = self._merge_own_and_peer_rays()
 
@@ -1526,12 +1708,15 @@ class RavenNavNode(Node):
             # EVERY detected cluster is recorded (not just one tied to an
             # auction commitment), and ignore the return value — voxel-MODE
             # must never activate here, so we hard-force Frontier-based.
-            # Detection only: these AABBs stay status='observing' (never
-            # 'visited'/'completed') because baseline never navigates to close
-            # them out via voxel_behavior.execute().
             self._behavior_manager.voxel_behavior.condition_check(
                 self._vox_xyz, self._vox_scores, self._query_labels,
                 voxel_targets, committed_origin=None, committed_dir=None)
+            # Passive arrival: clusters the drone wanders within 3 m of flip to
+            # 'visited' (per-instance); the rest stay 'observing'. This records
+            # into a separate list and never touches the navigation candidate
+            # pool, so baseline navigation stays pure frontier.
+            self._behavior_manager.voxel_behavior.mark_arrivals(
+                self._cur_pose, 3.0)
             self._behavior_manager.behavior_mode = 'Frontier-based'
         else:
             self._behavior_manager.mode_select(
@@ -1597,6 +1782,7 @@ class RavenNavNode(Node):
                         f'(actual {frac * 100:.1f}%)')
             if not self._search_complete and frac >= self._coverage_threshold:
                 self._search_complete = True
+                self._completion_reason = 'coverage'
                 self.get_logger().info(
                     f'search complete: coverage {frac * 100:.1f}% '
                     f'>= {self._coverage_threshold * 100:.1f}% '
@@ -1608,6 +1794,8 @@ class RavenNavNode(Node):
                     throttle_duration_sec=2.0)
 
         if self._search_complete:
+            # Final dump on the coverage path, forced to capture the reason.
+            self._maybe_dump_results(force=True)
             if self._cur_pose is not None:
                 hover = Path()
                 hover.header.stamp = self.get_clock().now().to_msg()
@@ -1679,6 +1867,9 @@ class RavenNavNode(Node):
             parts.append(f'completed={completed}')
         self.get_logger().info(' '.join(parts), throttle_duration_sec=2.0)
 
+        # Keep the result file fresh so a cancel has current data to compile.
+        self._maybe_dump_results()
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -1688,5 +1879,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        # Best-effort final dump on shutdown (e.g. SIGTERM on task cancel).
+        try:
+            node._maybe_dump_results(force=True)
+        except Exception:
+            pass
         node.destroy_node()
         rclpy.shutdown()

@@ -82,16 +82,20 @@ steps:
   # Let the relay/GPS state settle before the polygon transform.
   - wait: 5
 
-  # Start the semantic search on all robots in parallel. Each robot gets the
-  # same global-ENU polygon (the relay localizes it per robot). The polygon
-  # below is exactly what was entered in the Foxglove polygon field:
-  #   [[-150,-110,0],[-150,70,0],[170,70,0],[170,-110,0]]
-  # The step completes when each robot reports the polygon explored
-  # (coverage >= raven's coverage_complete_threshold) — the baseline has no
-  # early exit from finding the target.
+  # Semantic search on all robots in parallel; the relay localizes the same
+  # global-ENU polygon per robot.
+  #
+  # Run budget = 15 min OR 80% explored, whichever first:
+  #   - 80%  → semantic_search_task sets raven coverage_complete_threshold=0.80,
+  #            which succeeds the task early.
+  #   - 15m  → timeout_s + cancel_on_timeout: osmo cancels at the deadline so
+  #            semantic_search_task runs its compile + metrics finalize.
+  # Both paths write compiled_results.json / metrics.json /
+  # groundtruth_comparison.json to /root/.cache/raven_results (host-visible).
   - action:
       task: semantic_search
-      timeout_s: 7200
+      timeout_s: 900
+      cancel_on_timeout: true
       goal:
         query: "house"
         background_queries: "sky, ground, grass, road"

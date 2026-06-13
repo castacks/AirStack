@@ -1,0 +1,392 @@
+[
+  {
+    "class": "bus stop",
+    "bbox_world": {
+      "center_xyz_m": [
+        -16.0,
+        10.0,
+        2.0
+      ],
+      "size_xyz_m": [
+        8.0,
+        3.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "class": "bus stop",
+    "bbox_world": {
+      "center_xyz_m": [
+        16.0,
+        50.0,
+        2.0
+      ],
+      "size_xyz_m": [
+        3.0,
+        8.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "class": "bus stop",
+    "bbox_world": {
+      "center_xyz_m": [
+        16.0,
+        -22.0,
+        2.0
+      ],
+      "size_xyz_m": [
+        3.0,
+        8.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        35.0,
+        -2.0,
+        0.5
+      ],
+      "size_xyz_m": [
+        6.0,
+        3.0,
+        2.0
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -45.0,
+        -2.8,
+        0.5
+      ],
+      "size_xyz_m": [
+        2.5,
+        5.0,
+        2.0
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        23.0,
+        -70.0,
+        0.5
+      ],
+      "size_xyz_m": [
+        6.5,
+        3.0,
+        2.0
+      ]
+    }
+  },
+  {
+    "class": "yellow motorhome",
+    "bbox_world": {
+      "center_xyz_m": [
+        53.0,
+        28.0,
+        0.5
+      ],
+      "size_xyz_m": [
+        2.5,
+        8.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        75.0,
+        -100.0,
+        19.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        28.0,
+        38.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        49.0,
+        -100.0,
+        10.0
+      ],
+      "size_xyz_m": [
+        20.0,
+        28.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        19.0,
+        -100.0,
+        20.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        28.0,
+        40.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -7.0,
+        -100.0,
+        15.0
+      ],
+      "size_xyz_m": [
+        20.0,
+        28.0,
+        30.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -33.0,
+        -100.0,
+        7.5
+      ],
+      "size_xyz_m": [
+        28.0,
+        28.0,
+        15.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -73.0,
+        -98.0,
+        17.5
+      ],
+      "size_xyz_m": [
+        27.0,
+        28.0,
+        35.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        87.0,
+        -45.0,
+        12.5
+      ],
+      "size_xyz_m": [
+        24.0,
+        28.0,
+        25.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        33.0,
+        -50.0,
+        10.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -20.0,
+        -50.0,
+        8.5
+      ],
+      "size_xyz_m": [
+        25.0,
+        25.0,
+        17.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -75.0,
+        -50.0,
+        20.0
+      ],
+      "size_xyz_m": [
+        25.0,
+        28.0,
+        40.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        33.0,
+        -20.0,
+        16.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -23.0,
+        -20.0,
+        15.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        30.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        88.0,
+        -10.0,
+        10.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -23.0,
+        25.0,
+        10.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        30.0,
+        26.0,
+        8.0
+      ],
+      "size_xyz_m": [
+        22.0,
+        25.0,
+        16.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        88.0,
+        18.0,
+        15.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        30.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        -24.0,
+        55.0,
+        16.0
+      ],
+      "size_xyz_m": [
+        24.0,
+        26.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        33.0,
+        53.0,
+        20.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        40.0
+      ]
+    }
+  },
+  {
+    "class": "building",
+    "bbox_world": {
+      "center_xyz_m": [
+        84.0,
+        75.0,
+        10.0
+      ],
+      "size_xyz_m": [
+        28.0,
+        25.0,
+        20.0
+      ]
+    }
+  }
+]

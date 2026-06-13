@@ -119,7 +119,7 @@ workflow:
       storage: 500Gi
 
   timeout:
-    # Missions run unattended and multi-iteration; 24h leaves room for long
-    # batches plus result download time in keep-alive mode. The pod is gone
-    # when this expires — fetch results first.
-    exec_timeout: 24h
+    # With keep-alive the pod sleeps after the mission until this expires (then
+    # it's gone — fetch first). Sized to stay up ~30h post-mission for
+    # osmo:fetch (mission itself runs in the first ~1-2h).
+    exec_timeout: 32h

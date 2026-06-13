@@ -28,6 +28,11 @@ class VoxelBehavior:
         self.cluster_query_map = {}
         self.visited_clusters = []
         self.unvisited_clusters = []
+        # Per-instance visited record for STATUS reporting only (label, center,
+        # size). Kept separate from visited_clusters (which gates navigation) so
+        # marking arrivals here never affects path selection — used by the
+        # frontier-only baseline's passive arrival detection.
+        self.visited_instances = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
 
@@ -36,6 +41,7 @@ class VoxelBehavior:
         self.cluster_query_map.clear()
         self.visited_clusters = []
         self.unvisited_clusters = []
+        self.visited_instances = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
 
@@ -279,6 +285,36 @@ class VoxelBehavior:
         dy = max(abs(ca[1] - cb[1]) - (ha[1] + hb[1]), 0)
         dz = max(abs(ca[2] - cb[2]) - (ha[2] + hb[2]), 0)
         return np.sqrt(dx**2 + dy**2 + dz**2)
+
+    def mark_arrivals(self, cur_pose_np, radius_m=3.0):
+        """Passively flag every currently-detected cluster the drone is within
+        radius_m of (cuboid-surface distance) as visited — per-instance and
+        label-scoped — WITHOUT publishing a path or otherwise driving
+        navigation. Lets the frontier-only baseline close out clusters the drone
+        happens to fly past (status 'visited') while the rest stay 'observing'.
+        Call after condition_check() has populated target_voxel_clusters."""
+        if cur_pose_np is None:
+            return
+        cur = np.asarray(cur_pose_np, dtype=float)
+        for cid, cluster in self.target_voxel_clusters.items():
+            center = np.array(cluster[:3], dtype=float)
+            size = np.array(cluster[3:6], dtype=float)
+            label = self.cluster_query_map.get(cid, '')
+            if self.is_visited(center, size, label):
+                continue
+            if self._cuboid_distance(cur, np.zeros(3), center, size) < radius_m:
+                self.visited_instances.append((label, center, size))
+
+    def is_visited(self, center, size, label, match_m=10.0):
+        """True if (center, size, label) matches a previously marked-visited
+        instance: same label and within match_m cuboid distance (the system's
+        same-physical-instance proximity, matching _is_near_visited)."""
+        for vlabel, vcenter, vsize in self.visited_instances:
+            if vlabel != label:
+                continue
+            if self._cuboid_distance(center, size, vcenter, vsize) < match_m:
+                return True
+        return False
 
     def _visualize_clusters(self, pub):
         markers = MarkerArray()

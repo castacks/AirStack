@@ -647,6 +647,12 @@ def run_step(stack, container, step_spec, step_index):
         # via: gcs only — no relay_feedback AND no result within this window
         # after publishing ⇒ the goal is presumed lost; fail fast and retry.
         feedback_timeout_s = int(spec.get("feedback_timeout_s", 15))
+        # cancel_on_timeout (via:gcs only): on `timeout_s`, publish a CancelGoal
+        # to the relay's .../cancel topic and wait up to cancel_grace_s for the
+        # cancelled result, so an on-cancel finalize (e.g. semantic_search's
+        # metrics) can run and return.
+        cancel_on_timeout = bool(spec.get("cancel_on_timeout", False))
+        cancel_grace_s = int(spec.get("cancel_grace_s", 120))
         robots = step_robots(spec, stack.num_robots)
         log(f"step {step_index}: action {task} {goal_json} via {via} → robots {robots}")
 
@@ -660,6 +666,11 @@ def run_step(stack, container, step_spec, step_index):
                 log(f"step {step_index}: FAILED (no gcs container)")
                 return record
 
+            # The result echo must outlive `timeout` to catch the post-cancel
+            # result.
+            echo_timeout = int(timeout + cancel_grace_s) if cancel_on_timeout \
+                else int(timeout)
+
             def send(n):
                 # Foxglove's path: String JSON on /<robot>/tasks/<task>/goal,
                 # result on .../relay_result. relay_result is latched, so a
@@ -672,13 +683,14 @@ def run_step(stack, container, step_spec, step_index):
                 result_file = f"/tmp/relay_result_{task}_{n}.out"
                 fb_file = f"/tmp/relay_feedback_{task}_{n}.out"
                 msg_yaml = json.dumps({"data": expand(goal_json, n)})
+                cancel_yaml = json.dumps({"data": "osmo: timeout cancel"})
                 script = (
                     f"rm -f {result_file} {fb_file}\n"
                     f"touch {result_file} {fb_file}\n"
-                    f"( timeout {int(timeout)} ros2 topic echo --field data "
+                    f"( timeout {echo_timeout} ros2 topic echo --field data "
                     f"{base}/relay_result >> {result_file} 2>&1 ) &\n"
                     f"sub=$!\n"
-                    f"( timeout {int(timeout)} ros2 topic echo --field data "
+                    f"( timeout {echo_timeout} ros2 topic echo --field data "
                     f"{base}/relay_feedback >> {fb_file} 2>&1 ) &\n"
                     f"fb_sub=$!\n"
                     f"sleep 3\n"
@@ -691,29 +703,52 @@ def run_step(stack, container, step_spec, step_index):
                     f"{shlex.quote(msg_yaml)} > /dev/null\n"
                     f"sent=$(date +%s)\n"
                     f"fb_seen=0\n"
-                    f"while kill -0 $sub 2>/dev/null; do\n"
+                    f"cancelled=0\n"
+                    f"deadline=$(( sent + {int(timeout)} ))\n"
+                    f"while :; do\n"
                     f"  cur=$(grep -c '^---' {result_file})\n"
                     f"  if [ \"$cur\" -gt \"$pre\" ]; then break; fi\n"
+                    f"  now=$(date +%s)\n"
                     f"  if [ \"$fb_seen\" -eq 0 ] && "
                     f"[ \"$(grep -c '^---' {fb_file})\" -gt 0 ]; then fb_seen=1; fi\n"
-                    f"  if [ \"$fb_seen\" -eq 0 ] && "
-                    f"[ $(( $(date +%s) - sent )) -ge {feedback_timeout_s} ]; then\n"
+                    f"  if [ \"$cancelled\" -eq 0 ] && [ \"$fb_seen\" -eq 0 ] && "
+                    f"[ $(( now - sent )) -ge {feedback_timeout_s} ]; then\n"
                     f"    kill $sub $fb_sub 2>/dev/null\n"
                     f"    echo 'no relay_feedback within {feedback_timeout_s}s "
                     f"of goal publish — goal presumed lost'\n"
                     f"    exit 0\n"
                     f"  fi\n"
+                    f"  if [ $now -ge $deadline ]; then\n"
+                    # Deadline: cancel + keep waiting if cancel_on_timeout, else stop.
+                    f"    if [ {1 if cancel_on_timeout else 0} -eq 1 ] && "
+                    f"[ \"$cancelled\" -eq 0 ]; then\n"
+                    f"      echo 'osmo: {int(timeout)}s timeout — sending cancel'\n"
+                    f"      ros2 topic pub --once -w 1 --keep-alive 3 "
+                    f"{base}/cancel std_msgs/msg/String "
+                    f"{shlex.quote(cancel_yaml)} > /dev/null\n"
+                    f"      cancelled=1\n"
+                    f"      deadline=$(( now + {cancel_grace_s} ))\n"
+                    f"    else\n"
+                    f"      break\n"
+                    f"    fi\n"
+                    f"  fi\n"
+                    f"  kill -0 $sub 2>/dev/null || break\n"
                     f"  sleep 1\n"
                     f"done\n"
                     f"kill $sub $fb_sub 2>/dev/null\n"
                     f"cur=$(grep -c '^---' {result_file})\n"
                     f"if [ \"$cur\" -gt \"$pre\" ]; then "
                     f"grep -v '^---' {result_file} | tail -n 1; "
-                    f"else echo 'no relay_result within {int(timeout)}s'; fi"
+                    f"else echo 'no relay_result within {echo_timeout}s'; fi"
                 )
                 r = ros2_exec(gcs, script, domain_id=0, setup_bash=GCS_SETUP_BASH,
-                              timeout=int(timeout + 30))
-                ok = '"success": true' in r.stdout
+                              timeout=int(echo_timeout + 30))
+                # For cancel_on_timeout, a returned (success=false) cancel result
+                # is the intended outcome — treat it as ok so the step doesn't
+                # retry the search or trip on_step_failure.
+                got_result = '"success"' in r.stdout
+                ok = ('"success": true' in r.stdout
+                      or (cancel_on_timeout and got_result))
                 return {"exit": r.returncode, "ok": ok,
                         "output_tail": tail(r.stdout + r.stderr)}
         else:
@@ -845,6 +880,28 @@ def snapshot_task_logs(dest_dir):
         log(f"collected {len(files)} rayfronts/raven log(s) from {name}")
 
 
+def snapshot_raven_results(dest_dir):
+    """Copy raven metrics (per-robot dumps + compiled_results / metrics /
+    groundtruth_comparison) from the shared /root/.cache/raven_results into
+    <dest_dir>/ so osmo:fetch pulls them alongside the bags."""
+    names = robot_containers()
+    if not names:
+        return
+    src = "/root/.cache/raven_results"
+    name = names[0]   # shared ./cache bind mount: any robot sees all files
+    r = docker_exec(name, f"ls {src} 2>/dev/null", timeout=15)
+    if not r.stdout.strip():
+        return
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    cp = sh(["docker", "cp", f"{name}:{src}/.", str(dest_dir)], timeout=120)
+    if cp.returncode != 0:
+        log(f"WARN: docker cp of raven_results from {name} failed: "
+            f"{cp.stderr.strip()[:200]}")
+        return
+    log(f"collected {len(list(dest_dir.glob('*.json')))} raven_results file(s) "
+        f"→ {dest_dir}")
+
+
 def snapshot_container_logs(dest_dir):
     dest_dir.mkdir(parents=True, exist_ok=True)
     pats = ("airstack", "isaac-sim", "ms-airsim")
@@ -906,6 +963,10 @@ def run_iteration(stack, mission, iter_dir):
         ready_at = stack.wait_ready(container)
         write_json(iter_dir / "ready.json", ready_at)
 
+        # Clear stale raven metrics from the shared ./cache mount so this
+        # iteration's compile doesn't pick up a prior iteration's files.
+        docker_exec(container, "rm -rf /root/.cache/raven_results", timeout=15)
+
         recorder = Recorder(container, mission, stack.num_robots, stack.setup_bash)
         recorder.start()
 
@@ -945,6 +1006,9 @@ def run_iteration(stack, mission, iter_dir):
         if container is not None or list_containers("airstack", all_states=True):
             snapshot_container_logs(iter_dir / "logs")
             snapshot_task_logs(iter_dir / "logs")
+            # Metrics live in the robot ./cache mount, not the bag staging dir —
+            # collect them before down() so osmo:fetch includes them.
+            snapshot_raven_results(iter_dir / "raven_results")
         stack.down()
         summary["duration_s"] = round(time.time() - t0, 2)
         write_json(iter_dir / "iteration.json", summary)

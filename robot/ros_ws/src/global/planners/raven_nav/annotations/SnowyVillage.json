@@ -1,0 +1,152 @@
+[
+  {
+    "class": "pond",
+    "bbox_world": {
+      "center_xyz_m": [
+        -183.6,
+        -2.6,
+        -5.0
+      ],
+      "size_xyz_m": [
+        103.5,
+        103.5,
+        0.8
+      ]
+    }
+  },
+  {
+    "class": "human",
+    "bbox_world": {
+      "center_xyz_m": [
+        -190.0,
+        -16.7,
+        -4.2
+      ],
+      "size_xyz_m": [
+        1.4,
+        2.0,
+        1.9
+      ]
+    }
+  },
+  {
+    "class": "water tower",
+    "bbox_world": {
+      "center_xyz_m": [
+        -165.6,
+        38.2,
+        7.5
+      ],
+      "size_xyz_m": [
+        26.0,
+        26.0,
+        18.3
+      ]
+    }
+  },
+  {
+    "class": "outhouse",
+    "bbox_world": {
+      "center_xyz_m": [
+        -112.1,
+        16.3,
+        0.1
+      ],
+      "size_xyz_m": [
+        2.2,
+        2.2,
+        2.5
+      ]
+    }
+  },
+  {
+    "class": "outhouse",
+    "bbox_world": {
+      "center_xyz_m": [
+        -166.3,
+        -44.5,
+        -1.6
+      ],
+      "size_xyz_m": [
+        2.4,
+        2.4,
+        2.5
+      ]
+    }
+  },
+  {
+    "class": "outhouse",
+    "bbox_world": {
+      "center_xyz_m": [
+        -119.1,
+        -64.8,
+        -0.5
+      ],
+      "size_xyz_m": [
+        2.4,
+        2.4,
+        2.5
+      ]
+    }
+  },
+  {
+    "class": "outhouse",
+    "bbox_world": {
+      "center_xyz_m": [
+        -108.1,
+        -32.5,
+        0.2
+      ],
+      "size_xyz_m": [
+        1.9,
+        2.0,
+        2.5
+      ]
+    }
+  },
+  {
+    "class": "outhouse",
+    "bbox_world": {
+      "center_xyz_m": [
+        -107.4,
+        -12.2,
+        -0.4
+      ],
+      "size_xyz_m": [
+        2.3,
+        2.7,
+        3.2
+      ]
+    }
+  },
+  {
+    "class": "bridge",
+    "bbox_world": {
+      "center_xyz_m": [
+        -172.0,
+        -7.0,
+        -3.0
+      ],
+      "size_xyz_m": [
+        15.0,
+        4.0,
+        5.0
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -136.0,
+        8.0,
+        -1.0
+      ],
+      "size_xyz_m": [
+        5.0,
+        3.0,
+        3.0
+      ]
+    }
+  }
+]

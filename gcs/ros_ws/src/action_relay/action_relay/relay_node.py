@@ -335,7 +335,9 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             result_future = robot_goal_handle.get_result_async()
             cancel_sent = False
             cancel_deadline = None
-            CANCEL_TIMEOUT_SEC = 10.0
+            # Generous so a task running an on-cancel finalize (semantic_search
+            # compiles metrics) still returns its result before we force CANCEL.
+            CANCEL_TIMEOUT_SEC = 90.0
 
             while not result_future.done():
                 if cancel_event.is_set():
