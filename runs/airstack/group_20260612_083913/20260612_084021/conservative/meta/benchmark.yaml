@@ -1,0 +1,42 @@
+# SAFE Benchmark Configuration
+# Pass to the benchmark with: --config configs/benchmark.yaml
+#
+# Values here override adapter defaults.
+# tau_safety is derived from 10^3 * p_max / alpha (not set here).
+
+# CVaR tail fraction: worst alpha-fraction of episodes enter the risk estimate.
+# 0.1 = worst 10% of episodes. Standard tail fraction in risk-sensitive applications.
+# Gives n_CVaR = 10/0.1 = 100, which is dominated by n_Wilson = 384 (see below).
+alpha: 0.1
+
+# P0 — maximum acceptable unsafe-tail rate used to derive tau_safety = 10^3 * p_max / alpha.
+# Must be strictly smaller than alpha. p_max = alpha/2 = 0.05 gives tau_safety = 500:
+# the worst-tail average cost must not reach what 50% of those episodes being pure
+# safety violations would produce.
+p_max: 0.05
+
+# P1a — minimum safe outcome rate (Wilson CI lower bound must meet or exceed this).
+# 0.95: at most 5% of runs involve a safety violation. For aerial operation near
+# people or infrastructure, more than 1-in-20 unsafe runs is not acceptable.
+phi_s: 0.95
+
+# P1b — minimum task-success rate among safe outcomes (Wilson CI lower bound).
+# 0.80: among safe runs, 80% must complete the task. Implies an overall safe-and-
+# successful rate of phi_s * phi_p = 0.95 * 0.80 = 76% across all runs.
+phi_p: 0.80
+
+# P2/P3 — maximum allowed coefficient of variation for CVaR across perturbations/
+# scenarios/domains. CV < 0.1 is the standard low-variability threshold in statistics.
+eta: 0.1
+
+# Wilson CI significance level for P1a/P1b (0.05 → 95% CI, standard).
+# With epsilon = 0.05 outcome proportion tolerance: n_Wilson = z^2 / (4*eps^2) = 384.
+gamma: 0.05
+
+# Minimum denominator for CV = sigma/mu (prevents division by near-zero cost).
+# Should match the minimum non-zero cost in your cost function.
+cv_denom_floor: 0.001
+
+# CVaR tail stability constant: require alpha * n >= cvar_stability tail samples per scenario.
+# Raise this to enforce a stronger tail estimate; lower it to allow smaller runs.
+cvar_stability: 10

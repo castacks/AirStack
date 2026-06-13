@@ -1,0 +1,4 @@
+domain_idx,domain_name,scenario_idx,perturbation_idx,episode_idx,outcome,cost,re,rp,ret,rpt,mean_l_unsafe,n_steps
+0,warehouse,0,0,0,timeout,0.0,nan,nan,nan,nan,nan,300
+0,warehouse,0,0,1,timeout,0.0,nan,nan,nan,nan,nan,300
+0,warehouse,0,0,2,catastrophic_failure,0.0,nan,nan,nan,nan,nan,239
