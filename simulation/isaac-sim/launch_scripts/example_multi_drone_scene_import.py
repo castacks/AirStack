@@ -24,6 +24,29 @@ import omni.timeline
 import omni.usd
 import omni.client
 
+# pymavlink waits on its socket with select.select(), which cannot handle
+# file descriptors >= 1024. DDS-over-TCP (fastdds LARGE_DATA) opens a TCP
+# connection per remote participant, pushing this process's fd numbers past
+# that, and every MAVLink read then throws "filedescriptor out of range in
+# select()". Replace the wait with poll(), which has no fd-number limit.
+# Must run before Pegasus creates its MAVLink connections.
+import select as _select
+import time as _time
+from pymavlink import mavutil as _mavutil
+
+def _mavfile_select_poll(self, timeout):
+    if self.fd is None:
+        _time.sleep(min(timeout, 0.5))
+        return True
+    poller = _select.poll()
+    poller.register(self.fd, _select.POLLIN)
+    try:
+        return len(poller.poll(timeout * 1000)) > 0
+    except OSError:
+        return False
+
+_mavutil.mavfile.select = _mavfile_select_poll
+
 from omni.isaac.core.world import World
 
 # Pegasus imports
