@@ -671,7 +671,23 @@ def run_step(stack, container, step_spec, step_index):
                 base = f"/robot_{n}/tasks/{task}"
                 result_file = f"/tmp/relay_result_{task}_{n}.out"
                 fb_file = f"/tmp/relay_feedback_{task}_{n}.out"
-                msg_yaml = json.dumps({"data": expand(goal_json, n)})
+                goal_data = expand(goal_json, n)
+
+                # Python script to publish with RELIABLE QoS (matching relay subscription)
+                pub_script = (
+                    f"import json, rclpy, sys\n"
+                    f"from std_msgs.msg import String\n"
+                    f"from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy\n"
+                    f"rclpy.init()\n"
+                    f"node = rclpy.create_node('_mission_publisher')\n"
+                    f"qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE, "
+                    f"durability=DurabilityPolicy.VOLATILE)\n"
+                    f"pub = node.create_publisher(String, {shlex.quote(base)}, qos)\n"
+                    f"msg = String(data={shlex.quote(goal_data)})\n"
+                    f"for _ in range(3): pub.publish(msg); rclpy.spin_once(node, timeout_sec=0.05)\n"
+                    f"node.destroy_node(); rclpy.shutdown()\n"
+                )
+
                 script = (
                     f"rm -f {result_file} {fb_file}\n"
                     f"touch {result_file} {fb_file}\n"
@@ -681,10 +697,9 @@ def run_step(stack, container, step_spec, step_index):
                     f"( timeout {int(timeout)} ros2 topic echo --field data "
                     f"{base}/relay_feedback >> {fb_file} 2>&1 ) &\n"
                     f"fb_sub=$!\n"
-                    f"sleep 3\n"
+                    f"sleep 2\n"
                     f"pre=$(grep -c '^---' {result_file})\n"
-                    f"ros2 topic pub --once {base}/goal std_msgs/msg/String "
-                    f"{shlex.quote(msg_yaml)} > /dev/null\n"
+                    f"python3 -c {shlex.quote(pub_script)}\n"
                     f"sent=$(date +%s)\n"
                     f"fb_seen=0\n"
                     f"while kill -0 $sub 2>/dev/null; do\n"
