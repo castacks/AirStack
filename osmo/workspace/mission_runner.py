@@ -705,7 +705,10 @@ def run_step(stack, container, step_spec, step_index):
                     f"cur=$(grep -c '^---' {result_file})\n"
                     f"if [ \"$cur\" -gt \"$pre\" ]; then "
                     f"grep -v '^---' {result_file} | tail -n 1; "
-                    f"else echo 'no relay_result within {int(timeout)}s'; fi"
+                    f"else\n"
+                    f"  echo 'no relay_result within {int(timeout)}s'\n"
+                    f"  echo '[DEBUG] feedback file contents:' >&2; cat {fb_file} >&2\n"
+                    f"fi"
                 )
                 r = ros2_exec(gcs, script, domain_id=0, setup_bash=GCS_SETUP_BASH,
                               timeout=int(timeout + 30))
