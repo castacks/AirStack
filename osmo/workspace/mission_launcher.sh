@@ -20,6 +20,14 @@ set -uo pipefail
 
 AIRSTACK_ROOT="${AIRSTACK_ROOT:-/root/AirStack}"
 
+# UDP socket buffer limits: fastdds.xml requests 16MB buffers for the large
+# image streams; the kernel caps requests at rmem_max/wmem_max (~212KB
+# default), and overflow drops whole frames crossing the inner docker bridge.
+# Done here (not the baked entrypoint) so it ships with the branch.
+sysctl -w net.core.rmem_max=16777216 net.core.wmem_max=16777216 \
+  net.core.rmem_default=4194304 net.core.wmem_default=4194304 \
+  || echo "[mission-launcher] WARN: could not raise UDP buffer limits — image topics may drop frames"
+
 log()  { echo "[mission-launcher] $*"; }
 fail() { echo "[mission-launcher] ERROR: $*" >&2; }
 

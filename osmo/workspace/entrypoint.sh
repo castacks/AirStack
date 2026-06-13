@@ -70,10 +70,9 @@ log "starting inner dockerd (DinD with NVIDIA runtime)"
 nvidia-ctk runtime configure --runtime=docker --set-as-default || \
   log "WARN: nvidia-ctk runtime configure failed — Isaac Sim probably won't see the GPU"
 
-# UDP socket buffer limits: fastdds.xml requests 16MB send/receive buffers
-# for the large image streams; the kernel caps requests at rmem_max/wmem_max
-# (~212KB default), and an overflowing receive buffer drops whole frames
-# crossing the inner docker bridge.
+# UDP socket buffer limits for the inner stack's large-image DDS streams.
+# Also set by mission_launcher.sh (which ships with the clone); kept here so
+# interactive airstack-dev pods get it once this image is rebuilt.
 sysctl -w net.core.rmem_max=16777216 net.core.wmem_max=16777216 \
   net.core.rmem_default=4194304 net.core.wmem_default=4194304 \
   || log "WARN: could not raise UDP socket buffer limits — large-image topics may drop frames"
