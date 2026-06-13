@@ -23,23 +23,10 @@ AIRSTACK_ROOT="${AIRSTACK_ROOT:-/root/AirStack}"
 log()  { echo "[mission-launcher] $*"; }
 fail() { echo "[mission-launcher] ERROR: $*" >&2; }
 
-# UDP socket buffer limits: fastdds.xml requests 16MB buffers for the large
-# image streams; the kernel caps requests at rmem_max/wmem_max (~212KB
-# default), and overflow drops whole frames crossing the inner docker bridge.
-# Done here (not the baked entrypoint) so it ships with the branch. sysctl
-# can fail with exit 0 ("permission denied, ignoring"), so verify by readback.
-sysctl -w net.core.rmem_max=16777216 net.core.wmem_max=16777216 \
-  net.core.rmem_default=4194304 net.core.wmem_default=4194304 >/dev/null 2>&1
-if [ "$(sysctl -n net.core.rmem_max 2>/dev/null)" = "16777216" ]; then
-  log "UDP socket buffer limits raised: net.core.rmem_max=16777216"
-else
-  log "WARN: UDP buffer limits NOT raised (rmem_max=$(sysctl -n net.core.rmem_max 2>/dev/null)) — image topics may drop frames"
-fi
-
-# Fast DDS shared-memory transport (common/fastdds.xml) lives in /dev/shm,
-# which every stack container bind-mounts from the pod. The pod default is
-# 64M — it fills with transport segments immediately and later participants
-# silently fall back to UDP. tmpfs can be regrown in place.
+# Fast DDS LARGE_DATA uses shared memory between same-host/same-version
+# participants; the segments live in /dev/shm, which every stack container
+# bind-mounts from the pod. The pod default is 64M — it fills immediately
+# and later participants then fail SHM registration. Regrow in place.
 mount -o remount,size=8G /dev/shm 2>/dev/null
 log "/dev/shm: $(df -h /dev/shm | awk 'NR==2{print $2" total, "$5" used"}')"
 
