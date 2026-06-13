@@ -1,39 +1,21 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles" >
-    <transport_descriptors>
-        <!-- Shared memory for same-host participants. SAFE ACROSS CONTAINERS
-             ONLY because every stack container bind-mounts the SAME host
-             /dev/shm (see the compose files); without that shared mount,
-             SHM locators silently deliver nothing (the classic Isaac-Sim-in-
-             docker bug that originally led to disabling SHM here). Large
-             image topics over the UDP bridge lose whole frames to socket
-             buffer overflow (~212KB kernel cap, not raisable inside the
-             containers); SHM bypasses the network stack entirely. -->
-        <transport_descriptor>
-            <transport_id>ShmTransport</transport_id>
-            <type>SHM</type>
-            <segment_size>16777216</segment_size>
-        </transport_descriptor>
-        <!-- UDP fallback for participants that don't share /dev/shm
-             (cross-machine, e.g. real robots / remote tooling). -->
-        <transport_descriptor>
-            <transport_id>UdpTransport</transport_id>
-            <type>UDPv4</type>
-            <!-- Buffer request helps where the kernel allows it (local
-                 dev machines); silently capped at rmem_max elsewhere. -->
-            <sendBufferSize>16777216</sendBufferSize>
-            <receiveBufferSize>16777216</receiveBufferSize>
-        </transport_descriptor>
-    </transport_descriptors>
-
-    <participant profile_name="shm_udp_transport_profile" is_default_profile="true">
+    <!-- LARGE_DATA builtin mode: UDP multicast for discovery, TCP (+ SHM
+         between same-version participants) for user data. Chosen because:
+         - large image messages (~600KB/frame) over UDP lose whole frames to
+           socket-buffer overflow crossing the docker bridge (kernel caps not
+           raisable on OSMO pods), and RELIABLE writers then retransmit-storm
+           (observed ~570MB/s on the bridge for ~47MB/s of payload);
+         - SHM alone can't cover the Isaac path: the isaacsim.ros2.bridge
+           ships its own Fast DDS whose SHM segments are incompatible with
+           the ROS Jazzy Fast DDS in the other containers. RTPS-over-TCP is
+           version-interoperable.
+         Requires every stack container to bind-mount the same host /dev/shm
+         (see compose files) for the SHM part; TCP needs nothing special. -->
+    <participant profile_name="large_data_profile" is_default_profile="true">
         <rtps>
-            <userTransports>
-                <transport_id>ShmTransport</transport_id>
-                <transport_id>UdpTransport</transport_id>
-            </userTransports>
-            <useBuiltinTransports>false</useBuiltinTransports>
+            <builtinTransports>LARGE_DATA</builtinTransports>
         </rtps>
     </participant>
 </profiles>
