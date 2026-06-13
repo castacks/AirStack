@@ -675,17 +675,17 @@ def run_step(stack, container, step_spec, step_index):
 
                 # Python script to publish with RELIABLE QoS (matching relay subscription)
                 pub_script = (
-                    f"import json, rclpy, sys\n"
-                    f"from std_msgs.msg import String\n"
-                    f"from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy\n"
-                    f"rclpy.init()\n"
-                    f"node = rclpy.create_node('_mission_publisher')\n"
-                    f"qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE, "
-                    f"durability=DurabilityPolicy.VOLATILE)\n"
-                    f"pub = node.create_publisher(String, {shlex.quote(base)}, qos)\n"
-                    f"msg = String(data={shlex.quote(goal_data)})\n"
-                    f"for _ in range(3): pub.publish(msg); rclpy.spin_once(node, timeout_sec=0.05)\n"
-                    f"node.destroy_node(); rclpy.shutdown()\n"
+                    "import rclpy\n"
+                    "from std_msgs.msg import String\n"
+                    "from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy\n"
+                    "rclpy.init()\n"
+                    "node = rclpy.create_node('_mission_publisher')\n"
+                    "qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE, "
+                    "durability=DurabilityPolicy.VOLATILE)\n"
+                    f"pub = node.create_publisher(String, {repr(base)}, qos)\n"
+                    f"msg = String(data={repr(goal_data)})\n"
+                    "for _ in range(3): pub.publish(msg); rclpy.spin_once(node, timeout_sec=0.05)\n"
+                    "node.destroy_node(); rclpy.shutdown()\n"
                 )
 
                 script = (
