@@ -78,6 +78,13 @@ _RELIABLE_QOS = QoSProfile(
     durability=DurabilityPolicy.VOLATILE,
 )
 
+# Goal QoS: accept both BEST_EFFORT (ros2 topic pub) and RELIABLE (foxglove_bridge)
+_GOAL_QOS = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+)
+
 # Latched: most recent message is delivered to any new / late subscriber
 # (including a Foxglove panel whose JS thread was throttled while the browser
 # tab was inactive). Used for relay_result and relay_status so the panel can
@@ -424,7 +431,7 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             _publish_status('failed', message)
 
     node0.create_subscription(
-        String, f'{topic}/goal', on_goal_str, _RELIABLE_QOS,
+        String, f'{topic}/goal', on_goal_str, _GOAL_QOS,
         callback_group=cbg,
     )
     node0.create_subscription(
