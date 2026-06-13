@@ -71,6 +71,9 @@ services:
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
+      # DDS profile: mount over the image-baked copy so transport tuning
+      # (socket buffer sizes) applies without an image rebuild
+      - ./fastdds.xml:/isaac-sim/.ros/fastdds.xml:rw
       # developer stuff
       - .dev:/isaac-sim/.dev:rw # developer config
       - .bashrc:/isaac-sim/.bashrc:rw # bash config
