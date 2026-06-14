@@ -1711,10 +1711,8 @@ class RavenNavNode(Node):
             self._behavior_manager.voxel_behavior.condition_check(
                 self._vox_xyz, self._vox_scores, self._query_labels,
                 voxel_targets, committed_origin=None, committed_dir=None)
-            # Passive arrival: clusters the drone wanders within 3 m of flip to
-            # 'visited' (per-instance); the rest stay 'observing'. This records
-            # into a separate list and never touches the navigation candidate
-            # pool, so baseline navigation stays pure frontier.
+            # Passive arrival: clusters within 3 m flip to 'visited'; never
+            # touches the nav candidate pool, so baseline stays pure frontier.
             self._behavior_manager.voxel_behavior.mark_arrivals(
                 self._cur_pose, 3.0)
             self._behavior_manager.behavior_mode = 'Frontier-based'

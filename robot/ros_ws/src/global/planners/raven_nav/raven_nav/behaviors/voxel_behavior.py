@@ -28,10 +28,8 @@ class VoxelBehavior:
         self.cluster_query_map = {}
         self.visited_clusters = []
         self.unvisited_clusters = []
-        # Per-instance visited record for STATUS reporting only (label, center,
-        # size). Kept separate from visited_clusters (which gates navigation) so
-        # marking arrivals here never affects path selection — used by the
-        # frontier-only baseline's passive arrival detection.
+        # Per-instance (label, center, size) visited record for STATUS only —
+        # separate from visited_clusters (nav) so it never affects path choice.
         self.visited_instances = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
@@ -287,12 +285,9 @@ class VoxelBehavior:
         return np.sqrt(dx**2 + dy**2 + dz**2)
 
     def mark_arrivals(self, cur_pose_np, radius_m=3.0):
-        """Passively flag every currently-detected cluster the drone is within
-        radius_m of (cuboid-surface distance) as visited — per-instance and
-        label-scoped — WITHOUT publishing a path or otherwise driving
-        navigation. Lets the frontier-only baseline close out clusters the drone
-        happens to fly past (status 'visited') while the rest stay 'observing'.
-        Call after condition_check() has populated target_voxel_clusters."""
+        """Flag detected clusters within radius_m of the drone as visited
+        (per-instance, label-scoped) without driving navigation. Call after
+        condition_check() has populated target_voxel_clusters."""
         if cur_pose_np is None:
             return
         cur = np.asarray(cur_pose_np, dtype=float)

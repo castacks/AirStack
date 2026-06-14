@@ -44,19 +44,34 @@ iterations: 3
 ready:
   timeout_s: 600
 
-# GCS-only recording for now: one mcap on domain 0 — gossip/payload topics,
-# robot_markers, polygon markers, map origin, every bridged robot topic.
-# (scope: both adds per-robot raw-data mcaps; dropped to keep subscriber
-# load off the robot domains while debugging sim throughput.)
+# GCS-only recording: one mcap on domain 0, curated topic allowlist (recording
+# all topics produced ~225 GB/iteration of point clouds once the drones fly).
 record:
   enabled: true
   scope: gcs
-  all: true
   # The bags are the experiment deliverable — abort rather than fly unrecorded.
   required: true
-  # Belt-and-braces: no image topics even if any get bridged to domain 0.
-  # Keeps camera_info and /sim/overhead/image (GCS map texture).
-  exclude: "sensors/front_stereo/.*/(image_rect|depth_ground_truth)|rayfronts/pose/img"
+  topics:
+    # tf — needed to place every marker/frame when replaying in Foxglove
+    - /tf
+    - /tf_static
+    # camera intrinsics only (small) — images/depth dropped, they dominated size
+    - /{robot}/sensors/front_stereo/left/camera_info
+    - /{robot}/sensors/front_stereo/right/camera_info
+    # consolidated robot markers (mesh, label, axes, trajectory, odom/pose, vdb)
+    - /gcs/robot_markers
+    # per-robot payload markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/voxel_rgb
+    - /gcs/payload/{robot}/raw_frontiers
+    - /gcs/payload/{robot}/kept_frontiers
+    - /gcs/payload/{robot}/completed_zones
+    - /gcs/payload/{robot}/confirmed_targets
+    # sim top-down overhead image (+ georef specs so it can be placed)
+    - /sim/overhead/image
+    - /sim/overhead/spec
+    - /sim/overhead/center_x
+    - /sim/overhead/center_y
 
 on_step_failure: abort_iteration
 

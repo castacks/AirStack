@@ -467,13 +467,9 @@ class SemanticSearchTaskNode(Node):
             self.get_logger().warn(f'Failed to cancel ExplorationTask: {e}')
 
     def _send_navigate_activator(self, robot_name: str):
-        """Put droan_gl into ADD_SEGMENT mode and let it steer to raven's
-        waypoint. Sends a NavigateTask with an EMPTY plan: droan_gl treats an
-        empty goal as a pure activator and follows the /global_plan topic
-        (raven's published waypoint) until cancelled — so raven is the single
-        steering source and random_walk's random path stays out of the loop.
-        Returns (client, send_future); same shape as _send_exploration_task so
-        the existing cancel/restart handling works unchanged."""
+        """Activate droan_gl with an empty-plan NavigateTask: it enters
+        ADD_SEGMENT and steers by the /global_plan topic (raven's waypoint)
+        until cancelled. Returns (client, send_future)."""
         client = ActionClient(
             self, NavigateTask, f'/{robot_name}/tasks/navigate',
             callback_group=self._cbg)
@@ -818,12 +814,9 @@ class SemanticSearchTaskNode(Node):
                     if msg:
                         last_rv_status = msg
 
-                # Out-of-bounds guard: raven only ever picks frontiers inside
-                # the search polygon, so if the drone starts outside it raven has
-                # nothing to steer toward and would never enter on its own. Fly
-                # it to the nearest in-bounds point first (a concrete single-pose
-                # NavigateTask droan_gl follows to completion), then hand off to
-                # raven. Runs once; skipped when already inside or unconstrained.
+                # Out-of-bounds guard: raven only picks in-polygon frontiers, so
+                # from outside it has nothing to steer toward. Fly to the nearest
+                # in-bounds point first, then hand off. Runs once.
                 if not approached_bounds and self._cur_pos is not None:
                     if _point_in_polygon_xy(self._cur_pos[0], self._cur_pos[1],
                                             search_poly):

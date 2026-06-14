@@ -454,12 +454,9 @@ private:
     const auto goal = goal_handle->get_goal();
     cancel_requested_ = false;
 
-    // A goal that carries a path (GCS exploration / random_walk) sets the plan
-    // to follow and completes when its last pose is reached. A goal with an
-    // EMPTY path is a pure activator: leave the global plan alone — steer by
-    // whatever is published on the global_plan topic (e.g. raven's waypoint) —
-    // and run until cancelled. This keeps a single steering source instead of
-    // letting the goal path and the topic clobber each other.
+    // A goal with a path sets the plan and completes on arrival. An EMPTY goal
+    // is a pure activator: leave the plan alone (steer by the global_plan topic,
+    // e.g. raven) and run until cancelled — keeps a single steering source.
     const bool have_goal_plan = !goal->global_plan.poses.empty();
     if (have_goal_plan)
       global_plan->set_global_plan(
