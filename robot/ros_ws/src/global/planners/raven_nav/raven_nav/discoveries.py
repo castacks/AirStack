@@ -8,8 +8,7 @@ visualizer. It's produced each tick from:
 
 Two rules govern aggregation:
   1. ConfirmedTargets (AABBs) dedupe by spatial overlap — AABB intersection
-     OR centroid-to-centroid distance below half_diag_A + half_diag_B + margin.
-     Confidence/status of the merged entry takes the strongest input.
+     OR surface gap below margin. Confidence/status takes the strongest input.
   2. RayTargets that were attached to a BB during build_targets are absorbed
      into the corresponding ConfirmedTarget. RayTargets without a bb_id stay
      as separate Discoveries with status='confirmed' or 'unconfirmed'.
@@ -29,13 +28,10 @@ import numpy as np
 from raven_nav.ray_targets import RayTarget
 
 
-DEDUP_MARGIN_M = 8.0
-# Distance buffer added on top of (half_diag_a + half_diag_b) when deciding
-# whether two same-label ConfirmedTargets refer to the same physical instance.
-# 8 m glues together typical voxel-fragment AABBs of a single house even when
-# the fragments are small (~2-3 m half-diag each). Tighten if you observe two
-# genuinely distinct objects merging; loosen if a single object keeps splitting
-# into multiple discoveries.
+# Max surface gap (not centroid distance) for two same-label AABBs to count as
+# one instance. Small so fragments of one object glue without bridging to a
+# neighbour; size-independent, so large objects still merge from their parts.
+DEDUP_MARGIN_M = 2.0
 
 
 @dataclass
@@ -47,9 +43,6 @@ class ConfirmedTarget:
     status: str = 'observing'   # 'observing' | 'visited'
     confidence: float = 0.0
     ts: float = 0.0
-
-    def half_diag(self) -> float:
-        return float(np.linalg.norm(self.size) / 2.0)
 
 
 @dataclass
@@ -74,14 +67,22 @@ def aabb_overlap(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
     )
 
 
+def aabb_surface_gap(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
+    """Shortest distance between the two AABBs' surfaces. 0 if they overlap or
+    one is a subset of the other."""
+    ha = a.size / 2.0
+    hb = b.size / 2.0
+    gap = np.maximum(np.abs(a.center - b.center) - (ha + hb), 0.0)
+    return float(np.linalg.norm(gap))
+
+
 def _should_merge(a: ConfirmedTarget, b: ConfirmedTarget,
                   margin: float = DEDUP_MARGIN_M) -> bool:
     if a.label != b.label:
         return False
-    if aabb_overlap(a, b):
+    if aabb_overlap(a, b):   # covers subset
         return True
-    d = float(np.linalg.norm(a.center - b.center))
-    return d <= (a.half_diag() + b.half_diag() + margin)
+    return aabb_surface_gap(a, b) <= margin
 
 
 def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:

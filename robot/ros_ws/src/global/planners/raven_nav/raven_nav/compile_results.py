@@ -4,9 +4,9 @@
 Each raven_nav node writes ``<results_dir>/<robot>.json`` (own AABBs + per-target
 event log + path length, all in **global ENU**). This script reads every such
 file, merges the AABBs across robots with the *same* dedup logic raven uses at
-runtime (``discoveries.merge_confirmed_targets`` — overlap OR centroid distance
-below ``half_diag_a + half_diag_b + margin``), so two boxes that refer to the
-same physical house collapse into one. It then aggregates discovery/confirmation/
+runtime (``discoveries.merge_confirmed_targets`` — overlap OR surface gap below
+margin), so two boxes that refer to the same physical house collapse into one.
+It then aggregates discovery/confirmation/
 visit timestamps and multi-robot path-cost metrics.
 
 Status matters: a merged AABB is ``visited`` if *any* contributing robot marked it

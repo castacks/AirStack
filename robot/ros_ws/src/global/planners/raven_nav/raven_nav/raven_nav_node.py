@@ -657,7 +657,7 @@ class RavenNavNode(Node):
         for d in discoveries:
             if targets and d.label not in targets:
                 continue   # skip background labels
-            pos_enu = np.asarray(d.position, dtype=float) + self._boot_enu
+            pos_enu = self._local_to_world(d.position)
             has_aabb = d.size is not None
             is_visited = has_aabb and str(d.status).lower() == 'visited'
             ev = self._match_event(d.label, pos_enu)
@@ -706,15 +706,23 @@ class RavenNavNode(Node):
         self._last_results_dump_ts = now
         self._write_results()
 
+    def _local_to_world(self, p) -> np.ndarray:
+        """Local 'map' point → annotation/world frame: add boot ENU in X/Y, but
+        keep Z as AGL (ground-relative). boot_enu[2] = alt_ground - origin_alt
+        reflects the scene-vs-datum altitude gap, which the ground-relative GT
+        annotations don't have — adding it would lift detections ~tens of m."""
+        b = self._boot_enu
+        p = np.asarray(p, dtype=float)
+        return np.array([p[0] + b[0], p[1] + b[1], p[2]], dtype=float)
+
     def _write_results(self) -> None:
-        """Serialize own AABBs (global ENU) + event log + path length."""
+        """Serialize own AABBs (world frame) + event log + path length."""
         if not self._results_dir or self._boot_enu is None:
             return
         now = self.get_clock().now().nanoseconds * 1e-9
-        boot = self._boot_enu
         targets = []
         for ct in self._own_confirmed_targets():
-            center_enu = (np.asarray(ct.center, dtype=float) + boot).tolist()
+            center_enu = self._local_to_world(ct.center).tolist()
             targets.append({
                 'label': ct.label,
                 'center_enu': center_enu,
@@ -740,7 +748,7 @@ class RavenNavNode(Node):
             })
         out = {
             'robot': self._robot_name,
-            'boot_enu': boot.tolist(),
+            'boot_enu': self._boot_enu.tolist(),
             'alt_ground': self._alt_ground,
             'mission_start_ts': start,
             'dump_ts': now,
