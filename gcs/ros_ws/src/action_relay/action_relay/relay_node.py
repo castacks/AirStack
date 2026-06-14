@@ -313,7 +313,18 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             feedback_callback=_on_feedback,
         )
 
+        # Bound the accept wait: a flaky domain-N link can otherwise spin here
+        # forever, emitting neither feedback nor result. Publish a result so
+        # callers get a definite failure and retry.
+        accept_deadline = time.monotonic() + 8.0
         while not send_future.done():
+            if time.monotonic() > accept_deadline:
+                node0.get_logger().warn(
+                    f'[relay] {topic}: goal-accept timed out — robot server did '
+                    f'not respond')
+                _publish_result(
+                    False, 'Robot did not respond to goal (accept timed out)')
+                return
             executorN.spin_once(timeout_sec=0.05)
 
         robot_goal_handle = send_future.result()
