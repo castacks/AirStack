@@ -37,6 +37,7 @@ tests/conftest.py and tests/system/test_takeoff_hover_land.py.
 import argparse
 import json
 import os
+import re
 import shlex
 import signal
 import subprocess
@@ -234,6 +235,14 @@ def load_mission(path):
     if merged["record"].get("scope", "gcs") not in ("gcs", "robot", "both"):
         raise ValueError(f"record.scope must be gcs|robot|both, "
                          f"got {merged['record'].get('scope')!r}")
+    envs = merged.get("environments") or []
+    if not isinstance(envs, list):
+        raise ValueError("environments must be a list of environment entries")
+    for e in envs:
+        if not isinstance(e, dict) or "name" not in e:
+            raise ValueError(f"each environments entry must be a mapping with a "
+                             f"'name' key, got {e!r}")
+    merged["environments"] = envs
     for step in merged["steps"]:
         action = step.get("action") if isinstance(step, dict) else None
         if action:
@@ -280,6 +289,54 @@ def uses_gcs_route(mission):
     return False
 
 
+# ── per-iteration environment cycling ──────────────────────────────────────
+# An optional top-level `environments:` list lets one mission run cycle through
+# several scenes: iteration i uses environments[(i-1) % len]. Within an entry,
+# UPPERCASE keys (ENV_URL, SPAWN_POLY, …) are exported as env vars before
+# `airstack up` (so they reach the isaac-sim container); any key can be
+# referenced from a step via a {{env.KEY}} placeholder (e.g. the search_area
+# polygon, which must track the scene).
+
+_ENV_PLACEHOLDER = re.compile(r"\{\{\s*env\.([A-Za-z0-9_]+)\s*\}\}")
+
+
+def env_exports(env_entry):
+    """UPPERCASE keys of an environment entry → env vars for `airstack up`.
+    Structured values are JSON-encoded so SPAWN_POLY can be written either as a
+    YAML list or as a JSON string in the mission spec."""
+    return {k: (v if isinstance(v, str) else json.dumps(v))
+            for k, v in env_entry.items() if k.isupper()}
+
+
+def substitute_env(obj, env_entry):
+    """Replace {{env.KEY}} placeholders in a (copy of a) step spec with values
+    from the current environment entry. A string that is *exactly* one
+    placeholder yields the raw value (so {{env.search_area}} can resolve to a
+    dict); a placeholder embedded in a larger string is substituted textually."""
+    if isinstance(obj, str):
+        whole = _ENV_PLACEHOLDER.fullmatch(obj.strip())
+        if whole:
+            return _lookup_env(env_entry, whole.group(1))
+
+        def repl(m):
+            val = _lookup_env(env_entry, m.group(1))
+            return val if isinstance(val, str) else json.dumps(val)
+        return _ENV_PLACEHOLDER.sub(repl, obj)
+    if isinstance(obj, dict):
+        return {k: substitute_env(v, env_entry) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [substitute_env(v, env_entry) for v in obj]
+    return obj
+
+
+def _lookup_env(env_entry, key):
+    if key not in env_entry:
+        raise ValueError(f"{{{{env.{key}}}}} referenced in a step but not found in "
+                         f"environment '{env_entry.get('name')}' "
+                         f"(available keys: {sorted(env_entry)})")
+    return env_entry[key]
+
+
 # ── stack lifecycle ────────────────────────────────────────────────────────
 
 class Stack:
@@ -301,6 +358,12 @@ class Stack:
             self.env.setdefault("COMPOSE_PROFILES", "desktop,isaac-sim")
         self.num_robots = int(self.env["NUM_ROBOTS"])
         self.setup_bash = mission["robot_setup_bash"]
+
+    def apply_env(self, overrides):
+        """Merge per-iteration env-var overrides (from an `environments:` entry)
+        into the bring-up environment so the next `airstack up` sees them."""
+        for k, v in overrides.items():
+            self.env[k] = v if isinstance(v, str) else str(v)
 
     def _airstack(self, verb, timeout, extra_args=()):
         log(f"airstack {verb} {' '.join(extra_args)} "
@@ -1044,12 +1107,30 @@ def main():
     run_dir.mkdir(parents=True)
     log(f"results → {run_dir}")
 
+    environments = mission.get("environments") or []
+    if environments:
+        log(f"cycling {len(environments)} environment(s) across iterations: "
+            f"{[e['name'] for e in environments]}")
+
     iterations = []
     for i in range(1, mission["iterations"] + 1):
         log(f"━━━ iteration {i}/{mission['iterations']} ━━━")
         iter_dir = run_dir / f"iter_{i:03d}"
-        summary = run_iteration(stack, mission, iter_dir)
+        # Select + apply this iteration's environment (scene URL + spawn area as
+        # env vars for `airstack up`; search_area et al. templated into steps).
+        if environments:
+            env_entry = environments[(i - 1) % len(environments)]
+            log(f"environment: {env_entry['name']} "
+                f"(ENV_URL={env_entry.get('ENV_URL')})")
+            stack.apply_env(env_exports(env_entry))
+            iter_mission = {**mission, "steps": substitute_env(mission["steps"], env_entry)}
+        else:
+            env_entry = None
+            iter_mission = mission
+        summary = run_iteration(stack, iter_mission, iter_dir)
         summary["iteration"] = i
+        if env_entry is not None:
+            summary["environment"] = env_entry["name"]
         iterations.append(summary)
         write_json(run_dir / "summary.json",
                    {"mission": mission["name"], "mission_file": args.mission_file,

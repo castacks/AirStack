@@ -15,6 +15,7 @@ carb.settings.get_settings().set(
     "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
 )
 
+import json
 import os
 import sys
 import time
@@ -60,6 +61,7 @@ _LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _LAUNCH_SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
 from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
+from spawn_utils import generate_spawn_configs, polygon_centroid
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import (
@@ -77,10 +79,20 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/Shipyard.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+
+# Env override (set by the mission runner per iteration; falls back to the
+# hardcoded ENV_URL above when running standalone). The override may be a full
+# URL (omniverse://… or file://…) OR just the path after the nucleus server,
+# e.g. "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd" — in
+# which case the omniverse://{NUCLEUS_SERVER}/ prefix is prepended.
+_env_url_override = os.environ.get("ENV_URL")
+if _env_url_override:
+    ENV_URL = (_env_url_override if "://" in _env_url_override
+               else f"omniverse://{NUCLEUS_SERVER}/{_env_url_override.lstrip('/')}")
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
@@ -119,11 +131,50 @@ SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
 #     ]
 
 
-DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
-    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
-    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
+LIDAR_MIN_RANGE_M = 0.75
+
+# Hardcoded fallback layout, used when SPAWN_POLY is not set (standalone runs).
+_DEFAULT_DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
     ]
+
+# Spawn-area override: when SPAWN_POLY is set (the mission runner sets it per
+# iteration), generate a randomized, collision-free layout inside it instead of
+# using the fallback above. SPAWN_POLY is JSON — 2 opposite corners for an
+# axis-aligned rectangle ("[[11,6.5],[-13,-6.5]]") or >=3 corners for a convex
+# polygon. NUM_ROBOTS sets the count; SPAWN_SEED (optional) makes it
+# reproducible; SPAWN_MIN_DIST_M / SPAWN_MARGIN_M tune spacing and edge inset.
+_SPAWN_POLY = os.environ.get("SPAWN_POLY")
+if _SPAWN_POLY:
+    _poly = json.loads(_SPAWN_POLY)
+    # Seed: honour SPAWN_SEED when set (reproducible layout), otherwise derive a
+    # fresh seed from the wall clock + PID so every container bring-up gets a
+    # different spawn layout. The effective seed is logged below so any run can
+    # still be reproduced by setting SPAWN_SEED to it.
+    _spawn_seed = os.environ.get("SPAWN_SEED") or f"{time.time_ns()}-{os.getpid()}"
+    DRONE_CONFIGS = generate_spawn_configs(
+        _poly,
+        n=int(os.environ.get("NUM_ROBOTS", "3")),
+        z_m=SPAWN_HEIGHT_ABOVE_FLOOR_M,
+        lidar_min_range=LIDAR_MIN_RANGE_M,
+        min_dist=float(os.environ.get("SPAWN_MIN_DIST_M") or 3.0),
+        margin=float(os.environ.get("SPAWN_MARGIN_M") or 0.0),
+        seed=_spawn_seed,
+    )
+    _spawn_center = polygon_centroid(_poly)
+else:
+    DRONE_CONFIGS = _DEFAULT_DRONE_CONFIGS
+    _spawn_center = (0.0, 0.0)
+    _spawn_seed = None
+
+# Logged so each iteration's chosen environment + layout (+ the seed that
+# produced it) is captured in the isaac-sim container logs, which mission_runner
+# snapshots per iteration.
+print(f"[spawn] ENV_URL={ENV_URL}", flush=True)
+print(f"[spawn] SPAWN_SEED={_spawn_seed}", flush=True)
+print(f"[spawn] DRONE_CONFIGS={json.dumps(DRONE_CONFIGS)}", flush=True)
 
 # Top-down "map" camera. Captures one aerial of the static scene that the
 # GCS visualizer turns into a textured ground in Foxglove's 3D panel. The
@@ -131,8 +182,12 @@ DRONE_CONFIGS = [
 # meters — leave both 0.0 for the legacy origin-centered behavior.
 OVERHEAD_ALTITUDE_M    = 165.0
 OVERHEAD_COVERAGE_M    = 300  # per-map knob: world meters per side.
-OVERHEAD_CENTER_X_M    = 0.0 #-152     # world-X of camera center / texture center.
-OVERHEAD_CENTER_Y_M    = 0.0 #-80     # world-Y of camera center / texture center.
+# Default the overhead camera to the centre of the spawn area so the aerial
+# texture frames the drones in whichever environment is active (the three test
+# scenes sit in completely different coordinate regions). Override explicitly
+# with OVERHEAD_CENTER_X_M / OVERHEAD_CENTER_Y_M.
+OVERHEAD_CENTER_X_M    = float(os.environ.get("OVERHEAD_CENTER_X_M") or _spawn_center[0])
+OVERHEAD_CENTER_Y_M    = float(os.environ.get("OVERHEAD_CENTER_Y_M") or _spawn_center[1])
 OVERHEAD_PX_PER_METER  = 10.0     # Source-image density. Bump for sharper texture.
 OVERHEAD_TOPIC         = "/sim/overhead/image"
 OVERHEAD_SPEC_TOPIC    = "/sim/overhead/spec"

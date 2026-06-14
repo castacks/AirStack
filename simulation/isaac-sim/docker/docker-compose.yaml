@@ -45,6 +45,16 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # Per-environment scene + spawn-area overrides (set by the mission runner
+      # per iteration; read by example_multi_drone_scene_import.py / spawn_utils.py).
+      # Empty by default → the launch script keeps its hardcoded fallbacks.
+      - ENV_URL=${ENV_URL:-}
+      - SPAWN_POLY=${SPAWN_POLY:-}
+      - SPAWN_SEED=${SPAWN_SEED:-}
+      - SPAWN_MIN_DIST_M=${SPAWN_MIN_DIST_M:-3.0}
+      - SPAWN_MARGIN_M=${SPAWN_MARGIN_M:-0.0}
+      - OVERHEAD_CENTER_X_M=${OVERHEAD_CENTER_X_M:-}
+      - OVERHEAD_CENTER_Y_M=${OVERHEAD_CENTER_Y_M:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
