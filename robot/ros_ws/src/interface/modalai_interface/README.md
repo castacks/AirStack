@@ -218,221 +218,45 @@ airstack down
 
 ---
 
-## Hardware Test (VOXL2)
+## Hardware Test (Starling 2 Max / VOXL2)
 
-This test does the same thing as the simulation test — arms the drone through the interface and confirms the props spin — but against the real VOXL2 hardware instead of Isaac Sim. The robot container still runs on your workstation. The VOXL2 just needs to be reachable over the network so that DDS topics flow between them.
+Arms the drone through `modalai_interface` and confirms props spin on real hardware.
+Not testing flight — just verifying the full AirStack → PX4 command path works.
 
----
+- **`--force`**: bypasses EKF2 yaw alignment preflight check (needed on bench because OpenVINS timestamps are stale → VIO never reaches PX4). For actual flight this must be fixed.
+- **`--network host`**: required because VOXL2's internal Docker bridge conflicts with the desktop's bridge (both `172.31.0.0/24`), breaking bidirectional DDS. Host-network bypasses all Docker NAT.
 
-### Step 1 — Physical setup
-
-Power on the drone and make sure it is sitting on a flat surface. **Remove the propellers** before running any arming test for the first time. You can always reattach them once you have confirmed the arm command works.
-
-Connect the VOXL2 to the same network as your workstation. The easiest way is a direct Ethernet cable between the drone and your router, or connecting it to the same WiFi network your workstation is on. DDS (the ROS 2 communication layer) uses UDP multicast, which only works if both machines are on the same network segment — it will not work over ADB USB alone.
-
----
-
-### Step 2 — Connect via ADB and verify the drone's internal services
-
-Plug a USB cable from the VOXL2 into your workstation. ADB lets you open a shell directly on the drone without needing SSH or a password.
+### Run the script
 
 ```bash
-# Confirm the VOXL2 is visible
-adb devices
+# USB cable (workstation on different subnet from drone's WiFi)
+./robot/ros_ws/src/interface/modalai_interface/scripts/run_hw_test.sh
+
+# WiFi (workstation already on same network as drone — Linux only, requires sshpass)
+./robot/ros_ws/src/interface/modalai_interface/scripts/run_hw_test.sh --wifi
+
+# Leave interface running without spinning props (for manual testing)
+./robot/ros_ws/src/interface/modalai_interface/scripts/run_hw_test.sh --up-only
+
+# Custom spin duration (default 10s) or override VOXL2 WiFi IP
+./robot/ros_ws/src/interface/modalai_interface/scripts/run_hw_test.sh --duration 5
+./robot/ros_ws/src/interface/modalai_interface/scripts/run_hw_test.sh --wifi --voxl-ip <ip>
 ```
 
-You should see one device listed. If you see nothing, check the USB cable and that ADB is installed (`sudo apt install adb`).
+USB mode requires `sudo` + `adb`. WiFi mode requires `sshpass` (`sudo apt install sshpass`).
+For first-time USB setup or manual steps see [VOXL2_USB_ETHERNET.md](VOXL2_USB_ETHERNET.md).
 
-```bash
-# Open a shell on the drone
-adb shell
-```
-
-Once inside, check that the two services the interface depends on are running:
-
-```bash
-# The MicroXRCE-DDS bridge — bridges PX4's internal topics to ROS 2
-systemctl status voxl-microdds-agent
-
-# PX4 flight controller
-systemctl status voxl-px4
-```
-
-Both should show `active (running)`. If either is not:
-
-```bash
-systemctl start voxl-microdds-agent
-systemctl start voxl-px4
-```
-
-> **Note:** On Starling 2 Max firmware, `voxl-inspect-services` and `voxl-start-services` do not exist — use `systemctl` instead. The commands below are kept for reference on older firmware only.
->
-> ```bash
-> # (older firmware only — may not work)
-> # voxl-inspect-services | grep mpa-to-ros
-> # voxl-inspect-services | grep px4
-> # voxl-start-services voxl-mpa-to-ros2
-> # voxl-start-services voxl-px4-to-ros
-> ```
-
-Next, start `voxl-mpa-to-ros2`. On Starling 2 Max firmware it is not a systemd service — run it manually:
-
-```bash
-source /opt/ros/foxy/mpa_to_ros2/install/setup.bash
-nohup ros2 run voxl_mpa_to_ros2 voxl_mpa_to_ros2_node > /tmp/mpa_to_ros2.log 2>&1 &
-```
-
-> **Note:** On this firmware VIO is published on `/vvhub_body_wrt_fixed/pose` instead of `/qvio`. `modalai_hardware.launch.xml` has been updated accordingly. If you are on firmware that does publish `/qvio`, revert the `voxl_qvio_topic` arg in that launch file.
-
-Find the VOXL2's IP address and ROS domain ID:
-
-```bash
-ip addr show wlan0   # use eth0 if ethernet-connected
-printenv ROS_DOMAIN_ID   # empty means domain 0
-```
-
-Write down the IP and domain ID. Then exit the ADB shell:
-
-```bash
-exit
-```
-
-**Optional — VOXL Portal (web UI):** Forward the portal port over ADB, then open it in your browser:
-
-```bash
-# On your workstation:
-adb forward tcp:8080 tcp:80
-# Then open: http://localhost:8080
-```
-
----
-
-### Step 3 — Confirm network connectivity from your workstation
-
-```bash
-ping <VOXL2_IP>
-```
-
-You should get replies. If not, the drone and workstation are not on the same network segment and DDS will not work.
-
----
-
-### Step 4 — Set COM_RCL_EXCEPT on the drone
-
-This PX4 parameter allows arming in offboard mode without a physical RC transmitter connected. From the ADB shell, open the PX4 console and set it:
-
-```bash
-voxl-px4-shell
-# Now at the PX4 prompt (pxh>):
-param set COM_RCL_EXCEPT 4
-exit
-```
-
----
-
-### Step 5 — Build modalai_interface on your workstation
-
-Only needed once, or after any code changes.
-
-```bash
-AUTOLAUNCH=false airstack up robot-desktop
-
-docker exec airstack-robot-desktop-1 bash -c \
-  "source ~/.bashrc && bws --packages-select px4_msgs modalai_interface"
-```
-
----
-
-### Step 6 — Configure FastDDS UDP-only in the robot container
-
-The robot container defaults to shared-memory DDS transport, which only works within the same machine. Switching to UDP-only allows it to discover the VOXL2's topics over the network.
-
-```bash
-docker exec airstack-robot-desktop-1 bash -c 'mkdir -p /root/.ros && cat > /root/.ros/fastdds.xml << EOF
-<?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
-    <transport_descriptors>
-        <transport_descriptor>
-            <transport_id>UdpTransport</transport_id>
-            <type>UDPv4</type>
-        </transport_descriptor>
-    </transport_descriptors>
-    <participant profile_name="udp_transport_profile" is_default_profile="true">
-        <rtps>
-            <userTransports>
-                <transport_id>UdpTransport</transport_id>
-            </userTransports>
-            <useBuiltinTransports>false</useBuiltinTransports>
-        </rtps>
-    </participant>
-</profiles>
-EOF'
-```
-
----
-
-### Step 7 — Launch modalai_interface
-
-Use `modalai_hardware.launch.xml`. This is the same as the sim launch except it does not start `sim_qvio_bridge` — the real VOXL2 publishes VIO directly. Replace `<VOXL_DOMAIN>` with the domain ID you found in Step 2 (use `0` if `ROS_DOMAIN_ID` was empty).
-
-```bash
-docker exec -d airstack-robot-desktop-1 bash -c \
-  "export ROBOT_NAME=robot_1 ROS_DOMAIN_ID=<VOXL_DOMAIN> FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml && \
-   source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   ros2 launch modalai_interface modalai_hardware.launch.xml > /tmp/modalai_interface.log 2>&1"
-
-sleep 10
-```
-
----
-
-### Step 8 — Verify odometry is flowing from the drone
-
-This confirms the full path: VOXL2 publishes VIO (`/vvhub_body_wrt_fixed/pose` on Starling 2 Max firmware) → modalai_interface converts NED/FRD to ENU/FLU → `/robot_1/interface/odometry`. If the drone is sitting still you should see near-zero position values.
-
-```bash
-docker exec airstack-robot-desktop-1 bash -c \
-  "source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   ROS_DOMAIN_ID=<VOXL_DOMAIN> timeout 5 ros2 topic echo /robot_1/interface/odometry --once"
-```
-
-If nothing comes back, check `/tmp/modalai_interface.log` and confirm `voxl-mpa-to-ros2` is publishing `/qvio` on the drone (re-run Step 2).
-
----
-
-### Step 9 — Run the prop spin test
-
-This is identical to the simulation test. The interface receives the arm command, forwards it to PX4 on the VOXL2, and PX4 arms. If you left propellers on, they will spin.
-
-```bash
-docker exec airstack-robot-desktop-1 bash -c \
-  "source /root/AirStack/robot/ros_ws/install/setup.bash && \
-   FASTRTPS_DEFAULT_PROFILES_FILE=/root/.ros/fastdds.xml \
-   ROS_DOMAIN_ID=<VOXL_DOMAIN> ROBOT_NAME=robot_1 \
-   python3 /root/AirStack/robot/ros_ws/src/interface/modalai_interface/scripts/prop_spin_test.py 15"
-```
-
-The script will print `interface verified` if PX4 armed successfully, then disarm after 15 seconds.
-
----
-
-### Step 10 — Tear down
-
-```bash
-airstack down
-```
-
----
-
-## Troubleshooting
+### Troubleshooting
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `voxl-open-vins-server` repeatedly logs `In init too long, timeout, retry RESET` | IMU overheated or needs recalibration | Power off the drone for 10 minutes to cool, then retry. If it persists, recalibrate IMU/accelerometer via QGroundControl (Sensors tab). |
-| `voxl-open-vins-server` logs `Cannot initialize FRD to IMU transform--too much drift` | Same as above — IMU bias too high for VIO to initialize | Same fix: cool down + recalibrate. |
-| `voxl-camera-server` logs `preview buffer pool has 0 free, skipping request` | Too many consumers of the tracking camera stream | Kill any extra `voxl_mpa_to_ros2_node` instances (`pkill -f voxl_mpa_to_ros2_node`) and restart camera/VIO services. |
-| `ros2 topic hz /vvhub_body_wrt_fixed/pose` returns nothing | `voxl_mpa_to_ros2_node` not running or died after shell exit | Re-run the `nohup ros2 run ...` command from Step 2 in a new ADB shell. |
-| Prop spin test times out waiting for PX4 to arm | VIO not initialized → PX4 EKF unhealthy | Ensure `voxl-open-vins-server` is running cleanly and `/vvhub_body_wrt_fixed/pose` is publishing before running the test. |
+| `ping 192.168.123.2` fails | USB NCM not set up or cable reconnected | Re-run usb-ncm + usb-rebind services, assign workstation IP (see VOXL2_USB_ETHERNET.md). |
+| DDS topics listed but no data flows | `wlan0` still up; microdds-agent advertising unreachable WiFi IP | `adb shell "ip link set wlan0 down"` then restart microdds-agent. |
+| `robot_command` service not found | Container not started or still initializing | `docker logs modalai-hw-test`; wait a few more seconds. |
+| PX4 did not arm within 20s | `cs_yaw_align: False` — VIO not flowing | Use `--force`. Expected on bench. |
+| `voxl-mpa-ros2.service` failed (status=250) | `HOME` not set in systemd unit | Add `Environment=HOME=/root` and `Environment=ROS_LOG_DIR=/tmp/ros2_log` to unit file. |
+| `voxl-vision-hub` logs `VIO time X.Xs too old` | OpenVINS timestamps ~0.9s behind wall clock | Known issue. Use `--force` for bench. Fix clock domain mismatch in OpenVINS config for real flights. |
+| `voxl-open-vins-server` logs `In init too long, retry RESET` | IMU overheated or needs recalibration | Power off 10 min, recalibrate via QGroundControl → Sensors. |
 
 ---
 
