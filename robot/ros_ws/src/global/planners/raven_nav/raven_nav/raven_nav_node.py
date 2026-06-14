@@ -152,7 +152,7 @@ class RavenNavNode(Node):
         self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.7).value)
+            'voxel_score_threshold', 0.85).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 30).value)
 
