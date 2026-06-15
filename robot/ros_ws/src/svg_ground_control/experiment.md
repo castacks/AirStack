@@ -409,6 +409,23 @@ The config sets fixed frame `map` and adds the MarkerArray display. If you
 open a bare `rviz2`: set Fixed Frame = `map`, Add → By topic →
 `/svg/viz/markers`. This is the unified "see all drones" view for hybrid runs.
 
+**Hand-carry / preflight (no flight needed).** The markers come from
+`swarm_commander`, not the drones directly, so the chain is: interface layer
+→ `/{name}/odometry_conversion/odometry` → commander → `/svg/viz/markers` →
+RViz. To watch drones move by hand with nothing armed:
+1. bring up the per-drone interfaces (Part A A3 for sim, or Part D D1–D4 for
+   hardware: px4_interface + mocap bridge + NatNet) so odometry flows;
+2. launch `ground_control.launch.py` but **do NOT call takeoff** — the
+   commander idles in IDLE, publishes zero commands, and still publishes
+   markers every tick;
+3. launch RViz.
+Now move each drone by hand and its sphere tracks live — the ideal hardware
+preflight to confirm mocap→odometry matches reality before arming. If RViz is
+empty: `ros2 topic hz /svg/viz/markers` (should be ~20 Hz; if silent the
+commander isn't running) and `ros2 topic echo
+/{name}/odometry_conversion/odometry --once` (a drone with no odometry is
+skipped in the markers).
+
 ---
 
 ## Geofence
