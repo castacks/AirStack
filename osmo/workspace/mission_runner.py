@@ -928,10 +928,16 @@ def run_step(stack, container, step_spec, step_index):
 # ── artifacts ──────────────────────────────────────────────────────────────
 
 def snapshot_task_logs(dest_dir):
-    """Copy the raw rayfronts/raven tees (semantic_search_task writes them to
-    /tmp inside each robot container) into <dest_dir>/<container>/."""
-    for name in robot_containers():
-        r = docker_exec(name, "ls /tmp/rayfronts_*.log /tmp/raven_*.log 2>/dev/null",
+    """Copy the raw rayfronts/raven/gossip/ddsrouter tees (written to /tmp inside
+    each container) into <dest_dir>/<container>/. Includes the GCS container so
+    the GCS-side gossip ddsrouter log is captured too."""
+    targets = list(robot_containers())
+    gcs = gcs_container()
+    if gcs:
+        targets.append(gcs)
+    for name in targets:
+        r = docker_exec(name, "ls /tmp/rayfronts_*.log /tmp/raven_*.log "
+                              "/tmp/gossip_*.log /tmp/ddsrouter_*.log 2>/dev/null",
                         timeout=15)
         files = [f for f in r.stdout.split() if f]
         if not files:
@@ -940,7 +946,7 @@ def snapshot_task_logs(dest_dir):
         out.mkdir(parents=True, exist_ok=True)
         for f in files:
             sh(["docker", "cp", f"{name}:{f}", str(out)], timeout=120)
-        log(f"collected {len(files)} rayfronts/raven log(s) from {name}")
+        log(f"collected {len(files)} node log(s) from {name}")
 
 
 def snapshot_raven_results(dest_dir):

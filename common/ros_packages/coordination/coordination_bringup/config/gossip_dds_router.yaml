@@ -25,3 +25,13 @@ topics:
       reliability: true
       durability: true
       history-depth: 20
+
+# info verbosity incl. DDSPIPE so endpoint discovery/match drops are logged
+# (tee'd to /tmp/ddsrouter_gossip_dds_router.log to diagnose the mid-run dropout).
+specs:
+  logging:
+    verbosity: info
+    filter:
+      info: "DDSROUTER|DDSPIPE"
+      warning: "DDSROUTER|DDSPIPE|FASTDDS"
+      error: "DDSROUTER|DDSPIPE|FASTDDS"

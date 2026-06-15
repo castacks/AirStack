@@ -7,6 +7,7 @@ unaffected by sim time). A new waypoint triggers an immediate extra publish.
 
 import os
 import threading
+import time
 import yaml
 from collections import OrderedDict
 
@@ -37,6 +38,9 @@ from sensor_msgs.msg import PointCloud2
 
 
 _GOSSIP_SEEN_SIZE = 50
+
+PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
+PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
 
 # RELIABLE + TRANSIENT_LOCAL: gossip crosses two DDS-Router hops on the shared
 # gossip domain. BEST_EFFORT/VOLATILE dropped samples under load (flicker) and
@@ -133,6 +137,17 @@ class GossipNode(Node):
         self._publish_timer = self.create_timer(period, self._publish_tick, clock=ROSClock())
         self._drain_timer = self.create_timer(0.2, self._drain_peer_inbox, clock=ROSClock())
 
+        # Peer-freshness watchdog: log when this robot stops hearing each peer
+        # (tee'd to /tmp/gossip_<robot>.log so mission log collection grabs it).
+        self._peer_last_rx: dict[str, float] = {}
+        self._peer_stale: set[str] = set()
+        self._last_peer_summary = 0.0
+        try:
+            self._diag_file = open(f"/tmp/gossip_{self._robot_name}.log", "a", buffering=1)
+        except Exception:
+            self._diag_file = None
+        self._watchdog_timer = self.create_timer(2.0, self._peer_watchdog, clock=ROSClock())
+
         self.get_logger().info(
             f"GossipNode started for '{self._robot_name}' "
             f"(publish_rate={publish_rate:.1f} Hz wall-clock, "
@@ -208,6 +223,7 @@ class GossipNode(Node):
         if msg_id in self._seen:
             return
         self._seen[msg_id] = None
+        self._peer_last_rx[msg.robot_name] = time.monotonic()  # heard a fresh msg
         if len(self._seen) > _GOSSIP_SEEN_SIZE:
             self._seen.popitem(last=False)
 
@@ -228,6 +244,37 @@ class GossipNode(Node):
             self._peer_inbox.clear()
         for msg in inbox.values():
             self._update_registry(msg)
+
+    def _diag(self, line: str) -> None:
+        if self._diag_file is None:
+            return
+        try:
+            self._diag_file.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {line}\n")
+        except Exception:
+            pass
+
+    def _peer_watchdog(self) -> None:
+        """Log STALE/RECOVER transitions per peer + a periodic last-heard
+        summary, so a mid-run gossip dropout is obvious in the logs."""
+        if not self._peer_last_rx:
+            return
+        now = time.monotonic()
+        for name in sorted(self._peer_last_rx):
+            age = now - self._peer_last_rx[name]
+            if age > PEER_STALE_S and name not in self._peer_stale:
+                self._peer_stale.add(name)
+                self.get_logger().warn(f"[gossip] peer {name} STALE — no PeerProfile for {age:.1f}s")
+                self._diag(f"STALE   peer={name} silent_for={age:.1f}s")
+            elif age <= PEER_STALE_S and name in self._peer_stale:
+                self._peer_stale.discard(name)
+                self.get_logger().info(f"[gossip] peer {name} RECOVERED")
+                self._diag(f"RECOVER peer={name}")
+        if now - self._last_peer_summary >= PEER_LOG_PERIOD_S:
+            self._last_peer_summary = now
+            ages = ", ".join(f"{n}={now - self._peer_last_rx[n]:.0f}s"
+                             for n in sorted(self._peer_last_rx))
+            self.get_logger().info(f"[gossip] peer last-heard ages: {ages}")
+            self._diag(f"AGES    {ages}")
 
     def _publish_tick(self) -> None:
         self._publish_own()

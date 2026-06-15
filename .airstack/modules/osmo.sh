@@ -719,12 +719,12 @@ function _osmo_wait_and_fetch {
     log_info "  keep this terminal open (or background with nohup/tmux) until the fetch runs."
     while :; do
         now="$(date +%s)"; elapsed=$(( now - start ))
-        status="$(osmo workflow query "$wf" 2>/dev/null | awk -F': +' '/^Status/ {print $2; exit}' | tr -d ' \r\n')"
+        status="$(osmo workflow query "$wf" 2>/dev/null | awk -F': +' '/^Status/ {print $2; exit}' | tr -d ' \r\n' || true)"
         case "$status" in
             PENDING|RUNNING|"") ;;
             *) log_warn "workflow ${wf} is ${status} — ending wait, attempting fetch."; break ;;
         esac
-        snapshot="$(timeout 25 osmo workflow logs "$wf" -t workspace -n 600 2>/dev/null)"
+        snapshot="$(timeout 25 osmo workflow logs "$wf" -t workspace -n 600 2>/dev/null || true)"
         if printf '%s\n' "$snapshot" | grep -q "mission_runner exited"; then
             log_info "mission complete (after $(_osmo_hms "$elapsed")) — fetching."
             break
@@ -736,6 +736,20 @@ function _osmo_wait_and_fetch {
         sleep "$poll"
     done
     AIRSTACK_OSMO_WF="$wf" cmd_osmo_fetch "$dest"
+}
+
+# osmo:autofetch — attach the auto-fetch poller to an already-running mission
+# (one submitted without --auto-fetch, or whose terminal was closed). Polls the
+# workspace log for completion, then runs osmo:fetch.
+#
+# Usage: airstack osmo:autofetch [DUR]   (DUR = max-wait cap, default 8h; uses
+#        the saved workflow id, or AIRSTACK_OSMO_WF to target a specific one.)
+function cmd_osmo_autofetch {
+    _osmo_check_cli || return 1
+    local wf; wf="$(_osmo_wf_id)" || return 1
+    local cap_s
+    cap_s="$(_osmo_parse_duration "${1:-8h}")" || return 1
+    _osmo_wait_and_fetch "$wf" "$cap_s"
 }
 
 # osmo:mission — submit airstack-mission.yaml with a mission spec selected.
@@ -1021,6 +1035,7 @@ function register_osmo_commands {
     COMMANDS["osmo:up"]="cmd_osmo_up"
     COMMANDS["osmo:mission"]="cmd_osmo_mission"
     COMMANDS["osmo:fetch"]="cmd_osmo_fetch"
+    COMMANDS["osmo:autofetch"]="cmd_osmo_autofetch"
     COMMANDS["osmo:stop"]="cmd_osmo_stop"
     COMMANDS["osmo:logs"]="cmd_osmo_logs"
     COMMANDS["osmo:ide"]="cmd_osmo_ide"
@@ -1032,6 +1047,7 @@ function register_osmo_commands {
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
     COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive, --auto-fetch DUR)"
     COMMAND_HELP["osmo:fetch"]="Download mission results (mcap bags, logs, summaries) from the pod over ssh — incremental, safe to run mid-mission (osmo:fetch [dest-dir])"
+    COMMAND_HELP["osmo:autofetch"]="Attach the auto-fetch poller to the running mission (saved id or AIRSTACK_OSMO_WF): poll the workspace log until done, then osmo:fetch (osmo:autofetch [DUR], default 8h)"
     COMMAND_HELP["osmo:stop"]="Gracefully stop the running mission: abort current step, finalize mcaps, collect bags+logs, stack down (pod stays up for osmo:fetch)"
     COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"
     COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
