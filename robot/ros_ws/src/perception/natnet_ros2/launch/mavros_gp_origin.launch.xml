@@ -6,7 +6,7 @@
     Publishes a synthetic GPS origin once at startup for mocap / no-GNSS flight.
     Included from natnet_ros2.launch.py when publish_to_mavros is true.
 
-    Output (consumed by MAVROS under interface bringup namespace):
+    Output (consumed by MAVROS):
       /{ROBOT_NAME}/interface/mavros/global_position/set_gp_origin
   -->
 

@@ -41,11 +41,11 @@
     debug: false
 
     position_covariance:
-      [1.0e-6, 0.0, 0.0,
+      [1.0e-6, 0.0, 0.0, # Covariances for sub 0.1 mm precision from optitrack
        0.0, 1.0e-6, 0.0,
        0.0, 0.0, 1.0e-6]
 
     orientation_covariance:
-      [3.0e-6, 0.0, 0.0,
+      [3.0e-6, 0.0, 0.0, # Covariances for sub 0.1 degree precision from optitrack
        0.0, 3.0e-6, 0.0,
        0.0, 0.0, 3.0e-6]

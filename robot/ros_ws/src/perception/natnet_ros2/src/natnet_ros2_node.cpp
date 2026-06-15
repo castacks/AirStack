@@ -119,11 +119,7 @@ public:
         client_ = std::make_unique<natnet_ros2::NatNetClientAdapter>();
         connect_cfg_ = connect_cfg;
 
-        // Try to connect now; if the server is not up yet keep retrying. The
-        // NatNet server may legitimately start *after* the robot — e.g. the Isaac
-        // Sim emulator only binds ~100 s into sim boot, and a real Motive PC may be
-        // powered on after the drone. A one-shot connect would leave us dead for
-        // the whole session, so retry on a timer until the first handshake lands.
+        // Try to connect now; keep retrying.
         if (!connect_and_setup(connect_cfg_)) {
             connect_timer_ = this->create_wall_timer(
                 std::chrono::seconds(2),
@@ -211,8 +207,7 @@ public:
 
 private:
     // -----------------------------------------------------------------------
-    // Returns true once the handshake succeeds and the frame callback is live.
-    // On failure it logs (WARN) and returns false so the caller can retry.
+    // Returns true once the handshake succeeds.
     bool connect_and_setup(const natnet_ros2::ConnectConfig & cfg)
     {
         const natnet_ros2::NegotiationResult neg =
@@ -239,9 +234,7 @@ private:
     }
 
     // -----------------------------------------------------------------------
-    // Timer-driven reconnect: fires every 2 s until the first handshake lands,
-    // then cancels itself. Runs on the node's executor thread (same as the
-    // refresh timer), so no extra locking versus single-threaded init.
+    // Timer-driven reconnect.
     void retry_connect()
     {
         if (connected_) {

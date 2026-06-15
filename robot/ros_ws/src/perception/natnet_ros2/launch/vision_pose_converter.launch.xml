@@ -12,7 +12,7 @@
     Input  (from NatNet node):
       /{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov
 
-    Output (consumed by MAVROS under interface bringup namespace):
+    Output (consumed by MAVROS):
       /{ROBOT_NAME}/interface/mavros/vision_pose/pose
       /{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov
   -->
