@@ -122,12 +122,7 @@ record:
     - /gcs/sim_ground
     # ground-truth bbox annotations for the scene
     - /gcs/annotations/bboxes
-    # sim top-down overhead image (+ georef specs so it can be placed)
-    - /sim/overhead/image
-    - /sim/overhead/spec
-    - /sim/overhead/center_x
-    - /sim/overhead/center_y
-
+    
 on_step_failure: abort_iteration
 
 steps:
