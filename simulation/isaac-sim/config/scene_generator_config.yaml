@@ -1,0 +1,108 @@
+# Procedural city spec — consumed by utils/scene_generator.py
+#
+# Bake to a standalone USD (footprint measurement needs Nucleus access, or set
+# measure_usds: false to use fallback_sizes):
+#   python utils/scene_generator.py --config config/scene_generator_config.yaml \
+#       --output assets/scenes/generated_city.usd
+#
+# Or compose at runtime from a launch script:
+#   generate_scene_on_stage(stage, "config/scene_generator_config.yaml",
+#                           scene_scale_factor=ssf)
+#
+# All coordinates and distances are METRIC (meters): +X = East, +Y = North,
+# +Z = Up. Generation runs in three steps: (1) ground (roads + grass + concrete
+# + optional sidewalk), (2) one house per cell with some damaged, (3) trees on
+# open grass + streetlights along the roads.
+
+# Reproducibility: same seed => identical city. Bump it for a new variant.
+seed: 42
+
+# Grid of building cells. Each cell holds one house; roads run between cells.
+grid:
+  cols: 4
+  rows: 4
+  lot_margin_m: 3.0        # gap between the house and the lot/road edge
+
+# All RetroNeighborhood props are authored in centimeters → scale to meters.
+asset_scale: 0.01
+
+# Measure each USD's XY footprint from its bounding box at generation time so
+# tiles/houses lay out at their true size. Needs the USDs to be openable (true
+# inside Isaac Sim; offline requires Nucleus access). Falls back to
+# fallback_sizes below per-category when a measurement fails.
+measure_usds: true
+
+# Fraction of houses rendered as damaged. With no damaged USD provided (see
+# usds.houses.damaged) these are faked by tilting + sinking an intact house.
+damaged_fraction: 0.25
+
+trees:
+  per_cell: [1, 4]         # random tree count per cell, on open grass
+  min_separation_m: 3.0
+  house_margin_m: 1.5      # keep trees this far off the house footprint
+
+streetlights:
+  spacing_m: 18.0          # uniform spacing along the roads
+  setback_m: 1.0           # offset from the road edge onto the sidewalk
+
+# Yaw offsets (degrees) correcting each asset's authored default facing. Tune
+# after a first look if a category points the wrong way.
+orientation:
+  road_straight: 0.0       # straight road runs along +X at yaw 0
+  road_four_way: 0.0       # added to every four-way intersection yaw
+  road_tee:    180.0       # added to each tee's position-based yaw (flip 180)
+  road_corner:   0.0       # added to each corner tile's position-based yaw
+  road_dead_end: -90.0     # added to each dead-end's position-based yaw (90° CW, fallback when no corner USD)
+  house_front: 0.0         # house front faces -Y (south, toward the driveway)
+
+# Fallback footprints (meters, [x, y] or [x, y, z]) used when measure_usds is
+# false or a measurement fails.
+fallback_sizes:
+  grass:       [4.0, 4.0]
+  road:        [8.0, 8.0]
+  concrete:    [4.0, 4.0]
+  sidewalk:    [2.0, 2.0]
+  house:       [12.0, 12.0]
+  tree:        [3.0, 3.0]
+  streetlight: [1.0, 1.0]
+
+# Asset library. Replace/extend with your own props.
+usds:
+  tiles:
+    grass:
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_GrassPiece_02.prop.usd"
+    concrete:
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
+    sidewalk: []             # none in the library yet → sidewalk ring skipped
+    road:
+      four_way: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Road_03.prop.usd"
+      tee:      "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Road_02.prop.usd"
+      straight: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Road_01.prop.usd"
+      dead_end: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Road_05.prop.usd"
+      corner:  "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/retro_neighborhood_road_corner.usdc"
+  houses:
+    intact:
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_01.prop.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_02.prop.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_03.prop.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_04.prop.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_05.prop.usd"
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_06.prop.usd"
+    damaged: []              # add damaged-house USDs here to use them directly
+  trees:
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_01.prop.usd"
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_02.prop.usd"
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_03.prop.usd"
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_04.prop.usd"
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_05.prop.usd"
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_06.prop.usd"
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_07.prop.usd"
+  streetlights:
+    - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_StreetLight.prop.usd"
+
+# Regions kept clear of clutter (houses/trees/streetlights skip these; ground +
+# roads still cover them). Circle {center: [x,y], radius: r} or rect
+# {bounds: [[xmin,ymin],[xmax,ymax]]}.
+exclusions:
+  - center: [0.0, 0.0]
+    radius: 10.0           # keep the takeoff pad clear
