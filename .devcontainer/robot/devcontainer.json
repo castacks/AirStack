@@ -1,13 +1,13 @@
 {
   "name": "Robot Container",
   "runServices": [
-    "robot"
+    "robot-desktop"
   ],
   "dockerComposeFile": [
     "../../docker-compose.yaml"
   ],
-  "service": "robot",
-  "workspaceFolder": "/home/robot/AirStack",
+  "service": "robot-desktop",
+  "workspaceFolder": "/root/AirStack",
   "customizations": {
     "vscode": {
       "extensions": [
