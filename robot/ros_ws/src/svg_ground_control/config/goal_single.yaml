@@ -40,5 +40,5 @@ swarm_commander:
 
     # Geofence: a generous box around the arena; breach -> all hold.
     fence_enabled: true
-    fence_min: [-3.5, -3.5, 0.3]
-    fence_max: [3.5, 3.5, 2.8]
+    fence_min: [-4.0, -2.0, 0.0]
+    fence_max: [4.0, 2.0, 3.0]

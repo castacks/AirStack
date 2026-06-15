@@ -432,3 +432,5 @@ This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
 ---
 
 **For Agents:** Start with the [AI Agent Quick Guide](docs/development/ai_agent_guide.md) and refer to `.agents/skills/` for specific workflows. Study reference implementations before creating new modules.
+
+**For Git commits** Do not include agent name in the author. 

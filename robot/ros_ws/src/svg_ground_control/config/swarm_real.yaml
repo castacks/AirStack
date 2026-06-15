@@ -65,5 +65,5 @@ mocap_bridge:
 
     # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> all hold, ~/reset_fence to clear
     fence_enabled: true
-    fence_min: [-1.8, -1.8, 0.3]
-    fence_max: [1.8, 1.8, 2.0]
+    fence_min: [-4.0, -2.0, 0.0]
+    fence_max: [4.0, 2.0, 3.0]

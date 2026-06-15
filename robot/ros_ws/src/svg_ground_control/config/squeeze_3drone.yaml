@@ -81,5 +81,5 @@ swarm_commander:
 
     # Geofence: breach -> all drones hold, ~/reset_fence to clear
     fence_enabled: true
-    fence_min: [-2.5, -2.5, 0.3]
-    fence_max: [2.5, 2.5, 2.5]
+    fence_min: [-4.0, -2.0, 0.0]
+    fence_max: [4.0, 2.0, 3.0]
