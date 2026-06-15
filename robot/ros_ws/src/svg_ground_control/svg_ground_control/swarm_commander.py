@@ -20,12 +20,29 @@ Every commanded velocity passes through the velocity-CBF filter
 drones are CBF-EXEMPT by design — they play the moving obstacle; the
 autonomous drones do the dodging.
 
+Per-drone sim/real routing: ``drone_modes`` (comma-separated 'sim'/'real',
+one per drone) routes each drone's command topic + robot_command service to
+either the MAVROS/sim interface (``/{name}/interface/...``) or the
+px4_interface/uXRCE-DDS hardware interface (``/{name}/fmu/...``). The state
+topic is identical for both. This lets one run mix real and simulated drones
+(e.g. squeeze with real holders + a simulated intruder), all in one CBF.
+
+Geofence: with ``fence_enabled``, if any airborne drone leaves
+[``fence_min``, ``fence_max``] the commander latches a breach — every drone
+freezes at its current position, the scenario stops, and ``start`` is
+blocked until ``~/reset_fence``.
+
+Visualization: every drone's WORLD position (offset-corrected, so real and
+simulated drones share one frame) is published as a MarkerArray on
+``/svg/viz/markers`` for RViz.
+
 Lifecycle (std_srvs/Trigger services):
     ~/takeoff — arm + offboard + ascend everyone to the scenario's initial
                 positions, then HOLD there
     ~/start   — begin the scenario (nominal policies go live)
     ~/hold    — pause: every drone holds its current position (panic button)
     ~/land    — descend all commanded drones, disarm on touchdown
+    ~/reset_fence — clear a latched geofence breach
 """
 
 from enum import Enum
@@ -35,9 +52,11 @@ import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
+from std_msgs.msg import ColorRGBA, Float32
 from std_srvs.srv import Trigger
+from visualization_msgs.msg import Marker, MarkerArray
 from airstack_msgs.srv import RobotCommand
 
 from svg_ground_control.cbf_filter import filter_velocities
@@ -64,6 +83,7 @@ class DroneHandle:
     def __init__(self, name: str, role: str):
         self.name = name
         self.role = role                  # 'auto' | 'teleop' | 'external'
+        self.mode = 'sim'                 # 'sim' | 'real' (command routing)
         self.position_offset = np.zeros(3)  # local-frame -> world correction
         self.takeoff_target = None        # np (3,), set from the scenario
         self.hold_target = None           # np (3,), position to hold when not in mission
@@ -138,6 +158,41 @@ class SwarmCommander(Node):
                                '/{name}/interface/robot_command')
         self.declare_parameter('teleop_topic_template', '/svg/{name}/teleop_command')
 
+        # ---- Hybrid sim/real routing ------------------------------------
+        # Per-drone mode (comma-separated, one per drone): 'sim' routes
+        # commands through the MAVROS/sim interface, 'real' through the
+        # px4_interface/uXRCE-DDS hardware interface. Empty = every drone
+        # uses the single velocity_command/robot_command templates above
+        # (backward-compatible with the pure swarm_sim / swarm_real configs).
+        self.declare_parameter('drone_modes', '')
+        self.declare_parameter('default_drone_mode', 'sim')
+        self.declare_parameter('sim_velocity_command_topic_template',
+                               '/{name}/interface/velocity_command')
+        self.declare_parameter('sim_robot_command_service_template',
+                               '/{name}/interface/robot_command')
+        self.declare_parameter('real_velocity_command_topic_template',
+                               '/{name}/fmu/velocity_command')
+        self.declare_parameter('real_robot_command_service_template',
+                               '/{name}/fmu/robot_command')
+
+        # ---- Goal scenario live retargeting -----------------------------
+        self.declare_parameter('goal_command_topic_template',
+                               '/svg/{name}/goal_command')
+        self.declare_parameter('speed_command_topic_template',
+                               '/svg/{name}/speed_command')
+
+        # ---- Geofence (safety latch) ------------------------------------
+        # If any airborne drone leaves [fence_min, fence_max] (world ENU, m),
+        # latch a breach: every drone freezes at its current position, the
+        # scenario stops, and start is blocked until ~/reset_fence.
+        self.declare_parameter('fence_enabled', False)
+        self.declare_parameter('fence_min', [-1000.0, -1000.0, -1000.0])
+        self.declare_parameter('fence_max', [1000.0, 1000.0, 1000.0])
+
+        # ---- Visualization ----------------------------------------------
+        self.declare_parameter('publish_viz', True)
+        self.declare_parameter('viz_frame', 'map')
+
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('state_timeout_s', 0.5)
         self.declare_parameter('teleop_timeout_s', 0.5)
@@ -174,6 +229,25 @@ class SwarmCommander(Node):
                 f'(3 per drone), got {len(offsets_flat)}')
         position_offsets = np.array(offsets_flat).reshape(-1, 3)
 
+        # Per-drone sim/real modes.
+        modes_list = name_list('drone_modes')
+        if modes_list and len(modes_list) != len(names):
+            raise ValueError(
+                f'drone_modes has {len(modes_list)} entries for '
+                f'{len(names)} drones')
+        default_mode = str(self.get_parameter('default_drone_mode').value)
+        drone_modes = modes_list if modes_list else [default_mode] * len(names)
+        for m in drone_modes:
+            if m not in ('sim', 'real'):
+                raise ValueError(f'drone mode must be sim|real, got "{m}"')
+        self._use_mode_templates = bool(modes_list)
+
+        # Geofence.
+        self.fence_enabled = bool(self.get_parameter('fence_enabled').value)
+        self.fence_min = np.array(self.get_parameter('fence_min').value, dtype=float)
+        self.fence_max = np.array(self.get_parameter('fence_max').value, dtype=float)
+        self.fence_breached = False
+
         self.state_timeout = float(self.get_parameter('state_timeout_s').value)
         self.teleop_timeout = float(self.get_parameter('teleop_timeout_s').value)
         self.hover_kp = float(self.get_parameter('hover_kp').value)
@@ -191,6 +265,10 @@ class SwarmCommander(Node):
         scenario_kwargs = {}
         if scenario_name == 'hover':
             scenario_kwargs['hover_positions'] = np.array(
+                self.get_parameter('hover_positions').value)
+        elif scenario_name == 'goal':
+            # Goals start at the takeoff layout; retargeted live via topics.
+            scenario_kwargs['initial_goals'] = np.array(
                 self.get_parameter('hover_positions').value)
         elif scenario_name == 'squeeze':
             scenario_kwargs['holder_positions'] = np.array(
@@ -221,9 +299,29 @@ class SwarmCommander(Node):
                 f'B={self.scenario.intruder_waypoints[1]}')
 
         state_tmpl = str(self.get_parameter('state_topic_template').value)
-        cmd_tmpl = str(self.get_parameter('velocity_command_topic_template').value)
-        srv_tmpl = str(self.get_parameter('robot_command_service_template').value)
+        default_cmd_tmpl = str(
+            self.get_parameter('velocity_command_topic_template').value)
+        default_srv_tmpl = str(
+            self.get_parameter('robot_command_service_template').value)
+        sim_cmd_tmpl = str(
+            self.get_parameter('sim_velocity_command_topic_template').value)
+        sim_srv_tmpl = str(
+            self.get_parameter('sim_robot_command_service_template').value)
+        real_cmd_tmpl = str(
+            self.get_parameter('real_velocity_command_topic_template').value)
+        real_srv_tmpl = str(
+            self.get_parameter('real_robot_command_service_template').value)
         teleop_tmpl = str(self.get_parameter('teleop_topic_template').value)
+        goal_tmpl = str(self.get_parameter('goal_command_topic_template').value)
+        speed_tmpl = str(self.get_parameter('speed_command_topic_template').value)
+
+        def command_templates(mode):
+            """(velocity-cmd topic, robot_command service) templates for a mode."""
+            if not self._use_mode_templates:
+                return default_cmd_tmpl, default_srv_tmpl
+            if mode == 'real':
+                return real_cmd_tmpl, real_srv_tmpl
+            return sim_cmd_tmpl, sim_srv_tmpl
 
         # ---- Per-drone wiring --------------------------------------------
         takeoff_targets = self.scenario.initial_positions()
@@ -232,18 +330,27 @@ class SwarmCommander(Node):
             role = ('teleop' if name in teleop_names
                     else 'external' if name in external_names else 'auto')
             drone = DroneHandle(name, role)
+            drone.mode = drone_modes[i]
             drone.position_offset = position_offsets[i].copy()
             drone.takeoff_target = takeoff_targets[i].copy()
             drone.hold_target = takeoff_targets[i].copy()
             if drone.commanded:
+                cmd_t, srv_t = command_templates(drone.mode)
                 drone.cmd_pub = self.create_publisher(
-                    TwistStamped, cmd_tmpl.format(name=name), 10)
+                    TwistStamped, cmd_t.format(name=name), 10)
                 drone.robot_command_client = self.create_client(
-                    RobotCommand, srv_tmpl.format(name=name))
+                    RobotCommand, srv_t.format(name=name))
             if role == 'teleop':
                 self.create_subscription(
                     TwistStamped, teleop_tmpl.format(name=name),
                     lambda msg, d=drone: self.teleop_callback(d, msg), 10)
+            if scenario_name == 'goal' and drone.commanded:
+                self.create_subscription(
+                    PoseStamped, goal_tmpl.format(name=name),
+                    lambda msg, idx=i: self.goal_callback(idx, msg), 10)
+                self.create_subscription(
+                    Float32, speed_tmpl.format(name=name),
+                    lambda msg, idx=i: self.speed_callback(idx, msg), 10)
             self.create_subscription(
                 Odometry, state_tmpl.format(name=name),
                 lambda msg, d=drone: self.odometry_callback(d, msg), 10)
@@ -254,6 +361,13 @@ class SwarmCommander(Node):
         self.create_service(Trigger, '~/start', self.handle_start)
         self.create_service(Trigger, '~/hold', self.handle_hold)
         self.create_service(Trigger, '~/land', self.handle_land)
+        self.create_service(Trigger, '~/reset_fence', self.handle_reset_fence)
+
+        # ---- Visualization -------------------------------------------------
+        self.publish_viz = bool(self.get_parameter('publish_viz').value)
+        self.viz_frame = str(self.get_parameter('viz_frame').value)
+        self.viz_pub = (self.create_publisher(MarkerArray, '/svg/viz/markers', 10)
+                        if self.publish_viz else None)
 
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
@@ -261,9 +375,11 @@ class SwarmCommander(Node):
 
         self.get_logger().info(
             f'SwarmCommander up | scenario={scenario_name} | '
-            + ', '.join(f'{d.name}({d.role})' for d in self.drones)
+            + ', '.join(f'{d.name}({d.role}/{d.mode})' for d in self.drones)
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
-            + f' alpha={self.cbf_alpha}')
+            + f' alpha={self.cbf_alpha}'
+            + (f' | FENCE {self.fence_min}..{self.fence_max}'
+               if self.fence_enabled else ' | fence OFF'))
         if np.any(position_offsets):
             self.get_logger().info(
                 'position offsets (local->world): '
@@ -292,6 +408,16 @@ class SwarmCommander(Node):
         drone.teleop_twist = np.array([l.x, l.y, l.z])
         drone.last_teleop_time = self.get_clock().now()
 
+    def goal_callback(self, index: int, msg: PoseStamped):
+        # World-frame goal for the 'goal' scenario; ignored otherwise.
+        if hasattr(self.scenario, 'set_goal'):
+            p = msg.pose.position
+            self.scenario.set_goal(index, np.array([p.x, p.y, p.z]))
+
+    def speed_callback(self, index: int, msg: Float32):
+        if hasattr(self.scenario, 'set_speed'):
+            self.scenario.set_speed(index, msg.data)
+
     # ------------------------------------------------------------------
     # Operator services
     # ------------------------------------------------------------------
@@ -317,6 +443,10 @@ class SwarmCommander(Node):
         return response
 
     def handle_start(self, request, response):
+        if self.fence_breached:
+            response.success = False
+            response.message = 'geofence breached — call ~/reset_fence first'
+            return response
         not_ready = [d.name for d in self.drones
                      if d.commanded and d.state != FlightState.ACTIVE]
         if not_ready:
@@ -353,6 +483,57 @@ class SwarmCommander(Node):
         response.message = ('landing: ' + ', '.join(landing)) if landing \
             else 'no airborne drone to land'
         return response
+
+    def handle_reset_fence(self, request, response):
+        still_out = [d.name for d in self.drones if d.position is not None
+                     and (np.any(d.position < self.fence_min)
+                          or np.any(d.position > self.fence_max))]
+        self.fence_breached = False
+        response.success = True
+        response.message = 'geofence latch cleared' + (
+            f' (WARNING still outside: {", ".join(still_out)})' if still_out else '')
+        self.get_logger().info(response.message)
+        return response
+
+    # ------------------------------------------------------------------
+    # Geofence
+    # ------------------------------------------------------------------
+
+    def enforce_fence(self):
+        """Latch a breach if any airborne drone is outside the fence box.
+
+        On breach: stop the scenario and freeze every airborne commanded
+        drone at its current position (the control loop then holds it). The
+        latch persists until ~/reset_fence.
+        """
+        if not self.fence_enabled or self.fence_breached:
+            return
+        airborne = (FlightState.ASCEND, FlightState.ACTIVE, FlightState.LANDING)
+        for d in self.drones:
+            # Only police drones that have finished taking off (ACTIVE);
+            # ASCEND climbs up through the fence floor and LANDING descends
+            # through it on purpose, so those are exempt from detection.
+            if d.position is None or d.state != FlightState.ACTIVE:
+                continue
+            below = d.position < self.fence_min
+            above = d.position > self.fence_max
+            if not (below.any() or above.any()):
+                continue
+            self.fence_breached = True
+            self.mission_active = False
+            axes = 'xyz'
+            viol = ', '.join(
+                f'{axes[k]}{"<min" if below[k] else ">max"}'
+                for k in range(3) if below[k] or above[k])
+            for o in self.drones:
+                if o.commanded and o.position is not None and o.state in airborne:
+                    o.hold_target = o.position.copy()
+                    o.state = FlightState.ACTIVE
+            self.get_logger().error(
+                f'GEOFENCE BREACH by {d.name} at '
+                f'[{d.position[0]:.2f}, {d.position[1]:.2f}, {d.position[2]:.2f}] '
+                f'({viol}) — ALL DRONES HOLD. Call ~/reset_fence to clear.')
+            return
 
     # ------------------------------------------------------------------
     # Robot interface helpers
@@ -411,6 +592,9 @@ class SwarmCommander(Node):
             if elapsed >= ARMING_DONE_S:
                 d.state = FlightState.ASCEND
                 self.get_logger().info(f'{d.name}: ascending to {d.hold_target}')
+
+        # Geofence: may latch a breach and freeze everyone before commanding.
+        self.enforce_fence()
 
         # Swarm state: every drone with a known position (any role) feeds the
         # CBF; freshness only gates whether a drone gets commands published.
@@ -517,6 +701,8 @@ class SwarmCommander(Node):
 
             self.publish_velocity(d, safe[index[d.name]], now)
 
+        self.publish_markers(now)
+
     def publish_velocity(self, drone: DroneHandle, velocity: np.ndarray, now):
         msg = TwistStamped()
         msg.header.stamp = now.to_msg()
@@ -525,6 +711,128 @@ class SwarmCommander(Node):
         msg.twist.linear.y = float(velocity[1])
         msg.twist.linear.z = float(velocity[2])
         drone.cmd_pub.publish(msg)
+
+    # ------------------------------------------------------------------
+    # Visualization (RViz MarkerArray, world frame)
+    # ------------------------------------------------------------------
+
+    def _drone_color(self, drone: DroneHandle):
+        if self.fence_breached:
+            return (1.0, 0.3, 0.0)                 # orange = frozen on breach
+        if drone.role == 'teleop':
+            return (1.0, 0.85, 0.1)                # yellow = operator obstacle
+        if drone.role == 'external':
+            return (0.6, 0.6, 0.6)                 # gray = tracked, uncommanded
+        return (0.9, 0.2, 0.2) if drone.mode == 'real' else (0.2, 0.7, 1.0)
+
+    def publish_markers(self, now):
+        if self.viz_pub is None:
+            return
+        arr = MarkerArray()
+        stamp = now.to_msg()
+        goals = getattr(self.scenario, 'goals', None) if self.mission_active else None
+
+        for di, d in enumerate(self.drones):
+            if d.position is None:
+                continue
+            r, g, b = self._drone_color(d)
+            base = di * 10
+
+            body = Marker()
+            body.header.frame_id = self.viz_frame
+            body.header.stamp = stamp
+            body.ns = 'body'
+            body.id = base
+            body.type = Marker.SPHERE
+            body.action = Marker.ADD
+            body.pose.position.x = float(d.position[0])
+            body.pose.position.y = float(d.position[1])
+            body.pose.position.z = float(d.position[2])
+            body.pose.orientation.w = 1.0
+            body.scale.x = body.scale.y = body.scale.z = 0.3
+            body.color = ColorRGBA(r=r, g=g, b=b, a=1.0)
+            arr.markers.append(body)
+
+            keepout = Marker()
+            keepout.header.frame_id = self.viz_frame
+            keepout.header.stamp = stamp
+            keepout.ns = 'safety_radius'
+            keepout.id = base + 1
+            keepout.type = Marker.SPHERE
+            keepout.action = Marker.ADD
+            keepout.pose.position = body.pose.position
+            keepout.pose.orientation.w = 1.0
+            keepout.scale.x = keepout.scale.y = keepout.scale.z = \
+                2.0 * self.cbf_safety_radius
+            keepout.color = ColorRGBA(r=r, g=g, b=b, a=0.12)
+            arr.markers.append(keepout)
+
+            label = Marker()
+            label.header.frame_id = self.viz_frame
+            label.header.stamp = stamp
+            label.ns = 'label'
+            label.id = base + 2
+            label.type = Marker.TEXT_VIEW_FACING
+            label.action = Marker.ADD
+            label.pose.position.x = float(d.position[0])
+            label.pose.position.y = float(d.position[1])
+            label.pose.position.z = float(d.position[2]) + 0.4
+            label.pose.orientation.w = 1.0
+            label.scale.z = 0.25
+            label.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+            label.text = f'{d.name} [{d.mode}/{d.role}]'
+            arr.markers.append(label)
+
+            if goals is not None and di < len(goals):
+                goal = Marker()
+                goal.header.frame_id = self.viz_frame
+                goal.header.stamp = stamp
+                goal.ns = 'goal'
+                goal.id = base + 3
+                goal.type = Marker.SPHERE
+                goal.action = Marker.ADD
+                goal.pose.position.x = float(goals[di][0])
+                goal.pose.position.y = float(goals[di][1])
+                goal.pose.position.z = float(goals[di][2])
+                goal.pose.orientation.w = 1.0
+                goal.scale.x = goal.scale.y = goal.scale.z = 0.15
+                goal.color = ColorRGBA(r=r, g=g, b=b, a=0.6)
+                arr.markers.append(goal)
+
+        if self.fence_enabled:
+            arr.markers.append(self._fence_marker(stamp))
+
+        self.viz_pub.publish(arr)
+
+    def _fence_marker(self, stamp):
+        lo, hi = self.fence_min, self.fence_max
+        corners = [
+            (lo[0], lo[1], lo[2]), (hi[0], lo[1], lo[2]),
+            (hi[0], hi[1], lo[2]), (lo[0], hi[1], lo[2]),
+            (lo[0], lo[1], hi[2]), (hi[0], lo[1], hi[2]),
+            (hi[0], hi[1], hi[2]), (lo[0], hi[1], hi[2]),
+        ]
+        edges = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7),
+                 (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)]
+        m = Marker()
+        m.header.frame_id = self.viz_frame
+        m.header.stamp = stamp
+        m.ns = 'fence'
+        m.id = 9000
+        m.type = Marker.LINE_LIST
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = 0.03
+        breached = self.fence_breached
+        m.color = ColorRGBA(r=1.0, g=0.2, b=0.2, a=0.9) if breached \
+            else ColorRGBA(r=0.2, g=1.0, b=0.3, a=0.5)
+        from geometry_msgs.msg import Point
+        for a, c in edges:
+            for idx in (a, c):
+                m.points.append(Point(x=float(corners[idx][0]),
+                                      y=float(corners[idx][1]),
+                                      z=float(corners[idx][2])))
+        return m
 
 
 def main(args=None):

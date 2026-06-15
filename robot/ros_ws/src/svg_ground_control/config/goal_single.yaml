@@ -1,0 +1,44 @@
+# SVG ground control — SINGLE-DRONE goal-tracking test (simulation).
+#
+#   ros2 launch svg_ground_control ground_control.launch.py \
+#       config:=<share>/config/goal_single.yaml
+#
+# One drone, 'goal' scenario: after takeoff + start it holds its takeoff
+# point until you retarget it live. Send a goal and (optionally) a speed:
+#   ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
+#     "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.5, z: 1.4}}}"
+#   ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
+
+swarm_commander:
+  ros__parameters:
+    drone_names: ["drone_1"]
+    teleop_drones: ""
+    external_drones: ""
+
+    scenario: "goal"
+    scenario_speed_mps: 0.6          # default per-drone speed (override live)
+    arena_low: [-3.0, -3.0, 0.5]
+    arena_high: [3.0, 3.0, 2.5]
+    # 1 sim drone spawns at x=0 (Isaac formula 2*(i-1)-(N-1)); offset 0.
+    drone_position_offsets: [0.0, 0.0, 0.0]
+    # goal scenario: takeoff target = initial goal
+    hover_positions: [0.0, 0.0, 1.2]
+
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    velocity_command_topic_template: "/{name}/interface/velocity_command"
+    robot_command_service_template: "/{name}/interface/robot_command"
+
+    control_rate_hz: 20.0
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+
+    cbf_safety_radius_m: 0.55
+    cbf_max_speed_mps: 1.2
+    cbf_alpha: 2.5
+
+    # Geofence: a generous box around the arena; breach -> all hold.
+    fence_enabled: true
+    fence_min: [-3.5, -3.5, 0.3]
+    fence_max: [3.5, 3.5, 2.8]

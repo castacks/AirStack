@@ -392,8 +392,50 @@ class SqueezeScenario(Scenario):
             [self._holder_posts, self._intruder_ends[self._intruder_goal_index]])
 
 
+class GoalScenario(Scenario):
+    """Each drone seeks a per-drone goal that can be retargeted live.
+
+    Goals default to the configured takeoff layout (``initial_goals``, from
+    ``hover_positions``); the commander updates them from
+    ``/svg/{name}/goal_command`` while flying, and per-drone speed from
+    ``/svg/{name}/speed_command`` (defaults to ``nominal_speed``). All
+    goal-tracking drones are CBF-filtered, so commanding two of them at each
+    other just makes them dodge. This backs the single- and multi-drone
+    tracking tests.
+    """
+
+    _APPROACH_GAIN = 2.0
+
+    def __init__(self, *args, initial_goals: np.ndarray, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._goals = np.asarray(
+            initial_goals, dtype=float).reshape(self.num_drones, 3)
+        self._speeds = np.full(self.num_drones, self.nominal_speed)
+
+    def set_goal(self, index: int, point: np.ndarray) -> None:
+        self._goals[index] = np.asarray(point, dtype=float)
+
+    def set_speed(self, index: int, speed: float) -> None:
+        self._speeds[index] = max(0.0, float(speed))
+
+    def initial_positions(self) -> np.ndarray:
+        return self._goals.copy()
+
+    def nominal_velocity(self, positions: np.ndarray) -> np.ndarray:
+        to_goal = self._goals - positions
+        distance = np.linalg.norm(to_goal, axis=-1, keepdims=True)
+        speed = np.minimum(self._speeds[:, None], self._APPROACH_GAIN * distance)
+        direction = to_goal / np.maximum(distance, 1e-9)
+        return direction * speed
+
+    @property
+    def goals(self) -> Optional[np.ndarray]:
+        return self._goals
+
+
 _SCENARIOS = {
     'hover': HoverScenario,
+    'goal': GoalScenario,
     'random_walk': RandomWalkScenario,
     'random_goals': RandomGoalsScenario,
     'head_on': HeadOnScenario,

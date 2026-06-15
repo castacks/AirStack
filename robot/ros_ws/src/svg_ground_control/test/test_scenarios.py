@@ -29,6 +29,25 @@ def test_all_scenarios_produce_valid_initial_positions() -> None:
         assert np.all(np.isfinite(nominal))
 
 
+def test_goal_scenario_live_retarget_and_speed() -> None:
+    initial = np.array([[0.0, 0.0, 1.2], [1.0, 0.0, 1.2]])
+    s = make('goal', 2, initial_goals=initial)
+    np.testing.assert_allclose(s.initial_positions(), initial)
+
+    # Default: seek the initial goals.
+    pos = initial + np.array([[0.5, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    v = s.nominal_velocity(pos)
+    assert v[0, 0] < 0.0                          # drone 0 pulled back -x
+    np.testing.assert_allclose(v[1], 0.0, atol=1e-9)
+
+    # Retarget drone 1 live; speed cap respected.
+    s.set_goal(1, np.array([5.0, 0.0, 1.2]))
+    s.set_speed(1, 0.5)
+    v = s.nominal_velocity(pos)
+    assert v[1, 0] > 0.0
+    assert abs(np.linalg.norm(v[1]) - 0.5) < 1e-6   # far goal -> capped at speed
+
+
 def test_hover_scenario_seeks_targets() -> None:
     targets = np.array([[-1.0, 0.0, 1.2], [1.0, 0.0, 1.2]])
     scenario = make('hover', 2, hover_positions=targets)

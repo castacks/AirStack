@@ -62,3 +62,8 @@ mocap_bridge:
     mocap_frame: "map"
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false
+
+    # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> all hold, ~/reset_fence to clear
+    fence_enabled: true
+    fence_min: [-1.8, -1.8, 0.3]
+    fence_max: [1.8, 1.8, 2.0]

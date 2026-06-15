@@ -15,7 +15,9 @@
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>std_srvs</depend>
+  <depend>visualization_msgs</depend>
   <depend>airstack_msgs</depend>
   <exec_depend>python3-numpy</exec_depend>
 

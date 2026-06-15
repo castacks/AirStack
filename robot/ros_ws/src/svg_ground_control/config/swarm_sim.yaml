@@ -63,3 +63,8 @@ swarm_commander:
     cbf_max_speed_mps: 1.2
     cbf_alpha: 2.5
     teleop_max_speed_mps: 1.2
+
+    # Geofence: breach -> all drones hold, scenario stops, ~/reset_fence to clear
+    fence_enabled: true
+    fence_min: [-2.5, -2.5, 0.3]
+    fence_max: [2.5, 2.5, 2.5]
