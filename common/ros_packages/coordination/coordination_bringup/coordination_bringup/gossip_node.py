@@ -38,8 +38,12 @@ from sensor_msgs.msg import PointCloud2
 
 _GOSSIP_SEEN_SIZE = 50
 
+# RELIABLE + TRANSIENT_LOCAL: gossip crosses two DDS-Router hops on the shared
+# gossip domain. BEST_EFFORT/VOLATILE dropped samples under load (flicker) and
+# never re-synced after a route dropped (permanent per-robot loss at the GCS).
 GOSSIP_QOS = QoSProfile(
-    reliability=QoSReliabilityPolicy.BEST_EFFORT,
+    reliability=QoSReliabilityPolicy.RELIABLE,
+    durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
     history=QoSHistoryPolicy.KEEP_LAST,
     depth=10,
 )

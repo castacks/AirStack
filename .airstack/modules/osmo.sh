@@ -686,16 +686,73 @@ function cmd_osmo_foxglove {
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }
 
+# Parse a duration (90s / 30m / 8h / bare number = minutes) to seconds.
+function _osmo_parse_duration {
+    local v="$1"
+    if [[ "$v" =~ ^([0-9]+)([smh]?)$ ]]; then
+        local n="${BASH_REMATCH[1]}" u="${BASH_REMATCH[2]}"
+        case "$u" in
+            s) echo "$n" ;;
+            h) echo $(( n * 3600 )) ;;
+            *) echo $(( n * 60 )) ;;   # m or bare → minutes
+        esac
+    else
+        log_error "invalid duration '$v' — use e.g. 8h, 480m, 3600s, or a bare number (minutes)"
+        return 1
+    fi
+}
+
+function _osmo_hms {
+    printf '%dh%02dm' $(( $1 / 3600 )) $(( ($1 % 3600) / 60 ))
+}
+
+# Block until the mission finishes (the workspace log prints "mission_runner
+# exited") or cap_s elapses, then run osmo:fetch. Requires keep-alive so the
+# pod is still up to fetch from.
+function _osmo_wait_and_fetch {
+    local wf="$1" cap_s="$2"
+    local dest="${OSMO_AUTOFETCH_DEST:-./osmo-results}"
+    local poll="${OSMO_AUTOFETCH_POLL_S:-120}"
+    local start now elapsed snapshot status
+    start="$(date +%s)"
+    log_info "auto-fetch armed: polling every ${poll}s for completion (cap $(_osmo_hms "$cap_s")) → ${dest}"
+    log_info "  keep this terminal open (or background with nohup/tmux) until the fetch runs."
+    while :; do
+        now="$(date +%s)"; elapsed=$(( now - start ))
+        status="$(osmo workflow query "$wf" 2>/dev/null | awk -F': +' '/^Status/ {print $2; exit}' | tr -d ' \r\n')"
+        case "$status" in
+            PENDING|RUNNING|"") ;;
+            *) log_warn "workflow ${wf} is ${status} — ending wait, attempting fetch."; break ;;
+        esac
+        snapshot="$(timeout 25 osmo workflow logs "$wf" -t workspace -n 600 2>/dev/null)"
+        if printf '%s\n' "$snapshot" | grep -q "mission_runner exited"; then
+            log_info "mission complete (after $(_osmo_hms "$elapsed")) — fetching."
+            break
+        fi
+        if [ "$elapsed" -ge "$cap_s" ]; then
+            log_warn "auto-fetch cap reached ($(_osmo_hms "$cap_s")) without completion — fetching what's there."
+            break
+        fi
+        sleep "$poll"
+    done
+    AIRSTACK_OSMO_WF="$wf" cmd_osmo_fetch "$dest"
+}
+
 # osmo:mission — submit airstack-mission.yaml with a mission spec selected.
 #
 # Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--key PATH]
 #                              [--branch BRANCH] [--no-keep-alive]
+#                              [--auto-fetch DUR]
 #
 # <mission.yaml> is a repo-relative path (e.g. osmo/missions/example_takeoff_land.yaml).
 # The pod clones the branch and runs the mission spec from that clone, so the
 # mission file must be committed and pushed. --no-keep-alive makes the task
 # exit when the mission ends (frees the GPU, triggers the workflow's
 # `outputs:` upload) instead of sleeping for `airstack osmo:fetch`.
+#
+# --auto-fetch DUR blocks after submit, polling the workspace log for mission
+# completion and running osmo:fetch as soon as it's done (DUR — e.g. 8h, 480m —
+# is the max wait before fetching anyway). Requires keep-alive (the default).
 function cmd_osmo_mission {
     _osmo_check_cli || return 1
 
@@ -705,6 +762,7 @@ function cmd_osmo_mission {
     local branch=""
     local branch_explicit=false
     local keep_alive="true"
+    local auto_fetch_dur=""
     local extra_args=()
 
     while [ $# -gt 0 ]; do
@@ -713,12 +771,23 @@ function cmd_osmo_mission {
             --key)           pubkey_file="$2"; shift 2 ;;
             --branch)        branch="$2"; branch_explicit=true; shift 2 ;;
             --no-keep-alive) keep_alive="false"; shift ;;
+            --auto-fetch)    auto_fetch_dur="$2"; shift 2 ;;
             -*)              extra_args+=("$1"); shift ;;
             *)
                 if [ -z "$mission" ]; then mission="$1"; else extra_args+=("$1"); fi
                 shift ;;
         esac
     done
+
+    # Validate --auto-fetch up front (fail before submitting on a bad value).
+    local auto_fetch_cap_s=""
+    if [ -n "$auto_fetch_dur" ]; then
+        if [ "$keep_alive" != "true" ]; then
+            log_error "--auto-fetch requires the pod to stay alive; don't combine it with --no-keep-alive."
+            return 1
+        fi
+        auto_fetch_cap_s="$(_osmo_parse_duration "$auto_fetch_dur")" || return 1
+    fi
 
     if [ -z "$mission" ]; then
         log_error "Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--branch BRANCH] [--no-keep-alive]"
@@ -799,6 +868,11 @@ function cmd_osmo_mission {
         return 0
     fi
     _osmo_save_wf_id "$wf_id"
+
+    if [ -n "$auto_fetch_cap_s" ]; then
+        _osmo_wait_and_fetch "$wf_id" "$auto_fetch_cap_s"
+        return $?
+    fi
 
     log_info "Next steps:"
     log_info "  airstack osmo:logs        # follow mission progress"
@@ -956,7 +1030,7 @@ function register_osmo_commands {
 
     COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus)"
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
-    COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive)"
+    COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive, --auto-fetch DUR)"
     COMMAND_HELP["osmo:fetch"]="Download mission results (mcap bags, logs, summaries) from the pod over ssh — incremental, safe to run mid-mission (osmo:fetch [dest-dir])"
     COMMAND_HELP["osmo:stop"]="Gracefully stop the running mission: abort current step, finalize mcaps, collect bags+logs, stack down (pod stays up for osmo:fetch)"
     COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"

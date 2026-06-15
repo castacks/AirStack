@@ -45,9 +45,12 @@ _GOSSIP_ORIGIN_ALT = 90.0
 
 _GOSSIP_SEEN_SIZE = 50
 
+# Must match gossip_node GOSSIP_QOS (RELIABLE + TRANSIENT_LOCAL) so the GCS
+# re-syncs the latest PeerProfile when a gossip route recovers, instead of
+# staying dark for the rest of the run.
 GOSSIP_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.BEST_EFFORT,
-    durability=DurabilityPolicy.VOLATILE,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
 )
@@ -244,7 +247,7 @@ class PayloadVisualizerNode(Node):
         m.color.g = color[1]
         m.color.b = color[2]
         m.color.a = 0.45
-        m.lifetime = Duration(sec=3, nanosec=0)
+        m.lifetime = Duration(sec=0, nanosec=0)  # persist on replay
         half = 0.5 * self._completed_cell_size_m
         z = 0.05
         for p in pts:
@@ -282,6 +285,12 @@ class PayloadVisualizerNode(Node):
         if not isinstance(items, list):
             return
         out = MarkerArray()
+        # lifetime=0 persists markers, so clear stale ones each publish in case
+        # the target list shrinks or re-orders.
+        clear = Marker()
+        clear.header.frame_id = 'map'
+        clear.action = Marker.DELETEALL
+        out.markers.append(clear)
         for j, it in enumerate(items):
             try:
                 cx = float(it.get('cx', 0.0))
@@ -319,7 +328,7 @@ class PayloadVisualizerNode(Node):
             box.color.g = rgb[1]
             box.color.b = rgb[2]
             box.color.a = 0.25
-            box.lifetime = Duration(sec=3, nanosec=0)
+            box.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(box)
             # Label above the box.
             txt = Marker()
@@ -339,7 +348,7 @@ class PayloadVisualizerNode(Node):
             txt.color.b = 1.0
             txt.color.a = 1.0
             txt.text = f'{label} [{status or "?"}]'
-            txt.lifetime = Duration(sec=3, nanosec=0)
+            txt.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(txt)
         self._pub_for(
             f'/gcs/payload/{robot_name}/confirmed_targets', MarkerArray).publish(out)

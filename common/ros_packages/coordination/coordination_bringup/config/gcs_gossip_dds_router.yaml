@@ -15,3 +15,12 @@ participants:
 
 allowlist:
   - name: "rt/gossip/peers"
+
+# Forward RELIABLE + TRANSIENT_LOCAL (matches gossip_node GOSSIP_QOS) so samples
+# survive load and the route re-syncs the latest profile after a drop.
+topics:
+  - name: "rt/gossip/peers"
+    qos:
+      reliability: true
+      durability: true
+      history-depth: 20
