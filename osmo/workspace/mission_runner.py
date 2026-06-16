@@ -927,26 +927,46 @@ def run_step(stack, container, step_spec, step_index):
 
 # ── artifacts ──────────────────────────────────────────────────────────────
 
+# Navigation / control-stack node-name globs. These log via rcl to ~/.ros/log
+# (not /tmp), so they're collected separately — they're what reveals why
+# droan_gl's plan isn't becoming motion (e.g. a robot stuck at a frontier).
+CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "trajectory_controller*",
+                       "fixed_trajectory*", "takeoff_landing*", "mavros*")
+
+
 def snapshot_task_logs(dest_dir):
-    """Copy the raw rayfronts/raven/gossip/ddsrouter tees (written to /tmp inside
-    each container) into <dest_dir>/<container>/. Includes the GCS container so
-    the GCS-side gossip ddsrouter log is captured too."""
+    """Copy the raw rayfronts/raven/gossip/ddsrouter/relay tees (written to /tmp
+    inside each container) into <dest_dir>/<container>/, plus the navigation /
+    control-stack node logs that rcl writes under ~/.ros/log rather than /tmp.
+    Includes the GCS container so the GCS-side gossip ddsrouter log is captured."""
     targets = list(robot_containers())
     gcs = gcs_container()
     if gcs:
         targets.append(gcs)
+    name_pred = " -o ".join(f"-name '{g}'" for g in CONTROL_STACK_GLOBS)
+    tar = "/tmp/control_stack_logs.tar.gz"
     for name in targets:
         r = docker_exec(name, "ls /tmp/rayfronts_*.log /tmp/raven_*.log "
                               "/tmp/gossip_*.log /tmp/ddsrouter_*.log /tmp/relay_*.log 2>/dev/null",
                         timeout=15)
         files = [f for f in r.stdout.split() if f]
-        if not files:
-            continue
         out = dest_dir / name
-        out.mkdir(parents=True, exist_ok=True)
-        for f in files:
-            sh(["docker", "cp", f"{name}:{f}", str(out)], timeout=120)
-        log(f"collected {len(files)} node log(s) from {name}")
+        if files:
+            out.mkdir(parents=True, exist_ok=True)
+            for f in files:
+                sh(["docker", "cp", f"{name}:{f}", str(out)], timeout=120)
+        made = docker_exec(
+            name,
+            f"f=$(find /root/.ros/log -type f \\( {name_pred} \\) 2>/dev/null); "
+            f"[ -n \"$f\" ] && tar czf {tar} $f 2>/dev/null && echo COLLECTED",
+            timeout=30)
+        if "COLLECTED" in (made.stdout or ""):
+            out.mkdir(parents=True, exist_ok=True)
+            sh(["docker", "cp", f"{name}:{tar}",
+                str(out / "control_stack_logs.tar.gz")], timeout=120)
+            files = files + ["control_stack_logs.tar.gz"]
+        if files:
+            log(f"collected {len(files)} node log(s) from {name}")
 
 
 def snapshot_raven_results(dest_dir):

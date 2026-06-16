@@ -20,7 +20,7 @@ from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String, Empty
 from action_msgs.srv import CancelGoal
-from task_msgs.action import SemanticSearchTask, ExplorationTask, NavigateTask
+from task_msgs.action import SemanticSearchTask, NavigateTask
 
 # ── ANSI / ROS log stripping ──────────────────────────────────────────────────
 
@@ -315,13 +315,11 @@ class SemanticSearchTaskNode(Node):
 
     def _cleanup_existing(self) -> None:
         """Kill any leftover rayfronts or raven processes and cancel any
-        active navigation goals so a fresh ExplorationTask isn't rejected
-        by droan (`task already active`) or delivered to a stale executor.
+        active navigation goals so a fresh NavigateTask isn't rejected by
+        droan_gl (`task already active`) or delivered to a stale executor.
 
-        random_walk_planner is intentionally NOT killed here: it runs as a
-        long-lived task executor under global_bringup, and pkill'ing it
-        would tear down the ExplorationTask action server every time this
-        node initializes or starts a goal.
+        droan_gl is not killed here — only on the stuck-escalation path
+        (_reset_navigate_node); routine cleanup just cancels its active goal.
         """
         for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             result = subprocess.run(
@@ -421,36 +419,9 @@ class SemanticSearchTaskNode(Node):
             except ProcessLookupError:
                 pass
 
-    def _send_exploration_task(self, robot_name: str, parent_goal):
-        """Send an unbounded ExplorationTask goal to random_walk_planner to
-        activate droan_gl. Altitude and speed bounds are forwarded from the
-        parent SemanticSearchTask goal so the operator's limits flow through
-        to the actual flight executor. Returns (client, send_future) so the
-        caller can cancel the upstream goal when the semantic_search task
-        ends."""
-        client = ActionClient(
-            self,
-            ExplorationTask,
-            f'/{robot_name}/tasks/exploration',
-            callback_group=self._cbg)
-        if not client.wait_for_server(timeout_sec=10.0):
-            self.get_logger().warn('ExplorationTask server not available after 10s')
-            return None, None
-        goal = ExplorationTask.Goal()
-        goal.min_altitude_agl = parent_goal.min_altitude_agl
-        goal.max_altitude_agl = parent_goal.max_altitude_agl
-        goal.min_flight_speed = parent_goal.min_flight_speed
-        goal.max_flight_speed = parent_goal.max_flight_speed
-        send_future = client.send_goal_async(goal)
-        self.get_logger().info(
-            f'ExplorationTask sent to random_walk_planner '
-            f'(alt {goal.min_altitude_agl:.1f}-{goal.max_altitude_agl:.1f} m AGL, '
-            f'speed {goal.min_flight_speed:.1f}-{goal.max_flight_speed:.1f} m/s)')
-        return client, send_future
-
-    def _cancel_exploration_task(self, send_future):
-        """Best-effort cancel of an ExplorationTask started via
-        _send_exploration_task. Safe to call with None / not-yet-accepted."""
+    def _cancel_navigate_task(self, send_future):
+        """Best-effort cancel of a NavigateTask started via
+        _send_navigate_activator. Safe to call with None / not-yet-accepted."""
         if send_future is None or not send_future.done():
             return
         try:
@@ -461,10 +432,24 @@ class SemanticSearchTaskNode(Node):
             return
         try:
             handle.cancel_goal_async()
-            self.get_logger().info(
-                'Cancelled upstream ExplorationTask (random_walk_planner)')
+            self.get_logger().info('Cancelled NavigateTask (droan_gl)')
         except Exception as e:
-            self.get_logger().warn(f'Failed to cancel ExplorationTask: {e}')
+            self.get_logger().warn(f'Failed to cancel NavigateTask: {e}')
+
+    def _reset_navigate_node(self) -> None:
+        """Hard-reset droan_gl (the NavigateTask action server) by killing it so
+        launch respawns a fresh instance, clearing any wedged planner state when
+        repeated soft re-activations fail to produce motion. Best-effort and
+        in-container (droan_gl runs alongside this node under the 'full' role).
+        The caller re-sends the activator, which waits for the respawned server."""
+        try:
+            subprocess.run(['pkill', '-f', 'droan_gl_node'],
+                           check=False, timeout=2.0)
+            self.get_logger().warn(
+                '[escalation] killed droan_gl_node — launch will respawn it')
+        except Exception as e:
+            self.get_logger().warn(f'[escalation] droan_gl pkill failed: {e}')
+        time.sleep(3.0)
 
     def _send_navigate_activator(self, robot_name: str):
         """Activate droan_gl with an empty-plan NavigateTask: it enters
@@ -580,7 +565,7 @@ class SemanticSearchTaskNode(Node):
                 f'search_area: {n_pts} vertices (unconstrained search)')
 
         rayfronts_proc = raven_proc = None
-        exploration_send_future = None
+        navigate_send_future = None
         rayfronts_q = raven_q = queue.Queue()
 
         STUCK_TIMEOUT_S = 5.0
@@ -588,7 +573,7 @@ class SemanticSearchTaskNode(Node):
         ESCALATE_AFTER_RESTARTS = 10
         last_motion_pos = None
         last_motion_time = None
-        exploration_restarts = 0
+        navigate_restarts = 0
         last_restart_time: 'float | None' = None
 
         # Search polygon (robot-local 'map' frame) for the out-of-bounds guard.
@@ -682,7 +667,7 @@ class SemanticSearchTaskNode(Node):
             rayfronts_ready = False
             prev_rf_sub_count = 0
             mapping_started = False
-            random_walk_started = False
+            navigation_started = False
             raven_published_waypoint = False
             completed_targets: set = set()
 
@@ -847,24 +832,24 @@ class SemanticSearchTaskNode(Node):
                             self.get_logger().warn(
                                 'Approach to polygon timed out — exploring from '
                                 'current pose anyway')
-                        self._cancel_exploration_task(approach_future)
+                        self._cancel_navigate_task(approach_future)
                         self._cancel_active_navigation(robot_name)
                         approached_bounds = True
 
-                # Wait for raven's first waypoint before starting random_walk —
+                # Wait for raven's first waypoint before activating droan_gl —
                 # otherwise the drone drifts before raven has any semantic targets.
-                if raven_published_waypoint and not random_walk_started:
-                    random_walk_started = True
+                if raven_published_waypoint and not navigation_started:
+                    navigation_started = True
                     self._cancel_active_navigation(robot_name)
                     self.get_logger().info(
                         'Raven published first waypoint — activating droan_gl '
                         'to navigate to it')
-                    _, exploration_send_future = self._send_navigate_activator(
+                    _, navigate_send_future = self._send_navigate_activator(
                         robot_name)
                     last_motion_pos = list(self._cur_pos) if self._cur_pos else None
                     last_motion_time = time.time()
 
-                if (random_walk_started and self._cur_pos is not None
+                if (navigation_started and self._cur_pos is not None
                         and last_motion_time is not None):
                     now = time.time()
                     if last_motion_pos is None:
@@ -881,30 +866,28 @@ class SemanticSearchTaskNode(Node):
                             self.get_logger().warn(
                                 f'Robot has not moved >{STUCK_DISTANCE_M:.1f} m in '
                                 f'{STUCK_TIMEOUT_S:.1f}s — re-activating droan_gl')
-                            self._cancel_exploration_task(exploration_send_future)
+                            self._cancel_navigate_task(navigate_send_future)
                             self._cancel_active_navigation(robot_name)
                             time.sleep(0.5)
-                            _, exploration_send_future = self._send_navigate_activator(
+                            _, navigate_send_future = self._send_navigate_activator(
                                 robot_name)
-                            exploration_restarts += 1
+                            navigate_restarts += 1
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = time.time()
 
-                            if exploration_restarts >= ESCALATE_AFTER_RESTARTS:
+                            if navigate_restarts >= ESCALATE_AFTER_RESTARTS:
                                 self.get_logger().error(
-                                    f'[escalation] {exploration_restarts} exploration '
-                                    f'restarts — clearing raven blacklist + restarting '
-                                    f'random_walk_planner')
+                                    f'[escalation] {navigate_restarts} navigate '
+                                    f'restarts — clearing raven blacklist + resetting '
+                                    f'droan_gl (the navigate action node)')
                                 self._clear_blacklist_pub.publish(Empty())
-                                try:
-                                    subprocess.run(
-                                        ['pkill', '-f', 'random_walk_planner'],
-                                        check=False, timeout=2.0)
-                                except Exception as e:
-                                    self.get_logger().warn(
-                                        f'[escalation] pkill failed: {e}')
-                                exploration_restarts = 0
+                                self._reset_navigate_node()
+                                _, navigate_send_future = (
+                                    self._send_navigate_activator(robot_name))
+                                navigate_restarts = 0
+                                last_motion_pos = list(self._cur_pos)
+                                last_motion_time = time.time()
 
                 # Resend queries whenever rayfronts' subscriber appears (initial
                 # load AND any restart mid-task). All queries (target + background)
@@ -944,9 +927,9 @@ class SemanticSearchTaskNode(Node):
                     if c > cur_best_conf:
                         cur_best_conf = c
 
-                # Gated on random_walk_started so we don't trip before raven is online.
+                # Gated on navigation_started so we don't trip before raven is online.
                 now_ts = time.time()
-                polygon_done = random_walk_started and nav_mode_complete
+                polygon_done = navigation_started and nav_mode_complete
 
                 hit_max = (max_instances > 0
                            and len(discoveries_by_id) >= max_instances)
@@ -987,11 +970,11 @@ class SemanticSearchTaskNode(Node):
                 if last_restart_time is not None and (
                         time.time() - last_restart_time) < 3.0:
                     status = (
-                        f'[failsafe] Restarted ExplorationTask — drone stuck '
+                        f'[failsafe] Re-activated droan_gl — drone stuck '
                         f'(<{STUCK_DISTANCE_M:.1f} m in {STUCK_TIMEOUT_S:.1f}s)\n'
                         + status)
-                if exploration_restarts > 0:
-                    status += f'\n[exploration restarts: {exploration_restarts}]'
+                if navigate_restarts > 0:
+                    status += f'\n[navigate restarts: {navigate_restarts}]'
 
                 fb = SemanticSearchTask.Feedback()
                 fb.status = status
@@ -1005,8 +988,8 @@ class SemanticSearchTaskNode(Node):
                     continue   # cancel was requested, loop back to check it
 
         finally:
-            # Stop the bringup-launched random_walk_planner from wandering.
-            self._cancel_exploration_task(exploration_send_future)
+            # Cancel droan_gl's NavigateTask so it stops following /global_plan.
+            self._cancel_navigate_task(navigate_send_future)
             self._kill('rayfronts', rayfronts_proc)
             self._kill('raven', raven_proc)
             # Clear the latched polygon so the next task isn't constrained

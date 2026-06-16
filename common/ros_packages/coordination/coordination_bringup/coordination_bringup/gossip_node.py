@@ -8,6 +8,7 @@ unaffected by sim time). A new waypoint triggers an immediate extra publish.
 import os
 import threading
 import time
+import traceback
 import yaml
 from collections import OrderedDict
 
@@ -368,6 +369,9 @@ def main(args=None):
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
+    except BaseException:
+        node._diag("CRASH\n" + traceback.format_exc())
+        raise
     finally:
         node.destroy_node()
         rclpy.shutdown()
