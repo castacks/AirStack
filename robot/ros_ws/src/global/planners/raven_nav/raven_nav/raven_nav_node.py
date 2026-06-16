@@ -197,11 +197,11 @@ class RavenNavNode(Node):
             PointCloud2, f'{self._prefix}/frontier_viewpoints', 10)
         # Shared with peers via gossip; receivers apply their own filters.
         self._raw_frontiers_pub = self.create_publisher(
-            PointCloud2, f'{self._prefix}/raw_frontiers', 10)
+            PointCloud2, f'{self._prefix}/shared_frontiers', 10)
         # Post-filter own frontiers (altitude + polygon + zone). Visualizing
         # this in Foxglove shows the explorable area shrinking in real time.
         self._kept_frontiers_pub = self.create_publisher(
-            PointCloud2, f'{self._prefix}/kept_frontiers', 10)
+            PointCloud2, f'{self._prefix}/filtered_frontiers', 10)
         self._current_target_pub = self.create_publisher(
             String, f'{self._prefix}/current_target', 10)
         self._voxel_bbox_pub = self.create_publisher(
@@ -233,7 +233,7 @@ class RavenNavNode(Node):
         # Coverage tracking: XY centers of frontier zones this robot has cleared.
         # Shared via gossip so peers stop chasing the same areas.
         self._completed_zones_pub = self.create_publisher(
-            PointCloud2, f'{self._prefix}/raven_nav/completed_frontier_zones', 10)
+            PointCloud2, f'{self._prefix}/raven_nav/explored_area_coverage', 10)
         # Gossip-shared so peers can anchor ray triangulation onto these and dedupe.
         self._confirmed_targets_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/confirmed_targets', 10)

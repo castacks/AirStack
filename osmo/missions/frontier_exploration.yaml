@@ -114,9 +114,9 @@ record:
     # per-robot payload markers
     - /gcs/payload/{robot}/filtered_rays
     #- /gcs/payload/{robot}/voxel_rgb
-    #- /gcs/payload/{robot}/raw_frontiers
-    - /gcs/payload/{robot}/kept_frontiers
-    - /gcs/payload/{robot}/completed_zones
+    #- /gcs/payload/{robot}/shared_frontiers
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
     # textured-ground marker Foxglove renders (latched GCS visualizer output)
     - /gcs/sim_ground

@@ -39,7 +39,7 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/global_plan"
 
   # raven_nav exploration debug — visible to operator in Foxglove
-  - name: "rt/$(env ROBOT_NAME)/kept_frontiers"
+  - name: "rt/$(env ROBOT_NAME)/filtered_frontiers"
   - name: "rt/$(env ROBOT_NAME)/debug/frontier_table"
 
   # behavior tree

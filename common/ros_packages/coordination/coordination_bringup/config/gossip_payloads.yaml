@@ -32,18 +32,18 @@ payload_topics:
   - topic: "/{robot_name}/filtered_rays"
     type: "visualization_msgs/msg/MarkerArray"
 
-  # Raw frontiers (raven_nav) — post-altitude+polygon filter, pre-clustering.
+  # Shared frontiers (raven_nav) — post-altitude+polygon filter, pre-clustering.
   # Peers merge these into their own frontier candidate pool
   # (peer_state.peer_frontiers → frontier_behavior.py). Bounded (current
   # boundary, recomputed each tick — not accumulating), so safe to gossip.
-  - topic: "/{robot_name}/raw_frontiers"
+  - topic: "/{robot_name}/shared_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
-  # Kept frontiers (raven_nav) — post altitude + polygon + zone filter.
+  # Filtered frontiers (raven_nav) — post altitude + polygon + zone filter.
   # Debug/visualization only: peers don't consume these (each computes its
-  # own kept set from raw_frontiers). Gossiped so the GCS can render the
+  # own filtered set from shared_frontiers). Gossiped so the GCS can render the
   # shrinking explorable area per drone in Foxglove.
-  - topic: "/{robot_name}/kept_frontiers"
+  - topic: "/{robot_name}/filtered_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
 
@@ -69,10 +69,10 @@ payload_topics:
   - topic: "/{robot_name}/shared_rays"
     type: "sensor_msgs/msg/PointCloud2"
 
-  # Completed-frontier zones (raven_nav) — XY centers of regions a robot has
-  # cleared. Peers union their own zones with these to skip nearby frontiers
-  # and to feed the novelty cost in frontier selection.
-  - topic: "/{robot_name}/raven_nav/completed_frontier_zones"
+  # Explored-area coverage (raven_nav) — XY centers of cells a robot has
+  # observed. Peers union their own coverage with these to skip nearby
+  # frontiers and to feed the novelty cost in frontier selection.
+  - topic: "/{robot_name}/raven_nav/explored_area_coverage"
     type: "sensor_msgs/msg/PointCloud2"
 
   # Confirmed target AABBs (raven_nav, fed from voxel_behavior) — JSON list of

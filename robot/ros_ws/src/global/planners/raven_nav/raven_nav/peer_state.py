@@ -127,7 +127,7 @@ class PeerState:
         if ct_msg is not None:
             self.peer_committed_target[name] = str(ct_msg.data)
 
-        front_msg, _ = profile.get_payload_by_name_with_stamp("raw_frontiers")
+        front_msg, _ = profile.get_payload_by_name_with_stamp("shared_frontiers")
         if front_msg is not None:
             pts = list(point_cloud2.read_points(
                 front_msg, field_names=("x", "y", "z"), skip_nans=True))
@@ -147,7 +147,7 @@ class PeerState:
                 rays_msg, my_boot_enu, my_alt_ground)
 
         zones_msg, _ = profile.get_payload_by_name_with_stamp(
-            "completed_frontier_zones")
+            "explored_area_coverage")
         if zones_msg is not None:
             pts = list(point_cloud2.read_points(
                 zones_msg, field_names=("x", "y"), skip_nans=True))

@@ -75,7 +75,7 @@ class PayloadVisualizerNode(Node):
         self._pubs          = {}
         self._seen: OrderedDict = OrderedDict()
 
-        # Side length of each observed-cell cube in /completed_zones.
+        # Side length of each observed-cell cube in /explored_area_coverage.
         # Keep in sync with raven_nav_node's coverage_cell_size_m.
         self.declare_parameter('completed_cell_size_m', 0.5)
         self._completed_cell_size_m = float(
@@ -175,7 +175,7 @@ class PayloadVisualizerNode(Node):
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         marker = point_cloud2_to_cube_marker(
             msg, 0.0, 0.0, self._display_z_offset(),
-            ns=f'{robot_name}_raw_frontiers',
+            ns=f'{robot_name}_shared_frontiers',
             marker_id=i * 100000,
             stamp=now,
             lifetime=Duration(sec=2, nanosec=0),
@@ -188,7 +188,7 @@ class PayloadVisualizerNode(Node):
         marker.colors = []
         out = MarkerArray()
         out.markers.append(marker)
-        self._pub_for(f'/gcs/payload/{robot_name}/raw_frontiers', MarkerArray).publish(out)
+        self._pub_for(f'/gcs/payload/{robot_name}/shared_frontiers', MarkerArray).publish(out)
 
     def _handle_navigation_mode(self, robot_name, msg, i, now):
         # Pure passthrough — no spatial transform needed for a String.
@@ -202,7 +202,7 @@ class PayloadVisualizerNode(Node):
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         marker = point_cloud2_to_cube_marker(
             msg, 0.0, 0.0, self._display_z_offset(),
-            ns=f'{robot_name}_kept_frontiers',
+            ns=f'{robot_name}_filtered_frontiers',
             marker_id=i * 100000 + 200,
             stamp=now,
             lifetime=Duration(sec=2, nanosec=0),
@@ -216,7 +216,7 @@ class PayloadVisualizerNode(Node):
         out = MarkerArray()
         out.markers.append(marker)
         self._pub_for(
-            f'/gcs/payload/{robot_name}/kept_frontiers', MarkerArray).publish(out)
+            f'/gcs/payload/{robot_name}/filtered_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
         """Observed-cell grid gossiped by raven_nav (one (x,y) per cell).
@@ -234,7 +234,7 @@ class PayloadVisualizerNode(Node):
         m = Marker()
         m.header.frame_id = 'map'
         m.header.stamp = now
-        m.ns = f'{robot_name}_completed_zones'
+        m.ns = f'{robot_name}_explored_area_coverage'
         m.id = i * 100000
         m.type = Marker.TRIANGLE_LIST
         m.action = Marker.ADD
@@ -261,7 +261,7 @@ class PayloadVisualizerNode(Node):
         out = MarkerArray()
         out.markers.append(m)
         self._pub_for(
-            f'/gcs/payload/{robot_name}/completed_zones', MarkerArray).publish(out)
+            f'/gcs/payload/{robot_name}/explored_area_coverage', MarkerArray).publish(out)
 
     def _handle_confirmed_targets(self, robot_name, msg, i, now):
         """JSON-encoded list of confirmed-target AABBs from raven_nav. Each
@@ -418,9 +418,9 @@ class PayloadVisualizerNode(Node):
 
     PAYLOAD_HANDLERS = {
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
-        'raw_frontiers':              ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
-        'kept_frontiers':             ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
-        'completed_frontier_zones':   ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
+        'shared_frontiers':           ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
+        'filtered_frontiers':         ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
+        'explored_area_coverage':     ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
         'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),
