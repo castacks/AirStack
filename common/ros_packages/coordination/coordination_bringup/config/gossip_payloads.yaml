@@ -73,7 +73,7 @@ payload_topics:
   # observed. Peers union their own coverage with these to skip nearby
   # frontiers and to feed the novelty cost in frontier selection.
   - topic: "/{robot_name}/raven_nav/explored_area_coverage"
-    type: "sensor_msgs/msg/PointCloud2"
+    type: "coordination_msgs/msg/CoverageGrid"
 
   # Confirmed target AABBs (raven_nav, fed from voxel_behavior) — JSON list of
   # [{label, cx, cy, cz, sx, sy, sz, status, confidence, ts}]. Peers anchor ray

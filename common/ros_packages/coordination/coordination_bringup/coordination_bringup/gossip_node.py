@@ -9,7 +9,7 @@ import os
 import threading
 import time
 import yaml
-from collections import OrderedDict, deque
+from collections import OrderedDict
 
 import rclpy
 from rclpy.node import Node
@@ -27,6 +27,7 @@ from nav_msgs.msg import Path
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Float64
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
+from coordination_msgs.msg import CoverageGrid
 
 from coordination_bringup.peer_profile import PeerProfile
 from coordination_bringup.frame_utils import (
@@ -99,8 +100,6 @@ class GossipNode(Node):
         self._payload_subs: list = []
 
         self._coverage_topic = None
-        self._coverage_sent_keys: set = set()
-        self._coverage_window = deque(maxlen=3)
 
         if payload_config_path:
             self._setup_payload_subscriptions(payload_config_path)
@@ -296,7 +295,7 @@ class GossipNode(Node):
                 if entry is not None:
                     msg, stamp = entry
                     if topic == self._coverage_topic:
-                        self._attach_coverage(msg, stamp, bx, by, bz, q)
+                        self._attach_coverage(msg, stamp, bx, by)
                     else:
                         transformed = self._transform_to_global(msg, bx, by, bz, q)
                         self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
@@ -314,53 +313,15 @@ class GossipNode(Node):
         self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
         self._gossip_pub.publish(self._profile.to_ros_msg())
 
-    def _attach_coverage(self, msg, stamp, bx, by, bz, q):
-        """explored_area_coverage: an initial full seed ('explored_area_coverage')
-        then per-tick new cells over a 3-tick redundancy window
-        ('explored_area_coverage_delta') so each cell is sent 3 times. Receivers
-        union everything."""
-        import numpy as np
-        from sensor_msgs_py import point_cloud2 as pc2
-        try:
-            pts = list(pc2.read_points(msg, field_names=('x', 'y', 'z'), skip_nans=True))
-        except Exception:
-            return
-        if not pts:
-            return
-        keys = [(round(float(p[0]), 2), round(float(p[1]), 2)) for p in pts]
-        if not self._coverage_sent_keys:
-            self._coverage_sent_keys = set(keys)
-            out = self._transform_to_global(msg, bx, by, bz, q)
-            self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage")
-            return
-        new_idx = [i for i, k in enumerate(keys) if k not in self._coverage_sent_keys]
-        for i in new_idx:
-            self._coverage_sent_keys.add(keys[i])
-        self._coverage_window.append(
-            np.array([[pts[i][0], pts[i][1], pts[i][2]] for i in new_idx], dtype=np.float32)
-            if new_idx else np.zeros((0, 3), dtype=np.float32))
-        chunks = [a for a in self._coverage_window if a.shape[0] > 0]
-        if not chunks:
-            return
-        out = self._transform_to_global(
-            self._make_xyz_cloud(msg.header, np.vstack(chunks)), bx, by, bz, q)
-        self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage_delta")
-
-    @staticmethod
-    def _make_xyz_cloud(header, pts):
-        from sensor_msgs.msg import PointField
-        out = PointCloud2()
-        out.header = header
-        out.height = 1
-        out.width = int(pts.shape[0])
-        out.is_bigendian = False
-        out.is_dense = True
-        out.fields = [PointField(name=n, offset=4 * i, datatype=PointField.FLOAT32, count=1)
-                      for i, n in enumerate(('x', 'y', 'z'))]
-        out.point_step = 12
-        out.row_step = 12 * out.width
-        out.data = pts.tobytes()
-        return out
+    def _attach_coverage(self, msg, stamp, bx, by):
+        out = CoverageGrid()
+        out.resolution = msg.resolution
+        out.origin_x = msg.origin_x + bx
+        out.origin_y = msg.origin_y + by
+        out.width = msg.width
+        out.height = msg.height
+        out.data = msg.data
+        self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage")
 
     @staticmethod
     def _translate_waypoint(wp, bx, by, bz):

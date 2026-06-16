@@ -146,20 +146,23 @@ class PeerState:
             self.peer_rays[name] = self._parse_shared_rays(
                 rays_msg, my_boot_enu, my_alt_ground)
 
-        for cov_name in ("explored_area_coverage", "explored_area_coverage_delta"):
-            cov_msg, _ = profile.get_payload_by_name_with_stamp(cov_name)
-            if cov_msg is None:
-                continue
-            pts = list(point_cloud2.read_points(
-                cov_msg, field_names=("x", "y"), skip_nans=True))
-            if not pts:
-                continue
-            arr_global = np.array([[p[0], p[1], 0.0] for p in pts], dtype=np.float64)
-            local = global_enu_to_local_batch(
-                arr_global, my_boot_enu, local_alt_ground=my_alt_ground)[:, :2]
-            prev = self.peer_completed_zones.get(name)
-            merged = local if prev is None else np.vstack([prev, local])
-            self.peer_completed_zones[name] = np.unique(np.round(merged, 2), axis=0)
+        grid_msg, _ = profile.get_payload_by_name_with_stamp("explored_area_coverage")
+        if grid_msg is not None:
+            if grid_msg.width > 0 and grid_msg.height > 0:
+                bits = np.unpackbits(np.frombuffer(bytes(grid_msg.data), dtype=np.uint8))
+                occ = bits[:grid_msg.width * grid_msg.height].reshape(
+                    grid_msg.height, grid_msg.width)
+                jj, ii = np.nonzero(occ)
+                res = grid_msg.resolution
+                xs = grid_msg.origin_x + (ii + 0.5) * res
+                ys = grid_msg.origin_y + (jj + 0.5) * res
+                arr_global = np.stack(
+                    [xs, ys, np.zeros_like(xs)], axis=1).astype(np.float64)
+                local = global_enu_to_local_batch(
+                    arr_global, my_boot_enu, local_alt_ground=my_alt_ground)
+                self.peer_completed_zones[name] = local[:, :2]
+            else:
+                self.peer_completed_zones[name] = np.zeros((0, 2), dtype=np.float64)
 
         ct_targets_msg, _ = profile.get_payload_by_name_with_stamp(
             "confirmed_targets")

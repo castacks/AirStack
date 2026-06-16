@@ -220,21 +220,21 @@ class PayloadVisualizerNode(Node):
             f'/gcs/payload/{robot_name}/filtered_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
-        """Explored-area coverage (keyframe or delta) — accumulate cells (they're
-        never removed) and render the union as one TRIANGLE_LIST marker."""
-        from sensor_msgs_py import point_cloud2 as pc2
+        """Explored-area coverage bitmask → one TRIANGLE_LIST marker."""
+        import numpy as np
+        if msg.width == 0 or msg.height == 0:
+            return
+        sig = (msg.width, msg.height, bytes(msg.data))
+        if self._coverage_cells.get(robot_name) == sig:
+            return
+        self._coverage_cells[robot_name] = sig
+        bits = np.unpackbits(np.frombuffer(bytes(msg.data), dtype=np.uint8))
+        occ = bits[:msg.width * msg.height].reshape(msg.height, msg.width)
+        jj, ii = np.nonzero(occ)
+        res = float(msg.resolution)
+        xs = (msg.origin_x + (ii + 0.5) * res).tolist()
+        ys = (msg.origin_y + (jj + 0.5) * res).tolist()
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-        try:
-            pts = list(pc2.read_points(msg, field_names=('x', 'y'),
-                                       skip_nans=True))
-        except Exception:
-            return
-        cells = self._coverage_cells.setdefault(robot_name, set())
-        before = len(cells)
-        for p in pts:
-            cells.add((round(float(p[0]), 2), round(float(p[1]), 2)))
-        if len(cells) == before:
-            return
         m = Marker()
         m.header.frame_id = 'map'
         m.header.stamp = now
@@ -250,11 +250,10 @@ class PayloadVisualizerNode(Node):
         m.color.g = color[1]
         m.color.b = color[2]
         m.color.a = 0.45
-        m.lifetime = Duration(sec=0, nanosec=0)  # persist on replay
-        half = 0.5 * self._completed_cell_size_m
+        m.lifetime = Duration(sec=0, nanosec=0)
+        half = 0.5 * res
         z = 0.05
-        for cx, cy in cells:
-            # Two triangles forming the cell's flat square (CCW from above).
+        for cx, cy in zip(xs, ys):
             v00 = GPoint(x=cx - half, y=cy - half, z=z)
             v10 = GPoint(x=cx + half, y=cy - half, z=z)
             v11 = GPoint(x=cx + half, y=cy + half, z=z)
@@ -422,8 +421,7 @@ class PayloadVisualizerNode(Node):
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
         'shared_frontiers':           ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
         'filtered_frontiers':         ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
-        'explored_area_coverage':       ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
-        'explored_area_coverage_delta': ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
+        'explored_area_coverage':       ('coordination_msgs/msg/CoverageGrid', _handle_completed_zones),
         'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),

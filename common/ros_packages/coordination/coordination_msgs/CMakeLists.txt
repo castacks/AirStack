@@ -9,6 +9,7 @@ find_package(sensor_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PeerProfilePayload.msg"
   "msg/PeerProfile.msg"
+  "msg/CoverageGrid.msg"
   DEPENDENCIES geometry_msgs sensor_msgs
 )
 

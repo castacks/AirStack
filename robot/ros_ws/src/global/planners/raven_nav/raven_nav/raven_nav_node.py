@@ -17,6 +17,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from coordination_bringup.frame_utils import gps_to_enu
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
+from coordination_msgs.msg import CoverageGrid
 from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
@@ -233,7 +234,7 @@ class RavenNavNode(Node):
         # Coverage tracking: XY centers of frontier zones this robot has cleared.
         # Shared via gossip so peers stop chasing the same areas.
         self._completed_zones_pub = self.create_publisher(
-            PointCloud2, f'{self._prefix}/raven_nav/explored_area_coverage', 10)
+            CoverageGrid, f'{self._prefix}/raven_nav/explored_area_coverage', 10)
         # Gossip-shared so peers can anchor ray triangulation onto these and dedupe.
         self._confirmed_targets_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/confirmed_targets', 10)
@@ -895,33 +896,24 @@ class RavenNavNode(Node):
             String(data='\n'.join(lines).rstrip()))
 
     def _publish_completed_zones(self) -> None:
-        """Gossip observed cells as a PointCloud2 of cell-center XYs.
-        z is fixed at 0 — included only so gossip_node's transform_point_cloud2
-        runs (it bails on clouds missing any of x/y/z) and applies the sender's
-        boot offset (bx, by, bz). Without z, cells stayed in the sender's local
-        odom frame but were labeled 'map', so every robot's grid rendered
-        anchored at the GCS origin instead of its own takeoff position."""
-        from sensor_msgs.msg import PointField
-        centers = self._own_cell_centers_xy()
-        n = int(centers.shape[0])
-        out = PointCloud2()
-        out.header.stamp = self.get_clock().now().to_msg()
-        out.header.frame_id = 'map'
-        out.height = 1
-        out.width = n
-        out.is_bigendian = False
-        out.is_dense = True
-        out.fields = [
-            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
-            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
-        ]
-        out.point_step = 12
-        out.row_step = out.point_step * n
-        if n > 0:
-            xyz = np.zeros((n, 3), dtype=np.float32)
-            xyz[:, :2] = centers.astype(np.float32)
-            out.data = xyz.tobytes()
+        """Publish observed cells as a packed-bitmask CoverageGrid (local frame)."""
+        out = CoverageGrid()
+        out.resolution = float(self._cell_size_m)
+        if not self._observed_cells:
+            out.width = 0
+            out.height = 0
+            self._completed_zones_pub.publish(out)
+            return
+        arr = np.array(list(self._observed_cells), dtype=np.int64)
+        min_c = arr.min(axis=0)
+        max_c = arr.max(axis=0)
+        out.width = int(max_c[0] - min_c[0] + 1)
+        out.height = int(max_c[1] - min_c[1] + 1)
+        out.origin_x = float(min_c[0]) * self._cell_size_m
+        out.origin_y = float(min_c[1]) * self._cell_size_m
+        occ = np.zeros((out.height, out.width), dtype=np.uint8)
+        occ[arr[:, 1] - min_c[1], arr[:, 0] - min_c[0]] = 1
+        out.data = np.packbits(occ.reshape(-1)).tobytes()
         self._completed_zones_pub.publish(out)
 
     def _vox_all_cb(self, msg: PointCloud2):
