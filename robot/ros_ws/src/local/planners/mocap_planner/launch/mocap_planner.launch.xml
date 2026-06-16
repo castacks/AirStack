@@ -5,7 +5,7 @@
 
     <!-- Remap standard AirStack topics to robot namespace -->
     <remap from="odometry"
-           to="/$(env ROBOT_NAME robot_1)/odometry" />
+           to="/$(env ROBOT_NAME robot_1)/odometry_conversion/odometry" />
     <remap from="trajectory_override"
            to="/$(env ROBOT_NAME robot_1)/trajectory_controller/trajectory_override" />
   </node>
