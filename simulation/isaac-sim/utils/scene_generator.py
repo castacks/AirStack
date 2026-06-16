@@ -1,14 +1,18 @@
 """
 scene_generator.py — Procedural city generator for Isaac Sim / USD.
 
-Builds a grid-based neighborhood by referencing a library of USD props (tiles,
-houses, trees, streetlights) and laying them out in three steps:
+Builds a building-first neighborhood by referencing a library of USD props
+(tiles, houses, trees, streetlights). Buildings vary wildly in size, so rather
+than forcing a uniform grid it packs each building into its own lot:
 
-    Step 1 — Ground: a road lattice separates an N×M grid of building cells;
-             each cell is carpeted with grass, plus a concrete driveway (and an
-             optional sidewalk border) around the house.
-    Step 2 — Houses: one house per cell, a configurable fraction rendered as
-             damaged (tilted + sunk, or swapped for a damaged USD if provided).
+    Packing — sample one building per cell, then size every row/column to the
+             largest building in it (cells are non-uniform). Road gutters sized
+             to fit a road + sidewalks run between and around all cells.
+    Step 1 — Ground: a concrete pad under each building, a road lattice in the
+             gutters (intersections + straights), sidewalks ringing each cell,
+             and grass filling the remaining slack inside each lot.
+    Step 2 — Buildings: one per cell, centered; a configurable fraction rendered
+             damaged (tilted + sunk, preferring a damaged USD when provided).
     Step 3 — Detail: trees scattered on open grass, streetlights at uniform
              spacing along the roads.
 
@@ -57,15 +61,16 @@ def load_config(config_path: str) -> dict:
         raise ValueError(f"City config {config_path!r} did not parse to a mapping")
     if "usds" not in config:
         raise ValueError(f"City config {config_path!r} has no 'usds' library")
-    if "grid" not in config:
-        raise ValueError(f"City config {config_path!r} has no 'grid' (cols/rows)")
+    if "layout" not in config or "region_m" not in config["layout"]:
+        raise ValueError(f"City config {config_path!r} has no 'layout.region_m' "
+                         "(city extent in meters, e.g. [200, 200])")
 
     usds = config["usds"]
     tiles = usds.get("tiles", {})
     if not tiles.get("grass"):
         raise ValueError("usds.tiles.grass must list at least one grass tile USD")
     if not tiles.get("road", {}).get("straight"):
-        raise ValueError("usds.tiles.road.straight is required for the road lattice")
+        raise ValueError("usds.tiles.road.straight is required for the road network")
     if not usds.get("houses", {}).get("intact"):
         raise ValueError("usds.houses.intact must list at least one house USD")
 
@@ -218,25 +223,201 @@ def _in_rect(x, y, rect) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Grid geometry
+# Procedural layout — recursive subdivision (roads) + lot parcelling
+#
+# Pipeline follows the standard procedural-city literature (Parish-Müller 2001;
+# Vanegas 2012 "Procedural Generation of Parcels"): a road network divides the
+# region into blocks, each block is recursively subdivided into lots, and a
+# building is fit into each lot. Specialized here to axis-aligned rectangles so
+# everything stays tileable with the square road/ground assets (no diagonals).
 # ---------------------------------------------------------------------------
 
-def _axis_layout(n_cells: int, cell_m: float, road_w: float):
-    """Lay out one axis: a road lane, then a cell, repeating, with a closing
-    road lane. Returns (road_centers[n+1], cell_origins[n], cell_centers[n],
-    total_length).
+# Neighbor direction bits for road tile selection.
+_N, _E, _S, _W = 1, 2, 4, 8
+
+
+def _jitter_pos(lo: int, hi: int, jitter: float, rng) -> int:
+    """Pick an integer split position in [lo, hi], biased toward the middle.
+    ``jitter`` in [0, 1]: 0 = always center, 1 = anywhere in the range.
     """
-    total = n_cells * cell_m + (n_cells + 1) * road_w
-    x = -total / 2.0
-    road_centers, cell_o, cell_c = [], [], []
-    for _ in range(n_cells):
-        road_centers.append(x + road_w / 2.0)
-        x += road_w
-        cell_o.append(x)
-        cell_c.append(x + cell_m / 2.0)
-        x += cell_m
-    road_centers.append(x + road_w / 2.0)
-    return road_centers, cell_o, cell_c, total
+    if hi <= lo:
+        return lo
+    mid = (lo + hi) / 2.0
+    half = (hi - lo) / 2.0
+    p = mid + (rng.random() * 2.0 - 1.0) * jitter * half
+    return int(round(min(hi, max(lo, p))))
+
+
+def _jitter_posf(lo: float, hi: float, jitter: float, rng) -> float:
+    """Float version of :func:`_jitter_pos` (for metric lot splits)."""
+    if hi <= lo:
+        return lo
+    mid = (lo + hi) / 2.0
+    half = (hi - lo) / 2.0
+    return min(hi, max(lo, mid + (rng.random() * 2.0 - 1.0) * jitter * half))
+
+
+def _subdivide_region(nx: int, ny: int, min_block: int, max_block: int,
+                      jitter: float, rng, anchors_cells=None):
+    """Recursively subdivide an ``nx × ny`` cell region into blocks, reserving a
+    one-cell-wide road at every split (plus a ring road around the border).
+
+    Returns ``(road_cells, blocks)`` where ``road_cells`` is a set of ``(i, j)``
+    cell coords and ``blocks`` is a list of half-open cell rects
+    ``(x0, y0, x1, y1)`` of non-road interior. Irregular (jittered splits,
+    probabilistic early stop) — not a uniform grid.
+
+    *anchors_cells*, if given, is a list of ``(w, h)`` cell sizes that get
+    **deterministically reserved** as standalone blocks in a row along the top
+    of the interior, each ringed by its own road, before the rest of the
+    interior is recursively subdivided as usual. The generic recursion is
+    probabilistic and never guarantees a block of any particular size — for
+    callers that need a block big enough for a specific (e.g. oversized)
+    building, that guarantee has to come from an explicit reservation like
+    this, not from hoping the RNG produces one.
+    """
+    road = set()
+    for i in range(nx):
+        road.add((i, 0)); road.add((i, ny - 1))
+    for j in range(ny):
+        road.add((0, j)); road.add((nx - 1, j))
+
+    blocks = []
+
+    def _recurse(x0, y0, x1, y1):
+        stack = [(x0, y0, x1, y1)]
+        while stack:
+            x0, y0, x1, y1 = stack.pop()
+            w, h = x1 - x0, y1 - y0
+            if w <= 0 or h <= 0:
+                continue
+            can_x = w >= 2 * min_block + 1   # room for two blocks + a road column
+            can_y = h >= 2 * min_block + 1
+            if not (can_x or can_y):
+                blocks.append((x0, y0, x1, y1))
+                continue
+            too_big = w > max_block or h > max_block
+            if not too_big and rng.random() < 0.5:   # irregularity: stop early
+                blocks.append((x0, y0, x1, y1))
+                continue
+            if can_x and (w >= h or not can_y):       # vertical road at column p
+                p = _jitter_pos(x0 + min_block, x1 - min_block - 1, jitter, rng)
+                for j in range(y0, y1):
+                    road.add((p, j))
+                stack.append((x0, y0, p, y1))
+                stack.append((p + 1, y0, x1, y1))
+            else:                                     # horizontal road at row q
+                q = _jitter_pos(y0 + min_block, y1 - min_block - 1, jitter, rng)
+                for i in range(x0, x1):
+                    road.add((i, q))
+                stack.append((x0, y0, x1, q))
+                stack.append((x0, q + 1, x1, y1))
+
+    ix0, iy0, ix1, iy1 = 1, 1, nx - 1, ny - 1
+
+    if anchors_cells:
+        row_h = max(h for _, h in anchors_cells)
+        x_cur = ix0
+        placed_right = ix0
+        for (aw, ah) in anchors_cells:
+            ax0, ax1 = x_cur, x_cur + aw
+            ay0, ay1 = iy0, iy0 + row_h
+            if ax1 > ix1 or ay1 > iy1:
+                break                          # out of room; remaining anchors dropped
+            blocks.append((ax0, ay0, ax1, ay1))
+            for i in range(ax0 - 1, ax1 + 1):
+                road.add((i, ay0 - 1)); road.add((i, ay1))
+            for j in range(ay0 - 1, ay1 + 1):
+                road.add((ax0 - 1, j)); road.add((ax1, j))
+            placed_right = ax1
+            x_cur = ax1 + 1
+        # Leftover L-shape: a right strip (full height) + a bottom strip (under
+        # the anchor row only) — together they exactly tile the rest.
+        if placed_right < ix1:
+            _recurse(placed_right + 1, iy0, ix1, iy1)
+        if placed_right > ix0 and iy0 + row_h < iy1:
+            # Bottom strip's right edge must include the last anchor's right
+            # border column (placed_right), not stop before it — otherwise
+            # that column is claimed by neither strip below the anchor row
+            # (right strip starts at placed_right+1, bottom strip stopped at
+            # placed_right), leaving an unclaimed dead column: no road, no
+            # block, nothing tiled — a literal gap extending down from the
+            # anchor's corner.
+            _recurse(ix0, iy0 + row_h + 1, placed_right + 1, iy1)
+        if placed_right == ix0:                # no anchor fit at all; fall back
+            _recurse(ix0, iy0, ix1, iy1)
+    else:
+        _recurse(ix0, iy0, ix1, iy1)
+
+    return road, blocks
+
+
+def _subdivide_block_to_lots(rect, lot_min: float, lot_max: float,
+                             alley: float, jitter: float, rng):
+    """Recursively subdivide a metric block *rect* (xmin,ymin,xmax,ymax) into
+    lots, leaving a thin *alley* gap between siblings.
+
+    Returns ``(lots, alleys)`` as lists of metric rects. Buildings on lots that
+    share a block are separated only by these alleys (no road between them) —
+    the requested clustering behavior.
+    """
+    lots, alleys = [], []
+    stack = [tuple(rect)]
+    while stack:
+        x0, y0, x1, y1 = stack.pop()
+        w, h = x1 - x0, y1 - y0
+        if w < lot_min or h < lot_min:
+            continue                              # too thin → becomes grass
+        can_x = w >= 2 * lot_min + alley
+        can_y = h >= 2 * lot_min + alley
+        if not (can_x or can_y):
+            lots.append((x0, y0, x1, y1))
+            continue
+        too_big = w > lot_max or h > lot_max
+        if not too_big and rng.random() < 0.4:
+            lots.append((x0, y0, x1, y1))
+            continue
+        if can_x and (w >= h or not can_y):       # vertical alley
+            p = _jitter_posf(x0 + lot_min, x1 - lot_min - alley, jitter, rng)
+            alleys.append((p, y0, p + alley, y1))
+            stack.append((x0, y0, p, y1))
+            stack.append((p + alley, y0, x1, y1))
+        else:                                     # horizontal alley
+            q = _jitter_posf(y0 + lot_min, y1 - lot_min - alley, jitter, rng)
+            alleys.append((x0, q, x1, q + alley))
+            stack.append((x0, y0, x1, q))
+            stack.append((x0, q + alley, x1, y1))
+    return lots, alleys
+
+
+def _road_tile_for_mask(mask: int):
+    """Map a 4-bit N/E/S/W neighbor mask to ``(tile_key, base_yaw)``.
+
+    Yaws within each family rotate consistently in 90° steps, so a single
+    per-family ``orientation`` offset in the config fine-tunes the art.
+    """
+    n, e, s, w = bool(mask & _N), bool(mask & _E), bool(mask & _S), bool(mask & _W)
+    count = n + e + s + w
+    if count >= 4:
+        return "four_way", 0.0
+    if count == 3:                                # tee: yaw keyed on missing arm
+        if not n:   return "tee", 0.0
+        if not w:   return "tee", 90.0
+        if not s:   return "tee", 180.0
+        return "tee", 270.0                       # missing e
+    if count == 2:
+        if n and s: return "straight", 90.0
+        if e and w: return "straight", 0.0
+        if s and w: return "corner", 0.0         # adjacent pair → corner
+        if e and s: return "corner", 90.0
+        if n and e: return "corner", 180.0
+        return "corner", 270.0                    # w and n
+    if count == 1:                               # dead end: yaw keyed on the arm
+        if n: return "dead_end", 0.0
+        if w: return "dead_end", 90.0
+        if s: return "dead_end", 180.0
+        return "dead_end", 270.0                  # e
+    return "four_way", 0.0                        # isolated (shouldn't occur)
 
 
 # ---------------------------------------------------------------------------
@@ -291,9 +472,20 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
         if sc != asset_scale:
             _scale_overrides[path] = sc
 
-    cols = int(config["grid"]["cols"])
-    rows = int(config["grid"]["rows"])
-    lot_margin = float(config["grid"].get("lot_margin_m", 2.0))
+    layout = config.get("layout", {})
+    region_m = layout.get("region_m", [200.0, 200.0])
+    region_w_m, region_h_m = float(region_m[0]), float(region_m[1])
+    min_block_m = float(layout.get("min_block_m", 24.0))
+    max_block_m = float(layout.get("max_block_m", 60.0))
+    split_jitter = float(layout.get("split_jitter", 0.2))
+    lotcfg = layout.get("lot", {})
+    lot_min_m  = float(lotcfg.get("min_m", 12.0))
+    lot_max_m  = float(lotcfg.get("max_m", 28.0))
+    alley_m    = float(lotcfg.get("alley_m", 2.0))
+    lot_margin = float(lotcfg.get("margin_m", 1.5))
+    single_lot_chance = float(lotcfg.get("single_lot_chance", 0.45))
+    tile_overlap = float(layout.get("tile_overlap", 1.02))
+    size_tie_tolerance = float(lotcfg.get("size_tie_tolerance", 0.1))
 
     # --- Resolve footprints we need for layout (pass per-asset scale) ------
     grass_fp = resolver.get(grass_usds[0], "grass", scale=_sc(grass_usds[0]))
@@ -306,17 +498,8 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
                    if sidewalk_usds else None)
 
     gx, gy = grass_fp["sx"], grass_fp["sy"]
-    road_w = max(road_fp["sx"], road_fp["sy"])
-    rlen = road_fp["sx"]  # tile pitch along a straight road's run
-
-    # Cell sized to fit the largest house + margin, snapped to a whole number
-    # of grass tiles so the grass fill is gap-free.
-    h_max = max(max(fp["sx"], fp["sy"]) for fp in house_fps.values())
-    lot = h_max + 2.0 * lot_margin
-    cell_m = math.ceil(lot / gx) * gx
-
-    rcx, cell_ox, cell_cx, total_w = _axis_layout(cols, cell_m, road_w)
-    rcy, cell_oy, cell_cy, total_h = _axis_layout(rows, cell_m, road_w)
+    cell = max(road_fp["sx"], road_fp["sy"])   # road tiles are square; 1 cell = 1 road tile
+    sw_w = max(sidewalk_fp["sx"], sidewalk_fp["sy"]) if sidewalk_fp is not None else 0.0
 
     placements: list = []
 
@@ -327,160 +510,287 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             "scale": scale, "category": category,
         })
 
+    def _tile_rect(usd_choices, rect, tsx, tsy, z, category, skip=None):
+        """Fill an axis-aligned *rect* (xmin,ymin,xmax,ymax) with tiles sized
+        ~(tsx, tsy), snapping the count so the fill is gap-free. Tiles whose
+        center falls inside *skip* (a rect) are omitted.
+
+        The center-to-center spacing (``stepx``/``stepy``) is stretched so the
+        tile *count* divides the rect evenly, but each tile's own rendered size
+        is a fixed per-asset scale that doesn't adjust to match — the two only
+        agree when the rect happens to be an exact multiple of the tile size.
+        Otherwise this leaves a hairline gap (spacing > tile size) or overlap
+        (spacing < tile size). ``tile_overlap`` nudges every tile's scale up a
+        touch so any gap becomes a slight overlap instead — z-fighting is the
+        deliberately accepted tradeoff over visible cracks between tiles.
+        """
+        x0, y0, x1, y1 = rect
+        w, h = x1 - x0, y1 - y0
+        if w <= 1e-6 or h <= 1e-6:
+            return
+        ntx = max(1, round(w / tsx)) if tsx > 1e-6 else 1
+        nty = max(1, round(h / tsy)) if tsy > 1e-6 else 1
+        stepx, stepy = w / ntx, h / nty
+        for ix in range(ntx):
+            for iy in range(nty):
+                px = x0 + (ix + 0.5) * stepx
+                py = y0 + (iy + 0.5) * stepy
+                if skip is not None and _in_rect(px, py, skip):
+                    continue
+                u = usd_choices if isinstance(usd_choices, str) else rng.choice(usd_choices)
+                add(u, px, py, z, 0.0, category, _sc(u) * tile_overlap)
+
+    # Guarantee the largest library building can always be placed somewhere,
+    # regardless of how layout.lot.max_m / max_block_m are configured: a lot
+    # subdivider that caps lot size below the biggest building would silently
+    # turn every lot to grass (no building ever fits _fit()). Bump the
+    # *effective* bounds up to the largest building's footprint + margins, and
+    # bump max_block_m to match so blocks are large enough to contain such a
+    # lot after the sidewalk inset.
+    lot_max_m_configured = lot_max_m
+    h_max = max((max(fp["sx"], fp["sy"]) for fp in house_fps.values()), default=0.0)
+    need_lot = h_max + 2.0 * lot_margin
+    if need_lot > lot_max_m:
+        print(f"[scene_gen] WARNING: largest building needs a {need_lot:.1f}m lot but "
+              f"layout.lot.max_m={lot_max_m:.1f}m — auto-raising so it can still be placed.")
+        lot_max_m = need_lot + 1e-3
+    need_block = need_lot + 2.0 * sw_w + 1e-3
+    if need_block > max_block_m:
+        max_block_m = need_block
+
+    # Buildings too big for an ordinary subdivided lot (footprint+margin above
+    # the *user-configured* lot_max_m) — these need a whole, unsplit block.
+    big_buildings = [u for u in house_intact + house_damaged
+                     if max(house_fps[u]["sx"], house_fps[u]["sy"]) + 2.0 * lot_margin
+                     > lot_max_m_configured]
+
+    # =======================================================================
+    # ROADS — recursive subdivision of the region into blocks (irregular).
+    # Work on a lattice of road-tile-sized cells so everything stays tileable.
+    # =======================================================================
+    nx = max(5, int(round(region_w_m / cell)))
+    ny = max(5, int(round(region_h_m / cell)))
+    min_block = max(1, int(round(min_block_m / cell)))
+    max_block = max(min_block + 1, int(round(max_block_m / cell)))
+
+    # Deterministically reserve a block for each oversized building — the
+    # generic recursive subdivision below is probabilistic and can easily
+    # never produce a block large enough by chance (verified: with a 48m
+    # building it failed >50% of seeds relying on RNG luck alone). Square,
+    # sized for the building's longer side so either 90° orientation fits.
+    anchors_cells = sorted(
+        ({"w": max(1, math.ceil((max(house_fps[u]["sx"], house_fps[u]["sy"])
+                                  + 2.0 * lot_margin + 2.0 * sw_w) / cell))}
+         for u in big_buildings), key=lambda a: -a["w"])
+    anchors_cells = [(a["w"], a["w"]) for a in anchors_cells]
+    if anchors_cells and sum(w for w, _ in anchors_cells) + len(anchors_cells) + 1 > nx - 2:
+        print(f"[scene_gen] WARNING: layout.region_m too small to fit all "
+              f"{len(anchors_cells)} oversized buildings side by side — some may "
+              "be dropped. Increase layout.region_m.")
+
+    road_cells, block_cells = _subdivide_region(
+        nx, ny, min_block, max_block, split_jitter, rng, anchors_cells=anchors_cells)
+
+    ox, oy = -nx * cell / 2.0, -ny * cell / 2.0     # center the region on origin
+
+    def _cell_center(i, j):
+        return ox + (i + 0.5) * cell, oy + (j + 0.5) * cell
+
+    def _cells_to_rect(x0, y0, x1, y1):
+        return (ox + x0 * cell, oy + y0 * cell, ox + x1 * cell, oy + y1 * cell)
+
+    def _fit(fp, aw, ah):
+        """Yaw (0 or 90) at which the building fits the available lot, else None."""
+        if fp["sx"] <= aw and fp["sy"] <= ah:
+            return 0.0
+        if fp["sy"] <= aw and fp["sx"] <= ah:
+            return 90.0
+        return None
+
+    def _inset_of(block):
+        x0, y0, x1, y1 = block
+        return ((x0 + sw_w, y0 + sw_w, x1 - sw_w, y1 - sw_w)
+                if (sidewalk_fp is not None and sw_w > 1e-6) else block)
+
+    # Reserve enough of the *tightest-fitting-but-sufficient* blocks to
+    # guarantee every big building gets a real placement, rather than leaving
+    # it to a per-block coin flip (which, for a single rare large block, would
+    # fail most runs — see single_lot_chance below for the general case).
+    forced_single: set = set()
+    if big_buildings:
+        candidates = []
+        for blk in block_cells:
+            inset = _inset_of(_cells_to_rect(*blk))
+            iw = (inset[2] - inset[0]) - 2.0 * lot_margin
+            ih = (inset[3] - inset[1]) - 2.0 * lot_margin
+            if iw > 0 and ih > 0 and any(_fit(house_fps[u], iw, ih) is not None
+                                         for u in big_buildings):
+                candidates.append((iw * ih, blk))
+        candidates.sort(key=lambda t: t[0])         # tightest fit first
+        forced_single = {blk for _, blk in candidates[:len(big_buildings)]}
+        if len(candidates) < len(big_buildings):
+            print(f"[scene_gen] WARNING: only {len(candidates)}/{len(big_buildings)} "
+                  "blocks big enough for the largest buildings — increase "
+                  "layout.region_m or layout.max_block_m to fit them all.")
+
     # =======================================================================
     # STEP 1 — GROUND
     # =======================================================================
 
-    # ---- Roads: intersections at every lattice crossing, straights between.
-    road_yaw        = float(orient.get("road_straight", 0.0))
-    tee_yaw_off     = float(orient.get("road_tee",      0.0))
-    corner_yaw_off  = float(orient.get("road_corner",   0.0))
-    dead_yaw_off    = float(orient.get("road_dead_end", 0.0))
-    four_yaw_off    = float(orient.get("road_four_way", 0.0))
+    # ---- Roads via neighbor bitmask (handles arbitrary axis-aligned network).
+    road_off = {
+        "straight": float(orient.get("road_straight", 0.0)),
+        "four_way": float(orient.get("road_four_way", 0.0)),
+        "tee":      float(orient.get("road_tee", 0.0)),
+        "corner":   float(orient.get("road_corner", 0.0)),
+        "dead_end": float(orient.get("road_dead_end", 0.0)),
+    }
+    _fallback = {"corner": ["corner", "dead_end", "tee", "four_way", "straight"],
+                 "dead_end": ["dead_end", "tee", "four_way", "straight"],
+                 "tee": ["tee", "four_way", "straight"],
+                 "four_way": ["four_way", "straight"],
+                 "straight": ["straight"]}
 
-    def _tee_yaw(ci, rj):
-        if rj == 0:    return 0.0
-        if rj == rows: return 180.0
-        if ci == 0:    return 270.0
-        return 90.0  # ci == cols
+    def _resolve_road(key):
+        for k in _fallback[key]:
+            if road.get(k):
+                return road[k]
+        return road["straight"]
 
-    def _corner_yaw(ci, rj):
-        return {(0, 0): 0.0, (cols, 0): 90.0,
-                (cols, rows): 180.0, (0, rows): 270.0}[(ci, rj)]
-
-    for ci in range(cols + 1):
-        for rj in range(rows + 1):
-            is_corner = ci in (0, cols) and rj in (0, rows)
-            edge = (ci in (0, cols)) ^ (rj in (0, rows))
-            if is_corner and road.get("corner"):
-                usd, yaw = road["corner"], _corner_yaw(ci, rj) + corner_yaw_off
-            elif is_corner and road.get("dead_end"):
-                usd, yaw = road["dead_end"], _corner_yaw(ci, rj) + dead_yaw_off
-            elif (is_corner or edge) and road.get("tee"):
-                usd, yaw = road["tee"], _tee_yaw(ci, rj) + tee_yaw_off
-            else:
-                usd, yaw = road.get("four_way", road["straight"]), four_yaw_off
-            add(usd, rcx[ci], rcy[rj], 0.0, yaw + road_yaw, "road", _sc(usd))
-
-    # Straight segments between intersections (n tiles per cell span).
-    _straight = road["straight"]
-    _straight_sc = _sc(_straight)
-    n_seg = max(1, round(cell_m / rlen))
-    step = cell_m / n_seg
-    for ci in range(cols + 1):                       # vertical roads
-        for r in range(rows):
-            for k in range(n_seg):
-                y = cell_oy[r] + (k + 0.5) * step
-                add(_straight, rcx[ci], y, 0.0, road_yaw + 90.0, "road", _straight_sc)
-    for rj in range(rows + 1):                       # horizontal roads
-        for c in range(cols):
-            for k in range(n_seg):
-                x = cell_ox[c] + (k + 0.5) * step
-                add(_straight, x, rcy[rj], 0.0, road_yaw, "road", _straight_sc)
-
-    # ---- Per-cell ground: grass carpet + concrete driveway (+ sidewalk).
-    house_rects: dict = {}     # (c, r) -> (xmin, ymin, xmax, ymax) of house
-    drive_rects: dict = {}     # (c, r) -> driveway rect
-    nx = max(1, round(cell_m / gx))
-    ny = max(1, round(cell_m / gy))
-    sx_step, sy_step = cell_m / nx, cell_m / ny
-
-    for c in range(cols):
-        for r in range(rows):
-            x0, y0 = cell_ox[c], cell_oy[r]
-            # Grass fill
-            for ix in range(nx):
-                for iy in range(ny):
-                    g = rng.choice(grass_usds)
-                    add(g, x0 + (ix + 0.5) * sx_step, y0 + (iy + 0.5) * sy_step,
-                        0.0, 0.0, "grass", _sc(g))
-
-            # Sidewalk: one-tile ring just inside the cell edge (if a USD exists)
-            if sidewalk_fp is not None:
-                sw = sidewalk_usds[0]
-                sw_sc = _sc(sw)
-                sgx, sgy = max(0.5, sidewalk_fp["sx"]), max(0.5, sidewalk_fp["sy"])
-                nsx = max(1, round(cell_m / sgx))
-                inset_lo_x, inset_hi_x = x0 + sgx / 2, x0 + cell_m - sgx / 2
-                inset_lo_y, inset_hi_y = y0 + sgy / 2, y0 + cell_m - sgy / 2
-                for k in range(nsx):
-                    fx = x0 + (k + 0.5) * (cell_m / nsx)
-                    add(sw, fx, inset_lo_y, 0.01, 0.0, "sidewalk", sw_sc)
-                    add(sw, fx, inset_hi_y, 0.01, 0.0, "sidewalk", sw_sc)
-                    fy = y0 + (k + 0.5) * (cell_m / nsx)
-                    add(sw, inset_lo_x, fy, 0.01, 0.0, "sidewalk", sw_sc)
-                    add(sw, inset_hi_x, fy, 0.01, 0.0, "sidewalk", sw_sc)
+    for (i, j) in road_cells:
+        mask = ((_N if (i, j + 1) in road_cells else 0) |
+                (_E if (i + 1, j) in road_cells else 0) |
+                (_S if (i, j - 1) in road_cells else 0) |
+                (_W if (i - 1, j) in road_cells else 0))
+        key, base_yaw = _road_tile_for_mask(mask)
+        usd = _resolve_road(key)
+        cx, cy = _cell_center(i, j)
+        add(usd, cx, cy, 0.0, base_yaw + road_off[key], "road", _sc(usd))
 
     # =======================================================================
-    # STEP 2 — HOUSES (one per cell, some damaged)
+    # BLOCKS -> LOTS -> BUILDINGS, plus per-block ground (sidewalk/grass/alley)
     # =======================================================================
-    house_front_yaw = float(orient.get("house_front", 0.0))
+    house_front_yaw  = float(orient.get("house_front", 0.0))
     damaged_fraction = float(config.get("damaged_fraction", 0.0))
-    all_cells = [(c, r) for c in range(cols) for r in range(rows)]
-    n_damaged = int(round(damaged_fraction * len(all_cells)))
-    damaged_cells = set(rng.sample(all_cells, n_damaged)) if n_damaged else set()
 
-    for (c, r) in all_cells:
-        cx, cy = cell_cx[c], cell_cy[r]
-        is_damaged = (c, r) in damaged_cells
+    house_rects: list = []      # building footprint rects (for tree avoidance)
+    n_buildings = n_damaged = 0
 
-        if is_damaged:
-            # Prefer an actual damaged USD when the library has one; otherwise
-            # fall back to an intact house. Either way, damaged cells always
-            # get the tilt + sink treatment so even authored damaged USDs read
-            # as collapsed/settled rather than sitting perfectly level.
-            usd = rng.choice(house_damaged) if house_damaged else rng.choice(house_intact)
-            roll = rng.uniform(-18.0, 18.0)
-            pitch = rng.uniform(-18.0, 18.0)
-            z = house_fps[usd]["base"] - rng.uniform(0.3, 0.9)
+    for blk in block_cells:
+        bx0, by0, bx1, by1 = blk
+        block = _cells_to_rect(bx0, by0, bx1, by1)
+        x0, y0, x1, y1 = block
+
+        # Sidewalk frontage ring (between block edge / road and the lot interior).
+        inset = block
+        if sidewalk_fp is not None and sw_w > 1e-6:
+            _tile_rect(sidewalk_usds, (x0, y0, x1, y0 + sw_w), sw_w, sw_w, 0.015, "sidewalk")
+            _tile_rect(sidewalk_usds, (x0, y1 - sw_w, x1, y1), sw_w, sw_w, 0.015, "sidewalk")
+            _tile_rect(sidewalk_usds, (x0, y0 + sw_w, x0 + sw_w, y1 - sw_w), sw_w, sw_w, 0.015, "sidewalk")
+            _tile_rect(sidewalk_usds, (x1 - sw_w, y0 + sw_w, x1, y1 - sw_w), sw_w, sw_w, 0.015, "sidewalk")
+            inset = (x0 + sw_w, y0 + sw_w, x1 - sw_w, y1 - sw_w)
+
+        # Grass carpets the whole interior; lots/alleys/pads draw over it.
+        _tile_rect(grass_usds, inset, gx, gy, 0.0, "grass")
+
+        # Subdivide the interior into lots separated by alleys. Recursive
+        # splitting cuts one axis at a time, so a block that's only fittable as
+        # a *single* lot (e.g. a large building needs more than lot_max on both
+        # axes) can get sliced down to pieces far smaller than lot_max before
+        # the recursion bottoms out — splitting always "wins" over preserving
+        # one big lot. ``forced_single`` (computed above) guarantees big
+        # buildings a real, unsplit block; smaller-but-still-whole-fitting
+        # blocks get a probabilistic chance too, for variety (a big building
+        # occupying an entire block is also realistic).
+        iw, ih = (inset[2] - inset[0]) - 2.0 * lot_margin, (inset[3] - inset[1]) - 2.0 * lot_margin
+        whole_fits = iw > 0 and ih > 0 and any(
+            _fit(house_fps[u], iw, ih) is not None for u in house_intact + house_damaged)
+        if blk in forced_single or (whole_fits and rng.random() < single_lot_chance):
+            lots, alleys = [inset], []
         else:
-            usd = rng.choice(house_intact)
-            roll = pitch = 0.0
-            z = house_fps[usd]["base"]
+            lots, alleys = _subdivide_block_to_lots(
+                inset, lot_min_m, lot_max_m, alley_m, split_jitter, rng)
 
-        fp = house_fps[usd]
-        add(usd, cx, cy, z, house_front_yaw, "house", _sc(usd), roll=roll, pitch=pitch)
-        house_rects[(c, r)] = (cx - fp["sx"] / 2, cy - fp["sy"] / 2,
-                               cx + fp["sx"] / 2, cy + fp["sy"] / 2)
-
-        # Concrete driveway: strip from the house's front (south) edge down to
-        # the south road. Placed last so it sits over the grass.
         if concrete_fp is not None:
-            _con = concrete_usds[0]
-            ccw, cch = concrete_fp["sx"], concrete_fp["sy"]
-            front_y = cy - fp["sy"] / 2
-            road_edge_y = cell_oy[r]            # south road = bottom of the cell
-            d = max(0.0, front_y - road_edge_y)
-            nd = max(1, round(d / cch))
-            dstep = d / nd if nd else 0.0
-            for k in range(nd):
-                add(_con, cx, road_edge_y + (k + 0.5) * dstep,
-                    0.02, 0.0, "concrete", _sc(_con))
-            drive_rects[(c, r)] = (cx - ccw / 2, road_edge_y, cx + ccw / 2, front_y)
+            for al in alleys:
+                _tile_rect(concrete_usds[0], al, concrete_fp["sx"], concrete_fp["sy"],
+                           0.01, "concrete")
+
+        # Fit a building into each lot (clustering: adjacent lots share a block,
+        # separated only by alleys). Lots nothing fits in stay grass.
+        for (lx0, ly0, lx1, ly1) in lots:
+            aw = (lx1 - lx0) - 2.0 * lot_margin
+            ah = (ly1 - ly0) - 2.0 * lot_margin
+            if aw <= 0 or ah <= 0:
+                continue
+            is_damaged = rng.random() < damaged_fraction
+            pool = house_damaged if (is_damaged and house_damaged) else house_intact
+            cands = [(u, _fit(house_fps[u], aw, ah)) for u in pool]
+            cands = [(u, r) for u, r in cands if r is not None]
+            if not cands and pool is not house_intact:           # fall back to intact
+                cands = [(u, _fit(house_fps[u], aw, ah)) for u in house_intact]
+                cands = [(u, r) for u, r in cands if r is not None]
+            if not cands:
+                continue                                          # nothing fits → grass
+
+            # Use as much of the lot as possible: prefer the largest building
+            # (by footprint area) that fits, not a uniformly random pick — this
+            # is what makes the dedicated big-building anchors self-correct (an
+            # anchor sized for the largest building keeps choosing it over
+            # smaller candidates that would also fit, while a smaller anchor
+            # excludes the largest one via _fit and falls through correctly).
+            # But within a size tier, still pick randomly — otherwise the
+            # first-sorted building of a near-tied group (e.g. two buildings
+            # only differing by measurement noise) would always win, starving
+            # the others. "Near-tied" = within size_tie_tolerance of the
+            # largest fitting candidate's footprint area.
+            cands.sort(key=lambda t: -(house_fps[t[0]]["sx"] * house_fps[t[0]]["sy"]))
+            max_area = house_fps[cands[0][0]]["sx"] * house_fps[cands[0][0]]["sy"]
+            tied = [c for c in cands if house_fps[c[0]]["sx"] * house_fps[c[0]]["sy"]
+                   >= max_area * (1.0 - size_tie_tolerance)]
+            usd, rot = rng.choice(tied)
+            fp = house_fps[usd]
+            cx, cy = (lx0 + lx1) / 2.0, (ly0 + ly1) / 2.0
+            roll = pitch = 0.0
+            z = fp["base"]
+            if is_damaged:
+                roll, pitch = rng.uniform(-18.0, 18.0), rng.uniform(-18.0, 18.0)
+                z -= rng.uniform(0.3, 0.9)
+                n_damaged += 1
+            lot_rect = (lx0, ly0, lx1, ly1)
+            if concrete_fp is not None:
+                # Pave the whole lot, not just the building's own footprint —
+                # reads as a paved building site/plaza rather than a tight
+                # driveway-sized pad.
+                _tile_rect(concrete_usds[0], lot_rect, concrete_fp["sx"], concrete_fp["sy"],
+                           0.02, "concrete")
+            add(usd, cx, cy, z, house_front_yaw + rot, "house", _sc(usd),
+                roll=roll, pitch=pitch)
+            house_rects.append(lot_rect)
+            n_buildings += 1
 
     # =======================================================================
-    # STEP 3 — TREES (open grass) + STREETLIGHTS (uniform along roads)
+    # STEP 3 — TREES (open grass) + STREETLIGHTS (along block frontage)
     # =======================================================================
     if tree_usds:
-        per_cell = config.get("trees", {}).get("per_cell", [1, 3])
-        tree_min_sep = float(config.get("trees", {}).get("min_separation_m", 2.5))
-        tree_margin = float(config.get("trees", {}).get("house_margin_m", 1.5))
-        for (c, r) in all_cells:
-            x0, y0 = cell_ox[c], cell_oy[r]
-            hr = house_rects.get((c, r))
-            dr = drive_rects.get((c, r))
-            hr_exp = (hr[0] - tree_margin, hr[1] - tree_margin,
-                      hr[2] + tree_margin, hr[3] + tree_margin) if hr else None
+        tcfg = config.get("trees", {})
+        per_block = tcfg.get("per_block", tcfg.get("per_cell", [1, 3]))
+        tree_min_sep = float(tcfg.get("min_separation_m", 2.5))
+        tree_margin = float(tcfg.get("house_margin_m", 1.5))
+        for (bx0, by0, bx1, by1) in block_cells:
+            x0, y0, x1, y1 = _cells_to_rect(bx0, by0, bx1, by1)
+            local = [hr for hr in house_rects
+                     if hr[0] >= x0 - 5 and hr[2] <= x1 + 5
+                     and hr[1] >= y0 - 5 and hr[3] <= y1 + 5]
             placed: list = []
-            want = rng.randint(int(per_cell[0]), int(per_cell[1]))
-            for _ in range(want * 12):               # bounded rejection sampling
+            want = rng.randint(int(per_block[0]), int(per_block[1]))
+            for _ in range(want * 12):
                 if len(placed) >= want:
                     break
-                tx = rng.uniform(x0 + 1.0, x0 + cell_m - 1.0)
-                ty = rng.uniform(y0 + 1.0, y0 + cell_m - 1.0)
-                if hr_exp and _in_rect(tx, ty, hr_exp):
-                    continue
-                if dr and _in_rect(tx, ty, dr):
+                tx, ty = rng.uniform(x0, x1), rng.uniform(y0, y1)
+                if any(_in_rect(tx, ty, (hr[0] - tree_margin, hr[1] - tree_margin,
+                                         hr[2] + tree_margin, hr[3] + tree_margin))
+                       for hr in local):
                     continue
                 if exclusions and _in_exclusion(tx, ty, exclusions):
                     continue
@@ -495,40 +805,40 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
 
     if light_usds:
         spacing = float(config.get("streetlights", {}).get("spacing_m", 20.0))
-        setback = float(config.get("streetlights", {}).get("setback_m", 1.0))
-        off = road_w / 2.0 + setback
         _light0 = light_usds[0]
         light_base = resolver.get(_light0, "streetlight", scale=_sc(_light0))["base"]
+        seen: set = set()
 
-        def _place_lights(points, x_off, y_off):
-            for (lx, ly) in points:
-                px, py = lx + x_off, ly + y_off
+        def _light_line(ax, ay, bx, by):
+            length = math.hypot(bx - ax, by - ay)
+            n = max(1, int(length / spacing))
+            for k in range(n + 1):
+                t = k / n
+                px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+                key = (round(px / 2.0), round(py / 2.0))
+                if key in seen:
+                    continue
+                seen.add(key)
                 if exclusions and _in_exclusion(px, py, exclusions):
                     continue
                 lu = rng.choice(light_usds)
                 add(lu, px, py, light_base, 0.0, "streetlight", _sc(lu))
 
-        n_along_y = max(1, int(total_h / spacing))
-        n_along_x = max(1, int(total_w / spacing))
-        for ci in range(cols + 1):                   # along vertical roads
-            side = off if ci < cols else -off
-            pts = [(rcx[ci], -total_h / 2 + (k + 0.5) * (total_h / n_along_y))
-                   for k in range(n_along_y)]
-            _place_lights(pts, side, 0.0)
-        for rj in range(rows + 1):                   # along horizontal roads
-            side = off if rj < rows else -off
-            pts = [(-total_w / 2 + (k + 0.5) * (total_w / n_along_x), rcy[rj])
-                   for k in range(n_along_x)]
-            _place_lights(pts, 0.0, side)
+        for (bx0, by0, bx1, by1) in block_cells:    # lights ring each block frontage
+            x0, y0, x1, y1 = _cells_to_rect(bx0, by0, bx1, by1)
+            _light_line(x0, y0, x1, y0)
+            _light_line(x0, y1, x1, y1)
+            _light_line(x0, y0, x0, y1)
+            _light_line(x1, y0, x1, y1)
 
     # --- Summary -----------------------------------------------------------
     counts: dict = {}
     for p in placements:
         counts[p["category"]] = counts.get(p["category"], 0) + 1
-    print(f"[scene_gen] City {cols}x{rows} cells, cell={cell_m:.1f} m, "
-          f"road_w={road_w:.1f} m, total={total_w:.0f}x{total_h:.0f} m")
+    print(f"[scene_gen] City region {region_w_m:.0f}x{region_h_m:.0f} m "
+          f"({nx}x{ny} cells, {len(block_cells)} blocks, {len(road_cells)} road cells)")
     print(f"[scene_gen] Placements by category: {counts} "
-          f"(total {len(placements)}, {len(damaged_cells)} damaged)")
+          f"(total {len(placements)}, {n_buildings} buildings, {n_damaged} damaged)")
     return placements
 
 
