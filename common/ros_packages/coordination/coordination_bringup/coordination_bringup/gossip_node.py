@@ -42,12 +42,12 @@ _GOSSIP_SEEN_SIZE = 50
 PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
 PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
 
-# RELIABLE + TRANSIENT_LOCAL: gossip crosses two DDS-Router hops on the shared
-# gossip domain. BEST_EFFORT/VOLATILE dropped samples under load (flicker) and
-# never re-synced after a route dropped (permanent per-robot loss at the GCS).
+# BEST_EFFORT/VOLATILE: gossip is lossy-by-design. RELIABLE over the
+# LARGE_DATA (TCP) transport back-pressured the ddsrouter under load and
+# collapsed the whole mesh (SAMPLE_LOST storm); best-effort + lifetime=0 on the
+# GCS markers keeps the last state instead.
 GOSSIP_QOS = QoSProfile(
-    reliability=QoSReliabilityPolicy.RELIABLE,
-    durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+    reliability=QoSReliabilityPolicy.BEST_EFFORT,
     history=QoSHistoryPolicy.KEEP_LAST,
     depth=10,
 )

@@ -45,12 +45,11 @@ _GOSSIP_ORIGIN_ALT = 90.0
 
 _GOSSIP_SEEN_SIZE = 50
 
-# Must match gossip_node GOSSIP_QOS (RELIABLE + TRANSIENT_LOCAL) so the GCS
-# re-syncs the latest PeerProfile when a gossip route recovers, instead of
-# staying dark for the rest of the run.
+# Must match gossip_node GOSSIP_QOS (BEST_EFFORT/VOLATILE — gossip is
+# lossy-by-design; markers persist via lifetime=0, not reliable delivery).
 GOSSIP_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.RELIABLE,
-    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
 )

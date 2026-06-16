@@ -33,9 +33,9 @@ payload_topics:
     type: "visualization_msgs/msg/MarkerArray"
 
   # Raw frontiers (raven_nav) — post-altitude+polygon filter, pre-clustering.
-  # Peers cluster the union of (own + peer) raw frontiers to expand their own
-  # candidate pool. Each robot still publishes its own filtered viewpoints
-  # locally on /<robot>/frontier_viewpoints (NOT shared via gossip).
+  # Peers merge these into their own frontier candidate pool
+  # (peer_state.peer_frontiers → frontier_behavior.py). Bounded (current
+  # boundary, recomputed each tick — not accumulating), so safe to gossip.
   - topic: "/{robot_name}/raw_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
@@ -46,9 +46,6 @@ payload_topics:
   - topic: "/{robot_name}/kept_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
-  # RGB voxel map (rayfronts) — semantic 3D map for GCS visualization.
-  - topic: "/{robot_name}/rayfronts/voxel_rgb"
-    type: "sensor_msgs/msg/PointCloud2"
 
   # Active raven_nav behavior ('frontier'/'ray'/'voxel'/'idle'). Used by peer
   # raven_nav instances to decide whether to treat that robot's waypoint as a
@@ -59,11 +56,6 @@ payload_topics:
   # Per-target bids from the ray-mode auction. Higher = closer = wins.
   - topic: "/{robot_name}/bids"
     type: "airstack_msgs/msg/BidVector"
-
-  # JSON-encoded list of target labels this robot has marked complete. Peers
-  # use this to permanently exclude those targets from their own claim pool.
-  - topic: "/{robot_name}/completed_targets"
-    type: "std_msgs/msg/String"
 
   # Label this robot is currently committed to ("" if uncommitted). Peers
   # use this together with raw bids to resolve double-commit collisions

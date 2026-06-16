@@ -171,8 +171,3 @@ steps:
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95
-
-  - action:
-      task: land
-      goal: {velocity_m_s: 0.5}
-      timeout_s: 180
