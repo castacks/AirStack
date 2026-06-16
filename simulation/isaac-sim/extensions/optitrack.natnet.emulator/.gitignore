@@ -1,8 +1,4 @@
 # OptiTrack SDK archives and build artifacts (reference tree may exist locally)
-NatNetClientSDK/*.zip
-NatNetClientSDK/**/x64/
-NatNetClientSDK/**/Release/
-NatNetClientSDK/**/Debug/
 **/*.obj
 **/*.pdb
 **/*.exe
@@ -11,6 +7,3 @@ NatNetClientSDK/**/Debug/
 **/*.tlog/
 **/__pycache__/
 **/*.pyc
-*.egg-info/
-dist/
-build/

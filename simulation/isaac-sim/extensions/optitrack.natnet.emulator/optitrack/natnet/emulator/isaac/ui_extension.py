@@ -2,28 +2,10 @@
 # MIT License - see LICENSE in the repository root for full text.
 """Kit extension entry: docked editor for the NatNet interface config prim.
 
-Commit 1 scope — create/manage ``/World/NatNetInterface``. The window docks to the
+Create/manage the ``/World/NatNetInterface`` prim. The window docks to the
 bottom-right (alongside the Property panel, like Pegasus) so it's easy to find.
 
-Sync model is **explicit and user-driven** via the top button row:
-
-* **Load from Stage** — read the prim into the window (or reset to defaults if none).
-* **Save** — write the window's current values to the prim (validate + author).
-* **Create Interface** — ensure the interface prim exists (authored from the current
-  values) and select it.
-* **Start/Stop Server** — start/stop the live UDP server directly (the button is the
-  authority, independent of ``serverEnabled``). While running, poses are sampled from
-  the USD stage on every physics step and streamed to ``natnet_ros2``.
-
-Each tracked-body row shows a live readout (status dot + world position pulled from
-the USD stage) so you can see at a glance what each body is publishing.
-
-Edits in the window mutate an in-memory working copy only; nothing touches the prim
-until you Save / Create, so you are in charge of keeping things synced.
-
-All ``omni.*`` imports live inside methods so this module never imports Kit at load
-time outside a running Kit process. Authoring goes through the tested, USD-only
-:mod:`optitrack.natnet.emulator.isaac.usd_bindings` facade.
+Sync model is explicit and user-driven via the top button row.
 """
 
 from __future__ import annotations

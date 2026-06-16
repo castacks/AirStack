@@ -33,17 +33,11 @@ SENTINEL_NODE_TEMPLATES = [
     "/robot_{N}/trajectory_controller/trajectory_control_node",
 ]
 
-# Optional OptiTrack/NatNet liveliness sentinel — only meaningful when the robot
-# launches natnet_ros2 (LAUNCH_NATNET=true) and the sim streams NatNet frames
-# (Isaac emulator wrapper). Off by default, so normal runs skip it cleanly.
+# NatNet pose sentinel — only when LAUNCH_NATNET=true (robot natnet_ros2 + sim emulator).
 _NATNET_ENABLED = os.environ.get("LAUNCH_NATNET", "").strip().lower() in ("1", "true", "yes", "on")
 _NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
 _NATNET_MIN_HZ = 5.0
-# Generous first-message budget: on a cold Isaac boot the standalone Pegasus
-# script must finish loading, start Play (physics steps drive the emulator's
-# synchronous frame pump), and the robot natnet_ros2 client must connect over
-# UDP before pose frames appear. 60s was too tight vs the 600s /clock and 300s
-# sentinel-node budgets.
+# Cold Isaac boot: Pegasus load, Play, UDP connect — 60s was too tight vs other budgets.
 _NATNET_FIRST_MSG_TIMEOUT = 120
 
 
@@ -272,14 +266,11 @@ class TestLiveliness:
     )
     @pytest.mark.dependency(depends=["sim_ready", "nodes"])
     def test_natnet_pose_alive(self, airstack_env):
-        """When NatNet is enabled, the OptiTrack pose topic must publish per robot.
+        """With LAUNCH_NATNET=true, /{robot}/perception/optitrack/{body}/pose_cov >= 5 Hz.
 
-        Closes the loop the integration tier opens host-side: with the Isaac
-        emulator wrapper streaming in-sim and ``natnet_ros2`` running on each robot
-        (LAUNCH_NATNET=true), ``/{robot}/perception/optitrack/<body>/pose_cov`` must
-        be live. We probe ``/pose_cov`` (PoseWithCovarianceStamped) because it is
-        published unconditionally for every body, whereas the bare ``<body>``
-        PoseStamped is gated on the ``publish_direct_optitrack`` param.
+        In-sim counterpart to the host-side integration tests. Uses pose_cov
+        (always published) rather than bare <body> (gated on
+        publish_direct_optitrack).
         """
         cfg = airstack_env["cfg"]
         robot_containers = get_robot_containers(airstack_env["robot_pattern"])

@@ -1,15 +1,13 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""NatNet emulator ↔ robot autonomy integration test.
+"""NatNet - robot autonomy integration tests.
 
-Wide-scale integration: a host-side NatNet server (the Python emulator) streams
-dummy Drone frames to ``natnet_ros2`` running against the robot autonomy stack,
-and we assert the pose topic stays alive at a stable rate.
+Two host-side variants stream Drone frames to ``natnet_ros2_node`` in the robot
+container and assert pose topics stay alive at >= 5 Hz: (1) raw
+``NatNetUnicastServer`` hand-built frames; (2) ``NatNetServerManager`` sampling
+an in-memory USD stage (Isaac wrapper path, no sim/GPU).
 
-This is the first resident of the ``integration`` tier. Today the NatNet
-*server* is the host emulator; once the Isaac-sim emulator wrapper emits NatNet
-frames, an Isaac-wrapped variant will be added here, and the gated pose-rate
-check can additionally surface in ``system/test_liveliness.py``.
+In-sim end-to-end: ``tests/system/test_liveliness.py::test_natnet_pose_alive``.
 """
 
 from __future__ import annotations
@@ -29,8 +27,7 @@ from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     wait_for_first_message,
 )
 
-# Emulator package (host-side) is not pip-installed; expose it + its test
-# helpers via the AIRSTACK_ROOT-anchored repo_path() (works in CI and locally).
+# Emulator is not pip-installed on the host; add extension root + test helpers.
 _EXT_ROOT = repo_path("simulation/isaac-sim/extensions/optitrack.natnet.emulator")
 for _path in (_EXT_ROOT, _EXT_ROOT / "test"):
     if str(_path) not in sys.path:
@@ -40,7 +37,7 @@ from optitrack.natnet.emulator import NatNetUnicastServer, TransmissionType  # n
 from optitrack.natnet.emulator.server import natnet_data_types as dt  # noqa: E402
 from natnet_test_helpers import ephemeral_udp_port  # noqa: E402
 
-pytestmark = [pytest.mark.integration, pytest.mark.natnet]
+pytestmark = pytest.mark.integration
 
 _ROBOT_SETUP = "/root/AirStack/robot/ros_ws/install/setup.bash"
 _NATNET_NODE = "/root/AirStack/robot/ros_ws/install/natnet_ros2/lib/natnet_ros2/natnet_ros2_node"
@@ -160,11 +157,7 @@ def _terminate(proc) -> None:
 
 
 def test_natnet_ros2_receives_drone_pose_hz(robot_autonomy_stack):
-    """Emulator on host streams dummy Drone frames while natnet_ros2_node publishes.
-
-    Raw-server variant: hand-built frames via ``NatNetUnicastServer`` (no Isaac
-    wrapper, no USD) — the minimal end-to-end wire check.
-    """
+    """Raw-server path: hand-built frames on NatNetUnicastServer."""
     container = robot_autonomy_stack["container"]
 
     if not _natnet_node_available(container):
@@ -209,15 +202,10 @@ def test_natnet_ros2_receives_drone_pose_hz(robot_autonomy_stack):
 
 
 def test_natnet_ros2_receives_isaac_wrapper_pose_hz(robot_autonomy_stack):
-    """Isaac-wrapper variant: the full new data path drives natnet_ros2.
+    """Isaac-wrapper path: NatNetServerManager.sample_once on a moving USD prim.
 
-    ``NatNetServerManager`` builds the catalog from a ``NatNetInterfaceConfig``,
-    samples a (moving) prim's world pose off an in-memory USD stage via
-    ``sample_once`` — exactly what the physics-step callback does in-sim — and
-    streams real frames. We assert ``natnet_ros2`` connects and publishes the pose
-    at a stable rate. (Exact pose-value fidelity is covered hermetically by the
-    package's ``test_pose_streaming.py`` loopback; here we prove the wrapper feeds
-    the *real* robot client end to end without a sim/GPU.)
+    Tests that the wrapper feeds the real robot client end-to-end. Pose-value fidelity
+    is covered by test_pose_streaming.py loopback.
     """
     pytest.importorskip("pxr")
     import math

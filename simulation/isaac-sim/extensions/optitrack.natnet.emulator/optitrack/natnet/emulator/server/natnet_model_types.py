@@ -21,7 +21,7 @@ class sRigidBodyDescription(ctypes.Structure):
     _pack_ = 1
     _fields_ = [
         ("szName", ctypes.c_char * ModelLimits.MAX_NAMELENGTH),  # RigidBody name
-        ("ID", ctypes.c_int32),  # RigidBody identifier: Streaming ID value for rigid body assets, and Bone index value for skeleton rigid bodies.
+        ("ID", ctypes.c_int32),  # RigidBody identifier. Streaming ID value for rigid body assets, and Bone index value for skeleton rigid bodies.
         ("parentID", ctypes.c_int32),  # ID of parent Rigid Body (in case hierarchy exists; otherwise -1)
         ("offsetx", ctypes.c_float),  # offset position relative to parent
         ("offsety", ctypes.c_float),  # offset position relative to parent
@@ -77,10 +77,8 @@ class sRigidBodyDescription(ctypes.Structure):
         return bytes(payload)
 
 
-# Tracked Object data description.
-# A Mocap Server application (e.g. Arena or TrackingTools) may contain multiple
-# tracked "objects (e.g. RigidBody, MarkerSet).  Each object will have its
-# own DataDescription.
+# Tracked Object data description. A Mocap Server application may contain multiple tracked "objects" 
+# (e.g. RigidBody, MarkerSet). Each object will have its own DataDescription.
 class sDataDescription(ctypes.Structure):
     _pack_ = 1
     _fields_ = [

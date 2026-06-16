@@ -20,30 +20,26 @@ class NatNetUnicastServer(NatNetServer):
         super().__init__(local_interface, transmission_type, multicast_address, command_port, data_port)
 
     def _data_update_loop(self):
-        # Loop to update mocap data and send packets at regular intervals. When
-        # auto_stream is False the frames are pumped externally (Isaac physics step),
+        # Loop to update mocap data and send packets at regular intervals. 
+        # When auto_stream is False the frames are pumped externally (Isaac physics step),
         # so this thread only idles — but stays alive for clean shutdown.
         while not self.shutdown_event.is_set():
             time.sleep(1 / self.publish_rate)
             if not self.auto_stream:
                 continue
-            self.pump_once()
+            self.flush_mocap_data()
 
-    def pump_once(self):
-        """Send the latest (or last) mocap frame to every connected client, once.
-
-        Safe to call from any thread; the Isaac wrapper calls this from its
-        physics-step callback so frame delivery does not depend on the background
-        data thread getting scheduled inside the GIL-bound Isaac Sim process.
-        """
+    def flush_mocap_data(self):
+        """Send the latest (or last) mocap frame to every connected client, once."""
         with self.clients_lock:
             clients = list(self.connected_clients)
         if not clients:
             return
 
         data_messages = self._get_latest_mocap_packet()
-        if data_messages is None:
-            data_messages = self._get_last_mocap_frame()
+
+        if data_messages is None: # If the server stops producing frames, use the last known frame.
+            data_messages = self._get_last_known_mocap_frame()
         if data_messages is None:
             return
 
@@ -141,8 +137,7 @@ class NatNetUnicastServer(NatNetServer):
             return
 
         if header.iMessage == int(ServerTypes.MessageId.NAT_KEEPALIVE):
-            # Keep-alive is client -> server only; real Motive sends no reply.
-            # Receiving it refreshes the client's liveness; nothing to send back.
+            # Receiving a keepalive refreshes the client's liveness; nothing to send back.
             return
 
         if header.iMessage == int(ServerTypes.MessageId.NAT_ECHOREQUEST):

@@ -5,7 +5,7 @@ AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stac
 ## Design principles
 
 - **Co-located with source.** Test files live in `<package>/test/` alongside the code they test. This is the standard ROS 2 / colcon convention and ensures tests are discovered by both `colcon test` and `pytest`.
-- **Proxy for centralized discovery.** A thin shim in `tests/robot/<layer>/<package>/` re-exports the test functions so `pytest tests/` (the CI command) and `airstack test -m unit` discover them without any changes to the CI workflow.
+- **Proxy for centralized discovery.** A thin shim in `tests/robot/<layer>/<package>/` calls `register_unit_tests()` (in `tests/conftest.py`) to register co-located `test_*` functions so `pytest tests/` and `airstack test -m unit` discover them. See the `add-unit-tests` skill for the full contract.
 - **`@pytest.mark.unit` on every test.** The `unit` mark is the filter that keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
 
 ## Repository layout

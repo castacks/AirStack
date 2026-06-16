@@ -1,6 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Light unit tests for Commit 2 detection/printing (the pure formatter)."""
+"""Unit tests for format_interface."""
 
 from __future__ import annotations
 

@@ -1,10 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Commit 3 — hermetic catalog-builder tests (no USD, no Kit).
-
-Covers no / single / multiple bodies, field fidelity on the wire, name truncation,
-the MAX_MODELS guard, and duplicate-target detection.
-"""
+"""Catalog builder: body counts, wire fidelity, truncation, MAX_MODELS, duplicate targets."""
 
 from __future__ import annotations
 

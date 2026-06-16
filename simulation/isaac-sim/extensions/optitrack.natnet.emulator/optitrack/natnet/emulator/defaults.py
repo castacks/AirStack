@@ -1,7 +1,4 @@
-"""Reference tracked-body defaults for tests and the future Isaac Sim wrapper.
-
-Not imported by NatNetServer — the server stores MODELDEF as packed bytes only.
-"""
+"""Reference tracked-body defaults for tests and the future Isaac Sim wrapper."""
 
 from __future__ import annotations
 

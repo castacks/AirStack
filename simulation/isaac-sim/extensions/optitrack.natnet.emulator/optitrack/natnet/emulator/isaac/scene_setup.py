@@ -95,12 +95,13 @@ def start_drone_natnet_server(
 
     Authors ``prim_path`` (overwriting any existing interface) with one rigid body
     per drone, then creates a :class:`NatNetServerManager` that subscribes to physics
-    steps and starts the server. Pump the sim (``timeline.play()`` / ``world.step``)
-    to stream poses. **Keep a reference to the returned manager** so it isn't
-    garbage-collected (which would tear down the physics subscription and server).
+    steps and starts the server. Play the sim to stream poses. Keep a reference to 
+    the returned manager so it isn't garbage-collected (which would tear 
+    down the physics subscription and stop the server).
 
-    Returns the ``NatNetServerManager``. If ``start`` is False (or the config is
-    authored disabled), the manager is created but the server is left stopped.
+    Returns the ``NatNetServerManager``. If ``start`` is 
+    False (or the config is authored disabled), 
+    the manager is created but the server is left stopped.
     """
     from .manager import NatNetServerManager
     from .usd_bindings import author_interface

@@ -62,16 +62,35 @@ def repo_path(*parts: str) -> Path:
     return Path(AIRSTACK_ROOT).joinpath(*parts)
 
 
-def reexport_unit_tests(target_globals: dict, test_dir: Path, *module_files: str) -> None:
-    """Exec co-located unit-test modules and re-export their ``test_*`` callables.
+def register_unit_tests(target_globals: dict, test_dir: Path, *module_files: str) -> None:
+    """Register co-located unit tests with a thin proxy module under ``tests/``.
 
-    Lets the thin proxy files under ``tests/`` expose package-co-located unit
-    tests to ``pytest tests/`` (CI) and ``airstack test -m unit`` without
-    per-file ``sys.path`` boilerplate. The package root (``test_dir.parent``)
-    and the test dir are placed on ``sys.path`` so the exec'd modules can import
-    the package under test and any sibling helper modules. Every re-exported
-    test is tagged ``unit`` so selection works regardless of whether the source
-    used a module-level ``pytestmark`` or per-function marks.
+    AirStack keeps unit test **source** next to each package (colcon convention),
+    but CI runs pytest tests/. Each proxy file calls this helper so pytest
+    discovers the real tests.
+
+    For each module_file in test_dir:
+
+    1. Prepend test_dir and test_dir.parent (package/extension root) to
+       sys.path so the loaded module can import production code and sibling
+       helpers (e.g. natnet_test_helpers).
+    2. Load the file with importlib.util.spec_from_file_location under a
+       synthetic module name (_unit_<package>_<stem>) to avoid circular
+       imports when proxy and source share the same basename.
+    3. Copy every test_* callable from the loaded module into
+       target_globals (typically the proxy's globals()) so pytest
+       collects them as if they lived under tests/.
+    4. Wrap each callable with pytest.mark.unit so -m unit works even
+       when the source module omits pytestmark.
+
+    Args:
+        target_globals: Namespace to populate (pass globals() from the proxy).
+        test_dir: Directory containing co-located test modules
+            (e.g. repo_path("robot/ros_ws/src/<pkg>/test")).
+        *module_files: One or more filenames under test_dir; multiple files
+            may be folded into a single proxy.
+
+    pytest <package>/test/ or colcon test bypasses proxies; use a local conftest.py in the package test/ dir for sys.path setup instead.
     """
     for path in (test_dir, test_dir.parent):
         entry = str(path)
@@ -122,9 +141,9 @@ def colcon_test_robot_command(workspace="robot"):
         cmd += f' --pytest-args "{pytest_args}"'
     return cmd
 # Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
-# Thin proxy files under tests/robot/ re-export those tests so that
-# `pytest tests/` and `airstack test -m unit` discover them without any
-# sys.path manipulation here.  Each proxy file sets up its own paths.
+# Thin proxy files under tests/robot/ (etc.) call register_unit_tests() so
+# `pytest tests/` and `airstack test -m unit` discover them without sys.path
+# boilerplate in this root conftest.
 RUN_DIR = None
 LOGS_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
@@ -251,16 +270,17 @@ def pytest_generate_tests(metafunc):
 
 
 # Run cheap/fast-fail tests first so real problems surface early:
-# docker image builds → colcon workspace builds → liveliness (infra) → sensors
-# (ROS topic streams) → autonomy flight tests.
+# unit → docker image builds → colcon builds → integration (robot container) →
+# liveliness (full stack infra) → sensors → autonomy flight tests.
 _MODULE_ORDER = [
     # Unit tests first — fast, hermetic, no Docker.  Any module whose dotted
     # name starts with "robot." or "sim." is a proxy for a package-level unit
     # test and sorts into this leading slot via the prefix check below.
     "__unit__",
-    # System tests follow in dependency order.
     "system.test_build_docker",
     "system.test_build_packages",
+    # Integration needs robot-desktop image + colcon-built packages (e.g. natnet_ros2).
+    "__integration__",
     "system.test_liveliness",
     "system.test_sensors",
     "system.test_takeoff_hover_land",
@@ -283,12 +303,14 @@ def _rank(name, order):
 def _module_key(item):
     """Return the ordering key for an item.
 
-    Unit-test proxies live under ``robot/``, ``sim/``, or ``gcs/`` and are
-    identified by their nodeid prefix.  Everything else uses the dotted module
-    ``__name__`` looked up against ``_MODULE_ORDER``.
+    Unit-test proxies live under robot/, sim/, or gcs/.
+    Integration tests live under integration/.
+    Everything else uses the dotted module __name__ against _MODULE_ORDER.
     """
     if item.nodeid.startswith(("robot/", "sim/", "gcs/")):
         return _rank("__unit__", _MODULE_ORDER)
+    if item.nodeid.startswith("integration/"):
+        return _rank("__integration__", _MODULE_ORDER)
     return _rank(getattr(item.module, "__name__", ""), _MODULE_ORDER)
 
 

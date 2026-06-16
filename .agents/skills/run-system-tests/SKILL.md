@@ -25,7 +25,7 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`.
 
 - **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`.
-- **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`). These are **thin proxy files** that re-export tests from each ROS 2 package's own `test/` directory (co-located with the source, the ROS 2 / colcon convention). The proxy pattern keeps test source next to the code it tests while making tests discoverable by `pytest tests/`.
+- **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`). These are **thin proxy files** that call ``register_unit_tests()`` to register tests from each package's co-located `test/` directory so `pytest tests/` discovers them.
 
 ### Unit tests vs system tests
 

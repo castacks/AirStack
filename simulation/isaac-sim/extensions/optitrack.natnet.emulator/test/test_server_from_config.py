@@ -1,12 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Commit 3 — end-to-end: manager builds a real server from a config.
-
-Functional loopback (real UDP sockets, default factory): the manager starts a
-server from a multi-body config, a NatNet client connects, requests MODELDEF, and
-the served catalog must match ``build_catalog(config)``. Then a clean stop must
-free the port so a fresh server can re-bind it.
-"""
+"""Manager → real ``NatNetUnicastServer``: MODELDEF handshake and frame delivery."""
 
 from __future__ import annotations
 

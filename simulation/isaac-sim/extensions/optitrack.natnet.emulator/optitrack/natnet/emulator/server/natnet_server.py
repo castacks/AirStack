@@ -23,9 +23,7 @@ class Client:
         self.socket_lock = threading.Lock()
 
     def __hash__(self):
-        # We uniquely identify a client session by their IP and their unique command port.
-        # Why? A single machine could technically run multiple separate NatNet clients
-        # simultaneously, and they would share an IP but have unique command ports.
+        # Uniquely identify a client session by their IP and their unique command port.
         return hash((self.ip, self.port))
 
     def __eq__(self, other):
@@ -85,16 +83,13 @@ class NatNetServer:
 
         self.running = False
 
-        # When True (default), the background data loop streams frames on its own
-        # timer. Set False when an external driver (the Isaac wrapper's physics-step
-        # callback) pumps frames synchronously via ``pump_once`` — inside the Isaac
-        # Sim process the daemon send thread is starved by the render/physics main
-        # loop holding the GIL, so frames must be sent from the callback thread.
+        # When True (default), the background data loop streams frames on its own timer. 
+        # Set False when an external driver (the Isaac wrapper's physics-step callback) 
+        # sends frames synchronously via ``flush_mocap_data``.
         self.auto_stream = True
 
-        # start() launches two daemon threads: a command listener (handshake /
-        # MODELDEF / keepalive) and a data loop that streams mocap frames. The
-        # transmission-specific behavior lives in the unicast/multicast subclass.
+        # start() launches two daemon threads: a command listener (handshake / MODELDEF / keepalive) 
+        # and a data loop that streams mocap frames. The transmission-specific behavior lives in the unicast/multicast subclass.
 
     def _signal_handler(self, signum, frame):
         print(f"\n[NatNetServer] Received interrupt signal {signum}. Initiating shutdown...")
@@ -112,7 +107,7 @@ class NatNetServer:
         with self._last_mocap_lock:
             self._last_mocap_frame = new_data
 
-    def _get_last_mocap_frame(self) -> DataMessages.sFrameOfMocapData | None:
+    def _get_last_known_mocap_frame(self) -> DataMessages.sFrameOfMocapData | None:
         with self._last_mocap_lock:
             return self._last_mocap_frame
 
@@ -149,8 +144,7 @@ class NatNetServer:
 
         # 2. Setup Data Socket (Sends outward Mocap frames).
         # Bind to the data port so frames leave with source port == data_port.
-        # libNatNet routes unicast NAT_FRAMEOFDATA by the server's data port; frames
-        # arriving from the command port are treated as command traffic and dropped.
+        # libNatNet routes unicast NAT_FRAMEOFDATA by the server's data port
         self.data_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.data_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.data_socket.bind(('', self.data_port))
@@ -294,8 +288,7 @@ class NatNetServer:
     ) -> None:
         """Send a NatNet packet to a unicast client (libNatNet 4.4).
 
-        Command replies go out the command socket; mocap frames go out the data
-        socket so their source port matches the advertised data port.
+        Command replies go out the command socket; mocap frames go out the data socket.
         """
         if self.shutdown_event.is_set():
             return
@@ -317,12 +310,12 @@ class NatNetServer:
                 f"client {client.ip}:{client.port}: {e}"
             ) from e
 
-    def _data_update_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
-        # Loop to update mocap data and send packets at regular intervals (e.g. 100Hz)
+    def _data_update_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (multicast will just send to the multicast group address)
+        # Loop to update mocap data and send packets at regular intervals.
         pass
 
     def _send_data_packet(self, client: Client, data_message: DataMessages.sFrameOfMocapData):
-        # Serialize frame payload and send via the data socket (unicast libNatNet 4.4).
+        # Serialize frame payload and send via the data socket.
         try:
             packet_bytes = data_message.pack()
         except Exception as e:
@@ -335,11 +328,11 @@ class NatNetServer:
             sock=self.data_socket,
         )
 
-    def _command_listener_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
+    def _command_listener_loop(self): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (multicast will just send to the multicast group address)
         # Loop to listen for and handle incoming command requests (e.g. from client apps)
         pass
 
-    def _handle_command_request(self, request_data: bytes): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (e.g. unicast will need to manage a list of connected clients and send packets directly to their IPs, while multicast will just send to the multicast group address)
+    def _handle_command_request(self, request_data: bytes): # Stub: Different betweeen multicast and unicast server implementations, as they will need to handle client connections differently (multicast will just send to the multicast group address)
         # Parse incoming command request, perform requested action, and send response if needed
         pass
 

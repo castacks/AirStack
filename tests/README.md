@@ -33,7 +33,7 @@ See [`integration/README.md`](integration/README.md).
 
 | Scenario | Mark(s) | What it tests | Hardware required |
 |----------|---------|---------------|-------------------|
-| [`integration/natnet/`](integration/natnet/) | `integration`, `natnet` | Host NatNet emulator → `natnet_ros2` → `/{ROBOT_NAME}/perception/optitrack/Drone` Hz | Docker daemon (no GPU/sim) |
+| [`integration/natnet/`](integration/natnet/) | `integration` | Host NatNet emulator → `natnet_ros2` → `/{ROBOT_NAME}/perception/optitrack/Drone` Hz | Docker daemon (no GPU/sim); runs after `build_docker` / `build_packages` in collection order |
 
 The shared `robot_autonomy_stack` fixture (in [`conftest.py`](conftest.py))
 reuses a running `robot-desktop` container, or brings one up only when
@@ -52,8 +52,9 @@ Hermetic tests use `@pytest.mark.unit` (see [`pytest.ini`](pytest.ini)).
 
 **Co-location + proxy pattern:** test source lives alongside its ROS 2 package at
 `robot/ros_ws/src/<layer>/<package>/test/test_*.py` (the ROS 2 / colcon convention).
-Files in `tests/robot/` are thin proxies that re-export those tests so that
-`pytest tests/` discovers them. Both `airstack test -m unit` and
+Files in `tests/robot/` are thin proxies that call ``register_unit_tests()`` (in
+[`conftest.py`](conftest.py)) to register co-located tests so ``pytest tests/``
+discovers them. Both `airstack test -m unit` and
 `colcon test --packages-select <pkg>` run the same test source.
 
 Example: `robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py`

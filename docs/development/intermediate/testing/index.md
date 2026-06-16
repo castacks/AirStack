@@ -12,8 +12,8 @@ hardware requirement:
 ## Unit tests (`pytest -m unit`)
 
 Fast, hermetic Python tests that run in seconds with no Docker or GPU. Test source
-lives **co-located with its ROS 2 package** (`<package>/test/`) and is re-exported
-through thin proxy files in `tests/robot/` for centralized discovery.
+lives **co-located with its ROS 2 package** (`<package>/test/`) and is registered
+through thin proxy files in `tests/robot/` via `register_unit_tests()`.
 
 ```bash
 airstack test -m unit -v

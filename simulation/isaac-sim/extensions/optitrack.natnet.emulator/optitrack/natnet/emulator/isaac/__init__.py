@@ -2,9 +2,8 @@
 # MIT License - see LICENSE in the repository root for full text.
 """Isaac Sim integration for the NatNet emulator (stage-driven config prim).
 
-``config`` is pure Python (no USD). ``usd_bindings`` imports ``pxr`` lazily, so
-importing this package is safe in non-Isaac environments; the USD functions only
-require ``pxr`` when actually called.
+``config`` is pure Python. ``usd_bindings`` imports ``pxr`` lazily, so
+importing this package is safe in non-Isaac environments.
 """
 
 from .config import (

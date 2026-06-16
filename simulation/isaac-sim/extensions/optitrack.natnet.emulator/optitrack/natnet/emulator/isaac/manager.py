@@ -1,17 +1,10 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Commits 2-4 — detection, parameter read, and server start/stop lifecycle.
-
-``NatNetServerManager`` detects interface prims, prints their parsed config
-(Commit 2), and owns a **single** server instance it can start and stop (Commits
-3-4). On each enable it builds a MODELDEF catalog from the config and constructs a
-fresh server via an injectable factory (so unit tests can mock it and assert the
-server is created/started exactly once, without binding real sockets). Pose
-sampling / frame publishing is intentionally left for a later commit.
-
-``format_interface`` is pure (no USD). The server factory and lifecycle are
-USD-free too (they take a ``NatNetInterfaceConfig``); only the stage-driven
-helpers touch ``pxr`` / ``omni`` (lazily), so importing this module stays hermetic.
+"""
+``NatNetServerManager`` detects interface prims, samples poses from the stage,
+and owns a **single** server instance it can start and stop. 
+On each enable it builds a MODELDEF catalog from the config and constructs a
+fresh server via an injectable factory.
 """
 
 from __future__ import annotations
@@ -142,7 +135,7 @@ class NatNetServerManager:
             self._physx_sub = omni.physx.get_physx_interface().subscribe_physics_step_events(
                 self._on_physics_step
             )
-        except Exception as exc:  # pragma: no cover - Kit/physx only
+        except Exception as exc:  # Kit/physx only
             print(f"[natnet] Physics step subscription unavailable: {exc}")
             self._physx_sub = None
 
@@ -344,11 +337,10 @@ class NatNetServerManager:
         )
         self._frame_counter += 1
         self._server.enqueue_mocap_data(frame)
-        # Send synchronously from this (physics-step) thread; the server's background
-        # data thread is unreliable inside the GIL-bound Isaac Sim process.
-        pump = getattr(self._server, "pump_once", None)
-        if callable(pump):
-            pump()
+        # Send synchronously from this (physics-step) thread.
+        flush_mocap_data = getattr(self._server, "flush_mocap_data", None)
+        if callable(flush_mocap_data):
+            flush_mocap_data()
         return frame
 
     # --- stage / USD notifications --------------------------------------------
@@ -382,20 +374,15 @@ class NatNetServerManager:
             self._usd_listener = None
 
     def _on_objects_changed(self, notice, sender):
-        # Only re-scan when something NatNet-related changed, so we don't spam the
-        # console on every transform update while the sim is playing.
+        # Only re-scan when something NatNet-related changed
         try:
             paths = list(notice.GetResyncedPaths()) + list(notice.GetChangedInfoOnlyPaths())
-        except Exception:  # pragma: no cover - defensive
+        except Exception:
             paths = []
         if any(("NatNetInterface" in str(p)) or ("natnet:" in str(p)) for p in paths):
-            # A NatNet prim changed (e.g. a body added/retargeted while live): mark
-            # the sampler dirty so the next physics step re-reads the catalog and
-            # nudges the client to refresh MODELDEF.
+            # A NatNet prim changed: mark the sampler dirty so the next physics step re-reads the catalog.
             self._needs_resync = True
-            # A single author_interface() (Create/Save) emits many notices — one per
-            # attribute/relationship op. Debounce them into one scan on the next
-            # update tick so we print the final state once, not once per op.
+            # Debounce author_interface() calls into one scan on the next update tick.
             self._request_scan()
 
     def _request_scan(self):

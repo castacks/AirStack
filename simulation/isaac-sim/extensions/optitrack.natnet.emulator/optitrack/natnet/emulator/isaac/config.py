@@ -2,14 +2,12 @@
 # MIT License - see LICENSE in the repository root for full text.
 """Pure-Python config model for the stage-driven NatNet interface.
 
-No USD / Isaac imports here — this module is hermetically unit-testable. The USD
-binding layer (author/read against a ``Usd.Stage``) lives in ``usd_bindings.py``
-and depends on this model. Keeping the two split is the design's "design for
-testability" rule: nearly all logic stays free of ``pxr``.
+The USD binding layer (author/read against a ``Usd.Stage``) 
+lives in ``usd_bindings.py`` and depends on this model.
 
 Attribute names follow the multi-apply schema convention
-(``natnet:body:<key>:<field>``) so the custom-attribute backing used today is a
-drop-in for a future typed applied schema.
+(``natnet:body:<key>:<field>``).
+The custom-attribute backing is for a future typed applied schema.
 """
 
 from __future__ import annotations
@@ -45,10 +43,10 @@ BODY_FIELD_TARGET = "target"
 VALID_MODES = ("unicast", "multicast")
 
 # Streamed up-axis. Motive exposes an "Up Axis" setting; the reference natnet_ros2
-# driver requires it set to Z and passes coordinates through untouched. Isaac Sim /
-# USD is natively Z-up, so "Z" is a pass-through that matches the rest of the
+# driver requires it set to Z and passes coordinates through untouched.
+# Isaac Sim / USD is natively Z-up, so "Z" is a pass-through that matches the rest of the
 # AirStack stack (default). "Y" emulates a default (Y-up) Motive by rotating the
-# streamed pose -90deg about X. See ``frames.to_motive_pose``.
+# streamed pose -90deg about X.
 VALID_UP_AXES = ("Y", "Z")
 
 # defaults shared with NatNetUnicastServer

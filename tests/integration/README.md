@@ -5,12 +5,13 @@ The **integration** tier sits between **unit** and **system**:
 | Tier | Lives in | Brings up | Hardware | Mark |
 |------|----------|-----------|----------|------|
 | unit | `<pkg>/test/` + proxies in `tests/robot/`, `tests/sim/`, `tests/gcs/` | nothing | none | `unit` |
-| **integration** | **`tests/integration/<scenario>/`** | **robot container + a host-side component** | **Docker (no sim/GPU)** | **`integration`** (+ a specific mark) |
+| **integration** | **`tests/integration/<scenario>/`** | **robot container + a host-side component** | **Docker (no sim/GPU)** | **`integration`** |
 | system | `tests/system/` | full sim + robot + GCS | Docker + GPU + sim license | `liveliness`, `sensors`, `takeoff_hover_land` |
 
 An integration test wires a few **real** components together — for example the
-robot autonomy stack plus a host-side NatNet server — without paying for a full
-simulator or GPU.
+robot autonomy stack plus a host-side NatNet server — without using a full simulator or GPU.
+
+**Collection order** (see `pytest_collection_modifyitems` in [`../conftest.py`](../conftest.py)):
 
 ## The harness: `robot_autonomy_stack`
 
@@ -31,6 +32,9 @@ defined there). Request it instead of hand-rolling `airstack up`:
 AUTOLAUNCH=false airstack up robot-desktop
 pytest tests/integration/ -m integration -v
 
+# One scenario by path:
+pytest tests/integration/natnet/ -m integration -v
+
 # Or let the harness bring the robot container up/down itself:
 pytest tests/integration/ -m integration --run-integration -v
 
@@ -41,13 +45,12 @@ pytest tests/integration/ -m integration --run-integration -v
 ## Adding a scenario
 
 1. Create `tests/integration/<scenario>/test_*.py`.
-2. `pytestmark = [pytest.mark.integration, pytest.mark.<scenario>]` — the
-   `integration` umbrella selects the whole tier; the specific mark targets one.
+2. Set `pytestmark = pytest.mark.integration`.
 3. Request the `robot_autonomy_stack` fixture for the container.
-4. Register the specific mark in [`../pytest.ini`](../pytest.ini).
+4. Filter by path (`tests/integration/<scenario>/`) when you only want that scenario.
 
 ## Residents
 
-| Scenario | Mark | What it verifies |
-|----------|------|------------------|
-| [`natnet/`](natnet/) | `natnet` | Host NatNet emulator → `natnet_ros2` → pose topic Hz |
+| Scenario | What it verifies |
+|----------|------------------|
+| [`natnet/`](natnet/) | Host NatNet emulator → `natnet_ros2` → pose topic Hz |

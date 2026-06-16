@@ -20,13 +20,13 @@ convention):
 robot/ros_ws/src/<layer>/<package>/test/test_<name>.py   ← source of truth
 ```
 
-**This directory** contains thin proxy files that load the real test module via
-`importlib` and re-export its `test_*` functions, making them discoverable by
-`pytest tests/` and `airstack test -m unit` without any changes to the CI
-workflow. Each proxy is ~15 lines.
+**This directory** contains thin proxy files that call ``register_unit_tests()``
+(from [`tests/conftest.py`](../conftest.py)) to register co-located ``test_*``
+functions for ``pytest tests/`` and ``airstack test -m unit``. Each proxy is
+~10 lines.
 
 ```
-tests/robot/<layer>/<package>/test_<name>.py             ← proxy (re-exports above)
+tests/robot/<layer>/<package>/test_<name>.py             ← proxy (registers above)
 ```
 
 Both `airstack test -m unit` (pytest path via proxy) and

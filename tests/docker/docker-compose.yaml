@@ -13,9 +13,6 @@ services:
     environment:
       - AIRSTACK_ROOT=${AIRSTACK_PATH}
       - DISPLAY=${DISPLAY:-}
-      # Forward the OptiTrack/NatNet toggle so the in-runner `airstack up`
-      # (which does os.environ.copy()) brings the stack up with NatNet enabled and
-      # the test_natnet_pose_alive sentinel runs instead of skipping.
       - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       - NATNET_BODY_NAME=${NATNET_BODY_NAME:-Drone}
     working_dir: ${AIRSTACK_PATH}/tests

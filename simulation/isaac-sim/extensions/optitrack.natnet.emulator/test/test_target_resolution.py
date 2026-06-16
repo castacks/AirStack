@@ -1,12 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Commit 3 — target prim resolution against a real (in-memory) USD stage.
-
-Guarded by ``importorskip("pxr")`` so the suite stays green without usd-core.
-Covers no / single / multiple bodies, missing prims, empty targets, and multiple
-catalog entries pointing at the same prim.
-"""
-
+"""Target resolution against a real (in-memory) USD stage."""
 from __future__ import annotations
 
 import pytest

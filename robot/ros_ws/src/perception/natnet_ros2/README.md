@@ -67,7 +67,7 @@ When `publish_to_mavros: true`, `vision_pose_converter_node` subscribes to `pose
 - **Topic**: `/{ROBOT_NAME}/interface/mavros/vision_pose/pose` — `geometry_msgs/PoseStamped` (pose extracted from the covariance message)
 - **Topic**: `/{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov` — `geometry_msgs/PoseWithCovarianceStamped` (full message, quaternion optionally canonicalized)
 - **Enabled by**: `publish_to_mavros: true` in config
-- **PX4 side**: set `PX4_PARAM_PROFILE=vision` in `.env` so Isaac SITL loads EKF2 external-vision params from `simulation/isaac-sim/docker/px4-profiles/vision.env`
+- **PX4 side**: set `SITL_PARAM_PROFILE=px4-vision` in `.env` so Isaac SITL loads EKF2 external-vision params from `simulation/isaac-sim/docker/sitl-files/px4-vision.env`
 
 ##### Synthetic GPS origin (mocap / no-GNSS arming)
 

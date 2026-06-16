@@ -2,21 +2,19 @@
 # MIT License - see LICENSE in the repository root for full text.
 """Pose -> NatNet frame conversion (the data-enqueue path).
 
-Pure Python + ctypes (no USD, no Kit), so it's hermetically unit-testable. Sampled
-prim world poses become an ``sFrameOfMocapData`` of rigid bodies that the server
-streams to ``natnet_ros2``.
+Pure Python + ctypes. Sampled prim world poses become an 
+``sFrameOfMocapData`` of rigid bodies that the server 
+streams to the client.
 
 **Frame convention:** Motive exposes an "Up Axis" setting. AirStack's ``natnet_ros2``
-(and the reference driver) require it set to **Z** and copy the rigid-body pose
-straight through (``rb_to_pose`` is an identity copy). Isaac Sim / USD is natively
-Z-up, so the default ``up_axis="Z"`` emits the prim's USD world pose **as-is** and
-stays in sync with the rest of the stack. ``up_axis="Y"`` emulates a default (Y-up)
-Motive — see :func:`to_motive_pose`.
+requires it set to **Z** and copy the rigid-body pose straight through 
+(``rb_to_pose`` is an identity copy). Isaac Sim is Z-up, so the default ``up_axis="Z"`` 
+emits the prim's USD world pose **as-is**. ``up_axis="Y"`` emulates a default (Y-up) 
+Motive by rotating the pose -90 deg about X.
 
 **params bits** (must match the client's ``is_tracking_valid`` / ``model_list_changed``):
-``0x01`` on a rigid body marks tracking valid — the client *skips* bodies without it.
-``0x02`` on the frame signals the model list changed so the client re-requests MODELDEF
-(set the frame after the catalog changes, e.g. a body added live).
+- ``0x01`` on a rigid body marks tracking valid — the client *skips* bodies without it.
+- ``0x02`` on the frame signals the model list changed so the client re-requests MODELDEF(set the frame after the catalog changes, e.g. a body added live).
 """
 
 from __future__ import annotations

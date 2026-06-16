@@ -12,6 +12,9 @@ simulation/isaac-sim/docker/
 ├── fastdds.xml                   # DDS configuration
 ├── omni_pass.env                 # Omniverse credentials (git-ignored)
 ├── omni_pass_TEMPLATE.env        # Template for credentials
+├── sitl-files/                   # SITL env bundles (PX4_PARAM_* via compose)
+│   ├── default.env               # Plain Pegasus SITL (no param overrides)
+│   └── px4-vision.env            # External vision / NatNet → MAVROS → EKF2
 ├── omniverse.toml                # Omniverse settings
 ├── user.config.json              # Isaac Sim configuration (enables extensions)
 └── user_TEMPLATE.config.json     # Template configuration
@@ -116,10 +119,13 @@ Key variables for Isaac Sim configuration:
 | `ISAAC_SIM_SCRIPT_NAME` | Standalone script filename | - |
 | `PX4_PHYSICS_HZ` | Physics step rate for PX4 SITL — also sets PX4 `IMU_INTEG_RATE` | `250` |
 | `PX4_RENDERING_HZ` | Rendering frame rate for PX4 profiles (independent of physics) | `60` |
+| `SITL_PARAM_PROFILE` | SITL env bundle stem under `sitl-files/` (e.g. `default`, `px4-vision`) | `default` |
 | `ARDUPILOT_PHYSICS_HZ` | Physics step rate for ArduPilot SITL | `800` |
 | `ARDUPILOT_RENDERING_HZ` | Rendering frame rate for ArduPilot profiles | `120` |
 
 `PX4_PHYSICS_HZ` and `PX4_RENDERING_HZ` are set in the top-level `.env`. Pegasus defaults to 250 Hz but AirStack runs PX4 at **100 Hz** for near-real-time performance. See [Pegasus Scene Setup → Physics Rate](pegasus_scene_setup.md) for valid values and the full configuration flow.
+
+SITL parameter bundles live in `sitl-files/` (`default.env`, `px4-vision.env`). Compose loads `sitl-files/${SITL_PARAM_PROFILE}.env` into the container; see [Pegasus Scene Setup → PX4 SITL env bundles](pegasus_scene_setup.md#px4-sitl-env-bundles-external-vision).
 
 **Example overrides:**
 

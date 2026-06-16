@@ -197,15 +197,15 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - Verify module behavior in isolation
    - Test with synthetic data
    - Located in module's `test/` directory
-   - **Run in the robot container** with `colcon test` (after `bws`), not via `airstack test -m unit`. The root [`tests/`](tests/) suite does **not** register a `unit` pytest mark; `airstack test -m <mark>` only selects marks declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`, `integration`, `natnet`).
+   - **Run in the robot container** with `colcon test` (after `bws`), not via `airstack test -m unit`. The root [`tests/`](tests/) suite does **not** register a `unit` pytest mark; `airstack test -m <mark>` only selects marks declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `integration`, `liveliness`, `sensors`, `takeoff_hover_land`).
 
    ```bash
    docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
    ```
 
-2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). Thin **proxy** files in [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/) re-export those tests so `pytest tests/` discovers them. Unit tests run as part of the `system-tests.yml` suite. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
+2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). Thin **proxy** files in [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/) call `register_unit_tests()` so `pytest tests/` discovers them. Unit tests run as part of the `system-tests.yml` suite. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
 
-3. **Integration (`pytest`, `integration` mark, [`tests/integration/`](tests/integration/)):** Wire a few real components together — the robot autonomy container plus a host-side component — **without** a sim or GPU. The shared `robot_autonomy_stack` fixture reuses a running `robot-desktop` container or brings one up only when `--run-integration` is passed (else skips), so a plain `pytest tests/` never spins up Docker. First resident: `tests/integration/natnet/` (host NatNet emulator → `natnet_ros2` pose Hz; marks `integration`, `natnet`). Example: `airstack test -m integration --run-integration -v`.
+3. **Integration (`pytest`, `integration` mark, [`tests/integration/`](tests/integration/)):** Wire a few real components together — the robot autonomy container plus a host-side component — **without** a sim or GPU. The shared `robot_autonomy_stack` fixture reuses a running `robot-desktop` container or brings one up only when `--run-integration` is passed (else skips), so a plain `pytest tests/` never spins up Docker. Collection order runs integration after `build_docker` and `build_packages`. First resident: `tests/integration/natnet/` (host NatNet emulator → `natnet_ros2` pose Hz). Example: `airstack test -m integration --run-integration -v`.
 
 4. **System Level (`tests/system/`):** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing

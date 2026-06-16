@@ -2,14 +2,11 @@
 # MIT License - see LICENSE in the repository root for full text.
 """USD binding layer: author / read / find NatNet interface prims on a stage.
 
-``pxr`` is imported **lazily inside each function** so importing this module never
-requires USD — that keeps ``optitrack.natnet.emulator.isaac`` importable in plain
-(non-Isaac) test environments. The pure config logic lives in ``config.py``.
+``pxr`` is imported lazily inside each function so importing this module doesn't
+require USD.
 
-Backing today is **plain namespaced custom attributes + relationships** (the
-registration-free fallback from the design's Risk #1). Property names follow the
-multi-apply schema convention (``natnet:body:<key>:<field>``), so swapping to a
-typed codeless applied schema later requires no change to readers/writers.
+Backing today is plain namespaced custom attributes + relationships. Property names 
+follow the multi-apply schema convention (``natnet:body:<key>:<field>``).
 """
 
 from __future__ import annotations
@@ -87,9 +84,6 @@ def author_interface(stage, prim_path: str, config: Any) -> Any:
         _set(prim, body_attr_name(key, BODY_FIELD_STREAMING_ID), Sdf.ValueTypeNames.Int, body.streaming_id)
         _set(prim, body_attr_name(key, BODY_FIELD_PARENT_ID), Sdf.ValueTypeNames.Int, body.parent_id)
         rel = prim.CreateRelationship(body_attr_name(key, BODY_FIELD_TARGET), False)
-        # Empty target is allowed (e.g. a freshly added body to be pointed in the
-        # Property panel); leave the relationship target-less rather than authoring
-        # an invalid empty Sdf.Path.
         rel.SetTargets([Sdf.Path(body.target_prim)] if body.target_prim else [])
 
     return prim

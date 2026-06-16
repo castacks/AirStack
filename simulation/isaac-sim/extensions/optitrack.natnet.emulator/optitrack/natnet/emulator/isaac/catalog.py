@@ -1,7 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Commit 3 — catalog parse.
-
+"""
 Turn a :class:`NatNetInterfaceConfig` into the server's MODELDEF catalog
 (``sDataDescriptions`` of rigid bodies). Pure Python + ctypes (the ``server``
 package is stdlib-only), so this is hermetically unit-testable — no USD, no Kit.

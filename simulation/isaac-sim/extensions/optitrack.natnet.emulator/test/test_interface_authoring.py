@@ -1,11 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""USD authoring/read round-trip tests for the NatNet interface prim.
-
-Guarded by ``pytest.importorskip("pxr")`` — these run wherever USD Python is
-available (the Isaac container, or CI when ``usd-core`` is installed from
-``tests/requirements.txt``) and skip cleanly otherwise.
-"""
+"""USD interface prim authoring and read round-trip (requires ``pxr``)."""
 
 from __future__ import annotations
 

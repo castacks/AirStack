@@ -1,11 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Pose sampling + dynamic catalog (dirty/resync) tests against an in-memory stage.
-
-Guarded by ``importorskip("pxr")``. Uses a fake server (records enqueued frames and
-MODELDEF payloads) so no sockets are bound — we exercise the manager's sampling and
-resync logic, not the wire.
-"""
+"""Pose sampling and catalog resync against an in-memory USD stage (fake server, no sockets)."""
 
 from __future__ import annotations
 

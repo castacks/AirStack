@@ -39,10 +39,7 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
-# Make the OptiTrack NatNet emulator package importable without enabling the Kit
-# UI extension (keeps a single, script-owned server manager).
-sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "extensions", "optitrack.natnet.emulator")))
-
+from optitrack.natnet.emulator.isaac import start_drone_natnet_server
 
 # --------------------- CONFIGURATION ---------------------
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -186,7 +183,7 @@ class PegasusApp:
 
         # ----- OptiTrack / NatNet emulator -----
         # Author a NatNet interface prim with every drone's base_link as a tracked
-        # rigid body and start the Motive-compatible server (gated on LAUNCH_NATNET).
+        # rigid body and start the Motive-compatible server.
         self.natnet_manager = None
         if LAUNCH_NATNET:
             self._setup_natnet(stage)
@@ -196,8 +193,6 @@ class PegasusApp:
     def _setup_natnet(self, stage):
         """Author the NatNet interface prim (one body per drone) and start the server."""
         try:
-            from optitrack.natnet.emulator.isaac import start_drone_natnet_server
-
             # Single agent: stream the bare body name ("Drone") so it matches the
             # robot natnet_config body_name, the MAVROS vision-pose bridge, and the
             # liveliness sentinel. Multi-drone uses unique indexed names (future:

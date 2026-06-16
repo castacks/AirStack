@@ -478,7 +478,7 @@ The extension already uses it today — test source in
    decorated `@pytest.mark.unit`.
 2. Add a one-line proxy
    `tests/sim/optitrack_natnet_emulator/test_<name>.py` that calls
-   `reexport_unit_tests(globals(), repo_path(".../optitrack.natnet.emulator/test"), "test_<name>.py")`.
+   `register_unit_tests(globals(), repo_path(".../optitrack.natnet.emulator/test"), "test_<name>.py")`.
 3. It is then discovered automatically by `pytest tests/ -m unit`,
    `airstack test -m unit`, and CI `system-tests.yml` (PR-open runs `pytest tests/`
    with no `-m` filter) — **no CI YAML change needed.**
@@ -582,7 +582,7 @@ Hard-won findings from getting the liveliness sentinel green (Isaac emulator →
    but never transmitted, so the client handshakes but receives nothing. Fix:
    `NatNetServer.auto_stream` (default `True`) gates that loop; the Isaac wrapper
    sets `auto_stream = False` in `manager.start_server()` and calls
-   `server.pump_once()` **synchronously from the physics-step callback**
+   `server.flush_mocap_data()` **synchronously from the physics-step callback**
    (`manager.sample_once()`). Outside Kit (host integration tests, sidecar) the
    default `auto_stream=True` path still works. Don't "optimize" the pump back into
    the daemon thread.

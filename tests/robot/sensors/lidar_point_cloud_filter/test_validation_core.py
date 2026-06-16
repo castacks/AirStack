@@ -1,6 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Proxy: re-exposes validation_core unit tests from the package source tree.
+"""Proxy: registers validation_core unit tests from the package source tree.
 
 Unit test logic lives co-located with its package (ROS 2 / colcon convention):
   robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py
@@ -11,9 +11,9 @@ Run ``colcon test --packages-select lidar_point_cloud_filter`` to also execute
 the ament linters.
 """
 
-from conftest import reexport_unit_tests, repo_path
+from conftest import register_unit_tests, repo_path
 
-reexport_unit_tests(
+register_unit_tests(
     globals(),
     repo_path("robot/ros_ws/src/sensors/lidar_point_cloud_filter/test"),
     "test_validation_core.py",

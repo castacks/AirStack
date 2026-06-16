@@ -1,18 +1,11 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Unit tests for natnet_ros2 Python source code.
+"""Unit tests for natnet_ros2 Python helpers (no ROS install required).
 
-These tests import the actual production source files and stub out ROS at the
-import boundary so no ROS installation is required.
+Stubs rclpy at import time. Covers ``VisionPoseConverterNode`` quaternion
+canonicalisation and frame_id assignment.
 
-Coverage here:
-  vision_pose_converter_node.py  → VisionPoseConverterNode._canonical_quaternion()
-                                 → VisionPoseConverterNode._on_pose() frame_id assignment
-
-NOT covered here (C++ — requires colcon build + gtest):
-  natnet_ros2_node.cpp           → build_covariance_6x6(), topic name construction,
-                                   connection_type validation, SDK frame callback logic.
-  These live in test_natnet_logic.cpp in the same test/ directory.
+C++ logic (``natnet_logic.hpp``) is tested in ``test_natnet_logic.cpp`` via colcon.
 """
 
 import sys

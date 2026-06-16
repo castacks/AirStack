@@ -1,12 +1,6 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Commits 3-4 — server lifecycle tests with a mocked server factory.
-
-These never bind a socket: a fake factory records construction/start/shutdown so we
-can assert the manager creates and starts the server exactly once, is idempotent,
-toggles, and reconciles to ``serverEnabled``. No USD, no Kit.
-"""
-
+"""Server lifecycle tests with a mocked server factory."""
 from __future__ import annotations
 
 import pytest

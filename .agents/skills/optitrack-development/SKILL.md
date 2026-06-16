@@ -39,7 +39,7 @@ flowchart LR
 | Robot client | [`robot/ros_ws/src/perception/natnet_ros2/`](../../../robot/ros_ws/src/perception/natnet_ros2/) | ROS 2 node; uses **official NatNet SDK** (`NatNetClient::Connect`) |
 | SDK install | `natnet_ros2/lib/libNatNet.so`, `include/natnet/` | Download via `airstack setup --natnet` (proprietary, not in git) |
 | Emulator (WIP) | [`simulation/isaac-sim/extensions/optitrack.natnet.emulator/`](../../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/) | Python NatNet **server** for sim / integration tests |
-| Integration tests | [`tests/integration/natnet/README.md`](../../../tests/integration/natnet/README.md) | End-to-end UDP tests against real SDK parser (marks: `integration`, `natnet`) |
+| Integration tests | [`tests/integration/natnet/README.md`](../../../tests/integration/natnet/README.md) | End-to-end UDP tests against real SDK parser (mark: `integration`) |
 
 **Enable on robot:** `LAUNCH_NATNET=true` in `.env` → [`perception.launch.xml`](../../../robot/ros_ws/src/perception/perception_bringup/launch/perception.launch.xml) includes `natnet_ros2.launch.py`.
 
@@ -198,7 +198,7 @@ Use the SDK's `NatNetTypes.h` and `PacketClient.cpp` for on-wire layouts — not
 |-------|----------|-----------|
 | Unit (no network) | `test_natnet_logic.cpp`, `FakeNatNetClient` | Negotiation logic, topic names |
 | Protocol capture | Minimal client + UDP stub (see above) | Wire-format `NAT_CONNECT`, client endpoint model |
-| Integration | `tests/integration/natnet/` | Full SDK parser + `natnet_ros2_node` (marks: `integration`, `natnet`) |
+| Integration | `tests/integration/natnet/` | Full SDK parser + `natnet_ros2_node` (mark: `integration`) |
 | System (future) | `airstack test -m sensors` | Topic Hz on `/perception/optitrack/...` |
 
 ```bash

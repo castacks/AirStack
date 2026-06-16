@@ -1,11 +1,8 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""End-to-end: manager samples a USD prim and streams its pose over the wire.
+"""Loopback: sample_once on a USD prim → NAT_FRAMEOFDATA with sampled position.
 
-Real server + real UDP sockets (loopback) + an in-memory USD stage. Proves the full
-data-enqueue path: ``sample_once`` reads the prim's world pose, builds a frame, the
-server relays it as ``NAT_FRAMEOFDATA``, and the bytes carry the sampled position.
-Guarded by ``importorskip("pxr")``.
+Real server + UDP sockets + in-memory stage. Requires pxr.
 """
 
 from __future__ import annotations

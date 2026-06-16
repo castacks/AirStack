@@ -21,13 +21,13 @@ class sMarker(ctypes.Structure):
 class sMarkerSetData(ctypes.Structure):
     _pack_ = 1
     _fields_ = [
-        ("szName", ctypes.c_char * ModelLimits.MAX_NAMELENGTH),            # MarkerSet name
-        ("nMarkers", ctypes.c_int32),                       # # of markers in MarkerSet
-        ("Markers", MarkerData * ModelLimits.MAX_MARKERS)   # Using max array, pack will chunk it
+        ("szName", ctypes.c_char * ModelLimits.MAX_NAMELENGTH), # MarkerSet name.
+        ("nMarkers", ctypes.c_int32),                           # Number of markers in MarkerSet.
+        ("Markers", MarkerData * ModelLimits.MAX_MARKERS)
     ]
 
     def pack(self) -> bytes:
-        # szName is null-terminated rather than fixed 256 over network
+        # szName is null-terminated on the wire.
         name_bytes = self.szName.rstrip(b'\x00') + b'\x00'
         payload = bytearray(name_bytes)
         payload += struct.pack('<i', self.nMarkers)
@@ -178,7 +178,7 @@ class sFrameOfMocapData(ctypes.Structure):
 
     @staticmethod
     def _pack_counted_section(count: int, data: bytes, *, natnet_major: int, natnet_minor: int) -> bytes:
-        """NatNet 4.1+ prefixes each collection with a 4-byte byte count (PacketClient UnpackDataSize)."""
+        """NatNet 4.1+ prefixes each collection with a 4-byte byte count."""
         payload = bytearray(struct.pack('<i', count))
         if (natnet_major == 4 and natnet_minor > 0) or natnet_major > 4:
             payload += struct.pack('<i', len(data))
@@ -255,9 +255,7 @@ class sFrameOfMocapData(ctypes.Structure):
         payload += struct.pack('<II', self.PrecisionTimestampSecs, self.PrecisionTimestampFractionalSecs)
         payload += struct.pack('<h', self.params)
 
-        # End-of-data tag. libNatNet's frame unpacker reads a trailing 4-byte
-        # tag after params; without it the unpacked size mismatches nDataBytes
-        # and the SDK silently drops the whole frame (no frame callback fires).
+        # End-of-data tag. libNatNet's frame unpacker reads a trailing 4-byte tag after params; 
         payload += struct.pack('<i', 0)
 
         return bytes(payload)

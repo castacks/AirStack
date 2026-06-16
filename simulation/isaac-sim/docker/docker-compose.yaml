@@ -33,7 +33,7 @@ services:
         ipv4_address: 172.31.0.200 # required to not conflict with other default docker networks on the host machine
     env_file:
       - ./omni_pass.env
-      - ./px4-profiles/${PX4_PARAM_PROFILE:-default}.env
+      - ./sitl-files/${SITL_PARAM_PROFILE:-default}.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
       - DISPLAY=${DISPLAY}
@@ -43,9 +43,6 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
-      # OptiTrack/NatNet emulator: mirror the robot-side LAUNCH_NATNET gate so the
-      # example launch scripts author a NatNet interface (one rigid body per drone
-      # base_link) and start the server on load when enabled.
       - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       - NATNET_BODY_NAME=${NATNET_BODY_NAME:-Drone}
       # Pegasus physics tuning — read by pegasus/simulator/params.py

@@ -1,13 +1,8 @@
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Make the emulator package importable when running these tests directly.
+"""Put the extension root on sys.path for direct pytest test/ runs.
 
-The emulator is an Isaac Sim extension, not a pip-installed package, so a direct
-``pytest test/`` (or ``colcon test``) needs the extension root on ``sys.path``.
-pytest auto-loads this conftest before collecting any test in this directory, so
-the test modules themselves stay free of ``sys.path`` boilerplate. (Runs via
-``pytest tests/`` use the proxies under ``tests/`` instead, which set this up in
-``tests/conftest.py``.)
+CI uses proxies under tests/sim/optitrack_natnet_emulator/ instead.
 """
 
 import sys

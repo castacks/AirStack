@@ -35,11 +35,12 @@ robot/ros_ws/src/<layer>/<package>/
 └── CMakeLists.txt              # wires ament_add_gtest under BUILD_TESTING
 
 tests/robot/<layer>/<package>/
-└── test_<name>.py              # ← thin PROXY (re-exports tests from above)
+└── test_<name>.py              # ← thin PROXY (registers tests from above)
 ```
 
-The **proxy** is a one-file shim that loads the real test module with `importlib`
-and re-exports every `test_*` function. This means:
+The **proxy** is a one-file shim that calls ``register_unit_tests()`` to load the
+real test module with ``importlib`` and expose every ``test_*`` function to pytest.
+This means:
 
 | Invocation | What runs |
 |---|---|
@@ -47,6 +48,39 @@ and re-exports every `test_*` function. This means:
 | `airstack test -m unit` | Same path |
 | CI `system-tests.yml` (PR open / approved) | Same path via `pytest tests/` |
 | `colcon test --packages-select <pkg>` | Real test in `package/test/` directly |
+
+### `register_unit_tests` (in `tests/conftest.py`)
+
+Proxies call this helper; they do not duplicate test logic. Signature:
+
+```python
+register_unit_tests(target_globals, test_dir, *module_files)
+```
+
+| Argument | Meaning |
+|---|---|
+| `target_globals` | Pass ``globals()`` from the proxy module — pytest collects ``test_*`` names injected here |
+| `test_dir` | Co-located test directory, usually ``repo_path("robot/ros_ws/src/<layer>/<pkg>/test")`` |
+| `*module_files` | One or more filenames under ``test_dir`` (e.g. ``"test_foo.py"``); fold several into one proxy |
+
+**What it does (in order):**
+
+1. Prepends ``test_dir`` and ``test_dir.parent`` (package or extension root) to
+   ``sys.path`` so loaded modules can import production code and sibling helpers.
+2. Loads each file via ``importlib.util.spec_from_file_location`` under a
+   synthetic name (``_unit_<parent>_<stem>``) so proxy and source can share the
+   same basename without circular imports.
+3. Copies every ``test_*`` callable from the loaded module into ``target_globals``.
+4. Wraps each with ``pytest.mark.unit`` so ``pytest tests/ -m unit`` selects them
+   even if the source omitted ``pytestmark``.
+
+**What it does not do:** run tests, install packages, or replace ``colcon test``.
+For local iteration against source only, run ``pytest <package>/test/`` (add a tiny
+``conftest.py`` in that dir for ``sys.path`` — see the emulator example below).
+
+Pair with ``repo_path()`` from the same conftest — paths are anchored on
+``AIRSTACK_ROOT`` (CI export, repo root locally). **Never** use
+``Path(__file__).parents[N]`` in a proxy.
 
 ## Step-by-Step: Adding a Python Unit Test
 
@@ -114,38 +148,28 @@ For `rclpy.node.Node` subclasses use a real dummy base class instead of a
 
 ### 3. Write the thin proxy in tests/robot/
 
-Create `tests/robot/<layer>/<package>/test_<name>.py`. Use the shared
-`reexport_unit_tests` + `repo_path` helpers from `tests/conftest.py` so the proxy
-stays a two-call shim and the cross-tree path is anchored on `AIRSTACK_ROOT`
-(exported by CI, defaults to the repo root locally) — **never** count
-`Path(__file__).parents[N]` or hardcode `sys.path` walks in the proxy:
+Create `tests/robot/<layer>/<package>/test_<name>.py`. Use
+``register_unit_tests`` + ``repo_path`` from ``tests/conftest.py`` so the proxy
+stays a two-call shim:
 
 ```python
 # Copyright (c) 2024 Carnegie Mellon University
 # MIT License - see LICENSE in the repository root for full text.
-"""Proxy: re-exposes <package> unit tests from the package source tree.
+"""Proxy: registers <package> unit tests from the package source tree.
 
-Unit test logic lives co-located with the package source (ROS 2 / colcon convention):
+Unit test logic lives co-located with the package (ROS 2 / colcon convention):
   robot/ros_ws/src/<layer>/<package>/test/test_<name>.py
 
-This file makes those tests discoverable by ``pytest tests/`` (CI) and
-``airstack test -m unit`` without any changes to the CI workflow.
+Discoverable by ``pytest tests/`` (CI) and ``airstack test -m unit``.
 """
-from conftest import reexport_unit_tests, repo_path
+from conftest import register_unit_tests, repo_path
 
-reexport_unit_tests(
+register_unit_tests(
     globals(),
     repo_path("robot/ros_ws/src/<layer>/<package>/test"),
     "test_<name>.py",   # pass several filenames to fold multiple modules into one proxy
 )
 ```
-
-`reexport_unit_tests` (in `tests/conftest.py`) execs each co-located module with
-`importlib` under a unique name (avoiding the same-filename circular import), puts
-both the test dir and its parent (the package root) on `sys.path` so the source
-can import its package and sibling helpers, and tags every re-exported `test_*`
-with `pytest.mark.unit`. Because the root `conftest` is imported before any proxy
-is collected, `from conftest import ...` resolves in both CI and local runs.
 
 For a **direct** `pytest <package>/test/` (or `colcon test`) run — which bypasses
 the proxies — add a tiny `conftest.py` in the package `test/` dir that puts the
@@ -251,16 +275,16 @@ there are listed in [`tests/colcon_unit_test_packages.yaml`](../../../tests/colc
 
 The same proxy pattern applies verbatim:
 
-**Sim-side Python** (e.g. motive emulator protocol logic):
+**Sim-side Python** (e.g. OptiTrack NatNet emulator):
 ```
 simulation/.../<tool>/test/test_<name>.py   ← source
-tests/sim/<tool>/test_<name>.py             ← proxy (parents[3] = repo root)
+tests/sim/<tool>/test_<name>.py             ← proxy (register_unit_tests + repo_path)
 ```
 
 **GCS modules**:
 ```
 gcs/.../<pkg>/test/test_<name>.py           ← source
-tests/gcs/<pkg>/test_<name>.py             ← proxy (parents[3] = repo root)
+tests/gcs/<pkg>/test_<name>.py             ← proxy (register_unit_tests + repo_path)
 ```
 
 `pytest tests/ -m unit` discovers them through the proxy without any
@@ -274,7 +298,8 @@ pytest.ini or CI changes needed.
 |---|---|
 | Where does test source live? | `<component>/…/<package>/test/` (co-located with the package) |
 | Where does pytest discover tests? | `tests/robot/` (or `tests/sim/`, `tests/gcs/`) via thin proxy |
-| How does the proxy avoid circular import? | `importlib.util.spec_from_file_location` with a unique module name |
+| How does the proxy register tests? | ``register_unit_tests(globals(), repo_path(...), "test_*.py")`` in `tests/conftest.py` |
+| How does the proxy avoid circular import? | `importlib.util.spec_from_file_location` with a unique synthetic module name |
 | What mark do all unit tests use? | `@pytest.mark.unit` |
 | What CI workflow runs them? | `system-tests.yml` — runs `pytest tests/` which includes unit tests |
 | When does that workflow trigger? | PR opened, `/pytest` comment, `workflow_dispatch` |
@@ -296,8 +321,9 @@ Corresponding proxies: `tests/robot/perception/natnet_ros2/test_natnet_ros2.py`,
 ## Files to Know
 
 - `.github/workflows/system-tests.yml` — CI workflow (runs `pytest tests/` including unit tests)
+- `tests/conftest.py` — `register_unit_tests`, `repo_path`, shared fixtures
 - `tests/pytest.ini` — mark registration (`unit`, `build_docker`, etc.)
 - `tests/robot/` — proxy layer mirroring `robot/ros_ws/src/`
-- `tests/sim/` — proxy layer for sim-side code (future)
+- `tests/sim/` — proxy layer for sim-side extensions and tools
 - `tests/gcs/` — proxy layer for GCS code (future)
 - `tests/README.md` — full test harness reference
