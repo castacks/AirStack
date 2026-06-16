@@ -9,7 +9,7 @@ import os
 import threading
 import time
 import yaml
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 import rclpy
 from rclpy.node import Node
@@ -41,7 +41,6 @@ _GOSSIP_SEEN_SIZE = 50
 
 PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
 PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
-COVERAGE_KEYFRAME_PERIOD_S = 60.0   # full explored_area_coverage keyframe interval
 
 # BEST_EFFORT/VOLATILE: gossip is lossy-by-design. RELIABLE over the
 # LARGE_DATA (TCP) transport back-pressured the ddsrouter under load and
@@ -99,11 +98,9 @@ class GossipNode(Node):
         self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
         self._payload_subs: list = []
 
-        # explored_area_coverage grows unbounded — gossip it as deltas (new
-        # cells) + a periodic full keyframe instead of the whole grid each tick.
         self._coverage_topic = None
         self._coverage_sent_keys: set = set()
-        self._coverage_last_keyframe = 0.0
+        self._coverage_window = deque(maxlen=3)
 
         if payload_config_path:
             self._setup_payload_subscriptions(payload_config_path)
@@ -318,10 +315,10 @@ class GossipNode(Node):
         self._gossip_pub.publish(self._profile.to_ros_msg())
 
     def _attach_coverage(self, msg, stamp, bx, by, bz, q):
-        """Attach explored_area_coverage as a full keyframe (periodic, name
-        'explored_area_coverage') or a delta of newly-observed cells (name
-        'explored_area_coverage_delta'). Receivers union both — cells are never
-        removed, so the keyframe just heals any missed deltas."""
+        """explored_area_coverage: an initial full seed ('explored_area_coverage')
+        then per-tick new cells over a 3-tick redundancy window
+        ('explored_area_coverage_delta') so each cell is sent 3 times. Receivers
+        union everything."""
         import numpy as np
         from sensor_msgs_py import point_cloud2 as pc2
         try:
@@ -331,23 +328,22 @@ class GossipNode(Node):
         if not pts:
             return
         keys = [(round(float(p[0]), 2), round(float(p[1]), 2)) for p in pts]
-        now = time.monotonic()
-        if (now - self._coverage_last_keyframe >= COVERAGE_KEYFRAME_PERIOD_S
-                or not self._coverage_sent_keys):
-            self._coverage_last_keyframe = now
+        if not self._coverage_sent_keys:
             self._coverage_sent_keys = set(keys)
             out = self._transform_to_global(msg, bx, by, bz, q)
             self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage")
             return
         new_idx = [i for i, k in enumerate(keys) if k not in self._coverage_sent_keys]
-        if not new_idx:
-            return
         for i in new_idx:
             self._coverage_sent_keys.add(keys[i])
-        new_pts = np.array([[pts[i][0], pts[i][1], pts[i][2]] for i in new_idx],
-                           dtype=np.float32)
-        out = self._transform_to_global(self._make_xyz_cloud(msg.header, new_pts),
-                                        bx, by, bz, q)
+        self._coverage_window.append(
+            np.array([[pts[i][0], pts[i][1], pts[i][2]] for i in new_idx], dtype=np.float32)
+            if new_idx else np.zeros((0, 3), dtype=np.float32))
+        chunks = [a for a in self._coverage_window if a.shape[0] > 0]
+        if not chunks:
+            return
+        out = self._transform_to_global(
+            self._make_xyz_cloud(msg.header, np.vstack(chunks)), bx, by, bz, q)
         self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage_delta")
 
     @staticmethod
