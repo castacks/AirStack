@@ -668,8 +668,8 @@ class SemanticSearchTaskNode(Node):
                 # Match the rest of the sim stack so published Path/marker
                 # stamps line up with the controllers' sim clock.
                 '-p', 'use_sim_time:=true',
-                # Run the frontier-only baseline (no semantic navigation).
-                '-p', 'frontier_only_baseline:=true',
+                # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
+                '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
                 # End at 80% coverage; osmo enforces the 15-min limit by cancel.
                 '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
                 '-p', f'results_dir:={RESULTS_DIR}',

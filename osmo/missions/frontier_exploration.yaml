@@ -37,6 +37,8 @@ env:
   # and spawns one randomized drone per robot inside the spawn rectangle.
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"
+  # Opt into the frontier-only baseline (default is full coordination).
+  FRONTIER_ONLY_BASELINE: "true"
 
 # Environments cycled across iterations. UPPERCASE keys (ENV_URL, SPAWN_POLY)
 # are exported as env vars before `airstack up`, so the isaac-sim launch script

@@ -15,13 +15,3 @@ participants:
 
 allowlist:
   - name: "rt/gossip/peers"
-
-# info verbosity incl. DDSPIPE so endpoint discovery/match drops are logged
-# (tee'd to /tmp/ddsrouter_gcs_gossip.log to diagnose the mid-run dropout).
-specs:
-  logging:
-    verbosity: info
-    filter:
-      info: "DDSROUTER|DDSPIPE"
-      warning: "DDSROUTER|DDSPIPE|FASTDDS"
-      error: "DDSROUTER|DDSPIPE|FASTDDS"

@@ -41,6 +41,7 @@ _GOSSIP_SEEN_SIZE = 50
 
 PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
 PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
+COVERAGE_KEYFRAME_PERIOD_S = 60.0   # full explored_area_coverage keyframe interval
 
 # BEST_EFFORT/VOLATILE: gossip is lossy-by-design. RELIABLE over the
 # LARGE_DATA (TCP) transport back-pressured the ddsrouter under load and
@@ -97,6 +98,12 @@ class GossipNode(Node):
         self._payload_cache: dict[str, object] = {}
         self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
         self._payload_subs: list = []
+
+        # explored_area_coverage grows unbounded — gossip it as deltas (new
+        # cells) + a periodic full keyframe instead of the whole grid each tick.
+        self._coverage_topic = None
+        self._coverage_sent_keys: set = set()
+        self._coverage_last_keyframe = 0.0
 
         if payload_config_path:
             self._setup_payload_subscriptions(payload_config_path)
@@ -175,6 +182,8 @@ class GossipNode(Node):
             topic = topic_template.replace("{robot_name}", self._robot_name)
             # Use the last path segment as a short human-readable name (e.g. 'filtered_rays')
             self._payload_names[topic] = topic_template.rstrip("/").split("/")[-1]
+            if self._payload_names[topic] == "explored_area_coverage":
+                self._coverage_topic = topic
 
             try:
                 msg_class = rosidl_utils.get_message(type_str)
@@ -289,8 +298,11 @@ class GossipNode(Node):
             for topic, entry in self._payload_cache.items():
                 if entry is not None:
                     msg, stamp = entry
-                    transformed = self._transform_to_global(msg, bx, by, bz, q)
-                    self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
+                    if topic == self._coverage_topic:
+                        self._attach_coverage(msg, stamp, bx, by, bz, q)
+                    else:
+                        transformed = self._transform_to_global(msg, bx, by, bz, q)
+                        self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
 
             # Translate the waypoint into the same global ENU frame as payloads.
             # PeerProfile.waypoint is filled from /<robot>/global_plan in the
@@ -304,6 +316,55 @@ class GossipNode(Node):
         # enforce monotonic ordering across ticks.
         self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
         self._gossip_pub.publish(self._profile.to_ros_msg())
+
+    def _attach_coverage(self, msg, stamp, bx, by, bz, q):
+        """Attach explored_area_coverage as a full keyframe (periodic, name
+        'explored_area_coverage') or a delta of newly-observed cells (name
+        'explored_area_coverage_delta'). Receivers union both — cells are never
+        removed, so the keyframe just heals any missed deltas."""
+        import numpy as np
+        from sensor_msgs_py import point_cloud2 as pc2
+        try:
+            pts = list(pc2.read_points(msg, field_names=('x', 'y', 'z'), skip_nans=True))
+        except Exception:
+            return
+        if not pts:
+            return
+        keys = [(round(float(p[0]), 2), round(float(p[1]), 2)) for p in pts]
+        now = time.monotonic()
+        if (now - self._coverage_last_keyframe >= COVERAGE_KEYFRAME_PERIOD_S
+                or not self._coverage_sent_keys):
+            self._coverage_last_keyframe = now
+            self._coverage_sent_keys = set(keys)
+            out = self._transform_to_global(msg, bx, by, bz, q)
+            self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage")
+            return
+        new_idx = [i for i, k in enumerate(keys) if k not in self._coverage_sent_keys]
+        if not new_idx:
+            return
+        for i in new_idx:
+            self._coverage_sent_keys.add(keys[i])
+        new_pts = np.array([[pts[i][0], pts[i][1], pts[i][2]] for i in new_idx],
+                           dtype=np.float32)
+        out = self._transform_to_global(self._make_xyz_cloud(msg.header, new_pts),
+                                        bx, by, bz, q)
+        self._profile.add_payload(out, stamp=stamp, name="explored_area_coverage_delta")
+
+    @staticmethod
+    def _make_xyz_cloud(header, pts):
+        from sensor_msgs.msg import PointField
+        out = PointCloud2()
+        out.header = header
+        out.height = 1
+        out.width = int(pts.shape[0])
+        out.is_bigendian = False
+        out.is_dense = True
+        out.fields = [PointField(name=n, offset=4 * i, datatype=PointField.FLOAT32, count=1)
+                      for i, n in enumerate(('x', 'y', 'z'))]
+        out.point_step = 12
+        out.row_step = 12 * out.width
+        out.data = pts.tobytes()
+        return out
 
     @staticmethod
     def _translate_waypoint(wp, bx, by, bz):

@@ -72,6 +72,7 @@ class PayloadVisualizerNode(Node):
         self._last_stamp    = {}
         self._alt_ground    = None
         self._payload_cache = {}
+        self._coverage_cells = {}   # robot → accumulated explored-area cell set
         self._pubs          = {}
         self._seen: OrderedDict = OrderedDict()
 
@@ -219,17 +220,20 @@ class PayloadVisualizerNode(Node):
             f'/gcs/payload/{robot_name}/filtered_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
-        """Observed-cell grid gossiped by raven_nav (one (x,y) per cell).
-        Renders as a single TRIANGLE_LIST marker — two triangles per cell
-        form a flat square lying on the ground (z=0.05). One marker for N
-        cells, so render cost stays linear and Foxglove only has one entry
-        to toggle per robot."""
+        """Explored-area coverage (keyframe or delta) — accumulate cells (they're
+        never removed) and render the union as one TRIANGLE_LIST marker."""
         from sensor_msgs_py import point_cloud2 as pc2
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         try:
             pts = list(pc2.read_points(msg, field_names=('x', 'y'),
                                        skip_nans=True))
         except Exception:
+            return
+        cells = self._coverage_cells.setdefault(robot_name, set())
+        before = len(cells)
+        for p in pts:
+            cells.add((round(float(p[0]), 2), round(float(p[1]), 2)))
+        if len(cells) == before:
             return
         m = Marker()
         m.header.frame_id = 'map'
@@ -249,9 +253,7 @@ class PayloadVisualizerNode(Node):
         m.lifetime = Duration(sec=0, nanosec=0)  # persist on replay
         half = 0.5 * self._completed_cell_size_m
         z = 0.05
-        for p in pts:
-            cx = float(p[0])
-            cy = float(p[1])
+        for cx, cy in cells:
             # Two triangles forming the cell's flat square (CCW from above).
             v00 = GPoint(x=cx - half, y=cy - half, z=z)
             v10 = GPoint(x=cx + half, y=cy - half, z=z)
@@ -420,7 +422,8 @@ class PayloadVisualizerNode(Node):
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
         'shared_frontiers':           ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
         'filtered_frontiers':         ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
-        'explored_area_coverage':     ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
+        'explored_area_coverage':       ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
+        'explored_area_coverage_delta': ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
         'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),

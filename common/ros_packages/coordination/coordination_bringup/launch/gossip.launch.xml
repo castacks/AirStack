@@ -11,6 +11,8 @@
     <arg name="config_file"
       value="$(find-pkg-share coordination_bringup)/config/gossip_dds_router.yaml" />
     <arg name="args" value="gossip_domain:=$(var gossip_domain)" />
+    <arg name="log_verbosity" value="info" />
+    <arg name="log_filter" value="DDSROUTER|DDSPIPE" />
   </include>
 
   <!-- Gossip node -->

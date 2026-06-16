@@ -937,7 +937,7 @@ def snapshot_task_logs(dest_dir):
         targets.append(gcs)
     for name in targets:
         r = docker_exec(name, "ls /tmp/rayfronts_*.log /tmp/raven_*.log "
-                              "/tmp/gossip_*.log /tmp/ddsrouter_*.log 2>/dev/null",
+                              "/tmp/gossip_*.log /tmp/ddsrouter_*.log /tmp/relay_*.log 2>/dev/null",
                         timeout=15)
         files = [f for f in r.stdout.split() if f]
         if not files:

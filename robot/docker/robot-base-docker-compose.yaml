@@ -14,7 +14,8 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
-      - URDF_FILE=${URDF_FILE}  
+      - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
+      - URDF_FILE=${URDF_FILE}
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
