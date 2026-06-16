@@ -121,6 +121,40 @@ def _measure_footprint(usd_path: str, scale: float):
             "cy": (mn[1] + sz[1] / 2) * scale}
 
 
+def _parse_usd_entry(entry, default_scale: float):
+    """Normalize a USD entry to ``(path, scale)``.
+
+    Entries can be plain strings (use *default_scale*) or dicts with ``usd``
+    and an optional ``scale`` key that overrides the global ``asset_scale``::
+
+        # plain — uses global asset_scale
+        - "omniverse://host/Props/SM_Grass.usd"
+
+        # per-asset override
+        - usd: "omniverse://host/Props/SM_Building.usd"
+          scale: 1.0    # already in meters; global asset_scale is e.g. 0.01
+    """
+    if isinstance(entry, dict):
+        return str(entry["usd"]), float(entry.get("scale", default_scale))
+    return str(entry), float(default_scale)
+
+
+def _normalize_usd_list(lst, default_scale: float):
+    """Return ``(path_list, overrides_dict)`` from a raw YAML USD list.
+
+    *path_list* is a plain list of USD paths suitable for ``rng.choice()``.
+    *overrides_dict* maps path → per-asset scale for any entry that has an
+    explicit ``scale`` key.
+    """
+    paths, overrides = [], {}
+    for entry in (lst or []):
+        path, sc = _parse_usd_entry(entry, default_scale)
+        paths.append(path)
+        if sc != default_scale:
+            overrides[path] = sc
+    return paths, overrides
+
+
 class SizeResolver:
     """Resolves and caches each USD's metric footprint, measuring when possible
     and falling back to per-category constants otherwise.
@@ -132,14 +166,22 @@ class SizeResolver:
         self.measure = bool(measure)
         self._cache: dict = {}
 
-    def get(self, usd_path: str, category: str) -> dict:
-        if usd_path in self._cache:
-            return self._cache[usd_path]
+    def get(self, usd_path: str, category: str, scale: float = None) -> dict:
+        """Return the metric footprint for *usd_path*.
 
-        fp = _measure_footprint(usd_path, self.scale) if self.measure else None
+        *scale* overrides the resolver's default ``asset_scale`` for this
+        specific asset (use for per-asset scale entries in the YAML). The cache
+        key is ``(path, effective_scale)`` so mixed-scale assets don't collide.
+        """
+        effective_scale = float(scale) if scale is not None else self.scale
+        cache_key = (usd_path, effective_scale)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        fp = _measure_footprint(usd_path, effective_scale) if self.measure else None
         if fp is not None:
             print(f"[scene_gen] measured {category}: {os.path.basename(usd_path)} "
-                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m")
+                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m (scale={effective_scale})")
         else:
             fb = self.fallback.get(category, [4.0, 4.0])
             fp = {"sx": float(fb[0]), "sy": float(fb[1]),
@@ -148,7 +190,7 @@ class SizeResolver:
             print(f"[scene_gen] fallback {category}: {os.path.basename(usd_path)} "
                   f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m")
 
-        self._cache[usd_path] = fp
+        self._cache[cache_key] = fp
         return fp
 
 
@@ -218,25 +260,50 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
 
     usds = config["usds"]
     tiles = usds.get("tiles", {})
-    grass_usds = tiles["grass"]
-    concrete_usds = tiles.get("concrete") or []
-    sidewalk_usds = tiles.get("sidewalk") or []
-    road = tiles["road"]
-    house_intact = usds["houses"]["intact"]
-    house_damaged = usds["houses"].get("damaged") or []
-    tree_usds = usds.get("trees") or []
-    light_usds = usds.get("streetlights") or []
+
+    # Normalize every USD list/dict to plain paths + a per-asset scale lookup.
+    # Entries can be plain strings (use global asset_scale) or dicts:
+    #   {usd: "omni://...", scale: 0.01}   # per-asset override
+    _scale_overrides: dict = {}
+
+    def _nl(lst):
+        paths, ov = _normalize_usd_list(lst, asset_scale)
+        _scale_overrides.update(ov)
+        return paths
+
+    def _sc(path):
+        """Per-asset scale, falling back to global asset_scale."""
+        return _scale_overrides.get(path, asset_scale)
+
+    grass_usds    = _nl(tiles["grass"])
+    concrete_usds = _nl(tiles.get("concrete") or [])
+    sidewalk_usds = _nl(tiles.get("sidewalk") or [])
+    house_intact  = _nl(usds["houses"]["intact"])
+    house_damaged = _nl(usds["houses"].get("damaged") or [])
+    tree_usds     = _nl(usds.get("trees") or [])
+    light_usds    = _nl(usds.get("streetlights") or [])
+
+    # Road dict: values may also be plain strings or {usd:, scale:} dicts.
+    road: dict = {}
+    for k, entry in (tiles.get("road") or {}).items():
+        path, sc = _parse_usd_entry(entry, asset_scale)
+        road[k] = path
+        if sc != asset_scale:
+            _scale_overrides[path] = sc
 
     cols = int(config["grid"]["cols"])
     rows = int(config["grid"]["rows"])
     lot_margin = float(config["grid"].get("lot_margin_m", 2.0))
 
-    # --- Resolve footprints we need for layout -----------------------------
-    grass_fp = resolver.get(grass_usds[0], "grass")
-    road_fp = resolver.get(road["straight"], "road")
-    house_fps = {u: resolver.get(u, "house") for u in house_intact + house_damaged}
-    concrete_fp = resolver.get(concrete_usds[0], "concrete") if concrete_usds else None
-    sidewalk_fp = resolver.get(sidewalk_usds[0], "sidewalk") if sidewalk_usds else None
+    # --- Resolve footprints we need for layout (pass per-asset scale) ------
+    grass_fp = resolver.get(grass_usds[0], "grass", scale=_sc(grass_usds[0]))
+    road_fp  = resolver.get(road["straight"], "road", scale=_sc(road["straight"]))
+    house_fps = {u: resolver.get(u, "house", scale=_sc(u))
+                 for u in house_intact + house_damaged}
+    concrete_fp = (resolver.get(concrete_usds[0], "concrete", scale=_sc(concrete_usds[0]))
+                   if concrete_usds else None)
+    sidewalk_fp = (resolver.get(sidewalk_usds[0], "sidewalk", scale=_sc(sidewalk_usds[0]))
+                   if sidewalk_usds else None)
 
     gx, gy = grass_fp["sx"], grass_fp["sy"]
     road_w = max(road_fp["sx"], road_fp["sy"])
@@ -293,21 +360,23 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
                 usd, yaw = road["tee"], _tee_yaw(ci, rj) + tee_yaw_off
             else:
                 usd, yaw = road.get("four_way", road["straight"]), four_yaw_off
-            add(usd, rcx[ci], rcy[rj], 0.0, yaw + road_yaw, "road", asset_scale)
+            add(usd, rcx[ci], rcy[rj], 0.0, yaw + road_yaw, "road", _sc(usd))
 
     # Straight segments between intersections (n tiles per cell span).
+    _straight = road["straight"]
+    _straight_sc = _sc(_straight)
     n_seg = max(1, round(cell_m / rlen))
     step = cell_m / n_seg
     for ci in range(cols + 1):                       # vertical roads
         for r in range(rows):
             for k in range(n_seg):
                 y = cell_oy[r] + (k + 0.5) * step
-                add(road["straight"], rcx[ci], y, 0.0, road_yaw + 90.0, "road", asset_scale)
+                add(_straight, rcx[ci], y, 0.0, road_yaw + 90.0, "road", _straight_sc)
     for rj in range(rows + 1):                       # horizontal roads
         for c in range(cols):
             for k in range(n_seg):
                 x = cell_ox[c] + (k + 0.5) * step
-                add(road["straight"], x, rcy[rj], 0.0, road_yaw, "road", asset_scale)
+                add(_straight, x, rcy[rj], 0.0, road_yaw, "road", _straight_sc)
 
     # ---- Per-cell ground: grass carpet + concrete driveway (+ sidewalk).
     house_rects: dict = {}     # (c, r) -> (xmin, ymin, xmax, ymax) of house
@@ -322,24 +391,25 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             # Grass fill
             for ix in range(nx):
                 for iy in range(ny):
-                    add(rng.choice(grass_usds),
-                        x0 + (ix + 0.5) * sx_step, y0 + (iy + 0.5) * sy_step,
-                        0.0, 0.0, "grass", asset_scale)
+                    g = rng.choice(grass_usds)
+                    add(g, x0 + (ix + 0.5) * sx_step, y0 + (iy + 0.5) * sy_step,
+                        0.0, 0.0, "grass", _sc(g))
 
             # Sidewalk: one-tile ring just inside the cell edge (if a USD exists)
             if sidewalk_fp is not None:
                 sw = sidewalk_usds[0]
+                sw_sc = _sc(sw)
                 sgx, sgy = max(0.5, sidewalk_fp["sx"]), max(0.5, sidewalk_fp["sy"])
                 nsx = max(1, round(cell_m / sgx))
                 inset_lo_x, inset_hi_x = x0 + sgx / 2, x0 + cell_m - sgx / 2
                 inset_lo_y, inset_hi_y = y0 + sgy / 2, y0 + cell_m - sgy / 2
                 for k in range(nsx):
                     fx = x0 + (k + 0.5) * (cell_m / nsx)
-                    add(sw, fx, inset_lo_y, 0.01, 0.0, "sidewalk", asset_scale)
-                    add(sw, fx, inset_hi_y, 0.01, 0.0, "sidewalk", asset_scale)
+                    add(sw, fx, inset_lo_y, 0.01, 0.0, "sidewalk", sw_sc)
+                    add(sw, fx, inset_hi_y, 0.01, 0.0, "sidewalk", sw_sc)
                     fy = y0 + (k + 0.5) * (cell_m / nsx)
-                    add(sw, inset_lo_x, fy, 0.01, 0.0, "sidewalk", asset_scale)
-                    add(sw, inset_hi_x, fy, 0.01, 0.0, "sidewalk", asset_scale)
+                    add(sw, inset_lo_x, fy, 0.01, 0.0, "sidewalk", sw_sc)
+                    add(sw, inset_hi_x, fy, 0.01, 0.0, "sidewalk", sw_sc)
 
     # =======================================================================
     # STEP 2 — HOUSES (one per cell, some damaged)
@@ -354,14 +424,12 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
         cx, cy = cell_cx[c], cell_cy[r]
         is_damaged = (c, r) in damaged_cells
 
-        if is_damaged and house_damaged:
-            usd = rng.choice(house_damaged)
-            roll = pitch = 0.0
-            z = house_fps[usd]["base"]
-        elif is_damaged:
-            # No damaged USD provided: fake damage by tilting + sinking an
-            # intact house so it reads as collapsed.
-            usd = rng.choice(house_intact)
+        if is_damaged:
+            # Prefer an actual damaged USD when the library has one; otherwise
+            # fall back to an intact house. Either way, damaged cells always
+            # get the tilt + sink treatment so even authored damaged USDs read
+            # as collapsed/settled rather than sitting perfectly level.
+            usd = rng.choice(house_damaged) if house_damaged else rng.choice(house_intact)
             roll = rng.uniform(-18.0, 18.0)
             pitch = rng.uniform(-18.0, 18.0)
             z = house_fps[usd]["base"] - rng.uniform(0.3, 0.9)
@@ -371,13 +439,14 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             z = house_fps[usd]["base"]
 
         fp = house_fps[usd]
-        add(usd, cx, cy, z, house_front_yaw, "house", asset_scale, roll=roll, pitch=pitch)
+        add(usd, cx, cy, z, house_front_yaw, "house", _sc(usd), roll=roll, pitch=pitch)
         house_rects[(c, r)] = (cx - fp["sx"] / 2, cy - fp["sy"] / 2,
                                cx + fp["sx"] / 2, cy + fp["sy"] / 2)
 
         # Concrete driveway: strip from the house's front (south) edge down to
         # the south road. Placed last so it sits over the grass.
         if concrete_fp is not None:
+            _con = concrete_usds[0]
             ccw, cch = concrete_fp["sx"], concrete_fp["sy"]
             front_y = cy - fp["sy"] / 2
             road_edge_y = cell_oy[r]            # south road = bottom of the cell
@@ -385,8 +454,8 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             nd = max(1, round(d / cch))
             dstep = d / nd if nd else 0.0
             for k in range(nd):
-                add(concrete_usds[0], cx, road_edge_y + (k + 0.5) * dstep,
-                    0.02, 0.0, "concrete", asset_scale)
+                add(_con, cx, road_edge_y + (k + 0.5) * dstep,
+                    0.02, 0.0, "concrete", _sc(_con))
             drive_rects[(c, r)] = (cx - ccw / 2, road_edge_y, cx + ccw / 2, front_y)
 
     # =======================================================================
@@ -420,23 +489,24 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
                     continue
                 usd = rng.choice(tree_usds)
                 jitter = rng.uniform(0.85, 1.2)
-                add(usd, tx, ty, resolver.get(usd, "tree")["base"],
-                    rng.uniform(0, 360), "tree", asset_scale * jitter)
+                add(usd, tx, ty, resolver.get(usd, "tree", scale=_sc(usd))["base"],
+                    rng.uniform(0, 360), "tree", _sc(usd) * jitter)
                 placed.append((tx, ty))
 
     if light_usds:
         spacing = float(config.get("streetlights", {}).get("spacing_m", 20.0))
         setback = float(config.get("streetlights", {}).get("setback_m", 1.0))
         off = road_w / 2.0 + setback
-        light_base = resolver.get(light_usds[0], "streetlight")["base"]
+        _light0 = light_usds[0]
+        light_base = resolver.get(_light0, "streetlight", scale=_sc(_light0))["base"]
 
         def _place_lights(points, x_off, y_off):
             for (lx, ly) in points:
                 px, py = lx + x_off, ly + y_off
                 if exclusions and _in_exclusion(px, py, exclusions):
                     continue
-                add(rng.choice(light_usds), px, py, light_base, 0.0,
-                    "streetlight", asset_scale)
+                lu = rng.choice(light_usds)
+                add(lu, px, py, light_base, 0.0, "streetlight", _sc(lu))
 
         n_along_y = max(1, int(total_h / spacing))
         n_along_x = max(1, int(total_w / spacing))
@@ -523,7 +593,7 @@ def apply_placements(stage,
 
         cx_off, cy_off = 0.0, 0.0
         if resolver is not None:
-            fp = resolver.get(usd, p.get("category", "asset"))
+            fp = resolver.get(usd, p.get("category", "asset"), scale=float(p["scale"]))
             cx_off, cy_off = fp.get("cx", 0.0), fp.get("cy", 0.0)
 
         # Rotate the anchor->centroid offset by the same XYZ rotation USD applies

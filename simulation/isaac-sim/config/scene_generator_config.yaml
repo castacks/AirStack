@@ -32,8 +32,9 @@ asset_scale: 0.01
 # fallback_sizes below per-category when a measurement fails.
 measure_usds: true
 
-# Fraction of houses rendered as damaged. With no damaged USD provided (see
-# usds.houses.damaged) these are faked by tilting + sinking an intact house.
+# Fraction of houses rendered as damaged. Damaged cells always get tilted +
+# sunk into the ground; they use a USD from usds.houses.damaged when the list
+# is non-empty, otherwise an intact house is tilted/sunk as a stand-in.
 damaged_fraction: 0.25
 
 trees:
@@ -58,11 +59,11 @@ orientation:
 # Fallback footprints (meters, [x, y] or [x, y, z]) used when measure_usds is
 # false or a measurement fails.
 fallback_sizes:
-  grass:       [4.0, 4.0]
-  road:        [8.0, 8.0]
+  grass:       [3.0, 3.0]
+  road:        [12.0, 12.0]
   concrete:    [4.0, 4.0]
   sidewalk:    [2.0, 2.0]
-  house:       [12.0, 12.0]
+  house:       [48.0, 48.0]
   tree:        [3.0, 3.0]
   streetlight: [1.0, 1.0]
 
@@ -83,12 +84,15 @@ usds:
   houses:
     intact:
       - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_01.prop.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_02.prop.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_03.prop.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_04.prop.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_05.prop.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_06.prop.usd"
-    damaged: []              # add damaged-house USDs here to use them directly
+      # - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
+      #   scale: 1.0   # authored in meters; override the global asset_scale
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
+      # - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building03/SM_MERGED_BP_MBuilding03.usd"
+      # - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
+
+    damaged:
+      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/RuinedModernBuildings/Flatten_Buildings/SM_Flatten_Building_01.usd"
+
   trees:
     - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_01.prop.usd"
     - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_Tree_02.prop.usd"
