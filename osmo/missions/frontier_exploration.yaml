@@ -92,7 +92,7 @@ command_route: gcs
 
 # One pass over the three environments (retro → fireacademy → constructionsite).
 # Bump to 6 / 9 / … for repeated passes; the spawn layout re-randomizes each time.
-iterations: 1
+iterations: 6
 
 ready:
   timeout_s: 600

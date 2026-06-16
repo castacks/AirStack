@@ -67,7 +67,7 @@ environments:
 command_route: gcs
 
 # One pass over the three environments; bump for repeated passes.
-iterations: 1
+iterations: 6
 
 ready:
   timeout_s: 600

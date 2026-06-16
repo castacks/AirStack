@@ -153,7 +153,7 @@ class RavenNavNode(Node):
         self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.85).value)
+            'voxel_score_threshold', 0.9).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 30).value)
 
@@ -1279,9 +1279,9 @@ class RavenNavNode(Node):
     def _debug_print_voxel_table(self):
         """Per-target voxel summary so the user can tune voxel-mode thresholds.
 
-        Columns: target | total | >0.5 | >0.7 | >0.85 | >0.95 | largest_cc
-        ('largest_cc' = size of biggest connected high-conf component using
-        the current voxel-mode threshold of 0.85.)"""
+        Columns: target, map_total, per-threshold voxel counts, cc_max (size of
+        the biggest connected high-conf component at the live
+        voxel_score_threshold), and cc_n (instance count)."""
         vox_xyz = self._vox_xyz
         vox_scores = self._vox_scores
         if vox_xyz is None or vox_scores is None or len(vox_xyz) == 0:
@@ -1297,7 +1297,7 @@ class RavenNavNode(Node):
             return
 
         n_total = int(len(vox_xyz))
-        thresholds = [0.3, 0.5, 0.7, 0.85]
+        thresholds = [0.3, 0.5, 0.7, 0.9]
         # Mirror the live voxel-mode params so cc counts reflect what mode
         # selection is actually doing this tick.
         cc_threshold = self._voxel_score_threshold
@@ -1305,7 +1305,7 @@ class RavenNavNode(Node):
 
         # Column meanings:
         #   map_total   — total voxels in the whole map (NOT label-specific)
-        #   >0.3..>0.85 — count of voxels where this label's score exceeds T
+        #   >T columns  — count of voxels where this label's score exceeds T
         #   cc_max      — size of the single largest connected component
         #                 above cc_threshold (this is ONE cluster, not the
         #                 total above-threshold voxel count)

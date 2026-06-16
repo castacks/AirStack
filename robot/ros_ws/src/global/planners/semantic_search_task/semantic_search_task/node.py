@@ -334,13 +334,12 @@ class SemanticSearchTaskNode(Node):
         self._cancel_active_navigation(robot_name)
 
     def _cancel_active_navigation(self, robot_name: str) -> None:
-        """Cancel-all on ExplorationTask and NavigateTask servers.
+        """Cancel-all on the NavigateTask server (droan_gl).
 
         Uses the action's underlying _action/cancel_goal service with a
         zero goal_id, which the action spec defines as cancel-all.
         """
-        for action in (f'/{robot_name}/tasks/exploration',
-                       f'/{robot_name}/tasks/navigate'):
+        for action in (f'/{robot_name}/tasks/navigate',):
             srv_name = f'{action}/_action/cancel_goal'
             client = self.create_client(
                 CancelGoal, srv_name, callback_group=self._cbg)
