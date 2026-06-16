@@ -201,7 +201,6 @@ def _load_and_merge_config(config_file):
 def launch_dds_router(context, *args, **kwargs):
     config_file = LaunchConfiguration('config_file').perform(context)
     args_str = LaunchConfiguration('args').perform(context)
-    log_verbosity = LaunchConfiguration('log_verbosity').perform(context)
     log_filter = LaunchConfiguration('log_filter').perform(context)
 
     # Parse args string: space-separated "key:=value" pairs, e.g. "gcs_domain:=0 foo:=bar"
@@ -257,7 +256,7 @@ def launch_dds_router(context, *args, **kwargs):
         ExecuteProcess(
             cmd=['bash', '-c',
                  f"stdbuf -oL -eL ddsrouter -c '{tmp.name}' "
-                 f"--log-verbosity {log_verbosity} --log-filter '{log_filter}' "
+                 f"--log-filter '{log_filter}' "
                  f"2>&1 | tee -a '{log_path}'"],
             env={
                 **os.environ,
@@ -288,7 +287,6 @@ def generate_launch_description():
                 'substitutions in the config file, e.g. "gcs_domain:=0 foo:=bar".'
             ),
         ),
-        DeclareLaunchArgument('log_verbosity', default_value='warning'),
         DeclareLaunchArgument('log_filter', default_value='DDSROUTER'),
         OpaqueFunction(function=launch_dds_router),
     ])

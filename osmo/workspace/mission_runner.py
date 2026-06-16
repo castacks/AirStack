@@ -1012,12 +1012,40 @@ def resolve_results_root(airstack_root):
 
 # ── main loop ──────────────────────────────────────────────────────────────
 
+def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
+    """Periodic ddsrouter process + domain-99 TCP snapshot per container, for
+    gossip-dropout debugging. Appended to <iter_dir>/transport.log."""
+    out = iter_dir / "transport.log"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    snap = ("echo \"[$(date '+%F %T')] "
+            "procs=$(pgrep -c ddsrouter 2>/dev/null) "
+            "estab=$(ss -Htn 2>/dev/null | grep -c ESTAB) "
+            "ddstcp=$(ss -Htnp 2>/dev/null | grep -c ddsrouter) "
+            "cpu=$(ps -C ddsrouter -o %cpu= 2>/dev/null | tr '\\n' ',')\"")
+    while not stop_event.is_set():
+        targets = list(robot_containers())
+        gcs = gcs_container()
+        if gcs:
+            targets.append(gcs)
+        lines = []
+        for name in targets:
+            r = docker_exec(name, snap, timeout=10)
+            line = (r.stdout or "").strip()
+            if line:
+                lines.append(f"{name} {line}")
+        if lines:
+            with open(out, "a", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+        stop_event.wait(interval_s)
+
+
 def run_iteration(stack, mission, iter_dir):
     """One full up → ready → record → steps → collect → down cycle.
     Returns the iteration summary dict; never raises (failures are data)."""
     summary = {"status": "passed", "steps_ok": 0, "steps_failed": 0}
     recorder = None
     container = None
+    snap_stop = None
     t0 = time.time()
     try:
         # `airstack status`; if a stack is already up (baked entrypoint on a
@@ -1028,6 +1056,10 @@ def run_iteration(stack, mission, iter_dir):
         containers = stack.up()
         container = containers[0]
         summary["up_duration_s"] = round(time.time() - t0, 2)
+
+        snap_stop = threading.Event()
+        threading.Thread(target=transport_snapshot_loop,
+                         args=(iter_dir, snap_stop), daemon=True).start()
 
         ready_at = stack.wait_ready(container)
         write_json(iter_dir / "ready.json", ready_at)
@@ -1067,6 +1099,8 @@ def run_iteration(stack, mission, iter_dir):
         log(f"ERROR: iteration aborted: {e}")
 
     finally:
+        if snap_stop is not None:
+            snap_stop.set()
         # Artifact collection happens even on failure — a failed flight's
         # bag is usually the most interesting one.
         if recorder is not None:

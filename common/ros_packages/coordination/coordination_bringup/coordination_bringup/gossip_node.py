@@ -264,22 +264,23 @@ class GossipNode(Node):
         if not self._peer_last_rx:
             return
         now = time.monotonic()
+        matched = self._peer_sub.get_publisher_count()
         for name in sorted(self._peer_last_rx):
             age = now - self._peer_last_rx[name]
             if age > PEER_STALE_S and name not in self._peer_stale:
                 self._peer_stale.add(name)
                 self.get_logger().warn(f"[gossip] peer {name} STALE — no PeerProfile for {age:.1f}s")
-                self._diag(f"STALE   peer={name} silent_for={age:.1f}s")
+                self._diag(f"STALE   peer={name} silent_for={age:.1f}s matched_writers={matched}")
             elif age <= PEER_STALE_S and name in self._peer_stale:
                 self._peer_stale.discard(name)
                 self.get_logger().info(f"[gossip] peer {name} RECOVERED")
-                self._diag(f"RECOVER peer={name}")
+                self._diag(f"RECOVER peer={name} matched_writers={matched}")
         if now - self._last_peer_summary >= PEER_LOG_PERIOD_S:
             self._last_peer_summary = now
             ages = ", ".join(f"{n}={now - self._peer_last_rx[n]:.0f}s"
                              for n in sorted(self._peer_last_rx))
             self.get_logger().info(f"[gossip] peer last-heard ages: {ages}")
-            self._diag(f"AGES    {ages}")
+            self._diag(f"AGES    {ages} matched_writers={matched}")
 
     def _publish_tick(self) -> None:
         self._publish_own()
