@@ -57,6 +57,7 @@ environments:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
+    background_queries: "sky, ground, grass, road, bus stop, shed, garage, tree"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -69,6 +70,7 @@ environments:
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, radio tower, blue container, red container"
+    background_queries: "sky, ground, grass, road, tree, container, gas tank"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -81,6 +83,7 @@ environments:
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, red container"
+    background_queries: "sky, ground, grass, road, Building, cabling winches, blue tarp"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
@@ -173,7 +176,7 @@ steps:
       cancel_on_timeout: true
       goal:
         query: "{{env.query}}"
-        background_queries: "sky, ground, grass, road"
+        background_queries: "{{env.background_queries}}"
         search_area: "{{env.search_area}}"
         min_altitude_agl: 15.0
         max_altitude_agl: 20.0
