@@ -154,7 +154,7 @@ class RavenNavNode(Node):
         self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.9).value)
+            'voxel_score_threshold', 0.7).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 30).value)
         # Temporal confirmation: persist across N ticks before a detection counts.
@@ -1314,6 +1314,8 @@ class RavenNavNode(Node):
         vox_scores = self._vox_scores
         if vox_xyz is None or vox_scores is None or len(vox_xyz) == 0:
             self._voxel_table_pub.publish(String(data='(no voxels yet)'))
+            self.get_logger().info('[voxel-table] (no voxels yet)',
+                                   throttle_duration_sec=10.0)
             return
         labels = self._column_labels()
         K = vox_scores.shape[1]
@@ -1322,6 +1324,8 @@ class RavenNavNode(Node):
         target_idxs = [j for j, lbl in enumerate(col_labels) if lbl in target_set]
         if not target_idxs:
             self._voxel_table_pub.publish(String(data='(no targets configured)'))
+            self.get_logger().info('[voxel-table] (no targets configured)',
+                                   throttle_duration_sec=10.0)
             return
 
         n_total = int(len(vox_xyz))
@@ -1411,6 +1415,8 @@ class RavenNavNode(Node):
                 f'(map_total counts ALL voxels regardless of label; '
                 f'cc_n column is the per-instance count)\n' + '\n'.join(lines))
         self._voxel_table_pub.publish(String(data=body))
+        self.get_logger().info('[voxel-table]\n' + body,
+                               throttle_duration_sec=10.0)
 
     def _timer_cb(self):
         if self._cur_pose is None:
