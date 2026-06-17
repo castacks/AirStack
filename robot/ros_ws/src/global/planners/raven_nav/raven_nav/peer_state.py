@@ -288,8 +288,8 @@ class PeerState:
     ) -> list:
         """Decode JSON list of {label, cx, cy, cz, sx, sy, sz, status, confidence, ts}.
 
-        Centers are gossiped in global ENU and converted to local frame.
-        Sizes pass through unchanged (frame-invariant).
+        Centers are gossiped with xy in global ENU and z in AGL; converted to
+        local frame. Sizes pass through unchanged (frame-invariant).
         """
         try:
             lst = json.loads(msg.data)
@@ -304,6 +304,10 @@ class PeerState:
         )
         centers_local = global_enu_to_local_batch(
             centers_global, my_boot_enu, local_alt_ground=my_alt_ground)
+        # cz is gossiped as AGL (ground-relative, via raven_nav_node._local_to_world),
+        # not the gossip msl datum, so the batch z transform doesn't apply — our
+        # local frame is also AGL, so keep cz directly.
+        centers_local[:, 2] = centers_global[:, 2]
         for i, d in enumerate(lst):
             out.append(PeerConfirmedTarget(
                 label=str(d.get('label', '')),

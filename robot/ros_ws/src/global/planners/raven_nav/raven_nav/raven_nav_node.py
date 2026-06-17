@@ -26,7 +26,7 @@ from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import compute_ray_groups, same_ray_group
 from raven_nav.track_confirmation import TemporalConfirmer
-from raven_nav.ray_targets import build_targets
+from raven_nav.ray_targets import build_targets, ray_aabb_hits
 from raven_nav.discoveries import (
     ConfirmedTarget,
     build_discoveries,
@@ -607,11 +607,11 @@ class RavenNavNode(Node):
         merged_cts = merge_confirmed_targets(own_cts + peer_cts)
 
         # Peer-confirmed BBs (consensus from other drones) — used to suppress
-        # bids on targets another drone already found. xy only: peer z is
-        # unreliable in local frame (gossip alt-datum vs AGL).
-        self._peer_known_bbs = [(ct.label, np.asarray(ct.center, dtype=float),
-                                 np.asarray(ct.size, dtype=float))
-                                for ct in peer_cts]
+        # bids on targets another drone already found. [cx,cy,cz,sx,sy,sz].
+        self._peer_known_bbs = [
+            (ct.label, np.concatenate([np.asarray(ct.center, dtype=float),
+                                       np.asarray(ct.size, dtype=float)]))
+            for ct in peer_cts]
 
         # Gossip OWN targets in global ENU (xy + boot via _local_to_world) so
         # peers and the GCS share one frame; own_cts stay local for the merge.
@@ -664,34 +664,21 @@ class RavenNavNode(Node):
         self._publish_discoveries_table(discoveries)
 
     def _bid_on_peer_target(self, bid) -> bool:
-        """True if this bid's bearing points at a peer-confirmed BB (xy slab
-        test, label-compatible). Such targets are already found by another
-        drone, so we drop the bid instead of redundantly approaching."""
+        """True if this bid's ray passes through a peer-confirmed BB (3D ray-AABB,
+        label-compatible). Such targets are already found by another drone, so we
+        drop the bid instead of redundantly approaching."""
         bbs = getattr(self, '_peer_known_bbs', None)
         if not bbs:
             return False
-        o = np.asarray(bid.avg_origin, dtype=float)[:2]
-        d = np.asarray(bid.avg_dir, dtype=float)[:2]
+        o = np.asarray(bid.avg_origin, dtype=float)
+        d = np.asarray(bid.avg_dir, dtype=float)
         bl = bid.label.lower()
-        for label, center, size in bbs:
+        for label, bb in bbs:
             ll = label.lower()
             if not (bl in ll or ll in bl):
                 continue
-            half = size[:2] / 2.0 + 2.0   # 2 m pad
-            rel = o - center[:2]
-            t_lo, t_hi = -np.inf, np.inf
-            hit = True
-            for ax in range(2):
-                if abs(d[ax]) < 1e-9:
-                    if abs(rel[ax]) > half[ax]:
-                        hit = False
-                        break
-                    continue
-                t1 = (-half[ax] - rel[ax]) / d[ax]
-                t2 = (half[ax] - rel[ax]) / d[ax]
-                t_lo = max(t_lo, min(t1, t2))
-                t_hi = min(t_hi, max(t1, t2))
-            if hit and t_hi >= max(t_lo, 0.0):
+            hit, _t = ray_aabb_hits(o, d, bb)
+            if hit:
                 return True
         return False
 
