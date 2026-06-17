@@ -148,17 +148,23 @@ def _launch_natnet_node(container, host_ip, command_port, domain_id, bodies=None
     )
 
 
-def _assert_pose_stream(container, robot_name, domain_id, topic="perception/optitrack/drone"):
-    """Wait for the pose topic then assert a sustained rate >= _MIN_HZ."""
+def _assert_pose_stream(
+    container, robot_name, domain_id, topic="perception/optitrack/drone", pose_cov=True
+):
+    """Wait for the pose topic then assert a sustained rate >= _MIN_HZ.
+
+    A body configured with ``body_pose_cov=false`` never publishes the ``/pose_cov``
+    variant, so detect the first message on whichever topic the body actually emits.
+    """
     pose_topic = f"/{robot_name}/{topic}"
-    pose_cov_topic = f"{pose_topic}/pose_cov"
+    detect_topic = f"{pose_topic}/pose_cov" if pose_cov else pose_topic
 
     time.sleep(_WARMUP_S)
     first_msg_s = wait_for_first_message(
-        container, pose_cov_topic, domain_id, _ROBOT_SETUP, timeout=int(_STREAM_HOLD_S)
+        container, detect_topic, domain_id, _ROBOT_SETUP, timeout=int(_STREAM_HOLD_S)
     )
     assert first_msg_s is not None, (
-        f"No messages on {pose_cov_topic} within {_STREAM_HOLD_S}s "
+        f"No messages on {detect_topic} within {_STREAM_HOLD_S}s "
         "(NatNet connect or frame stream failed)"
     )
     hz = sample_hz(
@@ -349,7 +355,9 @@ def test_natnet_ros2_multi_body_drone_and_target(robot_autonomy_stack):
         node_proc = _launch_natnet_node(container, host_ip, command_port, domain_id, bodies)
         # Drone (pose + pose_cov) and target (pose only) both stream.
         _assert_pose_stream(container, robot_name, domain_id, "perception/optitrack/drone")
-        _assert_pose_stream(container, robot_name, domain_id, "perception/optitrack/target")
+        _assert_pose_stream(
+            container, robot_name, domain_id, "perception/optitrack/target", pose_cov=False
+        )
 
         # body_pose_cov=false → the target pose_cov publisher must not exist.
         target_cov = f"/{robot_name}/perception/optitrack/target/pose_cov"

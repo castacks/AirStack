@@ -84,7 +84,9 @@ def test_sample_once_streams_world_pose():
     stage = Usd.Stage.CreateInMemory()
     _xform(stage, "/World/base_link", translate=(4.0, 5.0, 6.0))
     cfg = NatNetInterfaceConfig(
-        server_ip="127.0.0.1", bodies=[BodyBinding("Drone", "/World/base_link", 1)]
+        server_ip="127.0.0.1",
+        pose_noise_enabled=False,
+        bodies=[BodyBinding("Drone", "/World/base_link", 1)],
     )
     author_interface(stage, "/World/NatNetInterface", cfg)
     mgr, fake = _manager_with_fake()
@@ -120,7 +122,9 @@ def test_moving_prim_updates_streamed_position():
     stage = Usd.Stage.CreateInMemory()
     xform = _xform(stage, "/World/base_link", translate=(0.0, 0.0, 0.0))
     cfg = NatNetInterfaceConfig(
-        server_ip="127.0.0.1", bodies=[BodyBinding("Drone", "/World/base_link", 1)]
+        server_ip="127.0.0.1",
+        pose_noise_enabled=False,
+        bodies=[BodyBinding("Drone", "/World/base_link", 1)],
     )
     author_interface(stage, "/World/NatNetInterface", cfg)
     mgr, fake = _manager_with_fake()
@@ -136,7 +140,10 @@ def test_up_axis_z_streams_isaac_pose_as_is():
     stage = Usd.Stage.CreateInMemory()
     _xform(stage, "/World/base_link", translate=(1.0, 2.0, 3.0))
     cfg = NatNetInterfaceConfig(
-        server_ip="127.0.0.1", up_axis="Z", bodies=[BodyBinding("Drone", "/World/base_link", 1)]
+        server_ip="127.0.0.1",
+        up_axis="Z",
+        pose_noise_enabled=False,
+        bodies=[BodyBinding("Drone", "/World/base_link", 1)],
     )
     author_interface(stage, "/World/NatNetInterface", cfg)
     mgr, _fake = _manager_with_fake()
@@ -151,7 +158,10 @@ def test_up_axis_y_reaxes_streamed_pose():
     stage = Usd.Stage.CreateInMemory()
     _xform(stage, "/World/base_link", translate=(1.0, 2.0, 3.0))
     cfg = NatNetInterfaceConfig(
-        server_ip="127.0.0.1", up_axis="Y", bodies=[BodyBinding("Drone", "/World/base_link", 1)]
+        server_ip="127.0.0.1",
+        up_axis="Y",
+        pose_noise_enabled=False,
+        bodies=[BodyBinding("Drone", "/World/base_link", 1)],
     )
     author_interface(stage, "/World/NatNetInterface", cfg)
     mgr, _fake = _manager_with_fake()
@@ -200,7 +210,9 @@ def test_target_prim_created_after_start_becomes_valid():
     path is re-resolved every sample."""
     stage = Usd.Stage.CreateInMemory()
     cfg = NatNetInterfaceConfig(
-        server_ip="127.0.0.1", bodies=[BodyBinding("Drone", "/World/drone1/base_link", 1)]
+        server_ip="127.0.0.1",
+        pose_noise_enabled=False,
+        bodies=[BodyBinding("Drone", "/World/drone1/base_link", 1)],
     )
     author_interface(stage, "/World/NatNetInterface", cfg)
     mgr, _fake = _manager_with_fake()
