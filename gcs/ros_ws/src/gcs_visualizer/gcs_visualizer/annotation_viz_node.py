@@ -72,10 +72,10 @@ class AnnotationViz(Node):
     def __init__(self):
         super().__init__('annotation_viz_node')
 
-        # TODO: derive from ISAAC_SIM_SCRIPT_NAME / ENV_NAME once the multi-drone
-        # launch path exports a stable scene identifier — until then the
-        # operator has to set this in source or via launch param.
-        self.declare_parameter('scene_name', 'AbandonedFactory')
+        # scene_name is wired from the RESULTS_SCENE env var via the launch file
+        # ($(env RESULTS_SCENE RetroNeighborhood)); the mission runner sets it per
+        # environment so multi-scene missions show each iteration's own GT.
+        self.declare_parameter('scene_name', 'RetroNeighborhood')
         for name in self.TUNING_PARAMS:
             self.declare_parameter(name, 0.0)
 

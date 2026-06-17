@@ -1,4 +1,5 @@
 import time
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.ndimage
@@ -8,6 +9,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 
 from raven_nav.ray_targets import ray_aabb_hits
+from raven_nav.track_confirmation import TemporalConfirmer
 
 # Relaxed fallback: cluster center is accepted if it sits within this many
 # metres of the committed ray's line, AND is in front of the drone. Tolerates
@@ -15,9 +17,19 @@ from raven_nav.ray_targets import ray_aabb_hits
 # voxel cluster actually consolidates (sensor noise, mapper smoothing).
 RAY_TO_CLUSTER_RELAXED_M = 8.0
 
+# Surface gap (m) under which two AABBs across ticks are the same cluster.
+TRACK_ASSOC_MARGIN_M = 2.0
+
+
+@dataclass
+class _VoxelObs:
+    bbox: list   # [cx,cy,cz,sx,sy,sz] in metres
+    label: str
+
 
 class VoxelBehavior:
-    def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30):
+    def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30,
+                 confirm_hits=3, track_max_misses=4):
         self.get_clock = get_clock
         self.name = 'Voxel-based'
         self.score_threshold = score_threshold
@@ -33,6 +45,8 @@ class VoxelBehavior:
         self.visited_instances = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
+        self._confirmer = TemporalConfirmer(
+            confirm_hits=confirm_hits, max_misses=track_max_misses)
 
     def reset(self):
         self.target_voxel_clusters.clear()
@@ -42,6 +56,7 @@ class VoxelBehavior:
         self.visited_instances = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
+        self._confirmer.reset()
 
     def _cluster_matches_committed_ray(self, cluster, committed_origin,
                                        committed_dir) -> bool:
@@ -89,14 +104,16 @@ class VoxelBehavior:
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
                         threshold=None, committed_origin=None,
                         committed_dir=None):
-        if threshold is None:
-            threshold = self.score_threshold
         """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols.
 
-        Returns True iff there is at least one unvisited high-confidence voxel
-        cluster for one of the target_objects. When True, voxel-mode takes
+        Returns True iff there is at least one unvisited, temporally-confirmed
+        voxel cluster for one of the target_objects. When True, voxel-mode takes
         over for fine approach + 3m arrival detection.
         """
+        if threshold is None:
+            threshold = self.score_threshold
+
+        # No data this tick: leave tracks untouched (don't age on a dropped frame).
         if vox_xyz is None or vox_scores is None or not target_objects:
             return False
         if len(vox_xyz) == 0:
@@ -108,12 +125,45 @@ class VoxelBehavior:
         ]
         if not label_indices:
             return False
+
+        raw_obs = self._extract_clusters(
+            vox_xyz, vox_scores, label_indices, target_objects, threshold)
+        confirmed = self._confirmer.update(raw_obs, match=self._same_cluster)
+
+        self.target_voxel_clusters.clear()
+        self.cluster_query_map.clear()
+        for cid, obs in enumerate(confirmed):
+            self.target_voxel_clusters[cid] = obs.bbox
+            self.cluster_query_map[cid] = obs.label
+
+        # Per-instance filter: only consider clusters that geometrically
+        # match the drone's auctioned ray commitment. Without this, voxel-mode
+        # would happily steal House_B when the drone was assigned House_A.
+        ray_filtered = self._filter_to_committed_ray(
+            self.target_voxel_clusters, committed_origin, committed_dir)
+
+        self.unvisited_clusters = [
+            (idx, cluster) for idx, cluster in ray_filtered.items()
+            if not self._is_near_visited(
+                np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
+        ]
+
+        return len(self.unvisited_clusters) > 0
+
+    def _same_cluster(self, a: _VoxelObs, b: _VoxelObs) -> bool:
+        # Label-agnostic so a flickering best-label doesn't reset a track.
+        return self._cuboid_distance(
+            np.array(a.bbox[:3]), np.array(a.bbox[3:6]),
+            np.array(b.bbox[:3]), np.array(b.bbox[3:6])) <= TRACK_ASSOC_MARGIN_M
+
+    def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
+                          target_objects, threshold):
+        """Per-frame clusters (high-conf, 26-connected, >= min_cluster_size)."""
         relevant_scores = vox_scores[:, label_indices]   # (N, len(label_indices))
         mask = (relevant_scores > threshold).any(axis=1)
         indices = np.where(mask)[0]
-
         if len(indices) == 0:
-            return False
+            return []
 
         # 3D connected-component labeling on high-confidence voxels.
         filtered_vox = np.round(vox_xyz[indices], 3)
@@ -131,10 +181,7 @@ class VoxelBehavior:
 
         label_ids = np.array([labeled[x, y, z] for x, y, z in norm_coords])
 
-        self.target_voxel_clusters.clear()
-        self.cluster_query_map.clear()
-        vox_cluster_count = 0
-
+        obs = []
         for label_val in range(1, num_components + 1):
             idx = np.where(label_ids == label_val)[0]
             if len(idx) < self.min_cluster_size:
@@ -148,30 +195,17 @@ class VoxelBehavior:
             center = (min_world + max_world) / 2
             size = max_world - min_world
 
-            cx, cy, cz = center[0], center[1], center[2]
-            sx, sy, sz = size[0], size[1], size[2]
-
             cluster_scores = relevant_scores[idx]
             best_local = int(cluster_scores.mean(axis=0).argmax())
-            best_label = target_objects[best_local] if best_local < len(target_objects) else target_objects[0]
+            best_label = (target_objects[best_local]
+                          if best_local < len(target_objects)
+                          else target_objects[0])
 
-            self.target_voxel_clusters[vox_cluster_count] = [cx, cy, cz, sx, sy, sz]
-            self.cluster_query_map[vox_cluster_count] = best_label
-            vox_cluster_count += 1
-
-        # Per-instance filter: only consider clusters that geometrically
-        # match the drone's auctioned ray commitment. Without this, voxel-mode
-        # would happily steal House_B when the drone was assigned House_A.
-        ray_filtered = self._filter_to_committed_ray(
-            self.target_voxel_clusters, committed_origin, committed_dir)
-
-        self.unvisited_clusters = [
-            (idx, cluster) for idx, cluster in ray_filtered.items()
-            if not self._is_near_visited(
-                np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
-        ]
-
-        return len(self.unvisited_clusters) > 0
+            obs.append(_VoxelObs(
+                bbox=[center[0], center[1], center[2],
+                      size[0], size[1], size[2]],
+                label=best_label))
+        return obs
 
     def execute(self, vox_xyz, vox_scores, query_labels, cur_pose_np,
                 waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,

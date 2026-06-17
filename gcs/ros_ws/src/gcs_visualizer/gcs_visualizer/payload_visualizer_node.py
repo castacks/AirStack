@@ -270,13 +270,8 @@ class PayloadVisualizerNode(Node):
         spatial extent of every found house/tower/etc. Status drives color:
         green=visited, yellow=observing, gray=other.
 
-        Z note: gossip passes String payloads through untransformed (see
-        gossip_node._transform_to_global — only PointCloud2 and MarkerArray
-        get rewritten to global ENU). So the JSON's cx,cy,cz are still in
-        the sender's local 'map' frame, where z=0 is the drone's odom
-        origin (≈ ground). The GCS display map shares that z=0 ground
-        reference, so we use cz directly — adding _display_z_offset would
-        sink the boxes below ground when terrain MSL > 90 m (Lisbon, etc).
+        Frame: raven gossips these in global ENU (= GCS 'map'); z is AGL
+        (z=0 ≈ ground), so cx,cy,cz are used directly.
         """
         try:
             items = json.loads(msg.data) if msg.data else []

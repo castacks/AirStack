@@ -74,14 +74,27 @@ def _resolve_annotations(scene: Optional[str],
         f'No annotation file for scene {scene!r}; pass --annotations explicitly.')
 
 
+def _parse_terms(class_filter: Optional[str]) -> List[str]:
+    """A class filter may be a single substring or a comma-separated query
+    ('Forklift, Towercrane, red container') → list of lowercased terms."""
+    return [t.strip().lower() for t in (class_filter or '').split(',') if t.strip()]
+
+
+def _class_compatible(a: str, b: str) -> bool:
+    """Bidirectional substring match (case-insensitive). Handles GT classes that
+    refine a query term, e.g. query 'towercrane' vs GT 'yellow towercrane'."""
+    a, b = (a or '').lower().strip(), (b or '').lower().strip()
+    return bool(a) and bool(b) and (a in b or b in a)
+
+
 def _load_gt(path: str, class_filter: Optional[str]) -> List[dict]:
     with open(path) as f:
         data = json.load(f)
+    terms = _parse_terms(class_filter)
     out = []
-    cf = (class_filter or '').lower()
     for item in data:
-        cls = str(item.get('class', '')).lower()
-        if cf and cf not in cls:
+        cls = str(item.get('class', ''))
+        if terms and not any(_class_compatible(t, cls) for t in terms):
             continue
         bw = item.get('bbox_world', {})
         out.append({
@@ -93,12 +106,21 @@ def _load_gt(path: str, class_filter: Optional[str]) -> List[dict]:
 
 
 def _match(dets: List[dict], gts: List[dict],
-           iou_thresh: float, center_dist: float) -> dict:
-    """Greedy tolerant one-to-one matching. Returns metrics + pair details."""
+           iou_thresh: float, center_dist: float,
+           class_aware: bool = False) -> dict:
+    """Greedy tolerant one-to-one matching. Returns metrics + pair details.
+
+    With ``class_aware`` a detection may only match a GT box whose class is
+    compatible with the detection's own label (so a 'water tower' detection
+    cannot be credited against a 'red building' GT just by proximity). This
+    matters for multi-class queries; for single-class scenes it is a no-op."""
     # Build all eligible candidate pairs with their IoU + centroid distance.
     cands = []
     for di, d in enumerate(dets):
         for gi, g in enumerate(gts):
+            if class_aware and not _class_compatible(d.get('label', ''),
+                                                     g['class']):
+                continue
             iou = _aabb_iou(d['center'], d['size'], g['center'], g['size'])
             dist = float(np.linalg.norm(
                 np.asarray(d['center']) - np.asarray(g['center'])))
@@ -153,14 +175,16 @@ def _dets_from_compiled(compiled: dict, visited_only: bool) -> List[dict]:
     for h in compiled.get('houses', []):
         if visited_only and str(h.get('status', '')).lower() != 'visited':
             continue
-        out.append({'center': np.asarray(h['center_enu'], dtype=float),
+        out.append({'label': h.get('label', ''),
+                    'center': np.asarray(h['center_enu'], dtype=float),
                     'size': np.asarray(h['size'], dtype=float)})
     return out
 
 
 def compare(compiled_path: str, scene: Optional[str],
             annotations: Optional[str], class_filter: Optional[str],
-            iou_thresh: float, center_dist: float) -> dict:
+            iou_thresh: float, center_dist: float,
+            class_aware: bool = False) -> dict:
     with open(compiled_path) as f:
         compiled = json.load(f)
     ann_path = _resolve_annotations(scene, annotations)
@@ -171,14 +195,15 @@ def compare(compiled_path: str, scene: Optional[str],
         'annotations_path': ann_path,
         'scene': scene,
         'class_filter': class_filter,
+        'class_aware': class_aware,
         'iou_threshold': iou_thresh,
         'center_dist_threshold_m': center_dist,
         'num_ground_truth': len(gts),
         # observing ∪ visited (all detections) vs the visited-only subset.
         'either': _match(_dets_from_compiled(compiled, False), gts,
-                         iou_thresh, center_dist),
+                         iou_thresh, center_dist, class_aware),
         'visited': _match(_dets_from_compiled(compiled, True), gts,
-                          iou_thresh, center_dist),
+                          iou_thresh, center_dist, class_aware),
     }
     return report
 
@@ -200,7 +225,12 @@ def main(argv=None):
     ap.add_argument('--annotations', default=None,
                     help='Explicit annotation file path (overrides --scene).')
     ap.add_argument('--class-filter', default='house',
-                    help="Substring of the GT 'class' to score (default house).")
+                    help="Comma-separated GT class substrings to score (e.g. the "
+                         "search query 'red building, water tower'); default "
+                         "'house'. Empty string scores all GT classes.")
+    ap.add_argument('--class-aware', action='store_true',
+                    help='Require a detection label to be class-compatible with '
+                         'the GT box before it can match (multi-class scenes).')
     ap.add_argument('--iou', type=float, default=0.1,
                     help='Min 3D IoU for a tolerant match (default 0.1).')
     ap.add_argument('--center-dist', type=float, default=10.0,
@@ -211,7 +241,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     report = compare(args.compiled, args.scene, args.annotations,
-                     args.class_filter, args.iou, args.center_dist)
+                     args.class_filter, args.iou, args.center_dist,
+                     args.class_aware)
 
     out = args.out or os.path.join(os.path.dirname(args.compiled),
                                    'groundtruth_comparison.json')

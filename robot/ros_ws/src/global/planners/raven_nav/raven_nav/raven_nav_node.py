@@ -24,7 +24,8 @@ from raven_nav.behavior_manager import BehaviorManager
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
-from raven_nav.ray_groups import compute_ray_groups
+from raven_nav.ray_groups import compute_ray_groups, same_ray_group
+from raven_nav.track_confirmation import TemporalConfirmer
 from raven_nav.ray_targets import build_targets
 from raven_nav.discoveries import (
     ConfirmedTarget,
@@ -156,6 +157,15 @@ class RavenNavNode(Node):
             'voxel_score_threshold', 0.9).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 30).value)
+        # Temporal confirmation: persist across N ticks before a detection counts.
+        self._voxel_confirm_hits = int(self.declare_parameter(
+            'voxel_confirm_hits', 3).value)
+        self._voxel_track_max_misses = int(self.declare_parameter(
+            'voxel_track_max_misses', 4).value)
+        self._ray_confirm_hits = int(self.declare_parameter(
+            'ray_confirm_hits', 3).value)
+        self._ray_track_max_misses = int(self.declare_parameter(
+            'ray_track_max_misses', 4).value)
 
         # Where to dump this robot's result JSON (AABBs + event log + path
         # length, in global ENU). '' = don't dump. The mission sets a shared
@@ -272,7 +282,15 @@ class RavenNavNode(Node):
             max_altitude=self._max_altitude,
             voxel_score_threshold=self._voxel_score_threshold,
             voxel_min_cluster_size=self._voxel_min_cluster_size,
+            voxel_confirm_hits=self._voxel_confirm_hits,
+            voxel_track_max_misses=self._voxel_track_max_misses,
         )
+
+        # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).
+        self._ray_confirmer = (
+            TemporalConfirmer(confirm_hits=self._ray_confirm_hits,
+                              max_misses=self._ray_track_max_misses)
+            if self._ray_confirm_hits > 1 else None)
 
         # rayfronts publishes _sim/all topics only when something subscribes.
         self.create_subscription(
@@ -587,10 +605,20 @@ class RavenNavNode(Node):
         peer_cts = self._peer_confirmed_targets_flat()
         merged_cts = merge_confirmed_targets(own_cts + peer_cts)
 
-        # Publish OWN unmerged — peers do their own merging on receive
-        # (gossip-symmetric pattern).
+        # Gossip OWN targets in global ENU (xy + boot via _local_to_world) so
+        # peers and the GCS share one frame; own_cts stay local for the merge.
+        if self._boot_enu is not None:
+            own_world = [
+                ConfirmedTarget(label=ct.label,
+                                center=self._local_to_world(ct.center),
+                                size=ct.size, status=ct.status,
+                                confidence=ct.confidence, ts=ct.ts)
+                for ct in own_cts
+            ]
+        else:
+            own_world = own_cts
         self._confirmed_targets_pub.publish(
-            String(data=confirmed_targets_to_json(own_cts)))
+            String(data=confirmed_targets_to_json(own_world)))
 
         # Ray groups that pierce a known BB get absorbed onto that BB.
         known_bbs = []
@@ -1405,6 +1433,9 @@ class RavenNavNode(Node):
             self._score_threshold, self._cur_pose,
             min_altitude=self._min_altitude,
             max_altitude=self._max_altitude)
+        if self._ray_confirmer is not None:
+            ray_groups = self._ray_confirmer.update(
+                ray_groups, match=same_ray_group)
         self._behavior_manager.ray_behavior.ray_groups = ray_groups
         self._publish_ray_groups_viz(ray_groups)
 

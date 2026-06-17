@@ -50,6 +50,28 @@ class RayGroup:
         self.avg_dist_to_robot = float(dists.mean())
 
 
+# Cross-tick association for ray bearings; loose on origin since origins drift
+# as the drone flies.
+RAY_GROUP_DIR_COS = float(np.cos(np.deg2rad(20.0)))
+RAY_GROUP_ORIGIN_M = 15.0
+
+
+def same_ray_group(a: RayGroup, b: RayGroup,
+                   dir_cos: float = RAY_GROUP_DIR_COS,
+                   origin_m: float = RAY_GROUP_ORIGIN_M) -> bool:
+    """Same target across ticks: same label, XY dirs within dir_cos, origins
+    within origin_m."""
+    if a.label != b.label:
+        return False
+    ad = a.avg_dir[:2]
+    bd = b.avg_dir[:2]
+    ad = ad / (np.linalg.norm(ad) + 1e-6)
+    bd = bd / (np.linalg.norm(bd) + 1e-6)
+    if float(np.dot(ad, bd)) < dir_cos:
+        return False
+    return float(np.linalg.norm(a.avg_origin[:2] - b.avg_origin[:2])) <= origin_m
+
+
 def compute_ray_groups(
     ray_origins: Optional[np.ndarray],
     ray_dirs:    Optional[np.ndarray],

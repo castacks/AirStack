@@ -6,7 +6,8 @@ from raven_nav.behaviors.voxel_behavior import VoxelBehavior
 class BehaviorManager:
     def __init__(self, get_clock, publisher_dict, score_threshold=0.68,
                  min_altitude=1.5, max_altitude=100.0,
-                 voxel_score_threshold=0.7, voxel_min_cluster_size=30):
+                 voxel_score_threshold=0.7, voxel_min_cluster_size=30,
+                 voxel_confirm_hits=3, voxel_track_max_misses=4):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
         self.frontier_behavior = FrontierBehavior(self.get_clock,
@@ -19,7 +20,9 @@ class BehaviorManager:
                                         max_altitude=max_altitude)
         self.voxel_behavior = VoxelBehavior(self.get_clock,
                                             score_threshold=voxel_score_threshold,
-                                            min_cluster_size=voxel_min_cluster_size)
+                                            min_cluster_size=voxel_min_cluster_size,
+                                            confirm_hits=voxel_confirm_hits,
+                                            track_max_misses=voxel_track_max_misses)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 

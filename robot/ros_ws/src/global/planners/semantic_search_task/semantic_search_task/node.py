@@ -284,10 +284,13 @@ class SemanticSearchTaskNode(Node):
                  '--reason', reason],
                 check=False, timeout=120, capture_output=True, text=True)
             compiled = os.path.join(RESULTS_DIR, 'compiled_results.json')
+            # Score vs RESULTS_SCENE GT (set per environment), class-aware on the
+            # live query so multi-class scenes score correctly.
+            class_filter = getattr(self, '_target_query', None) or 'house'
             subprocess.run(
                 ['python3', '-m', 'raven_nav.compare_to_groundtruth',
                  '--compiled', compiled, '--scene', RESULTS_SCENE,
-                 '--class-filter', 'house'],
+                 '--class-filter', class_filter, '--class-aware'],
                 check=False, timeout=120, capture_output=True, text=True)
             summary = {'reason': reason}
             with open(os.path.join(RESULTS_DIR, 'metrics.json')) as f:
@@ -511,6 +514,8 @@ class SemanticSearchTaskNode(Node):
 
     def _execute(self, goal_handle):
         goal = goal_handle.request
+        # Remember the query so finalize scores GT against the searched classes.
+        self._target_query = goal.query
         queries = [q.strip() for q in goal.query.split(',') if q.strip()]
         if not queries:
             self._task_active = False

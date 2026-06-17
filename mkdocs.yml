@@ -11,6 +11,8 @@ exclude_docs: |
   **/ros_ws/install
   **/kit-app-template/**
   **/isaac_sim_data/**
+  **/rayfronts/**
+  **/raven_nav/**
 extra:
   version:
     provider: mike
