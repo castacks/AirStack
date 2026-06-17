@@ -85,7 +85,9 @@ With GNSS disabled (`EKF2_GPS_CTRL=0`), PX4 fused EKF has **no global position**
   origin already exists (it watches `…/global_position/gp_origin`), so a
   GNSS-equipped vehicle is left untouched.
 - **Params** (`config/mavros_gp_origin.yaml`): `enabled` (default `true`),
-  `latitude/longitude/altitude` (default PX4 SITL home, Zurich), `settle_sec`.
+  `latitude/longitude/altitude` (default Lisbon — the AirStack shared world
+  datum; **must match** the GCS origin in `gcs_visualizer/gcs_utils.py` and the
+  sim's `gps_utils.py` so Foxglove waypoints transform 1:1), `settle_sec`.
   Set `enabled: false` to rely on real GNSS.
 
 ## Configuration

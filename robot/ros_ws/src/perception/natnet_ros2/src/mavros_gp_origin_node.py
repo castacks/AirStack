@@ -26,9 +26,12 @@ class MavrosGpOriginNode(Node):
         super().__init__('mavros_gp_origin')
 
         self.declare_parameter('enabled', True)
-        self.declare_parameter('latitude', 47.397742)
-        self.declare_parameter('longitude', 8.545594)
-        self.declare_parameter('altitude', 488.0)
+        # Defaults match the AirStack shared world datum (Lisbon) used by the GCS
+        # (gcs_utils.py) and sim (gps_utils.py). Normally overridden by
+        # config/mavros_gp_origin.yaml; kept in sync to avoid a stale fallback.
+        self.declare_parameter('latitude', 38.736832)
+        self.declare_parameter('longitude', -9.137977)
+        self.declare_parameter('altitude', 90.0)
         # Seconds to wait after MAVROS connects (listening for an existing
         # origin) before publishing our synthetic one.
         self.declare_parameter('settle_sec', 5.0)

@@ -97,6 +97,12 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
+# gps_utils lives in this launch_scripts directory.
+_LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _LAUNCH_SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
+from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
+
 
 # --------------------- CONFIGURATION ---------------------
 # Environment to load. Swap this URL/key for any other scene.
@@ -111,6 +117,18 @@ STAGE_SCALE = 1.0
 SAVE_SCENE_TO = None  # e.g. os.path.expanduser("~/AirStack/my_scene/")
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+
+# GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates. Must
+# match the GCS origin (gcs_visualizer/gcs_utils.py) and the robot's
+# natnet_ros2 mavros_gp_origin.yaml, otherwise PX4 SITL defaults to Zurich and
+# Foxglove waypoints pick up a ~1.8e6 m boot-ENU offset (wrong-way navigation).
+WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
+
+# Single drone spawned at the world origin. domain_id / spawn must match the
+# spawn_px4_multirotor_node call below.
+DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07},
+]
 # ---------------------------------------------------------
 
 
@@ -149,6 +167,10 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
 class PegasusApp:
 
     def __init__(self):
+        # Write GPS home before spawning so the drone's global position shares
+        # the GCS datum. Must run before the PX4 SITL subprocess starts.
+        set_gps_origins(DRONE_CONFIGS, world_origin=WORLD_GPS_ORIGIN)
+
         self.timeline = omni.timeline.get_timeline_interface()
 
         # Start Pegasus interface + world

@@ -66,6 +66,12 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
+# gps_utils lives in this launch_scripts directory.
+_LAUNCH_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _LAUNCH_SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
+from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
+
 from optitrack.natnet.emulator.isaac import (
     DEFAULT_TARGET_PATH,
     DEFAULT_TARGET_POSITION,
@@ -79,6 +85,19 @@ ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 STAGE_SCALE = 1.0
 SAVE_SCENE_TO = None
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+
+# GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates. Must
+# match the GCS origin (gcs_visualizer/gcs_utils.py) and the robot's
+# natnet_ros2 mavros_gp_origin.yaml. In vision/mocap mode the robot-side
+# mavros_gp_origin node is the authoritative datum; this keeps PX4's SITL home
+# consistent with it so the two never disagree.
+WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
+
+# Single drone spawned at the world origin. domain_id / spawn must match the
+# spawn_px4_multirotor_node call below.
+DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07},
+]
 
 NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
 NATNET_TARGET_NAME = os.environ.get("NATNET_TARGET_NAME", "Target")
@@ -124,6 +143,10 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
 class PegasusApp:
 
     def __init__(self):
+        # Write GPS home before spawning so the drone's global position shares
+        # the GCS datum. Must run before the PX4 SITL subprocess starts.
+        set_gps_origins(DRONE_CONFIGS, world_origin=WORLD_GPS_ORIGIN)
+
         self.timeline = omni.timeline.get_timeline_interface()
         self.natnet_manager = None
 
