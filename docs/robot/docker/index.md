@@ -43,7 +43,7 @@ robot_base  (robot-base-docker-compose.yaml)
 
 ## Platform Profiles
 
-Build-time args (`BASE_IMAGE`, `ROS_DISTRO`, `PYTHON_VERSION`, and platform toggles) are set per service in `docker-compose.yaml`. See [Docker Build Profiles](../../development/intermediate/docker-build-profiles.md) for how those args map to image variants.
+Build-time args (`BASE_IMAGE`, `ROS_DISTRO`, `PYTHON_VERSION`, `TARGET_ARCH`, and platform toggles) are set per service in `docker-compose.yaml`. `TARGET_ARCH` controls the ROS library-path suffix used in `LD_LIBRARY_PATH` (`x86_64` by default, `aarch64` for arm64 targets such as VOXL and L4T/Jetson). See [Docker Build Profiles](../../development/intermediate/docker-build-profiles.md) for how those args map to image variants.
 
 Select a profile by passing `--profile <name>` to `docker compose` (or via the `airstack` CLI).
 

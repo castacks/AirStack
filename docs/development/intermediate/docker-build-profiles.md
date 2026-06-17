@@ -15,6 +15,7 @@ Key inputs:
 | `BASE_IMAGE` | OS / vendor base image |
 | `ROS_DISTRO` | ROS 2 distro to install (e.g. `jazzy`) |
 | `PYTHON_VERSION` | Must match the ROS Python path; **quote in YAML** (e.g. `"3.12"`) |
+| `TARGET_ARCH` | Architecture suffix used for ROS library paths in `LD_LIBRARY_PATH` (`x86_64` by default, `aarch64` for arm64 targets such as VOXL and L4T/Jetson) |
 | `REAL_ROBOT` | Platform-specific content toggles |
 | `SKIP_MACVO` | Skip MACVO in image when set |
 | `SKIP_TENSORRT` | Skip TensorRT in image when set |
@@ -46,6 +47,7 @@ robot-l4t:
       REAL_ROBOT: true
       SKIP_MACVO: true
       SKIP_TENSORRT: true
+      TARGET_ARCH: aarch64
       ROS_DISTRO: jazzy
 ```
 
@@ -60,6 +62,7 @@ robot-myboard:
       BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
       ROS_DISTRO: jazzy
       PYTHON_VERSION: "3.12"
+      TARGET_ARCH: aarch64      # omit for default x86_64 desktop builds
       REAL_ROBOT: true
       SKIP_MACVO: true
     # L4T only, when needed:

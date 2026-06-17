@@ -7,12 +7,14 @@ Summary
 When to use
 - When adding or updating a `docker-compose` profile that passes `PYTHON_VERSION`, `ROS_DISTRO`, or other numeric-like build args.
 - When an automated agent needs to verify a new profile will produce a correct `PYTHONPATH` and avoid YAML float-parsing bugs.
+- When adding or reviewing platform-specific robot builds that need a non-default ROS library architecture suffix in `LD_LIBRARY_PATH`.
 
 Actions the agent can perform
 1. Validate `docker-compose.yaml` args are quoted when numeric-like (e.g. `PYTHON_VERSION: "3.10"`).
 2. Insert a build-time validation `RUN` into `robot/docker/Dockerfile.robot` to fail early when the ROS Python path does not exist.
-3. Add or update a short test in documentation showing how to build the `builder` stage and check `ament_package` import.
-4. Suggest `network: host` under `build:` for L4T/Jetson profiles only when necessary (kernel iptables workarounds).
+3. Ensure `TARGET_ARCH` is passed as a `build.args` value, not a runtime `environment` value, when a profile needs a non-default ROS library path (default is `x86_64`; arm64 targets such as VOXL and L4T/Jetson should use `aarch64`).
+4. Add or update a short test in documentation showing how to build the `builder` stage and check `ament_package` import.
+5. Suggest `network: host` under `build:` for L4T/Jetson profiles only when necessary (kernel iptables workarounds).
 
 Snippets (copyable)
 
@@ -43,12 +45,14 @@ docker run --rm -it airstack-builder-test:local bash -c "python3 -c 'import amen
 Guidance for agents when editing the repo
 - Prefer making minimal, reversible changes: add the `RUN test -d ...` check early in the Dockerfile and gate it with informative message text.
 - When updating `docker-compose.yaml`, only quote the numeric-like values; do not change unrelated fields.
+- Put `TARGET_ARCH` under `build.args`; setting it under `environment` is too late because `LD_LIBRARY_PATH` is baked into the image by `Dockerfile.robot`.
 - If creating PRs, include a short note in the PR description instructing maintainers to run the builder-stage sanity build on both an amd64 desktop profile and an arm64 L4T profile.
 
 Troubleshooting notes
 - YAML quirk: unquoted `3.10` may be parsed as float `3.1` — this changes path strings and breaks imports (e.g., `python3.1` instead of `python3.10`).
 - Jetson/L4T builds may require `network: host` during the build to avoid kernel iptables/raw table missing-module errors.
 - Jetson **`robot-l4t`** builds from **`robot-l4t-stack-base`** (`robot/docker/Dockerfile.l4t-stack-base`), not raw dustynv, so **`Dockerfile.robot` stays Ubuntu-shaped.** `airstack image-build --profile l4t robot-l4t` triggers **`robot-l4t-stack-base`** first (`airstack.sh`); bare `compose build robot-l4t` can still parallelize badly, so list stack-base explicitly if not using AirStack CLI.
+- `Dockerfile.robot` defaults `TARGET_ARCH=x86_64` for desktop builds. Arm64 services (for example, VOXL and Jetson/L4T) must pass `TARGET_ARCH: aarch64` in `build.args` so the ROS library path includes `/opt/ros/${ROS_DISTRO}/lib/aarch64-linux-gnu`.
 
 Examples of agent prompts
 - "Check `robot/docker/docker-compose.yaml` for `PYTHON_VERSION` entries and quote any unquoted numeric values; open a PR with the fixes and include a test log from a builder-stage build."
@@ -77,6 +81,7 @@ This section shows the minimal, recommended steps an agent or maintainer should 
 
   - Add a service block in `robot/docker/docker-compose.yaml` (or an override file) and set `build.args` for the profile.
   - Always quote `PYTHON_VERSION` values (e.g. `"3.10"`) so YAML does not convert them to floats.
+  - Leave `TARGET_ARCH` unset for x86-64 desktop builds. Set `TARGET_ARCH: aarch64` under `build.args` for arm64 builds so `Dockerfile.robot` composes the correct ROS `LD_LIBRARY_PATH`.
 
   Example snippet to add:
 
@@ -89,6 +94,7 @@ This section shows the minimal, recommended steps an agent or maintainer should 
       BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
       ROS_DISTRO: humble
       PYTHON_VERSION: "3.10"
+      TARGET_ARCH: aarch64
       REAL_ROBOT: true
       SKIP_MACVO: true
      # for L4T builds only when necessary
