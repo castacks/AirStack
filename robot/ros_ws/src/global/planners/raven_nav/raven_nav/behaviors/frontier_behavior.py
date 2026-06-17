@@ -26,33 +26,30 @@ def _points_in_polygon(pts_xy: np.ndarray, poly_xy: np.ndarray) -> np.ndarray:
 
 
 def _peer_penalty(viewpoints, peer_state, my_id,
-                  repulsion_weight=30.0,
+                  repulsion_weight=50.0,
                   repulsion_scale=15.0,
                   tie_distance=10.0,
                   tie_surcharge_mul=2.0):
     """Returns (penalty(M,), breakdown). Lower penalty = better.
 
-    Soft repulsion = weight * exp(-d / scale), applied around every peer
-    waypoint. Higher-id robot also pays tie_surcharge for candidates within
-    tie_distance of any peer waypoint — asymmetric so two robots eyeing the
-    same frontier can't both defer (lower id wins).
-
-    Tuned to bias hard against frontiers near peer waypoints: weight is
-    doubled (15→30) and scale halved (30→15) so the penalty concentrates
-    in the close-range zone (~0–20 m) instead of decaying gently out to
-    60 m+. tie_distance widened to 10 m so the asymmetric surcharge fires
-    over a meaningful neighborhood, not just kissing-distance.
+    Soft 2D-xy repulsion = weight * exp(-d / scale) around where each peer IS
+    (peer_positions) AND is heading (peer_waypoints), so a robot avoids both
+    ground another drone is on and ground it is driving to. xy-only: peer z in
+    the local frame is unreliable (gossip alt-datum vs AGL). Higher-id robot
+    pays tie_surcharge near a peer waypoint so two robots eyeing the same
+    frontier can't both defer (lower id wins).
     """
     M = viewpoints.shape[0]
     pen = np.zeros(M, dtype=np.float64)
     breakdown = []
     if peer_state is None or M == 0:
         return pen, breakdown
+    vp_xy = viewpoints[:, :2]
     for name, wp in peer_state.peer_waypoints.items():
         peer_id = peer_state.peer_ids.get(name)
         if peer_id is None:
             continue
-        d = np.linalg.norm(viewpoints - wp[None, :], axis=1)
+        d = np.linalg.norm(vp_xy - np.asarray(wp, dtype=float)[None, :2], axis=1)
         repulsion = repulsion_weight * np.exp(-d / repulsion_scale)
         pen += repulsion
         surcharge = np.zeros(M, dtype=np.float64)
@@ -67,10 +64,16 @@ def _peer_penalty(viewpoints, peer_state, my_id,
             'nearest_d': float(d.min()) if d.size else float('inf'),
             'applied_tiebreak': applied_tb,
         })
+    # Repel around where peers currently are, too (not just their waypoints).
+    for name, pos in getattr(peer_state, 'peer_positions', {}).items():
+        if peer_state.peer_ids.get(name) is None:
+            continue
+        d = np.linalg.norm(vp_xy - np.asarray(pos, dtype=float)[None, :2], axis=1)
+        pen += repulsion_weight * np.exp(-d / repulsion_scale)
     return pen, breakdown
 
 
-NOVELTY_WEIGHT = 60.0
+NOVELTY_WEIGHT = 100.0
 NOVELTY_NEIGHBORHOOD_CELLS = 5
 BLACKLIST_RADIUS_M = 10.0
 

@@ -154,16 +154,17 @@ class RavenNavNode(Node):
         self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.7).value)
+            'voxel_score_threshold', 0.75).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
-            'voxel_min_cluster_size', 30).value)
+            'voxel_min_cluster_size', 50).value)
         # Temporal confirmation: persist across N ticks before a detection counts.
         self._voxel_confirm_hits = int(self.declare_parameter(
             'voxel_confirm_hits', 3).value)
         self._voxel_track_max_misses = int(self.declare_parameter(
             'voxel_track_max_misses', 4).value)
+        # 1 = no temporal accumulation (ray groups rarely false-positive).
         self._ray_confirm_hits = int(self.declare_parameter(
-            'ray_confirm_hits', 3).value)
+            'ray_confirm_hits', 1).value)
         self._ray_track_max_misses = int(self.declare_parameter(
             'ray_track_max_misses', 4).value)
 
@@ -605,6 +606,13 @@ class RavenNavNode(Node):
         peer_cts = self._peer_confirmed_targets_flat()
         merged_cts = merge_confirmed_targets(own_cts + peer_cts)
 
+        # Peer-confirmed BBs (consensus from other drones) — used to suppress
+        # bids on targets another drone already found. xy only: peer z is
+        # unreliable in local frame (gossip alt-datum vs AGL).
+        self._peer_known_bbs = [(ct.label, np.asarray(ct.center, dtype=float),
+                                 np.asarray(ct.size, dtype=float))
+                                for ct in peer_cts]
+
         # Gossip OWN targets in global ENU (xy + boot via _local_to_world) so
         # peers and the GCS share one frame; own_cts stay local for the merge.
         if self._boot_enu is not None:
@@ -654,6 +662,38 @@ class RavenNavNode(Node):
         self._update_target_events(discoveries)
 
         self._publish_discoveries_table(discoveries)
+
+    def _bid_on_peer_target(self, bid) -> bool:
+        """True if this bid's bearing points at a peer-confirmed BB (xy slab
+        test, label-compatible). Such targets are already found by another
+        drone, so we drop the bid instead of redundantly approaching."""
+        bbs = getattr(self, '_peer_known_bbs', None)
+        if not bbs:
+            return False
+        o = np.asarray(bid.avg_origin, dtype=float)[:2]
+        d = np.asarray(bid.avg_dir, dtype=float)[:2]
+        bl = bid.label.lower()
+        for label, center, size in bbs:
+            ll = label.lower()
+            if not (bl in ll or ll in bl):
+                continue
+            half = size[:2] / 2.0 + 2.0   # 2 m pad
+            rel = o - center[:2]
+            t_lo, t_hi = -np.inf, np.inf
+            hit = True
+            for ax in range(2):
+                if abs(d[ax]) < 1e-9:
+                    if abs(rel[ax]) > half[ax]:
+                        hit = False
+                        break
+                    continue
+                t1 = (-half[ax] - rel[ax]) / d[ax]
+                t2 = (half[ax] - rel[ax]) / d[ax]
+                t_lo = max(t_lo, min(t1, t2))
+                t_hi = min(t_hi, max(t1, t2))
+            if hit and t_hi >= max(t_lo, 0.0):
+                return True
+        return False
 
     # Match radius for treating a discovery as an already-logged instance, so a
     # drifting centroid (which flips _stable_id) isn't logged twice.
@@ -1475,8 +1515,11 @@ class RavenNavNode(Node):
         for peer_done in self._peer_state.peer_completed.values():
             all_completed |= peer_done
 
+        # Drop bids on labels already retired AND on targets a peer has already
+        # confirmed (consensus) — don't approach what another drone found.
         my_bid_entries = [b for b in per_tick_bids
-                          if b.label not in all_completed]
+                          if b.label not in all_completed
+                          and not self._bid_on_peer_target(b)]
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()
@@ -1762,6 +1805,10 @@ class RavenNavNode(Node):
                 committed_origin=self._committed_target_last_origin,
                 committed_dir=self._committed_target_last_dir,
             )
+            # Passive arrival status (same as baseline): confirmed clusters
+            # within 3 m flip to 'visited'. Status-only; nav unaffected.
+            self._behavior_manager.voxel_behavior.mark_arrivals(
+                self._cur_pose, 3.0)
         self._behavior_mode = self._behavior_manager.behavior_mode
 
         if self._behavior_mode != prev_mode:

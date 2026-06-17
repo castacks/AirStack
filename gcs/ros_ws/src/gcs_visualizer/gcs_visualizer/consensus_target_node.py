@@ -192,6 +192,7 @@ class ConsensusTargetNode(Node):
         # DELETEALL each publish retracts dropped targets (lifetime=0 persists).
         clear = Marker()
         clear.header.frame_id = 'map'
+        clear.ns = 'consensus_targets'
         clear.action = Marker.DELETEALL
         out.markers.append(clear)
         for j, c in enumerate(clusters):
@@ -226,7 +227,7 @@ class ConsensusTargetNode(Node):
             txt = Marker()
             txt.header.frame_id = 'map'
             txt.header.stamp = now
-            txt.ns = 'consensus_targets_labels'
+            txt.ns = 'consensus_targets'
             txt.id = j * 2 + 1
             txt.type = Marker.TEXT_VIEW_FACING
             txt.action = Marker.ADD

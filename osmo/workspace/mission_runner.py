@@ -679,6 +679,25 @@ def _run_one(stack, robot_container, target, cmd, timeout, expect_success):
             "output_tail": tail(r.stdout + r.stderr)}
 
 
+def _run_one_retry(stack, robot_container, target, cmd, timeout, expect_success,
+                   attempts, retry_delay_s):
+    """_run_one with up to `attempts` tries (retry_delay_s between failures)."""
+    res = {"target": target, "exit": 1, "ok": False,
+           "output_tail": "not attempted — mission stop requested", "attempts": 0}
+    for attempt in range(1, max(1, attempts) + 1):
+        if STOP_EVENT.is_set():
+            break
+        res = _run_one(stack, robot_container, target, cmd, timeout, expect_success)
+        res["attempts"] = attempt
+        if res["ok"]:
+            break
+        if attempt < attempts and not STOP_EVENT.is_set():
+            log(f"run [{target}] failed (attempt {attempt}/{attempts}); "
+                f"retrying in {retry_delay_s}s")
+            time.sleep(retry_delay_s)
+    return res
+
+
 def run_step(stack, container, step_spec, step_index):
     """Execute one step; returns a result dict with ok: bool."""
     record = {"index": step_index, "spec": step_spec,
@@ -862,6 +881,8 @@ def run_step(stack, container, step_spec, step_index):
         cmd = spec["cmd"]
         timeout = float(spec.get("timeout_s", 60))
         expect = spec.get("expect_success", True)
+        attempts = int(spec.get("attempts", 1))
+        retry_delay_s = float(spec.get("retry_delay_s", 10))
         # `container` may reference {n}/{robot} to fan out over robots. If it's
         # omitted, default to robot_{n} when the command is per-robot (has a
         # placeholder) and robot_1 otherwise. A step fans out over `robots`
@@ -872,13 +893,15 @@ def run_step(stack, container, step_spec, step_index):
             log(f"step {step_index}: run [{target}] {cmd} → robots {robots}")
             results = {}
             for n in robots:
-                results[n] = _run_one(stack, container, expand(target, n),
-                                      expand(cmd, n), timeout, expect)
+                results[n] = _run_one_retry(stack, container, expand(target, n),
+                                            expand(cmd, n), timeout, expect,
+                                            attempts, retry_delay_s)
             record.update(type="run", per_robot=results,
                           ok=all(v["ok"] for v in results.values()))
         else:
             log(f"step {step_index}: run [{target}] {cmd}")
-            res = _run_one(stack, container, target, cmd, timeout, expect)
+            res = _run_one_retry(stack, container, target, cmd, timeout, expect,
+                                 attempts, retry_delay_s)
             record.update(type="run", **res)
 
     elif "topic_pub" in step_spec:

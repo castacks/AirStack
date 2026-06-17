@@ -114,7 +114,8 @@ Multi-robot action goals are sent **in parallel** across robots.
 
 **`run`** — arbitrary command; the escape hatch that makes any ROS 2 command
 work without runner changes. The step fails on non-zero exit unless
-`expect_success: false`.
+`expect_success: false`. Set `attempts` to retry on failure (e.g. a flaky
+model download) before the step is marked failed.
 
 ```yaml
 - run:
@@ -125,6 +126,8 @@ work without runner changes. The step fails on non-zero exit unless
     cmd: ros2 topic echo --once /{robot}/odometry
     timeout_s: 60
     expect_success: true
+    attempts: 1            # retries on failure (default 1 = no retry)
+    retry_delay_s: 10      # wait between attempts (default 10)
 ```
 
 **`topic_pub`** — `ros2 topic pub --once` per robot:

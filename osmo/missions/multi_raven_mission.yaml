@@ -108,6 +108,8 @@ steps:
       container: robot_1
       cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
       timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
 
   - action:
       task: takeoff
@@ -126,7 +128,7 @@ steps:
         query: "{{env.query}}"
         background_queries: "{{env.background_queries}}"
         search_area: "{{env.search_area}}"
-        min_altitude_agl: 15.0
+        min_altitude_agl: 10.0
         max_altitude_agl: 20.0
         min_flight_speed: 0.5
         max_flight_speed: 1.0
