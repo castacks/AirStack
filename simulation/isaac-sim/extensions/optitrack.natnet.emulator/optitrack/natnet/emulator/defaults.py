@@ -15,7 +15,7 @@ class TrackedBodyBinding:
     parent_id: int = -1
 
 
-# Single-drone Pegasus scenes (example_one_px4_pegasus_launch_script.py).
+# Single-drone NatNet Pegasus scenes (example_one_px4_pegasus_natnet_launch_script.py).
 DEFAULT_DRONE_BINDING = TrackedBodyBinding(
     name="Drone",
     id=1,

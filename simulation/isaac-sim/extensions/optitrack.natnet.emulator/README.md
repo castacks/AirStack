@@ -71,7 +71,14 @@ Default Docker sim IP: **`172.31.0.200`** (Isaac container on the AirStack bridg
 
 **Robot:** `LAUNCH_NATNET=true` in `.env` → `natnet_ros2` in perception bringup. Configure Motive/emulator IP in [`natnet_config.yaml`](../../../../robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml).
 
-**Isaac Sim:** same `LAUNCH_NATNET` env var (forwarded in [`docker-compose.yaml`](../../docker/docker-compose.yaml)). When true, the Pegasus **multi** launch script authors the interface prim and auto-starts the server via `start_drone_natnet_server()` — one rigid body per drone `base_link`. Single-drone harness uses `example_multi_px4_pegasus_launch_script.py` even for `NUM_ROBOTS=1`.
+**Isaac Sim:** set `ISAAC_SIM_SCRIPT_NAME` to a NatNet launch script (NatNet always starts — no `LAUNCH_NATNET` gate in the script):
+
+| Script | Use |
+|--------|-----|
+| `example_one_px4_pegasus_natnet_launch_script.py` | Single drone + static `Target` |
+| `example_multi_px4_pegasus_natnet_launch_script.py` | `NUM_ROBOTS` drones + shared `Target` (system tests with NatNet use this even for `NUM_ROBOTS=1`) |
+
+Baseline Pegasus scripts (`example_one_px4_pegasus_launch_script.py`, `example_multi_px4_pegasus_launch_script.py`) have **no** NatNet integration.
 
 Convenience bundle for NatNet + external-vision PX4 SITL:
 

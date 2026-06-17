@@ -1,27 +1,55 @@
 #!/usr/bin/env python
 """
-Multi-drone PX4 Pegasus launcher, parametrized by NUM_ROBOTS.
+Single-drone PX4 Pegasus launcher with OptiTrack NatNet mocap streaming.
 
-Env:
- - NUM_ROBOTS (default 1): how many drones to spawn
- - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone (``add_rtx_lidar_subgraph``;
-   publishes ``point_cloud_raw`` under ``/robot_<i>/sensors/ouster/`` via OmniGraph). The
-   single-drone example script always enables LiDAR; AirStack pytest ``isaacsim`` liveliness
-   sets ``ENABLE_LIDAR=true`` so behavior matches.
- - PLAY_SIM_ON_START (default true): autoplay timeline
+Same scene prep and sensor stack as ``example_one_px4_pegasus_launch_script.py``, plus
+a Motive-compatible NatNet server that always streams:
+
+ - ``Drone`` (id 1) from the Pegasus ``body`` prim under ``/World/base_link``
+ - ``Target`` (id 100) from a static ``/World/target`` prim
+
+Pair with robot-side ``LAUNCH_NATNET=true`` and a matching ``natnet_config.yaml``
+profile. To consume the target on the robot, add a Target body to the profile
+(see the commented scaffolding in ``natnet_config.yaml``).
+
+Override rigid-body names with ``NATNET_BODY_NAME`` / ``NATNET_TARGET_NAME``.
 """
 
-import asyncio
 import os
 import sys
 import time
+import asyncio
 
 import carb
 from isaacsim import SimulationApp
 
-# Must be created before any omni imports
-_headless = os.environ.get("ISAAC_SIM_HEADLESS", "false").lower() == "true"
-simulation_app = SimulationApp({"headless": _headless})
+_LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
+
+if _LIVESTREAM:
+    _SIM_APP_CONFIG = {
+        "width": 1280,
+        "height": 720,
+        "window_width": 1920,
+        "window_height": 1080,
+        "headless": True,
+        "hide_ui": False,
+        "renderer": "RaytracedLighting",
+        "display_options": 3286,
+    }
+else:
+    _SIM_APP_CONFIG = {"headless": False}
+
+simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
+
+if _LIVESTREAM:
+    from isaacsim.core.utils.extensions import enable_extension
+    simulation_app.set_setting("/app/window/drawMouse", True)
+    simulation_app.set_setting("/app/livestream/enabled", True)
+    LIVESTREAM_UDP_PORT = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
+    simulation_app.set_setting("/app/livestream/fixedHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/minHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/maxHostPort", LIVESTREAM_UDP_PORT)
+    enable_extension("omni.kit.livestream.webrtc")
 
 import omni.kit.app
 import omni.timeline
@@ -29,7 +57,6 @@ import omni.usd
 
 from omni.isaac.core.world import World
 
-# Pegasus imports
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
@@ -39,6 +66,13 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
+from optitrack.natnet.emulator.isaac import (
+    DEFAULT_TARGET_PATH,
+    DEFAULT_TARGET_POSITION,
+    DEFAULT_TARGET_STREAMING_ID,
+    author_static_target,
+    start_drone_natnet_server,
+)
 
 # --------------------- CONFIGURATION ---------------------
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -46,12 +80,17 @@ STAGE_SCALE = 1.0
 SAVE_SCENE_TO = None
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
-NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "1"))
-ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
+NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
+NATNET_TARGET_NAME = os.environ.get("NATNET_TARGET_NAME", "Target")
+
+_NATNET_SERVER_KWARGS = {
+    "pose_noise_enabled": True,
+    "pose_noise_std_meters": 0.0005,
+    "pose_noise_rotation_deg": 0.05,
+}
 # ---------------------------------------------------------
 
 
-# Enable required extensions
 ext_manager = omni.kit.app.get_app().get_extension_manager()
 for ext in [
     "omni.graph.core",
@@ -71,7 +110,6 @@ for ext in [
 
 
 def wait_for_stage(stage, timeout_s: float = 10.0):
-    """Pump the Kit app loop until /World has content (scene fully loaded)."""
     for _ in range(int(timeout_s / 0.1)):
         omni.kit.app.get_app().update()
         world_prim = stage.GetPrimAtPath("/World")
@@ -83,56 +121,15 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
     return False
 
 
-def spawn_drone(index: int):
-    """Spawn drone with vehicle_id=index (1-based), plus camera and optional lidar."""
-    robot_name = f"robot_{index}"
-    drone_prim = f"/World/drone{index}/base_link"
-    # Spread drones along X: -2, 0, 2, 4, ... centered near origin for small counts
-    init_x = 2.0 * (index - 1) - 2.0 * (NUM_ROBOTS - 1) / 2.0
-
-    graph_handle = spawn_px4_multirotor_node(
-        pegasus_node_name=f"PX4Multirotor_{index}",
-        drone_prim=drone_prim,
-        robot_name=robot_name,
-        vehicle_id=index,
-        domain_id=index,
-        usd_file=DRONE_USD,
-        init_pos=[init_x, 0.0, 0.07],
-        init_orient=[0.0, 0.0, 0.0, 1.0],
-    )
-
-    add_zed_stereo_camera_subgraph(
-        parent_graph_handle=graph_handle,
-        drone_prim=drone_prim,
-        robot_name=robot_name,
-        camera_name="ZEDCamera",
-        camera_offset=[0.2, 0.0, -0.05],
-        camera_rotation_offset=[0.0, 0.0, 0.0],
-    )
-
-    if ENABLE_LIDAR:
-        add_rtx_lidar_subgraph(
-            parent_graph_handle=graph_handle,
-            drone_prim=drone_prim,
-            robot_name=robot_name,
-            lidar_config="ouster_os1",
-            lidar_topic_name="point_cloud_raw",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],
-            min_range=0.75,
-        )
-
-
 class PegasusApp:
 
     def __init__(self):
         self.timeline = omni.timeline.get_timeline_interface()
+        self.natnet_manager = None
 
         self.pg = PegasusInterface()
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
-
-        # Keep the timeline stopped throughout setup so OmniGraph doesn't tick early.
         self.timeline.stop()
 
         self.pg.load_environment(ENV_URL)
@@ -168,11 +165,58 @@ class PegasusApp:
             else:
                 carb.log_error(f"Scene export failed: {error}")
 
-        print(f"[example_multi] Spawning {NUM_ROBOTS} drone(s), lidar={'on' if ENABLE_LIDAR else 'off'}")
-        for i in range(1, NUM_ROBOTS + 1):
-            spawn_drone(i)
+        graph_handle = spawn_px4_multirotor_node(
+            pegasus_node_name="PX4Multirotor",
+            drone_prim="/World/base_link",
+            robot_name="robot_1",
+            vehicle_id=1,
+            domain_id=1,
+            usd_file=DRONE_USD,
+            init_pos=[0.0, 0.0, 0.07],
+            init_orient=[0.0, 0.0, 0.0, 1.0],
+        )
 
+        add_zed_stereo_camera_subgraph(
+            parent_graph_handle=graph_handle,
+            drone_prim="/World/base_link",
+            robot_name="robot_1",
+            camera_name="ZEDCamera",
+            camera_offset=[0.2, 0.0, -0.05],
+            camera_rotation_offset=[0.0, 0.0, 0.0],
+        )
+
+        add_rtx_lidar_subgraph(
+            parent_graph_handle=graph_handle,
+            drone_prim="/World/base_link",
+            robot_name="robot_1",
+            lidar_config="ouster_os1",
+            lidar_topic_name="point_cloud_raw",
+            lidar_offset=[0.0, 0.0, 0.025],
+            lidar_rotation_offset=[0.0, 0.0, 0.0],
+            min_range=0.75,
+        )
+
+        self._setup_natnet(stage)
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
+
+    def _setup_natnet(self, stage):
+        """Author the NatNet interface prim (drone + static target) and start the server."""
+        try:
+            author_static_target(stage, DEFAULT_TARGET_PATH, DEFAULT_TARGET_POSITION)
+            bodies = [
+                (NATNET_BODY_NAME, 1, "/World/base_link/body"),
+                (NATNET_TARGET_NAME, DEFAULT_TARGET_STREAMING_ID, DEFAULT_TARGET_PATH),
+            ]
+            self.natnet_manager = start_drone_natnet_server(
+                stage, bodies, **_NATNET_SERVER_KWARGS
+            )
+            carb.log_warn(
+                f"[natnet] Emulator started: '{NATNET_BODY_NAME}' (-> /World/base_link/body), "
+                f"'{NATNET_TARGET_NAME}' (-> {DEFAULT_TARGET_PATH})."
+            )
+        except Exception as exc:  # noqa: BLE001 - never let NatNet kill the sim
+            carb.log_error(f"[natnet] Failed to start emulator: {exc}")
+            self.natnet_manager = None
 
     def run(self):
         if self.play_on_start:
@@ -192,13 +236,14 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
+        if self.natnet_manager is not None:
+            self.natnet_manager.on_shutdown()
         self.timeline.stop()
         simulation_app.close()
 
 
 def main():
-    pg_app = PegasusApp()
-    pg_app.run()
+    PegasusApp().run()
 
 
 if __name__ == "__main__":

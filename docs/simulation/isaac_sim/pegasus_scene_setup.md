@@ -177,7 +177,7 @@ SITL_PARAM_PROFILE="default"
 SITL_PARAM_PROFILE="px4-vision"
 ```
 
-Bundles inject `PX4_PARAM_*` variables into the isaac-sim container; PX4 applies them at boot via `init.d-posix/rcS`. Pair `px4-vision` with robot-side `LAUNCH_NATNET=true` and `publish_to_mavros: true` in `natnet_config.yaml`.
+Bundles inject `PX4_PARAM_*` variables into the isaac-sim container; PX4 applies them at boot via `init.d-posix/rcS`. Pair `px4-vision` with robot-side `LAUNCH_NATNET=true` and `vision_pose.enabled: true` in the robot's `natnet_config.yaml` profile.
 
 Convenience bundle: `airstack up --env-file overrides/isaac-natnet-vision.env`.
 

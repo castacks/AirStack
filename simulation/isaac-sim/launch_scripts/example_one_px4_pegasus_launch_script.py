@@ -97,18 +97,10 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
-from optitrack.natnet.emulator.isaac import start_drone_natnet_server
 
 # --------------------- CONFIGURATION ---------------------
 # Environment to load. Swap this URL/key for any other scene.
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
-
-# OptiTrack/NatNet emulator: when LAUNCH_NATNET=true, author a NatNet interface
-# prim with the drone's base_link as a tracked rigid body and start the server on
-# load. Mirrors the robot-side LAUNCH_NATNET gate (natnet_ros2 client). The body
-# name defaults to "Drone" to match natnet_config.yaml / the liveliness sentinel.
-LAUNCH_NATNET = os.environ.get("LAUNCH_NATNET", "false").lower() in ("1", "true", "yes", "on")
-NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
 
 # Scale applied to /World/stage. 0.01 converts cm→m for Nucleus assets.
 # Set to 1.0 if the environment is already in meters.
@@ -252,34 +244,7 @@ class PegasusApp:
             min_range=0.75,
         )
 
-        # ----- OptiTrack / NatNet emulator -----
-        # Author a NatNet interface prim with the drone's base_link as a tracked
-        # rigid body and start the Motive-compatible server.
-        self.natnet_manager = None
-        if LAUNCH_NATNET:
-            self._setup_natnet(stage)
-
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
-
-    def _setup_natnet(self, stage):
-        """Author the NatNet interface prim and start the emulator server."""
-        try:
-            drones = [(NATNET_BODY_NAME, 1, "/World/base_link/body")]
-            self.natnet_manager = start_drone_natnet_server(
-                stage, 
-                drones,
-                **{
-                    "pose_noise_enabled": True,
-                    "pose_noise_std_meters": 0.0005, # 0.5 mm so that 95% of the time the noise is less than 1 mm
-                    "pose_noise_rotation_deg": 0.05, # 0.05 deg so that 95% of the time the noise is less than 0.1 deg
-                }
-            )
-            carb.log_warn(
-                f"[natnet] Emulator started with 1 body ('{NATNET_BODY_NAME}' -> /World/base_link)."
-            )
-        except Exception as exc:  # noqa: BLE001 - never let NatNet kill the sim
-            carb.log_error(f"[natnet] Failed to start emulator: {exc}")
-            self.natnet_manager = None
 
     def run(self):
 
@@ -302,8 +267,6 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
-        if self.natnet_manager is not None:
-            self.natnet_manager.on_shutdown()
         self.timeline.stop()
         simulation_app.close()
 

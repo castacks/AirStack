@@ -17,6 +17,10 @@ from .frames import BodySample, build_frame, make_rigid_body_data
 from .manager import NatNetServerManager, default_server_factory, format_interface
 from .scene_setup import (
     DEFAULT_INTERFACE_PATH,
+    DEFAULT_TARGET_PATH,
+    DEFAULT_TARGET_POSITION,
+    DEFAULT_TARGET_STREAMING_ID,
+    author_static_target,
     build_drone_config,
     start_drone_natnet_server,
 )
@@ -31,11 +35,15 @@ from .usd_bindings import (
 
 __all__ = [
     "DEFAULT_INTERFACE_PATH",
+    "DEFAULT_TARGET_PATH",
+    "DEFAULT_TARGET_POSITION",
+    "DEFAULT_TARGET_STREAMING_ID",
     "BodyBinding",
     "BodySample",
     "NatNetInterfaceConfig",
     "NatNetServerManager",
     "author_interface",
+    "author_static_target",
     "body_attr_name",
     "build_catalog",
     "build_drone_config",

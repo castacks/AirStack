@@ -7,6 +7,12 @@ Optional converter that bridges NatNet pose data to MAVROS vision_pose format
 for PX4 external pose estimation and state fusion.
 
 Converts from NatNet coordinate frame to a frame suitable for MAVROS.
+
+Topics are configurable so the bridge can be retargeted to other middleware.
+``input_topic`` / ``output_pose_topic`` / ``output_pose_cov_topic`` default to the
+relative names ``input_pose`` / ``output_pose`` / ``output_pose_cov`` (remappable),
+but natnet_ros2.launch.py overrides them with the absolute, ROBOT_NAME-namespaced
+topics from the robot's ``vision_pose`` block in natnet_config.yaml.
 """
 
 import rclpy
@@ -28,15 +34,23 @@ class VisionPoseConverterNode(Node):
         self.declare_parameter('frame_id', 'world')
         self.declare_parameter('child_frame_id', 'base_link')
         self.declare_parameter('canonical_quaternion', True)
+        # Topic names — overridden by the launch file from the per-robot
+        # vision_pose block; defaults are the historical remappable relative names.
+        self.declare_parameter('input_topic', 'input_pose')
+        self.declare_parameter('output_pose_topic', 'output_pose')
+        self.declare_parameter('output_pose_cov_topic', 'output_pose_cov')
 
         self.frame_id = self.get_parameter('frame_id').value
         self.child_frame_id = self.get_parameter('child_frame_id').value
         self.canonical_quaternion = self.get_parameter('canonical_quaternion').value
+        input_topic = self.get_parameter('input_topic').value
+        output_pose_topic = self.get_parameter('output_pose_topic').value
+        output_pose_cov_topic = self.get_parameter('output_pose_cov_topic').value
 
         # Subscribers
         self.pose_sub = self.create_subscription(
             PoseWithCovarianceStamped,
-            'input_pose',
+            input_topic,
             self._on_pose,
             10
         )
@@ -44,19 +58,21 @@ class VisionPoseConverterNode(Node):
         # Publishers
         self.pose_pub = self.create_publisher(
             PoseStamped,
-            'output_pose',
+            output_pose_topic,
             10
         )
         self.pose_cov_pub = self.create_publisher(
             PoseWithCovarianceStamped,
-            'output_pose_cov',
+            output_pose_cov_topic,
             10
         )
 
         self.get_logger().info(
             f'Vision pose converter started '
             f'(frame_id={self.frame_id!r}, child_frame_id={self.child_frame_id!r}, '
-            f'canonical_quaternion={self.canonical_quaternion})'
+            f'canonical_quaternion={self.canonical_quaternion}, '
+            f'input_topic={input_topic!r}, output_pose_topic={output_pose_topic!r}, '
+            f'output_pose_cov_topic={output_pose_cov_topic!r})'
         )
 
     @staticmethod

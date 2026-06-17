@@ -33,8 +33,34 @@ from .config import (
 # Where the example scripts author the single interface prim.
 DEFAULT_INTERFACE_PATH = "/World/NatNetInterface"
 
+# Default world prim + position for the demo "target" body (a static placeholder
+# the example scripts stream alongside the drones so a tracked target is available).
+DEFAULT_TARGET_PATH = "/World/target"
+DEFAULT_TARGET_POSITION = (2.0, 0.0, 1.0)
+DEFAULT_TARGET_STREAMING_ID = 100
+
 # (rigid_body_name, streaming_id, target_prim_path)
 DroneSpec = Tuple[str, int, str]
+
+
+def author_static_target(
+    stage,
+    prim_path: str = DEFAULT_TARGET_PATH,
+    position: Sequence[float] = DEFAULT_TARGET_POSITION,
+):
+    """Author a static ``Xform`` prim to act as a NatNet-tracked target.
+
+    Creates ``prim_path`` (a plain transform with a single translate op) at
+    ``position`` so the emulator can sample it like any other tracked body. The
+    prim is static — no physics, no animation — representing a fixed point of
+    interest that drones can be commanded toward. Imports ``pxr`` lazily so this
+    module stays importable outside Isaac. Returns ``prim_path``.
+    """
+    from pxr import Gf, UsdGeom
+
+    xform = UsdGeom.Xform.Define(stage, prim_path)
+    xform.AddTranslateOp().Set(Gf.Vec3d(float(position[0]), float(position[1]), float(position[2])))
+    return prim_path
 
 
 def build_drone_config(

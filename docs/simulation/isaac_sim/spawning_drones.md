@@ -5,8 +5,10 @@ The reference launch scripts under `simulation/isaac-sim/launch_scripts/` cover 
 | Script | Purpose |
 |---|---|
 | `barebones_pegasus_launch.py` | Minimal Pegasus boilerplate. Single drone, default environment, no scene import. Use as a template for new launch scripts. |
-| `example_one_px4_pegasus_launch_script.py` | One PX4 drone with the standard sensor stack (ZED stereo, optional Ouster lidar) in the default environment. |
+| `example_one_px4_pegasus_launch_script.py` | One PX4 drone with the standard sensor stack (ZED stereo, RTX lidar) in the default environment. |
 | `example_multi_px4_pegasus_launch_script.py` | `NUM_ROBOTS` drones spawned in a row in the default environment. Each drone gets its own ROS domain id (`1..N`). |
+| `example_one_px4_pegasus_natnet_launch_script.py` | Same as the one-drone script, plus OptiTrack NatNet streaming (drone + static target). Pair with `LAUNCH_NATNET=true` on the robot. |
+| `example_multi_px4_pegasus_natnet_launch_script.py` | Same as the multi-drone script, plus NatNet streaming (one body per drone + shared `Target`). Use with the 3-profile `natnet_config.yaml` scaffolding for shared-target demos. |
 | `example_multi_drone_scene_import.py` | `NUM_ROBOTS` drones in an **imported scene** (USD from a Nucleus server) with per-drone GPS homes set via `gps_utils.set_gps_origins`. Use this as the starting point for any custom scene. |
 
 The first three are vanilla Pegasus patterns; this page focuses on the multi-drone + custom-scene case where you also need correct GPS homes.

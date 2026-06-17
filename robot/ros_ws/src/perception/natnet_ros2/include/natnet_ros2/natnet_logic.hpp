@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -89,6 +90,34 @@ inline std::string optitrack_pose_cov_topic(
     const std::string & body_name)
 {
     return optitrack_topic_base(robot_name, body_name) + "/pose_cov";
+}
+
+/// Namespace a relative topic leaf under /{robot_name}/.
+///
+/// Leading slashes in \p relative are stripped so the result always has exactly
+/// one. Used for the per-body ``topic`` overrides in natnet_config.yaml, which are
+/// relative and namespaced by the node at runtime.
+inline std::string namespaced_topic(
+    const std::string & robot_name,
+    const std::string & relative)
+{
+    const std::size_t start = relative.find_first_not_of('/');
+    const std::string leaf =
+        (start == std::string::npos) ? std::string{} : relative.substr(start);
+    return "/" + robot_name + "/" + leaf;
+}
+
+/// Topic base for one configured body: the per-body relative override when set,
+/// otherwise the default /{robot_name}/perception/optitrack/{body_name}.
+inline std::string body_topic_base(
+    const std::string & robot_name,
+    const std::string & body_name,
+    const std::string & relative_override)
+{
+    if (relative_override.empty()) {
+        return optitrack_topic_base(robot_name, body_name);
+    }
+    return namespaced_topic(robot_name, relative_override);
 }
 
 
@@ -197,6 +226,16 @@ inline bool model_list_changed(int16_t frame_params)
 inline bool should_publish_body(int32_t filter_id, int32_t rb_id)
 {
     return filter_id < 0 || rb_id == filter_id;
+}
+
+/// Returns true when rb_id is one of the configured body ids.
+///
+/// Multi-body variant of should_publish_body(): the node tracks a fixed set of
+/// ids from natnet_config.yaml and publishes only those (empty set → nothing).
+inline bool body_is_configured(const std::vector<int32_t> & configured_ids, int32_t rb_id)
+{
+    return std::find(configured_ids.begin(), configured_ids.end(), rb_id)
+           != configured_ids.end();
 }
 
 /// Double-precision pose extracted from a RigidBodySample.

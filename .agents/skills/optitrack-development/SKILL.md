@@ -43,9 +43,16 @@ flowchart LR
 
 **Enable on robot:** `LAUNCH_NATNET=true` in `.env` → [`perception.launch.xml`](../../../robot/ros_ws/src/perception/perception_bringup/launch/perception.launch.xml) includes `natnet_ros2.launch.py`.
 
-**Enable in sim:** the same `LAUNCH_NATNET=true` (passed into the isaac-sim container via [`docker-compose.yaml`](../../../simulation/isaac-sim/docker/docker-compose.yaml)) makes the Pegasus example launch scripts author a `/World/NatNetInterface` prim with one rigid body per drone `base_link` and **auto-start the emulator on load** (no UI). Helper: [`isaac/scene_setup.py`](../../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/optitrack/natnet/emulator/isaac/scene_setup.py) (`start_drone_natnet_server`). Body name: single = `Drone`; multi = `Drone<i>` (id `i`). Override the name prefix with `NATNET_BODY_NAME`.
+**Enable in sim:** set ``ISAAC_SIM_SCRIPT_NAME`` to a NatNet Pegasus launch script (no env gate in the script — NatNet always starts):
 
-**Default client config:** unicast, `server_ip` → Motive/emulator (use `172.31.0.200` for Isaac container), ports 1510/1511 — see [`natnet_config.yaml`](../../../robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml).
+| Script | Use |
+|--------|-----|
+| [`example_one_px4_pegasus_natnet_launch_script.py`](../../../simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_natnet_launch_script.py) | Single drone + static ``Target`` |
+| [`example_multi_px4_pegasus_natnet_launch_script.py`](../../../simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_natnet_launch_script.py) | ``NUM_ROBOTS`` drones + shared ``Target`` (pair with 3-profile ``natnet_config.yaml``) |
+
+Helpers: [`isaac/scene_setup.py`](../../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/optitrack/natnet/emulator/isaac/scene_setup.py) (`start_drone_natnet_server`, `author_static_target`). Drone body: single = ``Drone``; multi = ``Drone<i>`` (id ``i``); target = ``Target`` (id 100). Override names with ``NATNET_BODY_NAME`` / ``NATNET_TARGET_NAME``. Baseline Pegasus scripts (no NatNet) remain ``example_one_px4_pegasus_launch_script.py`` / ``example_multi_px4_pegasus_launch_script.py``.
+
+**Default client config:** unicast, `server_ip` → Motive/emulator (use `172.31.0.200` for Isaac container), ports 1510/1511. The config is per-robot: each `robots[$ROBOT_NAME]` profile lists the bodies it tracks (each a `rigid_body_name` + `id` mapped to a relative `topic`, with `pose`/`pose_cov` toggles and per-body covariance) and an optional `vision_pose` block that drives the MAVROS bridge. See [`natnet_config.yaml`](../../../robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml).
 
 ## NatNet: Two UDP Channels
 

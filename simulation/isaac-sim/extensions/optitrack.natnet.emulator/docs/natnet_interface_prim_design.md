@@ -378,18 +378,22 @@ Make the extension *aware* of interfaces without acting on them.
 >   `start_drone_natnet_server(stage, drones, ...)` (authors the `/World/NatNetInterface`
 >   prim, then creates a physics-subscribed `NatNetServerManager` and starts it).
 >   Exported from `optitrack.natnet.emulator.isaac`.
-> - **Launch scripts** (`launch_scripts/example_one*.py`, `example_multi*.py`): after
->   spawning drones, if `LAUNCH_NATNET=true` they author one rigid body per drone
->   `base_link` and start the server. Single: `("Drone", 1, /World/base_link)`.
->   Multi: `("<NATNET_BODY_NAME><i>", i, /World/drone<i>/base_link)` for each drone.
->   Failures are caught (never kill the sim); the manager is torn down on close.
+> - **Launch scripts** (NatNet line: `launch_scripts/example_one_px4_pegasus_natnet_launch_script.py`,
+>   `example_multi_px4_pegasus_natnet_launch_script.py`): after spawning drones, author one
+>   rigid body per drone `base_link`, a static `/World/target` body (via `author_static_target`),
+>   and start the server. Single: `("Drone", 1, /World/base_link/body)` +
+>   `("Target", 100, /World/target)`. Multi: `("<NATNET_BODY_NAME><i>", i, /World/drone<i>/base_link/body)`
+>   per drone + one shared `("Target", 100, /World/target)`. Each robot's `natnet_config.yaml`
+>   profile selects which bodies it subscribes to. Failures are caught (never kill the sim);
+>   the manager is torn down on close.
+>   Baseline Pegasus scripts (`example_one_px4_pegasus_launch_script.py`,
+>   `example_multi_px4_pegasus_launch_script.py`) have no NatNet code.
 > - **Import path**: scripts add `../extensions/optitrack.natnet.emulator` to
 >   `sys.path` so the package imports without enabling the Kit UI extension (keeps a
 >   single, script-owned manager — no duplicate physics/USD subscriptions).
-> - **Wiring**: `LAUNCH_NATNET` / `NATNET_BODY_NAME` are passed into the isaac-sim
->   container via `simulation/isaac-sim/docker/docker-compose.yaml`, mirroring the
->   robot-side `natnet_ros2` gate. Server binds the container IP `172.31.0.200`
->   (the config default), which the robot `server_ip` already points at.
+> - **Wiring:** set `ISAAC_SIM_SCRIPT_NAME` to a NatNet launch script; `NATNET_BODY_NAME` /
+>   `NATNET_TARGET_NAME` optional. Robot-side `LAUNCH_NATNET=true` brings up `natnet_ros2`.
+>   Server binds the container IP `172.31.0.200` (the config default).
 > - **Tests**: `test_scene_setup.py` (pure: single/multi mapping, server-param
 >   forwarding, duplicate name/id rejection, empty catalog). Proxy under
 >   `tests/sim/optitrack_natnet_emulator/`.
@@ -587,23 +591,24 @@ Hard-won findings from getting the liveliness sentinel green (Isaac emulator →
    default `auto_stream=True` path still works. Don't "optimize" the pump back into
    the daemon thread.
 
-2. **The liveliness/system path runs the *standalone Pegasus script*, not a saved
-   scene USD.** `tests/conftest.py` sets `ISAAC_SIM_USE_STANDALONE=true` **and
-   `ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py`** — even for
-   `--num-robots 1`. So the NatNet auto-start wiring **must** live in
-   `example_multi_…` (it does); `example_one_…` and the default
-   `airstack up isaac-sim` (which uses `ISAAC_SIM_USE_STANDALONE=false` →
-   `run_isaacsim.launch.py` opening `simple_pegasus.scene.usd`) do **not** exercise
-   it. To reproduce the harness manually you must pass all of
+2. **NatNet liveliness uses a NatNet Pegasus script, not the baseline scripts.**
+   Default system tests (`tests/conftest.py`) use
+   `ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py` (no NatNet).
+   For the NatNet pose sentinel, set robot `LAUNCH_NATNET=true` **and** point sim at
+   `example_multi_px4_pegasus_natnet_launch_script.py` (or the one-drone NatNet
+   script). Convenience bundle: `overrides/isaac-natnet-vision.env`.
+
+   Manual repro:
    `AUTOLAUNCH=true ISAAC_SIM_USE_STANDALONE=true
-   ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py
+   ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_natnet_launch_script.py
    LAUNCH_NATNET=true PLAY_SIM_ON_START=true`.
 
 3. **Single-agent body/prim contract.** For `NUM_ROBOTS=1` the multi script names
    the body `"Drone"` (bare) → target `/World/drone1/base_link` (the multi script's
-   drone prim path is always `drone{i}`, even for one drone). This matches the robot
-   `natnet_config.yaml` body and the liveliness sentinel topic
-   `/robot_1/perception/optitrack/Drone/pose_cov`.
+   drone prim path is always `drone{i}`, even for one drone). The robot's
+   `natnet_config.yaml` profile maps the `Drone` body (id 1) to the relative topic
+   `perception/optitrack/drone`, so the liveliness sentinel topic is
+   `/robot_1/perception/optitrack/drone/pose_cov`.
 
 4. **Target prims appear *after* server start.** The Pegasus `base_link` is created
    on the first Play tick — after `start_server()`. `_sample_cache` therefore stores

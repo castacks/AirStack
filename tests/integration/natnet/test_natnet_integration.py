@@ -2,12 +2,18 @@
 # MIT License - see LICENSE in the repository root for full text.
 """NatNet - robot autonomy integration tests.
 
-Two host-side variants stream Drone frames to ``natnet_ros2_node`` in the robot
-container and assert pose topics stay alive at >= 5 Hz: (1) raw
-``NatNetUnicastServer`` hand-built frames; (2) ``NatNetServerManager`` sampling
-an in-memory USD stage (Isaac wrapper path, no sim/GPU).
+Host-side variants stream frames to ``natnet_ros2_node`` in the robot container and
+assert pose topics stay alive at >= 5 Hz: (1) raw ``NatNetUnicastServer`` hand-built
+single-body frames; (2) ``NatNetServerManager`` sampling an in-memory USD stage
+(Isaac wrapper path, no sim/GPU); (3) a multi-body profile (drone + target) that
+exercises per-body topic overrides and the pose / pose_cov toggles.
 
-In-sim end-to-end: ``tests/system/test_liveliness.py::test_natnet_pose_alive``.
+The node is parameterised with the flattened per-body arrays
+(``body_names`` / ``body_ids`` / ``body_topics`` / ``body_pose`` / ``body_pose_cov``)
+that natnet_ros2.launch.py derives from a robot's natnet_config.yaml profile.
+
+Multi-robot (NUM_ROBOTS=3, per-robot profiles) is exercised in-sim by
+``tests/system/test_liveliness.py::test_natnet_pose_alive``.
 """
 
 from __future__ import annotations
@@ -80,38 +86,59 @@ def _stop_stale_natnet_nodes(container: str) -> None:
     time.sleep(0.5)
 
 
-def _make_drone_frame(frame_num: int) -> dt.sFrameOfMocapData:
+# Each body: (streaming_id, rigid_body_name). The raw server frame carries ids only;
+# the node maps ids → topics via its body_* params.
+_DRONE_BODY = (1, "Drone")
+_TARGET_BODY = (100, "Target")
+
+
+def _make_frame(frame_num: int, body_ids) -> dt.sFrameOfMocapData:
     frame = dt.sFrameOfMocapData()
     frame.iFrame = frame_num
-    frame.nRigidBodies = 1
-    rb = frame.RigidBodies[0]
-    rb.ID = 1
-    rb.qw = 1.0
-    # Bit 0 = tracking valid; natnet_ros2 skips bodies without it (natnet_logic.hpp).
-    rb.params = 1
+    frame.nRigidBodies = len(body_ids)
+    for slot, body_id in enumerate(body_ids):
+        rb = frame.RigidBodies[slot]
+        rb.ID = body_id
+        rb.qw = 1.0
+        # Bit 0 = tracking valid; natnet_ros2 skips bodies without it (natnet_logic.hpp).
+        rb.params = 1
     return frame
 
 
-def _frame_publisher(server: NatNetUnicastServer, stop_event: threading.Event) -> None:
+def _frame_publisher(
+    server: NatNetUnicastServer, stop_event: threading.Event, body_ids=(1,)
+) -> None:
     frame_num = 0
     interval = 1.0 / server.publish_rate
     while not stop_event.is_set():
-        server.enqueue_mocap_data(_make_drone_frame(frame_num))
+        server.enqueue_mocap_data(_make_frame(frame_num, body_ids))
         frame_num += 1
         time.sleep(interval)
 
 
-def _launch_natnet_node(container, host_ip, command_port, domain_id):
-    """Start natnet_ros2_node in the container pointed at the host emulator."""
+def _launch_natnet_node(container, host_ip, command_port, domain_id, bodies=None):
+    """Start natnet_ros2_node in the container pointed at the host emulator.
+
+    ``bodies`` is a list of (id, name, topic, pose, pose_cov); defaults to a single
+    Drone body on topic ``perception/optitrack/drone`` (the shipped config default).
+    """
+    if bodies is None:
+        bodies = [(1, "Drone", "perception/optitrack/drone", "true", "true")]
+    ids = ",".join(str(b[0]) for b in bodies)
+    names = ",".join(b[1] for b in bodies)
+    topics = ",".join(b[2] for b in bodies)
+    pose = ",".join(b[3] for b in bodies)
+    pose_cov = ",".join(b[4] for b in bodies)
     launch_cmd = (
         f"bash -lc '{ros2_env(_ROBOT_SETUP, domain_id)} && "
         f"exec {_NATNET_NODE} --ros-args "
         f"-p server_ip:={host_ip} "
         f"-p command_port:={command_port} "
-        f"-p body_name:=Drone "
-        f"-p body_id:=1 "
-        f"-p publish_to_mavros:=false "
-        f"-p publish_direct_optitrack:=true'"
+        f"-p body_names:=[{names}] "
+        f"-p body_ids:=[{ids}] "
+        f"-p body_topics:=[{topics}] "
+        f"-p body_pose:=[{pose}] "
+        f"-p body_pose_cov:=[{pose_cov}]'"
     )
     return subprocess.Popen(
         ["docker", "exec", container, "bash", "-c", launch_cmd],
@@ -121,9 +148,9 @@ def _launch_natnet_node(container, host_ip, command_port, domain_id):
     )
 
 
-def _assert_pose_stream(container, robot_name, domain_id):
+def _assert_pose_stream(container, robot_name, domain_id, topic="perception/optitrack/drone"):
     """Wait for the pose topic then assert a sustained rate >= _MIN_HZ."""
-    pose_topic = f"/{robot_name}/perception/optitrack/Drone"
+    pose_topic = f"/{robot_name}/{topic}"
     pose_cov_topic = f"{pose_topic}/pose_cov"
 
     time.sleep(_WARMUP_S)
@@ -273,3 +300,69 @@ def test_natnet_ros2_receives_isaac_wrapper_pose_hz(robot_autonomy_stack):
         sampler.join(timeout=2.0)
         _terminate(node_proc)
         manager.stop_server()
+
+
+def test_natnet_ros2_multi_body_drone_and_target(robot_autonomy_stack):
+    """Multi-body profile: one robot tracks a drone + a static target.
+
+    Streams two bodies (drone id 1, target id 100) and configures the node like a
+    robot profile with two bodies and distinct relative topics. Asserts: the drone
+    pose streams >= 5 Hz on its custom topic; the target pose streams on its own
+    topic; and the target's pose_cov topic is absent (body_pose_cov=false).
+    """
+    container = robot_autonomy_stack["container"]
+
+    if not _natnet_node_available(container):
+        pytest.skip("natnet_ros2_node not built — run airstack setup (NatNet SDK)")
+
+    _stop_stale_natnet_nodes(container)
+
+    host_ip = _docker_default_gateway(container)
+    command_port = ephemeral_udp_port(host_ip)
+    robot_name = _container_env(container, "ROBOT_NAME", "robot_1")
+    domain_id = int(_container_env(container, "ROS_DOMAIN_ID", "0"))
+
+    server = NatNetUnicastServer(
+        local_interface=host_ip,
+        transmission_type=TransmissionType.UNICAST,
+        multicast_address=None,
+        command_port=command_port,
+    )
+    server.publish_rate = 50
+
+    bodies = [
+        (_DRONE_BODY[0], _DRONE_BODY[1], "perception/optitrack/drone", "true", "true"),
+        (_TARGET_BODY[0], _TARGET_BODY[1], "perception/optitrack/target", "true", "false"),
+    ]
+    body_ids = (_DRONE_BODY[0], _TARGET_BODY[0])
+
+    stop_event = threading.Event()
+    publisher = threading.Thread(
+        target=_frame_publisher, args=(server, stop_event, body_ids), daemon=True
+    )
+
+    node_proc: subprocess.Popen[str] | None = None
+    try:
+        publisher.start()
+        time.sleep(0.1)
+        server.start()
+        node_proc = _launch_natnet_node(container, host_ip, command_port, domain_id, bodies)
+        # Drone (pose + pose_cov) and target (pose only) both stream.
+        _assert_pose_stream(container, robot_name, domain_id, "perception/optitrack/drone")
+        _assert_pose_stream(container, robot_name, domain_id, "perception/optitrack/target")
+
+        # body_pose_cov=false → the target pose_cov publisher must not exist.
+        target_cov = f"/{robot_name}/perception/optitrack/target/pose_cov"
+        topics = docker_exec(
+            container,
+            f"bash -lc '{ros2_env(_ROBOT_SETUP, domain_id)} && ros2 topic list'",
+            timeout=15,
+        ).stdout
+        assert target_cov not in topics.split(), (
+            f"{target_cov} should not exist when body_pose_cov=false; topics:\n{topics}"
+        )
+    finally:
+        stop_event.set()
+        publisher.join(timeout=2.0)
+        _terminate(node_proc)
+        server.shutdown()

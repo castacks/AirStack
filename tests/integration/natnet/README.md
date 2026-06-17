@@ -12,22 +12,23 @@ For the **in-sim** end-to-end check (Isaac emulator + full stack), see
 
 ## What it verifies
 
-Two variants in [`test_natnet_integration.py`](test_natnet_integration.py).
-Both start a host-side `NatNetUnicastServer`, launch `natnet_ros2_node` in the
+Three variants in [`test_natnet_integration.py`](test_natnet_integration.py).
+All start a host-side `NatNetUnicastServer`, launch `natnet_ros2_node` in the
 robot container pointed at the Docker bridge gateway, and assert a sustained
-pose stream at **≥ 5 Hz** on:
+pose stream at **≥ 5 Hz** on the configured topic(s), e.g.:
 
-- `/{ROBOT_NAME}/perception/optitrack/Drone/pose_cov` (wait for first message)
-- `/{ROBOT_NAME}/perception/optitrack/Drone` (Hz sample)
+- `/{ROBOT_NAME}/perception/optitrack/drone/pose_cov` (wait for first message)
+- `/{ROBOT_NAME}/perception/optitrack/drone` (Hz sample)
 
 | Test | Path |
 |------|------|
 | **`test_natnet_ros2_receives_drone_pose_hz`** | Hand-built `sFrameOfMocapData` frames enqueued on a raw `NatNetUnicastServer` (no USD). Minimal wire + SDK check. |
 | **`test_natnet_ros2_receives_isaac_wrapper_pose_hz`** | Full Isaac data path: in-memory USD stage, `NatNetInterfaceConfig`, `author_interface`, `NatNetServerManager.sample_once()` on a moving prim — same sampling logic as the in-sim physics-step callback. Skips without `usd-core` (`pxr`). Pose-value fidelity is covered hermetically by the emulator's `test_pose_streaming.py` loopback. |
+| **`test_natnet_ros2_multi_body_drone_and_target`** | Two bodies (drone id 1 + target id 100) with distinct relative topics; asserts both pose streams and that the target's `pose_cov` topic is **absent** (`body_pose_cov=false`). Exercises the multi-body profile + per-body `pose`/`pose_cov` toggles. |
 
 These tests **do not** start the full perception bringup or `LAUNCH_NATNET`; they
-exec `natnet_ros2_node` directly with `body_name:=Drone`, `body_id:=1`, and
-`publish_to_mavros:=false`.
+exec `natnet_ros2_node` directly with the flattened per-body params
+(`body_names`/`body_ids`/`body_topics`/`body_pose`/`body_pose_cov`) and no MAVROS bridge.
 
 ## Requirements
 
@@ -74,13 +75,14 @@ On CI / PR (write access): `/pytest -m integration --run-integration`
 ┌────────────────────────────▼─────────────────────────────────┐
 │ Robot container (robot-desktop)                              │
 │  natnet_ros2_node (libNatNet 4.4 client)                     │
-│  → /{ROBOT_NAME}/perception/optitrack/Drone[/pose_cov]       │
+│  → /{ROBOT_NAME}/{body topic}[/pose_cov] per configured body │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 **In sim (liveliness tier):** the server runs inside the Isaac Sim container
-(`172.31.0.200` by default). Pegasus launch scripts call
-`start_drone_natnet_server()` when `LAUNCH_NATNET=true`; `natnet_ros2` in the
+(`172.31.0.200` by default). Use a NatNet Pegasus launch script
+(`example_one_px4_pegasus_natnet_launch_script.py` or
+`example_multi_px4_pegasus_natnet_launch_script.py`); `natnet_ros2` in the
 robot stack connects via `natnet_config.yaml` (`server_ip` → emulator IP).
 
 **Catalog / MODELDEF:** The server holds a MODELDEF **wire cache** only
@@ -98,16 +100,16 @@ The matching **system** check is
 
 - **Gated on `LAUNCH_NATNET=true`** (skipped otherwise — normal liveliness runs
   are unaffected).
-- Asserts `/{robot_n}/perception/optitrack/{body}/pose_cov` ≥ 5 Hz per robot.
-- Override body name with `NATNET_BODY_NAME` (default `Drone`; multi-drone sim
-  uses indexed names like `Drone1` — align with
-  `example_multi_px4_pegasus_launch_script.py` and per-robot `natnet_config`).
+- Asserts `/{robot_n}/{natnet pose topic}/pose_cov` ≥ 5 Hz per robot (the drone
+  body's configured topic — default `perception/optitrack/drone`).
+- Override the checked topic with `NATNET_POSE_TOPIC` (default
+  `perception/optitrack/drone`). The sim body name (`NATNET_BODY_NAME`, default
+  `Drone`) is decoupled from the published topic, which the robot profile sets.
 
-Sim auto-start is wired: with `LAUNCH_NATNET=true`, the Pegasus **multi** launch
-script (used by the system-test harness even for `NUM_ROBOTS=1`) authors
-`/World/NatNetInterface` and starts `NatNetServerManager` via
-`start_drone_natnet_server()`. Convenience env bundle:
-`airstack up --env-file overrides/isaac-natnet-vision.env` (NatNet + PX4 external-vision SITL profile).
+Sim auto-start: set `ISAAC_SIM_SCRIPT_NAME` to a NatNet launch script and
+`LAUNCH_NATNET=true` on the robot. Convenience bundle:
+`airstack up --env-file overrides/isaac-natnet-vision.env` (NatNet script +
+PX4 external-vision SITL profile).
 
 ## libNatNet 4.4 unicast — verified wire contract
 

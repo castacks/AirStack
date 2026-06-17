@@ -35,7 +35,9 @@ SENTINEL_NODE_TEMPLATES = [
 
 # NatNet pose sentinel — only when LAUNCH_NATNET=true (robot natnet_ros2 + sim emulator).
 _NATNET_ENABLED = os.environ.get("LAUNCH_NATNET", "").strip().lower() in ("1", "true", "yes", "on")
-_NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
+# Relative pose topic from the robot's natnet_config.yaml profile (drone body), namespaced
+# per robot below. Each profile's drone uses this same leaf, so it holds for multi-robot too.
+_NATNET_POSE_TOPIC = os.environ.get("NATNET_POSE_TOPIC", "perception/optitrack/drone")
 _NATNET_MIN_HZ = 5.0
 # Cold Isaac boot: Pegasus load, Play, UDP connect — 60s was too tight vs other budgets.
 _NATNET_FIRST_MSG_TIMEOUT = 120
@@ -266,11 +268,10 @@ class TestLiveliness:
     )
     @pytest.mark.dependency(depends=["sim_ready", "nodes"])
     def test_natnet_pose_alive(self, airstack_env):
-        """With LAUNCH_NATNET=true, /{robot}/perception/optitrack/{body}/pose_cov >= 5 Hz.
+        """With LAUNCH_NATNET=true, /{robot}/{natnet_pose_topic}/pose_cov >= 5 Hz.
 
-        In-sim counterpart to the host-side integration tests. Uses pose_cov
-        (always published) rather than bare <body> (gated on
-        publish_direct_optitrack).
+        In-sim counterpart to the host-side integration tests. Checks the pose_cov
+        variant of the drone body's configured topic (natnet_config.yaml profile).
         """
         cfg = airstack_env["cfg"]
         robot_containers = get_robot_containers(airstack_env["robot_pattern"])
@@ -280,7 +281,7 @@ class TestLiveliness:
         failures = []
         for n in range(1, airstack_env["num_robots"] + 1):
             container = robot_containers[n - 1]
-            topic = f"/robot_{n}/perception/optitrack/{_NATNET_BODY_NAME}/pose_cov"
+            topic = f"/robot_{n}/{_NATNET_POSE_TOPIC}/pose_cov"
             first = wait_for_first_message(
                 container,
                 topic,
