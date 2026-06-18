@@ -25,21 +25,20 @@ from raven_nav.ray_groups import RayGroup
 from raven_nav.ray_targets import is_same_target
 
 
-# Heading bias for picking which won target to pursue: prefer ones whose ray
-# ORIGIN lies ahead of the drone, so it doesn't backtrack to rays behind it.
-# Same cosine form as frontier_behavior (momentum + rear-hemisphere reverse).
+# Heading bias: prefer claiming targets whose ray points along the drone's
+# heading (cosine momentum + rear-hemisphere reverse, like frontier_behavior).
 RAY_MOMENTUM_WEIGHT = 20.0
 RAY_REVERSE_SURCHARGE = 40.0
 
 
 def _heading_penalty(entry, robot_xy, heading_xy) -> float:
-    if robot_xy is None or heading_xy is None:
+    if heading_xy is None:
         return 0.0
-    v = np.asarray(entry.avg_origin, dtype=float)[:2] - np.asarray(robot_xy, float)[:2]
-    n = float(np.linalg.norm(v))
+    d = np.asarray(entry.avg_dir, dtype=float)[:2]
+    n = float(np.linalg.norm(d))
     if n < 1e-6:
         return 0.0
-    cs = float(np.dot(v / n, heading_xy))
+    cs = float(np.dot(d / n, heading_xy))
     return RAY_MOMENTUM_WEIGHT * (1.0 - cs) + RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
 
 

@@ -8,6 +8,10 @@ from raven_nav.behaviors.frontier_behavior import _points_in_polygon
 
 
 class RayBehavior:
+    # Weight on bearing continuity (same direction as / origin moving along the
+    # committed bearing) when picking which ray to follow.
+    DIR_WEIGHT = 20.0
+
     def __init__(self, get_clock, current_target_publisher=None,
                  score_threshold=0.68,
                  min_altitude=1.5, max_altitude=100.0):
@@ -76,25 +80,25 @@ class RayBehavior:
         if self.current_target_pub is not None:
             self.current_target_pub.publish(String(data=target))
 
-        # Auction may have picked a SPECIFIC group hypothesis (per-group bids).
-        # If so, lock onto the candidate whose (avg_origin, avg_dir) is
-        # closest to it — keeps us pursuing the same physical target across
-        # ticks rather than thrashing to whichever ray group is densest now.
+        # Weighted pick: prefer the ray with the same direction as the committed
+        # bearing AND an origin moving along it (staying on one physical target),
+        # falling back to the closest when nothing matches well.
         if (assigned_origin is not None and assigned_dir is not None):
             ao = np.asarray(assigned_origin, dtype=float)
             ad = np.asarray(assigned_dir, dtype=float)
             ad_n = ad / (np.linalg.norm(ad) + 1e-6)
-            def _affinity(g):
-                # Combine origin proximity (m) and direction alignment (deg-ish).
-                origin_d = float(np.linalg.norm(g.avg_origin - ao))
+            def _cost(g):
+                c = float(g.avg_dist_to_robot)
                 gd = np.asarray(g.avg_dir, dtype=float)
                 gd_n = gd / (np.linalg.norm(gd) + 1e-6)
-                dot = float(np.clip(np.dot(gd_n, ad_n), -1.0, 1.0))
-                # Lower = better. 1.0 - cos goes 0..2; scale to roughly match m.
-                return origin_d + 20.0 * (1.0 - dot)
-            best = min(candidates, key=_affinity)
+                c += self.DIR_WEIGHT * (1.0 - float(np.dot(gd_n, ad_n)))
+                rel = np.asarray(g.avg_origin, dtype=float) - ao
+                rn = float(np.linalg.norm(rel))
+                if rn > 1.0:
+                    c += self.DIR_WEIGHT * (1.0 - float(np.dot(rel / rn, ad_n)))
+                return c
+            best = min(candidates, key=_cost)
         else:
-            # Fallback: pick closest dense group (old behavior).
             k = 5.0
             best = min(candidates,
                        key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
