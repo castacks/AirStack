@@ -145,10 +145,6 @@ ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
-# OptiTrack NatNet emulator extension (in-repo; compose mount overrides at runtime)
-COPY extensions/optitrack.natnet.emulator /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
-RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
-
 # Install PX4 things
 RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
 
@@ -158,14 +154,22 @@ RUN sed -i \
     's|param set-default IMU_INTEG_RATE 250|param set-default IMU_INTEG_RATE ${PX4_IMU_INTEG_RATE:-250}|' \
     /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.simulator
 
-# install px4 dependencies and build
-RUN cd PX4-Autopilot && \
-    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
+# Install PX4 SITL build dependencies directly
+RUN apt-get update -q && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ccache libssl-dev libxml2-utils rsync xxd && \
+    rm -rf /var/lib/apt/lists/*
+RUN pip3 install --break-system-packages -r PX4-Autopilot/Tools/setup/requirements.txt
+
 # build px4
 RUN cd PX4-Autopilot && \
     make px4_sitl
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
+
+# OptiTrack NatNet emulator extension (in-repo; compose mount overrides at runtime)
+COPY extensions/optitrack.natnet.emulator /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
