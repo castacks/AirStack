@@ -25,6 +25,24 @@ from raven_nav.ray_groups import RayGroup
 from raven_nav.ray_targets import is_same_target
 
 
+# Heading bias for picking which won target to pursue: prefer ones whose ray
+# ORIGIN lies ahead of the drone, so it doesn't backtrack to rays behind it.
+# Same cosine form as frontier_behavior (momentum + rear-hemisphere reverse).
+RAY_MOMENTUM_WEIGHT = 20.0
+RAY_REVERSE_SURCHARGE = 40.0
+
+
+def _heading_penalty(entry, robot_xy, heading_xy) -> float:
+    if robot_xy is None or heading_xy is None:
+        return 0.0
+    v = np.asarray(entry.avg_origin, dtype=float)[:2] - np.asarray(robot_xy, float)[:2]
+    n = float(np.linalg.norm(v))
+    if n < 1e-6:
+        return 0.0
+    cs = float(np.dot(v / n, heading_xy))
+    return RAY_MOMENTUM_WEIGHT * (1.0 - cs) + RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
+
+
 @dataclass
 class BidEntry:
     """One bid row = one ray group + its bid value.
@@ -67,6 +85,8 @@ def assign(
     peer_bids: Dict[str, List[BidEntry]],
     peer_ids: Dict[str, int],
     polygon_xy: Optional[np.ndarray] = None,
+    robot_xy: Optional[np.ndarray] = None,
+    heading_xy: Optional[np.ndarray] = None,
 ) -> Optional[Tuple[str, BidEntry]]:
     """Return (label, winning_entry) this robot won, or None.
 
@@ -74,8 +94,9 @@ def assign(
     two ray groups point at the same physical target. Different-target peer
     bids are ignored for that pair.
 
-    Among my un-contested winners across all targets, the highest bid wins
-    (closest physical target).
+    Among my un-contested winners, the best wins: closest physical target minus
+    a heading penalty (prefer targets whose origin is ahead). The contest above
+    stays pure distance so a far peer can't steal a target I'm next to.
     """
     if not my_bids:
         return None
@@ -105,7 +126,7 @@ def assign(
             won.append(mine)
     if not won:
         return None
-    best = max(won, key=lambda e: e.value)
+    best = max(won, key=lambda e: e.value - _heading_penalty(e, robot_xy, heading_xy))
     return best.label, best
 
 

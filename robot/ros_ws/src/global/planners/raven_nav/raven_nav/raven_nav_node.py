@@ -1635,12 +1635,15 @@ class RavenNavNode(Node):
 
         # Triangulation-aware auction over claim_bids (already excludes peer-
         # locked instances). Returned BidEntry is the local group we won.
+        heading_xy = np.array([np.cos(self._cur_yaw), np.sin(self._cur_yaw)])
         won = bid_manager.assign(
             my_id=self._my_id,
             my_bids=claim_bids,
             peer_bids=peer_bid_entries,
             peer_ids=self._peer_state.peer_ids,
             polygon_xy=polygon_xy,
+            robot_xy=self._cur_pose[:2],
+            heading_xy=heading_xy,
         )
 
         # Ray-group bids I lost to a peer's same-target bid this tick — surfaced

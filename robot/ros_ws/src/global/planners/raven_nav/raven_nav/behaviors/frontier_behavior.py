@@ -172,6 +172,9 @@ class FrontierBehavior:
         self._prev_pose_xy = None
         self._prev_pose_time_s = None
         self._vel_xy = np.zeros(2, dtype=np.float64)
+        # Last good heading; reused when stopped so the reverse/momentum
+        # penalty keeps applying and the drone doesn't dart back over seen ground.
+        self._last_heading_xy = None
 
         self._lock_time_s = None
 
@@ -240,14 +243,19 @@ class FrontierBehavior:
     def _heading_xy(self, cur_pose_np, target_waypoint):
         speed = float(np.linalg.norm(self._vel_xy))
         if speed >= self.MIN_HEADING_SPEED_M:
-            return self._vel_xy / speed
+            self._last_heading_xy = self._vel_xy / speed
+            return self._last_heading_xy
         if target_waypoint is not None:
             v = np.asarray(target_waypoint[:2], dtype=np.float64) - np.asarray(
                 cur_pose_np[:2], dtype=np.float64)
             n = float(np.linalg.norm(v))
             if n > 1e-6:
-                return v / n
-        return None
+                self._last_heading_xy = v / n
+                return self._last_heading_xy
+        # Stopped at the waypoint: keep the last heading so anti-backtracking
+        # still applies, instead of dropping it (which lets distance bias pick
+        # a nearby frontier behind us → re-covering seen ground).
+        return self._last_heading_xy
 
     def _blacklist_array(self) -> np.ndarray:
         if not self._blacklist_xy:
@@ -553,8 +561,17 @@ class FrontierBehavior:
         best_score = float(scores[top_indices[0]])
         gap = self.TIE_BREAK_FRAC * (abs(best_score) + 1e-6)
         tied = [i for i in top_indices if abs(scores[i] - best_score) <= gap]
-        best_idx = (tied[np.random.randint(0, len(tied))]
-                    if len(tied) > 1 else int(top_indices[0]))
+        # Deterministic tie-break: among near-tied candidates prefer the one most
+        # aligned with current heading (continuity), not a random pick — random
+        # ties made the drone redirect / wander each time it re-picked.
+        if len(tied) > 1 and heading_xy is not None:
+            def _align(i):
+                v = viewpoints[i][:2] - robot_pos[:2]
+                n = float(np.linalg.norm(v))
+                return float(v @ heading_xy) / n if n > 1e-6 else -1.0
+            best_idx = max(tied, key=_align)
+        else:
+            best_idx = int(top_indices[0])
         best_cent = viewpoints[best_idx]
 
         # Compact summary: own frontier count, peer counts, zones, dropped.

@@ -35,7 +35,10 @@ from raven_nav.ray_groups import RayGroup
 # Thresholds — tune in sim. Documented in the design doc.
 EPS_MAX_M = 5.0
 T_MIN_M = 5.0
-ANGLE_MIN_DEG = 15.0
+# Min ray-angle to trust a triangulation. Lowered 15→10 so two drones
+# approaching one target from similar directions are flagged same-instance
+# earlier (the tight EPS_MAX gate still rejects genuinely different targets).
+ANGLE_MIN_DEG = 10.0
 ANGLE_PARALLEL_DEG = 8.0
 NOMINAL_RANGE_M = 25.0
 MIN_SCORE = 0.6
