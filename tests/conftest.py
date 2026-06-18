@@ -139,8 +139,12 @@ def colcon_test_robot_command(workspace="robot"):
     """Shell command for colcon test over unit-test packages (robot workspace)."""
     packages, pytest_args = load_colcon_unit_test_config(workspace)
     pkg_list = " ".join(packages)
+    ros_plugin_disable = (
+        "PYTEST_ADDOPTS='-p no:launch_testing -p no:launch_testing_ros' "
+    )
     cmd = (
-        f"colcon test --packages-select {pkg_list} "
+        ros_plugin_disable
+        + f"colcon test --packages-select {pkg_list} "
         "--event-handlers console_direct+ --return-code-on-test-failure"
     )
     if pytest_args:

@@ -9,5 +9,4 @@ robot:
   packages:
     - natnet_ros2
     - lidar_point_cloud_filter
-  # Skips ament_copyright / flake8 / pep257 on Python packages; run linters separately.
   pytest_args: "-m not linter"
