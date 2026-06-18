@@ -33,8 +33,6 @@ SENTINEL_NODE_TEMPLATES = [
     "/robot_{N}/trajectory_controller/trajectory_control_node",
 ]
 
-# NatNet pose sentinel — only when LAUNCH_NATNET=true (robot natnet_ros2 + sim emulator).
-_NATNET_ENABLED = os.environ.get("LAUNCH_NATNET", "").strip().lower() in ("1", "true", "yes", "on")
 # Relative pose topic from the robot's natnet_config.yaml profile (drone body), namespaced
 # per robot below. Each profile's drone uses this same leaf, so it holds for multi-robot too.
 _NATNET_POSE_TOPIC = os.environ.get("NATNET_POSE_TOPIC", "perception/optitrack/drone")
@@ -262,18 +260,20 @@ class TestLiveliness:
             fail_msg=lambda: f"sentinel nodes not ready after 300s: {last_msg[0]}",
         )
 
-    @pytest.mark.skipif(
-        not _NATNET_ENABLED,
-        reason="LAUNCH_NATNET not enabled — OptiTrack/NatNet pose sentinel skipped",
-    )
     @pytest.mark.dependency(depends=["sim_ready", "nodes"])
     def test_natnet_pose_alive(self, airstack_env):
         """With LAUNCH_NATNET=true, /{robot}/{natnet_pose_topic}/pose_cov >= 5 Hz.
 
         In-sim counterpart to the host-side integration tests. Checks the pose_cov
         variant of the drone body's configured topic (natnet_config.yaml profile).
+        Skips when the stack was brought up without LAUNCH_NATNET=true (e.g. msairsim).
         """
         cfg = airstack_env["cfg"]
+        natnet_enabled = cfg.get("extra_env", {}).get("LAUNCH_NATNET", "").lower() in (
+            "1", "true", "yes", "on"
+        )
+        if not natnet_enabled:
+            pytest.skip("LAUNCH_NATNET not set for this sim config — NatNet sentinel skipped")
         robot_containers = get_robot_containers(airstack_env["robot_pattern"])
         m = get_metrics()
         tid = current_test_id()

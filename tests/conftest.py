@@ -37,11 +37,17 @@ SIM_CONFIG = {
         "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
         "extra_env": {
             "ISAAC_SIM_USE_STANDALONE": "true",
-            "ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_launch_script.py",
+            # Use the NatNet launch script so test_natnet_pose_alive always runs.
+            # It is a superset of the plain script: same drones + NatNet emulator.
+            "ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_natnet_launch_script.py",
             "PLAY_SIM_ON_START": "true",
             # Multi script gates RTX LiDAR on this flag; example_one always spawns it.
             # `sensors` tests expect ouster topics + lidar_point_cloud_filter path.
             "ENABLE_LIDAR": "true",
+            # Always enable the robot-side NatNet stack for Isaac Sim tests so that
+            # test_natnet_pose_alive runs regardless of the user's local .env setting.
+            "LAUNCH_NATNET": "true",
+            "SITL_PARAM_PROFILE": "px4-vision",
         },
     },
 }
@@ -386,13 +392,26 @@ def current_log():
     return _nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)
 
 
+# Matches any ANSI escape sequence (color codes, cursor moves, etc.)
+_ANSI_RE = re.compile(r'\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
+
 def read_log_tail(log_name=None, lines=50):
+    """Return the last *lines* lines of a test log file, cleaned up for display.
+
+    Strips ANSI escape codes and normalises carriage-return progress lines
+    (e.g. Docker build context updates) so the result renders as plain text
+    with real newline characters.
+    """
     log_name = log_name or current_log()
     if not log_name:
         return ""
     log_path = LOGS_DIR / f"{log_name}.log"
     if log_path.exists():
-        all_lines = log_path.read_text().splitlines()
+        text = log_path.read_text()
+        text = _ANSI_RE.sub('', text)               # remove colour codes
+        text = text.replace('\r\n', '\n').replace('\r', '\n')  # normalise CR
+        all_lines = text.splitlines()
         return "\n".join(all_lines[-lines:])
     return ""
 
@@ -853,8 +872,8 @@ def airstack_env(request):
         up_cmd_duration_s = round(time.time() - t0, 2)
         logger.info("airstack up returned %d in %.2fs",
                     up_result.returncode, up_cmd_duration_s)
-        assert up_result.returncode == 0, \
-            f"airstack up failed:\n{read_log_tail(log)}"
+        if up_result.returncode != 0:
+            pytest.fail(f"airstack up failed:\n{read_log_tail(log)}")
 
     env = {
         "sim": sim,
@@ -923,8 +942,8 @@ def robot_autonomy_stack(request):
         airstack_cmd("down", timeout=120, log_name=log)
         result = airstack_cmd("up", "robot-desktop",
                               env_overrides=_INTEGRATION_ENV, timeout=180, log_name=log)
-        assert result.returncode == 0, \
-            f"`airstack up robot-desktop` failed:\n{read_log_tail(log)}"
+        if result.returncode != 0:
+            pytest.fail(f"`airstack up robot-desktop` failed:\n{read_log_tail(log)}")
 
     container = wait_for_container(_INTEGRATION_ROBOT_PATTERN, timeout=120)
     assert container, "robot-desktop container not Running after 120s"

@@ -32,13 +32,15 @@ class TestColconBuilds:
             result = airstack_cmd("up", "robot-desktop",
                                   env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
                                   timeout=120)
-            assert result.returncode == 0, f"airstack up failed:\n{read_log_tail()}"
+            if result.returncode != 0:
+                pytest.fail(f"airstack up failed:\n{read_log_tail()}")
 
             container = wait_for_container("robot.*desktop", timeout=60)
             assert container, "Robot container not found"
 
             build = docker_exec(container, "bash -ic bws", timeout=600)
-            assert build.returncode == 0, f"colcon build failed:\n{read_log_tail()}"
+            if build.returncode != 0:
+                pytest.fail(f"colcon build failed:\n{read_log_tail()}")
         finally:
             airstack_cmd("down")
 
@@ -57,7 +59,8 @@ class TestColconBuilds:
             result = airstack_cmd("up", "robot-desktop",
                                   env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
                                   timeout=120)
-            assert result.returncode == 0, f"airstack up failed:\n{read_log_tail()}"
+            if result.returncode != 0:
+                pytest.fail(f"airstack up failed:\n{read_log_tail()}")
 
             container = wait_for_container("robot.*desktop", timeout=60)
             assert container, "Robot container not found"
@@ -67,16 +70,18 @@ class TestColconBuilds:
                 "bash -ic \"bws --cmake-args '-DBUILD_TESTING=ON'\"",
                 timeout=600,
             )
-            assert build.returncode == 0, f"colcon build (with testing) failed:\n{read_log_tail()}"
+            if build.returncode != 0:
+                pytest.fail(f"colcon build (with testing) failed:\n{read_log_tail()}")
 
             test = docker_exec(
                 container,
                 f"bash -ic '{colcon_test_robot_command('robot')}'",
                 timeout=300,
             )
-            assert test.returncode == 0, (
-                f"colcon test failed (packages: {', '.join(packages)}):\n{read_log_tail()}"
-            )
+            if test.returncode != 0:
+                pytest.fail(
+                    f"colcon test failed (packages: {', '.join(packages)}):\n{read_log_tail()}"
+                )
         finally:
             airstack_cmd("down")
 
@@ -86,13 +91,15 @@ class TestColconBuilds:
             result = airstack_cmd("up", "gcs",
                                   env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
                                   timeout=120)
-            assert result.returncode == 0, f"airstack up failed:\n{read_log_tail()}"
+            if result.returncode != 0:
+                pytest.fail(f"airstack up failed:\n{read_log_tail()}")
 
             container = wait_for_container("gcs", timeout=60)
             assert container, "GCS container not found"
 
             build = docker_exec(container, "bash -ic bws", timeout=600)
-            assert build.returncode == 0, f"colcon build failed:\n{read_log_tail()}"
+            if build.returncode != 0:
+                pytest.fail(f"colcon build failed:\n{read_log_tail()}")
         finally:
             airstack_cmd("down")
 
@@ -106,7 +113,8 @@ class TestColconBuilds:
                                "URDF_FILE": "robot_descriptions/iris/urdf/iris_stereo.ms-airsim.urdf"},
                 timeout=120,
             )
-            assert result.returncode == 0, f"airstack up failed:\n{read_log_tail()}"
+            if result.returncode != 0:
+                pytest.fail(f"airstack up failed:\n{read_log_tail()}")
 
             container = wait_for_container("ms-airsim", timeout=60)
             assert container, "ms-airsim container not found"
@@ -116,6 +124,7 @@ class TestColconBuilds:
                 "cd /root/ros_ws && colcon build --symlink-install",
                 timeout=600,
             )
-            assert build.returncode == 0, f"colcon build failed:\n{read_log_tail()}"
+            if build.returncode != 0:
+                pytest.fail(f"colcon build failed:\n{read_log_tail()}")
         finally:
             airstack_cmd("down")

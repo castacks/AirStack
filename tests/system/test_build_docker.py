@@ -8,7 +8,10 @@ class TestDockerBuilds:
 
     def _build_and_record(self, service, env=None):
         result = airstack_cmd("image-build", service, timeout=3600)
-        assert result.returncode == 0, f"{service} build failed (exit {result.returncode}):\n{read_log_tail()}"
+        if result.returncode != 0:
+            pytest.fail(
+                f"{service} build failed (exit {result.returncode}):\n{read_log_tail()}"
+            )
 
         size = docker_image_size_mb(service, env=env)
         if size is not None:
