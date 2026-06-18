@@ -87,6 +87,7 @@ nav:
           - Docker: docs/simulation/isaac_sim/docker.md
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
+          - NatNet Emulator (OptiTrack): docs/simulation/isaac_sim/natnet_emulator.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md

@@ -3,7 +3,7 @@
     """
     NatNet emulator applied API schemas (CODELESS).
 
-    Risk #1 spike (see docs/natnet_interface_prim_design.md): these schemas give the
+    These schemas give the
     interface prim typed, Property-panel-friendly attributes WITHOUT compiled
     classes. They are codeless — `skipCodeGeneration = true` below — but still need
     USD's plugin system to discover the generated registry.

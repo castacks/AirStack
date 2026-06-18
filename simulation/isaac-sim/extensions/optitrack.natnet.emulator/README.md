@@ -14,8 +14,7 @@ optitrack.natnet.emulator/
 ├── config/extension.toml          # Kit manifest (server module + UI entry point)
 ├── schema/schema.usda             # Typed NatNet interface attribute definitions
 ├── setup.py
-├── docs/
-│   └── natnet_interface_prim_design.md   # Design notes + implementation history
+├── docs/                          # (legacy design notes — see docs/simulation/isaac_sim/natnet_emulator.md)
 ├── test/                          # Co-located unit tests (proxied by tests/sim/)
 └── optitrack/natnet/emulator/
     ├── defaults.py                # Reference Drone → prim bindings for tests
@@ -154,7 +153,7 @@ Representative unit modules: `test_unicast_protocol.py`, `test_pose_streaming.py
 
 ## Reference material
 
-- Design doc: [`docs/natnet_interface_prim_design.md`](docs/natnet_interface_prim_design.md)
+- User guide: [`docs/simulation/isaac_sim/natnet_emulator.md`](../../../../docs/simulation/isaac_sim/natnet_emulator.md)
 - Robot client: [`natnet_ros2/README.md`](../../../../robot/ros_ws/src/perception/natnet_ros2/README.md)
 - Integration tier: [`tests/integration/natnet/README.md`](../../../../tests/integration/natnet/README.md)
 
