@@ -58,9 +58,9 @@ AUTOLAUNCH=false airstack up robot-desktop
 pytest tests/integration/natnet/ -m integration -v
 
 # 2b. Let the harness bring the container up/down:
-pytest tests/integration/natnet/ -m integration --run-integration -v
+pytest tests/integration/natnet/ -m integration -v
 ```
-On CI / PR (write access): `/pytest -m integration --run-integration`
+On CI / PR (write access): `/pytest -m integration`
 
 ## Architecture
 

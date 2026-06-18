@@ -189,11 +189,6 @@ def pytest_addoption(parser):
     parser.addoption("--takeoff-velocities", default="0.5",
                      help="Comma-separated takeoff/land velocities (m/s) to "
                           "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
-    parser.addoption("--run-integration", action="store_true", default=False,
-                     help="Let integration tests (tests/integration/) bring up "
-                          "the robot container themselves. Without it they reuse "
-                          "an already-running container or skip. Keeps a plain "
-                          "`pytest tests/` from spinning up Docker.")
 
 
 def _chmod_world_writable(path: Path) -> None:
@@ -922,21 +917,14 @@ def robot_autonomy_stack(request):
 
     Yields ``{"container": <name>, "brought_up": bool}``. Reuses an already
     running container (fast local iteration, left running afterward); otherwise
-    runs ``airstack up robot-desktop`` only when ``--run-integration`` is passed
-    (and tears it down). Without the flag and with nothing running, the test is
-    skipped, so a plain ``pytest tests/`` never spins up Docker for this tier.
+    runs ``airstack up robot-desktop`` and tears it down after the module.
+    Behaves like the ``build_packages`` fixture — always brings up Docker when
+    no container is found.
     """
     existing = find_container(_INTEGRATION_ROBOT_PATTERN)
     if existing and container_running(existing):
         yield {"container": existing, "brought_up": False}
         return
-
-    if not request.config.getoption("--run-integration"):
-        pytest.skip(
-            "No running robot-desktop container. Start one "
-            "(`AUTOLAUNCH=false airstack up robot-desktop`) or pass "
-            "`--run-integration` to let the harness bring it up."
-        )
 
     log = "robot_autonomy_stack"
     with logger_to(log):

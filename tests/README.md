@@ -36,14 +36,11 @@ See [`integration/README.md`](integration/README.md).
 | [`integration/natnet/`](integration/natnet/) | `integration` | Host NatNet emulator → `natnet_ros2` → `/{ROBOT_NAME}/perception/optitrack/Drone` Hz | Docker daemon (no GPU/sim); runs after `build_docker` / `build_packages` in collection order |
 
 The shared `robot_autonomy_stack` fixture (in [`conftest.py`](conftest.py))
-reuses a running `robot-desktop` container, or brings one up only when
-`--run-integration` is passed (otherwise the test skips). So a plain
-`pytest tests/` never spins up Docker for this tier.
+reuses a running `robot-desktop` container, or brings one up automatically and tears it down after the module.
 
 ```bash
-# Reuse a running container, or bring one up on demand:
-pytest tests/integration/ -m integration -v                    # reuse-or-skip
-pytest tests/integration/ -m integration --run-integration -v  # bring up / tear down
+# Reuse a running container, or let the harness bring one up:
+pytest tests/integration/ -m integration -v
 ```
 
 ### Unit tests (`tests/robot/`, `tests/sim/`)
@@ -240,7 +237,6 @@ pytest tests/ -m sensors \
 | `--stable-interval` | `10` | Seconds between polls in those stability tests |
 | `--gui` | off | Show simulator GUI (disables headless mode) |
 | `--takeoff-velocities` | `0.5,1,2` | Takeoff/land speeds in m/s |
-| `--run-integration` | off | Let `tests/integration/` tests bring up the robot container themselves (else reuse-or-skip) |
 
 ---
 

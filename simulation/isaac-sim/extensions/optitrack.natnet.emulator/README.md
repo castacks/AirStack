@@ -146,7 +146,7 @@ Co-located tests live in `test/`. Pytest discovers them via thin proxies in [`te
 pytest tests/sim/optitrack_natnet_emulator/ -m unit -v
 
 # Integration (robot container + NatNet SDK)
-pytest tests/integration/natnet/ -m integration --run-integration -v
+pytest tests/integration/natnet/ -m integration -v
 ```
 
 Representative unit modules: `test_unicast_protocol.py`, `test_pose_streaming.py`, `test_interface_authoring.py`, `test_server_lifecycle.py`, `test_scene_setup.py`.

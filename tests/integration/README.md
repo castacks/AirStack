@@ -22,8 +22,7 @@ defined there). Request it instead of hand-rolling `airstack up`:
 - **Reuses** an already-running `robot-desktop` container (fast local iteration;
   left running afterward).
 - Otherwise brings one up (`airstack up robot-desktop`, autonomy on, no sim)
-  **only when `--run-integration` is passed**, and tears it down after.
-- Otherwise **skips** — so a plain `pytest tests/` never spins up Docker.
+  and tears it down after.
 
 ## Running
 
@@ -35,11 +34,11 @@ pytest tests/integration/ -m integration -v
 # One scenario by path:
 pytest tests/integration/natnet/ -m integration -v
 
-# Or let the harness bring the robot container up/down itself:
-pytest tests/integration/ -m integration --run-integration -v
+# Or let the harness bring the container up/down itself:
+pytest tests/integration/ -m integration -v
 
 # On CI / a PR, on-demand:
-#   /pytest -m integration --run-integration
+#   /pytest -m integration
 ```
 
 ## Adding a scenario
