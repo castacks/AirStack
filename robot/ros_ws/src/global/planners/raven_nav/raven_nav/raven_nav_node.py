@@ -669,24 +669,37 @@ class RavenNavNode(Node):
 
         self._publish_discoveries_table(discoveries)
 
-    def _bid_on_peer_target(self, bid) -> bool:
-        """True if this bid's ray passes through a peer-confirmed BB (3D ray-AABB,
-        label-compatible). Such targets are already found by another drone, so we
-        drop the bid instead of redundantly approaching."""
+    # Pad peer BBs for the bid test: the box extent and the *averaged* ray
+    # bearing are both estimates, so a forward ray aimed at a short ground
+    # target can graze just outside a tight box (esp. in z). A few metres keeps
+    # it a real 3D through-box test (a ray passing well overhead still misses)
+    # while tolerating that noise.
+    _PEER_BID_PAD_M = 3.0
+
+    def _ray_on_peer_target(self, origin, direction, label) -> bool:
+        """True if the ray (origin, direction) passes through a peer-confirmed
+        BB of a compatible label — i.e. another drone already found that target.
+        Used both to drop new bids and to release an in-flight commitment."""
         bbs = getattr(self, '_peer_known_bbs', None)
         if not bbs:
             return False
-        o = np.asarray(bid.avg_origin, dtype=float)
-        d = np.asarray(bid.avg_dir, dtype=float)
-        bl = bid.label.lower()
-        for label, bb in bbs:
-            ll = label.lower()
+        o = np.asarray(origin, dtype=float)
+        d = np.asarray(direction, dtype=float)
+        bl = (label or '').lower()
+        for lab, bb in bbs:
+            ll = lab.lower()
             if not (bl in ll or ll in bl):
                 continue
-            hit, _t = ray_aabb_hits(o, d, bb)
+            padded = np.asarray(bb, dtype=float).copy()
+            padded[3:6] = padded[3:6] + 2.0 * self._PEER_BID_PAD_M
+            # t_min_ahead=0: match at any range ahead, including close.
+            hit, _t = ray_aabb_hits(o, d, padded, t_min_ahead=0.0)
             if hit:
                 return True
         return False
+
+    def _bid_on_peer_target(self, bid) -> bool:
+        return self._ray_on_peer_target(bid.avg_origin, bid.avg_dir, bid.label)
 
     # Match radius for treating a discovery as an already-logged instance, so a
     # drifting centroid (which flips _stable_id) isn't logged twice.
@@ -1524,6 +1537,25 @@ class RavenNavNode(Node):
                 self.get_logger().info(
                     f'[coord] dropping {self._assigned_target}: '
                     f'completed by self or peer')
+            self._assigned_target = None
+            self._committed_to_assigned = False
+            self._committed_target_last_dir = None
+            self._committed_target_last_origin = None
+
+        # Release an in-flight commitment if the committed ray now points at a
+        # peer-confirmed BB (a peer found that target while we were en route),
+        # so we stop following it — symmetric with the bid filter above.
+        if (self._assigned_target is not None
+                and self._committed_target_last_origin is not None
+                and self._committed_target_last_dir is not None
+                and self._ray_on_peer_target(
+                    self._committed_target_last_origin,
+                    self._committed_target_last_dir,
+                    self._assigned_target)):
+            if self._debug_coord:
+                self.get_logger().info(
+                    f'[coord] dropping {self._assigned_target}: '
+                    f'peer already confirmed it')
             self._assigned_target = None
             self._committed_to_assigned = False
             self._committed_target_last_dir = None
