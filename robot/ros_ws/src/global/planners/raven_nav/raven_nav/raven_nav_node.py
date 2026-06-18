@@ -622,9 +622,13 @@ class RavenNavNode(Node):
         def _bb(ct):
             return np.concatenate([np.asarray(ct.center, dtype=float),
                                    np.asarray(ct.size, dtype=float)])
-        self._peer_known_bbs = [(ct.label, _bb(ct)) for ct in peer_cts]
+        own_visited = [(ct.label, _bb(ct)) for ct in own_cts
+                       if str(ct.status).lower() == 'visited']
+        # Gate new bids on peer-confirmed targets AND our own visited ones (don't
+        # re-lock a house we already visited; own observed-only stay claimable).
+        self._peer_known_bbs = [(ct.label, _bb(ct)) for ct in peer_cts] + own_visited
         self._peer_visited_bbs = [(ct.label, _bb(ct)) for ct in peer_cts
-                                  if str(ct.status).lower() == 'visited']
+                                  if str(ct.status).lower() == 'visited'] + own_visited
         # Fleet consensus (own+peer) — same-target key for the double-commit
         # tiebreak when two drones converge on one BB.
         self._consensus_bbs = [(ct.label, _bb(ct)) for ct in merged_cts]
