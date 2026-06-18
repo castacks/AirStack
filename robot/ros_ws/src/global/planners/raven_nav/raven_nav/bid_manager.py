@@ -25,11 +25,6 @@ from raven_nav.ray_groups import RayGroup
 from raven_nav.ray_targets import is_same_target
 
 
-# Sentinel bid for a target this robot has won and is committed to. Pegged
-# high enough that no realistic distance bid from a peer can outbid it.
-LOCKED_BID = 1e9
-
-
 @dataclass
 class BidEntry:
     """One bid row = one ray group + its bid value.
@@ -88,7 +83,6 @@ def assign(
     for mine in my_bids:
         winner_value = mine.value
         winner_id = my_id
-        contested = False
         for peer_name, p_entries in peer_bids.items():
             pid = peer_ids.get(peer_name)
             if pid is None:
@@ -107,11 +101,7 @@ def assign(
                         (p.value == winner_value and pid < winner_id):
                     winner_value = p.value
                     winner_id = pid
-                    contested = True
-        if winner_id == my_id and not contested:
-            won.append(mine)
-        elif winner_id == my_id and contested:
-            # Tied but with my id — still ours.
+        if winner_id == my_id:   # uncontested, or tied and kept by id
             won.append(mine)
     if not won:
         return None

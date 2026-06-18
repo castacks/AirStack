@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from types import SimpleNamespace
 import numpy as np
 
 import rclpy
@@ -26,7 +27,7 @@ from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import compute_ray_groups, same_ray_group
 from raven_nav.track_confirmation import TemporalConfirmer
-from raven_nav.ray_targets import build_targets, ray_aabb_hits
+from raven_nav.ray_targets import build_targets, ray_aabb_hits, is_same_target
 from raven_nav.discoveries import (
     ConfirmedTarget,
     build_discoveries,
@@ -576,10 +577,19 @@ class RavenNavNode(Node):
             ))
         return out
 
+    def _fresh_peers(self, now) -> set:
+        """Peers heard from within the TTL (stale peers' state is ignored)."""
+        return {n for n, t in self._peer_state.peer_last_seen.items()
+                if now - t <= self._PEER_TTL_S}
+
     def _peer_confirmed_targets_flat(self) -> list:
-        """Flatten peer_confirmed_targets into a ConfirmedTarget list."""
+        """Flatten fresh peers' peer_confirmed_targets into a ConfirmedTarget list."""
+        now = self.get_clock().now().nanoseconds * 1e-9
+        fresh = self._fresh_peers(now)
         out: list = []
-        for entries in self._peer_state.peer_confirmed_targets.values():
+        for name, entries in self._peer_state.peer_confirmed_targets.items():
+            if name not in fresh:
+                continue
             for pct in entries:
                 out.append(ConfirmedTarget(
                     label=pct.label,
@@ -674,6 +684,9 @@ class RavenNavNode(Node):
     # BB/ray bearing are both estimates; pad so a ray aimed at a short target
     # doesn't graze, while staying a real 3D test (overhead rays still miss).
     _PEER_BID_PAD_M = 3.0
+    # Drop a peer's commits/bids/BBs if not heard from within this long (sim s):
+    # a crashed/landed peer must not block targets forever.
+    _PEER_TTL_S = 8.0
 
     def _ray_on_peer_bbs(self, origin, direction, label, bbs) -> bool:
         """True if the ray passes through a label-compatible BB. Padded 3D
@@ -717,6 +730,31 @@ class RavenNavNode(Node):
                     and ray_aabb_hits(o2, d2, padded, t_min_ahead=0.0)[0]):
                 return True
         return False
+
+    def _same_instance(self, o1, d1, o2, d2, label, polygon_xy) -> bool:
+        """Two bearings point at the same physical target: triangulation OR a
+        shared consensus BB (the latter catches wide-baseline triangulation
+        misses once a BB exists)."""
+        a = SimpleNamespace(label=label, avg_origin=np.asarray(o1, float),
+                            avg_dir=np.asarray(d1, float))
+        b = SimpleNamespace(label=label, avg_origin=np.asarray(o2, float),
+                            avg_dir=np.asarray(d2, float))
+        same, _, _ = is_same_target(a, b, polygon_xy)
+        return bool(same) or self._rays_share_bb(o1, d1, o2, d2, label)
+
+    def _fresh_peer_committed_instances(self, now):
+        """[(name, label, origin, dir, pid)] of peers whose committed instance is
+        fresh (last seen within the TTL)."""
+        out = []
+        for name, inst in self._peer_state.peer_committed_instance.items():
+            if now - self._peer_state.peer_last_seen.get(name, 0.0) > self._PEER_TTL_S:
+                continue
+            pid = self._peer_state.peer_ids.get(name)
+            if pid is None:
+                continue
+            lbl, o, d = inst
+            out.append((name, lbl, o, d, pid))
+        return out
 
     # Match radius for treating a discovery as an already-logged instance, so a
     # drifting centroid (which flips _stable_id) isn't logged twice.
@@ -1538,6 +1576,13 @@ class RavenNavNode(Node):
         for peer_done in self._peer_state.peer_completed.values():
             all_completed |= peer_done
 
+        now = self.get_clock().now().nanoseconds * 1e-9
+        fresh_peers = self._fresh_peers(now)
+        polygon_xy = (self._search_area_xy
+                      if isinstance(self._search_area_xy, np.ndarray)
+                      and len(self._search_area_xy) >= 3 else None)
+        peer_committed_instances = self._fresh_peer_committed_instances(now)
+
         # Drop bids on labels already retired AND on targets a peer has already
         # confirmed (consensus) — don't approach what another drone found.
         my_bid_entries = [b for b in per_tick_bids
@@ -1546,7 +1591,17 @@ class RavenNavNode(Node):
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()
+            if name in fresh_peers
         }
+        # Bids eligible for a NEW claim: defer to any instance a peer has already
+        # locked (committed). my_bid_entries stays whole for broadcast so an
+        # existing commitment of mine isn't stripped.
+        claim_bids = [
+            b for b in my_bid_entries
+            if not any(pl == b.label and self._same_instance(
+                b.avg_origin, b.avg_dir, po, pd, b.label, polygon_xy)
+                for (_n, pl, po, pd, _pid) in peer_committed_instances)
+        ]
 
         if (self._assigned_target is not None
                 and self._assigned_target in all_completed):
@@ -1578,19 +1633,11 @@ class RavenNavNode(Node):
             self._committed_target_last_dir = None
             self._committed_target_last_origin = None
 
-        peer_commits = {
-            n: t for n, t in self._peer_state.peer_committed_target.items() if t
-        }
-        peer_committed_labels = set(peer_commits.values())
-
-        # Triangulation-aware auction; returned BidEntry is the local group
-        # we won, so its origin/direction can feed frontier fallback.
-        polygon_xy = (self._search_area_xy
-                      if isinstance(self._search_area_xy, np.ndarray)
-                      and len(self._search_area_xy) >= 3 else None)
+        # Triangulation-aware auction over claim_bids (already excludes peer-
+        # locked instances). Returned BidEntry is the local group we won.
         won = bid_manager.assign(
             my_id=self._my_id,
-            my_bids=my_bid_entries,
+            my_bids=claim_bids,
             peer_bids=peer_bid_entries,
             peer_ids=self._peer_state.peer_ids,
             polygon_xy=polygon_xy,
@@ -1657,66 +1704,56 @@ class RavenNavNode(Node):
                         f'[coord] LOCKED {self._assigned_target} '
                         f'(my_bid={entry.value:.2f}, rays={entry.num_rays})')
 
-        # Double-commit collision: if I'm committed AND a peer is also
-        # committed to the same target, the FARTHER (lower-value) one yields.
-        # With per-group bids the comparison restricts to peer entries with
-        # matching label that triangulate to the same target as my best group.
-        if self._assigned_target is not None and self._committed_to_assigned:
-            my_best = max(
-                (e for e in my_bid_entries if e.label == self._assigned_target),
-                key=lambda e: e.value, default=None,
-            )
-            if my_best is not None:
-                from raven_nav.ray_targets import is_same_target as _ist
-                yielded = False
-                for pname, plabel in peer_commits.items():
-                    if plabel != self._assigned_target:
-                        continue
-                    p_entries = peer_bid_entries.get(pname, [])
-                    pid = self._peer_state.peer_ids.get(pname)
-                    if pid is None:
-                        continue
-                    for pe in p_entries:
-                        if pe.label != self._assigned_target:
-                            continue
-                        same, _, _ = _ist(
-                            bid_manager._GroupView(my_best),
-                            bid_manager._GroupView(pe),
-                            polygon_xy,
-                        )
-                        # Same target if rays triangulate OR both pass through
-                        # one consensus BB (catches wide-baseline misses).
-                        if not same and not self._rays_share_bb(
-                                my_best.avg_origin, my_best.avg_dir,
-                                pe.avg_origin, pe.avg_dir, self._assigned_target):
-                            continue
-                        peer_wins = (pe.value > my_best.value
-                                     or (pe.value == my_best.value
-                                         and pid < self._my_id))
-                        if peer_wins:
-                            if self._debug_coord:
-                                self.get_logger().info(
-                                    f'[coord] double-commit on '
-                                    f'{self._assigned_target}: peer {pname} '
-                                    f'(id={pid}) bid {pe.value:.2f} >= mine '
-                                    f'{my_best.value:.2f} — yielding')
-                            self._assigned_target = None
-                            self._committed_to_assigned = False
-                            self._committed_target_last_dir = None
-                            self._committed_target_last_origin = None
-                            yielded = True
-                            break
-                    if yielded:
-                        break
-
-        if self._assigned_target is not None and ray_groups:
-            for g in ray_groups:
-                if g.label == self._assigned_target and g.num_rays > 0:
-                    self._committed_target_last_dir = np.asarray(
-                        g.avg_dir, dtype=np.float64).copy()
-                    self._committed_target_last_origin = np.asarray(
-                        g.avg_origin, dtype=np.float64).copy()
+        # Double-commit collision: if a peer is committed to the SAME instance
+        # (my committed bearing vs its committed bearing), the LOWER-id one keeps
+        # it — sticky, so a peer that merely passes closer can't steal it; the id
+        # rule only breaks the rare simultaneous double-lock.
+        if (self._assigned_target is not None and self._committed_to_assigned
+                and self._committed_target_last_origin is not None):
+            for (pname, plabel, po, pd, pid) in peer_committed_instances:
+                if plabel != self._assigned_target or pid >= self._my_id:
+                    continue
+                if self._same_instance(
+                        self._committed_target_last_origin,
+                        self._committed_target_last_dir,
+                        po, pd, self._assigned_target, polygon_xy):
+                    if self._debug_coord:
+                        self.get_logger().info(
+                            f'[coord] double-commit on {self._assigned_target}: '
+                            f'peer {pname} (id={pid}) holds same instance — '
+                            f'yielding')
+                    self._assigned_target = None
+                    self._committed_to_assigned = False
+                    self._committed_target_last_dir = None
+                    self._committed_target_last_origin = None
                     break
+
+        # Track the committed instance by picking the matching ray group with
+        # best affinity to the PREVIOUS committed ray (not the first match), so
+        # the bearing stays on one instance instead of hopping between houses.
+        if self._assigned_target is not None and ray_groups:
+            cands = [g for g in ray_groups
+                     if g.label == self._assigned_target and g.num_rays > 0]
+            if cands:
+                prev_o = self._committed_target_last_origin
+                prev_d = self._committed_target_last_dir
+                if prev_o is not None and prev_d is not None:
+                    pd = np.asarray(prev_d, float)
+                    pd = pd / (np.linalg.norm(pd) + 1e-6)
+
+                    def _aff(g):
+                        gd = np.asarray(g.avg_dir, float)
+                        gd = gd / (np.linalg.norm(gd) + 1e-6)
+                        return (float(np.linalg.norm(
+                            np.asarray(g.avg_origin, float) - prev_o))
+                            + 20.0 * (1.0 - float(np.dot(gd, pd))))
+                    best = min(cands, key=_aff)
+                else:
+                    best = cands[0]
+                self._committed_target_last_dir = np.asarray(
+                    best.avg_dir, dtype=np.float64).copy()
+                self._committed_target_last_origin = np.asarray(
+                    best.avg_origin, dtype=np.float64).copy()
 
         self._behavior_manager.ray_behavior.assigned_target = self._assigned_target
 
@@ -1733,12 +1770,18 @@ class RavenNavNode(Node):
         bv.num_rays = [int(e.num_rays) for e in my_bid_entries]
         bv.avg_score = [float(e.avg_score) for e in my_bid_entries]
         self._my_bids_pub.publish(bv)
-        # Broadcast our currently committed target so peers can resolve
-        # double-commit collisions by distance comparison.
-        committed_str = (self._assigned_target
-                         if (self._assigned_target is not None
-                             and self._committed_to_assigned)
-                         else '')
+        # Broadcast our committed instance (label + bearing in global ENU) so
+        # peers can dedup per-instance, not just by label. '' = uncommitted.
+        committed_str = ''
+        if (self._assigned_target is not None and self._committed_to_assigned
+                and self._committed_target_last_origin is not None
+                and self._boot_enu is not None):
+            o = np.asarray(self._committed_target_last_origin, float) + self._boot_enu
+            d = np.asarray(self._committed_target_last_dir, float)
+            committed_str = json.dumps({
+                'label': self._assigned_target,
+                'ox': float(o[0]), 'oy': float(o[1]), 'oz': float(o[2]),
+                'dx': float(d[0]), 'dy': float(d[1]), 'dz': float(d[2])})
         self._committed_target_pub.publish(String(data=committed_str))
 
         own_done = sorted(self._behavior_manager.completed_queries)
@@ -1806,9 +1849,10 @@ class RavenNavNode(Node):
                 return '[' + ', '.join(f'{e.label}:{e.value:.1f}'
                                        for e in entries) + ']'
 
+            _pcommit = self._peer_state.peer_committed_target
             peer_str = ', '.join(
                 f'{n}={_fmt_bid_list(b)}'
-                + (f' commit={peer_commits[n]}' if n in peer_commits else '')
+                + (f' commit={_pcommit[n]}' if _pcommit.get(n) else '')
                 for n, b in self._peer_state.peer_bids.items()
             ) or '(none)'
 

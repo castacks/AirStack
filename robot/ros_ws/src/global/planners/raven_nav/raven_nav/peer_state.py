@@ -69,6 +69,9 @@ class PeerState:
     peer_bids:       Dict[str, list] = field(default_factory=dict)
     peer_completed:  Dict[str, Set[str]]   = field(default_factory=dict)
     peer_committed_target: Dict[str, str]  = field(default_factory=dict)  # "" if uncommitted
+    # name -> (label, origin_local(3), dir(3)): the specific instance bearing a
+    # peer is committed to (for per-instance dedup, not just label).
+    peer_committed_instance: Dict[str, tuple] = field(default_factory=dict)
     # XY centers (N,2) of frontier zones this peer has cleared (in our local frame).
     peer_completed_zones: Dict[str, np.ndarray] = field(default_factory=dict)
     peer_confirmed_targets: Dict[str, list]  = field(default_factory=dict)  # list[PeerConfirmedTarget]
@@ -125,7 +128,23 @@ class PeerState:
 
         ct_msg, _ = profile.get_payload_by_name_with_stamp("committed_target")
         if ct_msg is not None:
-            self.peer_committed_target[name] = str(ct_msg.data)
+            # JSON {label, ox,oy,oz (global ENU), dx,dy,dz}; '' = uncommitted.
+            # Falls back to a plain label string for back-compat.
+            self.peer_committed_target[name] = ''
+            self.peer_committed_instance.pop(name, None)
+            data = str(ct_msg.data)
+            if data:
+                try:
+                    obj = json.loads(data)
+                    lbl = str(obj['label'])
+                    o_local = global_enu_to_local(
+                        np.array([obj['ox'], obj['oy'], obj['oz']], float),
+                        my_boot_enu, local_alt_ground=my_alt_ground)
+                    d = np.array([obj['dx'], obj['dy'], obj['dz']], float)
+                    self.peer_committed_target[name] = lbl
+                    self.peer_committed_instance[name] = (lbl, o_local, d)
+                except (ValueError, TypeError, KeyError):
+                    self.peer_committed_target[name] = data
 
         front_msg, _ = profile.get_payload_by_name_with_stamp("shared_frontiers")
         if front_msg is not None:
