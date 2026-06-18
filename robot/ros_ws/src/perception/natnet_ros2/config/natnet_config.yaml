@@ -92,6 +92,14 @@ natnet:
     #       topic: "perception/optitrack/target"
     #       pose: true
     #       pose_cov: false
+    #       position_covariance:
+    #         [1.0e-6, 0.0,    0.0,
+    #           0.0,    1.0e-6, 0.0,
+    #           0.0,    0.0,    1.0e-6]
+    #       orientation_covariance:
+    #         [3.0e-6, 0.0,    0.0,
+    #           0.0,    3.0e-6, 0.0,
+    #           0.0,    0.0,    3.0e-6]
     #
     # robot_3:
     #   vision_pose:
@@ -105,3 +113,11 @@ natnet:
     #       topic: "perception/optitrack/drone"
     #       pose: true
     #       pose_cov: true
+    #       position_covariance:
+    #         [1.0e-6, 0.0,    0.0,
+    #           0.0,    1.0e-6, 0.0,
+    #           0.0,    0.0,    1.0e-6]
+    #       orientation_covariance:
+    #         [3.0e-6, 0.0,    0.0,
+    #           0.0,    3.0e-6, 0.0,
+    #           0.0,    0.0,    3.0e-6]
