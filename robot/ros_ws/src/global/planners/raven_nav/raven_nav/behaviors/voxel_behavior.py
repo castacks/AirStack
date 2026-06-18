@@ -43,8 +43,7 @@ class VoxelBehavior:
         # Per-instance (label, center, size) visited record for STATUS only —
         # separate from visited_clusters (nav) so it never affects path choice.
         self.visited_instances = []
-        # Peer-VISITED BBs [cx,cy,cz,sx,sy,sz] (consensus from other drones);
-        # set each tick by the node so we don't approach what a peer closed out.
+        # Peer-VISITED BBs [cx,cy,cz,sx,sy,sz], set each tick by the node.
         self.peer_visited_bbs = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
@@ -320,8 +319,7 @@ class VoxelBehavior:
             for v in visited_clusters)
 
     def _is_near_peer_visited(self, center, size, threshold=10.0):
-        """True if a peer has already visited this physical target (cuboid
-        distance to any peer-visited BB below the same-instance radius)."""
+        """True if a peer already visited this target (within same-instance radius)."""
         return any(
             self._cuboid_distance(center, size,
                                   np.array(bb[:3]), np.array(bb[3:6])) < threshold

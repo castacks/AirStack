@@ -606,18 +606,20 @@ class RavenNavNode(Node):
         peer_cts = self._peer_confirmed_targets_flat()
         merged_cts = merge_confirmed_targets(own_cts + peer_cts)
 
-        # Peer-confirmed BBs (consensus from other drones) — used to suppress
-        # bids on targets another drone already found. [cx,cy,cz,sx,sy,sz].
-        self._peer_known_bbs = [
-            (ct.label, np.concatenate([np.asarray(ct.center, dtype=float),
-                                       np.asarray(ct.size, dtype=float)]))
-            for ct in peer_cts]
-        # Peer-VISITED subset feeds voxel-mode so an in-progress approach is
-        # dropped if a peer has already closed out that target.
+        # Peer consensus BBs [cx,cy,cz,sx,sy,sz]: known (all) gate new bids;
+        # visited gate commitment/voxel release (visited-only avoids flip-flop
+        # since commitments are label-scoped, not per-instance).
+        def _bb(ct):
+            return np.concatenate([np.asarray(ct.center, dtype=float),
+                                   np.asarray(ct.size, dtype=float)])
+        self._peer_known_bbs = [(ct.label, _bb(ct)) for ct in peer_cts]
+        self._peer_visited_bbs = [(ct.label, _bb(ct)) for ct in peer_cts
+                                  if str(ct.status).lower() == 'visited']
+        # Fleet consensus (own+peer) — same-target key for the double-commit
+        # tiebreak when two drones converge on one BB.
+        self._consensus_bbs = [(ct.label, _bb(ct)) for ct in merged_cts]
         self._behavior_manager.voxel_behavior.peer_visited_bbs = [
-            np.concatenate([np.asarray(ct.center, dtype=float),
-                            np.asarray(ct.size, dtype=float)])
-            for ct in peer_cts if str(ct.status).lower() == 'visited']
+            bb for _, bb in self._peer_visited_bbs]
 
         # Gossip OWN targets in global ENU (xy + boot via _local_to_world) so
         # peers and the GCS share one frame; own_cts stay local for the merge.
@@ -669,18 +671,13 @@ class RavenNavNode(Node):
 
         self._publish_discoveries_table(discoveries)
 
-    # Pad peer BBs for the bid test: the box extent and the *averaged* ray
-    # bearing are both estimates, so a forward ray aimed at a short ground
-    # target can graze just outside a tight box (esp. in z). A few metres keeps
-    # it a real 3D through-box test (a ray passing well overhead still misses)
-    # while tolerating that noise.
+    # BB/ray bearing are both estimates; pad so a ray aimed at a short target
+    # doesn't graze, while staying a real 3D test (overhead rays still miss).
     _PEER_BID_PAD_M = 3.0
 
-    def _ray_on_peer_target(self, origin, direction, label) -> bool:
-        """True if the ray (origin, direction) passes through a peer-confirmed
-        BB of a compatible label — i.e. another drone already found that target.
-        Used both to drop new bids and to release an in-flight commitment."""
-        bbs = getattr(self, '_peer_known_bbs', None)
+    def _ray_on_peer_bbs(self, origin, direction, label, bbs) -> bool:
+        """True if the ray passes through a label-compatible BB. Padded 3D
+        ray-AABB so a bearing aimed at a short ground target doesn't graze."""
         if not bbs:
             return False
         o = np.asarray(origin, dtype=float)
@@ -692,14 +689,34 @@ class RavenNavNode(Node):
                 continue
             padded = np.asarray(bb, dtype=float).copy()
             padded[3:6] = padded[3:6] + 2.0 * self._PEER_BID_PAD_M
-            # t_min_ahead=0: match at any range ahead, including close.
             hit, _t = ray_aabb_hits(o, d, padded, t_min_ahead=0.0)
             if hit:
                 return True
         return False
 
     def _bid_on_peer_target(self, bid) -> bool:
-        return self._ray_on_peer_target(bid.avg_origin, bid.avg_dir, bid.label)
+        return self._ray_on_peer_bbs(bid.avg_origin, bid.avg_dir, bid.label,
+                                     getattr(self, '_peer_known_bbs', None))
+
+    def _rays_share_bb(self, o1, d1, o2, d2, label) -> bool:
+        """True if a consensus BB (label-compatible) that BOTH rays pass through
+        exists — a same-target signal independent of triangulation."""
+        bbs = getattr(self, '_consensus_bbs', None)
+        if not bbs:
+            return False
+        o1 = np.asarray(o1, float); d1 = np.asarray(d1, float)
+        o2 = np.asarray(o2, float); d2 = np.asarray(d2, float)
+        bl = (label or '').lower()
+        for lab, bb in bbs:
+            ll = lab.lower()
+            if not (bl in ll or ll in bl):
+                continue
+            padded = np.asarray(bb, float).copy()
+            padded[3:6] = padded[3:6] + 2.0 * self._PEER_BID_PAD_M
+            if (ray_aabb_hits(o1, d1, padded, t_min_ahead=0.0)[0]
+                    and ray_aabb_hits(o2, d2, padded, t_min_ahead=0.0)[0]):
+                return True
+        return False
 
     # Match radius for treating a discovery as an already-logged instance, so a
     # drifting centroid (which flips _stable_id) isn't logged twice.
@@ -1542,20 +1559,20 @@ class RavenNavNode(Node):
             self._committed_target_last_dir = None
             self._committed_target_last_origin = None
 
-        # Release an in-flight commitment if the committed ray now points at a
-        # peer-confirmed BB (a peer found that target while we were en route),
-        # so we stop following it — symmetric with the bid filter above.
+        # Release a commitment only if the committed ray points at a peer-VISITED
+        # BB (visited-only avoids flip-flop on observed instances).
         if (self._assigned_target is not None
                 and self._committed_target_last_origin is not None
                 and self._committed_target_last_dir is not None
-                and self._ray_on_peer_target(
+                and self._ray_on_peer_bbs(
                     self._committed_target_last_origin,
                     self._committed_target_last_dir,
-                    self._assigned_target)):
+                    self._assigned_target,
+                    getattr(self, '_peer_visited_bbs', None))):
             if self._debug_coord:
                 self.get_logger().info(
                     f'[coord] dropping {self._assigned_target}: '
-                    f'peer already confirmed it')
+                    f'peer already visited it')
             self._assigned_target = None
             self._committed_to_assigned = False
             self._committed_target_last_dir = None
@@ -1667,7 +1684,11 @@ class RavenNavNode(Node):
                             bid_manager._GroupView(pe),
                             polygon_xy,
                         )
-                        if not same:
+                        # Same target if rays triangulate OR both pass through
+                        # one consensus BB (catches wide-baseline misses).
+                        if not same and not self._rays_share_bb(
+                                my_best.avg_origin, my_best.avg_dir,
+                                pe.avg_origin, pe.avg_dir, self._assigned_target):
                             continue
                         peer_wins = (pe.value > my_best.value
                                      or (pe.value == my_best.value

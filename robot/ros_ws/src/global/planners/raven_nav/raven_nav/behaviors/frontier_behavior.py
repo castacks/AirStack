@@ -32,12 +32,9 @@ def _peer_penalty(viewpoints, peer_state, my_id,
                   tie_surcharge_mul=2.0):
     """Returns (penalty(M,), breakdown). Lower penalty = better.
 
-    Soft 2D-xy repulsion = weight * exp(-d / scale) around where each peer IS
-    (peer_positions) AND is heading (peer_waypoints), so a robot avoids both
-    ground another drone is on and ground it is driving to. xy ground separation
-    is altitude-independent by design. Higher-id robot pays tie_surcharge near a
-    peer waypoint so two robots eyeing the same frontier can't both defer (lower
-    id wins).
+    Soft 2D-xy repulsion = weight * exp(-d / scale) around where each peer is
+    (peer_positions) and is heading (peer_waypoints). Higher-id robot pays
+    tie_surcharge near a peer waypoint so two robots can't both defer.
     """
     M = viewpoints.shape[0]
     pen = np.zeros(M, dtype=np.float64)
