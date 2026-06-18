@@ -10,9 +10,9 @@
 3. [Topic & service wiring](#3-topic--service-wiring)
 4. [Conventions (domain, tmux, rebuilds)](#4-conventions)
 5. [Part A — Simulation](#part-a--simulation)
-6. [Part B — Component tests](#part-b--component-tests-build-up-to-the-real-thing)
-7. [Part C — Hybrid real+sim](#part-c--hybrid-realsim)
-8. [Part D — Real Starlings + OptiTrack](#part-d--real-starlings--optitrack-mocap)
+6. [Part B — Bring in a real drone (connect + verify)](#part-b--bring-in-a-real-drone-connect--verify)
+7. [Part C — Tasks: any drone in any mode](#part-c--tasks-any-drone-in-any-mode)
+8. [Part D — Real hardware: first flight & reference](#part-d--real-hardware-first-flight--reference)
 9. [RViz visualization](#rviz-visualization)
 10. [Geofence](#geofence)
 11. [Recording rosbags / monitoring](#recording-rosbags)
@@ -83,7 +83,7 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
         │  (per-drone desired velocity, ENU)
         ▼
    cbf_filter.filter_velocities()   ◄── sees ALL drones' world positions
-        │  (collision-safe velocities; obstacle/teleop rows restored after)
+        │  (collision-safe velocities; cbf_exempt rows restored after)
         ▼
    geofence check (latch + freeze all if any drone outside the box)
         │
@@ -91,12 +91,23 @@ Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
    publish /{name}/<iface>/velocity_command   +   /svg/viz/markers (RViz)
 ```
 
-**Roles** (`teleop_drones`, `external_drones` params): `auto` (scenario-driven,
-CBF-filtered), `teleop` (operator-driven, **CBF-exempt** moving obstacle),
-`external` (tracked for the CBF, never commanded — e.g. RC-flown).
+**Three independent per-drone axes** — set any combination in *any* task
+config (see [Part C](#part-c--tasks-any-drone-in-any-mode)):
 
-**Modes** (`drone_modes` param): `sim` (commands via MAVROS `/interface/…`)
-or `real` (commands via px4_interface `/fmu/…`). Mixed per run → hybrid.
+- **Mode** (`drone_modes`): `sim` (commands via MAVROS `/interface/…`) or
+  `real` (commands via px4_interface `/fmu/…`). A `real` drone also shows up in
+  the Isaac viewport at its live pose via an avatar (Part A `DRONE_MODES`).
+  Mixed per run → hybrid.
+- **Role** (`teleop_drones`, `external_drones`): `auto` (scenario-driven),
+  `teleop` (operator-driven via a teleop topic), `external` (tracked for the
+  CBF but never commanded — e.g. RC-flown). Unlisted = `auto`.
+- **CBF-exempt** (`cbf_exempt_drones`): the filter still *sees* these drones
+  (so everyone else avoids them) but leaves their *own* command uncorrected —
+  they play the moving obstacle. Independent of role: a policy-driven (`auto`)
+  drone or a `teleop` drone can be exempt. Teleop is **not** auto-exempt; list
+  it here if you want its manual commands left unfiltered. (The `squeeze`
+  scenario additionally self-designates its intruder via
+  `squeeze_intruder_cbf_exempt`; the two union.)
 
 **Lifecycle services** (`std_srvs/Trigger`):
 `~/takeoff` (arm+offboard+ascend to the scenario's initial layout, then hold)
@@ -169,9 +180,10 @@ grep -E '^(COMPOSE_PROFILES|AUTOLAUNCH|NUM_ROBOTS)' .env
 cd ~/AirStack && ./airstack.sh connect isaac-sim --command=bash
 ```
 Inside (`PLAY_SIM_ON_START=true` is REQUIRED — PX4 SITL only launches when the
-timeline plays):
+timeline plays; `ISAAC_SIM_HEADLESS=true` is REQUIRED unless you specifically
+need the Isaac window — see note below):
 ```bash
-NUM_ROBOTS=3 SVG_DOMAIN_ID=1 PLAY_SIM_ON_START=true \
+NUM_ROBOTS=3 SVG_DOMAIN_ID=1 PLAY_SIM_ON_START=true ISAAC_SIM_HEADLESS=true \
 PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
 /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py \
   --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
@@ -179,6 +191,39 @@ PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
 Expect `Spawning 3 drone(s) on ROS domain 1` then `PX4 Autolaunch: True` per
 drone. Drones spawn at x = −2, 0, +2 (this is why the sim configs set
 `drone_position_offsets: [-2,0,0, 0,0,0, 2,0,0]`).
+
+> **Real-drone avatars (`DRONE_MODES`).** For a hybrid run, tell the sim which
+> drones are real so it spawns a SITL body only for the sim ones and a
+> visual-only **avatar** for each real one — the avatar is teleported every
+> step to that drone's `…/odometry_conversion/odometry`, so a real (mocap)
+> drone appears in the Isaac viewport at its live pose. Add
+> `DRONE_MODES="real,real,sim"` (length `NUM_ROBOTS`, matching the commander's
+> `drone_modes`) to the launch, and run with a **GUI** viewport
+> (`ISAAC_SIM_HEADLESS=false`) so you can see it. Used by the hybrid squeeze in
+> [Part C](#part-c--tasks-any-drone-in-any-mode). The avatar's rclpy node joins
+> the drones' domain automatically (it sets `ROS_DOMAIN_ID=SVG_DOMAIN_ID`); for
+> true hardware the Isaac container must also be able to reach the real drones'
+> DDS traffic (host networking / discovery server) — see Troubleshooting.
+
+> **Run headless.** For SVG ground control you never need the Isaac viewport —
+> physics, PX4 SITL, and the ROS topics all run headless, and you watch the
+> drones in RViz (`/svg/viz/markers`) instead. The launcher defaults to GUI
+> mode (`ISAAC_SIM_HEADLESS` unset → `false`), which opens a viewport window;
+> running headless avoids the viewport entirely and is the right default. Pass
+> `ISAAC_SIM_HEADLESS=true`. (When launched via `./airstack.sh up` with
+> `AUTOLAUNCH=true`, set `ISAAC_SIM_HEADLESS=true` in `.env` instead.)
+>
+> ⚠️ **Headless does NOT fix an RTX renderer segfault.** If Isaac crashes with a
+> `Segmentation fault` whose backtrace is in `librtx.scenedb.plugin.so` /
+> `libcarb.scenerenderer-rtx.plugin.so` at `carbOnPluginStartup` — and it still
+> crashes headless, and even a bare empty `SimulationApp({"headless":True})`
+> crashes the same way — that is a **GPU driver ↔ Isaac Sim version
+> incompatibility**, not an AirStack bug. Seen on RTX 5080 / Blackwell with
+> NVIDIA driver 595.x and Isaac Sim 5.1.0: the app boots to `app ready`, then
+> the RTX renderer faults on the first frame. Clearing the shader cache does
+> not help. Fix = run a driver Isaac Sim 5.1 supports (Linux **580.65.06**, or
+> **591.74** which a Blackwell user confirmed works — driver **595.x crashes**),
+> or move to a newer Isaac Sim release. See Troubleshooting below.
 
 ### A3. Build + per-drone MAVROS interfaces (fresh terminal)
 
@@ -224,110 +269,17 @@ ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # descend+disa
 
 ---
 
-# Part B — Component tests (build up to the real thing)
+# Part B — Bring in a real drone (connect + verify)
 
-Three incremental tests. Each runs in pure sim first; the same commands work
-on hardware by swapping the config (Part D). All assume A1–A3 are up (sim +
-interfaces). Launch the commander with the test's config in one terminal,
-drive it from another.
+Get one real drone talking to the stack and confirm it is tracked — the
+hardware analogue of Part A's sim bring-up, with **no flight**. Once this
+passes, a real drone is just `drone_modes: "...real..."` in any
+[Part C](#part-c--tasks-any-drone-in-any-mode) task. Do it per session.
 
-### B1. Single-drone goal tracking
+The state topic is identical to sim (`…/odometry_conversion/odometry`); only
+the source changes (mocap+px4_interface instead of SITL+MAVROS).
 
-Validates: one drone flies to a goal you set, at a speed you set.
-
-```bash
-# commander terminal:
-cd ~/AirStack/robot/ros_ws && sws
-ros2 launch svg_ground_control ground_control.launch.py \
-  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml
-
-# control terminal:
-ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
-ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
-# send a goal (world ENU, metres):
-ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.5, z: 1.4}}}"
-# set the speed (m/s) live:
-ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
-ros2 service call /swarm_commander/land std_srvs/srv/Trigger
-```
-(Goal needs the `goal` scenario — `goal_single.yaml` sets it. For a 1-drone
-sim, spawn with `NUM_ROBOTS=1` in A2 and `./launch_sim_interfaces.sh 1` in A3.)
-
-### B2. Multi-drone goal tracking (live, per-drone speed)
-
-Validates: assign different goals to different drones while flying; the CBF
-keeps them apart when paths cross.
-
-```bash
-# commander terminal:
-ros2 launch svg_ground_control ground_control.launch.py \
-  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml
-
-# control terminal — takeoff + start, then retarget any drone any time:
-ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
-ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
-ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: map}, pose: {position: {x: 1.5, y: 0.0, z: 1.2}}}"
-ros2 topic pub --once /svg/drone_2/goal_command geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: map}, pose: {position: {x: -1.5, y: 0.0, z: 1.2}}}"
-ros2 topic pub --once /svg/drone_2/speed_command std_msgs/msg/Float32 "{data: 1.0}"
-```
-
-### B3. Hybrid real/sim — see [Part C](#part-c--hybrid-realsim).
-
----
-
-# Part C — Hybrid real+sim
-
-The headline feature: decide per drone whether it is **real** (commands go to
-hardware) or **sim** (flies in Isaac), in one run, under one CBF, all visible
-together in RViz. Example: squeeze with **real holders + simulated intruder**.
-
-This is selected by `drone_modes` in `hybrid_squeeze.yaml`:
-```yaml
-drone_modes: "real,real,sim"     # drone_1,drone_2 = real ; drone_3 = sim
-```
-- `real` drones → commander publishes `/{name}/fmu/velocity_command` and calls
-  `/{name}/fmu/robot_command` (px4_interface, Part D bringup).
-- `sim` drones → `/{name}/interface/velocity_command` + `/{name}/interface/robot_command`
-  (MAVROS/SITL, Part A bringup).
-- The state topic is identical, so **one CBF sees all drones**.
-- `drone_position_offsets`: real drones are mocap-anchored (offset 0); the sim
-  drone reports in its SITL local frame, so set ITS offset to its Isaac spawn.
-
-### Bring-up (mixed)
-
-You run BOTH interface stacks side by side, then the commander once:
-
-```bash
-# real drones (Part D B1–B2): uXRCE agent + px4_interface for drone_1,drone_2
-ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2
-# sim drone (Part A A2–A3): Isaac SITL for drone_3 + its MAVROS interface
-ROBOT_NAME=drone_3 FCU_URL='udp://:14543@<sim_ip>:14583' TGT_SYSTEM=4 \
-  ros2 launch svg_ground_control sim_drone_interface.launch.xml drone_name:=drone_3
-# (or just run launch_sim_interfaces.sh for all and ignore the holders' SITL)
-
-# one commander for all three:
-ros2 launch svg_ground_control ground_control.launch.py \
-  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/hybrid_squeeze.yaml
-```
-
-"See all three in the sim" = open RViz (below). The commander publishes every
-drone's offset-corrected WORLD position to `/svg/viz/markers`, so real
-(red) and simulated (cyan) drones appear together in one `map` frame, with
-their safety spheres and the geofence box.
-
-> Pure-sim dry run of the routing: the functional test
-> `test/functional_hybrid_test.py` fakes the real+sim drones on their
-> respective topics and asserts each drone's commands land on the correct
-> namespace — run it before trusting a real flight.
-
----
-
-# Part D — Real Starlings + OptiTrack mocap
-
-### D0. One-time setup
+### B1. One-time per-drone setup (PX4 + Motive)
 
 Per drone (QGC / VOXL): `uxrce_dds_client start -n drone_1` (own name, ground
 PC IP, port 8888) with PX4 param `UXRCE_DDS_DOM_ID = 1`; `EKF2_EV_CTRL` to
@@ -337,7 +289,7 @@ enable NatNet streaming. NatNet SDK (once): `./robot/ros_ws/src/perception/
 natnet_ros2/scripts/download-natnet-sdk.sh`, then set `server_ip`, `body_id:
 -1` in `natnet_ros2/config/natnet_config.yaml`.
 
-### D1. Host-network container + uXRCE agent (fresh terminal)
+### B2. Host-network container + uXRCE agent (fresh terminal)
 
 ```bash
 cd ~/AirStack
@@ -349,46 +301,194 @@ export ROS_DOMAIN_ID=1
 MicroXRCEAgent udp4 -p 8888
 ```
 
-### D2. ALL per-drone interfaces — one command (fresh terminal)
+### B3. Per-drone px4_interface (fresh terminal)
 
 ```bash
 docker exec -it svg_ground bash
 export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && bws && sws
-ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
+ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1   # add ,drone_2,...
 ```
 
-### D3. NatNet bridge (fresh terminal)
+### B4. NatNet mocap — launch + UNIT-TEST (fresh terminal)
 
 ```bash
 docker exec -it svg_ground bash
 export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && sws
 ros2 launch natnet_ros2 natnet_ros2.launch.py
-ros2 topic list | grep -i optitrack     # note the per-body pose path
+ros2 topic list | grep -i optitrack          # note the per-body pose path
 ```
-Set `mocap_topic_template` in `swarm_real.yaml` to that path with `{name}`.
+Then verify mocap is actually streaming (this is the unit-test — do NOT skip):
+```bash
+ros2 topic hz   /drone_1/pose                 # ~120 Hz (or your Motive rate)
+ros2 topic echo /drone_1/pose --once          # sane x,y,z = where the drone sits
+# move the drone by hand: position must change smoothly, no NaNs / jumps
+```
+- No topic / 0 Hz → Motive not streaming, wrong `server_ip`, or the rigid body
+  isn't named `drone_1`. Fix before going further.
+- Set `mocap_topic_template` in `swarm_real.yaml` to the path from `grep`
+  (with `{name}`), so `mocap_bridge` forwards mocap → PX4 visual odometry.
 
-### D4. Commander + mocap bridge (fresh terminal)
+### B5. See the drone in RViz (no flight)
+
+Bring up the commander **without taking off** + the mocap bridge, then watch
+the drone's marker track as you carry it. Confirms mocap → odometry → world
+before anything arms.
 
 ```bash
 docker exec -it svg_ground bash
 export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && sws
 ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(pwd)/src/svg_ground_control/config/swarm_real.yaml use_mocap:=true
+# in another shell — does odometry track your hand?
+ros2 topic echo /drone_1/odometry_conversion/odometry --once
+```
+Open RViz (see [RViz visualization](#rviz-visualization)) and move the drone by
+hand: its **red** sphere should follow on `/svg/viz/markers`. (To also see it in
+the Isaac 3D viewport, launch Isaac with `DRONE_MODES` set — see Part A and the
+flagship in C4.) Do **not** call `takeoff` here — this is preflight only.
+
+---
+
+# Part C — Tasks: any drone in any mode
+
+One framework, not "sim tests vs hardware tests". Every task is a config; each
+config exposes the **three per-drone axes** (see §2) and you pick them freely:
+
+```yaml
+drone_modes:        "sim,sim,sim"   # per drone: sim -> SITL/MAVROS, real -> hardware/fmu
+teleop_drones:      ""              # operator-driven (else scenario-driven)
+external_drones:    ""              # tracked by CBF, never commanded
+cbf_exempt_drones:  ""              # CBF won't correct these (still obstacles)
 ```
 
-### D5. Preflight + fly (fresh terminal)
+"Pure sim", "all real", and "hybrid" are just different `drone_modes` vectors on
+the **same** task. To make a drone real: set its slot to `real` (commands route
+to `/fmu/…`; it must be connected per [Part B](#part-b--bring-in-a-real-drone-connect--verify),
+and Isaac shows it as an avatar). Nothing else in the task changes.
+
+All-sim tasks assume Part A (A1–A3) is up; any `real` drone assumes Part B.
+
+### C1. Single-drone goal (`goal_single.yaml`)
+
+One drone flies to a goal you set, at a speed you set. `drone_modes: "sim"`
+(flip to `"real"` to fly the goal on hardware). For a 1-drone sim, spawn with
+`NUM_ROBOTS=1` in A2 and `./launch_sim_interfaces.sh 1` in A3.
+
+```bash
+cd ~/AirStack/robot/ros_ws && sws
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml
+# control terminal:
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
+  "{header: {frame_id: map}, pose: {position: {x: 1.0, y: 0.5, z: 1.4}}}"
+ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.8}"
+ros2 service call /swarm_commander/land std_srvs/srv/Trigger
+```
+
+### C2. Multi-drone goal (`goal_tracking.yaml`)
+
+Assign different goals to different drones while flying; the CBF keeps them
+apart when paths cross. Mix modes with e.g. `drone_modes: "real,sim,sim"`.
+
+```bash
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml
+# takeoff + start, then retarget any drone any time:
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
+  "{header: {frame_id: map}, pose: {position: {x: 1.5, y: 0.0, z: 1.2}}}"
+ros2 topic pub --once /svg/drone_2/goal_command geometry_msgs/msg/PoseStamped \
+  "{header: {frame_id: map}, pose: {position: {x: -1.5, y: 0.0, z: 1.2}}}"
+ros2 topic pub --once /svg/drone_2/speed_command std_msgs/msg/Float32 "{data: 1.0}"
+```
+
+### C3. Squeeze (`squeeze_3drone.yaml`)
+
+Holders (drone_1,2) hold their posts; the intruder (drone_3) shuttles through
+the gap. drone_3 is **CBF-exempt** (`cbf_exempt_drones: "drone_3"`) so it
+presses through and the holders alone yield. Drive the intruder by hand instead
+with `teleop_drones: "drone_3"` (it stays exempt — it's in the exempt list; see
+[A5](#a5-teleop-fresh-terminal-only-if-a-drone-has-role-teleop) for keyboard
+teleop).
+
+```bash
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_3drone.yaml
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
+```
+
+### C4. Flagship — hybrid squeeze: real holders + sim intruder (`hybrid_squeeze.yaml`)
+
+The target run: **drone_1,2 real** (mocap hardware), **drone_3 sim** (Isaac
+SITL) and **CBF-exempt + policy-controlled** (not teleop). All three appear in
+the Isaac viewport — real holders as live avatars, the intruder as its SITL
+body — and the real holders react (via the CBF) to the virtual intruder
+squeezing through. Config already set: `drone_modes: "real,real,sim"`,
+`cbf_exempt_drones: "drone_3"`.
+
+```bash
+# 0. real holders connected + verified — Part B (px4_interface + NatNet + mocap)
+#    for drone_1,drone_2.
+
+# 1. Isaac (GUI): SITL for the sim intruder + avatars for the real holders.
+#    DRONE_MODES matches the commander's drone_modes.  [isaac-sim container]
+NUM_ROBOTS=3 DRONE_MODES="real,real,sim" SVG_DOMAIN_ID=1 \
+PLAY_SIM_ON_START=true ISAAC_SIM_HEADLESS=false \
+PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
+/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py \
+  --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
+
+# 2. MAVROS interface for the sim intruder (drone_3) only.  [robot container]
+ROBOT_NAME=drone_3 FCU_URL='udp://:14543@<sim_ip>:14583' TGT_SYSTEM=4 \
+  ros2 launch svg_ground_control sim_drone_interface.launch.xml drone_name:=drone_3
+
+# 3. ONE commander for all three (use_mocap feeds the real holders' EKFs).
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/hybrid_squeeze.yaml \
+  use_mocap:=true
+```
+One CBF sees all three (the state topic is identical for real and sim), so the
+real holders dodge the simulated intruder. In RViz the holders are **red**, the
+intruder **cyan**, all in one `map` frame.
+
+> **Dry-run the routing first (no hardware).** `test/functional_hybrid_test.py`
+> fakes the real+sim drones on their respective topics and asserts each drone's
+> commands land on the correct namespace and the squeeze still works — run it
+> before trusting a real flight (see [Automated tests](#automated-tests)).
+
+---
+
+# Part D — Real hardware: first flight & reference
+
+Once [Part B](#part-b--bring-in-a-real-drone-connect--verify) confirms tracking,
+fly. The flight services are identical to sim ([A6](#a6-fly-fresh-terminal)) —
+only the config (real modes) and the safety discipline differ.
+
+### D1. Preflight + fly (fresh terminal)
 
 ```bash
 docker exec -it svg_ground bash
 export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && sws
 ros2 topic hz   /drone_1/pose                                  # mocap arriving?
-ros2 topic echo /drone_1/odometry_conversion/odometry --once   # tracks hand movement?
+ros2 topic echo /drone_1/odometry_conversion/odometry --once   # tracks reality?
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
 ros2 service call /swarm_commander/land    std_srvs/srv/Trigger
 ```
-First hardware flight: ONE drone (`drone_names: ["drone_1"]`, scenario hover),
-thumb on the kill switch. Then two. Then the demo.
+
+### D2. First-flight safety
+
+- **One drone first.** `drone_names: ["drone_1"]`, `drone_modes: "real"`,
+  scenario `hover`, thumb on the **RC kill switch**. Then two. Then the demo.
+- The geofence is a freeze-in-place, **not** a motor cutoff — the RC kill
+  switch is the true cutoff ([Geofence](#geofence)).
+- Fit `arena_*` and `fence_*` to your capture volume before arming.
+- Keep `cbf_max_speed_mps` conservative on hardware (`swarm_real.yaml` uses
+  1.0).
 
 ---
 
@@ -413,8 +513,8 @@ open a bare `rviz2`: set Fixed Frame = `map`, Add → By topic →
 `swarm_commander`, not the drones directly, so the chain is: interface layer
 → `/{name}/odometry_conversion/odometry` → commander → `/svg/viz/markers` →
 RViz. To watch drones move by hand with nothing armed:
-1. bring up the per-drone interfaces (Part A A3 for sim, or Part D D1–D4 for
-   hardware: px4_interface + mocap bridge + NatNet) so odometry flows;
+1. bring up the per-drone interfaces (Part A A3 for sim, or Part B for
+   hardware: px4_interface + NatNet + mocap bridge) so odometry flows;
 2. launch `ground_control.launch.py` but **do NOT call takeoff** — the
    commander idles in IDLE, publishes zero commands, and still publishes
    markers every tick;
@@ -478,6 +578,8 @@ airstack-robot-desktop-1:/root/AirStack/<path> ~/AirStack/...`.
 cd ~/AirStack/robot/ros_ws/src/svg_ground_control
 # unit (pure numpy, no ROS):
 python3 -m pytest test/test_cbf.py test/test_scenarios.py -q
+# node-level (needs rclpy; constructs the commander, no launch/interfaces):
+python3 -m pytest test/test_exempt.py -q          # cbf_exempt_drones / teleop decoupling
 
 # closed-loop functional (fake drones; launch the matching commander first):
 #   ground_control.launch.py config:=<share>/config/<cfg>.yaml   then:
@@ -503,11 +605,15 @@ come up before starting a test.
 | `airstack connect` shows no prompt | it attaches to the container tmux; `Ctrl-b c` new window, `Ctrl-b d` detach — or use `--command=bash` |
 | 3 robot containers appear | `.env NUM_ROBOTS` also scales container replicas; keep it `"1"`, pass drone count inline to the sim script |
 | service `waiting for service to become available…` forever | `ROS_DOMAIN_ID` mismatch between shells; also `ros2 daemon stop` |
+| Isaac Sim segfaults at startup, backtrace in `librtx.scenedb.plugin.so` / `libcarb.scenerenderer-rtx.plugin.so` at `carbOnPluginStartup` — **also crashes headless**, and a bare empty `SimulationApp({"headless":True})` crashes identically | GPU driver ↔ Isaac Sim RTX incompatibility, NOT an AirStack bug. App boots to `app ready` then the RTX renderer faults on the first frame. Confirmed on RTX 5080 / Blackwell + NVIDIA driver **595.x** + Isaac Sim 5.1.0. Headless and clearing the shader cache do **not** help (the renderer plugin loads at app init regardless; there is no renderer-less path through Kit). **Fix:** install a driver Isaac Sim 5.1 supports — Linux **580.65.06**, or **591.74** (a Blackwell user's confirmed-good version) — using the *open* kernel module variant required for RTX 50-series; or upgrade to a newer Isaac Sim release. ([NVIDIA forum report](https://forums.developer.nvidia.com/t/isaac-sim-5-1-gui-crash-access-violation-on-rtx-5070-ti-blackwell-fixed-by-driver-downgrade-to-591-74/365335)) |
 | MAVROS `connected: false`, no odometry | PX4 SITL not launched: Isaac timeline not playing (`PLAY_SIM_ON_START=true`, or press Play) |
 | takeoff returns success=false right after launch | commander hasn't received odometry yet — wait a few seconds and retry |
-| `The parameter 'X' is not initialized` | empty YAML list can't override a typed param — `teleop_drones`/`external_drones`/`drone_modes` are comma-separated STRINGS (`""` = none) |
+| `The parameter 'X' is not initialized` | empty YAML list can't override a typed param — `teleop_drones`/`external_drones`/`drone_modes`/`cbf_exempt_drones` are comma-separated STRINGS (`""` = none) |
+| teleop drone gets shoved around / won't act as the obstacle | teleop is **no longer auto-CBF-exempt** — add it to `cbf_exempt_drones` to leave its commands uncorrected (and let others dodge it). Conversely, drop it from the list to have the filter protect your manual commands |
+| commander rejects config: `"X" is in both external_drones and cbf_exempt_drones` | external drones are never commanded, so they can't be "exempt" — remove the name from one of the two lists |
+| Isaac avatar (real drone) doesn't appear / doesn't move | (a) launch Isaac with a **GUI** viewport (`ISAAC_SIM_HEADLESS=false`) and `DRONE_MODES` listing that drone as `real`; (b) the avatar tracks `…/odometry_conversion/odometry` — confirm it's flowing (`ros2 topic hz`); (c) domain: the script sets `ROS_DOMAIN_ID=SVG_DOMAIN_ID`, so the drone must publish on that domain; (d) **true hardware**: the real drone's odometry is on a host-network container while Isaac is on the bridge network — DDS must cross them (run Isaac with host networking or a discovery server). Pure-sim dry-run: publish a synthetic odom or run that drone as a throwaway SITL |
 | `start` says "not all drones holding yet" | drones still converging to takeoff targets; retry after a few seconds |
 | `start` says "geofence breached" | a drone left the box; `ros2 service call /swarm_commander/reset_fence std_srvs/srv/Trigger` after recovering |
 | drones fly right *shapes* in wrong *places*; intruder misses the gap | per-drone PX4 local origins: `drone_position_offsets` must equal the sim spawn positions (`x = 2*(i-1) - (N-1)` → `[-2,0,0, 0,0,0, 2,0,0]` for 3). Zeros only for mocap-anchored hardware |
-| hybrid: a "real" drone never moves in sim | nothing is consuming `/{name}/fmu/velocity_command` — in pure sim only MAVROS (`/interface/`) exists; real-mode drones need px4_interface (Part D) or are validated via `functional_hybrid_test.py` |
+| hybrid: a "real" drone never moves | nothing is consuming `/{name}/fmu/velocity_command` — real-mode drones need px4_interface up (Part B); validate the routing first with `functional_hybrid_test.py` |
 | RViz empty | Fixed Frame must be `map`; check `ros2 topic hz /svg/viz/markers`; needs an X display (`echo $DISPLAY`) |

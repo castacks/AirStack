@@ -24,9 +24,18 @@ swarm_commander:
   ros__parameters:
     # squeeze order: [holder, holder, intruder]
     drone_names: ["drone_1", "drone_2", "drone_3"]
+    # ---- Per-drone axes ------------------------------------------------
+    # mode   : drone_1,2 REAL (holders, mocap hardware) ; drone_3 SIM (intruder)
+    # role   : all auto (scenario-driven) — drone_3 is policy-controlled, NOT
+    #          teleop
+    # safety : drone_3 CBF-exempt — it presses through the gap and the REAL
+    #          holders alone yield (the CBF still corrects drone_1,2)
+    # Real holders fly for real AND appear in the Isaac viewport at their live
+    # mocap pose via the DRONE_MODES="real,real,sim" avatar (see experiment.md).
     drone_modes: "real,real,sim"
     teleop_drones: ""
     external_drones: ""
+    cbf_exempt_drones: "drone_3"
 
     scenario: "squeeze"
     scenario_speed_mps: 0.5
@@ -65,3 +74,16 @@ swarm_commander:
     fence_enabled: true
     fence_min: [-4.0, -2.0, 0.0]
     fence_max: [4.0, 2.0, 3.0]
+
+# Launch with use_mocap:=true so the REAL holders' PX4 EKFs get mocap as
+# external vision (mocap_bridge: /{name}/pose -> /{name}/fmu/visual_odometry_in).
+# Only the real drones have mocap; the sim intruder (drone_3) has none, so it
+# is omitted here. Set mocap_topic_template to your natnet_ros2 output prefix.
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2"]
+    mocap_topic_template: "/{name}/pose"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4
+    mocap_qos_best_effort: false

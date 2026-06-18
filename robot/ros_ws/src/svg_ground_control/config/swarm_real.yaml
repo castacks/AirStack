@@ -12,8 +12,18 @@
 swarm_commander:
   ros__parameters:
     drone_names: ["drone_1", "drone_2", "drone_3"]
+    # ---- Per-drone axes (any drone, any combination) -------------------
+    # mode   : drone_modes       all "real" here -> /{name}/fmu/* (px4_interface)
+    #          flip one to "sim" to mix a simulated drone in (hybrid).
+    # role   : teleop_drones (operator-driven), external_drones (tracked but
+    #          never commanded, e.g. RC-flown); unlisted = auto
+    # safety : cbf_exempt_drones  CBF leaves these uncorrected (still obstacles)
+    drone_modes: "real,real,real"
     teleop_drones: "drone_3"
     external_drones: ""
+    # drone_3 is the operator's moving obstacle, so exempt it (teleop is NOT
+    # auto-exempt — remove it here to have the filter protect manual commands).
+    cbf_exempt_drones: "drone_3"
 
     scenario: "hover"
     scenario_speed_mps: 0.5
@@ -31,10 +41,9 @@ swarm_commander:
                        1.2, 0.0, 1.2,
                        0.0, -1.2, 1.2]
 
-    # px4_interface (uXRCE-DDS) topic layout (see drone_interface.launch.xml)
+    # Routing is per-drone via drone_modes (real -> /{name}/fmu/* px4_interface
+    # uXRCE-DDS; sim -> /{name}/interface/* MAVROS). State topic same for both.
     state_topic_template: "/{name}/odometry_conversion/odometry"
-    velocity_command_topic_template: "/{name}/fmu/velocity_command"
-    robot_command_service_template: "/{name}/fmu/robot_command"
     teleop_topic_template: "/svg/{name}/teleop_command"
 
     control_rate_hz: 20.0

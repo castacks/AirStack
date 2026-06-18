@@ -26,8 +26,18 @@ swarm_commander:
   ros__parameters:
     # squeeze requires exactly this ordering: [holder, holder, intruder]
     drone_names: ["drone_1", "drone_2", "drone_3"]
-    teleop_drones: ""          # empty = intruder flies autonomously
+    # ---- Per-drone axes (any drone, any combination) -------------------
+    # mode   : drone_modes       "sim"/"real" per drone (interface vs fmu)
+    # role   : teleop_drones (operator-driven), external_drones (tracked but
+    #          never commanded); unlisted = auto (scenario-driven)
+    # safety : cbf_exempt_drones  CBF leaves these uncorrected (still obstacles)
+    # The intruder (drone_3) is CBF-exempt so it presses through the gap and
+    # the holders alone yield. Drive it by hand instead with
+    # teleop_drones: "drone_3" (it stays exempt — it's in cbf_exempt_drones).
+    drone_modes: "sim,sim,sim"
+    teleop_drones: ""          # "drone_3" = squeeze by hand
     external_drones: ""
+    cbf_exempt_drones: "drone_3"
 
     scenario: "squeeze"
     scenario_speed_mps: 0.6
@@ -60,9 +70,10 @@ swarm_commander:
 
     hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by squeeze
 
+    # Routing is per-drone via drone_modes (sim -> /{name}/interface/*,
+    # real -> /{name}/fmu/*). State topic is the same for both. Flip holders
+    # to real + keep a sim intruder = hybrid_squeeze.yaml.
     state_topic_template: "/{name}/odometry_conversion/odometry"
-    velocity_command_topic_template: "/{name}/interface/velocity_command"
-    robot_command_service_template: "/{name}/interface/robot_command"
     teleop_topic_template: "/svg/{name}/teleop_command"
 
     control_rate_hz: 20.0

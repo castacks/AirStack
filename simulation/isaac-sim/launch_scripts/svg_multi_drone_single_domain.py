@@ -17,6 +17,12 @@ Env:
  - SVG_DOMAIN_ID (default 0): the shared ROS domain
  - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone
  - PLAY_SIM_ON_START (default true): autoplay timeline
+ - DRONE_MODES (default all "sim"): comma-separated 'sim'|'real' per drone,
+   length NUM_ROBOTS. 'sim' spawns a PX4 SITL body as usual; 'real' spawns a
+   visual-only AVATAR (no SITL) that is teleported every step to that drone's
+   /{name}/odometry_conversion/odometry — so a real (mocap/hardware) drone
+   appears in the Isaac viewport at its live pose. Run with a GUI viewport
+   (ISAAC_SIM_HEADLESS=false) and ROS_DOMAIN_ID matching the drones to see it.
 """
 
 import asyncio
@@ -34,6 +40,8 @@ simulation_app = SimulationApp({"headless": _headless})
 import omni.kit.app
 import omni.timeline
 import omni.usd
+
+from pxr import Gf, UsdGeom
 
 from omni.isaac.core.world import World
 
@@ -55,6 +63,29 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "3"))
 SVG_DOMAIN_ID = int(os.environ.get("SVG_DOMAIN_ID", "0"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
+
+
+def _parse_drone_modes():
+    """Per-drone 'sim'|'real' from DRONE_MODES (default all 'sim')."""
+    raw = [m.strip() for m in os.environ.get("DRONE_MODES", "").split(",") if m.strip()]
+    if not raw:
+        return ["sim"] * NUM_ROBOTS
+    if len(raw) != NUM_ROBOTS:
+        raise ValueError(
+            f"DRONE_MODES has {len(raw)} entries but NUM_ROBOTS={NUM_ROBOTS}")
+    for m in raw:
+        if m not in ("sim", "real"):
+            raise ValueError(f"DRONE_MODES entries must be sim|real, got '{m}'")
+    return raw
+
+
+DRONE_MODES = _parse_drone_modes()
+
+# The PX4 SITL drones get their ROS domain via the OmniGraph ROS2Context
+# (domain_id=SVG_DOMAIN_ID), but the in-process rclpy node that drives the
+# real-drone avatars reads ROS_DOMAIN_ID from the environment. Align them so
+# the avatar bridge subscribes to the drones' odometry on the right domain.
+os.environ["ROS_DOMAIN_ID"] = str(SVG_DOMAIN_ID)
 # ---------------------------------------------------------
 
 
@@ -121,6 +152,80 @@ def spawn_drone(index: int):
         )
 
 
+def spawn_avatar(index: int, stage):
+    """Spawn a visual-only avatar for a REAL drone (no PX4 SITL, no physics).
+
+    References the same iris USD as the SITL bodies so it looks like a drone,
+    but is just an Xform we teleport every step (see AvatarBridge) to the real
+    drone's odometry. Returns (robot_name, translate_op, orient_op) so the
+    bridge can update the transform in place. The per-step transform override
+    dominates any embedded physics, so the avatar simply tracks the pose.
+    """
+    robot_name = f"drone_{index}"
+    avatar_prim = f"/World/avatars/drone{index}"
+    prim = stage.DefinePrim(avatar_prim, "Xform")
+    prim.GetReferences().AddReference(os.path.expanduser(DRONE_USD))
+    xform = UsdGeom.Xformable(prim)
+    xform.ClearXformOpOrder()
+    translate_op = xform.AddTranslateOp()
+    orient_op = xform.AddOrientOp()
+    translate_op.Set(Gf.Vec3d(0.0, 0.0, 0.07))
+    orient_op.Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    xform.SetXformOpOrder([translate_op, orient_op])
+    print(f"[svg_multi_drone] drone_{index} = REAL -> visual avatar, "
+          f"tracking /{robot_name}/odometry_conversion/odometry")
+    return robot_name, translate_op, orient_op
+
+
+class AvatarBridge:
+    """rclpy node that drives the real-drone avatars from their odometry.
+
+    One subscription per real drone; ``update()`` (called each sim step) pumps
+    rclpy once and writes the latest pose into each avatar's USD transform ops.
+    Lives in the Isaac process — rclpy is available here (the Pegasus
+    ros2_backend uses it too).
+    """
+
+    def __init__(self, avatars):
+        # avatars: list of (robot_name, translate_op, orient_op)
+        import rclpy
+        from nav_msgs.msg import Odometry
+
+        self._rclpy = rclpy
+        try:
+            rclpy.init()
+        except Exception:  # already initialised elsewhere in the process
+            pass
+        self.node = rclpy.create_node("svg_avatar_bridge")
+        self.ops = {name: (t, o) for name, t, o in avatars}
+        self.latest = {}
+        for name in self.ops:
+            topic = f"/{name}/odometry_conversion/odometry"
+            self.node.create_subscription(
+                Odometry, topic, lambda msg, n=name: self._on_odom(n, msg), 10)
+
+    def _on_odom(self, name, msg):
+        p = msg.pose.pose.position
+        q = msg.pose.pose.orientation
+        self.latest[name] = ((p.x, p.y, p.z), (q.w, q.x, q.y, q.z))
+
+    def update(self):
+        self._rclpy.spin_once(self.node, timeout_sec=0.0)
+        for name, (translate_op, orient_op) in self.ops.items():
+            pose = self.latest.get(name)
+            if pose is None:
+                continue
+            (px, py, pz), (qw, qx, qy, qz) = pose
+            translate_op.Set(Gf.Vec3d(px, py, pz))
+            orient_op.Set(Gf.Quatf(qw, qx, qy, qz))
+
+    def shutdown(self):
+        try:
+            self.node.destroy_node()
+        except Exception:
+            pass
+
+
 class PegasusApp:
 
     def __init__(self):
@@ -153,10 +258,22 @@ class PegasusApp:
 
         add_dome_light(stage)
 
+        n_real = DRONE_MODES.count("real")
         print(f"[svg_multi_drone] Spawning {NUM_ROBOTS} drone(s) on ROS domain "
-              f"{SVG_DOMAIN_ID}, lidar={'on' if ENABLE_LIDAR else 'off'}")
+              f"{SVG_DOMAIN_ID}, modes={DRONE_MODES} "
+              f"({NUM_ROBOTS - n_real} SITL + {n_real} avatar), "
+              f"lidar={'on' if ENABLE_LIDAR else 'off'}")
+        avatars = []
         for i in range(1, NUM_ROBOTS + 1):
-            spawn_drone(i)
+            if DRONE_MODES[i - 1] == "real":
+                avatars.append(spawn_avatar(i, stage))
+            else:
+                spawn_drone(i)
+
+        # Bridge driving the real-drone avatars from their odometry. Created
+        # only if there is at least one real drone, so pure-sim runs are
+        # unchanged (and never import rclpy here).
+        self.avatar_bridge = AvatarBridge(avatars) if avatars else None
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 
@@ -176,8 +293,13 @@ class PegasusApp:
                     self.pg._world = world
             else:
                 app.update()
+            # Teleport real-drone avatars to their latest odometry every loop.
+            if self.avatar_bridge is not None:
+                self.avatar_bridge.update()
 
         carb.log_warn("Closing simulation.")
+        if self.avatar_bridge is not None:
+            self.avatar_bridge.shutdown()
         self.timeline.stop()
         simulation_app.close()
 

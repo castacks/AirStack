@@ -16,9 +16,12 @@ Drones in ``external_drones`` are tracked for the safety filter but never
 commanded (e.g. RC-flown).
 
 Every commanded velocity passes through the velocity-CBF filter
-(cbf_filter.filter_velocities, ported from drone_soccer/cbf.py). Teleop
-drones are CBF-EXEMPT by design — they play the moving obstacle; the
-autonomous drones do the dodging.
+(cbf_filter.filter_velocities, ported from drone_soccer/cbf.py). Drones listed
+in ``cbf_exempt_drones`` are CBF-EXEMPT — the filter still sees them (everyone
+else dodges them) but leaves their own command uncorrected, so they play the
+moving obstacle. Exemption is independent of role: a policy-driven (auto) drone
+or a teleop drone can be exempt. (The 'squeeze' scenario additionally
+self-designates its intruder via squeeze_intruder_cbf_exempt; the two union.)
 
 Per-drone sim/real routing: ``drone_modes`` (comma-separated 'sim'/'real',
 one per drone) routes each drone's command topic + robot_command service to
@@ -105,19 +108,32 @@ class DroneHandle:
 
 class SwarmCommander(Node):
 
-    def __init__(self):
-        super().__init__('swarm_commander')
+    def __init__(self, **kwargs):
+        # **kwargs forwards e.g. parameter_overrides=[...] to rclpy.node.Node,
+        # which lets tests construct the commander with specific params without
+        # a launch file. main() and the launch file call it with no args.
+        super().__init__('swarm_commander', **kwargs)
 
         # ---- Parameters -------------------------------------------------
         self.declare_parameter('drone_names', ['drone_1', 'drone_2', 'drone_3'])
-        # Comma-separated names of operator-driven drones (CBF-exempt moving
-        # obstacles). Empty string = every drone follows the scenario.
-        # (A string, not a list: an empty YAML list has no type and cannot
-        # override a string-array parameter default.)
+        # Comma-separated names of operator-driven drones (commands come from
+        # teleop_command instead of the scenario). Empty string = every drone
+        # follows the scenario. (A string, not a list: an empty YAML list has
+        # no type and cannot override a string-array parameter default.)
+        # NOTE: teleop drones are NOT automatically CBF-exempt — list them in
+        # cbf_exempt_drones below if you want their commands left uncorrected.
         self.declare_parameter('teleop_drones', '')
         # Comma-separated names tracked for the safety filter but never
         # commanded (e.g. RC-flown).
         self.declare_parameter('external_drones', '')
+        # Comma-separated names whose commands the CBF does NOT correct
+        # (deliberate obstacles). Exempt drones are still seen by the filter,
+        # so every other drone avoids them — the CBF simply restores their own
+        # command after filtering. Independent of role: a policy-driven (auto)
+        # drone or a teleop drone can be exempt. Empty = no drone exempt by
+        # this list. (The 'squeeze' scenario additionally self-designates its
+        # intruder via squeeze_intruder_cbf_exempt; the two are unioned.)
+        self.declare_parameter('cbf_exempt_drones', '')
 
         # Scenario selection — see scenarios.py. NOTE: for 'squeeze' the
         # drone_names order matters: [holder, holder, intruder].
@@ -218,9 +234,19 @@ class SwarmCommander(Node):
         names = list(self.get_parameter('drone_names').value)
         teleop_names = name_list('teleop_drones')
         external_names = name_list('external_drones')
-        for n in teleop_names + external_names:
+        exempt_names = name_list('cbf_exempt_drones')
+        for n in teleop_names + external_names + exempt_names:
             if n not in names:
                 raise ValueError(f'"{n}" not in drone_names')
+        # Drones whose commands the CBF leaves uncorrected (still obstacles for
+        # everyone else). External drones are never commanded, so they cannot
+        # be "exempt" in the command sense — reject that to catch config typos.
+        for n in exempt_names:
+            if n in external_names:
+                raise ValueError(
+                    f'"{n}" is in both external_drones and cbf_exempt_drones; '
+                    'external drones are never commanded')
+        self.cbf_exempt_names = set(exempt_names)
 
         offsets_flat = list(self.get_parameter('drone_position_offsets').value)
         if len(offsets_flat) != 3 * len(names):
@@ -375,7 +401,11 @@ class SwarmCommander(Node):
 
         self.get_logger().info(
             f'SwarmCommander up | scenario={scenario_name} | '
-            + ', '.join(f'{d.name}({d.role}/{d.mode})' for d in self.drones)
+            + ', '.join(
+                f'{d.name}({d.role}/{d.mode}'
+                + ('/cbf-exempt' if d.name in self.cbf_exempt_names else '')
+                + ')'
+                for d in self.drones)
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
             + f' alpha={self.cbf_alpha}'
             + (f' | FENCE {self.fence_min}..{self.fence_max}'
@@ -632,7 +662,6 @@ class SwarmCommander(Node):
             elif d.state == FlightState.ACTIVE:
                 if d.role == 'teleop' and self.mission_active:
                     nominal[i] = self.teleop_command(d, now)
-                    exempt_rows.add(i)
                 elif self.mission_active and scenario_nominal is not None:
                     drone_index = self.drones.index(d)
                     nominal[i] = scenario_nominal[drone_index]
@@ -640,6 +669,14 @@ class SwarmCommander(Node):
                         exempt_rows.add(i)
                 else:
                     nominal[i] = self.hover_kp * (d.hold_target - d.position)
+                # CBF-exempt list (config): leave this drone's command
+                # uncorrected while it flies. Union with the scenario's own
+                # exempt indices. Climb-out / landing stay collision-protected
+                # (only ACTIVE drones are eligible). Independent of role, so a
+                # policy-driven obstacle (e.g. the squeeze intruder) or an
+                # unprotected teleop drone can both be exempt.
+                if d.name in self.cbf_exempt_names:
+                    exempt_rows.add(i)
 
         # ================= CBF SAFETY FILTER =================
         # Real velocity-CBF (ported from drone_soccer). Exempt rows are the

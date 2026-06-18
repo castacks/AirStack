@@ -12,8 +12,18 @@
 swarm_commander:
   ros__parameters:
     drone_names: ["drone_1"]
+    # ---- Per-drone axes (any drone, any combination) -------------------
+    # mode   : drone_modes       "sim"  -> /{name}/interface/* (MAVROS/SITL)
+    #                            "real" -> /{name}/fmu/*        (px4_interface/HW)
+    # role   : teleop_drones (operator-driven), external_drones (tracked but
+    #          never commanded); unlisted = auto (scenario-driven)
+    # safety : cbf_exempt_drones  CBF leaves these uncorrected (still obstacles)
+    # All comma-separated name STRINGS ("" = none). To fly this drone for REAL
+    # set drone_modes: "real" — routing switches to /fmu/, nothing else changes.
+    drone_modes: "sim"
     teleop_drones: ""
     external_drones: ""
+    cbf_exempt_drones: ""
 
     scenario: "goal"
     scenario_speed_mps: 0.6          # default per-drone speed (override live)
@@ -24,9 +34,10 @@ swarm_commander:
     # goal scenario: takeoff target = initial goal
     hover_positions: [0.0, 0.0, 1.2]
 
+    # State topic is identical for sim & real. Command/service routing is
+    # picked per drone by drone_modes via the built-in mode templates
+    # (sim -> /{name}/interface/*, real -> /{name}/fmu/*) — no need to set them.
     state_topic_template: "/{name}/odometry_conversion/odometry"
-    velocity_command_topic_template: "/{name}/interface/velocity_command"
-    robot_command_service_template: "/{name}/interface/robot_command"
 
     control_rate_hz: 20.0
     hover_kp: 1.0
