@@ -43,6 +43,9 @@ class VoxelBehavior:
         # Per-instance (label, center, size) visited record for STATUS only —
         # separate from visited_clusters (nav) so it never affects path choice.
         self.visited_instances = []
+        # Peer-VISITED BBs [cx,cy,cz,sx,sy,sz] (consensus from other drones);
+        # set each tick by the node so we don't approach what a peer closed out.
+        self.peer_visited_bbs = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
         self._confirmer = TemporalConfirmer(
@@ -54,6 +57,7 @@ class VoxelBehavior:
         self.visited_clusters = []
         self.unvisited_clusters = []
         self.visited_instances = []
+        self.peer_visited_bbs = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
         self._confirmer.reset()
@@ -146,6 +150,8 @@ class VoxelBehavior:
             (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
+            and not self._is_near_peer_visited(
+                np.array(cluster[:3]), np.array(cluster[3:6]))
         ]
 
         return len(self.unvisited_clusters) > 0
@@ -224,10 +230,12 @@ class VoxelBehavior:
             (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
+            and not self._is_near_peer_visited(
+                np.array(cluster[:3]), np.array(cluster[3:6]))
         ]
         # If the drone's commitment moved off this cluster bucket (peer
-        # outbid, target completed, etc.) we'd have no candidates — fall back
-        # gracefully without crashing the path publish below.
+        # outbid, target completed, peer already visited, etc.) we'd have no
+        # candidates — fall back gracefully without crashing the path publish.
         if not self.unvisited_clusters:
             return waypoint_locked, target_waypoint, target_waypoint2
 
@@ -310,6 +318,14 @@ class VoxelBehavior:
             self._cuboid_distance(center, size,
                                   np.array(v[:3]), np.array(v[3:6])) < threshold
             for v in visited_clusters)
+
+    def _is_near_peer_visited(self, center, size, threshold=10.0):
+        """True if a peer has already visited this physical target (cuboid
+        distance to any peer-visited BB below the same-instance radius)."""
+        return any(
+            self._cuboid_distance(center, size,
+                                  np.array(bb[:3]), np.array(bb[3:6])) < threshold
+            for bb in self.peer_visited_bbs)
 
     def _cuboid_distance(self, ca, sa, cb, sb):
         ha, hb = sa / 2.0, sb / 2.0

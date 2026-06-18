@@ -76,7 +76,7 @@ command_route: gcs
 # grouped: each environment runs `iterations` times in a row (per-environment
 # count; total runs = iterations * 3). Spawn layout re-randomizes each run.
 environment_order: grouped
-iterations: 3
+iterations: 4
 
 ready:
   timeout_s: 600

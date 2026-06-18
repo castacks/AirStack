@@ -612,6 +612,12 @@ class RavenNavNode(Node):
             (ct.label, np.concatenate([np.asarray(ct.center, dtype=float),
                                        np.asarray(ct.size, dtype=float)]))
             for ct in peer_cts]
+        # Peer-VISITED subset feeds voxel-mode so an in-progress approach is
+        # dropped if a peer has already closed out that target.
+        self._behavior_manager.voxel_behavior.peer_visited_bbs = [
+            np.concatenate([np.asarray(ct.center, dtype=float),
+                            np.asarray(ct.size, dtype=float)])
+            for ct in peer_cts if str(ct.status).lower() == 'visited']
 
         # Gossip OWN targets in global ENU (xy + boot via _local_to_world) so
         # peers and the GCS share one frame; own_cts stay local for the merge.
