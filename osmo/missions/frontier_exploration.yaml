@@ -5,9 +5,9 @@
 # (see semantic_search_task/node.py): navigation is pure frontier exploration
 # with no semantic cues; target tracking still runs.
 #
-# Per-iteration environment cycling (see `environments:` below): iteration i
-# runs environments[(i-1) % 3], so with iterations: 3 each scene flies once;
-# bump iterations to 6 / 9 / … for repeated passes. Each environment sets a
+# Environment scheduling (see `environment_order` / `environments:` below):
+# grouped runs each scene `iterations` times in a row (retro×N → fireacademy×N →
+# constructionsite×N); total runs = iterations * 3. Each environment sets a
 # different ENV_URL + spawn rectangle (drones are randomized inside it every
 # bring-up — in-bounds, >=3 m apart, random yaw) and its own search_area.
 #
@@ -97,9 +97,11 @@ environments:
 # identical to what happens when the polygon is entered in Foxglove.
 command_route: gcs
 
-# One pass over the three environments (retro → fireacademy → constructionsite).
-# Bump to 6 / 9 / … for repeated passes; the spawn layout re-randomizes each time.
-iterations: 6
+# grouped: run each environment `iterations` times in a row (retro×N, then
+# fireacademy×N, then constructionsite×N). So iterations is PER ENVIRONMENT;
+# total runs = iterations * 3. The spawn layout re-randomizes each run.
+environment_order: grouped
+iterations: 3
 
 ready:
   timeout_s: 600

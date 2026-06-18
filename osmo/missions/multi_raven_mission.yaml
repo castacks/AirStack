@@ -73,8 +73,10 @@ environments:
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 command_route: gcs
 
-# One pass over the three environments; bump for repeated passes.
-iterations: 6
+# grouped: each environment runs `iterations` times in a row (per-environment
+# count; total runs = iterations * 3). Spawn layout re-randomizes each run.
+environment_order: grouped
+iterations: 3
 
 ready:
   timeout_s: 600

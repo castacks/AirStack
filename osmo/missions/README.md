@@ -58,7 +58,8 @@ Top-level keys (everything except `steps` is optional):
 |---|---|---|
 | `name` | filename stem | Results directory name |
 | `env` | `{}` | Env vars exported before each `airstack up` (`NUM_ROBOTS`, `COMPOSE_PROFILES`, `ISAAC_SIM_SCRIPT_NAME`, …) |
-| `iterations` | `1` | Number of full up→fly→down cycles |
+| `iterations` | `1` | Full up→fly→down cycles. With `environments:` + `environment_order: grouped`, this is **per environment** (total = iterations × #environments) |
+| `environment_order` | `round_robin` | With `environments:`: `round_robin` (iteration i → env[(i-1) % n], `iterations` is the total) \| `grouped` (each env runs `iterations` times in a row) |
 | `ready.timeout_s` | `600` | Max seconds to wait for PX4 readiness per iteration |
 | `ready.poll_interval_s` | `5` | Seconds between readiness polls |
 | `record.enabled` | `true` | Record an mcap per robot per iteration |

@@ -97,6 +97,11 @@ GCS_RELAY_TASKS = {"takeoff", "land", "navigate", "fixed_trajectory",
 
 MISSION_DEFAULTS = {
     "iterations": 1,
+    # With an `environments:` list: round_robin → iteration i uses
+    # environments[(i-1) % n], so `iterations` is the TOTAL run count.
+    # grouped → each environment runs `iterations` times consecutively
+    # (retro×N, then fireacademy×N, …), so the total is iterations * n.
+    "environment_order": "round_robin",  # round_robin | grouped
     "on_step_failure": "abort_iteration",  # continue | abort_iteration | abort_mission
     "ready": {"timeout_s": 600, "poll_interval_s": 5},
     # scope "gcs": one recorder on GCS domain 0 → one mcap with every robot's
@@ -230,6 +235,9 @@ def load_mission(path):
     if merged["on_step_failure"] not in ("continue", "abort_iteration", "abort_mission"):
         raise ValueError(f"on_step_failure must be continue|abort_iteration|abort_mission, "
                          f"got {merged['on_step_failure']!r}")
+    if merged["environment_order"] not in ("round_robin", "grouped"):
+        raise ValueError(f"environment_order must be round_robin|grouped, "
+                         f"got {merged['environment_order']!r}")
     if merged["command_route"] not in ("gcs", "robot"):
         raise ValueError(f"command_route must be gcs|robot, got {merged['command_route']!r}")
     if merged["record"].get("scope", "gcs") not in ("gcs", "robot", "both"):
@@ -290,8 +298,10 @@ def uses_gcs_route(mission):
 
 
 # ── per-iteration environment cycling ──────────────────────────────────────
-# An optional top-level `environments:` list lets one mission run cycle through
-# several scenes: iteration i uses environments[(i-1) % len]. Within an entry,
+# An optional top-level `environments:` list lets one mission run several
+# scenes. environment_order=round_robin: iteration i uses environments[(i-1) %
+# len] (`iterations` = total). environment_order=grouped: each env runs
+# `iterations` times in a row (total = iterations * len). Within an entry,
 # UPPERCASE keys (ENV_URL, SPAWN_POLY, …) are exported as env vars before
 # `airstack up` (so they reach the isaac-sim container); any key can be
 # referenced from a step via a {{env.KEY}} placeholder (e.g. the search_area
@@ -1191,24 +1201,34 @@ def main():
     log(f"results → {run_dir}")
 
     environments = mission.get("environments") or []
+    n_iter = mission["iterations"]
+    # Build the per-iteration environment schedule. round_robin: cycle envs,
+    # `iterations` is the total. grouped: run each env `iterations` times in a
+    # row, so the total is iterations * len(environments).
+    if not environments:
+        schedule = [None] * n_iter
+    elif mission["environment_order"] == "grouped":
+        schedule = [env for env in environments for _ in range(n_iter)]
+    else:
+        schedule = [environments[i % len(environments)] for i in range(n_iter)]
+    total = len(schedule)
     if environments:
-        log(f"cycling {len(environments)} environment(s) across iterations: "
-            f"{[e['name'] for e in environments]}")
+        log(f"{mission['environment_order']} over {len(environments)} "
+            f"environment(s) → {total} iteration(s): "
+            f"{[e['name'] for e in schedule]}")
 
     iterations = []
-    for i in range(1, mission["iterations"] + 1):
-        log(f"━━━ iteration {i}/{mission['iterations']} ━━━")
+    for i, env_entry in enumerate(schedule, start=1):
+        log(f"━━━ iteration {i}/{total} ━━━")
         iter_dir = run_dir / f"iter_{i:03d}"
-        # Select + apply this iteration's environment (scene URL + spawn area as
-        # env vars for `airstack up`; search_area et al. templated into steps).
-        if environments:
-            env_entry = environments[(i - 1) % len(environments)]
+        # Apply this iteration's environment (scene URL + spawn area as env vars
+        # for `airstack up`; search_area et al. templated into steps).
+        if env_entry is not None:
             log(f"environment: {env_entry['name']} "
                 f"(ENV_URL={env_entry.get('ENV_URL')})")
             stack.apply_env(env_exports(env_entry))
             iter_mission = {**mission, "steps": substitute_env(mission["steps"], env_entry)}
         else:
-            env_entry = None
             iter_mission = mission
         summary = run_iteration(stack, iter_mission, iter_dir)
         summary["iteration"] = i
