@@ -400,14 +400,16 @@ def _takeoff_one_robot(n, robot_container, cfg, velocity, num_robots=1):
     for attempt in range(1, ARM_RETRY_ATTEMPTS + 1):
         streams = _start_captures(robot_container, cfg["robot_setup_bash"],
                                   n, timeout + 5, f"v{velocity}_takeoff")
-        result = ros2_exec(
-            robot_container,
-            f'ros2 action send_goal --feedback /robot_{n}/tasks/takeoff '
-            f'task_msgs/action/TakeoffTask "{goal}"',
-            domain_id=n, setup_bash=cfg["robot_setup_bash"],
-            timeout=int(timeout + 10),
-        )
-        odom, gt = _finish_captures(streams)
+        try:
+            result = ros2_exec(
+                robot_container,
+                f'ros2 action send_goal --feedback /robot_{n}/tasks/takeoff '
+                f'task_msgs/action/TakeoffTask "{goal}"',
+                domain_id=n, setup_bash=cfg["robot_setup_bash"],
+                timeout=int(timeout + 10),
+            )
+        finally:
+            odom, gt = _finish_captures(streams)
         if _action_ok(result.stdout):
             break
         msg = _action_message(result.stdout)
