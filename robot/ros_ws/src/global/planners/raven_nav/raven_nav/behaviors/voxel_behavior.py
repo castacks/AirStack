@@ -117,25 +117,27 @@ class VoxelBehavior:
 
     def _candidate_clusters(self, clusters_dict, committed_origin, committed_dir,
                             cur_pose):
-        """Clusters eligible for voxel-mode. With a ray commitment: only those
-        matching it. Without one: clusters within proximity_engage_m of the
-        drone, so it can finish a nearby target while exploring."""
-        if committed_origin is not None and committed_dir is not None:
-            return self._filter_to_committed_ray(
-                clusters_dict, committed_origin, committed_dir)
-        if cur_pose is None:
-            return {}
-        cur = np.asarray(cur_pose, dtype=float)
+        """Clusters eligible for voxel-mode: those matching the committed ray PLUS
+        any within proximity_engage_m of the drone (deconflicted). The proximity
+        set lets a committed drone finish a closer target instead of flying to a
+        far ray/frontier one — voxel execute then approaches the nearest."""
         out = {}
-        for i, c in clusters_dict.items():
-            center = np.asarray(c[:3], dtype=float)
-            if self._cuboid_distance(cur, np.zeros(3), center,
-                                     np.asarray(c[3:6], dtype=float)) \
-                    > self.proximity_engage_m:
-                continue
-            if self._peer_blocks_proximity(center, cur):
-                continue
-            out[i] = c
+        if committed_origin is not None and committed_dir is not None:
+            out.update(self._filter_to_committed_ray(
+                clusters_dict, committed_origin, committed_dir))
+        if cur_pose is not None:
+            cur = np.asarray(cur_pose, dtype=float)
+            for i, c in clusters_dict.items():
+                if i in out:
+                    continue
+                center = np.asarray(c[:3], dtype=float)
+                if self._cuboid_distance(cur, np.zeros(3), center,
+                                         np.asarray(c[3:6], dtype=float)) \
+                        > self.proximity_engage_m:
+                    continue
+                if self._peer_blocks_proximity(center, cur):
+                    continue
+                out[i] = c
         return out
 
     # Cluster proximity (m) under which a peer's committed point claims it.
