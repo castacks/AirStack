@@ -92,11 +92,11 @@ environments:
         - {x: -40.0, y: 50.0, z: 0.0}
 
   - name: abandonedfactory
-    ENV_URL: ""  # TODO: set omniverse path to the Abandoned Factory stage
+    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
     SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
     RESULTS_SCENE: "AbandonedFactory"
     query: ""              # TODO: set semantic search query
-    background_queries: ""  # TODO: set background queries
+    background_queries: "sky, ground, grass, road, tree"  
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
