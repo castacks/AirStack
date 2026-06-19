@@ -80,8 +80,8 @@ rates if too many `ros2 topic hz` processes run concurrently.
   **ms-airsim** keeps a single four-topic parallel batch on the robot container.
 - **Filtered LiDAR** (`PointCloud2`): uses `ros2 topic echo --once` per robot
   (see `parallel_echo_once_robot_topics` in `conftest.py`), not `topic hz`.
-- **Multi-drone Pegasus script:** pytest sets `ENABLE_LIDAR=true` in
-  `conftest.py` `SIM_CONFIG["isaacsim"]["extra_env"]` so LiDAR matches the
+- **Multi-drone Pegasus script:** pytest sets `ENABLE_LIDAR=true` in both
+  `isaacsim` and `isaacsim_natnet` `SIM_CONFIG` entries so LiDAR matches the
   single-drone example (which always enables RTX LiDAR).
 
 User-facing write-up: [`tests/README.md`](../../../tests/README.md) (section
@@ -155,7 +155,7 @@ The `airstack_env` fixture is parametrized over `(sim, num_robots, iteration)` t
 
 | Flag | Default | Affects | Becomes |
 |------|---------|---------|---------|
-| `--sim` | `msairsim,isaacsim` | `airstack_env` | One env-tuple per sim |
+| `--sim` | `msairsim,isaacsim,isaacsim_natnet` | `airstack_env` | One env-tuple per sim |
 | `--num-robots` | `1,3` | `airstack_env` | Cross-product with sim |
 | `--stress-iterations` | `1` | `airstack_env` | Up/down cycles per `(sim, num_robots)` |
 | `--stable-duration` | `120` | `system.test_liveliness::test_stable` and `system.test_sensors::test_sensor_streams_stable` | Total seconds polled |
@@ -354,7 +354,7 @@ If multiple tests need the same setup, add a fixture in `conftest.py` (not in yo
 - **Running on insufficient hardware**. `liveliness`, `sensors`, and `takeoff_hover_land` require an NVIDIA GPU plus nvidia-container-toolkit; without them the sim container won't get GPU access and topic Hz checks will time out. If you only have a CPU, scope to `-m "build_docker or build_packages"`.
 - **Expecting interactive sim feedback**. `airstack_env` runs headless by default (`MS_AIRSIM_HEADLESS=true`, `ISAAC_SIM_HEADLESS=true`, `QT_QPA_PLATFORM=offscreen`). Don't add stdin prompts, GUI dialogs, or `input()` calls to test code — they will hang in CI. For local visual debugging only, pass `--gui`.
 - **Not capturing metrics in a new test**. If a test fails silently (no metric recorded) the regression report has nothing to compare. Always record at least one scalar via `MetricsRecorder` so the test shows up in `metrics.json`.
-- **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim --num-robots 1,3` with `--stress-iterations 3` multiply stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating.
+- **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim,isaacsim_natnet --num-robots 1,3` with `--stress-iterations 3` multiply stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating.
 - **Hardcoded container names**. Always use `find_container`, `get_robot_containers`, or `wait_for_container` — replica suffixes (`-1`, `-2`, `-3`) and compose project prefixes change.
 - **Asserting on stdout instead of using `read_log_tail`**. The conftest tees subprocess output to per-test log files; assertions should reference those logs (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
 - **Trying to SSH into a CI runner mid-job**. Workers are ephemeral OpenStack VMs destroyed within ~30s of job completion. Re-running the job creates a fresh VM. For genuine debugging on the runner, see `.github/orchestrator/README.md` (also exposed at `tests/ci-cd-orchestrator.md`) — but in 99% of cases, reproduce locally with `airstack test`.

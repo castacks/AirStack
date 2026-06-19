@@ -15,8 +15,8 @@ on:
         default: "liveliness or takeoff_hover_land"
         required: false
       sim:
-        description: "Sim targets, comma-separated: msairsim,isaacsim"
-        default: msairsim,isaacsim
+        description: "Sim targets, comma-separated: msairsim,isaacsim,isaacsim_natnet"
+        default: msairsim,isaacsim,isaacsim_natnet
         required: false
       num_robots:
         description: "Robot counts, comma-separated (e.g. 1,3)"
@@ -156,7 +156,7 @@ jobs:
           # and decide whether to skip (build_docker tests rebuild themselves).
           # When --sim isn't given we mirror conftest's default so prep covers
           # whatever pytest will actually exercise.
-          sim = 'msairsim,isaacsim'
+          sim = 'msairsim,isaacsim,isaacsim_natnet'
           marks = ''
           marks_idx = -1
           for i, a in enumerate(args):
@@ -301,7 +301,7 @@ jobs:
         run: |
           profiles=desktop
           [[ ",$SIM_INPUT," == *,msairsim,* ]] && profiles="$profiles,ms-airsim"
-          [[ ",$SIM_INPUT," == *,isaacsim,* ]] && profiles="$profiles,isaac-sim"
+          [[ ",$SIM_INPUT," == *isaacsim* ]] && profiles="$profiles,isaac-sim"
           export COMPOSE_PROFILES="$profiles"
           echo "Pulling images for COMPOSE_PROFILES=$COMPOSE_PROFILES"
 

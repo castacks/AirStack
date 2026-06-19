@@ -244,7 +244,7 @@ function print_command_help {
             echo ""
             echo "AirStack-specific options:"
             echo "  --sim=TARGETS              Comma-separated sim targets"
-            echo "                             (default: msairsim,isaacsim)"
+            echo "                             (default: msairsim,isaacsim,isaacsim_natnet)"
             echo "  --num-robots=COUNTS        Comma-separated robot counts (default: 1,3)"
             echo "  --stress-iterations=N      Up/down cycles per config (default: 3)"
             echo "  --stable-duration=SECS     Seconds test_stable polls for (default: 120)"

@@ -16,6 +16,21 @@ from pathlib import Path
 import pytest
 import yaml
 
+_ISAAC_SIM_BASE = {
+    "profile": "isaac-sim",
+    "sim_container": "isaac-sim",
+    "sim_setup_bash": "/opt/ros/jazzy/setup.bash",
+    "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
+}
+
+_ISAAC_SIM_COMMON_ENV = {
+    "ISAAC_SIM_USE_STANDALONE": "true",
+    "PLAY_SIM_ON_START": "true",
+    # Multi script gates RTX LiDAR on this flag; example_one always spawns it.
+    # `sensors` tests expect ouster topics + lidar_point_cloud_filter path.
+    "ENABLE_LIDAR": "true",
+}
+
 SIM_CONFIG = {
     "msairsim": {
         "profile": "ms-airsim",
@@ -31,26 +46,41 @@ SIM_CONFIG = {
         },
     },
     "isaacsim": {
-        "profile": "isaac-sim",
-        "sim_container": "isaac-sim",
-        "sim_setup_bash": "/opt/ros/jazzy/setup.bash",
-        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
+        **_ISAAC_SIM_BASE,
         "extra_env": {
-            "ISAAC_SIM_USE_STANDALONE": "true",
-            # Use the NatNet launch script so test_natnet_pose_alive always runs.
-            # It is a superset of the plain script: same drones + NatNet emulator.
-            "ISAAC_SIM_SCRIPT_NAME": "example_multi_px4_pegasus_natnet_launch_script.py",
-            "PLAY_SIM_ON_START": "true",
-            # Multi script gates RTX LiDAR on this flag; example_one always spawns it.
-            # `sensors` tests expect ouster topics + lidar_point_cloud_filter path.
-            "ENABLE_LIDAR": "true",
-            # Always enable the robot-side NatNet stack for Isaac Sim tests so that
-            # test_natnet_pose_alive runs regardless of the user's local .env setting.
+            **_ISAAC_SIM_COMMON_ENV,
+            "LAUNCH_NATNET": "false",
+        },
+    },
+    "isaacsim_natnet": {
+        **_ISAAC_SIM_BASE,
+        "extra_env": {
+            **_ISAAC_SIM_COMMON_ENV,
             "LAUNCH_NATNET": "true",
             "SITL_PARAM_PROFILE": "px4-vision",
         },
     },
 }
+
+
+def is_isaac_sim(sim: str) -> bool:
+    """True for ``isaacsim`` and ``isaacsim_natnet`` sim keys."""
+    return sim.startswith("isaacsim")
+
+
+def isaac_launch_script(num_robots: int, *, natnet: bool) -> str:
+    """Pick single- vs multi-drone Pegasus script; NatNet scripts add the emulator."""
+    if natnet:
+        return (
+            "example_one_px4_pegasus_natnet_launch_script.py"
+            if num_robots == 1
+            else "example_multi_px4_pegasus_natnet_launch_script.py"
+        )
+    return (
+        "example_one_px4_pegasus_launch_script.py"
+        if num_robots == 1
+        else "example_multi_px4_pegasus_launch_script.py"
+    )
 
 AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
 COLCON_UNIT_TEST_PACKAGES_YAML = (
@@ -173,8 +203,11 @@ _test_log_handler = None
 # ── pytest config / hooks ──────────────────────────────────────────────────
 
 def pytest_addoption(parser):
-    parser.addoption("--sim", default="msairsim,isaacsim",
-                     help="Comma-separated sim targets: msairsim, isaacsim")
+    parser.addoption(
+        "--sim",
+        default="msairsim,isaacsim,isaacsim_natnet",
+        help="Comma-separated sim targets: msairsim, isaacsim, isaacsim_natnet",
+    )
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
     parser.addoption("--stress-iterations", type=int, default=1,
@@ -851,6 +884,10 @@ def airstack_env(request):
         # Forces rviz/Qt apps to render offscreen instead of spawning windows.
         env_overrides["QT_QPA_PLATFORM"] = "offscreen"
     env_overrides.update(cfg.get("extra_env", {}))
+    if is_isaac_sim(sim):
+        env_overrides["ISAAC_SIM_SCRIPT_NAME"] = isaac_launch_script(
+            num_robots, natnet=(sim == "isaacsim_natnet")
+        )
 
     with logger_to(log):
         missing = missing_images(env=env_overrides)

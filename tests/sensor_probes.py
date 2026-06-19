@@ -5,7 +5,7 @@
 Used by ``system/test_sensors.py``. Liveliness (``system/test_liveliness.py``) stays limited to
 containers, tmux, and sentinel nodes; sensor Hz / LiDAR validation lives here.
 
-**Isaac Sim (`env["sim"] == "isaacsim"`)** — Pegasus / OmniGraph ROS bridges are
+**Isaac Sim (`is_isaac_sim(env["sim"])`)** — Pegasus / OmniGraph ROS bridges are
 easily overwhelmed when many ``ros2 topic hz`` clients run at once. This module
 therefore caps concurrent Hz clients (see ``ISAACSIM_HZ_CHUNK_SIZE``):
 
@@ -28,6 +28,7 @@ from conftest import (
     ROS_DISTRO_SETUP,
     docker_exec,
     get_robot_containers,
+    is_isaac_sim,
     logger,
     parallel_echo_once_robot_topics,
     parallel_sample_hz,
@@ -130,7 +131,7 @@ def check_sim_publishing(env, *, duration=10, window=5):
     topics = sim_side_topics(env["num_robots"])
     logger.info("Sampling Hz for %d sim-side topics (duration=%ss)", len(topics), duration)
 
-    if env.get("sim") == "isaacsim":
+    if is_isaac_sim(env.get("sim", "")):
         clock_pairs = [p for p in topics if p[0] == "/clock"]
         stereo_pairs = [p for p in topics if p[0] != "/clock"]
         image_pairs = [p for p in stereo_pairs if "image_rect" in p[0]]
@@ -214,7 +215,7 @@ def check_robot_stereo_hz(env, *, duration=10, window=5):
         duration,
     )
 
-    if env.get("sim") == "isaacsim":
+    if is_isaac_sim(env.get("sim", "")):
         image_pairs = [p for p in pairs if "image_rect" in p[0]]
         depth_pairs = [p for p in pairs if "image_rect" not in p[0]]
         rates = {}
@@ -270,7 +271,7 @@ def robot_lidar_echo_probes(env):
 
 def check_robot_filtered_lidar(env, *, duration=10, window=5):
     """Filtered LiDAR is publishing (Isaac only): ``echo --once`` per robot container."""
-    if env.get("sim") != "isaacsim":
+    if not is_isaac_sim(env.get("sim", "")):
         return True, "robot lidar skipped (not isaacsim)", {}
     cfg = env["cfg"]
     robots = get_robot_containers(env["robot_pattern"])
@@ -304,7 +305,7 @@ def check_robot_filtered_lidar(env, *, duration=10, window=5):
 
 def check_lidar_filtered_cloud_sanity(env):
     """One-shot filtered/raw cloud checks inside each robot container (isaacsim)."""
-    if env.get("sim") != "isaacsim":
+    if not is_isaac_sim(env.get("sim", "")):
         return True, "lidar cloud sanity skipped (not isaacsim)", {}
     cfg = env["cfg"]
     robots = get_robot_containers(env["robot_pattern"])

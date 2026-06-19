@@ -86,11 +86,18 @@ Parametrized over `(sim, num_robots, iteration)` tuples derived from CLI flags. 
 
 ### Isaac Sim and the `sensors` mark
 
-**LiDAR in pytest:** [`conftest.py`](conftest.py) sets
-`ENABLE_LIDAR=true` in `SIM_CONFIG["isaacsim"]["extra_env"]` so the multi-drone
-Pegasus script (`example_multi_px4_pegasus_launch_script.py`) attaches RTX LiDAR
-the same way the single-drone script always does. Without that flag the multi
-script would not spawn LiDAR OmniGraphs.
+AirStack runs **two** Isaac Sim pytest targets so CI covers both the regular
+Pegasus stack and the NatNet/vision variant:
+
+| Sim key | NatNet | PX4 profile | Launch script |
+|---------|--------|-------------|---------------|
+| `isaacsim` | off | default | `example_one_*` (rob#1) / `example_multi_*` (rob#3) |
+| `isaacsim_natnet` | on | `px4-vision` | `example_one_*_natnet_*` / `example_multi_*_natnet_*` |
+
+Script names are chosen from `num_robots` in [`conftest.py`](conftest.py)
+(`isaac_launch_script`). Both variants set `ENABLE_LIDAR=true` so the multi-drone
+Pegasus script attaches RTX LiDAR the same way the single-drone script always
+does.
 
 **Topic checks** live in [`sensor_probes.py`](sensor_probes.py)
 and are driven by [`system/test_sensors.py`](system/test_sensors.py):
@@ -230,7 +237,7 @@ pytest tests/ -m sensors \
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--sim` | `msairsim,isaacsim` | Comma-separated sim targets |
+| `--sim` | `msairsim,isaacsim,isaacsim_natnet` | Comma-separated sim targets |
 | `--num-robots` | `1,3` | Comma-separated robot counts |
 | `--stress-iterations` | `3` | Up/down cycles per (sim, num_robots) config |
 | `--stable-duration` | `120` | Seconds ``test_stable`` / ``test_sensor_streams_stable`` poll for |

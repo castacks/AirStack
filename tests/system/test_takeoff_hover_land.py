@@ -33,9 +33,19 @@ TARGET_ALTITUDE_M = 10.0
 HOVER_DURATION_S = 10.0
 PX4_READY_TIMEOUT_S = 300.0
 PX4_POLL_INTERVAL_S = 2.0
+
+# Vision/NatNet EV fusion needs a few extra seconds to settle before PX4 will
+# arm. Non-vision keeps the original behavior (no settle) to keep the base fast.
+PX4_ARM_SETTLE_VISION_S = 15.0  # post-ready settle, vision profiles only
+ARM_RETRY_ATTEMPTS = 3          # total takeoff attempts on arm rejection
+ARM_RETRY_BACKOFF_S = 5.0       # wait between retries
 MOTION_ABOVE_START_M = 0.3  # z threshold for "drone started moving" (relative to z[0])
 SETTLING_WINDOW_S = 1.0     # seconds of trailing samples used for steady-state altitude
 MAX_GT_MATCH_AGE_S = 0.1    # drop an odom sample if nearest GT is >100ms away
+
+# Parallel vision takeoffs slow the climb (mocap fusion under shared GPU/CPU
+# load). Non-vision keeps the original fixed budget to guard base performance.
+TAKEOFF_TIMEOUT_VISION_PER_ROBOT_FACTOR = 1.0  # extra budget per extra robot, vision only
 
 # Full column schemas of `ros2 topic echo --csv` output, in declaration order.
 # Covariance arrays expand to 36 comma-separated values each. Downstream code
@@ -63,9 +73,22 @@ METRIC_UNITS = {
 }
 
 
-def _phase_timeout(velocity):
-    """Takeoff/land timeout scaled so 0.5 m/s runs don't time out spuriously."""
-    return max(30.0, TARGET_ALTITUDE_M / velocity + 15.0)
+def _is_vision_profile(cfg):
+    """True for external-vision / NatNet mocap stacks."""
+    env = cfg.get("extra_env", {}) if cfg else {}
+    if str(env.get("LAUNCH_NATNET", "")).lower() in ("1", "true", "yes", "on"):
+        return True
+    return "vision" in str(env.get("SITL_PARAM_PROFILE", "")).lower()
+
+
+def _phase_timeout(velocity, num_robots=1, vision=False):
+    """Takeoff/land wall-clock budget. Original fixed budget for non-vision;
+    vision profiles widen it per extra robot to absorb the slower climb."""
+    base = max(30.0, TARGET_ALTITUDE_M / velocity + 15.0)
+    if not vision:
+        return base
+    scale = 1.0 + TAKEOFF_TIMEOUT_VISION_PER_ROBOT_FACTOR * max(0, num_robots - 1)
+    return base * scale
 
 
 # ── pytest hooks ───────────────────────────────────────────────────────────
@@ -366,22 +389,35 @@ def _run_parallel(num_robots, fn):
         list(ex.map(fn, range(1, num_robots + 1)))
 
 
-def _takeoff_one_robot(n, robot_container, cfg, velocity):
-    timeout = _phase_timeout(velocity)
+def _takeoff_one_robot(n, robot_container, cfg, velocity, num_robots=1):
+    timeout = _phase_timeout(velocity, num_robots, _is_vision_profile(cfg))
     target = TARGET_ALTITUDE_M
-    streams = _start_captures(robot_container, cfg["robot_setup_bash"],
-                              n, timeout + 5, f"v{velocity}_takeoff")
     goal = f"{{target_altitude_m: {target}, velocity_m_s: {velocity}}}"
-    result = ros2_exec(
-        robot_container,
-        f'ros2 action send_goal --feedback /robot_{n}/tasks/takeoff '
-        f'task_msgs/action/TakeoffTask "{goal}"',
-        domain_id=n, setup_bash=cfg["robot_setup_bash"],
-        timeout=int(timeout + 10),
-    )
-    odom, gt = _finish_captures(streams)
-    if not _action_ok(result.stdout):
-        pytest.fail(f"robot_{n} takeoff failed: {_action_message(result.stdout)}")
+
+    # Retry transient arm rejections. A slow climb raises TimeoutExpired (not an
+    # arm rejection) and propagates without retrying.
+    odom, gt, result = [], [], None
+    for attempt in range(1, ARM_RETRY_ATTEMPTS + 1):
+        streams = _start_captures(robot_container, cfg["robot_setup_bash"],
+                                  n, timeout + 5, f"v{velocity}_takeoff")
+        result = ros2_exec(
+            robot_container,
+            f'ros2 action send_goal --feedback /robot_{n}/tasks/takeoff '
+            f'task_msgs/action/TakeoffTask "{goal}"',
+            domain_id=n, setup_bash=cfg["robot_setup_bash"],
+            timeout=int(timeout + 10),
+        )
+        odom, gt = _finish_captures(streams)
+        if _action_ok(result.stdout):
+            break
+        msg = _action_message(result.stdout)
+        if "arm" in msg.lower() and attempt < ARM_RETRY_ATTEMPTS:
+            logger.warning(
+                "robot_%d takeoff attempt %d/%d rejected (%s); retrying in %.0fs",
+                n, attempt, ARM_RETRY_ATTEMPTS, msg, ARM_RETRY_BACKOFF_S)
+            time.sleep(ARM_RETRY_BACKOFF_S)
+            continue
+        pytest.fail(f"robot_{n} takeoff failed: {msg}")
     if not odom:
         pytest.fail(f"robot_{n} takeoff: no odom samples captured")
     metrics = _tracking_metrics_takeoff(odom, target, velocity)
@@ -410,8 +446,8 @@ def _hover_one_robot(n, robot_container, cfg, velocity):
         f"robot_{n} drifted {drift:.2f}m in altitude during hover (>0.5m tolerance)")
 
 
-def _landing_one_robot(n, robot_container, cfg, velocity):
-    timeout = _phase_timeout(velocity)
+def _landing_one_robot(n, robot_container, cfg, velocity, num_robots=1):
+    timeout = _phase_timeout(velocity, num_robots, _is_vision_profile(cfg))
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
                               n, timeout + 5, f"v{velocity}_land")
     goal = f"{{velocity_m_s: {velocity}}}"
@@ -538,6 +574,13 @@ class TestTakeoffHoverLand:
 
         for n, dur in ready_at.items():
             _record(n, {"ready_duration_sys_s": dur})
+
+        # Vision profiles need extra time to settle before arming; non-vision arms
+        # much faster (original behavior).
+        if _is_vision_profile(cfg):
+            logger.info("px4_ready: vision profile; settling %.0fs before arming",
+                        PX4_ARM_SETTLE_VISION_S)
+            time.sleep(PX4_ARM_SETTLE_VISION_S)
         _ready_envs.add(env_id)
 
     @pytest.mark.dependency(name="autonomy_takeoff", depends=["autonomy_ready"])
@@ -547,7 +590,7 @@ class TestTakeoffHoverLand:
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
         _run_parallel(num_robots,
-                      lambda n: _takeoff_one_robot(n, robot_container, cfg, velocity))
+                      lambda n: _takeoff_one_robot(n, robot_container, cfg, velocity, num_robots))
 
     @pytest.mark.dependency(name="autonomy_hover", depends=["autonomy_takeoff"])
     def test_hover(self, airstack_env, velocity):
@@ -565,4 +608,4 @@ class TestTakeoffHoverLand:
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
         _run_parallel(num_robots,
-                      lambda n: _landing_one_robot(n, robot_container, cfg, velocity))
+                      lambda n: _landing_one_robot(n, robot_container, cfg, velocity, num_robots))
