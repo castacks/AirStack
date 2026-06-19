@@ -42,6 +42,11 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # YAML config for scene_drone_person_configuration.py. In-container path
+      # (repo is mounted at /isaac-sim/AirStack). Override via SCENE_CONFIG_PATH in .env.
+      - SCENE_CONFIG_PATH=${SCENE_CONFIG_PATH:-/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/configs/office_one_drone_one_person.yaml}
+      - MESH_PLANE_SIZE_SEED=${MESH_PLANE_SIZE_SEED:-1234}
+      - MESH_PLANE_POSITION_SEED=${MESH_PLANE_POSITION_SEED:-5678}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
