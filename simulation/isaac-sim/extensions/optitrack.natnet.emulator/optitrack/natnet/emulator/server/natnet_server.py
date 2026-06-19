@@ -215,8 +215,14 @@ class NatNetServer:
             raise ValueError(f"Unsupported NatNet version: {self.natnet_version}. Minimum supported version is 4.0.0.0. Recommended to use 4.4.0.0")
 
         if self.high_res_clock_freq <= 0:
-            raise ValueError(f"Invalid high resolution clock frequency: {self.high_res_clock_freq}. Must be a positive integer representing the frequency in Hz.")
+            raise ValueError(
+                f"Invalid high resolution clock frequency: {self.high_res_clock_freq}. Must be a positive integer representing the frequency in Hz."
+            )
 
+        if self.publish_rate <= 0:
+            raise ValueError(
+                f"Invalid publish rate: {self.publish_rate}. Must be a positive number representing Hz."
+            )
     def _get_latest_mocap_packet(self) -> DataMessages.sFrameOfMocapData | None:
         # Thread-safe method to retrieve the latest mocap data to be sent
         try:
