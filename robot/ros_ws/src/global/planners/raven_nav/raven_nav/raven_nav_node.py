@@ -649,6 +649,18 @@ class RavenNavNode(Node):
         self._behavior_manager.voxel_behavior.peer_visited_bbs = [
             bb for _, bb in self._peer_visited_bbs]
 
+        # Peer-OBSERVING BBs (label, bb, that peer's position) — lets a far
+        # committed drone yield a target a closer peer is sitting on.
+        fresh = self._fresh_peers(now_ts)
+        self._peer_observing_bbs = []
+        for name, entries in self._peer_state.peer_confirmed_targets.items():
+            if name not in fresh:
+                continue
+            ppos = self._peer_state.peer_positions.get(name)
+            for pct in entries:
+                if str(pct.status).lower() == 'observing':
+                    self._peer_observing_bbs.append((pct.label, _bb(pct), ppos))
+
         # Gossip OWN targets in global ENU (xy + boot via _local_to_world) so
         # peers and the GCS share one frame; own_cts stay local for the merge.
         if self._boot_enu is not None:
@@ -752,11 +764,47 @@ class RavenNavNode(Node):
                 return True
         return False
 
+    # A peer observing a target must be at least this much closer to it than us
+    # before we yield our committed ray (margin avoids flip-flop near-equidistant).
+    _OBSERVER_TAKEOVER_MARGIN_M = 5.0
+
+    def _ray_yields_to_observer(self, origin, direction, label) -> bool:
+        """True if my ray points at a BB a peer is OBSERVING and that peer is
+        clearly closer to it — yield so the closer (voxel-mode) drone takes it.
+        Applies even to my own committed ray."""
+        bbs = getattr(self, '_peer_observing_bbs', None)
+        if not bbs or self._cur_pose is None:
+            return False
+        o = np.asarray(origin, dtype=float)
+        d = np.asarray(direction, dtype=float)
+        my_pt = self._ray_point(origin, direction)
+        bl = (label or '').lower()
+        for lab, bb, ppos in bbs:
+            if ppos is None:
+                continue
+            ll = lab.lower()
+            if not (bl in ll or ll in bl):
+                continue
+            center = np.asarray(bb, dtype=float)[:3]
+            padded = np.asarray(bb, dtype=float).copy()
+            padded[3:6] = padded[3:6] + 2.0 * self._PEER_BID_PAD_M
+            if not (ray_aabb_hits(o, d, padded, t_min_ahead=0.0)[0]
+                    or self._points_near(my_pt, center)):
+                continue
+            peer_d = float(np.linalg.norm(np.asarray(ppos, float)[:2] - center[:2]))
+            my_d = float(np.linalg.norm(self._cur_pose[:2] - center[:2]))
+            if peer_d + self._OBSERVER_TAKEOVER_MARGIN_M < my_d:
+                return True
+        return False
+
     def _ray_off_limits(self, g, polygon_xy, peer_committed) -> bool:
-        """Off-limits if the ray points at a target already visited (any drone)
-        or one a peer is committed to / heading toward — geometric same-instance
-        OR forward-point proximity (robust to triangulation flicker). Our own
-        committed instance is never off-limits to us."""
+        """Off-limits if the ray points at a target already visited (any drone),
+        one a peer is committed to / heading toward, or one a peer is observing
+        from clearly closer — geometric same-instance OR forward-point proximity
+        (robust to triangulation flicker). Our own committed instance is never
+        off-limits to us unless a closer peer is observing it."""
+        if self._ray_yields_to_observer(g.avg_origin, g.avg_dir, g.label):
+            return True
         my_pt = self._ray_point(g.avg_origin, g.avg_dir)
         visited = getattr(self, '_peer_visited_bbs', None)
         if self._ray_on_peer_bbs(g.avg_origin, g.avg_dir, g.label, visited) \
@@ -1712,6 +1760,25 @@ class RavenNavNode(Node):
             self._committed_target_last_dir = None
             self._committed_target_last_origin = None
 
+        # Yield a committed ray when a peer is observing that target from clearly
+        # closer (e.g. it's in voxel mode sitting on it) — the close drone takes
+        # the BB; we go elsewhere.
+        if (self._assigned_target is not None
+                and self._committed_target_last_origin is not None
+                and self._committed_target_last_dir is not None
+                and self._ray_yields_to_observer(
+                    self._committed_target_last_origin,
+                    self._committed_target_last_dir,
+                    self._assigned_target)):
+            if self._debug_coord:
+                self.get_logger().info(
+                    f'[coord] yielding {self._assigned_target}: '
+                    f'peer observing it from closer')
+            self._assigned_target = None
+            self._committed_to_assigned = False
+            self._committed_target_last_dir = None
+            self._committed_target_last_origin = None
+
         heading_xy = np.array([np.cos(self._cur_yaw), np.sin(self._cur_yaw)])
         if self._assignment_strategy == 'greedy':
             won = bid_manager.assign(
@@ -1958,11 +2025,20 @@ class RavenNavNode(Node):
                 f'peer_bids={peer_str}',
                 throttle_duration_sec=2.0)
 
+        # Proximity-voxel deconfliction: peers' positions + committed points so a
+        # drone defers a nearby cluster to a closer / committed peer.
+        vb = self._behavior_manager.voxel_behavior
+        vb.my_id = self._my_id
+        vb.fresh_peer_points = [
+            (self._peer_state.peer_ids.get(n), self._peer_state.peer_positions[n])
+            for n in fresh_peers if n in self._peer_state.peer_positions]
+        vb.peer_committed_points = [
+            self._ray_point(po, pd)
+            for (_n, _lbl, po, pd, _pid) in peer_committed_instances]
+
         prev_mode = self._behavior_mode
         # Cluster over EVERY configured target label so confirmed_targets /
-        # AABBs publish from tick 1. Voxel-MODE activation is still gated
-        # per-instance by _filter_to_committed_ray downstream, so this
-        # doesn't risk switching to the wrong house.
+        # AABBs publish from tick 1.
         voxel_targets = list(self._target_objects or [])
         if self._frontier_only_baseline:
             # Baseline = pure-frontier navigation, but we still want PASSIVE

@@ -75,9 +75,9 @@ depth_limit: 20.0
 #   lang_model: siglip
 
 dataset:
-  rgb_resolution: [480, 304] #[480, 304]
-  depth_resolution: [480, 304] #[480, 304]
-  frame_skip: 10
+  rgb_resolution: [224, 224]  #[480, 304]
+  depth_resolution: [224, 224]  #[480, 304]
+  frame_skip: 5
 
 mapping:
   vox_size: 0.50

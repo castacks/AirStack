@@ -39,6 +39,11 @@ class VoxelBehavior:
         self.proximity_engage_m = proximity_engage_m
         # Hysteresis: cluster currently being approached.
         self._held_center = None
+        # Deconfliction for proximity engage (set by the node each tick):
+        # fresh peer XY positions (id-tagged) + points peers are committed to.
+        self.fresh_peer_points = []      # [(peer_id, np.ndarray)]
+        self.peer_committed_points = []  # [np.ndarray]
+        self.my_id = 0
         # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
         # {cluster_id: query_label}
@@ -121,12 +126,37 @@ class VoxelBehavior:
         if cur_pose is None:
             return {}
         cur = np.asarray(cur_pose, dtype=float)
-        return {
-            i: c for i, c in clusters_dict.items()
-            if self._cuboid_distance(
-                cur, np.zeros(3), np.asarray(c[:3], dtype=float),
-                np.asarray(c[3:6], dtype=float)) <= self.proximity_engage_m
-        }
+        out = {}
+        for i, c in clusters_dict.items():
+            center = np.asarray(c[:3], dtype=float)
+            if self._cuboid_distance(cur, np.zeros(3), center,
+                                     np.asarray(c[3:6], dtype=float)) \
+                    > self.proximity_engage_m:
+                continue
+            if self._peer_blocks_proximity(center, cur):
+                continue
+            out[i] = c
+        return out
+
+    # Cluster proximity (m) under which a peer's committed point claims it.
+    _PEER_CLAIM_M = 10.0
+
+    def _peer_blocks_proximity(self, center, cur) -> bool:
+        """Defer a proximity engage when a fresh peer is closer to the cluster
+        (id tiebreak) or is committed to it — so two drones don't grab the same
+        cluster. Self-corrects as a busy peer moves away."""
+        c2 = np.asarray(center, dtype=float)[:2]
+        my_d = float(np.linalg.norm(c2 - np.asarray(cur, dtype=float)[:2]))
+        for pid, p in self.fresh_peer_points:
+            pd = float(np.linalg.norm(c2 - np.asarray(p, dtype=float)[:2]))
+            if pd < my_d or (abs(pd - my_d) < 1e-3
+                             and pid is not None and pid < self.my_id):
+                return True
+        for cp in self.peer_committed_points:
+            if float(np.linalg.norm(
+                    c2 - np.asarray(cp, dtype=float)[:2])) <= self._PEER_CLAIM_M:
+                return True
+        return False
 
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
                         threshold=None, committed_origin=None,
