@@ -29,11 +29,16 @@ class _VoxelObs:
 
 class VoxelBehavior:
     def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30,
-                 confirm_hits=3, track_max_misses=4):
+                 confirm_hits=3, track_max_misses=4, proximity_engage_m=12.0):
         self.get_clock = get_clock
         self.name = 'Voxel-based'
         self.score_threshold = score_threshold
         self.min_cluster_size = min_cluster_size
+        # Engage voxel-mode on a cluster within this range even without a ray
+        # commitment (fix: finish nearby targets while exploring).
+        self.proximity_engage_m = proximity_engage_m
+        # Hysteresis: cluster currently being approached.
+        self._held_center = None
         # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
         # {cluster_id: query_label}
@@ -59,6 +64,7 @@ class VoxelBehavior:
         self.peer_visited_bbs = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
+        self._held_center = None
         self._confirmer.reset()
 
     def _cluster_matches_committed_ray(self, cluster, committed_origin,
@@ -104,9 +110,27 @@ class VoxelBehavior:
                 c, committed_origin, committed_dir)
         }
 
+    def _candidate_clusters(self, clusters_dict, committed_origin, committed_dir,
+                            cur_pose):
+        """Clusters eligible for voxel-mode. With a ray commitment: only those
+        matching it. Without one: clusters within proximity_engage_m of the
+        drone, so it can finish a nearby target while exploring."""
+        if committed_origin is not None and committed_dir is not None:
+            return self._filter_to_committed_ray(
+                clusters_dict, committed_origin, committed_dir)
+        if cur_pose is None:
+            return {}
+        cur = np.asarray(cur_pose, dtype=float)
+        return {
+            i: c for i, c in clusters_dict.items()
+            if self._cuboid_distance(
+                cur, np.zeros(3), np.asarray(c[:3], dtype=float),
+                np.asarray(c[3:6], dtype=float)) <= self.proximity_engage_m
+        }
+
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
                         threshold=None, committed_origin=None,
-                        committed_dir=None):
+                        committed_dir=None, cur_pose=None):
         """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols.
 
         Returns True iff there is at least one unvisited, temporally-confirmed
@@ -139,11 +163,11 @@ class VoxelBehavior:
             self.target_voxel_clusters[cid] = obs.bbox
             self.cluster_query_map[cid] = obs.label
 
-        # Per-instance filter: only consider clusters that geometrically
-        # match the drone's auctioned ray commitment. Without this, voxel-mode
-        # would happily steal House_B when the drone was assigned House_A.
-        ray_filtered = self._filter_to_committed_ray(
-            self.target_voxel_clusters, committed_origin, committed_dir)
+        # Candidates: ray-matched clusters when committed, else clusters near the
+        # drone. The ray filter keeps voxel-mode from stealing House_B when the
+        # drone is committed to House_A.
+        ray_filtered = self._candidate_clusters(
+            self.target_voxel_clusters, committed_origin, committed_dir, cur_pose)
 
         self.unvisited_clusters = [
             (idx, cluster) for idx, cluster in ray_filtered.items()
@@ -221,10 +245,10 @@ class VoxelBehavior:
 
         path_pub = publisher_dict['path']
 
-        # Same per-instance ray filter as in condition_check — keep the
-        # candidate pool tied to the drone's committed target.
-        ray_filtered = self._filter_to_committed_ray(
-            self.target_voxel_clusters, committed_origin, committed_dir)
+        # Same candidate pool as condition_check (ray-matched, or nearby when
+        # uncommitted).
+        ray_filtered = self._candidate_clusters(
+            self.target_voxel_clusters, committed_origin, committed_dir, cur_pose_np)
         self.unvisited_clusters = [
             (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
@@ -241,6 +265,18 @@ class VoxelBehavior:
         sorted_clusters = sorted(
             self.unvisited_clusters,
             key=lambda item: np.linalg.norm(cur_pose_np - np.array(item[1][:3])))
+
+        # Hysteresis: keep approaching the held cluster if still a candidate and
+        # not much farther than the nearest, so it doesn't swap between near-equal
+        # clusters.
+        if self._held_center is not None and len(sorted_clusters) > 1:
+            d_near = np.linalg.norm(cur_pose_np - np.array(sorted_clusters[0][1][:3]))
+            for k, (idx, cl) in enumerate(sorted_clusters):
+                if np.linalg.norm(np.array(cl[:3]) - self._held_center) <= 3.0:
+                    if np.linalg.norm(cur_pose_np - np.array(cl[:3])) <= d_near + 5.0:
+                        sorted_clusters.insert(0, sorted_clusters.pop(k))
+                    break
+        self._held_center = np.array(sorted_clusters[0][1][:3], dtype=float)
 
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()

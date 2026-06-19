@@ -7,7 +7,8 @@ class BehaviorManager:
     def __init__(self, get_clock, publisher_dict, score_threshold=0.68,
                  min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.7, voxel_min_cluster_size=30,
-                 voxel_confirm_hits=3, voxel_track_max_misses=4):
+                 voxel_confirm_hits=3, voxel_track_max_misses=4,
+                 voxel_proximity_engage_m=12.0):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
         self.frontier_behavior = FrontierBehavior(self.get_clock,
@@ -22,7 +23,8 @@ class BehaviorManager:
                                             score_threshold=voxel_score_threshold,
                                             min_cluster_size=voxel_min_cluster_size,
                                             confirm_hits=voxel_confirm_hits,
-                                            track_max_misses=voxel_track_max_misses)
+                                            track_max_misses=voxel_track_max_misses,
+                                            proximity_engage_m=voxel_proximity_engage_m)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 
@@ -32,13 +34,13 @@ class BehaviorManager:
 
     def mode_select(self, query_labels, target_objects,
                     vox_xyz=None, vox_scores=None,
-                    committed_origin=None, committed_dir=None):
+                    committed_origin=None, committed_dir=None, cur_pose=None):
         for behavior in self.behaviors:
             if behavior.name == 'Voxel-based':
                 if behavior.condition_check(
                         vox_xyz, vox_scores, query_labels, target_objects,
                         committed_origin=committed_origin,
-                        committed_dir=committed_dir):
+                        committed_dir=committed_dir, cur_pose=cur_pose):
                     self.behavior_mode = behavior.name
                     return
             else:

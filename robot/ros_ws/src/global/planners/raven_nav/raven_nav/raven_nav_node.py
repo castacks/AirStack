@@ -163,6 +163,9 @@ class RavenNavNode(Node):
             'voxel_confirm_hits', 3).value)
         self._voxel_track_max_misses = int(self.declare_parameter(
             'voxel_track_max_misses', 4).value)
+        # Engage voxel-mode on a cluster within this range even without a ray.
+        self._voxel_proximity_engage_m = float(self.declare_parameter(
+            'voxel_proximity_engage_m', 12.0).value)
         # 1 = no temporal accumulation (ray groups rarely false-positive).
         self._ray_confirm_hits = int(self.declare_parameter(
             'ray_confirm_hits', 1).value)
@@ -260,6 +263,13 @@ class RavenNavNode(Node):
         # Frontier behavior biases toward this direction when ray-mode loses sight.
         self._committed_target_last_dir: 'np.ndarray | None' = None
         self._committed_target_last_origin: 'np.ndarray | None' = None
+        # Ray-mode hysteresis: hold the committed bearing unless a rival ray group
+        # beats it by commit_swap_improvement_frac AND it's been held commit_min_hold_s.
+        self._committed_bearing_lock_ts: 'float | None' = None
+        self._commit_swap_frac = float(self.declare_parameter(
+            'commit_swap_improvement_frac', 0.25).value)
+        self._commit_min_hold_s = float(self.declare_parameter(
+            'commit_min_hold_s', 4.0).value)
         # Within this distance of the first ray waypoint, the drone is "committed"
         # and stops broadcasting raw distance bids that would let peers take over.
         self._commit_radius_m = self.declare_parameter(
@@ -295,6 +305,7 @@ class RavenNavNode(Node):
             voxel_min_cluster_size=self._voxel_min_cluster_size,
             voxel_confirm_hits=self._voxel_confirm_hits,
             voxel_track_max_misses=self._voxel_track_max_misses,
+            voxel_proximity_engage_m=self._voxel_proximity_engage_m,
         )
 
         # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).
@@ -714,23 +725,60 @@ class RavenNavNode(Node):
                 return True
         return False
 
+    # Project a bearing this far to compare target positions, and the proximity
+    # that counts as the same physical target.
+    _RAY_PROJECT_M = 20.0
+    _PEER_TARGET_MATCH_M = 10.0
+
+    def _ray_point(self, origin, direction) -> np.ndarray:
+        d = np.asarray(direction, dtype=float)
+        n = float(np.linalg.norm(d))
+        o = np.asarray(origin, dtype=float)
+        return o + (d / n) * self._RAY_PROJECT_M if n > 1e-6 else o
+
+    def _points_near(self, a, b) -> bool:
+        return float(np.linalg.norm(
+            np.asarray(a, float)[:2] - np.asarray(b, float)[:2])) \
+            <= self._PEER_TARGET_MATCH_M
+
+    def _point_near_bbs(self, pt, label, bbs) -> bool:
+        if not bbs:
+            return False
+        bl = (label or '').lower()
+        for lab, bb in bbs:
+            ll = lab.lower()
+            if (bl in ll or ll in bl) and self._points_near(
+                    pt, np.asarray(bb, float)[:3]):
+                return True
+        return False
+
     def _ray_off_limits(self, g, polygon_xy, peer_committed) -> bool:
-        """A ray is off-limits if it points at a target already visited (any
-        drone) or one a peer is committed to — exclude it from bidding and nav.
-        Our own committed instance is never off-limits to us."""
-        if self._ray_on_peer_bbs(g.avg_origin, g.avg_dir, g.label,
-                                 getattr(self, '_peer_visited_bbs', None)):
+        """Off-limits if the ray points at a target already visited (any drone)
+        or one a peer is committed to / heading toward — geometric same-instance
+        OR forward-point proximity (robust to triangulation flicker). Our own
+        committed instance is never off-limits to us."""
+        my_pt = self._ray_point(g.avg_origin, g.avg_dir)
+        visited = getattr(self, '_peer_visited_bbs', None)
+        if self._ray_on_peer_bbs(g.avg_origin, g.avg_dir, g.label, visited) \
+                or self._point_near_bbs(my_pt, g.label, visited):
             return True
         if (self._committed_to_assigned
                 and self._assigned_target == g.label
                 and self._committed_target_last_dir is not None
-                and self._same_instance(
-                    g.avg_origin, g.avg_dir, self._committed_target_last_origin,
-                    self._committed_target_last_dir, g.label, polygon_xy)):
+                and (self._same_instance(
+                        g.avg_origin, g.avg_dir,
+                        self._committed_target_last_origin,
+                        self._committed_target_last_dir, g.label, polygon_xy)
+                     or self._points_near(my_pt, self._ray_point(
+                        self._committed_target_last_origin,
+                        self._committed_target_last_dir)))):
             return False
         for (_n, pl, po, pd, _pid) in peer_committed:
-            if pl == g.label and self._same_instance(
-                    g.avg_origin, g.avg_dir, po, pd, g.label, polygon_xy):
+            if pl != g.label:
+                continue
+            if self._same_instance(g.avg_origin, g.avg_dir, po, pd,
+                                   g.label, polygon_xy) \
+                    or self._points_near(my_pt, self._ray_point(po, pd)):
                 return True
         return False
 
@@ -780,6 +828,21 @@ class RavenNavNode(Node):
         if rn > 1.0:
             cost += 20.0 * (1.0 - float(np.dot(rel / rn, pd)))
         return cost
+
+    def _match_committed_group(self, cands):
+        """Candidate ray group matching the currently-held committed bearing
+        (same_ray_group), or None."""
+        if (self._committed_target_last_dir is None
+                or self._committed_target_last_origin is None):
+            return None
+        prev = SimpleNamespace(
+            label=self._assigned_target,
+            avg_dir=np.asarray(self._committed_target_last_dir, dtype=float),
+            avg_origin=np.asarray(self._committed_target_last_origin, dtype=float))
+        for g in cands:
+            if same_ray_group(prev, g):
+                return g
+        return None
 
     def _fresh_peer_committed_instances(self, now):
         """[(name, label, origin, dir, pid)] of peers whose committed instance is
@@ -1704,6 +1767,7 @@ class RavenNavNode(Node):
             self._committed_to_assigned = False
             self._committed_target_last_dir = entry.avg_dir.copy()
             self._committed_target_last_origin = entry.avg_origin.copy()
+            self._committed_bearing_lock_ts = now
             if self._debug_coord:
                 self.get_logger().info(
                     f'[coord] provisional claim on {label} '
@@ -1756,19 +1820,34 @@ class RavenNavNode(Node):
                     break
 
         # Track the committed instance: follow the ray group most aligned with
-        # the committed bearing (same direction + origin moving along it), so it
-        # stays on one house instead of hopping to a different-bearing one.
+        # the committed bearing. Hysteresis holds the current bearing unless a
+        # rival group beats it by a margin and we've held it long enough — commit
+        # to one house instead of flip-flopping between near-equal rays.
         if self._assigned_target is not None and ray_groups:
             cands = [g for g in ray_groups
                      if g.label == self._assigned_target and g.num_rays > 0]
             if cands:
-                best = min(cands, key=lambda g: self._ray_pin_cost(
-                    g, self._committed_target_last_origin,
-                    self._committed_target_last_dir))
+                def _pin(gg):
+                    return self._ray_pin_cost(
+                        gg, self._committed_target_last_origin,
+                        self._committed_target_last_dir)
+                best = min(cands, key=_pin)
+                chosen = best
+                held = self._match_committed_group(cands)
+                if (held is not None and held is not best
+                        and self._committed_bearing_lock_ts is not None):
+                    held_c = _pin(held)
+                    margin = self._commit_swap_frac * (abs(held_c) + 1e-6)
+                    held_for = now - self._committed_bearing_lock_ts
+                    if not (_pin(best) < held_c - margin
+                            and held_for >= self._commit_min_hold_s):
+                        chosen = held
+                if held is None or chosen is not held:
+                    self._committed_bearing_lock_ts = now
                 self._committed_target_last_dir = np.asarray(
-                    best.avg_dir, dtype=np.float64).copy()
+                    chosen.avg_dir, dtype=np.float64).copy()
                 self._committed_target_last_origin = np.asarray(
-                    best.avg_origin, dtype=np.float64).copy()
+                    chosen.avg_origin, dtype=np.float64).copy()
 
         self._behavior_manager.ray_behavior.assigned_target = self._assigned_target
 
@@ -1909,6 +1988,7 @@ class RavenNavNode(Node):
                 vox_scores=self._vox_scores,
                 committed_origin=self._committed_target_last_origin,
                 committed_dir=self._committed_target_last_dir,
+                cur_pose=self._cur_pose,
             )
             # Passive arrival status (same as baseline): confirmed clusters
             # within 3 m flip to 'visited'. Status-only; nav unaffected.

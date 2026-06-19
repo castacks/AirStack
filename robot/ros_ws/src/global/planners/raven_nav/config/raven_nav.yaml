@@ -10,6 +10,12 @@ raven_nav:
     voxel_track_max_misses: 4
     ray_confirm_hits: 3
     ray_track_max_misses: 4
+    # Ray-commit hysteresis: switch ray only if a rival beats it by this fraction
+    # and the current one has been held this long (s).
+    commit_swap_improvement_frac: 0.25
+    commit_min_hold_s: 4.0
+    # Engage voxel-mode on a cluster within this range even without a ray commit.
+    voxel_proximity_engage_m: 12.0
     # Must match the query order registered in RayFronts (target + background)
     query_labels:
       - 'red building'
