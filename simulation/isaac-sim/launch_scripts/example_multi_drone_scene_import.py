@@ -100,7 +100,9 @@ if _env_url_override:
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
-STAGE_SCALE = 0.01
+# Per-environment override (mission runner sets STAGE_SCALE per iteration);
+# falls back to 0.01 for standalone runs.
+STAGE_SCALE = float(os.environ.get("STAGE_SCALE") or 0.01)
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -123,7 +125,9 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
 
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.3#0.03
+# Per-environment override (mission runner sets SPAWN_HEIGHT_M per iteration);
+# falls back to 0.3 for standalone runs.
+SPAWN_HEIGHT_ABOVE_FLOOR_M = float(os.environ.get("SPAWN_HEIGHT_M") or 0.3)
 # DRONE_CONFIGS = [
 #     {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},
 #     {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 4.0},

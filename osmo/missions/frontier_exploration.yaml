@@ -54,6 +54,8 @@ environments:
   - name: retroneighborhood
     ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
     SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.3"
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
@@ -68,6 +70,8 @@ environments:
   - name: fireacademy
     ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, radio tower, blue container, red container"
     background_queries: "sky, ground, grass, road, tree, container, gas tank"
@@ -81,6 +85,8 @@ environments:
   - name: constructionsite
     ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, red container"
     background_queries: "sky, ground, grass, road, Building, cabling winches, blue tarp"
@@ -94,6 +100,8 @@ environments:
   - name: abandonedfactory
     ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
     SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
     query: "building, water tower"
     background_queries: "sky, ground, grass, road, tree"  
