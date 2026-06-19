@@ -14,12 +14,14 @@ class RayBehavior:
 
     def __init__(self, get_clock, current_target_publisher=None,
                  score_threshold=0.68,
-                 min_altitude=1.5, max_altitude=100.0):
+                 min_altitude=1.5, max_altitude=100.0,
+                 altitude_preference_weight=0.0):
         self.get_clock = get_clock
         self.name = 'Ray-based'
         self.score_threshold = score_threshold
         self.min_altitude = min_altitude
         self.max_altitude = max_altitude
+        self.altitude_pref_weight = altitude_preference_weight
         self.prev_filtered_marker_ids = 0
         self.current_target = None
         self.current_target_pub = current_target_publisher
@@ -83,6 +85,10 @@ class RayBehavior:
         # Weighted pick: prefer the ray with the same direction as the committed
         # bearing AND an origin moving along it (staying on one physical target),
         # falling back to the closest when nothing matches well.
+        def _alt_reward(g):
+            return self.altitude_pref_weight * max(
+                float(g.avg_origin[2]) - self.min_altitude, 0.0)
+
         if (assigned_origin is not None and assigned_dir is not None):
             ao = np.asarray(assigned_origin, dtype=float)
             ad = np.asarray(assigned_dir, dtype=float)
@@ -96,12 +102,13 @@ class RayBehavior:
                 rn = float(np.linalg.norm(rel))
                 if rn > 1.0:
                     c += self.DIR_WEIGHT * (1.0 - float(np.dot(rel / rn, ad_n)))
-                return c
+                return c - _alt_reward(g)
             best = min(candidates, key=_cost)
         else:
             k = 5.0
             best = min(candidates,
-                       key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
+                       key=lambda g: g.avg_dist_to_robot - k * g.num_rays
+                       - _alt_reward(g))
 
         target_waypoint1 = best.avg_origin + best.avg_dir * 6.0
         target_waypoint2 = best.avg_origin + best.avg_dir * 12.0

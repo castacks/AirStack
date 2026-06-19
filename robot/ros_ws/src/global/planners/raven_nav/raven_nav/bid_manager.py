@@ -45,20 +45,6 @@ def _heading_penalty(entry, robot_xy, heading_xy) -> float:
     return RAY_MOMENTUM_WEIGHT * (1.0 - cs) + RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
 
 
-def _bb_heading_penalty(entry, heading_xy) -> float:
-    """Softened heading for BBs: only penalize one that's BEHIND the drone
-    (reverse surcharge). A BB to the side or ahead is unpenalized — a confirmed
-    target nearby is worth turning for."""
-    if heading_xy is None:
-        return 0.0
-    d = np.asarray(entry.avg_dir, dtype=float)[:2]
-    n = float(np.linalg.norm(d))
-    if n < 1e-6:
-        return 0.0
-    cs = float(np.dot(d / n, heading_xy))
-    return RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
-
-
 @dataclass
 class BidEntry:
     """One bid row = one ray group + its bid value.
@@ -122,17 +108,16 @@ def finalize_bid_values(entries, robot_xy, heading_xy,
                         ray_reach_factor: float = 1.0) -> None:
     """Fold heading into each bid's value (in place). Higher = better.
 
-    BBs: only a behind penalty (side/ahead unpenalized — a close confirmed target
-    is worth turning for). Rays: distance scaled by ray_reach_factor (the target
-    sits further out than the ray's origin, so rays don't masquerade as close vs
-    BBs), plus the full momentum+reverse heading penalty (anti-zigzag during
-    exploration)."""
+    BBs: no directional penalty — a confirmed target competes on distance alone
+    (worth going to regardless of heading). Rays: distance scaled by
+    ray_reach_factor (the target sits further out than the ray's origin, so rays
+    don't masquerade as close vs BBs), plus the full momentum+reverse heading
+    penalty (anti-zigzag during exploration)."""
     for e in entries:
         if e.is_bb:
-            e.value -= _bb_heading_penalty(e, heading_xy)
-        else:
-            e.value *= ray_reach_factor
-            e.value -= _heading_penalty(e, robot_xy, heading_xy)
+            continue
+        e.value *= ray_reach_factor
+        e.value -= _heading_penalty(e, robot_xy, heading_xy)
 
 
 def assign(

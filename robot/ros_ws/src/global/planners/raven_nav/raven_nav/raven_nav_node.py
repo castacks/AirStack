@@ -154,6 +154,10 @@ class RavenNavNode(Node):
 
         self._min_altitude = self.declare_parameter('min_altitude_agl', 1.5).value
         self._max_altitude = self.declare_parameter('max_altitude_agl', 100.0).value
+        # Ray/frontier prefer higher targets: reward per metre of altitude above
+        # min_altitude when scoring frontier viewpoints and ray groups.
+        self._altitude_pref_weight = float(self.declare_parameter(
+            'altitude_preference_weight', 2.0).value)
         self._voxel_score_threshold = float(self.declare_parameter(
             'voxel_score_threshold', 0.75).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
@@ -311,6 +315,7 @@ class RavenNavNode(Node):
             voxel_confirm_hits=self._voxel_confirm_hits,
             voxel_track_max_misses=self._voxel_track_max_misses,
             voxel_proximity_engage_m=self._voxel_proximity_engage_m,
+            altitude_preference_weight=self._altitude_pref_weight,
         )
 
         # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).
@@ -889,6 +894,8 @@ class RavenNavNode(Node):
         weighted toward the same direction as the previous ray and an origin
         moving along it; falls back to closeness with no prior bearing."""
         cost = float(g.avg_dist_to_robot)
+        cost -= self._altitude_pref_weight * max(
+            float(g.avg_origin[2]) - self._min_altitude, 0.0)
         if prev_o is None or prev_d is None:
             return cost
         pd = np.asarray(prev_d, float); pd = pd / (np.linalg.norm(pd) + 1e-6)

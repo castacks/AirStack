@@ -8,17 +8,18 @@ class BehaviorManager:
                  min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.7, voxel_min_cluster_size=30,
                  voxel_confirm_hits=3, voxel_track_max_misses=4,
-                 voxel_proximity_engage_m=12.0):
+                 voxel_proximity_engage_m=12.0, altitude_preference_weight=0.0):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
-        self.frontier_behavior = FrontierBehavior(self.get_clock,
-                                                   min_altitude=min_altitude,
-                                                   max_altitude=max_altitude)
+        self.frontier_behavior = FrontierBehavior(
+            self.get_clock, min_altitude=min_altitude, max_altitude=max_altitude,
+            altitude_preference_weight=altitude_preference_weight)
         current_target_pub = publisher_dict.get('current_target')
         self.ray_behavior = RayBehavior(self.get_clock, current_target_pub,
                                         score_threshold=score_threshold,
                                         min_altitude=min_altitude,
-                                        max_altitude=max_altitude)
+                                        max_altitude=max_altitude,
+                                        altitude_preference_weight=altitude_preference_weight)
         self.voxel_behavior = VoxelBehavior(self.get_clock,
                                             score_threshold=voxel_score_threshold,
                                             min_cluster_size=voxel_min_cluster_size,
