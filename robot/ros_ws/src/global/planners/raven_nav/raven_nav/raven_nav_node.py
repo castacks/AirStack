@@ -275,6 +275,10 @@ class RavenNavNode(Node):
         self._commit_radius_m = self.declare_parameter(
             'commit_radius_m', 3.0).value
 
+        # A confirmed BB outranks a ray as if it were this much closer (≈ the
+        # max range at which a BB wins over a ray).
+        self._bb_priority_bonus_m = float(self.declare_parameter(
+            'bb_priority_bonus_m', 25.0).value)
         # Target assignment: cbba | hungarian (consensus) | greedy (legacy).
         self._assignment_strategy = str(self.declare_parameter(
             'assignment_strategy', 'cbba').value).strip().lower()
@@ -596,6 +600,24 @@ class RavenNavNode(Node):
                 confidence=1.0,
                 ts=now_ts,
             ))
+        return out
+
+    def _own_bb_clusters_for_bidding(self) -> list:
+        """(label, center, size) for own confirmed clusters eligible to bid on:
+        a target label, not yet visited by self or a peer."""
+        vb = self._behavior_manager.voxel_behavior
+        targets = set(self._target_objects or [])
+        out: list = []
+        for cid, bb in vb.target_voxel_clusters.items():
+            label = vb.cluster_query_map.get(cid, '')
+            if not label or (targets and label not in targets):
+                continue
+            center = np.array(bb[:3], dtype=float)
+            size = np.array(bb[3:6], dtype=float)
+            if vb.is_visited(center, size, label) \
+                    or vb._is_near_peer_visited(center, size):
+                continue
+            out.append((label, center, size))
         return out
 
     def _fresh_peers(self, now) -> set:
@@ -1722,8 +1744,18 @@ class RavenNavNode(Node):
                           g, polygon_xy, peer_committed_instances)]
         self._behavior_manager.ray_behavior.ray_groups = ray_groups
 
+        heading_xy = np.array([np.cos(self._cur_yaw), np.sin(self._cur_yaw)])
+        # Bid on rays AND confirmed BBs (own, unvisited). finalize folds in the
+        # BB priority bonus + heading so a near/ahead BB outranks a ray but a
+        # far/behind one doesn't.
         per_tick_bids = bid_manager.compute_my_bids(ray_groups)
-        my_bid_entries = [b for b in per_tick_bids if b.label not in all_completed]
+        bb_bids = bid_manager.compute_bb_bids(
+            self._own_bb_clusters_for_bidding(), self._cur_pose)
+        my_bid_entries = [b for b in (per_tick_bids + bb_bids)
+                          if b.label not in all_completed]
+        bid_manager.finalize_bid_values(
+            my_bid_entries, self._cur_pose[:2], heading_xy,
+            self._bb_priority_bonus_m)
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()
@@ -1779,7 +1811,6 @@ class RavenNavNode(Node):
             self._committed_target_last_dir = None
             self._committed_target_last_origin = None
 
-        heading_xy = np.array([np.cos(self._cur_yaw), np.sin(self._cur_yaw)])
         if self._assignment_strategy == 'greedy':
             won = bid_manager.assign(
                 my_id=self._my_id,
@@ -1832,8 +1863,15 @@ class RavenNavNode(Node):
             label, entry = won
             self._assigned_target = label
             self._committed_to_assigned = False
-            self._committed_target_last_dir = entry.avg_dir.copy()
-            self._committed_target_last_origin = entry.avg_origin.copy()
+            self._committed_target_last_dir = np.asarray(entry.avg_dir, float).copy()
+            if entry.is_bb:
+                # BB target: ray starts at the drone and points at the BB centre
+                # so voxel's committed-ray filter matches the cluster.
+                self._committed_target_last_origin = np.asarray(
+                    self._cur_pose, float).copy()
+            else:
+                self._committed_target_last_origin = np.asarray(
+                    entry.avg_origin, float).copy()
             self._committed_bearing_lock_ts = now
             if self._debug_coord:
                 self.get_logger().info(

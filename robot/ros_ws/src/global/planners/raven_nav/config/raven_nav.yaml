@@ -26,6 +26,9 @@ raven_nav:
     # Target assignment: cbba | hungarian | greedy (semantic_search_task
     # overrides via ASSIGNMENT_STRATEGY env var).
     assignment_strategy: cbba
+    # Confirmed BBs join the auction alongside rays; a BB outranks a ray as if it
+    # were this much closer (≈ max range at which a BB wins over a ray).
+    bb_priority_bonus_m: 25.0
     # Run the frontier-only baseline: navigation ignores semantic cues.
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)

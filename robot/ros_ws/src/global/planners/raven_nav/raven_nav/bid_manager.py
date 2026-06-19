@@ -30,6 +30,12 @@ from raven_nav.ray_targets import is_same_target
 RAY_MOMENTUM_WEIGHT = 20.0
 RAY_REVERSE_SURCHARGE = 40.0
 
+# A confirmed BB bids as if it were this much closer than its true distance, so a
+# nearby BB outranks a ray (effectively: BBs within ~this range win over a ray).
+BB_PRIORITY_BONUS_M = 25.0
+# Centre proximity under which two BBs (or a ray pointing at a BB) are one target.
+BB_MATCH_M = 8.0
+
 
 def _heading_penalty(entry, robot_xy, heading_xy) -> float:
     if heading_xy is None:
@@ -52,11 +58,14 @@ class BidEntry:
     is_same_target() and the auction.
     """
     label: str
-    value: float                  # -distance; higher = closer = wins
-    avg_origin: np.ndarray        # (3,) in the receiver's local frame
-    avg_dir: np.ndarray           # (3,) unit
-    num_rays: int
+    value: float                  # utility; higher = better. -distance, then
+                                  # finalize_bid_values folds in BB bonus + heading
+    avg_origin: np.ndarray        # (3,) ray origin, or BB centre for is_bb
+    avg_dir: np.ndarray           # (3,) unit; bearing to the BB centre for is_bb
+    num_rays: int                 # 0 marks a BB bid (rays always have >= 1)
     avg_score: float
+    is_bb: bool = False
+    size: Optional[np.ndarray] = None   # (3,) full extents, BB only
 
 
 def compute_my_bids(groups: List[RayGroup]) -> List[BidEntry]:
@@ -76,6 +85,38 @@ def compute_my_bids(groups: List[RayGroup]) -> List[BidEntry]:
             avg_score=float(g.avg_score),
         ))
     return out
+
+
+def compute_bb_bids(clusters, robot_pos) -> List[BidEntry]:
+    """One BidEntry per confirmed cluster. clusters: list of (label, centre(3),
+    size(3)) in the robot's local frame. value = -surface distance to the drone
+    (raw; BB bonus + heading folded in by finalize_bid_values)."""
+    out: List[BidEntry] = []
+    rp = np.asarray(robot_pos, dtype=float)
+    for label, center, size in clusters:
+        c = np.asarray(center, dtype=float)
+        s = np.asarray(size, dtype=float)
+        gap = np.clip(np.abs(rp - c) - s / 2.0, 0.0, None)
+        surf = float(np.linalg.norm(gap))
+        bearing = c - rp
+        bn = float(np.linalg.norm(bearing))
+        avg_dir = bearing / bn if bn > 1e-6 else np.array([1.0, 0.0, 0.0])
+        out.append(BidEntry(
+            label=label, value=-surf, avg_origin=c.copy(), avg_dir=avg_dir,
+            num_rays=0, avg_score=1.0, is_bb=True, size=s.copy()))
+    return out
+
+
+def finalize_bid_values(entries, robot_xy, heading_xy,
+                        bb_bonus: float = BB_PRIORITY_BONUS_M) -> None:
+    """Fold BB priority + heading into each bid's value (in place). BBs get
+    +bb_bonus (a close BB outranks a ray; a far one still loses on distance);
+    every bid pays a heading penalty (a target behind the drone loses to one
+    ahead). Higher value = better."""
+    for e in entries:
+        if e.is_bb:
+            e.value += bb_bonus
+        e.value -= _heading_penalty(e, robot_xy, heading_xy)
 
 
 def assign(
@@ -112,10 +153,7 @@ def assign(
                     continue
                 # Synthesize minimal RayGroup-shaped objects for the
                 # triangulation test (it only reads label/avg_origin/avg_dir).
-                same, _, _ = is_same_target(
-                    _GroupView(mine), _GroupView(p), polygon_xy,
-                )
-                if not same:
+                if not _same_bid_instance(mine, p, polygon_xy):
                     continue
                 if p.value > winner_value or \
                         (p.value == winner_value and pid < winner_id):
@@ -125,7 +163,9 @@ def assign(
             won.append(mine)
     if not won:
         return None
-    best = max(won, key=lambda e: e.value - _heading_penalty(e, robot_xy, heading_xy))
+    # value already folds BB bonus + heading (finalize_bid_values); when called
+    # with raw bids (no finalize) this is plain -distance.
+    best = max(won, key=lambda e: e.value)
     return best.label, best
 
 
@@ -143,14 +183,39 @@ class _GroupView:
 
 
 # CBBA / Hungarian consensus assignment: every robot rebuilds the same
-# robots×instances distance matrix from gossiped bids and solves it identically.
-# Distance only (broadcast bid value) so all robots agree; no per-robot heading.
+# robots×instances cost matrix from gossiped bids (cost = -value) and solves it
+# identically. value is the broadcast utility, so all robots agree.
 _INFEASIBLE_COST = 1e6   # robot has no bid for this instance; filtered after solve
 
 
+def _same_bid_instance(a: BidEntry, b: BidEntry, polygon_xy) -> bool:
+    """Same physical target. BB↔BB: centres close. BB↔ray: ray points at the BB
+    centre (ahead, within BB_MATCH_M). ray↔ray: triangulation (is_same_target)."""
+    if a.label != b.label:
+        return False
+    if a.is_bb and b.is_bb:
+        return float(np.linalg.norm(
+            a.avg_origin[:2] - b.avg_origin[:2])) <= BB_MATCH_M
+    if a.is_bb or b.is_bb:
+        bb, ray = (a, b) if a.is_bb else (b, a)
+        o = np.asarray(ray.avg_origin, dtype=float)
+        d = np.asarray(ray.avg_dir, dtype=float)
+        dn = float(np.linalg.norm(d))
+        if dn < 1e-6:
+            return False
+        d = d / dn
+        v = np.asarray(bb.avg_origin, dtype=float) - o
+        t = float(np.dot(v, d))
+        if t <= 0.0:
+            return False
+        return float(np.linalg.norm(v - t * d)) <= BB_MATCH_M
+    same, _, _ = is_same_target(a, b, polygon_xy)
+    return same
+
+
 def _cluster_bid_instances(all_bids, polygon_xy):
-    """Union-find bids (same label + is_same_target) into instances. Returns
-    one dict {robot_id: that robot's closest BidEntry} per instance."""
+    """Union-find bids (same label + _same_bid_instance) into instances. Returns
+    one dict {robot_id: that robot's best BidEntry} per instance."""
     n = len(all_bids)
     parent = list(range(n))
 
@@ -171,8 +236,7 @@ def _cluster_bid_instances(all_bids, polygon_xy):
             _, bj = all_bids[j]
             if bi.label != bj.label:
                 continue
-            same, _, _ = is_same_target(_GroupView(bi), _GroupView(bj), polygon_xy)
-            if same:
+            if _same_bid_instance(bi, bj, polygon_xy):
                 union(i, j)
 
     comps: Dict[int, List[int]] = {}
@@ -184,7 +248,7 @@ def _cluster_bid_instances(all_bids, polygon_xy):
         per_robot: Dict[int, BidEntry] = {}
         for i in idxs:
             rid, b = all_bids[i]
-            # value = -distance; keep closest
+            # keep the robot's highest-utility bid for this instance
             if rid not in per_robot or b.value > per_robot[rid].value:
                 per_robot[rid] = b
         clusters.append(per_robot)

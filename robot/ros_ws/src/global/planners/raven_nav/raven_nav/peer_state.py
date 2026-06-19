@@ -225,6 +225,7 @@ class PeerState:
                     local_alt_ground=my_alt_ground,
                 )
                 for i in range(n_rows):
+                    nr = int(bid_msg.num_rays[i])
                     entries.append(BidEntry(
                         label=str(bid_msg.labels[i]),
                         value=float(bid_msg.values[i]),
@@ -234,8 +235,9 @@ class PeerState:
                             float(bid_msg.dir_y[i]),
                             float(bid_msg.dir_z[i]),
                         ], dtype=np.float64),
-                        num_rays=int(bid_msg.num_rays[i]),
+                        num_rays=nr,
                         avg_score=float(bid_msg.avg_score[i]),
+                        is_bb=(nr == 0),   # 0 marks a BB bid
                     ))
             self.peer_bids[name] = entries
             summary = [(e.label, round(e.value, 2)) for e in entries]
