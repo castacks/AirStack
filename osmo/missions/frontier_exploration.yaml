@@ -91,6 +91,19 @@ environments:
         - {x: -37.0, y: -67.0, z: 0.0}
         - {x: -40.0, y: 50.0, z: 0.0}
 
+  - name: abandonedfactory
+    ENV_URL: ""  # TODO: set omniverse path to the Abandoned Factory stage
+    SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
+    RESULTS_SCENE: "AbandonedFactory"
+    query: ""              # TODO: set semantic search query
+    background_queries: ""  # TODO: set background queries
+    search_area:
+      points:
+        - {x: 45.0, y: 102.0, z: 0.0}
+        - {x: 45.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: 102.0, z: 0.0}
+
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 # The relay transforms the global-ENU search polygon into each robot's local
 # 'map' frame (subtracting that robot's GPS boot pose) before forwarding,

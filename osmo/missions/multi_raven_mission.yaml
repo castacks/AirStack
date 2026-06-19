@@ -88,14 +88,12 @@ record:
   topics:
     - /tf
     - /tf_static
+    - /{robot}/odometry_conversion/odometry
     - /gcs/robot_markers
     - /gcs/payload/{robot}/filtered_rays
-    #- /gcs/payload/{robot}/voxel_rgb
-    #- /gcs/payload/{robot}/shared_frontiers
     - /gcs/payload/{robot}/filtered_frontiers
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
-    # fleet-consensus deduped/label-voted targets (one set across all robots)
     - /gcs/consensus_AABBs
     - /gcs/consensus_targets
     - /gcs/sim_ground
@@ -104,8 +102,6 @@ record:
 on_step_failure: abort_iteration
 
 steps:
-  # Warm the shared torch-hub cache before the parallel semantic_search launches
-  # (cold-cache races crash with ModuleNotFoundError: radio.forward_intermediates).
   - run:
       container: robot_1
       cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"

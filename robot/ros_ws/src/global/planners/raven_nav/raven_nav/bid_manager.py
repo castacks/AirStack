@@ -140,3 +140,143 @@ class _GroupView:
         self.label = entry.label
         self.avg_origin = entry.avg_origin
         self.avg_dir = entry.avg_dir
+
+
+# CBBA / Hungarian consensus assignment: every robot rebuilds the same
+# robots×instances distance matrix from gossiped bids and solves it identically.
+# Distance only (broadcast bid value) so all robots agree; no per-robot heading.
+_INFEASIBLE_COST = 1e6   # robot has no bid for this instance; filtered after solve
+
+
+def _cluster_bid_instances(all_bids, polygon_xy):
+    """Union-find bids (same label + is_same_target) into instances. Returns
+    one dict {robot_id: that robot's closest BidEntry} per instance."""
+    n = len(all_bids)
+    parent = list(range(n))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for i in range(n):
+        _, bi = all_bids[i]
+        for j in range(i + 1, n):
+            _, bj = all_bids[j]
+            if bi.label != bj.label:
+                continue
+            same, _, _ = is_same_target(_GroupView(bi), _GroupView(bj), polygon_xy)
+            if same:
+                union(i, j)
+
+    comps: Dict[int, List[int]] = {}
+    for i in range(n):
+        comps.setdefault(find(i), []).append(i)
+
+    clusters: List[Dict[int, BidEntry]] = []
+    for idxs in comps.values():
+        per_robot: Dict[int, BidEntry] = {}
+        for i in idxs:
+            rid, b = all_bids[i]
+            # value = -distance; keep closest
+            if rid not in per_robot or b.value > per_robot[rid].value:
+                per_robot[rid] = b
+        clusters.append(per_robot)
+    return clusters
+
+
+def _solve_cbba(cost: np.ndarray, robot_ids: List[int]) -> Dict[int, int]:
+    """Greedy with removal: take the cheapest feasible (robot, target) pair,
+    assign it, remove both; repeat. Removing the winner lets a peer win the next
+    target. Ties: lower robot id, then lower target index."""
+    R, T = cost.shape
+    used_r: set = set()
+    used_t: set = set()
+    assigned: Dict[int, int] = {}
+    while len(used_r) < R and len(used_t) < T:
+        best = None  # (key, r, t)
+        for r in range(R):
+            if r in used_r:
+                continue
+            for t in range(T):
+                if t in used_t or cost[r, t] >= _INFEASIBLE_COST:
+                    continue
+                key = (float(cost[r, t]), robot_ids[r], t)
+                if best is None or key < best[0]:
+                    best = (key, r, t)
+        if best is None:
+            break
+        _, r, t = best
+        assigned[robot_ids[r]] = t
+        used_r.add(r)
+        used_t.add(t)
+    return assigned
+
+
+def _solve_hungarian(cost: np.ndarray, robot_ids: List[int]) -> Dict[int, int]:
+    """Global min-cost matching (scipy). Falls back to CBBA without scipy."""
+    try:
+        from scipy.optimize import linear_sum_assignment
+    except ImportError:
+        return _solve_cbba(cost, robot_ids)
+    row_ind, col_ind = linear_sum_assignment(cost)
+    assigned: Dict[int, int] = {}
+    for r, t in zip(row_ind, col_ind):
+        if cost[r, t] >= _INFEASIBLE_COST:
+            continue
+        assigned[robot_ids[r]] = int(t)
+    return assigned
+
+
+def assign_global(
+    strategy: str,
+    my_id: int,
+    my_bids: List[BidEntry],
+    peer_bids: Dict[str, List[BidEntry]],
+    peer_ids: Dict[str, int],
+    polygon_xy: Optional[np.ndarray] = None,
+) -> Optional[Tuple[str, BidEntry]]:
+    """Consensus assignment ('cbba' | 'hungarian'). Returns (label, my BidEntry)
+    for the instance assigned to my_id, or None."""
+    if not my_bids:
+        return None
+
+    all_bids: List[Tuple[int, BidEntry]] = [(my_id, b) for b in my_bids]
+    for name, entries in peer_bids.items():
+        pid = peer_ids.get(name)
+        if pid is None:
+            continue
+        all_bids.extend((pid, b) for b in entries)
+
+    clusters = _cluster_bid_instances(all_bids, polygon_xy)
+    if not clusters:
+        return None
+
+    robot_ids = sorted({rid for c in clusters for rid in c})
+    if my_id not in robot_ids:
+        return None
+    row_of = {rid: r for r, rid in enumerate(robot_ids)}
+    R, T = len(robot_ids), len(clusters)
+    cost = np.full((R, T), _INFEASIBLE_COST, dtype=float)
+    for t, c in enumerate(clusters):
+        for rid, b in c.items():
+            cost[row_of[rid], t] = -float(b.value)   # -value = distance
+
+    if strategy == 'hungarian':
+        assigned = _solve_hungarian(cost, robot_ids)
+    else:
+        assigned = _solve_cbba(cost, robot_ids)
+
+    my_t = assigned.get(my_id)
+    if my_t is None:
+        return None
+    entry = clusters[my_t].get(my_id)
+    if entry is None:
+        return None
+    return entry.label, entry

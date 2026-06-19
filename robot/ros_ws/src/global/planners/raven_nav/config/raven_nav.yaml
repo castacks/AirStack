@@ -17,6 +17,9 @@ raven_nav:
       - 'radio tower'
     # Which of the above to actually navigate toward (empty = all query_labels)
     target_labels: []
+    # Target assignment: cbba | hungarian | greedy (semantic_search_task
+    # overrides via ASSIGNMENT_STRATEGY env var).
+    assignment_strategy: cbba
     # Run the frontier-only baseline: navigation ignores semantic cues.
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)

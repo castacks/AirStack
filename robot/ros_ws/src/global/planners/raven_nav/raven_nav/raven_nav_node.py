@@ -265,6 +265,15 @@ class RavenNavNode(Node):
         self._commit_radius_m = self.declare_parameter(
             'commit_radius_m', 3.0).value
 
+        # Target assignment: cbba | hungarian (consensus) | greedy (legacy).
+        self._assignment_strategy = str(self.declare_parameter(
+            'assignment_strategy', 'cbba').value).strip().lower()
+        if self._assignment_strategy not in ('cbba', 'hungarian', 'greedy'):
+            self.get_logger().warn(
+                f'unknown assignment_strategy {self._assignment_strategy!r}; '
+                f"falling back to 'cbba'")
+            self._assignment_strategy = 'cbba'
+
         self._publisher_dict = {
             'path': self._path_pub,
             'filtered_rays': self._filtered_rays_pub,
@@ -347,6 +356,7 @@ class RavenNavNode(Node):
             f'timer={timer_period:.2f}s | '
             f'query_labels={self._query_labels} | '
             f'score_threshold={self._score_threshold} | '
+            f'assignment={self._assignment_strategy} | '
             f'altitude=[{self._min_altitude}, {self._max_altitude}]')
 
     def _detect_rayfronts_labels(self) -> 'list[str] | None':
@@ -1640,15 +1650,25 @@ class RavenNavNode(Node):
             self._committed_target_last_origin = None
 
         heading_xy = np.array([np.cos(self._cur_yaw), np.sin(self._cur_yaw)])
-        won = bid_manager.assign(
-            my_id=self._my_id,
-            my_bids=my_bid_entries,
-            peer_bids=peer_bid_entries,
-            peer_ids=self._peer_state.peer_ids,
-            polygon_xy=polygon_xy,
-            robot_xy=self._cur_pose[:2],
-            heading_xy=heading_xy,
-        )
+        if self._assignment_strategy == 'greedy':
+            won = bid_manager.assign(
+                my_id=self._my_id,
+                my_bids=my_bid_entries,
+                peer_bids=peer_bid_entries,
+                peer_ids=self._peer_state.peer_ids,
+                polygon_xy=polygon_xy,
+                robot_xy=self._cur_pose[:2],
+                heading_xy=heading_xy,
+            )
+        else:
+            won = bid_manager.assign_global(
+                strategy=self._assignment_strategy,
+                my_id=self._my_id,
+                my_bids=my_bid_entries,
+                peer_bids=peer_bid_entries,
+                peer_ids=self._peer_state.peer_ids,
+                polygon_xy=polygon_xy,
+            )
 
         # Ray-group bids I lost to a peer's same-target bid this tick — surfaced
         # in the bids debug table to show the auction pushing drones apart.
