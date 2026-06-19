@@ -97,6 +97,15 @@ GCS_RELAY_TASKS = {"takeoff", "land", "navigate", "fixed_trajectory",
 
 MISSION_DEFAULTS = {
     "iterations": 1,
+    # How many times to (re)run a single iteration that doesn't pass before
+    # giving up and moving on. 1 = no redo (the historical behavior). >1 = if an
+    # iteration ends failed/errored (a step up to and including the gating step
+    # failed — e.g. takeoff never armed, or semantic_search never got feedback),
+    # tear the stack down and run that same iteration again, up to this many
+    # total attempts. A `stopped` (manual) or `abort_mission` outcome is never
+    # retried. Failed attempts' artifacts are preserved under
+    # iter_NNN_failed_attempt_K so the canonical iter_NNN holds the last attempt.
+    "iteration_attempts": 1,
     # With an `environments:` list: round_robin → iteration i uses
     # environments[(i-1) % n], so `iterations` is the TOTAL run count.
     # grouped → each environment runs `iterations` times consecutively
@@ -238,6 +247,14 @@ def load_mission(path):
     if merged["environment_order"] not in ("round_robin", "grouped"):
         raise ValueError(f"environment_order must be round_robin|grouped, "
                          f"got {merged['environment_order']!r}")
+    try:
+        merged["iteration_attempts"] = int(merged["iteration_attempts"])
+    except (TypeError, ValueError):
+        raise ValueError(f"iteration_attempts must be a positive integer, "
+                         f"got {merged['iteration_attempts']!r}")
+    if merged["iteration_attempts"] < 1:
+        raise ValueError(f"iteration_attempts must be >= 1, "
+                         f"got {merged['iteration_attempts']}")
     if merged["command_route"] not in ("gcs", "robot"):
         raise ValueError(f"command_route must be gcs|robot, got {merged['command_route']!r}")
     if merged["record"].get("scope", "gcs") not in ("gcs", "robot", "both"):
@@ -262,6 +279,10 @@ def load_mission(path):
                     f"task '{action.get('task')}' is not bridged by the GCS action_relay "
                     f"({', '.join(sorted(GCS_RELAY_TASKS))}); add `via: robot` to send it "
                     f"directly on the robot's domain")
+            if action.get("pass_on_feedback") and via != "gcs":
+                raise ValueError(
+                    "pass_on_feedback requires via: gcs (feedback liveness is only "
+                    "tracked on the GCS action_relay path)")
     return merged
 
 
@@ -745,6 +766,14 @@ def run_step(stack, container, step_spec, step_index):
         # metrics) can run and return.
         cancel_on_timeout = bool(spec.get("cancel_on_timeout", False))
         cancel_grace_s = int(spec.get("cancel_grace_s", 120))
+        # pass_on_feedback (via:gcs only): treat the step as passed as soon as the
+        # action is confirmed to have actually started running — i.e. any
+        # relay_feedback was seen (or a result came back), regardless of whether
+        # the result is success or failure. The ONLY failure left is "goal lost /
+        # never ran" (no feedback and no result within the retries), which is what
+        # then fails the step (→ iteration redo when iteration_attempts>1). Use
+        # this when you only care that the task ran, not its outcome.
+        pass_on_feedback = bool(spec.get("pass_on_feedback", False))
         robots = step_robots(spec, stack.num_robots)
         log(f"step {step_index}: action {task} {goal_json} via {via} → robots {robots}")
 
@@ -828,6 +857,11 @@ def run_step(stack, container, step_spec, step_index):
                     f"  sleep 1\n"
                     f"done\n"
                     f"kill $sub $fb_sub 2>/dev/null\n"
+                    # Surface whether the action ever produced feedback (it ran),
+                    # so the runner can pass on liveness when pass_on_feedback is
+                    # set. The early no-feedback bail above exits before here, so
+                    # this only prints when feedback was genuinely observed.
+                    f"if [ \"$fb_seen\" -eq 1 ]; then echo OSMO_FEEDBACK_SEEN; fi\n"
                     f"cur=$(grep -c '^---' {result_file})\n"
                     f"if [ \"$cur\" -gt \"$pre\" ]; then "
                     f"grep -v '^---' {result_file} | tail -n 1; "
@@ -839,9 +873,15 @@ def run_step(stack, container, step_spec, step_index):
                 # is the intended outcome — treat it as ok so the step doesn't
                 # retry the search or trip on_step_failure.
                 got_result = '"success"' in r.stdout
+                feedback_seen = 'OSMO_FEEDBACK_SEEN' in r.stdout
                 ok = ('"success": true' in r.stdout
                       or (cancel_on_timeout and got_result))
+                # pass_on_feedback: ran-at-all (feedback seen, or any result
+                # came back) is enough — outcome doesn't matter.
+                if pass_on_feedback:
+                    ok = ok or feedback_seen or got_result
                 return {"exit": r.returncode, "ok": ok,
+                        "feedback_seen": feedback_seen,
                         "output_tail": tail(r.stdout + r.stderr)}
         else:
             action_type = spec.get("type", task_action_type(task))
@@ -1132,6 +1172,13 @@ def run_iteration(stack, mission, iter_dir):
                 summary["steps_ok"] += 1
                 continue
             summary["steps_failed"] += 1
+            # An `optional: true` step records its failure but never fails the
+            # iteration (so it doesn't trip on_step_failure or an iteration redo)
+            # — e.g. a post-search land after the gating step already ran.
+            if isinstance(step_spec, dict) and step_spec.get("optional"):
+                log(f"step {i}: failed but marked optional — continuing")
+                summary.setdefault("optional_failures", []).append(i)
+                continue
             summary["status"] = "failed"
             policy = mission["on_step_failure"]
             if policy == "continue":
@@ -1190,7 +1237,9 @@ def main():
     signal.signal(signal.SIGTERM, _stop_handler)
 
     log(f"mission '{mission['name']}': {mission['iterations']} iteration(s), "
-        f"{len(mission['steps'])} step(s), {stack.num_robots} robot(s)")
+        f"{len(mission['steps'])} step(s), {stack.num_robots} robot(s)"
+        + (f", up to {mission['iteration_attempts']} attempt(s)/iteration"
+           if mission["iteration_attempts"] > 1 else ""))
     if args.dry_run:
         print(yaml.safe_dump(mission, sort_keys=False))
         return 0
@@ -1218,6 +1267,7 @@ def main():
             f"{[e['name'] for e in schedule]}")
 
     iterations = []
+    max_attempts = mission["iteration_attempts"]
     for i, env_entry in enumerate(schedule, start=1):
         log(f"━━━ iteration {i}/{total} ━━━")
         iter_dir = run_dir / f"iter_{i:03d}"
@@ -1230,8 +1280,38 @@ def main():
             iter_mission = {**mission, "steps": substitute_env(mission["steps"], env_entry)}
         else:
             iter_mission = mission
-        summary = run_iteration(stack, iter_mission, iter_dir)
+
+        # Iteration redo: re-run the SAME iteration up to iteration_attempts
+        # times until it passes. A passed run, a manual stop, or an explicit
+        # abort_mission is never retried; a failed/errored run is (the stack is
+        # already down by run_iteration's finally, so each attempt is a clean
+        # down→up→fly→down cycle — and with a fixed SPAWN_SEED the spawn layout
+        # is reproduced exactly).
+        attempt = 0
+        while True:
+            attempt += 1
+            if attempt > 1:
+                log(f"iteration {i}: attempt {attempt}/{max_attempts}")
+            summary = run_iteration(stack, iter_mission, iter_dir)
+            done = (summary["status"] in ("passed", "stopped")
+                    or summary.get("abort_mission")
+                    or attempt >= max_attempts)
+            if done:
+                break
+            # Failed with retries left: stash this attempt's artifacts so the
+            # canonical iter_NNN ends up holding the final attempt.
+            failed_dir = run_dir / f"iter_{i:03d}_failed_attempt_{attempt}"
+            try:
+                if iter_dir.exists():
+                    iter_dir.rename(failed_dir)
+                log(f"iteration {i} {summary['status']} on attempt {attempt}"
+                    f"/{max_attempts}; artifacts → {failed_dir.name}; redoing")
+            except OSError as e:
+                log(f"WARN: could not stash failed attempt dir ({e}); "
+                    f"redoing into {iter_dir.name}")
+
         summary["iteration"] = i
+        summary["attempts"] = attempt
         if env_entry is not None:
             summary["environment"] = env_entry["name"]
         iterations.append(summary)

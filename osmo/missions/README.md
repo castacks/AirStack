@@ -59,6 +59,7 @@ Top-level keys (everything except `steps` is optional):
 | `name` | filename stem | Results directory name |
 | `env` | `{}` | Env vars exported before each `airstack up` (`NUM_ROBOTS`, `COMPOSE_PROFILES`, `ISAAC_SIM_SCRIPT_NAME`, …) |
 | `iterations` | `1` | Full up→fly→down cycles. With `environments:` + `environment_order: grouped`, this is **per environment** (total = iterations × #environments) |
+| `iteration_attempts` | `1` | Max times to (re)run a single iteration until it passes. `>1`: a failed/errored iteration is redone (clean down→up→fly→down) up to this many attempts; a `passed`, manually `stopped`, or `abort_mission` outcome is never retried. Failed attempts' artifacts are preserved under `iter_NNN_failed_attempt_K`. With a fixed `SPAWN_SEED` the redo reproduces the same spawn layout |
 | `environment_order` | `round_robin` | With `environments:`: `round_robin` (iteration i → env[(i-1) % n], `iterations` is the total) \| `grouped` (each env runs `iterations` times in a row) |
 | `ready.timeout_s` | `600` | Max seconds to wait for PX4 readiness per iteration |
 | `ready.poll_interval_s` | `5` | Seconds between readiness polls |
@@ -92,9 +93,26 @@ result. The step passes when the action result reports `success: true`.
     retry_delay_s: 10             # wait between attempts (default 10)
     feedback_timeout_s: 15        # via gcs: no relay_feedback within this
                                   # window ⇒ goal presumed lost, retried
+    pass_on_feedback: false       # via gcs: pass as soon as feedback is seen
+                                  # (the task RAN), regardless of success/fail;
+                                  # only "never ran" (no feedback + no result
+                                  # after retries) fails the step
     robots: all
     # type: task_msgs/action/TakeoffTask   # derived from task name if omitted
 ```
+
+Any step may also carry **`optional: true`** (a sibling key, not inside
+`action`/`run`/…): the step still runs and its result is recorded, but a
+failure neither trips `on_step_failure` nor counts toward an `iteration_attempts`
+redo. Use it for steps whose outcome doesn't gate the iteration — e.g. a `land`
+after the run is already done.
+
+**`pass_on_feedback` + `iteration_attempts` idiom** — to guarantee a task
+*runs* every iteration without caring whether it succeeds: set
+`pass_on_feedback: true` on that action and `iteration_attempts: >1` on the
+mission. If the task never gets feedback (goal lost / never started) after its
+`attempts` retries, the step fails and the whole iteration is redone; once
+feedback is seen the iteration is considered satisfied.
 
 Each robot's goal is logged per attempt and retried independently — a goal
 can be rejected transiently (relay has no GPS fix yet, PX4 position estimate

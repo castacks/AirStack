@@ -30,9 +30,6 @@ from raven_nav.ray_targets import is_same_target
 RAY_MOMENTUM_WEIGHT = 20.0
 RAY_REVERSE_SURCHARGE = 40.0
 
-# A confirmed BB bids as if it were this much closer than its true distance, so a
-# nearby BB outranks a ray (effectively: BBs within ~this range win over a ray).
-BB_PRIORITY_BONUS_M = 25.0
 # Centre proximity under which two BBs (or a ray pointing at a BB) are one target.
 BB_MATCH_M = 8.0
 
@@ -46,6 +43,20 @@ def _heading_penalty(entry, robot_xy, heading_xy) -> float:
         return 0.0
     cs = float(np.dot(d / n, heading_xy))
     return RAY_MOMENTUM_WEIGHT * (1.0 - cs) + RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
+
+
+def _bb_heading_penalty(entry, heading_xy) -> float:
+    """Softened heading for BBs: only penalize one that's BEHIND the drone
+    (reverse surcharge). A BB to the side or ahead is unpenalized — a confirmed
+    target nearby is worth turning for."""
+    if heading_xy is None:
+        return 0.0
+    d = np.asarray(entry.avg_dir, dtype=float)[:2]
+    n = float(np.linalg.norm(d))
+    if n < 1e-6:
+        return 0.0
+    cs = float(np.dot(d / n, heading_xy))
+    return RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
 
 
 @dataclass
@@ -108,15 +119,20 @@ def compute_bb_bids(clusters, robot_pos) -> List[BidEntry]:
 
 
 def finalize_bid_values(entries, robot_xy, heading_xy,
-                        bb_bonus: float = BB_PRIORITY_BONUS_M) -> None:
-    """Fold BB priority + heading into each bid's value (in place). BBs get
-    +bb_bonus (a close BB outranks a ray; a far one still loses on distance);
-    every bid pays a heading penalty (a target behind the drone loses to one
-    ahead). Higher value = better."""
+                        ray_reach_factor: float = 1.0) -> None:
+    """Fold heading into each bid's value (in place). Higher = better.
+
+    BBs: only a behind penalty (side/ahead unpenalized — a close confirmed target
+    is worth turning for). Rays: distance scaled by ray_reach_factor (the target
+    sits further out than the ray's origin, so rays don't masquerade as close vs
+    BBs), plus the full momentum+reverse heading penalty (anti-zigzag during
+    exploration)."""
     for e in entries:
         if e.is_bb:
-            e.value += bb_bonus
-        e.value -= _heading_penalty(e, robot_xy, heading_xy)
+            e.value -= _bb_heading_penalty(e, heading_xy)
+        else:
+            e.value *= ray_reach_factor
+            e.value -= _heading_penalty(e, robot_xy, heading_xy)
 
 
 def assign(

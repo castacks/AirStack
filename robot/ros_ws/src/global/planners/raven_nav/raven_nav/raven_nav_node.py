@@ -275,10 +275,11 @@ class RavenNavNode(Node):
         self._commit_radius_m = self.declare_parameter(
             'commit_radius_m', 3.0).value
 
-        # A confirmed BB outranks a ray as if it were this much closer (≈ the
-        # max range at which a BB wins over a ray).
-        self._bb_priority_bonus_m = float(self.declare_parameter(
-            'bb_priority_bonus_m', 25.0).value)
+        # A ray's target sits further out than its origin: scale ray bid distance
+        # by this (scene-tunable) so rays don't masquerade as close vs BBs. This is
+        # the sole knob favoring BBs over rays now.
+        self._ray_reach_factor = float(self.declare_parameter(
+            'ray_reach_factor', 3.0).value)
         # Target assignment: cbba | hungarian (consensus) | greedy (legacy).
         self._assignment_strategy = str(self.declare_parameter(
             'assignment_strategy', 'cbba').value).strip().lower()
@@ -1755,7 +1756,7 @@ class RavenNavNode(Node):
                           if b.label not in all_completed]
         bid_manager.finalize_bid_values(
             my_bid_entries, self._cur_pose[:2], heading_xy,
-            self._bb_priority_bonus_m)
+            self._ray_reach_factor)
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()

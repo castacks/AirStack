@@ -55,6 +55,11 @@ command_route: gcs
 environment_order: round_robin
 iterations: 4
 
+# Redo an iteration (clean down→up→fly→down) if a step up to and including
+# semantic_search fails — i.e. the precondition steps fail, or semantic_search
+# never gets feedback after its own retries. Up to 3 attempts per iteration.
+iteration_attempts: 3
+
 ready:
   timeout_s: 600
 
@@ -93,10 +98,14 @@ steps:
 
   - wait: 5
 
+  # pass_on_feedback: the iteration only needs the search to RUN — pass as soon
+  # as feedback is seen, regardless of outcome; redo the iteration only if no
+  # feedback arrives after the retries.
   - action:
       task: semantic_search
       timeout_s: 900
       cancel_on_timeout: true
+      pass_on_feedback: true
       goal:
         query: "{{env.query}}"
         background_queries: "{{env.background_queries}}"
@@ -107,7 +116,9 @@ steps:
         max_flight_speed: 1.0
         confidence_threshold: 0.95
 
+  # optional: a failed landing AFTER the search ran must not trigger a redo.
   - action:
       task: land
       goal: {velocity_m_s: 0.5}
       timeout_s: 180
+    optional: true

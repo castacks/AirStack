@@ -124,6 +124,11 @@ command_route: gcs
 environment_order: grouped
 iterations: 3
 
+# Redo an iteration (clean down→up→fly→down) if a step up to and including
+# semantic_search fails — i.e. the precondition steps fail, or semantic_search
+# never gets feedback after its own retries. Up to 3 attempts per iteration.
+iteration_attempts: 3
+
 ready:
   timeout_s: 600
 
@@ -161,10 +166,14 @@ steps:
 
   - wait: 5
 
+  # Only needs to RUN, not succeed: pass as soon as feedback is seen (the search
+  # actually started); if no feedback after the retries, the step fails and the
+  # iteration is redone.
   - action:
       task: semantic_search
       timeout_s: 900
       cancel_on_timeout: true
+      pass_on_feedback: true
       goal:
         query: "{{env.query}}"
         background_queries: "{{env.background_queries}}"
