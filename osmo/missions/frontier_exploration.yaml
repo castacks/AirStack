@@ -95,7 +95,7 @@ environments:
     ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
     SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
     RESULTS_SCENE: "AbandonedFactory"
-    query: ""              # TODO: set semantic search query
+    query: "building, water tower"
     background_queries: "sky, ground, grass, road, tree"  
     search_area:
       points:
