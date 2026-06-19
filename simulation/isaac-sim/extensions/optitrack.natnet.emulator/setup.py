@@ -13,7 +13,10 @@ setup(
     license="MIT",
     include_package_data=True,
     python_requires=">=3.10",
-    install_requires=[],
+    install_requires=[
+        "numpy",
+        "scipy",
+    ],
     packages=find_packages(where="."),
     package_dir={"": "."},
     zip_safe=False,
