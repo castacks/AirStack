@@ -20,14 +20,15 @@ RAY_TO_CLUSTER_RELAXED_M = 8.0
 # Surface gap (m) under which two AABBs across ticks are the same cluster.
 TRACK_ASSOC_MARGIN_M = 2.0
 
-# EMA weight for fusing a track's AABB with each new frame's box (lower = stickier,
-# steadier centroid; higher = adapts faster). Stabilizes the reported box.
+# EMA weight for the track centroid + score (size is not EMA'd, see _merge_obs).
 TRACK_MERGE_ALPHA = 0.3
 
-# Confirmed sightings at which the persistence factor of confidence saturates to
-# 1.0 (semantic score is ~saturated above threshold, so persistence is the real
-# discriminator between a stable target and a flickering false positive).
+# Sightings at which the persistence factor of confidence saturates to 1.0.
 PERSISTENCE_FULL_HITS = 10
+
+# Instance separation: split a blob at score peaks; peaks closer than this merge.
+SPLIT_PEAK_SEP_M = 5.0
+SPLIT_SMOOTH_SIGMA_VOX = 1.0
 
 
 @dataclass
@@ -244,15 +245,16 @@ class VoxelBehavior:
             np.array(b.bbox[:3]), np.array(b.bbox[3:6])) <= TRACK_ASSOC_MARGIN_M
 
     def _merge_obs(self, a: _VoxelObs, b: _VoxelObs) -> _VoxelObs:
-        """Fuse a track's accumulated AABB (a) with this frame's detection (b) via
-        EMA, so the reported box is steady across ticks instead of replaced by each
-        noisy per-frame box. Keeps the track's label (stable across flicker)."""
+        """EMA the centroid + score; take this frame's size as-is (EMA-ing size
+        runs away). Keeps the track label; grows persistence."""
         al = TRACK_MERGE_ALPHA
-        fused = (1.0 - al) * np.asarray(a.bbox, dtype=float) \
-            + al * np.asarray(b.bbox, dtype=float)
+        a_bb = np.asarray(a.bbox, dtype=float)
+        b_bb = np.asarray(b.bbox, dtype=float)
+        center = (1.0 - al) * a_bb[:3] + al * b_bb[:3]
+        size = b_bb[3:6]
         score = (1.0 - al) * a.score + al * b.score
-        return _VoxelObs(bbox=fused.tolist(), label=a.label,
-                         score=score, seen=a.seen + 1)
+        return _VoxelObs(bbox=[*center.tolist(), *size.tolist()],
+                         label=a.label, score=score, seen=a.seen + 1)
 
     def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
                           target_objects, threshold):
@@ -284,28 +286,57 @@ class VoxelBehavior:
             idx = np.where(label_ids == label_val)[0]
             if len(idx) < self.min_cluster_size:
                 continue
-
-            coords = norm_coords[idx]
-            min_voxel = coords.min(axis=0)
-            max_voxel = coords.max(axis=0)
-            min_world = min_voxel * vox_size + min_coords
-            max_world = (max_voxel + 1) * vox_size + min_coords
-            center = (min_world + max_world) / 2
-            size = max_world - min_world
-
-            cluster_scores = relevant_scores[idx]
-            mean_scores = cluster_scores.mean(axis=0)
-            best_local = int(mean_scores.argmax())
-            best_label = (target_objects[best_local]
-                          if best_local < len(target_objects)
-                          else target_objects[0])
-
-            obs.append(_VoxelObs(
-                bbox=[center[0], center[1], center[2],
-                      size[0], size[1], size[2]],
-                label=best_label,
-                score=float(mean_scores[best_local])))
+            comp_coords = norm_coords[idx]
+            comp_scores = relevant_scores[idx]
+            for g in self._split_into_instances(
+                    comp_coords, comp_scores.max(axis=1), vox_size):
+                if len(g) < self.min_cluster_size:
+                    continue
+                coords = comp_coords[g]
+                min_world = coords.min(axis=0) * vox_size + min_coords
+                max_world = (coords.max(axis=0) + 1) * vox_size + min_coords
+                center = (min_world + max_world) / 2
+                size = max_world - min_world
+                mean_scores = comp_scores[g].mean(axis=0)
+                best_local = int(mean_scores.argmax())
+                best_label = (target_objects[best_local]
+                              if best_local < len(target_objects)
+                              else target_objects[0])
+                obs.append(_VoxelObs(
+                    bbox=[center[0], center[1], center[2],
+                          size[0], size[1], size[2]],
+                    label=best_label,
+                    score=float(mean_scores[best_local])))
         return obs
+
+    def _split_into_instances(self, coords, win_scores, vox_size):
+        """Split a connected component into separate instances at score peaks:
+        find local maxima of the smoothed score field, assign each voxel to its
+        nearest peak. Returns index arrays into `coords`."""
+        n = len(coords)
+        if n < 2 * self.min_cluster_size:
+            return [np.arange(n)]
+        lo = coords.min(axis=0)
+        ext = coords.max(axis=0) - lo + 1
+        if int(np.prod(ext)) > 2_000_000:
+            return [np.arange(n)]
+        cc = coords - lo
+        S = np.zeros(tuple(ext.tolist()), dtype=float)
+        S[cc[:, 0], cc[:, 1], cc[:, 2]] = win_scores
+        occ = S > 0
+        Ss = scipy.ndimage.gaussian_filter(S, SPLIT_SMOOTH_SIGMA_VOX)
+        Ss[~occ] = 0.0
+        win = max(1, int(round(SPLIT_PEAK_SEP_M / vox_size)))
+        peaks = occ & (Ss >= scipy.ndimage.maximum_filter(Ss, size=win)) & (Ss > 0)
+        plbl, npk = scipy.ndimage.label(peaks, structure=np.ones((3, 3, 3)))
+        if npk <= 1:
+            return [np.arange(n)]
+        cents = np.array(
+            scipy.ndimage.center_of_mass(peaks, plbl, range(1, npk + 1)),
+            dtype=float)
+        nearest = ((cc[:, None, :] - cents[None, :, :]) ** 2).sum(
+            axis=2).argmin(axis=1)
+        return [np.where(nearest == k)[0] for k in range(npk)]
 
     def execute(self, vox_xyz, vox_scores, query_labels, cur_pose_np,
                 waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
