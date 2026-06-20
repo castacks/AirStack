@@ -39,9 +39,9 @@ raven_nav:
     # Gentle behind-only heading penalty for ray/BB target selection (front/side
     # free): nearest-first, but won't fully reverse for a marginally-behind target.
     target_behind_penalty_weight: 8.0
-    # BB hysteresis: a different BB must be this many metres closer to steal the BB
-    # the drone is already committed to (avoids flip-flop between near-equal BBs).
-    bb_switch_margin_m: 8.0
+    # Assignment hysteresis: a different target must beat the committed one by this
+    # much for the auction to switch (stops Hungarian swapping near-equal matchings).
+    commit_switch_margin_m: 8.0
     # Run the frontier-only baseline: navigation ignores semantic cues.
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)

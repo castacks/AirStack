@@ -292,12 +292,14 @@ class RavenNavNode(Node):
         # side free) — keeps it nearest-first without reversing for side targets.
         self._target_behind_penalty_weight = float(self.declare_parameter(
             'target_behind_penalty_weight', 8.0).value)
-        # BB hysteresis: a different BB must be this many metres closer to steal
-        # the one we're already committed to.
-        self._bb_switch_margin_m = float(self.declare_parameter(
-            'bb_switch_margin_m', 8.0).value)
+        # Assignment hysteresis: a different target must beat the one we're
+        # committed to by this much (m-equivalent) for the auction to switch.
+        self._commit_switch_margin_m = float(self.declare_parameter(
+            'commit_switch_margin_m', 8.0).value)
         # Centre of the BB this drone is currently committed to (None = none / ray).
         self._committed_bb_center: 'np.ndarray | None' = None
+        # Persistent visited-target BBs (own + peer) — accumulated, never TTL'd.
+        self._peer_visited_bbs: list = []
         # Target assignment: hungarian (global min-cost, default) | cbba (greedy)
         # | greedy (legacy). Hungarian is holistic — it won't strand a robot whose
         # only viable target a more-flexible peer could otherwise grab.
@@ -646,6 +648,17 @@ class RavenNavNode(Node):
             out.append((label, center, size))
         return out
 
+    _VISITED_DEDUP_M = 5.0
+
+    def _add_visited(self, label, bb) -> None:
+        """Add a visited target to the persistent visited set, deduped by centre."""
+        c = np.asarray(bb, dtype=float)[:3]
+        for lab, ex in self._peer_visited_bbs:
+            if lab == label and float(np.linalg.norm(
+                    np.asarray(ex, dtype=float)[:3] - c)) <= self._VISITED_DEDUP_M:
+                return
+        self._peer_visited_bbs.append((label, np.asarray(bb, dtype=float)))
+
     def _fresh_peers(self, now) -> set:
         """Peers heard from within the TTL (stale peers' state is ignored)."""
         return {n for n, t in self._peer_state.peer_last_seen.items()
@@ -690,9 +703,11 @@ class RavenNavNode(Node):
         def _bb(ct):
             return np.concatenate([np.asarray(ct.center, dtype=float),
                                    np.asarray(ct.size, dtype=float)])
-        self._peer_visited_bbs = [
-            (ct.label, _bb(ct)) for ct in (own_cts + peer_cts)
-            if str(ct.status).lower() == 'visited']
+        # Visited is monotonic: accumulate so a completed target stays excluded
+        # even after the peer that visited it goes silent (TTL) or dies.
+        for ct in (own_cts + peer_cts):
+            if str(ct.status).lower() == 'visited':
+                self._add_visited(ct.label, _bb(ct))
         self._consensus_bbs = [(ct.label, _bb(ct)) for ct in merged_cts]
         self._behavior_manager.voxel_behavior.peer_visited_bbs = [
             bb for _, bb in self._peer_visited_bbs]
@@ -988,6 +1003,18 @@ class RavenNavNode(Node):
             if same_ray_group(prev, g):
                 return g
         return None
+
+    def _bid_is_committed(self, b) -> bool:
+        """True if bid b is the target this drone is currently committed to."""
+        if b.is_bb:
+            return (self._committed_bb_center is not None
+                    and float(np.linalg.norm(
+                        np.asarray(b.avg_origin, dtype=float)[:2]
+                        - self._committed_bb_center[:2])) <= 8.0)
+        if (self._committed_bb_center is not None
+                or self._committed_target_last_dir is None):
+            return False
+        return self._match_committed_group([b]) is b
 
     def _fresh_peer_committed_instances(self, now):
         """[(name, label, origin, dir, pid)] of peers whose committed instance is
@@ -1832,13 +1859,16 @@ class RavenNavNode(Node):
         bid_manager.finalize_bid_values(
             my_bid_entries, heading_xy,
             self._ray_reach_factor, self._target_behind_penalty_weight)
-        # Hysteresis: boost the BB we're already committed to so a near-equal one
-        # can't steal it; only a BB >bb_switch_margin_m closer wins.
-        if self._committed_bb_center is not None:
+        # Hysteresis: boost the target (BB or ray) we're already committed to so
+        # the auction keeps it unless an alternative beats it by the margin —
+        # stops Hungarian swapping/reversing on near-equal matchings.
+        if self._assigned_target is not None:
             for b in my_bid_entries:
-                if b.is_bb and float(np.linalg.norm(
-                        b.avg_origin[:2] - self._committed_bb_center[:2])) <= 8.0:
-                    b.value += self._bb_switch_margin_m
+                if b.label != self._assigned_target:
+                    continue
+                if self._bid_is_committed(b):
+                    b.value += self._commit_switch_margin_m
+                    break
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()
