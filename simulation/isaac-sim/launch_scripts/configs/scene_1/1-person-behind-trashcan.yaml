@@ -1,0 +1,67 @@
+# ---------------------------------------------------------------------------
+# Scene 1 experiment 1: person behind the trash can, with a patch sampled on
+# the side of SM_Trashcan2 that faces the drone.
+# ---------------------------------------------------------------------------
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/test_bench/scene_1.usd"
+  load_mode: sublayer
+  scale: 1.0
+  add_collision: true
+  collision_approximation: none
+  # Collision precedence: non-empty names/paths, then z-range, then all meshes.
+  collision_prim_names: [/Environment/abandoned_factory_scene/AbandonedFactory/MergedMeshes/merged_38]       # exact prim names or absolute prim paths
+  collision_z_range: null        # [min_z, max_z], using world-AABB center Z
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  start: [3.7704, 63.08489, 0.7128]
+  movement_segments:
+    - target: [-2.44054, 63.08489, 0.7128]
+  orientation_yaw: -90.0
+  walk_speed: 1.0
+  start_delay: 2.0
+  arrival_threshold: 0.2
+  scale: 1.0
+
+camera:
+  eye: [-10.190997134817334, 49.9978423549142, 0.7128]
+  target: null
+
+patch:
+  enabled: true
+  prim_path: /World/EvalPatch/TexturedMeshPlane
+  material_path: /World/Looks/EvalPatchOmniPBR
+  albedo_path: ""
+  center: null
+  board:
+    plane: yz
+    # specified by top-left and bottom-right corners in the face's local YZ plane:
+    top_left: [0.90434, 59.86576, 2.02253]
+    bottom_right: [0.90434, 61.37917, 1.10985]
+  # orientation_deg omitted: patch inherits the xz board orientation.
+  size: null
+  size_range: [0.5, 1.0]      # used only when size is null
+  size_seed: 1234
+  position_seed: 5678
+  texture_scale: [1.0, 1.0]
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [4.42465, 57.61975, 0.62]
+  orientation_deg: [0.0, 0.0, 90.0]
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

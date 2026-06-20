@@ -11,10 +11,17 @@ different USD file.
 
 Config file:
     Path is taken from SCENE_CONFIG_PATH (default:
-    .../launch_scripts/configs/office_one_drone_one_person.yaml). Because the repo is
+    .../launch_scripts/configs/exp/exp.yaml). Because the repo is
     mounted into the Isaac Sim container at /isaac-sim/AirStack, use the
     in-container path when setting SCENE_CONFIG_PATH.
-    See configs/office_one_drone_one_person.yaml for the schema.
+    See configs/exp/exp.yaml for the schema.
+
+Prim layout:
+    Everything this script generates (drone + sensors, person, patch, materials,
+    ground collider) is authored under a single top-level prim, script_root
+    (default /Script), created parallel to the loaded scene's own roots (/World,
+    /Environment, ...) rather than mixed into them. Set script_root: /World in
+    the config to restore the legacy behavior.
 
 Scene units:
     If the scene USD is authored in different units than the meter-scale Pegasus
@@ -67,7 +74,8 @@ if _HEADLESS:
 _DEFAULT_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "configs",
-    "office_one_drone_one_person.yaml",
+    "exp",
+    "exp.yaml",
 )
 
 
@@ -79,6 +87,37 @@ def _get(mapping, key, default=None):
     return default if value is None else value
 
 
+def euler_xyz_degrees_to_quaternion(orientation_deg):
+    """Convert [roll, pitch, yaw] degrees to an [x, y, z, w] quaternion."""
+    if not isinstance(orientation_deg, (list, tuple)) or len(orientation_deg) != 3:
+        raise RuntimeError("orientation_deg must be [roll, pitch, yaw] in degrees.")
+    roll, pitch, yaw = np.deg2rad([float(value) for value in orientation_deg]) * 0.5
+    cr, sr = np.cos(roll), np.sin(roll)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cy, sy = np.cos(yaw), np.sin(yaw)
+    return [
+        float(sr * cp * cy - cr * sp * sy),
+        float(cr * sp * cy + sr * cp * sy),
+        float(cr * cp * sy - sr * sp * cy),
+        float(cr * cp * cy + sr * sp * sy),
+    ]
+
+
+def euler_xyz_degrees_to_rotation_matrix(orientation_deg):
+    """Return the XYZ Euler rotation matrix for [roll, pitch, yaw] degrees."""
+    if not isinstance(orientation_deg, (list, tuple)) or len(orientation_deg) != 3:
+        raise RuntimeError("orientation_deg must be [roll, pitch, yaw] in degrees.")
+    roll, pitch, yaw = np.deg2rad([float(value) for value in orientation_deg])
+    cx, sx = np.cos(roll), np.sin(roll)
+    cy, sy = np.cos(pitch), np.sin(pitch)
+    cz, sz = np.cos(yaw), np.sin(yaw)
+    return np.array([
+        [cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx],
+        [sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx],
+        [-sy, cy * sx, cy * cx],
+    ])
+
+
 def load_config():
     config_path = os.path.expanduser(
         os.environ.get("SCENE_CONFIG_PATH", _DEFAULT_CONFIG_PATH)
@@ -86,7 +125,7 @@ def load_config():
     if not os.path.isfile(config_path):
         raise RuntimeError(
             f"Scene config not found: {config_path}. Set SCENE_CONFIG_PATH to a "
-            "YAML file (see launch_scripts/configs/office_one_drone_one_person.yaml)."
+            "YAML file (see launch_scripts/configs/exp/exp.yaml)."
         )
     with open(config_path, "r") as handle:
         config = yaml.safe_load(handle) or {}
@@ -121,21 +160,16 @@ PEOPLE_EXTENSIONS = [
 ]
 
 
-class StraightLinePersonController:
-    def __init__(self, target, walk_speed, start_delay=0.0, arrival_threshold=0.2):
+class SegmentedPersonController:
+    """Move a person through an ordered sequence of straight-line segments."""
+
+    def __init__(self, segments, start_delay=0.0):
         self._person = None
-        self._target = list(target)
-        self._walk_speed = walk_speed
+        self._segments = list(segments)
         self._start_delay = max(0.0, float(start_delay))
-        # Distance (in stage units) at which the person is considered to have
-        # arrived. omni.anim.people's own arrival logic is tuned for meters; in a
-        # non-meter (e.g. centimeter) scene that threshold is effectively
-        # unreachable, so the character oscillates / "wanders" around the goal
-        # forever. Once within this threshold we stop commanding motion so it
-        # settles into idle instead. Size it to the scene units.
-        self._arrival_threshold = max(0.0, float(arrival_threshold))
         self._elapsed = 0.0
-        self._arrived = False
+        self._segment_index = 0
+        self._pause_remaining = 0.0
 
     def initialize(self, person):
         self._person = person
@@ -147,19 +181,31 @@ class StraightLinePersonController:
         if self._elapsed < self._start_delay:
             self._person.update_target_position(self._person.state.position, 0.0)
             return
-        # Latch arrival so the character holds position and idles cleanly rather
-        # than fighting an arrival threshold it cannot satisfy at this scale.
-        if not self._arrived:
-            position = self._person.state.position
-            distance = float(
-                np.linalg.norm(np.asarray(self._target) - np.asarray(position))
-            )
-            if distance <= self._arrival_threshold:
-                self._arrived = True
-        if self._arrived:
+
+        if self._pause_remaining > 0.0:
+            self._pause_remaining = max(0.0, self._pause_remaining - dt)
             self._person.update_target_position(self._person.state.position, 0.0)
             return
-        self._person.update_target_position(self._target, self._walk_speed)
+
+        if self._segment_index >= len(self._segments):
+            self._person.update_target_position(self._person.state.position, 0.0)
+            return
+
+        segment = self._segments[self._segment_index]
+        position = self._person.state.position
+        distance = float(
+            np.linalg.norm(np.asarray(segment["target"]) - np.asarray(position))
+        )
+        # omni.anim.people's arrival logic is tuned for meters. Checking the
+        # configured threshold ourselves avoids oscillation in differently
+        # scaled scenes and gives us a reliable point at which to advance.
+        if distance <= segment["arrival_threshold"]:
+            self._segment_index += 1
+            self._pause_remaining = segment["pause_after"]
+            self._person.update_target_position(position, 0.0)
+            return
+
+        self._person.update_target_position(segment["target"], segment["walk_speed"])
 
     def update_state(self, state):
         pass
@@ -171,31 +217,169 @@ class StraightLinePersonController:
         pass
 
     def reset(self):
-        pass
+        self._elapsed = 0.0
+        self._segment_index = 0
+        self._pause_remaining = 0.0
 
 
-def sample_patch_on_cube_negative_x_face(patch_cfg):
-    """Sample a square patch center + size on the -X face of the target cube.
+def sample_patch_size(patch_cfg):
+    """Sample a square patch size [w, h] uniformly from patch.size_range.
 
-    Y/Z center ranges come from patch.y_range / patch.z_range when provided,
-    otherwise they are derived from the cube bounds (inset by half the patch
-    size). Size is sampled uniformly in patch.size_range. Seeds are taken from
-    the config but can be overridden by the MESH_PLANE_*_SEED env vars.
+    Seed is patch.size_seed, overridable by MESH_PLANE_SIZE_SEED.
     """
     size_seed = int(os.environ.get(
         "MESH_PLANE_SIZE_SEED",
         str(_get(patch_cfg, "size_seed", 1234)),
     ))
+    size_range = _get(patch_cfg, "size_range", [0.5, 1.0])
+    if not isinstance(size_range, (list, tuple)) or len(size_range) != 2:
+        raise RuntimeError("patch.size_range must be [min, max].")
+    min_size, max_size = [float(value) for value in size_range]
+    if min_size <= 0.0 or max_size < min_size:
+        raise RuntimeError("patch.size_range must satisfy 0 < min <= max.")
+    patch_size = float(np.random.default_rng(size_seed).uniform(min_size, max_size))
+    return [patch_size, patch_size]
+
+
+def resolve_patch_size(patch_cfg):
+    """Return a fixed patch.size or sample a square from patch.size_range."""
+    explicit_size = _get(patch_cfg, "size")
+    if explicit_size is None:
+        return sample_patch_size(patch_cfg), "sampled size_range"
+    size = (
+        [float(explicit_size), float(explicit_size)]
+        if np.isscalar(explicit_size)
+        else [float(value) for value in explicit_size]
+    )
+    if len(size) != 2 or any(value <= 0.0 for value in size):
+        raise RuntimeError("patch.size must be a positive scalar or [width, height].")
+    return size, "fixed size"
+
+
+def resolve_board_plane_orientation_degrees(board):
+    """Resolve an axis-aligned xy/xz/yz board plane to Euler degrees."""
+    plane = _get(board, "plane")
+    if _get(board, "orientation_deg") is not None:
+        raise RuntimeError(
+            "patch.board.orientation_deg is not supported; use "
+            "patch.board.plane: xy, xz, or yz."
+        )
+    plane = str(plane or "").lower()
+    plane_orientations = {
+        "xy": [0.0, 0.0, 0.0],
+        "xz": [-90.0, 0.0, 0.0],
+        "yz": [0.0, 90.0, 0.0],
+    }
+    if plane not in plane_orientations:
+        raise RuntimeError("patch.board.plane must be one of: xy, xz, yz.")
+    return plane_orientations[plane]
+
+
+def resolve_board_geometry(board, board_rotation):
+    """Return board center/size from center+size or two opposite corners."""
+    board_center = _get(board, "center")
+    board_size = _get(board, "size")
+    top_left = _get(board, "top_left")
+    bottom_right = _get(board, "bottom_right")
+    has_center_form = board_center is not None or board_size is not None
+    has_corner_form = top_left is not None or bottom_right is not None
+    if has_center_form and has_corner_form:
+        raise RuntimeError(
+            "Use either patch.board center+size or top_left+bottom_right, not both."
+        )
+    if has_center_form:
+        if not isinstance(board_center, (list, tuple)) or len(board_center) != 3:
+            raise RuntimeError("patch.board.center must be [x, y, z].")
+        if not isinstance(board_size, (list, tuple)) or len(board_size) != 2:
+            raise RuntimeError(
+                "patch.board.size must contain its two in-plane lengths."
+            )
+        center = np.asarray([float(value) for value in board_center])
+        size = np.asarray([float(value) for value in board_size])
+    elif has_corner_form:
+        if not isinstance(top_left, (list, tuple)) or len(top_left) != 3:
+            raise RuntimeError("patch.board.top_left must be [x, y, z].")
+        if not isinstance(bottom_right, (list, tuple)) or len(bottom_right) != 3:
+            raise RuntimeError("patch.board.bottom_right must be [x, y, z].")
+        top_left = np.asarray([float(value) for value in top_left])
+        bottom_right = np.asarray([float(value) for value in bottom_right])
+        local_delta = board_rotation.T @ (bottom_right - top_left)
+        if not np.isclose(local_delta[2], 0.0, atol=1e-6):
+            raise RuntimeError(
+                "patch.board top_left and bottom_right must lie on the selected plane."
+            )
+        center = (top_left + bottom_right) * 0.5
+        size = np.abs(local_delta[:2])
+    else:
+        raise RuntimeError(
+            "Set patch.board center+size or top_left+bottom_right."
+        )
+    if np.any(size <= 0.0):
+        raise RuntimeError("patch.board dimensions must be positive.")
+    return center, size
+
+
+def sample_patch_center_on_board(patch_cfg, patch_size, orientation_deg):
+    """Sample a center whose rotated patch vertices remain inside a board."""
+    board = _get(patch_cfg, "board")
+    if not isinstance(board, dict):
+        raise RuntimeError("patch.board must be a mapping.")
+    board_orientation_deg = resolve_board_plane_orientation_degrees(board)
+    board_rotation = euler_xyz_degrees_to_rotation_matrix(board_orientation_deg)
+    board_center, board_size = resolve_board_geometry(board, board_rotation)
+    patch_rotation = euler_xyz_degrees_to_rotation_matrix(orientation_deg)
+    board_normal = board_rotation @ np.array([0.0, 0.0, 1.0])
+    patch_normal = patch_rotation @ np.array([0.0, 0.0, 1.0])
+    if not np.isclose(abs(np.dot(patch_normal, board_normal)), 1.0, atol=1e-6):
+        raise RuntimeError(
+            "patch.orientation_deg does not place the patch parallel to its board."
+        )
+
+    half_width, half_height = float(patch_size[0]) * 0.5, float(patch_size[1]) * 0.5
+    local_corners = np.array([
+        [-half_width, -half_height, 0.0],
+        [half_width, -half_height, 0.0],
+        [half_width, half_height, 0.0],
+        [-half_width, half_height, 0.0],
+    ])
+    world_corners = local_corners @ patch_rotation.T
+    board_local_corners = world_corners @ board_rotation
+    patch_extents = np.max(np.abs(board_local_corners[:, :2]), axis=0)
+    available_half_size = board_size * 0.5 - patch_extents
+    if np.any(available_half_size < -1e-9):
+        raise RuntimeError(
+            f"Patch size {patch_size} does not fit within the board "
+            f"size {board_size.tolist()} at orientation {orientation_deg}."
+        )
+    available_half_size = np.maximum(available_half_size, 0.0)
+
     position_seed = int(os.environ.get(
         "MESH_PLANE_POSITION_SEED",
         str(_get(patch_cfg, "position_seed", 5678)),
     ))
-    size_rng = np.random.default_rng(size_seed)
-    position_rng = np.random.default_rng(position_seed)
+    rng = np.random.default_rng(position_seed)
+    local_center = np.array([
+        rng.uniform(-available_half_size[0], available_half_size[0]),
+        rng.uniform(-available_half_size[1], available_half_size[1]),
+        0.0,
+    ])
+    center = board_center + board_rotation @ local_center
+    return center.tolist(), position_seed
 
-    min_size, max_size = [float(value) for value in _get(patch_cfg, "size_range", [0.5, 1.0])]
-    patch_size = float(size_rng.uniform(min_size, max_size))
-    half_patch = patch_size * 0.5
+
+def sample_patch_on_cube_negative_x_face(patch_cfg, size):
+    """Sample a patch center on the -X face of the target cube.
+
+    Y/Z center ranges come from patch.y_range / patch.z_range when provided,
+    otherwise they are derived from the cube bounds (inset by half the patch
+    size). The already-resolved patch size is used to keep it within the face.
+    """
+    position_seed = int(os.environ.get(
+        "MESH_PLANE_POSITION_SEED",
+        str(_get(patch_cfg, "position_seed", 5678)),
+    ))
+    position_rng = np.random.default_rng(position_seed)
+    half_patch = max(size) * 0.5
 
     cube_center = [float(value) for value in _get(patch_cfg, "cube_center")]
     cube_half_extent = [float(value) * 0.5 for value in _get(patch_cfg, "cube_scale")]
@@ -217,7 +401,7 @@ def sample_patch_on_cube_negative_x_face(patch_cfg):
     )
     if y_hi < y_lo or z_hi < z_lo:
         raise RuntimeError(
-            f"Sampled patch size {patch_size:.3f} does not fit within the "
+            f"Patch size {size} does not fit within the "
             f"{_get(patch_cfg, 'target_prim_name', 'cube')} -X face sampling "
             f"ranges: y=[{y_lo}, {y_hi}], z=[{z_lo}, {z_hi}]."
         )
@@ -228,10 +412,9 @@ def sample_patch_on_cube_negative_x_face(patch_cfg):
 
     return {
         "center": [x, y, z],
-        "size": [patch_size, patch_size],
+        "size": size,
         "bounds_min": bounds_min,
         "bounds_max": bounds_max,
-        "size_seed": size_seed,
         "position_seed": position_seed,
     }
 
@@ -295,6 +478,36 @@ def apply_uniform_scale(stage, prim_path, scale):
     scale_op.Set(Gf.Vec3d(float(scale), float(scale), float(scale)))
 
 
+def set_person_visual_yaw_degrees(stage, prim_path, yaw_degrees):
+    """Correct the spawned NVIDIA character root to the requested visual yaw.
+
+    Pegasus Person accepts radians and uses them for its internal state, but its
+    CharacterUtil call forwards the same numeric value to a degree-based USD
+    transform. Keep the radian input to Person and repair only the authored root
+    transform here.
+    """
+    prim = stage.GetPrimAtPath(prim_path)
+    if not prim or not prim.IsValid():
+        raise RuntimeError(f"Cannot orient missing person prim: {prim_path}")
+    xformable = UsdGeom.Xformable(prim)
+    for op in xformable.GetOrderedXformOps():
+        if op.GetOpType() == UsdGeom.XformOp.TypeRotateXYZ:
+            current = op.Get()
+            op.Set(type(current)(0.0, 0.0, float(yaw_degrees)))
+            return
+        if op.GetOpType() == UsdGeom.XformOp.TypeRotateZ:
+            op.Set(float(yaw_degrees))
+            return
+        if op.GetOpType() == UsdGeom.XformOp.TypeOrient:
+            half_yaw = np.deg2rad(float(yaw_degrees)) * 0.5
+            current = op.Get()
+            op.Set(type(current)(float(np.cos(half_yaw)), 0.0, 0.0, float(np.sin(half_yaw))))
+            return
+    raise RuntimeError(
+        f"Person prim {prim_path} has no supported yaw transform op."
+    )
+
+
 def find_sublayer_scene_roots(stage, scene_usd_path, pre_existing_top_level):
     """Identify the root prim(s) of a scene that was composed in as a sublayer.
 
@@ -318,6 +531,33 @@ def find_sublayer_scene_roots(stage, scene_usd_path, pre_existing_top_level):
     return roots
 
 
+def apply_collision_to_meshes(mesh_prims, approximation="none"):
+    """Apply static colliders to a deduplicated iterable of Mesh prims."""
+    unique_meshes = {prim.GetPath().pathString: prim for prim in mesh_prims}
+    applied = 0
+    skipped_instanced = 0
+    for prim in unique_meshes.values():
+        if prim.IsInstanceProxy():
+            skipped_instanced += 1
+            continue
+        UsdPhysics.CollisionAPI.Apply(prim)
+        mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(prim)
+        mesh_collision.CreateApproximationAttr().Set(approximation)
+        applied += 1
+    return applied, skipped_instanced
+
+
+def mesh_prims_under(root):
+    """Return every Mesh below root, including visible instance proxies."""
+    if not root or not root.IsValid():
+        return []
+    return [
+        prim
+        for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies())
+        if prim.IsA(UsdGeom.Mesh)
+    ]
+
+
 def add_collision_to_subtree(stage, root_path, approximation="none"):
     """Apply a static collider to every Mesh under root_path.
 
@@ -333,21 +573,76 @@ def add_collision_to_subtree(stage, root_path, approximation="none"):
     root = stage.GetPrimAtPath(root_path)
     if not root or not root.IsValid():
         return 0, 0
-    applied = 0
-    skipped_instanced = 0
-    # Traverse into instance proxies so we can *see* (and report) instanced
-    # meshes even though we cannot author colliders onto them.
-    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
-        if not prim.IsA(UsdGeom.Mesh):
+    return apply_collision_to_meshes(mesh_prims_under(root), approximation)
+
+
+def add_collision_by_prim_names(stage, prim_names, approximation="none"):
+    """Apply colliders below prims matching exact names or absolute paths."""
+    matched_roots = []
+    missing = []
+    all_prims = list(stage.Traverse())
+    for requested in prim_names:
+        requested = str(requested)
+        if requested.startswith("/"):
+            prim = stage.GetPrimAtPath(requested)
+            matches = [prim] if prim and prim.IsValid() else []
+        else:
+            matches = [prim for prim in all_prims if prim.GetName() == requested]
+        if matches:
+            matched_roots.extend(matches)
+        else:
+            missing.append(requested)
+    meshes = []
+    for root in matched_roots:
+        meshes.extend(mesh_prims_under(root))
+    applied, skipped = apply_collision_to_meshes(meshes, approximation)
+    return applied, skipped, matched_roots, missing
+
+
+def add_collision_by_z_range(stage, z_range, approximation="none"):
+    """Apply colliders to meshes whose world-AABB center Z is in [min, max]."""
+    if not isinstance(z_range, (list, tuple)) or len(z_range) != 2:
+        raise RuntimeError("scene.collision_z_range must be [min_z, max_z].")
+    min_z, max_z = [float(value) for value in z_range]
+    if max_z < min_z:
+        raise RuntimeError("scene.collision_z_range must satisfy min_z <= max_z.")
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(),
+        [UsdGeom.Tokens.default_, UsdGeom.Tokens.render],
+        True,
+    )
+    selected = []
+    for prim in mesh_prims_under(stage.GetPseudoRoot()):
+        world_range = bbox_cache.ComputeWorldBound(prim).ComputeAlignedRange()
+        if world_range.IsEmpty():
             continue
-        if prim.IsInstanceProxy():
-            skipped_instanced += 1
-            continue
-        UsdPhysics.CollisionAPI.Apply(prim)
-        mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(prim)
-        mesh_collision.CreateApproximationAttr().Set(approximation)
-        applied += 1
-    return applied, skipped_instanced
+        center_z = float(world_range.GetMidpoint()[2])
+        if min_z <= center_z <= max_z:
+            selected.append(prim)
+    applied, skipped = apply_collision_to_meshes(selected, approximation)
+    return applied, skipped, len(selected)
+
+
+def create_ground_collision_plane(stage, prim_path, center_xy, z, size):
+    """Create a large, thin, invisible static box collider whose top face is at z.
+
+    A cheap, guaranteed floor for the drone -- one collider instead of cooking a
+    collider per scene mesh (which doesn't scale: large scenes can have thousands
+    of meshes and stall PhysX). size is the full side length in stage units.
+    """
+    thickness = max(1.0, size * 1e-4)
+    cube = UsdGeom.Cube.Define(stage, prim_path)  # unit cube spans [-1, 1]
+    xformable = UsdGeom.Xformable(cube.GetPrim())
+    xformable.ClearXformOpOrder()
+    xformable.AddTranslateOp().Set(
+        Gf.Vec3d(float(center_xy[0]), float(center_xy[1]), float(z) - thickness * 0.5)
+    )
+    xformable.AddScaleOp().Set(
+        Gf.Vec3f(float(size) * 0.5, float(size) * 0.5, thickness * 0.5)
+    )
+    UsdGeom.Imageable(cube.GetPrim()).MakeInvisible()
+    UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
+    return cube
 
 
 def sublayer_scene(stage, scene_usd_path):
@@ -452,6 +747,13 @@ class ConfigurableTrackScene:
         person_cfg = _get(config, "person", {})
         camera_cfg = _get(config, "camera", {})
 
+        # Top-level prim that holds everything THIS script generates (drone,
+        # person, patch, materials, ground collider). It is created parallel to
+        # the loaded scene's own roots (/World, /Environment, ...) instead of
+        # mixing generated prims into them. Set to "/World" to keep the legacy
+        # behavior of authoring generated prims directly under /World.
+        self.script_root = str(_get(config, "script_root", "/Script")).rstrip("/") or "/Script"
+
         scene_usd_path = (
             _get(scene_cfg, "usd_path", "")
             or os.environ.get("SCENE_USD_PATH", "")
@@ -470,6 +772,17 @@ class ConfigurableTrackScene:
         self.scene_collision_approximation = str(
             _get(scene_cfg, "collision_approximation", "none")
         )
+        self.scene_collision_prim_names = _get(
+            scene_cfg, "collision_prim_names", []
+        )
+        if not isinstance(self.scene_collision_prim_names, list):
+            raise RuntimeError("scene.collision_prim_names must be a list.")
+        self.scene_collision_z_range = _get(scene_cfg, "collision_z_range")
+        # Optional cheap floor: one large static collider plane at this Z (stage
+        # units). Preferred over add_collision for large scenes (per-mesh colliders
+        # don't scale to thousands of meshes). null/absent disables it.
+        self.scene_ground_plane_z = _get(scene_cfg, "ground_plane_z")
+        self.scene_ground_plane_size = float(_get(scene_cfg, "ground_plane_size", 100000.0))
         if not self.scene_usd_path:
             raise RuntimeError(
                 "Set scene.usd_path in the config (or SCENE_USD_PATH / ISAAC_SIM_GUI)."
@@ -480,8 +793,10 @@ class ConfigurableTrackScene:
         self.person_name = _get(person_cfg, "name", "person1")
         self.person_character = _get(person_cfg, "character", "original_male_adult_construction_05")
         self.person_start = [float(v) for v in _get(person_cfg, "start", [0.0, 0.0, 0.0])]
-        self.person_target = [float(v) for v in _get(person_cfg, "target", [5.0, 0.0, 0.0])]
-        self.person_yaw = float(_get(person_cfg, "yaw", 0.0))
+        self.person_orientation_yaw = float(
+            _get(person_cfg, "orientation_yaw", 0.0)
+        )
+        self.person_yaw = float(np.deg2rad(self.person_orientation_yaw))
         self.person_walk_speed = float(_get(person_cfg, "walk_speed", 1.0))
         self.person_start_delay = float(_get(person_cfg, "start_delay", 0.0))
         # Distance (stage units) at which the person stops at its target. Size to
@@ -491,11 +806,22 @@ class ConfigurableTrackScene:
         # in non-meter units (e.g. 100 for a centimeter scene). Visual/navmesh
         # only -- safe to scale.
         self.person_scale = float(_get(person_cfg, "scale", 1.0))
+        self.person_segments = self._parse_person_segments(person_cfg)
 
         self.camera_eye = [float(v) for v in _get(camera_cfg, "eye", [8.0, 8.0, 5.0])]
         camera_target = _get(camera_cfg, "target")
         self.camera_target = (
             [float(v) for v in camera_target] if camera_target is not None else self.person_start
+        )
+
+        # Redirect omni.anim.people / replicator-agent character prims (the
+        # person, plus its biped-setup and navmesh infra, which all derive from
+        # this parent path) under script_root. Must be set BEFORE importing
+        # pegasus...Person, which caches characters_parent_path() at class-def
+        # time. The carb key has a fallback of "/World/Characters".
+        carb.settings.get_settings().set(
+            "/exts/isaacsim.replicator.agent/characters_parent_prim_path",
+            f"{self.script_root}/Characters",
         )
 
         for extension in PEOPLE_EXTENSIONS:
@@ -542,23 +868,66 @@ class ConfigurableTrackScene:
             wait_for_stage_updates()
 
         if self.scene_add_collision:
-            applied = 0
-            skipped_instanced = 0
-            for scene_root in scene_roots:
-                root_applied, root_skipped = add_collision_to_subtree(
-                    self.stage, scene_root, self.scene_collision_approximation
+            if self.scene_collision_prim_names:
+                (
+                    applied,
+                    skipped_instanced,
+                    matched_roots,
+                    missing_names,
+                ) = add_collision_by_prim_names(
+                    self.stage,
+                    self.scene_collision_prim_names,
+                    self.scene_collision_approximation,
                 )
-                applied += root_applied
-                skipped_instanced += root_skipped
+                selection_description = (
+                    f"{len(matched_roots)} prim match(es) for names/paths "
+                    f"{self.scene_collision_prim_names}"
+                )
+                if missing_names:
+                    carb.log_warn(
+                        f"Collision prim names/paths not found: {missing_names}. "
+                        "Not falling back to a broader collision selection."
+                    )
+            elif self.scene_collision_z_range is not None:
+                applied, skipped_instanced, selected_count = add_collision_by_z_range(
+                    self.stage,
+                    self.scene_collision_z_range,
+                    self.scene_collision_approximation,
+                )
+                selection_description = (
+                    f"{selected_count} mesh(es) with world-AABB center Z in "
+                    f"{self.scene_collision_z_range}"
+                )
+            else:
+                # No selector means every composed scene mesh, preserving the
+                # original add_collision behavior.
+                applied, skipped_instanced = add_collision_to_subtree(
+                    self.stage, "/", self.scene_collision_approximation
+                )
+                selection_description = "all composed-stage meshes"
             carb.log_warn(
                 f"Added '{self.scene_collision_approximation}' colliders to {applied} "
-                f"mesh prim(s) across {scene_roots}."
+                f"mesh prim(s), selected from {selection_description}."
             )
             if skipped_instanced:
                 carb.log_warn(
                     f"Skipped {skipped_instanced} INSTANCED mesh(es) -- instance proxies "
                     "cannot carry authored colliders."
                 )
+            wait_for_stage_updates()
+
+        if self.scene_ground_plane_z is not None:
+            carb.log_warn(
+                f"Creating ground collision plane at z={self.scene_ground_plane_z} "
+                f"(size={self.scene_ground_plane_size})."
+            )
+            create_ground_collision_plane(
+                self.stage,
+                f"{self.script_root}/GroundCollisionPlane",
+                [0.0, 0.0],
+                float(self.scene_ground_plane_z),
+                self.scene_ground_plane_size,
+            )
             wait_for_stage_updates()
 
         light_count = count_lights(self.stage)
@@ -581,11 +950,9 @@ class ConfigurableTrackScene:
             f"Spawning person '{self.person_name}' using character "
             f"'{self.person_character}' at {self.person_start}"
         )
-        self.person_controller = StraightLinePersonController(
-            self.person_target,
-            self.person_walk_speed,
+        self.person_controller = SegmentedPersonController(
+            self.person_segments,
             self.person_start_delay,
-            self.person_arrival_threshold,
         )
         self.person = Person(
             self.person_name,
@@ -593,6 +960,9 @@ class ConfigurableTrackScene:
             init_pos=self.person_start,
             init_yaw=self.person_yaw,
             controller=self.person_controller,
+        )
+        set_person_visual_yaw_degrees(
+            self.stage, self.person._stage_prefix, self.person_orientation_yaw
         )
         add_update_semantics(self.person.character_skel_root, "person")
         if self.person_scale != 1.0:
@@ -613,6 +983,68 @@ class ConfigurableTrackScene:
             "PLAY_SIM_ON_START", str(play_default)
         ).lower() == "true"
 
+    def _parse_person_segments(self, person_cfg):
+        """Normalize movement_segments, falling back to the legacy target."""
+        configured = _get(person_cfg, "movement_segments")
+        if configured is None:
+            configured = [{"target": _get(person_cfg, "target", [5.0, 0.0, 0.0])}]
+        if not isinstance(configured, list) or not configured:
+            raise RuntimeError("person.movement_segments must be a non-empty list.")
+
+        segments = []
+        for index, value in enumerate(configured):
+            # A bare [x, y, z] is accepted as shorthand for {target: [x, y, z]}.
+            segment = value if isinstance(value, dict) else {"target": value}
+            target = _get(segment, "target")
+            if not isinstance(target, (list, tuple)) or len(target) != 3:
+                raise RuntimeError(
+                    f"person.movement_segments[{index}].target must be [x, y, z]."
+                )
+            walk_speed = float(_get(segment, "walk_speed", self.person_walk_speed))
+            arrival_threshold = float(
+                _get(segment, "arrival_threshold", self.person_arrival_threshold)
+            )
+            pause_after = float(_get(segment, "pause_after", 0.0))
+            if walk_speed < 0.0 or arrival_threshold < 0.0 or pause_after < 0.0:
+                raise RuntimeError(
+                    f"person.movement_segments[{index}] speed, threshold, and pause "
+                    "must be non-negative."
+                )
+            # Pegasus Person stops its animation at <= 0.1 stage units. A
+            # smaller controller threshold can therefore never be reached,
+            # permanently blocking advancement to the next segment.
+            if arrival_threshold < 0.1:
+                carb.log_warn(
+                    f"person.movement_segments[{index}] arrival_threshold "
+                    f"{arrival_threshold} is below Pegasus's 0.1 stop distance; "
+                    "using 0.1."
+                )
+                arrival_threshold = 0.1
+            segments.append(
+                {
+                    "target": [float(component) for component in target],
+                    "walk_speed": walk_speed,
+                    "arrival_threshold": arrival_threshold,
+                    "pause_after": pause_after,
+                }
+            )
+        return segments
+
+    def _rebase_generated_path(self, path):
+        """Reparent a script-generated prim path under self.script_root.
+
+        Generated prims default to /World (in both the script defaults and the
+        configs). Rebasing the /World prefix onto script_root collects every
+        prim this script creates under one root that sits parallel to the
+        scene's own roots, without touching scene geometry. A no-op when
+        script_root is /World or the path is not under /World.
+        """
+        if self.script_root == "/World":
+            return path
+        if path == "/World" or path.startswith("/World/"):
+            return self.script_root + path[len("/World"):]
+        return path
+
     def _maybe_create_patch(self):
         patch_cfg = _get(self.config, "patch", {})
         if not bool(_get(patch_cfg, "enabled", False)):
@@ -622,27 +1054,66 @@ class ConfigurableTrackScene:
             "MESH_PLANE_ALBEDO_PATH",
             _get(patch_cfg, "albedo_path", ""),
         )
-        sample = sample_patch_on_cube_negative_x_face(patch_cfg)
-        orientation_deg = _get(patch_cfg, "orientation_deg", [0.0, 90.0, 0.0])
+        board = _get(patch_cfg, "board")
+        configured_orientation_deg = _get(patch_cfg, "orientation_deg")
+        if configured_orientation_deg is not None:
+            orientation_deg = configured_orientation_deg
+        elif board is not None:
+            # Most patches lie directly on their board, so inherit its rotation.
+            orientation_deg = resolve_board_plane_orientation_degrees(board)
+        else:
+            orientation_deg = [0.0, 90.0, 0.0]
         texture_scale = _get(patch_cfg, "texture_scale", [1.0, 1.0])
-        prim_path = _get(patch_cfg, "prim_path", "/World/EvalPatch/TexturedMeshPlane")
-        material_path = _get(patch_cfg, "material_path", "/World/Looks/EvalPatchOmniPBR")
-        carb.log_warn(
-            f"Creating mesh plane '{prim_path}' with OmniPBR albedo map: "
-            f"{albedo_path or '<none>'}; target="
-            f"{_get(patch_cfg, 'target_prim_name', 'cube')}, "
-            f"bounds_min={sample['bounds_min']}, bounds_max={sample['bounds_max']}, "
-            f"center={sample['center']}, orientation_deg={orientation_deg}, "
-            f"size={sample['size']}, size_seed={sample['size_seed']}, "
-            f"position_seed={sample['position_seed']}"
+        prim_path = self._rebase_generated_path(
+            _get(patch_cfg, "prim_path", "/World/EvalPatch/TexturedMeshPlane")
         )
+        material_path = self._rebase_generated_path(
+            _get(patch_cfg, "material_path", "/World/Looks/EvalPatchOmniPBR")
+        )
+
+        size, size_source = resolve_patch_size(patch_cfg)
+        explicit_center = _get(patch_cfg, "center")
+        if explicit_center is not None and board is not None:
+            raise RuntimeError("Set only one of patch.center or patch.board.")
+        if explicit_center is not None:
+            if not isinstance(explicit_center, (list, tuple)) or len(explicit_center) != 3:
+                raise RuntimeError("patch.center must be [x, y, z].")
+            center = [float(v) for v in explicit_center]
+            carb.log_warn(
+                f"Creating mesh plane '{prim_path}' with OmniPBR albedo map: "
+                f"{albedo_path or '<none>'}; fixed center={center}, "
+                f"orientation_deg={orientation_deg}, size={size} ({size_source})"
+            )
+        elif board is not None:
+            center, position_seed = sample_patch_center_on_board(
+                patch_cfg, size, orientation_deg
+            )
+            carb.log_warn(
+                f"Creating mesh plane '{prim_path}' with OmniPBR albedo map: "
+                f"{albedo_path or '<none>'}; sampled center={center} on "
+                f"board, "
+                f"position_seed={position_seed}, orientation_deg={orientation_deg}, "
+                f"size={size} ({size_source})"
+            )
+        else:
+            sample = sample_patch_on_cube_negative_x_face(patch_cfg, size)
+            center = sample["center"]
+            size = sample["size"]
+            carb.log_warn(
+                f"Creating mesh plane '{prim_path}' with OmniPBR albedo map: "
+                f"{albedo_path or '<none>'}; target="
+                f"{_get(patch_cfg, 'target_prim_name', 'cube')}, "
+                f"bounds_min={sample['bounds_min']}, bounds_max={sample['bounds_max']}, "
+                f"center={center}, orientation_deg={orientation_deg}, "
+                f"size={size} ({size_source}), position_seed={sample['position_seed']}"
+            )
         mesh_plane = create_textured_mesh_plane(
             self.stage,
             prim_path,
             material_path,
-            sample["center"],
+            center,
             orientation_deg,
-            sample["size"],
+            size,
             albedo_path,
             texture_scale,
         )
@@ -658,17 +1129,23 @@ class ConfigurableTrackScene:
         if not bool(_get(drone_cfg, "enabled", False)):
             return
 
-        drone_prim = _get(drone_cfg, "prim", "/World/spawned_iris/base_link")
+        drone_prim = self._rebase_generated_path(
+            _get(drone_cfg, "prim", "/World/spawned_iris/base_link")
+        )
         drone_robot_name = _get(drone_cfg, "robot_name", "robot_1")
         drone_vehicle_id = int(_get(drone_cfg, "vehicle_id", 1))
         drone_domain_id = int(_get(drone_cfg, "domain_id", 1))
         drone_usd = os.path.expanduser(_get(drone_cfg, "usd", ""))
         drone_init_pos = [float(v) for v in _get(drone_cfg, "init_pos", [0.0, 0.0, 0.07])]
-        drone_init_orient = [float(v) for v in _get(drone_cfg, "init_orient", [0.0, 0.0, 0.0, 1.0])]
+        drone_orientation_deg = _get(
+            drone_cfg, "orientation_deg", [0.0, 0.0, 0.0]
+        )
+        drone_init_orient = euler_xyz_degrees_to_quaternion(drone_orientation_deg)
 
         carb.log_warn(
             f"Spawning Pegasus PX4 Iris '{drone_robot_name}' at {drone_init_pos} "
-            f"on prim '{drone_prim}' using {drone_usd}"
+            f"with orientation_deg={drone_orientation_deg} on prim "
+            f"'{drone_prim}' using {drone_usd}"
         )
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor_TrackScene",

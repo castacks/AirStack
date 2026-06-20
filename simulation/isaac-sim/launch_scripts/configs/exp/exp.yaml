@@ -6,9 +6,13 @@
 # describe a different scene -- a different USD file, person/patch positions,
 # seeds, ranges -- and set SCENE_CONFIG_PATH to the new copy.
 #
-# Vectors are [x, y, z]; quaternions are [x, y, z, w]; angles in this file are
-# noted per-field (person.yaw is radians, patch.orientation_deg is degrees).
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
 # ---------------------------------------------------------------------------
+
+# Top-level prim that holds everything this script generates (drone, person,
+# patch, materials, ground collider), created parallel to the loaded scene's
+# own roots (/World, /Environment, ...). Set to /World for the legacy layout.
+script_root: /Script
 
 scene:
   # If empty, falls back to the SCENE_USD_PATH then ISAAC_SIM_GUI env vars.
@@ -20,20 +24,37 @@ scene:
   # scaled units. 1.0 = no rescale.
   scale: 1.0
   # Apply a static collider to every scene mesh on load (for assets that ship
-  # with no PhysX colliders, so a dynamic drone has something to rest on).
+  # with no PhysX colliders). NOTE: doesn't scale -- large scenes have thousands
+  # of meshes and cooking them all stalls PhysX; prefer ground_plane_z there.
   add_collision: false
   collision_approximation: none   # none=triangle mesh; or convexHull / convexDecomposition
+  # Collision precedence: non-empty names/paths, then z-range, then all meshes.
+  collision_prim_names: []       # exact prim names or absolute prim paths
+  collision_z_range: null        # [min_z, max_z], using world-AABB center Z
+  # Cheap guaranteed floor: one large static collider plane at this Z (stage
+  # units). Set to the scene's floor height; null disables.
+  ground_plane_z: null
+  ground_plane_size: 100000.0
   play_sim_on_start: false
 
 person:
   name: person1
   character: original_male_adult_construction_05
   start: [-9.0, -10.5, 0.0]
-  target: [-3.4, -10.5, 0.0]
-  yaw: 1.5708                   # radians
-  walk_speed: 1.0
+  # Ordered movement legs. Each entry may override the defaults below. A bare
+  # coordinate such as [-3.4, -10.5, 0.0] is also accepted. If this list is
+  # omitted, the legacy single `target: [x, y, z]` setting is still supported.
+  movement_segments:
+    - target: [-3.4, -10.5, 0.0]
+      pause_after: 0.0         # seconds to idle before starting the next leg
+    # - target: [-3.4, -5.0, 0.0]
+    #   walk_speed: 0.75
+    #   arrival_threshold: 0.2
+    #   pause_after: 2.0
+  orientation_yaw: 90.0        # degrees
+  walk_speed: 1.0              # default for all movement segments
   start_delay: 15.0            # seconds the person waits before walking
-  arrival_threshold: 0.2      # stop within this distance of target (stage units)
+  arrival_threshold: 0.2      # default for all segments (stage units)
   scale: 1.0                  # uniform character scale; e.g. 100 for a cm scene
 
 camera:
@@ -43,6 +64,15 @@ camera:
 
 patch:
   enabled: true
+  # Fixed-position patch: if center is set, the patch is placed exactly there and
+  # the cube-face sampling below is bypassed. size (scalar or [w, h]) overrides the
+  # sampled size_range. Leave both null to use cube_center/cube_scale sampling.
+  center: null
+  # Alternative to center: sample on an axis-aligned board using position_seed.
+  # Board size follows the plane's axis order: xy=[x,y], xz=[x,z], yz=[y,z].
+  # Board fields: plane plus center+size or top_left+bottom_right.
+  board: null
+  size: null
   prim_path: /World/EvalPatch/TexturedMeshPlane
   material_path: /World/Looks/EvalPatchOmniPBR
   # Mounted in-container path or an omniverse:// URL. Empty -> plain grey patch.
@@ -76,7 +106,7 @@ drone:
   domain_id: 1
   usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
   init_pos: [-7.5, -6.3, 0.07]
-  init_orient: [0.0, 0.0, -0.7071, 0.7071]   # quaternion [x, y, z, w]; yaw = -90 deg
+  orientation_deg: [0.0, 0.0, -90.0]  # yaw -90 deg
   # Uniform drone scale; e.g. 100 for a cm scene. WARNING: visual only -- does not
   # rescale PX4/PhysX flight dynamics. Keep at 1.0 if the drone must fly.
   scale: 1.0
