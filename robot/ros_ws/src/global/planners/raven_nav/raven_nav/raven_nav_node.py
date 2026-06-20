@@ -170,6 +170,10 @@ class RavenNavNode(Node):
         # Engage voxel-mode on a cluster within this range even without a ray.
         self._voxel_proximity_engage_m = float(self.declare_parameter(
             'voxel_proximity_engage_m', 12.0).value)
+        # Drop confirmed AABBs below this confidence (semantic*persistence);
+        # 0 = report all. Raise (~0.3) to cut flickery low-persistence FPs.
+        self._voxel_min_confidence = float(self.declare_parameter(
+            'voxel_min_confidence', 0.0).value)
         # 1 = no temporal accumulation (ray groups rarely false-positive).
         self._ray_confirm_hits = int(self.declare_parameter(
             'ray_confirm_hits', 1).value)
@@ -325,6 +329,7 @@ class RavenNavNode(Node):
             voxel_confirm_hits=self._voxel_confirm_hits,
             voxel_track_max_misses=self._voxel_track_max_misses,
             voxel_proximity_engage_m=self._voxel_proximity_engage_m,
+            voxel_min_confidence=self._voxel_min_confidence,
             altitude_preference_weight=self._altitude_pref_weight,
         )
 
@@ -613,7 +618,7 @@ class RavenNavNode(Node):
                 center=np.array(bb[:3], dtype=float),
                 size=np.array(bb[3:6], dtype=float),
                 status=status,
-                confidence=1.0,
+                confidence=float(vb.cluster_confidence.get(cid, 1.0)),
                 ts=now_ts,
             ))
         return out

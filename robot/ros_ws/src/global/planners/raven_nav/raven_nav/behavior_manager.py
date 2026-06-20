@@ -8,7 +8,8 @@ class BehaviorManager:
                  min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.7, voxel_min_cluster_size=30,
                  voxel_confirm_hits=3, voxel_track_max_misses=4,
-                 voxel_proximity_engage_m=12.0, altitude_preference_weight=0.0):
+                 voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0,
+                 altitude_preference_weight=0.0):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
         self.frontier_behavior = FrontierBehavior(
@@ -25,7 +26,8 @@ class BehaviorManager:
                                             min_cluster_size=voxel_min_cluster_size,
                                             confirm_hits=voxel_confirm_hits,
                                             track_max_misses=voxel_track_max_misses,
-                                            proximity_engage_m=voxel_proximity_engage_m)
+                                            proximity_engage_m=voxel_proximity_engage_m,
+                                            min_confidence=voxel_min_confidence)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 

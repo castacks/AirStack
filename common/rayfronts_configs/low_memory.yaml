@@ -60,7 +60,7 @@
 defaults:
   - default
   - override mapping: semantic_ray_frontiers_map
-  - override encoder: radseg
+  - override encoder: naradio
   - override vis: ros
   - override messaging_service: ros
   - override feat_compressor: pca

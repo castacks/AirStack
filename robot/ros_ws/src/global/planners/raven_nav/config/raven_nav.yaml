@@ -11,6 +11,9 @@ raven_nav:
     # counts, then rides out up to *_track_max_misses dropped ticks. 1 = off.
     voxel_confirm_hits: 3
     voxel_track_max_misses: 4
+    # Drop confirmed AABBs below this confidence (semantic score * persistence);
+    # 0 = report all. Raise (~0.3) to cut flickery low-persistence false positives.
+    voxel_min_confidence: 0.0
     ray_confirm_hits: 3
     ray_track_max_misses: 4
     # Ray-commit hysteresis: switch ray only if a rival beats it by this fraction

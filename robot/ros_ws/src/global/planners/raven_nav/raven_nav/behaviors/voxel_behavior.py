@@ -20,20 +20,34 @@ RAY_TO_CLUSTER_RELAXED_M = 8.0
 # Surface gap (m) under which two AABBs across ticks are the same cluster.
 TRACK_ASSOC_MARGIN_M = 2.0
 
+# EMA weight for fusing a track's AABB with each new frame's box (lower = stickier,
+# steadier centroid; higher = adapts faster). Stabilizes the reported box.
+TRACK_MERGE_ALPHA = 0.3
+
+# Confirmed sightings at which the persistence factor of confidence saturates to
+# 1.0 (semantic score is ~saturated above threshold, so persistence is the real
+# discriminator between a stable target and a flickering false positive).
+PERSISTENCE_FULL_HITS = 10
+
 
 @dataclass
 class _VoxelObs:
-    bbox: list   # [cx,cy,cz,sx,sy,sz] in metres
+    bbox: list      # [cx,cy,cz,sx,sy,sz] in metres
     label: str
+    score: float = 1.0   # mean winning-label semantic score over the cluster
+    seen: int = 1        # confirmed sightings (grows as the track is re-matched)
 
 
 class VoxelBehavior:
     def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30,
-                 confirm_hits=3, track_max_misses=4, proximity_engage_m=12.0):
+                 confirm_hits=3, track_max_misses=4, proximity_engage_m=12.0,
+                 min_confidence=0.0):
         self.get_clock = get_clock
         self.name = 'Voxel-based'
         self.score_threshold = score_threshold
         self.min_cluster_size = min_cluster_size
+        # Drop confirmed clusters below this confidence (0 = report all).
+        self.min_confidence = min_confidence
         # Engage voxel-mode on a cluster within this range even without a ray
         # commitment (fix: finish nearby targets while exploring).
         self.proximity_engage_m = proximity_engage_m
@@ -48,6 +62,8 @@ class VoxelBehavior:
         self.target_voxel_clusters = {}
         # {cluster_id: query_label}
         self.cluster_query_map = {}
+        # {cluster_id: confidence in [0,1]} = semantic score * persistence
+        self.cluster_confidence = {}
         self.visited_clusters = []
         self.unvisited_clusters = []
         # Per-instance (label, center, size) visited record for STATUS only —
@@ -63,6 +79,7 @@ class VoxelBehavior:
     def reset(self):
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
+        self.cluster_confidence.clear()
         self.visited_clusters = []
         self.unvisited_clusters = []
         self.visited_instances = []
@@ -187,13 +204,22 @@ class VoxelBehavior:
 
         raw_obs = self._extract_clusters(
             vox_xyz, vox_scores, label_indices, target_objects, threshold)
-        confirmed = self._confirmer.update(raw_obs, match=self._same_cluster)
+        confirmed = self._confirmer.update(
+            raw_obs, match=self._same_cluster, merge=self._merge_obs)
 
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
-        for cid, obs in enumerate(confirmed):
+        self.cluster_confidence.clear()
+        cid = 0
+        for obs in confirmed:
+            # confidence = semantic score * persistence (saturates at FULL_HITS).
+            conf = float(obs.score) * min(1.0, obs.seen / PERSISTENCE_FULL_HITS)
+            if conf < self.min_confidence:
+                continue
             self.target_voxel_clusters[cid] = obs.bbox
             self.cluster_query_map[cid] = obs.label
+            self.cluster_confidence[cid] = conf
+            cid += 1
 
         # Candidates: ray-matched clusters when committed, else clusters near the
         # drone. The ray filter keeps voxel-mode from stealing House_B when the
@@ -216,6 +242,17 @@ class VoxelBehavior:
         return self._cuboid_distance(
             np.array(a.bbox[:3]), np.array(a.bbox[3:6]),
             np.array(b.bbox[:3]), np.array(b.bbox[3:6])) <= TRACK_ASSOC_MARGIN_M
+
+    def _merge_obs(self, a: _VoxelObs, b: _VoxelObs) -> _VoxelObs:
+        """Fuse a track's accumulated AABB (a) with this frame's detection (b) via
+        EMA, so the reported box is steady across ticks instead of replaced by each
+        noisy per-frame box. Keeps the track's label (stable across flicker)."""
+        al = TRACK_MERGE_ALPHA
+        fused = (1.0 - al) * np.asarray(a.bbox, dtype=float) \
+            + al * np.asarray(b.bbox, dtype=float)
+        score = (1.0 - al) * a.score + al * b.score
+        return _VoxelObs(bbox=fused.tolist(), label=a.label,
+                         score=score, seen=a.seen + 1)
 
     def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
                           target_objects, threshold):
@@ -257,7 +294,8 @@ class VoxelBehavior:
             size = max_world - min_world
 
             cluster_scores = relevant_scores[idx]
-            best_local = int(cluster_scores.mean(axis=0).argmax())
+            mean_scores = cluster_scores.mean(axis=0)
+            best_local = int(mean_scores.argmax())
             best_label = (target_objects[best_local]
                           if best_local < len(target_objects)
                           else target_objects[0])
@@ -265,7 +303,8 @@ class VoxelBehavior:
             obs.append(_VoxelObs(
                 bbox=[center[0], center[1], center[2],
                       size[0], size[1], size[2]],
-                label=best_label))
+                label=best_label,
+                score=float(mean_scores[best_local])))
         return obs
 
     def execute(self, vox_xyz, vox_scores, query_labels, cur_pose_np,
