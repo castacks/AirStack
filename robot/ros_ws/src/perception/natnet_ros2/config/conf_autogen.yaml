@@ -1,0 +1,12 @@
+natnet_ros2:
+  ros__parameters:
+    cf1:
+      marker_config: 0
+      pose:
+        orientation: [0,0,0]
+        position:
+        - 0
+        - 0
+        - 0
+    object_names:
+    - cf1

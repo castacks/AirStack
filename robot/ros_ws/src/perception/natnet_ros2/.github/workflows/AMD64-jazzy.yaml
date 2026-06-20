@@ -1,0 +1,47 @@
+name: AMD64-jazzy
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+          
+jobs:
+  jazzy-devel-ci:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ros_distribution:
+          - jazzy
+        include:
+          - docker_image: osrf/ros:jazzy-desktop
+            ros_distribution: jazzy
+            ros_version: 2
+    container:
+      image: ${{ matrix.docker_image }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          path: src/natnet_ros2
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y wget
+          rosdep update
+          rosdep install --from-paths src --ignore-src -y
+
+      - name: Build
+        run: |
+          . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+          colcon build --symlink-install --packages-select natnet_ros2 
+
+      # - name: Test
+      #   run: |
+      #     . /opt/ros/${{ matrix.ros_distribution }}/setup.sh
+      #     colcon test --packages-select natnet_ros2
+      #     colcon test-result --verbose

@@ -1,117 +1,120 @@
-#!/usr/bin/env python3
-"""Bring up NatNet node; optionally MAVROS bridge per natnet_config.yaml.
-
-natnet_ros2_node is a C++ executable that requires the OptiTrack NatNet SDK.
-If the SDK was not installed (``airstack setup`` not run) and the workspace
-has not been rebuilt, launching this file will raise a RuntimeError with
-instructions. Set LAUNCH_NATNET=false in .env to disable OptiTrack entirely.
-"""
-
-from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import cast
-
-import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
-from launch.launch_description_sources import FrontendLaunchDescriptionSource
+from launch_ros.actions import SetParametersFromFile
+from launch_ros.actions import LifecycleNode
+from launch.actions import OpaqueFunction
+from launch.actions import DeclareLaunchArgument
+from launch.actions import GroupAction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterFile
+import lifecycle_msgs.msg
+from launch.actions import EmitEvent
+from launch_ros.events.lifecycle import ChangeState
+from launch.events.matchers import matches_action
 
+def node_fn(context,*args, **kwargs):
+    serverIP = LaunchConfiguration('serverIP')
+    clientIP = LaunchConfiguration('clientIP')
+    serverType = LaunchConfiguration('serverType')
+    multicastAddress = LaunchConfiguration('multicastAddress')
+    serverCommandPort = LaunchConfiguration('serverCommandPort')
+    serverDataPort = LaunchConfiguration('serverDataPort')
+    global_frame = LaunchConfiguration('global_frame')
+    remove_latency = LaunchConfiguration('remove_latency')
+    pub_rigid_body = LaunchConfiguration('pub_rigid_body')
+    pub_rigid_body_marker = LaunchConfiguration('pub_rigid_body_marker')
+    pub_individual_marker = LaunchConfiguration('pub_individual_marker')
+    pub_pointcloud = LaunchConfiguration('pub_pointcloud')
+    log_internals = LaunchConfiguration('log_internals')
+    log_frames = LaunchConfiguration('log_frames')
+    log_latencies = LaunchConfiguration('log_latencies')
+    conf_file = LaunchConfiguration('conf_file')
+    node_name = LaunchConfiguration('node_name')
+    activate = LaunchConfiguration('activate')
+    immt = LaunchConfiguration('immt')
 
-def _ros_params_from_file(config_path: str) -> dict:
-    """Parse /** / ros__parameters block from a ROS 2 parameter YAML."""
-    path = Path(config_path)
-    if not path.is_file():
-        return {}
-    with path.open(encoding='utf-8') as f:
-        data = yaml.safe_load(f)
-    if not isinstance(data, dict):
-        return {}
-    block = data.get('/**')
-    if not isinstance(block, dict):
-        return {}
-    params = block.get('ros__parameters', {})
-    return cast(dict, params) if isinstance(params, dict) else {}
-
-
-def generate_launch_description() -> LaunchDescription:
-    pkg_share = get_package_share_directory('natnet_ros2')
-    default_natnet_yaml = os.path.join(pkg_share, 'config', 'natnet_config.yaml')
-    default_vp_yaml = os.path.join(pkg_share, 'config', 'vision_pose_converter.yaml')
-
-    config_file = LaunchConfiguration('config_file')
-    vision_pose_config_file = LaunchConfiguration('vision_pose_config_file')
-    use_sim_time = LaunchConfiguration('use_sim_time')
-
-    def launch_setup(context, *_args, **_kwargs):
-        cfg_path = config_file.perform(context)
-        vp_path = vision_pose_config_file.perform(context)
-        ust = use_sim_time.perform(context)
-
-        ros_params = _ros_params_from_file(cfg_path)
-        publish_mavros = bool(ros_params.get('publish_to_mavros', False))
-        body_name = str(ros_params.get('body_name', 'robot_1'))
-
-        # pkg_share = <prefix>/share/natnet_ros2 → go up two levels to reach <prefix>,
-        # then down into lib/natnet_ros2/ where colcon installs executables.
-        pkg_share = get_package_share_directory('natnet_ros2')
-        node_path = Path(pkg_share).parent.parent / 'lib' / 'natnet_ros2' / 'natnet_ros2_node'
-        if not node_path.exists():
-            raise RuntimeError(
-                'natnet_ros2_node executable not found — NatNet SDK is not installed.\n'
-                "Run 'airstack setup' to download and install the OptiTrack NatNet SDK,\n"
-                'then rebuild the workspace: bws --packages-select natnet_ros2\n'
-                'Or set LAUNCH_NATNET=false in .env to disable OptiTrack.'
-            )
-
-        actions = [
-            Node(
-                package='natnet_ros2',
-                executable='natnet_ros2_node',
-                name='natnet_ros2_node',
-                output='screen',
-                parameters=[ParameterFile(config_file, allow_substs=True)],
-            ),
+    params = [
+            {"serverIP": serverIP}, 
+            {"clientIP": clientIP}, 
+            {"serverType": serverType}, 
+            {"multicastAddress": multicastAddress},
+            {"serverCommandPort": serverCommandPort}, 
+            {"serverDataPort": serverDataPort}, 
+            {"global_frame": global_frame}, 
+            {"remove_latency": remove_latency},
+            {"pub_rigid_body": pub_rigid_body},
+            {"pub_rigid_body_marker": pub_rigid_body_marker}, 
+            {"pub_individual_marker": pub_individual_marker}, 
+            {"pub_pointcloud": pub_pointcloud}, 
+            {"log_internals": log_internals},
+            {"log_frames": log_frames},
+            {"log_latencies": log_latencies},
+            {"individual_marker_msg_type" : immt},
         ]
+    conf_file_path = None
+    if pub_individual_marker.perform(context):
+        if len(conf_file.perform(context))==0 or conf_file.perform(context).split('.')[-1]!="yaml":
+            raise RuntimeError("Provide yaml file for initial configuration")
+        conf_file_path = os.path.join(get_package_share_directory(
+        'natnet_ros2'), 'config', conf_file.perform(context))
+        params.append(conf_file_path)
 
-        if publish_mavros:
-            actions.append(
-                IncludeLaunchDescription(
-                    FrontendLaunchDescriptionSource(
-                        os.path.join(pkg_share, 'launch', 'vision_pose_converter.launch.xml'),
-                    ),
-                    launch_arguments=[
-                        ('config_file', vp_path),
-                        ('body_name', body_name),
-                        ('use_sim_time', ust),
-                    ],
-                ),
-            )
-        return actions
-
-    return LaunchDescription(
-        [
-            DeclareLaunchArgument(
-                'config_file',
-                default_value=default_natnet_yaml,
-                description='NatNet parameter YAML (/** ros__parameters). '
-                'publish_to_mavros and body_name control MAVROS include.',
-            ),
-            DeclareLaunchArgument(
-                'vision_pose_config_file',
-                default_value=default_vp_yaml,
-                description='vision_pose_converter parameter YAML.',
-            ),
-            DeclareLaunchArgument(
-                'use_sim_time',
-                default_value='false',
-                description='Forwarded to vision_pose_converter.launch.xml.',
-            ),
-            OpaqueFunction(function=launch_setup),
-        ],
+    ld=[]
+    node = LifecycleNode(
+        package="natnet_ros2",
+        executable="natnet_ros2_node",
+        output="screen",
+        name=node_name.perform(context),
+        namespace='',
+        parameters=params,
+        #arguments=[
+        #        "--ros-args",
+        #        "--disable-external-lib-logs"]
     )
+    ld.append(node)
+    
+    driver_configure = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(node),
+           transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
+        )
+    )
+    ld.append(driver_configure)
+    if activate.perform(context):
+        driver_activate = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(node),
+            transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE,
+            )
+        )
+        ld.append(driver_activate)
+    
+
+    return ld
+
+
+def generate_launch_description():
+
+    return  LaunchDescription([
+        DeclareLaunchArgument('serverIP', default_value="192.168.123.199"),
+        DeclareLaunchArgument('clientIP', default_value="192.168.123.134"),
+        DeclareLaunchArgument('serverType', default_value="multicast"), # multicast/unicast
+        DeclareLaunchArgument('multicastAddress', default_value="239.255.42.99"),
+        DeclareLaunchArgument('serverCommandPort', default_value="1510"),
+        DeclareLaunchArgument('serverDataPort', default_value="1511"),
+        DeclareLaunchArgument('global_frame', default_value="world"),
+        DeclareLaunchArgument('remove_latency',default_value="false"),
+        DeclareLaunchArgument('pub_rigid_body', default_value="true"),
+        DeclareLaunchArgument('pub_rigid_body_marker', default_value="False"),
+        DeclareLaunchArgument('pub_individual_marker', default_value="False"),
+        DeclareLaunchArgument('pub_pointcloud', default_value="False"),
+        DeclareLaunchArgument('log_internals', default_value="False"),
+        DeclareLaunchArgument('log_frames', default_value="False"),
+        DeclareLaunchArgument('log_latencies', default_value="False"),
+        DeclareLaunchArgument('conf_file', default_value="initiate.yaml"),
+        DeclareLaunchArgument('node_name', default_value="natnet_ros"),
+        DeclareLaunchArgument('activate', default_value="false"),
+        DeclareLaunchArgument('immt', default_value="PoseStamped",description="publish type of individual markers PoseStampted or PointStamped"),
+        OpaqueFunction(function=node_fn)  
+        ])

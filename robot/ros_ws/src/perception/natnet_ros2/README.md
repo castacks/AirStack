@@ -1,199 +1,96 @@
-# NatNet ROS 2 Wrapper
+# NatNet 4 ROS 2 driver (WIP)
 
-OptiTrack NatNet ROS 2 wrapper for motion capture integration in AirStack (optional). Receives rigid body pose data from an external Motive PC via NatNet UDP protocol and publishes into the AirStack perception layer.
+[![GitHub Action Status](https://github.com/L2S-lab/natnet_ros2/actions/workflows/AMD64-humble.yaml/badge.svg?event=push)](https://github.com/L2S-lab/natnet_ros2) 
+[![GitHub Action Status](https://github.com/L2S-lab/natnet_ros2/actions/workflows/AMD64-jazzy.yaml/badge.svg?event=push)](https://github.com/L2S-lab/natnet_ros2) 
+[![GitHub Action Status](https://github.com/L2S-lab/natnet_ros2/actions/workflows/ARM64-humble.yaml/badge.svg?event=push)](https://github.com/L2S-lab/natnet_ros2) 
+[![GitHub Action Status](https://github.com/L2S-lab/natnet_ros2/actions/workflows/ARM64-jazzy.yaml/badge.svg?event=push)](https://github.com/L2S-lab/natnet_ros2) 
 
-**Note:** This module is only required if you intend to use OptiTrack Motive motion capture systems. If you do not plan to use OptiTrack, you can skip the NatNet SDK setup with `airstack setup --no-natnet`.
 
-### OptiTrack room calibration
+[![Static Badge](https://img.shields.io/badge/hal.science/hal-04150950v2?logo=hal&logoColor=red&label=hal&labelColor=blue&color=red)](https://hal.science/hal-04150950)
 
-If rigid bodies are jumping around or not tracking well, consider re-calibrating the capture volume in Motive. See the [OptiTrack Motive calibration guide](https://docs.optitrack.com/motive/calibration).
+It is a continuation of the ROS 1 driver. Which can be found [here](https://github.com/L2S-lab/natnet_ros_cpp).
 
-## Overview
+If you are using software for any publication or article, we would be delighted if you could cite it [from here](https://hal.science/hal-04150950). 
 
-This module provides a bridge between OptiTrack Motive motion capture systems and the AirStack autonomy stack. It:
+## Introduction
+This package contains a ROS 2 driver for the NatNet protocol used by the OptiTrack motion capture system. It supports NatNet versions 4.0 (Motive 2.2 and higher). The NatNet SDK provided by the optitrack can be found [here](https://optitrack.com/support/downloads/developer-tools.html#natnet-sdk). It will be downloaded under `deps/NatnetSDK` while building it for the first time. NatNet protocol is used for streaming live motion capture data (rigid bodies, skeletons etc) across the shared network. 
 
-- Receives **NatNet UDP packets** from an external Motive PC (configurable IP/port)
-- **Decodes motion capture frames** containing rigid body positions and orientations
-- **Publishes pose data** to the AirStack perception layer in standard ROS 2 formats
-- **Supports multi-robot** via ROBOT_NAME namespacing
-- **Optionally bridges** to MAVROS for PX4 external pose feedback
-- **Respects OptiTrack licensing** by keeping the NatNet SDK external (host-side download with explicit consent)
+This package is only tested with the Natnet 4.0 and ROS 2 (Foxy and Humble) but probably will work with the other versions of Motive and ROS 2 as well. 
 
-## Architecture
+### Current Features:
+  
+ - Easy gui interface to control the node.
+ - Rigid bodies are published as `geometry_msgs/PoseStamped` under name given in the Motive, i.e `/<body-name>/pose`. Plus those are also broadcasting as `tf` frame for rviz
+ - Markers of the rigid bodies are published ad `geometry_msgs/PointStamped` unuder the name `/<body-name>/marker#/pose`
+ - Unlabeled markers with the initial position and the name mentione in the `/config/initiate.yaml`are published as `geometry_msgs/PoseStamped` or `geometry_msgs/PointStamped` unuder the name `/<name-in-config-file>/pose`. Plus those are also broadcasting as `tf` frame for rviz. The marker position is updated based on Iterative closest point (nearest neighbour)
+ - Unlabled markers can be also published as `sensor_msgs/PointCloud`
+ - Different options for publishing and logging the data
 
+### Work under progress: 
+
+ - Include Skeleton and other devices in the system to make it package as whole.
+ - Considering position and orientation for similar marker configurations (at least 3 markers)
+ - Adding an option for the axis orientation (Z UP or Y UP)
+
+## How to use it
+
+#### Building the package
+**requirements**
 ```
-Motive (External PC)
-    ↓ NatNet UDP (port 1511)
-    ↓
-NatNet ROS 2 Node
-    ├→ /robot_1/perception/optitrack/{body_name}           (PoseStamped, optional)
-    ├→ /robot_1/perception/optitrack/{body_name}/pose_cov  (PoseWithCovarianceStamped, always)
-    └→ (Optional, publish_to_mavros: true)
-         vision_pose_converter_node
-           ├→ /robot_1/mavros/vision_pose/pose
-           └→ /robot_1/mavros/vision_pose/pose_cov
+sudo apt install -y ros-$ROS_DISTRO-tf2* wget
 ```
-
-## Interfaces
-
-### Inputs
-
-- **Network**: NatNet UDP stream from Motive PC (external network)
-- **Configuration**: `natnet_config.yaml` with server IP, ports, `body_name`, and covariance
-
-### Outputs
-
-For each tracked rigid body `{body_name}` from Motive:
-
-#### Direct OptiTrack pose (optional)
-
-- **Topic**: `/{ROBOT_NAME}/perception/optitrack/{body_name}`
-- **Type**: `geometry_msgs/PoseStamped`
-- **Description**: Position and orientation only (no covariance)
-- **Enabled by**: `publish_direct_optitrack: true` in config (default: `true`)
-
-#### Pose with covariance (always)
-
-- **Topic**: `/{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov`
-- **Type**: `geometry_msgs/PoseWithCovarianceStamped`
-- **Description**: Same pose as above plus a 6×6 covariance matrix (`position_covariance` and `orientation_covariance` from config). Published whenever the rigid body is tracked — independent of `publish_direct_optitrack` and `publish_to_mavros`.
-
-#### MAVROS vision pose bridge (optional)
-
-When `publish_to_mavros: true`, `vision_pose_converter_node` subscribes to `pose_cov` and republishes for PX4:
-
-- **Topic**: `/{ROBOT_NAME}/mavros/vision_pose/pose` — `geometry_msgs/PoseStamped` (pose extracted from the covariance message)
-- **Topic**: `/{ROBOT_NAME}/mavros/vision_pose/pose_cov` — `geometry_msgs/PoseWithCovarianceStamped` (full message, quaternion optionally canonicalized)
-- **Enabled by**: `publish_to_mavros: true` in config
-
-## Configuration
-
-Edit `config/natnet_config.yaml`:
-
-```yaml
-/**:
-  ros__parameters:
-    server_ip: "192.168.1.100"     # IP of the Motive PC
-    client_ip: "0.0.0.0"
-    command_port: 1510
-    data_port: 1511
-    connection_type: "unicast"      # or "multicast"
-
-    body_name: "Drone"              # rigid body name in Motive (case-sensitive)
-    body_id: -1                     # -1 = publish all bodies in the frame
-
-    publish_direct_optitrack: true   # PoseStamped on …/optitrack/{body_name}
-    publish_to_mavros: false        # include vision_pose_converter → MAVROS
-
-    frame_id: "world"
-
-    position_covariance: [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
-    orientation_covariance: [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+Keep your system connected to the internet while building the package for the first time.
+```
+cd ~/ros2_ws/src
+git clone https://github.com/L2S-lab/natnet_ros2
+cd ..
+colcon build --symlink-install
+. install/setup.bash
 ```
 
-## Launch
+#### Setup the Motive for this package
+- Disable the firewall for the network on which the data is being published.
+- Open the Motive app. 
+- In the motive app, open the streaming panel.
+- Disable the other streaming Engines like VRPN, Trackd etc.
+- Under the OptiTrack Streaming Engine, turn on the Broadcast Frame.
+- Select the correct IP address in the Local Interface.
+- Select the Up Axis as Z.
 
-### Basic launch
+Here is an example of how your streaming settings should look.
 
-Parameters come from `config/natnet_config.yaml` (network, body, covariance). Optional overrides:
+![alt text](https://github.com/L2S-lab/natnet_ros2/blob/main/img/streaming.png)
 
-```bash
-ros2 launch natnet_ros2 natnet_ros2.launch.py \
-  config_file:=/path/to/custom_natnet.yaml \
-  vision_pose_config_file:=/path/to/custom_vision_pose.yaml \
-  use_sim_time:=true
+
+#### Easy way
+
+Using GUI tool
+Here, you can use simple tool and follow the instruction from the output area on the right bottom corner.
 ```
-
-### MAVROS bridge
-
-Set `publish_to_mavros: true` in `natnet_config.yaml`. The launch file reads `publish_to_mavros` and `body_name` from that YAML to decide whether to include `vision_pose_converter.launch.xml`.
-
-### From perception bringup
-
-With `LAUNCH_NATNET=true` in `.env`, `perception.launch.xml` includes `natnet_ros2.launch.py`.
-
-## Dependencies
-
-### Runtime
-- `rclpy` — ROS 2 Python client
-- `geometry_msgs` — Standard pose message types
-- `tf_transformations` — Quaternion and rotation utilities
-- `mavros_msgs` — Optional, for MAVROS bridge
-
-### Required
-- **OptiTrack NatNet SDK** (Linux SDK) — **REQUIRED**, downloaded via `airstack setup`
-
-### Installation
-To install the NatNet SDK and accept the license:
-```bash
-airstack setup
+ros2 launch natnet_ros2 gui_natnet_ros2.launch.py
 ```
-The SDK will be installed into `robot/ros_ws/src/perception/natnet_ros2/lib/` and `robot/ros_ws/src/perception/natnet_ros2/include/natnet/` after accepting the OptiTrack License Agreement.
+![alt text](https://github.com/L2S-lab/natnet_ros2/blob/main/img/ui-1.png)
 
-## Implementation Details
 
-### Protocol Support
-- **NatNet Version**: 4.4+ (SDK handles protocol negotiation)
-- **Packet Type**: Frame of Data with rigid bodies and markers
-- **Transport**: UDP (configurable port, default 1511)
-- **SDK**: OptiTrack NatNet SDK handles all protocol parsing
+#### Difficult way
 
-### Multi-Robot Support
-Each container instance gets its own `ROBOT_NAME` and `ROS_DOMAIN_ID`:
-- Topics: `/{ROBOT_NAME}/perception/optitrack/{body_name}` and `/{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov`
-- Supported via launch file argument forwarding
+Using Non gui approach
+`ros2 launch natnet_ros2 natnet_ros2.launch.py`
 
-### Error Handling
-- Invalid/malformed packets are skipped with debug logging
-- Lost connectivity logs warnings; gracefully recovers when stream resumes
-- Covariance in config allows tuning uncertainty per deployment
+##### Understanding the launch file
+Launch file `natnet_ros2.launch.py` contains the several configurable arguments. The details are mentioned in the launch file. Following are several important argument for the connection and the data transfer. Other connection arguments are for the advanced option.
 
-## Testing
+- `serverIP` : The IP address of the host PC. (The one selected in the Local Interface in Motive app)
+- `clientIP` : The IP address of the PC on which the file will be launched
+- `serverType` : Two possible options, `multicast` and `unicast`
 
-### With Real Motive
-1. Ensure Motive PC and robot are on same network
-2. Configure server IP in `natnet_config.yaml`
-3. Launch the node:
-   ```bash
-   ros2 launch natnet_ros2 natnet_ros2.launch.py
-   ```
-4. Verify topics:
-   ```bash
-   ros2 topic echo /robot_1/perception/optitrack/Drone/pose_cov
-   ```
+##### Publishing the single marker 
+It is possible to track the single marker as a rigid body with constant orientation. Go to the `config/initiate.yaml` It is suggested to make a copy of the file and rename the new file.
+The file contains the details on what to modify. 
 
-### Without Real Hardware (Mock)
-TODO: Implement Motive simulator in Isaac Sim to generate fake NatNet packets
+The question might arise on how to check the position of the single marker. For that, you can log the frames of the incoming data in the terminal. To do so, enable the `log_frames` in the launch file.
 
-## Known Limitations
+After configuring the `initiate.yaml`, in the launch file, enable the `pub_individual_marker`. Change the name of the config file in the argument `conf_file` if needed and launch the file.
 
-- When `body_id: -1`, all rigid bodies in the Motive frame get publishers; filter by subscribing to the `{body_name}` you care about
-- MAVROS bridge applies frame_id override and quaternion canonicalization; full PX4 frame alignment may still need tuning per airframe
-- No support for skeleton tracking or labeled markers yet (future enhancement)
-
-## References
-
-- [OptiTrack NatNet Protocol Documentation](https://docs.optitrack.com/developer-tools/natnet-sdk/natnet-4.0)
-- [NatNet SDK Download](https://optitrack.com/software/natnet-sdk/)
-- [MAVROS Vision Pose Plugin](https://docs.ros.org/en/melodic/api/mavros_extras/html/classmavros_1_1extra__plugins_1_1VisionPoseEstimatePlugin.html)
-
-## Troubleshooting
-
-### No data being received
-- Check Motive PC IP address in config
-- Verify UDP port is not blocked by firewall
-- Use `ros2 topic hz` to check if data is arriving
-
-### Topics not published
-- Check `ros2 node list` — should see `natnet_ros2_node`
-- Check `ros2 topic list | grep optitrack` — should see published topics
-- Look at logs: `ros2 node info natnet_ros2_node`
-
-### Low frame rate or dropped frames
-- Reduce other network traffic
-- Check NatNet streaming rate in Motive (default 120 Hz)
-- Monitor CPU usage: `docker stats`
-
-## License
-
-**Note on NatNet SDK Licensing**: The OptiTrack NatNet SDK is proprietary software governed by the OptiTrack Software License Agreement. Users download and install the SDK locally under their own license compliance. AirStack does not redistribute the SDK and remains fully open-source.
+<!-- ## Citation
+If you use this software, please consider citing it [from here](https://hal.science/hal-04150950) -->

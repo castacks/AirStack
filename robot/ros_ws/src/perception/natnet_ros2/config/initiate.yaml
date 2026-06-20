@@ -1,0 +1,26 @@
+# You can create copy of this file and load the required file on the rosparam server accordingly. Do not forget to modify the file name in the launch file.
+
+natnet_ros2:
+  ros__parameters:
+    # Add all the object names in this list to get the head count and the names of the objects
+    object_names: ['m1']
+
+    # Initial position of the object must be within the tracking tolerance (in meters).
+    # marker_config and orientation is not used as of now. 
+    m1:
+      marker_config: 0
+      pose:
+        orientation: [0,0,0] #Do not leave it empty
+        position:
+        - 0.
+        - 0.
+        - 0.08
+
+#    m2:
+#      marker_config: 0
+#      pose:
+#        orientation: [0,0,0]
+#        position:
+#        - -0.6966362595558167
+#        - -1.822044014930725
+#        - 0.022535361349582672

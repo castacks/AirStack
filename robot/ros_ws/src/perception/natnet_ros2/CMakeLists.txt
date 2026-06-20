@@ -1,99 +1,152 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.5)
+
 project(natnet_ros2)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
-# ament / ROS 2 dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+find_package(rclpy REQUIRED)
 
-# ---------------------------------------------------------------------------
-# NatNet SDK — pre-built shared library downloaded via `airstack setup`.
-# Headers: include/natnet/   Library: lib/libNatNet.so
-#
-# The SDK is proprietary and is NOT committed to the repository.
-# Run `airstack setup` (or `airstack setup --natnet`) to download and place
-# the SDK files before building this package.
-#
-# If the SDK is absent the C++ node is skipped with a warning; the Python
-# vision_pose_converter_node.py and all launch/config files are still installed
-# so the rest of the autonomy stack builds cleanly.
-# ---------------------------------------------------------------------------
-set(_NATNET_LIB "${CMAKE_CURRENT_SOURCE_DIR}/lib/libNatNet.so")
-set(_NATNET_INC "${CMAKE_CURRENT_SOURCE_DIR}/include/natnet")
+ament_auto_find_build_dependencies()
 
-if(EXISTS "${_NATNET_LIB}" AND EXISTS "${_NATNET_INC}")
-  add_library(NatNet SHARED IMPORTED)
-  set_target_properties(NatNet PROPERTIES
-    IMPORTED_LOCATION "${_NATNET_LIB}"
-    INTERFACE_INCLUDE_DIRECTORIES "${_NATNET_INC}"
-  )
+set(dependencies
+  rclcpp
+  rclcpp_lifecycle
+  tf2
+  tf2_ros
+  geometry_msgs
+  sensor_msgs
+  std_msgs
+)
 
-  # C++ NatNet ROS 2 node
-  add_executable(natnet_ros2_node
-    src/natnet_ros2_node.cpp
-    src/natnet_client_adapter.cpp)
-  target_include_directories(natnet_ros2_node PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>)
-  ament_target_dependencies(natnet_ros2_node rclcpp geometry_msgs nav_msgs)
-  target_link_libraries(natnet_ros2_node NatNet)
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/MarkerPoses.srv"
+  DEPENDENCIES std_msgs
+)
 
-  install(TARGETS natnet_ros2_node
-    DESTINATION lib/${PROJECT_NAME})
+execute_process(
+  COMMAND chmod "+x" "${CMAKE_CURRENT_SOURCE_DIR}/install_sdk.sh"
+  COMMAND chmod "+x" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/helper_node_r2.py"
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-  # Install libNatNet.so alongside the node and register an environment hook so
-  # that sourcing the workspace adds lib/natnet_ros2/ to LD_LIBRARY_PATH.
-  # Use PROGRAMS (not FILES) to preserve the execute bit — shared libraries
-  # must be executable for the dynamic linker to map them.
-  install(PROGRAMS "${_NATNET_LIB}"
-    DESTINATION lib/${PROJECT_NAME})
+execute_process(
+  COMMAND bash "-c" "${CMAKE_CURRENT_SOURCE_DIR}/install_sdk.sh"
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-  ament_environment_hooks(
-    "${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/natnet_library_path.dsv.in"
-  )
-else()
-  message(WARNING
-    "[natnet_ros2] NatNet SDK not found — skipping natnet_ros2_node build.\n"
-    "  Expected: ${_NATNET_LIB}\n"
-    "            ${_NATNET_INC}/\n"
-    "  Run 'airstack setup' to download the OptiTrack NatNet SDK.")
+set(NATNET_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/NatNetSDK/) 
+set(NATNET_LIBRARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/NatNetSDK/lib/libNatNet.so)
+
+if(NOT EXISTS ${NATNET_SDK_DIR} OR NOT EXISTS ${NATNET_LIBRARY_DIR})
+  message(FATAL_ERROR "NatNet SDK not found. Please run the install_sdk.sh script.")
 endif()
 
-# ---------------------------------------------------------------------------
-# Python nodes (vision_pose_converter remains Python)
-# ---------------------------------------------------------------------------
+set(my_include_directories
+  include
+  ${CMAKE_CURRENT_BINARY_DIR}/include
+  ${NATNET_SDK_DIR}/include
+)
+
+include_directories(
+  include
+  ${my_include_directories}
+)
+
+add_executable(natnet_ros2_node
+  src/natnet_ros2.cpp src/nn_filter.cpp
+)
+
+ament_target_dependencies(natnet_ros2_node ${dependencies} rosidl_default_runtime)
+target_link_libraries(natnet_ros2_node
+  ${NATNET_LIBRARY_DIR}
+)
+
+#ament_export_dependencies(rosidl_default_runtime)
+add_executable(marker_poses_server src/marker_poses_server.cpp)
+ament_target_dependencies(marker_poses_server ${dependencies})
+rosidl_target_interfaces(
+  marker_poses_server
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(marker_poses_server ${NATNET_LIBRARY_DIR})
+
+install(DIRECTORY include/${PROJECT_NAME}
+  DESTINATION include
+)
+
+install(DIRECTORY
+  launch
+  config 
+  ui
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(TARGETS
+natnet_ros2_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+natnet_ros2_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(TARGETS
+  marker_poses_server
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+  marker_poses_server
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+ament_python_install_package(${PROJECT_NAME}_py)
 install(PROGRAMS
-  src/vision_pose_converter_node.py
-  DESTINATION lib/${PROJECT_NAME})
+  scripts/helper_node_r2.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
-# ---------------------------------------------------------------------------
-# Launch and config files
-# ---------------------------------------------------------------------------
-install(DIRECTORY launch/
-  DESTINATION share/${PROJECT_NAME}/launch)
-
-install(DIRECTORY config/
-  DESTINATION share/${PROJECT_NAME}/config)
-
-install(DIRECTORY include/
-  DESTINATION include)
-
-# ---------------------------------------------------------------------------
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_copyright REQUIRED)
+  find_package(ament_cmake_cppcheck REQUIRED)
+  find_package(ament_cmake_cpplint REQUIRED)
+  find_package(ament_cmake_lint_cmake REQUIRED)
+  find_package(ament_cmake_xmllint REQUIRED)
+  find_package(ament_cmake_uncrustify REQUIRED)
 
-  # --- gtest: pure-logic unit tests (no NatNet SDK, no rclcpp) ---
+  file(GLOB_RECURSE EXCLUDE_FILES NatNetSDK/*)
+
+  ament_copyright(EXCLUDE ${EXCLUDE_FILES})
+  ament_cppcheck(
+    EXCLUDE ${EXCLUDE_FILES}
+    LANGUAGE c++
+  )
+  ament_cpplint(EXCLUDE ${EXCLUDE_FILES})
+  ament_lint_cmake()
+  ament_uncrustify(
+    EXCLUDE ${EXCLUDE_FILES}
+    LANGUAGE c++
+  )
+
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_natnet_logic test/test_natnet_logic.cpp)
-  target_include_directories(test_natnet_logic PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/test>)
 endif()
 
-ament_package()
+ament_auto_package()
+#ament_package()
