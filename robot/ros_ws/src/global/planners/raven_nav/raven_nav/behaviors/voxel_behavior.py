@@ -30,6 +30,20 @@ PERSISTENCE_FULL_HITS = 10
 SPLIT_PEAK_SEP_M = 5.0
 SPLIT_SMOOTH_SIGMA_VOX = 1.0
 
+# Containment suppression: drop a box this fraction (or more) of whose volume is
+# inside a larger box — keeps only the bigger one of a nested pair.
+CONTAIN_SUPPRESS_FRAC = 0.7
+
+
+def _contained_frac(inner_bbox, outer_bbox) -> float:
+    """Fraction of inner's AABB volume that lies within outer's AABB."""
+    ci, hi = np.asarray(inner_bbox[:3]), np.asarray(inner_bbox[3:6]) / 2.0
+    co, ho = np.asarray(outer_bbox[:3]), np.asarray(outer_bbox[3:6]) / 2.0
+    ov = np.clip(np.minimum(ci + hi, co + ho) - np.maximum(ci - hi, co - ho),
+                 0.0, None)
+    vol_i = float(np.prod(np.maximum(2.0 * hi, 1e-6)))
+    return float(np.prod(ov)) / vol_i
+
 
 @dataclass
 class _VoxelObs:
@@ -207,6 +221,7 @@ class VoxelBehavior:
             vox_xyz, vox_scores, label_indices, target_objects, threshold)
         confirmed = self._confirmer.update(
             raw_obs, match=self._same_cluster, merge=self._merge_obs)
+        confirmed = self._suppress_contained(confirmed)
 
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
@@ -237,6 +252,20 @@ class VoxelBehavior:
         ]
 
         return len(self.unvisited_clusters) > 0
+
+    def _suppress_contained(self, confirmed):
+        """Drop any confirmed box mostly inside a larger one (over-split nesting),
+        keeping the bigger. Label-agnostic — a sub-fragment shares the object."""
+        order = sorted(
+            confirmed,
+            key=lambda o: float(np.prod(np.asarray(o.bbox[3:6]))), reverse=True)
+        kept: list = []
+        for o in order:
+            if any(_contained_frac(o.bbox, k.bbox) >= CONTAIN_SUPPRESS_FRAC
+                   for k in kept):
+                continue
+            kept.append(o)
+        return kept
 
     def _same_cluster(self, a: _VoxelObs, b: _VoxelObs) -> bool:
         # Label-agnostic so a flickering best-label doesn't reset a track.

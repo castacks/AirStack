@@ -34,7 +34,7 @@ environments:
     SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
-    query: "house"
+    query: "town house"
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, power cable, container, utility pole"
     search_area:
       points:
@@ -75,7 +75,7 @@ command_route: gcs
 # grouped: each environment runs `iterations` times in a row (per-environment
 # count; total runs = iterations * 3). Spawn layout re-randomizes each run.
 environment_order: grouped
-iterations: 2
+iterations: 1
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
