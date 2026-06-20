@@ -35,7 +35,7 @@ environments:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, power line"
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, power cable, container, utility pole"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
