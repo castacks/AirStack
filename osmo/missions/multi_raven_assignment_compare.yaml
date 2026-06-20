@@ -76,6 +76,7 @@ record:
     - /gcs/payload/{robot}/filtered_frontiers
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/voxel_rgb
     - /gcs/consensus_AABBs
     - /gcs/consensus_targets
     - /gcs/sim_ground

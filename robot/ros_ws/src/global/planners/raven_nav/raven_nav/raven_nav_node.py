@@ -298,14 +298,16 @@ class RavenNavNode(Node):
             'bb_switch_margin_m', 8.0).value)
         # Centre of the BB this drone is currently committed to (None = none / ray).
         self._committed_bb_center: 'np.ndarray | None' = None
-        # Target assignment: cbba | hungarian (consensus) | greedy (legacy).
+        # Target assignment: hungarian (global min-cost, default) | cbba (greedy)
+        # | greedy (legacy). Hungarian is holistic — it won't strand a robot whose
+        # only viable target a more-flexible peer could otherwise grab.
         self._assignment_strategy = str(self.declare_parameter(
-            'assignment_strategy', 'cbba').value).strip().lower()
+            'assignment_strategy', 'hungarian').value).strip().lower()
         if self._assignment_strategy not in ('cbba', 'hungarian', 'greedy'):
             self.get_logger().warn(
                 f'unknown assignment_strategy {self._assignment_strategy!r}; '
-                f"falling back to 'cbba'")
-            self._assignment_strategy = 'cbba'
+                f"falling back to 'hungarian'")
+            self._assignment_strategy = 'hungarian'
 
         self._publisher_dict = {
             'path': self._path_pub,

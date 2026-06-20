@@ -30,7 +30,6 @@ from builtin_interfaces.msg import Duration
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_bringup.peer_profile import PeerProfile
 from visualization_msgs.msg import Marker
-from std_msgs.msg import ColorRGBA
 from geometry_msgs.msg import Point as GPoint
 import json
 
@@ -349,68 +348,20 @@ class PayloadVisualizerNode(Node):
             f'/gcs/payload/{robot_name}/confirmed_targets', MarkerArray).publish(out)
 
     def _handle_rgb_voxels(self, robot_name, msg, i, now):
-        size = 0.5
+        # Keep rayfronts' native per-voxel RGB (the semantic map) — do NOT recolor
+        # per robot. Visualization only; raven_nav never consumes this.
         cubes = point_cloud2_to_cube_marker(
             msg, 0.0, 0.0, self._display_z_offset(),
             ns=f'{robot_name}_voxel_rgb',
             marker_id=i * 100000,
             stamp=now,
             lifetime=Duration(sec=2, nanosec=0),
-            scale=size,
+            scale=0.5,
         )
         out = MarkerArray()
         if cubes is not None:
             out.markers.append(cubes)
-            color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-            edges = self._build_cube_edges(
-                cubes.points, size,
-                ns=f'{robot_name}_voxel_rgb_edges',
-                marker_id=i * 100000 + 1,
-                stamp=now,
-                color=color,
-                lifetime=Duration(sec=2, nanosec=0),
-            )
-            out.markers.append(edges)
         self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', MarkerArray).publish(out)
-
-    @staticmethod
-    def _build_cube_edges(centers, size, ns, marker_id, stamp, color, lifetime):
-        from geometry_msgs.msg import Point as GPoint
-        from std_msgs.msg import ColorRGBA
-        h = size / 2.0 * 1.03
-        corners = [
-            (-h, -h, -h), ( h, -h, -h), ( h,  h, -h), (-h,  h, -h),
-            (-h, -h,  h), ( h, -h,  h), ( h,  h,  h), (-h,  h,  h),
-        ]
-        edge_idx = [
-            (0, 1), (1, 2), (2, 3), (3, 0),
-            (4, 5), (5, 6), (6, 7), (7, 4),
-            (0, 4), (1, 5), (2, 6), (3, 7),
-        ]
-        m = Marker()
-        m.header.frame_id = 'map'
-        m.header.stamp = stamp
-        m.ns = ns
-        m.id = marker_id
-        m.type = Marker.LINE_LIST
-        m.action = Marker.ADD
-        m.pose.orientation.w = 1.0
-        m.scale.x = 0.04
-        m.color.r = color[0]
-        m.color.g = color[1]
-        m.color.b = color[2]
-        m.color.a = 1.0
-        m.lifetime = lifetime
-        pts = []
-        for c in centers:
-            cx, cy, cz = c.x, c.y, c.z
-            for a, b in edge_idx:
-                ax, ay, az = corners[a]
-                bx, by, bz = corners[b]
-                pts.append(GPoint(x=cx + ax, y=cy + ay, z=cz + az))
-                pts.append(GPoint(x=cx + bx, y=cy + by, z=cz + bz))
-        m.points = pts
-        return m
 
     PAYLOAD_HANDLERS = {
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),

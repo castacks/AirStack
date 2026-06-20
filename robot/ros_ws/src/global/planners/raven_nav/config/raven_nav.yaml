@@ -31,7 +31,7 @@ raven_nav:
     target_labels: []
     # Target assignment: cbba | hungarian | greedy (semantic_search_task
     # overrides via ASSIGNMENT_STRATEGY env var).
-    assignment_strategy: cbba
+    assignment_strategy: hungarian
     # Confirmed BBs join the auction alongside rays. Rays bid as if their target
     # is this factor further than the ray origin, so they don't look closer than a
     # real BB. Main BB-vs-ray knob; tune per scene (larger = favor BBs).

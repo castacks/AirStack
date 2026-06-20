@@ -660,7 +660,7 @@ class SemanticSearchTaskNode(Node):
                 # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
                 '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
                 # Multi-robot target assignment: cbba | hungarian | greedy.
-                '-p', f'assignment_strategy:={os.getenv("ASSIGNMENT_STRATEGY", "cbba").strip().lower()}',
+                '-p', f'assignment_strategy:={os.getenv("ASSIGNMENT_STRATEGY", "hungarian").strip().lower()}',
                 # End at 80% coverage; osmo enforces the 15-min limit by cancel.
                 '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
                 '-p', f'results_dir:={RESULTS_DIR}',

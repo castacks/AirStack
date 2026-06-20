@@ -16,7 +16,7 @@ services:
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
       # Multi-robot target assignment strategy: cbba | hungarian | greedy
-      - ASSIGNMENT_STRATEGY=${ASSIGNMENT_STRATEGY:-cbba}
+      - ASSIGNMENT_STRATEGY=${ASSIGNMENT_STRATEGY:-hungarian}
       - URDF_FILE=${URDF_FILE}
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}

@@ -13,7 +13,6 @@
 #     --airstack-root "$(pwd)"
 #
 # Schema reference: osmo/missions/README.md
-
 name: multi_raven_mission
 
 stack:
@@ -36,7 +35,7 @@ environments:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    background_queries: "sky, ground, grass, road, bus stop, garage, tree"
+    background_queries: "road, grass, mountain, parking lot"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -49,7 +48,7 @@ environments:
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, radio tower"
-    background_queries: "sky, ground, grass, road, tree, gas tank"
+    background_queries: "road, grass, mountain, parking lot"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -62,7 +61,7 @@ environments:
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, red container"
-    background_queries: "sky, ground, grass, road, Building, cabling winches, blue tarp"
+    background_queries: "road, grass, mountain, parking lot"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
@@ -75,8 +74,8 @@ command_route: gcs
 
 # grouped: each environment runs `iterations` times in a row (per-environment
 # count; total runs = iterations * 3). Spawn layout re-randomizes each run.
-#environment_order: grouped
-iterations: 6
+environment_order: grouped
+iterations: 2
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
@@ -99,6 +98,7 @@ record:
     - /gcs/payload/{robot}/filtered_frontiers
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/voxel_rgb
     - /gcs/consensus_AABBs
     - /gcs/consensus_targets
     - /gcs/sim_ground

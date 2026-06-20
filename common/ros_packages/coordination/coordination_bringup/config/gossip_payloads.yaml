@@ -46,6 +46,11 @@ payload_topics:
   - topic: "/{robot_name}/filtered_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
+  # RGB voxel map (rayfronts) — semantic 3D map for GCS visualization ONLY.
+  # Peers do NOT consume it for navigation. Heavy payload (full voxel map).
+  - topic: "/{robot_name}/rayfronts/voxel_rgb"
+    type: "sensor_msgs/msg/PointCloud2"
+
 
   # Active raven_nav behavior ('frontier'/'ray'/'voxel'/'idle'). Used by peer
   # raven_nav instances to decide whether to treat that robot's waypoint as a
