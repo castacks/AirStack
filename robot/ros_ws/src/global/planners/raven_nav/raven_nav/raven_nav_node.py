@@ -617,9 +617,11 @@ class RavenNavNode(Node):
             ))
         return out
 
-    def _own_bb_clusters_for_bidding(self) -> list:
-        """(label, center, size) for own confirmed clusters eligible to bid on:
-        a target label, not yet visited by self or a peer."""
+    def _own_bb_clusters_for_bidding(self, peer_committed) -> list:
+        """(label, center, size) for own confirmed clusters eligible to bid on: a
+        target label, not visited by self, and not off-limits to a peer (visited /
+        observed-closer / lower-id committed) — same exclusion the BB release uses,
+        so a dropped BB isn't instantly re-claimed."""
         vb = self._behavior_manager.voxel_behavior
         targets = set(self._target_objects or [])
         out: list = []
@@ -629,8 +631,9 @@ class RavenNavNode(Node):
                 continue
             center = np.array(bb[:3], dtype=float)
             size = np.array(bb[3:6], dtype=float)
-            if vb.is_visited(center, size, label) \
-                    or vb._is_near_peer_visited(center, size):
+            if vb.is_visited(center, size, label):
+                continue
+            if self._bb_target_off_limits(center, label, peer_committed):
                 continue
             out.append((label, center, size))
         return out
@@ -866,6 +869,53 @@ class RavenNavNode(Node):
                     or self._points_near(my_pt, self._ray_point(po, pd)):
                 return True
         return False
+
+    def _bb_observed_by_closer_peer(self, center, label) -> bool:
+        """A peer is observing the BB at `center` from clearly closer (instance-
+        level: BB centre vs the peer's observed BB centre + its distance)."""
+        bbs = getattr(self, '_peer_observing_bbs', None)
+        if not bbs or self._cur_pose is None:
+            return False
+        c = np.asarray(center, dtype=float)
+        bl = (label or '').lower()
+        my_d = float(np.linalg.norm(self._cur_pose[:2] - c[:2]))
+        for plab, bb, ppos in bbs:
+            if ppos is None:
+                continue
+            ll = (plab or '').lower()
+            if not (bl in ll or ll in bl):
+                continue
+            bc = np.asarray(bb, dtype=float)[:3]
+            if float(np.linalg.norm(c[:2] - bc[:2])) > self._PEER_TARGET_MATCH_M:
+                continue
+            peer_d = float(np.linalg.norm(np.asarray(ppos, dtype=float)[:2] - bc[:2]))
+            if peer_d + self._OBSERVER_TAKEOVER_MARGIN_M < my_d:
+                return True
+        return False
+
+    def _bb_peer_visited_or_observed(self, center, label) -> bool:
+        """BB at `center` is at a target a peer has visited, or is observing from
+        clearly closer — instance-level (centre proximity), not line-of-sight."""
+        if self._point_near_bbs(np.asarray(center, dtype=float), label,
+                                getattr(self, '_peer_visited_bbs', None)):
+            return True
+        return self._bb_observed_by_closer_peer(center, label)
+
+    def _bb_peer_committed(self, center, label, peer_committed) -> bool:
+        """A LOWER-id peer is committed to / heading toward the BB at `center`."""
+        c = np.asarray(center, dtype=float)
+        for (_n, pl, po, pd, pid) in peer_committed:
+            if pl != label or pid is None or pid >= self._my_id:
+                continue
+            if self._points_near(c, self._ray_point(po, pd)):
+                return True
+        return False
+
+    def _bb_target_off_limits(self, center, label, peer_committed) -> bool:
+        """BB at `center` should not be bid on: peer-visited, peer-observed from
+        closer, or a lower-id peer committed to it. Same set the BB release uses."""
+        return (self._bb_peer_visited_or_observed(center, label)
+                or self._bb_peer_committed(center, label, peer_committed))
 
     def _rays_share_bb(self, o1, d1, o2, d2, label) -> bool:
         """True if a consensus BB (label-compatible) that BOTH rays pass through
@@ -1767,7 +1817,8 @@ class RavenNavNode(Node):
         # far/behind one doesn't.
         per_tick_bids = bid_manager.compute_my_bids(ray_groups)
         bb_bids = bid_manager.compute_bb_bids(
-            self._own_bb_clusters_for_bidding(), self._cur_pose)
+            self._own_bb_clusters_for_bidding(peer_committed_instances),
+            self._cur_pose)
         my_bid_entries = [b for b in (per_tick_bids + bb_bids)
                           if b.label not in all_completed]
         bid_manager.finalize_bid_values(
@@ -1797,43 +1848,54 @@ class RavenNavNode(Node):
             self._committed_target_last_dir = None
             self._committed_target_last_origin = None
 
-        # Release a commitment only if the committed ray points at a peer-VISITED
-        # BB (visited-only avoids flip-flop on observed instances).
-        if (self._assigned_target is not None
-                and self._committed_target_last_origin is not None
-                and self._committed_target_last_dir is not None
-                and self._ray_on_peer_bbs(
-                    self._committed_target_last_origin,
-                    self._committed_target_last_dir,
-                    self._assigned_target,
-                    getattr(self, '_peer_visited_bbs', None))):
-            if self._debug_coord:
-                self.get_logger().info(
-                    f'[coord] dropping {self._assigned_target}: '
-                    f'peer already visited it')
-            self._assigned_target = None
-            self._committed_to_assigned = False
-            self._committed_target_last_dir = None
-            self._committed_target_last_origin = None
+        # Release if the committed target is peer-VISITED. BB commitment: test the
+        # BB centre (instance); ray: the bearing line-of-sight. (Instance test
+        # avoids spurious drops when a BB bearing merely crosses a cleared house.)
+        if self._assigned_target is not None:
+            if self._committed_bb_center is not None:
+                visited = self._point_near_bbs(
+                    self._committed_bb_center, self._assigned_target,
+                    getattr(self, '_peer_visited_bbs', None))
+            else:
+                visited = (self._committed_target_last_origin is not None
+                           and self._committed_target_last_dir is not None
+                           and self._ray_on_peer_bbs(
+                               self._committed_target_last_origin,
+                               self._committed_target_last_dir,
+                               self._assigned_target,
+                               getattr(self, '_peer_visited_bbs', None)))
+            if visited:
+                if self._debug_coord:
+                    self.get_logger().info(
+                        f'[coord] dropping {self._assigned_target}: '
+                        f'peer already visited it')
+                self._assigned_target = None
+                self._committed_to_assigned = False
+                self._committed_target_last_dir = None
+                self._committed_target_last_origin = None
 
-        # Yield a committed ray when a peer is observing that target from clearly
-        # closer (e.g. it's in voxel mode sitting on it) — the close drone takes
-        # the BB; we go elsewhere.
-        if (self._assigned_target is not None
-                and self._committed_target_last_origin is not None
-                and self._committed_target_last_dir is not None
-                and self._ray_yields_to_observer(
-                    self._committed_target_last_origin,
-                    self._committed_target_last_dir,
-                    self._assigned_target)):
-            if self._debug_coord:
-                self.get_logger().info(
-                    f'[coord] yielding {self._assigned_target}: '
-                    f'peer observing it from closer')
-            self._assigned_target = None
-            self._committed_to_assigned = False
-            self._committed_target_last_dir = None
-            self._committed_target_last_origin = None
+        # Yield when a peer is observing the committed target from clearly closer.
+        # BB commitment: instance test on the BB centre; ray: bearing line-of-sight.
+        if self._assigned_target is not None:
+            if self._committed_bb_center is not None:
+                yld = self._bb_observed_by_closer_peer(
+                    self._committed_bb_center, self._assigned_target)
+            else:
+                yld = (self._committed_target_last_origin is not None
+                       and self._committed_target_last_dir is not None
+                       and self._ray_yields_to_observer(
+                           self._committed_target_last_origin,
+                           self._committed_target_last_dir,
+                           self._assigned_target))
+            if yld:
+                if self._debug_coord:
+                    self.get_logger().info(
+                        f'[coord] yielding {self._assigned_target}: '
+                        f'peer observing it from closer')
+                self._assigned_target = None
+                self._committed_to_assigned = False
+                self._committed_target_last_dir = None
+                self._committed_target_last_origin = None
 
         if self._assignment_strategy == 'greedy':
             won = bid_manager.assign(
@@ -1893,9 +1955,11 @@ class RavenNavNode(Node):
                 # so voxel's committed-ray filter matches the cluster.
                 self._committed_target_last_origin = np.asarray(
                     self._cur_pose, float).copy()
+                self._committed_bb_center = np.asarray(entry.avg_origin, float).copy()
             else:
                 self._committed_target_last_origin = np.asarray(
                     entry.avg_origin, float).copy()
+                self._committed_bb_center = None
             self._committed_bearing_lock_ts = now
             if self._debug_coord:
                 self.get_logger().info(
@@ -1924,29 +1988,41 @@ class RavenNavNode(Node):
                         f'[coord] LOCKED {self._assigned_target} '
                         f'(my_bid={entry.value:.2f}, rays={entry.num_rays})')
 
-        # Double-commit collision: if a peer is committed to the SAME instance
-        # (my committed bearing vs its committed bearing), the LOWER-id one keeps
-        # it — sticky, so a peer that merely passes closer can't steal it; the id
-        # rule only breaks the rare simultaneous double-lock.
+        # Double-commit collision: if a LOWER-id peer is committed to the SAME
+        # instance, yield. BB commitment: compare the BB centre to the peer's
+        # committed point; ray: triangulate the bearings.
         if (self._assigned_target is not None and self._committed_to_assigned
                 and self._committed_target_last_origin is not None):
-            for (pname, plabel, po, pd, pid) in peer_committed_instances:
-                if plabel != self._assigned_target or pid >= self._my_id:
-                    continue
-                if self._same_instance(
-                        self._committed_target_last_origin,
-                        self._committed_target_last_dir,
-                        po, pd, self._assigned_target, polygon_xy):
+            if self._committed_bb_center is not None:
+                if self._bb_peer_committed(
+                        self._committed_bb_center, self._assigned_target,
+                        peer_committed_instances):
                     if self._debug_coord:
                         self.get_logger().info(
-                            f'[coord] double-commit on {self._assigned_target}: '
-                            f'peer {pname} (id={pid}) holds same instance — '
-                            f'yielding')
+                            f'[coord] double-commit on {self._assigned_target} '
+                            f'(BB): lower-id peer holds it — yielding')
                     self._assigned_target = None
                     self._committed_to_assigned = False
                     self._committed_target_last_dir = None
                     self._committed_target_last_origin = None
-                    break
+            else:
+                for (pname, plabel, po, pd, pid) in peer_committed_instances:
+                    if plabel != self._assigned_target or pid >= self._my_id:
+                        continue
+                    if self._same_instance(
+                            self._committed_target_last_origin,
+                            self._committed_target_last_dir,
+                            po, pd, self._assigned_target, polygon_xy):
+                        if self._debug_coord:
+                            self.get_logger().info(
+                                f'[coord] double-commit on {self._assigned_target}: '
+                                f'peer {pname} (id={pid}) holds same instance — '
+                                f'yielding')
+                        self._assigned_target = None
+                        self._committed_to_assigned = False
+                        self._committed_target_last_dir = None
+                        self._committed_target_last_origin = None
+                        break
 
         # Committed BB centre = the auction winner when it's a BB for our target.
         # The stickiness boost above keeps the same BB winning unless a closer one
