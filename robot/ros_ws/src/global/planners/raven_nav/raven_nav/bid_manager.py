@@ -45,6 +45,20 @@ def _heading_penalty(entry, robot_xy, heading_xy) -> float:
     return RAY_MOMENTUM_WEIGHT * (1.0 - cs) + RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
 
 
+def _bb_heading_penalty(entry, heading_xy, behind_weight) -> float:
+    """Gentle BB heading: front and side unpenalized; a reduced penalty only for
+    BBs behind the drone, so it favors a ray/target in front but can still turn
+    back to a BB if there's nothing better."""
+    if heading_xy is None or behind_weight <= 0.0:
+        return 0.0
+    d = np.asarray(entry.avg_dir, dtype=float)[:2]
+    n = float(np.linalg.norm(d))
+    if n < 1e-6:
+        return 0.0
+    cs = float(np.dot(d / n, heading_xy))
+    return behind_weight * max(-cs, 0.0)
+
+
 @dataclass
 class BidEntry:
     """One bid row = one ray group + its bid value.
@@ -105,16 +119,18 @@ def compute_bb_bids(clusters, robot_pos) -> List[BidEntry]:
 
 
 def finalize_bid_values(entries, robot_xy, heading_xy,
-                        ray_reach_factor: float = 1.0) -> None:
+                        ray_reach_factor: float = 1.0,
+                        bb_behind_penalty: float = 0.0) -> None:
     """Fold heading into each bid's value (in place). Higher = better.
 
-    BBs: no directional penalty — a confirmed target competes on distance alone
-    (worth going to regardless of heading). Rays: distance scaled by
-    ray_reach_factor (the target sits further out than the ray's origin, so rays
-    don't masquerade as close vs BBs), plus the full momentum+reverse heading
-    penalty (anti-zigzag during exploration)."""
+    BBs: only a gentle behind penalty (front/side free) so it favors a target in
+    front but can still turn back to a BB when nothing better is ahead. Rays:
+    distance scaled by ray_reach_factor (the target sits further out than the
+    ray's origin, so rays don't masquerade as close vs BBs), plus the full
+    momentum+reverse heading penalty (anti-zigzag during exploration)."""
     for e in entries:
         if e.is_bb:
+            e.value -= _bb_heading_penalty(e, heading_xy, bb_behind_penalty)
             continue
         e.value *= ray_reach_factor
         e.value -= _heading_penalty(e, robot_xy, heading_xy)

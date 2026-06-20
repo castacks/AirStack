@@ -53,7 +53,7 @@ command_route: gcs
 # round_robin: iterations is the TOTAL run count, cycling the two entries.
 # Set iterations to 2*(runs per strategy) — e.g. 6 = 3 CBBA + 3 Hungarian.
 environment_order: round_robin
-iterations: 4
+iterations: 2
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search

@@ -31,8 +31,14 @@ raven_nav:
     assignment_strategy: cbba
     # Confirmed BBs join the auction alongside rays. Rays bid as if their target
     # is this factor further than the ray origin, so they don't look closer than a
-    # real BB. Sole BB-vs-ray knob; tune per scene (larger = favor BBs).
+    # real BB. Main BB-vs-ray knob; tune per scene (larger = favor BBs).
     ray_reach_factor: 3.0
+    # Gentle behind-only heading penalty for BBs (front/side free): favors a target
+    # in front but still lets the drone turn back to a BB when nothing's ahead.
+    bb_behind_penalty_weight: 8.0
+    # BB hysteresis: a different BB must be this many metres closer to steal the BB
+    # the drone is already committed to (avoids flip-flop between near-equal BBs).
+    bb_switch_margin_m: 8.0
     # Run the frontier-only baseline: navigation ignores semantic cues.
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)

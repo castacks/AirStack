@@ -284,6 +284,15 @@ class RavenNavNode(Node):
         # the sole knob favoring BBs over rays now.
         self._ray_reach_factor = float(self.declare_parameter(
             'ray_reach_factor', 3.0).value)
+        # Gentle behind-only heading penalty for BBs (front/side free).
+        self._bb_behind_penalty_weight = float(self.declare_parameter(
+            'bb_behind_penalty_weight', 8.0).value)
+        # BB hysteresis: a different BB must be this many metres closer to steal
+        # the one we're already committed to.
+        self._bb_switch_margin_m = float(self.declare_parameter(
+            'bb_switch_margin_m', 8.0).value)
+        # Centre of the BB this drone is currently committed to (None = none / ray).
+        self._committed_bb_center: 'np.ndarray | None' = None
         # Target assignment: cbba | hungarian (consensus) | greedy (legacy).
         self._assignment_strategy = str(self.declare_parameter(
             'assignment_strategy', 'cbba').value).strip().lower()
@@ -1763,7 +1772,14 @@ class RavenNavNode(Node):
                           if b.label not in all_completed]
         bid_manager.finalize_bid_values(
             my_bid_entries, self._cur_pose[:2], heading_xy,
-            self._ray_reach_factor)
+            self._ray_reach_factor, self._bb_behind_penalty_weight)
+        # Hysteresis: boost the BB we're already committed to so a near-equal one
+        # can't steal it; only a BB >bb_switch_margin_m closer wins.
+        if self._committed_bb_center is not None:
+            for b in my_bid_entries:
+                if b.is_bb and float(np.linalg.norm(
+                        b.avg_origin[:2] - self._committed_bb_center[:2])) <= 8.0:
+                    b.value += self._bb_switch_margin_m
         peer_bid_entries = {
             name: [e for e in entries if e.label not in all_completed]
             for name, entries in self._peer_state.peer_bids.items()
@@ -1932,11 +1948,26 @@ class RavenNavNode(Node):
                     self._committed_target_last_origin = None
                     break
 
-        # Track the committed instance: follow the ray group most aligned with
-        # the committed bearing. Hysteresis holds the current bearing unless a
-        # rival group beats it by a margin and we've held it long enough — commit
-        # to one house instead of flip-flopping between near-equal rays.
-        if self._assigned_target is not None and ray_groups:
+        # Committed BB centre = the auction winner when it's a BB for our target.
+        # The stickiness boost above keeps the same BB winning unless a closer one
+        # appears, so this stays stable tick-to-tick (no flip-flop between BBs).
+        if (self._assigned_target is not None and won is not None
+                and won[0] == self._assigned_target and won[1].is_bb):
+            self._committed_bb_center = np.asarray(won[1].avg_origin, float).copy()
+        else:
+            self._committed_bb_center = None
+
+        # Committed instance bearing. BB: point drone -> BB centre so voxel keeps
+        # pursuing this instance. Ray: follow the most-aligned ray group, with
+        # hysteresis to avoid flip-flop between near-equal rays.
+        if self._committed_bb_center is not None:
+            rel = self._committed_bb_center - np.asarray(self._cur_pose, float)
+            rn = float(np.linalg.norm(rel))
+            if rn > 1e-6:
+                self._committed_target_last_origin = np.asarray(
+                    self._cur_pose, float).copy()
+                self._committed_target_last_dir = rel / rn
+        elif self._assigned_target is not None and ray_groups:
             cands = [g for g in ray_groups
                      if g.label == self._assigned_target and g.num_rays > 0]
             if cands:
