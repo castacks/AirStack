@@ -300,16 +300,9 @@ class RavenNavNode(Node):
         self._committed_bb_center: 'np.ndarray | None' = None
         # Persistent visited-target BBs (own + peer) — accumulated, never TTL'd.
         self._peer_visited_bbs: list = []
-        # Target assignment: hungarian (global min-cost, default) | cbba (greedy)
-        # | greedy (legacy). Hungarian is holistic — it won't strand a robot whose
-        # only viable target a more-flexible peer could otherwise grab.
-        self._assignment_strategy = str(self.declare_parameter(
-            'assignment_strategy', 'hungarian').value).strip().lower()
-        if self._assignment_strategy not in ('cbba', 'hungarian', 'greedy'):
-            self.get_logger().warn(
-                f'unknown assignment_strategy {self._assignment_strategy!r}; '
-                f"falling back to 'hungarian'")
-            self._assignment_strategy = 'hungarian'
+        # Event-driven replanning: re-run the CBBA auction only when the discrete
+        # task picture changes (last signature). None = replan on the first tick.
+        self._last_replan_sig = None
 
         self._publisher_dict = {
             'path': self._path_pub,
@@ -396,7 +389,6 @@ class RavenNavNode(Node):
             f'timer={timer_period:.2f}s | '
             f'query_labels={self._query_labels} | '
             f'score_threshold={self._score_threshold} | '
-            f'assignment={self._assignment_strategy} | '
             f'altitude=[{self._min_altitude}, {self._max_altitude}]')
 
     def _detect_rayfronts_labels(self) -> 'list[str] | None':
@@ -1793,6 +1785,31 @@ class RavenNavNode(Node):
         self.get_logger().info('[voxel-table]\n' + body,
                                throttle_duration_sec=10.0)
 
+    def _replan_signature(self, all_completed, my_bid_entries, peer_bid_entries,
+                          peer_committed_instances, fresh_peers):
+        """Discrete event signature for event-driven replanning. Changes only on a
+        real event — a completed target, a new biddable instance (BBs keyed by a
+        5 m centroid grid, rays by label so bearing drift doesn't trigger), or a
+        peer commitment/membership change — not on continuous bid-value drift."""
+        def inst_keys(entries):
+            keys = set()
+            for e in entries:
+                if e.is_bb:
+                    c = np.round(np.asarray(e.avg_origin, float)[:2] / 5.0)
+                    keys.add((e.label, int(c[0]), int(c[1])))
+                else:
+                    keys.add((e.label, 'ray'))
+            return keys
+
+        instances = inst_keys(my_bid_entries)
+        for entries in peer_bid_entries.values():
+            instances |= inst_keys(entries)
+        commits = frozenset(
+            (pid, lbl, int(round(float(o[0]) / 5.0)), int(round(float(o[1]) / 5.0)))
+            for (_n, lbl, o, _d, pid) in peer_committed_instances)
+        return (frozenset(all_completed), frozenset(fresh_peers),
+                frozenset(instances), commits)
+
     def _timer_cb(self):
         if self._cur_pose is None:
             self.get_logger().warn('waiting for odometry...', throttle_duration_sec=5.0)
@@ -1935,19 +1952,23 @@ class RavenNavNode(Node):
                 self._committed_target_last_dir = None
                 self._committed_target_last_origin = None
 
-        if self._assignment_strategy == 'greedy':
-            won = bid_manager.assign(
-                my_id=self._my_id,
-                my_bids=my_bid_entries,
-                peer_bids=peer_bid_entries,
-                peer_ids=self._peer_state.peer_ids,
-                polygon_xy=polygon_xy,
-                robot_xy=self._cur_pose[:2],
-                heading_xy=heading_xy,
-            )
-        else:
+        # Event-driven replanning: only re-solve the auction when the discrete
+        # task picture changes (a target completed, a new instance appeared, peer
+        # commitments/membership changed), while a claim is still settling, or
+        # while we hold nothing. A committed robot otherwise keeps its target —
+        # the release/yield checks above run every tick and free it on conflict.
+        sig = self._replan_signature(
+            all_completed, my_bid_entries, peer_bid_entries,
+            peer_committed_instances, fresh_peers)
+        replan_due = (
+            self._assigned_target is None
+            or not self._committed_to_assigned
+            or sig != self._last_replan_sig)
+        self._last_replan_sig = sig
+
+        won = None
+        if replan_due:
             won = bid_manager.assign_global(
-                strategy=self._assignment_strategy,
                 my_id=self._my_id,
                 my_bids=my_bid_entries,
                 peer_bids=peer_bid_entries,
@@ -2063,13 +2084,15 @@ class RavenNavNode(Node):
                         break
 
         # Committed BB centre = the auction winner when it's a BB for our target.
-        # The stickiness boost above keeps the same BB winning unless a closer one
-        # appears, so this stays stable tick-to-tick (no flip-flop between BBs).
-        if (self._assigned_target is not None and won is not None
-                and won[0] == self._assigned_target and won[1].is_bb):
-            self._committed_bb_center = np.asarray(won[1].avg_origin, float).copy()
-        else:
-            self._committed_bb_center = None
+        # Only refreshed on a replan tick; otherwise the held centre persists (a
+        # None won on a non-replan tick must not clear an active BB commitment).
+        if replan_due:
+            if (self._assigned_target is not None and won is not None
+                    and won[0] == self._assigned_target and won[1].is_bb):
+                self._committed_bb_center = np.asarray(
+                    won[1].avg_origin, float).copy()
+            else:
+                self._committed_bb_center = None
 
         # Committed instance bearing. BB: point drone -> BB centre so voxel keeps
         # pursuing this instance. Ray: follow the most-aligned ray group, with

@@ -1,18 +1,11 @@
-"""Consensus-based auction for ray-mode target assignment.
+"""Consensus-based bundle auction (CBBA, single-target) for target assignment.
 
-Per-ray-group bids (one row per RayGroup) + triangulation-aware assignment:
-
-  - compute_my_bids() emits one BidEntry per RayGroup with its descriptor
-    (origin, direction, label, num_rays, avg_score) and bid value
-    (= -min_dist_to_robot, higher = closer = wins).
-
-  - assign() goes group-by-group on my bids. For each of my groups it checks
-    whether ANY peer's same-label group converges on the same target via
-    is_same_target(); only same-target peers contest the bid. Different-target
-    peer bids never knock me off mine — so two drones looking at two different
-    houses can both pursue their own.
-
-Ties broken by lower robot id.
+Each robot bids on its rays and confirmed BBs (compute_my_bids / compute_bb_bids,
+value = -distance, higher = closer = wins), broadcasts them, then rebuilds the
+same robots×instances cost matrix from the gossiped bids and solves it
+identically with greedy-with-removal (assign_global). Bids are deduped per
+physical target via triangulation (_same_bid_instance), so two drones on two
+different houses don't contest. Ties broken by lower robot id.
 """
 from __future__ import annotations
 
@@ -118,56 +111,6 @@ def finalize_bid_values(entries, heading_xy, ray_reach_factor: float = 1.0,
         e.value -= _behind_penalty(e, heading_xy, behind_penalty)
 
 
-def assign(
-    my_id: int,
-    my_bids: List[BidEntry],
-    peer_bids: Dict[str, List[BidEntry]],
-    peer_ids: Dict[str, int],
-    polygon_xy: Optional[np.ndarray] = None,
-    robot_xy: Optional[np.ndarray] = None,
-    heading_xy: Optional[np.ndarray] = None,
-) -> Optional[Tuple[str, BidEntry]]:
-    """Return (label, winning_entry) this robot won, or None.
-
-    A peer bid only contests one of my bids when is_same_target() says the
-    two ray groups point at the same physical target. Different-target peer
-    bids are ignored for that pair.
-
-    Among my un-contested winners, the best wins: closest physical target minus
-    a heading penalty (prefer targets whose origin is ahead). The contest above
-    stays pure distance so a far peer can't steal a target I'm next to.
-    """
-    if not my_bids:
-        return None
-    won: List[BidEntry] = []
-    for mine in my_bids:
-        winner_value = mine.value
-        winner_id = my_id
-        for peer_name, p_entries in peer_bids.items():
-            pid = peer_ids.get(peer_name)
-            if pid is None:
-                continue
-            for p in p_entries:
-                if p.label != mine.label:
-                    continue
-                # Synthesize minimal RayGroup-shaped objects for the
-                # triangulation test (it only reads label/avg_origin/avg_dir).
-                if not _same_bid_instance(mine, p, polygon_xy):
-                    continue
-                if p.value > winner_value or \
-                        (p.value == winner_value and pid < winner_id):
-                    winner_value = p.value
-                    winner_id = pid
-        if winner_id == my_id:   # uncontested, or tied and kept by id
-            won.append(mine)
-    if not won:
-        return None
-    # value already folds ray reach + heading (finalize_bid_values); when called
-    # with raw bids (no finalize) this is plain -distance.
-    best = max(won, key=lambda e: e.value)
-    return best.label, best
-
-
 class _GroupView:
     """Adapter so BidEntry can be passed to is_same_target() (which expects
     label/avg_origin/avg_dir on the object). Defined here to keep ray_targets
@@ -181,9 +124,9 @@ class _GroupView:
         self.avg_dir = entry.avg_dir
 
 
-# CBBA / Hungarian consensus assignment: every robot rebuilds the same
-# robots×instances cost matrix from gossiped bids (cost = -value) and solves it
-# identically. value is the broadcast utility, so all robots agree.
+# CBBA consensus assignment: every robot rebuilds the same robots×instances cost
+# matrix from gossiped bids (cost = -value) and solves it identically. value is
+# the broadcast utility, so all robots agree.
 _INFEASIBLE_COST = 1e6   # robot has no bid for this instance; filtered after solve
 
 
@@ -282,31 +225,15 @@ def _solve_cbba(cost: np.ndarray, robot_ids: List[int]) -> Dict[int, int]:
     return assigned
 
 
-def _solve_hungarian(cost: np.ndarray, robot_ids: List[int]) -> Dict[int, int]:
-    """Global min-cost matching (scipy). Falls back to CBBA without scipy."""
-    try:
-        from scipy.optimize import linear_sum_assignment
-    except ImportError:
-        return _solve_cbba(cost, robot_ids)
-    row_ind, col_ind = linear_sum_assignment(cost)
-    assigned: Dict[int, int] = {}
-    for r, t in zip(row_ind, col_ind):
-        if cost[r, t] >= _INFEASIBLE_COST:
-            continue
-        assigned[robot_ids[r]] = int(t)
-    return assigned
-
-
 def assign_global(
-    strategy: str,
     my_id: int,
     my_bids: List[BidEntry],
     peer_bids: Dict[str, List[BidEntry]],
     peer_ids: Dict[str, int],
     polygon_xy: Optional[np.ndarray] = None,
 ) -> Optional[Tuple[str, BidEntry]]:
-    """Consensus assignment ('cbba' | 'hungarian'). Returns (label, my BidEntry)
-    for the instance assigned to my_id, or None."""
+    """CBBA consensus assignment. Returns (label, my BidEntry) for the instance
+    assigned to my_id, or None."""
     if not my_bids:
         return None
 
@@ -331,10 +258,7 @@ def assign_global(
         for rid, b in c.items():
             cost[row_of[rid], t] = -float(b.value)   # -value = distance
 
-    if strategy == 'hungarian':
-        assigned = _solve_hungarian(cost, robot_ids)
-    else:
-        assigned = _solve_cbba(cost, robot_ids)
+    assigned = _solve_cbba(cost, robot_ids)
 
     my_t = assigned.get(my_id)
     if my_t is None:
