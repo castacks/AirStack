@@ -1105,30 +1105,119 @@ def resolve_results_root(airstack_root):
 
 # ── main loop ──────────────────────────────────────────────────────────────
 
+# Per-container health snapshot. Sections are emitted on tagged lines so the
+# multi-line ps output stays parseable. cgroup paths are v2; absent on v1 (the
+# fields just come back empty).
+_SNAP_CMD = r"""
+echo "T|$(date '+%F %T')"
+echo "DDS|procs=$(pgrep -c ddsrouter 2>/dev/null) estab=$(ss -Htn 2>/dev/null | grep -c ESTAB) ddstcp=$(ss -Htnp 2>/dev/null | grep -c ddsrouter) cpu=$(ps -C ddsrouter -o %cpu= 2>/dev/null | tr '\n' ',')"
+echo "MEM|cur=$(cat /sys/fs/cgroup/memory.current 2>/dev/null) max=$(cat /sys/fs/cgroup/memory.max 2>/dev/null) oom_kill=$(awk '/^oom_kill /{print $2}' /sys/fs/cgroup/memory.events 2>/dev/null)"
+echo "PS|"
+ps -eo rss=,args= --sort=-rss 2>/dev/null | head -12
+"""
+
+# Processes whose early death we want to catch. Matched as substrings of the
+# full command line (the python nodes all run as `python3 ...`).
+_WATCH_PROCS = ("rayfronts", "raven_nav_node", "ddsrouter", "gossip")
+
+
+def _parse_snapshot(out):
+    ts = dds = mem = ""
+    oom = None
+    ps_rows = []
+    in_ps = False
+    for ln in out.splitlines():
+        if ln.startswith("T|"):
+            ts = ln[2:].strip()
+        elif ln.startswith("DDS|"):
+            dds = ln[4:].strip()
+        elif ln.startswith("MEM|"):
+            mem = ln[4:].strip()
+            m = re.search(r"oom_kill=(\d+)", mem)
+            oom = int(m.group(1)) if m else None
+        elif ln.startswith("PS|"):
+            in_ps = True
+        elif in_ps:
+            p = ln.split(None, 1)
+            if len(p) == 2 and p[0].isdigit():
+                ps_rows.append((int(p[0]), p[1].strip()))
+    return ts, dds, mem, oom, ps_rows
+
+
+def _format_resources(mem, ps_rows):
+    def mb(v):
+        return f"{int(v) // 1048576}MB" if v.isdigit() else (v or "?")
+    m = re.search(r"cur=(\S+) max=(\S+)", mem)
+    memstr = f"mem={mb(m.group(1))}/{mb(m.group(2))}" if m else mem
+    oom = re.search(r"oom_kill=\S+", mem)
+    key = {k: 0 for k in _WATCH_PROCS}
+    for rss, args in ps_rows:
+        for k in _WATCH_PROCS:
+            if k in args:
+                key[k] += rss
+    keystr = " ".join(
+        f"{k.replace('_nav_node', '')}={v // 1024}MB" for k, v in key.items())
+    top = []
+    for rss, args in ps_rows[:5]:
+        label = next((k for k in _WATCH_PROCS if k in args),
+                     args.split()[0].rsplit("/", 1)[-1][:16])
+        top.append(f"{label}:{rss // 1024}MB")
+    return f"{memstr} {oom.group(0) if oom else ''} | {keystr} | top: {' '.join(top)}", key
+
+
+def _capture_oom_dmesg(iter_dir, container, ts, why):
+    """Append the kernel OOM-killer trail (host ring buffer, readable from the
+    privileged container) when a watched process dies or oom_kill increments."""
+    r = docker_exec(
+        container,
+        "dmesg -T 2>/dev/null | grep -iE 'killed process|out of memory|oom-kill|"
+        "invoked oom|memory cgroup' | tail -40", timeout=15)
+    txt = (r.stdout or "").strip()
+    block = (f"### {container} @ {ts} — {why}\n"
+             f"{txt or '(dmesg unavailable in container — run host: dmesg -T | grep -i oom)'}\n")
+    with open(iter_dir / "oom_dmesg.log", "a", encoding="utf-8") as f:
+        f.write(block)
+
+
 def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
-    """Periodic ddsrouter process + domain-99 TCP snapshot per container, for
-    gossip-dropout debugging. Appended to <iter_dir>/transport.log."""
-    out = iter_dir / "transport.log"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    snap = ("echo \"[$(date '+%F %T')] "
-            "procs=$(pgrep -c ddsrouter 2>/dev/null) "
-            "estab=$(ss -Htn 2>/dev/null | grep -c ESTAB) "
-            "ddstcp=$(ss -Htnp 2>/dev/null | grep -c ddsrouter) "
-            "cpu=$(ps -C ddsrouter -o %cpu= 2>/dev/null | tr '\\n' ',')\"")
+    """Periodic per-container health snapshot for debugging early process death:
+      - transport.log : ddsrouter procs + domain-99 TCP (gossip dropout)
+      - resources.log : cgroup memory, oom_kill counter, watched + heaviest procs
+      - oom_dmesg.log : kernel OOM trail, captured when a watched process
+        vanishes or the cgroup oom_kill counter increments
+    """
+    iter_dir.mkdir(parents=True, exist_ok=True)
+    tlog, rlog = iter_dir / "transport.log", iter_dir / "resources.log"
+    prev_oom, prev_key = {}, {}
     while not stop_event.is_set():
         targets = list(robot_containers())
         gcs = gcs_container()
         if gcs:
             targets.append(gcs)
-        lines = []
+        tlines, rlines = [], []
         for name in targets:
-            r = docker_exec(name, snap, timeout=10)
-            line = (r.stdout or "").strip()
-            if line:
-                lines.append(f"{name} {line}")
-        if lines:
-            with open(out, "a", encoding="utf-8") as f:
-                f.write("\n".join(lines) + "\n")
+            r = docker_exec(name, _SNAP_CMD, timeout=15)
+            ts, dds, mem, oom, ps_rows = _parse_snapshot(r.stdout or "")
+            if not ts:
+                continue
+            tlines.append(f"{name} [{ts}] {dds}")
+            res, key = _format_resources(mem, ps_rows)
+            rlines.append(f"{name} [{ts}] {res}")
+            if oom is not None:
+                if prev_oom.get(name, oom) < oom:
+                    _capture_oom_dmesg(iter_dir, name, ts, f"cgroup oom_kill -> {oom}")
+                prev_oom[name] = oom
+            if ps_rows:   # only trust presence when we got a real ps sample
+                for k in _WATCH_PROCS:
+                    if prev_key.get((name, k), 0) > 0 and key[k] == 0:
+                        _capture_oom_dmesg(iter_dir, name, ts, f"{k} vanished")
+                    prev_key[(name, k)] = key[k]
+        if tlines:
+            with open(tlog, "a", encoding="utf-8") as f:
+                f.write("\n".join(tlines) + "\n")
+        if rlines:
+            with open(rlog, "a", encoding="utf-8") as f:
+                f.write("\n".join(rlines) + "\n")
         stop_event.wait(interval_s)
 
 

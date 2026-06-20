@@ -226,6 +226,8 @@ class SemanticSearchTaskNode(Node):
             latched_qos)
         self._clear_blacklist_pub = self.create_publisher(
             Empty, f'{self._robot_prefix}/raven_nav/clear_blacklist', 10)
+        self._reset_stuck_pub = self.create_publisher(
+            Empty, f'{self._robot_prefix}/droan/reset_stuck', 10)
 
         self.create_subscription(
             Odometry, f'{self._robot_prefix}/odometry',
@@ -321,8 +323,8 @@ class SemanticSearchTaskNode(Node):
         active navigation goals so a fresh NavigateTask isn't rejected by
         droan_gl (`task already active`) or delivered to a stale executor.
 
-        droan_gl is not killed here — only on the stuck-escalation path
-        (_reset_navigate_node); routine cleanup just cancels its active goal.
+        droan_gl is never killed — the stuck path recovers it in-place
+        (blacklist → reset_stuck → 2 m nudge); cleanup just cancels its goal.
         """
         for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             result = subprocess.run(
@@ -437,21 +439,6 @@ class SemanticSearchTaskNode(Node):
             self.get_logger().info('Cancelled NavigateTask (droan_gl)')
         except Exception as e:
             self.get_logger().warn(f'Failed to cancel NavigateTask: {e}')
-
-    def _reset_navigate_node(self) -> None:
-        """Hard-reset droan_gl (the NavigateTask action server) by killing it so
-        launch respawns a fresh instance, clearing any wedged planner state when
-        repeated soft re-activations fail to produce motion. Best-effort and
-        in-container (droan_gl runs alongside this node under the 'full' role).
-        The caller re-sends the activator, which waits for the respawned server."""
-        try:
-            subprocess.run(['pkill', '-f', 'droan_gl_node'],
-                           check=False, timeout=2.0)
-            self.get_logger().warn(
-                '[escalation] killed droan_gl_node — launch will respawn it')
-        except Exception as e:
-            self.get_logger().warn(f'[escalation] droan_gl pkill failed: {e}')
-        time.sleep(3.0)
 
     def _send_navigate_activator(self, robot_name: str):
         """Activate droan_gl with an empty-plan NavigateTask: it enters
@@ -574,6 +561,7 @@ class SemanticSearchTaskNode(Node):
 
         STUCK_TIMEOUT_S = 5.0
         STUCK_DISTANCE_M = 0.3
+        BLACKLIST_RESTARTS = 3
         ESCALATE_AFTER_RESTARTS = 10
         last_motion_pos = None
         last_motion_time = None
@@ -680,6 +668,10 @@ class SemanticSearchTaskNode(Node):
             queries_lower = {q.lower() for q in queries}
             max_instances = int(getattr(goal, 'max_instances', 0) or 0)
             discoveries_by_id: dict = {}
+            # Written by _discoveries_cb on another executor thread (Reentrant
+            # group + MultiThreadedExecutor) while _execute reads it. Guard so a
+            # concurrent insert can't fault iteration ("dict changed size").
+            discoveries_lock = threading.Lock()
 
             nav_mode_complete = False
 
@@ -727,7 +719,8 @@ class SemanticSearchTaskNode(Node):
                     inst_id = str(d.get('instance_id', ''))
                     if not inst_id:
                         continue
-                    discoveries_by_id[inst_id] = d
+                    with discoveries_lock:
+                        discoveries_by_id[inst_id] = d
             self.create_subscription(
                 String, f'/{robot_name}/raven_nav/discoveries',
                 _discoveries_cb, 10, callback_group=self._cbg)
@@ -769,7 +762,9 @@ class SemanticSearchTaskNode(Node):
                     cp = PoseArray()
                     cl: list = []
                     cbc = 0.0
-                    for d in discoveries_by_id.values():
+                    with discoveries_lock:
+                        snapshot = list(discoveries_by_id.values())
+                    for d in snapshot:
                         p = Pose()
                         p.position.x = float(d.get('cx', 0.0))
                         p.position.y = float(d.get('cy', 0.0))
@@ -867,26 +862,57 @@ class SemanticSearchTaskNode(Node):
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = now
                         elif now - last_motion_time > STUCK_TIMEOUT_S:
+                            navigate_restarts += 1
                             self.get_logger().warn(
                                 f'Robot has not moved >{STUCK_DISTANCE_M:.1f} m in '
-                                f'{STUCK_TIMEOUT_S:.1f}s — re-activating droan_gl')
+                                f'{STUCK_TIMEOUT_S:.1f}s — re-activating droan_gl '
+                                f'(restart {navigate_restarts})')
                             self._cancel_navigate_task(navigate_send_future)
                             self._cancel_active_navigation(robot_name)
+
+                            # Tiered recovery: first few stucks clear raven's
+                            # blacklist so it repicks a frontier (new
+                            # /global_plan); after that, reset droan_gl's stuck
+                            # history instead.
+                            if navigate_restarts <= BLACKLIST_RESTARTS:
+                                self._clear_blacklist_pub.publish(Empty())
+                                self.get_logger().info(
+                                    '[recovery] cleared raven blacklist')
+                            else:
+                                self._reset_stuck_pub.publish(Empty())
+                                self.get_logger().info(
+                                    '[recovery] reset_stuck -> droan_gl')
+
                             time.sleep(0.5)
                             _, navigate_send_future = self._send_navigate_activator(
                                 robot_name)
-                            navigate_restarts += 1
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = time.time()
 
                             if navigate_restarts >= ESCALATE_AFTER_RESTARTS:
+                                # Every soft recovery failed — physically nudge
+                                # 2 m up to escape a local minimum, then resume
+                                # following raven's /global_plan.
                                 self.get_logger().error(
-                                    f'[escalation] {navigate_restarts} navigate '
-                                    f'restarts — clearing raven blacklist + resetting '
-                                    f'droan_gl (the navigate action node)')
-                                self._clear_blacklist_pub.publish(Empty())
-                                self._reset_navigate_node()
+                                    f'[escalation] {navigate_restarts} restarts — '
+                                    f'nudging 2 m up')
+                                self._cancel_navigate_task(navigate_send_future)
+                                self._cancel_active_navigation(robot_name)
+                                start_z = self._cur_pos[2]
+                                _, nudge_future = self._send_navigate_to(
+                                    robot_name, self._cur_pos[0], self._cur_pos[1],
+                                    start_z + 2.0, goal_tolerance_m=0.5)
+                                deadline = time.time() + 15.0
+                                while time.time() < deadline:
+                                    if goal_handle.is_cancel_requested:
+                                        break
+                                    if (self._cur_pos is not None
+                                            and self._cur_pos[2] - start_z > 1.5):
+                                        break
+                                    time.sleep(0.5)
+                                self._cancel_navigate_task(nudge_future)
+                                self._cancel_active_navigation(robot_name)
                                 _, navigate_send_future = (
                                     self._send_navigate_activator(robot_name))
                                 navigate_restarts = 0
@@ -919,7 +945,9 @@ class SemanticSearchTaskNode(Node):
                 cur_poses = PoseArray()
                 cur_labels: list = []
                 cur_best_conf = 0.0
-                for d in discoveries_by_id.values():
+                with discoveries_lock:
+                    snapshot = list(discoveries_by_id.values())
+                for d in snapshot:
                     p = Pose()
                     p.position.x = float(d.get('cx', 0.0))
                     p.position.y = float(d.get('cy', 0.0))
