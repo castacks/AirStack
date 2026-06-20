@@ -274,59 +274,185 @@ ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # descend+disa
 Get one real drone talking to the stack and confirm it is tracked — the
 hardware analogue of Part A's sim bring-up, with **no flight**. Once this
 passes, a real drone is just `drone_modes: "...real..."` in any
-[Part C](#part-c--tasks-any-drone-in-any-mode) task. Do it per session.
+[Part C](#part-c--tasks-any-drone-in-any-mode) task.
 
-The state topic is identical to sim (`…/odometry_conversion/odometry`); only
-the source changes (mocap+px4_interface instead of SITL+MAVROS).
+Use the **same `airstack`-managed robot container as Part A** — connect with
+`./airstack.sh connect robot --command=bash`. Its [`robot/docker/.bashrc`](../../../docker/.bashrc)
+already exports `ROS_DOMAIN_ID` (resolved per container, =1 here) and sources
+the workspace at shell startup, and `bws`/`sws` are available — so the commands
+below need **no `export ROS_DOMAIN_ID` and no manual `source`**. The state topic
+is identical to sim (`…/odometry_conversion/odometry`); only the source changes
+(mocap + px4_interface instead of SITL + MAVROS).
 
-### B1. One-time per-drone setup (PX4 + Motive)
+> **Prerequisite — robot container on host networking.** Hardware mocap (NatNet
+> from Motive) and the drone's uXRCE-DDS link are on your LAN, which the default
+> Docker bridge can't reach. Put `robot-desktop` on the host's network stack in
+> [`robot/docker/docker-compose.yaml`](../../../docker/docker-compose.yaml): comment
+> out its `networks:`/`ports:` and set `network_mode: host`, then `./airstack.sh
+> up`. (Host mode ⇒ `NUM_ROBOTS=1`, since replicas would clash on ports — which
+> is what this workflow uses anyway.) Verify with `./airstack.sh status`.
 
-Per drone (QGC / VOXL): `uxrce_dds_client start -n drone_1` (own name, ground
-PC IP, port 8888) with PX4 param `UXRCE_DDS_DOM_ID = 1`; `EKF2_EV_CTRL` to
-fuse external vision (GPS off indoors); RC kill switch + offboard-loss
-failsafe. Motive: one rigid body per drone named `drone_1`, `drone_2`, …;
-enable NatNet streaming. NatNet SDK (once): `./robot/ros_ws/src/perception/
-natnet_ros2/scripts/download-natnet-sdk.sh`, then set `server_ip`, `body_id:
--1` in `natnet_ros2/config/natnet_config.yaml`.
+### B0. Get the drone onto your LAN (Wi-Fi / DHCP)
 
-### B2. Host-network container + uXRCE agent (fresh terminal)
-
+The uXRCE-DDS link (B2/B3) needs the drone reachable on the same subnet as this
+PC. ADB into the VOXL and check the Wi-Fi interface:
 ```bash
-cd ~/AirStack
-docker run --rm -it --network host --name svg_ground \
-  -v ~/AirStack:/home/robot/AirStack \
-  airlab-docker.andrew.cmu.edu/airstack/airstack:v0.18.0_robot-x86-64_dev bash
-# inside:
-export ROS_DOMAIN_ID=1
-MicroXRCEAgent udp4 -p 8888
+adb shell
+ip addr show wlan0            # is there an inet, and is it on the router's subnet?
 ```
+**If `wlan0` has a stale static IP** (e.g. a hard-coded `192.168.30.20` from a
+previous network) or no lease, flush it and request DHCP from the router:
+```bash
+ip addr flush dev wlan0       # drop the old/static address
+ip link set wlan0 up
+udhcpc -i wlan0               # busybox DHCP client (common on VOXL/embedded)
+# or, if udhcpc isn't present:
+dhclient -v wlan0            # ISC client
+ip addr show wlan0           # should now show a router-assigned address
+```
+If `udhcpc` gets a lease, the router/DHCP path is fine. To make it **persist
+across reboots** when `systemd-networkd` manages the interface, find the pinning
+file and switch it to DHCP:
+```bash
+ls /etc/systemd/network/      # look for a *wlan0*.network with a static Address=
+networkctl status wlan0       # shows who manages it + current address
+```
+Edit (or add) that `.network` file so it reads:
+```ini
+[Match]
+Name=wlan0
+
+[Network]
+DHCP=yes
+```
+then `systemctl restart systemd-networkd`.
+
+Notes:
+- If DHCP keeps failing, `wlan0` probably isn't associated — confirm with
+  `voxl-wifi status` / `iw wlan0 link` before chasing DHCP.
+- Don't run a manual `udhcpc` **and** `voxl-wifi`'s managed client at once — they
+  fight over the interface. For a drone you'll fly, prefer `voxl-wifi station` so
+  it reconnects after every reboot.
+- Want a fixed address per drone? Use a **DHCP reservation on the router**, not a
+  static IP on the VOXL — avoids pool collisions and survives re-imaging.
+
+### B1. Per-drone one-time setup
+
+**(a) VOXL2 comms — one-shot script.** [`scripts/voxl_setup_real_drone.sh`](scripts/voxl_setup_real_drone.sh)
+does the entire comms bring-up *on the VOXL*: points PX4's client at the ground
+PC, namespaces topics to `/{name}/fmu/...`, pins the DDS domain, disables the
+onboard `voxl-microdds-agent`, restarts `voxl-px4`, and verifies the session.
+Idempotent — safe to re-run or re-point to a new IP/name.
+
+*Getting it onto the drone:*
+```bash
+# from the ground PC (repo root):
+adb push robot/ros_ws/src/svg_ground_control/scripts/voxl_setup_real_drone.sh /usr/bin/
+# in the VOXL adb shell (root):
+chmod +x /usr/bin/voxl_setup_real_drone.sh
+voxl_setup_real_drone.sh <robot_name> <ground_pc_ip> [domain_id=1] [port=8888]
+#   e.g.  voxl_setup_real_drone.sh drone_1 192.168.123.134 1 8888
+# confirm the edit landed + the client connected:
+grep -n 'microdds_client start' /usr/bin/voxl-px4-start   # -h <ip> -p 8888 -n <name>
+px4-microdds_client status                                # "connected", Agent IP=<ground_pc_ip>
+```
+
+*Required on the ground side* — the agent must run where the topics are created
+(B2), then verify on the **ground PC** (robot container, `ROS_DOMAIN_ID=1`):
+```bash
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
+MicroXRCEAgent udp4 -p 8888 -v4            # leave running; logs "session established <VOXL_IP>"
+# another shell on the ground PC:
+ros2 topic list | grep drone_1/fmu         # /drone_1/fmu/out/vehicle_status, .../vehicle_odometry, ...
+ros2 topic echo /drone_1/fmu/out/vehicle_status --qos-reliability best_effort --once
+```
+`/fmu/*` topics live on the **ground PC** (the agent host), **never** on the VOXL
+— that is the XRCE-DDS design (the VOXL runs only the thin client).
+
+> **Why the script exists (facts learned the hard way).** The agent host IP lives
+> only in the `-h` flag of `microdds_client start` in `/usr/bin/voxl-px4-start` on
+> the VOXL (no PX4 param stores it on this SDK); a passive reboot is unreliable —
+> `systemctl restart voxl-px4` is what re-reads the edit. The DDS domain is the
+> **client** param (`UXRCE_DDS_DOM_ID`, or older `XRCE_DDS_DOM_ID` on ModalAI
+> builds), **not** the agent's `ROS_DOMAIN_ID` — it must match your ground
+> consumers' `ROS_DOMAIN_ID` (=1). VOXL2 runs ROS 2 **Foxy**; keep its native
+> topics off the Jazzy ground domain (the XRCE bridge re-emits `/fmu` as
+> Jazzy-native, which is safe — see [B6](#b6-voxl2-diagnostics-cheat-sheet)). On
+> the VOXL you verify the bridge **only** with `px4-microdds_client status`.
+
+**(b) Flight params (separate — NOT done by the script).** For an actual flight
+you still need, per drone (QGC or `px4-param`): `EKF2_EV_CTRL` to fuse external
+vision (GPS off indoors), an RC kill switch, and an offboard-loss failsafe — see
+[Part D](#part-d--real-hardware-first-flight--reference). The script wires up
+*comms only*.
+
+**(c) Motive / NatNet (mocap) — one-time.** Name one rigid body per drone
+`drone_1`, `drone_2`, … in Motive, set the OptiTrack streaming **Up Axis = Z**,
+enable Broadcast Frame, and pick the right Local Interface IP. The vendored
+[`natnet_ros2`](../../perception/natnet_ros2) package (L2S-lab) **auto-downloads
+the NatNet SDK** into `deps/NatNetSDK` on its **first build** (needs internet) and
+**must be built with `--symlink-install`** — which `bws` already passes:
+```bash
+bws --packages-select natnet_ros2 && sws
+```
+The OptiTrack server/client IPs are launch args (`serverIP`/`clientIP`), already
+defaulted to this rig in
+[`natnet_ros2.launch.py`](../../perception/natnet_ros2/launch/natnet_ros2.launch.py)
+together with `pub_rigid_body:=true` (so per-body `/…/pose` topics are published,
+not just TF). Override per run if needed:
+`ros2 launch natnet_ros2 natnet_ros2.launch.py serverIP:=… clientIP:=…`.
+
+> **Topic naming.** Each Motive rigid body is published on its own
+> `geometry_msgs/PoseStamped` topic **`/<body-name>/pose`** (e.g. `/drone_1/pose`)
+> and broadcast as a TF frame — when `pub_rigid_body:=true` (now the default; with
+> it `false` you get **only** `/tf` and no `/…/pose`). Name your Motive bodies
+> `drone_1`/`drone_2`/… and discover them with `ros2 topic list | grep pose`.
+> Unlabeled markers are configured in `config/initiate.yaml`.
+
+### B2. uXRCE-DDS agent (ground PC)
+
+The agent bridges the drone's PX4 client to ROS `/fmu/*` topics and **creates
+them on the ground PC** (not the VOXL). The robot image ships `MicroXRCEAgent`,
+so run it directly in the robot container (host network, `ROS_DOMAIN_ID=1`):
+```bash
+MicroXRCEAgent udp4 -p 8888 -v4
+```
+`-v4` logs each session/datawriter, so you can watch the drone attach
+(`create_client … session established … <VOXL_IP>`). The `/fmu/*` topics land on
+the domain the **PX4 client** requested (the `domain_id` the B1 script set, =1),
+so make sure your ground consumers (`px4_interface`, the commander, your `ros2`
+shells) are on `ROS_DOMAIN_ID=1` too — the agent's own env domain is not the
+lever. (Fallback if the binary is ever missing:
+`docker run --rm -it --network host -e ROS_DOMAIN_ID=1 microros/micro-ros-agent:jazzy udp4 --port 8888`.)
 
 ### B3. Per-drone px4_interface (fresh terminal)
 
 ```bash
-docker exec -it svg_ground bash
-export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && bws && sws
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
 ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1   # add ,drone_2,...
 ```
 
 ### B4. NatNet mocap — launch + UNIT-TEST (fresh terminal)
 
+Build natnet first (it needs `--symlink-install`, which `bws` passes; the first
+build also downloads the NatNet SDK — needs internet):
 ```bash
-docker exec -it svg_ground bash
-export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && sws
-ros2 launch natnet_ros2 natnet_ros2.launch.py
-ros2 topic list | grep -i optitrack          # note the per-body pose path
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
+bws --packages-select natnet_ros2 && sws
+ros2 launch natnet_ros2 natnet_ros2.launch.py   # serverIP/clientIP default to this rig
+ros2 topic list | grep pose                      # each Motive body -> /<body-name>/pose
 ```
 Then verify mocap is actually streaming (this is the unit-test — do NOT skip):
 ```bash
-ros2 topic hz   /drone_1/pose                 # ~120 Hz (or your Motive rate)
+ros2 topic hz   /drone_1/pose                 # ~180 Hz (or your Motive rate)
 ros2 topic echo /drone_1/pose --once          # sane x,y,z = where the drone sits
 # move the drone by hand: position must change smoothly, no NaNs / jumps
 ```
-- No topic / 0 Hz → Motive not streaming, wrong `server_ip`, or the rigid body
-  isn't named `drone_1`. Fix before going further.
-- Set `mocap_topic_template` in `swarm_real.yaml` to the path from `grep`
-  (with `{name}`), so `mocap_bridge` forwards mocap → PX4 visual odometry.
+- No topic / 0 Hz → Motive not streaming, wrong `serverIP`, or the rigid body
+  isn't named `drone_1`. **Only `/tf` and no `/…/pose`** → `pub_rigid_body` is
+  `false` (the vendored launch defaults it `true`).
+- `mocap_bridge` consumes `/<name>/pose` (`mocap_topic_template: "/{name}/pose"`
+  in `swarm_real.yaml`), forwarding mocap → PX4 visual odometry.
 
 ### B5. See the drone in RViz (no flight)
 
@@ -335,10 +461,10 @@ the drone's marker track as you carry it. Confirms mocap → odometry → world
 before anything arms.
 
 ```bash
-docker exec -it svg_ground bash
-export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && sws
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
 ros2 launch svg_ground_control ground_control.launch.py \
-  config:=$(pwd)/src/svg_ground_control/config/swarm_real.yaml use_mocap:=true
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/swarm_real.yaml \
+  use_mocap:=true
 # in another shell — does odometry track your hand?
 ros2 topic echo /drone_1/odometry_conversion/odometry --once
 ```
@@ -346,6 +472,55 @@ Open RViz (see [RViz visualization](#rviz-visualization)) and move the drone by
 hand: its **red** sphere should follow on `/svg/viz/markers`. (To also see it in
 the Isaac 3D viewport, launch Isaac with `DRONE_MODES` set — see Part A and the
 flagship in C4.) Do **not** call `takeoff` here — this is preflight only.
+
+### B6. VOXL2 diagnostics cheat sheet
+
+Everything we reach for during a real-drone bring-up. **VOXL** lines run in the
+`adb shell`; **ground PC** lines run in the robot container (`ROS_DOMAIN_ID=1`).
+
+*Services (VOXL):*
+```bash
+voxl-inspect-services                       # which voxl-* services are enabled/running
+systemctl status voxl-px4                   # PX4 flight stack
+systemctl is-enabled voxl-microdds-agent    # should be 'disabled' (we use the remote agent)
+```
+
+*Wi-Fi / network (VOXL):*
+```bash
+ip addr show wlan0                          # current IP — on the router's subnet?
+voxl-wifi status     ;  iw wlan0 link       # is it associated to the AP?
+networkctl status wlan0                     # who manages wlan0 + the DHCP lease
+ping -c2 <ground_pc_ip>                      # reachability to the agent host
+```
+
+*PX4 ↔ XRCE bridge (VOXL — the ONLY VOXL-side bridge checks):*
+```bash
+px4-microdds_client status                  # connected? Agent IP? Payload tx/rx nonzero?
+px4-param show -a | grep -i -E 'dom|xrce|dds'   # discover the DDS-domain param name
+px4-param show UXRCE_DDS_DOM_ID              # or XRCE_DDS_DOM_ID — the DDS domain
+```
+
+*Did a file change correctly? (VOXL):*
+```bash
+grep -n 'microdds_client start' /usr/bin/voxl-px4-start   # -h/-p/-n actually applied?
+ls -l  /usr/bin/voxl-px4-start*                            # timestamped .bak.* the script made
+diff   /usr/bin/voxl-px4-start.bak.* /usr/bin/voxl-px4-start   # exactly what changed
+awk --version 2>/dev/null || awk -W version               # which awk (mawk 1.3.3 lacks [[:space:]])
+```
+
+*Topics & data (ground PC — where `/fmu/*` actually lives):*
+```bash
+ros2 topic list | grep <name>/fmu
+ros2 topic hz   /<name>/fmu/out/vehicle_odometry --qos-reliability best_effort
+ros2 topic echo /<name>/fmu/out/vehicle_status   --qos-reliability best_effort --once
+```
+
+> **Cross-distro hazard.** VOXL2 is ROS 2 **Foxy**, the ground stack is **Jazzy**.
+> If the VOXL's *native* Foxy DDS traffic shares a `ROS_DOMAIN_ID` with the Jazzy
+> ground stack, `ros2 topic list` can crash with `deserialize_change` /
+> `std::bad_alloc` (incompatible RTPS wire formats). Keep them apart: the XRCE
+> bridge is safe (the agent re-emits `/fmu` as Jazzy-native on the ground PC), and
+> the on-VOXL `voxl-microdds-agent` stays **disabled** (the B1 script does this).
 
 ---
 
@@ -471,8 +646,7 @@ only the config (real modes) and the safety discipline differ.
 ### D1. Preflight + fly (fresh terminal)
 
 ```bash
-docker exec -it svg_ground bash
-export ROS_DOMAIN_ID=1 && cd ~/AirStack/robot/ros_ws && sws
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
 ros2 topic hz   /drone_1/pose                                  # mocap arriving?
 ros2 topic echo /drone_1/odometry_conversion/odometry --once   # tracks reality?
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
@@ -501,8 +675,8 @@ orange=frozen-on-breach), translucent safety sphere (2r), name/mode/role
 label, goal points, and the geofence box.
 
 ```bash
-# any shell on domain 1, workspace sourced (needs an X display):
-cd ~/AirStack/robot/ros_ws && sws
+# from a robot-container shell (./airstack.sh connect robot --command=bash):
+# ROS_DOMAIN_ID + workspace are already set by .bashrc. Needs an X display.
 rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz
 ```
 The config sets fixed frame `map` and adds the MarkerArray display. If you
@@ -605,6 +779,10 @@ come up before starting a test.
 | `airstack connect` shows no prompt | it attaches to the container tmux; `Ctrl-b c` new window, `Ctrl-b d` detach — or use `--command=bash` |
 | 3 robot containers appear | `.env NUM_ROBOTS` also scales container replicas; keep it `"1"`, pass drone count inline to the sim script |
 | service `waiting for service to become available…` forever | `ROS_DOMAIN_ID` mismatch between shells; also `ros2 daemon stop` |
+| `package 'svg_ground_control' not found` / `bws`/`sws` not found / `topic list` shows only `/parameter_events`,`/rosout` | you're not in a robot-container shell. Use `./airstack.sh connect robot --command=bash` — its `.bashrc` sets `ROS_DOMAIN_ID` and sources the workspace, and `bws`/`sws` exist. A raw `docker exec … sh` skips all that |
+| hardware: can't reach the drone / Motive (no `/fmu/*`, no `/<body>/pose` topics) | the robot container is on the Docker **bridge** net, not your LAN. Set `robot-desktop` to `network_mode: host` (comment out `networks:`/`ports:`) and `./airstack.sh up` — Part B prerequisite. Host mode ⇒ `NUM_ROBOTS=1` |
+| `MicroXRCEAgent: command not found` | not shipped in the image — run the published `microros/micro-ros-agent:jazzy udp4 --port 8888` host container (B2), or build `MicroXRCEAgent` from source / bake into the robot image. Keep `ROS_DOMAIN_ID=1` on the agent |
+| Drone not reachable / wrong or stale IP (e.g. old static `192.168.30.x`) | ADB in and reset `wlan0` to DHCP: `ip addr flush dev wlan0 && ip link set wlan0 up && udhcpc -i wlan0` (or `dhclient -v wlan0`), then `ip addr show wlan0`. Make it persistent via the `systemd-networkd` `*wlan0*.network` (`DHCP=yes`) or a router-side DHCP reservation — see [B0](#b0-get-the-drone-onto-your-lan-wi-fi--dhcp) |
 | Isaac Sim segfaults at startup, backtrace in `librtx.scenedb.plugin.so` / `libcarb.scenerenderer-rtx.plugin.so` at `carbOnPluginStartup` — **also crashes headless**, and a bare empty `SimulationApp({"headless":True})` crashes identically | GPU driver ↔ Isaac Sim RTX incompatibility, NOT an AirStack bug. App boots to `app ready` then the RTX renderer faults on the first frame. Confirmed on RTX 5080 / Blackwell + NVIDIA driver **595.x** + Isaac Sim 5.1.0. Headless and clearing the shader cache do **not** help (the renderer plugin loads at app init regardless; there is no renderer-less path through Kit). **Fix:** install a driver Isaac Sim 5.1 supports — Linux **580.65.06**, or **591.74** (a Blackwell user's confirmed-good version) — using the *open* kernel module variant required for RTX 50-series; or upgrade to a newer Isaac Sim release. ([NVIDIA forum report](https://forums.developer.nvidia.com/t/isaac-sim-5-1-gui-crash-access-violation-on-rtx-5070-ti-blackwell-fixed-by-driver-downgrade-to-591-74/365335)) |
 | MAVROS `connected: false`, no odometry | PX4 SITL not launched: Isaac timeline not playing (`PLAY_SIM_ON_START=true`, or press Play) |
 | takeoff returns success=false right after launch | commander hasn't received odometry yet — wait a few seconds and retry |
