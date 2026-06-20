@@ -25,30 +25,15 @@ from raven_nav.ray_groups import RayGroup
 from raven_nav.ray_targets import is_same_target
 
 
-# Heading bias: prefer claiming targets whose ray points along the drone's
-# heading (cosine momentum + rear-hemisphere reverse, like frontier_behavior).
-RAY_MOMENTUM_WEIGHT = 20.0
-RAY_REVERSE_SURCHARGE = 40.0
-
 # Centre proximity under which two BBs (or a ray pointing at a BB) are one target.
 BB_MATCH_M = 8.0
 
 
-def _heading_penalty(entry, robot_xy, heading_xy) -> float:
-    if heading_xy is None:
-        return 0.0
-    d = np.asarray(entry.avg_dir, dtype=float)[:2]
-    n = float(np.linalg.norm(d))
-    if n < 1e-6:
-        return 0.0
-    cs = float(np.dot(d / n, heading_xy))
-    return RAY_MOMENTUM_WEIGHT * (1.0 - cs) + RAY_REVERSE_SURCHARGE * max(-cs, 0.0)
-
-
-def _bb_heading_penalty(entry, heading_xy, behind_weight) -> float:
-    """Gentle BB heading: front and side unpenalized; a reduced penalty only for
-    BBs behind the drone, so it favors a ray/target in front but can still turn
-    back to a BB if there's nothing better."""
+def _behind_penalty(entry, heading_xy, behind_weight) -> float:
+    """Gentle target heading: front and side unpenalized; a reduced penalty only
+    for targets behind the drone. So target selection is nearest-first (distance
+    dominates) but won't fully reverse for something only marginally behind.
+    (Anti-zigzag momentum still applies to frontier exploration, not here.)"""
     if heading_xy is None or behind_weight <= 0.0:
         return 0.0
     d = np.asarray(entry.avg_dir, dtype=float)[:2]
@@ -70,7 +55,7 @@ class BidEntry:
     """
     label: str
     value: float                  # utility; higher = better. -distance, then
-                                  # finalize_bid_values folds in BB bonus + heading
+                                  # finalize_bid_values folds in ray reach + heading
     avg_origin: np.ndarray        # (3,) ray origin, or BB centre for is_bb
     avg_dir: np.ndarray           # (3,) unit; bearing to the BB centre for is_bb
     num_rays: int                 # 0 marks a BB bid (rays always have >= 1)
@@ -101,7 +86,7 @@ def compute_my_bids(groups: List[RayGroup]) -> List[BidEntry]:
 def compute_bb_bids(clusters, robot_pos) -> List[BidEntry]:
     """One BidEntry per confirmed cluster. clusters: list of (label, centre(3),
     size(3)) in the robot's local frame. value = -surface distance to the drone
-    (raw; BB bonus + heading folded in by finalize_bid_values)."""
+    (raw; heading folded in by finalize_bid_values)."""
     out: List[BidEntry] = []
     rp = np.asarray(robot_pos, dtype=float)
     for label, center, size in clusters:
@@ -118,22 +103,19 @@ def compute_bb_bids(clusters, robot_pos) -> List[BidEntry]:
     return out
 
 
-def finalize_bid_values(entries, robot_xy, heading_xy,
-                        ray_reach_factor: float = 1.0,
-                        bb_behind_penalty: float = 0.0) -> None:
+def finalize_bid_values(entries, heading_xy, ray_reach_factor: float = 1.0,
+                        behind_penalty: float = 0.0) -> None:
     """Fold heading into each bid's value (in place). Higher = better.
 
-    BBs: only a gentle behind penalty (front/side free) so it favors a target in
-    front but can still turn back to a BB when nothing better is ahead. Rays:
-    distance scaled by ray_reach_factor (the target sits further out than the
-    ray's origin, so rays don't masquerade as close vs BBs), plus the full
-    momentum+reverse heading penalty (anti-zigzag during exploration)."""
+    Both rays and BBs use a gentle behind-only penalty, so target selection is
+    nearest-first (distance dominates) without skipping a near-but-side target for
+    a far-ahead one. Rays are additionally scaled by ray_reach_factor (the target
+    sits further out than the ray's origin, so rays don't look closer than BBs).
+    (Frontier exploration keeps its own anti-zigzag momentum — not here.)"""
     for e in entries:
-        if e.is_bb:
-            e.value -= _bb_heading_penalty(e, heading_xy, bb_behind_penalty)
-            continue
-        e.value *= ray_reach_factor
-        e.value -= _heading_penalty(e, robot_xy, heading_xy)
+        if not e.is_bb:
+            e.value *= ray_reach_factor
+        e.value -= _behind_penalty(e, heading_xy, behind_penalty)
 
 
 def assign(
@@ -180,7 +162,7 @@ def assign(
             won.append(mine)
     if not won:
         return None
-    # value already folds BB bonus + heading (finalize_bid_values); when called
+    # value already folds ray reach + heading (finalize_bid_values); when called
     # with raw bids (no finalize) this is plain -distance.
     best = max(won, key=lambda e: e.value)
     return best.label, best

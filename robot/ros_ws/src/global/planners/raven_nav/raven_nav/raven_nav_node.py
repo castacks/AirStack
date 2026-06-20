@@ -284,9 +284,10 @@ class RavenNavNode(Node):
         # the sole knob favoring BBs over rays now.
         self._ray_reach_factor = float(self.declare_parameter(
             'ray_reach_factor', 3.0).value)
-        # Gentle behind-only heading penalty for BBs (front/side free).
-        self._bb_behind_penalty_weight = float(self.declare_parameter(
-            'bb_behind_penalty_weight', 8.0).value)
+        # Gentle behind-only heading penalty for ray/BB target selection (front/
+        # side free) — keeps it nearest-first without reversing for side targets.
+        self._target_behind_penalty_weight = float(self.declare_parameter(
+            'target_behind_penalty_weight', 8.0).value)
         # BB hysteresis: a different BB must be this many metres closer to steal
         # the one we're already committed to.
         self._bb_switch_margin_m = float(self.declare_parameter(
@@ -1822,8 +1823,8 @@ class RavenNavNode(Node):
         my_bid_entries = [b for b in (per_tick_bids + bb_bids)
                           if b.label not in all_completed]
         bid_manager.finalize_bid_values(
-            my_bid_entries, self._cur_pose[:2], heading_xy,
-            self._ray_reach_factor, self._bb_behind_penalty_weight)
+            my_bid_entries, heading_xy,
+            self._ray_reach_factor, self._target_behind_penalty_weight)
         # Hysteresis: boost the BB we're already committed to so a near-equal one
         # can't steal it; only a BB >bb_switch_margin_m closer wins.
         if self._committed_bb_center is not None:
