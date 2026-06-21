@@ -72,18 +72,21 @@ mocap_bridge:
     # topics are <robot_name>/perception/optitrack/<body>; adjust the prefix
     # to what `ros2 topic list` shows on your setup.
     mocap_topic_template: "/{name}/pose"
-    # 'direct' = publish px4_msgs/VehicleOdometry straight to
-    # /{name}/fmu/in/vehicle_visual_odometry (timestamp 0, quality 100,
-    # velocity NaN — mirrors the proven reference). 'via_interface' routes
-    # nav_msgs/Odometry through px4_interface instead.
+    # px4_vio_mode selects the output path; only its matching *_topic_template
+    # below is used (the other is ignored):
+    #   'direct'        -> px4_vio_topic_template, px4_msgs/VehicleOdometry sent
+    #                      straight to PX4 (timestamp 0, quality 100, velocity
+    #                      NaN — mirrors the proven reference). THE DEFAULT.
+    #   'via_interface' -> visual_odometry_topic_template, nav_msgs/Odometry
+    #                      handed to px4_interface, which converts + republishes.
     px4_vio_mode: "direct"
     # 'enu_to_ned' if mocap is ROS-standard ENU; 'modalai_flip' (the reference
     # transform) if it is Motive's raw frame. VERIFY with the hand-check in
-    # experiment.md before flying.
+    # experiment.md before flying. (direct mode only)
     px4_vio_frame: "enu_to_ned"
-    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
-    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    vio_quality: 100                                              # direct mode only
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"  # direct mode
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface only
     mocap_frame: "map"
-    vio_quality: 100
-    velocity_filter_alpha: 0.4
+    velocity_filter_alpha: 0.4                                    # via_interface only
     mocap_qos_best_effort: false
