@@ -60,6 +60,11 @@ swarm_commander:
     cbf_alpha: 2.5
     teleop_max_speed_mps: 1.0
 
+    # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> all hold, ~/reset_fence to clear
+    fence_enabled: true
+    fence_min: [-4.0, -2.0, 0.0]
+    fence_max: [4.0, 2.0, 3.0]
+
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_1", "drone_2", "drone_3"]
@@ -67,12 +72,18 @@ mocap_bridge:
     # topics are <robot_name>/perception/optitrack/<body>; adjust the prefix
     # to what `ros2 topic list` shows on your setup.
     mocap_topic_template: "/{name}/pose"
+    # 'direct' = publish px4_msgs/VehicleOdometry straight to
+    # /{name}/fmu/in/vehicle_visual_odometry (timestamp 0, quality 100,
+    # velocity NaN — mirrors the proven reference). 'via_interface' routes
+    # nav_msgs/Odometry through px4_interface instead.
+    px4_vio_mode: "direct"
+    # 'enu_to_ned' if mocap is ROS-standard ENU; 'modalai_flip' (the reference
+    # transform) if it is Motive's raw frame. VERIFY with the hand-check in
+    # experiment.md before flying.
+    px4_vio_frame: "enu_to_ned"
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
     visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
     mocap_frame: "map"
+    vio_quality: 100
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false
-
-    # Geofence: SET TO YOUR CAPTURE VOLUME. breach -> all hold, ~/reset_fence to clear
-    fence_enabled: true
-    fence_min: [-4.0, -2.0, 0.0]
-    fence_max: [4.0, 2.0, 3.0]

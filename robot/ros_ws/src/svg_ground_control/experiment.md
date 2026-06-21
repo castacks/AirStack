@@ -454,6 +454,49 @@ ros2 topic echo /drone_1/pose --once          # sane x,y,z = where the drone sit
 - `mocap_bridge` consumes `/<name>/pose` (`mocap_topic_template: "/{name}/pose"`
   in `swarm_real.yaml`), forwarding mocap → PX4 visual odometry.
 
+### B4b. External vision → EKF2 (the arm blocker)
+
+Indoors with no GPS/VIO, PX4 EKF2 has **no position source** unless mocap is
+fed in as external vision. Until it fuses one it produces no estimate, emits
+no `/fmu/out/vehicle_odometry`, and **refuses to arm ("fuse failure")**. The
+feed path (with `px4_vio_mode: direct`, the default):
+
+```
+/{name}/pose ─ mocap_bridge ─► /{name}/fmu/in/vehicle_visual_odometry
+            (px4_msgs/VehicleOdometry: timestamp 0, quality 100, pose-only)
+                                   │
+                                   ▼  EKF2 (needs EKF2_EV_CTRL set)
+                            /{name}/fmu/out/vehicle_odometry
+```
+
+**1. EKF2 params (per drone, once — QGC or `px4-param`; the comms script does
+NOT set these).** Without them PX4 ignores `vehicle_visual_odometry` entirely:
+```
+EKF2_EV_CTRL = 11      # bitmask: horiz pos(1) + vert pos(2) + yaw(8) = 11
+EKF2_HGT_REF = 3       # height reference = Vision
+EKF2_GPS_CTRL = 0      # no GPS indoors
+EKF2_EV_DELAY ≈ 50     # ms; mocap-over-WiFi latency (tune)
+```
+
+**2. Verify the feed reaches PX4 — mind the QoS.** PX4 `/fmu/*` topics are
+**best_effort**; a plain `ros2 topic echo` (reliable) shows **nothing** and
+looks broken when it isn't. Always:
+```bash
+ros2 topic hz   /drone_1/fmu/in/vehicle_visual_odometry            # ~mocap rate (mocap_bridge alive)
+ros2 topic echo /drone_1/fmu/out/vehicle_odometry --once \
+  --qos-reliability best_effort --qos-durability volatile          # EKF IS fusing -> position appears
+```
+If `in/…` streams but `out/…` stays silent, EKF2 isn't accepting it → re-check
+the params above, or the timestamp/frame below.
+
+**3. Frame hand-check (do before every first flight).** Carry the drone a
+metre toward PX4 **North** (the agreed forward), watch `out/vehicle_odometry`:
+`position[0]` (N) must **increase**; carrying East increases `position[1]`;
+lifting it increases nothing in z down (`position[2]` decreases). If axes are
+swapped/mirrored, your mocap isn't ROS-ENU — flip `px4_vio_frame:
+"modalai_flip"` in `swarm_real.yaml` (the reference transform) and re-check.
+This `direct`/`modalai_flip` path reproduces the proven `model_ai_tfpub.cpp`.
+
 ### B5. See the drone in RViz (no flight)
 
 Bring up the commander **without taking off** + the mocap bridge, then watch
@@ -783,6 +826,9 @@ come up before starting a test.
 | hardware: can't reach the drone / Motive (no `/fmu/*`, no `/<body>/pose` topics) | the robot container is on the Docker **bridge** net, not your LAN. Set `robot-desktop` to `network_mode: host` (comment out `networks:`/`ports:`) and `./airstack.sh up` — Part B prerequisite. Host mode ⇒ `NUM_ROBOTS=1` |
 | `MicroXRCEAgent: command not found` | not shipped in the image — run the published `microros/micro-ros-agent:jazzy udp4 --port 8888` host container (B2), or build `MicroXRCEAgent` from source / bake into the robot image. Keep `ROS_DOMAIN_ID=1` on the agent |
 | Drone not reachable / wrong or stale IP (e.g. old static `192.168.30.x`) | ADB in and reset `wlan0` to DHCP: `ip addr flush dev wlan0 && ip link set wlan0 up && udhcpc -i wlan0` (or `dhclient -v wlan0`), then `ip addr show wlan0`. Make it persistent via the `systemd-networkd` `*wlan0*.network` (`DHCP=yes`) or a router-side DHCP reservation — see [B0](#b0-get-the-drone-onto-your-lan-wi-fi--dhcp) |
+| real drone **won't arm** ("fuse failure" / "no position"), no `/fmu/out/vehicle_odometry` | EKF2 has no position source. Set `EKF2_EV_CTRL`/`EKF2_HGT_REF=Vision`/`EKF2_GPS_CTRL=0` (B4b), and verify `/{name}/fmu/in/vehicle_visual_odometry` is streaming. The SVG real path feeds it via `mocap_bridge` (`px4_vio_mode: direct`) — **not** MAVROS |
+| `ros2 topic echo /…/fmu/out/…` shows nothing (but the topic exists) | PX4 `/fmu/*` are **best_effort**; add `--qos-reliability best_effort --qos-durability volatile` to echo. Not a real outage |
+| EV accepted but drone drifts / flies the wrong way / position mirrored | mocap frame ≠ ROS-ENU. Do the B4b hand-check; set `px4_vio_frame: "modalai_flip"` (the reference transform) in `swarm_real.yaml` |
 | Isaac Sim segfaults at startup, backtrace in `librtx.scenedb.plugin.so` / `libcarb.scenerenderer-rtx.plugin.so` at `carbOnPluginStartup` — **also crashes headless**, and a bare empty `SimulationApp({"headless":True})` crashes identically | GPU driver ↔ Isaac Sim RTX incompatibility, NOT an AirStack bug. App boots to `app ready` then the RTX renderer faults on the first frame. Confirmed on RTX 5080 / Blackwell + NVIDIA driver **595.x** + Isaac Sim 5.1.0. Headless and clearing the shader cache do **not** help (the renderer plugin loads at app init regardless; there is no renderer-less path through Kit). **Fix:** install a driver Isaac Sim 5.1 supports — Linux **580.65.06**, or **591.74** (a Blackwell user's confirmed-good version) — using the *open* kernel module variant required for RTX 50-series; or upgrade to a newer Isaac Sim release. ([NVIDIA forum report](https://forums.developer.nvidia.com/t/isaac-sim-5-1-gui-crash-access-violation-on-rtx-5070-ti-blackwell-fixed-by-driver-downgrade-to-591-74/365335)) |
 | MAVROS `connected: false`, no odometry | PX4 SITL not launched: Isaac timeline not playing (`PLAY_SIM_ON_START=true`, or press Play) |
 | takeoff returns success=false right after launch | commander hasn't received odometry yet — wait a few seconds and retry |
