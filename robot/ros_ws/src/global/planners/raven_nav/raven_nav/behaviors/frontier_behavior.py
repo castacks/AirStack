@@ -72,7 +72,9 @@ def _peer_penalty(viewpoints, peer_state, my_id,
 
 NOVELTY_WEIGHT = 100.0
 NOVELTY_NEIGHBORHOOD_CELLS = 5
-BLACKLIST_RADIUS_M = 10.0
+# Exclusion radius around a blacklisted spot; small so it doesn't wipe out
+# reachable frontiers near one unreachable point.
+BLACKLIST_RADIUS_M = 4.0
 
 
 def _nearest_dist(pts_xy: np.ndarray, centers_xy: np.ndarray) -> np.ndarray:
@@ -142,6 +144,10 @@ class FrontierBehavior:
     STUCK_TIMEOUT_S = 5.0
     MAX_STRIKES = 3
     BLACKLIST_RADIUS_M = BLACKLIST_RADIUS_M
+    # Group repeated stuck events onto one strike; wider than the exclusion radius.
+    STRIKE_GROUP_RADIUS_M = 6.0
+    # Blacklist entries expire so dead zones self-heal.
+    BLACKLIST_TTL_S = 60.0
 
     MOMENTUM_WEIGHT = 20.0
     REVERSE_SURCHARGE = 40.0
@@ -262,27 +268,34 @@ class FrontierBehavior:
         return self._last_heading_xy
 
     def _blacklist_array(self) -> np.ndarray:
+        # Drop expired entries so dead zones self-heal (see BLACKLIST_TTL_S).
+        now = self._now_s()
+        self._blacklist_xy = [b for b in self._blacklist_xy
+                              if b['expiry_s'] > now]
         if not self._blacklist_xy:
             return np.zeros((0, 2), dtype=np.float64)
-        return np.stack(self._blacklist_xy)
+        return np.stack([b['xy'] for b in self._blacklist_xy])
 
     def _register_strike(self, target_xy: np.ndarray, debug_logger) -> None:
         """Increment strike count for target_xy; blacklist after MAX_STRIKES."""
         for s in self._strikes:
-            if np.linalg.norm(target_xy - s['xy']) <= self.BLACKLIST_RADIUS_M:
+            if np.linalg.norm(target_xy - s['xy']) <= self.STRIKE_GROUP_RADIUS_M:
                 s['count'] += 1
                 if debug_logger is not None:
                     debug_logger.warn(
                         f'[stuck] strike {s["count"]}/{self.MAX_STRIKES} at '
                         f'({s["xy"][0]:.1f},{s["xy"][1]:.1f})')
                 if s['count'] >= self.MAX_STRIKES:
-                    self._blacklist_xy.append(s['xy'].copy())
+                    self._blacklist_xy.append(
+                        {'xy': s['xy'].copy(),
+                         'expiry_s': self._now_s() + self.BLACKLIST_TTL_S})
                     self._strikes = [x for x in self._strikes if x is not s]
                     if debug_logger is not None:
                         debug_logger.warn(
                             f'[stuck] blacklisting frontier near '
-                            f'({s["xy"][0]:.1f},{s["xy"][1]:.1f}) — '
-                            f'unreachable after {self.MAX_STRIKES} restarts')
+                            f'({s["xy"][0]:.1f},{s["xy"][1]:.1f}) for '
+                            f'{self.BLACKLIST_TTL_S:.0f}s — unreachable after '
+                            f'{self.MAX_STRIKES} restarts')
                 return
         self._strikes.append({'xy': target_xy.copy(), 'count': 1})
         if debug_logger is not None:
@@ -304,7 +317,7 @@ class FrontierBehavior:
 
         if (self._tracked_target_xy is None
                 or np.linalg.norm(target_xy - self._tracked_target_xy)
-                > self.BLACKLIST_RADIUS_M):
+                > self.STRIKE_GROUP_RADIUS_M):
             self._tracked_target_xy = target_xy.copy()
             self._last_motion_xy = np.asarray(cur_pose_np[:2], dtype=np.float64).copy()
             self._last_motion_time_s = now
@@ -400,8 +413,10 @@ class FrontierBehavior:
         if blacklist_xy.shape[0] > 0 and own_frontiers.shape[0] > 0:
             d_bl = _nearest_dist(own_frontiers[:, :2], blacklist_xy)
             keep_mask = d_bl > self.BLACKLIST_RADIUS_M
-            blacklist_dropped_own = int((~keep_mask).sum())
-            own_frontiers = own_frontiers[keep_mask]
+            # Soft: skip if it would drop every frontier (don't strand).
+            if keep_mask.any():
+                blacklist_dropped_own = int((~keep_mask).sum())
+                own_frontiers = own_frontiers[keep_mask]
 
         # Publish the kept set (post altitude+polygon+zone filter) so an
         # operator can watch it shrink in real time in Foxglove. Always
@@ -442,7 +457,9 @@ class FrontierBehavior:
                     if pf_filt.shape[0] > 0 and blacklist_xy.shape[0] > 0:
                         d_peer_bl = _nearest_dist(
                             pf_filt[:, :2], blacklist_xy)
-                        pf_filt = pf_filt[d_peer_bl > self.BLACKLIST_RADIUS_M]
+                        peer_keep = d_peer_bl > self.BLACKLIST_RADIUS_M
+                        if peer_keep.any():  # soft: don't drop all
+                            pf_filt = pf_filt[peer_keep]
                     if pf_filt.shape[0] > 0:
                         # Pad peer xyz with zero counts to match own (N,6).
                         if n_cols > pf_filt.shape[1]:
@@ -499,10 +516,14 @@ class FrontierBehavior:
         if blacklist_xy.shape[0] > 0 and viewpoints.shape[0] > 0:
             d_cent = _nearest_dist(viewpoints[:, :2], blacklist_xy)
             bl_keep = d_cent > self.BLACKLIST_RADIUS_M
-            viewpoints = viewpoints[bl_keep]
-            cluster_sizes = cluster_sizes[bl_keep]
-            if viewpoints.shape[0] == 0:
-                return waypoint_locked, target_waypoint, target_waypoint2
+            # Soft: keep all if blacklist would drop every viewpoint (don't stall).
+            if bl_keep.any():
+                viewpoints = viewpoints[bl_keep]
+                cluster_sizes = cluster_sizes[bl_keep]
+            elif debug_logger is not None:
+                debug_logger.warn(
+                    '[stuck] all viewpoints blacklisted — ignoring blacklist '
+                    'this tick', throttle_duration_sec=2.0)
 
         robot_pos = cur_pose_np
         distances = np.linalg.norm(viewpoints - robot_pos, axis=1)

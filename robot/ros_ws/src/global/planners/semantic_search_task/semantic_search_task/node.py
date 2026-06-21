@@ -210,6 +210,8 @@ class SemanticSearchTaskNode(Node):
         self._task_active = False
         self._cur_pos = None
         self._cur_yaw = 0.0
+        # Last pose of raven's /global_plan; the stuck-recovery faces/creeps to it.
+        self._latest_global_target = None
 
         self._text_query_pub = self.create_publisher(
             String, f'{self._rf_prefix}/new_text_query', 10)
@@ -554,6 +556,56 @@ class SemanticSearchTaskNode(Node):
             self._traj_override_pub.publish(traj)
             time.sleep(0.5)
 
+    def _recover_toward_target(self, creep_m: float = 1.5, hold_s: float = 3.0,
+                               cancel_handle=None) -> None:
+        """Yaw to face raven's target and creep a short step toward it via
+        trajectory_override. Facing it fills in the unseen space ahead so droan
+        resumes planning; the small move breaks the controller's zero-velocity
+        stall. Holds altitude; climbs 1 m when no target / already over it."""
+        if self._cur_pos is None:
+            return
+        target = self._latest_global_target
+        cx, cy, cz = self._cur_pos
+        if target is None:
+            self._nudge_up_override(1.0, hold_s, cancel_handle)
+            return
+        dx, dy = float(target[0]) - cx, float(target[1]) - cy
+        horiz = (dx * dx + dy * dy) ** 0.5
+        if horiz < 0.5:
+            # Already over the target in XY — climb instead.
+            self._nudge_up_override(1.0, hold_s, cancel_handle)
+            return
+        ux, uy = dx / horiz, dy / horiz
+        yaw = float(np.arctan2(dy, dx))
+        step = min(creep_m, horiz)
+        start_x, start_y = cx, cy
+        deadline = time.time() + hold_s
+        while time.time() < deadline:
+            if cancel_handle is not None and cancel_handle.is_cancel_requested:
+                return
+            if self._cur_pos is None:
+                time.sleep(0.1)
+                continue
+            cx, cy, cz = self._cur_pos
+            moved = ((cx - start_x) ** 2 + (cy - start_y) ** 2) ** 0.5
+            if moved >= step - 0.2:
+                return
+            tx, ty = start_x + ux * step, start_y + uy * step
+            traj = TrajectoryXYZVYaw()
+            traj.header.frame_id = 'map'
+            traj.header.stamp = self.get_clock().now().to_msg()
+            steps = 5
+            for i in range(steps + 1):
+                wp = WaypointXYZVYaw()
+                wp.position.x = float(cx + (tx - cx) * i / steps)
+                wp.position.y = float(cy + (ty - cy) * i / steps)
+                wp.position.z = float(cz)
+                wp.velocity = 1.0
+                wp.yaw = yaw
+                traj.waypoints.append(wp)
+            self._traj_override_pub.publish(traj)
+            time.sleep(0.5)
+
     def _interruptible_sleep(self, goal_handle, secs: float) -> bool:
         """Sleep for secs, waking early if cancel requested. Returns True if cancelled."""
         steps = max(1, int(secs / 0.1))
@@ -625,13 +677,14 @@ class SemanticSearchTaskNode(Node):
 
         STUCK_TIMEOUT_S = 5.0
         STUCK_DISTANCE_M = 0.3
-        NUDGE_HEIGHT_M = 1.0
-        MAX_NUDGE_CLIMB_M = 10.0  # cap cumulative override climb per pursuit
+        # Cap cumulative override displacement per stuck episode; reset on motion.
+        MAX_RECOVERY_DIST_M = 12.0
         last_motion_pos = None
         last_motion_time = None
         navigate_restarts = 0
-        first_nudge_z: 'float | None' = None
+        recovery_start_pos: 'list | None' = None
         last_restart_time: 'float | None' = None
+        self._latest_global_target = None
 
         # Search polygon (robot-local 'map' frame) for the out-of-bounds guard.
         # <3 vertices ⇒ unconstrained, so no approach is needed.
@@ -755,6 +808,8 @@ class SemanticSearchTaskNode(Node):
                             f'First raven global_plan received '
                             f'({len(msg.poses)} poses)')
                     raven_published_waypoint = True
+                    p = msg.poses[-1].pose.position  # steered-toward point
+                    self._latest_global_target = (p.x, p.y, p.z)
             self.create_subscription(
                 Path, f'/{robot_name}/global_plan',
                 _global_plan_cb, global_plan_qos, callback_group=self._cbg)
@@ -928,6 +983,8 @@ class SemanticSearchTaskNode(Node):
                         if (dx * dx + dy * dy + dz * dz) ** 0.5 > STUCK_DISTANCE_M:
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = now
+                            # Moving again — clear the per-episode recovery budget.
+                            recovery_start_pos = None
                         elif now - last_motion_time > STUCK_TIMEOUT_S:
                             navigate_restarts += 1
                             self.get_logger().warn(
@@ -947,36 +1004,28 @@ class SemanticSearchTaskNode(Node):
                                 _, navigate_send_future = (
                                     self._send_navigate_activator(robot_name))
 
-                            if nav_mode in ('ray', 'voxel'):
-                                # Real semantic target (ray / bounding box) —
-                                # never abandon it (raven only blacklists
-                                # frontiers). With the follow held in ADD_SEGMENT,
-                                # nudge 1 m up via trajectory_override to break a
-                                # local minimum; droan resumes following raven once
-                                # it can plan forward from the higher pose. Capped
-                                # at MAX_NUDGE_CLIMB_M cumulative per pursuit.
-                                if (first_nudge_z is not None
-                                        and self._cur_pos[2] - first_nudge_z
-                                        >= MAX_NUDGE_CLIMB_M):
-                                    self.get_logger().warn(
-                                        '[recovery] ray/voxel — climb cap reached, '
-                                        'holding (reset_stuck only)')
-                                else:
-                                    if first_nudge_z is None:
-                                        first_nudge_z = self._cur_pos[2]
-                                    self.get_logger().info(
-                                        '[recovery] ray/voxel — nudge 1 m up')
-                                    self._nudge_up_override(
-                                        NUDGE_HEIGHT_M, hold_s=3.0,
-                                        cancel_handle=goal_handle)
+                            # Stall is free-space, not an obstacle: face raven's
+                            # target and creep toward it (climbing never reveals
+                            # the space ahead). Same in all modes; capped.
+                            if (recovery_start_pos is not None and
+                                    (((self._cur_pos[0] - recovery_start_pos[0]) ** 2
+                                      + (self._cur_pos[1] - recovery_start_pos[1]) ** 2
+                                      + (self._cur_pos[2] - recovery_start_pos[2]) ** 2)
+                                     ** 0.5) >= MAX_RECOVERY_DIST_M):
+                                self.get_logger().warn(
+                                    '[recovery] displacement cap reached — '
+                                    'holding, waiting for raven to re-target')
                             else:
-                                # Frontier — disposable. Let raven strike →
-                                # blacklist → re-target on its own. Reset the climb
-                                # budget for the next ray/voxel pursuit.
-                                first_nudge_z = None
+                                if recovery_start_pos is None:
+                                    recovery_start_pos = list(self._cur_pos)
+                                tgt = self._latest_global_target
                                 self.get_logger().info(
-                                    '[recovery] frontier — reset_stuck, let raven '
-                                    're-target')
+                                    '[recovery] face + creep toward target '
+                                    + (f'({tgt[0]:.1f},{tgt[1]:.1f})'
+                                       if tgt is not None else '(none — climbing)'))
+                                self._recover_toward_target(
+                                    creep_m=1.5, hold_s=3.0,
+                                    cancel_handle=goal_handle)
 
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
