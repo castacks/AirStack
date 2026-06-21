@@ -449,10 +449,15 @@ class SemanticSearchTaskNode(Node):
         except Exception as e:
             self.get_logger().warn(f'Failed to cancel NavigateTask: {e}')
 
-    def _send_navigate_activator(self, robot_name: str):
+    def _send_navigate_activator(self, robot_name: str, retries: int = 4):
         """Activate droan_gl with an empty-plan NavigateTask: it enters
         ADD_SEGMENT and steers by the /global_plan topic (raven's waypoint)
-        until cancelled. Returns (client, send_future)."""
+        until cancelled. Waits for the goal to be *accepted* and retries on
+        rejection — droan rejects while a just-cancelled goal is still winding
+        down (its execute loop notices cancel only at 1 Hz), so a too-quick
+        re-send would silently drop the follow out of ADD_SEGMENT and the drone
+        would stop navigating. Returns (client, send_future) with send_future
+        accepted, or (client, None) if it never got accepted."""
         client = ActionClient(
             self, NavigateTask, f'/{robot_name}/tasks/navigate',
             callback_group=self._cbg)
@@ -461,10 +466,23 @@ class SemanticSearchTaskNode(Node):
             return None, None
         goal = NavigateTask.Goal()
         goal.goal_tolerance_m = 1.0
-        send_future = client.send_goal_async(goal)
-        self.get_logger().info(
-            'NavigateTask activator sent to droan_gl — following raven /global_plan')
-        return client, send_future
+        for attempt in range(retries):
+            send_future = client.send_goal_async(goal)
+            deadline = time.time() + 3.0
+            while not send_future.done() and time.time() < deadline:
+                time.sleep(0.05)
+            handle = send_future.result() if send_future.done() else None
+            if handle is not None and getattr(handle, 'accepted', False):
+                self.get_logger().info(
+                    'NavigateTask activator accepted — following raven /global_plan')
+                return client, send_future
+            self.get_logger().warn(
+                f'activator not accepted (attempt {attempt + 1}/{retries}) — '
+                f'droan busy, retrying')
+            time.sleep(1.2)
+        self.get_logger().error(
+            'Failed to activate droan_gl follow — rejected repeatedly')
+        return client, None
 
     def _send_navigate_to(self, robot_name: str, x: float, y: float, z: float,
                           goal_tolerance_m: float = 1.5):
@@ -499,15 +517,14 @@ class SemanticSearchTaskNode(Node):
             f'({x:.1f}, {y:.1f}, {z:.1f})')
         return client, send_future
 
-    def _nudge_up_override(self, height_m: float = 2.0, hold_s: float = 3.0,
+    def _nudge_up_override(self, height_m: float = 1.0, hold_s: float = 3.0,
                            cancel_handle=None) -> None:
         """Climb height_m straight up via a trajectory_override, bypassing
-        droan's global-plan scoring and raven's /global_plan republish. The
-        controller keeps its mode (ADD_SEGMENT, held by the activator), so
-        droan resumes merging raven-derived segments the moment it can plan
-        forward from the higher pose — control returns to raven automatically.
-        Re-published toward a fixed top over hold_s so a stray droan segment
-        can't pull the climb off."""
+        droan's planner. The controller keeps its mode (ADD_SEGMENT, held by the
+        activator), so droan resumes merging raven-derived segments the moment it
+        can plan forward from the higher pose — control returns to raven
+        automatically. Re-published toward a fixed top over hold_s so a stray
+        droan segment can't pull the climb off; holds current heading."""
         if self._cur_pos is None:
             return
         top_z = self._cur_pos[2] + height_m
@@ -525,7 +542,7 @@ class SemanticSearchTaskNode(Node):
             traj = TrajectoryXYZVYaw()
             traj.header.frame_id = 'map'
             traj.header.stamp = self.get_clock().now().to_msg()
-            steps = 8
+            steps = 5
             for i in range(steps + 1):
                 wp = WaypointXYZVYaw()
                 wp.position.x = float(cx)
@@ -608,8 +625,8 @@ class SemanticSearchTaskNode(Node):
 
         STUCK_TIMEOUT_S = 5.0
         STUCK_DISTANCE_M = 0.3
-        NUDGE_HEIGHT_M = 2.0
-        MAX_NUDGE_CLIMB_M = 10.0  # cap cumulative override climb per task
+        NUDGE_HEIGHT_M = 1.0
+        MAX_NUDGE_CLIMB_M = 10.0  # cap cumulative override climb per pursuit
         last_motion_pos = None
         last_motion_time = None
         navigate_restarts = 0
@@ -919,15 +936,25 @@ class SemanticSearchTaskNode(Node):
                                 f'(mode={nav_mode or "?"}, '
                                 f'restart {navigate_restarts})')
 
+                            # Keep the single follow goal alive — do NOT cancel /
+                            # re-send. That churn loses droan's 1 Hz cancel race
+                            # and drops the controller out of ADD_SEGMENT, which
+                            # is itself what stops the drone navigating. Just
+                            # clear droan's rewind state; re-establish the follow
+                            # only if it was never accepted.
+                            self._reset_stuck_pub.publish(Empty())
+                            if navigate_send_future is None:
+                                _, navigate_send_future = (
+                                    self._send_navigate_activator(robot_name))
+
                             if nav_mode in ('ray', 'voxel'):
                                 # Real semantic target (ray / bounding box) —
                                 # never abandon it (raven only blacklists
-                                # frontiers). Keep droan's activator + ADD_SEGMENT
-                                # alive and physically climb via trajectory_override
-                                # so the lift can't be clobbered by raven's
-                                # republish or a wedged droan; droan resumes
-                                # following raven from the higher pose.
-                                self._reset_stuck_pub.publish(Empty())
+                                # frontiers). With the follow held in ADD_SEGMENT,
+                                # nudge 1 m up via trajectory_override to break a
+                                # local minimum; droan resumes following raven once
+                                # it can plan forward from the higher pose. Capped
+                                # at MAX_NUDGE_CLIMB_M cumulative per pursuit.
                                 if (first_nudge_z is not None
                                         and self._cur_pos[2] - first_nudge_z
                                         >= MAX_NUDGE_CLIMB_M):
@@ -938,26 +965,18 @@ class SemanticSearchTaskNode(Node):
                                     if first_nudge_z is None:
                                         first_nudge_z = self._cur_pos[2]
                                     self.get_logger().info(
-                                        '[recovery] ray/voxel target — override '
-                                        'nudge 2 m up')
+                                        '[recovery] ray/voxel — nudge 1 m up')
                                     self._nudge_up_override(
                                         NUDGE_HEIGHT_M, hold_s=3.0,
                                         cancel_handle=goal_handle)
                             else:
-                                # Frontier (or unknown) — disposable. Let raven
-                                # strike → blacklist → re-target on its own; don't
-                                # wipe its strikes with clear_blacklist. Just clear
-                                # droan's rewind state and re-activate the follower.
+                                # Frontier — disposable. Let raven strike →
+                                # blacklist → re-target on its own. Reset the climb
+                                # budget for the next ray/voxel pursuit.
                                 first_nudge_z = None
-                                self._cancel_navigate_task(navigate_send_future)
-                                self._cancel_active_navigation(robot_name)
-                                self._reset_stuck_pub.publish(Empty())
                                 self.get_logger().info(
                                     '[recovery] frontier — reset_stuck, let raven '
                                     're-target')
-                                time.sleep(0.5)
-                                _, navigate_send_future = (
-                                    self._send_navigate_activator(robot_name))
 
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)

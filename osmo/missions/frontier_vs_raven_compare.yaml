@@ -70,7 +70,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    background_queries: "sky, ground, grass, road, bus stop, shed, garage, tree"
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -85,7 +85,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, radio tower, blue container, red container"
-    background_queries: "sky, ground, grass, road, tree, container, gas tank"
+    background_queries: "road, grass, mountain, parking lot, contianer, tree"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -100,7 +100,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, red container"
-    background_queries: "sky, ground, grass, road, Building, cabling winches, blue tarp"
+    background_queries: "road, grass, mountain, parking lot, building, truck, scaffolding"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
@@ -115,7 +115,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
     query: "building, water tower"
-    background_queries: "sky, ground, grass, road, tree"
+    background_queries: "ground, grass, road, tree, pipes"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
