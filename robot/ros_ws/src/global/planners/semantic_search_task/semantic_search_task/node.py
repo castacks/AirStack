@@ -336,6 +336,9 @@ class SemanticSearchTaskNode(Node):
 
         droan_gl is never killed — the stuck path recovers it in-place
         (blacklist → reset_stuck → 2 m nudge); cleanup just cancels its goal.
+
+        In debug mode this cancel is what makes the drone hold at task start
+        (clearing any stale auto-follow); debug then never re-commands it.
         """
         for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
             result = subprocess.run(
@@ -617,6 +620,20 @@ class SemanticSearchTaskNode(Node):
 
     def _execute(self, goal_handle):
         goal = goal_handle.request
+        # Debug/manual-fly mode: spin up rayfronts + raven and publish all their
+        # visualization, but skip every drone-commanding path (droan follow,
+        # out-of-bounds approach, stuck recovery) so the operator can hand-fly
+        # the drone and watch what rayfronts detects. Settable per-goal
+        # (goal.debug; getattr keeps this working pre-task_msgs-rebuild) or
+        # per-node (SEMANTIC_SEARCH_DEBUG env var).
+        # ─── TEMP DEBUG HARDCODE — manual-fly forced ON; REVERT WHEN DONE ───
+        # Restore the two commented lines below (delete `debug = True`) to go
+        # back to per-goal / env-var control.
+        debug = True
+        # debug = (bool(getattr(goal, 'debug', False))
+        #          or os.getenv('SEMANTIC_SEARCH_DEBUG', '').strip().lower()
+        #          in ('1', 'true', 'yes'))
+        # ─── END TEMP DEBUG HARDCODE ────────────────────────────────────────
         # Remember the query so finalize scores GT against the searched classes.
         self._target_query = goal.query
         queries = [q.strip() for q in goal.query.split(',') if q.strip()]
@@ -659,6 +676,11 @@ class SemanticSearchTaskNode(Node):
 
         self.get_logger().info(
             f'SemanticSearchTask | targets={queries} all_queries={all_queries}')
+        if debug:
+            self.get_logger().warn(
+                '[DEBUG] manual-fly mode — rayfronts + raven will start and '
+                'publish visualization, but the drone will NOT be commanded. '
+                'Fly it yourself (navigate / fixed-trajectory from GCS).')
 
         # action_relay has already transformed vertices into the robot's
         # local 'map' frame.
@@ -897,7 +919,9 @@ class SemanticSearchTaskNode(Node):
                         cbc = max(cbc, float(d.get('confidence', 0.0)))
                     # Cancel = the 15-min limit (or a manual stop). Finalize
                     # metrics before returning so they ride out in the result.
-                    metrics_json = self._finalize_metrics('cancelled')
+                    # Debug runs aren't real searches — skip the GT scoring.
+                    metrics_json = '' if debug else self._finalize_metrics(
+                        'cancelled')
                     goal_handle.canceled()
                     result = SemanticSearchTask.Result()
                     result.success = False
@@ -922,8 +946,9 @@ class SemanticSearchTaskNode(Node):
 
                 # Out-of-bounds guard: raven only picks in-polygon frontiers, so
                 # from outside it has nothing to steer toward. Fly to the nearest
-                # in-bounds point first, then hand off. Runs once.
-                if not approached_bounds and self._cur_pos is not None:
+                # in-bounds point first, then hand off. Runs once. Skipped in
+                # debug — the operator positions the drone themselves.
+                if not debug and not approached_bounds and self._cur_pos is not None:
                     if _point_in_polygon_xy(self._cur_pos[0], self._cur_pos[1],
                                             search_poly):
                         approached_bounds = True
@@ -959,7 +984,10 @@ class SemanticSearchTaskNode(Node):
 
                 # Wait for raven's first waypoint before activating droan_gl —
                 # otherwise the drone drifts before raven has any semantic targets.
-                if raven_published_waypoint and not navigation_started:
+                # Skipped in debug: never activate droan follow, so the drone is
+                # left for the operator. navigation_started stays False, which
+                # also disables the stuck-recovery block below.
+                if not debug and raven_published_waypoint and not navigation_started:
                     navigation_started = True
                     self._cancel_active_navigation(robot_name)
                     self.get_logger().info(
@@ -1119,6 +1147,9 @@ class SemanticSearchTaskNode(Node):
                         + status)
                 if navigate_restarts > 0:
                     status += f'\n[navigate restarts: {navigate_restarts}]'
+                if debug:
+                    status = ('[DEBUG] manual-fly — drone NOT commanded; '
+                              'fly it yourself\n' + status)
 
                 fb = SemanticSearchTask.Feedback()
                 fb.status = status

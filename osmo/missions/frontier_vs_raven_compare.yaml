@@ -84,7 +84,7 @@ scene_templates:
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "FireAcademy"
-    query: "red building, water tower, radio tower, blue container, red container"
+    query: "red building, water tower, radio tower"
     background_queries: "road, grass, mountain, parking lot, contianer, tree"
     search_area:
       points:
@@ -274,10 +274,3 @@ steps:
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95
-
-  # optional: a failed landing AFTER the search ran must not trigger a redo.
-  - action:
-      task: land
-      goal: {velocity_m_s: 0.5}
-      timeout_s: 180
-    optional: true

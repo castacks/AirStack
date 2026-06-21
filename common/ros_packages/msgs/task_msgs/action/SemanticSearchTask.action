@@ -16,6 +16,12 @@ float32 confidence_threshold 0.95
 # Optional cap on accumulated instances. 0 = unlimited; task completes only on
 # coverage criterion or operator cancel.
 int32 max_instances 0
+# Debug/manual-fly mode: bring up rayfronts + raven and publish all their
+# visualization (grouped rays, frontiers, bounding boxes, discoveries) but do
+# NOT command the drone — the operator flies it manually (e.g. via the
+# navigate / fixed-trajectory task from GCS) to inspect what rayfronts detects.
+# Also settable per-node via the SEMANTIC_SEARCH_DEBUG env var.
+bool debug false
 ---
 # Result
 bool success
