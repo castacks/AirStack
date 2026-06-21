@@ -34,8 +34,8 @@ environments:
     SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
-    query: "town house"
-    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, power cable, container, utility pole"
+    query: "house"
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, power cable, container, utility pole, car garage"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -48,7 +48,7 @@ environments:
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, radio tower"
-    background_queries: "road, grass, mountain, parking lot"
+    background_queries: "road, grass, mountain, parking lot, contianer, hut, tree"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -61,7 +61,7 @@ environments:
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, red container"
-    background_queries: "road, grass, mountain, parking lot"
+    background_queries: "road, grass, mountain, parking lot, building, truck, scaffolding"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
