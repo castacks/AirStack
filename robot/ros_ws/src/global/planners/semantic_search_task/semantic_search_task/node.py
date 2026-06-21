@@ -21,6 +21,7 @@ from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String, Empty
 from action_msgs.srv import CancelGoal
 from task_msgs.action import SemanticSearchTask, NavigateTask
+from airstack_msgs.msg import TrajectoryXYZVYaw, WaypointXYZVYaw
 
 # ── ANSI / ROS log stripping ──────────────────────────────────────────────────
 
@@ -208,6 +209,7 @@ class SemanticSearchTaskNode(Node):
         self._cbg = ReentrantCallbackGroup()
         self._task_active = False
         self._cur_pos = None
+        self._cur_yaw = 0.0
 
         self._text_query_pub = self.create_publisher(
             String, f'{self._rf_prefix}/new_text_query', 10)
@@ -228,6 +230,9 @@ class SemanticSearchTaskNode(Node):
             Empty, f'{self._robot_prefix}/raven_nav/clear_blacklist', 10)
         self._reset_stuck_pub = self.create_publisher(
             Empty, f'{self._robot_prefix}/droan/reset_stuck', 10)
+        self._traj_override_pub = self.create_publisher(
+            TrajectoryXYZVYaw,
+            f'{self._robot_prefix}/trajectory_controller/trajectory_override', 10)
 
         self.create_subscription(
             Odometry, f'{self._robot_prefix}/odometry',
@@ -246,6 +251,10 @@ class SemanticSearchTaskNode(Node):
     def _odom_cb(self, msg: Odometry):
         p = msg.pose.pose.position
         self._cur_pos = [p.x, p.y, p.z]
+        q = msg.pose.pose.orientation
+        self._cur_yaw = float(np.arctan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z)))
 
     def _publish_search_area(self, polygon: Polygon) -> None:
         """Republish the polygon as a stamped, frame-tagged message for raven_nav.
@@ -490,6 +499,44 @@ class SemanticSearchTaskNode(Node):
             f'({x:.1f}, {y:.1f}, {z:.1f})')
         return client, send_future
 
+    def _nudge_up_override(self, height_m: float = 2.0, hold_s: float = 3.0,
+                           cancel_handle=None) -> None:
+        """Climb height_m straight up via a trajectory_override, bypassing
+        droan's global-plan scoring and raven's /global_plan republish. The
+        controller keeps its mode (ADD_SEGMENT, held by the activator), so
+        droan resumes merging raven-derived segments the moment it can plan
+        forward from the higher pose — control returns to raven automatically.
+        Re-published toward a fixed top over hold_s so a stray droan segment
+        can't pull the climb off."""
+        if self._cur_pos is None:
+            return
+        top_z = self._cur_pos[2] + height_m
+        yaw = self._cur_yaw
+        deadline = time.time() + hold_s
+        while time.time() < deadline:
+            if cancel_handle is not None and cancel_handle.is_cancel_requested:
+                return
+            if self._cur_pos is None:
+                time.sleep(0.1)
+                continue
+            cx, cy, cz = self._cur_pos
+            if cz >= top_z - 0.2:
+                return
+            traj = TrajectoryXYZVYaw()
+            traj.header.frame_id = 'map'
+            traj.header.stamp = self.get_clock().now().to_msg()
+            steps = 8
+            for i in range(steps + 1):
+                wp = WaypointXYZVYaw()
+                wp.position.x = float(cx)
+                wp.position.y = float(cy)
+                wp.position.z = float(cz + (top_z - cz) * i / steps)
+                wp.velocity = 1.0
+                wp.yaw = float(yaw)
+                traj.waypoints.append(wp)
+            self._traj_override_pub.publish(traj)
+            time.sleep(0.5)
+
     def _interruptible_sleep(self, goal_handle, secs: float) -> bool:
         """Sleep for secs, waking early if cancel requested. Returns True if cancelled."""
         steps = max(1, int(secs / 0.1))
@@ -561,11 +608,12 @@ class SemanticSearchTaskNode(Node):
 
         STUCK_TIMEOUT_S = 5.0
         STUCK_DISTANCE_M = 0.3
-        BLACKLIST_RESTARTS = 3
-        ESCALATE_AFTER_RESTARTS = 10
+        NUDGE_HEIGHT_M = 2.0
+        MAX_NUDGE_CLIMB_M = 10.0  # cap cumulative override climb per task
         last_motion_pos = None
         last_motion_time = None
         navigate_restarts = 0
+        first_nudge_z: 'float | None' = None
         last_restart_time: 'float | None' = None
 
         # Search polygon (robot-local 'map' frame) for the out-of-bounds guard.
@@ -674,6 +722,7 @@ class SemanticSearchTaskNode(Node):
             discoveries_lock = threading.Lock()
 
             nav_mode_complete = False
+            nav_mode = ''
 
             # BEST_EFFORT QoS to match raven's publisher (some robots publish
             # global_plan as BEST_EFFORT, others RELIABLE; BEST_EFFORT accepts both).
@@ -727,8 +776,9 @@ class SemanticSearchTaskNode(Node):
 
             # Single source of truth for "polygon explored".
             def _nav_mode_cb(msg):
-                nonlocal nav_mode_complete
-                if (msg.data or '').strip() == 'complete':
+                nonlocal nav_mode_complete, nav_mode
+                nav_mode = (msg.data or '').strip()
+                if nav_mode == 'complete':
                     nav_mode_complete = True
             self.create_subscription(
                 String, f'/{robot_name}/navigation_mode',
@@ -865,59 +915,53 @@ class SemanticSearchTaskNode(Node):
                             navigate_restarts += 1
                             self.get_logger().warn(
                                 f'Robot has not moved >{STUCK_DISTANCE_M:.1f} m in '
-                                f'{STUCK_TIMEOUT_S:.1f}s — re-activating droan_gl '
-                                f'(restart {navigate_restarts})')
-                            self._cancel_navigate_task(navigate_send_future)
-                            self._cancel_active_navigation(robot_name)
+                                f'{STUCK_TIMEOUT_S:.1f}s — recovering '
+                                f'(mode={nav_mode or "?"}, '
+                                f'restart {navigate_restarts})')
 
-                            # Tiered recovery: first few stucks clear raven's
-                            # blacklist so it repicks a frontier (new
-                            # /global_plan); after that, reset droan_gl's stuck
-                            # history instead.
-                            if navigate_restarts <= BLACKLIST_RESTARTS:
-                                self._clear_blacklist_pub.publish(Empty())
-                                self.get_logger().info(
-                                    '[recovery] cleared raven blacklist')
+                            if nav_mode in ('ray', 'voxel'):
+                                # Real semantic target (ray / bounding box) —
+                                # never abandon it (raven only blacklists
+                                # frontiers). Keep droan's activator + ADD_SEGMENT
+                                # alive and physically climb via trajectory_override
+                                # so the lift can't be clobbered by raven's
+                                # republish or a wedged droan; droan resumes
+                                # following raven from the higher pose.
+                                self._reset_stuck_pub.publish(Empty())
+                                if (first_nudge_z is not None
+                                        and self._cur_pos[2] - first_nudge_z
+                                        >= MAX_NUDGE_CLIMB_M):
+                                    self.get_logger().warn(
+                                        '[recovery] ray/voxel — climb cap reached, '
+                                        'holding (reset_stuck only)')
+                                else:
+                                    if first_nudge_z is None:
+                                        first_nudge_z = self._cur_pos[2]
+                                    self.get_logger().info(
+                                        '[recovery] ray/voxel target — override '
+                                        'nudge 2 m up')
+                                    self._nudge_up_override(
+                                        NUDGE_HEIGHT_M, hold_s=3.0,
+                                        cancel_handle=goal_handle)
                             else:
+                                # Frontier (or unknown) — disposable. Let raven
+                                # strike → blacklist → re-target on its own; don't
+                                # wipe its strikes with clear_blacklist. Just clear
+                                # droan's rewind state and re-activate the follower.
+                                first_nudge_z = None
+                                self._cancel_navigate_task(navigate_send_future)
+                                self._cancel_active_navigation(robot_name)
                                 self._reset_stuck_pub.publish(Empty())
                                 self.get_logger().info(
-                                    '[recovery] reset_stuck -> droan_gl')
+                                    '[recovery] frontier — reset_stuck, let raven '
+                                    're-target')
+                                time.sleep(0.5)
+                                _, navigate_send_future = (
+                                    self._send_navigate_activator(robot_name))
 
-                            time.sleep(0.5)
-                            _, navigate_send_future = self._send_navigate_activator(
-                                robot_name)
                             last_restart_time = time.time()
                             last_motion_pos = list(self._cur_pos)
                             last_motion_time = time.time()
-
-                            if navigate_restarts >= ESCALATE_AFTER_RESTARTS:
-                                # Every soft recovery failed — physically nudge
-                                # 2 m up to escape a local minimum, then resume
-                                # following raven's /global_plan.
-                                self.get_logger().error(
-                                    f'[escalation] {navigate_restarts} restarts — '
-                                    f'nudging 2 m up')
-                                self._cancel_navigate_task(navigate_send_future)
-                                self._cancel_active_navigation(robot_name)
-                                start_z = self._cur_pos[2]
-                                _, nudge_future = self._send_navigate_to(
-                                    robot_name, self._cur_pos[0], self._cur_pos[1],
-                                    start_z + 2.0, goal_tolerance_m=0.5)
-                                deadline = time.time() + 15.0
-                                while time.time() < deadline:
-                                    if goal_handle.is_cancel_requested:
-                                        break
-                                    if (self._cur_pos is not None
-                                            and self._cur_pos[2] - start_z > 1.5):
-                                        break
-                                    time.sleep(0.5)
-                                self._cancel_navigate_task(nudge_future)
-                                self._cancel_active_navigation(robot_name)
-                                _, navigate_send_future = (
-                                    self._send_navigate_activator(robot_name))
-                                navigate_restarts = 0
-                                last_motion_pos = list(self._cur_pos)
-                                last_motion_time = time.time()
 
                 # Resend queries whenever rayfronts' subscriber appears (initial
                 # load AND any restart mid-task). All queries (target + background)
@@ -1002,7 +1046,7 @@ class SemanticSearchTaskNode(Node):
                 if last_restart_time is not None and (
                         time.time() - last_restart_time) < 3.0:
                     status = (
-                        f'[failsafe] Re-activated droan_gl — drone stuck '
+                        f'[failsafe] Recovering — drone stuck '
                         f'(<{STUCK_DISTANCE_M:.1f} m in {STUCK_TIMEOUT_S:.1f}s)\n'
                         + status)
                 if navigate_restarts > 0:
