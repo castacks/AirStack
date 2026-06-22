@@ -778,7 +778,7 @@ class SemanticSearchTaskNode(Node):
             # RetroNeighborhood needs a stricter voxel similarity gate (0.9);
             # other scenes use 0.85.
             voxel_score_threshold = (
-                0.9 if RESULTS_SCENE.strip().lower() == 'retroneighborhood'
+                0.87 if RESULTS_SCENE.strip().lower() == 'retroneighborhood'
                 else 0.85)
             raven_proc, raven_q = self._spawn([
                 'ros2', 'run', 'raven_nav', 'raven_nav_node',

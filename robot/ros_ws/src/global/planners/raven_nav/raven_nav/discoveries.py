@@ -162,6 +162,28 @@ def merge_similar_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarge
     return _greedy_merge(sources, _same_target)
 
 
+# A visited box additionally glues to a NEAR same-label box (within this gap) so a
+# reached target flips to visited even when the visited fragment is offset (a
+# different peak, or a peer's view). Plain observing boxes still need real overlap.
+HOUSE_VISITED_GAP_M = 4.0
+
+
+def _house_pred(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
+    if a.label != b.label:
+        return False
+    if _same_target(a, b):
+        return True
+    if a.status == 'visited' or b.status == 'visited':
+        return aabb_surface_gap(a, b) <= HOUSE_VISITED_GAP_M
+    return False
+
+
+def merge_house_boxes(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
+    """One box per house for display + visited-flip: same-target boxes coincide,
+    and a visited box flips a near same-label box even without overlap."""
+    return _greedy_merge(sources, _house_pred)
+
+
 def _stable_id(label: str, center: np.ndarray) -> str:
     snap = np.round(center, 0).astype(int)
     h = hashlib.md5(f"{label}|{snap[0]},{snap[1]},{snap[2]}".encode()).hexdigest()

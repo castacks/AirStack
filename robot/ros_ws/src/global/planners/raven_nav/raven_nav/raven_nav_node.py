@@ -25,7 +25,7 @@ from raven_nav.behavior_manager import BehaviorManager
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
-from raven_nav.ray_groups import compute_ray_groups, same_ray_group
+from raven_nav.ray_groups import RayGroup, compute_ray_groups, same_ray_group
 from raven_nav.track_confirmation import TemporalConfirmer
 from raven_nav.ray_targets import build_targets, ray_aabb_hits, is_same_target
 from raven_nav.discoveries import (
@@ -34,6 +34,7 @@ from raven_nav.discoveries import (
     confirmed_targets_to_json,
     discoveries_to_json,
     merge_confirmed_targets,
+    merge_house_boxes,
     merge_similar_targets,
 )
 
@@ -681,7 +682,7 @@ class RavenNavNode(Node):
             srcs.append(ConfirmedTarget(label=lab, center=b[:3],
                                         size=(b[3:6] if b.size >= 6 else np.full(3, 1.0)),
                                         status='visited', confidence=1.0, ts=0.0))
-        return merge_similar_targets(srcs)
+        return merge_house_boxes(srcs)
 
     def _fresh_peers(self, now) -> set:
         """Peers heard from within the TTL (stale peers' state is ignored)."""
@@ -911,6 +912,30 @@ class RavenNavNode(Node):
             if float(np.linalg.norm(v - t * d)) <= self._RAY_CLEAR_PERP_M:
                 return True
         return False
+
+    def _ensure_followable_lead(self, my_task) -> None:
+        """Guarantee the assigned ray-lead is in ray_behavior's groups so the
+        drone can navigate to it even when this tick's rays (or its own rayfronts)
+        don't contain it — e.g. a persistent lead or a peer's lead. Without this a
+        ray-assigned drone would drop to frontier."""
+        o = np.asarray(self._committed_target_last_origin, dtype=float)
+        d = np.asarray(self._committed_target_last_dir, dtype=float)
+        nd = float(np.linalg.norm(d[:2]))
+        if nd < 1e-6:
+            return
+        rg = self._behavior_manager.ray_behavior.ray_groups
+        d2 = d[:2] / nd
+        for g in rg:
+            if g.label != my_task.label:
+                continue
+            gd = np.asarray(g.avg_dir, dtype=float)[:2]
+            gn = float(np.linalg.norm(gd))
+            if gn > 1e-6 and float(np.dot(d2, gd / gn)) >= self._RAY_LEAD_DIR_COS:
+                return   # a real matching group already exists
+        synth = RayGroup(label=my_task.label, ray_origins=o.reshape(1, 3),
+                         ray_dirs=d.reshape(1, 3), ray_scores=np.ones((1, 1)))
+        synth._finalize(self._cur_pose if self._cur_pose is not None else o)
+        rg.append(synth)
 
     def _accumulate_ray_leads(self, ray_groups, all_completed, now, agent_pos) -> None:
         """Fold the current ray groups into the persistent lead memory (dedup by
@@ -2149,6 +2174,7 @@ class RavenNavNode(Node):
                 self._committed_target_last_origin = np.asarray(base, float).copy()
                 self._committed_target_last_dir = np.asarray(
                     my_task.direction, float).copy()
+                self._ensure_followable_lead(my_task)
             else:
                 # Localized target (BB or triangulated ray): head to the point.
                 self._committed_bb_center = np.asarray(my_task.centroid, float).copy()

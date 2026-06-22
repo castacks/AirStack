@@ -211,13 +211,17 @@ class PayloadVisualizerNode(Node):
             m.lifetime = Duration(sec=0, nanosec=0)
             if (not is_bb) and 'dx' in it:
                 # Lone ray-lead: short fixed-length arrow along the bearing from
-                # the ray point (range unknown -> no projected endpoint).
+                # the ray point (range unknown -> no projected endpoint). Shorten a
+                # downward arrow so its tip stays above ground (no underground rays).
                 L = 6.0
+                dz = float(it['dz'])
+                if dz < -1e-3:
+                    L = min(L, max(z - 0.3, 0.0) / (-dz))
                 m.type = Marker.ARROW
                 m.points = [
                     GPoint(x=x, y=y, z=z),
                     GPoint(x=x + float(it['dx']) * L, y=y + float(it['dy']) * L,
-                           z=z + float(it['dz']) * L)]
+                           z=z + dz * L)]
                 m.scale.x, m.scale.y, m.scale.z = 0.4, 1.0, 0.0
                 m.color.a = max(alpha, 0.8)
             else:
@@ -243,8 +247,10 @@ class PayloadVisualizerNode(Node):
             aid = it.get('assigned')
             lab = str(it.get('label', '?'))
             st = str(it.get('status', ''))
-            txt.text = (f'{lab} [{st}]' + (f' -> r{aid}' if aid is not None else '')
-                        ) if st else lab
+            # Rays: just the query. BBs: query + [observing]/[visited] (no 'bb-').
+            tag = f' [{st[3:]}]' if st.startswith('bb-') else ''
+            who = f' -> r{aid}' if aid is not None else ''
+            txt.text = f'{lab}{tag}{who}'
             txt.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(txt)
             mid += 1

@@ -97,19 +97,19 @@ class AuctionViewer(Node):
         if not avail:
             print("    (none)")
         else:
-            print(f"    {'query':<16} {'kind':<5} {'x':>8} {'y':>8} {'assigned':>9}")
+            print(f"    {'query':<16} {'state':<10} {'x':>8} {'y':>8} {'assigned':>9}")
             # BBs first, then ray-leads.
             order = {'bb-visited': 0, 'bb-observing': 1, 'ray': 2}
             for t in sorted(avail, key=lambda r: order.get(r.get('status'), 9)):
                 st = t.get('status', '?')
                 col = STATE_COLOR.get(st, "")
-                # rays carry only their query; BBs are marked.
-                kind = "BB" if st.startswith('bb') else ""
+                # rays carry only their query; BBs show observing/visited (no 'bb-').
+                state = st[3:] if st.startswith('bb-') else ""
                 aid = t.get('assigned')
                 mine = (aid is not None and aid == my_id)
                 who = (f"r{aid}" if aid is not None else "-")
                 who_s = (f"{BOLD}{who}*{RESET}" if mine else who)
-                print(f"    {col}{str(t.get('label','')):<16}{RESET} {kind:<5} "
+                print(f"    {col}{str(t.get('label','')):<16}{RESET} {state:<10} "
                       f"{t.get('x',0):>8.1f} {t.get('y',0):>8.1f} {who_s:>9}")
         print(f"\n{DIM}* = assigned to this robot.  Ctrl+C to quit{RESET}")
 

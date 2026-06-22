@@ -304,6 +304,17 @@ def _task_surface_dist_xy(pos_xy, task) -> float:
     return float(np.linalg.norm(gap))
 
 
+# Peer repulsion for the consensus assignment: soft exp cost added to a task near
+# an already-assigned one, so drones fan out across different areas (mild — it
+# reorders choices, it does not force big detours).
+PEER_REPULSION_W = 15.0
+PEER_REPULSION_SCALE = 15.0
+# Ray-lead cost surcharge: a localized BB is preferred over a ray at a comparable
+# distance (a ray's true range is unknown, so it costs more to resolve). A ray
+# must be this much closer than a BB to win it.
+RAY_COST_PENALTY = 15.0
+
+
 def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
     """Cluster (label, centre(3), size(3)) BBs from ALL sources (own + peers) into
     shared tasks. Single-linkage on xy centre proximity within a label; processed
@@ -408,19 +419,22 @@ class ConsensusAssigner:
             return {}
         aids = sorted(agent_pos)
         by_key = {t.key: t for t in tasks}
-        cost: Dict[Tuple[int, Tuple], float] = {}
+        base: Dict[Tuple[int, Tuple], float] = {}
         for a in aids:
             p = np.asarray(agent_pos[a], float)
             inc = self._prev.get(a)
             for t in tasks:
                 c = _task_surface_dist_xy(p, t)
+                if str(t.status).startswith('ray'):
+                    c += RAY_COST_PENALTY   # BBs preferred over rays at like distance
                 if inc is not None and float(
                         np.linalg.norm(t.centroid[:2] - inc[:2])) <= match_m:
                     c -= switch_margin   # incumbent retention (CBBA winner stickiness)
-                cost[(a, t.key)] = c
+                base[(a, t.key)] = c
         used_a: set = set()
         used_t: set = set()
         assigned: Dict[int, Tuple] = {}
+        taken_centroids: List[np.ndarray] = []
         while len(used_a) < len(aids) and len(used_t) < len(by_key):
             best = None
             for a in aids:
@@ -429,7 +443,16 @@ class ConsensusAssigner:
                 for t in tasks:
                     if t.key in used_t:
                         continue
-                    k = (cost[(a, t.key)], a, t.key)
+                    # Peer repulsion: penalise a task near an already-assigned
+                    # one so drones spread to different areas (frontier
+                    # _peer_penalty analog). Only reorders which task a drone
+                    # takes — it still always takes one when free.
+                    c = base[(a, t.key)]
+                    for ac in taken_centroids:
+                        d = float(np.linalg.norm(t.centroid[:2] - ac[:2]))
+                        c += PEER_REPULSION_W * float(
+                            np.exp(-d / PEER_REPULSION_SCALE))
+                    k = (c, a, t.key)
                     if best is None or k < best:
                         best = k
             if best is None:
@@ -438,6 +461,7 @@ class ConsensusAssigner:
             assigned[a] = tk
             used_a.add(a)
             used_t.add(tk)
+            taken_centroids.append(by_key[tk].centroid)
         self._prev = {a: by_key[tk].centroid for a, tk in assigned.items()}
         return assigned
 
