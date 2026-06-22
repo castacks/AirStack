@@ -171,6 +171,81 @@ class PayloadVisualizerNode(Node):
             m.lifetime = Duration(sec=2, nanosec=0)
         self._pub_for(f'/gcs/payload/{robot_name}/filtered_rays', MarkerArray).publish(out_ma)
 
+    # state -> RGB for the auction-table overlay.
+    _AUCTION_COLOR = {
+        'ray': (1.0, 0.55, 0.0), 'ray-localized': (1.0, 0.9, 0.1),
+        'bb-observing': (0.1, 0.7, 1.0), 'bb-visited': (0.5, 0.5, 0.5)}
+
+    def _handle_auction_table(self, robot_name, msg, i, now):
+        """Build the combined consensus-table overlay from raven's JSON auction
+        table (global ENU = GCS 'map'): a box/sphere per available target colored
+        by state with an assigned-robot label. Visited BBs are drawn dim."""
+        try:
+            data = json.loads(msg.data) if msg.data else {}
+        except (ValueError, AttributeError):
+            return
+        out = MarkerArray()
+        clear = Marker()
+        clear.header.frame_id = 'map'
+        clear.ns = f'{robot_name}_auction'
+        clear.action = Marker.DELETEALL
+        out.markers.append(clear)
+        mid = i * 100000
+
+        def _box(it, rgb, alpha, is_bb, suffix):
+            nonlocal mid
+            try:
+                x, y, z = float(it['x']), float(it['y']), float(it.get('z', 0.0))
+            except (KeyError, TypeError, ValueError):
+                return
+            sx = float(it.get('sx', 0.0)) or 3.0
+            sy = float(it.get('sy', 0.0)) or 3.0
+            sz = float(it.get('sz', 0.0)) or 3.0
+            m = Marker()
+            m.header.frame_id = 'map'
+            m.header.stamp = now
+            m.ns = f'{robot_name}_auction_{suffix}'
+            m.id = mid
+            m.type = Marker.CUBE if is_bb else Marker.SPHERE
+            m.action = Marker.ADD
+            m.pose.position.x, m.pose.position.y, m.pose.position.z = x, y, z
+            m.pose.orientation.w = 1.0
+            m.scale.x, m.scale.y, m.scale.z = max(sx, 1.0), max(sy, 1.0), max(sz, 1.0)
+            m.color.r, m.color.g, m.color.b, m.color.a = (*rgb, alpha)
+            m.lifetime = Duration(sec=0, nanosec=0)
+            out.markers.append(m)
+            mid += 1
+            txt = Marker()
+            txt.header.frame_id = 'map'
+            txt.header.stamp = now
+            txt.ns = f'{robot_name}_auction_labels'
+            txt.id = mid
+            txt.type = Marker.TEXT_VIEW_FACING
+            txt.action = Marker.ADD
+            txt.pose.position.x, txt.pose.position.y = x, y
+            txt.pose.position.z = z + max(sz, 1.0) / 2.0 + 1.2
+            txt.pose.orientation.w = 1.0
+            txt.scale.z = 1.2
+            txt.color.r, txt.color.g, txt.color.b, txt.color.a = (*rgb, 1.0)
+            aid = it.get('assigned')
+            lab = str(it.get('label', '?'))
+            st = str(it.get('status', ''))
+            txt.text = (f'{lab} [{st}]' + (f' -> r{aid}' if aid is not None else '')
+                        ) if st else lab
+            txt.lifetime = Duration(sec=0, nanosec=0)
+            out.markers.append(txt)
+            mid += 1
+
+        for it in data.get('available', []):
+            st = str(it.get('status', 'ray'))
+            _box(it, self._AUCTION_COLOR.get(st, (1.0, 1.0, 1.0)), 0.45,
+                 st.startswith('bb'), 'available')
+        for it in data.get('visited_bbs', []):
+            _box({**it, 'status': 'bb-visited'}, (0.4, 0.4, 0.4), 0.18,
+                 True, 'visited')
+        self._pub_for(
+            f'/gcs/payload/{robot_name}/auction_table', MarkerArray).publish(out)
+
     def _handle_raw_frontiers(self, robot_name, msg, i, now):
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         marker = point_cloud2_to_cube_marker(
@@ -381,6 +456,7 @@ class PayloadVisualizerNode(Node):
         'voxels_sim':                 ('sensor_msgs/msg/PointCloud2',        _handle_voxels_sim),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),
+        'auction_table':              ('std_msgs/msg/String',                _handle_auction_table),
     }
 
 

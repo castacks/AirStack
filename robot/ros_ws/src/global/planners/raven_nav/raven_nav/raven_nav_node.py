@@ -263,6 +263,15 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/raven_nav/confirmed_targets', 10)
         self._discoveries_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/discoveries', 10)
+        # Serviced ray-leads (reached + rays cohered) — gossiped so a completed
+        # lead is dropped team-wide and the task table stays bounded.
+        self._served_leads_pub = self.create_publisher(
+            String, f'{self._prefix}/raven_nav/served_leads', 10)
+        # Auction table (JSON, global ENU) — the unified table (visited BBs +
+        # available rays/BBs with state + assignment). Drives the terminal viewer
+        # and is gossiped so GCS can build the combined overlay from it.
+        self._auction_table_pub = self.create_publisher(
+            String, f'{self._prefix}/raven_nav/auction_table', 10)
         self._prev_ray_group_marker_count = 0
         self._assigned_target: 'str | None' = None
         self._committed_to_assigned = False
@@ -301,14 +310,15 @@ class RavenNavNode(Node):
         # Persistent visited-target BBs (own + peer) — accumulated, never TTL'd.
         self._peer_visited_bbs: list = []
         # Observing-but-not-visited boxes (own + peer), kept past live-track
-        # age-out so the auction can route a drone back to finish them.
+        # age-out so consensus can route a drone back to finish them.
         self._observed_bbs: dict = {}
-        self._stale_bb_bid_penalty_m = float(self.declare_parameter(
-            'stale_bb_bid_penalty_m', 15.0).value)
-        self._OBS_LIVE_DEDUP_M = 5.0
-        # Event-driven replanning: re-run the CBBA auction only when the discrete
-        # task picture changes (last signature). None = replan on the first tick.
-        self._last_replan_sig = None
+        # CBAA consensus over the unified task table (ray-leads + confirmed BBs).
+        # Every robot solves the same shared task set + agent positions -> same
+        # conflict-free assignment.
+        self._consensus = bid_manager.ConsensusAssigner()
+        # Ray-leads this robot has serviced (reached + rays cohered); persistent,
+        # accumulated own + peer, so a completed lead isn't re-added (bounds table).
+        self._served_leads: list = []   # [(label, point(3))] in local frame
 
         self._publisher_dict = {
             'path': self._path_pub,
@@ -640,48 +650,6 @@ class RavenNavNode(Node):
                 return True
         return False
 
-    def _remembered_bb_clusters_for_bidding(self, peer_committed) -> list:
-        """Stale observing boxes eligible to bid on: not currently a live cluster,
-        not visited (self/peer), not off-limits to a peer. Lets a drone return to
-        a box it saw but never reached after its live track aged out."""
-        vb = self._behavior_manager.voxel_behavior
-        live = [np.asarray(b[:3], dtype=float)
-                for b in vb.target_voxel_clusters.values()]
-        out: list = []
-        for ct in self._observed_bbs.values():
-            center = np.asarray(ct.center, dtype=float)
-            size = np.asarray(ct.size, dtype=float)
-            if any(float(np.linalg.norm(center - lc)) <= self._OBS_LIVE_DEDUP_M
-                   for lc in live):
-                continue
-            if vb.is_visited(center, size, ct.label):
-                continue
-            if self._bb_target_off_limits(center, ct.label, peer_committed):
-                continue
-            out.append((ct.label, center, size))
-        return out
-
-    def _own_bb_clusters_for_bidding(self, peer_committed) -> list:
-        """(label, center, size) for own confirmed clusters eligible to bid on: a
-        target label, not visited by self, and not off-limits to a peer (visited /
-        observed-closer / lower-id committed) — same exclusion the BB release uses,
-        so a dropped BB isn't instantly re-claimed."""
-        vb = self._behavior_manager.voxel_behavior
-        targets = set(self._target_objects or [])
-        out: list = []
-        for cid, bb in vb.target_voxel_clusters.items():
-            label = vb.cluster_query_map.get(cid, '')
-            if not label or (targets and label not in targets):
-                continue
-            center = np.array(bb[:3], dtype=float)
-            size = np.array(bb[3:6], dtype=float)
-            if vb.is_visited(center, size, label):
-                continue
-            if self._bb_target_off_limits(center, label, peer_committed):
-                continue
-            out.append((label, center, size))
-        return out
-
     _VISITED_DEDUP_M = 5.0
 
     def _add_visited(self, label, bb) -> None:
@@ -845,9 +813,116 @@ class RavenNavNode(Node):
         return False
 
     # Project a bearing this far to compare target positions, and the proximity
-    # that counts as the same physical target.
+    # that counts as the same physical target. _TASK_MATCH_M is the single radius
+    # shared by the consensus task clustering and same-target deconfliction.
     _RAY_PROJECT_M = 20.0
-    _PEER_TARGET_MATCH_M = 10.0
+    _TASK_MATCH_M = 10.0
+    _PEER_TARGET_MATCH_M = _TASK_MATCH_M
+    _TASK_KEY_GRID = 6.0
+
+    _LEAD_SERVICE_RADIUS_M = 6.0
+    _LEAD_ALIGN_COS = 0.82   # ~35 deg: a neighboring ray group "same direction"
+
+    def _build_consensus_tasks(self, ray_groups, all_completed, polygon_xy, now_ts):
+        """Unified shared task list: confirmed BBs + ray-leads (from build_targets),
+        minus completed / visited / served. Deterministic from the shared rays +
+        BBs, so every robot derives the same list. A ray-lead carries a far point
+        (range unknown) so its cost exceeds a localized BB -> BB priority."""
+        targets = set(self._target_objects or [])
+        known_bbs, bb_meta = [], {}
+        for i, ct in enumerate(self._observed_bbs.values()):
+            if targets and ct.label not in targets:
+                continue
+            c = np.asarray(ct.center, dtype=float)
+            if self._bb_is_visited(ct.label, c):
+                continue
+            known_bbs.append((i, ct.label,
+                              np.concatenate([c, np.asarray(ct.size, float)])))
+            bb_meta[i] = np.asarray(ct.size, float)
+        rts = build_targets(own_groups=ray_groups, peer_groups=[],
+                            known_bbs=known_bbs, polygon_xy=polygon_xy,
+                            now_ts=now_ts)
+        items = []
+        for rt in rts:
+            if targets and rt.label not in targets:
+                continue
+            if rt.label in all_completed:
+                continue
+            pt = np.asarray(rt.position, dtype=float)
+            if self._bb_is_visited(rt.label, pt) or self._lead_served(rt.label, pt):
+                continue
+            if rt.bb_id is not None:
+                size, status = bb_meta.get(rt.bb_id, np.zeros(3)), 'bb-observing'
+            elif rt.status == 'confirmed':
+                size, status = np.zeros(3), 'ray-localized'
+            else:
+                size, status = np.zeros(3), 'ray'
+            items.append((rt.label, pt, size, status))
+        return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
+
+    def _lead_served(self, label, point) -> bool:
+        """True if this lead was already serviced (own or peer), within match."""
+        p = np.asarray(point, dtype=float)
+        bl = (label or '').lower()
+        served = self._served_leads + [
+            s for lst in self._peer_state.peer_served_leads.values() for s in lst]
+        for lab, c in served:
+            ll = (lab or '').lower()
+            if (bl in ll or ll in bl) and float(np.linalg.norm(
+                    p[:2] - np.asarray(c, float)[:2])) <= self._TASK_MATCH_M:
+                return True
+        return False
+
+    def _add_served_lead(self, label, point) -> None:
+        p = np.asarray(point, dtype=float)[:3]
+        for lab, c in self._served_leads:
+            if lab == label and float(np.linalg.norm(
+                    p[:2] - np.asarray(c, float)[:2])) <= self._VISITED_DEDUP_M:
+                return
+        self._served_leads.append((label, p))
+
+    def _mark_lead_serviced_if_reached(self, my_task, ray_groups) -> None:
+        """Completion: a ray-lead is serviced once the drone reaches it AND a
+        neighboring same-label ray group still points the same way (detection held
+        up). Removes it from the table; gossiped so peers drop it too."""
+        if my_task is None or my_task.status not in ('ray', 'ray-localized'):
+            return
+        if self._cur_pose is None:
+            return
+        pt = np.asarray(my_task.centroid, dtype=float)
+        if float(np.linalg.norm(self._cur_pose[:2] - pt[:2])) > self._LEAD_SERVICE_RADIUS_M:
+            return
+        ref = self._committed_target_last_dir
+        bl = (my_task.label or '').lower()
+        cohered = False
+        for g in ray_groups:
+            gl = (g.label or '').lower()
+            if not (bl in gl or gl in bl) or g.num_rays <= 0:
+                continue
+            d = np.asarray(g.avg_dir, dtype=float)[:2]
+            dn = float(np.linalg.norm(d))
+            if dn < 1e-6:
+                continue
+            if ref is None:
+                cohered = True
+                break
+            r = np.asarray(ref, dtype=float)[:2]
+            rn = float(np.linalg.norm(r))
+            if rn > 1e-6 and float(np.dot(d / dn, r / rn)) >= self._LEAD_ALIGN_COS:
+                cohered = True
+                break
+        if cohered:
+            self._add_served_lead(my_task.label, pt)
+
+    def _agent_positions(self, fresh_peers):
+        """{agent_id: xyz} for me + fresh peers with a known position."""
+        pos = {self._my_id: np.asarray(self._cur_pose, dtype=float)}
+        for name in fresh_peers:
+            pid = self._peer_state.peer_ids.get(name)
+            p = self._peer_state.peer_positions.get(name)
+            if pid is not None and p is not None:
+                pos[pid] = np.asarray(p, dtype=float)
+        return pos
 
     def _ray_point(self, origin, direction) -> np.ndarray:
         d = np.asarray(direction, dtype=float)
@@ -937,53 +1012,6 @@ class RavenNavNode(Node):
                 return True
         return False
 
-    def _bb_observed_by_closer_peer(self, center, label) -> bool:
-        """A peer is observing the BB at `center` from clearly closer (instance-
-        level: BB centre vs the peer's observed BB centre + its distance)."""
-        bbs = getattr(self, '_peer_observing_bbs', None)
-        if not bbs or self._cur_pose is None:
-            return False
-        c = np.asarray(center, dtype=float)
-        bl = (label or '').lower()
-        my_d = float(np.linalg.norm(self._cur_pose[:2] - c[:2]))
-        for plab, bb, ppos in bbs:
-            if ppos is None:
-                continue
-            ll = (plab or '').lower()
-            if not (bl in ll or ll in bl):
-                continue
-            bc = np.asarray(bb, dtype=float)[:3]
-            if float(np.linalg.norm(c[:2] - bc[:2])) > self._PEER_TARGET_MATCH_M:
-                continue
-            peer_d = float(np.linalg.norm(np.asarray(ppos, dtype=float)[:2] - bc[:2]))
-            if peer_d + self._OBSERVER_TAKEOVER_MARGIN_M < my_d:
-                return True
-        return False
-
-    def _bb_peer_visited_or_observed(self, center, label) -> bool:
-        """BB at `center` is at a target a peer has visited, or is observing from
-        clearly closer — instance-level (centre proximity), not line-of-sight."""
-        if self._point_near_bbs(np.asarray(center, dtype=float), label,
-                                getattr(self, '_peer_visited_bbs', None)):
-            return True
-        return self._bb_observed_by_closer_peer(center, label)
-
-    def _bb_peer_committed(self, center, label, peer_committed) -> bool:
-        """A LOWER-id peer is committed to / heading toward the BB at `center`."""
-        c = np.asarray(center, dtype=float)
-        for (_n, pl, po, pd, pid) in peer_committed:
-            if pl != label or pid is None or pid >= self._my_id:
-                continue
-            if self._points_near(c, self._ray_point(po, pd)):
-                return True
-        return False
-
-    def _bb_target_off_limits(self, center, label, peer_committed) -> bool:
-        """BB at `center` should not be bid on: peer-visited, peer-observed from
-        closer, or a lower-id peer committed to it. Same set the BB release uses."""
-        return (self._bb_peer_visited_or_observed(center, label)
-                or self._bb_peer_committed(center, label, peer_committed))
-
     def _rays_share_bb(self, o1, d1, o2, d2, label) -> bool:
         """True if a consensus BB (label-compatible) that BOTH rays pass through
         exists — a same-target signal independent of triangulation."""
@@ -1047,18 +1075,6 @@ class RavenNavNode(Node):
             if same_ray_group(prev, g):
                 return g
         return None
-
-    def _bid_is_committed(self, b) -> bool:
-        """True if bid b is the target this drone is currently committed to."""
-        if b.is_bb:
-            return (self._committed_bb_center is not None
-                    and float(np.linalg.norm(
-                        np.asarray(b.avg_origin, dtype=float)[:2]
-                        - self._committed_bb_center[:2])) <= 8.0)
-        if (self._committed_bb_center is not None
-                or self._committed_target_last_dir is None):
-            return False
-        return self._match_committed_group([b]) is b
 
     def _fresh_peer_committed_instances(self, now):
         """[(name, label, origin, dir, pid)] of peers whose committed instance is
@@ -1618,6 +1634,44 @@ class RavenNavNode(Node):
         self._prev_ray_group_marker_count = marker_id
         self._ray_groups_viz_pub.publish(ma)
 
+    def _publish_auction_table(self, tasks, assigned_map):
+        """JSON snapshot of the unified table: visited BBs + available targets
+        (rays + BBs) with state, size, and assigned robot id. Coordinates are
+        global ENU (X/Y + boot, Z kept AGL — same convention as confirmed_targets)
+        so GCS can build the overlay; the terminal viewer + GCS read this topic.
+        Pre-GPS (no boot_enu) it stays in the local frame."""
+        owner = {tk: aid for aid, tk in assigned_map.items()}
+        to_world = (self._local_to_world if self._boot_enu is not None
+                    else (lambda p: np.asarray(p, dtype=float)))
+        frame = 'enu' if self._boot_enu is not None else 'local'
+        visited = []
+        for lab, bb in self._peer_visited_bbs:
+            g = to_world(np.asarray(bb, dtype=float)[:3])
+            visited.append({'label': lab, 'x': float(g[0]), 'y': float(g[1]),
+                            'z': float(g[2])})
+        available = []
+        for t in tasks:
+            c = to_world(np.asarray(t.centroid, dtype=float))
+            s = np.asarray(t.size, dtype=float)
+            available.append({'label': t.label, 'status': t.status,
+                              'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
+                              'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
+                              'assigned': owner.get(t.key)})
+        self._auction_table_pub.publish(String(data=json.dumps(
+            {'robot': self._robot_name, 'my_id': self._my_id, 'frame': frame,
+             'visited_bbs': visited, 'available': available})))
+
+    def _publish_served_leads(self):
+        """Gossip serviced ray-leads (global ENU) so peers drop them too."""
+        if self._boot_enu is None:
+            return
+        out = []
+        for lab, c in self._served_leads:
+            g = np.asarray(c, dtype=float) + self._boot_enu
+            out.append({'label': lab, 'x': float(g[0]),
+                        'y': float(g[1]), 'z': float(g[2])})
+        self._served_leads_pub.publish(String(data=json.dumps(out)))
+
     def _column_labels(self) -> 'list[str]':
         """Authoritative per-column label list: detected rayfronts labels if
         present, otherwise the configured query_labels. Padded with col_N if
@@ -1850,31 +1904,6 @@ class RavenNavNode(Node):
         self.get_logger().info('[voxel-table]\n' + body,
                                throttle_duration_sec=10.0)
 
-    def _replan_signature(self, all_completed, my_bid_entries, peer_bid_entries,
-                          peer_committed_instances, fresh_peers):
-        """Discrete event signature for event-driven replanning. Changes only on a
-        real event — a completed target, a new biddable instance (BBs keyed by a
-        5 m centroid grid, rays by label so bearing drift doesn't trigger), or a
-        peer commitment/membership change — not on continuous bid-value drift."""
-        def inst_keys(entries):
-            keys = set()
-            for e in entries:
-                if e.is_bb:
-                    c = np.round(np.asarray(e.avg_origin, float)[:2] / 5.0)
-                    keys.add((e.label, int(c[0]), int(c[1])))
-                else:
-                    keys.add((e.label, 'ray'))
-            return keys
-
-        instances = inst_keys(my_bid_entries)
-        for entries in peer_bid_entries.values():
-            instances |= inst_keys(entries)
-        commits = frozenset(
-            (pid, lbl, int(round(float(o[0]) / 5.0)), int(round(float(o[1]) / 5.0)))
-            for (_n, lbl, o, _d, pid) in peer_committed_instances)
-        return (frozenset(all_completed), frozenset(fresh_peers),
-                frozenset(instances), commits)
-
     def _timer_cb(self):
         if self._cur_pose is None:
             self.get_logger().warn('waiting for odometry...', throttle_duration_sec=5.0)
@@ -1929,125 +1958,61 @@ class RavenNavNode(Node):
         self._behavior_manager.ray_behavior.ray_groups = ray_groups
 
         heading_xy = np.array([np.cos(self._cur_yaw), np.sin(self._cur_yaw)])
-        # Bid on rays AND confirmed BBs (own, unvisited). finalize folds in the
-        # BB priority bonus + heading so a near/ahead BB outranks a ray but a
-        # far/behind one doesn't.
-        per_tick_bids = bid_manager.compute_my_bids(ray_groups)
-        bb_bids = bid_manager.compute_bb_bids(
-            self._own_bb_clusters_for_bidding(peer_committed_instances),
-            self._cur_pose)
-        stale_bb_bids = bid_manager.compute_bb_bids(
-            self._remembered_bb_clusters_for_bidding(peer_committed_instances),
-            self._cur_pose)
-        for b in stale_bb_bids:
-            b.value -= self._stale_bb_bid_penalty_m
-        my_bid_entries = [b for b in (per_tick_bids + bb_bids + stale_bb_bids)
+        # Exploration bids on RAYS only (unconfirmed detections). Confirmed-target
+        # (BB) assignment is handled by the consensus below, not this bid auction.
+        my_bid_entries = [b for b in bid_manager.compute_my_bids(ray_groups)
                           if b.label not in all_completed]
         bid_manager.finalize_bid_values(
             my_bid_entries, heading_xy,
             self._ray_reach_factor, self._target_behind_penalty_weight)
-        # Hysteresis: boost the target (BB or ray) we're already committed to so
-        # the auction keeps it unless an alternative beats it by the margin —
-        # stops Hungarian swapping/reversing on near-equal matchings.
-        if self._assigned_target is not None:
-            for b in my_bid_entries:
-                if b.label != self._assigned_target:
-                    continue
-                if self._bid_is_committed(b):
-                    b.value += self._commit_switch_margin_m
-                    break
         peer_bid_entries = {
-            name: [e for e in entries if e.label not in all_completed]
+            name: [e for e in entries
+                   if e.label not in all_completed and e.num_rays > 0]
             for name, entries in self._peer_state.peer_bids.items()
             if name in fresh_peers
         }
 
-        if (self._assigned_target is not None
-                and self._assigned_target in all_completed):
-            if self._debug_coord:
-                self.get_logger().info(
-                    f'[coord] dropping {self._assigned_target}: '
-                    f'completed by self or peer')
+        # CBAA consensus over the unified task table (ray-leads + confirmed BBs):
+        # every robot solves the same shared task set with the same agent
+        # positions, so all reach the same conflict-free 1:1 assignment (no bid
+        # race, no reactive yields). Winner retention keeps it stable tick-to-tick.
+        tasks = self._build_consensus_tasks(ray_groups, all_completed, polygon_xy, now)
+        agent_pos = self._agent_positions(fresh_peers)
+        assigned_map = self._consensus.assign(
+            tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M)
+        my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)
+
+        won = None   # ray exploration is now a consensus task, not a side auction
+        if my_task is not None:
+            new_assign = (
+                self._assigned_target != my_task.label
+                or self._committed_bb_center is None
+                or float(np.linalg.norm(
+                    self._committed_bb_center[:2] - my_task.centroid[:2]))
+                > self._TASK_MATCH_M)
+            self._assigned_target = my_task.label
+            self._committed_bb_center = np.asarray(my_task.centroid, float).copy()
+            self._committed_to_assigned = True
+            if new_assign:
+                self._committed_bearing_lock_ts = now
+                if self._debug_coord:
+                    self.get_logger().info(
+                        f'[coord] consensus assigned {my_task.label} '
+                        f'[{my_task.status}] @ '
+                        f'({my_task.centroid[0]:.0f},{my_task.centroid[1]:.0f})')
+            self._mark_lead_serviced_if_reached(my_task, ray_groups)
+        else:
+            # Nothing assigned to me -> frontier exploration (downstream).
             self._assigned_target = None
             self._committed_to_assigned = False
-            self._committed_target_last_dir = None
+            self._committed_bb_center = None
             self._committed_target_last_origin = None
+            self._committed_target_last_dir = None
 
-        # Release if the committed target is peer-VISITED. BB commitment: test the
-        # BB centre (instance); ray: the bearing line-of-sight. (Instance test
-        # avoids spurious drops when a BB bearing merely crosses a cleared house.)
-        if self._assigned_target is not None:
-            if self._committed_bb_center is not None:
-                visited = self._point_near_bbs(
-                    self._committed_bb_center, self._assigned_target,
-                    getattr(self, '_peer_visited_bbs', None))
-            else:
-                visited = (self._committed_target_last_origin is not None
-                           and self._committed_target_last_dir is not None
-                           and self._ray_on_peer_bbs(
-                               self._committed_target_last_origin,
-                               self._committed_target_last_dir,
-                               self._assigned_target,
-                               getattr(self, '_peer_visited_bbs', None)))
-            if visited:
-                if self._debug_coord:
-                    self.get_logger().info(
-                        f'[coord] dropping {self._assigned_target}: '
-                        f'peer already visited it')
-                self._assigned_target = None
-                self._committed_to_assigned = False
-                self._committed_target_last_dir = None
-                self._committed_target_last_origin = None
+        self._publish_served_leads()
+        self._publish_auction_table(tasks, assigned_map)
 
-        # Yield when a peer is observing the committed target from clearly closer.
-        # BB commitment: instance test on the BB centre; ray: bearing line-of-sight.
-        if self._assigned_target is not None:
-            if self._committed_bb_center is not None:
-                yld = self._bb_observed_by_closer_peer(
-                    self._committed_bb_center, self._assigned_target)
-            else:
-                yld = (self._committed_target_last_origin is not None
-                       and self._committed_target_last_dir is not None
-                       and self._ray_yields_to_observer(
-                           self._committed_target_last_origin,
-                           self._committed_target_last_dir,
-                           self._assigned_target))
-            if yld:
-                if self._debug_coord:
-                    self.get_logger().info(
-                        f'[coord] yielding {self._assigned_target}: '
-                        f'peer observing it from closer')
-                self._assigned_target = None
-                self._committed_to_assigned = False
-                self._committed_target_last_dir = None
-                self._committed_target_last_origin = None
-
-        # Event-driven replanning: only re-solve the auction when the discrete
-        # task picture changes (a target completed, a new instance appeared, peer
-        # commitments/membership changed), while a claim is still settling, or
-        # while we hold nothing. A committed robot otherwise keeps its target —
-        # the release/yield checks above run every tick and free it on conflict.
-        sig = self._replan_signature(
-            all_completed, my_bid_entries, peer_bid_entries,
-            peer_committed_instances, fresh_peers)
-        replan_due = (
-            self._assigned_target is None
-            or not self._committed_to_assigned
-            or sig != self._last_replan_sig)
-        self._last_replan_sig = sig
-
-        won = None
-        if replan_due:
-            won = bid_manager.assign_global(
-                my_id=self._my_id,
-                my_bids=my_bid_entries,
-                peer_bids=peer_bid_entries,
-                peer_ids=self._peer_state.peer_ids,
-                polygon_xy=polygon_xy,
-            )
-
-        # Ray-group bids I lost to a peer's same-target bid this tick — surfaced
-        # in the bids debug table to show the auction pushing drones apart.
+        # Ray bids lost to a peer's same-target bid this tick (debug table only).
         from raven_nav.bid_manager import _GroupView
         from raven_nav.ray_targets import is_same_target as _is_same_target
         rays_avoided = 0
@@ -2073,96 +2038,6 @@ class RavenNavNode(Node):
             if best_peer is not None:
                 rays_avoided += 1
                 avoided_breakdown.append((mine.label, best_peer))
-
-        if self._assigned_target is None and won is not None:
-            label, entry = won
-            self._assigned_target = label
-            self._committed_to_assigned = False
-            self._committed_target_last_dir = np.asarray(entry.avg_dir, float).copy()
-            if entry.is_bb:
-                # BB target: ray starts at the drone and points at the BB centre
-                # so voxel's committed-ray filter matches the cluster.
-                self._committed_target_last_origin = np.asarray(
-                    self._cur_pose, float).copy()
-                self._committed_bb_center = np.asarray(entry.avg_origin, float).copy()
-            else:
-                self._committed_target_last_origin = np.asarray(
-                    entry.avg_origin, float).copy()
-                self._committed_bb_center = None
-            self._committed_bearing_lock_ts = now
-            if self._debug_coord:
-                self.get_logger().info(
-                    f'[coord] provisional claim on {label} '
-                    f'(my_bid={entry.value:.2f}, '
-                    f'rays={entry.num_rays}) — broadcasting until peer '
-                    f'competition arrives')
-
-        # Re-check competition for an already-assigned-but-not-yet-committed
-        # target. If after triangulation we no longer win it, drop.
-        if (self._assigned_target is not None
-                and not self._committed_to_assigned):
-            if won is None or won[0] != self._assigned_target:
-                if self._debug_coord:
-                    self.get_logger().info(
-                        f'[coord] DROPPING {self._assigned_target} — '
-                        f'lost contested auction')
-                self._assigned_target = None
-                self._committed_target_last_dir = None
-                self._committed_target_last_origin = None
-            else:
-                self._committed_to_assigned = True
-                _, entry = won
-                if self._debug_coord:
-                    self.get_logger().info(
-                        f'[coord] LOCKED {self._assigned_target} '
-                        f'(my_bid={entry.value:.2f}, rays={entry.num_rays})')
-
-        # Double-commit collision: if a LOWER-id peer is committed to the SAME
-        # instance, yield. BB commitment: compare the BB centre to the peer's
-        # committed point; ray: triangulate the bearings.
-        if (self._assigned_target is not None and self._committed_to_assigned
-                and self._committed_target_last_origin is not None):
-            if self._committed_bb_center is not None:
-                if self._bb_peer_committed(
-                        self._committed_bb_center, self._assigned_target,
-                        peer_committed_instances):
-                    if self._debug_coord:
-                        self.get_logger().info(
-                            f'[coord] double-commit on {self._assigned_target} '
-                            f'(BB): lower-id peer holds it — yielding')
-                    self._assigned_target = None
-                    self._committed_to_assigned = False
-                    self._committed_target_last_dir = None
-                    self._committed_target_last_origin = None
-            else:
-                for (pname, plabel, po, pd, pid) in peer_committed_instances:
-                    if plabel != self._assigned_target or pid >= self._my_id:
-                        continue
-                    if self._same_instance(
-                            self._committed_target_last_origin,
-                            self._committed_target_last_dir,
-                            po, pd, self._assigned_target, polygon_xy):
-                        if self._debug_coord:
-                            self.get_logger().info(
-                                f'[coord] double-commit on {self._assigned_target}: '
-                                f'peer {pname} (id={pid}) holds same instance — '
-                                f'yielding')
-                        self._assigned_target = None
-                        self._committed_to_assigned = False
-                        self._committed_target_last_dir = None
-                        self._committed_target_last_origin = None
-                        break
-
-        # Committed BB centre = the auction winner when it's a BB for our target.
-        # Only refreshed on a replan tick; otherwise the held centre persists (a
-        # None won on a non-replan tick must not clear an active BB commitment).
-        if replan_due:
-            if (self._assigned_target is not None and won is not None
-                    and won[0] == self._assigned_target and won[1].is_bb):
-                self._committed_bb_center = np.asarray(
-                    won[1].avg_origin, float).copy()
-            else:
-                self._committed_bb_center = None
 
         # Committed instance bearing. BB: point drone -> BB centre so voxel keeps
         # pursuing this instance. Ray: follow the most-aligned ray group, with

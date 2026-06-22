@@ -75,6 +75,8 @@ class PeerState:
     # XY centers (N,2) of frontier zones this peer has cleared (in our local frame).
     peer_completed_zones: Dict[str, np.ndarray] = field(default_factory=dict)
     peer_confirmed_targets: Dict[str, list]  = field(default_factory=dict)
+    # name -> [(label, point_local(3))]: ray-leads a peer has serviced.
+    peer_served_leads: Dict[str, list]     = field(default_factory=dict)
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -145,6 +147,19 @@ class PeerState:
                     self.peer_committed_instance[name] = (lbl, o_local, d)
                 except (ValueError, TypeError, KeyError):
                     self.peer_committed_target[name] = data
+
+        served_msg, _ = profile.get_payload_by_name_with_stamp("served_leads")
+        if served_msg is not None:
+            leads = []
+            try:
+                for o in json.loads(str(served_msg.data)) or []:
+                    p = global_enu_to_local(
+                        np.array([o['x'], o['y'], o['z']], float),
+                        my_boot_enu, local_alt_ground=my_alt_ground)
+                    leads.append((str(o['label']), p))
+            except (ValueError, TypeError, KeyError):
+                pass
+            self.peer_served_leads[name] = leads
 
         front_msg, _ = profile.get_payload_by_name_with_stamp("shared_frontiers")
         if front_msg is not None:

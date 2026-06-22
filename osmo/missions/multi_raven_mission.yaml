@@ -114,6 +114,7 @@ record:
     - /gcs/payload/{robot}/filtered_frontiers
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
     - /gcs/payload/{robot}/voxel_rgb
     - /gcs/consensus_AABBs
     - /gcs/consensus_targets
@@ -152,7 +153,7 @@ steps:
         background_queries: "{{env.background_queries}}"
         search_area: "{{env.search_area}}"
         min_altitude_agl: 10.0
-        max_altitude_agl: 20.0
+        max_altitude_agl: 50.0
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95

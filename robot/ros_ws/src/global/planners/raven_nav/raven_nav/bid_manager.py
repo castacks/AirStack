@@ -267,3 +267,159 @@ def assign_global(
     if entry is None:
         return None
     return entry.label, entry
+
+
+# ── CBAA consensus over confirmed-target (BB) tasks ──────────────────────────
+#
+# Conflict-free assignment by *shared-solution equivalence*: with full gossip
+# every robot has the same agent positions + the same confirmed-target set, so
+# each robot solves the identical problem and reaches the identical assignment —
+# no bid gossip race, no reactive yields. Stability comes from retaining the
+# previous winner unless a challenger beats it by a margin (CBBA winner
+# retention), computed identically on every robot. Cost is plain xy distance
+# (diminishing-marginal-gain clean — no boosts).
+
+
+# Task localization states, most-localized first (priority for proximity merge).
+TASK_STATES = ('bb-visited', 'bb-observing', 'ray-localized', 'ray')
+_STATE_RANK = {s: i for i, s in enumerate(('ray', 'ray-localized',
+                                           'bb-observing', 'bb-visited'))}
+
+
+@dataclass
+class Task:
+    """One physical target instance shared across robots (BB or ray-lead)."""
+    key: Tuple          # canonical (label, gx, gy); aligns the task across robots
+    label: str
+    centroid: np.ndarray   # (3,) target point estimate (BB centre or ray point)
+    size: np.ndarray       # (3,) extents (zeros for a ray-lead point)
+    status: str = 'bb-observing'   # one of TASK_STATES
+
+
+def _task_surface_dist_xy(pos_xy, task) -> float:
+    gap = np.clip(np.abs(np.asarray(pos_xy, float)[:2] - task.centroid[:2])
+                  - task.size[:2] / 2.0, 0.0, None)
+    return float(np.linalg.norm(gap))
+
+
+def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
+    """Cluster (label, centre(3), size(3)) BBs from ALL sources (own + peers) into
+    shared tasks. Single-linkage on xy centre proximity within a label; processed
+    in a deterministic order so every robot that sees the same set yields the same
+    tasks/keys. key = quantised mean centre (coarse grid; targets are far apart)."""
+    items = sorted(
+        ((str(lab), np.asarray(c, float), np.asarray(s, float)) for lab, c, s in bb_list),
+        key=lambda t: (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2)))
+    n = len(items)
+    used = [False] * n
+    tasks: List[Task] = []
+    for i in range(n):
+        if used[i]:
+            continue
+        used[i] = True
+        grp = [i]
+        ci = items[i][1]
+        for j in range(i + 1, n):
+            if used[j] or items[j][0] != items[i][0]:
+                continue
+            if float(np.linalg.norm(items[j][1][:2] - ci[:2])) <= match_m:
+                used[j] = True
+                grp.append(j)
+        cs = np.array([items[k][1] for k in grp], float)
+        ss = np.array([items[k][2] for k in grp], float)
+        cen = cs.mean(axis=0)
+        siz = ss.max(axis=0)
+        lab = items[grp[0]][0]
+        key = (lab, int(round(cen[0] / key_grid)), int(round(cen[1] / key_grid)))
+        tasks.append(Task(key=key, label=lab, centroid=cen, size=siz))
+    return tasks
+
+
+def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
+    """Cluster mixed BB + ray-lead items into shared tasks (bounds the table).
+
+    items: (label, point(3), size(3), status). Single-linkage on xy proximity
+    within a label; the most-localized member (bb > ray-localized > ray) sets the
+    cluster's status, point and size, so a ray-lead near a BB collapses into the
+    BB (BB priority). Deterministic order -> same tasks/keys on every robot."""
+    norm = [(str(lab), np.asarray(p, float), np.asarray(s, float), str(st))
+            for lab, p, s, st in items]
+    norm.sort(key=lambda t: (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2)))
+    n = len(norm)
+    used = [False] * n
+    tasks: List[Task] = []
+    for i in range(n):
+        if used[i]:
+            continue
+        used[i] = True
+        grp = [i]
+        ci = norm[i][1]
+        for j in range(i + 1, n):
+            if used[j] or norm[j][0] != norm[i][0]:
+                continue
+            if float(np.linalg.norm(norm[j][1][:2] - ci[:2])) <= match_m:
+                used[j] = True
+                grp.append(j)
+        best = max(grp, key=lambda k: _STATE_RANK.get(norm[k][3], 0))
+        lab, pt, siz, st = norm[best]
+        key = (lab, int(round(pt[0] / key_grid)), int(round(pt[1] / key_grid)))
+        tasks.append(Task(key=key, label=lab, centroid=pt.copy(),
+                          size=siz.copy(), status=st))
+    return tasks
+
+
+class ConsensusAssigner:
+    """Stateful CBAA winner-retention assigner. assign() returns {agent_id:
+    task_key} — the same conflict-free 1:1 map on every robot given the same
+    inputs. my_task() extracts this robot's Task."""
+
+    def __init__(self) -> None:
+        # agent_id -> centroid(3) of its previously-assigned task (the incumbent).
+        self._prev: Dict[int, np.ndarray] = {}
+
+    def assign(self, tasks: List[Task], agent_pos: Dict[int, np.ndarray],
+               switch_margin: float, match_m: float) -> Dict[int, Tuple]:
+        if not tasks or not agent_pos:
+            self._prev = {}
+            return {}
+        aids = sorted(agent_pos)
+        by_key = {t.key: t for t in tasks}
+        cost: Dict[Tuple[int, Tuple], float] = {}
+        for a in aids:
+            p = np.asarray(agent_pos[a], float)
+            inc = self._prev.get(a)
+            for t in tasks:
+                c = _task_surface_dist_xy(p, t)
+                if inc is not None and float(
+                        np.linalg.norm(t.centroid[:2] - inc[:2])) <= match_m:
+                    c -= switch_margin   # incumbent retention (CBBA winner stickiness)
+                cost[(a, t.key)] = c
+        used_a: set = set()
+        used_t: set = set()
+        assigned: Dict[int, Tuple] = {}
+        while len(used_a) < len(aids) and len(used_t) < len(by_key):
+            best = None
+            for a in aids:
+                if a in used_a:
+                    continue
+                for t in tasks:
+                    if t.key in used_t:
+                        continue
+                    k = (cost[(a, t.key)], a, t.key)
+                    if best is None or k < best:
+                        best = k
+            if best is None:
+                break
+            _, a, tk = best
+            assigned[a] = tk
+            used_a.add(a)
+            used_t.add(tk)
+        self._prev = {a: by_key[tk].centroid for a, tk in assigned.items()}
+        return assigned
+
+    def my_task(self, assigned: Dict[int, Tuple], my_id: int,
+                tasks: List[Task]) -> Optional[Task]:
+        tk = assigned.get(my_id)
+        if tk is None:
+            return None
+        return next((t for t in tasks if t.key == tk), None)

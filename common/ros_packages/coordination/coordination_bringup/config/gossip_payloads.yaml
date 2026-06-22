@@ -96,6 +96,18 @@ payload_topics:
   - topic: "/{robot_name}/raven_nav/confirmed_targets"
     type: "std_msgs/msg/String"
 
+  # Serviced ray-leads (raven_nav) — JSON [{label, x, y, z} in global ENU] for
+  # leads a robot reached and confirmed. Peers drop them from the consensus task
+  # table so completed leads aren't re-pursued (keeps the table bounded).
+  - topic: "/{robot_name}/raven_nav/served_leads"
+    type: "std_msgs/msg/String"
+
+  # Unified auction table (raven_nav) — JSON {visited_bbs, available[]} in global
+  # ENU with per-target state + assigned robot. GCS builds the combined overlay
+  # from this (no separate marker topic needed).
+  - topic: "/{robot_name}/raven_nav/auction_table"
+    type: "std_msgs/msg/String"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"
