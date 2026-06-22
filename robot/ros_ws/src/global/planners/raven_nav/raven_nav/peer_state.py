@@ -171,6 +171,7 @@ class PeerState:
                     op = global_enu_to_local(
                         np.array([o['ox'], o['oy'], o['oz']], float),
                         my_boot_enu, local_alt_ground=my_alt_ground)
+                    op[2] = float(o['oz'])   # oz is AGL (raven _local_to_world); keep it
                     out.append({'label': str(o['label']), 'o': op,
                                 'd': np.array([o['dx'], o['dy'], o['dz']], float)})
             except (ValueError, TypeError, KeyError):

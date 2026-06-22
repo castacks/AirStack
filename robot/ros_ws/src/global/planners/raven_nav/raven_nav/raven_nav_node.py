@@ -1033,6 +1033,10 @@ class RavenNavNode(Node):
                     combined.append(pl)
         for L in combined:
             o = np.asarray(L['o'], dtype=float)
+            # Sanity gate: a lead outside the altitude band is a bad frame
+            # transform (e.g. an underground peer lead) — never make it a goal.
+            if not (self._min_altitude <= float(o[2]) <= self._max_altitude):
+                continue
             d = np.asarray(L['d'], dtype=float)
             items.append((L['label'], o, np.zeros(3), 'ray', o, d))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
