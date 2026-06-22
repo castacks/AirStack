@@ -272,6 +272,10 @@ class RavenNavNode(Node):
         # and is gossiped so GCS can build the combined overlay from it.
         self._auction_table_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/auction_table', 10)
+        # Accumulated ray-lead memory (JSON, global ENU bearings) — gossiped so
+        # the persistent lead set is shared across the team.
+        self._ray_leads_pub = self.create_publisher(
+            String, f'{self._prefix}/raven_nav/ray_leads', 10)
         self._prev_ray_group_marker_count = 0
         self._assigned_target: 'str | None' = None
         self._committed_to_assigned = False
@@ -319,6 +323,10 @@ class RavenNavNode(Node):
         # Ray-leads this robot has serviced (reached + rays cohered); persistent,
         # accumulated own + peer, so a completed lead isn't re-added (bounds table).
         self._served_leads: list = []   # [(label, point(3))] in local frame
+        # Persistent ray-lead memory: bearings accumulate (deduped) and stay until
+        # their BB is observed/visited or a drone services them, so the task table
+        # expands as detections arrive instead of being a per-tick snapshot.
+        self._ray_leads: list = []   # [{'o','d','label','ts'}] in local frame
 
         self._publisher_dict = {
             'path': self._path_pub,
@@ -661,6 +669,19 @@ class RavenNavNode(Node):
                 return
         self._peer_visited_bbs.append((label, np.asarray(bb, dtype=float)))
 
+    def _house_boxes(self):
+        """One fused box per physical target: union the observing boxes with the
+        accumulated visited fragments (visited is sticky on AABB-union), so a
+        house that's been reached is a single visited box — not a big observing
+        box with small visited boxes inside it."""
+        srcs = list(self._observed_bbs.values())
+        for lab, bb in self._peer_visited_bbs:
+            b = np.asarray(bb, dtype=float)
+            srcs.append(ConfirmedTarget(label=lab, center=b[:3],
+                                        size=(b[3:6] if b.size >= 6 else np.full(3, 1.0)),
+                                        status='visited', confidence=1.0, ts=0.0))
+        return merge_confirmed_targets(srcs)
+
     def _fresh_peers(self, now) -> set:
         """Peers heard from within the TTL (stale peers' state is ignored)."""
         return {n for n, t in self._peer_state.peer_last_seen.items()
@@ -819,21 +840,93 @@ class RavenNavNode(Node):
     _TASK_MATCH_M = 10.0
     _PEER_TARGET_MATCH_M = _TASK_MATCH_M
     _TASK_KEY_GRID = 6.0
+    # Persistent ray-lead memory: dedup radius + bearing-angle, and BB pad for
+    # the "does this lead point at a known BB" test.
+    _RAY_LEAD_MATCH_M = 5.0
+    _RAY_LEAD_DIR_COS = float(np.cos(np.deg2rad(25.0)))
+    _RAY_LEAD_BB_PAD_M = 4.0
+
+    def _lead_points_at_known_bb(self, o, d, label) -> bool:
+        """The ray (o, d) pierces a same-label BB that's already observed
+        (_observed_bbs) or visited (_peer_visited_bbs) -> the lead is resolved."""
+        o = np.asarray(o, dtype=float)
+        d = np.asarray(d, dtype=float)
+        bl = (label or '').lower()
+        cand = []
+        for ct in self._observed_bbs.values():
+            cl = (ct.label or '').lower()
+            if bl in cl or cl in bl:
+                cand.append((np.asarray(ct.center, float), np.asarray(ct.size, float)))
+        for lab, bb in self._peer_visited_bbs:
+            cl = (lab or '').lower()
+            if bl in cl or cl in bl:
+                b = np.asarray(bb, float)
+                cand.append((b[:3], b[3:6]))
+        for c, s in cand:
+            bbarr = np.concatenate([c, s + self._RAY_LEAD_BB_PAD_M])
+            if ray_aabb_hits(o, d, bbarr, t_min_ahead=0.0)[0]:
+                return True
+        return False
+
+    def _lead_match(self, o, d, label, leads):
+        """A stored lead matching bearing (o, d): same label, origin within
+        _RAY_LEAD_MATCH_M, direction within the angle."""
+        o2 = np.asarray(o, float)[:2]
+        d2 = np.asarray(d, float)[:2]
+        nd = np.linalg.norm(d2)
+        d2 = d2 / nd if nd > 1e-9 else d2
+        for L in leads:
+            if L['label'] != label:
+                continue
+            if np.linalg.norm(o2 - np.asarray(L['o'], float)[:2]) > self._RAY_LEAD_MATCH_M:
+                continue
+            ld = np.asarray(L['d'], float)[:2]
+            ln = np.linalg.norm(ld)
+            if ln > 1e-9 and float(np.dot(d2, ld / ln)) >= self._RAY_LEAD_DIR_COS:
+                return L
+        return None
+
+    def _accumulate_ray_leads(self, ray_groups, all_completed, now) -> None:
+        """Fold the current ray groups into the persistent lead memory (dedup by
+        bearing), then prune leads whose BB is observed/visited, that were
+        serviced, or whose label completed. No TTL — leads persist until resolved."""
+        targets = set(self._target_objects or [])
+        for g in ray_groups:
+            if g.num_rays <= 0 or g.label in all_completed:
+                continue
+            if targets and g.label not in targets:
+                continue
+            o = np.asarray(g.avg_origin, dtype=float)
+            d = np.asarray(g.avg_dir, dtype=float)
+            if self._lead_points_at_known_bb(o, d, g.label):
+                continue
+            m = self._lead_match(o, d, g.label, self._ray_leads)
+            if m is not None:
+                m['o'], m['d'], m['ts'] = o, d, now
+            else:
+                self._ray_leads.append(
+                    {'o': o, 'd': d, 'label': g.label, 'ts': now})
+        self._ray_leads = [
+            L for L in self._ray_leads
+            if L['label'] not in all_completed
+            and not self._lead_points_at_known_bb(L['o'], L['d'], L['label'])
+            and not self._lead_served(L['label'], L['o'])]
 
     _LEAD_SERVICE_RADIUS_M = 6.0
     _LEAD_ALIGN_COS = 0.82   # ~35 deg: a neighboring ray group "same direction"
 
     def _build_consensus_tasks(self, ray_groups, all_completed, polygon_xy, now_ts):
-        """Unified shared task list: confirmed BBs + ray-leads (from build_targets),
-        minus completed / visited / served. Deterministic from the shared rays +
-        BBs, so every robot derives the same list. A ray-lead carries a far point
-        (range unknown) so its cost exceeds a localized BB -> BB priority."""
+        """Unified shared task list: confirmed BBs + accumulated ray-leads. Ray
+        leads come from the persistent memory (self._ray_leads), not the current
+        snapshot, so the table expands as detections arrive and prunes only when a
+        lead's BB is observed/visited or it's serviced."""
         targets = set(self._target_objects or [])
         known_bbs = []
         items = []
-        # 1. Every confirmed (unvisited) BB is a task, independent of any ray.
-        # Canonical order so build_targets' BB-attachment is identical per robot.
-        cts = sorted(self._observed_bbs.values(),
+        # 1. One fused box per house; the still-OBSERVING ones are tasks. Visited
+        # houses are excluded here (they show as one visited box in the table).
+        houses = self._house_boxes()
+        cts = sorted((h for h in houses if str(h.status).lower() != 'visited'),
                      key=lambda ct: (str(ct.label), float(ct.center[0]),
                                      float(ct.center[1]), float(ct.center[2])))
         for i, ct in enumerate(cts):
@@ -847,9 +940,30 @@ class RavenNavNode(Node):
             size = np.asarray(ct.size, dtype=float)
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
             items.append((ct.label, c, size, 'bb-observing'))
-        # 2. Ray-leads that are NOT anchored to a BB (those are already covered
-        # above; build_tasks' proximity merge folds any stragglers into the BB).
-        rts = build_targets(own_groups=ray_groups, peer_groups=[],
+        # 2. Fold the current rays into the persistent lead memory, then build
+        # leads from that memory (triangulating across accumulated bearings).
+        self._accumulate_ray_leads(ray_groups, all_completed, now_ts)
+        # Own memory + fresh peers' gossiped leads (deduped), minus ones now at a
+        # known BB — the shared accumulated set.
+        combined = list(self._ray_leads)
+        for name, pleads in self._peer_state.peer_ray_leads.items():
+            if now_ts - self._peer_state.peer_last_seen.get(name, 0.0) > self._PEER_TTL_S:
+                continue
+            for pl in pleads:
+                if targets and pl['label'] not in targets:
+                    continue
+                if pl['label'] in all_completed:
+                    continue
+                if self._lead_points_at_known_bb(pl['o'], pl['d'], pl['label']):
+                    continue
+                if self._lead_match(pl['o'], pl['d'], pl['label'], combined) is None:
+                    combined.append(pl)
+        lead_groups = [
+            SimpleNamespace(label=L['label'],
+                            avg_origin=np.asarray(L['o'], dtype=float),
+                            avg_dir=np.asarray(L['d'], dtype=float), avg_score=1.0)
+            for L in combined]
+        rts = build_targets(own_groups=lead_groups, peer_groups=[],
                             known_bbs=known_bbs, polygon_xy=polygon_xy,
                             now_ts=now_ts)
         for rt in rts:
@@ -866,10 +980,10 @@ class RavenNavNode(Node):
             origin, direction = None, None
             if rt.contributing_group_ids:
                 gid = rt.contributing_group_ids[0]
-                if 0 <= gid < len(ray_groups):
-                    origin = np.asarray(ray_groups[gid].avg_origin, dtype=float)
+                if 0 <= gid < len(lead_groups):
+                    origin = np.asarray(lead_groups[gid].avg_origin, dtype=float)
                     if status == 'ray':
-                        direction = np.asarray(ray_groups[gid].avg_dir, dtype=float)
+                        direction = np.asarray(lead_groups[gid].avg_dir, dtype=float)
             items.append((rt.label, pt, np.zeros(3), status, origin, direction))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
 
@@ -1652,11 +1766,12 @@ class RavenNavNode(Node):
                     else (lambda p: np.asarray(p, dtype=float)))
         frame = 'enu' if self._boot_enu is not None else 'local'
         visited = []
-        for lab, bb in self._peer_visited_bbs:
-            b = np.asarray(bb, dtype=float)
-            g = to_world(b[:3])
-            s = b[3:6] if b.size >= 6 else np.zeros(3)
-            visited.append({'label': lab, 'x': float(g[0]), 'y': float(g[1]),
+        for h in self._house_boxes():
+            if str(h.status).lower() != 'visited':
+                continue
+            g = to_world(np.asarray(h.center, dtype=float))
+            s = np.asarray(h.size, dtype=float)
+            visited.append({'label': h.label, 'x': float(g[0]), 'y': float(g[1]),
                             'z': float(g[2]), 'sx': float(s[0]),
                             'sy': float(s[1]), 'sz': float(s[2])})
         available = []
@@ -1677,6 +1792,20 @@ class RavenNavNode(Node):
         self._auction_table_pub.publish(String(data=json.dumps(
             {'robot': self._robot_name, 'my_id': self._my_id, 'frame': frame,
              'visited_bbs': visited, 'available': available})))
+
+    def _publish_ray_leads(self):
+        """Gossip the accumulated ray-lead bearings (origin in global ENU; unit
+        direction is frame-invariant) so the persistent memory is team-shared."""
+        if self._boot_enu is None:
+            return
+        out = []
+        for L in self._ray_leads:
+            g = self._local_to_world(np.asarray(L['o'], dtype=float))
+            d = np.asarray(L['d'], dtype=float)
+            out.append({'label': L['label'],
+                        'ox': float(g[0]), 'oy': float(g[1]), 'oz': float(g[2]),
+                        'dx': float(d[0]), 'dy': float(d[1]), 'dz': float(d[2])})
+        self._ray_leads_pub.publish(String(data=json.dumps(out)))
 
     def _publish_served_leads(self):
         """Gossip serviced ray-leads (global ENU) so peers drop them too."""
@@ -2033,6 +2162,7 @@ class RavenNavNode(Node):
             self._committed_target_last_dir = None
 
         self._publish_served_leads()
+        self._publish_ray_leads()
         self._publish_auction_table(tasks, assigned_map)
 
         # Ray bids lost to a peer's same-target bid this tick (debug table only).

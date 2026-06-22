@@ -108,6 +108,11 @@ payload_topics:
   - topic: "/{robot_name}/raven_nav/auction_table"
     type: "std_msgs/msg/String"
 
+  # Accumulated ray-lead bearings (raven_nav) — JSON [{label, ox,oy,oz, dx,dy,dz}]
+  # global ENU. Shares the persistent lead memory so the task table is consistent.
+  - topic: "/{robot_name}/raven_nav/ray_leads"
+    type: "std_msgs/msg/String"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

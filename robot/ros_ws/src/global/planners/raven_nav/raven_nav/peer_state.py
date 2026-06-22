@@ -77,6 +77,8 @@ class PeerState:
     peer_confirmed_targets: Dict[str, list]  = field(default_factory=dict)
     # name -> [(label, point_local(3))]: ray-leads a peer has serviced.
     peer_served_leads: Dict[str, list]     = field(default_factory=dict)
+    # name -> [{'o','d','label'}]: a peer's accumulated ray-lead bearings (local).
+    peer_ray_leads: Dict[str, list]        = field(default_factory=dict)
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -160,6 +162,20 @@ class PeerState:
             except (ValueError, TypeError, KeyError):
                 pass
             self.peer_served_leads[name] = leads
+
+        rl_msg, _ = profile.get_payload_by_name_with_stamp("ray_leads")
+        if rl_msg is not None:
+            out = []
+            try:
+                for o in json.loads(str(rl_msg.data)) or []:
+                    op = global_enu_to_local(
+                        np.array([o['ox'], o['oy'], o['oz']], float),
+                        my_boot_enu, local_alt_ground=my_alt_ground)
+                    out.append({'label': str(o['label']), 'o': op,
+                                'd': np.array([o['dx'], o['dy'], o['dz']], float)})
+            except (ValueError, TypeError, KeyError):
+                pass
+            self.peer_ray_leads[name] = out
 
         front_msg, _ = profile.get_payload_by_name_with_stamp("shared_frontiers")
         if front_msg is not None:
