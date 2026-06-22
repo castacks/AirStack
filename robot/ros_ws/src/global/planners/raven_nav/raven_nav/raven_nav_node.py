@@ -34,6 +34,7 @@ from raven_nav.discoveries import (
     confirmed_targets_to_json,
     discoveries_to_json,
     merge_confirmed_targets,
+    merge_similar_targets,
 )
 
 
@@ -680,7 +681,7 @@ class RavenNavNode(Node):
             srcs.append(ConfirmedTarget(label=lab, center=b[:3],
                                         size=(b[3:6] if b.size >= 6 else np.full(3, 1.0)),
                                         status='visited', confidence=1.0, ts=0.0))
-        return merge_confirmed_targets(srcs)
+        return merge_similar_targets(srcs)
 
     def _fresh_peers(self, now) -> set:
         """Peers heard from within the TTL (stale peers' state is ignored)."""
@@ -716,10 +717,12 @@ class RavenNavNode(Node):
         """
         now_ts = float(self.get_clock().now().nanoseconds) * 1e-9
 
-        # Merge own + peer ConfirmedTargets, dedupe by AABB overlap.
-        own_cts = self._own_confirmed_targets()
+        # Combine own fragments locally (peak-aware) BEFORE transmit, so each
+        # robot ships clean per-target boxes; the cross-robot step then fuses only
+        # SIMILAR boxes (same target) and leaves dissimilar ones as distinct.
+        own_cts = merge_confirmed_targets(self._own_confirmed_targets())
         peer_cts = self._peer_confirmed_targets_flat()
-        merged_cts = merge_confirmed_targets(own_cts + peer_cts)
+        merged_cts = merge_similar_targets(own_cts + peer_cts)
 
         # Visited BBs (own + peer) gate ray exclusion / commitment release;
         # consensus (own+peer) is the double-commit same-target key.
@@ -840,9 +843,9 @@ class RavenNavNode(Node):
     _TASK_MATCH_M = 10.0
     _PEER_TARGET_MATCH_M = _TASK_MATCH_M
     _TASK_KEY_GRID = 6.0
-    # Persistent ray-lead memory: dedup radius + bearing-angle, and BB pad for
-    # the "does this lead point at a known BB" test. Kept tight (upstream gate of
-    # build_tasks) so distinct bearings stay separate -> more ray tasks.
+    # Persistent ray-lead memory: dedup radius + bearing-angle (matches the same
+    # filtered ray across ticks; does NOT regroup — compute_ray_groups already
+    # clustered at 45deg), and BB pad for the "points at a known BB" test.
     _RAY_LEAD_MATCH_M = 3.0
     _RAY_LEAD_DIR_COS = float(np.cos(np.deg2rad(12.0)))
     _RAY_LEAD_BB_PAD_M = 4.0
@@ -887,10 +890,32 @@ class RavenNavNode(Node):
                 return L
         return None
 
-    def _accumulate_ray_leads(self, ray_groups, all_completed, now) -> None:
+    # A lead is "reached" once a drone has flown >=_RAY_CLEAR_AHEAD_M along its
+    # bearing and is within _RAY_CLEAR_PERP_M of the line — it (and parallel
+    # neighbours sharing that corridor) drop off the table.
+    _RAY_CLEAR_AHEAD_M = 8.0
+    _RAY_CLEAR_PERP_M = 2.5
+
+    def _lead_reached(self, o, d, agent_pos) -> bool:
+        o = np.asarray(o, dtype=float)
+        d = np.asarray(d, dtype=float)
+        nd = np.linalg.norm(d)
+        if nd < 1e-9:
+            return False
+        d = d / nd
+        for p in agent_pos.values():
+            v = np.asarray(p, dtype=float)[:3] - o
+            t = float(np.dot(v, d))
+            if t < self._RAY_CLEAR_AHEAD_M:
+                continue
+            if float(np.linalg.norm(v - t * d)) <= self._RAY_CLEAR_PERP_M:
+                return True
+        return False
+
+    def _accumulate_ray_leads(self, ray_groups, all_completed, now, agent_pos) -> None:
         """Fold the current ray groups into the persistent lead memory (dedup by
-        bearing), then prune leads whose BB is observed/visited, that were
-        serviced, or whose label completed. No TTL — leads persist until resolved."""
+        bearing), then prune leads whose BB is observed/visited, that a drone has
+        reached, or whose label completed. No TTL — leads persist until resolved."""
         targets = set(self._target_objects or [])
         for g in ray_groups:
             if g.num_rays <= 0 or g.label in all_completed:
@@ -911,16 +936,18 @@ class RavenNavNode(Node):
             L for L in self._ray_leads
             if L['label'] not in all_completed
             and not self._lead_points_at_known_bb(L['o'], L['d'], L['label'])
-            and not self._lead_served(L['label'], L['o'])]
+            and not self._lead_reached(L['o'], L['d'], agent_pos)]
 
     _LEAD_SERVICE_RADIUS_M = 6.0
     _LEAD_ALIGN_COS = 0.82   # ~35 deg: a neighboring ray group "same direction"
 
-    def _build_consensus_tasks(self, ray_groups, all_completed, polygon_xy, now_ts):
-        """Unified shared task list: confirmed BBs + accumulated ray-leads. Ray
-        leads come from the persistent memory (self._ray_leads), not the current
-        snapshot, so the table expands as detections arrive and prunes only when a
-        lead's BB is observed/visited or it's serviced."""
+    def _build_consensus_tasks(self, ray_groups, all_completed, polygon_xy, now_ts,
+                               agent_pos):
+        """Unified shared task list: confirmed BBs + accumulated ray-leads. Each
+        filtered ray is its own lead (like a frontier, separated by query + angle)
+        — no triangulation into waypoints. Leads come from persistent memory, so
+        the table expands as detections arrive and prunes when a lead's BB is
+        observed/visited or a drone reaches it."""
         targets = set(self._target_objects or [])
         known_bbs = []
         items = []
@@ -941,11 +968,10 @@ class RavenNavNode(Node):
             size = np.asarray(ct.size, dtype=float)
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
             items.append((ct.label, c, size, 'bb-observing'))
-        # 2. Fold the current rays into the persistent lead memory, then build
-        # leads from that memory (triangulating across accumulated bearings).
-        self._accumulate_ray_leads(ray_groups, all_completed, now_ts)
-        # Own memory + fresh peers' gossiped leads (deduped), minus ones now at a
-        # known BB — the shared accumulated set.
+        # 2. Accumulate current rays into persistent memory, then emit each lead
+        # directly as a ray task (origin + bearing). No triangulation: it only
+        # confirms rays against a BB, which the BB-prune already handles.
+        self._accumulate_ray_leads(ray_groups, all_completed, now_ts, agent_pos)
         combined = list(self._ray_leads)
         for name, pleads in self._peer_state.peer_ray_leads.items():
             if now_ts - self._peer_state.peer_last_seen.get(name, 0.0) > self._PEER_TTL_S:
@@ -957,35 +983,14 @@ class RavenNavNode(Node):
                     continue
                 if self._lead_points_at_known_bb(pl['o'], pl['d'], pl['label']):
                     continue
+                if self._lead_reached(pl['o'], pl['d'], agent_pos):
+                    continue
                 if self._lead_match(pl['o'], pl['d'], pl['label'], combined) is None:
                     combined.append(pl)
-        lead_groups = [
-            SimpleNamespace(label=L['label'],
-                            avg_origin=np.asarray(L['o'], dtype=float),
-                            avg_dir=np.asarray(L['d'], dtype=float), avg_score=1.0)
-            for L in combined]
-        rts = build_targets(own_groups=lead_groups, peer_groups=[],
-                            known_bbs=known_bbs, polygon_xy=polygon_xy,
-                            now_ts=now_ts)
-        for rt in rts:
-            if rt.bb_id is not None:
-                continue
-            if targets and rt.label not in targets:
-                continue
-            if rt.label in all_completed:
-                continue
-            pt = np.asarray(rt.position, dtype=float)
-            if self._bb_is_visited(rt.label, pt) or self._lead_served(rt.label, pt):
-                continue
-            status = 'ray-localized' if rt.status == 'confirmed' else 'ray'
-            origin, direction = None, None
-            if rt.contributing_group_ids:
-                gid = rt.contributing_group_ids[0]
-                if 0 <= gid < len(lead_groups):
-                    origin = np.asarray(lead_groups[gid].avg_origin, dtype=float)
-                    if status == 'ray':
-                        direction = np.asarray(lead_groups[gid].avg_dir, dtype=float)
-            items.append((rt.label, pt, np.zeros(3), status, origin, direction))
+        for L in combined:
+            o = np.asarray(L['o'], dtype=float)
+            d = np.asarray(L['d'], dtype=float)
+            items.append((L['label'], o, np.zeros(3), 'ray', o, d))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
 
     def _lead_served(self, label, point) -> bool:
@@ -2123,8 +2128,9 @@ class RavenNavNode(Node):
         # every robot solves the same shared task set with the same agent
         # positions, so all reach the same conflict-free 1:1 assignment (no bid
         # race, no reactive yields). Winner retention keeps it stable tick-to-tick.
-        tasks = self._build_consensus_tasks(ray_groups, all_completed, polygon_xy, now)
         agent_pos = self._agent_positions(fresh_peers)
+        tasks = self._build_consensus_tasks(
+            ray_groups, all_completed, polygon_xy, now, agent_pos)
         assigned_map = self._consensus.assign(
             tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M)
         my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)

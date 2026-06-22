@@ -30,8 +30,7 @@ from std_msgs.msg import String
 
 RESET, BOLD, DIM = "\033[0m", "\033[1m", "\033[2m"
 STATE_COLOR = {
-    'ray': "\033[33m",            # yellow  — bearing, range unknown
-    'ray-localized': "\033[93m",  # bright yellow — triangulated
+    'ray': "\033[33m",            # yellow  — ray-lead bearing (range unknown)
     'bb-observing': "\033[36m",   # cyan    — voxel BB
     'bb-visited': "\033[2m",      # dim     — done
 }
@@ -94,22 +93,23 @@ class AuctionViewer(Node):
         avail = data.get("available", [])
         my_id = data.get("my_id")
         print(f"{BOLD}[2] AVAILABLE TARGETS{RESET}  ({len(avail)})  "
-              f"{DIM}— rays + BBs in the auction{RESET}")
+              f"{DIM}— BBs + ray-leads in the auction{RESET}")
         if not avail:
             print("    (none)")
         else:
-            print(f"    {'label':<14} {'state':<14} {'x':>8} {'y':>8} {'assigned':>9}")
-            # localized/BB first, then rays; nearest-ish by state rank.
-            order = {'bb-visited': 0, 'bb-observing': 1,
-                     'ray-localized': 2, 'ray': 3}
+            print(f"    {'query':<16} {'kind':<5} {'x':>8} {'y':>8} {'assigned':>9}")
+            # BBs first, then ray-leads.
+            order = {'bb-visited': 0, 'bb-observing': 1, 'ray': 2}
             for t in sorted(avail, key=lambda r: order.get(r.get('status'), 9)):
                 st = t.get('status', '?')
                 col = STATE_COLOR.get(st, "")
+                # rays carry only their query; BBs are marked.
+                kind = "BB" if st.startswith('bb') else ""
                 aid = t.get('assigned')
                 mine = (aid is not None and aid == my_id)
                 who = (f"r{aid}" if aid is not None else "-")
                 who_s = (f"{BOLD}{who}*{RESET}" if mine else who)
-                print(f"    {col}{str(t.get('label','')):<14} {st:<14}{RESET} "
+                print(f"    {col}{str(t.get('label','')):<16}{RESET} {kind:<5} "
                       f"{t.get('x',0):>8.1f} {t.get('y',0):>8.1f} {who_s:>9}")
         print(f"\n{DIM}* = assigned to this robot.  Ctrl+C to quit{RESET}")
 

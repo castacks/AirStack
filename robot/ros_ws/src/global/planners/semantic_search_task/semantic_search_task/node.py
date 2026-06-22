@@ -775,6 +775,11 @@ class SemanticSearchTaskNode(Node):
                 f'rayfronts processed {mapping_batches_seen} batches — '
                 f'starting raven')
 
+            # RetroNeighborhood needs a stricter voxel similarity gate (0.9);
+            # other scenes use 0.85.
+            voxel_score_threshold = (
+                0.9 if RESULTS_SCENE.strip().lower() == 'retroneighborhood'
+                else 0.85)
             raven_proc, raven_q = self._spawn([
                 'ros2', 'run', 'raven_nav', 'raven_nav_node',
                 '--ros-args',
@@ -782,6 +787,7 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'target_labels:={target_labels_yaml}',
                 '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
                 '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
+                '-p', f'voxel_score_threshold:={voxel_score_threshold}',
                 # Match the rest of the sim stack so published Path/marker
                 # stamps line up with the controllers' sim clock.
                 '-p', 'use_sim_time:=true',

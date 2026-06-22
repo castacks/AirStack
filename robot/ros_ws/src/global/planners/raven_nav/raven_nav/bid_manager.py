@@ -337,24 +337,15 @@ def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
     return tasks
 
 
-# Ray-lead merge: only near-duplicate leads of the SAME object collapse — close
-# in position AND pointing nearly the same way. Kept tight so distinct objects
-# stay separate (prefer more ray tasks; redundant ones get folded into a BB).
-RAY_MERGE_M = 3.0
-RAY_MERGE_DIR_COS = float(np.cos(np.deg2rad(12.0)))
-
-
 def _canon(t):
     return (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2))
 
 
-def build_tasks(items, match_m: float, key_grid: float,
-                ray_match_m: float = RAY_MERGE_M) -> List[Task]:
-    """Cluster items into shared tasks. BB fragments of one physical target fuse
-    (union) within match_m. Ray-leads merge only with same-object near-duplicates
-    — within ray_match_m AND pointing the same way — so different objects stay
-    distinct. Rays are NOT merged into BBs here (build_targets already attaches
-    rays that pierce a BB). Deterministic -> same tasks per robot.
+def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
+    """Build the shared task list. BB fragments of one physical target fuse
+    (union) within match_m. Ray-leads are passed through AS-IS — one task per
+    filtered ray (already clustered upstream by compute_ray_groups); they are not
+    re-merged here. Deterministic -> same tasks per robot.
 
     items: (label, point(3), size(3), status[, origin(3)[, direction(3)]])."""
     norm = []
@@ -393,28 +384,7 @@ def build_tasks(items, match_m: float, key_grid: float,
         tasks.append(Task(key=_key(bb[i][0], pt), label=bb[i][0],
                           centroid=pt, size=hi - lo, status=st))
 
-    used = [False] * len(ray)
-    for i in range(len(ray)):
-        if used[i]:
-            continue
-        used[i] = True
-        grp = [i]
-        lab, pi, _, _, _, di = ray[i]
-        for j in range(i + 1, len(ray)):
-            if used[j] or ray[j][0] != lab:
-                continue
-            if float(np.linalg.norm(ray[j][1][:2] - pi[:2])) > ray_match_m:
-                continue
-            dj = ray[j][5]
-            if di is not None and dj is not None:
-                a = di[:2] / (np.linalg.norm(di[:2]) + 1e-9)
-                b = dj[:2] / (np.linalg.norm(dj[:2]) + 1e-9)
-                if float(np.dot(a, b)) < RAY_MERGE_DIR_COS:
-                    continue
-            used[j] = True
-            grp.append(j)
-        best = max(grp, key=lambda k: _STATE_RANK.get(ray[k][3], 0))
-        _, pt, siz, st, org, dirc = ray[best]
+    for lab, pt, siz, st, org, dirc in ray:
         tasks.append(Task(
             key=_key(lab, pt), label=lab, centroid=pt.copy(), size=siz.copy(),
             status=st, origin=None if org is None else org.copy(),

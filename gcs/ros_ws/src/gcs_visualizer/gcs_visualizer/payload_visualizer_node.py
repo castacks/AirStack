@@ -173,7 +173,7 @@ class PayloadVisualizerNode(Node):
 
     # state -> RGB for the auction-table overlay.
     _AUCTION_COLOR = {
-        'ray': (1.0, 0.55, 0.0), 'ray-localized': (1.0, 0.9, 0.1),
+        'ray': (1.0, 0.55, 0.0),
         'bb-observing': (0.1, 0.7, 1.0), 'bb-visited': (0.5, 0.5, 0.5)}
 
     def _handle_auction_table(self, robot_name, msg, i, now):

@@ -31,7 +31,7 @@ from raven_nav.ray_targets import RayTarget
 # Max surface gap (not centroid distance) for two same-label AABBs to count as
 # one instance. Small so fragments of one object glue without bridging to a
 # neighbour; size-independent, so large objects still merge from their parts.
-DEDUP_MARGIN_M = 6.0
+DEDUP_MARGIN_M = 3.0
 
 
 @dataclass
@@ -107,30 +107,59 @@ def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
     )
 
 
-def merge_confirmed_targets(
-    sources: List[ConfirmedTarget],
-) -> List[ConfirmedTarget]:
-    """Dedup a flat list of ConfirmedTargets (own + every peer) into a clean set.
+# Cross-robot "same target" test: two boxes coincide enough to be one physical
+# target — meaningful overlap (IoU) or one largely inside the other. Unlike the
+# gap-based local combine, this never chains across distinct adjacent targets.
+SIMILAR_IOU = 0.1
+SIMILAR_CONTAIN = 0.5
 
-    Canonical sort first so the greedy merge is order-independent (same set on
-    every robot).
-    """
+
+def _aabb_inter_vol(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
+    inter = np.clip(
+        np.minimum(a.center + a.size / 2.0, b.center + b.size / 2.0)
+        - np.maximum(a.center - a.size / 2.0, b.center - b.size / 2.0), 0.0, None)
+    return float(np.prod(inter))
+
+
+def _same_target(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
+    if a.label != b.label:
+        return False
+    iv = _aabb_inter_vol(a, b)
+    if iv <= 0.0:
+        return False
+    va = float(np.prod(a.size))
+    vb = float(np.prod(b.size))
+    iou = iv / (va + vb - iv) if (va + vb - iv) > 0 else 0.0
+    contain = iv / max(min(va, vb), 1e-9)
+    return iou >= SIMILAR_IOU or contain >= SIMILAR_CONTAIN
+
+
+def _greedy_merge(sources, predicate) -> List[ConfirmedTarget]:
+    # Canonical sort so the greedy merge is order-independent (same set per robot).
     sources = sorted(
         sources,
         key=lambda ct: (str(ct.label), float(ct.center[0]),
                         float(ct.center[1]), float(ct.center[2])))
     out: List[ConfirmedTarget] = []
     for ct in sources:
-        merged_idx = None
-        for i, existing in enumerate(out):
-            if _should_merge(existing, ct):
-                merged_idx = i
-                break
-        if merged_idx is None:
+        idx = next((i for i, e in enumerate(out) if predicate(e, ct)), None)
+        if idx is None:
             out.append(ct)
         else:
-            out[merged_idx] = _merge_two(out[merged_idx], ct)
+            out[idx] = _merge_two(out[idx], ct)
     return out
+
+
+def merge_confirmed_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
+    """Local combine: glue a robot's own nearby fragments (overlap or gap within
+    margin) into per-target boxes before transmit."""
+    return _greedy_merge(sources, _should_merge)
+
+
+def merge_similar_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
+    """Cross-robot merge: fuse only boxes that are the SAME target (overlap /
+    containment). Dissimilar boxes are distinct targets and stay split."""
+    return _greedy_merge(sources, _same_target)
 
 
 def _stable_id(label: str, center: np.ndarray) -> str:
