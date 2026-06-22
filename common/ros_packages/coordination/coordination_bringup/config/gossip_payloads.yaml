@@ -55,12 +55,12 @@ payload_topics:
   # query). The last path segment is "all", so an explicit name is given.
   # NOTE: this is the FULL accumulating map — heaviest payload on the gossip
   # channel. Comment it out when not actively inspecting detections in GCS.
-  - topic: "/{robot_name}/rayfronts/msg_serv/voxels_sim/all"
-    type: "sensor_msgs/msg/PointCloud2"
-    name: "voxels_sim"
-    # Published in RDF (camera-optical); rotate RDF→FLU before the ENU translation
-    # (same swap raven applies in _vox_all_cb) so it lands in the right place.
-    rotate_rdf_to_flu: true
+  # - topic: "/{robot_name}/rayfronts/msg_serv/voxels_sim/all"
+  #   type: "sensor_msgs/msg/PointCloud2"
+  #   name: "voxels_sim"
+  #   # Published in RDF (camera-optical); rotate RDF→FLU before the ENU translation
+  #   # (same swap raven applies in _vox_all_cb) so it lands in the right place.
+  #   rotate_rdf_to_flu: true
 
 
   # Active raven_nav behavior ('frontier'/'ray'/'voxel'/'idle'). Used by peer

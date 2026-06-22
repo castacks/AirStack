@@ -42,6 +42,11 @@ WAYPOINT_CLEARANCE_M = 1.5
 STANDOFF_STEP_M = 0.5
 STANDOFF_MAX_M = 6.0
 
+# Box extent grows to same-label voxels above (threshold * this), while a cluster
+# is only kept if it has a min_cluster_size core above the full threshold — so a
+# confidently-detected object isn't clipped to just its highest-scoring voxels.
+VOXEL_EXTENT_FRAC = 0.6
+
 
 def _contained_frac(inner_bbox, outer_bbox) -> float:
     """Fraction of inner's AABB volume that lies within outer's AABB."""
@@ -53,40 +58,12 @@ def _contained_frac(inner_bbox, outer_bbox) -> float:
     return float(np.prod(ov)) / vol_i
 
 
-OBB_MIN_AXIS_RATIO = 1.6
-
-
-def _obb_yaw_size(world_xyz):
-    """Yaw (rad) + oriented [sx,sy,sz] for a cluster via 2D PCA on its XY
-    footprint. Yaw-only (objects stay upright). Falls back to axis-aligned
-    extents + yaw 0 when the footprint has no dominant axis."""
-    xy = world_xyz[:, :2]
-    z = world_xyz[:, 2]
-    lo, hi = world_xyz.min(axis=0), world_xyz.max(axis=0)
-    aabb = (hi - lo).tolist()
-    if len(xy) < 3:
-        return 0.0, aabb
-    d = xy - xy.mean(axis=0)
-    evals, evecs = np.linalg.eigh((d.T @ d) / max(len(d) - 1, 1))
-    if evals[0] <= 1e-9 or evals[1] / evals[0] < OBB_MIN_AXIS_RATIO:
-        return 0.0, aabb
-    major = evecs[:, 1]
-    yaw = float(np.arctan2(major[1], major[0]))
-    c, s = np.cos(-yaw), np.sin(-yaw)
-    rot = d @ np.array([[c, -s], [s, c]]).T
-    ext = rot.max(axis=0) - rot.min(axis=0)
-    return yaw, [float(ext[0]), float(ext[1]), float(z.max() - z.min())]
-
-
 @dataclass
 class _VoxelObs:
     bbox: list
     label: str
     score: float = 1.0
     seen: int = 1
-    scores: 'np.ndarray | None' = None
-    yaw: float = 0.0
-    obb_size: 'list | None' = None
 
 
 class VoxelBehavior:
@@ -115,9 +92,6 @@ class VoxelBehavior:
         self.target_voxel_clusters = {}
         self.cluster_query_map = {}
         self.cluster_confidence = {}
-        self.cluster_yaw = {}
-        self.cluster_obb_size = {}
-        self._cur_target_objects = []
         self.visited_clusters = []
         self.unvisited_clusters = []
         # Per-instance (label, center, size) visited record for STATUS only —
@@ -134,8 +108,6 @@ class VoxelBehavior:
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
         self.cluster_confidence.clear()
-        self.cluster_yaw.clear()
-        self.cluster_obb_size.clear()
         self.visited_clusters = []
         self.unvisited_clusters = []
         self.visited_instances = []
@@ -257,7 +229,6 @@ class VoxelBehavior:
         if not label_indices:
             return self._engage_goto(committed_bb_center)
 
-        self._cur_target_objects = list(target_objects)
         raw_obs = self._extract_clusters(
             vox_xyz, vox_scores, label_indices, target_objects, threshold)
         confirmed = self._confirmer.update(
@@ -267,8 +238,6 @@ class VoxelBehavior:
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
         self.cluster_confidence.clear()
-        self.cluster_yaw.clear()
-        self.cluster_obb_size.clear()
         cid = 0
         for obs in confirmed:
             conf = float(obs.score) * min(1.0, obs.seen / PERSISTENCE_FULL_HITS)
@@ -277,8 +246,6 @@ class VoxelBehavior:
             self.target_voxel_clusters[cid] = obs.bbox
             self.cluster_query_map[cid] = obs.label
             self.cluster_confidence[cid] = conf
-            self.cluster_yaw[cid] = obs.yaw
-            self.cluster_obb_size[cid] = obs.obb_size or obs.bbox[3:6]
             cid += 1
 
         # Candidates: ray-matched clusters when committed, else clusters near the
@@ -339,28 +306,16 @@ class VoxelBehavior:
             np.array(b.bbox[:3]), np.array(b.bbox[3:6])) <= TRACK_ASSOC_MARGIN_M
 
     def _merge_obs(self, a: _VoxelObs, b: _VoxelObs) -> _VoxelObs:
-        """EMA the centroid; take this frame's size/orientation. EMA the per-class
-        scores and relabel to their running argmax so a track tracks position
-        stably (label-agnostic match) yet follows the dominant class over time."""
+        """EMA the centroid + score; take this frame's size. Keeps the track label
+        (per-label clustering + same-label matching keep it consistent)."""
         al = TRACK_MERGE_ALPHA
         a_bb = np.asarray(a.bbox, dtype=float)
         b_bb = np.asarray(b.bbox, dtype=float)
         center = (1.0 - al) * a_bb[:3] + al * b_bb[:3]
         size = b_bb[3:6]
-        if (a.scores is not None and b.scores is not None
-                and a.scores.shape == b.scores.shape):
-            scores = (1.0 - al) * a.scores + al * b.scores
-        else:
-            scores = b.scores if b.scores is not None else a.scores
-        label, score = a.label, (1.0 - al) * a.score + al * b.score
-        if scores is not None and self._cur_target_objects:
-            k = int(np.argmax(scores))
-            if k < len(self._cur_target_objects):
-                label = self._cur_target_objects[k]
-                score = float(scores[k])
+        score = (1.0 - al) * a.score + al * b.score
         return _VoxelObs(bbox=[*center.tolist(), *size.tolist()],
-                         label=label, score=score, seen=a.seen + 1,
-                         scores=scores, yaw=b.yaw, obb_size=b.obb_size)
+                         label=a.label, score=score, seen=a.seen + 1)
 
     def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
                           target_objects, threshold):
@@ -370,19 +325,23 @@ class VoxelBehavior:
         relevant_scores = vox_scores[:, label_indices]
         best_t = relevant_scores.argmax(axis=1)
         best_s = relevant_scores.max(axis=1)
+        ext_thr = threshold * VOXEL_EXTENT_FRAC
         vox_size = 0.5
         obs = []
         for t in range(len(label_indices)):
-            sel = np.where((best_t == t) & (best_s > threshold))[0]
+            sel = np.where((best_t == t) & (best_s > ext_thr))[0]
             if len(sel) < self.min_cluster_size:
                 continue
             obs.extend(self._cluster_one_label(
-                vox_xyz[sel], relevant_scores[sel], t, target_objects, vox_size))
+                vox_xyz[sel], relevant_scores[sel], t, target_objects,
+                vox_size, threshold))
         return obs
 
     def _cluster_one_label(self, label_vox, label_scores, t, target_objects,
-                           vox_size):
-        """26-connected components + instance split for one target label's voxels."""
+                           vox_size, conf_threshold):
+        """26-connected components + instance split for one target label's voxels.
+        A component is kept only with a min_cluster_size core above conf_threshold;
+        its box extent covers all the (lower-bar) voxels in the component."""
         out = []
         filtered_vox = np.round(label_vox, 3)
         min_coords = filtered_vox.min(axis=0)
@@ -400,6 +359,8 @@ class VoxelBehavior:
                 continue
             comp_coords = norm_coords[idx]
             comp_scores = label_scores[idx]
+            if int((comp_scores[:, t] > conf_threshold).sum()) < self.min_cluster_size:
+                continue
             for g in self._split_into_instances(
                     comp_coords, comp_scores[:, t], vox_size):
                 if len(g) < self.min_cluster_size:
@@ -410,14 +371,11 @@ class VoxelBehavior:
                 center = (min_world + max_world) / 2
                 size = max_world - min_world
                 mean_scores = comp_scores[g].mean(axis=0)
-                yaw, obb_size = _obb_yaw_size(coords * vox_size + min_coords)
                 out.append(_VoxelObs(
                     bbox=[center[0], center[1], center[2],
                           size[0], size[1], size[2]],
                     label=label,
-                    score=float(mean_scores[t]),
-                    scores=np.asarray(mean_scores, dtype=np.float32),
-                    yaw=yaw, obb_size=obb_size))
+                    score=float(mean_scores[t])))
         return out
 
     def _split_into_instances(self, coords, win_scores, vox_size):

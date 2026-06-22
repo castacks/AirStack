@@ -143,7 +143,7 @@ class RavenNavNode(Node):
             'coverage_raycast_min_step_m', 5.0).value)
         self._last_raycast_xy: 'np.ndarray | None' = None
 
-        self._score_threshold = self.declare_parameter('score_threshold', 0.7).value
+        self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
@@ -159,7 +159,7 @@ class RavenNavNode(Node):
         self._altitude_pref_weight = float(self.declare_parameter(
             'altitude_preference_weight', 2.0).value)
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.85).value)
+            'voxel_score_threshold', 0.8).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 35).value)
         # Temporal confirmation: persist across N ticks before a detection counts.
@@ -596,9 +596,9 @@ class RavenNavNode(Node):
         return float(min(covered_area / poly_area, 1.0))
 
     def _own_confirmed_targets(self) -> list:
-        """ConfirmedTarget records from voxel_behavior's live clusters. Reports
-        the oriented box (cluster_obb_size + cluster_yaw); 'visited' once the
-        drone has passed within range, else 'observing'."""
+        """ConfirmedTarget AABBs from voxel_behavior's live clusters, plus the
+        persistent visited instances so peers keep excluding them; 'visited' once
+        the drone has passed within range, else 'observing'."""
         vb = self._behavior_manager.voxel_behavior
         out: list = []
         now_ts = float(self.get_clock().now().nanoseconds) * 1e-9
@@ -613,12 +613,19 @@ class RavenNavNode(Node):
             out.append(ConfirmedTarget(
                 label=label,
                 center=np.array(bb[:3], dtype=float),
-                size=np.array(vb.cluster_obb_size.get(cid, bb[3:6]), dtype=float),
+                size=np.array(bb[3:6], dtype=float),
                 status=status,
                 confidence=float(vb.cluster_confidence.get(cid, 1.0)),
                 ts=now_ts,
-                yaw=float(vb.cluster_yaw.get(cid, 0.0)),
             ))
+        live_centers = [np.asarray(c.center, dtype=float) for c in out]
+        for label, vcenter, vsize in vb.visited_instances:
+            vc = np.asarray(vcenter, dtype=float)
+            if any(float(np.linalg.norm(vc - lc)) <= 3.0 for lc in live_centers):
+                continue
+            out.append(ConfirmedTarget(
+                label=label, center=vc, size=np.asarray(vsize, dtype=float),
+                status='visited', confidence=1.0, ts=now_ts))
         return out
 
     def _obs_key(self, label, center):

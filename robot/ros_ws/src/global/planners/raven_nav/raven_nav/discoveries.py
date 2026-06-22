@@ -36,15 +36,13 @@ DEDUP_MARGIN_M = 2.0
 
 @dataclass
 class ConfirmedTarget:
-    """An oriented box hypothesis from voxel_behavior. Frame: local 'map'.
-    yaw is the box rotation about +Z (0 = axis-aligned)."""
+    """A 3D AABB hypothesis fed in from voxel_behavior. Frame: local 'map'."""
     label: str
     center: np.ndarray
     size:   np.ndarray
     status: str = 'observing'
     confidence: float = 0.0
     ts: float = 0.0
-    yaw: float = 0.0
 
 
 @dataclass
@@ -57,7 +55,6 @@ class Discovery:
     confidence: float = 0.0
     contributing_robots: List[str] = field(default_factory=list)
     last_update_ts: float = 0.0
-    yaw: float = 0.0
 
 
 def aabb_overlap(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
@@ -107,7 +104,6 @@ def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
         label=a.label, center=center, size=size, status=status,
         confidence=max(a.confidence, b.confidence),
         ts=max(a.ts, b.ts),
-        yaw=a.yaw if a.confidence >= b.confidence else b.yaw,
     )
 
 
@@ -162,7 +158,6 @@ def build_discoveries(
             confidence=ct.confidence,
             contributing_robots=[contributing_robot],
             last_update_ts=max(ct.ts, now_ts),
-            yaw=ct.yaw,
         )
         if peer_contributions:
             disc.contributing_robots.extend(peer_contributions)
@@ -214,7 +209,6 @@ def discoveries_to_json(discoveries: List[Discovery]) -> str:
             'confidence': float(d.confidence),
             'contributors': list(d.contributing_robots),
             'ts': float(d.last_update_ts),
-            'yaw': float(d.yaw),
         }
         if d.size is not None:
             item['sx'] = float(d.size[0])
@@ -239,6 +233,5 @@ def confirmed_targets_to_json(targets: List[ConfirmedTarget]) -> str:
             'status': t.status,
             'confidence': float(t.confidence),
             'ts': float(t.ts),
-            'yaw': float(t.yaw),
         })
     return json.dumps(out)
