@@ -61,8 +61,8 @@ environments:
     ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, red container"
-    background_queries: "road, grass, mountain, parking lot, building, truck, scaffolding"
+    query: "Forklift, Towercrane, red shipping container"
+    background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
