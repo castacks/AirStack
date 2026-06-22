@@ -143,7 +143,7 @@ class RavenNavNode(Node):
             'coverage_raycast_min_step_m', 5.0).value)
         self._last_raycast_xy: 'np.ndarray | None' = None
 
-        self._score_threshold = self.declare_parameter('score_threshold', 0.62).value
+        self._score_threshold = self.declare_parameter('score_threshold', 0.7).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
@@ -159,7 +159,7 @@ class RavenNavNode(Node):
         self._altitude_pref_weight = float(self.declare_parameter(
             'altitude_preference_weight', 2.0).value)
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.8).value)
+            'voxel_score_threshold', 0.85).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 35).value)
         # Temporal confirmation: persist across N ticks before a detection counts.
