@@ -42,11 +42,6 @@ WAYPOINT_CLEARANCE_M = 1.5
 STANDOFF_STEP_M = 0.5
 STANDOFF_MAX_M = 6.0
 
-# Box extent grows to same-label voxels above (threshold * this), while a cluster
-# is only kept if it has a min_cluster_size core above the full threshold — so a
-# confidently-detected object isn't clipped to just its highest-scoring voxels.
-VOXEL_EXTENT_FRAC = 0.6
-
 
 def _contained_frac(inner_bbox, outer_bbox) -> float:
     """Fraction of inner's AABB volume that lies within outer's AABB."""
@@ -325,23 +320,19 @@ class VoxelBehavior:
         relevant_scores = vox_scores[:, label_indices]
         best_t = relevant_scores.argmax(axis=1)
         best_s = relevant_scores.max(axis=1)
-        ext_thr = threshold * VOXEL_EXTENT_FRAC
         vox_size = 0.5
         obs = []
         for t in range(len(label_indices)):
-            sel = np.where((best_t == t) & (best_s > ext_thr))[0]
+            sel = np.where((best_t == t) & (best_s > threshold))[0]
             if len(sel) < self.min_cluster_size:
                 continue
             obs.extend(self._cluster_one_label(
-                vox_xyz[sel], relevant_scores[sel], t, target_objects,
-                vox_size, threshold))
+                vox_xyz[sel], relevant_scores[sel], t, target_objects, vox_size))
         return obs
 
     def _cluster_one_label(self, label_vox, label_scores, t, target_objects,
-                           vox_size, conf_threshold):
-        """26-connected components + instance split for one target label's voxels.
-        A component is kept only with a min_cluster_size core above conf_threshold;
-        its box extent covers all the (lower-bar) voxels in the component."""
+                           vox_size):
+        """26-connected components + instance split for one target label's voxels."""
         out = []
         filtered_vox = np.round(label_vox, 3)
         min_coords = filtered_vox.min(axis=0)
@@ -359,8 +350,6 @@ class VoxelBehavior:
                 continue
             comp_coords = norm_coords[idx]
             comp_scores = label_scores[idx]
-            if int((comp_scores[:, t] > conf_threshold).sum()) < self.min_cluster_size:
-                continue
             for g in self._split_into_instances(
                     comp_coords, comp_scores[:, t], vox_size):
                 if len(g) < self.min_cluster_size:
