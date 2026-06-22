@@ -15,7 +15,7 @@ set -euo pipefail
 
 # ── Config ────────────────────────────────────────────────────────────────────
 VOXL_USB_IP=192.168.123.2
-VOXL_WIFI_IP=192.168.123.167
+VOXL_WIFI_IP=192.168.123.147
 VOXL_SSH_PASS=oelinux123
 HOST_IP=192.168.123.1
 CONTAINER_NAME=modalai-hw-test
