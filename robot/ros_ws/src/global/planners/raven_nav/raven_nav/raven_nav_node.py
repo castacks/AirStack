@@ -829,21 +829,30 @@ class RavenNavNode(Node):
         BBs, so every robot derives the same list. A ray-lead carries a far point
         (range unknown) so its cost exceeds a localized BB -> BB priority."""
         targets = set(self._target_objects or [])
-        known_bbs, bb_meta = [], {}
+        known_bbs = []
+        items = []
+        # 1. EVERY confirmed (unvisited) BB is a task — independent of whether a
+        # ray currently points at it (build_targets omits ray-less BBs, which
+        # otherwise drops confirmed houses off the auction).
         for i, ct in enumerate(self._observed_bbs.values()):
             if targets and ct.label not in targets:
+                continue
+            if ct.label in all_completed:
                 continue
             c = np.asarray(ct.center, dtype=float)
             if self._bb_is_visited(ct.label, c):
                 continue
-            known_bbs.append((i, ct.label,
-                              np.concatenate([c, np.asarray(ct.size, float)])))
-            bb_meta[i] = np.asarray(ct.size, float)
+            size = np.asarray(ct.size, dtype=float)
+            known_bbs.append((i, ct.label, np.concatenate([c, size])))
+            items.append((ct.label, c, size, 'bb-observing'))
+        # 2. Ray-leads that are NOT anchored to a BB (those are already covered
+        # above; build_tasks' proximity merge folds any stragglers into the BB).
         rts = build_targets(own_groups=ray_groups, peer_groups=[],
                             known_bbs=known_bbs, polygon_xy=polygon_xy,
                             now_ts=now_ts)
-        items = []
         for rt in rts:
+            if rt.bb_id is not None:
+                continue
             if targets and rt.label not in targets:
                 continue
             if rt.label in all_completed:
@@ -851,13 +860,8 @@ class RavenNavNode(Node):
             pt = np.asarray(rt.position, dtype=float)
             if self._bb_is_visited(rt.label, pt) or self._lead_served(rt.label, pt):
                 continue
-            if rt.bb_id is not None:
-                size, status = bb_meta.get(rt.bb_id, np.zeros(3)), 'bb-observing'
-            elif rt.status == 'confirmed':
-                size, status = np.zeros(3), 'ray-localized'
-            else:
-                size, status = np.zeros(3), 'ray'
-            items.append((rt.label, pt, size, status))
+            status = 'ray-localized' if rt.status == 'confirmed' else 'ray'
+            items.append((rt.label, pt, np.zeros(3), status))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
 
     def _lead_served(self, label, point) -> bool:
@@ -1646,9 +1650,12 @@ class RavenNavNode(Node):
         frame = 'enu' if self._boot_enu is not None else 'local'
         visited = []
         for lab, bb in self._peer_visited_bbs:
-            g = to_world(np.asarray(bb, dtype=float)[:3])
+            b = np.asarray(bb, dtype=float)
+            g = to_world(b[:3])
+            s = b[3:6] if b.size >= 6 else np.zeros(3)
             visited.append({'label': lab, 'x': float(g[0]), 'y': float(g[1]),
-                            'z': float(g[2])})
+                            'z': float(g[2]), 'sx': float(s[0]),
+                            'sy': float(s[1]), 'sz': float(s[2])})
         available = []
         for t in tasks:
             c = to_world(np.asarray(t.centroid, dtype=float))
