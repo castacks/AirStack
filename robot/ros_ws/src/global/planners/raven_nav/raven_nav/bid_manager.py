@@ -338,9 +338,10 @@ def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
 
 
 # Ray-lead merge: only near-duplicate leads of the SAME object collapse — close
-# in position AND pointing the same way. Distinct objects stay separate.
-RAY_MERGE_M = 5.0
-RAY_MERGE_DIR_COS = float(np.cos(np.deg2rad(25.0)))
+# in position AND pointing nearly the same way. Kept tight so distinct objects
+# stay separate (prefer more ray tasks; redundant ones get folded into a BB).
+RAY_MERGE_M = 3.0
+RAY_MERGE_DIR_COS = float(np.cos(np.deg2rad(12.0)))
 
 
 def _canon(t):

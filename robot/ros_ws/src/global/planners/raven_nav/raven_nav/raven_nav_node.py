@@ -841,9 +841,10 @@ class RavenNavNode(Node):
     _PEER_TARGET_MATCH_M = _TASK_MATCH_M
     _TASK_KEY_GRID = 6.0
     # Persistent ray-lead memory: dedup radius + bearing-angle, and BB pad for
-    # the "does this lead point at a known BB" test.
-    _RAY_LEAD_MATCH_M = 5.0
-    _RAY_LEAD_DIR_COS = float(np.cos(np.deg2rad(25.0)))
+    # the "does this lead point at a known BB" test. Kept tight (upstream gate of
+    # build_tasks) so distinct bearings stay separate -> more ray tasks.
+    _RAY_LEAD_MATCH_M = 3.0
+    _RAY_LEAD_DIR_COS = float(np.cos(np.deg2rad(12.0)))
     _RAY_LEAD_BB_PAD_M = 4.0
 
     def _lead_points_at_known_bb(self, o, d, label) -> bool:
