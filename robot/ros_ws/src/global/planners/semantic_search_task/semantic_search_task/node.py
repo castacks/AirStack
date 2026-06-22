@@ -629,7 +629,7 @@ class SemanticSearchTaskNode(Node):
         # ─── TEMP DEBUG HARDCODE — manual-fly forced ON; REVERT WHEN DONE ───
         # Restore the two commented lines below (delete `debug = True`) to go
         # back to per-goal / env-var control.
-        debug = True
+        debug = False
         # debug = (bool(getattr(goal, 'debug', False))
         #          or os.getenv('SEMANTIC_SEARCH_DEBUG', '').strip().lower()
         #          in ('1', 'true', 'yes'))

@@ -363,12 +363,22 @@ class PayloadVisualizerNode(Node):
             out.markers.append(cubes)
         self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', MarkerArray).publish(out)
 
+    def _handle_voxels_sim(self, robot_name, msg, i, now):
+        # rayfronts per-query semantic voxel cloud (x,y,z + sim_0..N), already in
+        # global ENU from gossip. Republished as-is (plus the display z-offset) so
+        # Foxglove can colour voxels by any sim_K field (sim_0 = first query).
+        # DEBUG visualization only; raven_nav never consumes this.
+        out = transform_point_cloud2(msg, 0.0, 0.0, self._display_z_offset())
+        out.header.stamp = now
+        self._pub_for(f'/gcs/payload/{robot_name}/voxels_sim', PointCloud2).publish(out)
+
     PAYLOAD_HANDLERS = {
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
         'shared_frontiers':           ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
         'filtered_frontiers':         ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
         'explored_area_coverage':       ('coordination_msgs/msg/CoverageGrid', _handle_completed_zones),
         'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
+        'voxels_sim':                 ('sensor_msgs/msg/PointCloud2',        _handle_voxels_sim),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),
     }

@@ -50,6 +50,18 @@ payload_topics:
   # - topic: "/{robot_name}/rayfronts/voxel_rgb"
   #   type: "sensor_msgs/msg/PointCloud2"
 
+  # Per-query semantic voxel cloud (rayfronts) — x,y,z + sim_0..N similarity per
+  # query. GCS visualization ONLY (colour by sim_K in Foxglove; sim_0 = first
+  # query). The last path segment is "all", so an explicit name is given.
+  # NOTE: this is the FULL accumulating map — heaviest payload on the gossip
+  # channel. Comment it out when not actively inspecting detections in GCS.
+  - topic: "/{robot_name}/rayfronts/msg_serv/voxels_sim/all"
+    type: "sensor_msgs/msg/PointCloud2"
+    name: "voxels_sim"
+    # Published in RDF (camera-optical); rotate RDF→FLU before the ENU translation
+    # (same swap raven applies in _vox_all_cb) so it lands in the right place.
+    rotate_rdf_to_flu: true
+
 
   # Active raven_nav behavior ('frontier'/'ray'/'voxel'/'idle'). Used by peer
   # raven_nav instances to decide whether to treat that robot's waypoint as a

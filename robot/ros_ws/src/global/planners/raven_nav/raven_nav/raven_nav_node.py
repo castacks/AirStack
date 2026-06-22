@@ -1400,16 +1400,29 @@ class RavenNavNode(Node):
             self.get_logger().info(f'target objects updated: {self._target_objects}')
 
     def _navsat_cb(self, msg: NavSatFix):
-        """Capture boot ENU + ground altitude on first valid fix."""
+        """Capture boot ENU + ground altitude on first valid fix.
+
+        boot_enu must anchor the odom ORIGIN (spawn) to global ENU. raven is
+        spawned per-search — after takeoff, and possibly after the drone has
+        flown — so the drone is rarely at the odom origin when its first fix
+        arrives. Using gps_to_enu(fix) directly would anchor wherever the drone
+        currently is, offsetting every world-frame output (confirmed-target
+        AABBs, event log, results) by the current odom position — pure XY drift,
+        invisible only when the search starts at spawn. odom/map is ENU-aligned,
+        so subtract _cur_pose to back the origin out; correct at any capture time.
+        """
         if self._boot_enu is not None:
             return
         if msg.status.status < 0:
             return
-        self._alt_ground = msg.altitude
+        if self._cur_pose is None:
+            return  # need odom to back out the origin — wait for the next fix
+        cur = np.asarray(self._cur_pose, dtype=np.float64)
+        self._alt_ground = float(msg.altitude) - float(cur[2])
         self._boot_enu = np.array(
             gps_to_enu(msg.latitude, msg.longitude, msg.altitude),
             dtype=np.float64,
-        )
+        ) - cur
         self.get_logger().info(
             f'boot GPS captured: alt_ground={self._alt_ground:.2f}m, '
             f'boot_enu=({self._boot_enu[0]:.2f}, {self._boot_enu[1]:.2f}, '

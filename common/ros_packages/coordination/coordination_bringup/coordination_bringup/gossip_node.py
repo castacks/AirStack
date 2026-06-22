@@ -44,6 +44,13 @@ _GOSSIP_SEEN_SIZE = 50
 PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
 PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
 
+# rayfronts publishes voxels_sim/all in RDF (right-down-forward, camera-optical);
+# raven converts it to FLU as [rdf_z, -rdf_x, -rdf_y] (raven_nav_node _vox_all_cb).
+# That swap is a pure rotation; this is its quaternion (x, y, z, w). Payloads
+# flagged `rotate_rdf_to_flu` get R(q)·p applied before the boot translation so
+# the gossiped cloud lands in global ENU like every other payload.
+_RDF_TO_FLU_QUAT = (-0.5, 0.5, -0.5, 0.5)
+
 # BEST_EFFORT/VOLATILE: gossip is lossy-by-design. RELIABLE over the
 # LARGE_DATA (TCP) transport back-pressured the ddsrouter under load and
 # collapsed the whole mesh (SAMPLE_LOST storm); best-effort + lifetime=0 on the
@@ -98,6 +105,7 @@ class GossipNode(Node):
         self._seen: OrderedDict = OrderedDict()
         self._payload_cache: dict[str, object] = {}
         self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
+        self._payload_rotations: dict[str, tuple] = {}  # topic → pre-translation quat, or None
         self._payload_subs: list = []
 
         self._coverage_topic = None
@@ -177,10 +185,18 @@ class GossipNode(Node):
                 continue
 
             topic = topic_template.replace("{robot_name}", self._robot_name)
-            # Use the last path segment as a short human-readable name (e.g. 'filtered_rays')
-            self._payload_names[topic] = topic_template.rstrip("/").split("/")[-1]
+            # Short human-readable name for the payload (the receiver dispatches on
+            # it). Defaults to the last path segment, but an explicit `name:` is
+            # required when the segment is ambiguous (e.g. '.../voxels_sim/all').
+            self._payload_names[topic] = (
+                entry.get("name") or topic_template.rstrip("/").split("/")[-1])
             if self._payload_names[topic] == "explored_area_coverage":
                 self._coverage_topic = topic
+            # Payloads already in the local map ENU frame need translation only
+            # (rotation None). RDF clouds (rayfronts voxels_sim) need the RDF→FLU
+            # rotation applied before that translation.
+            self._payload_rotations[topic] = (
+                _RDF_TO_FLU_QUAT if entry.get("rotate_rdf_to_flu") else None)
 
             try:
                 msg_class = rosidl_utils.get_message(type_str)
@@ -299,7 +315,8 @@ class GossipNode(Node):
                     if topic == self._coverage_topic:
                         self._attach_coverage(msg, stamp, bx, by)
                     else:
-                        transformed = self._transform_to_global(msg, bx, by, bz, q)
+                        rot = self._payload_rotations.get(topic) or q
+                        transformed = self._transform_to_global(msg, bx, by, bz, rot)
                         self._profile.add_payload(transformed, stamp=stamp, name=self._payload_names.get(topic, ""))
 
             # Translate the waypoint into the same global ENU frame as payloads.
