@@ -12,11 +12,6 @@
   <!-- Remove or replace this node for projects that don't use Rayfronts -->
   <node pkg="gcs_visualizer" exec="payload_visualizer_node" name="payload_visualizer_node" output="screen" />
 
-  <!-- Consensus targets: merges every robot's confirmed_targets into one
-       deduped, label-voted fleet set on /gcs/consensus_AABBs (+ /gcs/consensus_targets).
-       Retracts targets no robot still reports and minority labels. -->
-  <node pkg="gcs_visualizer" exec="consensus_target_node" name="consensus_target_node" output="screen" />
-
   <!-- Waypoint collector: click-to-place waypoints from Foxglove 3D panel -->
   <node pkg="gcs_visualizer" exec="waypoint_collector_node" name="waypoint_collector_node" output="screen" />
 

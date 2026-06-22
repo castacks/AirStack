@@ -294,6 +294,7 @@ class Task:
     centroid: np.ndarray   # (3,) target point estimate (BB centre or ray point)
     size: np.ndarray       # (3,) extents (zeros for a ray-lead point)
     status: str = 'bb-observing'   # one of TASK_STATES
+    origin: Optional[np.ndarray] = None   # (3,) ray-lead bearing origin, for viz
 
 
 def _task_surface_dist_xy(pos_xy, task) -> float:
@@ -338,12 +339,15 @@ def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
 def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
     """Cluster mixed BB + ray-lead items into shared tasks (bounds the table).
 
-    items: (label, point(3), size(3), status). Single-linkage on xy proximity
-    within a label; the most-localized member (bb > ray-localized > ray) sets the
-    cluster's status, point and size, so a ray-lead near a BB collapses into the
-    BB (BB priority). Deterministic order -> same tasks/keys on every robot."""
-    norm = [(str(lab), np.asarray(p, float), np.asarray(s, float), str(st))
-            for lab, p, s, st in items]
+    items: (label, point(3), size(3), status[, origin(3)]). Single-linkage on xy
+    proximity within a label; the most-localized member (bb > ray-localized > ray)
+    sets the cluster's status, point and size, so a ray-lead near a BB collapses
+    into the BB (BB priority). Deterministic order -> same tasks/keys per robot."""
+    norm = []
+    for it in items:
+        org = it[4] if len(it) > 4 and it[4] is not None else None
+        norm.append((str(it[0]), np.asarray(it[1], float), np.asarray(it[2], float),
+                     str(it[3]), None if org is None else np.asarray(org, float)))
     norm.sort(key=lambda t: (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2)))
     n = len(norm)
     used = [False] * n
@@ -360,11 +364,25 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
             if float(np.linalg.norm(norm[j][1][:2] - ci[:2])) <= match_m:
                 used[j] = True
                 grp.append(j)
-        best = max(grp, key=lambda k: _STATE_RANK.get(norm[k][3], 0))
-        lab, pt, siz, st = norm[best]
+        lab = norm[i][0]
+        bb_members = [k for k in grp if norm[k][3].startswith('bb')]
+        org = None
+        if bb_members:
+            # Union the BB fragments into one box (one box per physical target).
+            lo = np.min([norm[k][1][:3] - norm[k][2] / 2.0 for k in bb_members], axis=0)
+            hi = np.max([norm[k][1][:3] + norm[k][2] / 2.0 for k in bb_members], axis=0)
+            pt = (lo + hi) / 2.0
+            siz = hi - lo
+            st = ('bb-visited' if any(norm[k][3] == 'bb-visited' for k in bb_members)
+                  else 'bb-observing')
+        else:
+            best = max(grp, key=lambda k: _STATE_RANK.get(norm[k][3], 0))
+            _, pt, siz, st, org = norm[best]
+            pt, siz = pt.copy(), siz.copy()
+            org = None if org is None else org.copy()
         key = (lab, int(round(pt[0] / key_grid)), int(round(pt[1] / key_grid)))
-        tasks.append(Task(key=key, label=lab, centroid=pt.copy(),
-                          size=siz.copy(), status=st))
+        tasks.append(Task(key=key, label=lab, centroid=pt, size=siz,
+                          status=st, origin=org))
     return tasks
 
 

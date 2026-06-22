@@ -16,7 +16,7 @@ from std_msgs.msg import String, Empty
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
-from coordination_bringup.frame_utils import gps_to_enu
+from coordination_bringup.frame_utils import gps_to_enu, dir_to_quat
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
 from airstack_msgs.msg import BidVector
@@ -831,10 +831,12 @@ class RavenNavNode(Node):
         targets = set(self._target_objects or [])
         known_bbs = []
         items = []
-        # 1. EVERY confirmed (unvisited) BB is a task — independent of whether a
-        # ray currently points at it (build_targets omits ray-less BBs, which
-        # otherwise drops confirmed houses off the auction).
-        for i, ct in enumerate(self._observed_bbs.values()):
+        # 1. Every confirmed (unvisited) BB is a task, independent of any ray.
+        # Canonical order so build_targets' BB-attachment is identical per robot.
+        cts = sorted(self._observed_bbs.values(),
+                     key=lambda ct: (str(ct.label), float(ct.center[0]),
+                                     float(ct.center[1]), float(ct.center[2])))
+        for i, ct in enumerate(cts):
             if targets and ct.label not in targets:
                 continue
             if ct.label in all_completed:
@@ -861,7 +863,12 @@ class RavenNavNode(Node):
             if self._bb_is_visited(rt.label, pt) or self._lead_served(rt.label, pt):
                 continue
             status = 'ray-localized' if rt.status == 'confirmed' else 'ray'
-            items.append((rt.label, pt, np.zeros(3), status))
+            origin = None
+            if rt.contributing_group_ids:
+                gid = rt.contributing_group_ids[0]
+                if 0 <= gid < len(ray_groups):
+                    origin = np.asarray(ray_groups[gid].avg_origin, dtype=float)
+            items.append((rt.label, pt, np.zeros(3), status, origin))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
 
     def _lead_served(self, label, point) -> bool:
@@ -1590,9 +1597,7 @@ class RavenNavNode(Node):
             r, gr, b = self._RAY_GROUP_COLORS[i % len(self._RAY_GROUP_COLORS)]
             for k in range(g.num_rays):
                 p0 = g.ray_origins[k]
-                d = g.ray_dirs[k]
-                d = d / (np.linalg.norm(d) + 1e-6)
-                p1 = p0 + 2.0 * d
+                qx, qy, qz, qw = dir_to_quat(g.ray_dirs[k])
                 arrow = Marker()
                 arrow.header.frame_id = 'map'
                 arrow.header.stamp = now
@@ -1600,12 +1605,15 @@ class RavenNavNode(Node):
                 arrow.id = marker_id
                 arrow.type = Marker.ARROW
                 arrow.action = Marker.ADD
-                arrow.points = [
-                    Point(x=float(p0[0]), y=float(p0[1]), z=float(p0[2])),
-                    Point(x=float(p1[0]), y=float(p1[1]), z=float(p1[2])),
-                ]
-                arrow.scale.x = 0.3
-                arrow.scale.y = 0.6
+                arrow.pose.position.x = float(p0[0])
+                arrow.pose.position.y = float(p0[1])
+                arrow.pose.position.z = float(p0[2])
+                arrow.pose.orientation.x = qx
+                arrow.pose.orientation.y = qy
+                arrow.pose.orientation.z = qz
+                arrow.pose.orientation.w = qw
+                arrow.scale.x = 2.0
+                arrow.scale.y = 0.4
                 arrow.scale.z = 0.4
                 arrow.color.r, arrow.color.g, arrow.color.b, arrow.color.a = r, gr, b, 0.7
                 ma.markers.append(arrow)
@@ -1660,10 +1668,15 @@ class RavenNavNode(Node):
         for t in tasks:
             c = to_world(np.asarray(t.centroid, dtype=float))
             s = np.asarray(t.size, dtype=float)
-            available.append({'label': t.label, 'status': t.status,
-                              'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
-                              'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
-                              'assigned': owner.get(t.key)})
+            entry = {'label': t.label, 'status': t.status,
+                     'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
+                     'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
+                     'assigned': owner.get(t.key)}
+            if t.origin is not None:
+                o = to_world(np.asarray(t.origin, dtype=float))
+                entry['ox'], entry['oy'], entry['oz'] = (
+                    float(o[0]), float(o[1]), float(o[2]))
+            available.append(entry)
         self._auction_table_pub.publish(String(data=json.dumps(
             {'robot': self._robot_name, 'my_id': self._my_id, 'frame': frame,
              'visited_bbs': visited, 'available': available})))

@@ -29,7 +29,6 @@ setup(
             'polygon_collector_node = gcs_visualizer.polygon_collector_node:main',
             'annotation_viz_node = gcs_visualizer.annotation_viz_node:main',
             'annotation_tuner = gcs_visualizer.annotation_tuner:main',
-            'consensus_target_node = gcs_visualizer.consensus_target_node:main',
         ],
     },
 )

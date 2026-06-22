@@ -110,7 +110,15 @@ def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
 def merge_confirmed_targets(
     sources: List[ConfirmedTarget],
 ) -> List[ConfirmedTarget]:
-    """Dedup a flat list of ConfirmedTargets (own + every peer) into a clean set."""
+    """Dedup a flat list of ConfirmedTargets (own + every peer) into a clean set.
+
+    Canonical sort first so the greedy merge is order-independent (same set on
+    every robot).
+    """
+    sources = sorted(
+        sources,
+        key=lambda ct: (str(ct.label), float(ct.center[0]),
+                        float(ct.center[1]), float(ct.center[2])))
     out: List[ConfirmedTarget] = []
     for ct in sources:
         merged_idx = None

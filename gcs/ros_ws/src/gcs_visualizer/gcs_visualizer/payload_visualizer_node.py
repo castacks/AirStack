@@ -206,13 +206,23 @@ class PayloadVisualizerNode(Node):
             m.header.stamp = now
             m.ns = f'{robot_name}_auction_{suffix}'
             m.id = mid
-            m.type = Marker.CUBE if is_bb else Marker.SPHERE
             m.action = Marker.ADD
-            m.pose.position.x, m.pose.position.y, m.pose.position.z = x, y, z
-            m.pose.orientation.w = 1.0
-            m.scale.x, m.scale.y, m.scale.z = max(sx, 1.0), max(sy, 1.0), max(sz, 1.0)
             m.color.r, m.color.g, m.color.b, m.color.a = (*rgb, alpha)
             m.lifetime = Duration(sec=0, nanosec=0)
+            if (not is_bb) and 'ox' in it:
+                # Ray-lead: arrow from the detection origin to the target point.
+                m.type = Marker.ARROW
+                m.points = [
+                    GPoint(x=float(it['ox']), y=float(it['oy']), z=float(it['oz'])),
+                    GPoint(x=x, y=y, z=z)]
+                m.scale.x, m.scale.y, m.scale.z = 0.4, 1.0, 0.0
+                m.color.a = max(alpha, 0.8)
+            else:
+                m.type = Marker.CUBE if is_bb else Marker.SPHERE
+                m.pose.position.x, m.pose.position.y, m.pose.position.z = x, y, z
+                m.pose.orientation.w = 1.0
+                m.scale.x, m.scale.y, m.scale.z = (
+                    max(sx, 1.0), max(sy, 1.0), max(sz, 1.0))
             out.markers.append(m)
             mid += 1
             txt = Marker()

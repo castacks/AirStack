@@ -234,8 +234,6 @@ record:
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
     - /gcs/payload/{robot}/auction_table
-    - /gcs/consensus_AABBs
-    - /gcs/consensus_targets
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
 

@@ -115,6 +115,14 @@ def compute_ray_groups(
 
     # 3. per-ray label = the global argmax (already known to be a target)
     best_cols_global = overall_best[keep]
+
+    # 3b. Canonical order so the order-sensitive greedy clustering is identical
+    # on every robot (frame-invariant: peer frames differ by a constant offset).
+    order = np.lexsort((
+        ray_origins[keep, 2], ray_origins[keep, 1], ray_origins[keep, 0],
+        ray_dirs[keep, 1], ray_dirs[keep, 0], best_cols_global))
+    keep = keep[order]
+    best_cols_global = overall_best[keep]
     per_label = [query_labels[c] for c in best_cols_global]
     per_score = ray_scores[keep, best_cols_global]
 

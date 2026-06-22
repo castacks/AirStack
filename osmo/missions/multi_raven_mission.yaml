@@ -48,8 +48,8 @@ environments:
     ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     RESULTS_SCENE: "FireAcademy"
-    query: "red walled building, water tower, radio tower, shipping container, gas tank"
-    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light"
+    query: "red walled building, water tower, radio tower"
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -116,8 +116,6 @@ record:
     - /gcs/payload/{robot}/confirmed_targets
     - /gcs/payload/{robot}/auction_table
     - /gcs/payload/{robot}/voxel_rgb
-    - /gcs/consensus_AABBs
-    - /gcs/consensus_targets
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
 

@@ -44,6 +44,38 @@ def rotate_vector(v, q):
     )
 
 
+def dir_to_quat(d):
+    """Quaternion (x,y,z,w) rotating +X onto the 3D direction d. For oriented
+    ARROW markers (Foxglove renders pose+orientation arrows, not points[] ones)."""
+    dx, dy, dz = float(d[0]), float(d[1]), float(d[2])
+    n = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if n < 1e-9:
+        return (0.0, 0.0, 0.0, 1.0)
+    dx, dy, dz = dx / n, dy / n, dz / n
+    if dx > 1.0 - 1e-9:
+        return (0.0, 0.0, 0.0, 1.0)
+    if dx < -1.0 + 1e-9:
+        return (0.0, 0.0, 1.0, 0.0)        # 180° about +Z
+    ax, ay, az = 0.0, -dz, dy              # (+X) × d
+    an = math.sqrt(ax * ax + ay * ay + az * az)
+    ax, ay, az = ax / an, ay / an, az / an
+    half = math.acos(max(-1.0, min(1.0, dx))) / 2.0
+    s = math.sin(half)
+    return (ax * s, ay * s, az * s, math.cos(half))
+
+
+def quat_mul(a, b):
+    """Hamilton product a⊗b, both (x,y,z,w)."""
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return (
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    )
+
+
 def global_enu_to_local(point_xyz, boot_enu_xyz,
                         local_alt_ground=None,
                         gossip_origin_alt=DEFAULT_ORIGIN_ALT):
@@ -94,22 +126,31 @@ def global_enu_to_local_batch(points_Nx3, boot_enu_xyz,
 
 
 def transform_marker_array(marker_array, bx, by, bz, q=(0.0, 0.0, 0.0, 1.0)):
-    """Deep-copy a MarkerArray and transform all points[]: p_map = R(q)*p + (bx,by,bz).
+    """Deep-copy a MarkerArray and transform geometry: p_map = R(q)*p + (bx,by,bz).
 
-    Transforms points[] only, not pose.position — LINE_STRIP/POINTS markers store
-    geometry in points[] with an identity pose, so translating pose.position would
-    double-apply the offset. Sets frame_id='map'. Returns a new MarkerArray.
+    Markers with points[] (LINE_STRIP/POINTS) store geometry there with an identity
+    pose, so only points[] is transformed. Markers without points[] (pose-based
+    ARROW/CUBE/TEXT) have pose.position transformed and pose.orientation rotated by
+    q. Sets frame_id='map'. Returns a new MarkerArray.
     """
     from visualization_msgs.msg import MarkerArray as MA
     out = MA()
     for orig in marker_array.markers:
         m = copy.deepcopy(orig)
         m.header.frame_id = 'map'
-        for pt in m.points:
-            rx, ry, rz = rotate_vector((pt.x, pt.y, pt.z), q)
-            pt.x = rx + bx
-            pt.y = ry + by
-            pt.z = rz + bz
+        if m.points:
+            for pt in m.points:
+                rx, ry, rz = rotate_vector((pt.x, pt.y, pt.z), q)
+                pt.x = rx + bx
+                pt.y = ry + by
+                pt.z = rz + bz
+        else:
+            p = m.pose.position
+            rx, ry, rz = rotate_vector((p.x, p.y, p.z), q)
+            p.x, p.y, p.z = rx + bx, ry + by, rz + bz
+            o = m.pose.orientation
+            ox, oy, oz, ow = quat_mul(q, (o.x, o.y, o.z, o.w))
+            o.x, o.y, o.z, o.w = ox, oy, oz, ow
         out.markers.append(m)
     return out
 

@@ -1,10 +1,11 @@
 import numpy as np
 from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import String
 
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+from coordination_bringup.frame_utils import dir_to_quat
 
 
 class RayBehavior:
@@ -157,8 +158,7 @@ class RayBehavior:
             rr, gg, bb = colors[i % len(colors)]
             for k in range(g.num_rays):
                 p0 = g.ray_origins[k]
-                d = g.ray_dirs[k]
-                p1 = p0 + arrow_length * (d / (np.linalg.norm(d) + 1e-6))
+                qx, qy, qz, qw = dir_to_quat(g.ray_dirs[k])
                 arrow = Marker()
                 arrow.header.frame_id = 'map'
                 arrow.header.stamp = self.get_clock().now().to_msg()
@@ -166,13 +166,16 @@ class RayBehavior:
                 arrow.id = j
                 arrow.type = Marker.ARROW
                 arrow.action = Marker.ADD
-                arrow.points = [
-                    Point(x=float(p0[0]), y=float(p0[1]), z=float(p0[2])),
-                    Point(x=float(p1[0]), y=float(p1[1]), z=float(p1[2])),
-                ]
-                arrow.scale.x = 0.6
-                arrow.scale.y = 1.2
-                arrow.scale.z = 0.75
+                arrow.pose.position.x = float(p0[0])
+                arrow.pose.position.y = float(p0[1])
+                arrow.pose.position.z = float(p0[2])
+                arrow.pose.orientation.x = qx
+                arrow.pose.orientation.y = qy
+                arrow.pose.orientation.z = qz
+                arrow.pose.orientation.w = qw
+                arrow.scale.x = arrow_length
+                arrow.scale.y = 0.4
+                arrow.scale.z = 0.4
                 arrow.color.r = rr
                 arrow.color.g = gg
                 arrow.color.b = bb
