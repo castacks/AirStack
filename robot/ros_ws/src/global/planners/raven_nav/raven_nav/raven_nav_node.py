@@ -913,6 +913,25 @@ class RavenNavNode(Node):
                 return True
         return False
 
+    def _is_same_committed_lead(self, origin, direction) -> bool:
+        """True if the currently-committed bearing is the same lead (origin within
+        _RAY_LEAD_MATCH_M and bearing within _RAY_LEAD_DIR_COS). When True we keep
+        holding it instead of re-seeding, so the bearing-block hysteresis owns it."""
+        co = self._committed_target_last_origin
+        cd = self._committed_target_last_dir
+        if co is None or cd is None:
+            return False
+        if float(np.linalg.norm(np.asarray(co, float)[:2]
+                                - np.asarray(origin, float)[:2])) > self._RAY_LEAD_MATCH_M:
+            return False
+        a = np.asarray(cd, float)[:2]
+        b = np.asarray(direction, float)[:2]
+        na = float(np.linalg.norm(a))
+        nb = float(np.linalg.norm(b))
+        if na < 1e-6 or nb < 1e-6:
+            return False
+        return float(np.dot(a / na, b / nb)) >= self._RAY_LEAD_DIR_COS
+
     def _ensure_followable_lead(self, my_task) -> None:
         """Guarantee the assigned ray-lead is in ray_behavior's groups so the
         drone can navigate to it even when this tick's rays (or its own rayfronts)
@@ -2166,14 +2185,17 @@ class RavenNavNode(Node):
             self._assigned_target = my_task.label
             self._committed_to_assigned = True
             if my_task.status == 'ray' and my_task.direction is not None:
-                # Lone bearing: follow the ray (origin + dir), no BB point. The
-                # bearing block refines to the best-aligned ray group.
+                # Lone bearing: follow the ray (origin + dir), no BB point. Seed the
+                # committed bearing only on a NEW lead; while continuing the same
+                # one, leave it to the bearing-block hysteresis (no per-tick reset)
+                # so the hold is strictly persistent.
                 self._committed_bb_center = None
-                base = (my_task.origin if my_task.origin is not None
-                        else my_task.centroid)
-                self._committed_target_last_origin = np.asarray(base, float).copy()
-                self._committed_target_last_dir = np.asarray(
-                    my_task.direction, float).copy()
+                base = np.asarray(my_task.origin if my_task.origin is not None
+                                  else my_task.centroid, dtype=float)
+                nd = np.asarray(my_task.direction, dtype=float)
+                if not self._is_same_committed_lead(base, nd):
+                    self._committed_target_last_origin = base.copy()
+                    self._committed_target_last_dir = nd.copy()
                 self._ensure_followable_lead(my_task)
             else:
                 # Localized target (BB or triangulated ray): head to the point.
