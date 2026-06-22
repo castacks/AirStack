@@ -70,7 +70,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage"
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -84,8 +84,8 @@ scene_templates:
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "FireAcademy"
-    query: "red building, water tower, radio tower"
-    background_queries: "road, grass, mountain, parking lot, contianer, tree"
+    query: "red walled building, water tower, radio tower"
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -99,8 +99,8 @@ scene_templates:
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, red container"
-    background_queries: "road, grass, mountain, parking lot, building, truck, scaffolding"
+    query: "Forklift, Towercrane, red containe, blue tarp"
+    background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
@@ -108,20 +108,6 @@ scene_templates:
         - {x: -37.0, y: -67.0, z: 0.0}
         - {x: -40.0, y: 50.0, z: 0.0}
 
-  abandonedfactory: &factory
-    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
-    SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
-    STAGE_SCALE: "1.0"
-    SPAWN_HEIGHT_M: "1.0"
-    RESULTS_SCENE: "AbandonedFactory"
-    query: "building, water tower"
-    background_queries: "ground, grass, road, tree, pipes"
-    search_area:
-      points:
-        - {x: 45.0, y: 102.0, z: 0.0}
-        - {x: 45.0, y: -97.0, z: 0.0}
-        - {x: -109.0, y: -97.0, z: 0.0}
-        - {x: -109.0, y: 102.0, z: 0.0}
 
 # ── the 12 runs ─────────────────────────────────────────────────────────────
 # Each pair shares one SPAWN_SEED (so the layout matches) and differs only in
@@ -180,24 +166,6 @@ environments:
   - <<: *constr
     name: constr_r2_raven
     SPAWN_SEED: "constructionsite-2"
-    FRONTIER_ONLY_BASELINE: "false"
-
-  # ---- AbandonedFactory ----
-  - <<: *factory
-    name: factory_r1_frontier
-    SPAWN_SEED: "abandonedfactory-1"
-    FRONTIER_ONLY_BASELINE: "true"
-  - <<: *factory
-    name: factory_r1_raven
-    SPAWN_SEED: "abandonedfactory-1"
-    FRONTIER_ONLY_BASELINE: "false"
-  - <<: *factory
-    name: factory_r2_frontier
-    SPAWN_SEED: "abandonedfactory-2"
-    FRONTIER_ONLY_BASELINE: "true"
-  - <<: *factory
-    name: factory_r2_raven
-    SPAWN_SEED: "abandonedfactory-2"
     FRONTIER_ONLY_BASELINE: "false"
 
 # Send goals through the GCS action_relay — the exact path Foxglove uses.

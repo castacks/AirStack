@@ -61,7 +61,7 @@ environments:
     ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, red shipping container"
+    query: "Forklift, Towercrane, red shipping container, blue tarp"
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
     search_area:
       points:
@@ -69,21 +69,6 @@ environments:
         - {x: 76.0, y: -71.0, z: 0.0}
         - {x: -37.0, y: -67.0, z: 0.0}
         - {x: -40.0, y: 50.0, z: 0.0}
-
-  - name: abandonedfactory
-    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
-    SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
-    STAGE_SCALE: "1.0"
-    SPAWN_HEIGHT_M: "1.0"
-    RESULTS_SCENE: "AbandonedFactory"
-    query: "building, water tower"
-    background_queries: "ground, grass, road, tree, pipes"
-    search_area:
-      points:
-        - {x: 45.0, y: 102.0, z: 0.0}
-        - {x: 45.0, y: -97.0, z: 0.0}
-        - {x: -109.0, y: -97.0, z: 0.0}
-        - {x: -109.0, y: 102.0, z: 0.0}
 
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 command_route: gcs
