@@ -36,25 +36,28 @@ DEDUP_MARGIN_M = 2.0
 
 @dataclass
 class ConfirmedTarget:
-    """A 3D AABB hypothesis fed in from voxel_behavior. Frame: local 'map'."""
+    """An oriented box hypothesis from voxel_behavior. Frame: local 'map'.
+    yaw is the box rotation about +Z (0 = axis-aligned)."""
     label: str
-    center: np.ndarray  # (3,)
-    size:   np.ndarray  # (3,) full extents
-    status: str = 'observing'   # 'observing' | 'visited'
+    center: np.ndarray
+    size:   np.ndarray
+    status: str = 'observing'
     confidence: float = 0.0
     ts: float = 0.0
+    yaw: float = 0.0
 
 
 @dataclass
 class Discovery:
     instance_id: str
     label: str
-    position: np.ndarray  # (3,) centroid (BB center or triangulated point)
-    size: Optional[np.ndarray] = None  # (3,) when AABB known, else None
-    status: str = 'unconfirmed'        # unconfirmed | confirmed | visited
+    position: np.ndarray
+    size: Optional[np.ndarray] = None
+    status: str = 'unconfirmed'
     confidence: float = 0.0
     contributing_robots: List[str] = field(default_factory=list)
     last_update_ts: float = 0.0
+    yaw: float = 0.0
 
 
 def aabb_overlap(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
@@ -80,7 +83,7 @@ def _should_merge(a: ConfirmedTarget, b: ConfirmedTarget,
                   margin: float = DEDUP_MARGIN_M) -> bool:
     if a.label != b.label:
         return False
-    if aabb_overlap(a, b):   # covers subset
+    if aabb_overlap(a, b):
         return True
     return aabb_surface_gap(a, b) <= margin
 
@@ -104,6 +107,7 @@ def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
         label=a.label, center=center, size=size, status=status,
         confidence=max(a.confidence, b.confidence),
         ts=max(a.ts, b.ts),
+        yaw=a.yaw if a.confidence >= b.confidence else b.yaw,
     )
 
 
@@ -126,7 +130,7 @@ def merge_confirmed_targets(
 
 
 def _stable_id(label: str, center: np.ndarray) -> str:
-    snap = np.round(center, 0).astype(int)  # 1m grid snap
+    snap = np.round(center, 0).astype(int)
     h = hashlib.md5(f"{label}|{snap[0]},{snap[1]},{snap[2]}".encode()).hexdigest()
     return h[:10]
 
@@ -158,6 +162,7 @@ def build_discoveries(
             confidence=ct.confidence,
             contributing_robots=[contributing_robot],
             last_update_ts=max(ct.ts, now_ts),
+            yaw=ct.yaw,
         )
         if peer_contributions:
             disc.contributing_robots.extend(peer_contributions)
@@ -209,6 +214,7 @@ def discoveries_to_json(discoveries: List[Discovery]) -> str:
             'confidence': float(d.confidence),
             'contributors': list(d.contributing_robots),
             'ts': float(d.last_update_ts),
+            'yaw': float(d.yaw),
         }
         if d.size is not None:
             item['sx'] = float(d.size[0])
@@ -233,5 +239,6 @@ def confirmed_targets_to_json(targets: List[ConfirmedTarget]) -> str:
             'status': t.status,
             'confidence': float(t.confidence),
             'ts': float(t.ts),
+            'yaw': float(t.yaw),
         })
     return json.dumps(out)

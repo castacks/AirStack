@@ -110,12 +110,12 @@ class RavenNavNode(Node):
         self._peer_state = PeerState()
 
         # Mission metrics + per-target event log (for the result dump).
-        self._mission_start_ts: 'float | None' = None  # first searching tick
+        self._mission_start_ts: 'float | None' = None
         self._completion_reason: str = ''
-        self._path_length_m: float = 0.0  # cumulative, with hover deadband
+        self._path_length_m: float = 0.0
         self._prev_odom_xyz: 'np.ndarray | None' = None
         self._num_odom_samples: int = 0
-        self._target_events: list = []  # one dict per physical instance
+        self._target_events: list = []
         self._result_written: bool = False
 
         # Polygon constraint in local 'map' frame. None = unconstrained.
@@ -143,7 +143,7 @@ class RavenNavNode(Node):
             'coverage_raycast_min_step_m', 5.0).value)
         self._last_raycast_xy: 'np.ndarray | None' = None
 
-        self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
+        self._score_threshold = self.declare_parameter('score_threshold', 0.7).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)
@@ -159,9 +159,9 @@ class RavenNavNode(Node):
         self._altitude_pref_weight = float(self.declare_parameter(
             'altitude_preference_weight', 2.0).value)
         self._voxel_score_threshold = float(self.declare_parameter(
-            'voxel_score_threshold', 0.75).value)
+            'voxel_score_threshold', 0.85).value)
         self._voxel_min_cluster_size = int(self.declare_parameter(
-            'voxel_min_cluster_size', 50).value)
+            'voxel_min_cluster_size', 35).value)
         # Temporal confirmation: persist across N ticks before a detection counts.
         self._voxel_confirm_hits = int(self.declare_parameter(
             'voxel_confirm_hits', 3).value)
@@ -300,6 +300,12 @@ class RavenNavNode(Node):
         self._committed_bb_center: 'np.ndarray | None' = None
         # Persistent visited-target BBs (own + peer) — accumulated, never TTL'd.
         self._peer_visited_bbs: list = []
+        # Observing-but-not-visited boxes (own + peer), kept past live-track
+        # age-out so the auction can route a drone back to finish them.
+        self._observed_bbs: dict = {}
+        self._stale_bb_bid_penalty_m = float(self.declare_parameter(
+            'stale_bb_bid_penalty_m', 15.0).value)
+        self._OBS_LIVE_DEDUP_M = 5.0
         # Event-driven replanning: re-run the CBBA auction only when the discrete
         # task picture changes (last signature). None = replan on the first tick.
         self._last_replan_sig = None
@@ -590,14 +596,9 @@ class RavenNavNode(Node):
         return float(min(covered_area / poly_area, 1.0))
 
     def _own_confirmed_targets(self) -> list:
-        """Convert voxel_behavior's current AABBs into ConfirmedTarget records.
-
-        Voxel-side keeps clusters as [cx,cy,cz,sx,sy,sz] in target_voxel_clusters
-        and labels in cluster_query_map. A cluster reports 'visited' once the
-        drone has passed within range of it (recorded per-instance in
-        visited_instances via voxel_behavior.mark_arrivals); otherwise it is
-        'observing'.
-        """
+        """ConfirmedTarget records from voxel_behavior's live clusters. Reports
+        the oriented box (cluster_obb_size + cluster_yaw); 'visited' once the
+        drone has passed within range, else 'observing'."""
         vb = self._behavior_manager.voxel_behavior
         out: list = []
         now_ts = float(self.get_clock().now().nanoseconds) * 1e-9
@@ -612,11 +613,45 @@ class RavenNavNode(Node):
             out.append(ConfirmedTarget(
                 label=label,
                 center=np.array(bb[:3], dtype=float),
-                size=np.array(bb[3:6], dtype=float),
+                size=np.array(vb.cluster_obb_size.get(cid, bb[3:6]), dtype=float),
                 status=status,
                 confidence=float(vb.cluster_confidence.get(cid, 1.0)),
                 ts=now_ts,
+                yaw=float(vb.cluster_yaw.get(cid, 0.0)),
             ))
+        return out
+
+    def _obs_key(self, label, center):
+        c = np.round(np.asarray(center, dtype=float)[:3] / 2.0).astype(int)
+        return (label, int(c[0]), int(c[1]), int(c[2]))
+
+    def _bb_is_visited(self, label, center) -> bool:
+        c = np.asarray(center, dtype=float)[:3]
+        for lab, ex in self._peer_visited_bbs:
+            if lab == label and float(np.linalg.norm(
+                    np.asarray(ex, dtype=float)[:3] - c)) <= self._VISITED_DEDUP_M:
+                return True
+        return False
+
+    def _remembered_bb_clusters_for_bidding(self, peer_committed) -> list:
+        """Stale observing boxes eligible to bid on: not currently a live cluster,
+        not visited (self/peer), not off-limits to a peer. Lets a drone return to
+        a box it saw but never reached after its live track aged out."""
+        vb = self._behavior_manager.voxel_behavior
+        live = [np.asarray(b[:3], dtype=float)
+                for b in vb.target_voxel_clusters.values()]
+        out: list = []
+        for ct in self._observed_bbs.values():
+            center = np.asarray(ct.center, dtype=float)
+            size = np.asarray(ct.size, dtype=float)
+            if any(float(np.linalg.norm(center - lc)) <= self._OBS_LIVE_DEDUP_M
+                   for lc in live):
+                continue
+            if vb.is_visited(center, size, ct.label):
+                continue
+            if self._bb_target_off_limits(center, ct.label, peer_committed):
+                continue
+            out.append((ct.label, center, size))
         return out
 
     def _own_bb_clusters_for_bidding(self, peer_committed) -> list:
@@ -700,6 +735,16 @@ class RavenNavNode(Node):
         for ct in (own_cts + peer_cts):
             if str(ct.status).lower() == 'visited':
                 self._add_visited(ct.label, _bb(ct))
+        for ct in merged_cts:
+            key = self._obs_key(ct.label, ct.center)
+            if str(ct.status).lower() == 'visited':
+                self._observed_bbs.pop(key, None)
+            else:
+                self._observed_bbs[key] = ct
+        for key in list(self._observed_bbs):
+            oct = self._observed_bbs[key]
+            if self._bb_is_visited(oct.label, oct.center):
+                self._observed_bbs.pop(key, None)
         self._consensus_bbs = [(ct.label, _bb(ct)) for ct in merged_cts]
         self._behavior_manager.voxel_behavior.peer_visited_bbs = [
             bb for _, bb in self._peer_visited_bbs]
@@ -734,7 +779,7 @@ class RavenNavNode(Node):
         # Ray groups that pierce a known BB get absorbed onto that BB.
         known_bbs = []
         for i, ct in enumerate(merged_cts):
-            bb = np.concatenate([ct.center, ct.size])  # [cx,cy,cz,sx,sy,sz]
+            bb = np.concatenate([ct.center, ct.size])
             known_bbs.append((i, ct.label, bb))
 
         polygon_xy = (self._search_area_xy
@@ -743,7 +788,7 @@ class RavenNavNode(Node):
 
         ray_targets = build_targets(
             own_groups=ray_groups,
-            peer_groups=[],   # peer rays already merged into ray_groups
+            peer_groups=[],
             known_bbs=known_bbs,
             polygon_xy=polygon_xy,
             now_ts=now_ts,
@@ -1052,7 +1097,7 @@ class RavenNavNode(Node):
         targets = set(self._target_objects or [])
         for d in discoveries:
             if targets and d.label not in targets:
-                continue   # skip background labels
+                continue
             pos_enu = self._local_to_world(d.position)
             has_aabb = d.size is not None
             is_visited = has_aabb and str(d.status).lower() == 'visited'
@@ -1123,7 +1168,7 @@ class RavenNavNode(Node):
                 'label': ct.label,
                 'center_enu': center_enu,
                 'size': np.asarray(ct.size, dtype=float).tolist(),
-                'status': ct.status,            # 'observing' | 'visited'
+                'status': ct.status,
                 'confidence': float(ct.confidence),
             })
         start = self._mission_start_ts
@@ -1165,7 +1210,7 @@ class RavenNavNode(Node):
             os.makedirs(self._results_dir, exist_ok=True)
             with open(tmp, 'w') as f:
                 json.dump(out, f, indent=2)
-            os.replace(tmp, final)   # atomic — compile may read concurrently
+            os.replace(tmp, final)
         except OSError as e:
             self.get_logger().error(f'[results] write failed: {e}')
 
@@ -1351,7 +1396,7 @@ class RavenNavNode(Node):
             return
         arr = np.array([list(p) for p in pts], dtype=np.float32)
         if has_cnts:
-            self._frontiers = arr  # (N, 6)
+            self._frontiers = arr
         else:
             padded = np.zeros((arr.shape[0], 6), dtype=np.float32)
             padded[:, :3] = arr
@@ -1416,7 +1461,7 @@ class RavenNavNode(Node):
         if msg.status.status < 0:
             return
         if self._cur_pose is None:
-            return  # need odom to back out the origin — wait for the next fix
+            return
         cur = np.asarray(self._cur_pose, dtype=np.float64)
         self._alt_ground = float(msg.altitude) - float(cur[2])
         self._boot_enu = np.array(
@@ -1736,7 +1781,7 @@ class RavenNavNode(Node):
         # Connected-component count per target above cc_threshold (mirrors
         # voxel_behavior.condition_check). Only do this when there's data.
         try:
-            import scipy.ndimage  # noqa: F401
+            import scipy.ndimage
             have_scipy = True
         except ImportError:
             have_scipy = False
@@ -1884,7 +1929,12 @@ class RavenNavNode(Node):
         bb_bids = bid_manager.compute_bb_bids(
             self._own_bb_clusters_for_bidding(peer_committed_instances),
             self._cur_pose)
-        my_bid_entries = [b for b in (per_tick_bids + bb_bids)
+        stale_bb_bids = bid_manager.compute_bb_bids(
+            self._remembered_bb_clusters_for_bidding(peer_committed_instances),
+            self._cur_pose)
+        for b in stale_bb_bids:
+            b.value -= self._stale_bb_bid_penalty_m
+        my_bid_entries = [b for b in (per_tick_bids + bb_bids + stale_bb_bids)
                           if b.label not in all_completed]
         bid_manager.finalize_bid_values(
             my_bid_entries, heading_xy,
@@ -1991,10 +2041,10 @@ class RavenNavNode(Node):
 
         # Ray-group bids I lost to a peer's same-target bid this tick — surfaced
         # in the bids debug table to show the auction pushing drones apart.
-        from raven_nav.bid_manager import _GroupView   # adapter for is_same_target
+        from raven_nav.bid_manager import _GroupView
         from raven_nav.ray_targets import is_same_target as _is_same_target
         rays_avoided = 0
-        avoided_breakdown: list = []   # [(label, peer_name)]
+        avoided_breakdown: list = []
         for mine in my_bid_entries:
             best_peer = None
             best_peer_value = mine.value
@@ -2292,6 +2342,7 @@ class RavenNavNode(Node):
                 committed_origin=self._committed_target_last_origin,
                 committed_dir=self._committed_target_last_dir,
                 cur_pose=self._cur_pose,
+                committed_bb_center=self._committed_bb_center,
             )
             # Passive arrival status (same as baseline): confirmed clusters
             # within 3 m flip to 'visited'. Status-only; nav unaffected.
@@ -2415,6 +2466,9 @@ class RavenNavNode(Node):
                 committed_target_origin=(
                     None if self._frontier_only_baseline
                     else self._committed_target_last_origin),
+                committed_bb_center=(
+                    None if self._frontier_only_baseline
+                    else self._committed_bb_center),
             )
 
         self._nav_mode_pub.publish(

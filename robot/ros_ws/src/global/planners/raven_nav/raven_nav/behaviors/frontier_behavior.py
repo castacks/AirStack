@@ -458,7 +458,7 @@ class FrontierBehavior:
                         d_peer_bl = _nearest_dist(
                             pf_filt[:, :2], blacklist_xy)
                         peer_keep = d_peer_bl > self.BLACKLIST_RADIUS_M
-                        if peer_keep.any():  # soft: don't drop all
+                        if peer_keep.any():
                             pf_filt = pf_filt[peer_keep]
                     if pf_filt.shape[0] > 0:
                         # Pad peer xyz with zero counts to match own (N,6).

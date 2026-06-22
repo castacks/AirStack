@@ -41,40 +41,40 @@ def _stamp_to_sec(stamp) -> float:
 
 @dataclass
 class PeerRays:
-    origins: np.ndarray  # (N, 3) in local map frame
-    dirs:    np.ndarray  # (N, 3) FLU unit vectors
-    scores:  np.ndarray  # (N, K) — K = len(query_labels)
+    origins: np.ndarray
+    dirs:    np.ndarray
+    scores:  np.ndarray
 
 
 @dataclass
 class PeerConfirmedTarget:
     """One AABB a peer is observing or has visited. Coords already in local frame."""
     label: str
-    center: np.ndarray  # (3,) [cx, cy, cz]
-    size:   np.ndarray  # (3,) [sx, sy, sz]
-    status: str         # 'observing' | 'visited'
+    center: np.ndarray
+    size:   np.ndarray
+    status: str
     confidence: float
     ts: float
 
 
 @dataclass
 class PeerState:
-    peer_positions:  Dict[str, np.ndarray] = field(default_factory=dict)  # (3,)
-    peer_waypoints:  Dict[str, np.ndarray] = field(default_factory=dict)  # (3,)
+    peer_positions:  Dict[str, np.ndarray] = field(default_factory=dict)
+    peer_waypoints:  Dict[str, np.ndarray] = field(default_factory=dict)
     peer_nav_modes:  Dict[str, str]        = field(default_factory=dict)
-    peer_frontiers:  Dict[str, np.ndarray] = field(default_factory=dict)  # (N,3)
+    peer_frontiers:  Dict[str, np.ndarray] = field(default_factory=dict)
     peer_rays:       Dict[str, 'PeerRays']  = field(default_factory=dict)
     # Per-group bids (one BidEntry per ray group). Imported lazily in update()
     # to avoid a hard dependency from this module on bid_manager.
     peer_bids:       Dict[str, list] = field(default_factory=dict)
     peer_completed:  Dict[str, Set[str]]   = field(default_factory=dict)
-    peer_committed_target: Dict[str, str]  = field(default_factory=dict)  # "" if uncommitted
+    peer_committed_target: Dict[str, str]  = field(default_factory=dict)
     # name -> (label, origin_local(3), dir(3)): the specific instance bearing a
     # peer is committed to (for per-instance dedup, not just label).
     peer_committed_instance: Dict[str, tuple] = field(default_factory=dict)
     # XY centers (N,2) of frontier zones this peer has cleared (in our local frame).
     peer_completed_zones: Dict[str, np.ndarray] = field(default_factory=dict)
-    peer_confirmed_targets: Dict[str, list]  = field(default_factory=dict)  # list[PeerConfirmedTarget]
+    peer_confirmed_targets: Dict[str, list]  = field(default_factory=dict)
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -237,7 +237,7 @@ class PeerState:
                         ], dtype=np.float64),
                         num_rays=nr,
                         avg_score=float(bid_msg.avg_score[i]),
-                        is_bb=(nr == 0),   # 0 marks a BB bid
+                        is_bb=(nr == 0),
                     ))
             self.peer_bids[name] = entries
             summary = [(e.label, round(e.value, 2)) for e in entries]

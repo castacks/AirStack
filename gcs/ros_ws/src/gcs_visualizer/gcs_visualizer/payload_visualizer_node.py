@@ -32,6 +32,7 @@ from coordination_bringup.peer_profile import PeerProfile
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point as GPoint
 import json
+import math
 
 from gcs_visualizer.gcs_utils import (
     transform_marker_array, transform_point_cloud2, point_cloud2_to_cube_marker,
@@ -293,6 +294,7 @@ class PayloadVisualizerNode(Node):
                 sx = float(it.get('sx', 1.0))
                 sy = float(it.get('sy', 1.0))
                 sz = float(it.get('sz', 1.0))
+                yaw = float(it.get('yaw', 0.0))
             except (TypeError, ValueError):
                 continue
             status = str(it.get('status', '')).lower()
@@ -314,7 +316,8 @@ class PayloadVisualizerNode(Node):
             box.pose.position.x = cx
             box.pose.position.y = cy
             box.pose.position.z = cz
-            box.pose.orientation.w = 1.0
+            box.pose.orientation.z = math.sin(yaw / 2.0)
+            box.pose.orientation.w = math.cos(yaw / 2.0)
             box.scale.x = max(sx, 0.1)
             box.scale.y = max(sy, 0.1)
             box.scale.z = max(sz, 0.1)

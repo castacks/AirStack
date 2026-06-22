@@ -47,12 +47,12 @@ MIN_SCORE = 0.6
 @dataclass
 class RayTarget:
     label: str
-    position: np.ndarray                       # (3,)
+    position: np.ndarray
     contributing_group_ids: List[int]
-    status: str = 'unconfirmed'                # unconfirmed | confirmed | visited
+    status: str = 'unconfirmed'
     confidence: float = 0.0
     last_update_ts: float = 0.0
-    bb_id: Optional[int] = None                # set when attached to a known AABB
+    bb_id: Optional[int] = None
     position_cov: np.ndarray = field(default_factory=lambda: np.eye(3) * 100.0)
 
 
@@ -226,7 +226,7 @@ def build_targets(
     n = len(groups)
 
     # Step 1: BB pre-filter.
-    bb_attachments: dict = {}  # bb_id -> [group_idx, ...]
+    bb_attachments: dict = {}
     consumed = [False] * n
     for i, g in enumerate(groups):
         for bb_id, bb_label, bb in known_bbs:

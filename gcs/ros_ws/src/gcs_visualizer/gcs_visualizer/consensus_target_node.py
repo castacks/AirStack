@@ -10,6 +10,7 @@ cross_label_merge (True), publish_period_s (0.5).
 """
 
 import json
+import math
 
 import numpy as np
 import rclpy
@@ -38,17 +39,20 @@ PAYLOAD_NAME = 'confirmed_targets'
 class _Cluster:
     """One consensus AABB accumulating contributions from one or more robots."""
     __slots__ = ('lo', 'hi', 'votes', 'contributors', 'visited',
-                 'best_conf', 'latest_ts')
+                 'best_conf', 'latest_ts', 'best_center', 'best_size', 'best_yaw')
 
-    def __init__(self, center, size):
+    def __init__(self, center, size, yaw=0.0):
         h = size / 2.0
         self.lo = center - h
         self.hi = center + h
         self.votes = {}          # label -> summed weight
         self.contributors = set()
         self.visited = False
-        self.best_conf = 0.0
+        self.best_conf = -1.0
         self.latest_ts = 0.0
+        self.best_center = np.asarray(center, dtype=float)
+        self.best_size = np.asarray(size, dtype=float)
+        self.best_yaw = float(yaw)
 
     @property
     def center(self):
@@ -63,7 +67,7 @@ class _Cluster:
         gap = np.maximum(np.abs(self.center - center) - (self.size / 2.0 + h), 0.0)
         return float(np.linalg.norm(gap))
 
-    def absorb(self, center, size, label, status, conf, ts, robot):
+    def absorb(self, center, size, label, status, conf, ts, robot, yaw=0.0):
         h = size / 2.0
         self.lo = np.minimum(self.lo, center - h)
         self.hi = np.maximum(self.hi, center + h)
@@ -71,7 +75,11 @@ class _Cluster:
         self.contributors.add(robot)
         if str(status).lower() == 'visited':
             self.visited = True
-        self.best_conf = max(self.best_conf, float(conf))
+        if float(conf) >= self.best_conf:
+            self.best_conf = float(conf)
+            self.best_center = np.asarray(center, dtype=float)
+            self.best_size = np.asarray(size, dtype=float)
+            self.best_yaw = float(yaw)
         self.latest_ts = max(self.latest_ts, float(ts))
 
     def label(self):
@@ -136,6 +144,7 @@ class ConsensusTargetNode(Node):
                     'status': str(it.get('status', 'observing')),
                     'confidence': float(it.get('confidence', 0.0)),
                     'ts': float(it.get('ts', 0.0)),
+                    'yaw': float(it.get('yaw', 0.0)),
                 })
             except (KeyError, TypeError, ValueError):
                 continue
@@ -159,10 +168,10 @@ class ConsensusTargetNode(Node):
                         hit = c
                         break
                 if hit is None:
-                    hit = _Cluster(t['center'], t['size'])
+                    hit = _Cluster(t['center'], t['size'], t['yaw'])
                     clusters.append(hit)
                 hit.absorb(t['center'], t['size'], t['label'], t['status'],
-                           t['confidence'], t['ts'], robot)
+                           t['confidence'], t['ts'], robot, t['yaw'])
         return clusters
 
     def _tick(self) -> None:
@@ -173,11 +182,12 @@ class ConsensusTargetNode(Node):
     def _publish_json(self, clusters) -> None:
         out = []
         for c in clusters:
-            ctr, sz = c.center, c.size
+            ctr, sz = c.best_center, c.best_size
             out.append({
                 'label': c.label(),
                 'cx': float(ctr[0]), 'cy': float(ctr[1]), 'cz': float(ctr[2]),
                 'sx': float(sz[0]), 'sy': float(sz[1]), 'sz': float(sz[2]),
+                'yaw': float(c.best_yaw),
                 'status': 'visited' if c.visited else 'observing',
                 'confidence': c.best_conf,
                 'num_contributors': len(c.contributors),
@@ -196,7 +206,7 @@ class ConsensusTargetNode(Node):
         clear.action = Marker.DELETEALL
         out.markers.append(clear)
         for j, c in enumerate(clusters):
-            ctr, sz = c.center, c.size
+            ctr, sz, yaw = c.best_center, c.best_size, c.best_yaw
             n = len(c.contributors)
             visited = c.visited
             label = c.label()
@@ -215,7 +225,8 @@ class ConsensusTargetNode(Node):
             box.pose.position.x = float(ctr[0])
             box.pose.position.y = float(ctr[1])
             box.pose.position.z = float(ctr[2])
-            box.pose.orientation.w = 1.0
+            box.pose.orientation.z = math.sin(yaw / 2.0)
+            box.pose.orientation.w = math.cos(yaw / 2.0)
             box.scale.x = float(max(sz[0], 0.1))
             box.scale.y = float(max(sz[1], 0.1))
             box.scale.z = float(max(sz[2], 0.1))

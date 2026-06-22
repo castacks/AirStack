@@ -34,6 +34,14 @@ SPLIT_SMOOTH_SIGMA_VOX = 1.0
 # inside a larger box — keeps only the bigger one of a nested pair.
 CONTAIN_SUPPRESS_FRAC = 0.7
 
+# Reachability: a waypoint within this of any voxel is blocked. Only when the
+# locked approach waypoint becomes blocked (the cluster grew into it) is it
+# re-stood-off in STANDOFF_STEP_M steps up to STANDOFF_MAX_M; if nothing is
+# clear the object envelops the approach — it's already observed, mark visited.
+WAYPOINT_CLEARANCE_M = 1.5
+STANDOFF_STEP_M = 0.5
+STANDOFF_MAX_M = 6.0
+
 
 def _contained_frac(inner_bbox, outer_bbox) -> float:
     """Fraction of inner's AABB volume that lies within outer's AABB."""
@@ -45,12 +53,40 @@ def _contained_frac(inner_bbox, outer_bbox) -> float:
     return float(np.prod(ov)) / vol_i
 
 
+OBB_MIN_AXIS_RATIO = 1.6
+
+
+def _obb_yaw_size(world_xyz):
+    """Yaw (rad) + oriented [sx,sy,sz] for a cluster via 2D PCA on its XY
+    footprint. Yaw-only (objects stay upright). Falls back to axis-aligned
+    extents + yaw 0 when the footprint has no dominant axis."""
+    xy = world_xyz[:, :2]
+    z = world_xyz[:, 2]
+    lo, hi = world_xyz.min(axis=0), world_xyz.max(axis=0)
+    aabb = (hi - lo).tolist()
+    if len(xy) < 3:
+        return 0.0, aabb
+    d = xy - xy.mean(axis=0)
+    evals, evecs = np.linalg.eigh((d.T @ d) / max(len(d) - 1, 1))
+    if evals[0] <= 1e-9 or evals[1] / evals[0] < OBB_MIN_AXIS_RATIO:
+        return 0.0, aabb
+    major = evecs[:, 1]
+    yaw = float(np.arctan2(major[1], major[0]))
+    c, s = np.cos(-yaw), np.sin(-yaw)
+    rot = d @ np.array([[c, -s], [s, c]]).T
+    ext = rot.max(axis=0) - rot.min(axis=0)
+    return yaw, [float(ext[0]), float(ext[1]), float(z.max() - z.min())]
+
+
 @dataclass
 class _VoxelObs:
-    bbox: list      # [cx,cy,cz,sx,sy,sz] in metres
+    bbox: list
     label: str
-    score: float = 1.0   # mean winning-label semantic score over the cluster
-    seen: int = 1        # confirmed sightings (grows as the track is re-matched)
+    score: float = 1.0
+    seen: int = 1
+    scores: 'np.ndarray | None' = None
+    yaw: float = 0.0
+    obb_size: 'list | None' = None
 
 
 class VoxelBehavior:
@@ -68,17 +104,20 @@ class VoxelBehavior:
         self.proximity_engage_m = proximity_engage_m
         # Hysteresis: cluster currently being approached.
         self._held_center = None
+        # Remembered-box center to fly to when no live cluster (go-to-box).
+        self._goto_bb_center = None
         # Deconfliction for proximity engage (set by the node each tick):
         # fresh peer XY positions (id-tagged) + points peers are committed to.
-        self.fresh_peer_points = []      # [(peer_id, np.ndarray)]
-        self.peer_committed_points = []  # [np.ndarray]
+        self.fresh_peer_points = []
+        self.peer_committed_points = []
         self.my_id = 0
         # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
-        # {cluster_id: query_label}
         self.cluster_query_map = {}
-        # {cluster_id: confidence in [0,1]} = semantic score * persistence
         self.cluster_confidence = {}
+        self.cluster_yaw = {}
+        self.cluster_obb_size = {}
+        self._cur_target_objects = []
         self.visited_clusters = []
         self.unvisited_clusters = []
         # Per-instance (label, center, size) visited record for STATUS only —
@@ -95,6 +134,8 @@ class VoxelBehavior:
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
         self.cluster_confidence.clear()
+        self.cluster_yaw.clear()
+        self.cluster_obb_size.clear()
         self.visited_clusters = []
         self.unvisited_clusters = []
         self.visited_instances = []
@@ -102,6 +143,7 @@ class VoxelBehavior:
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
         self._held_center = None
+        self._goto_bb_center = None
         self._confirmer.reset()
 
     def _cluster_matches_committed_ray(self, cluster, committed_origin,
@@ -112,7 +154,7 @@ class VoxelBehavior:
           (b) the cluster center is within RAY_TO_CLUSTER_RELAXED_M of the
               ray line AND in front of the drone.
         """
-        bb = np.asarray(cluster, dtype=float)   # [cx,cy,cz,sx,sy,sz]
+        bb = np.asarray(cluster, dtype=float)
         d = np.asarray(committed_dir, dtype=float)
         d_norm = np.linalg.norm(d)
         if d_norm < 1e-6:
@@ -194,29 +236,28 @@ class VoxelBehavior:
 
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
                         threshold=None, committed_origin=None,
-                        committed_dir=None, cur_pose=None):
-        """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols.
-
-        Returns True iff there is at least one unvisited, temporally-confirmed
-        voxel cluster for one of the target_objects. When True, voxel-mode takes
-        over for fine approach + 3m arrival detection.
-        """
+                        committed_dir=None, cur_pose=None,
+                        committed_bb_center=None):
+        """True when voxel-mode should run: an unvisited live cluster exists, or
+        the drone is committed to a remembered (stale) box with no live voxels
+        yet and should fly to it (go-to-box) until its voxels reappear."""
+        self._goto_bb_center = None
         if threshold is None:
             threshold = self.score_threshold
 
-        # No data this tick: leave tracks untouched (don't age on a dropped frame).
         if vox_xyz is None or vox_scores is None or not target_objects:
-            return False
+            return self._engage_goto(committed_bb_center)
         if len(vox_xyz) == 0:
-            return False
+            return self._engage_goto(committed_bb_center)
 
         label_indices = [
             query_labels.index(t) for t in target_objects
             if t in query_labels
         ]
         if not label_indices:
-            return False
+            return self._engage_goto(committed_bb_center)
 
+        self._cur_target_objects = list(target_objects)
         raw_obs = self._extract_clusters(
             vox_xyz, vox_scores, label_indices, target_objects, threshold)
         confirmed = self._confirmer.update(
@@ -226,15 +267,18 @@ class VoxelBehavior:
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
         self.cluster_confidence.clear()
+        self.cluster_yaw.clear()
+        self.cluster_obb_size.clear()
         cid = 0
         for obs in confirmed:
-            # confidence = semantic score * persistence (saturates at FULL_HITS).
             conf = float(obs.score) * min(1.0, obs.seen / PERSISTENCE_FULL_HITS)
             if conf < self.min_confidence:
                 continue
             self.target_voxel_clusters[cid] = obs.bbox
             self.cluster_query_map[cid] = obs.label
             self.cluster_confidence[cid] = conf
+            self.cluster_yaw[cid] = obs.yaw
+            self.cluster_obb_size[cid] = obs.obb_size or obs.bbox[3:6]
             cid += 1
 
         # Candidates: ray-matched clusters when committed, else clusters near the
@@ -251,74 +295,113 @@ class VoxelBehavior:
                 np.array(cluster[:3]), np.array(cluster[3:6]))
         ]
 
-        return len(self.unvisited_clusters) > 0
+        return len(self.unvisited_clusters) > 0 or self._engage_goto(
+            committed_bb_center)
+
+    def _engage_goto(self, committed_bb_center) -> bool:
+        """Arm go-to-box mode only when committed to a genuinely stale box: no
+        live cluster near it and no peer has visited it. Live boxes fall through
+        to normal voxel/ray/frontier handling."""
+        if committed_bb_center is None:
+            self._goto_bb_center = None
+            return False
+        c = np.asarray(committed_bb_center, dtype=float)[:3]
+        if self._is_near_peer_visited(c, np.zeros(3)):
+            self._goto_bb_center = None
+            return False
+        for bb in self.target_voxel_clusters.values():
+            if float(np.linalg.norm(np.asarray(bb[:3], dtype=float) - c)) <= 5.0:
+                self._goto_bb_center = None
+                return False
+        self._goto_bb_center = c
+        return True
 
     def _suppress_contained(self, confirmed):
-        """Drop any confirmed box mostly inside a larger one (over-split nesting),
-        keeping the bigger. Label-agnostic — a sub-fragment shares the object."""
+        """Drop a box mostly inside a larger SAME-label box (over-split fragments
+        of one object); a different-label box inside another's bbox is kept."""
         order = sorted(
             confirmed,
             key=lambda o: float(np.prod(np.asarray(o.bbox[3:6]))), reverse=True)
         kept: list = []
         for o in order:
-            if any(_contained_frac(o.bbox, k.bbox) >= CONTAIN_SUPPRESS_FRAC
+            if any(o.label == k.label
+                   and _contained_frac(o.bbox, k.bbox) >= CONTAIN_SUPPRESS_FRAC
                    for k in kept):
                 continue
             kept.append(o)
         return kept
 
     def _same_cluster(self, a: _VoxelObs, b: _VoxelObs) -> bool:
-        # Label-agnostic so a flickering best-label doesn't reset a track.
+        if a.label != b.label:
+            return False
         return self._cuboid_distance(
             np.array(a.bbox[:3]), np.array(a.bbox[3:6]),
             np.array(b.bbox[:3]), np.array(b.bbox[3:6])) <= TRACK_ASSOC_MARGIN_M
 
     def _merge_obs(self, a: _VoxelObs, b: _VoxelObs) -> _VoxelObs:
-        """EMA the centroid + score; take this frame's size as-is (EMA-ing size
-        runs away). Keeps the track label; grows persistence."""
+        """EMA the centroid; take this frame's size/orientation. EMA the per-class
+        scores and relabel to their running argmax so a track tracks position
+        stably (label-agnostic match) yet follows the dominant class over time."""
         al = TRACK_MERGE_ALPHA
         a_bb = np.asarray(a.bbox, dtype=float)
         b_bb = np.asarray(b.bbox, dtype=float)
         center = (1.0 - al) * a_bb[:3] + al * b_bb[:3]
         size = b_bb[3:6]
-        score = (1.0 - al) * a.score + al * b.score
+        if (a.scores is not None and b.scores is not None
+                and a.scores.shape == b.scores.shape):
+            scores = (1.0 - al) * a.scores + al * b.scores
+        else:
+            scores = b.scores if b.scores is not None else a.scores
+        label, score = a.label, (1.0 - al) * a.score + al * b.score
+        if scores is not None and self._cur_target_objects:
+            k = int(np.argmax(scores))
+            if k < len(self._cur_target_objects):
+                label = self._cur_target_objects[k]
+                score = float(scores[k])
         return _VoxelObs(bbox=[*center.tolist(), *size.tolist()],
-                         label=a.label, score=score, seen=a.seen + 1)
+                         label=label, score=score, seen=a.seen + 1,
+                         scores=scores, yaw=b.yaw, obb_size=b.obb_size)
 
     def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
                           target_objects, threshold):
-        """Per-frame clusters (high-conf, 26-connected, >= min_cluster_size)."""
-        relevant_scores = vox_scores[:, label_indices]   # (N, len(label_indices))
-        mask = (relevant_scores > threshold).any(axis=1)
-        indices = np.where(mask)[0]
-        if len(indices) == 0:
-            return []
-
-        # 3D connected-component labeling on high-confidence voxels.
-        filtered_vox = np.round(vox_xyz[indices], 3)
+        """Per-label clusters: each voxel is assigned to its single highest-scoring
+        target (argmax), and connected-components runs within each label — so
+        adjacent objects of different classes stay separate and correctly named."""
+        relevant_scores = vox_scores[:, label_indices]
+        best_t = relevant_scores.argmax(axis=1)
+        best_s = relevant_scores.max(axis=1)
         vox_size = 0.5
+        obs = []
+        for t in range(len(label_indices)):
+            sel = np.where((best_t == t) & (best_s > threshold))[0]
+            if len(sel) < self.min_cluster_size:
+                continue
+            obs.extend(self._cluster_one_label(
+                vox_xyz[sel], relevant_scores[sel], t, target_objects, vox_size))
+        return obs
 
+    def _cluster_one_label(self, label_vox, label_scores, t, target_objects,
+                           vox_size):
+        """26-connected components + instance split for one target label's voxels."""
+        out = []
+        filtered_vox = np.round(label_vox, 3)
         min_coords = filtered_vox.min(axis=0)
         norm_coords = ((filtered_vox - min_coords) / vox_size).astype(int)
         max_coords = norm_coords.max(axis=0) + 1
         occupancy = np.zeros(tuple(max_coords.tolist()), dtype=np.uint8)
-        for x, y, z in norm_coords:
-            occupancy[x, y, z] = 1
-
-        structure = np.ones((3, 3, 3), dtype=np.uint8)
-        labeled, num_components = scipy.ndimage.label(occupancy, structure=structure)
-
-        label_ids = np.array([labeled[x, y, z] for x, y, z in norm_coords])
-
-        obs = []
-        for label_val in range(1, num_components + 1):
-            idx = np.where(label_ids == label_val)[0]
+        occupancy[norm_coords[:, 0], norm_coords[:, 1], norm_coords[:, 2]] = 1
+        labeled, num = scipy.ndimage.label(
+            occupancy, structure=np.ones((3, 3, 3), dtype=np.uint8))
+        comp_ids = labeled[norm_coords[:, 0], norm_coords[:, 1], norm_coords[:, 2]]
+        label = target_objects[t] if t < len(target_objects) else target_objects[0]
+        for cv in range(1, num + 1):
+            idx = np.where(comp_ids == cv)[0]
             if len(idx) < self.min_cluster_size:
                 continue
             comp_coords = norm_coords[idx]
-            comp_scores = relevant_scores[idx]
+            comp_scores = label_scores[idx]
             for g in self._split_into_instances(
-                    comp_coords, comp_scores.max(axis=1), vox_size):
+                    comp_coords, comp_scores[:, t], vox_size):
                 if len(g) < self.min_cluster_size:
                     continue
                 coords = comp_coords[g]
@@ -327,16 +410,15 @@ class VoxelBehavior:
                 center = (min_world + max_world) / 2
                 size = max_world - min_world
                 mean_scores = comp_scores[g].mean(axis=0)
-                best_local = int(mean_scores.argmax())
-                best_label = (target_objects[best_local]
-                              if best_local < len(target_objects)
-                              else target_objects[0])
-                obs.append(_VoxelObs(
+                yaw, obb_size = _obb_yaw_size(coords * vox_size + min_coords)
+                out.append(_VoxelObs(
                     bbox=[center[0], center[1], center[2],
                           size[0], size[1], size[2]],
-                    label=best_label,
-                    score=float(mean_scores[best_local])))
-        return obs
+                    label=label,
+                    score=float(mean_scores[t]),
+                    scores=np.asarray(mean_scores, dtype=np.float32),
+                    yaw=yaw, obb_size=obb_size))
+        return out
 
     def _split_into_instances(self, coords, win_scores, vox_size):
         """Split a connected component into separate instances at score peaks:
@@ -369,15 +451,14 @@ class VoxelBehavior:
 
     def execute(self, vox_xyz, vox_scores, query_labels, cur_pose_np,
                 waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
-                committed_origin=None, committed_dir=None):
+                committed_origin=None, committed_dir=None,
+                committed_bb_center=None):
         voxel_bbox_pub = publisher_dict.get('voxel_bbox')
         if voxel_bbox_pub:
             self._visualize_clusters(voxel_bbox_pub)
 
         path_pub = publisher_dict['path']
 
-        # Same candidate pool as condition_check (ray-matched, or nearby when
-        # uncommitted).
         ray_filtered = self._candidate_clusters(
             self.target_voxel_clusters, committed_origin, committed_dir, cur_pose_np)
         self.unvisited_clusters = [
@@ -387,10 +468,9 @@ class VoxelBehavior:
             and not self._is_near_peer_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]))
         ]
-        # If the drone's commitment moved off this cluster bucket (peer
-        # outbid, target completed, peer already visited, etc.) we'd have no
-        # candidates — fall back gracefully without crashing the path publish.
         if not self.unvisited_clusters:
+            if self._goto_bb_center is not None and cur_pose_np is not None:
+                self._publish_goto_path(self._goto_bb_center, cur_pose_np, path_pub)
             return waypoint_locked, target_waypoint, target_waypoint2
 
         sorted_clusters = sorted(
@@ -439,12 +519,24 @@ class VoxelBehavior:
                 continue
             t_hit = tmin if tmin > 0 else tmax
             surface_point = cur_pose_np + dir_norm * t_hit
-            adjacent = surface_point - dir_norm * 1.0  # 1m in front
+            adjacent = surface_point - dir_norm * 1.0
 
             if i == 0:
                 if not waypoint_locked:
-                    target_waypoint2 = adjacent
+                    target_waypoint2 = self._clear_standoff(
+                        surface_point, dir_norm, vox_xyz)
+                    if target_waypoint2 is None:
+                        self.visited_clusters.append(cluster)
+                        break
                     waypoint_locked = True
+                elif self._point_near_voxels(target_waypoint2, vox_xyz):
+                    new_wp = self._clear_standoff(surface_point, dir_norm, vox_xyz)
+                    if new_wp is None:
+                        self.visited_clusters.append(cluster)
+                        waypoint_locked = False
+                        target_waypoint2 = None
+                        break
+                    target_waypoint2 = new_wp
 
                 alpha = 0.8
                 mid = cur_pose_np * (1 - alpha) + target_waypoint2 * alpha
@@ -525,6 +617,46 @@ class VoxelBehavior:
             if self._cuboid_distance(center, size, vcenter, vsize) < match_m:
                 return True
         return False
+
+    def _point_near_voxels(self, point, vox_xyz, clearance=WAYPOINT_CLEARANCE_M):
+        """True if the waypoint sits within clearance of any mapped voxel."""
+        if vox_xyz is None or len(vox_xyz) == 0:
+            return False
+        d2 = ((np.asarray(vox_xyz, dtype=float)
+               - np.asarray(point, dtype=float)) ** 2).sum(axis=1)
+        return bool(d2.min() < clearance * clearance)
+
+    def _clear_standoff(self, surface_point, dir_norm, vox_xyz,
+                        base=1.0, step=STANDOFF_STEP_M, max_standoff=STANDOFF_MAX_M):
+        """Pull the approach point back from the surface (toward the drone) until
+        it clears all voxels; None if nothing within max_standoff is free."""
+        s = base
+        while s <= max_standoff:
+            wp = surface_point - dir_norm * s
+            if not self._point_near_voxels(wp, vox_xyz):
+                return wp
+            s += step
+        return None
+
+    def _publish_goto_path(self, target, cur_pose_np, path_pub):
+        """Steer toward a remembered box center with no live voxels yet. droan
+        follows /global_plan; on approach the voxels reappear and normal
+        voxel-mode + mark_arrivals take over and confirm it visited."""
+        target = np.asarray(target, dtype=float)
+        path = Path()
+        path.header.stamp = self.get_clock().now().to_msg()
+        path.header.frame_id = 'map'
+        d = target - cur_pose_np
+        if float(np.linalg.norm(d)) >= 1e-6:
+            for wp in (cur_pose_np + d * 0.5, target):
+                ps = PoseStamped()
+                ps.header = path.header
+                ps.pose.position.x = float(wp[0])
+                ps.pose.position.y = float(wp[1])
+                ps.pose.position.z = float(wp[2])
+                ps.pose.orientation.w = 1.0
+                path.poses.append(ps)
+        path_pub.publish(path)
 
     def _visualize_clusters(self, pub):
         markers = MarkerArray()

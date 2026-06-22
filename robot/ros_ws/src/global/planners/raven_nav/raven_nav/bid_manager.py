@@ -47,14 +47,14 @@ class BidEntry:
     is_same_target() and the auction.
     """
     label: str
-    value: float                  # utility; higher = better. -distance, then
+    value: float
                                   # finalize_bid_values folds in ray reach + heading
-    avg_origin: np.ndarray        # (3,) ray origin, or BB centre for is_bb
-    avg_dir: np.ndarray           # (3,) unit; bearing to the BB centre for is_bb
-    num_rays: int                 # 0 marks a BB bid (rays always have >= 1)
+    avg_origin: np.ndarray
+    avg_dir: np.ndarray
+    num_rays: int
     avg_score: float
     is_bb: bool = False
-    size: Optional[np.ndarray] = None   # (3,) full extents, BB only
+    size: Optional[np.ndarray] = None
 
 
 def compute_my_bids(groups: List[RayGroup]) -> List[BidEntry]:
@@ -127,7 +127,7 @@ class _GroupView:
 # CBBA consensus assignment: every robot rebuilds the same robots×instances cost
 # matrix from gossiped bids (cost = -value) and solves it identically. value is
 # the broadcast utility, so all robots agree.
-_INFEASIBLE_COST = 1e6   # robot has no bid for this instance; filtered after solve
+_INFEASIBLE_COST = 1e6
 
 
 def _same_bid_instance(a: BidEntry, b: BidEntry, polygon_xy) -> bool:
@@ -206,7 +206,7 @@ def _solve_cbba(cost: np.ndarray, robot_ids: List[int]) -> Dict[int, int]:
     used_t: set = set()
     assigned: Dict[int, int] = {}
     while len(used_r) < R and len(used_t) < T:
-        best = None  # (key, r, t)
+        best = None
         for r in range(R):
             if r in used_r:
                 continue
@@ -256,7 +256,7 @@ def assign_global(
     cost = np.full((R, T), _INFEASIBLE_COST, dtype=float)
     for t, c in enumerate(clusters):
         for rid, b in c.items():
-            cost[row_of[rid], t] = -float(b.value)   # -value = distance
+            cost[row_of[rid], t] = -float(b.value)
 
     assigned = _solve_cbba(cost, robot_ids)
 

@@ -68,14 +68,25 @@ class RayBehavior:
             if not groups:
                 return waypoint_locked, target_waypoint1, target_waypoint2
 
-        # Prefer forward groups when any exist — avoid backtracking toward
-        # an already-passed cluster. If the assigned target's rays are all
-        # behind us, fall back to all groups so the drone turns toward them.
-        forward_groups = [
-            g for g in groups
-            if np.dot(g.avg_dir[:2],
-                      g.avg_origin[:2] + g.avg_dir[:2] - cur_pose_np[:2]) > 0
-        ]
+        # Prefer groups whose investigation waypoint (origin + dir*6 m, where the
+        # drone is actually sent) is ahead of the drone — don't backtrack to a ray
+        # for the same target seen from a viewpoint we've already passed. "Ahead"
+        # is along the committed bearing when following a target; fall back to all
+        # groups only if every one is behind (then the drone turns around).
+        if assigned_dir is not None:
+            af = np.asarray(assigned_dir, dtype=float)[:2]
+            af = af / (np.linalg.norm(af) + 1e-6)
+            forward_groups = [
+                g for g in groups
+                if float(np.dot(g.avg_origin[:2] + g.avg_dir[:2] * 6.0
+                                - cur_pose_np[:2], af)) > 0
+            ]
+        else:
+            forward_groups = [
+                g for g in groups
+                if np.dot(g.avg_dir[:2],
+                          g.avg_origin[:2] + g.avg_dir[:2] - cur_pose_np[:2]) > 0
+            ]
         candidates = forward_groups if forward_groups else groups
 
         self.current_target = target

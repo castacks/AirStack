@@ -4,9 +4,9 @@ from raven_nav.behaviors.voxel_behavior import VoxelBehavior
 
 
 class BehaviorManager:
-    def __init__(self, get_clock, publisher_dict, score_threshold=0.68,
+    def __init__(self, get_clock, publisher_dict, score_threshold=0.75,
                  min_altitude=1.5, max_altitude=100.0,
-                 voxel_score_threshold=0.7, voxel_min_cluster_size=30,
+                 voxel_score_threshold=0.9, voxel_min_cluster_size=30,
                  voxel_confirm_hits=3, voxel_track_max_misses=4,
                  voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0,
                  altitude_preference_weight=0.0):
@@ -37,13 +37,15 @@ class BehaviorManager:
 
     def mode_select(self, query_labels, target_objects,
                     vox_xyz=None, vox_scores=None,
-                    committed_origin=None, committed_dir=None, cur_pose=None):
+                    committed_origin=None, committed_dir=None, cur_pose=None,
+                    committed_bb_center=None):
         for behavior in self.behaviors:
             if behavior.name == 'Voxel-based':
                 if behavior.condition_check(
                         vox_xyz, vox_scores, query_labels, target_objects,
                         committed_origin=committed_origin,
-                        committed_dir=committed_dir, cur_pose=cur_pose):
+                        committed_dir=committed_dir, cur_pose=cur_pose,
+                        committed_bb_center=committed_bb_center):
                     self.behavior_mode = behavior.name
                     return
             else:
@@ -59,13 +61,15 @@ class BehaviorManager:
                          debug_logger=None, assigned_target=None,
                          committed_target_dir=None,
                          committed_target_origin=None,
-                         completed_zones_xy=None, cell_size_m=0.5):
+                         completed_zones_xy=None, cell_size_m=0.5,
+                         committed_bb_center=None):
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
                 waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
                 committed_origin=committed_target_origin,
-                committed_dir=committed_target_dir)
+                committed_dir=committed_target_dir,
+                committed_bb_center=committed_bb_center)
         elif behavior_mode == 'Ray-based':
             return self.ray_behavior.execute(
                 cur_pose_np, waypoint_locked,

@@ -32,8 +32,8 @@ _ROS_PREFIX_RE = re.compile(
 # Shared bind-mounted dir (./cache -> /root/.cache in every robot replica), so
 # all robots' raven dumps land where any container can compile them.
 RESULTS_DIR = '/root/.cache/raven_results'
-RESULTS_COVERAGE_THRESHOLD = 0.80  # the "80%" of "15 min OR 80%"
-RESULTS_SCENE = os.getenv('RESULTS_SCENE', 'RetroNeighborhood')  # GT annotations
+RESULTS_COVERAGE_THRESHOLD = 0.80
+RESULTS_SCENE = os.getenv('RESULTS_SCENE', 'RetroNeighborhood')
 
 
 def _clean(line: str) -> str:
@@ -67,7 +67,7 @@ def _filter_rayfronts(line: str) -> str | None:
     # Skip noise: warnings, deprecations, progress bars, blank lines
     if not line or 'warning' in low or 'warn' in low or 'deprecated' in low:
         return None
-    if '|' in raw and '█' in raw:   # tqdm progress bar
+    if '|' in raw and '█' in raw:
         return None
     return None
 
@@ -107,7 +107,7 @@ def _pipe_to_queue(proc: subprocess.Popen, q: queue.Queue,
     log_fh = None
     if log_path:
         try:
-            log_fh = open(log_path, 'w', buffering=1)  # line-buffered
+            log_fh = open(log_path, 'w', buffering=1)
         except OSError:
             log_fh = None
     try:
@@ -830,7 +830,7 @@ class SemanticSearchTaskNode(Node):
                             f'First raven global_plan received '
                             f'({len(msg.poses)} poses)')
                     raven_published_waypoint = True
-                    p = msg.poses[-1].pose.position  # steered-toward point
+                    p = msg.poses[-1].pose.position
                     self._latest_global_target = (p.x, p.y, p.z)
             self.create_subscription(
                 Path, f'/{robot_name}/global_plan',
@@ -1160,7 +1160,7 @@ class SemanticSearchTaskNode(Node):
                 goal_handle.publish_feedback(fb)
 
                 if self._interruptible_sleep(goal_handle, 1.0):
-                    continue   # cancel was requested, loop back to check it
+                    continue
 
         finally:
             # Cancel droan_gl's NavigateTask so it stops following /global_plan.

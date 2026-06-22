@@ -26,12 +26,12 @@ import numpy as np
 @dataclass
 class RayGroup:
     label: str
-    ray_origins: np.ndarray              # (N, 3)
-    ray_dirs:    np.ndarray              # (N, 3) normalized
-    ray_scores:  np.ndarray              # (N,)   score for the assigned label
+    ray_origins: np.ndarray
+    ray_dirs:    np.ndarray
+    ray_scores:  np.ndarray
 
-    avg_origin:        np.ndarray = field(init=False)  # (3,)
-    avg_dir:           np.ndarray = field(init=False)  # (3,) normalized
+    avg_origin:        np.ndarray = field(init=False)
+    avg_dir:           np.ndarray = field(init=False)
     num_rays:          int        = field(init=False)
     avg_score:         float      = field(init=False)
     max_score:         float      = field(init=False)
@@ -99,7 +99,7 @@ def compute_ray_groups(
     # score above threshold but background dominating (e.g. sim_sky=0.97,
     # sim_water_tower=0.96).
     target_set = set(label_indices)
-    overall_best = np.argmax(ray_scores, axis=1)         # (N,)
+    overall_best = np.argmax(ray_scores, axis=1)
     is_target_winner = np.array(
         [int(c) in target_set for c in overall_best], dtype=bool)
     winner_score = ray_scores[np.arange(len(ray_scores)), overall_best]
