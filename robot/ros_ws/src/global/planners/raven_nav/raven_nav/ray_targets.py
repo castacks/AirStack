@@ -297,7 +297,9 @@ def build_targets(
         scores = [m.avg_score for m in members]
         if len(idxs) == 1:
             m = members[0]
-            pos = m.avg_origin + m.avg_dir * NOMINAL_RANGE_M
+            # Single bearing: keep it as the ray (origin), unprojected — range is
+            # unknown, so don't invent a far point.
+            pos = np.asarray(m.avg_origin, dtype=float)
             status = 'unconfirmed'
             cov = np.eye(3) * (NOMINAL_RANGE_M ** 2)
         else:

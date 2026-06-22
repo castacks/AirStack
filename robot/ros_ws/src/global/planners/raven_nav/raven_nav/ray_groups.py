@@ -127,8 +127,9 @@ def compute_ray_groups(
     per_score = ray_scores[keep, best_cols_global]
 
     # 4. greedy per-label clustering on XY direction
-    dirs_keep = ray_dirs[keep]
-    xy_dirs = dirs_keep[:, :2]
+    keep_origins = ray_origins[keep]
+    keep_dirs = ray_dirs[keep]
+    xy_dirs = keep_dirs[:, :2]
     norms = np.linalg.norm(xy_dirs, axis=1, keepdims=True)
     xy_norm = xy_dirs / (norms + 1e-6)
     angle_cos = np.cos(np.deg2rad(angle_thresh_deg))
@@ -153,8 +154,6 @@ def compute_ray_groups(
                 'rays': [xy_dir], 'centroid': xy_dir.copy(),
             })
 
-    keep_origins = ray_origins[keep]
-    keep_dirs = ray_dirs[keep]
     groups: List[RayGroup] = []
     for b in buckets:
         idx = b['indices']

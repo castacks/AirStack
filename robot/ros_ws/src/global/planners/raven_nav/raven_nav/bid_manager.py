@@ -294,7 +294,8 @@ class Task:
     centroid: np.ndarray   # (3,) target point estimate (BB centre or ray point)
     size: np.ndarray       # (3,) extents (zeros for a ray-lead point)
     status: str = 'bb-observing'   # one of TASK_STATES
-    origin: Optional[np.ndarray] = None   # (3,) ray-lead bearing origin, for viz
+    origin: Optional[np.ndarray] = None      # (3,) ray-lead bearing origin
+    direction: Optional[np.ndarray] = None   # (3,) ray-lead bearing direction
 
 
 def _task_surface_dist_xy(pos_xy, task) -> float:
@@ -336,53 +337,87 @@ def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
     return tasks
 
 
-def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
-    """Cluster mixed BB + ray-lead items into shared tasks (bounds the table).
+# Ray-lead merge: only near-duplicate leads of the SAME object collapse — close
+# in position AND pointing the same way. Distinct objects stay separate.
+RAY_MERGE_M = 5.0
+RAY_MERGE_DIR_COS = float(np.cos(np.deg2rad(25.0)))
 
-    items: (label, point(3), size(3), status[, origin(3)]). Single-linkage on xy
-    proximity within a label; the most-localized member (bb > ray-localized > ray)
-    sets the cluster's status, point and size, so a ray-lead near a BB collapses
-    into the BB (BB priority). Deterministic order -> same tasks/keys per robot."""
+
+def _canon(t):
+    return (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2))
+
+
+def build_tasks(items, match_m: float, key_grid: float,
+                ray_match_m: float = RAY_MERGE_M) -> List[Task]:
+    """Cluster items into shared tasks. BB fragments of one physical target fuse
+    (union) within match_m. Ray-leads merge only with same-object near-duplicates
+    — within ray_match_m AND pointing the same way — so different objects stay
+    distinct. Rays are NOT merged into BBs here (build_targets already attaches
+    rays that pierce a BB). Deterministic -> same tasks per robot.
+
+    items: (label, point(3), size(3), status[, origin(3)[, direction(3)]])."""
     norm = []
     for it in items:
         org = it[4] if len(it) > 4 and it[4] is not None else None
+        dirc = it[5] if len(it) > 5 and it[5] is not None else None
         norm.append((str(it[0]), np.asarray(it[1], float), np.asarray(it[2], float),
-                     str(it[3]), None if org is None else np.asarray(org, float)))
-    norm.sort(key=lambda t: (t[0], round(float(t[1][0]), 2), round(float(t[1][1]), 2)))
-    n = len(norm)
-    used = [False] * n
+                     str(it[3]), None if org is None else np.asarray(org, float),
+                     None if dirc is None else np.asarray(dirc, float)))
+    bb = sorted([x for x in norm if x[3].startswith('bb')], key=_canon)
+    ray = sorted([x for x in norm if not x[3].startswith('bb')], key=_canon)
     tasks: List[Task] = []
-    for i in range(n):
+
+    def _key(lab, pt):
+        return (lab, int(round(pt[0] / key_grid)), int(round(pt[1] / key_grid)),
+                len(tasks))
+
+    used = [False] * len(bb)
+    for i in range(len(bb)):
         if used[i]:
             continue
         used[i] = True
         grp = [i]
-        ci = norm[i][1]
-        for j in range(i + 1, n):
-            if used[j] or norm[j][0] != norm[i][0]:
+        ci = bb[i][1]
+        for j in range(i + 1, len(bb)):
+            if used[j] or bb[j][0] != bb[i][0]:
                 continue
-            if float(np.linalg.norm(norm[j][1][:2] - ci[:2])) <= match_m:
+            if float(np.linalg.norm(bb[j][1][:2] - ci[:2])) <= match_m:
                 used[j] = True
                 grp.append(j)
-        lab = norm[i][0]
-        bb_members = [k for k in grp if norm[k][3].startswith('bb')]
-        org = None
-        if bb_members:
-            # Union the BB fragments into one box (one box per physical target).
-            lo = np.min([norm[k][1][:3] - norm[k][2] / 2.0 for k in bb_members], axis=0)
-            hi = np.max([norm[k][1][:3] + norm[k][2] / 2.0 for k in bb_members], axis=0)
-            pt = (lo + hi) / 2.0
-            siz = hi - lo
-            st = ('bb-visited' if any(norm[k][3] == 'bb-visited' for k in bb_members)
-                  else 'bb-observing')
-        else:
-            best = max(grp, key=lambda k: _STATE_RANK.get(norm[k][3], 0))
-            _, pt, siz, st, org = norm[best]
-            pt, siz = pt.copy(), siz.copy()
-            org = None if org is None else org.copy()
-        key = (lab, int(round(pt[0] / key_grid)), int(round(pt[1] / key_grid)))
-        tasks.append(Task(key=key, label=lab, centroid=pt, size=siz,
-                          status=st, origin=org))
+        lo = np.min([bb[k][1][:3] - bb[k][2] / 2.0 for k in grp], axis=0)
+        hi = np.max([bb[k][1][:3] + bb[k][2] / 2.0 for k in grp], axis=0)
+        pt = (lo + hi) / 2.0
+        st = ('bb-visited' if any(bb[k][3] == 'bb-visited' for k in grp)
+              else 'bb-observing')
+        tasks.append(Task(key=_key(bb[i][0], pt), label=bb[i][0],
+                          centroid=pt, size=hi - lo, status=st))
+
+    used = [False] * len(ray)
+    for i in range(len(ray)):
+        if used[i]:
+            continue
+        used[i] = True
+        grp = [i]
+        lab, pi, _, _, _, di = ray[i]
+        for j in range(i + 1, len(ray)):
+            if used[j] or ray[j][0] != lab:
+                continue
+            if float(np.linalg.norm(ray[j][1][:2] - pi[:2])) > ray_match_m:
+                continue
+            dj = ray[j][5]
+            if di is not None and dj is not None:
+                a = di[:2] / (np.linalg.norm(di[:2]) + 1e-9)
+                b = dj[:2] / (np.linalg.norm(dj[:2]) + 1e-9)
+                if float(np.dot(a, b)) < RAY_MERGE_DIR_COS:
+                    continue
+            used[j] = True
+            grp.append(j)
+        best = max(grp, key=lambda k: _STATE_RANK.get(ray[k][3], 0))
+        _, pt, siz, st, org, dirc = ray[best]
+        tasks.append(Task(
+            key=_key(lab, pt), label=lab, centroid=pt.copy(), size=siz.copy(),
+            status=st, origin=None if org is None else org.copy(),
+            direction=None if dirc is None else dirc.copy()))
     return tasks
 
 

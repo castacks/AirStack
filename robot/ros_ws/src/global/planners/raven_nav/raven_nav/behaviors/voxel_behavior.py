@@ -163,9 +163,13 @@ class VoxelBehavior:
         set lets a committed drone finish a closer target instead of flying to a
         far ray/frontier one — voxel execute then approaches the nearest."""
         out = {}
-        if committed_origin is not None and committed_dir is not None:
-            out.update(self._filter_to_committed_ray(
-                clusters_dict, committed_origin, committed_dir))
+        if committed_origin is None or committed_dir is None:
+            # No auction commitment -> don't voxel-engage; the drone explores
+            # (frontier). Prevents an unassigned drone grabbing a cluster the
+            # auction gave to someone else.
+            return out
+        out.update(self._filter_to_committed_ray(
+            clusters_dict, committed_origin, committed_dir))
         if cur_pose is not None:
             cur = np.asarray(cur_pose, dtype=float)
             for i, c in clusters_dict.items():

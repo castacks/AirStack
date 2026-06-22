@@ -209,12 +209,15 @@ class PayloadVisualizerNode(Node):
             m.action = Marker.ADD
             m.color.r, m.color.g, m.color.b, m.color.a = (*rgb, alpha)
             m.lifetime = Duration(sec=0, nanosec=0)
-            if (not is_bb) and 'ox' in it:
-                # Ray-lead: arrow from the detection origin to the target point.
+            if (not is_bb) and 'dx' in it:
+                # Lone ray-lead: short fixed-length arrow along the bearing from
+                # the ray point (range unknown -> no projected endpoint).
+                L = 6.0
                 m.type = Marker.ARROW
                 m.points = [
-                    GPoint(x=float(it['ox']), y=float(it['oy']), z=float(it['oz'])),
-                    GPoint(x=x, y=y, z=z)]
+                    GPoint(x=x, y=y, z=z),
+                    GPoint(x=x + float(it['dx']) * L, y=y + float(it['dy']) * L,
+                           z=z + float(it['dz']) * L)]
                 m.scale.x, m.scale.y, m.scale.z = 0.4, 1.0, 0.0
                 m.color.a = max(alpha, 0.8)
             else:

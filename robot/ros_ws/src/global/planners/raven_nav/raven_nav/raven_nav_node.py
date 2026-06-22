@@ -863,12 +863,14 @@ class RavenNavNode(Node):
             if self._bb_is_visited(rt.label, pt) or self._lead_served(rt.label, pt):
                 continue
             status = 'ray-localized' if rt.status == 'confirmed' else 'ray'
-            origin = None
+            origin, direction = None, None
             if rt.contributing_group_ids:
                 gid = rt.contributing_group_ids[0]
                 if 0 <= gid < len(ray_groups):
                     origin = np.asarray(ray_groups[gid].avg_origin, dtype=float)
-            items.append((rt.label, pt, np.zeros(3), status, origin))
+                    if status == 'ray':
+                        direction = np.asarray(ray_groups[gid].avg_dir, dtype=float)
+            items.append((rt.label, pt, np.zeros(3), status, origin, direction))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
 
     def _lead_served(self, label, point) -> bool:
@@ -893,9 +895,10 @@ class RavenNavNode(Node):
         self._served_leads.append((label, p))
 
     def _mark_lead_serviced_if_reached(self, my_task, ray_groups) -> None:
-        """Completion: a ray-lead is serviced once the drone reaches it AND a
-        neighboring same-label ray group still points the same way (detection held
-        up). Removes it from the table; gossiped so peers drop it too."""
+        """Retire only a DEAD ray-lead: the drone reached it but no same-label ray
+        still points there (nothing was actually there). A live lead — rays still
+        present — is left alone; it becomes a BB and is handled by the normal
+        visited path. Serviced leads are gossiped so peers drop them too."""
         if my_task is None or my_task.status not in ('ray', 'ray-localized'):
             return
         if self._cur_pose is None:
@@ -903,26 +906,18 @@ class RavenNavNode(Node):
         pt = np.asarray(my_task.centroid, dtype=float)
         if float(np.linalg.norm(self._cur_pose[:2] - pt[:2])) > self._LEAD_SERVICE_RADIUS_M:
             return
-        ref = self._committed_target_last_dir
         bl = (my_task.label or '').lower()
-        cohered = False
+        rays_present = False
         for g in ray_groups:
             gl = (g.label or '').lower()
             if not (bl in gl or gl in bl) or g.num_rays <= 0:
                 continue
-            d = np.asarray(g.avg_dir, dtype=float)[:2]
-            dn = float(np.linalg.norm(d))
-            if dn < 1e-6:
-                continue
-            if ref is None:
-                cohered = True
+            if float(np.linalg.norm(
+                    np.asarray(g.avg_origin, float)[:2] - pt[:2])) <= self._TASK_MATCH_M \
+                    or self._points_near(pt, self._ray_point(g.avg_origin, g.avg_dir)):
+                rays_present = True
                 break
-            r = np.asarray(ref, dtype=float)[:2]
-            rn = float(np.linalg.norm(r))
-            if rn > 1e-6 and float(np.dot(d / dn, r / rn)) >= self._LEAD_ALIGN_COS:
-                cohered = True
-                break
-        if cohered:
+        if not rays_present:
             self._add_served_lead(my_task.label, pt)
 
     def _agent_positions(self, fresh_peers):
@@ -1672,10 +1667,12 @@ class RavenNavNode(Node):
                      'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
                      'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
                      'assigned': owner.get(t.key)}
-            if t.origin is not None:
-                o = to_world(np.asarray(t.origin, dtype=float))
-                entry['ox'], entry['oy'], entry['oz'] = (
-                    float(o[0]), float(o[1]), float(o[2]))
+            if t.direction is not None:
+                # Unit bearing (frame-invariant) so GCS draws a fixed-length
+                # arrow from the ray point — no projected far endpoint.
+                d = np.asarray(t.direction, dtype=float)
+                entry['dx'], entry['dy'], entry['dz'] = (
+                    float(d[0]), float(d[1]), float(d[2]))
             available.append(entry)
         self._auction_table_pub.publish(String(data=json.dumps(
             {'robot': self._robot_name, 'my_id': self._my_id, 'frame': frame,
@@ -2004,16 +2001,22 @@ class RavenNavNode(Node):
 
         won = None   # ray exploration is now a consensus task, not a side auction
         if my_task is not None:
-            new_assign = (
-                self._assigned_target != my_task.label
-                or self._committed_bb_center is None
-                or float(np.linalg.norm(
-                    self._committed_bb_center[:2] - my_task.centroid[:2]))
-                > self._TASK_MATCH_M)
+            prev = self._assigned_target
             self._assigned_target = my_task.label
-            self._committed_bb_center = np.asarray(my_task.centroid, float).copy()
             self._committed_to_assigned = True
-            if new_assign:
+            if my_task.status == 'ray' and my_task.direction is not None:
+                # Lone bearing: follow the ray (origin + dir), no BB point. The
+                # bearing block refines to the best-aligned ray group.
+                self._committed_bb_center = None
+                base = (my_task.origin if my_task.origin is not None
+                        else my_task.centroid)
+                self._committed_target_last_origin = np.asarray(base, float).copy()
+                self._committed_target_last_dir = np.asarray(
+                    my_task.direction, float).copy()
+            else:
+                # Localized target (BB or triangulated ray): head to the point.
+                self._committed_bb_center = np.asarray(my_task.centroid, float).copy()
+            if prev != my_task.label:
                 self._committed_bearing_lock_ts = now
                 if self._debug_coord:
                     self.get_logger().info(

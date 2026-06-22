@@ -31,7 +31,7 @@ from raven_nav.ray_targets import RayTarget
 # Max surface gap (not centroid distance) for two same-label AABBs to count as
 # one instance. Small so fragments of one object glue without bridging to a
 # neighbour; size-independent, so large objects still merge from their parts.
-DEDUP_MARGIN_M = 2.0
+DEDUP_MARGIN_M = 6.0
 
 
 @dataclass
