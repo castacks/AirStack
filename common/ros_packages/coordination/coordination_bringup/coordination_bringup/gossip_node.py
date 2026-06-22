@@ -106,6 +106,8 @@ class GossipNode(Node):
         self._payload_cache: dict[str, object] = {}
         self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
         self._payload_rotations: dict[str, tuple] = {}  # topic → pre-translation quat, or None
+        self._payload_min_interval: dict[str, float] = {}  # topic → min send interval s (0 = every tick)
+        self._payload_last_sent: dict[str, tuple] = {}  # topic → (content_key, last_monotonic_s)
         self._payload_subs: list = []
 
         self._coverage_topic = None
@@ -197,6 +199,10 @@ class GossipNode(Node):
             # rotation applied before that translation.
             self._payload_rotations[topic] = (
                 _RDF_TO_FLU_QUAT if entry.get("rotate_rdf_to_flu") else None)
+            # Opt-in throttle: a payload with min_interval_s > 0 is attached only
+            # when its content changed AND that interval has elapsed (heavy
+            # viz-only clouds). Unset = attached every tick as before.
+            self._payload_min_interval[topic] = float(entry.get("min_interval_s", 0.0))
 
             try:
                 msg_class = rosidl_utils.get_message(type_str)
@@ -302,6 +308,23 @@ class GossipNode(Node):
     def _publish_tick(self) -> None:
         self._publish_own()
 
+    def _payload_due(self, topic, msg, interval) -> bool:
+        """Throttle + on-change gate: attach only if the payload content changed
+        since the last send AND >= interval seconds have elapsed. Content-hashed
+        (rayfronts re-stamps every publish even when the map is unchanged)."""
+        try:
+            key = hash(bytes(msg.data))
+        except Exception:
+            key = None
+        last_key, last_t = self._payload_last_sent.get(topic, (None, 0.0))
+        now_t = time.monotonic()
+        if key is not None and key == last_key:
+            return False
+        if now_t - last_t < interval:
+            return False
+        self._payload_last_sent[topic] = (key, now_t)
+        return True
+
     def _publish_own(self) -> None:
         self._profile.clear_payloads()
         if self._boot_pos is not None:
@@ -312,6 +335,9 @@ class GossipNode(Node):
             for topic, entry in self._payload_cache.items():
                 if entry is not None:
                     msg, stamp = entry
+                    interval = self._payload_min_interval.get(topic, 0.0)
+                    if interval > 0.0 and not self._payload_due(topic, msg, interval):
+                        continue
                     if topic == self._coverage_topic:
                         self._attach_coverage(msg, stamp, bx, by)
                     else:

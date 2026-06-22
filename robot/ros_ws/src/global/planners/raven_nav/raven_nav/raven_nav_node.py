@@ -143,7 +143,7 @@ class RavenNavNode(Node):
             'coverage_raycast_min_step_m', 5.0).value)
         self._last_raycast_xy: 'np.ndarray | None' = None
 
-        self._score_threshold = self.declare_parameter('score_threshold', 0.68).value
+        self._score_threshold = self.declare_parameter('score_threshold', 0.62).value
         query_labels_param = self.declare_parameter(
             'query_labels', ['red building', 'water tower', 'radio tower']).value
         self._query_labels = list(query_labels_param)

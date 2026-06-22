@@ -1,5 +1,6 @@
-# multi_raven_mission — 3-robot FULL raven coordination semantic search,
-# cycled across three scenes (RetroNeighborhood, FireAcademy, ConstructionSite).
+# multi_raven_mission — 3-robot FULL raven coordination semantic search, cycled
+# across four scenes (RetroNeighborhood, FireAcademy, ConstructionSite,
+# AbandonedFactory).
 #
 # Full raven coordination (the default): semantic navigation, ray/voxel
 # behaviors, target bidding. frontier_exploration is the frontier-only baseline
@@ -48,7 +49,7 @@ environments:
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, radio tower"
-    background_queries: "road, grass, mountain, parking lot, contianer, tree"
+    background_queries: "road, grass, mountain, parking lot, tree"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -69,11 +70,26 @@ environments:
         - {x: -37.0, y: -67.0, z: 0.0}
         - {x: -40.0, y: 50.0, z: 0.0}
 
+  - name: abandonedfactory
+    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+    SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "AbandonedFactory"
+    query: "building, water tower"
+    background_queries: "ground, grass, road, tree, pipes"
+    search_area:
+      points:
+        - {x: 45.0, y: 102.0, z: 0.0}
+        - {x: 45.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: 102.0, z: 0.0}
+
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 command_route: gcs
 
 # grouped: each environment runs `iterations` times in a row (per-environment
-# count; total runs = iterations * 3). Spawn layout re-randomizes each run.
+# count; total runs = iterations * 4). Spawn layout re-randomizes each run.
 environment_order: grouped
 iterations: 1
 
