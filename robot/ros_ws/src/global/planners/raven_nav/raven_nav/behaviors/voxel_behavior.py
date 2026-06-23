@@ -42,6 +42,21 @@ WAYPOINT_CLEARANCE_M = 1.5
 STANDOFF_STEP_M = 0.5
 STANDOFF_MAX_M = 6.0
 
+# Visited geometry — ONE definition, shared with the auction AABBs in
+# raven_nav_node. Both sides use surface (cuboid) distance, not centre distance,
+# so "reached" and "same instance" mean the same thing for voxel_behavior and the
+# fused/published boxes.
+VISIT_REACH_M = 3.5   # drone within this of a target AABB *surface* => reached
+VISIT_MATCH_M = 6.0   # two target AABBs within this surface gap => same instance
+
+
+def aabb_surface_dist(ca, sa, cb, sb) -> float:
+    """Surface-to-surface gap between two axis-aligned boxes (0 if they overlap).
+    Pass sa or sb as zeros to treat that argument as a point."""
+    ca, sa, cb, sb = (np.asarray(v, dtype=float) for v in (ca, sa, cb, sb))
+    gap = np.maximum(np.abs(ca[:3] - cb[:3]) - (sa[:3] + sb[:3]) / 2.0, 0.0)
+    return float(np.linalg.norm(gap))
+
 
 def _contained_frac(inner_bbox, outer_bbox) -> float:
     """Fraction of inner's AABB volume that lies within outer's AABB."""
@@ -522,13 +537,13 @@ class VoxelBehavior:
 
         return waypoint_locked, target_waypoint, target_waypoint2
 
-    def _is_near_visited(self, center, size, visited_clusters, threshold=10.0):
+    def _is_near_visited(self, center, size, visited_clusters, threshold=VISIT_MATCH_M):
         return any(
             self._cuboid_distance(center, size,
                                   np.array(v[:3]), np.array(v[3:6])) < threshold
             for v in visited_clusters)
 
-    def _is_near_peer_visited(self, center, size, threshold=10.0):
+    def _is_near_peer_visited(self, center, size, threshold=VISIT_MATCH_M):
         """True if a peer already visited this target (within same-instance radius)."""
         return any(
             self._cuboid_distance(center, size,
@@ -536,13 +551,9 @@ class VoxelBehavior:
             for bb in self.peer_visited_bbs)
 
     def _cuboid_distance(self, ca, sa, cb, sb):
-        ha, hb = sa / 2.0, sb / 2.0
-        dx = max(abs(ca[0] - cb[0]) - (ha[0] + hb[0]), 0)
-        dy = max(abs(ca[1] - cb[1]) - (ha[1] + hb[1]), 0)
-        dz = max(abs(ca[2] - cb[2]) - (ha[2] + hb[2]), 0)
-        return np.sqrt(dx**2 + dy**2 + dz**2)
+        return aabb_surface_dist(ca, sa, cb, sb)
 
-    def mark_arrivals(self, cur_pose_np, radius_m=3.0):
+    def mark_arrivals(self, cur_pose_np, radius_m=VISIT_REACH_M):
         """Flag detected clusters within radius_m of the drone as visited
         (per-instance, label-scoped) without driving navigation. Call after
         condition_check() has populated target_voxel_clusters."""
@@ -558,10 +569,10 @@ class VoxelBehavior:
             if self._cuboid_distance(cur, np.zeros(3), center, size) < radius_m:
                 self.visited_instances.append((label, center, size))
 
-    def is_visited(self, center, size, label, match_m=10.0):
+    def is_visited(self, center, size, label, match_m=VISIT_MATCH_M):
         """True if (center, size, label) matches a previously marked-visited
-        instance: same label and within match_m cuboid distance (the system's
-        same-physical-instance proximity, matching _is_near_visited)."""
+        instance: same label and within match_m cuboid (surface) distance (the
+        system's same-physical-instance proximity, matching _is_near_visited)."""
         for vlabel, vcenter, vsize in self.visited_instances:
             if vlabel != label:
                 continue

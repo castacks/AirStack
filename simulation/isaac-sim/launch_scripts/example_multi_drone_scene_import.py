@@ -151,8 +151,24 @@ _DEFAULT_DRONE_CONFIGS = [
 # axis-aligned rectangle ("[[11,6.5],[-13,-6.5]]") or >=3 corners for a convex
 # polygon. NUM_ROBOTS sets the count; SPAWN_SEED (optional) makes it
 # reproducible; SPAWN_MIN_DIST_M / SPAWN_MARGIN_M tune spacing and edge inset.
+_SPAWN_CONFIGS = os.environ.get("SPAWN_CONFIGS")
 _SPAWN_POLY = os.environ.get("SPAWN_POLY")
-if _SPAWN_POLY:
+if _SPAWN_CONFIGS:
+    # Explicit hardcoded layout (mission pins fixed spawn positions + orient).
+    # JSON list of dicts; only x_m, y_m (and optional orient [x,y,z,w]) required —
+    # z_m / orient / lidar_min_range default. Takes priority over SPAWN_POLY.
+    DRONE_CONFIGS = json.loads(_SPAWN_CONFIGS)
+    for _i, _c in enumerate(DRONE_CONFIGS, start=1):
+        _c.setdefault("domain_id", _i)
+        _c.setdefault("z_m", SPAWN_HEIGHT_ABOVE_FLOOR_M)
+        _c.setdefault("orient", [0.0, 0.0, 0.0, 1.0])
+        _c.setdefault("lidar_min_range", LIDAR_MIN_RANGE_M)
+    _xs = [_c["x_m"] for _c in DRONE_CONFIGS]
+    _ys = [_c["y_m"] for _c in DRONE_CONFIGS]
+    _spawn_center = ((sum(_xs) / len(_xs), sum(_ys) / len(_ys))
+                     if DRONE_CONFIGS else (0.0, 0.0))
+    _spawn_seed = "hardcoded"
+elif _SPAWN_POLY:
     _poly = json.loads(_SPAWN_POLY)
     # Seed: honour SPAWN_SEED when set (reproducible layout), otherwise derive a
     # fresh seed from the wall clock + PID so every container bring-up gets a

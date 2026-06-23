@@ -23,6 +23,8 @@ from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+from raven_nav.behaviors.voxel_behavior import (
+    VISIT_REACH_M, VISIT_MATCH_M, aabb_surface_dist)
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import RayGroup, compute_ray_groups, same_ray_group
@@ -651,24 +653,30 @@ class RavenNavNode(Node):
         c = np.round(np.asarray(center, dtype=float)[:3] / 2.0).astype(int)
         return (label, int(c[0]), int(c[1]), int(c[2]))
 
-    def _bb_is_visited(self, label, center) -> bool:
+    def _bb_is_visited(self, label, center, size=None) -> bool:
         c = np.asarray(center, dtype=float)[:3]
+        s = np.zeros(3) if size is None else np.asarray(size, dtype=float)[:3]
         for lab, ex in self._peer_visited_bbs:
-            if lab == label and float(np.linalg.norm(
-                    np.asarray(ex, dtype=float)[:3] - c)) <= self._VISITED_DEDUP_M:
+            ex = np.asarray(ex, dtype=float)
+            es = ex[3:6] if ex.size >= 6 else np.zeros(3)
+            if lab == label and aabb_surface_dist(
+                    c, s, ex[:3], es) <= self._VISITED_DEDUP_M:
                 return True
         return False
 
-    _VISITED_DEDUP_M = 5.0
+    _VISITED_DEDUP_M = VISIT_MATCH_M
 
     def _add_visited(self, label, bb) -> None:
-        """Add a visited target to the persistent visited set, deduped by centre."""
-        c = np.asarray(bb, dtype=float)[:3]
+        """Add a visited target to the persistent visited set, deduped by surface
+        distance (same VISIT_MATCH_M / geometry as voxel_behavior)."""
+        bb = np.asarray(bb, dtype=float)
+        c, s = bb[:3], (bb[3:6] if bb.size >= 6 else np.zeros(3))
         for lab, ex in self._peer_visited_bbs:
-            if lab == label and float(np.linalg.norm(
-                    np.asarray(ex, dtype=float)[:3] - c)) <= self._VISITED_DEDUP_M:
+            ex = np.asarray(ex, dtype=float)
+            es = ex[3:6] if ex.size >= 6 else np.zeros(3)
+            if lab == label and aabb_surface_dist(c, s, ex[:3], es) <= self._VISITED_DEDUP_M:
                 return
-        self._peer_visited_bbs.append((label, np.asarray(bb, dtype=float)))
+        self._peer_visited_bbs.append((label, bb))
 
     def _house_boxes(self):
         """One fused box per physical target: union the observing boxes with the
@@ -683,19 +691,37 @@ class RavenNavNode(Node):
                                         status='visited', confidence=1.0, ts=0.0))
         return merge_house_boxes(srcs)
 
+    def _mark_reached(self, cur_pose) -> None:
+        """Flag a target visited when the drone reaches it, judged against the
+        fused/published AABB surface (the same boxes the auction and gossip use)
+        rather than only the drifting live voxel cluster, and sharing
+        VISIT_REACH_M with voxel_behavior so the two stay consistent."""
+        vb = self._behavior_manager.voxel_behavior
+        vb.mark_arrivals(cur_pose, VISIT_REACH_M)
+        if cur_pose is None:
+            return
+        p = np.asarray(cur_pose, dtype=float)[:3]
+        for h in self._house_boxes():
+            if str(h.status).lower() == 'visited':
+                continue
+            c = np.asarray(h.center, dtype=float)
+            s = np.asarray(h.size, dtype=float)
+            if aabb_surface_dist(p, np.zeros(3), c, s) <= VISIT_REACH_M \
+                    and not vb.is_visited(c, s, h.label):
+                vb.visited_instances.append((h.label, c, s))
+
     def _fresh_peers(self, now) -> set:
         """Peers heard from within the TTL (stale peers' state is ignored)."""
         return {n for n, t in self._peer_state.peer_last_seen.items()
                 if now - t <= self._PEER_TTL_S}
 
     def _peer_confirmed_targets_flat(self) -> list:
-        """Flatten fresh peers' peer_confirmed_targets into a ConfirmedTarget list."""
-        now = self.get_clock().now().nanoseconds * 1e-9
-        fresh = self._fresh_peers(now)
+        """Flatten peers' peer_confirmed_targets into a ConfirmedTarget list. Static
+        environment: a confirmed target persists regardless of the peer's position
+        freshness (positions go stale, targets don't); visited-pruning removes it
+        once serviced."""
         out: list = []
         for name, entries in self._peer_state.peer_confirmed_targets.items():
-            if name not in fresh:
-                continue
             for pct in entries:
                 out.append(ConfirmedTarget(
                     label=pct.label,
@@ -742,7 +768,7 @@ class RavenNavNode(Node):
                 self._observed_bbs[key] = ct
         for key in list(self._observed_bbs):
             oct = self._observed_bbs[key]
-            if self._bb_is_visited(oct.label, oct.center):
+            if self._bb_is_visited(oct.label, oct.center, oct.size):
                 self._observed_bbs.pop(key, None)
         self._consensus_bbs = [(ct.label, _bb(ct)) for ct in merged_cts]
         self._behavior_manager.voxel_behavior.peer_visited_bbs = [
@@ -1007,9 +1033,9 @@ class RavenNavNode(Node):
             if ct.label in all_completed:
                 continue
             c = np.asarray(ct.center, dtype=float)
-            if self._bb_is_visited(ct.label, c):
-                continue
             size = np.asarray(ct.size, dtype=float)
+            if self._bb_is_visited(ct.label, c, size):
+                continue
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
             items.append((ct.label, c, size, 'bb-observing', None, None,
                           float(getattr(ct, 'confidence', 0.0))))
@@ -1018,9 +1044,10 @@ class RavenNavNode(Node):
         # confirms rays against a BB, which the BB-prune already handles.
         self._accumulate_ray_leads(ray_groups, all_completed, now_ts, agent_pos)
         combined = list(self._ray_leads)
+        # Static environment: a peer's reported rays persist after the peer goes
+        # position-stale (the target is still there). Resolution-based pruning
+        # (points-at-known-BB / reached / completed) removes them, not peer TTL.
         for name, pleads in self._peer_state.peer_ray_leads.items():
-            if now_ts - self._peer_state.peer_last_seen.get(name, 0.0) > self._PEER_TTL_S:
-                continue
             for pl in pleads:
                 if targets and pl['label'] not in targets:
                     continue
@@ -1846,6 +1873,16 @@ class RavenNavNode(Node):
                 entry['dx'], entry['dy'], entry['dz'] = (
                     float(d[0]), float(d[1]), float(d[2]))
             available.append(entry)
+        # Per-robot table snapshot to the log (throttled, global ENU so the three
+        # robots' logs are directly comparable) — diff across robots to check
+        # table agreement (existence, status, and assignment).
+        rows = " ".join(sorted(
+            f"{e['label']}:{e['status']}@({e['x']:.0f},{e['y']:.0f})"
+            f"->{('r%d' % e['assigned']) if e['assigned'] is not None else '_'}"
+            for e in available))
+        self.get_logger().info(
+            f"[table] avail={len(available)} visited={len(visited)} | {rows}",
+            throttle_duration_sec=5.0)
         self._auction_table_pub.publish(String(data=json.dumps(
             {'robot': self._robot_name, 'my_id': self._my_id, 'frame': frame,
              'visited_bbs': visited, 'available': available})))
@@ -2430,8 +2467,7 @@ class RavenNavNode(Node):
                 voxel_targets, committed_origin=None, committed_dir=None)
             # Passive arrival: clusters within 3 m flip to 'visited'; never
             # touches the nav candidate pool, so baseline stays pure frontier.
-            self._behavior_manager.voxel_behavior.mark_arrivals(
-                self._cur_pose, 3.0)
+            self._mark_reached(self._cur_pose)
             self._behavior_manager.behavior_mode = 'Frontier-based'
         else:
             self._behavior_manager.mode_select(
@@ -2446,8 +2482,7 @@ class RavenNavNode(Node):
             )
             # Passive arrival status (same as baseline): confirmed clusters
             # within 3 m flip to 'visited'. Status-only; nav unaffected.
-            self._behavior_manager.voxel_behavior.mark_arrivals(
-                self._cur_pose, 3.0)
+            self._mark_reached(self._cur_pose)
         self._behavior_mode = self._behavior_manager.behavior_mode
 
         if self._behavior_mode != prev_mode:

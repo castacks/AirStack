@@ -53,7 +53,10 @@ env:
 environments:
   - name: retroneighborhood
     ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-    SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
+    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0,0,-0.1193,0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0,0,0.8743,0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0,0,-0.7931,0.6091]}]'
+    # 2nd fixed spawn (swap in): '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
@@ -69,7 +72,10 @@ environments:
 
   - name: fireacademy
     ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-    SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
+    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
+    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0,0,0.9757,0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0,0,-0.2076,0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0,0,-0.3285,0.9445]}]'
+    # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "FireAcademy"
@@ -84,7 +90,10 @@ environments:
 
   - name: constructionsite
     ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
-    SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
+    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+    # 2nd fixed spawn (swap in): '[{"x_m": 25.19, "y_m": -3.707, "orient": [0,0,-0.6227,0.7825]}, {"x_m": 24.078, "y_m": 0.6, "orient": [0,0,0.9756,0.2195]}, {"x_m": 22.347, "y_m": -1.95, "orient": [0,0,-0.8817,0.4718]}]'
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
@@ -99,7 +108,10 @@ environments:
 
   - name: abandonedfactory
     ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
-    SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
+    # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M). Re-randomize: uncomment SPAWN_POLY.
+    # SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0,0,0.1166,0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0,0,-0.9881,0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0,0,0.4036,0.9149]}]'
+    # 2nd fixed spawn (swap in): '[{"x_m": 18.342, "y_m": 1.867, "orient": [0,0,-0.313,0.9497]}, {"x_m": 17.552, "y_m": 5.243, "orient": [0,0,-0.8323,0.5543]}, {"x_m": 20.879, "y_m": 7.149, "orient": [0,0,-0.147,0.9891]}]'
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
