@@ -65,11 +65,14 @@ env:
 scene_templates:
   retroneighborhood: &retro
     ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-    SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
     STAGE_SCALE: "0.01"
-    SPAWN_HEIGHT_M: "0.3"
+    SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
+    SPAWN_HEIGHT: "0.3"
+    # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
+    voxel_score_threshold: 0.87
+    score_threshold: 0.75
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
@@ -174,7 +177,7 @@ command_route: gcs
 # round_robin: iteration i → environments[(i-1) % 16], and `iterations` is the
 # TOTAL run count. 16 == one run per entry (each pair back-to-back).
 environment_order: round_robin
-iterations: 16
+iterations: 8
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
