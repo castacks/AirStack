@@ -128,7 +128,13 @@ int main(int argc, char** argv) {
         "robot_interface", "robot_interface::RobotInterface");
 
     try {
-        ri = loader.createSharedInstance("mavros_interface::MAVROSInterface");
+        // Load the plugin named by the `interface` parameter (e.g.
+        // "px4_interface::PX4Interface" for uXRCE-DDS hardware, or
+        // "mavros_interface::MAVROSInterface" for SITL). Previously this was
+        // hardcoded to MAVROS, so the `interface` param was silently ignored
+        // and real (DDS) drones never subscribed to out/vehicle_odometry.
+        std::cout << "Loading robot interface plugin: " << interface << std::endl;
+        ri = loader.createSharedInstance(interface);
 
         // subscribers
         attitude_thrust_sub = ri->create_subscription<mav_msgs::msg::AttitudeThrust>(

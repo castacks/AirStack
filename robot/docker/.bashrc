@@ -101,6 +101,13 @@ if [ -n "$name_to_map" ]; then
     fi
 fi
 
+# --- SVG ground control: force ROS_DOMAIN_ID=1 ---
+# The SVG single-domain workflow requires EVERY shell in the robot container to be
+# on ROS domain 1 (see svg_ground_control/experiment.md §4 Conventions). Hard-override
+# whatever the robot-name mapping / docker compose resolved above, so a domain mismatch
+# ("service unavailable" / missing /fmu/* topics) can never happen on this branch.
+export ROS_DOMAIN_ID=1
+
 
 # ===========================================================================
 # If not running interactively, don't do anything. Exit immediately

@@ -97,8 +97,8 @@ def node_fn(context,*args, **kwargs):
 def generate_launch_description():
 
     return  LaunchDescription([
-        DeclareLaunchArgument('serverIP', default_value="192.168.123.199"),
-        DeclareLaunchArgument('clientIP', default_value="192.168.123.134"),
+        DeclareLaunchArgument('serverIP', default_value="192.168.50.4"),
+        DeclareLaunchArgument('clientIP', default_value="192.168.50.2"),
         DeclareLaunchArgument('serverType', default_value="multicast"), # multicast/unicast
         DeclareLaunchArgument('multicastAddress', default_value="239.255.42.99"),
         DeclareLaunchArgument('serverCommandPort', default_value="1510"),

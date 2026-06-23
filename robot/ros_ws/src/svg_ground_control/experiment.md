@@ -142,10 +142,13 @@ namespace changes (`/interface/` vs `/fmu/`), which is exactly what
 
 ## 4. Conventions
 
-**ROS domain = 1 everywhere.** The robot container auto-derives 1 from its
-name; manually-started containers and the mocap PC need
-`export ROS_DOMAIN_ID=1`. Check `echo $ROS_DOMAIN_ID` in every shell — a
-mismatch shows up as "service unavailable" / missing topics.
+**ROS domain = 1 everywhere.** The robot container's
+[`.bashrc`](../../../docker/.bashrc) **hard-pins `ROS_DOMAIN_ID=1`** (overriding the
+robot-name mapping), so every shell you open in it is already on domain 1 — this is
+an image-level change, so rebuild the image after pulling (see [A1](#a1-containers-host)).
+Manually-started containers and the mocap PC still need `export ROS_DOMAIN_ID=1`.
+Check `echo $ROS_DOMAIN_ID` in every shell — a mismatch shows up as "service
+unavailable" / missing topics.
 
 **tmux** (when you `./airstack.sh connect robot` without `--command=bash`):
 `Ctrl-b c` new window · `Ctrl-b n/p` or `Ctrl-b 0..9` switch · `Ctrl-b ,`
@@ -156,6 +159,8 @@ shell: re-run `cd ~/AirStack/robot/ros_ws && sws`.
 **Rebuild after edits.** `ros2 launch` reads the *installed* copy. After
 editing any `.py`/`.yaml`/`.rviz` in the package, run `bws` (or pass
 `config:=` pointing straight at the source file under `src/.../config/`).
+
+**Drone BS** drone_1, using DDS Port 8888
 
 ---
 
@@ -168,11 +173,24 @@ The standard demo: 3 SITL drones, scenario from the config.
 ```bash
 cd ~/AirStack
 git checkout yikuan/SVG_ground_control
+./airstack.sh image-build robot-desktop     # REQUIRED after pulling this branch — see note
 # .env: COMPOSE_PROFILES="desktop,isaac-sim", AUTOLAUNCH="false", NUM_ROBOTS="1"
 grep -E '^(COMPOSE_PROFILES|AUTOLAUNCH|NUM_ROBOTS)' .env
 ./airstack.sh up
 ./airstack.sh status        # robot-desktop-1 and isaac-sim Up
 ```
+
+> **⚠️ Always rebuild the robot image after pulling this branch.** This branch
+> changes the robot **Docker image** itself (not just the bind-mounted workspace) —
+> e.g. `MicroXRCEAgent` is now baked into the image
+> ([`Dockerfile.robot`](../../../docker/Dockerfile.robot)), and the container
+> [`.bashrc`](../../../docker/.bashrc) hard-pins `ROS_DOMAIN_ID=1`. Image contents
+> only update on a rebuild, so a stale image will be missing the agent and may sit on
+> the wrong domain. Rebuild with `./airstack.sh image-build robot-desktop` (or
+> `./airstack.sh up --build`); add `--no-cache` if a layer looks stale. A plain
+> `git pull` + `./airstack.sh up` is **not** enough. (Editing `.py`/`.yaml` inside the
+> workspace still only needs `bws` — that's the bind mount, §4 — but anything that
+> touches the Dockerfile or `.bashrc` needs an image rebuild.)
 
 ### A2. Isaac Sim — spawn drones (fresh terminal)
 
@@ -238,6 +256,15 @@ Verify (any other shell): `ros2 topic echo /drone_1/interface/mavros/state
 /drone_1/odometry_conversion/odometry` (~30 Hz after EKF converges, ~30 s).
 
 ### A4. Ground controller (fresh terminal)
+
+> **Prerequisite — the per-drone interfaces must already be running.** The
+> commander reads each drone's state from `/{name}/odometry_conversion/odometry`,
+> produced by the interface layer — start it **before** this step:
+> * **sim** → `./src/svg_ground_control/scripts/launch_sim_interfaces.sh N` (A3, MAVROS)
+> * **real** → `ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,...`
+>   (px4_interface, uXRCE-DDS — see [C0](#c0-start-the-per-drone-interfaces-required-before-any-task))
+>
+> Without it the commander logs `no drone eligible for takeoff (missing odometry)`.
 
 ```bash
 cd ~/AirStack/robot/ros_ws && sws
@@ -586,16 +613,51 @@ and Isaac shows it as an avatar). Nothing else in the task changes.
 
 All-sim tasks assume Part A (A1–A3) is up; any `real` drone assumes Part B.
 
+### C0. Start the per-drone interfaces (required before any task)
+
+The commander reads every drone's state from `/{name}/odometry_conversion/odometry`
+— which is **always** produced by an interface node, in *both* modes. `drone_modes`
+only switches the *command* routing; the *state* side still needs the matching
+interface running, or the commander reports `no drone eligible for takeoff (missing
+odometry)`:
+
+```bash
+# SIM drones — MAVROS/SITL interfaces (same as A3); arg = number of sim drones:
+./src/svg_ground_control/scripts/launch_sim_interfaces.sh 1
+
+# REAL drones — px4_interface stack (uXRCE-DDS, no MAVROS); comma-separate names:
+ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1   # ,drone_2,...
+```
+
+For a **real** drone this is the analogue of A3 — it brings up `px4_interface`
+(converts `/{name}/fmu/out/vehicle_odometry` → `…/odometry_conversion/odometry`) and
+`odometry_conversion`. Confirm it before launching the commander:
+```bash
+ros2 node list | grep -E 'px4_interface|odometry_conversion'   # both present, per drone
+ros2 topic echo /drone_1/odometry_conversion/odometry --once   # a pose appears (tracks reality)
+```
+If `odometry_conversion/odometry` is empty even though `/{name}/fmu/out/vehicle_odometry`
+streams, check the interface stack is actually up (a dead `microdds_client` or a
+crashed `px4_interface` is the usual cause).
+
 ### C1. Single-drone goal (`goal_single.yaml`)
 
-One drone flies to a goal you set, at a speed you set. `drone_modes: "sim"`
-(flip to `"real"` to fly the goal on hardware). For a 1-drone sim, spawn with
-`NUM_ROBOTS=1` in A2 and `./launch_sim_interfaces.sh 1` in A3.
+One drone flies to a goal you set, at a speed you set. **One config does both
+sim and real — `drone_modes` is the only switch** (`"sim"` → SITL/MAVROS,
+`"real"` → hardware/`/fmu/`). Launch with **`use_mocap:=true` always**: on a
+`real` drone the mocap bridge feeds PX4 EKF2 the external vision it needs to arm
+(mocap → `/drone_1/fmu/in/vehicle_visual_odometry`, the **only** way EKF2 fuses a
+position indoors — see [B4b](#b4b-external-vision--ekf2-the-arm-blocker)); in
+`sim` it's a harmless no-op (no `/drone_1/pose`, SITL self-estimates). For a
+1-drone sim, spawn with `NUM_ROBOTS=1` in A2 and `./launch_sim_interfaces.sh 1`
+in A3; for `real`, connect the drone per [Part B](#part-b--bring-in-a-real-drone-connect--verify)
+and set the EKF2 params (B4b) first.
 
 ```bash
 cd ~/AirStack/robot/ros_ws && sws
 ros2 launch svg_ground_control ground_control.launch.py \
-  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_single.yaml \
+  use_mocap:=true
 # control terminal:
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger

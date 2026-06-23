@@ -195,6 +195,20 @@ RUN mkdir -p /tmp/DDS-Router/src \
   && colcon build --merge-install --install-base /usr/local \
   && rm -rf /tmp/DDS-Router
 
+# Install eProsima Micro-XRCE-DDS-Agent (provides the `MicroXRCEAgent` binary used to
+# bridge a PX4 uXRCE-DDS client to ROS /fmu/* topics — see svg_ground_control Part B).
+# Installed into a SELF-CONTAINED prefix (/opt/uxrce) so the superbuild's bundled
+# Fast-DDS/Fast-CDR cannot clobber the DDS Router's copies in /usr/local. Pinned v2.4.3.
+RUN mkdir -p /tmp/uxrce \
+  && cd /tmp/uxrce \
+  && git clone --depth 1 -b v2.4.3 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git \
+  && cd Micro-XRCE-DDS-Agent \
+  && mkdir build && cd build \
+  && cmake -DCMAKE_INSTALL_PREFIX=/opt/uxrce -DCMAKE_BUILD_TYPE=Release -DUAGENT_BUILD_EXECUTABLE=ON .. \
+  && make -j"$(nproc)" \
+  && make install \
+  && rm -rf /tmp/uxrce
+
 # Cleanup
 RUN apt autoremove -y \
   && apt clean -y \
@@ -346,6 +360,11 @@ COPY --from=builder /usr/local/lib            /usr/local/lib
 COPY --from=builder /usr/local/include        /usr/local/include
 COPY --from=builder /model_weights            /model_weights
 COPY --from=builder /root/.tmux               /root/.tmux
+
+# Micro-XRCE-DDS-Agent (MicroXRCEAgent) — self-contained prefix from the builder stage
+COPY --from=builder /opt/uxrce                /opt/uxrce
+ENV PATH=/opt/uxrce/bin:$PATH
+ENV LD_LIBRARY_PATH=/opt/uxrce/lib:$LD_LIBRARY_PATH
 
 # Password is airstack
 RUN echo 'root:airstack' | chpasswd \
