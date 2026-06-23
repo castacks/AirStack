@@ -99,7 +99,7 @@ scene_templates:
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, red containe, blue tarp"
+    query: "Forklift, Towercrane, blue tarp"
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
     search_area:
       points:
@@ -119,36 +119,41 @@ environments:
     name: retro_r1_frontier
     SPAWN_SEED: "retroneighborhood-1"
     FRONTIER_ONLY_BASELINE: "true"
-  - <<: *retro
-    name: retro_r1_raven
-    SPAWN_SEED: "retroneighborhood-1"
-    FRONTIER_ONLY_BASELINE: "false"
-  - <<: *retro
-    name: retro_r2_frontier
-    SPAWN_SEED: "retroneighborhood-2"
-    FRONTIER_ONLY_BASELINE: "true"
-  - <<: *retro
-    name: retro_r2_raven
-    SPAWN_SEED: "retroneighborhood-2"
+  - <<: *retro  # - <<: *fire
+  #   name: fire_r1_frontier
+  #   SPAWN_SEED: "fireacademy-1"
+  #   FRONTIER_ONLY_BASELINE: "true"
+  # - <<: *fire
+  #   name: fire_r1_raven
+  #   SPAWN_SEED: "fireacademy-1"
+  #   FRONTIER_ONLY_BASELINE: "false"
+  # - <<: *fire
+  #   name: fire_r2_frontier
+  #   SPAWN_SEED: "fireacademy-2"
+  #   FRONTIER_ONLY_BASELINE: "true"
+  # - <<: *fire
+  #   name: fire_r2_raven
+  #   SPAWN_SEED: "fireacademy-2"
+  #   FRONTIER_ONLY_BASELINE: "false"
     FRONTIER_ONLY_BASELINE: "false"
 
   # ---- FireAcademy ----
-  - <<: *fire
-    name: fire_r1_frontier
-    SPAWN_SEED: "fireacademy-1"
-    FRONTIER_ONLY_BASELINE: "true"
-  - <<: *fire
-    name: fire_r1_raven
-    SPAWN_SEED: "fireacademy-1"
-    FRONTIER_ONLY_BASELINE: "false"
-  - <<: *fire
-    name: fire_r2_frontier
-    SPAWN_SEED: "fireacademy-2"
-    FRONTIER_ONLY_BASELINE: "true"
-  - <<: *fire
-    name: fire_r2_raven
-    SPAWN_SEED: "fireacademy-2"
-    FRONTIER_ONLY_BASELINE: "false"
+  # - <<: *fire
+  #   name: fire_r1_frontier
+  #   SPAWN_SEED: "fireacademy-1"
+  #   FRONTIER_ONLY_BASELINE: "true"
+  # - <<: *fire
+  #   name: fire_r1_raven
+  #   SPAWN_SEED: "fireacademy-1"
+  #   FRONTIER_ONLY_BASELINE: "false"
+  # - <<: *fire
+  #   name: fire_r2_frontier
+  #   SPAWN_SEED: "fireacademy-2"
+  #   FRONTIER_ONLY_BASELINE: "true"
+  # - <<: *fire
+  #   name: fire_r2_raven
+  #   SPAWN_SEED: "fireacademy-2"
+  #   FRONTIER_ONLY_BASELINE: "false"
 
   # ---- ConstructionSite ----
   - <<: *constr

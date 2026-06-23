@@ -173,7 +173,8 @@ class PeerState:
                         my_boot_enu, local_alt_ground=my_alt_ground)
                     op[2] = float(o['oz'])   # oz is AGL (raven _local_to_world); keep it
                     out.append({'label': str(o['label']), 'o': op,
-                                'd': np.array([o['dx'], o['dy'], o['dz']], float)})
+                                'd': np.array([o['dx'], o['dy'], o['dz']], float),
+                                'score': float(o.get('score', 0.0))})
             except (ValueError, TypeError, KeyError):
                 pass
             self.peer_ray_leads[name] = out

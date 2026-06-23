@@ -83,11 +83,11 @@ class AuctionViewer(Node):
         if not visited:
             print("    (none)")
         else:
-            print(f"    {'label':<16} {'x':>8} {'y':>8} {'z':>7}")
+            print(f"    {'label':<16} {'x':>8} {'y':>8} {'z':>7} {'conf':>6}")
             for v in visited:
                 print(f"    {str(v.get('label','')):<16} "
                       f"{v.get('x',0):>8.1f} {v.get('y',0):>8.1f} "
-                      f"{v.get('z',0):>7.1f}")
+                      f"{v.get('z',0):>7.1f} {v.get('conf',0):>6.2f}")
         print()
 
         avail = data.get("available", [])
@@ -97,7 +97,8 @@ class AuctionViewer(Node):
         if not avail:
             print("    (none)")
         else:
-            print(f"    {'query':<16} {'state':<10} {'x':>8} {'y':>8} {'assigned':>9}")
+            print(f"    {'query':<16} {'state':<10} {'x':>8} {'y':>8} {'conf':>6} "
+                  f"{'assigned':>9}")
             # BBs first, then ray-leads.
             order = {'bb-visited': 0, 'bb-observing': 1, 'ray': 2}
             for t in sorted(avail, key=lambda r: order.get(r.get('status'), 9)):
@@ -110,7 +111,8 @@ class AuctionViewer(Node):
                 who = (f"r{aid}" if aid is not None else "-")
                 who_s = (f"{BOLD}{who}*{RESET}" if mine else who)
                 print(f"    {col}{str(t.get('label','')):<16}{RESET} {state:<10} "
-                      f"{t.get('x',0):>8.1f} {t.get('y',0):>8.1f} {who_s:>9}")
+                      f"{t.get('x',0):>8.1f} {t.get('y',0):>8.1f} "
+                      f"{t.get('conf',0):>6.2f} {who_s:>9}")
         print(f"\n{DIM}* = assigned to this robot.  Ctrl+C to quit{RESET}")
 
 

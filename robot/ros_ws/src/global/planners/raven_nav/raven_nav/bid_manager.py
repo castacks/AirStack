@@ -296,6 +296,7 @@ class Task:
     status: str = 'bb-observing'   # one of TASK_STATES
     origin: Optional[np.ndarray] = None      # (3,) ray-lead bearing origin
     direction: Optional[np.ndarray] = None   # (3,) ray-lead bearing direction
+    confidence: float = 0.0        # BB detection confidence / ray semantic score
 
 
 def _task_surface_dist_xy(pos_xy, task) -> float:
@@ -309,9 +310,8 @@ def _task_surface_dist_xy(pos_xy, task) -> float:
 # reorders choices, it does not force big detours).
 PEER_REPULSION_W = 15.0
 PEER_REPULSION_SCALE = 15.0
-# Ray-lead cost surcharge: a localized BB is preferred over a ray at a comparable
-# distance (a ray's true range is unknown, so it costs more to resolve). A ray
-# must be this much closer than a BB to win it.
+# Soft BB preference: a ray costs this much more than a like-distance BB (its true
+# range is unknown). Not a hard priority — a much closer ray can still win.
 RAY_COST_PENALTY = 15.0
 
 
@@ -358,14 +358,15 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
     filtered ray (already clustered upstream by compute_ray_groups); they are not
     re-merged here. Deterministic -> same tasks per robot.
 
-    items: (label, point(3), size(3), status[, origin(3)[, direction(3)]])."""
+    items: (label, point(3), size(3), status[, origin(3)[, direction(3)[, conf]]])."""
     norm = []
     for it in items:
         org = it[4] if len(it) > 4 and it[4] is not None else None
         dirc = it[5] if len(it) > 5 and it[5] is not None else None
+        conf = float(it[6]) if len(it) > 6 and it[6] is not None else 0.0
         norm.append((str(it[0]), np.asarray(it[1], float), np.asarray(it[2], float),
                      str(it[3]), None if org is None else np.asarray(org, float),
-                     None if dirc is None else np.asarray(dirc, float)))
+                     None if dirc is None else np.asarray(dirc, float), conf))
     bb = sorted([x for x in norm if x[3].startswith('bb')], key=_canon)
     ray = sorted([x for x in norm if not x[3].startswith('bb')], key=_canon)
     tasks: List[Task] = []
@@ -393,13 +394,14 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
         st = ('bb-visited' if any(bb[k][3] == 'bb-visited' for k in grp)
               else 'bb-observing')
         tasks.append(Task(key=_key(bb[i][0], pt), label=bb[i][0],
-                          centroid=pt, size=hi - lo, status=st))
+                          centroid=pt, size=hi - lo, status=st,
+                          confidence=max(bb[k][6] for k in grp)))
 
-    for lab, pt, siz, st, org, dirc in ray:
+    for lab, pt, siz, st, org, dirc, conf in ray:
         tasks.append(Task(
             key=_key(lab, pt), label=lab, centroid=pt.copy(), size=siz.copy(),
             status=st, origin=None if org is None else org.copy(),
-            direction=None if dirc is None else dirc.copy()))
+            direction=None if dirc is None else dirc.copy(), confidence=conf))
     return tasks
 
 
@@ -426,7 +428,7 @@ class ConsensusAssigner:
             for t in tasks:
                 c = _task_surface_dist_xy(p, t)
                 if str(t.status).startswith('ray'):
-                    c += RAY_COST_PENALTY   # BBs preferred over rays at like distance
+                    c += RAY_COST_PENALTY   # soft BB preference
                 if inc is not None and float(
                         np.linalg.norm(t.centroid[:2] - inc[:2])) <= match_m:
                     c -= switch_margin   # incumbent retention (CBBA winner stickiness)
@@ -435,6 +437,27 @@ class ConsensusAssigner:
         used_t: set = set()
         assigned: Dict[int, Tuple] = {}
         taken_centroids: List[np.ndarray] = []
+        # BB commitment lock: a drone whose incumbent is a still-present BB holds
+        # it until the BB is visited (removed from tasks) — no other (closer) drone
+        # can steal it, and it can't switch to a ray. _prev is identical across
+        # robots (same prior assignment), so the locks are shared/conflict-free.
+        bb_tasks = [t for t in tasks if not str(t.status).startswith('ray')]
+        for a in aids:
+            inc = self._prev.get(a)
+            if inc is None:
+                continue
+            cand = [t for t in bb_tasks if t.key not in used_t and float(
+                np.linalg.norm(t.centroid[:2] - inc[:2])) <= match_m]
+            if not cand:
+                continue
+            t = min(cand, key=lambda t: float(
+                np.linalg.norm(t.centroid[:2] - inc[:2])))
+            assigned[a] = t.key
+            used_a.add(a)
+            used_t.add(t.key)
+            taken_centroids.append(t.centroid)
+        # Greedy-assign the rest by cost (distance + soft ray penalty) with peer
+        # repulsion so drones spread to different areas.
         while len(used_a) < len(aids) and len(used_t) < len(by_key):
             best = None
             for a in aids:
@@ -443,10 +466,6 @@ class ConsensusAssigner:
                 for t in tasks:
                     if t.key in used_t:
                         continue
-                    # Peer repulsion: penalise a task near an already-assigned
-                    # one so drones spread to different areas (frontier
-                    # _peer_penalty analog). Only reorders which task a drone
-                    # takes — it still always takes one when free.
                     c = base[(a, t.key)]
                     for ac in taken_centroids:
                         d = float(np.linalg.norm(t.centroid[:2] - ac[:2]))

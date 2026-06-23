@@ -36,6 +36,8 @@ environments:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
+    voxel_score_threshold: 0.87
+    score_threshold: 0.75
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
@@ -48,7 +50,26 @@ environments:
     ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
     SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     RESULTS_SCENE: "FireAcademy"
-    query: "red walled building, water tower, radio tower"
+    query: "red building"
+    voxel_score_threshold: 0.85
+    score_threshold: 0.75
+    voxel_min_cluster_size: 20
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
+    search_area:
+      points:
+        - {x: 13.0, y: -135.0, z: 0.0}
+        - {x: 135.0, y: -13.0, z: 0.0}
+        - {x: 13.0, y: 135.0, z: 0.0}
+        - {x: -135.0, y: 13.0, z: 0.0}
+        
+  - name: fireacademy
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
+    RESULTS_SCENE: "water tower, fire academy"
+    query: "red building"
+    voxel_score_threshold: 0.85
+    score_threshold: 0.75
+    voxel_min_cluster_size: 15
     background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
     search_area:
       points:
@@ -61,7 +82,10 @@ environments:
     ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
     SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, red shipping container, blue tarp"
+    query: "Forklift, Towercrane, blue tarp"
+    voxel_score_threshold: 0.80
+    score_threshold: 0.65
+    voxel_min_cluster_size: 15
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
     search_area:
       points:
@@ -140,4 +164,6 @@ steps:
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95
+        # Per-scene voxel similarity gate (see each environment block above).
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
 

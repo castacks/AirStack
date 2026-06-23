@@ -192,6 +192,11 @@ def _build_semantic_search_goal(d, ts):
     g.min_flight_speed = float(d.get('min_flight_speed', 0))
     g.max_flight_speed = float(d.get('max_flight_speed', 0))
     g.confidence_threshold = float(d.get('confidence_threshold', 0.95))
+    # Optional raven_nav tuning overrides (sentinel = use raven_nav.yaml default).
+    g.score_threshold = float(d.get('score_threshold', -1.0))
+    g.voxel_score_threshold = float(d.get('voxel_score_threshold', -1.0))
+    g.voxel_min_confidence = float(d.get('voxel_min_confidence', -1.0))
+    g.voxel_min_cluster_size = int(d.get('voxel_min_cluster_size', -1))
     area = d.get('search_area', {})
     g.search_area = _build_polygon_from_global(area.get('points', []), ts)
     return g

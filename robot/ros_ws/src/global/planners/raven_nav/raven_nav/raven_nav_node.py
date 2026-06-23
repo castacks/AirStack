@@ -176,7 +176,6 @@ class RavenNavNode(Node):
         # 0 = report all. Raise (~0.3) to cut flickery low-persistence FPs.
         self._voxel_min_confidence = float(self.declare_parameter(
             'voxel_min_confidence', 0.0).value)
-        # 1 = no temporal accumulation (ray groups rarely false-positive).
         self._ray_confirm_hits = int(self.declare_parameter(
             'ray_confirm_hits', 1).value)
         self._ray_track_max_misses = int(self.declare_parameter(
@@ -968,14 +967,15 @@ class RavenNavNode(Node):
                 continue
             o = np.asarray(g.avg_origin, dtype=float)
             d = np.asarray(g.avg_dir, dtype=float)
+            score = float(getattr(g, 'avg_score', 0.0))
             if self._lead_points_at_known_bb(o, d, g.label):
                 continue
             m = self._lead_match(o, d, g.label, self._ray_leads)
             if m is not None:
-                m['o'], m['d'], m['ts'] = o, d, now
+                m['o'], m['d'], m['ts'], m['score'] = o, d, now, score
             else:
                 self._ray_leads.append(
-                    {'o': o, 'd': d, 'label': g.label, 'ts': now})
+                    {'o': o, 'd': d, 'label': g.label, 'ts': now, 'score': score})
         self._ray_leads = [
             L for L in self._ray_leads
             if L['label'] not in all_completed
@@ -1011,7 +1011,8 @@ class RavenNavNode(Node):
                 continue
             size = np.asarray(ct.size, dtype=float)
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
-            items.append((ct.label, c, size, 'bb-observing'))
+            items.append((ct.label, c, size, 'bb-observing', None, None,
+                          float(getattr(ct, 'confidence', 0.0))))
         # 2. Accumulate current rays into persistent memory, then emit each lead
         # directly as a ray task (origin + bearing). No triangulation: it only
         # confirms rays against a BB, which the BB-prune already handles.
@@ -1038,7 +1039,8 @@ class RavenNavNode(Node):
             if not (self._min_altitude <= float(o[2]) <= self._max_altitude):
                 continue
             d = np.asarray(L['d'], dtype=float)
-            items.append((L['label'], o, np.zeros(3), 'ray', o, d))
+            items.append((L['label'], o, np.zeros(3), 'ray', o, d,
+                          float(L.get('score', 0.0))))
         return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
 
     def _lead_served(self, label, point) -> bool:
@@ -1827,7 +1829,8 @@ class RavenNavNode(Node):
             s = np.asarray(h.size, dtype=float)
             visited.append({'label': h.label, 'x': float(g[0]), 'y': float(g[1]),
                             'z': float(g[2]), 'sx': float(s[0]),
-                            'sy': float(s[1]), 'sz': float(s[2])})
+                            'sy': float(s[1]), 'sz': float(s[2]),
+                            'conf': float(getattr(h, 'confidence', 0.0))})
         available = []
         for t in tasks:
             c = to_world(np.asarray(t.centroid, dtype=float))
@@ -1835,7 +1838,7 @@ class RavenNavNode(Node):
             entry = {'label': t.label, 'status': t.status,
                      'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
                      'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
-                     'assigned': owner.get(t.key)}
+                     'conf': float(t.confidence), 'assigned': owner.get(t.key)}
             if t.direction is not None:
                 # Unit bearing (frame-invariant) so GCS draws a fixed-length
                 # arrow from the ray point — no projected far endpoint.
@@ -1858,7 +1861,8 @@ class RavenNavNode(Node):
             d = np.asarray(L['d'], dtype=float)
             out.append({'label': L['label'],
                         'ox': float(g[0]), 'oy': float(g[1]), 'oz': float(g[2]),
-                        'dx': float(d[0]), 'dy': float(d[1]), 'dz': float(d[2])})
+                        'dx': float(d[0]), 'dy': float(d[1]), 'dz': float(d[2]),
+                        'score': float(L.get('score', 0.0))})
         self._ray_leads_pub.publish(String(data=json.dumps(out)))
 
     def _publish_served_leads(self):
@@ -2197,7 +2201,9 @@ class RavenNavNode(Node):
                 base = np.asarray(my_task.origin if my_task.origin is not None
                                   else my_task.centroid, dtype=float)
                 nd = np.asarray(my_task.direction, dtype=float)
-                if not self._is_same_committed_lead(base, nd):
+                # Re-seed on a NEW lead: a different query, or a different
+                # origin/bearing. Same query + same bearing -> hold (hysteresis).
+                if prev != my_task.label or not self._is_same_committed_lead(base, nd):
                     self._committed_target_last_origin = base.copy()
                     self._committed_target_last_dir = nd.copy()
                 self._ensure_followable_lead(my_task)

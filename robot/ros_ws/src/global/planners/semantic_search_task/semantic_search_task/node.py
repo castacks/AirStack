@@ -775,19 +775,13 @@ class SemanticSearchTaskNode(Node):
                 f'rayfronts processed {mapping_batches_seen} batches — '
                 f'starting raven')
 
-            # RetroNeighborhood needs a stricter voxel similarity gate (0.9);
-            # other scenes use 0.85.
-            voxel_score_threshold = (
-                0.87 if RESULTS_SCENE.strip().lower() == 'retroneighborhood'
-                else 0.85)
-            raven_proc, raven_q = self._spawn([
+            raven_args = [
                 'ros2', 'run', 'raven_nav', 'raven_nav_node',
                 '--ros-args',
                 '-p', f'query_labels:={all_labels_yaml}',
                 '-p', f'target_labels:={target_labels_yaml}',
                 '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
                 '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
-                '-p', f'voxel_score_threshold:={voxel_score_threshold}',
                 # Match the rest of the sim stack so published Path/marker
                 # stamps line up with the controllers' sim clock.
                 '-p', 'use_sim_time:=true',
@@ -798,7 +792,18 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'results_dir:={RESULTS_DIR}',
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
-            ], log_name='raven')
+            ]
+            # Optional raven_nav tuning from the mission goal; a sentinel (<0, or
+            # <1 for the count) means "unset" -> raven_nav.yaml default is used.
+            for pname, gval, sentinel in (
+                ('score_threshold', goal.score_threshold, 0.0),
+                ('voxel_score_threshold', goal.voxel_score_threshold, 0.0),
+                ('voxel_min_confidence', goal.voxel_min_confidence, 0.0),
+                ('voxel_min_cluster_size', goal.voxel_min_cluster_size, 1),
+            ):
+                if gval >= sentinel:
+                    raven_args += ['-p', f'{pname}:={gval}']
+            raven_proc, raven_q = self._spawn(raven_args, log_name='raven')
 
 
             best_conf = 0.0

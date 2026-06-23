@@ -13,6 +13,12 @@ float32 max_altitude_agl 15.0
 float32 min_flight_speed
 float32 max_flight_speed
 float32 confidence_threshold 0.95
+# Optional raven_nav tuning overrides. A sentinel (<0, or <1 for the count) means
+# "unset" -> raven_nav.yaml default is used. Settable per-scene in the mission file.
+float32 score_threshold -1.0
+float32 voxel_score_threshold -1.0
+float32 voxel_min_confidence -1.0
+int32 voxel_min_cluster_size -1
 # Optional cap on accumulated instances. 0 = unlimited; task completes only on
 # coverage criterion or operator cancel.
 int32 max_instances 0

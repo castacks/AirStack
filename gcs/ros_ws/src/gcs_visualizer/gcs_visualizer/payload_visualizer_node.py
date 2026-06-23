@@ -210,10 +210,10 @@ class PayloadVisualizerNode(Node):
             m.color.r, m.color.g, m.color.b, m.color.a = (*rgb, alpha)
             m.lifetime = Duration(sec=0, nanosec=0)
             if (not is_bb) and 'dx' in it:
-                # Lone ray-lead: short fixed-length arrow along the bearing from
-                # the ray point (range unknown -> no projected endpoint). Shorten a
+                # Lone ray-lead: same fixed length as the filtered_rays arrows
+                # (2 m) so the auction shows the filtered rays as-is. Shorten a
                 # downward arrow so its tip stays above ground (no underground rays).
-                L = 6.0
+                L = 2.0
                 dz = float(it['dz'])
                 if dz < -1e-3:
                     L = min(L, max(z - 0.3, 0.0) / (-dz))
