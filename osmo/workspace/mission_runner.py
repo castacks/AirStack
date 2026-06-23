@@ -12,8 +12,9 @@ N full iterations of:
 Artifacts land under one results root per mission run:
 
     <results_root>/<mission-name>/<UTC stamp>/
-    ├── summary.json                 # per-iteration pass/fail + durations
-    └── iter_001/
+    ├── summary.json                 # per-iteration pass/fail + durations + method
+    └── iter_001__<env>__<method>/   # e.g. iter_001__retro_r1__frontier
+                                     # (iter_NNN prefix kept; env+method appended)
         ├── bags/robot_1/*.mcap      # Foxglove-ready (open the .mcap directly)
         ├── logs/<container>.log     # docker logs snapshot, per container
         ├── ready.json               # per-robot PX4 readiness timings
@@ -366,6 +367,65 @@ def _lookup_env(env_entry, key):
                          f"environment '{env_entry.get('name')}' "
                          f"(available keys: {sorted(env_entry)})")
     return env_entry[key]
+
+
+# ── iteration naming (env + method in the dir name) ─────────────────────────
+# env-name suffix -> normalized method label. Compare missions encode the method
+# in the env name (retro_r1_frontier / retro_r1_raven); single-method missions
+# leave the env name as the scene and the method is inferred from the mission.
+_METHOD_SUFFIXES = (
+    ("_frontier", "frontier"),
+    ("_raven", "multi-raven"),
+    ("_multiraven", "multi-raven"),
+    ("_multi-raven", "multi-raven"),
+    ("_lvlm", "lvlm"),
+)
+
+
+def _slug(s):
+    """Filesystem-safe lowercase token."""
+    s = re.sub(r"[^A-Za-z0-9._-]+", "-", str(s).strip().lower())
+    return s.strip("-")
+
+
+def resolve_method(mission, env_entry):
+    """Normalized method label (frontier / multi-raven / lvlm / …). Explicit
+    `method:` on the environment entry wins, then a mission-level `method:`, then
+    inference from the env-name suffix (compare missions), then the mission name."""
+    if env_entry and env_entry.get("method"):
+        return _slug(env_entry["method"])
+    if mission.get("method"):
+        return _slug(mission["method"])
+    name = (env_entry or {}).get("name", "").lower()
+    for suf, meth in _METHOD_SUFFIXES:
+        if name.endswith(suf):
+            return meth
+    mn = mission.get("name", "").lower()
+    if "lvlm" in mn:
+        return "lvlm"
+    if "raven" in mn:
+        return "multi-raven"
+    if "frontier" in mn:
+        return "frontier"
+    return "na"
+
+
+def iter_dir_name(i, env_entry, method):
+    """iter_NNN[__<env>][__<method>]. The iter_NNN prefix is kept so `iter_*`
+    globs and numeric ordering still work; a trailing method suffix already in
+    the env name is dropped to avoid e.g. retro_r1_frontier__frontier."""
+    parts = [f"iter_{i:03d}"]
+    env_slug = _slug(env_entry["name"]) if env_entry and env_entry.get("name") else ""
+    if env_slug:
+        for suf, meth in _METHOD_SUFFIXES:
+            if env_slug.endswith(suf) and meth == method:
+                env_slug = env_slug[: -len(suf)]
+                break
+        if env_slug:
+            parts.append(env_slug)
+    if method and method != "na":
+        parts.append(method)
+    return "__".join(parts)
 
 
 # ── stack lifecycle ────────────────────────────────────────────────────────
@@ -1359,7 +1419,8 @@ def main():
     max_attempts = mission["iteration_attempts"]
     for i, env_entry in enumerate(schedule, start=1):
         log(f"━━━ iteration {i}/{total} ━━━")
-        iter_dir = run_dir / f"iter_{i:03d}"
+        method = resolve_method(mission, env_entry)
+        iter_dir = run_dir / iter_dir_name(i, env_entry, method)
         # Apply this iteration's environment (scene URL + spawn area as env vars
         # for `airstack up`; search_area et al. templated into steps).
         if env_entry is not None:
@@ -1389,7 +1450,7 @@ def main():
                 break
             # Failed with retries left: stash this attempt's artifacts so the
             # canonical iter_NNN ends up holding the final attempt.
-            failed_dir = run_dir / f"iter_{i:03d}_failed_attempt_{attempt}"
+            failed_dir = run_dir / f"{iter_dir.name}_failed_attempt_{attempt}"
             try:
                 if iter_dir.exists():
                     iter_dir.rename(failed_dir)
@@ -1401,6 +1462,7 @@ def main():
 
         summary["iteration"] = i
         summary["attempts"] = attempt
+        summary["method"] = method
         if env_entry is not None:
             summary["environment"] = env_entry["name"]
         iterations.append(summary)

@@ -93,6 +93,29 @@ def _filter_raven(line: str) -> str | None:
     return None
 
 
+def _filter_lvlm(line: str) -> str | None:
+    """Surface key lvlm_baseline events for action feedback; skip the rest."""
+    line = _clean(line)
+    if not line:
+        return None
+    low = line.lower()
+    if 'error' in low or 'exception' in low or 'traceback' in low:
+        return f'ERROR: {line}'
+    if 'loading internvl3' in low:
+        return 'Loading InternVL3-2B model...'
+    if 'model loaded' in low:
+        return 'InternVL3-2B model loaded'
+    if 'control loop active' in low:
+        return 'LVLM navigating'
+    if 'planned action' in low or 'model response' in low:
+        return line
+    if 'target objects set' in low:
+        return line
+    if 'not enough data' in low:
+        return 'Waiting for FPV / odometry...'
+    return None
+
+
 # ── Subprocess helpers ────────────────────────────────────────────────────────
 
 def _pipe_to_queue(proc: subprocess.Popen, q: queue.Queue,
@@ -228,6 +251,10 @@ class SemanticSearchTaskNode(Node):
         self._search_area_pub = self.create_publisher(
             PolygonStamped, f'{self._robot_prefix}/raven_nav/search_area',
             latched_qos)
+        # Same latched polygon for the LVLM baseline (waypoint clamp).
+        self._lvlm_search_area_pub = self.create_publisher(
+            PolygonStamped, f'{self._robot_prefix}/lvlm_baseline/search_area',
+            latched_qos)
         self._clear_blacklist_pub = self.create_publisher(
             Empty, f'{self._robot_prefix}/raven_nav/clear_blacklist', 10)
         self._reset_stuck_pub = self.create_publisher(
@@ -270,6 +297,82 @@ class SemanticSearchTaskNode(Node):
         stamped.header.frame_id = 'map'
         stamped.polygon = polygon
         self._search_area_pub.publish(stamped)
+
+    def _publish_lvlm_search_area(self, polygon: Polygon) -> None:
+        """Latched search polygon (robot-local 'map' frame) for the LVLM baseline
+        to clamp its waypoints into. An empty polygon clears the constraint."""
+        stamped = PolygonStamped()
+        stamped.header.stamp = self.get_clock().now().to_msg()
+        stamped.header.frame_id = 'map'
+        stamped.polygon = polygon
+        self._lvlm_search_area_pub.publish(stamped)
+
+    def _execute_lvlm(self, goal_handle, goal, queries):
+        """FPV+LVLM baseline run: spawn lvlm_baseline_node (which drives the drone
+        by sending NavigateTask goals to droan_gl) and forward the query +
+        search_area. No rayfronts/raven, no detection scoring — the node owns
+        navigation end to end. The loop just relays feedback and honors cancel."""
+        robot_name = os.getenv('ROBOT_NAME', 'robot_1')
+        lvlm_proc = None
+        try:
+            # Clear any leftover baseline node from a previous run.
+            subprocess.run(['pkill', '-SIGTERM', '-f', 'lvlm_baseline_node'],
+                           capture_output=True)
+            time.sleep(1.0)
+            subprocess.run(['pkill', '-SIGKILL', '-f', 'lvlm_baseline_node'],
+                           capture_output=True)
+            self._cancel_active_navigation(robot_name)
+
+            # Forward the search polygon (already in the robot's local 'map' frame).
+            self._publish_lvlm_search_area(goal.search_area)
+
+            targets_yaml = str(queries).replace("'", '"')
+            env = None
+            gpu = self._pick_rayfronts_gpu()
+            if gpu is not None:
+                env = {**os.environ, 'CUDA_VISIBLE_DEVICES': gpu}
+                self.get_logger().info(f'lvlm_baseline pinned to GPU {gpu}')
+
+            self.get_logger().info(
+                f'LVLM baseline | targets={queries} | '
+                f'altitude=[{goal.min_altitude_agl}, {goal.max_altitude_agl}]')
+            lvlm_proc, lvlm_q = self._spawn([
+                'ros2', 'run', 'lvlm_baseline', 'lvlm_baseline_node',
+                '--ros-args',
+                '-p', f'target_objects:={targets_yaml}',
+                '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
+                '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
+                '-p', 'use_sim_time:=true',
+            ], log_name='lvlm', env=env)
+
+            last_status = 'Starting LVLM baseline...'
+            while rclpy.ok():
+                if goal_handle.is_cancel_requested:
+                    goal_handle.canceled()
+                    result = SemanticSearchTask.Result()
+                    result.success = False
+                    result.message = 'Cancelled (LVLM baseline)'
+                    return result
+                for raw in _drain(lvlm_q):
+                    msg = _filter_lvlm(raw)
+                    if msg:
+                        last_status = msg
+                fb = SemanticSearchTask.Feedback()
+                fb.status = f'[lvlm] {last_status}'
+                goal_handle.publish_feedback(fb)
+                if self._interruptible_sleep(goal_handle, 1.0):
+                    continue
+        finally:
+            self._cancel_active_navigation(robot_name)
+            self._kill('lvlm', lvlm_proc)
+            self._publish_lvlm_search_area(Polygon())
+            self._task_active = False
+
+        goal_handle.abort()
+        result = SemanticSearchTask.Result()
+        result.success = False
+        result.message = 'Node shutdown'
+        return result
 
     def _handle_goal(self, goal_request):
         if self._task_active:
@@ -644,6 +747,12 @@ class SemanticSearchTaskNode(Node):
             result.success = False
             result.message = 'Empty query'
             return result
+
+        # LVLM baseline: pure FPV+LVLM navigation via the NavigateTask action.
+        # Selected by LVLM_BASELINE=true, mirroring FRONTIER_ONLY_BASELINE. Skips
+        # rayfronts/raven detection (no background_queries / softmax needed).
+        if os.getenv('LVLM_BASELINE', 'false').strip().lower() in ('1', 'true', 'yes'):
+            return self._execute_lvlm(goal_handle, goal, queries)
 
         bg_raw = [bq.strip() for bq in goal.background_queries.split(',')
                   if bq.strip()]

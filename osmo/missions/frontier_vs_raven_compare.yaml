@@ -1,6 +1,7 @@
-# frontier_vs_raven_compare — paired 1-to-1 A/B of frontier-only baseline vs
-# full raven coordination, across three scenes (RetroNeighborhood, FireAcademy,
-# ConstructionSite), 2 iterations per method per environment.
+# frontier_vs_raven_compare — 1-to-1 comparison of THREE methods (frontier-only
+# baseline vs full raven coordination vs FPV+LVLM baseline), across scenes
+# (RetroNeighborhood, ConstructionSite; FireAcademy stubbed), 2 replicas/scene.
+# Despite the name, this runs all three methods on the identical spawn layout.
 #
 # WHY THIS EXISTS:
 #   frontier_exploration (FRONTIER_ONLY_BASELINE=true) and multi_raven_mission
@@ -17,22 +18,26 @@
 #   layout with generate_spawn_configs(seed=SPAWN_SEED). Given identical
 #   SPAWN_POLY + NUM_ROBOTS + SPAWN_MIN_DIST_M + SPAWN_MARGIN_M + SPAWN_SEED, the
 #   output is deterministic. Each scene's block (ENV_URL, SPAWN_POLY, …) is a
-#   YAML anchor shared by both entries of a pair, so those inputs are guaranteed
-#   byte-identical; only FRONTIER_ONLY_BASELINE differs (true vs false).
+#   YAML anchor shared by all three entries of a triple, so those inputs are
+#   guaranteed byte-identical; only the method flags differ.
+#
+#   METHOD FLAGS: frontier = FRONTIER_ONLY_BASELINE true,  LVLM_BASELINE false
+#                 raven    = FRONTIER_ONLY_BASELINE false, LVLM_BASELINE false
+#                 lvlm     = FRONTIER_ONLY_BASELINE false, LVLM_BASELINE true
+#   (LVLM_BASELINE=true wins over FRONTIER_ONLY_BASELINE in semantic_search_task.)
 #
 #   NOTE: env vars are sticky across iterations (mission_runner.apply_env only
-#   merges, never clears), so EVERY entry sets FRONTIER_ONLY_BASELINE and
-#   SPAWN_SEED explicitly — otherwise a value would leak from the prior run.
+#   merges, never clears), so EVERY entry sets BOTH FRONTIER_ONLY_BASELINE and
+#   LVLM_BASELINE (and its SPAWN_CONFIGS) explicitly — else a value leaks from
+#   the prior run.
 #
-# SCHEDULE (round_robin, iterations = 16 = run each entry once), pairs adjacent:
-#   01 retro/r1 frontier    02 retro/r1 raven    ← same spawn layout
-#   03 retro/r2 frontier    04 retro/r2 raven    ← same spawn layout
-#   05 fire/r1  frontier    06 fire/r1  raven
-#   07 fire/r2  frontier    08 fire/r2  raven
-#   09 constr/r1 frontier   10 constr/r1 raven
-#   11 constr/r2 frontier   12 constr/r2 raven
-#   13 factory/r1 frontier  14 factory/r1 raven
-#   15 factory/r2 frontier  16 factory/r2 raven
+# SCHEDULE (round_robin, iterations = 12 = run each entry once), triples adjacent:
+#   01 retro/r1 frontier   02 retro/r1 raven   03 retro/r1 lvlm    ← same spawn layout
+#   04 retro/r2 frontier   05 retro/r2 raven   06 retro/r2 lvlm    ← same spawn layout
+#   07 constr/r1 frontier  08 constr/r1 raven  09 constr/r1 lvlm
+#   10 constr/r2 frontier  11 constr/r2 raven  12 constr/r2 lvlm
+#   (FireAcademy block stubbed/commented below — add an lvlm entry per replica
+#    to re-enable it, and bump iterations accordingly.)
 #
 # Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
 #   airstack osmo:mission osmo/missions/frontier_vs_raven_compare.yaml --pool <gpu-pool>
@@ -69,7 +74,7 @@ scene_templates:
     # Fixed spawn: SPAWN_CONFIGS set per entry below (replica -1/-2). Re-randomize
     # by uncommenting SPAWN_POLY and dropping the per-entry SPAWN_CONFIGS.
     # SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
-    SPAWN_HEIGHT: "0.3"
+    SPAWN_HEIGHT_M: "0.3"
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
@@ -123,20 +128,34 @@ environments:
   # ---- RetroNeighborhood ----
   - <<: *retro
     name: retro_r1_frontier
-    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0,0,-0.1193,0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0,0,0.8743,0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0,0,-0.7931,0.6091]}]'
+    SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
     FRONTIER_ONLY_BASELINE: "true"
+    LVLM_BASELINE: "false"
   - <<: *retro
     name: retro_r1_raven
-    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0,0,-0.1193,0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0,0,0.8743,0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0,0,-0.7931,0.6091]}]'
+    SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
     FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "false"
+  - <<: *retro
+    name: retro_r1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
+    FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "true"
   - <<: *retro
     name: retro_r2_frontier
     SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
     FRONTIER_ONLY_BASELINE: "true"
+    LVLM_BASELINE: "false"
   - <<: *retro
     name: retro_r2_raven
     SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
     FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "false"
+  - <<: *retro
+    name: retro_r2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+    FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "true"
 
   # ---- FireAcademy ----
   # - <<: *fire
@@ -161,26 +180,40 @@ environments:
     name: constr_r1_frontier
     SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
     FRONTIER_ONLY_BASELINE: "true"
+    LVLM_BASELINE: "false"
   - <<: *constr
     name: constr_r1_raven
     SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
     FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "false"
+  - <<: *constr
+    name: constr_r1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+    FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "true"
   - <<: *constr
     name: constr_r2_frontier
     SPAWN_CONFIGS: '[{"x_m": 25.19, "y_m": -3.707, "orient": [0,0,-0.6227,0.7825]}, {"x_m": 24.078, "y_m": 0.6, "orient": [0,0,0.9756,0.2195]}, {"x_m": 22.347, "y_m": -1.95, "orient": [0,0,-0.8817,0.4718]}]'
     FRONTIER_ONLY_BASELINE: "true"
+    LVLM_BASELINE: "false"
   - <<: *constr
     name: constr_r2_raven
     SPAWN_CONFIGS: '[{"x_m": 25.19, "y_m": -3.707, "orient": [0,0,-0.6227,0.7825]}, {"x_m": 24.078, "y_m": 0.6, "orient": [0,0,0.9756,0.2195]}, {"x_m": 22.347, "y_m": -1.95, "orient": [0,0,-0.8817,0.4718]}]'
     FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "false"
+  - <<: *constr
+    name: constr_r2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 25.19, "y_m": -3.707, "orient": [0,0,-0.6227,0.7825]}, {"x_m": 24.078, "y_m": 0.6, "orient": [0,0,0.9756,0.2195]}, {"x_m": 22.347, "y_m": -1.95, "orient": [0,0,-0.8817,0.4718]}]'
+    FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "true"
 
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 command_route: gcs
 
-# round_robin: iteration i → environments[(i-1) % 16], and `iterations` is the
-# TOTAL run count. 16 == one run per entry (each pair back-to-back).
+# round_robin: iteration i → environments[(i-1) % N], and `iterations` is the
+# TOTAL run count. 12 == one run per entry (each scene/replica triple back-to-back).
 environment_order: round_robin
-iterations: 8
+iterations: 12
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
@@ -214,9 +247,20 @@ record:
 on_step_failure: abort_iteration
 
 steps:
+  # Pre-cache both methods' models (robot_1 only; cache mount shared across
+  # replicas). RADIO is used by frontier/raven (rayfronts); InternVL3 by the LVLM
+  # entries. Both are idempotent cache-hits after the first download, so running
+  # them every iteration is cheap and lets any method start without a load timeout.
   - run:
       container: robot_1
       cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - run:
+      container: robot_1
+      cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
       timeout_s: 900
       attempts: 5
       retry_delay_s: 15

@@ -142,6 +142,7 @@ nav:
                   - docs/robot/autonomy/global/planning/index.md
                   - Random Walk: robot/ros_ws/src/global/planners/random_walk/README.md
                   - Exploration: robot/ros_ws/src/global/planners/exploration/README.md
+                  - LVLM Baseline: robot/ros_ws/src/global/planners/lvlm_baseline/README.md
           - Behavior:
               - docs/robot/autonomy/behavior/index.md
           - Integration Guide: docs/robot/autonomy/integration_checklist.md

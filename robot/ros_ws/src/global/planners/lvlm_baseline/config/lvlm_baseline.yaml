@@ -1,0 +1,24 @@
+lvlm_baseline:
+  ros__parameters:
+    # HuggingFace model id (cached under /root/.cache on first run).
+    model_path: 'OpenGVLab/InternVL3-2B'
+    # Target object(s) to search for; usually overridden at spawn by the
+    # semantic_search query, or live via /input_prompt. Empty = wait for a query.
+    target_objects:
+      - ''
+    # Waypoints are clamped to [min, max] altitude (m). The mission's
+    # semantic_search goal overrides these.
+    min_altitude_agl: 5.0
+    max_altitude_agl: 20.0
+    # Step size (m) of each LVLM action and the turn applied for left/right (rad).
+    forward_dist_m: 10.0
+    turn_angle_rad: 1.0472   # pi/3
+    # Distance (m) to the final waypoint pose for droan_gl to call it reached.
+    goal_tolerance_m: 4.0
+    # Camera mount pitch (rad) applied to odometry before the FLU->RDF transform.
+    camera_pitch_rad: 0.1745
+    # Seconds between planning iterations when idle / waiting for data.
+    plan_period_s: 1.0
+    # Max time (s) to let droan_gl fly to one LVLM waypoint before replanning.
+    nav_goal_timeout_s: 45.0
+    max_new_tokens: 32

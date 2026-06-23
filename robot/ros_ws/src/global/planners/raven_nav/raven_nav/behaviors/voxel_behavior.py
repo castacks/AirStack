@@ -46,7 +46,7 @@ STANDOFF_MAX_M = 6.0
 # raven_nav_node. Both sides use surface (cuboid) distance, not centre distance,
 # so "reached" and "same instance" mean the same thing for voxel_behavior and the
 # fused/published boxes.
-VISIT_REACH_M = 3.5   # drone within this of a target AABB *surface* => reached
+VISIT_REACH_M = 3.0   # drone within this of a target AABB *surface* (0 if inside) => reached
 VISIT_MATCH_M = 6.0   # two target AABBs within this surface gap => same instance
 
 
@@ -520,20 +520,27 @@ class VoxelBehavior:
 
         path_pub.publish(path)
 
-        # Mark cluster visited only on a previously-locked waypoint within 3m.
-        # NOTE: tracking is per-INSTANCE (the cluster's AABB) via visited_clusters
-        # + the 10 m _is_near_visited spatial filter. We deliberately do NOT add
-        # the label to completed_queries here — the label set would retire the
-        # whole class fleet-wide after a single instance, so a "find all houses"
-        # task would stop after one house. Per-instance dedup is enough; the
-        # task-level instance_id system handles cross-drone deduplication of
-        # the discovery output.
-        if waypoint_was_locked and target_waypoint2 is not None and \
-                np.linalg.norm(cur_pose_np - target_waypoint2) < 3.0:
-            if sorted_clusters:
-                arrived_idx, arrived_cluster = sorted_clusters[0]
-                self.visited_clusters.append(arrived_cluster)
-            waypoint_locked = False
+        # Completion uses the target's AABB, not voxel/standoff proximity: mark it
+        # visited once the drone is within VISIT_REACH_M of the cluster AABB
+        # *surface* (0 if inside it), or has reached its standoff waypoint. The
+        # AABB-surface test stops the drone getting stuck circling when the exact
+        # standoff is unreachable. Per-instance only (NOT completed_queries — that
+        # would retire the whole class fleet-wide after one instance). visited_clusters
+        # gates nav re-targeting; visited_instances is the status/auction record.
+        if sorted_clusters:
+            arrived_idx, arrived = sorted_clusters[0]
+            c = np.array(arrived[:3], dtype=float)
+            s = np.array(arrived[3:6], dtype=float)
+            near_aabb = aabb_surface_dist(cur_pose_np, np.zeros(3), c, s) <= VISIT_REACH_M
+            near_wp = (waypoint_was_locked and target_waypoint2 is not None
+                       and np.linalg.norm(cur_pose_np - target_waypoint2) < VISIT_REACH_M)
+            if near_aabb or near_wp:
+                label = self.cluster_query_map.get(arrived_idx, '')
+                if not self.is_visited(c, s, label):
+                    self.visited_instances.append((label, c, s))
+                if not self._is_near_visited(c, s, self.visited_clusters):
+                    self.visited_clusters.append(arrived)
+                waypoint_locked = False
 
         return waypoint_locked, target_waypoint, target_waypoint2
 

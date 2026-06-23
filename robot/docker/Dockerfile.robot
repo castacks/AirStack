@@ -211,10 +211,12 @@ RUN mkdir -p /tmp/DDS-Router/src \
 # RayFronts deps (builder-stage, gated on SKIP_RAYFRONTS!=true)
 RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
     pip3 install --break-system-packages \
-      hydra-core open_clip_torch "transformers<5" \
+      hydra-core open_clip_torch "transformers==4.57.6" \
       git+https://github.com/facebookresearch/segment-anything.git \
       ftfy regex nanobind pandas protobuf \
       "scipy==1.15.2" "scikit-image" "numpy<2" && \
+    pip3 install --break-system-packages \
+      bitsandbytes accelerate decord opencv-python && \
     pip3 install --break-system-packages \
       torch-scatter==2.1.2 && \
     pip3 install --break-system-packages --force-reinstall --no-deps \
