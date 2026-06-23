@@ -37,7 +37,7 @@ environments:
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
     voxel_score_threshold: 0.87
-    score_threshold: 0.75
+    score_threshold: 0.7
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:

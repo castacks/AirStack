@@ -71,8 +71,8 @@ scene_templates:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    voxel_score_threshold: 0.87
-    score_threshold: 0.75
+    voxel_score_threshold: 0.9
+    score_threshold: 0.7
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
