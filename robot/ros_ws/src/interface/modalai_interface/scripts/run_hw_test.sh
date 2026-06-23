@@ -77,6 +77,9 @@ else
     adb shell "systemctl start usb-rebind.service" 2>/dev/null || true
     sleep 12; wait_adb
 
+    info "Assigning 192.168.123.2/24 to usb0 on VOXL2..."
+    adb shell "ip addr add 192.168.123.2/24 dev usb0 2>/dev/null; ip link set usb0 up"
+
     ENX_IFACE=$(ip link show | grep -o 'enx[0-9a-f]*' | head -1)
     [[ -n "$ENX_IFACE" ]] || die "No enx* interface found — USB NCM didn't come up."
 

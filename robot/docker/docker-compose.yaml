@@ -37,14 +37,14 @@ services:
         tmux new -d -s bringup;
       fi;
       sleep infinity"
-    # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
-    networks:
-      - airstack_network
-    # allow scaling multiple robots on the same machine
-    ports:
-      # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
-      - "2223-2243:22"
-      - "8767-8787:8765" # for Foxglove remote display (range supports up to 21 robots; GCS uses 8765)
+    # host networking required for real hardware (USB NCM / uXRCE-DDS to VOXL2).
+    # For simulation, switch back to bridge: comment out network_mode and restore networks/ports.
+    network_mode: host
+    # networks:
+    #   - airstack_network
+    # ports:
+    #   - "2223-2243:22"
+    #   - "8767-8787:8765"
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}

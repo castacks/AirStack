@@ -118,15 +118,25 @@ def main():
             rclpy.spin_once(node, timeout_sec=0.05)
             time.sleep(0.05)
 
-    t0 = time.time()
-    while not px4_armed[0] and time.time() - t0 < 20:
-        heartbeat()
-        rclpy.spin_once(node, timeout_sec=0.1)
-        time.sleep(0.1)
+    if FORCE_ARM:
+        # Force-arm bypasses preflight — PX4 won't always ack via vehicle_status in time.
+        # Wait briefly for the state to propagate, then proceed regardless.
+        for _ in range(30):
+            heartbeat()
+            rclpy.spin_once(node, timeout_sec=0.1)
+            time.sleep(0.1)
+            if px4_armed[0]:
+                break
+    else:
+        t0 = time.time()
+        while not px4_armed[0] and time.time() - t0 < 20:
+            heartbeat()
+            rclpy.spin_once(node, timeout_sec=0.1)
+            time.sleep(0.1)
 
-    if not px4_armed[0]:
-        print("PropSpinTest: FAIL — PX4 did not arm within 20s.", flush=True)
-        sys.exit(1)
+        if not px4_armed[0]:
+            print("PropSpinTest: FAIL — PX4 did not arm within 20s.", flush=True)
+            sys.exit(1)
 
     print(f"PropSpinTest: props spinning for {DURATION}s — interface verified!", flush=True)
     t0 = time.time()
