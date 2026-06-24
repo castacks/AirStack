@@ -49,6 +49,10 @@ services:
       # per iteration; read by example_multi_drone_scene_import.py / spawn_utils.py).
       # Empty by default → the launch script keeps its hardcoded fallbacks.
       - ENV_URL=${ENV_URL:-}
+      # Fixed per-drone layout (takes priority over SPAWN_POLY). Without this
+      # passthrough the launch script never sees it and falls back to
+      # _DEFAULT_DRONE_CONFIGS, so every mission spawns at the default layout.
+      - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
       - SPAWN_POLY=${SPAWN_POLY:-}
       - STAGE_SCALE=${STAGE_SCALE:-}
       - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
