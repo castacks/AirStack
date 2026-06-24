@@ -996,17 +996,28 @@ class RavenNavNode(Node):
             score = float(getattr(g, 'avg_score', 0.0))
             if self._lead_points_at_known_bb(o, d, g.label):
                 continue
+            # Already serviced (a drone reached this lead): don't let the live
+            # rays re-spawn it, else the drone oscillates back to it.
+            if self._lead_served(g.label, o):
+                continue
             m = self._lead_match(o, d, g.label, self._ray_leads)
             if m is not None:
                 m['o'], m['d'], m['ts'], m['score'] = o, d, now, score
             else:
                 self._ray_leads.append(
                     {'o': o, 'd': d, 'label': g.label, 'ts': now, 'score': score})
-        self._ray_leads = [
-            L for L in self._ray_leads
-            if L['label'] not in all_completed
-            and not self._lead_points_at_known_bb(L['o'], L['d'], L['label'])
-            and not self._lead_reached(L['o'], L['d'], agent_pos)]
+        kept = []
+        for L in self._ray_leads:
+            if L['label'] in all_completed:
+                continue
+            if self._lead_points_at_known_bb(L['o'], L['d'], L['label']):
+                continue
+            if self._lead_reached(L['o'], L['d'], agent_pos):
+                # Reached the ray's waypoint → record serviced so it stays gone.
+                self._add_served_lead(L['label'], L['o'])
+                continue
+            kept.append(L)
+        self._ray_leads = kept
 
     _LEAD_SERVICE_RADIUS_M = 6.0
     _LEAD_ALIGN_COS = 0.82   # ~35 deg: a neighboring ray group "same direction"
@@ -1056,6 +1067,8 @@ class RavenNavNode(Node):
                 if self._lead_points_at_known_bb(pl['o'], pl['d'], pl['label']):
                     continue
                 if self._lead_reached(pl['o'], pl['d'], agent_pos):
+                    continue
+                if self._lead_served(pl['label'], pl['o']):
                     continue
                 if self._lead_match(pl['o'], pl['d'], pl['label'], combined) is None:
                     combined.append(pl)
