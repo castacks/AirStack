@@ -113,7 +113,7 @@ scene_templates:
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Tower crane, blue tarp"
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
-    voxel_score_threshold: 0.82
+    voxel_score_threshold: 0.80
     score_threshold: 0.65
     voxel_min_cluster_size: 15
     search_area:
@@ -217,7 +217,7 @@ command_route: gcs
 # round_robin: iteration i → environments[(i-1) % N], and `iterations` is the
 # TOTAL run count. 12 == one run per entry (each scene/replica triple back-to-back).
 environment_order: round_robin
-iterations: 12
+iterations: 7
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
