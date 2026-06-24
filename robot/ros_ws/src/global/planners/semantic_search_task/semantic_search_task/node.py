@@ -822,15 +822,6 @@ class SemanticSearchTaskNode(Node):
         navigate_send_future = None
         rayfronts_q = raven_q = queue.Queue()
 
-        STUCK_TIMEOUT_S = 5.0
-        STUCK_DISTANCE_M = 0.3
-        # Cap cumulative override displacement per stuck episode; reset on motion.
-        MAX_RECOVERY_DIST_M = 12.0
-        last_motion_pos = None
-        last_motion_time = None
-        navigate_restarts = 0
-        recovery_start_pos: 'list | None' = None
-        last_restart_time: 'float | None' = None
         self._latest_global_target = None
 
         # Search polygon (robot-local 'map' frame) for the out-of-bounds guard.
@@ -1122,7 +1113,6 @@ class SemanticSearchTaskNode(Node):
                 # otherwise the drone drifts before raven has any semantic targets.
                 # Skipped in debug: never activate droan follow, so the drone is
                 # left for the operator. navigation_started stays False, which
-                # also disables the stuck-recovery block below.
                 if not debug and raven_published_waypoint and not navigation_started:
                     navigation_started = True
                     self._cancel_active_navigation(robot_name)
@@ -1131,69 +1121,6 @@ class SemanticSearchTaskNode(Node):
                         'to navigate to it')
                     _, navigate_send_future = self._send_navigate_activator(
                         robot_name)
-                    last_motion_pos = list(self._cur_pos) if self._cur_pos else None
-                    last_motion_time = time.time()
-
-                if (navigation_started and self._cur_pos is not None
-                        and last_motion_time is not None):
-                    now = time.time()
-                    if last_motion_pos is None:
-                        last_motion_pos = list(self._cur_pos)
-                        last_motion_time = now
-                    else:
-                        dx = self._cur_pos[0] - last_motion_pos[0]
-                        dy = self._cur_pos[1] - last_motion_pos[1]
-                        dz = self._cur_pos[2] - last_motion_pos[2]
-                        if (dx * dx + dy * dy + dz * dz) ** 0.5 > STUCK_DISTANCE_M:
-                            last_motion_pos = list(self._cur_pos)
-                            last_motion_time = now
-                            # Moving again — clear the per-episode recovery budget.
-                            recovery_start_pos = None
-                        elif now - last_motion_time > STUCK_TIMEOUT_S:
-                            navigate_restarts += 1
-                            self.get_logger().warn(
-                                f'Robot has not moved >{STUCK_DISTANCE_M:.1f} m in '
-                                f'{STUCK_TIMEOUT_S:.1f}s — recovering '
-                                f'(mode={nav_mode or "?"}, '
-                                f'restart {navigate_restarts})')
-
-                            # Keep the single follow goal alive — do NOT cancel /
-                            # re-send. That churn loses droan's 1 Hz cancel race
-                            # and drops the controller out of ADD_SEGMENT, which
-                            # is itself what stops the drone navigating. Just
-                            # clear droan's rewind state; re-establish the follow
-                            # only if it was never accepted.
-                            self._reset_stuck_pub.publish(Empty())
-                            if navigate_send_future is None:
-                                _, navigate_send_future = (
-                                    self._send_navigate_activator(robot_name))
-
-                            # Stall is free-space, not an obstacle: face raven's
-                            # target and creep toward it (climbing never reveals
-                            # the space ahead). Same in all modes; capped.
-                            if (recovery_start_pos is not None and
-                                    (((self._cur_pos[0] - recovery_start_pos[0]) ** 2
-                                      + (self._cur_pos[1] - recovery_start_pos[1]) ** 2
-                                      + (self._cur_pos[2] - recovery_start_pos[2]) ** 2)
-                                     ** 0.5) >= MAX_RECOVERY_DIST_M):
-                                self.get_logger().warn(
-                                    '[recovery] displacement cap reached — '
-                                    'holding, waiting for raven to re-target')
-                            else:
-                                if recovery_start_pos is None:
-                                    recovery_start_pos = list(self._cur_pos)
-                                tgt = self._latest_global_target
-                                self.get_logger().info(
-                                    '[recovery] face + creep toward target '
-                                    + (f'({tgt[0]:.1f},{tgt[1]:.1f})'
-                                       if tgt is not None else '(none — climbing)'))
-                                self._recover_toward_target(
-                                    creep_m=1.5, hold_s=3.0,
-                                    cancel_handle=goal_handle)
-
-                            last_restart_time = time.time()
-                            last_motion_pos = list(self._cur_pos)
-                            last_motion_time = time.time()
 
                 # Resend queries whenever rayfronts' subscriber appears (initial
                 # load AND any restart mid-task). All queries (target + background)
@@ -1273,16 +1200,6 @@ class SemanticSearchTaskNode(Node):
                 else:
                     status = f'[raven] {last_rv_status}'
 
-                # Transient "just restarted" banner for 3s after a restart,
-                # plus a running count once the banner clears.
-                if last_restart_time is not None and (
-                        time.time() - last_restart_time) < 3.0:
-                    status = (
-                        f'[failsafe] Recovering — drone stuck '
-                        f'(<{STUCK_DISTANCE_M:.1f} m in {STUCK_TIMEOUT_S:.1f}s)\n'
-                        + status)
-                if navigate_restarts > 0:
-                    status += f'\n[navigate restarts: {navigate_restarts}]'
                 if debug:
                     status = ('[DEBUG] manual-fly — drone NOT commanded; '
                               'fly it yourself\n' + status)
