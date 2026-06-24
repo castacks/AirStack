@@ -217,7 +217,7 @@ command_route: gcs
 # round_robin: iteration i → environments[(i-1) % N], and `iterations` is the
 # TOTAL run count. 12 == one run per entry (each scene/replica triple back-to-back).
 environment_order: round_robin
-iterations: 4
+iterations: 5
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search

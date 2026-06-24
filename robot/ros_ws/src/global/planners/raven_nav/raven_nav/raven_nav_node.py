@@ -881,7 +881,7 @@ class RavenNavNode(Node):
     # clustered at 45deg), and BB pad for the "points at a known BB" test.
     _RAY_LEAD_MATCH_M = 3.0
     _RAY_LEAD_DIR_COS = float(np.cos(np.deg2rad(12.0)))
-    _RAY_LEAD_BB_PAD_M = 4.0
+    _RAY_LEAD_BB_PAD_M = 0.5
 
     def _lead_points_at_known_bb(self, o, d, label) -> bool:
         """The ray (o, d) pierces a same-label BB that's already observed
