@@ -135,26 +135,26 @@ environments:
   #   SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
   #   FRONTIER_ONLY_BASELINE: "true"
   #   LVLM_BASELINE: "false"
-  - <<: *retro
-    name: retro_r1_raven
-    SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
-    FRONTIER_ONLY_BASELINE: "false"
-    LVLM_BASELINE: "false"
   # - <<: *retro
-  #   name: retro_r1_lvlm
+  #   name: retro_r1_raven
   #   SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
   #   FRONTIER_ONLY_BASELINE: "false"
-  #   LVLM_BASELINE: "true"
-  - <<: *retro
-    name: retro_r2_frontier
-    SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
-    FRONTIER_ONLY_BASELINE: "true"
-    LVLM_BASELINE: "false"
-  - <<: *retro
-    name: retro_r2_raven
-    SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
-    FRONTIER_ONLY_BASELINE: "false"
-    LVLM_BASELINE: "false"
+  #   LVLM_BASELINE: "false"
+  # # - <<: *retro
+  # #   name: retro_r1_lvlm
+  # #   SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
+  # #   FRONTIER_ONLY_BASELINE: "false"
+  # #   LVLM_BASELINE: "true"
+  # - <<: *retro
+  #   name: retro_r2_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
+  # - <<: *retro
+  #   name: retro_r2_raven
+  #   SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "false"
   # - <<: *retro
   #   name: retro_r2_lvlm
   #   SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
@@ -180,11 +180,11 @@ environments:
   #   FRONTIER_ONLY_BASELINE: "false"
 
   # ---- ConstructionSite ----
-  - <<: *constr
-    name: constr_r1_frontier
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
-    FRONTIER_ONLY_BASELINE: "true"
-    LVLM_BASELINE: "false"
+  # - <<: *constr
+  #   name: constr_r1_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
   - <<: *constr
     name: constr_r1_raven
     SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
