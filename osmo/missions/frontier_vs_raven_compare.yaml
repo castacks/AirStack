@@ -112,7 +112,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
     query: "forklift, towercrane, blue tarp"
-    background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
+    background_queries: "road, grass, mountain, parking lot, building, scaffolding, cement, wall"
     voxel_score_threshold: 0.75
     score_threshold: 0.6
     voxel_min_cluster_size: 10
