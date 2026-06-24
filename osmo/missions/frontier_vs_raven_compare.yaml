@@ -113,7 +113,7 @@ scene_templates:
     RESULTS_SCENE: "ConstructionSite"
     query: "forklift, tower crane, blue tarp"
     background_queries: "road, grass, mountain, parking lot, building, stone"
-    voxel_score_threshold: 0.72
+    voxel_score_threshold: 0.68
     score_threshold: 0.6
     voxel_min_cluster_size: 10
     search_area:
@@ -185,21 +185,21 @@ environments:
   #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
   #   FRONTIER_ONLY_BASELINE: "true"
   #   LVLM_BASELINE: "false"
-  - <<: *constr
-    name: constr_r1_raven
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
-    FRONTIER_ONLY_BASELINE: "false"
-    LVLM_BASELINE: "false"
+  # - <<: *constr
+  #   name: constr_r1_raven
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "false"
   # - <<: *constr
   #   name: constr_r1_lvlm
   #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
   #   FRONTIER_ONLY_BASELINE: "false"
   #   LVLM_BASELINE: "true"
-  - <<: *constr
-    name: constr_r2_frontier
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
-    FRONTIER_ONLY_BASELINE: "true"
-    LVLM_BASELINE: "false"
+  # - <<: *constr
+  #   name: constr_r2_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
   - <<: *constr
     name: constr_r2_raven
     SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
