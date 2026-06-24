@@ -1063,8 +1063,12 @@ def run_step(stack, container, step_spec, step_index):
 # Navigation / control-stack node-name globs. These log via rcl to ~/.ros/log
 # (not /tmp), so they're collected separately — they're what reveals why
 # droan_gl's plan isn't becoming motion (e.g. a robot stuck at a frontier).
+# lvlm_baseline / semantic_search_task are here too so the planner's rcl log is
+# captured as a SECOND path independent of the /tmp tee (TEE_LOG_GLOBS) — if one
+# collection path misses, the other still shows why the drone wasn't commanded.
 CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "trajectory_controller*",
-                       "fixed_trajectory*", "takeoff_landing*", "mavros*")
+                       "fixed_trajectory*", "takeoff_landing*", "mavros*",
+                       "lvlm_baseline*", "semantic_search_task*", "raven_nav*")
 
 
 # /tmp tee logs written by semantic_search_task's _spawn (rayfronts/raven/lvlm)
