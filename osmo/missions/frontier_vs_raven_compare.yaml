@@ -78,8 +78,9 @@ scene_templates:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    voxel_score_threshold: 0.92
+    voxel_score_threshold: 0.9
     score_threshold: 0.67
+    voxel_min_cluster_size: 50
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
@@ -112,6 +113,9 @@ scene_templates:
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Tower crane, blue tarp"
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
+    voxel_score_threshold: 0.82
+    score_threshold: 0.65
+    voxel_min_cluster_size: 15
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
