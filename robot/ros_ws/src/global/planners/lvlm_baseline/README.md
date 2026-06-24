@@ -76,6 +76,11 @@ docker exec airstack-robot-desktop-1 bash -c \
   `/root/.cache` mount; subsequent runs load from cache.
 - The model loads on a background thread, so the node is responsive while
   loading; navigation begins once the model is ready and a query is set.
-- Requires `bitsandbytes`, `accelerate`, `decord`, `opencv-python` in the robot
-  image (added in `robot/docker/Dockerfile.robot`); `torch`, `transformers`,
-  `timm`, `einops`, `pillow`, `cv_bridge` are already present.
+- The LVLM-specific deps (`transformers==4.57.6`, `bitsandbytes`, `accelerate`)
+  live in an isolated venv at `/opt/lvlm-venv` (built in `Dockerfile.robot`,
+  `runtime-rayfronts` stage) so they can't perturb rayfronts' system
+  `transformers`. The venv is `--system-site-packages`, so it reuses the system
+  `torch`, `numpy` (1.26 — `cv_bridge` needs `<2`), `rclpy`, and `cv_bridge`.
+  `semantic_search_task` launches the node with `/opt/lvlm-venv/bin/python -m
+  lvlm_baseline.lvlm_baseline_node` (falling back to `ros2 run` if the venv is
+  absent).

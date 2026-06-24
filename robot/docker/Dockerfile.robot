@@ -211,18 +211,14 @@ RUN mkdir -p /tmp/DDS-Router/src \
 # RayFronts deps (builder-stage, gated on SKIP_RAYFRONTS!=true)
 RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
     pip3 install --break-system-packages \
-      hydra-core open_clip_torch "transformers==4.57.6" \
+      hydra-core open_clip_torch "transformers<5" \
       git+https://github.com/facebookresearch/segment-anything.git \
       ftfy regex nanobind pandas protobuf \
       "scipy==1.15.2" "scikit-image" "numpy<2" && \
     pip3 install --break-system-packages \
-      bitsandbytes accelerate "numpy<2" && \
-    pip3 install --break-system-packages \
       torch-scatter==2.1.2 && \
     pip3 install --break-system-packages --force-reinstall --no-deps \
-      setuptools==79.0.1 && \
-    pip3 install --break-system-packages --force-reinstall --no-deps \
-      "numpy~=1.26.4"; \
+      setuptools==79.0.1; \
   fi
 
 # Patched OpenVDB (OasisArtisan fork) — exposes Int8Grid to Python bindings
@@ -411,9 +407,19 @@ FROM runtime AS runtime-rayfronts
 COPY ./common/rayfronts          /opt/rayfronts
 COPY ./common/rayfronts_configs/ /opt/rayfronts/rayfronts/configs/
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      cmake build-essential python3-dev \
+      cmake build-essential python3-dev python3-venv \
  && cd /opt/rayfronts && CMAKE_INSTALL_PREFIX=/usr/local ./compile.sh \
  && rm -rf /var/lib/apt/lists/*
+
+# FPV+LVLM baseline runs in an isolated venv. --system-site-packages reuses the
+# system torch / numpy(1.26) / rclpy / cv_bridge, so only the LVLM-specific deps
+# (transformers/bitsandbytes/accelerate) live in the venv and can't perturb
+# rayfronts' system transformers. numpy stays system 1.26 (cv_bridge needs <2);
+# the venv's transformers shadows the system's only for the venv's python.
+# semantic_search_task launches lvlm_baseline_node with /opt/lvlm-venv/bin/python.
+RUN python3 -m venv --system-site-packages /opt/lvlm-venv \
+ && /opt/lvlm-venv/bin/pip install --no-cache-dir \
+      "transformers==4.57.6" bitsandbytes accelerate "numpy<2"
 
 FROM ${FINAL_STAGE} AS final
 

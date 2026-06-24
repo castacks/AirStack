@@ -336,14 +336,23 @@ class SemanticSearchTaskNode(Node):
             self.get_logger().info(
                 f'LVLM baseline | targets={queries} | '
                 f'altitude=[{goal.min_altitude_agl}, {goal.max_altitude_agl}]')
-            lvlm_proc, lvlm_q = self._spawn([
-                'ros2', 'run', 'lvlm_baseline', 'lvlm_baseline_node',
+            # Run the node through its isolated venv (transformers/bitsandbytes/
+            # accelerate), reusing system rclpy/cv_bridge/torch via the inherited
+            # ROS + workspace PYTHONPATH. Fall back to `ros2 run` where the venv
+            # isn't built (dev/local).
+            ros_args = [
                 '--ros-args',
                 '-p', f'target_objects:={targets_yaml}',
                 '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
                 '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
                 '-p', 'use_sim_time:=true',
-            ], log_name='lvlm', env=env)
+            ]
+            venv_py = '/opt/lvlm-venv/bin/python'
+            if os.path.exists(venv_py):
+                lvlm_cmd = [venv_py, '-m', 'lvlm_baseline.lvlm_baseline_node'] + ros_args
+            else:
+                lvlm_cmd = ['ros2', 'run', 'lvlm_baseline', 'lvlm_baseline_node'] + ros_args
+            lvlm_proc, lvlm_q = self._spawn(lvlm_cmd, log_name='lvlm', env=env)
 
             last_status = 'Starting LVLM baseline...'
             while rclpy.ok():
