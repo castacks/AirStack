@@ -60,7 +60,7 @@
 defaults:
   - default
   - override mapping: semantic_ray_frontiers_map
-  - override encoder: radseg
+  - override encoder: naradio
   - override vis: ros
   - override messaging_service: ros
   - override feat_compressor: pca
@@ -75,8 +75,8 @@ depth_limit: 20.0
 #   lang_model: siglip
 
 dataset:
-  rgb_resolution: [480, 640]  #[480, 304]
-  depth_resolution: [480, 640]  #[480, 304]
+  rgb_resolution: [480, 480]  #[480, 304]
+  depth_resolution: [480, 480]  #[480, 304]
   frame_skip: 10
 
 mapping:
