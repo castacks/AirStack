@@ -160,13 +160,11 @@ class FrontierBehavior:
 
     INFO_GAIN_WEIGHT = 8.0
 
-    def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0,
-                 altitude_preference_weight=0.0):
+    def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0):
         self.get_clock = get_clock
         self.name = 'Frontier-based'
         self.min_altitude = min_altitude
         self.max_altitude = max_altitude
-        self.altitude_pref_weight = altitude_preference_weight
 
         # Stuck-detection state for the currently locked target. Reset whenever
         # the drone moves >STUCK_DISTANCE_M or the locked target changes.
@@ -246,8 +244,6 @@ class FrontierBehavior:
                 vn = float(np.linalg.norm(v))
                 if vn > 1e-6:
                     s += 50.0 * (1.0 - float(v @ cd) / vn)
-        if self.altitude_pref_weight:
-            s -= self.altitude_pref_weight * max(pt[0, 2] - self.min_altitude, 0.0)
         return s
 
     def _heading_xy(self, cur_pose_np, target_waypoint):
@@ -576,11 +572,6 @@ class FrontierBehavior:
                 committed_bias = committed_weight * (1.0 - cos_sim_committed)
                 scores = scores + committed_bias
                 committed_dir_used = cd_xy
-
-        # Altitude preference: reward higher viewpoints (lower score = better).
-        if self.altitude_pref_weight:
-            scores = scores - self.altitude_pref_weight * np.clip(
-                viewpoints[:, 2] - self.min_altitude, 0.0, None)
 
         top_n = 5
         num_candidates = min(top_n, viewpoints.shape[0])
