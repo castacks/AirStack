@@ -216,11 +216,13 @@ RUN if [ "${SKIP_RAYFRONTS}" != "true" ]; then \
       ftfy regex nanobind pandas protobuf \
       "scipy==1.15.2" "scikit-image" "numpy<2" && \
     pip3 install --break-system-packages \
-      bitsandbytes accelerate decord opencv-python && \
+      bitsandbytes accelerate "numpy<2" && \
     pip3 install --break-system-packages \
       torch-scatter==2.1.2 && \
     pip3 install --break-system-packages --force-reinstall --no-deps \
-      setuptools==79.0.1; \
+      setuptools==79.0.1 && \
+    pip3 install --break-system-packages --force-reinstall --no-deps \
+      "numpy~=1.26.4"; \
   fi
 
 # Patched OpenVDB (OasisArtisan fork) — exposes Int8Grid to Python bindings

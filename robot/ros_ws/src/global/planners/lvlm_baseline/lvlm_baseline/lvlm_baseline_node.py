@@ -147,12 +147,19 @@ class LVLMBaseline(Node):
         self.generation_config = dict(max_new_tokens=self._max_new_tokens, do_sample=True)
 
         # ── ROS I/O ────────────────────────────────────────────────────────────
+        # The sim camera/odometry publish BEST_EFFORT (sensor QoS); a default
+        # RELIABLE subscriber gets an incompatible-QoS mismatch and receives no
+        # messages. A BEST_EFFORT subscriber matches both RELIABLE and
+        # BEST_EFFORT publishers, so it's the safe choice for these streams.
+        sensor_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST, depth=5)
         self.create_subscription(
             Image, f'{self._prefix}/sensors/front_stereo/left/image_rect',
-            self.image_callback, 10, callback_group=self._cbg)
+            self.image_callback, sensor_qos, callback_group=self._cbg)
         self.create_subscription(
             Odometry, f'{self._prefix}/odometry_conversion/odometry',
-            self.odom_callback, 10, callback_group=self._cbg)
+            self.odom_callback, sensor_qos, callback_group=self._cbg)
         # Global query topic (shared, matches raven_nav + the standalone baseline).
         self.create_subscription(
             String, '/input_prompt', self.target_object_callback, 10,
