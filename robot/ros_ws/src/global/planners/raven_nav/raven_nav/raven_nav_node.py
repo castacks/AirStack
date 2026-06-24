@@ -627,6 +627,8 @@ class RavenNavNode(Node):
             label = vb.cluster_query_map.get(cid, '')
             if not label:
                 continue
+            if float(bb[2]) < self._MIN_BB_CENTER_Z:
+                continue   # underground (rayfronts mapping error) — drop it
             status = ('visited'
                       if vb.is_visited(np.array(bb[:3], dtype=float),
                                        np.array(bb[3:6], dtype=float), label)
@@ -665,6 +667,9 @@ class RavenNavNode(Node):
         return False
 
     _VISITED_DEDUP_M = VISIT_MATCH_M
+    # Floor (AGL, ground=0) below which a confirmed BB is a rayfronts mapping
+    # error (target spawned under the ground) and is dropped, not auctioned.
+    _MIN_BB_CENTER_Z = -0.5
 
     def _add_visited(self, label, bb) -> None:
         """Add a visited target to the persistent visited set, deduped by surface
@@ -723,6 +728,8 @@ class RavenNavNode(Node):
         out: list = []
         for name, entries in self._peer_state.peer_confirmed_targets.items():
             for pct in entries:
+                if float(np.asarray(pct.center, dtype=float)[2]) < self._MIN_BB_CENTER_Z:
+                    continue   # underground (rayfronts mapping error) — drop it
                 out.append(ConfirmedTarget(
                     label=pct.label,
                     center=np.asarray(pct.center, dtype=float),
@@ -2493,8 +2500,8 @@ class RavenNavNode(Node):
                 cur_pose=self._cur_pose,
                 committed_bb_center=self._committed_bb_center,
             )
-            # Passive arrival status (same as baseline): confirmed clusters
-            # within 3 m flip to 'visited'. Status-only; nav unaffected.
+            # Passive arrival: a BB within VISIT_REACH_M of the drone flips to
+            # 'visited' (accidental close passes count; status-only, nav unaffected).
             self._mark_reached(self._cur_pose)
         self._behavior_mode = self._behavior_manager.behavior_mode
 
