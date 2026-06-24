@@ -93,7 +93,8 @@ environments:
     # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
     # SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
-    # 2nd fixed spawn (swap in): '[{"x_m": 22.0, "y_m": -5.0, "orient": [0,0,-0.6227,0.7825]}, {"x_m": 24.078, "y_m": 0.6, "orient": [0,0,0.9756,0.2195]}, {"x_m": 22.347, "y_m": -1.95, "orient": [0,0,-0.8817,0.4718]}]'
+    # 2nd fixed spawn (swap in): run-1 positions (known-good takeoff), different orientations.
+    # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, blue tarp"
     voxel_score_threshold: 0.80
