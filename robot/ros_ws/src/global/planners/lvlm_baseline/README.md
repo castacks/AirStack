@@ -37,11 +37,24 @@ flowchart LR
 
 | Direction | Name | Type |
 |---|---|---|
-| sub | `/{robot}/sensors/front_stereo/left/image_rect` | `sensor_msgs/Image` |
-| sub | `/{robot}/odometry_conversion/odometry` | `nav_msgs/Odometry` |
+| sub | `/{robot}/sensors/front_stereo/left/image_rect` | `sensor_msgs/Image` (BEST_EFFORT) |
+| sub | `/{robot}/odometry_conversion/odometry` | `nav_msgs/Odometry` (BEST_EFFORT) |
 | sub | `/input_prompt` | `std_msgs/String` (comma-separated target objects) |
 | sub | `/{robot}/lvlm_baseline/search_area` | `geometry_msgs/PolygonStamped` (optional waypoint clamp) |
+| sub | `/{robot}/interface/mavros/global_position/raw/fix` | `sensor_msgs/NavSatFix` (own boot ENU) |
+| sub | `/gossip/peers` | `coordination_msgs/PeerProfile` (peers' position + waypoint) |
+| pub | `/{robot}/global_plan` | `nav_msgs/Path` (waypoint, so gossip broadcasts it to peers + Foxglove) |
 | action client | `/{robot}/tasks/navigate` | `task_msgs/action/NavigateTask` |
+
+### Multi-robot awareness
+
+The node consumes the gossip protocol (same as `raven_nav`): every robot broadcasts
+its GPS position and current waypoint on `/gossip/peers`. Using its own boot-GPS
+ENU anchor, the node converts each peer's pose into its local `map` frame and adds
+a section to the InternVL3 prompt — its own position plus each peer's position and
+waypoint — so the model can spread the team out instead of chasing the same area.
+It publishes its own chosen waypoint to `/{robot}/global_plan` so the gossip node
+fills `PeerProfile.waypoint` for the other robots.
 
 ## Parameters
 

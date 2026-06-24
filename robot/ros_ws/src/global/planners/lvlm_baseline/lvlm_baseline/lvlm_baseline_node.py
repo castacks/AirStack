@@ -37,7 +37,7 @@ from PIL import Image as PIL_Image
 from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, NavSatFix
 from std_msgs.msg import String
 from geometry_msgs.msg import PolygonStamped
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
@@ -48,6 +48,11 @@ from transformers import (AutoConfig, AutoModel, AutoTokenizer,
 from cv_bridge import CvBridge
 
 from task_msgs.action import NavigateTask
+# Multi-robot awareness via the gossip protocol (same path raven_nav uses):
+# each robot broadcasts its GPS position + current waypoint on /gossip/peers;
+# frame_utils converts a peer's global-ENU pose into our local 'map' frame.
+from coordination_msgs.msg import PeerProfile as PeerProfileMsg
+from coordination_bringup.frame_utils import gps_to_enu, global_enu_to_local
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -137,6 +142,13 @@ class LVLMBaseline(Node):
         self._cur_pose_np = None
         self._search_poly: list = []
         self._last_warn_ts = 0.0
+        # Multi-robot gossip state. boot_enu anchors our odom origin to global
+        # ENU (captured on first GPS fix, same as raven_nav); peer poses/waypoints
+        # arrive in global ENU and are converted into our local 'map' frame.
+        self._boot_enu = None
+        self._alt_ground = None
+        self._peer_positions: dict = {}   # name -> np.array([x, y, z]) local
+        self._peer_waypoints: dict = {}   # name -> np.array([x, y, z]) local
         self._src2rdf_transform = self.mat_3x3_to_4x4(
             self.get_coord_system_transform('flu', 'rdf'))
 
@@ -171,6 +183,27 @@ class LVLMBaseline(Node):
         self.create_subscription(
             PolygonStamped, f'{self._prefix}/lvlm_baseline/search_area',
             self.search_area_callback, latched_qos, callback_group=self._cbg)
+
+        # Own GPS → boot ENU (mavros publishes raw/fix BEST_EFFORT).
+        self.create_subscription(
+            NavSatFix,
+            f'{self._prefix}/interface/mavros/global_position/raw/fix',
+            self.navsat_callback, sensor_qos, callback_group=self._cbg)
+        # Peers' position + current waypoint, broadcast by every robot's gossip node.
+        gossip_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST, depth=10)
+        self.create_subscription(
+            PeerProfileMsg, '/gossip/peers',
+            self.peer_profile_callback, gossip_qos, callback_group=self._cbg)
+
+        # Publish our chosen waypoint as a Path so the gossip node broadcasts it
+        # to peers (it fills PeerProfile.waypoint from /<robot>/global_plan) and
+        # so it shows in Foxglove. In LVLM mode droan_gl follows the concrete
+        # NavigateTask we send, not this topic, so there is no double-command.
+        self._global_plan_pub = self.create_publisher(
+            Path, f'{self._prefix}/global_plan', 10)
 
         self._nav_client = ActionClient(
             self, NavigateTask, f'{self._prefix}/tasks/navigate',
@@ -258,6 +291,51 @@ class LVLMBaseline(Node):
             self.get_logger().info(
                 f'search_area: {len(poly)} vertices (clamping waypoints)')
 
+    def navsat_callback(self, msg: NavSatFix):
+        """Capture boot ENU + ground altitude on first valid fix, anchoring our
+        odom origin to global ENU. Mirrors raven_nav: the drone is rarely at the
+        odom origin when the first fix arrives, so subtract the current odom pose
+        to back the origin out. odom/map is ENU-aligned, so this is exact."""
+        if self._boot_enu is not None:
+            return
+        if msg.status.status < 0:
+            return
+        with self._state_lock:
+            cur = self._cur_pose_np
+        if cur is None:
+            return
+        cur = np.asarray(cur, dtype=np.float64)
+        self._alt_ground = float(msg.altitude) - float(cur[2])
+        self._boot_enu = np.array(
+            gps_to_enu(msg.latitude, msg.longitude, msg.altitude),
+            dtype=np.float64) - cur
+        self.get_logger().info(
+            f'boot GPS captured: alt_ground={self._alt_ground:.2f}m, '
+            f'boot_enu=({self._boot_enu[0]:.1f}, {self._boot_enu[1]:.1f})')
+
+    def peer_profile_callback(self, msg: PeerProfileMsg):
+        """Cache each peer's position + current waypoint, converted from the
+        gossip global-ENU frame into our local 'map' frame so they're directly
+        comparable with our own pose. Needs boot_enu (our GPS anchor) first."""
+        if msg.robot_name == self._robot_name or self._boot_enu is None:
+            return
+        pos = wp = None
+        gps = msg.gps_fix
+        if gps.status.status >= 0:
+            peer_global = gps_to_enu(gps.latitude, gps.longitude, gps.altitude)
+            pos = global_enu_to_local(
+                peer_global, self._boot_enu, local_alt_ground=self._alt_ground)
+        s = msg.waypoint.header.stamp
+        if s.sec != 0 or s.nanosec != 0:
+            w = msg.waypoint.pose.position
+            wp = global_enu_to_local(
+                (w.x, w.y, w.z), self._boot_enu, local_alt_ground=self._alt_ground)
+        with self._state_lock:
+            if pos is not None:
+                self._peer_positions[msg.robot_name] = np.asarray(pos)
+            if wp is not None:
+                self._peer_waypoints[msg.robot_name] = np.asarray(wp)
+
     def odom_callback(self, msg: Odometry):
         try:
             src_pose_4x4 = self.pose_to_numpy(msg.pose.pose)
@@ -309,6 +387,8 @@ class LVLMBaseline(Node):
                 poses = list(self._pose_memory)
                 cur = self._cur_pose_np
                 poly = list(self._search_poly)
+                peer_pos = dict(self._peer_positions)
+                peer_wp = dict(self._peer_waypoints)
             if targets is None:
                 time.sleep(self._plan_period_s)
                 continue
@@ -319,7 +399,8 @@ class LVLMBaseline(Node):
                     self._last_warn_ts = now
                 time.sleep(self._plan_period_s)
                 continue
-            action = self._infer_action(frames, targets)
+            peer_ctx = self._format_peer_context(cur, peer_pos, peer_wp)
+            action = self._infer_action(frames, targets, peer_ctx)
             path_msg = self._compute_waypoint_path(action, cur, poses, poly)
             if path_msg is None:
                 time.sleep(self._plan_period_s)
@@ -329,12 +410,35 @@ class LVLMBaseline(Node):
                 f"({len(path_msg.poses)} poses)")
             self._send_navigate_and_wait(path_msg, self._nav_goal_timeout_s)
 
-    def _infer_action(self, frames: list, targets: list) -> str:
+    def _format_peer_context(self, cur_pose, peer_pos: dict, peer_wp: dict) -> str:
+        """Build the multi-robot section of the prompt: our own position plus each
+        peer's position and current waypoint, all in the shared local 'map' frame
+        (meters; x≈East, y≈North). Empty string until peers/GPS are available."""
+        if self._boot_enu is None or not peer_pos:
+            return ""
+        cur = np.asarray(cur_pose, dtype=float)
+        lines = [
+            f"You are {self._robot_name} at position "
+            f"({cur[0]:.0f}, {cur[1]:.0f}) in a shared map (meters; x=East, y=North).",
+            "Other robots are searching the same area — avoid heading toward "
+            "where they already are or are going, so the team spreads out:",
+        ]
+        for name in sorted(peer_pos):
+            p = peer_pos[name]
+            wp = peer_wp.get(name)
+            wp_str = (f", heading to waypoint ({wp[0]:.0f}, {wp[1]:.0f})"
+                      if wp is not None else "")
+            lines.append(
+                f"  - {name} at ({p[0]:.0f}, {p[1]:.0f}){wp_str}")
+        return "\n".join(lines) + "\n"
+
+    def _infer_action(self, frames: list, targets: list, peer_ctx: str = "") -> str:
         recent_frames = self.sample_periodic_frames(frames, num_samples=5, step=10)
         pixel_values = torch.cat(recent_frames, dim=0).to(torch.bfloat16).cuda()
         prompt = (
             "<image>\n"
             f"Find {targets}. "
+            + peer_ctx +
             "Based on the current first-person view images, "
             "decide the next action for the robot. "
             "Choose only one of the following actions: 'move forward', 'turn left', 'turn right'. "
@@ -411,6 +515,9 @@ class LVLMBaseline(Node):
         if not self._nav_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().warn('NavigateTask server (droan_gl) not available')
             return False
+        # Broadcast the waypoint to peers (gossip fills PeerProfile.waypoint from
+        # this topic) and to Foxglove.
+        self._global_plan_pub.publish(path_msg)
         goal = NavigateTask.Goal()
         goal.global_plan = path_msg
         goal.goal_tolerance_m = self._goal_tolerance_m
