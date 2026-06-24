@@ -185,20 +185,42 @@ class LVLMBaseline(Node):
     # ── model ──────────────────────────────────────────────────────────────────
 
     def _load_model(self):
-        self.get_logger().info('Loading InternVL3-2B model...')
-        device_map = self.split_model(self._model_path)
-        quant_config = BitsAndBytesConfig(load_in_8bit=True)
-        self.model = AutoModel.from_pretrained(
-            self._model_path,
-            torch_dtype=torch.bfloat16,
-            quantization_config=quant_config,
-            low_cpu_mem_usage=True,
-            trust_remote_code=True,
-            device_map=device_map).eval()
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self._model_path, trust_remote_code=True, use_fast=False)
-        self._model_ready = True
-        self.get_logger().info('InternVL3-2B model loaded!')
+        try:
+            # 8-bit load needs bitsandbytes; device_map needs accelerate. These are
+            # baked into the robot image (not the colcon build), so a stale image
+            # is the most common failure — report it explicitly up front.
+            try:
+                import bitsandbytes as _bnb  # noqa: F401
+                import accelerate as _acc  # noqa: F401
+                deps_ok = f'bitsandbytes={_bnb.__version__} accelerate={_acc.__version__}'
+            except Exception as _de:
+                deps_ok = f'MISSING ({_de}) — rebuild/push the robot-desktop image'
+            n_gpus = torch.cuda.device_count()
+            self.get_logger().info(
+                f'Loading InternVL3-2B model ({self._model_path}) | '
+                f'deps: {deps_ok} | '
+                f'cuda_available={torch.cuda.is_available()} n_gpus={n_gpus}...')
+            device_map = self.split_model(self._model_path)
+            quant_config = BitsAndBytesConfig(load_in_8bit=True)
+            self.model = AutoModel.from_pretrained(
+                self._model_path,
+                torch_dtype=torch.bfloat16,
+                quantization_config=quant_config,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+                device_map=device_map).eval()
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self._model_path, trust_remote_code=True, use_fast=False)
+            self._model_ready = True
+            self.get_logger().info('InternVL3-2B model loaded!')
+        except Exception:
+            # A silent failure here would leave _model_ready False forever and the
+            # drone would never be commanded — log the full traceback loudly so it
+            # lands in /tmp/lvlm_<robot>.log.
+            import traceback
+            self.get_logger().error(
+                'InternVL3-2B model load FAILED — node will not navigate:\n'
+                + traceback.format_exc())
 
     # ── callbacks ────────────────────────────────────────────────────────────────
 
@@ -259,8 +281,15 @@ class LVLMBaseline(Node):
     # ── control loop ─────────────────────────────────────────────────────────────
 
     def _control_loop(self):
+        waited = 0.0
         while rclpy.ok() and not self._model_ready and not self._stop:
             time.sleep(0.5)
+            waited += 0.5
+            if waited % 15.0 < 0.5:
+                self.get_logger().info(
+                    f'Waiting for InternVL3-2B model to load ({waited:.0f}s)...')
+        if self._stop or not rclpy.ok():
+            return
         # Let the device_map GPU contexts settle before the first inference.
         time.sleep(1.0)
         self.get_logger().info('lvlm_baseline control loop active')

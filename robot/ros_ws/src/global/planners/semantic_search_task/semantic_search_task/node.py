@@ -357,6 +357,22 @@ class SemanticSearchTaskNode(Node):
                     msg = _filter_lvlm(raw)
                     if msg:
                         last_status = msg
+                # The baseline node spins forever in a healthy run; an early exit
+                # means it crashed (e.g. package not built, import/model error).
+                # Surface it and abort instead of hanging on a dead process —
+                # the tail of /tmp/lvlm_<robot>.log has the traceback.
+                rc = lvlm_proc.poll()
+                if rc is not None:
+                    self.get_logger().error(
+                        f'lvlm_baseline_node exited early (rc={rc}); '
+                        f'last log: {last_status}')
+                    goal_handle.abort()
+                    result = SemanticSearchTask.Result()
+                    result.success = False
+                    result.message = (
+                        f'lvlm_baseline_node exited early (rc={rc}) — '
+                        f'last log: {last_status}')
+                    return result
                 fb = SemanticSearchTask.Feedback()
                 fb.status = f'[lvlm] {last_status}'
                 goal_handle.publish_feedback(fb)

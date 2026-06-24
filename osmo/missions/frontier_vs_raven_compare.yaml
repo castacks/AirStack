@@ -78,8 +78,8 @@ scene_templates:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
-    voxel_score_threshold: 0.9
-    score_threshold: 0.7
+    voxel_score_threshold: 0.92
+    score_threshold: 0.67
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
@@ -126,11 +126,11 @@ scene_templates:
 # replicas — and the three scenes — each get a different randomized layout.
 environments:
   # ---- RetroNeighborhood ----
-  - <<: *retro
-    name: retro_r1_frontier
-    SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
-    FRONTIER_ONLY_BASELINE: "true"
-    LVLM_BASELINE: "false"
+  # - <<: *retro
+  #   name: retro_r1_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
   - <<: *retro
     name: retro_r1_raven
     SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'

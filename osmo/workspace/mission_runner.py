@@ -1067,27 +1067,54 @@ CONTROL_STACK_GLOBS = ("droan_gl*", "droan_local_planner*", "trajectory_controll
                        "fixed_trajectory*", "takeoff_landing*", "mavros*")
 
 
+# /tmp tee logs written by semantic_search_task's _spawn (rayfronts/raven/lvlm)
+# and the GCS relay/gossip/ddsrouter. lvlm_* is the FPV+LVLM baseline node's
+# stdout (model load, planned actions, NavigateTask sends, errors).
+TEE_LOG_GLOBS = ("/tmp/rayfronts_*.log", "/tmp/raven_*.log", "/tmp/lvlm_*.log",
+                 "/tmp/gossip_*.log", "/tmp/ddsrouter_*.log", "/tmp/relay_*.log")
+
+
+def _copy_tmp_tee_logs(dest_dir):
+    """Copy the raw /tmp tee logs from each container into <dest_dir>/<container>/.
+    Idempotent (docker cp overwrites), so it is safe to call repeatedly — the
+    snapshot loop calls it periodically so a hard pod cancel mid-iteration still
+    leaves the most recent rayfronts/raven/lvlm stdout on disk."""
+    targets = list(robot_containers())
+    gcs = gcs_container()
+    if gcs:
+        targets.append(gcs)
+    total = 0
+    for name in targets:
+        r = docker_exec(name, "ls " + " ".join(TEE_LOG_GLOBS) + " 2>/dev/null",
+                        timeout=15)
+        files = [f for f in r.stdout.split() if f]
+        if not files:
+            continue
+        out = dest_dir / name
+        out.mkdir(parents=True, exist_ok=True)
+        for f in files:
+            sh(["docker", "cp", f"{name}:{f}", str(out)], timeout=120)
+        total += len(files)
+    return total
+
+
 def snapshot_task_logs(dest_dir):
-    """Copy the raw rayfronts/raven/gossip/ddsrouter/relay tees (written to /tmp
-    inside each container) into <dest_dir>/<container>/, plus the navigation /
+    """Copy the raw rayfronts/raven/lvlm/gossip/ddsrouter/relay tees (written to
+    /tmp inside each container) into <dest_dir>/<container>/, plus the navigation /
     control-stack node logs that rcl writes under ~/.ros/log rather than /tmp.
     Includes the GCS container so the GCS-side gossip ddsrouter log is captured."""
     targets = list(robot_containers())
     gcs = gcs_container()
     if gcs:
         targets.append(gcs)
+    _copy_tmp_tee_logs(dest_dir)
     name_pred = " -o ".join(f"-name '{g}'" for g in CONTROL_STACK_GLOBS)
     tar = "/tmp/control_stack_logs.tar.gz"
     for name in targets:
-        r = docker_exec(name, "ls /tmp/rayfronts_*.log /tmp/raven_*.log "
-                              "/tmp/gossip_*.log /tmp/ddsrouter_*.log /tmp/relay_*.log 2>/dev/null",
+        r = docker_exec(name, "ls " + " ".join(TEE_LOG_GLOBS) + " 2>/dev/null",
                         timeout=15)
         files = [f for f in r.stdout.split() if f]
         out = dest_dir / name
-        if files:
-            out.mkdir(parents=True, exist_ok=True)
-            for f in files:
-                sh(["docker", "cp", f"{name}:{f}", str(out)], timeout=120)
         made = docker_exec(
             name,
             f"f=$(find /root/.ros/log -type f \\( {name_pred} \\) 2>/dev/null); "
@@ -1177,8 +1204,11 @@ ps -eo rss=,args= --sort=-rss 2>/dev/null | head -12
 """
 
 # Processes whose early death we want to catch. Matched as substrings of the
-# full command line (the python nodes all run as `python3 ...`).
-_WATCH_PROCS = ("rayfronts", "raven_nav_node", "ddsrouter", "gossip")
+# full command line (the python nodes all run as `python3 ...`). lvlm_baseline_node
+# is the FPV+LVLM baseline — tracking it shows whether InternVL3 actually loaded
+# (a loaded model is GB-scale RSS; a missing/crashed node shows 0).
+_WATCH_PROCS = ("rayfronts", "raven_nav_node", "lvlm_baseline_node",
+                "ddsrouter", "gossip")
 
 
 def _parse_snapshot(out):
@@ -1249,6 +1279,11 @@ def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
     iter_dir.mkdir(parents=True, exist_ok=True)
     tlog, rlog = iter_dir / "transport.log", iter_dir / "resources.log"
     prev_oom, prev_key = {}, {}
+    # Periodically copy the /tmp tee logs into iter_dir/logs so a hard pod cancel
+    # (SIGKILL — run_iteration's finally never runs) still leaves recent
+    # rayfronts/raven/lvlm stdout. ~every 30s regardless of the health interval.
+    tee_every = max(1, round(30 / interval_s))
+    tick = 0
     while not stop_event.is_set():
         targets = list(robot_containers())
         gcs = gcs_container()
@@ -1278,6 +1313,12 @@ def transport_snapshot_loop(iter_dir, stop_event, interval_s=5):
         if rlines:
             with open(rlog, "a", encoding="utf-8") as f:
                 f.write("\n".join(rlines) + "\n")
+        if tick % tee_every == 0:
+            try:
+                _copy_tmp_tee_logs(iter_dir / "logs")
+            except Exception as e:
+                log(f"WARN: periodic tee-log copy failed: {e}")
+        tick += 1
         stop_event.wait(interval_s)
 
 
