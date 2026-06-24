@@ -47,7 +47,7 @@ STANDOFF_MAX_M = 6.0
 # so "reached" and "same instance" mean the same thing for voxel_behavior and the
 # fused/published boxes.
 VISIT_REACH_M = 3.0   # drone within this of a target AABB *surface* (0 if inside) => reached
-VISIT_MATCH_M = 3.0   # two target AABBs within this surface gap => same instance
+VISIT_MATCH_M = 5.0   # two target AABBs within this surface gap => same instance
 
 
 def aabb_surface_dist(ca, sa, cb, sb) -> float:

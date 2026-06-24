@@ -111,8 +111,8 @@ scene_templates:
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "ConstructionSite"
-    query: "forklift, towercrane, blue tarp"
-    background_queries: "road, grass, mountain, parking lot, building, scaffolding, cement, wall"
+    query: "forklift, tower crane, blue tarp"
+    background_queries: "road, grass, mountain, parking lot, building, stone"
     voxel_score_threshold: 0.75
     score_threshold: 0.6
     voxel_min_cluster_size: 10
@@ -151,10 +151,10 @@ environments:
   # #   FRONTIER_ONLY_BASELINE: "true"
   # #   LVLM_BASELINE: "false"
   # - <<: *retro
-    name: retro_r2_raven
-    SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
-    FRONTIER_ONLY_BASELINE: "false"
-    LVLM_BASELINE: "false"
+    # name: retro_r2_raven
+    # SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+    # FRONTIER_ONLY_BASELINE: "false"
+    # LVLM_BASELINE: "false"
   # - <<: *retro
   #   name: retro_r2_lvlm
   #   SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
