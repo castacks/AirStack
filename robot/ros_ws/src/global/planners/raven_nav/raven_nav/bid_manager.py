@@ -311,8 +311,9 @@ def _task_surface_dist_xy(pos_xy, task) -> float:
 PEER_REPULSION_W = 15.0
 PEER_REPULSION_SCALE = 15.0
 # Soft BB preference: a ray costs this much more than a like-distance BB (its true
-# range is unknown). Not a hard priority — a much closer ray can still win.
-RAY_COST_PENALTY = 15.0
+# range is unknown). Sets the BB-vs-ray crossover distance (~this many m): a BB
+# within it beats a near ray; a farther BB loses to a near ray (no cross-map).
+RAY_COST_PENALTY = 25.0
 
 
 def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
@@ -437,27 +438,10 @@ class ConsensusAssigner:
         used_t: set = set()
         assigned: Dict[int, Tuple] = {}
         taken_centroids: List[np.ndarray] = []
-        # BB commitment lock: a drone whose incumbent is a still-present BB holds
-        # it until the BB is visited (removed from tasks) — no other (closer) drone
-        # can steal it, and it can't switch to a ray. _prev is identical across
-        # robots (same prior assignment), so the locks are shared/conflict-free.
-        bb_tasks = [t for t in tasks if not str(t.status).startswith('ray')]
-        for a in aids:
-            inc = self._prev.get(a)
-            if inc is None:
-                continue
-            cand = [t for t in bb_tasks if t.key not in used_t and float(
-                np.linalg.norm(t.centroid[:2] - inc[:2])) <= match_m]
-            if not cand:
-                continue
-            t = min(cand, key=lambda t: float(
-                np.linalg.norm(t.centroid[:2] - inc[:2])))
-            assigned[a] = t.key
-            used_a.add(a)
-            used_t.add(t.key)
-            taken_centroids.append(t.centroid)
-        # Greedy-assign the rest by cost (distance + soft ray penalty) with peer
-        # repulsion so drones spread to different areas.
+        # No absolute BB lock: stickiness comes from finite retention (the
+        # -switch_margin in base above), so a drone keeps its target unless a peer
+        # is clearly closer — a far BB never traps a drone (it does nearer work and
+        # a closer drone takes the BB). Greedy by cost + peer repulsion (spread).
         while len(used_a) < len(aids) and len(used_t) < len(by_key):
             best = None
             for a in aids:
