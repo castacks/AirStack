@@ -96,9 +96,13 @@ class DroneHandle:
         self.arming_start = None          # rclpy Time
         self.arming_steps_done = set()
         self.cmd_pub = None
+        self.pos_cmd_pub = None
         self.robot_command_client = None
         self.teleop_twist = np.zeros(3)
         self.last_teleop_time = None
+        
+        # For DiffAero
+        self.orientation = np.array([0., 0., 0., 1.])
 
     @property
     def commanded(self) -> bool:
@@ -172,6 +176,10 @@ class DiffAeroCommander(Node):
         self.declare_parameter('robot_command_service_template',
                                '/{name}/interface/robot_command')
         self.declare_parameter('teleop_topic_template', '/svg/{name}/teleop_command')
+        
+        # For position commands
+        self.declare_parameter('position_command_topic_template',
+                               '/{name}/interface/pose_command')
 
         # ---- Hybrid sim/real routing ------------------------------------
         # Per-drone mode (comma-separated, one per drone): 'sim' routes
@@ -189,6 +197,11 @@ class DiffAeroCommander(Node):
                                '/{name}/fmu/velocity_command')
         self.declare_parameter('real_robot_command_service_template',
                                '/{name}/fmu/robot_command')
+        
+        self.declare_parameter('sim_position_command_topic_template',
+                               '/{name}/interface/pose_command')
+        self.declare_parameter('real_position_command_topic_template',
+                               '/{name}/fmu/pose_command')
 
         # ---- Goal scenario live retargeting -----------------------------
         self.declare_parameter('goal_command_topic_template',
@@ -310,16 +323,26 @@ class DiffAeroCommander(Node):
     
 
         state_tmpl = str(self.get_parameter('state_topic_template').value)
+        # PX4 commands
         default_cmd_tmpl = str(
             self.get_parameter('velocity_command_topic_template').value)
+        default_pos_cmd_tmpl = str(
+            self.get_parameter('position_command_topic_template').value)
+        
         default_srv_tmpl = str(
             self.get_parameter('robot_command_service_template').value)
         sim_cmd_tmpl = str(
             self.get_parameter('sim_velocity_command_topic_template').value)
+        sim_pos_cmd_tmpl = str(
+            self.get_parameter('sim_position_command_topic_template').value)
+        
         sim_srv_tmpl = str(
             self.get_parameter('sim_robot_command_service_template').value)
         real_cmd_tmpl = str(
             self.get_parameter('real_velocity_command_topic_template').value)
+        real_pos_cmd_tmpl = str(
+            self.get_parameter('real_position_command_topic_template').value)
+        
         real_srv_tmpl = str(
             self.get_parameter('real_robot_command_service_template').value)
         teleop_tmpl = str(self.get_parameter('teleop_topic_template').value)
@@ -329,10 +352,10 @@ class DiffAeroCommander(Node):
         def command_templates(mode):
             """(velocity-cmd topic, robot_command service) templates for a mode."""
             if not self._use_mode_templates:
-                return default_cmd_tmpl, default_srv_tmpl
+                return default_cmd_tmpl, default_pos_cmd_tmpl, default_srv_tmpl
             if mode == 'real':
-                return real_cmd_tmpl, real_srv_tmpl
-            return sim_cmd_tmpl, sim_srv_tmpl
+                return real_cmd_tmpl, real_pos_cmd_tmpl,real_srv_tmpl
+            return sim_cmd_tmpl, sim_pos_cmd_tmpl, sim_srv_tmpl
 
         # ---- Per-drone wiring --------------------------------------------
         takeoff_targets = self.scenario.initial_positions()
@@ -346,9 +369,11 @@ class DiffAeroCommander(Node):
             drone.takeoff_target = takeoff_targets[i].copy()
             drone.hold_target = takeoff_targets[i].copy()
             if drone.commanded:
-                cmd_t, srv_t = command_templates(drone.mode)
+                cmd_t, pos_cmd_t, srv_t = command_templates(drone.mode)
                 drone.cmd_pub = self.create_publisher(
                     TwistStamped, cmd_t.format(name=name), 10)
+                drone.pos_cmd_pub = self.create_publisher(
+                    PoseStamped, pos_cmd_t.format(name=name), 10)
                 drone.robot_command_client = self.create_client(
                     RobotCommand, srv_t.format(name=name))
             if role == 'teleop':
@@ -382,7 +407,6 @@ class DiffAeroCommander(Node):
 
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
-        self._cbf_warn_count = 0
 
         self.get_logger().info(
             f'DiffAeroCommander up | scenario={scenario_name} | '
@@ -406,10 +430,12 @@ class DiffAeroCommander(Node):
     def odometry_callback(self, drone: DroneHandle, msg: Odometry):
         p = msg.pose.pose.position
         v = msg.twist.twist.linear
+        q = msg.pose.pose.orientation
         # position_offset shifts each drone's local-origin odometry into the
         # shared world frame (velocities are origin-independent).
         drone.position = np.array([p.x, p.y, p.z]) + drone.position_offset
         drone.velocity = np.array([v.x, v.y, v.z])
+        drone.orientation = np.array([q.x, q.y, q.z, q.w])
         drone.last_odom_time = self.get_clock().now()
 
     def teleop_callback(self, drone: DroneHandle, msg: TwistStamped):
@@ -665,8 +691,13 @@ class DiffAeroCommander(Node):
                 d.state = FlightState.IDLE
                 self.get_logger().info(f'{d.name}: landed, disarmed')
                 continue
+            
+            if d.state != FlightState.ARMING:
+                self.publish_velocity(d, nominal[index[d.name]], now)
+            else:
+                self.get_logger().info('Sending position instead of velocity')
+                self.publish_pose(d, d.position, d.orientation, now)
 
-            self.publish_velocity(d, nominal[index[d.name]], now)
 
         self.publish_markers(now)
 
@@ -678,6 +709,22 @@ class DiffAeroCommander(Node):
         msg.twist.linear.y = float(velocity[1])
         msg.twist.linear.z = float(velocity[2])
         drone.cmd_pub.publish(msg)
+    
+    def publish_pose(self, drone: DroneHandle, position: np.ndarray, orientation: np.ndarray, now):
+        msg = PoseStamped()
+        msg.header.stamp = now.to_msg()
+        msg.header.frame_id = 'map'
+        
+        msg.pose.position.x = float(position[0])
+        msg.pose.position.y = float(position[1])
+        msg.pose.position.z = float(position[2])
+        
+        msg.pose.orientation.x = float(orientation[0])
+        msg.pose.orientation.y = float(orientation[1])
+        msg.pose.orientation.z = float(orientation[2])
+        msg.pose.orientation.w = float(orientation[3])
+        
+        drone.pos_cmd_pub.publish(msg)
 
     # ------------------------------------------------------------------
     # Visualization (RViz MarkerArray, world frame)
