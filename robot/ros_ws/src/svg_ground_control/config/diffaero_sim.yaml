@@ -26,7 +26,7 @@ diffaero_commander:
     hover_positions: [0.0, 0.0, 1.2]
     goal_position: [-2.0, 2.0, 1.2]
 
-    control_rate_hz: 20.0
+    control_rate_hz: 30.0
     hover_kp: 1.0
     arrival_threshold_m: 0.15
     land_speed_mps: 0.3
@@ -35,3 +35,19 @@ diffaero_commander:
     fence_enabled: true
     fence_min: [-3.0, -3.0, 0.0]
     fence_max: [3.0, 3.0, 3.0]
+
+    checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_pmc_lag_2026-06-22/"
+    max_accel: 20.0   # SITL: hover ≈ 0.5 throttle → tune this if drone climbs/sinks
+
+    # Cruise speed: target_vel = (goal - pos) saturated to max_vel. Training
+    # sampled [3, 6] m/s — far too fast/violent for a short indoor hop. Keep
+    # this low for tame flights; raise toward 3+ only once behavior is smooth.
+    max_vel: 1.5
+    # Cap the policy's horizontal action scale to limit launch aggressiveness:
+    # max tilt ≈ atan(max_acc_xy / g). 6.0 → ~31° (vs ~64° at the 20.0 default).
+    # NOTE: this deviates from the action limits the policy was exported with,
+    # so tracking may be slightly off — raise back toward 20 if it feels sluggish.
+    max_acc_xy: 6.0
+    # Switch from the cruise policy to a stable pose-hold this far from the goal.
+    goal_arrival_threshold_m: 0.4
+

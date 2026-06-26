@@ -29,18 +29,22 @@ from enum import Enum
 import math
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
 
 from geometry_msgs.msg import Point, PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
-from std_msgs.msg import ColorRGBA, Float32
+from std_msgs.msg import ColorRGBA, Float32, Float32MultiArray
 from std_srvs.srv import Trigger
 from visualization_msgs.msg import Marker, MarkerArray
 from airstack_msgs.srv import RobotCommand
+from mav_msgs.msg import AttitudeThrust
 
 from svg_ground_control.scenarios import Bounds, make_scenario
+from svg_ground_control.diffaero.diffaero_core import DiffAeroObs, DiffAeroPolicy
+from svg_ground_control.diffaero.perception_builder import Intrinsics
 
 
 class FlightState(Enum):
@@ -74,9 +78,12 @@ class DroneHandle:
         self.last_odom_time = None
         self.arming_start = None
         self.arming_steps_done = set()
-        self.cmd_pub = None               # velocity publisher
-        self.pos_cmd_pub = None           # position publisher
+        self.cmd_pub = None               # velocity publisher (landing only)
+        self.pos_cmd_pub = None           # position publisher (ascend / hold / fallback)
+        self.att_cmd_pub = None           # attitude+thrust publisher (policy)
         self.robot_command_client = None
+        self.tof: np.ndarray | None = None        # latest 9×16 pre-encoded perception
+        self.last_tof_time = None
 
 
 class DiffAeroCommander(Node):
@@ -121,6 +128,20 @@ class DiffAeroCommander(Node):
         self.declare_parameter('speed_command_topic_template',
                                '/svg/{name}/speed_command')
 
+        self.declare_parameter('tof_topic_template',
+                               '/{name}/perception/tof')
+        self.declare_parameter('sim_attitude_thrust_topic_template',
+                               '/{name}/interface/attitude_thrust_command')
+        self.declare_parameter('real_attitude_thrust_topic_template',
+                               '/{name}/fmu/attitude_thrust_command')
+
+        self.declare_parameter('checkpoint_path', '')
+        self.declare_parameter('max_accel', 30.0)
+        self.declare_parameter('max_vel', 5.0)
+        self.declare_parameter('max_acc_xy', 20.0)
+        self.declare_parameter('max_acc_z', 40.0)
+        self.declare_parameter('tof_timeout_s', 0.5)
+
         self.declare_parameter('fence_enabled', False)
         self.declare_parameter('fence_min', [-1000.0, -1000.0, -1000.0])
         self.declare_parameter('fence_max', [1000.0, 1000.0, 1000.0])
@@ -132,6 +153,7 @@ class DiffAeroCommander(Node):
         self.declare_parameter('state_timeout_s', 0.5)
         self.declare_parameter('hover_kp', 1.0)
         self.declare_parameter('arrival_threshold_m', 0.15)
+        self.declare_parameter('goal_arrival_threshold_m', 0.4)
         self.declare_parameter('land_speed_mps', 0.3)
         self.declare_parameter('land_complete_altitude_m', 0.15)
         self.declare_parameter('face_goal_threshold_rad', 0.05)
@@ -155,6 +177,8 @@ class DiffAeroCommander(Node):
         self.state_timeout = float(self.get_parameter('state_timeout_s').value)
         self.hover_kp = float(self.get_parameter('hover_kp').value)
         self.arrival_threshold = float(self.get_parameter('arrival_threshold_m').value)
+        self.goal_arrival_threshold = float(
+            self.get_parameter('goal_arrival_threshold_m').value)
         self.land_speed = float(self.get_parameter('land_speed_mps').value)
         self.land_complete_alt = float(
             self.get_parameter('land_complete_altitude_m').value)
@@ -198,6 +222,13 @@ class DiffAeroCommander(Node):
 
         goal_tmpl = str(self.get_parameter('goal_command_topic_template').value)
         speed_tmpl = str(self.get_parameter('speed_command_topic_template').value)
+        tof_tmpl = str(self.get_parameter('tof_topic_template').value)
+        if mode == 'real':
+            att_tmpl = str(self.get_parameter('real_attitude_thrust_topic_template').value)
+        else:
+            att_tmpl = str(self.get_parameter('sim_attitude_thrust_topic_template').value)
+
+        self.tof_timeout = float(self.get_parameter('tof_timeout_s').value)
 
         # ---- Drone wiring -----------------------------------------------
         takeoff_target = self.scenario.initial_positions()[0]
@@ -211,10 +242,15 @@ class DiffAeroCommander(Node):
             PoseStamped, pos_tmpl.format(name=name), 10)
         self.drone.robot_command_client = self.create_client(
             RobotCommand, srv_tmpl.format(name=name))
+        self.drone.att_cmd_pub = self.create_publisher(
+            AttitudeThrust, att_tmpl.format(name=name), 10)
 
         self.create_subscription(
             Odometry, state_tmpl.format(name=name),
             self.odometry_callback, 10)
+        self.create_subscription(
+            Float32MultiArray, tof_tmpl.format(name=name),
+            self.tof_callback, 10)
 
         if scenario_name == 'goal':
             self.create_subscription(
@@ -226,6 +262,43 @@ class DiffAeroCommander(Node):
 
         # Keep self.drones as a list for methods that iterate (markers, fence).
         self.drones = [self.drone]
+
+        # ---- DiffAero policy --------------------------------------------
+        checkpoint_path = str(self.get_parameter('checkpoint_path').value)
+        self.policy: DiffAeroPolicy | None = None
+        self.policy_goal: np.ndarray | None = None   # fixed at ~/start; goal = position → hover
+        self._policy_last_time = None                 # for gap-detection auto-reset
+        if checkpoint_path:
+            # Dummy intrinsics — PerceptionBuilder is bypassed because the ToF
+            # topic sends a pre-encoded 9×16 grid (perception_encoded path).
+            dummy_intrinsics = Intrinsics(fx=1.0, fy=1.0, cx=0.5, cy=0.5, H=1, W=1)
+            self.policy = DiffAeroPolicy(
+                intrinsics=dummy_intrinsics,
+                checkpoint_path=checkpoint_path,
+                max_accel=float(self.get_parameter('max_accel').value),
+                max_vel=float(self.get_parameter('max_vel').value),
+                max_acc_xy=float(self.get_parameter('max_acc_xy').value),
+                max_acc_z=float(self.get_parameter('max_acc_z').value),
+            )
+            self.get_logger().info(f'DiffAero policy loaded from {checkpoint_path}')
+            # Warm up the TorchScript/CUDA path now, while we're still in
+            # __init__. The first compute() otherwise costs ~0.5 s of JIT/CUDA
+            # init, and since we run on a single-threaded executor that stalls
+            # the odometry callback at the exact moment of policy handoff —
+            # tripping the stale-odom hold and a spurious vel_ema reset.
+            try:
+                warm = DiffAeroObs(
+                    position_enu=np.zeros(3), velocity_enu=np.zeros(3),
+                    R_enu=np.eye(3), goal_enu=np.zeros(3))
+                for _ in range(3):
+                    self.policy.compute(warm)
+                self.policy.reset()
+                self.get_logger().info('DiffAero policy warmed up')
+            except Exception as e:  # noqa: BLE001
+                self.get_logger().warn(f'policy warm-up failed: {e}')
+        else:
+            self.get_logger().warn(
+                'checkpoint_path not set — ACTIVE phase will use nominal_velocity fallback')
 
         # ---- Operator services ------------------------------------------
         self.create_service(Trigger, '~/takeoff', self.handle_takeoff)
@@ -264,9 +337,20 @@ class DiffAeroCommander(Node):
         v = msg.twist.twist.linear
         q = msg.pose.pose.orientation
         self.drone.position = np.array([p.x, p.y, p.z]) + self.drone.position_offset
-        self.drone.velocity = np.array([v.x, v.y, v.z])
         self.drone.orientation = np.array([q.x, q.y, q.z, q.w])
+        # nav_msgs/Odometry reports twist in child_frame_id (base_link, body FLU)
+        # per REP-145 — and mavros/local_position/odom does exactly that. The
+        # DiffAero policy expects world-ENU velocity, so rotate body -> world
+        # using the orientation (pose.orientation is FLU -> ENU).
+        R_flu_to_enu = Rotation.from_quat(self.drone.orientation).as_matrix()
+        self.drone.velocity = R_flu_to_enu @ np.array([v.x, v.y, v.z])
         self.drone.last_odom_time = self.get_clock().now()
+
+    def tof_callback(self, msg: Float32MultiArray):
+        dims = [d.size for d in msg.layout.dim]
+        h, w = dims if len(dims) == 2 else (9, 16)
+        self.drone.tof = np.array(msg.data, dtype=np.float32).reshape(h, w)
+        self.drone.last_tof_time = self.get_clock().now()
 
     def goal_callback(self, msg: PoseStamped):
         if hasattr(self.scenario, 'set_goal'):
@@ -309,6 +393,14 @@ class DiffAeroCommander(Node):
             response.message = f'{self.drone.name} not holding yet (state={self.drone.state.name})'
             return response
         self.mission_active = True
+        self._policy_last_time = None
+        if self.policy is not None:
+            self.policy.reset()
+            # Fly to the configured goal: target_vel = (goal - pos) drives the
+            # policy toward goal_position, then naturally hovers on arrival.
+            self.policy_goal = self.goal_position.copy()
+            self.get_logger().info(
+                f'policy goal set to {self.policy_goal.round(3)}')
         response.success = True
         response.message = f'scenario "{self.scenario_name}" running'
         self.get_logger().info(response.message)
@@ -479,12 +571,62 @@ class DiffAeroCommander(Node):
                     f'{d.name}: facing goal (yaw={math.degrees(target_yaw):.1f}°) → ACTIVE')
 
         elif d.state == FlightState.ACTIVE:
-            if self.mission_active:
-                nominal = self.scenario.nominal_velocity(
-                    d.position.reshape(1, 3))[0]
+            if (self.mission_active and self.policy is not None
+                    and np.linalg.norm(self.policy_goal - d.position)
+                    < self.goal_arrival_threshold):
+                # The DiffAero policy is a cruise controller, not a position-hold
+                # controller — at the goal target_vel→0 but it overshoots and
+                # oscillates. Hand off to a stable pose-hold at the goal (the
+                # starling deployment did the same at 0.5 m before landing).
+                self.mission_active = False
+                d.hold_target = self.policy_goal.copy()
+                d.hold_orientation = d.orientation.copy()
+                self.get_logger().info(
+                    f'{d.name}: reached goal {self.policy_goal.round(2)} → HOLD')
+                self.publish_pose(d.hold_target, d.hold_orientation, now)
+            elif self.mission_active and self.policy is not None:
+                # If the policy was interrupted (stale odom, fence, hold) for
+                # more than 2 ticks, reset vel_ema so the heading-direction
+                # initialization kicks in rather than accumulating stale drift.
+                if self._policy_last_time is not None:
+                    gap_s = (now - self._policy_last_time).nanoseconds * 1e-9
+                    if gap_s > 0.2:
+                        self.get_logger().info(
+                            f'[policy] interrupted {gap_s:.2f}s — resetting vel_ema')
+                        self.policy.reset()
+                self._policy_last_time = now
+                tof_fresh = (
+                    d.last_tof_time is not None
+                    and (now - d.last_tof_time) < Duration(seconds=self.tof_timeout)
+                )
+                obs = DiffAeroObs(
+                    position_enu=d.position,
+                    velocity_enu=d.velocity,
+                    R_enu=Rotation.from_quat(d.orientation).as_matrix(),
+                    goal_enu=self.policy_goal,
+                    perception_encoded=d.tof if tof_fresh else None,
+                )
+                cmd = self.policy.compute(obs)
+                self.publish_attitude_thrust(cmd.attitude_enu_flu_xyzw, cmd.thrust_norm, now)
+                from scipy.spatial.transform import Rotation as _R
+                _euler = _R.from_quat(cmd.attitude_enu_flu_xyzw).as_euler('xyz', degrees=True)
+                self.get_logger().info(
+                    f'[policy] pos={np.round(d.position,2)} vel={np.round(d.velocity,2)} '
+                    f'quat={np.round(d.orientation,3)} | '
+                    f'goal={np.round(self.policy_goal,2)} tof_fresh={tof_fresh}',
+                    throttle_duration_sec=2.0)
+                self.get_logger().info(
+                    f'[policy] acc_cmd_enu={np.round(cmd.acc_cmd_enu,2)} '
+                    f'acc_norm={cmd.acc_norm:.2f} thrust={cmd.thrust_norm:.3f} '
+                    f'att_euler_rpy={np.round(_euler,1)}',
+                    throttle_duration_sec=1.0)
+            elif self.mission_active:
+                self.get_logger().error('No policy loaded!')
+                # No policy loaded — nominal velocity fallback.
+                nominal = self.scenario.nominal_velocity(d.position.reshape(1, 3))[0]
                 self.publish_velocity(nominal, now)
             else:
-                # Hold with position command — same type as FACE_GOAL so no mode switch.
+                # Hold with position command — pose_command is the safe fallback.
                 self.publish_pose(d.hold_target, d.hold_orientation, now)
 
         elif d.state == FlightState.LANDING:
@@ -518,6 +660,18 @@ class DiffAeroCommander(Node):
         msg.pose.orientation.z = float(orientation[2])
         msg.pose.orientation.w = float(orientation[3])
         self.drone.pos_cmd_pub.publish(msg)
+
+    def publish_attitude_thrust(self, xyzw: np.ndarray, thrust_norm: float, now):
+        """Publish ENU/FLU attitude + normalized thrust. Interface converts to NED/FRD."""
+        msg = AttitudeThrust()
+        msg.header.stamp = now.to_msg()
+        msg.header.frame_id = 'map'
+        msg.attitude.x = float(xyzw[0])
+        msg.attitude.y = float(xyzw[1])
+        msg.attitude.z = float(xyzw[2])
+        msg.attitude.w = float(xyzw[3])
+        msg.thrust.z = float(thrust_norm)
+        self.drone.att_cmd_pub.publish(msg)
 
     # ------------------------------------------------------------------
     # Visualization
