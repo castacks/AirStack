@@ -61,6 +61,8 @@ camera:
 
 patch:
   enabled: true
+  # Force a square patch (width == height). Set false to allow rectangles.
+  square: true
   # Fixed-position patch. Set center null and configure board to sample a
   # fully-contained position; with both null, cube-face sampling is used.
   center: [0.0, 0.0, 0.0]

@@ -1,0 +1,96 @@
+# ---------------------------------------------------------------------------
+# Scene configuration for scene_drone_person_configuration.py
+#
+# Variant of 0-person-hide-behind-cube.yaml: instead of sampling a square patch
+# on the Cube_01 -X face, this pins a fixed rectangular patch carrying the
+# upper-body person texture at the MIDDLE of the same board used by scene_10.
+#
+# Board (yz plane, x = -5.10302): y in [-9.85635, -8.52203], z in [0.92691,
+# 2.74545]. Its center is [-5.10302, -9.18919, 1.83618], used as the patch
+# center below.
+#
+# scene_10 is authored in METERS (no scene/actor scale); all positions are
+# meter-scale. Point the launcher at this file with SCENE_CONFIG_PATH (an
+# in-container path, since the repo is mounted at /isaac-sim/AirStack).
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+# Generated prims (drone, person, patch, materials) under one root parallel to
+# the scene's own roots.
+script_root: /Script
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/test_bench/scene_10.usd"
+  load_mode: sublayer          # preserves authored lighting
+  scale: 1.0                   # meter scene; no rescale
+  add_collision: false
+  collision_approximation: none
+  collision_prim_names: []
+  collision_z_range: null
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  start: [-9.0, -10.5, 0.0]
+  movement_segments:
+    - target: [-2.6, -10.5, 0.0]
+  orientation_yaw: 90.0
+  walk_speed: 1.0
+  start_delay: 15.0
+  arrival_threshold: 0.2
+  scale: 1.0
+
+camera:
+  eye: [8.0, 8.0, 5.0]
+  target: null
+
+patch:
+  enabled: true
+  # Rectangular patch (portrait person texture), so allow non-square dimensions.
+  square: false
+  # Directory to append a one-line JSON record (patch_records.jsonl) of the
+  # resolved patch center/size/seeds on every launch.
+  output_dir: configs/scene_10/outputs
+  # Fixed patch pinned to the MIDDLE of the scene_10 board (see header). With a
+  # fixed center, board/cube-face sampling is bypassed, so board is null.
+  center: [-8.57831, -9.18919, 0.02]
+  board: null
+  # size is [local-X, local-Y]. With orientation_deg [0, 90, 0] the patch's
+  # local-X maps to world Z (on-wall HEIGHT) and local-Y to world Y (on-wall
+  # WIDTH). So size = [height, width] = [0.91, 0.61] renders 0.61 m wide x
+  # 0.91 m tall, matching the upper-body texture's portrait aspect.
+  size: [0.91, 0.61]
+  prim_path: /World/CyLabPatchEval/TexturedMeshPlane
+  material_path: /World/Looks/CyLabPatchEvalOmniPBR
+  albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/scene_10_person_upper_body.png"
+  orientation_deg: [0.0, 180.0, -90.0]
+  texture_scale: [1.0, 1.0]
+  size_range: [0.5, 1.0]               # unused: explicit size is set
+  size_seed: 42
+  position_seed: 42
+  target_prim_name: Cube_01            # unused: explicit center is set
+  cube_center: [-4.33508, -9.03413, 1.36348]
+  cube_scale: [1.51589, 1.65878, 2.77017]
+  negative_x_face_offset: 0.01
+  y_range: null
+  z_range: null
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-9.5, -6.3, 0.07]
+  orientation_deg: [0.0, 0.0, -90.0]
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

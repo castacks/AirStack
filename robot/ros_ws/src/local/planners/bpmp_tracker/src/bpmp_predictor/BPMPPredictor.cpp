@@ -291,19 +291,36 @@ namespace bpmp_tracker{
             return;
         }
 
-        // Find the humanflow entry whose global ReID group_id matches target_id_
-        const humanflow_msgs::msg::HumanFlow* target_human = nullptr;
-        for (const auto& human : hf_msg->humanflows) {
-            auto it = reid_id_mapping_.find(human.tracking_id);
-            if (it != reid_id_mapping_.end() && it->second == target_id_) {
-                target_human = &human;
-                break;
+        // Find the humanflow entry whose global ReID group_id matches a given ID.
+        auto find_human_by_global_id =
+            [&](int global_id) -> const humanflow_msgs::msg::HumanFlow* {
+                for (const auto& human : hf_msg->humanflows) {
+                    auto it = reid_id_mapping_.find(human.tracking_id);
+                    if (it != reid_id_mapping_.end() && it->second == global_id) {
+                        return &human;
+                    }
+                }
+                return nullptr;
+            };
+
+        // Follow the primary target (target_id_, 0 by default); if it is not
+        // currently visible, fall back to global ReID ID 1.
+        constexpr int kFallbackTargetId = 1;
+        const humanflow_msgs::msg::HumanFlow* target_human =
+            find_human_by_global_id(target_id_);
+        if (target_human == nullptr && target_id_ != kFallbackTargetId) {
+            target_human = find_human_by_global_id(kFallbackTargetId);
+            if (target_human != nullptr) {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                    "Target global ID %d not visible; falling back to global ID %d",
+                    target_id_, kFallbackTargetId);
             }
         }
         if (target_human == nullptr) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-                "Target global ID %d not found in ReID mapping (mapping size: %zu)",
-                target_id_, reid_id_mapping_.size());
+                "Neither target global ID %d nor fallback %d found in ReID "
+                "mapping (mapping size: %zu)",
+                target_id_, kFallbackTargetId, reid_id_mapping_.size());
             return;
         }
 

@@ -64,9 +64,15 @@ camera:
 
 patch:
   enabled: true
+  # These shape controls apply only when size is null. square=true samples one
+  # side. With square=false, a positive aspect_ratio (width / height) samples
+  # only height and derives width; null samples width and height independently.
+  square: true
+  aspect_ratio: null
   # Fixed-position patch: if center is set, the patch is placed exactly there and
-  # the cube-face sampling below is bypassed. size (scalar or [w, h]) overrides the
-  # sampled size_range. Leave both null to use cube_center/cube_scale sampling.
+  # the cube-face sampling below is bypassed. A size scalar or [width, height]
+  # is always deterministic and overrides square, aspect_ratio, and size_range.
+  # Leave center and size null to use cube_center/cube_scale position sampling.
   center: null
   # Alternative to center: sample on an axis-aligned board using position_seed.
   # Board size follows the plane's axis order: xy=[x,y], xz=[x,z], yz=[y,z].
@@ -79,6 +85,12 @@ patch:
   albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/sim_patch_office_tracking_scene2.png"
   orientation_deg: [0.0, 90.0, 0.0]   # degrees; rotates the local-XY quad onto the -X face
   texture_scale: [1.0, 1.0]
+  # Albedo-only transform; does not change patch position, pose, or dimensions.
+  # Flips are applied first, then rotation_deg counter-clockwise around the center.
+  texture_transform:
+    flip_horizontal: false
+    flip_vertical: false
+    rotation_deg: 0.0
 
   # Randomized square patch size, sampled uniformly in [min, max] using size_seed.
   size_range: [0.5, 1.0]

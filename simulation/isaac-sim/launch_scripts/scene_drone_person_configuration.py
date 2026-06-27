@@ -40,6 +40,8 @@ Streaming:
     Set ISAAC_SIM_HEADLESS=true to run headless with WebRTC streaming on port 49100.
 """
 
+import datetime
+import json
 import os
 import time
 
@@ -222,10 +224,14 @@ class SegmentedPersonController:
         self._pause_remaining = 0.0
 
 
-def sample_patch_size(patch_cfg):
-    """Sample a square patch size [w, h] uniformly from patch.size_range.
+def sample_patch_size(patch_cfg, square=True, aspect_ratio=None):
+    """Sample a patch size [w, h] uniformly from patch.size_range.
 
-    Seed is patch.size_seed, overridable by MESH_PLANE_SIZE_SEED.
+    When square is True a single side length is drawn and used for both width
+    and height. For a non-square patch with an aspect ratio, only height is
+    drawn and width is derived as height * aspect_ratio. Otherwise width and
+    height are drawn independently. Seed is patch.size_seed, overridable by
+    MESH_PLANE_SIZE_SEED.
     """
     size_seed = int(os.environ.get(
         "MESH_PLANE_SIZE_SEED",
@@ -237,23 +243,60 @@ def sample_patch_size(patch_cfg):
     min_size, max_size = [float(value) for value in size_range]
     if min_size <= 0.0 or max_size < min_size:
         raise RuntimeError("patch.size_range must satisfy 0 < min <= max.")
-    patch_size = float(np.random.default_rng(size_seed).uniform(min_size, max_size))
-    return [patch_size, patch_size]
+    rng = np.random.default_rng(size_seed)
+    if square:
+        side = float(rng.uniform(min_size, max_size))
+        return [side, side]
+    if aspect_ratio is not None:
+        height = float(rng.uniform(min_size, max_size))
+        return [height * aspect_ratio, height]
+    return [
+        float(rng.uniform(min_size, max_size)),
+        float(rng.uniform(min_size, max_size)),
+    ]
 
 
-def resolve_patch_size(patch_cfg):
-    """Return a fixed patch.size or sample a square from patch.size_range."""
+def resolve_patch_size(patch_cfg, square=True):
+    """Return a fixed patch.size or sample from patch.size_range.
+
+    An explicit size always wins and is returned deterministically. Otherwise,
+    square patches sample one side; non-square patches with aspect_ratio sample
+    height and derive width; and non-square patches without aspect_ratio sample
+    width and height independently. aspect_ratio is width / height.
+    """
     explicit_size = _get(patch_cfg, "size")
-    if explicit_size is None:
-        return sample_patch_size(patch_cfg), "sampled size_range"
-    size = (
-        [float(explicit_size), float(explicit_size)]
-        if np.isscalar(explicit_size)
-        else [float(value) for value in explicit_size]
-    )
-    if len(size) != 2 or any(value <= 0.0 for value in size):
-        raise RuntimeError("patch.size must be a positive scalar or [width, height].")
-    return size, "fixed size"
+    if explicit_size is not None:
+        size = (
+            [float(explicit_size), float(explicit_size)]
+            if np.isscalar(explicit_size)
+            else [float(value) for value in explicit_size]
+        )
+        if len(size) != 2 or any(value <= 0.0 for value in size):
+            raise RuntimeError(
+                "patch.size must be a positive scalar or [width, height]."
+            )
+        return size, "fixed size"
+
+    # A square request takes precedence over aspect_ratio for sampled sizes.
+    aspect_ratio = None if square else _get(patch_cfg, "aspect_ratio")
+    if aspect_ratio is not None:
+        try:
+            aspect_ratio = float(aspect_ratio)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "patch.aspect_ratio must be a positive finite width/height ratio."
+            ) from exc
+        if not np.isfinite(aspect_ratio) or aspect_ratio <= 0.0:
+            raise RuntimeError(
+                "patch.aspect_ratio must be a positive finite width/height ratio."
+            )
+
+    size = sample_patch_size(patch_cfg, square, aspect_ratio)
+    if square:
+        return size, "sampled square size_range"
+    if aspect_ratio is not None:
+        return size, f"sampled height with aspect_ratio={aspect_ratio}"
+    return size, "sampled width and height from size_range"
 
 
 def resolve_board_plane_orientation_degrees(board):
@@ -365,6 +408,39 @@ def sample_patch_center_on_board(patch_cfg, patch_size, orientation_deg):
     ])
     center = board_center + board_rotation @ local_center
     return center.tolist(), position_seed
+
+
+def resolve_explicit_center(explicit_center, patch_cfg):
+    """Resolve patch.center where any of x/y/z may be a [min, max] sample range.
+
+    A scalar component is used as-is; a two-element [min, max] component is
+    sampled uniformly with the patch position_seed RNG (components are drawn in
+    x, y, z order, so the placement is reproducible for a given seed). Returns
+    (center, position_seed).
+    """
+    if not isinstance(explicit_center, (list, tuple)) or len(explicit_center) != 3:
+        raise RuntimeError("patch.center must be [x, y, z].")
+    position_seed = int(os.environ.get(
+        "MESH_PLANE_POSITION_SEED",
+        str(_get(patch_cfg, "position_seed", 5678)),
+    ))
+    rng = np.random.default_rng(position_seed)
+    center = []
+    for axis, component in zip("xyz", explicit_center):
+        if isinstance(component, (list, tuple)):
+            if len(component) != 2:
+                raise RuntimeError(
+                    f"patch.center {axis} must be a scalar or a [min, max] range."
+                )
+            lo, hi = float(component[0]), float(component[1])
+            if hi < lo:
+                raise RuntimeError(
+                    f"patch.center {axis} range must have min <= max, got [{lo}, {hi}]."
+                )
+            center.append(float(rng.uniform(lo, hi)))
+        else:
+            center.append(float(component))
+    return center, position_seed
 
 
 def sample_patch_on_cube_negative_x_face(patch_cfg, size):
@@ -652,6 +728,88 @@ def sublayer_scene(stage, scene_usd_path):
     wait_for_stage_updates()
 
 
+def resolve_output_dir(output_dir):
+    """Expand output_dir; resolve relative paths against this script's directory."""
+    output_dir = os.path.expanduser(str(output_dir))
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), output_dir
+        )
+    return output_dir
+
+
+def record_patch_placement(output_dir, record):
+    """Append a one-line JSON record of the patch placement to output_dir.
+
+    Each launch adds a line to <output_dir>/patch_records.jsonl, preserving the
+    (possibly randomized) patch center/size/seeds used on every run. The dir is
+    created if missing.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    record_path = os.path.join(output_dir, "patch_records.jsonl")
+    with open(record_path, "a") as handle:
+        handle.write(json.dumps(record) + "\n")
+    carb.log_warn(f"Recorded patch placement to {record_path}: {record}")
+    return record_path
+
+
+def resolve_texture_transform(patch_cfg):
+    """Validate and normalize patch.texture_transform settings.
+
+    Flips are applied in texture space before a counter-clockwise rotation
+    about the texture center. Keeping this separate from the mesh transform
+    changes only the albedo orientation, not the patch pose or dimensions.
+    """
+    transform = _get(patch_cfg, "texture_transform", {})
+    if not isinstance(transform, dict):
+        raise RuntimeError("patch.texture_transform must be a mapping.")
+
+    flip_horizontal = _get(transform, "flip_horizontal", False)
+    flip_vertical = _get(transform, "flip_vertical", False)
+    if not isinstance(flip_horizontal, bool):
+        raise RuntimeError(
+            "patch.texture_transform.flip_horizontal must be true or false."
+        )
+    if not isinstance(flip_vertical, bool):
+        raise RuntimeError(
+            "patch.texture_transform.flip_vertical must be true or false."
+        )
+
+    try:
+        rotation_deg = float(_get(transform, "rotation_deg", 0.0))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "patch.texture_transform.rotation_deg must be a finite number."
+        ) from exc
+    if not np.isfinite(rotation_deg):
+        raise RuntimeError(
+            "patch.texture_transform.rotation_deg must be a finite number."
+        )
+
+    return {
+        "flip_horizontal": flip_horizontal,
+        "flip_vertical": flip_vertical,
+        "rotation_deg": rotation_deg,
+    }
+
+
+def transform_texture_uvs(uvs, texture_transform):
+    """Apply flips and center rotation to a sequence of [u, v] coordinates."""
+    transformed = np.asarray(uvs, dtype=float).copy()
+    if texture_transform["flip_horizontal"]:
+        transformed[:, 0] = 1.0 - transformed[:, 0]
+    if texture_transform["flip_vertical"]:
+        transformed[:, 1] = 1.0 - transformed[:, 1]
+
+    angle = np.deg2rad(texture_transform["rotation_deg"])
+    rotation = np.array([
+        [np.cos(angle), -np.sin(angle)],
+        [np.sin(angle), np.cos(angle)],
+    ])
+    transformed = (transformed - 0.5) @ rotation.T + 0.5
+    return [Gf.Vec2f(float(u), float(v)) for u, v in transformed]
+
+
 def create_textured_mesh_plane(
     stage,
     prim_path,
@@ -661,6 +819,7 @@ def create_textured_mesh_plane(
     size,
     albedo_path,
     texture_scale,
+    texture_transform,
 ):
     half_x = float(size[0]) * 0.5
     half_y = float(size[1]) * 0.5
@@ -701,14 +860,13 @@ def create_textured_mesh_plane(
     # local X (U) to world -Z and local Y (V) to world +Y, which renders the
     # image rotated 90 deg to the left. Assigning U along world -Y (screen
     # right) and V along world +Z (screen up) corrects the orientation.
-    st.Set(
-        [
-            Gf.Vec2f(1.0, 1.0),
-            Gf.Vec2f(1.0, 0.0),
-            Gf.Vec2f(0.0, 0.0),
-            Gf.Vec2f(0.0, 1.0),
-        ]
-    )
+    base_uvs = [
+        [1.0, 1.0],
+        [1.0, 0.0],
+        [0.0, 0.0],
+        [0.0, 1.0],
+    ]
+    st.Set(transform_texture_uvs(base_uvs, texture_transform))
     st.SetIndices([0, 1, 2, 3])
 
     material_kwargs = {
@@ -1064,6 +1222,7 @@ class ConfigurableTrackScene:
         else:
             orientation_deg = [0.0, 90.0, 0.0]
         texture_scale = _get(patch_cfg, "texture_scale", [1.0, 1.0])
+        texture_transform = resolve_texture_transform(patch_cfg)
         prim_path = self._rebase_generated_path(
             _get(patch_cfg, "prim_path", "/World/EvalPatch/TexturedMeshPlane")
         )
@@ -1071,18 +1230,19 @@ class ConfigurableTrackScene:
             _get(patch_cfg, "material_path", "/World/Looks/EvalPatchOmniPBR")
         )
 
-        size, size_source = resolve_patch_size(patch_cfg)
+        square = bool(_get(patch_cfg, "square", True))
+        size, size_source = resolve_patch_size(patch_cfg, square)
         explicit_center = _get(patch_cfg, "center")
         if explicit_center is not None and board is not None:
             raise RuntimeError("Set only one of patch.center or patch.board.")
         if explicit_center is not None:
-            if not isinstance(explicit_center, (list, tuple)) or len(explicit_center) != 3:
-                raise RuntimeError("patch.center must be [x, y, z].")
-            center = [float(v) for v in explicit_center]
+            center, position_seed = resolve_explicit_center(explicit_center, patch_cfg)
             carb.log_warn(
                 f"Creating mesh plane '{prim_path}' with OmniPBR albedo map: "
-                f"{albedo_path or '<none>'}; fixed center={center}, "
+                f"{albedo_path or '<none>'}; center={center} "
+                f"(from {explicit_center}, position_seed={position_seed}), "
                 f"orientation_deg={orientation_deg}, size={size} ({size_source})"
+                f", texture_transform={texture_transform}"
             )
         elif board is not None:
             center, position_seed = sample_patch_center_on_board(
@@ -1093,7 +1253,7 @@ class ConfigurableTrackScene:
                 f"{albedo_path or '<none>'}; sampled center={center} on "
                 f"board, "
                 f"position_seed={position_seed}, orientation_deg={orientation_deg}, "
-                f"size={size} ({size_source})"
+                f"size={size} ({size_source}), texture_transform={texture_transform}"
             )
         else:
             sample = sample_patch_on_cube_negative_x_face(patch_cfg, size)
@@ -1106,6 +1266,7 @@ class ConfigurableTrackScene:
                 f"bounds_min={sample['bounds_min']}, bounds_max={sample['bounds_max']}, "
                 f"center={center}, orientation_deg={orientation_deg}, "
                 f"size={size} ({size_source}), position_seed={sample['position_seed']}"
+                f", texture_transform={texture_transform}"
             )
         mesh_plane = create_textured_mesh_plane(
             self.stage,
@@ -1116,8 +1277,29 @@ class ConfigurableTrackScene:
             size,
             albedo_path,
             texture_scale,
+            texture_transform,
         )
         add_update_semantics(mesh_plane.GetPrim(), "patch_plane")
+
+        # One record per simulation: the patch's world coordinate and size,
+        # plus the scene / config that produced it. Configs may override the
+        # destination via patch.output_dir; otherwise records land in
+        # launch_scripts/records/patch_records.jsonl.
+        config_path = os.environ.get("SCENE_CONFIG_PATH", _DEFAULT_CONFIG_PATH)
+        record_patch_placement(
+            resolve_output_dir(_get(patch_cfg, "output_dir", "records")),
+            {
+                "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+                "scene": os.path.splitext(os.path.basename(self.scene_usd_path))[0]
+                if self.scene_usd_path else None,
+                "config_name": os.path.join(
+                    os.path.basename(os.path.dirname(config_path)),
+                    os.path.basename(config_path),
+                ),
+                "center": [float(v) for v in center],
+                "size": [float(v) for v in size],
+            },
+        )
 
     def _maybe_spawn_drone(
         self,

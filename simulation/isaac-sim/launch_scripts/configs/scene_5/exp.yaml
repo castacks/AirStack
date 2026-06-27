@@ -64,6 +64,8 @@ patch:
   # Set enabled: true and fill cube_center / cube_scale (and optionally
   # y_range / z_range) with values from scene_5.usd to place it.
   enabled: false
+  # Force a square patch (width == height). Set false to allow rectangles.
+  square: true
   # Set center for a fixed position, or board to sample a fully-contained position.
   center: null
   # Board fields: plane plus center+size or top_left+bottom_right.
