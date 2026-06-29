@@ -1,6 +1,6 @@
 # System Testing
 
-AirStack's system tests bring up the full Docker-based stack — simulator, robot containers, and GCS — and verify end-to-end behavior: container health, ROS 2 node presence, sensor publishing rates, and compute resource usage. Tests are written in Python with pytest and live under `tests/` at the repo root.
+AirStack's system tests bring up the full Docker-based stack — simulator, robot containers, and GCS — and verify end-to-end behavior: container health, ROS 2 node presence, sensor publishing rates (in the `sensors` mark), and compute resource usage. Tests are written in Python with pytest and live under `tests/` at the repo root.
 
 <iframe width="1120" height="630" src="https://www.youtube.com/embed/EzgGHnYDI_k?si=vpqER-TXud5XEMUX" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -12,12 +12,17 @@ AirStack's system tests bring up the full Docker-based stack — simulator, robo
 |--------|------|---------------|-------------------|
 | [`test_build_docker.py`](../../../../tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
 | [`test_build_packages.py`](../../../../tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
-| [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Full stack up: container health, tmux process liveness, sentinel ROS 2 nodes, sim topic publishing rates, compute usage, sustained stability | Docker daemon, GPU, sim license |
+| [`test_liveliness.py`](../../../../tests/test_liveliness.py) | `liveliness` | Stack bring-up: container Running state, ``/clock`` readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only ``test_stable`` (tmux + nodes + compute) | Docker daemon, GPU, sim license |
+| [`test_sensors.py`](../../../../tests/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
 | [`test_takeoff_hover_land.py`](../../../../tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`test_fixed_trajectory.py`](../../../../tests/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
 
 Marks can be combined with pytest logic:
-`-m "build_docker or build_packages"`, `-m liveliness`, `-m takeoff_hover_land`, `-m autonomy`.
+`-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+
+### Bring-up scope (`airstack_env`)
+
+`airstack_env` is **class-scoped** and parametrized per `(sim, num_robots, iteration)`. Each test **class** that uses it (`TestLiveliness`, `TestSensors`, `TestTakeoffHoverLand`, `TestFixedTrajectory`, …) performs its **own** ``airstack up`` / ``airstack down`` for that parametrization. Selecting both classes (for example, ``-m "liveliness or sensors"``) runs **two** full stack cycles per tuple (liveliness class, then sensors class). Collection order (see ``conftest.py``) runs **liveliness before sensors** when both are selected. To save wall time, run ``-m liveliness`` or ``-m sensors`` alone when one suite is enough.
 
 ---
 
@@ -31,8 +36,31 @@ Parametrized over `(sim, num_robots, iteration)` tuples derived from CLI flags. 
 
 1. Calls `airstack up` with the appropriate `COMPOSE_PROFILES`, `NUM_ROBOTS`, and headless flags
 2. Records `airstack_up_duration_s` to `metrics.json`
-3. Yields an `env` dict used by every `TestLiveliness` test
+3. Yields an `env` dict used by liveliness and sensor tests
 4. Tears down with `airstack down` and records `airstack_down_duration_s`
+
+### Isaac Sim and the `sensors` mark
+
+**LiDAR in pytest:** [`tests/conftest.py`](../../../../tests/conftest.py) sets
+`ENABLE_LIDAR=true` in `SIM_CONFIG["isaacsim"]["extra_env"]` so the multi-drone
+Pegasus script (`example_multi_px4_pegasus_launch_script.py`) attaches RTX LiDAR
+the same way the single-drone script always does. Without that flag the multi
+script would not spawn LiDAR OmniGraphs.
+
+**Topic checks** live in [`tests/sensor_probes.py`](../../../../tests/sensor_probes.py)
+and are driven by [`tests/test_sensors.py`](../../../../tests/test_sensors.py):
+
+| Path | What we measure | How |
+|------|-----------------|-----|
+| Sim → `/clock`, stereo images, stereo depth | Publish rate | ``ros2 topic hz`` on the sim container: ``/clock`` alone, then **chunks of two** ``image_rect`` topics, then **chunks of two** depth topics (``ISAACSIM_HZ_CHUNK_SIZE`` in ``sensor_probes.py``). |
+| Robot → same topic names (bridge) | Publish rate | Same **two-at-a-time** chunking on the robot container for Isaac. ms-airsim: one batch of four topics. |
+| Robot → filtered ``.../ouster/point_cloud`` | Stream alive | ``ros2 topic echo --once`` per robot (not Hz — large ``PointCloud2``). |
+| LiDAR geometry | Near-range vs ``near_range_m`` | ``lidar_point_cloud_filter/scripts/validate_lidar_filter_clouds.py`` (raw vs filtered). |
+
+Sim **RTF** (real-time factor from ``/clock``) is also in the `sensors` suite.
+**`test_sensor_streams_stable`** repeats sim + robot stereo + LiDAR probes every
+`--stable-interval` for `--stable-duration` and records time-series to
+`metrics.json` (stereo/depth as ``*.hz_samples``; LiDAR echo-once as ``*.received_samples``).
 
 ### `MetricsRecorder`
 
@@ -86,6 +114,14 @@ airstack test -m takeoff_hover_land \
   --takeoff-velocities 0.5,1,2 \
   -v
 
+# Sensor topic rates + LiDAR
+airstack test -m sensors \
+  --sim isaacsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --stable-duration 60 \
+  -v
+
 # Show GUI windows (for local visual inspection)
 airstack test -m liveliness --gui -v
 ```
@@ -96,7 +132,7 @@ can reach the host X server; it is a no-op when `DISPLAY` is not set.
 ### Prerequisites
 
 - Docker daemon running with your user in the `docker` group
-- NVIDIA drivers + `nvidia-container-toolkit` for liveliness/takeoff_hover_land tests
+- NVIDIA drivers + `nvidia-container-toolkit` for liveliness, sensors, takeoff_hover_land, and autonomy tests
 - `airstack setup` completed (adds `airstack` to `PATH`)
 
 ### Direct pytest (for development / debugging)
@@ -118,6 +154,13 @@ pytest tests/ -m liveliness \
   --stress-iterations 1 \
   --stable-duration 60 \
   -v
+
+# Sensor streams (after liveliness in default collection order)
+pytest tests/ -m sensors \
+  --sim isaacsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  -v
 ```
 
 ### CLI option reference
@@ -127,8 +170,8 @@ pytest tests/ -m liveliness \
 | `--sim` | `msairsim,isaacsim` | Comma-separated sim targets |
 | `--num-robots` | `1,3` | Comma-separated robot counts |
 | `--stress-iterations` | `3` | Up/down cycles per (sim, num_robots) config |
-| `--stable-duration` | `120` | Seconds `test_stable` polls for |
-| `--stable-interval` | `10` | Seconds between polls in `test_stable` |
+| `--stable-duration` | `120` | Seconds ``test_stable`` / ``test_sensor_streams_stable`` poll for |
+| `--stable-interval` | `10` | Seconds between polls in those stability tests |
 | `--gui` | off | Show simulator GUI (disables headless mode) |
 | `--takeoff-velocities` | `0.5,1,2` | Takeoff/land speeds in m/s |
 
@@ -305,7 +348,7 @@ Prints a side-by-side comparison. Exits **1** if any metric regresses beyond the
 The report has three sections per test module:
 
 - **Metrics** — flat table of scalar metrics (test name, metric key, value/baseline, change%)
-- **Sim publishing rates** — pivot table of topic Hz aggregates (mean, start_mean, end_mean, min, max)
+- **Sim publishing rates** — pivot table of topic Hz aggregates from the `sensors` mark (`mean`, `start_mean`, `end_mean`, `min`, `max`; sim + robot topics)
 - **Compute usage** — pivot table of CPU/memory/GPU metrics per container
 
 Regressions are flagged with :red_circle:, improvements with :green_circle:.

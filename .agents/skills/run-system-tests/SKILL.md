@@ -14,7 +14,7 @@ metadata:
 Use this skill when you need to:
 
 - Invoke the pytest system tests locally (via `airstack test`) or on CI (via `/pytest` PR comment or `workflow_dispatch`)
-- Diagnose a failing system test — interpret `results.xml`, per-test logs, and `metrics.json` from `tests/results/<timestamp>/`
+- Diagnose a failing system test — interpret `summary.txt`, `results.xml`, and `metrics.json` from `tests/results/<timestamp>/`
 - Compare metrics against a baseline run (`parse_metrics.py --baseline`) to confirm a regression or improvement
 - Add a new system test to `tests/`: pick the right mark, wire up `airstack_env` parametrization, and record metrics with `MetricsRecorder`
 
@@ -200,8 +200,12 @@ tests/results/2025-04-21_14-30-00/
 └── metrics.json       # Custom metrics keyed by test_node_id → metric_key
 ```
 
-Live output goes to the terminal during the run. Failed assertions include the
-tail of the last subprocess output inline — there is no `logs/` subdirectory.
+There is **no `logs/` subdirectory**. Live output streams to the terminal during
+the run (pytest `log_cli`), and each subprocess's combined stdout/stderr is held
+in memory so a failed assertion can include the tail of the last command's output
+inline. `summary.txt` is written once at session end by
+`run_summary.write_summary()`, so the key metrics land in one place without
+digging through raw output.
 
 ### `metrics.json` structure
 
@@ -317,7 +321,7 @@ Conventions:
 
 ### 6. Fixture extension
 
-If multiple tests need the same setup, add a fixture in `conftest.py` (not in your test file) so it's available repo-wide. Mirror the `airstack_env` pattern: yield a dict, narrate via `logger_to(log)`, record any setup/teardown timing as metrics.
+If multiple tests need the same setup, add a fixture in `conftest.py` (not in your test file) so it's available repo-wide. Mirror the `airstack_env` pattern: yield a dict, log progress via the shared `logger` (output streams to the terminal via `log_cli`), record any setup/teardown timing as metrics.
 
 ## Common Pitfalls
 
@@ -328,7 +332,7 @@ If multiple tests need the same setup, add a fixture in `conftest.py` (not in yo
 - **Not capturing metrics in a new test**. If a test fails silently (no metric recorded) the regression report has nothing to compare. Always record at least one scalar via `MetricsRecorder` so the test shows up in `metrics.json`.
 - **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim --num-robots 1,3` with `--stress-iterations 3` multiply stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating.
 - **Hardcoded container names**. Always use `find_container`, `get_robot_containers`, or `wait_for_container` — replica suffixes (`-1`, `-2`, `-3`) and compose project prefixes change.
-- **Asserting on stdout instead of using `read_log_tail`**. The conftest tees subprocess output to per-test log files; assertions should reference those logs (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
+- **Asserting on stdout instead of using `read_log_tail`**. The conftest captures each subprocess's combined stdout/stderr in memory; assertions should reference it via `read_log_tail()` (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
 - **Trying to SSH into a CI runner mid-job**. Workers are ephemeral OpenStack VMs destroyed within ~30s of job completion. Re-running the job creates a fresh VM. For genuine debugging on the runner, see `.github/orchestrator/README.md` (also exposed at `tests/ci-cd-orchestrator.md`) — but in 99% of cases, reproduce locally with `airstack test`.
 - **Forgetting to register a new mark**. Adding `@pytest.mark.my_new_mark` without updating `tests/pytest.ini` produces "PytestUnknownMarkWarning" and makes `-m my_new_mark` fail to filter as expected.
 
