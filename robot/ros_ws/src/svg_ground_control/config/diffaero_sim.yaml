@@ -24,7 +24,7 @@ diffaero_commander:
     # NUM_ROBOTS=1: drone_1 spawns at x=0, so offset=0 (raw odom == world frame).
     drone_position_offset: [0.0, 0.0, 0.0]
     hover_positions: [0.0, 0.0, 1.2]
-    goal_position: [-2.0, 2.0, 1.2]
+    goal_position: [2.0, -2.0, 1.2]
 
     control_rate_hz: 30.0
     hover_kp: 1.0

@@ -1,0 +1,71 @@
+# DiffAero velocity-command commander — single-drone simulation configuration.
+#
+# Sibling of diffaero_sim.yaml, but for a policy exported with
+# dynamics=velocity_pointmass (action_is_velocity=true). The policy emits a
+# world-ENU velocity setpoint; the commander rotates it into the MAVROS body
+# frame in sim and runs a yaw-rate P-controller (yaw follows travel direction).
+#
+# Isaac Sim: spawn with NUM_ROBOTS=1 (drone_1 spawns at x=0, offset=0).
+# MAVROS interface: ./src/svg_ground_control/scripts/launch_sim_interfaces.sh 1
+#
+# Launch:
+#   ros2 launch svg_ground_control diffaero_velocity_single.launch.py
+#
+# Fly:
+#   ros2 service call /diffaero_velocity_commander/takeoff std_srvs/srv/Trigger
+#   ros2 service call /diffaero_velocity_commander/start   std_srvs/srv/Trigger
+#   ros2 service call /diffaero_velocity_commander/land    std_srvs/srv/Trigger
+
+diffaero_velocity_commander:
+  ros__parameters:
+    drone_name: "drone_1"
+    drone_mode: "sim"
+
+    scenario: "hover"
+    scenario_speed_mps: 0.6
+    # Arena: region the scenario samples/clamps targets within. Contains the
+    # start (0,0) and goal (-3,-3) with margin; sits inside the fence.
+    arena_low: [-4.0, -4.0, 0.8]
+    arena_high: [4.0, 4.0, 2.5]
+
+    # NUM_ROBOTS=1: drone_1 spawns at x=0, so offset=0 (raw odom == world frame).
+    drone_position_offset: [0.0, 0.0, 0.0]
+    hover_positions: [0.0, 0.0, 1.2]
+    goal_position: [3.0, 3.0, 1.2]
+
+    control_rate_hz: 30.0
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+
+    # Fence: hard safety box (breach -> latched HOLD). Sits outside the arena so
+    # the goal (-3,-3) has ~2 m of overshoot margin before a breach.
+    fence_enabled: true
+    fence_min: [-5.0, -5.0, 0.0]
+    fence_max: [5.0, 5.0, 3.0]
+
+    checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_vel_cmd_oa/"
+
+    # target_vel = (goal - pos) saturated to max_vel. Training sampled [3, 6] m/s
+    # — too fast for a short indoor hop. Keep low for tame flights; raise toward
+    # 3+ only once behavior is smooth.
+    max_vel: 1.5
+    # Actor velocity-action limits. Leave at -1 to fall back to the limits baked
+    # into the checkpoint (max_vel.xy/z defaults). Set explicitly to cap how fast
+    # the policy is allowed to command (e.g. max_vel_xy: 1.5).
+    # Max velocity outputs
+    max_vel_xy: 1.0
+    max_vel_z: 0.5
+    vel_ema_factor: -1.0   # -1 -> training default (0.1)
+
+    # Yaw follows travel direction via a yaw-rate P-controller.
+    yaw_kp: 1.5
+    yaw_rate_max: 1.5
+
+    # FACE_GOAL turn-in: slew the commanded heading at this rate (rad/s) so the
+    # drone rotates smoothly toward the goal instead of snapping. Lower = slower.
+    face_goal_yaw_rate_max: 0.8
+
+    # Switch from the cruise policy to a stable pose-hold this far from the goal.
+    goal_arrival_threshold_m: 0.4

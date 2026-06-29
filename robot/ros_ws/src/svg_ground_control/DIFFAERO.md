@@ -244,29 +244,120 @@ a modest `max_vel`, (3) tame the launch with `max_acc_xy`, (4) widen
 
 ## 10. Running and verifying
 
-```bash
-# build
-docker exec airstack-robot-desktop-1 bash -c "bws --packages-select svg_ground_control"
+### 10.0 Full command sequence (sim) — containers → service calls
 
-# launch (sim default)
+The pieces run in **separate terminals**: (A) Isaac Sim container, (B) the MAVROS
+interface stack, (C) the commander, (D) the operator service calls. Terminals
+B–D all run **inside the robot container** (via `./airstack.sh connect robot
+--command=bash`). The interface script and the Isaac Sim launch script are a
+matched pair (PX4 SITL ports / sysids), so start the sim first.
+
+`.env` before you begin:
+```
+COMPOSE_PROFILES="desktop,isaac-sim"
+AUTOLAUNCH="false"
+NUM_ROBOTS="1"
+```
+
+**Terminal A — Isaac Sim (fresh terminal, host):**
+```bash
+cd ~/AirStack && ./airstack.sh up
+./airstack.sh status        # robot-desktop-1 and isaac-sim Up
+./airstack.sh connect isaac-sim --command=bash
+```
+Inside the isaac-sim container (`PLAY_SIM_ON_START=true` REQUIRED):
+```bash
+NUM_ROBOTS=1 SVG_DOMAIN_ID=1 PLAY_SIM_ON_START=true ISAAC_SIM_HEADLESS=true \
+PYTHONPATH="$ISAAC_SIM_PYTHONPATH" \
+/isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/svg_multi_drone_single_domain.py \
+  --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts
+```
+Wait for `Spawning 1 drone(s) on ROS domain 1` and `PX4 Autolaunch: True` before
+proceeding.
+
+**Terminal B — MAVROS interface (fresh terminal, host):**
+```bash
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
+echo $ROS_DOMAIN_ID                       # 1
+cd ~/AirStack/robot/ros_ws && bws && sws  # bws first time / after edits
+./src/svg_ground_control/scripts/launch_sim_interfaces.sh 1
+```
+Verify (another shell): `ros2 topic echo /drone_1/interface/mavros/state --once`
+→ `connected: true`, then `ros2 topic hz /drone_1/odometry_conversion/odometry`
+(~30 Hz after EKF converges, ~30 s).
+
+**Terminal C — DiffAero commander (fresh terminal) — pick ONE:**
+```bash
+cd ~/AirStack/robot/ros_ws && sws
+```
+Attitude+thrust policy (`config/diffaero_sim.yaml`):
+```bash
 ros2 launch svg_ground_control diffaero_single.launch.py
 #   override scenario:    scenario:=goal
 #   hardware:             config:=<share>/config/diffaero_real.yaml use_mocap:=true
+```
+Velocity-command policy (`config/diffaero_vel_sim.yaml`):
+```bash
+ros2 launch svg_ground_control diffaero_velocity_single.launch.py
+#   override scenario:    scenario:=goal
+```
+Watch for `DiffAero … policy loaded from …` and `… policy warmed up` at startup.
 
-# fly
-ros2 service call /diffaero_commander/takeoff std_srvs/srv/Trigger
-ros2 service call /diffaero_commander/start   std_srvs/srv/Trigger
-ros2 service call /diffaero_commander/land    std_srvs/srv/Trigger
+**Terminal D — fly (fresh terminal):**
+```bash
+cd ~/AirStack/robot/ros_ws && sws
+```
+Attitude commander (`/diffaero_commander/*`):
+```bash
+ros2 service call /diffaero_commander/takeoff std_srvs/srv/Trigger   # arm+ascend+face goal+hold
+ros2 service call /diffaero_commander/start   std_srvs/srv/Trigger   # cruise to goal, auto-hold on arrival
+ros2 service call /diffaero_commander/hold    std_srvs/srv/Trigger   # PANIC freeze
+ros2 service call /diffaero_commander/land    std_srvs/srv/Trigger   # descend+disarm
+```
+Velocity commander (`/diffaero_velocity_commander/*`):
+```bash
+ros2 service call /diffaero_velocity_commander/takeoff std_srvs/srv/Trigger
+ros2 service call /diffaero_velocity_commander/start   std_srvs/srv/Trigger
+ros2 service call /diffaero_velocity_commander/hold    std_srvs/srv/Trigger
+ros2 service call /diffaero_velocity_commander/land    std_srvs/srv/Trigger
 ```
 
-**Sanity checks**
+> **Sequencing:** `takeoff` → drone ascends, yaws to face the goal, logs
+> `… → ACTIVE` and holds → `start` (begins cruising to `goal_position`) → on
+> arrival it auto-holds at the goal (§6a) → `land`. `start` is rejected until the
+> drone is holding in `ACTIVE`, and is blocked while a geofence breach is latched.
+
+**Terminal E — fake ToF publisher (fresh terminal, optional):**
+
+The policy expects a `9×16` all-clear grid on `/{name}/perception/tof`. Nothing
+publishes it in this repo, so the commander substitutes zeros automatically after
+`tof_timeout_s` — but publishing explicitly keeps `tof_fresh=True` in the log
+and avoids the per-tick warning. Must be running before `start`.
+
+```bash
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
+ros2 topic pub --rate 10 /drone_1/perception/tof std_msgs/msg/Float32MultiArray \
+  "{data: [$(python3 -c 'print(",".join(["0.0"]*144))')]}"
+```
+Confirm: `ros2 topic hz /drone_1/perception/tof` → ~10 Hz.
+
+**Terminal F — RViz (fresh terminal, optional):**
+
+```bash
+cd ~/AirStack && ./airstack.sh connect robot --command=bash
+rviz2 -d $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/svg_drones.rviz
+```
+Fixed Frame = `map`; shows the drone sphere (cyan in sim, red on hardware),
+heading arrow, goal point, and the geofence box (green normally, red when
+latched). If starting bare: Add → By topic → `/svg/viz/markers`.
+
+**Sanity checks** (any shell in the robot container):
 
 - **Velocity frame (§3a):** with the drone yawed and drifting toward world `+x`,
   the policy log's `vel=[...]` must read mostly `+x`. If its sign is opposite to
   the actual motion, the twist is body-frame and the §3a rotation is missing.
   ```bash
-  docker exec airstack-robot-desktop-1 bash -c \
-    "ros2 topic echo /drone_1/odometry_conversion/odometry --field twist.twist.linear --once"
+  ros2 topic echo /drone_1/odometry_conversion/odometry --field twist.twist.linear --once
   ```
 - **Warm-up (§7):** expect `DiffAero policy warmed up` at startup and **no**
   `odometry stale / interrupted` line right at handoff.
