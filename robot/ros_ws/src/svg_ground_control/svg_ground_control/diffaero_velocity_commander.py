@@ -43,6 +43,7 @@ from rclpy.duration import Duration
 
 from geometry_msgs.msg import Point, PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Image
 from std_msgs.msg import ColorRGBA, Float32, Float32MultiArray
 from std_srvs.srv import Trigger
 from visualization_msgs.msg import Marker, MarkerArray
@@ -88,6 +89,7 @@ class DroneHandle:
         self.arming_steps_done = set()
         self.cmd_pub = None               # velocity publisher (policy + landing)
         self.pos_cmd_pub = None           # position publisher (ascend / hold / fallback)
+        self.vel_cmd_enu = None           # latest world-ENU velocity command, for viz (None when pose-commanding)
         self.robot_command_client = None
         self.tof: np.ndarray | None = None        # latest 9×16 pre-encoded perception
         self.last_tof_time = None
@@ -137,6 +139,8 @@ class DiffAeroVelocityCommander(Node):
 
         self.declare_parameter('tof_topic_template',
                                '/{name}/perception/tof')
+        self.declare_parameter('tof_image_topic_template',
+                               '/svg/{name}/tof_image')
 
         self.declare_parameter('checkpoint_path', '')
         # Velocity-policy action limits + target-vel saturation. Leave at -1 to
@@ -153,6 +157,9 @@ class DiffAeroVelocityCommander(Node):
 
         self.declare_parameter('publish_viz', True)
         self.declare_parameter('viz_frame', 'map')
+        # Velocity-command arrow length = vel_cmd (m/s) * this (s). 0.5 => the
+        # arrow tip shows where the command would carry the drone in 0.5 s.
+        self.declare_parameter('vel_arrow_scale_s', 0.5)
 
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('state_timeout_s', 0.5)
@@ -237,6 +244,7 @@ class DiffAeroVelocityCommander(Node):
         goal_tmpl = str(self.get_parameter('goal_command_topic_template').value)
         speed_tmpl = str(self.get_parameter('speed_command_topic_template').value)
         tof_tmpl = str(self.get_parameter('tof_topic_template').value)
+        tof_image_tmpl = str(self.get_parameter('tof_image_topic_template').value)
 
         self.tof_timeout = float(self.get_parameter('tof_timeout_s').value)
 
@@ -322,8 +330,15 @@ class DiffAeroVelocityCommander(Node):
         # ---- Visualization ----------------------------------------------
         self.publish_viz = bool(self.get_parameter('publish_viz').value)
         self.viz_frame = str(self.get_parameter('viz_frame').value)
+        self.vel_arrow_scale = float(self.get_parameter('vel_arrow_scale_s').value)
         self.viz_pub = (self.create_publisher(MarkerArray, '/svg/viz/markers', 10)
                         if self.publish_viz else None)
+        # ToF debug image — the 9×16 perception grid republished as a colormapped
+        # sensor_msgs/Image (red=near obstacle, green=clear) for an RViz/Foxglove
+        # Image panel. Float32MultiArray has no native image display.
+        self.tof_image_pub = (
+            self.create_publisher(Image, tof_image_tmpl.format(name=name), 10)
+            if self.publish_viz else None)
 
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
@@ -361,8 +376,32 @@ class DiffAeroVelocityCommander(Node):
     def tof_callback(self, msg: Float32MultiArray):
         dims = [d.size for d in msg.layout.dim]
         h, w = dims if len(dims) == 2 else (9, 16)
-        self.drone.tof = np.array(msg.data, dtype=np.float32).reshape(h, w)
+        grid = np.array(msg.data, dtype=np.float32).reshape(h, w)
+        self.drone.tof = grid
         self.drone.last_tof_time = self.get_clock().now()
+        self.publish_tof_image(grid)
+
+    def publish_tof_image(self, grid: np.ndarray):
+        """Republish the encoded ToF grid as a colormapped Image for an Image
+        panel. Grid values are ``1 - r/max_dist`` (1=obstacle at lens, 0=clear),
+        mapped to red=near → green=clear."""
+        if self.tof_image_pub is None:
+            return
+        g = np.clip(grid, 0.0, 1.0)
+        h, w = g.shape
+        rgb = np.zeros((h, w, 3), dtype=np.uint8)
+        rgb[..., 0] = (g * 255.0).astype(np.uint8)          # red  = closeness
+        rgb[..., 1] = ((1.0 - g) * 255.0).astype(np.uint8)  # green = clearance
+        img = Image()
+        img.header.stamp = self.get_clock().now().to_msg()
+        img.header.frame_id = self.viz_frame
+        img.height = h
+        img.width = w
+        img.encoding = 'rgb8'
+        img.is_bigendian = 0
+        img.step = w * 3
+        img.data = rgb.tobytes()
+        self.tof_image_pub.publish(img)
 
     def goal_callback(self, msg: PoseStamped):
         if hasattr(self.scenario, 'set_goal'):
@@ -689,6 +728,10 @@ class DiffAeroVelocityCommander(Node):
         The real px4 interface consumes world ENU directly, so it is published
         unchanged. ``yaw_rate`` is frame-agnostic (ENU CCW+) for both interfaces.
         """
+        # Stash the world-ENU command for visualization (publish_markers draws
+        # the arrow in viz_frame, which is world-ENU like everything else here).
+        self.drone.vel_cmd_enu = np.array(velocity_enu, dtype=float)
+
         if self.drone_mode == 'sim':
             v_out = self._world_to_body(velocity_enu, self.drone.orientation)
         else:
@@ -716,6 +759,8 @@ class DiffAeroVelocityCommander(Node):
         return np.array([vx, vy, velocity_enu[2]])
 
     def publish_pose(self, position: np.ndarray, orientation: np.ndarray, now):
+        # Pose-hold means no active velocity command — drop the viz arrow.
+        self.drone.vel_cmd_enu = None
         msg = PoseStamped()
         msg.header.stamp = now.to_msg()
         msg.header.frame_id = 'map'
@@ -799,6 +844,32 @@ class DiffAeroVelocityCommander(Node):
         arrow.scale.z = 0.1    # head length
         arrow.color = ColorRGBA(r=1.0, g=1.0, b=0.0, a=1.0)
         arr.markers.append(arrow)
+
+        # Velocity-command arrow (world-ENU). Drawn from the drone toward where
+        # the command would carry it in vel_arrow_scale seconds. Cleared (DELETE)
+        # whenever we're pose-commanding instead of velocity-commanding.
+        vel_arrow = Marker()
+        vel_arrow.header.frame_id = self.viz_frame
+        vel_arrow.header.stamp = stamp
+        vel_arrow.ns = 'vel_cmd'
+        vel_arrow.id = 5
+        vel_arrow.type = Marker.ARROW
+        if d.vel_cmd_enu is None:
+            vel_arrow.action = Marker.DELETE
+        else:
+            vel_arrow.action = Marker.ADD
+            tip = d.position + self.vel_arrow_scale * d.vel_cmd_enu
+            vel_arrow.points.append(Point(x=float(d.position[0]),
+                                          y=float(d.position[1]),
+                                          z=float(d.position[2])))
+            vel_arrow.points.append(Point(x=float(tip[0]),
+                                          y=float(tip[1]),
+                                          z=float(tip[2])))
+            vel_arrow.scale.x = 0.05   # shaft diameter
+            vel_arrow.scale.y = 0.1    # head diameter
+            vel_arrow.scale.z = 0.15   # head length
+            vel_arrow.color = ColorRGBA(r=1.0, g=0.4, b=0.0, a=1.0)
+        arr.markers.append(vel_arrow)
 
         goal_marker = Marker()
         goal_marker.header.frame_id = self.viz_frame

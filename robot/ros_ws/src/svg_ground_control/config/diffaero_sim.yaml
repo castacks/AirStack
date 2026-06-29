@@ -23,8 +23,8 @@ diffaero_commander:
 
     # NUM_ROBOTS=1: drone_1 spawns at x=0, so offset=0 (raw odom == world frame).
     drone_position_offset: [0.0, 0.0, 0.0]
-    hover_positions: [0.0, 0.0, 1.2]
-    goal_position: [2.0, -2.0, 1.2]
+    hover_positions: [0.0, 0.0, 0.3]
+    goal_position: [-2.0, -2.0, 2.0]
 
     control_rate_hz: 30.0
     hover_kp: 1.0
@@ -47,7 +47,7 @@ diffaero_commander:
     # max tilt ≈ atan(max_acc_xy / g). 6.0 → ~31° (vs ~64° at the 20.0 default).
     # NOTE: this deviates from the action limits the policy was exported with,
     # so tracking may be slightly off — raise back toward 20 if it feels sluggish.
-    max_acc_xy: 6.0
+    max_acc_xy: 3.0
     # Switch from the cruise policy to a stable pose-hold this far from the goal.
     goal_arrival_threshold_m: 0.4
 
