@@ -149,6 +149,7 @@ function print_command_help {
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
             echo "  --no-config   Skip configuration tasks (Isaac Sim, Nucleus, Git hooks)"
+            echo "  --no-natnet   Skip NatNet SDK installation for OptiTrack motion capture support"
             echo ""
             echo "This command adds an 'airstack' function to your shell profile that will"
             echo "automatically find and use the airstack.sh script from the current directory"
@@ -235,10 +236,11 @@ function print_command_help {
             echo "Results are written to tests/results/<timestamp>/."
             echo ""
             echo "Test marks (-m):"
+            echo "  unit            Fast hermetic tests (robot/sim mirrored layout; no Docker stack)"
             echo "  build_docker    Docker image build tests (no GPU needed)"
             echo "  build_packages  colcon workspace build tests (no GPU needed)"
             echo "  liveliness      Full stack up: nodes, topics, compute, stability"
-            echo "  autonomy        Takeoff / hover / land flight chain"
+            echo "  takeoff_hover_land  Takeoff / hover / land flight chain"
             echo ""
             echo "AirStack-specific options:"
             echo "  --sim=TARGETS              Comma-separated sim targets"
@@ -618,18 +620,33 @@ function cmd_install {
     log_info "Installation complete!"
 }
 
+function cmd_setup_natnet_sdk {
+    local sdk_script="$PROJECT_ROOT/robot/ros_ws/src/perception/natnet_ros2/scripts/download-natnet-sdk.sh"
+
+    if [ ! -f "$sdk_script" ]; then
+        log_warn "NatNet SDK installer not found at $sdk_script"
+        return 0
+    fi
+
+    log_info "Checking NatNet SDK installation..."
+    bash "$sdk_script"
+}
+
 function cmd_setup {
     log_info "Setting up AirStack environment..."
     
     # Check for --no-shell flag
     local modify_shell=true
     local skip_config=false
+    local skip_natnet=false # initially set to false so that the --no-natnet flag can determine whether to skip the NatNet SDK installation
     
     for arg in "$@"; do
         if [ "$arg" == "--no-shell" ]; then
             modify_shell=false
         elif [ "$arg" == "--no-config" ]; then
             skip_config=true
+        elif [ "$arg" == "--no-natnet" ]; then
+            skip_natnet=true
         fi
     done
     
@@ -694,6 +711,15 @@ function cmd_setup {
         fi
     fi
     
+    # Install NatNet SDK unless explicitly skipped.
+    if [ "$skip_natnet" = false ]; then
+        if declare -f "cmd_setup_natnet_sdk" > /dev/null; then
+            cmd_setup_natnet_sdk
+        else
+            log_warn "NatNet SDK setup helper not loaded. Skipping NatNet SDK installation."
+        fi
+    fi
+
     # Run configuration tasks if not skipped
     if [ "$skip_config" = false ]; then
         # Check if the config module is available
@@ -769,6 +795,35 @@ function classify_compose_args {
     done
 }
 
+# robot-l4t uses Dockerfile.robot with BASE_IMAGE=robot-l4t-stack-base. Compose v2+ may schedule
+# service builds in parallel, so BUILD FROM that tag can race before stack-base finishes. Ensure
+# the intermediary image exists first (still requires --profile l4t like the robot-l4t build).
+function ensure_robot_l4t_stack_base() {
+    local -n _ga="$1"
+    local -n _sc="$2"
+    local wants_l4t=false
+    local has_stack=false
+    for arg in "${_sc[@]}"; do
+        if [[ "$arg" == robot-l4t ]]; then
+            wants_l4t=true
+        fi
+        if [[ "$arg" == robot-l4t-stack-base ]]; then
+            has_stack=true
+        fi
+    done
+    if [[ "$wants_l4t" != true ]] || [[ "$has_stack" == true ]]; then
+        return 0
+    fi
+    log_info "Building robot-l4t-stack-base before robot-l4t..."
+    local build_opts=()
+    for arg in "${_sc[@]}"; do
+        if [[ "$arg" == -* ]]; then
+            build_opts+=("$arg")
+        fi
+    done
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_ga[@]}" build "${build_opts[@]}" robot-l4t-stack-base
+}
+
 function cmd_up {
     check_docker
 
@@ -812,6 +867,13 @@ function cmd_image_build {
     local global_args=()
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "$@"
+    # Jetson only: building robot-l4t needs robot-l4t-stack-base first
+    for arg in "${subcmd_args[@]}"; do
+        if [[ "$arg" == robot-l4t ]]; then
+            ensure_robot_l4t_stack_base global_args subcmd_args
+            break
+        fi
+    done
 
     # Registry-cache mode (CI / opt-in): pre-pull existing images to seed the
     # local cache, build with BUILDKIT_INLINE_CACHE=1 so the resulting image

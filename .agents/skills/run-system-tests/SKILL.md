@@ -1,6 +1,6 @@
 ---
 name: run-system-tests
-description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land), trigger runs via /pytest PR comments, and read metrics.json regression reports. Use for invoking tests, debugging failures from results.xml/metrics.json, or adding a new system test.
+description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land, autonomy), trigger runs via /pytest PR comments, and read metrics.json regression reports. Use for invoking tests, debugging failures from results.xml/metrics.json, or adding a new system test.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -22,15 +22,40 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 
 ## Test Suite Overview
 
-The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`. Marks include `build_docker`, `build_packages`, `liveliness`, `sensors`, and `takeoff_hover_land`:
+The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`.
+
+- **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`.
+- **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`). These are **thin proxy files** that re-export tests from each ROS 2 package's own `test/` directory (co-located with the source, the ROS 2 / colcon convention). The proxy pattern keeps test source next to the code it tests while making tests discoverable by `pytest tests/`.
+
+### Unit tests vs system tests
+
+| Concern | Unit (`-m unit`) | System (`-m liveliness` etc.) |
+|---|---|---|
+| Hardware required | None — pure Python | Docker daemon, NVIDIA GPU, sim license |
+| CI workflow | `system-tests.yml` (included in `pytest tests/`) | `system-tests.yml` (GPU OpenStack VM) |
+| Trigger | Every push + PR (automatic) | PR opened, `/pytest` comment, `workflow_dispatch` |
+| Source location | `<pkg>/test/test_*.py` (proxied via `tests/robot/`) | `tests/system/` |
+| How to add | See `add-unit-tests` skill | See *Adding a New System Test* below |
+
+Run unit tests without any Docker stack:
+
+```bash
+airstack test -m unit -v
+# or
+pytest tests/ -m unit -v   # AIRSTACK_ROOT=$(pwd) for direct pytest
+```
+
+For details on the proxy pattern and adding new unit tests, see the
+`add-unit-tests` skill.
 
 | File | Mark | What it tests | Hardware required |
 |------|------|---------------|-------------------|
-| `tests/test_build_docker.py` | `build_docker` | `airstack image-build` for `robot-desktop`, `gcs`, `isaac-sim`, `ms-airsim`; records image size to `metrics.json` | Docker daemon |
-| `tests/test_build_packages.py` | `build_packages` | `colcon build` (`bws`) inside the robot, GCS, and ms-airsim ROS workspaces — brought up with `AUTOLAUNCH=false` | Docker daemon |
-| `tests/test_liveliness.py` | `liveliness` | Stack bring-up: containers Running, `/clock` readiness, tmux panes, sentinel ROS 2 nodes, compute, infra-only `test_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
-| `tests/test_sensors.py` | `sensors` | Topic Hz (Isaac: batched on sim + robot; LiDAR `echo-once` + cloud sanity), RTF, `test_sensor_streams_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
-| `tests/test_takeoff_hover_land.py` | `takeoff_hover_land` | 4-phase flight chain per `(sim, num_robots, iteration, velocity)`: `test_px4_ready` → `test_takeoff` → `test_hover` → `test_landing`. Records altitude error, overshoot, hover stability, landing accuracy, odometry drift | Docker daemon, NVIDIA GPU, sim license |
+| `tests/system/test_build_docker.py` | `build_docker` | `airstack image-build` for `robot-desktop`, `gcs`, `isaac-sim`, `ms-airsim`; records image size to `metrics.json` | Docker daemon |
+| `tests/system/test_build_packages.py` | `build_packages` | `colcon build` (`bws`) inside the robot, GCS, and ms-airsim ROS workspaces — brought up with `AUTOLAUNCH=false` | Docker daemon |
+| `tests/system/test_liveliness.py` | `liveliness` | Stack bring-up: containers Running, `/clock` readiness, tmux panes, sentinel ROS 2 nodes, compute, infra-only `test_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
+| `tests/system/test_sensors.py` | `sensors` | Topic Hz (Isaac: batched on sim + robot; LiDAR `echo-once` + cloud sanity), RTF, `test_sensor_streams_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
+| `tests/system/test_takeoff_hover_land.py` | `takeoff_hover_land` | 4-phase flight chain per `(sim, num_robots, iteration, velocity)`: `test_px4_ready` → `test_takeoff` → `test_hover` → `test_landing`. Records altitude error, overshoot, hover stability, landing accuracy, odometry drift | Docker daemon, NVIDIA GPU, sim license |
+| `tests/system/test_fixed_trajectory.py` | `autonomy` | 4-phase flight chain per `(sim, num_robots, iteration, trajectory_type)`: `test_px4_ready` → `test_takeoff` → `test_fixed_trajectory` → `test_landing`. Records cross-track error, path RMSE, trajectory success/time for Circle/Figure8/Racetrack/Line | Docker daemon, NVIDIA GPU, sim license |
 
 The marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc** — register any new mark there or pytest will warn about unknown marks.
 
@@ -39,10 +64,10 @@ The marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc**
 `conftest.py` enforces a deterministic global order so cheap-and-fast-failing tests surface first:
 
 ```
-test_build_docker → test_build_packages → test_liveliness → test_sensors → test_takeoff_hover_land
+system.test_build_docker → system.test_build_packages → system.test_liveliness → system.test_sensors → system.test_takeoff_hover_land → system.test_fixed_trajectory
 ```
 
-Within `test_takeoff_hover_land`, items are re-sorted to `(airstack_env, velocity, phase)` so each `(sim, robots, iter)` env brings the stack up once and the drone goes ground → air → ground per velocity before pytest moves to the next velocity.
+Within `system.test_takeoff_hover_land`, items are re-sorted to `(airstack_env, velocity, phase)` so each `(sim, robots, iter)` env brings the stack up once and the drone goes ground → air → ground per velocity before pytest moves to the next velocity. `system.test_fixed_trajectory` is re-sorted the same way by `(airstack_env, trajectory_type, phase)`.
 
 ### Isaac Sim (`sensors`): why Hz is batched and LiDAR uses `echo --once`
 
@@ -134,10 +159,10 @@ The `airstack_env` fixture is parametrized over `(sim, num_robots, iteration)` t
 | `--sim` | `msairsim,isaacsim` | `airstack_env` | One env-tuple per sim |
 | `--num-robots` | `1,3` | `airstack_env` | Cross-product with sim |
 | `--stress-iterations` | `1` | `airstack_env` | Up/down cycles per `(sim, num_robots)` |
-| `--stable-duration` | `120` | `test_liveliness::test_stable` and `test_sensors::test_sensor_streams_stable` | Total seconds polled |
-| `--stable-interval` | `10` | `test_liveliness::test_stable` and `test_sensors::test_sensor_streams_stable` | Seconds between polls |
+| `--stable-duration` | `120` | `system.test_liveliness::test_stable` and `system.test_sensors::test_sensor_streams_stable` | Total seconds polled |
+| `--stable-interval` | `10` | `system.test_liveliness::test_stable` and `system.test_sensors::test_sensor_streams_stable` | Seconds between polls |
 | `--gui` | off (headless) | `airstack_env` | Sets `QT_QPA_PLATFORM=offscreen` when off |
-| `--takeoff-velocities` | `0.5` (current default) | `test_takeoff_hover_land` | One full 4-phase chain per velocity |
+| `--takeoff-velocities` | `0.5` (current default) | `system.test_takeoff_hover_land` | One full 4-phase chain per velocity |
 
 Total parametrize cardinality for sim tests = `len(sims) × len(num_robots) × stress_iterations × len(velocities for takeoff)`. Keep this small locally — a 2×2×3×3 sweep on a workstation is several hours.
 
@@ -211,7 +236,7 @@ digging through raw output.
 
 ```json
 {
-  "test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0]": {
+  "system.test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0]": {
     "airstack_up_duration_s": {"value": 42.7, "unit": "s", "direction": "lower_is_better"},
     "robot.sensors.front_stereo.left.image_rect.hz_samples": {
       "samples": [{"t": 10, "value": 19.27}, {"t": 20, "value": 19.31}, ...]
@@ -266,7 +291,7 @@ If your test...
 
 ### 2. File location and naming
 
-- File: `tests/test_<short_descriptor>.py` — matches pytest's default test discovery (`test_*.py`)
+- File: `tests/system/test_<short_descriptor>.py` — matches pytest's default test discovery (`test_*.py`) under the system suite
 - Class: `Test<CamelCase>` with the mark applied at the class level: `@pytest.mark.<mark>`
 - Add a class-level `@pytest.mark.timeout(<seconds>)` — long-running sim tests need it
 - Imports: pull helpers from `conftest` directly (`from conftest import ...`); `tests/` is on `sys.path` because `testpaths = .` in pytest.ini
@@ -274,7 +299,7 @@ If your test...
 ### 3. Decide if you need `airstack_env`
 
 - **Need full stack up (sim + robot + GCS)?** Take `airstack_env` as a fixture argument. You'll automatically be parametrized over `(sim, num_robots, iteration)` from CLI flags — `pytest_generate_tests` in conftest activates this only for tests that name the fixture.
-- **Just need one container or no containers?** Don't take `airstack_env` — bring up only what you need with `airstack_cmd("up", "<service>", env_overrides={"AUTOLAUNCH": "false"})` and tear down in a `try/finally`, the way `test_build_packages.py` does.
+- **Just need one container or no containers?** Don't take `airstack_env` — bring up only what you need with `airstack_cmd("up", "<service>", env_overrides={"AUTOLAUNCH": "false"})` and tear down in a `try/finally`, the way `tests/system/test_build_packages.py` does.
 - **Need extra parametrization** (e.g. velocity for `takeoff_hover_land`)? Add a module-level `pytest_generate_tests(metafunc)` in your test file. Don't put it in `conftest.py` unless it applies broadly.
 
 ### 4. Use the existing helpers

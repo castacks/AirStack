@@ -242,7 +242,7 @@ env_overrides = {
 }
 ```
 
-Tests that act on robots iterate `n=1..num_robots` and address them as `/robot_{n}/...` directly (see `_takeoff_one_robot` in `tests/test_takeoff_hover_land.py`). The test sets `ROS_DOMAIN_ID=n` for each per-robot subprocess (`domain_id=n` in `ros2_exec(...)`), matching what the resolver assigned inside the container. **If you write a new test that talks to a robot, follow this same `domain_id=n` + `/robot_{n}/...` pattern.**
+Tests that act on robots iterate `n=1..num_robots` and address them as `/robot_{n}/...` directly (see `_takeoff_one_robot` in `tests/system/test_takeoff_hover_land.py`). The test sets `ROS_DOMAIN_ID=n` for each per-robot subprocess (`domain_id=n` in `ros2_exec(...)`), matching what the resolver assigned inside the container. **If you write a new test that talks to a robot, follow this same `domain_id=n` + `/robot_{n}/...` pattern.**
 
 CLI passthrough:
 

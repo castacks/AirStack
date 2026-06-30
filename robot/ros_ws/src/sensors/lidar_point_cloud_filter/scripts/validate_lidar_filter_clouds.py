@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Copyright 2026 AirLab CMU
-# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024 Carnegie Mellon University
+# MIT License - see LICENSE in the repository root for full text.
 """One-shot ROS 2 check for liveliness: filtered LiDAR cloud vs raw (Isaac / Pegasus).
 
 Run inside the robot container with workspace sourced and ROS_DOMAIN_ID set::
@@ -11,7 +11,7 @@ Checks (after receiving a non-empty filtered cloud):
   * Filtered ``.../point_cloud``: all coordinates finite; **minimum range** must be at
     least ``near_range_m`` from the running filter node (minus tolerance). The
     tolerance is ``max(0.05 m, 5% of near_range_m)`` — the ``0.05`` is **slack
-    around the configured near range**, not a standalone “no points within 5 cm”
+    around the configured near range**, not a standalone "no points within 5 cm"
     rule. At least one return beyond 2 m so long-range points are not stripped.
   * Raw ``.../point_cloud_raw`` (optional): if present and contains near-field
     returns below ``near_range_m``, the filtered cloud must still respect the
@@ -28,6 +28,7 @@ import re
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import rclpy
@@ -35,6 +36,19 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
+
+# validation_core lives in the package module (installed by colcon, or importable
+# by adding the package root to sys.path for development use).
+_pkg_root = Path(__file__).resolve().parent.parent
+if str(_pkg_root) not in sys.path:
+    sys.path.insert(0, str(_pkg_root))
+
+from lidar_point_cloud_filter.validation_core import (  # noqa: E402
+    near_range_tolerance,
+    ranges_xyz_from_points_xyz,
+    raw_filtered_near_range_ok,
+    validate_filtered_ranges,
+)
 
 
 def _read_near_range_m(robot_num: int) -> float:
@@ -74,9 +88,7 @@ def _ranges_xyz(msg: PointCloud2) -> np.ndarray | None:
     if not pts:
         return np.array([], dtype=np.float64)
     arr = np.array([(float(p[0]), float(p[1]), float(p[2])) for p in pts], dtype=np.float64)
-    if not np.isfinite(arr).all():
-        return None
-    return np.linalg.norm(arr, axis=1)
+    return ranges_xyz_from_points_xyz(arr)
 
 
 def _wait_for_cloud(
@@ -120,7 +132,7 @@ def main() -> int:
     reliable = not args.qos_best_effort
 
     near_range_m = _read_near_range_m(n)
-    tol = max(0.05, near_range_m * 0.05)
+    tol = near_range_tolerance(near_range_m)
 
     node = None
     try:
@@ -139,20 +151,11 @@ def main() -> int:
             print('ERROR: filtered cloud is empty', file=sys.stderr)
             return 1
 
+        ok_f, err_f = validate_filtered_ranges(fr, near_range_m)
+        if not ok_f:
+            print(f'ERROR: {err_f}', file=sys.stderr)
+            return 1
         mn_f = float(fr.min())
-        if mn_f < near_range_m - tol:
-            print(
-                f'ERROR: filtered min range {mn_f:.4f}m < near_range_m ({near_range_m}) - tol {tol:.4f}',
-                file=sys.stderr,
-            )
-            return 1
-
-        if float(fr.max()) < 2.0:
-            print(
-                f'ERROR: expected long-range returns; filtered max range {float(fr.max()):.4f}m',
-                file=sys.stderr,
-            )
-            return 1
 
         rmsg = _wait_for_cloud(node, raw_topic, min(30.0, args.timeout), reliable)
         if rmsg is not None:
@@ -164,7 +167,7 @@ def main() -> int:
                         f'INFO: raw min range {mn_r:.4f}m (< near_range_m); '
                         f'filtered min {mn_f:.4f}m (must stay >= near_range_m)',
                     )
-                if mn_r < near_range_m - tol and mn_f < near_range_m - tol:
+                if not raw_filtered_near_range_ok(mn_r, mn_f, near_range_m, tol):
                     print(
                         'ERROR: raw has near-field clutter but filtered min still below near_range_m',
                         file=sys.stderr,

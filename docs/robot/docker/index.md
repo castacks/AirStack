@@ -43,6 +43,8 @@ robot_base  (robot-base-docker-compose.yaml)
 
 ## Platform Profiles
 
+Build-time args (`BASE_IMAGE`, `ROS_DISTRO`, `PYTHON_VERSION`, and platform toggles) are set per service in `docker-compose.yaml`. See [Docker Build Profiles](../../development/intermediate/docker-build-profiles.md) for how those args map to image variants.
+
 Select a profile by passing `--profile <name>` to `docker compose` (or via the `airstack` CLI).
 
 ### `desktop` — x86-64 development machine

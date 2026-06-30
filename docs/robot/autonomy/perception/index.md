@@ -31,7 +31,11 @@ ros2 launch perception_bringup perception.launch.xml
 
 ## Modules
 
-- [**State Estimation**](state_estimation.md) - Overview of state estimation approaches and implementations
+State estimation and related perception packages live under `robot/ros_ws/src/perception/`. Only external motion capture is documented below today; other approaches (onboard sensor fusion, visual-inertial odometry, etc.) will be added here in future releases.
+
+### External pose (motion capture)
+
+- [**NatNet (OptiTrack)**](../../../../robot/ros_ws/src/perception/natnet_ros2/README.md) — Receives rigid-body poses from an external Motive PC over NatNet UDP and publishes `/{robot_name}/perception/optitrack/...` topics. Optional MAVROS bridge for PX4 vision pose. Enabled with `LAUNCH_NATNET=true` in `.env` (off by default).
 
 ## Configuration
 
