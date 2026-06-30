@@ -1,0 +1,90 @@
+# DiffAero velocity commander — Mode C (real hardware, single drone).
+#
+# Prerequisites (one-time): experiment.md Part B (VOXL uXRCE, EKF2_EV_CTRL, Motive
+# rigid body named drone_1, NatNet). See DIFFAERO.md §10.3.
+#
+# Launch stack (robot container, host network, ROS_DOMAIN_ID=1):
+#   Terminal 0: MicroXRCEAgent udp4 -p 8888 -v4
+#   Terminal 1: ros2 launch svg_ground_control diffaero_real.launch.py
+#   Terminal 2 (optional ToF): tof_udp_bridge.py + tof_udp_stream on VOXL
+#
+# Or launch commander only (NatNet + px4_interface started separately):
+#   ros2 launch svg_ground_control diffaero_velocity_single.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/diffaero_vel_real.yaml \
+#     use_mocap:=true
+#
+# Preflight (no arming):
+#   scripts/preflight_diffaero_mode_c.sh drone_1
+#
+# Viz-only policy (props off, hand-held — no FCU commands):
+#   ros2 service call /diffaero_velocity_commander/start std_srvs/srv/Trigger
+#
+# Fly (arms real motors at ~/takeoff t≈1.5 s — read DIFFAERO.md §6c):
+#   ros2 service call /diffaero_velocity_commander/takeoff std_srvs/srv/Trigger
+#   ros2 service call /diffaero_velocity_commander/start   std_srvs/srv/Trigger
+#   ros2 service call /diffaero_velocity_commander/land    std_srvs/srv/Trigger
+
+diffaero_velocity_commander:
+  ros__parameters:
+    drone_name: "drone_1"
+    drone_mode: "real"                       # → /drone_1/fmu/* (px4_interface)
+
+    scenario: "hover"
+    scenario_speed_mps: 0.5
+    scenario_seed: 7
+
+    # Fit arena + fence to your OptiTrack capture volume (meters, map/ENU).
+    arena_low: [-5.0, -5.0, 0.8]
+    arena_high: [5.0, 5.0, 2.0]
+    drone_position_offset: [0.0, 0.0, 0.0]   # zeros: mocap anchors world frame
+    hover_positions: [0.0, 0.0, 1.2]
+    goal_position: [-10.0, 0.0, 1.2]           # inside arena + fence; tune per room
+
+    control_rate_hz: 30.0
+    state_timeout_s: 0.5
+    tof_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    goal_arrival_threshold_m: 0.4
+    ascend_speed_mps: 0.4
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+    face_goal_yaw_rate_max: 0.8
+
+    # Geofence: latched HOLD on breach. Set to your capture volume + margin.
+    fence_enabled: true
+    fence_min: [-10.0, -10.0, 0.3]
+    fence_max: [10.0, 10.0, 2.0]
+
+    # Obstacle-avoidance velocity checkpoint (consumes /{name}/perception/tof).
+    checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_vel_cmd_oa/"
+
+    # Conservative first-flight caps (raise after hover test is stable).
+    max_vel: 0.8
+    max_vel_xy: 0.8
+    max_vel_z: 0.4
+    vel_ema_factor: -1.0
+
+    yaw_kp: 1.5
+    yaw_rate_max: 1.0
+
+    publish_viz: true
+    viz_frame: "map"
+
+    # Hand-held / props-off: ~/start runs policy + RViz markers without takeoff.
+    start_from_idle: true
+
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_1"]
+    # NatNet rigid body name in Motive must match drone_name → /drone_1/pose
+    mocap_topic_template: "/{name}/pose"
+    px4_vio_mode: "direct"
+    # Use enu_to_ned if mocap is ROS-standard ENU; modalai_flip if axes are wrong (B4b).
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    mocap_frame: "map"
+    mocap_qos_best_effort: false

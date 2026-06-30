@@ -68,6 +68,9 @@ ARMING_OFFBOARD_S = 1.0
 ARMING_ARM_S = 1.5
 ARMING_DONE_S = 2.5
 
+TOF_GRID_H = 9
+TOF_GRID_W = 16
+
 
 class DroneHandle:
     """Book-keeping for one drone."""
@@ -92,6 +95,7 @@ class DroneHandle:
         self.vel_cmd_enu = None           # latest world-ENU velocity command, for viz (None when pose-commanding)
         self.robot_command_client = None
         self.tof: np.ndarray | None = None        # latest 9×16 pre-encoded perception
+        self.tof_raw: np.ndarray | None = None    # latest oriented planar-Z (debug)
         self.last_tof_time = None
 
 
@@ -139,8 +143,14 @@ class DiffAeroVelocityCommander(Node):
 
         self.declare_parameter('tof_topic_template',
                                '/{name}/perception/tof')
+        self.declare_parameter('tof_raw_topic_template',
+                               '')  # optional; TOF3 debug only
         self.declare_parameter('tof_image_topic_template',
                                '/svg/{name}/tof_image')
+        self.declare_parameter('tof_viz_max_dist_m', 5.0)
+        self.declare_parameter('tof_viz_scale', 16)  # panel height = 9 * scale px
+        self.declare_parameter('tof_viz_side_by_side', False)  # debug: raw | processed
+        self.declare_parameter('tof_raw_pre_oriented', True)  # UDP TOF3 is pre-oriented
 
         self.declare_parameter('checkpoint_path', '')
         # Velocity-policy action limits + target-vel saturation. Leave at -1 to
@@ -168,6 +178,7 @@ class DiffAeroVelocityCommander(Node):
         self.declare_parameter('yaw_rate_max', 1.5)  # rad/s clamp on commanded yaw-rate
         self.declare_parameter('arrival_threshold_m', 0.15)
         self.declare_parameter('goal_arrival_threshold_m', 0.4)
+        self.declare_parameter('ascend_speed_mps', 0.5)
         self.declare_parameter('land_speed_mps', 0.3)
         self.declare_parameter('land_complete_altitude_m', 0.15)
         self.declare_parameter('face_goal_threshold_rad', 0.05)
@@ -197,6 +208,7 @@ class DiffAeroVelocityCommander(Node):
         self.arrival_threshold = float(self.get_parameter('arrival_threshold_m').value)
         self.goal_arrival_threshold = float(
             self.get_parameter('goal_arrival_threshold_m').value)
+        self.ascend_speed = float(self.get_parameter('ascend_speed_mps').value)
         self.land_speed = float(self.get_parameter('land_speed_mps').value)
         self.land_complete_alt = float(
             self.get_parameter('land_complete_altitude_m').value)
@@ -244,7 +256,12 @@ class DiffAeroVelocityCommander(Node):
         goal_tmpl = str(self.get_parameter('goal_command_topic_template').value)
         speed_tmpl = str(self.get_parameter('speed_command_topic_template').value)
         tof_tmpl = str(self.get_parameter('tof_topic_template').value)
+        tof_raw_tmpl = str(self.get_parameter('tof_raw_topic_template').value)
         tof_image_tmpl = str(self.get_parameter('tof_image_topic_template').value)
+        self.tof_viz_max_dist = float(self.get_parameter('tof_viz_max_dist_m').value)
+        self.tof_viz_scale = max(1, int(self.get_parameter('tof_viz_scale').value))
+        self.tof_viz_side_by_side = bool(self.get_parameter('tof_viz_side_by_side').value)
+        self.tof_raw_pre_oriented = bool(self.get_parameter('tof_raw_pre_oriented').value)
 
         self.tof_timeout = float(self.get_parameter('tof_timeout_s').value)
 
@@ -333,12 +350,21 @@ class DiffAeroVelocityCommander(Node):
         self.vel_arrow_scale = float(self.get_parameter('vel_arrow_scale_s').value)
         self.viz_pub = (self.create_publisher(MarkerArray, '/svg/viz/markers', 10)
                         if self.publish_viz else None)
-        # ToF debug image — the 9×16 perception grid republished as a colormapped
-        # sensor_msgs/Image (red=near obstacle, green=clear) for an RViz/Foxglove
-        # Image panel. Float32MultiArray has no native image display.
+        # ToF debug image — side-by-side raw | processed when both are available.
         self.tof_image_pub = (
             self.create_publisher(Image, tof_image_tmpl.format(name=name), 10)
             if self.publish_viz else None)
+        tof_raw_tmpl_resolved = tof_raw_tmpl.format(name=name) if tof_raw_tmpl else ''
+        if self.publish_viz and tof_raw_tmpl_resolved:
+            self.create_subscription(
+                Float32MultiArray, tof_raw_tmpl_resolved,
+                self.tof_raw_callback, 10)
+            self._tof_raw_rate_start = None
+            self._tof_raw_rate_frames = 0
+        if self.publish_viz and self.tof_viz_side_by_side and not tof_raw_tmpl_resolved:
+            self.get_logger().warn(
+                'tof_viz_side_by_side is true but tof_raw_topic_template is empty — '
+                'only processed ToF will be shown')
 
         rate = float(self.get_parameter('control_rate_hz').value)
         self.timer = self.create_timer(1.0 / rate, self.control_loop)
@@ -375,23 +401,123 @@ class DiffAeroVelocityCommander(Node):
 
     def tof_callback(self, msg: Float32MultiArray):
         dims = [d.size for d in msg.layout.dim]
-        h, w = dims if len(dims) == 2 else (9, 16)
+        h, w = dims if len(dims) == 2 else (TOF_GRID_H, TOF_GRID_W)
+        if h != TOF_GRID_H or w != TOF_GRID_W:
+            self.get_logger().warning(
+                f'Expected ToF grid {TOF_GRID_H}x{TOF_GRID_W}, got {h}x{w}',
+                throttle_duration_sec=5.0)
         grid = np.array(msg.data, dtype=np.float32).reshape(h, w)
         self.drone.tof = grid
         self.drone.last_tof_time = self.get_clock().now()
-        self.publish_tof_image(grid)
+        self._refresh_tof_debug_image()
 
-    def publish_tof_image(self, grid: np.ndarray):
-        """Republish the encoded ToF grid as a colormapped Image for an Image
-        panel. Grid values are ``1 - r/max_dist`` (1=obstacle at lens, 0=clear),
-        mapped to red=near → green=clear."""
+    def tof_raw_callback(self, msg: Float32MultiArray):
+        dims = [d.size for d in msg.layout.dim]
+        if len(dims) != 2:
+            return
+        h, w = dims
+        self.drone.tof_raw = np.array(msg.data, dtype=np.float32).reshape(h, w)
+        self._refresh_tof_debug_image()
+        self._log_tof_raw_rate()
+
+    def _log_tof_raw_rate(self):
+        now = self.get_clock().now()
+        if self._tof_raw_rate_start is None:
+            self._tof_raw_rate_start = now
+            self._tof_raw_rate_frames = 0
+            return
+        self._tof_raw_rate_frames += 1
+        elapsed = (now - self._tof_raw_rate_start).nanoseconds * 1e-9
+        if elapsed < 1.0:
+            return
+        hz = self._tof_raw_rate_frames / elapsed
+        self.get_logger().info(f'Raw ToF viz publishing at {hz:.1f} Hz')
+        self._tof_raw_rate_start = now
+        self._tof_raw_rate_frames = 0
+
+    @staticmethod
+    def _orient_raw_tof(arr: np.ndarray) -> np.ndarray:
+        """Starling TOF is portrait; rotate 90° CCW when stored wide."""
+        h, w = arr.shape[:2]
+        if w > h:
+            return np.rot90(arr, k=1)
+        return arr
+
+    @staticmethod
+    def _closeness_to_rgb(closeness: np.ndarray,
+                          invalid: np.ndarray | None = None) -> np.ndarray:
+        """Hot/cold colormap: red = close, blue = far, black = invalid / zero.
+
+        ``closeness`` is in [0, 1]: 0 = far clip / no return, 1 = at the sensor.
+        Pixels at exactly 0.0 (or marked invalid) render black.
+        """
+        t = np.clip(closeness, 0.0, 1.0)
+        rgb = np.zeros((*t.shape, 3), dtype=np.float32)
+
+        if invalid is None:
+            invalid = t <= 0.0
+        else:
+            invalid = invalid | (t <= 0.0)
+
+        valid = ~invalid
+        u = t[valid]
+        rgb[valid, 0] = u          # red   increases with closeness
+        rgb[valid, 2] = 1.0 - u    # blue  decreases with closeness
+
+        return (rgb * 255.0).astype(np.uint8)
+
+    @staticmethod
+    def _resize_nearest_2d(arr: np.ndarray, out_h: int, out_w: int) -> np.ndarray:
+        yi = np.linspace(0, arr.shape[0] - 1, out_h).astype(np.int64)
+        xi = np.linspace(0, arr.shape[1] - 1, out_w).astype(np.int64)
+        return arr[yi][:, xi]
+
+    def _planar_to_closeness(self, planar_z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        z = np.asarray(planar_z, dtype=np.float32)
+        if not self.tof_raw_pre_oriented:
+            z = self._orient_raw_tof(z)
+        max_dist = self.tof_viz_max_dist
+        valid = np.isfinite(z) & (z > 1e-3)
+        closeness = np.zeros_like(z, dtype=np.float32)
+        closeness[valid] = 1.0 - np.clip(z[valid], 0.0, max_dist) / max_dist
+        return closeness, ~valid
+
+    def _panel_rgb(self, closeness: np.ndarray, invalid: np.ndarray | None,
+                   out_h: int) -> np.ndarray:
+        aspect = closeness.shape[1] / max(1, closeness.shape[0])
+        out_w = max(1, int(round(out_h * aspect)))
+        g = self._resize_nearest_2d(closeness, out_h, out_w)
+        inv = None
+        if invalid is not None:
+            inv = self._resize_nearest_2d(invalid.astype(np.float32), out_h, out_w) > 0.5
+        return self._closeness_to_rgb(g, invalid=inv)
+
+    def _refresh_tof_debug_image(self):
+        """Publish raw | processed side-by-side (hot/cold colormap) for debugging."""
         if self.tof_image_pub is None:
             return
-        g = np.clip(grid, 0.0, 1.0)
-        h, w = g.shape
-        rgb = np.zeros((h, w, 3), dtype=np.uint8)
-        rgb[..., 0] = (g * 255.0).astype(np.uint8)          # red  = closeness
-        rgb[..., 1] = ((1.0 - g) * 255.0).astype(np.uint8)  # green = clearance
+
+        display_h = TOF_GRID_H * self.tof_viz_scale
+        raw_rgb = proc_rgb = None
+
+        if self.drone.tof_raw is not None:
+            raw_closeness, raw_invalid = self._planar_to_closeness(self.drone.tof_raw)
+            raw_rgb = self._panel_rgb(raw_closeness, raw_invalid, display_h)
+
+        if self.drone.tof is not None:
+            proc_rgb = self._panel_rgb(self.drone.tof, None, display_h)
+
+        if self.tof_viz_side_by_side and raw_rgb is not None and proc_rgb is not None:
+            gap = np.zeros((display_h, 4, 3), dtype=np.uint8)
+            rgb = np.concatenate([raw_rgb, gap, proc_rgb], axis=1)
+        elif proc_rgb is not None:
+            rgb = proc_rgb
+        elif raw_rgb is not None:
+            rgb = raw_rgb
+        else:
+            return
+
+        h, w = rgb.shape[:2]
         img = Image()
         img.header.stamp = self.get_clock().now().to_msg()
         img.header.frame_id = self.viz_frame
@@ -598,11 +724,32 @@ class DiffAeroVelocityCommander(Node):
             self.publish_pose(d.position, d.orientation, now)
 
         elif d.state == FlightState.ASCEND:
-            if np.linalg.norm(d.hold_target - d.position) < self.arrival_threshold:
+            error = d.hold_target - d.position
+            xy_err = error[:2]
+            z_err = float(error[2])
+            at_hover_xy = np.linalg.norm(xy_err) < self.arrival_threshold
+            at_hover_z = abs(z_err) < self.arrival_threshold
+            if at_hover_xy and at_hover_z:
                 d.state = FlightState.FACE_GOAL
                 d.face_cmd_yaw = self._yaw_from_quat(d.orientation)
                 self.get_logger().info(f'{d.name}: holding takeoff position')
-            self.publish_pose(d.hold_target, d.orientation, now)
+                vel = np.zeros(3)
+            elif not at_hover_z:
+                # Climb straight up first — no horizontal velocity on the ground.
+                vel = np.zeros(3)
+                vel[2] = self.hover_kp * z_err
+                if abs(vel[2]) > self.ascend_speed:
+                    vel[2] = math.copysign(self.ascend_speed, vel[2])
+            else:
+                # At altitude: translate to hover XY while holding Z.
+                vel = np.zeros(3)
+                vel[:2] = self.hover_kp * xy_err
+                speed = np.linalg.norm(vel[:2])
+                if speed > self.ascend_speed:
+                    vel[:2] *= self.ascend_speed / speed
+                vel[2] = np.clip(self.hover_kp * z_err, -self.ascend_speed,
+                                 self.ascend_speed)
+            self.publish_velocity(vel, now)
 
         elif d.state == FlightState.FACE_GOAL:
             target_yaw = math.atan2(

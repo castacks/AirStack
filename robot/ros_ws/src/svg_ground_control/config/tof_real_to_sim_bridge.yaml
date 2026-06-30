@@ -1,0 +1,21 @@
+# Bridge real-drone ToF perception (tof_streamer) into the sim DiffAero stack.
+#
+# Drone (Foxy, ROS_DOMAIN_ID=0): perception_node publishes /tof_streamer/perception
+# Sim stack (Jazzy, ROS_DOMAIN_ID=1): diffaero_*_commander subscribes /drone_1/perception/tof
+#
+# Run in the robot container (host network recommended so Wi-Fi DDS reaches the drone):
+#   ros2 run domain_bridge domain_bridge \
+#     $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/tof_real_to_sim_bridge.yaml
+#
+# See DIFFAERO.md §10.2.
+
+name: tof_real_to_sim_bridge
+from_domain: 0   # tof_streamer on the VOXL (Foxy)
+to_domain: 1     # AirStack sim + DiffAero (Jazzy)
+
+topics:
+  /tof_streamer/perception:
+    type: std_msgs/msg/Float32MultiArray
+    from_domain: 0
+    to_domain: 1
+    remap: /drone_1/perception/tof

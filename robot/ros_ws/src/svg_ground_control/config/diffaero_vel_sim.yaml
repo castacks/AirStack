@@ -30,20 +30,21 @@ diffaero_velocity_commander:
 
     # NUM_ROBOTS=1: drone_1 spawns at x=0, so offset=0 (raw odom == world frame).
     drone_position_offset: [0.0, 0.0, 0.0]
-    hover_positions: [0.0, 0.0, 1.2]
-    goal_position: [3.0, 3.0, 1.2]
+    hover_positions: [-3.0, -3.0, 1.2]
+    goal_position: [5.0, 3.0, 3.0]
 
     control_rate_hz: 30.0
     hover_kp: 1.0
     arrival_threshold_m: 0.15
-    land_speed_mps: 0.3
+    ascend_speed_mps: 0.1
+    land_speed_mps: 0.1
     land_complete_altitude_m: 0.15
 
     # Fence: hard safety box (breach -> latched HOLD). Sits outside the arena so
     # the goal (-3,-3) has ~2 m of overshoot margin before a breach.
     fence_enabled: true
-    fence_min: [-5.0, -5.0, 0.0]
-    fence_max: [5.0, 5.0, 3.0]
+    fence_min: [-10.0, -10.0, 0.0]
+    fence_max: [10.0, 10.0, 3.0]
 
     checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_vel_cmd_oa/"
 
@@ -55,8 +56,8 @@ diffaero_velocity_commander:
     # into the checkpoint (max_vel.xy/z defaults). Set explicitly to cap how fast
     # the policy is allowed to command (e.g. max_vel_xy: 1.5).
     # Max velocity outputs
-    max_vel_xy: 1.0
-    max_vel_z: 0.5
+    max_vel_xy: 0.2
+    max_vel_z: 0.2
     vel_ema_factor: -1.0   # -1 -> training default (0.1)
 
     # Yaw follows travel direction via a yaw-rate P-controller.
