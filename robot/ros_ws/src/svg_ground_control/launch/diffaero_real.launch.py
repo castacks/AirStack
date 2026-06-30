@@ -99,10 +99,10 @@ def generate_launch_description():
             'drones', default_value='drone_1',
             description='Comma-separated names for real_interfaces (must match VOXL -n)'),
         DeclareLaunchArgument(
-            'natnet_server_ip', default_value='192.168.123.199',
+            'natnet_server_ip', default_value='192.168.50.5',
             description='OptiTrack Motive PC IP (NatNet server)'),
         DeclareLaunchArgument(
-            'natnet_client_ip', default_value='192.168.123.134',
+            'natnet_client_ip', default_value='192.168.50.2',
             description='This ground PC IP on the Motive/NatNet network'),
         DeclareLaunchArgument(
             'start_natnet', default_value='true',

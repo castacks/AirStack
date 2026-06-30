@@ -26,7 +26,7 @@
 
 diffaero_velocity_commander:
   ros__parameters:
-    drone_name: "drone_1"
+    drone_name: "drone_2"
     drone_mode: "real"                       # → /drone_1/fmu/* (px4_interface)
 
     scenario: "hover"
@@ -34,11 +34,11 @@ diffaero_velocity_commander:
     scenario_seed: 7
 
     # Fit arena + fence to your OptiTrack capture volume (meters, map/ENU).
-    arena_low: [-5.0, -5.0, 0.8]
-    arena_high: [5.0, 5.0, 2.0]
+    arena_low: [-3.0, -3.0, 0.5]
+    arena_high: [3.0, 3.0, 2.5]
     drone_position_offset: [0.0, 0.0, 0.0]   # zeros: mocap anchors world frame
-    hover_positions: [0.0, 0.0, 1.2]
-    goal_position: [-10.0, 0.0, 1.2]           # inside arena + fence; tune per room
+    hover_positions: [1.82, -4.79, 1.0]
+    goal_position: [1.64, 4.63, 1.0]           # inside arena + fence; tune per room
 
     control_rate_hz: 30.0
     state_timeout_s: 0.5
@@ -46,24 +46,24 @@ diffaero_velocity_commander:
 
     hover_kp: 1.0
     arrival_threshold_m: 0.15
-    goal_arrival_threshold_m: 0.4
-    ascend_speed_mps: 0.4
+    goal_arrival_threshold_m: 0.3
+    ascend_speed_mps: 0.3
     land_speed_mps: 0.3
     land_complete_altitude_m: 0.15
     face_goal_yaw_rate_max: 0.8
 
     # Geofence: latched HOLD on breach. Set to your capture volume + margin.
     fence_enabled: true
-    fence_min: [-10.0, -10.0, 0.3]
-    fence_max: [10.0, 10.0, 2.0]
+    fence_min: [-1.6, -5.0, 0.0]
+    fence_max: [4.0, 5.0, 2.8]
 
     # Obstacle-avoidance velocity checkpoint (consumes /{name}/perception/tof).
     checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_vel_cmd_oa/"
 
     # Conservative first-flight caps (raise after hover test is stable).
-    max_vel: 0.8
-    max_vel_xy: 0.8
-    max_vel_z: 0.4
+    max_vel: 1.5
+    max_vel_xy: 1.0
+    max_vel_z: 1.0
     vel_ema_factor: -1.0
 
     yaw_kp: 1.5
@@ -77,7 +77,7 @@ diffaero_velocity_commander:
 
 mocap_bridge:
   ros__parameters:
-    drone_names: ["drone_1"]
+    drone_names: ["drone_2"]
     # NatNet rigid body name in Motive must match drone_name → /drone_1/pose
     mocap_topic_template: "/{name}/pose"
     px4_vio_mode: "direct"

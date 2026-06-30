@@ -62,7 +62,7 @@ def generate_launch_description():
             description='Override the scenario from the config: hover, '
                         'random_walk, random_goals, head_on, antipodal, squeeze'),
         DeclareLaunchArgument(
-            'use_mocap', default_value='false',
+            'use_mocap', default_value='True',
             description='Start the mocap bridge (hardware only)'),
         OpaqueFunction(function=launch_setup),
     ])

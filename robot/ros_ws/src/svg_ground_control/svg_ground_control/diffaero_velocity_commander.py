@@ -813,7 +813,7 @@ class DiffAeroVelocityCommander(Node):
                 )
                 cmd = self.policy.compute(obs)
                 yaw_rate = self._yaw_rate_to(cmd.desired_yaw_enu, d.orientation)
-                self.publish_velocity(cmd.vel_cmd_enu, now, yaw_rate=yaw_rate)
+                self.publish_velocity(cmd.vel_cmd_enu, now)
                 self.get_logger().info(
                     f'[policy] pos={np.round(d.position,2)} vel={np.round(d.velocity,2)} '
                     f'quat={np.round(d.orientation,3)} | '
