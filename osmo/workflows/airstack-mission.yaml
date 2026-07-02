@@ -86,7 +86,7 @@ workflow:
         #         `airstack osmo:down` (results die with the pod!).
         # false → task exits when the mission ends: GPU freed, /osmo/output
         #         uploaded to `outputs:` destinations.
-        OSMO_MISSION_KEEP_ALIVE: "true"
+        OSMO_MISSION_KEEP_ALIVE: "false"
         AIRSTACK_BRANCH: "krrishj18/osmo-mission-runner"        # branch entrypoint.sh clones
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
         # SSH_PUB_KEY is supplied at submit time (needed for osmo:fetch):
