@@ -23,6 +23,11 @@ AIRSTACK_ROOT="${AIRSTACK_ROOT:-/root/AirStack}"
 log()  { echo "[mission-launcher] $*"; }
 fail() { echo "[mission-launcher] ERROR: $*" >&2; }
 
+# Kill the backgrounded `tee` (BAKED_PID, from the workflow bootstrap) so it
+# releases this task's OSMO stdout pipe — else osmo_exec never sees EOF on our
+# exit and the pod never frees the GPU. Call right before an intentional exit.
+release_osmo_pipe() { [ -n "${BAKED_PID:-}" ] && kill "$BAKED_PID" 2>/dev/null; true; }
+
 # Fast DDS LARGE_DATA uses shared memory between same-host/same-version
 # participants; the segments live in /dev/shm, which every stack container
 # bind-mounts from the pod. The pod default is 64M — it fills immediately
@@ -139,6 +144,7 @@ if [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
     unset SSHPASS
     if [ "$nas_rc" -eq 0 ]; then
       log "NAS upload OK → ${nas_host}:${NAS_DEST} — tearing pod down (GPU freed)"
+      release_osmo_pipe
       exit 0
     fi
     fail "NAS upload FAILED (rc=$nas_rc) — keeping pod alive for 'airstack osmo:fetch' / SSH debug"
@@ -155,4 +161,5 @@ if [ "${OSMO_MISSION_KEEP_ALIVE:-true}" = "true" ]; then
   exec sleep infinity
 fi
 log "OSMO_MISSION_KEEP_ALIVE=false — exiting so OSMO uploads /osmo/output and frees the GPU"
+release_osmo_pipe
 exit 0

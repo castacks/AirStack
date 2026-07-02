@@ -63,14 +63,15 @@ workflow:
         set -uo pipefail
         log() { echo "[mission-bootstrap] $*"; }
         log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
-        # Baked entrypoint in the background, stdout/stderr to a FILE — NOT this
-        # task's pipe. Its daemons (sshd, dockerd, compose, sleep infinity) must
-        # not inherit the OSMO log pipe: osmo_exec waits for that pipe to hit EOF
-        # before reporting the launcher's exit, so a leaked write-end keeps the
-        # pod RUNNING (GPU held) until exec_timeout. The launcher only greps this
-        # file to detect setup completion, so waiting still works.
-        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh \
-          >/tmp/baked-entrypoint.log 2>&1 </dev/null &
+        # Baked entrypoint for pod setup, backgrounded. `tee` streams its logs to
+        # `osmo workflow logs` and to a file the launcher greps for the terminal
+        # "sleeping forever" line. `tee` holds THIS task's stdout pipe open, so
+        # mission_launcher.sh kills BAKED_PID before it exits — otherwise
+        # osmo_exec never sees pipe EOF on our exit and the pod never frees the
+        # GPU (it hangs at RUNNING until exec_timeout).
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
+          | tee /tmp/baked-entrypoint.log &
+        export BAKED_PID=$!
         LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
         log "waiting for branch clone to provide $LAUNCHER"
         for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
