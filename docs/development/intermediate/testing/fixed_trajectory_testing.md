@@ -240,16 +240,7 @@ python3 tests/parse_metrics.py \
 
 ### Prerequisites
 
-```bash
-cd /path/to/AirStack
-airstack setup
-```
-
-Required:
-
-- Docker daemon (user in `docker` group)
-- NVIDIA GPU + `nvidia-container-toolkit` for sim tests
-- Isaac Sim: `simulation/isaac-sim/docker/omni_pass.env` configured
+See **[Testing → Prerequisites](index.md#prerequisites)** for the shared setup (Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, and Isaac Sim `omni_pass.env`).
 
 ### Primary interface
 

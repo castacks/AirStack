@@ -52,6 +52,19 @@ robot paths and avoids `hz` on filtered `PointCloud2`; pytest enables `ENABLE_LI
 for the multi-drone Pegasus script. Details: **`tests/README.md`** → *Isaac Sim and
 the sensors mark*.
 
+### Prerequisites
+
+All system tests share the same setup:
+
+```bash
+cd /path/to/AirStack
+airstack setup
+```
+
+- Docker daemon (user in `docker` group)
+- NVIDIA GPU + `nvidia-container-toolkit` for sim tests
+- Isaac Sim: `simulation/isaac-sim/docker/omni_pass.env` configured
+
 ### Fixed-trajectory path-tracker benchmark
 
 For the full guide — purpose, metrics, CLI, comparing trackers, bug fixes, and
