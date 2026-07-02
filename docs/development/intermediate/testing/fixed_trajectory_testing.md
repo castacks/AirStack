@@ -393,32 +393,6 @@ Focus on: `cross_track_error_mean_m`, `cross_track_error_max_m`, `path_rmse_m`, 
 
 ---
 
-## Path tracker bug fixes (this PR)
-
-The benchmark exposed failures in the default sphere-intersection tracker. Fixes included:
-
-### 1. Wrong first-segment sphere test (`trajectory_library.cpp`)
-
-`get_waypoint_sphere_intersection()` checked whether the **end** of the first segment was inside the sphere, not the **interpolated point at `initial_time`**. On curved paths the robot's projection often lies mid-segment, causing false "no intersection" results.
-
-**Fix:** interpolate `wp_start` to `initial_time`, then test distance from that point to the sphere center.
-
-### 2. Controller stall (`trajectory_controller.cpp`)
-
-When intersection failed, `virtual_time` could freeze and the tracking point collapsed onto the robot — the drone **stalled on closed loops** (Circle).
-
-**Fixes:**
-
-- Fallback to `get_waypoint_distance_ahead()` when sphere intersection fails.
-- On `AHEAD NOT VALID`, advance `virtual_time` by `time_multiplier × elapsed_sim_time`.
-- Throttled `WARN` instead of per-tick logging.
-
-### 3. Missing waypoint times on merge (`trajectory_library.cpp`)
-
-`Trajectory::merge()` into an empty trajectory now calls `generate_waypoint_times()`.
-
----
-
 ## Manual stack usage (without pytest)
 
 To fly a fixed trajectory interactively:
@@ -467,7 +441,7 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 | ------- | ------------ | --- |
 | Sentinel nodes missing | Workspace not built in container | `-m "build_packages or autonomy"` |
 | PX4 ready timeout | Sim not running, GPU issue | Check `nvidia-smi`, Isaac `omni_pass.env` |
-| `trajectory_success = 0` | Tracker stall or timeout | Check trajectory_controller logs; verify bug fixes applied |
+| `trajectory_success = 0` | Tracker stall or timeout | Check trajectory_controller logs; rebuild the workspace (`-m build_packages`) |
 | Cross-track error &gt;&gt; 5 m | Wrong tracker params or frame bug | Compare launch params; check world-frame transform |
 | Tests run for hours | Default `--sim` and `--num-robots` sweep | Pin `--sim isaacsim --num-robots 1 --stress-iterations 1` |
 | Unknown mark warning `autonomy` | Mark not in `pytest.ini` | Harmless; filter still works |
