@@ -395,23 +395,9 @@ Focus on: `cross_track_error_mean_m`, `cross_track_error_max_m`, `path_rmse_m`, 
 
 ## Manual stack usage (without pytest)
 
-To fly a fixed trajectory interactively:
+Bring up the stack and take off as described in **[Getting Started](../../../getting_started/index.md)** (`airstack up`, then use the RViz task panel). Once the drone is hovering, dispatch a fixed trajectory directly:
 
 ```bash
-cd /path/to/AirStack
-
-# Bring up Isaac Sim + robot (1 robot, headless)
-COMPOSE_PROFILES=isaac-sim NUM_ROBOTS=1 airstack up
-
-# Takeoff (optional — or use RViz task panel)
-docker exec -it airstack-robot-desktop-1 bash -c '
-  source /opt/ros/jazzy/setup.bash &&
-  source /root/AirStack/robot/ros_ws/install/setup.bash &&
-  ros2 action send_goal /robot_1/tasks/takeoff task_msgs/action/TakeoffTask \
-    "{target_altitude_m: 10.0, velocity_m_s: 1.0}"
-'
-
-# Circle trajectory
 docker exec -it airstack-robot-desktop-1 bash -c '
   source /opt/ros/jazzy/setup.bash &&
   source /root/AirStack/robot/ros_ws/install/setup.bash &&
@@ -419,16 +405,6 @@ docker exec -it airstack-robot-desktop-1 bash -c '
     task_msgs/action/FixedTrajectoryTask \
     "{trajectory_spec: {type: Circle, attributes: [{key: radius, value: \"10.0\"}, {key: velocity, value: \"2.0\"}]}, loop: false}"
 '
-
-# Land
-docker exec -it airstack-robot-desktop-1 bash -c '
-  source /opt/ros/jazzy/setup.bash &&
-  source /root/AirStack/robot/ros_ws/install/setup.bash &&
-  ros2 action send_goal /robot_1/tasks/land task_msgs/action/LandTask \
-    "{velocity_m_s: 1.0}"
-'
-
-airstack down
 ```
 
 Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Task Executors](../../../robot/autonomy/tasks.md).
