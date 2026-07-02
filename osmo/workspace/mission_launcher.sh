@@ -130,10 +130,11 @@ if [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
     ssh_cmd="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
     log "NAS upload: ${results_dir}/ → ${nas_host}:${NAS_DEST%/}/"
     export SSHPASS="$AIRLAB_STORAGE_PASS"
-    sshpass -e rsync -az --partial --mkpath --timeout=1800 -e "$ssh_cmd" \
-      "${results_dir}/" "${AIRLAB_STORAGE_USER}@${nas_host}:${NAS_DEST%/}/" \
-      || sshpass -e rsync -az --partial --timeout=1800 -e "$ssh_cmd" \
-           "${results_dir}/" "${AIRLAB_STORAGE_USER}@${nas_host}:${NAS_DEST%/}/"
+    # NAS share (Synology rsync 3.1.x) rejects --mkpath and can't chmod/chown the
+    # SMB-backed volume, so skip those attrs; nas_dest base must already exist.
+    sshpass -e rsync -rltz --partial --timeout=1800 \
+      --no-perms --no-owner --no-group --omit-dir-times -e "$ssh_cmd" \
+      "${results_dir}/" "${AIRLAB_STORAGE_USER}@${nas_host}:${NAS_DEST%/}/"
     nas_rc=$?
     unset SSHPASS
     if [ "$nas_rc" -eq 0 ]; then
