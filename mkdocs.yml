@@ -69,7 +69,7 @@ nav:
               - Overview: docs/development/intermediate/testing/index.md
               - Unit Testing: docs/development/intermediate/testing/unit_testing.md
               - System Tests: tests/README.md
-              - Fixed-Trajectory Benchmark: docs/development/intermediate/testing/fixed_trajectory_testing.md
+              - End-to-End Testing: docs/development/intermediate/testing/end_to_end_testing.md
               - CI/CD Orchestrator: tests/ci-cd-orchestrator.md
           - Frame Conventions: docs/development/intermediate/frame_conventions.md
           - Docker Build Profiles: docs/development/intermediate/docker-build-profiles.md

@@ -274,7 +274,7 @@ airstack test -m takeoff_hover_land \
 ## Fixed Trajectory Tests (`system/test_fixed_trajectory.py`)
 
 !!! note "Detailed guide"
-    For the full path-tracker benchmark documentation — architecture, metrics, CLI reference, comparing trackers, bug fixes, and baselines — see **[Fixed-Trajectory Path-Tracker Benchmark](../docs/development/intermediate/testing/fixed_trajectory_testing.md)**.
+    For the full end-to-end testing guide — architecture, the fixed-trajectory benchmark, metrics, CLI reference, comparing trackers, and baselines — see **[End-to-End Testing](../docs/development/intermediate/testing/end_to_end_testing.md)**.
 
 `TestFixedTrajectory` runs a **4-phase flight chain** for every combination of
 `(sim, num_robots, iteration, trajectory_type)`. For each trajectory type the drone

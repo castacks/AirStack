@@ -65,10 +65,10 @@ airstack setup
 - NVIDIA GPU + `nvidia-container-toolkit` for sim tests
 - Isaac Sim: `simulation/isaac-sim/docker/omni_pass.env` configured
 
-### Fixed-trajectory path-tracker benchmark
+### End-to-end testing
 
-For the full guide — purpose, metrics, CLI, comparing trackers, bug fixes, and
-baselines — see **[Fixed-Trajectory Path-Tracker Benchmark](fixed_trajectory_testing.md)**.
+For the full guide — e2e overview, the fixed-trajectory benchmark, metrics, CLI,
+comparing trackers, and baselines — see **[End-to-End Testing](end_to_end_testing.md)**.
 
 Quick smoke test:
 

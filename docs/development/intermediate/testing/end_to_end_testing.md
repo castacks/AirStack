@@ -1,8 +1,20 @@
-# Fixed-Trajectory Path-Tracker Benchmark
+# End-to-End Testing
 
-This guide documents the **fixed-trajectory evaluation test suite** (`tests/test_fixed_trajectory.py`): why it exists, how it is implemented, how to run it, how to interpret results, and how to use it to **compare path trackers** without rewriting tests.
+End-to-end (e2e) tests exercise the **full autonomy stack in simulation** — the drone takes off, performs an action, and lands — so one run validates the whole pipeline (interface → perception → planning → control → PX4) rather than a single module.
 
-For the broader system-test suite, see [`tests/README.md`](../../../../tests/README.md).
+AirStack currently has two e2e suites:
+
+- **Takeoff / hover / land** (`takeoff_hover_land` mark) — the basic flight chain, documented in [`tests/README.md`](../../../../tests/README.md).
+- **Fixed-trajectory path-tracker benchmark** (`autonomy` mark) — takeoff → execute a fixed pattern (Circle / Figure8 / Racetrack / Line) → land, measuring cross-track error. Documented below.
+
+!!! note "Future work: unify the e2e marks"
+    `takeoff_hover_land` and `autonomy` are separate marks today. As the suite grows they can be consolidated into a single general **e2e** mark/pipeline. Tracked as follow-up — not part of this change.
+
+---
+
+## Fixed-Trajectory Path-Tracker Benchmark
+
+This section documents the **fixed-trajectory evaluation test suite** (`tests/system/test_fixed_trajectory.py`): why it exists, how it is implemented, how to run it, how to interpret results, and how to use it to **compare path trackers** without rewriting tests.
 
 ---
 
@@ -37,7 +49,7 @@ Today the default tracker is the **sphere-intersection pure-pursuit** implementa
 
 | Item | Value |
 | ---- | ----- |
-| File | [`tests/test_fixed_trajectory.py`](../../../../tests/test_fixed_trajectory.py) |
+| File | [`tests/system/test_fixed_trajectory.py`](../../../../tests/system/test_fixed_trajectory.py) |
 | Pytest mark | `autonomy` |
 | Class | `TestFixedTrajectory` |
 | Timeout | 2400 s per test class invocation |
@@ -428,7 +440,7 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 
 | File | Role |
 | ---- | ---- |
-| [`tests/test_fixed_trajectory.py`](../../../../tests/test_fixed_trajectory.py) | Test module, ideal paths, metrics |
+| [`tests/system/test_fixed_trajectory.py`](../../../../tests/system/test_fixed_trajectory.py) | Test module, ideal paths, metrics |
 | [`tests/conftest.py`](../../../../tests/conftest.py) | Fixtures, `--trajectory-types`, summary hook, collection order |
 | [`tests/run_summary.py`](../../../../tests/run_summary.py) | `summary.txt` generator |
 | [`tests/parse_metrics.py`](../../../../tests/parse_metrics.py) | Markdown reports + regression diff |
