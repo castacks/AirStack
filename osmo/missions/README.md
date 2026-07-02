@@ -73,6 +73,7 @@ Top-level keys (everything except `steps` is optional):
 | `up_timeout_s` | `3600` | `airstack up` timeout (first up on a fresh pod pulls images) |
 | `down_timeout_s` | `300` | `airstack down` timeout |
 | `robot_setup_bash` | robot ws `setup.bash` | Workspace sourced before `ros2` commands |
+| `nas_dest` | — | Base path on airlab-storage (e.g. `/volume3/<share>/airstack-missions`). When the `airlab-storage` OSMO credential is set (`airstack osmo:setup`), an OSMO pod rsyncs results to `<nas_dest>/<name>/<stamp>/` then tears itself down. Override per run with `osmo:mission --nas-dest PATH`; suppress with `--no-nas-upload`. Credentials never live in the spec |
 | `steps` | — | Ordered list of steps (below) |
 
 ### Steps

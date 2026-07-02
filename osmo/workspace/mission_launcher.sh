@@ -106,6 +106,48 @@ else
   fi
 fi
 
+# ── 3b. NAS upload + teardown (optional) ───────────────────────────────────
+# With the airlab-storage credential injected and a destination set (--nas-dest,
+# else the spec's nas_dest:), rsync results to the NAS. Success → pod exits (GPU
+# freed); failure → stay alive so results survive for osmo:fetch.
+NAS_YAML_DEST=""
+if [ -f "${MISSION_PATH:-}" ]; then
+  NAS_YAML_DEST="$(python3 -c 'import yaml,sys; d=yaml.safe_load(open(sys.argv[1])) or {}; print(d.get("nas_dest") or "")' "$MISSION_PATH" 2>/dev/null)"
+fi
+NAS_DEST="${OSMO_MISSION_UPLOAD_DEST:-$NAS_YAML_DEST}"
+
+if [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
+   && [ -n "${AIRLAB_STORAGE_USER:-}" ] && [ -n "${AIRLAB_STORAGE_PASS:-}" ] \
+   && [ -n "$NAS_DEST" ]; then
+  if ! command -v sshpass >/dev/null 2>&1; then
+    log "installing sshpass (image predates it)"
+    { apt-get update -qq && apt-get install -y -qq sshpass; } \
+      || fail "could not install sshpass — skipping NAS upload"
+  fi
+  if command -v sshpass >/dev/null 2>&1; then
+    nas_host="${AIRLAB_STORAGE_HOST:-airlab-storage.andrew.cmu.edu}"
+    results_dir="${OSMO_RESULTS_ROOT:-$AIRSTACK_ROOT/osmo/results}"
+    ssh_cmd="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+    log "NAS upload: ${results_dir}/ → ${nas_host}:${NAS_DEST%/}/"
+    export SSHPASS="$AIRLAB_STORAGE_PASS"
+    sshpass -e rsync -az --partial --mkpath --timeout=1800 -e "$ssh_cmd" \
+      "${results_dir}/" "${AIRLAB_STORAGE_USER}@${nas_host}:${NAS_DEST%/}/" \
+      || sshpass -e rsync -az --partial --timeout=1800 -e "$ssh_cmd" \
+           "${results_dir}/" "${AIRLAB_STORAGE_USER}@${nas_host}:${NAS_DEST%/}/"
+    nas_rc=$?
+    unset SSHPASS
+    if [ "$nas_rc" -eq 0 ]; then
+      log "NAS upload OK → ${nas_host}:${NAS_DEST} — tearing pod down (GPU freed)"
+      exit 0
+    fi
+    fail "NAS upload FAILED (rc=$nas_rc) — keeping pod alive for 'airstack osmo:fetch' / SSH debug"
+    exec sleep infinity
+  fi
+elif [ "${OSMO_MISSION_NO_UPLOAD:-false}" != "true" ] \
+     && [ -n "${AIRLAB_STORAGE_USER:-}" ] && [ -z "$NAS_DEST" ]; then
+  log "airlab-storage set but no nas_dest / --nas-dest — skipping upload; pod stays alive."
+fi
+
 # ── 4. lifetime ────────────────────────────────────────────────────────────
 if [ "${OSMO_MISSION_KEEP_ALIVE:-true}" = "true" ]; then
   log "OSMO_MISSION_KEEP_ALIVE=true — pod stays alive; fetch with 'airstack osmo:fetch'"

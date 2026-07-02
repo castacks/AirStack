@@ -11,6 +11,12 @@
 
 name: example_takeoff_land
 
+# Record bags (see `record:` below), upload results to airlab-storage, then
+# auto-teardown once the upload succeeds (needs the airlab-storage OSMO
+# credential — airstack osmo:setup). Override the path with osmo:mission
+# --nas-dest.
+nas_dest: /volume4/dsta/raven-multi/
+
 # How to bring the stack up. `services` are passed straight through:
 #   ./airstack.sh up isaac-sim robot-desktop gcs
 # (docker compose auto-enables a named service's profile, so no

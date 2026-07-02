@@ -120,19 +120,47 @@ function _osmo_prompt {
     fi
 }
 
-# osmo:setup — interactively register the three OSMO credentials AirStack
-# needs (airlab-docker-registry, airlab-docker-login, airlab-nucleus).
-# Idempotent — re-running rotates the credentials.
+# Helper: _osmo_prompt variant that falls back to $3 on empty input.
+function _osmo_prompt_default {
+    local var_name="$1"
+    local prompt_text="$2"
+    local default_val="$3"
+    local saved_stty=""
+
+    if [ -t 0 ]; then
+        saved_stty="$(stty -g 2>/dev/null || true)"
+        if [ -n "$saved_stty" ]; then
+            trap 'stty "$saved_stty" 2>/dev/null; trap - INT' INT
+            stty -icanon 2>/dev/null
+        fi
+    fi
+    read -r -p "${prompt_text} [${default_val}]: " "$var_name"
+    if [ -n "$saved_stty" ]; then
+        stty "$saved_stty" 2>/dev/null
+        trap - INT
+    fi
+
+    _osmo_trim "$var_name"
+    if [ -z "${!var_name}" ]; then
+        printf -v "$var_name" '%s' "$default_val"
+    fi
+}
+
+# osmo:setup — interactively register the OSMO credentials AirStack needs
+# (airlab-docker-registry, airlab-docker-login, airlab-nucleus, optional
+# airlab-storage). Idempotent — re-running rotates the credentials.
 function cmd_osmo_setup {
     _osmo_check_cli || return 1
 
     cat >&2 <<'EOF'
 
-This sets up the three per-user OSMO credentials AirStack-on-OSMO needs:
+This sets up the per-user OSMO credentials AirStack-on-OSMO needs:
 
   1. airlab-docker-registry  (REGISTRY) — for OSMO to pull the workspace image
   2. airlab-docker-login     (GENERIC)  — for the inner dockerd to pull AirStack images
   3. airlab-nucleus          (GENERIC)  — for Isaac Sim Nucleus access
+  4. airlab-storage          (GENERIC)  — OPTIONAL: push mission results to the
+                                          airlab-storage NAS + auto-teardown
 
 You'll be asked for:
 
@@ -140,6 +168,9 @@ You'll be asked for:
   - your AirLab Docker password (same as your Andrew password)
   - your Nucleus API token (https://airlab-nucleus.andrew.cmu.edu/omni/web3/
     → right-click cloud → API Tokens). NOT your Andrew password.
+  - (optional) your airlab-storage password — the SEPARATE Samba/SFTP/rsync
+    password set at https://airlab-storage.andrew.cmu.edu:4001/#/forgot-pwd,
+    NOT your Andrew/Docker password.
 
 Values go directly to OSMO; nothing is written to disk locally.
 
@@ -202,7 +233,33 @@ EOF
                   "omni_server=${omni_server}" \
         || { log_error "osmo credential set airlab-nucleus failed"; return 1; }
 
-    log_info "All three credentials registered. List them with: osmo credential list"
+    # Optional: airlab-storage NAS upload. Only the password is a secret; the
+    # destination path is set per-mission (nas_dest: in the mission spec).
+    local want_storage=""
+    read -r -p "Configure airlab-storage NAS upload (optional)? [y/N]: " want_storage
+    case "$want_storage" in
+        y|Y|yes|Yes)
+            local storage_user storage_pass storage_host
+            _osmo_prompt_default storage_user "airlab-storage username (Andrew ID)" "$andrew_id"
+            _osmo_prompt         storage_pass "airlab-storage password (hidden; the SEPARATE Samba/SFTP/rsync password)" true || return 1
+            _osmo_prompt_default storage_host "airlab-storage host" "airlab-storage.andrew.cmu.edu"
+
+            log_info "Refreshing airlab-storage (GENERIC)..."
+            osmo credential delete airlab-storage >/dev/null 2>&1 || true
+            osmo credential set airlab-storage \
+                --type GENERIC \
+                --payload "username=${storage_user}" \
+                          "password=${storage_pass}" \
+                          "host=${storage_host}" \
+                || { log_error "osmo credential set airlab-storage failed"; return 1; }
+            log_info "airlab-storage registered. Set 'nas_dest: /volume<X>/<share>/...' in a mission spec to upload results + auto-teardown."
+            ;;
+        *)
+            log_info "Skipping airlab-storage — NAS upload stays disabled (missions keep-alive as before)."
+            ;;
+    esac
+
+    log_info "Credentials registered. List them with: osmo credential list"
     log_info "Next: airstack osmo:up [--pool POOL]"
 }
 
@@ -756,7 +813,8 @@ function cmd_osmo_autofetch {
 #
 # Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--key PATH]
 #                              [--branch BRANCH] [--no-keep-alive]
-#                              [--auto-fetch DUR]
+#                              [--auto-fetch DUR] [--nas-dest PATH]
+#                              [--no-nas-upload]
 #
 # <mission.yaml> is a repo-relative path (e.g. osmo/missions/example_takeoff_land.yaml).
 # The pod clones the branch and runs the mission spec from that clone, so the
@@ -767,6 +825,10 @@ function cmd_osmo_autofetch {
 # --auto-fetch DUR blocks after submit, polling the workspace log for mission
 # completion and running osmo:fetch as soon as it's done (DUR — e.g. 8h, 480m —
 # is the max wait before fetching anyway). Requires keep-alive (the default).
+#
+# If the airlab-storage credential is set (airstack osmo:setup) and the mission
+# spec has `nas_dest:` (or --nas-dest PATH overrides it), the pod rsyncs results
+# to the NAS then tears itself down. --no-nas-upload suppresses that.
 function cmd_osmo_mission {
     _osmo_check_cli || return 1
 
@@ -777,6 +839,8 @@ function cmd_osmo_mission {
     local branch_explicit=false
     local keep_alive="true"
     local auto_fetch_dur=""
+    local nas_dest=""
+    local no_nas_upload="false"
     local extra_args=()
 
     while [ $# -gt 0 ]; do
@@ -786,6 +850,8 @@ function cmd_osmo_mission {
             --branch)        branch="$2"; branch_explicit=true; shift 2 ;;
             --no-keep-alive) keep_alive="false"; shift ;;
             --auto-fetch)    auto_fetch_dur="$2"; shift 2 ;;
+            --nas-dest)      nas_dest="$2"; shift 2 ;;
+            --no-nas-upload) no_nas_upload="true"; shift ;;
             -*)              extra_args+=("$1"); shift ;;
             *)
                 if [ -z "$mission" ]; then mission="$1"; else extra_args+=("$1"); fi
@@ -801,6 +867,13 @@ function cmd_osmo_mission {
             return 1
         fi
         auto_fetch_cap_s="$(_osmo_parse_duration "$auto_fetch_dur")" || return 1
+    fi
+
+    # NAS auto-upload tears the pod down on completion, so --auto-fetch (which
+    # needs the pod alive) is moot when it runs. Best-effort heads-up.
+    if [ -n "$auto_fetch_dur" ] && [ "$no_nas_upload" != "true" ] \
+       && osmo credential list 2>/dev/null | grep -q 'airlab-storage'; then
+        log_warn "airlab-storage is configured; a mission with nas_dest set uploads + tears down, making --auto-fetch moot."
     fi
 
     if [ -z "$mission" ]; then
@@ -860,6 +933,12 @@ function cmd_osmo_mission {
     if [ -n "$branch" ]; then
         env_kvs+=("AIRSTACK_BRANCH=${branch}")
     fi
+    if [ -n "$nas_dest" ]; then
+        env_kvs+=("OSMO_MISSION_UPLOAD_DEST=${nas_dest}")
+    fi
+    if [ "$no_nas_upload" = "true" ]; then
+        env_kvs+=("OSMO_MISSION_NO_UPLOAD=true")
+    fi
     cmd+=(--set-env "${env_kvs[@]}")
     if [ ${#extra_args[@]} -gt 0 ]; then
         cmd+=("${extra_args[@]}")
@@ -892,6 +971,9 @@ function cmd_osmo_mission {
     log_info "  airstack osmo:logs        # follow mission progress"
     log_info "  airstack osmo:fetch       # download bags + results (keep-alive mode)"
     log_info "  airstack osmo:down        # cancel when done (results die with the pod!)"
+    if [ -n "$nas_dest" ] && [ "$no_nas_upload" != "true" ]; then
+        log_info "NAS upload armed → results go to ${nas_dest}/<name>/<stamp>/, then the pod tears itself down."
+    fi
 }
 
 # osmo:fetch — download mission results (mcap bags, logs, summaries) from the
@@ -1043,9 +1125,9 @@ function register_osmo_commands {
     COMMANDS["osmo:foxglove"]="cmd_osmo_foxglove"
     COMMANDS["osmo:down"]="cmd_osmo_down"
 
-    COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus)"
+    COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus, optional airlab-storage for NAS upload)"
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
-    COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive, --auto-fetch DUR)"
+    COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive, --auto-fetch DUR, --nas-dest PATH, --no-nas-upload)"
     COMMAND_HELP["osmo:fetch"]="Download mission results (mcap bags, logs, summaries) from the pod over ssh — incremental, safe to run mid-mission (osmo:fetch [dest-dir])"
     COMMAND_HELP["osmo:autofetch"]="Attach the auto-fetch poller to the running mission (saved id or AIRSTACK_OSMO_WF): poll the workspace log until done, then osmo:fetch (osmo:autofetch [DUR], default 8h)"
     COMMAND_HELP["osmo:stop"]="Gracefully stop the running mission: abort current step, finalize mcaps, collect bags+logs, stack down (pod stays up for osmo:fetch)"

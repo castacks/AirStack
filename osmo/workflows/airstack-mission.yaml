@@ -38,6 +38,10 @@
 # Set OSMO_MISSION_KEEP_ALIVE=false for fire-and-forget runs: the task exits
 # cleanly when the mission ends, which frees the GPU and triggers the
 # `outputs:` upload below (if a destination bucket is configured).
+#
+# NAS upload: if the airlab-storage credential is set (airstack osmo:setup) and
+# the mission spec has `nas_dest:`, the pod rsyncs results to airlab-storage
+# then tears itself down — no laptop fetch needed. See mission_launcher.sh.
 
 workflow:
   name: airstack-mission
@@ -97,6 +101,8 @@ workflow:
       credentials:
         # Same per-user credentials as airstack-dev.yaml — see
         # docs/tutorials/airstack_on_osmo.md "Step 0" / `airstack osmo:setup`.
+        # These map OSMO credential fields → pod env vars; no secret values live
+        # in this file.
         airlab-nucleus:
           OMNI_USER: omni_user
           OMNI_PASS: omni_pass
@@ -104,6 +110,12 @@ workflow:
         airlab-docker-login:
           AIRLAB_REGISTRY_USER: username
           AIRLAB_REGISTRY_PASS: password
+        # Optional: NAS result upload. Absent credential → nothing injected →
+        # upload disabled. Enabled per-mission via `nas_dest:` in the spec.
+        airlab-storage:
+          AIRLAB_STORAGE_USER: username
+          AIRLAB_STORAGE_PASS: password
+          AIRLAB_STORAGE_HOST: host
 
   resources:
     default:
