@@ -156,7 +156,7 @@ All metrics are recorded per robot as `robot_N.<key>` in `tests/results/<timesta
 
 ### Observed baseline (Circle, Isaac Sim, 10 headless runs)
 
-Validated on branch `pkumaraTrajectoryTesting` — see `tests/results/2026-06-05_18-26-52/summary.txt`:
+Measured on the **AirStations** (Linux workstations with GPU support):
 
 | Metric | Typical value |
 | ------ | ------------- |
