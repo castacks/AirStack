@@ -426,10 +426,6 @@ When intersection failed, `virtual_time` could freeze and the tracking point col
 
 `Trajectory::merge()` into an empty trajectory now calls `generate_waypoint_times()`.
 
-### 4. Parameter tuning
-
-`sphere_radius` increased from `1.0` → `2.0` in both `local.launch.xml` and `local_droan_cpu.launch.xml`.
-
 ---
 
 ## Manual stack usage (without pytest)
