@@ -48,7 +48,7 @@ env:
 command_route: gcs
 
 # Full up → fly → collect → down cycles.
-iterations: 3
+iterations: 1
 
 # Gate before any steps run: per robot, MAVROS connected, then
 # local_position/odom publishing (PX4 EKF converged = ready to arm).
