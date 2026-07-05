@@ -2,7 +2,7 @@
 
 Simulates a unit-disk radio: a transmission is heard iff the last-hop transmitter
 is within COMMS_RANGE_M. Multi-hop relaying (up to MAX_RELAY_HOPS) extends reach;
-relay loops/storms are prevented by per-origin sequence-number deduplication in
+relay loops/storms are prevented by per-origin stamp deduplication in
 gossip_node, not by the hop limit (which only bounds scope).
 """
 

@@ -1,4 +1,4 @@
-"""Per-peer state cache derived from /gossip/peers.
+"""Per-peer state cache derived from coordination/peer_registry.
 
 All cached arrays are in this robot's local 'map' frame (ENU relative to
 this robot's boot GPS), converted from the gossip frame via

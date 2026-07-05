@@ -25,7 +25,6 @@ class PeerProfile:
     """Base peer state broadcast over the gossip bus."""
 
     robot_name: str
-    seq: int = 0
     gps_fix: NavSatFix = field(default_factory=NavSatFix)
     heading: float = 0.0  # degrees clockwise from North (0-360)
     waypoint: PoseStamped = field(default_factory=PoseStamped)
@@ -112,7 +111,6 @@ class PeerProfile:
     def to_ros_msg(self) -> PeerProfileMsg:
         msg = PeerProfileMsg()
         msg.robot_name = self.robot_name
-        msg.seq = self.seq
         msg.gps_fix = self.gps_fix
         msg.heading = self.heading
         msg.waypoint = self.waypoint
@@ -134,7 +132,6 @@ class PeerProfile:
     @classmethod
     def from_ros_msg(cls, msg: PeerProfileMsg) -> "PeerProfile":
         profile = cls(robot_name=msg.robot_name)
-        profile.seq = msg.seq
         profile.gps_fix = msg.gps_fix
         profile.heading = msg.heading
         profile.waypoint = msg.waypoint

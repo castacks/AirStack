@@ -66,12 +66,13 @@ SENSOR_QOS = QoSProfile(
     depth=10,
 )
 
-# RELIABLE + TRANSIENT_LOCAL so late-joining planners get the full snapshot.
+# RELIABLE + TRANSIENT_LOCAL so late-joining planners get the full snapshot;
+# depth >= fleet size (KEEP_LAST replays across all peers on the topic).
 REGISTRY_QOS = QoSProfile(
     reliability=QoSReliabilityPolicy.RELIABLE,
     durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
     history=QoSHistoryPolicy.KEEP_LAST,
-    depth=1,
+    depth=10,
 )
 
 
@@ -101,8 +102,8 @@ class GossipNode(Node):
         self._peer_inbox: dict[str, PeerProfileMsg] = {}
         self._peer_inbox_lock = threading.Lock()
 
-        self._tx_seq = 0
-        self._seen_seq: dict[str, int] = {}
+        # per-origin last accepted stamp (ns); stamp-based so it survives restarts
+        self._seen_stamp_ns: dict[str, int] = {}
         self._payload_cache: dict[str, object] = {}
         self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
         self._payload_rotations: dict[str, tuple] = {}  # topic → pre-translation quat, or None
@@ -252,9 +253,11 @@ class GossipNode(Node):
             if not should_accept(msg, own[:2]):
                 return
 
-        if msg.seq <= self._seen_seq.get(msg.robot_name, -1):
+        stamp = msg.gps_fix.header.stamp
+        stamp_ns = stamp.sec * 1_000_000_000 + stamp.nanosec
+        if stamp_ns <= self._seen_stamp_ns.get(msg.robot_name, -1):
             return
-        self._seen_seq[msg.robot_name] = msg.seq
+        self._seen_stamp_ns[msg.robot_name] = stamp_ns
         self._peer_last_rx[msg.robot_name] = time.monotonic()
 
         with self._peer_inbox_lock:
@@ -355,11 +358,8 @@ class GossipNode(Node):
                 self._profile.waypoint = self._translate_waypoint(
                     self._profile.waypoint, bx, by, bz)
 
-        # Stamp with current ROS clock (not MAVROS GPS stamp) so receivers can
-        # enforce monotonic ordering across ticks.
+        # Current ROS clock, not MAVROS GPS stamp: receivers dedup/order on it.
         self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
-        self._tx_seq += 1
-        self._profile.seq = self._tx_seq
         self._gossip_pub.publish(self._profile.to_ros_msg())
 
     def _attach_coverage(self, msg, stamp, bx, by):

@@ -4,11 +4,9 @@
 # Identity
 string robot_name
 
-# Monotonic per-origin message id; (robot_name, seq) dedups relayed copies
-uint32 seq
-
 # Current GPS position from interface/mavros/global_position/raw/fix
-# gps_fix.header.stamp carries the NavSatFix timestamp
+# gps_fix.header.stamp is the sender's publish-time ROS clock;
+# (robot_name, stamp) dedups/orders relayed copies
 sensor_msgs/NavSatFix gps_fix
 
 # Heading in degrees clockwise from North (0-360), from compass_hdg

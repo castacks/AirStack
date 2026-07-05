@@ -314,6 +314,13 @@ PEER_REPULSION_SCALE = 15.0
 # range is unknown). Sets the BB-vs-ray crossover distance (~this many m): a BB
 # within it beats a near ray; a farther BB loses to a near ray (no cross-map).
 RAY_COST_PENALTY = 25.0
+# Bundle growth: a task is only appended to a bundle if its route detour from the
+# bundle's last task is within this — so a bundle only picks up genuine cluster-mates.
+BUNDLE_MAX_DETOUR_M = 20.0
+# Equity / diminishing marginal gain: cost added to the k-th (k>=2) task in a
+# bundle. Makes an agent's later tasks progressively more expensive, so agents
+# don't hoard — marginal tasks fall to idler drones.
+BUNDLE_SLOT_PENALTY = 12.0
 
 
 def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:

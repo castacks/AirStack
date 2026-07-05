@@ -17,7 +17,6 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from coordination_bringup.frame_utils import gps_to_enu, dir_to_quat
-from coordination_bringup.comms_model import should_accept
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
 from airstack_msgs.msg import BidVector
@@ -42,9 +41,11 @@ from raven_nav.discoveries import (
 )
 
 
-GOSSIP_QOS = QoSProfile(
-    reliability=ReliabilityPolicy.BEST_EFFORT,
-    durability=DurabilityPolicy.VOLATILE,
+# Matches gossip_node REGISTRY_QOS so a late-spawned raven replays each
+# peer's last profile.
+REGISTRY_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
     history=HistoryPolicy.KEEP_LAST,
     depth=10,
 )
@@ -398,8 +399,8 @@ class RavenNavNode(Node):
             f'{self._prefix}/interface/mavros/global_position/raw/fix',
             self._navsat_cb, navsat_qos)
         self.create_subscription(
-            PeerProfileMsg, '/gossip/peers',
-            self._on_peer_profile, GOSSIP_QOS)
+            PeerProfileMsg, f'{self._prefix}/coordination/peer_registry',
+            self._on_peer_profile, REGISTRY_QOS)
         self.create_subscription(
             PolygonStamped,
             f'{self._prefix}/raven_nav/search_area',
@@ -1714,7 +1715,7 @@ class RavenNavNode(Node):
             f'{self._boot_enu[2]:.2f})')
 
     def _on_peer_profile(self, msg: PeerProfileMsg):
-        # Skip own profile (gossip publishes self too) and pre-boot messages.
+        # Registry is already comms-filtered/deduped by gossip_node.
         if msg.robot_name == self._robot_name:
             return
         if self._boot_enu is None:
@@ -1723,10 +1724,6 @@ class RavenNavNode(Node):
                     f'[coord] dropped peer profile from {msg.robot_name}: '
                     'own boot GPS not received yet',
                     throttle_duration_sec=5.0)
-            return
-        rx_xy = (self._local_to_world(self._cur_pose)[:2]
-                 if self._cur_pose is not None else self._boot_enu[:2])
-        if not should_accept(msg, rx_xy):
             return
         new_peer = msg.robot_name not in self._peer_state.peer_last_seen
         now_sec = self.get_clock().now().nanoseconds * 1e-9
